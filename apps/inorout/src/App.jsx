@@ -6,6 +6,7 @@ import {
   getBibHistory, insertBib,
   getSchedule, upsertSchedule,
   getSettings, upsertSettings,
+  getPlayerByToken,
 } from "@platform/supabase";
 import {
   SEED_SQUAD, SEED_MATCH_HISTORY, SEED_BIB_HISTORY,
@@ -16,20 +17,32 @@ import PlayerView  from "./views/PlayerView.jsx";
 import StatsView   from "./views/StatsView.jsx";
 import HistoryView from "./views/HistoryView.jsx";
 import AdminView   from "./views/AdminView/index.jsx";
+import GameSwitcher from "./views/GameSwitcher.jsx";
+import InstallBanner from "./views/InstallBanner.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
+const ADMIN_TOKEN = "admin_101d9ac950278f76";
 
-const IS_ADMIN = typeof window !== "undefined" &&
-  (window.location.search.includes("admin=true") ||
-   window.location.hostname === "localhost");
+// ─── Routing helpers ──────────────────────────────────────────────────────────
+function getRoute() {
+  const path  = window.location.pathname;
+  const parts = path.split("/").filter(Boolean);
 
-function getMyId() {
-  const parts = window.location.pathname.split("/");
-  const idx   = parts.indexOf("p");
-  return idx !== -1 && parts[idx + 1] ? parts[idx + 1] : "p1";
+  // /p/TOKEN → player view
+  if (parts[0] === "p" && parts[1]) return { type:"player", token:parts[1] };
+
+  // /admin/TOKEN → admin view
+  if (parts[0] === "admin" && parts[1] === ADMIN_TOKEN) return { type:"admin" };
+
+  // localhost → admin for dev
+  if (window.location.hostname === "localhost") return { type:"admin" };
+
+  // Root → game switcher / landing
+  return { type:"landing" };
 }
 
 export default function App() {
+  const route = getRoute();
   const [view,         setView]        = useState("player");
   const [loading,      setLoading]     = useState(true);
   const [error,        setError]       = useState(null);
@@ -38,8 +51,9 @@ export default function App() {
   const [schedule,     setScheduleRaw] = useState(SEED_SCHEDULE);
   const [matchHistory, setMatchHistRaw]= useState([]);
   const [settings,     setSettingsRaw] = useState(SEED_SETTINGS);
-  const myId = getMyId();
+  const [myPlayer,     setMyPlayer]    = useState(null);
 
+  // ── Load data ────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       try {
@@ -82,9 +96,15 @@ export default function App() {
           setSettingsRaw(setts);
         }
 
+        // If player route, find their record by token
+        if (route.type === "player") {
+          const found = players.find(p => p.token === route.token);
+          if (found) setMyPlayer(found);
+        }
+
         setLoading(false);
       } catch (err) {
-        console.error("Supabase error:", err);
+        console.error("Load error:", err);
         setError(err.message);
         setLoading(false);
       }
@@ -92,6 +112,7 @@ export default function App() {
     load();
   }, []);
 
+  // ── Setters ──────────────────────────────────────────────────────────────────
   const setSquad = async (updater) => {
     const next = typeof updater === "function" ? updater(squad) : updater;
     setSquadRaw(next);
@@ -126,23 +147,26 @@ export default function App() {
     try { await upsertSettings(next); } catch (e) { console.error(e); }
   };
 
+  // ── Fonts ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const el = document.createElement("link");
     el.rel = "stylesheet"; el.href = FONT_LINK;
     document.head.appendChild(el);
   }, []);
 
+  // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) return (
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
       flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
-      <div style={{ fontSize:48 }}>⚽</div>
+      <div style={{ fontSize:48, animation:"pulse 1s infinite" }}>⚽</div>
       <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
     </div>
   );
 
   if (error) return (
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-      flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16, padding:20 }}>
+      flexDirection:"column", alignItems:"center", justifyContent:"center",
+      gap:16, padding:20 }}>
       <div style={{ fontSize:40 }}>⚠️</div>
       <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, color:C.red, textAlign:"center" }}>
         Could not connect.<br/>
@@ -151,20 +175,57 @@ export default function App() {
     </div>
   );
 
+  // ── Landing — no token, show how to get started ───────────────────────────
+  if (route.type === "landing") return (
+    <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
+      display:"flex", flexDirection:"column", alignItems:"center",
+      justifyContent:"center", padding:24, fontFamily:"Inter,sans-serif" }}>
+      <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:48, color:C.amber,
+        letterSpacing:4, marginBottom:8 }}>IN OR OUT</div>
+      <div style={{ fontSize:14, color:C.muted, textAlign:"center", marginBottom:32 }}>
+        The fastest way to organise your weekly football game.
+      </div>
+      <div style={{ padding:"14px 20px", borderRadius:8, background:C.surface,
+        border:`1px solid ${C.border}`, fontSize:13, color:C.muted, textAlign:"center" }}>
+        Use the link your organiser sent you to access the app.
+      </div>
+    </div>
+  );
+
+  // ── Invalid player token ──────────────────────────────────────────────────
+  if (route.type === "player" && !myPlayer && !loading) return (
+    <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
+      display:"flex", flexDirection:"column", alignItems:"center",
+      justifyContent:"center", padding:24, fontFamily:"Inter,sans-serif" }}>
+      <div style={{ fontSize:40, marginBottom:16 }}>🔗</div>
+      <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted, textAlign:"center" }}>
+        This link doesn't match any player.<br/>
+        Check the link your organiser sent you.
+      </div>
+    </div>
+  );
+
   const sharedProps = { squad, setSquad, schedule, setSchedule, settings, setSettings };
+  const isAdmin     = route.type === "admin";
+  const myId        = myPlayer?.id || (isAdmin ? "p1" : null);
 
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
+
+      <InstallBanner/>
+
       <Header
         view={view} setView={setView}
         squad={squad} schedule={schedule} settings={settings}
-        isAdmin={IS_ADMIN}
+        isAdmin={isAdmin}
+        playerName={myPlayer?.name}
       />
+
       {view==="player"  && <PlayerView  {...sharedProps} myId={myId}/>}
       {view==="stats"   && <StatsView   squad={squad} bibHistory={bibHistory} matchHistory={matchHistory}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} settings={settings}/>}
-      {view==="admin"   && IS_ADMIN && (
+      {view==="admin"   && isAdmin && (
         <AdminView
           {...sharedProps}
           bibHistory={bibHistory}     setBibHistory={setBibHistory}

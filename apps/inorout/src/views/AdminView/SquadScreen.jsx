@@ -70,9 +70,9 @@ export default function SquadScreen({ squad, setSquad, onBack }) {
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:9 }}>
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:"#2e2e2e", flex:1 }}>
-              🔗 in-or-out.com/p/{p.id}
+              🔗 in-or-out.com/p/{p.token || p.id}
             </div>
-            <CopyBtn text={`https://in-or-out.com/p/${p.id}`}/>
+            <CopyBtn text={`https://in-or-out.com/p/${p.token || p.id}`}/>
           </div>
           <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
             <button onClick={() => togglePriority(p.id)} style={{ padding:"5px 11px", borderRadius:4,

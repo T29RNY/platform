@@ -149,3 +149,14 @@ function dbToSchedule(r) {
     cancelReason: r.cancel_reason,
   };
 }
+
+// ─── Player by token ──────────────────────────────────────────────────────────
+export async function getPlayerByToken(token) {
+  const { data, error } = await supabase
+    .from("players")
+    .select("*")
+    .eq("token", token)
+    .single();
+  if (error) return null;
+  return dbToPlayer(data);
+}
