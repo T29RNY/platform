@@ -1,6 +1,25 @@
 import { colors as C } from "@platform/core";
 import { ONBOARDING_CONFIG as CFG } from "../config.js";
 
+// Defined OUTSIDE component to prevent recreation on every render
+// This fixes the focus-loss-on-keystroke bug
+const Field = ({ label, children }) => (
+  <div style={{ marginBottom:16 }}>
+    <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
+      color:C.muted, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>
+      {label}
+    </div>
+    {children}
+  </div>
+);
+
+const inputStyle = {
+  width:"100%", padding:"12px 14px", borderRadius:6,
+  border:"1.5px solid #2a2a2a", background:"#0a0a0a", color:"#F3F0EA",
+  fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500,
+  outline:"none", boxSizing:"border-box",
+};
+
 export default function CreateTeam({
   groupName, setGroupName,
   dayOfWeek, setDayOfWeek,
@@ -10,28 +29,8 @@ export default function CreateTeam({
   pricePerPlayer, setPricePerPlayer,
   onSubmit, loading, error,
 }) {
-  const Field = ({ label, children }) => (
-    <div style={{ marginBottom:16 }}>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
-        color:C.muted, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-
-  const Input = ({ value, onChange, placeholder, type="text" }) => (
-    <input type={type} value={value} onChange={e=>onChange(e.target.value)}
-      placeholder={placeholder}
-      style={{ width:"100%", padding:"12px 14px", borderRadius:6,
-        border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-        fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500,
-        outline:"none", boxSizing:"border-box" }}/>
-  );
-
   return (
     <div style={{ padding:24, fontFamily:"Inter,sans-serif" }}>
-      {/* Header */}
       <div style={{ marginBottom:32 }}>
         <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:36,
           color:C.amber, letterSpacing:3, lineHeight:1 }}>IN OR OUT</div>
@@ -45,42 +44,59 @@ export default function CreateTeam({
         </div>
       </div>
 
-      {/* Form */}
       <Field label="Team / Group Name *">
-        <Input value={groupName} onChange={setGroupName}
-          placeholder="e.g. Finbar's Tuesdays"/>
+        <input
+          value={groupName}
+          onChange={e => setGroupName(e.target.value)}
+          placeholder="e.g. Finbar's Tuesdays"
+          style={inputStyle}
+        />
       </Field>
 
       <Field label="Game Day">
-        <select value={dayOfWeek} onChange={e=>setDayOfWeek(e.target.value)}
-          style={{ width:"100%", padding:"12px 14px", borderRadius:6,
-            border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-            fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
-            boxSizing:"border-box" }}>
-          {CFG.daysOfWeek.map(d => (
-            <option key={d} value={d}>{d}</option>
-          ))}
+        <select value={dayOfWeek} onChange={e => setDayOfWeek(e.target.value)}
+          style={{ ...inputStyle, cursor:"pointer" }}>
+          {CFG.daysOfWeek.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
       </Field>
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
         <Field label="Kick Off">
-          <Input value={kickoff} onChange={setKickoff} placeholder="19:00" type="time"/>
+          <input
+            type="time"
+            value={kickoff}
+            onChange={e => setKickoff(e.target.value)}
+            style={inputStyle}
+          />
         </Field>
         <Field label="Players Needed">
-          <Input value={String(squadSize)} onChange={v=>setSquadSize(parseInt(v)||14)}
-            placeholder="14" type="number"/>
+          <input
+            type="number"
+            value={squadSize}
+            onChange={e => setSquadSize(parseInt(e.target.value)||14)}
+            placeholder="14"
+            style={inputStyle}
+          />
         </Field>
       </div>
 
       <Field label="Venue">
-        <Input value={venue} onChange={setVenue} placeholder="e.g. Powerleague Salford"/>
+        <input
+          value={venue}
+          onChange={e => setVenue(e.target.value)}
+          placeholder="e.g. Powerleague Salford"
+          style={inputStyle}
+        />
       </Field>
 
       <Field label="Price Per Player (£)">
-        <Input value={String(pricePerPlayer)}
-          onChange={v=>setPricePerPlayer(parseFloat(v)||0)}
-          placeholder="6" type="number"/>
+        <input
+          type="number"
+          value={pricePerPlayer}
+          onChange={e => setPricePerPlayer(parseFloat(e.target.value)||0)}
+          placeholder="6"
+          style={inputStyle}
+        />
       </Field>
 
       {error && (

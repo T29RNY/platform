@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { colors as C } from "@platform/core";
+import { supabase } from "@platform/supabase";
 import {
   getPlayers, upsertPlayers,
   getMatches, insertMatch,
@@ -96,10 +97,11 @@ export default function App() {
         }
 
         if (route.type === "admin") {
-          // Validate admin token against teams table
-          const { data } = await import("@platform/supabase").then(m =>
-            m.supabase.from("teams").select("id").eq("admin_token", route.token).single()
-          );
+          const { data } = await supabase
+            .from("teams")
+            .select("id")
+            .eq("admin_token", route.token)
+            .single();
           setIsAdmin(!!data || route.token === "local");
         }
 
