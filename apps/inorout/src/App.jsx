@@ -85,6 +85,7 @@ export default function App() {
     }
 
     if (route.type === "join") {
+      getSession().then(s => { if (s?.user) setAuthUser(s.user); });
       getTeamByJoinCode(route.code).then(team => {
         if (team) setJoinTeam(team);
         setLoading(false);
