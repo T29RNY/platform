@@ -86,7 +86,13 @@ export default function App() {
 
     if (route.type === "join") {
       Promise.all([
-        getSession().then(s => { if (s?.user) setAuthUser(s.user); }),
+        getSession().then(async s => {
+          if (s?.user) {
+            setAuthUser(s.user);
+            const existing = await findPlayerByUserId(s.user.id);
+            if (existing) setJoinedPlayer({ id: existing.id, name: existing.name, token: existing.token });
+          }
+        }),
         getTeamByJoinCode(route.code).then(team => { if (team) setJoinTeam(team); }),
       ]).then(() => setLoading(false));
       return;
