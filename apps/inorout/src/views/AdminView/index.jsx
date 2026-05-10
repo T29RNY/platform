@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { colors as C, requestNotifPerm, sendTemplate, notificationTemplates,
   carryForwardDebts, nextWeekDateTime, storage } from "@platform/core";
+import { addCoverPlayer, removeCoverPlayer } from "@platform/supabase";
 import { Card, SecTitle, Btn } from "@platform/ui";
 import TeamsScreen    from "./TeamsScreen.jsx";
 import ScoreScreen    from "./ScoreScreen.jsx";
@@ -8,10 +9,101 @@ import BibsScreen     from "./BibsScreen.jsx";
 import SquadScreen    from "./SquadScreen.jsx";
 import ScheduleScreen from "./ScheduleScreen.jsx";
 
-export default function AdminView({ teamId,
+function CoverPoolSection({ coverPool, setCoverPool, teamId }) {
+  const [newName,  setNewName]  = useState("");
+  const [adding,   setAdding]   = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  const handleAdd = async () => {
+    if (!newName.trim()) return;
+    setAdding(true);
+    try {
+      const player = await addCoverPlayer(teamId, newName.trim());
+      setCoverPool(prev => [...prev, player]);
+      setNewName("");
+    } catch(e) { console.error(e); }
+    finally { setAdding(false); }
+  };
+
+  const handleRemove = async (id) => {
+    try {
+      await removeCoverPlayer(id);
+      setCoverPool(prev => prev.filter(p => p.id !== id));
+      setConfirmDel(null);
+    } catch(e) { console.error(e); }
+  };
+
+  return (
+    <>
+      <SecTitle color={C.muted}>🪑 Cover Pool</SecTitle>
+      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+        <input value={newName} onChange={e => setNewName(e.target.value)}
+          placeholder="Add cover player name..."
+          onKeyDown={e => e.key==="Enter" && handleAdd()}
+          style={{ flex:1, padding:"10px 12px", borderRadius:6,
+            border:`1px solid ${C.border}`, background:"#0a0a0a", color:C.text,
+            fontFamily:"Inter,sans-serif", fontSize:13, outline:"none" }}/>
+        <button onClick={handleAdd} disabled={adding || !newName.trim()} style={{
+          padding:"10px 14px", borderRadius:6, border:"none",
+          background:newName.trim()?C.green:"#2a2a2a",
+          color:newName.trim()?"#000":C.muted,
+          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700,
+          cursor:newName.trim()?"pointer":"not-allowed", flexShrink:0 }}>
+          {adding?"Adding...":"+ Add"}
+        </button>
+      </div>
+      {coverPool.length === 0 && (
+        <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.muted,
+          padding:"10px 0" }}>No cover players yet.</div>
+      )}
+      {coverPool.map(p => (
+        <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
+          padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
+              fontWeight:500, color:C.text }}>{p.name}</div>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+              color:C.muted, marginTop:1 }}>
+              Played {p.played}×
+              {p.owes > 0 && <span style={{ color:C.red }}> · Owes £{p.owes}</span>}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={() => sendTemplate(notificationTemplates.coverNeeded, p.name)}
+              style={{ padding:"6px 10px", borderRadius:5, border:`1px solid ${C.blue}`,
+                background:"transparent", color:C.blue,
+                fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+              Notify
+            </button>
+            {confirmDel === p.id ? (
+              <>
+                <button onClick={() => handleRemove(p.id)} style={{ padding:"6px 10px",
+                  borderRadius:5, border:`1px solid ${C.red}`, background:C.red+"18",
+                  color:C.red, fontFamily:"Inter,sans-serif", fontSize:11,
+                  fontWeight:700, cursor:"pointer" }}>Confirm</button>
+                <button onClick={() => setConfirmDel(null)} style={{ padding:"6px 10px",
+                  borderRadius:5, border:`1px solid ${C.border}`, background:"transparent",
+                  color:C.muted, fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
+                  Cancel</button>
+              </>
+            ) : (
+              <button onClick={() => setConfirmDel(p.id)} style={{ padding:"6px 10px",
+                borderRadius:5, border:`1px solid ${C.border}`, background:"transparent",
+                color:C.muted, fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+export default function AdminView({
   squad, setSquad, bibHistory, setBibHistory,
   schedule, setSchedule, matchHistory, setMatchHistory,
-  settings, setSettings, coverPool,
+  settings, setSettings, coverPool, setCoverPool, teamId,
 }) {
   const [screen,     setScreen]     = useState("main");
   const [notifPerm,  setNotifPerm]  = useState(
@@ -65,11 +157,11 @@ export default function AdminView({ teamId,
   };
 
   // Route to sub-screens
-  if (screen === "teams")    return <TeamsScreen    squad={squad} setSquad={setSquad} schedule={schedule} onBack={() => setScreen("main")} teamId={teamId}/>;
+  if (screen === "teams")    return <TeamsScreen    squad={squad} setSquad={setSquad} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={payments} bibHistory={bibHistory} onBack={() => setScreen("main")} onDraftNext={draftNextWeek}/>;
-  if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")} teamId={teamId}/>;
+  if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId}/>;
-  if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")} teamId={teamId}/>;
+  if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")}/>;
 
   return (
     <div style={{ padding:18 }}>
@@ -259,35 +351,14 @@ export default function AdminView({ teamId,
       ))}
 
       {/* Cover pool */}
-      <SecTitle color={C.muted}>🪑 Cover Pool</SecTitle>
-      {coverPool.map(p => (
-        <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
-          padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500, color:C.text }}>{p.name}</div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:1 }}>
-              Played {p.played}×{p.owes>0&&<span style={{ color:C.red }}> · Owes £{p.owes}</span>}
-            </div>
-          </div>
-          <button onClick={() => sendTemplate(notificationTemplates.coverNeeded, p.name)}
-            style={{ padding:"7px 12px", borderRadius:5, border:`1px solid ${C.blue}`,
-              background:"transparent", color:C.blue,
-              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            Notify
-          </button>
-        </div>
-      ))}
+      <CoverPoolSection
+        coverPool={coverPool}
+        setCoverPool={setCoverPool}
+        teamId={teamId}
+      />
 
-      {/* Data export */}
-      <div style={{ marginTop:28, padding:"12px 14px", background:C.surface, borderRadius:6,
-        border:`1px solid ${C.border}`, fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted }}>
-        💾 Data saved locally. Supabase sync coming next version.
-        <button onClick={() => storage.downloadBackup()}
-          style={{ display:"block", marginTop:8, background:"none", border:"none",
-            color:C.blue, fontFamily:"Inter,sans-serif", fontSize:12,
-            cursor:"pointer", textAlign:"left", padding:0 }}>
-          ↓ Export data backup
-        </button>
+      {/* Bottom padding */}
+      <div style={{ height:32 }}/>
       </div>
     </div>
   );

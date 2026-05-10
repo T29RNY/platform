@@ -10,12 +10,9 @@ import {
   getTeamByAdminToken, getTeamByPlayerToken,
   getPlayerByToken, getPlayerTeams,
   getTeamByJoinCode, addPlayerToTeam,
+  getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
-
-// Cover pool is team-specific — Finbar's keeps seed data, new teams start empty
-// TODO backlog: move cover pool to Supabase cover_pool table per team
-const getCoverPool = (tId) => tId === "team_finbars" ? SEED_COVER : [];
 import Header       from "./views/Header.jsx";
 import PlayerView   from "./views/PlayerView.jsx";
 import StatsView    from "./views/StatsView.jsx";
@@ -58,6 +55,7 @@ export default function App() {
   const [schedule,     setScheduleRaw] = useState(DEFAULT_SCHEDULE);
   const [matchHistory, setMatchHistRaw]= useState([]);
   const [settings,     setSettingsRaw] = useState(DEFAULT_SETTINGS);
+  const [coverPool,    setCoverPoolRaw]= useState([]);
   const [myPlayer,     setMyPlayer]    = useState(null);
   const [playerTeams,  setPlayerTeams] = useState([]);
   const [selectedTeam, setSelectedTeam]= useState(null);
@@ -125,12 +123,13 @@ export default function App() {
         setTeamId(resolvedTeamId);
 
         // ── Load team data ───────────────────────────────────────────────────
-        const [players, matches, bibs, sched, setts] = await Promise.all([
+        const [players, matches, bibs, sched, setts, cover] = await Promise.all([
           getPlayers(resolvedTeamId),
           getMatches(resolvedTeamId),
           getBibHistory(resolvedTeamId),
           getSchedule(resolvedTeamId),
           getSettings(resolvedTeamId),
+          getCoverPool(resolvedTeamId),
         ]);
 
         setSquadRaw(players);
@@ -138,6 +137,7 @@ export default function App() {
         setBibHistRaw(bibs);
         setScheduleRaw(sched || DEFAULT_SCHEDULE);
         setSettingsRaw(setts || DEFAULT_SETTINGS);
+        setCoverPoolRaw(cover || []);
         setLoading(false);
       } catch (err) {
         console.error("Load error:", err);
@@ -199,9 +199,9 @@ export default function App() {
   const loadTeam = async (tId) => {
     setLoading(true);
     try {
-      const [players, matches, bibs, sched, setts] = await Promise.all([
+      const [players, matches, bibs, sched, setts, cover] = await Promise.all([
         getPlayers(tId), getMatches(tId), getBibHistory(tId),
-        getSchedule(tId), getSettings(tId),
+        getSchedule(tId), getSettings(tId), getCoverPool(tId),
       ]);
       setTeamId(tId);
       setSelectedTeam(tId);
@@ -210,6 +210,7 @@ export default function App() {
       setBibHistRaw(bibs);
       setScheduleRaw(sched || DEFAULT_SCHEDULE);
       setSettingsRaw(setts || DEFAULT_SETTINGS);
+      setCoverPoolRaw(cover || []);
       setLoading(false);
     } catch (e) {
       setError(e.message);
@@ -429,7 +430,8 @@ export default function App() {
           {...sharedProps}
           bibHistory={bibHistory}     setBibHistory={setBibHistory}
           matchHistory={matchHistory} setMatchHistory={setMatchHistory}
-          coverPool={getCoverPool(teamId)} teamId={teamId}
+          coverPool={coverPool}  setCoverPool={setCoverPoolRaw}
+          teamId={teamId}
         />
       )}
     </div>

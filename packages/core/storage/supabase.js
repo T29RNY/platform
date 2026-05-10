@@ -260,3 +260,34 @@ export async function addPlayerToTeam(name, teamId) {
 
   return { id, name, token };
 }
+
+// ─── Cover pool ───────────────────────────────────────────────────────────────
+export async function getCoverPool(teamId) {
+  const { data, error } = await supabase
+    .from("cover_pool").select("*")
+    .eq("team_id", teamId)
+    .order("created_at");
+  if (error) throw error;
+  return (data || []).map(r => ({
+    id: r.id, name: r.name, played: r.played, owes: r.owes,
+  }));
+}
+
+export async function addCoverPlayer(teamId, name) {
+  const id = "c_" + Math.random().toString(36).slice(2, 10);
+  const { error } = await supabase.from("cover_pool").insert({
+    id, team_id: teamId, name: name.trim(), played: 0, owes: 0,
+  });
+  if (error) throw error;
+  return { id, name: name.trim(), played: 0, owes: 0 };
+}
+
+export async function removeCoverPlayer(id) {
+  const { error } = await supabase.from("cover_pool").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateCoverPlayer(id, updates) {
+  const { error } = await supabase.from("cover_pool").update(updates).eq("id", id);
+  if (error) throw error;
+}
