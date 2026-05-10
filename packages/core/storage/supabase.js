@@ -1,14 +1,40 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey  = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+// ─── Team resolution ──────────────────────────────────────────────────────────
+export async function getTeamByAdminToken(token) {
+  const { data, error } = await supabase
+    .from("teams").select("*").eq("admin_token", token).single();
+  if (error) return null;
+  return data;
+}
+
+export async function getTeamByPlayerToken(token) {
+  // Find player, then find their team
+  const { data: player } = await supabase
+    .from("players").select("id").eq("token", token).single();
+  if (!player) return null;
+  const { data: tp } = await supabase
+    .from("team_players").select("team_id").eq("player_id", player.id).single();
+  if (!tp) return null;
+  const { data: team } = await supabase
+    .from("teams").select("*").eq("id", tp.team_id).single();
+  return team || null;
+}
+
 // ─── Players ──────────────────────────────────────────────────────────────────
-export async function getPlayers() {
-  const { data, error } = await supabase.from("players").select("*").order("created_at");
-  if (error) throw error;
-  return data.map(dbToPlayer);
+export async function getPlayers(teamId) {
+  const { data, error } = await supabase
+    .from("team_players").select("player_id").eq("team_id", teamId);
+  if (error || !data?.length) return [];
+  const ids = data.map(r => r.player_id);
+  const { data: players, error: pErr } = await supabase
+    .from("players").select("*").in("id", ids).order("name");
+  if (pErr) throw pErr;
+  return (players || []).map(dbToPlayer);
 }
 
 export async function upsertPlayer(player) {
@@ -16,61 +42,93 @@ export async function upsertPlayer(player) {
   if (error) throw error;
 }
 
-export async function upsertPlayers(players) {
+export async function upsertPlayers(players, teamId) {
+  if (!players.length) return;
   const { error } = await supabase.from("players").upsert(players.map(playerToDb));
   if (error) throw error;
+  // Ensure all players are linked to team
+  if (teamId) {
+    const links = players.map(p => ({ team_id: teamId, player_id: p.id }));
+    await supabase.from("team_players").upsert(links, { onConflict: "team_id,player_id" });
+  }
 }
 
 export async function deletePlayer(id) {
+  await supabase.from("team_players").delete().eq("player_id", id);
   const { error } = await supabase.from("players").delete().eq("id", id);
   if (error) throw error;
 }
 
-// ─── Matches ──────────────────────────────────────────────────────────────────
-export async function getMatches() {
-  const { data, error } = await supabase.from("matches").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return data.map(dbToMatch);
+export async function getPlayerByToken(token) {
+  const { data, error } = await supabase
+    .from("players").select("*").eq("token", token).single();
+  if (error) return null;
+  return dbToPlayer(data);
 }
 
-export async function insertMatch(match) {
-  const { error } = await supabase.from("matches").insert(matchToDb(match));
+// ─── Matches ──────────────────────────────────────────────────────────────────
+export async function getMatches(teamId) {
+  const { data, error } = await supabase
+    .from("matches").select("*")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(dbToMatch);
+}
+
+export async function insertMatch(match, teamId) {
+  const row = { ...matchToDb(match), team_id: teamId };
+  const { error } = await supabase.from("matches").insert(row);
   if (error) throw error;
 }
 
 // ─── Bib history ──────────────────────────────────────────────────────────────
-export async function getBibHistory() {
-  const { data, error } = await supabase.from("bib_history").select("*").order("created_at", { ascending: false });
+export async function getBibHistory(teamId) {
+  const { data, error } = await supabase
+    .from("bib_history").select("*")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false });
   if (error) throw error;
-  return data.map(b => ({ name: b.name, date: b.date, returned: b.returned }));
+  return (data || []).map(b => ({ name: b.name, date: b.date, returned: b.returned }));
 }
 
-export async function insertBib(bib) {
-  const { error } = await supabase.from("bib_history").insert({ name: bib.name, date: bib.date, returned: bib.returned });
+export async function insertBib(bib, teamId) {
+  const { error } = await supabase.from("bib_history").insert({
+    name: bib.name, date: bib.date, returned: bib.returned, team_id: teamId,
+  });
   if (error) throw error;
 }
 
 // ─── Schedule ─────────────────────────────────────────────────────────────────
-export async function getSchedule() {
-  const { data, error } = await supabase.from("schedule").select("*").eq("id", "main").single();
+export async function getSchedule(teamId) {
+  const { data, error } = await supabase
+    .from("schedule").select("*").eq("team_id", teamId).single();
   if (error && error.code !== "PGRST116") throw error;
   return data ? dbToSchedule(data) : null;
 }
 
-export async function upsertSchedule(schedule) {
-  const { error } = await supabase.from("schedule").upsert(scheduleToDb(schedule));
+export async function upsertSchedule(schedule, teamId) {
+  const row = { ...scheduleToDb(schedule), team_id: teamId };
+  const { error } = await supabase.from("schedule").upsert(row);
   if (error) throw error;
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
-export async function getSettings() {
-  const { data, error } = await supabase.from("settings").select("*").eq("id", "main").single();
+export async function getSettings(teamId) {
+  const { data, error } = await supabase
+    .from("settings").select("*").eq("team_id", teamId).single();
   if (error && error.code !== "PGRST116") throw error;
   return data ? { groupName: data.group_name } : null;
 }
 
-export async function upsertSettings(settings) {
-  const { error } = await supabase.from("settings").upsert({ id: "main", group_name: settings.groupName });
+export async function upsertSettings(settings, teamId) {
+  // Find existing settings row for this team
+  const { data: existing } = await supabase
+    .from("settings").select("id").eq("team_id", teamId).single();
+  const id = existing?.id || ("sett_" + teamId);
+  const { error } = await supabase.from("settings").upsert({
+    id, team_id: teamId, group_name: settings.groupName,
+  });
   if (error) throw error;
 }
 
@@ -84,7 +142,8 @@ function playerToDb(p) {
     bib_count: p.bibCount, team: p.team,
     w: p.w, l: p.l, d: p.d,
     pay_count: p.payCount, late_dropouts: p.lateDropouts,
-    note: p.note, self_paid: p.selfPaid,
+    note: p.note || "", self_paid: p.selfPaid || false,
+    token: p.token,
   };
 }
 
@@ -126,7 +185,7 @@ function dbToMatch(r) {
 
 function scheduleToDb(s) {
   return {
-    id: "main",
+    id: s.id || "main",
     day_of_week: s.dayOfWeek, kickoff: s.kickoff, venue: s.venue,
     opens_day: s.opensDay, opens_time: s.opensTime,
     priority_lead_mins: s.priorityLeadMins,
@@ -140,6 +199,7 @@ function scheduleToDb(s) {
 
 function dbToSchedule(r) {
   return {
+    id: r.id,
     dayOfWeek: r.day_of_week, kickoff: r.kickoff, venue: r.venue,
     opensDay: r.opens_day, opensTime: r.opens_time,
     priorityLeadMins: r.priority_lead_mins,
@@ -149,15 +209,4 @@ function dbToSchedule(r) {
     isDraft: r.is_draft, isCancelled: r.is_cancelled,
     cancelReason: r.cancel_reason,
   };
-}
-
-// ─── Player by token ──────────────────────────────────────────────────────────
-export async function getPlayerByToken(token) {
-  const { data, error } = await supabase
-    .from("players")
-    .select("*")
-    .eq("token", token)
-    .single();
-  if (error) return null;
-  return dbToPlayer(data);
 }

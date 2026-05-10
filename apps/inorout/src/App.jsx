@@ -7,11 +7,10 @@ import {
   getBibHistory, insertBib,
   getSchedule, upsertSchedule,
   getSettings, upsertSettings,
+  getTeamByAdminToken, getTeamByPlayerToken,
+  getPlayerByToken,
 } from "@platform/supabase";
-import {
-  SEED_SQUAD, SEED_MATCH_HISTORY, SEED_BIB_HISTORY,
-  SEED_SCHEDULE, SEED_SETTINGS, SEED_COVER,
-} from "./seeds.js";
+import { SEED_COVER } from "./seeds.js";
 import Header       from "./views/Header.jsx";
 import PlayerView   from "./views/PlayerView.jsx";
 import StatsView    from "./views/StatsView.jsx";
@@ -22,12 +21,20 @@ import Onboarding   from "./onboarding/index.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
 
+const DEFAULT_SCHEDULE = {
+  dayOfWeek:"Tuesday", kickoff:"19:00", venue:"", opensDay:"Wednesday",
+  opensTime:"10:00", priorityLeadMins:60, pricePerPlayer:6,
+  gameIsLive:false, squadSize:14, gameDateTime:null,
+  isDraft:true, isCancelled:false, cancelReason:"",
+};
+const DEFAULT_SETTINGS = { groupName:"My Team" };
+
 // ─── Routing ──────────────────────────────────────────────────────────────────
 function getRoute() {
   const parts = window.location.pathname.split("/").filter(Boolean);
-  if (parts[0]==="p"     && parts[1]) return { type:"player", token:parts[1] };
-  if (parts[0]==="admin" && parts[1]) return { type:"admin",  token:parts[1] };
-  if (parts[0]==="create")            return { type:"create" };
+  if (parts[0]==="p"      && parts[1]) return { type:"player", token:parts[1] };
+  if (parts[0]==="admin"  && parts[1]) return { type:"admin",  token:parts[1] };
+  if (parts[0]==="create")             return { type:"create" };
   if (window.location.hostname==="localhost") return { type:"admin", token:"local" };
   return { type:"landing" };
 }
@@ -37,74 +44,65 @@ export default function App() {
   const [view,         setView]        = useState("player");
   const [loading,      setLoading]     = useState(true);
   const [error,        setError]       = useState(null);
+  const [teamId,       setTeamId]      = useState(null);
   const [squad,        setSquadRaw]    = useState([]);
   const [bibHistory,   setBibHistRaw]  = useState([]);
-  const [schedule,     setScheduleRaw] = useState(SEED_SCHEDULE);
+  const [schedule,     setScheduleRaw] = useState(DEFAULT_SCHEDULE);
   const [matchHistory, setMatchHistRaw]= useState([]);
-  const [settings,     setSettingsRaw] = useState(SEED_SETTINGS);
+  const [settings,     setSettingsRaw] = useState(DEFAULT_SETTINGS);
   const [myPlayer,     setMyPlayer]    = useState(null);
   const [isAdmin,      setIsAdmin]     = useState(false);
 
   useEffect(() => {
-    // Landing and create don't need data
     if (route.type === "landing" || route.type === "create") {
       setLoading(false); return;
     }
 
     async function load() {
       try {
+        let resolvedTeamId = null;
+
+        // ── Resolve team from URL token ──────────────────────────────────────
+        if (route.type === "admin") {
+          if (route.token === "local") {
+            // Dev: use first team
+            const { data } = await supabase.from("teams").select("id").limit(1).single();
+            resolvedTeamId = data?.id;
+            setIsAdmin(true);
+          } else {
+            const team = await getTeamByAdminToken(route.token);
+            if (!team) { setError("Invalid admin link."); setLoading(false); return; }
+            resolvedTeamId = team.id;
+            setIsAdmin(true);
+          }
+        }
+
+        if (route.type === "player") {
+          const player = await getPlayerByToken(route.token);
+          if (!player) { setLoading(false); return; } // handled by invalid token screen
+          setMyPlayer(player);
+          const team = await getTeamByPlayerToken(route.token);
+          if (!team) { setError("Could not find your team."); setLoading(false); return; }
+          resolvedTeamId = team.id;
+        }
+
+        if (!resolvedTeamId) { setLoading(false); return; }
+        setTeamId(resolvedTeamId);
+
+        // ── Load team data ───────────────────────────────────────────────────
         const [players, matches, bibs, sched, setts] = await Promise.all([
-          getPlayers(), getMatches(), getBibHistory(), getSchedule(), getSettings(),
+          getPlayers(resolvedTeamId),
+          getMatches(resolvedTeamId),
+          getBibHistory(resolvedTeamId),
+          getSchedule(resolvedTeamId),
+          getSettings(resolvedTeamId),
         ]);
 
-        // Seed if empty
-        const finalPlayers = players.length > 0 ? players : SEED_SQUAD;
-        if (players.length === 0) await upsertPlayers(SEED_SQUAD);
-        setSquadRaw(finalPlayers);
-
-        if (matches.length === 0) {
-          for (const m of SEED_MATCH_HISTORY) await insertMatch(m);
-          setMatchHistRaw(SEED_MATCH_HISTORY);
-        } else {
-          setMatchHistRaw(matches);
-        }
-
-        if (bibs.length === 0) {
-          for (const b of SEED_BIB_HISTORY) await insertBib(b);
-          setBibHistRaw(SEED_BIB_HISTORY);
-        } else {
-          setBibHistRaw(bibs);
-        }
-
-        if (!sched) {
-          await upsertSchedule(SEED_SCHEDULE);
-          setScheduleRaw(SEED_SCHEDULE);
-        } else {
-          setScheduleRaw(sched);
-        }
-
-        if (!setts) {
-          await upsertSettings(SEED_SETTINGS);
-          setSettingsRaw(SEED_SETTINGS);
-        } else {
-          setSettingsRaw(setts);
-        }
-
-        // Resolve identity
-        if (route.type === "player") {
-          const found = finalPlayers.find(p => p.token === route.token);
-          setMyPlayer(found || null);
-        }
-
-        if (route.type === "admin") {
-          const { data } = await supabase
-            .from("teams")
-            .select("id")
-            .eq("admin_token", route.token)
-            .single();
-          setIsAdmin(!!data || route.token === "local");
-        }
-
+        setSquadRaw(players);
+        setMatchHistRaw(matches);
+        setBibHistRaw(bibs);
+        setScheduleRaw(sched || DEFAULT_SCHEDULE);
+        setSettingsRaw(setts || DEFAULT_SETTINGS);
         setLoading(false);
       } catch (err) {
         console.error("Load error:", err);
@@ -115,35 +113,39 @@ export default function App() {
     load();
   }, []);
 
-  // ── Setters ──────────────────────────────────────────────────────────────────
+  // ── Setters — all pass teamId ─────────────────────────────────────────────
   const setSquad = async (updater) => {
     const next = typeof updater==="function" ? updater(squad) : updater;
     setSquadRaw(next);
-    try { await upsertPlayers(next); } catch(e) { console.error(e); }
+    try { await upsertPlayers(next, teamId); } catch(e) { console.error(e); }
   };
+
   const setBibHistory = async (updater) => {
     const next = typeof updater==="function" ? updater(bibHistory) : updater;
     if (next.length > bibHistory.length) {
-      try { await insertBib(next[0]); } catch(e) { console.error(e); }
+      try { await insertBib(next[0], teamId); } catch(e) { console.error(e); }
     }
     setBibHistRaw(next);
   };
+
   const setSchedule = async (updater) => {
     const next = typeof updater==="function" ? updater(schedule) : updater;
     setScheduleRaw(next);
-    try { await upsertSchedule(next); } catch(e) { console.error(e); }
+    try { await upsertSchedule(next, teamId); } catch(e) { console.error(e); }
   };
+
   const setMatchHistory = async (updater) => {
     const next = typeof updater==="function" ? updater(matchHistory) : updater;
     if (next.length > matchHistory.length) {
-      try { await insertMatch(next[0]); } catch(e) { console.error(e); }
+      try { await insertMatch(next[0], teamId); } catch(e) { console.error(e); }
     }
     setMatchHistRaw(next);
   };
+
   const setSettings = async (updater) => {
     const next = typeof updater==="function" ? updater(settings) : updater;
     setSettingsRaw(next);
-    try { await upsertSettings(next); } catch(e) { console.error(e); }
+    try { await upsertSettings(next, teamId); } catch(e) { console.error(e); }
   };
 
   useEffect(() => {
@@ -152,10 +154,9 @@ export default function App() {
     document.head.appendChild(el);
   }, []);
 
-  // ── Create / Onboarding ───────────────────────────────────────────────────
+  // ── Routes ────────────────────────────────────────────────────────────────
   if (route.type === "create") return <Onboarding/>;
 
-  // ── Landing ───────────────────────────────────────────────────────────────
   if (route.type === "landing") return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       display:"flex", flexDirection:"column", alignItems:"center",
@@ -164,7 +165,8 @@ export default function App() {
         color:C.amber, letterSpacing:4, marginBottom:8, textAlign:"center" }}>
         IN OR OUT
       </div>
-      <div style={{ fontSize:14, color:C.muted, textAlign:"center", marginBottom:40, lineHeight:1.6 }}>
+      <div style={{ fontSize:14, color:C.muted, textAlign:"center",
+        marginBottom:40, lineHeight:1.6, maxWidth:300 }}>
         The fastest way to organise your weekly football game.<br/>
         No apps. No accounts. Just tap and go.
       </div>
@@ -183,12 +185,13 @@ export default function App() {
     </div>
   );
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) return (
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
       flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
       <div style={{ fontSize:48 }}>⚽</div>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
+      <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted }}>
+        Loading...
+      </div>
     </div>
   );
 
@@ -199,13 +202,12 @@ export default function App() {
       <div style={{ fontSize:40 }}>⚠️</div>
       <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
         color:C.red, textAlign:"center" }}>
-        Could not connect.<br/>
-        <span style={{ color:C.muted, fontSize:12 }}>{error}</span>
+        {error}<br/>
+        <span style={{ color:C.muted, fontSize:12 }}>Check your link and try again.</span>
       </div>
     </div>
   );
 
-  // ── Invalid player token ──────────────────────────────────────────────────
   if (route.type==="player" && !myPlayer) return (
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
       flexDirection:"column", alignItems:"center", justifyContent:"center",
@@ -219,20 +221,7 @@ export default function App() {
     </div>
   );
 
-  // ── Invalid admin token ───────────────────────────────────────────────────
-  if (route.type==="admin" && !isAdmin) return (
-    <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
-      flexDirection:"column", alignItems:"center", justifyContent:"center",
-      padding:24, fontFamily:"Inter,sans-serif" }}>
-      <div style={{ fontSize:40, marginBottom:16 }}>🔒</div>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
-        color:C.muted, textAlign:"center" }}>
-        Invalid admin link.
-      </div>
-    </div>
-  );
-
-  const myId       = myPlayer?.id || (isAdmin ? squad[0]?.id : null);
+  const myId        = myPlayer?.id || (isAdmin ? squad[0]?.id : null);
   const sharedProps = { squad, setSquad, schedule, setSchedule, settings, setSettings };
 
   return (
@@ -242,8 +231,7 @@ export default function App() {
       <Header
         view={view} setView={setView}
         squad={squad} schedule={schedule} settings={settings}
-        isAdmin={isAdmin}
-        playerName={myPlayer?.name}
+        isAdmin={isAdmin} playerName={myPlayer?.name}
       />
       {view==="player"  && <PlayerView  {...sharedProps} myId={myId}/>}
       {view==="stats"   && <StatsView   squad={squad} bibHistory={bibHistory} matchHistory={matchHistory}/>}
@@ -253,7 +241,7 @@ export default function App() {
           {...sharedProps}
           bibHistory={bibHistory}     setBibHistory={setBibHistory}
           matchHistory={matchHistory} setMatchHistory={setMatchHistory}
-          coverPool={SEED_COVER}
+          coverPool={SEED_COVER}      teamId={teamId}
         />
       )}
     </div>
