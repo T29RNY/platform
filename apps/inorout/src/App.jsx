@@ -132,6 +132,53 @@ export default function App() {
     load();
   }, []);
 
+  // ── Realtime subscriptions ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!teamId) return;
+
+    // Subscribe to player changes for this team
+    const playerSub = supabase
+      .channel(`players:${teamId}`)
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "players",
+      }, async () => {
+        // Reload players when any change happens
+        const players = await getPlayers(teamId);
+        setSquadRaw(players);
+      })
+      .subscribe();
+
+    // Subscribe to schedule changes
+    const schedSub = supabase
+      .channel(`schedule:${teamId}`)
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "schedule",
+        filter: `team_id=eq.${teamId}`,
+      }, async () => {
+        const sched = await getSchedule(teamId);
+        if (sched) setScheduleRaw(sched);
+      })
+      .subscribe();
+
+    // Subscribe to new matches
+    const matchSub = supabase
+      .channel(`matches:${teamId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "matches",
+        filter: `team_id=eq.${teamId}`,
+      }, async () => {
+        const matches = await getMatches(teamId);
+        setMatchHistRaw(matches);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(playerSub);
+      supabase.removeChannel(schedSub);
+      supabase.removeChannel(matchSub);
+    };
+  }, [teamId]);
+
   // ── Load a specific team's data (used by game switcher) ──────────────────
   const loadTeam = async (tId) => {
     setLoading(true);
