@@ -66,6 +66,13 @@ export async function getPlayerByToken(token) {
   return dbToPlayer(data);
 }
 
+export async function resetPlayerToken(playerId) {
+  const token = "p_" + Math.random().toString(36).slice(2, 18);
+  const { error } = await supabase.from("players").update({ token }).eq("id", playerId);
+  if (error) throw error;
+  return token;
+}
+
 // ─── Matches ──────────────────────────────────────────────────────────────────
 export async function getMatches(teamId) {
   const { data, error } = await supabase

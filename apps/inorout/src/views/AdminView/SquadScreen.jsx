@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { colors as C, newPlayer } from "@platform/core";
+import { resetPlayerToken } from "@platform/supabase";
 import { BackBtn, Btn, SecTitle, Card, Toggle, Badge, CopyBtn } from "@platform/ui";
 
 export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
@@ -8,6 +9,20 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
   const [priority,   setPriority]   = useState(false);
   const [deputy,     setDeputy]     = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [resetState, setResetState] = useState({}); // { [playerId]: 'confirming'|'loading'|'done' }
+
+  const resetToken = async (playerId) => {
+    setResetState(s => ({ ...s, [playerId]: "loading" }));
+    try {
+      const newToken = await resetPlayerToken(playerId);
+      setSquad(squad.map(p => p.id === playerId ? { ...p, token: newToken } : p));
+      setResetState(s => ({ ...s, [playerId]: "done" }));
+      setTimeout(() => setResetState(s => ({ ...s, [playerId]: null })), 5000);
+    } catch(e) {
+      console.error(e);
+      setResetState(s => ({ ...s, [playerId]: null }));
+    }
+  };
 
   const addPlayer = () => {
     if (!name.trim()) return;
@@ -98,6 +113,12 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
             </div>
             <CopyBtn text={`https://in-or-out.com/p/${p.token || p.id}`}/>
           </div>
+          {resetState[p.id] === "done" && (
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.green,
+              padding:"6px 10px", borderRadius:5, background:C.green+"14", marginBottom:8 }}>
+              ✓ Link reset — old link no longer works
+            </div>
+          )}
           <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
             <button onClick={() => togglePriority(p.id)} style={{ padding:"5px 11px", borderRadius:4,
               border:`1px solid ${p.priority?C.purple:C.border}`,
@@ -137,7 +158,42 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
                 Delete
               </button>
             )}
+            {resetState[p.id] === "loading" ? (
+              <button disabled style={{ padding:"5px 11px", borderRadius:4,
+                border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
+                fontFamily:"Inter,sans-serif", fontSize:11, cursor:"not-allowed" }}>
+                Resetting...
+              </button>
+            ) : !resetState[p.id] ? (
+              <button onClick={() => setResetState(s => ({ ...s, [p.id]: "confirming" }))}
+                style={{ padding:"5px 11px", borderRadius:4,
+                  border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
+                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                Reset Link
+              </button>
+            ) : null}
           </div>
+          {resetState[p.id] === "confirming" && (
+            <div style={{ marginTop:8, padding:"10px 12px", borderRadius:5,
+              border:`1px solid ${C.amber}44`, background:C.amber+"0a" }}>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.amber, marginBottom:8 }}>
+                ⚠️ Old link stops working immediately. Share the new one with the player.
+              </div>
+              <div style={{ display:"flex", gap:6 }}>
+                <button onClick={() => resetToken(p.id)} style={{ padding:"5px 11px", borderRadius:4,
+                  border:`1px solid ${C.amber}`, background:C.amber+"18", color:C.amber,
+                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                  Confirm Reset
+                </button>
+                <button onClick={() => setResetState(s => ({ ...s, [p.id]: null }))}
+                  style={{ padding:"5px 11px", borderRadius:4,
+                    border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
+                    fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
