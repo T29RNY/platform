@@ -15,7 +15,10 @@ export default function SignIn({ teamName, onBack, returnTo }) {
 
   // Store where to return after auth
   const storeReturnTo = () => {
-    if (returnTo) localStorage.setItem("auth_return_to", returnTo);
+    const url = returnTo || window.location.href;
+    // Strip the hash if present
+    const clean = url.split("#")[0];
+    localStorage.setItem("auth_return_to", clean);
   };
 
   const signInWithGoogle = async () => {

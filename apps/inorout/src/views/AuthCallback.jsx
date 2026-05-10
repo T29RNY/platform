@@ -2,29 +2,25 @@ import { useEffect, useState } from "react";
 import { colors as C } from "@platform/core";
 import { supabase } from "@platform/supabase";
 
-// This page handles the redirect back from Google/Apple/Email auth
-// URL: in-or-out.com/auth/callback
 export default function AuthCallback() {
   const [status, setStatus] = useState("processing");
 
   useEffect(() => {
     async function handle() {
       try {
-        // Exchange the code for a session
-        const { data, error } = await supabase.auth.exchangeCodeForSession(
-          window.location.search
-        );
+        // Supabase handles the session from the URL automatically
+        const { data, error } = await supabase.auth.getSession();
 
         if (error) throw error;
 
-        // Get where they were trying to go (stored before auth)
+        // Get where they were trying to go
         const returnTo = localStorage.getItem("auth_return_to") || "/";
         localStorage.removeItem("auth_return_to");
 
         setStatus("success");
         setTimeout(() => {
-          window.location.href = returnTo;
-        }, 500);
+          window.location.replace(returnTo);
+        }, 800);
       } catch (err) {
         console.error("Auth callback error:", err);
         setStatus("error");
