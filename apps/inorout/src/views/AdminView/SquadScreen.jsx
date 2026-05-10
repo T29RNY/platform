@@ -2,7 +2,7 @@ import { useState } from "react";
 import { colors as C, newPlayer } from "@platform/core";
 import { BackBtn, Btn, SecTitle, Card, Toggle, Badge, CopyBtn } from "@platform/ui";
 
-export default function SquadScreen({ squad, setSquad, onBack }) {
+export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
   const [name,       setName]       = useState("");
   const [type,       setType]       = useState("regular");
   const [priority,   setPriority]   = useState(false);
@@ -26,6 +26,30 @@ export default function SquadScreen({ squad, setSquad, onBack }) {
       <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22, color:C.amber, letterSpacing:2, marginBottom:18 }}>
         MANAGE SQUAD
       </div>
+
+      {/* Invite link */}
+      {teamId && (
+        <div style={{ background:C.green+"0f", border:`1px solid ${C.green}33`,
+          borderRadius:8, padding:14, marginBottom:20 }}>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+            color:C.green, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>
+            🔗 Player Invite Link
+          </div>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted,
+            marginBottom:10 }}>
+            Share this — players tap it, enter their name, get their personal link instantly.
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ flex:1, fontFamily:"Inter,sans-serif", fontSize:11,
+              color:C.text, background:"#0a0a0a", padding:"8px 10px",
+              borderRadius:5, border:`1px solid ${C.border}`,
+              wordBreak:"break-all" }}>
+              in-or-out.com/join/{teamId}
+            </div>
+            <CopyBtn text={`https://in-or-out.com/join/${teamId}`}/>
+          </div>
+        </div>
+      )}
 
       <Card>
         <SecTitle color={C.green}>Add Player</SecTitle>
