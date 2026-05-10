@@ -307,30 +307,45 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
-export async function getPlayerByUserId(userId) {
+// Find player already linked to this auth user
+export async function findPlayerByUserId(userId) {
   const { data, error } = await supabase
-    .from("players").select("*").eq("user_id", userId).single();
+    .from("players")
+    .select("id, name, goals, attended, token, team_players(team_id, teams(name))")
+    .eq("user_id", userId)
+    .single();
   if (error) return null;
-  return dbToPlayer(data);
+  return {
+    id: data.id, name: data.name, goals: data.goals,
+    attended: data.attended, token: data.token,
+    teamName: data.team_players?.[0]?.teams?.name || "Unknown team",
+  };
 }
 
+// Link an existing player record to an auth user
 export async function linkPlayerToUser(playerId, userId) {
   const { error } = await supabase
     .from("players").update({ user_id: userId }).eq("id", playerId);
   if (error) throw error;
 }
 
+// Find unlinked legacy players by name (for "Is this you?" flow)
 export async function findPlayersByName(name) {
-  // Find players with similar name across all teams
   const { data: players, error } = await supabase
     .from("players")
-    .select("*, team_players(team_id, teams(name))")
+    .select("id, name, goals, attended, token, team_players(team_id, teams(name))")
     .ilike("name", `%${name.split(" ")[0]}%`)
-    .is("user_id", null) // Only unlinked players
+    .is("user_id", null)
     .limit(5);
   if (error) return [];
   return (players || []).map(p => ({
-    ...dbToPlayer(p),
+    id: p.id, name: p.name, goals: p.goals, attended: p.attended, token: p.token,
     teamName: p.team_players?.[0]?.teams?.name || "Unknown team",
   }));
+}
+
+// Legacy helper — kept for compatibility
+export async function getPlayerByUserId(userId) {
+  const result = await findPlayerByUserId(userId);
+  return result;
 }

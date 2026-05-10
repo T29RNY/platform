@@ -11,7 +11,7 @@ import {
   getPlayerByToken, getPlayerTeams,
   getTeamByJoinCode, addPlayerToTeam,
   getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
-  getSession, getUser, getPlayerByUserId, linkPlayerToUser, findPlayersByName,
+  getSession, getUser, getPlayerByUserId, linkPlayerToUser, findPlayersByName, findPlayerByUserId,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
 import Header        from "./views/Header.jsx";
@@ -226,9 +226,9 @@ export default function App() {
     try { await upsertSettings(next, teamId); } catch(e) { console.error(e); }
   };
 
-  // ── Join handler with auth ────────────────────────────────────────────────
+  // ── Join handler — email first, name fallback ─────────────────────────────
   const handleJoin = async (name) => {
-    // Must be signed in to join
+    // Must be signed in
     if (!authUser) {
       setPendingName(name);
       setShowSignIn(true);
@@ -237,17 +237,32 @@ export default function App() {
 
     setJoinLoading(true); setJoinError(null);
     try {
-      // Check if player with this name already exists (unlinked)
-      const existing = await findPlayersByName(name);
-      if (existing.length > 0) {
-        // Show "Is this you?" screen
-        setIsThisYouMatches(existing);
+      // Step 1 — Check if this auth user already has a player record
+      const existingByUserId = await findPlayerByUserId(authUser.id);
+      if (existingByUserId) {
+        // Already linked — just add to this team
+        await supabase.from("team_players")
+          .upsert({ team_id: joinTeam.id, player_id: existingByUserId.id },
+            { onConflict:"team_id,player_id" });
+        setJoinedPlayer({
+          id: existingByUserId.id,
+          name: existingByUserId.name,
+          token: existingByUserId.token
+        });
+        setJoinLoading(false);
+        return;
+      }
+
+      // Step 2 — Check for legacy players with same name (no user_id yet)
+      const nameMatches = await findPlayersByName(name);
+      if (nameMatches.length > 0) {
+        setIsThisYouMatches(nameMatches);
         setPendingName(name);
         setJoinLoading(false);
         return;
       }
 
-      // Create new player
+      // Step 3 — No match found, create new player
       const player = await addPlayerToTeam(name, joinTeam.id, authUser.id);
       setJoinedPlayer(player);
     } catch(e) {

@@ -20,13 +20,15 @@ export default function IsThisYou({ matches, userEmail, onConfirm, onCreateNew }
         <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
           color:C.amber, letterSpacing:3 }}>IN OR OUT</div>
         <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
-          color:C.muted, marginTop:4 }}>We found existing players with your name</div>
+          color:C.muted, marginTop:4 }}>
+          Signed in as <strong style={{ color:C.text }}>{maskEmail(userEmail)}</strong>
+        </div>
       </div>
 
       <div style={{ padding:24, flex:1 }}>
         <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
           color:C.muted, marginBottom:24, lineHeight:1.6 }}>
-          Are you one of these players? Tap to link your account and keep all your stats.
+          We found existing players with your name. Tap yours to link your account and keep all your stats.
         </div>
 
         {matches.map(player => (
@@ -55,7 +57,7 @@ export default function IsThisYou({ matches, userEmail, onConfirm, onCreateNew }
               )}
             </div>
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
-              color:C.amber, fontWeight:600 }}>That's me →</div>
+              color:C.amber, fontWeight:600, flexShrink:0 }}>That's me →</div>
           </button>
         ))}
 
@@ -69,10 +71,6 @@ export default function IsThisYou({ matches, userEmail, onConfirm, onCreateNew }
           </button>
         </div>
 
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:11,
-          color:C.faint, textAlign:"center", marginTop:16, lineHeight:1.5 }}>
-          Signed in as {maskEmail(userEmail)}
-        </div>
       </div>
     </div>
   );
