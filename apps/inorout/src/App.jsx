@@ -11,6 +11,10 @@ import {
   getPlayerByToken,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
+
+// Cover pool is team-specific — Finbar's keeps seed data, new teams start empty
+// TODO backlog: move cover pool to Supabase cover_pool table per team
+const getCoverPool = (tId) => tId === "team_finbars" ? SEED_COVER : [];
 import Header       from "./views/Header.jsx";
 import PlayerView   from "./views/PlayerView.jsx";
 import StatsView    from "./views/StatsView.jsx";
@@ -241,7 +245,7 @@ export default function App() {
           {...sharedProps}
           bibHistory={bibHistory}     setBibHistory={setBibHistory}
           matchHistory={matchHistory} setMatchHistory={setMatchHistory}
-          coverPool={SEED_COVER}      teamId={teamId}
+          coverPool={getCoverPool(teamId)} teamId={teamId}
         />
       )}
     </div>
