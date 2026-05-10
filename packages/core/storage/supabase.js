@@ -239,7 +239,7 @@ export async function getTeamByJoinCode(code) {
   return byId || null;
 }
 
-export async function addPlayerToTeam(name, teamId) {
+export async function addPlayerToTeam(name, teamId, userId = null) {
   const id    = "p_" + Math.random().toString(36).slice(2, 10);
   const token = "p_" + Math.random().toString(36).slice(2, 18);
 
@@ -250,7 +250,7 @@ export async function addPlayerToTeam(name, teamId) {
     goals:0, motm:0, attended:0, total:0,
     bib_count:0, team:null, w:0, l:0, d:0,
     pay_count:0, late_dropouts:0, note:"", self_paid:false,
-    token,
+    token, user_id: userId,
   });
   if (pErr) throw pErr;
 
@@ -290,4 +290,47 @@ export async function removeCoverPlayer(id) {
 export async function updateCoverPlayer(id, updates) {
   const { error } = await supabase.from("cover_pool").update(updates).eq("id", id);
   if (error) throw error;
+}
+
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
+export async function getSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+}
+
+export async function getUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
+export async function signOut() {
+  await supabase.auth.signOut();
+}
+
+export async function getPlayerByUserId(userId) {
+  const { data, error } = await supabase
+    .from("players").select("*").eq("user_id", userId).single();
+  if (error) return null;
+  return dbToPlayer(data);
+}
+
+export async function linkPlayerToUser(playerId, userId) {
+  const { error } = await supabase
+    .from("players").update({ user_id: userId }).eq("id", playerId);
+  if (error) throw error;
+}
+
+export async function findPlayersByName(name) {
+  // Find players with similar name across all teams
+  const { data: players, error } = await supabase
+    .from("players")
+    .select("*, team_players(team_id, teams(name))")
+    .ilike("name", `%${name.split(" ")[0]}%`)
+    .is("user_id", null) // Only unlinked players
+    .limit(5);
+  if (error) return [];
+  return (players || []).map(p => ({
+    ...dbToPlayer(p),
+    teamName: p.team_players?.[0]?.teams?.name || "Unknown team",
+  }));
 }
