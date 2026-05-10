@@ -1,7 +1,7 @@
 import { colors as C } from "@platform/core";
 import { getConfirmedCount } from "@platform/core";
 
-export default function Header({ view, setView, squad, schedule, settings, isAdmin }) {
+export default function Header({ view, setView, squad, schedule, settings, isAdmin, playerName, onSwitchGame, hasMultipleTeams }) {
   const inCount = getConfirmedCount(squad.filter(p => !p.disabled));
   const needed  = schedule.squadSize || 14;
   const full    = inCount >= needed;
@@ -31,8 +31,18 @@ export default function Header({ view, setView, squad, schedule, settings, isAdm
         justifyContent:"space-between", alignItems:"flex-start" }}>
         <div>
           <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:600,
-            color:C.muted, letterSpacing:1, textTransform:"uppercase" }}>
+            color:C.muted, letterSpacing:1, textTransform:"uppercase",
+            display:"flex", alignItems:"center", gap:8 }}>
             {settings.groupName}
+            {hasMultipleTeams && onSwitchGame && (
+              <button onClick={onSwitchGame} style={{
+                padding:"2px 8px", borderRadius:4,
+                border:`1px solid ${C.amber}44`,
+                background:C.amber+"12", color:C.amber,
+                fontFamily:"Inter,sans-serif", fontSize:9, fontWeight:700,
+                letterSpacing:1, cursor:"pointer", textTransform:"uppercase",
+              }}>Switch</button>
+            )}
           </div>
           <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:30, color:C.amber,
             letterSpacing:3, lineHeight:1.1, marginTop:2 }}>

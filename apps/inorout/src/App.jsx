@@ -307,6 +307,8 @@ export default function App() {
         view={view} setView={setView}
         squad={squad} schedule={schedule} settings={settings}
         isAdmin={isAdmin} playerName={myPlayer?.name}
+        hasMultipleTeams={playerTeams.length > 1}
+        onSwitchGame={playerTeams.length > 1 ? () => setSelectedTeam(null) : null}
       />
       {view==="player"  && <PlayerView  {...sharedProps} myId={myId}/>}
       {view==="stats"   && <StatsView   squad={squad} bibHistory={bibHistory} matchHistory={matchHistory}/>}
