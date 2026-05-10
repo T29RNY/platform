@@ -24,6 +24,7 @@ import Onboarding    from "./onboarding/index.jsx";
 import JoinTeam      from "./views/JoinTeam.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
+import Legal         from "./views/Legal.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
 
@@ -43,6 +44,7 @@ function getRoute() {
   if (parts[0]==="create")                    return { type:"create" };
   if (parts[0]==="join"          && parts[1]) return { type:"join",     code:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
+  if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
   return { type:"landing" };
 }
@@ -85,16 +87,10 @@ export default function App() {
     }
 
     if (route.type === "join") {
-      Promise.all([
-        getSession().then(async s => {
-          if (s?.user) {
-            setAuthUser(s.user);
-            const existing = await findPlayerByUserId(s.user.id);
-            if (existing) setJoinedPlayer({ id: existing.id, name: existing.name, token: existing.token });
-          }
-        }),
-        getTeamByJoinCode(route.code).then(team => { if (team) setJoinTeam(team); }),
-      ]).then(() => setLoading(false));
+      getTeamByJoinCode(route.code).then(team => {
+        if (team) setJoinTeam(team);
+        setLoading(false);
+      });
       return;
     }
 
@@ -255,6 +251,7 @@ export default function App() {
 
   // ── Special routes ────────────────────────────────────────────────────────
   if (route.type === "auth_callback") return <AuthCallback/>;
+  if (route.type === "legal") return <Legal/>;
   if (route.type === "create") return <Onboarding/>;
 
   if (route.type === "join") {
@@ -316,6 +313,13 @@ export default function App() {
       <div style={{ marginTop:16, fontFamily:"Inter,sans-serif",
         fontSize:12, color:C.muted, textAlign:"center" }}>
         Already have a link? Use the link your organiser sent you.
+      </div>
+      <div style={{ marginTop:40, fontFamily:"Inter,sans-serif", fontSize:11,
+        color:"#444", textAlign:"center", display:"flex", gap:16,
+        justifyContent:"center" }}>
+        <a href="/legal" style={{ color:"#444", textDecoration:"none" }}>Terms</a>
+        <a href="/legal#privacy" style={{ color:"#444", textDecoration:"none" }}>Privacy</a>
+        <a href="mailto:hello@in-or-out.com" style={{ color:"#444", textDecoration:"none" }}>Contact</a>
       </div>
     </div>
   );
