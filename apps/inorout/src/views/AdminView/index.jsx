@@ -322,6 +322,17 @@ export default function AdminView({
           No confirmed players yet.
         </div>
       )}
+      {inPlayers.length > 0 && (
+        <button onClick={() => {
+          const allPaid = Object.fromEntries(inPlayers.map(p => [p.id, true]));
+          setPayments(pm => ({ ...pm, ...allPaid }));
+          setSquad(squad.map(p => inPlayers.find(ip => ip.id===p.id) ? { ...p, paid:true, selfPaid:false } : p));
+        }} style={{ width:"100%", padding:"10px 0", borderRadius:6, marginBottom:12,
+          border:`1px solid ${C.green}`, background:C.green+"12", color:C.green,
+          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+          ✅ Mark All Paid
+        </button>
+      )}
       {inPlayers.map(p => (
         <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
           padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
@@ -334,21 +345,65 @@ export default function AdminView({
                   background:C.amber+"20", color:C.amber }}>self-paid</span>
               )}
             </div>
-            {p.owes > 0 && !payments[p.id] && (
+            {p.owes > 0 && (
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.red, marginTop:2 }}>
                 Owes £{p.owes} from before
               </div>
             )}
           </div>
-          <button onClick={() => togglePaid(p.id)} style={{ padding:"7px 14px", borderRadius:5,
-            border:"none", cursor:"pointer",
-            background:payments[p.id]?C.green+"20":C.red+"20",
-            color:payments[p.id]?C.green:C.red,
-            fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700 }}>
-            {payments[p.id] ? "✅ Paid" : "Mark Paid"}
-          </button>
+          <div style={{ display:"flex", gap:6 }}>
+            {p.owes > 0 && (
+              <button onClick={() => {
+                setSquad(squad.map(s => s.id===p.id ? { ...s, owes:0 } : s));
+              }} style={{ padding:"7px 10px", borderRadius:5, border:`1px solid ${C.amber}`,
+                background:C.amber+"12", color:C.amber,
+                fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                Clear Debt
+              </button>
+            )}
+            <button onClick={() => togglePaid(p.id)} style={{ padding:"7px 14px", borderRadius:5,
+              border:"none", cursor:"pointer",
+              background:payments[p.id]?C.green+"20":C.red+"20",
+              color:payments[p.id]?C.green:C.red,
+              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700 }}>
+              {payments[p.id] ? "✅ Paid" : "Mark Paid"}
+            </button>
+          </div>
         </div>
       ))}
+
+      {/* Outstanding debts — players not in this week's game */}
+      {(() => {
+        const debtors = squad.filter(p => !p.disabled && p.owes > 0 && p.status !== "in");
+        if (!debtors.length) return null;
+        return (
+          <>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+              color:C.red, letterSpacing:1, textTransform:"uppercase",
+              margin:"20px 0 10px" }}>
+              💸 Outstanding Debts
+            </div>
+            {debtors.map(p => (
+              <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
+                padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
+                    fontWeight:500, color:C.text }}>{p.name}</div>
+                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+                    color:C.red, marginTop:2 }}>Owes £{p.owes}</div>
+                </div>
+                <button onClick={() => {
+                  setSquad(squad.map(s => s.id===p.id ? { ...s, owes:0 } : s));
+                }} style={{ padding:"7px 12px", borderRadius:5,
+                  border:`1px solid ${C.amber}`, background:C.amber+"12", color:C.amber,
+                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                  Clear Debt
+                </button>
+              </div>
+            ))}
+          </>
+        );
+      })()}
 
       {/* Cover pool */}
       <CoverPoolSection
