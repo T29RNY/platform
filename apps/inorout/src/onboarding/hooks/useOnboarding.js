@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ONBOARDING_CONFIG as CFG } from "../config.js";
-import { supabase } from "../../../../packages/core/storage/supabase.js";
+import { supabase } from "@platform/supabase";
 
 function generateToken(prefix) {
   return prefix + "_" + Math.random().toString(36).slice(2, 18);
