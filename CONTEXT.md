@@ -244,6 +244,7 @@ id, team_id, name, played, owes, created_at
 - Google Search Console verified
 - GitHub repo private
 - Invite link banner in Manage Squad
+- Admin link reset per player (Reset Link button in Manage Squad, two-step confirmation, old link invalidated immediately)
 
 ---
 
@@ -531,6 +532,9 @@ Built core app, Supabase backend, multi-tenancy, player routing, admin view, sta
 Built Google auth, email magic link, auth-first join flow, returning user recognition, cover pool (Supabase), Mark All Paid, Clear Debt, city field, Posthog, T&Cs, Google Search Console, GitHub private.
 
 Designed (not yet built): Reserve list, plus one, reminders engine, Stripe payments, random player pool, help chatbot, super admin dashboard.
+
+**Session 3 (May 11 2026):**
+Built admin link reset — Reset Link button per player in Manage Squad with two-step confirmation. New token written to Supabase via resetPlayerToken(); local squad state updated immediately. Old link invalidated on confirm, success banner auto-dismisses after 5s.
 
 **Next session — start with:**
 1. Rotate Supabase keys
