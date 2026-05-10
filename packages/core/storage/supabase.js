@@ -226,3 +226,37 @@ export async function getPlayerTeams(playerId) {
   if (tErr) return [];
   return teams || [];
 }
+
+// ─── Join team by join code ───────────────────────────────────────────────────
+export async function getTeamByJoinCode(code) {
+  // Try join_code first, then fall back to team id
+  const { data, error } = await supabase
+    .from("teams").select("*").eq("join_code", code).single();
+  if (!error && data) return data;
+  // Try by team id
+  const { data: byId } = await supabase
+    .from("teams").select("*").eq("id", code).single();
+  return byId || null;
+}
+
+export async function addPlayerToTeam(name, teamId) {
+  const id    = "p_" + Math.random().toString(36).slice(2, 10);
+  const token = "p_" + Math.random().toString(36).slice(2, 18);
+
+  const { error: pErr } = await supabase.from("players").insert({
+    id, name: name.trim(), type:"regular",
+    disabled:false, priority:false, deputy:false,
+    status:"none", paid:false, owes:0,
+    goals:0, motm:0, attended:0, total:0,
+    bib_count:0, team:null, w:0, l:0, d:0,
+    pay_count:0, late_dropouts:0, note:"", self_paid:false,
+    token,
+  });
+  if (pErr) throw pErr;
+
+  const { error: tErr } = await supabase
+    .from("team_players").insert({ team_id: teamId, player_id: id });
+  if (tErr) throw tErr;
+
+  return { id, name, token };
+}

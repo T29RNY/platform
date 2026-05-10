@@ -9,6 +9,7 @@ import {
   getSettings, upsertSettings,
   getTeamByAdminToken, getTeamByPlayerToken,
   getPlayerByToken, getPlayerTeams,
+  getTeamByJoinCode, addPlayerToTeam,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
 
@@ -22,6 +23,8 @@ import HistoryView  from "./views/HistoryView.jsx";
 import AdminView    from "./views/AdminView/index.jsx";
 import InstallBanner from "./views/InstallBanner.jsx";
 import Onboarding   from "./onboarding/index.jsx";
+import JoinTeam     from "./views/JoinTeam.jsx";
+import JoinSuccess  from "./views/JoinSuccess.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
 
@@ -39,6 +42,7 @@ function getRoute() {
   if (parts[0]==="p"      && parts[1]) return { type:"player", token:parts[1] };
   if (parts[0]==="admin"  && parts[1]) return { type:"admin",  token:parts[1] };
   if (parts[0]==="create")             return { type:"create" };
+  if (parts[0]==="join"   && parts[1]) return { type:"join",   code:parts[1] };
   if (window.location.hostname==="localhost") return { type:"admin", token:"local" };
   return { type:"landing" };
 }
@@ -58,10 +62,22 @@ export default function App() {
   const [playerTeams,  setPlayerTeams] = useState([]);
   const [selectedTeam, setSelectedTeam]= useState(null);
   const [isAdmin,      setIsAdmin]     = useState(false);
+  const [joinTeam,     setJoinTeam]    = useState(null);
+  const [joinedPlayer, setJoinedPlayer]= useState(null);
+  const [joinLoading,  setJoinLoading] = useState(false);
+  const [joinError,    setJoinError]   = useState(null);
 
   useEffect(() => {
     if (route.type === "landing" || route.type === "create") {
       setLoading(false); return;
+    }
+
+    if (route.type === "join") {
+      getTeamByJoinCode(route.code).then(team => {
+        if (team) setJoinTeam(team);
+        setLoading(false);
+      });
+      return;
     }
 
     async function load() {
@@ -275,6 +291,54 @@ export default function App() {
       </div>
     </div>
   );
+
+  // ── Join team handler ─────────────────────────────────────────────────────
+  const handleJoin = async (name) => {
+    setJoinLoading(true); setJoinError(null);
+    try {
+      const player = await addPlayerToTeam(name, joinTeam.id);
+      setJoinedPlayer(player);
+    } catch(e) {
+      setJoinError(e.message || "Something went wrong. Please try again.");
+    } finally {
+      setJoinLoading(false);
+    }
+  };
+
+  // ── Join screens ──────────────────────────────────────────────────────────
+  if (route.type === "join") {
+    if (loading) return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        alignItems:"center", justifyContent:"center" }}>
+        <div style={{ fontSize:48 }}>⚽</div>
+      </div>
+    );
+    if (!joinTeam) return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        flexDirection:"column", alignItems:"center", justifyContent:"center",
+        padding:24, fontFamily:"Inter,sans-serif" }}>
+        <div style={{ fontSize:40, marginBottom:16 }}>🔗</div>
+        <div style={{ fontSize:14, color:C.muted, textAlign:"center" }}>
+          This invite link is invalid or has expired.
+        </div>
+      </div>
+    );
+    if (joinedPlayer) return (
+      <JoinSuccess
+        playerName={joinedPlayer.name}
+        playerToken={joinedPlayer.token}
+        teamName={joinTeam.name}
+      />
+    );
+    return (
+      <JoinTeam
+        team={joinTeam}
+        onJoin={handleJoin}
+        loading={joinLoading}
+        error={joinError}
+      />
+    );
+  }
 
   // ── Routes ────────────────────────────────────────────────────────────────
   if (route.type === "create") return <Onboarding/>;
