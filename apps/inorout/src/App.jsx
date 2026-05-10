@@ -6,7 +6,7 @@ import {
   getBibHistory, insertBib,
   getSchedule, upsertSchedule,
   getSettings, upsertSettings,
-} from "../../packages/core/storage/supabase.js";
+} from "@platform/supabase";
 import {
   SEED_SQUAD, SEED_MATCH_HISTORY, SEED_BIB_HISTORY,
   SEED_SCHEDULE, SEED_SETTINGS, SEED_COVER,
