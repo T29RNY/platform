@@ -359,7 +359,6 @@ export default function AdminView({
 
       {/* Bottom padding */}
       <div style={{ height:32 }}/>
-      </div>
     </div>
   );
 }
