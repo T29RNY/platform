@@ -3,14 +3,10 @@ import { colors as C } from "@platform/core";
 function maskEmail(email) {
   if (!email) return "";
   const [local, domain] = email.split("@");
-  const masked = local[0] + "***" + (local.length > 3 ? local.slice(-1) : "");
-  return `${masked}@${domain}`;
-}
-
-function maskName(name) {
-  if (!name) return "";
-  const parts = name.trim().split(" ");
-  return parts[0][0] + "***" + (parts.length > 1 ? " " + parts[1][0] + "." : "");
+  // Show first 3 chars + *** + last char before @
+  const start = local.slice(0, 3);
+  const end   = local.length > 4 ? local.slice(-1) : "";
+  return `${start}***${end}@${domain}`;
 }
 
 export default function IsThisYou({ matches, userEmail, onConfirm, onCreateNew }) {
@@ -48,7 +44,7 @@ export default function IsThisYou({ matches, userEmail, onConfirm, onCreateNew }
             </div>
             <div style={{ flex:1 }}>
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:15,
-                fontWeight:600, color:C.text }}>{maskName(player.name)}</div>
+                fontWeight:600, color:C.text }}>{player.name}</div>
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
                 color:C.muted, marginTop:2 }}>
                 {player.teamName} · {player.attended || 0} games played
