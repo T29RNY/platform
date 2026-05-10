@@ -194,6 +194,7 @@ function scheduleToDb(s) {
     game_date_time: s.gameDateTime,
     is_draft: s.isDraft, is_cancelled: s.isCancelled,
     cancel_reason: s.cancelReason,
+    city: s.city || null,
   };
 }
 
@@ -208,6 +209,7 @@ function dbToSchedule(r) {
     gameDateTime: r.game_date_time,
     isDraft: r.is_draft, isCancelled: r.is_cancelled,
     cancelReason: r.cancel_reason,
+    city: r.city || null,
   };
 }
 

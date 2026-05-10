@@ -16,6 +16,7 @@ export function useOnboarding({ onComplete }) {
   const [dayOfWeek,       setDayOfWeek]       = useState(CFG.defaults.dayOfWeek);
   const [kickoff,         setKickoff]         = useState(CFG.defaults.kickoff);
   const [venue,           setVenue]           = useState(CFG.defaults.venue);
+  const [city,            setCity]            = useState('');
   const [squadSize,       setSquadSize]       = useState(CFG.defaults.squadSize);
   const [pricePerPlayer,  setPricePerPlayer]  = useState(CFG.defaults.pricePerPlayer);
 
@@ -53,6 +54,7 @@ export function useOnboarding({ onComplete }) {
         opens_day: CFG.defaults.opensDay, opens_time: CFG.defaults.opensTime,
         priority_lead_mins: CFG.defaults.priorityLeadMins,
         price_per_player: pricePerPlayer,
+        city: city,
         game_is_live: false, squad_size: squadSize,
         game_date_time: null, is_draft: true,
         is_cancelled: false, cancel_reason: "",
@@ -134,6 +136,7 @@ export function useOnboarding({ onComplete }) {
     dayOfWeek, setDayOfWeek,
     kickoff,   setKickoff,
     venue,     setVenue,
+    city,      setCity,
     squadSize, setSquadSize,
     pricePerPlayer, setPricePerPlayer,
     submitTeam,

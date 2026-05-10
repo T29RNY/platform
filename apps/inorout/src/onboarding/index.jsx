@@ -41,6 +41,7 @@ export default function Onboarding({ onComplete }) {
           dayOfWeek={ob.dayOfWeek}       setDayOfWeek={ob.setDayOfWeek}
           kickoff={ob.kickoff}           setKickoff={ob.setKickoff}
           venue={ob.venue}               setVenue={ob.setVenue}
+          city={ob.city}                 setCity={ob.setCity}
           squadSize={ob.squadSize}       setSquadSize={ob.setSquadSize}
           pricePerPlayer={ob.pricePerPlayer} setPricePerPlayer={ob.setPricePerPlayer}
           onSubmit={ob.submitTeam}

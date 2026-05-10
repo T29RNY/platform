@@ -25,6 +25,7 @@ export default function CreateTeam({
   dayOfWeek, setDayOfWeek,
   kickoff,   setKickoff,
   venue,     setVenue,
+  city,      setCity,
   squadSize, setSquadSize,
   pricePerPlayer, setPricePerPlayer,
   onSubmit, loading, error,
@@ -85,6 +86,14 @@ export default function CreateTeam({
           value={venue}
           onChange={e => setVenue(e.target.value)}
           placeholder="e.g. Powerleague Salford"
+          style={inputStyle}
+        />
+      </Field>
+      <Field label="City">
+        <input
+          value={city}
+          onChange={e => setCity(e.target.value)}
+          placeholder="e.g. Manchester"
           style={inputStyle}
         />
       </Field>
