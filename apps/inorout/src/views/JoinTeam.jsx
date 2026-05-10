@@ -14,20 +14,22 @@ function SignInStep({ team }) {
   const [showEmail, setShowEmail] = useState(false);
 
   const signInWithGoogle = async () => {
-    localStorage.setItem("auth_return_to", window.location.href);
+    const returnTo = encodeURIComponent(window.location.href);
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${BASE_URL}/auth/callback` },
+      options: {
+        redirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}`,
+      },
     });
   };
 
   const signInWithEmail = async () => {
     if (!email.trim()) return;
     setSending(true);
-    localStorage.setItem("auth_return_to", window.location.href);
+    const returnTo = encodeURIComponent(window.location.href);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: `${BASE_URL}/auth/callback` },
+      options: { emailRedirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}` },
     });
     if (!error) setSent(true);
     setSending(false);

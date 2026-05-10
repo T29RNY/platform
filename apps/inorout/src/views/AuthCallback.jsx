@@ -8,13 +8,15 @@ export default function AuthCallback() {
   useEffect(() => {
     async function handle() {
       try {
-        // Supabase handles the session from the URL automatically
         const { data, error } = await supabase.auth.getSession();
-
         if (error) throw error;
 
-        // Get where they were trying to go
-        const returnTo = localStorage.getItem("auth_return_to") || "/";
+        // Get returnTo from URL params first, then localStorage fallback
+        const urlParams = new URLSearchParams(window.location.search);
+        const returnToParam = urlParams.get("returnTo");
+        const returnTo = returnToParam
+          ? decodeURIComponent(returnToParam)
+          : localStorage.getItem("auth_return_to") || "/";
         localStorage.removeItem("auth_return_to");
 
         setStatus("success");
