@@ -98,6 +98,7 @@ function dbToPlayer(r) {
     w: r.w, l: r.l, d: r.d,
     payCount: r.pay_count, lateDropouts: r.late_dropouts,
     note: r.note || "", selfPaid: r.self_paid,
+    token: r.token,
   };
 }
 
