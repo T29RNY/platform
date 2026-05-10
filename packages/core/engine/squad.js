@@ -1,0 +1,74 @@
+// Squad engine — shared across all products
+
+export function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+export function randomSplitTeams(players) {
+  const shuffled = shuffle(players);
+  const half     = Math.ceil(shuffled.length / 2);
+  return shuffled.map((p, i) => ({ ...p, team: i < half ? "A" : "B" }));
+}
+
+export function areTeamsSet(players) {
+  const inPlayers = players.filter(p => p.status === "in" && !p.disabled);
+  return inPlayers.length > 0 && inPlayers.every(p => p.team);
+}
+
+export function getTeamPlayers(players, team) {
+  return [...players.filter(p => p.status === "in" && !p.disabled && p.team === team)]
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function newPlayer(name, type = "regular", options = {}) {
+  return {
+    id:           "p" + Date.now(),
+    name:         name.trim(),
+    type,
+    disabled:     false,
+    priority:     options.priority || false,
+    deputy:       options.deputy   || false,
+    status:       "none",
+    paid:         false,
+    owes:         0,
+    goals:        0,
+    motm:         0,
+    attended:     0,
+    total:        0,
+    bibCount:     0,
+    team:         null,
+    w:            0,
+    l:            0,
+    d:            0,
+    payCount:     0,
+    lateDropouts: 0,
+    note:         "",
+    selfPaid:     false,
+  };
+}
+
+export function newMatch(options = {}) {
+  const now = new Date();
+  return {
+    id:           "m" + Date.now(),
+    date:         now.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
+    dateShort:    now.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+    teamA:        options.teamA    || [],
+    teamB:        options.teamB    || [],
+    winner:       options.winner   || null,
+    scoreA:       options.scoreA   || 0,
+    scoreB:       options.scoreB   || 0,
+    scorers:      options.scorers  || {},
+    motm:         options.motm     || null,
+    bibHolder:    options.bibHolder|| "",
+    payments:     options.payments || {},
+    cancelled:    options.cancelled|| false,
+    cancelReason: options.cancelReason || "",
+  };
+}
+
+export function nextWeekDateTime(currentDateTime) {
+  const d = new Date(currentDateTime || Date.now());
+  d.setDate(d.getDate() + 7);
+  return d.toISOString().slice(0, 16);
+}

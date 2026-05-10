@@ -1,0 +1,13 @@
+{
+  "name": "@platform/core",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./engine/*": "./engine/*",
+    "./storage/*": "./storage/*",
+    "./hooks/*": "./hooks/*",
+    "./constants/*": "./constants/*"
+  }
+}
