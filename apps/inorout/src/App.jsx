@@ -11,7 +11,7 @@ import {
   getPlayerByToken, getPlayerTeams,
   getTeamByJoinCode, addPlayerToTeam,
   getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
-  getSession, getUser, getPlayerByUserId, linkPlayerToUser, findPlayersByName, findPlayerByUserId,
+  getSession, getUser, findPlayerByUserId,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
 import Header        from "./views/Header.jsx";
@@ -23,8 +23,6 @@ import InstallBanner from "./views/InstallBanner.jsx";
 import Onboarding    from "./onboarding/index.jsx";
 import JoinTeam      from "./views/JoinTeam.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
-import SignIn        from "./views/SignIn.jsx";
-import IsThisYou     from "./views/IsThisYou.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
@@ -74,9 +72,6 @@ export default function App() {
 
   // Auth state
   const [authUser,     setAuthUser]    = useState(null);
-  const [showSignIn,   setShowSignIn]  = useState(false);
-  const [isThisYouMatches, setIsThisYouMatches] = useState(null);
-  const [pendingName,  setPendingName] = useState("");
 
   useEffect(() => {
     const el = document.createElement("link");
@@ -226,73 +221,27 @@ export default function App() {
     try { await upsertSettings(next, teamId); } catch(e) { console.error(e); }
   };
 
-  // ── Join handler — email first, name fallback ─────────────────────────────
+  // ── Join handler — auth first, name only after signed in ─────────────────
   const handleJoin = async (name) => {
-    // Must be signed in
-    if (!authUser) {
-      setPendingName(name);
-      setShowSignIn(true);
-      return;
-    }
-
+    if (!authUser) return;
     setJoinLoading(true); setJoinError(null);
     try {
-      // Step 1 — Check if this auth user already has a player record
-      const existingByUserId = await findPlayerByUserId(authUser.id);
-      if (existingByUserId) {
-        // Already linked — just add to this team
+      // Check if this auth user already has a player record anywhere
+      const existing = await findPlayerByUserId(authUser.id);
+      if (existing) {
+        // Already a player — just link to this team
         await supabase.from("team_players")
-          .upsert({ team_id: joinTeam.id, player_id: existingByUserId.id },
+          .upsert({ team_id: joinTeam.id, player_id: existing.id },
             { onConflict:"team_id,player_id" });
-        setJoinedPlayer({
-          id: existingByUserId.id,
-          name: existingByUserId.name,
-          token: existingByUserId.token
-        });
+        setJoinedPlayer({ id: existing.id, name: existing.name, token: existing.token });
         setJoinLoading(false);
         return;
       }
-
-      // Step 2 — Check for legacy players with same name (no user_id yet)
-      const nameMatches = await findPlayersByName(name);
-      if (nameMatches.length > 0) {
-        setIsThisYouMatches(nameMatches);
-        setPendingName(name);
-        setJoinLoading(false);
-        return;
-      }
-
-      // Step 3 — No match found, create new player
+      // New player — create with auth user_id
       const player = await addPlayerToTeam(name, joinTeam.id, authUser.id);
       setJoinedPlayer(player);
     } catch(e) {
       setJoinError(e.message || "Something went wrong.");
-    } finally {
-      setJoinLoading(false);
-    }
-  };
-
-  const handleIsThisYouConfirm = async (player) => {
-    try {
-      await linkPlayerToUser(player.id, authUser.id);
-      // Add to this team if not already in it
-      await supabase.from("team_players")
-        .upsert({ team_id: joinTeam.id, player_id: player.id }, { onConflict:"team_id,player_id" });
-      setJoinedPlayer({ id: player.id, name: player.name, token: player.token });
-    } catch(e) {
-      setJoinError(e.message);
-    }
-    setIsThisYouMatches(null);
-  };
-
-  const handleIsThisYouCreateNew = async () => {
-    setIsThisYouMatches(null);
-    setJoinLoading(true);
-    try {
-      const player = await addPlayerToTeam(pendingName, joinTeam.id, authUser.id);
-      setJoinedPlayer(player);
-    } catch(e) {
-      setJoinError(e.message);
     } finally {
       setJoinLoading(false);
     }
@@ -319,21 +268,6 @@ export default function App() {
         </div>
       </div>
     );
-    if (showSignIn) return (
-      <SignIn
-        teamName={joinTeam.name}
-        returnTo={window.location.href}
-        onBack={() => setShowSignIn(false)}
-      />
-    );
-    if (isThisYouMatches) return (
-      <IsThisYou
-        matches={isThisYouMatches}
-        userEmail={authUser?.email}
-        onConfirm={handleIsThisYouConfirm}
-        onCreateNew={handleIsThisYouCreateNew}
-      />
-    );
     if (joinedPlayer) return (
       <JoinSuccess
         playerName={joinedPlayer.name}
@@ -344,7 +278,8 @@ export default function App() {
     return (
       <JoinTeam
         team={joinTeam}
-        onJoin={handleJoin}
+        authUser={authUser}
+        onNameSubmit={handleJoin}
         loading={joinLoading}
         error={joinError}
       />
