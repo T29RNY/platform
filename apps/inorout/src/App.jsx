@@ -8,7 +8,7 @@ import {
   getSchedule, upsertSchedule,
   getSettings, upsertSettings,
   getTeamByAdminToken, getTeamByPlayerToken,
-  getPlayerByToken,
+  getPlayerByToken, getPlayerTeams,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
 
@@ -55,6 +55,8 @@ export default function App() {
   const [matchHistory, setMatchHistRaw]= useState([]);
   const [settings,     setSettingsRaw] = useState(DEFAULT_SETTINGS);
   const [myPlayer,     setMyPlayer]    = useState(null);
+  const [playerTeams,  setPlayerTeams] = useState([]);
+  const [selectedTeam, setSelectedTeam]= useState(null);
   const [isAdmin,      setIsAdmin]     = useState(false);
 
   useEffect(() => {
@@ -83,11 +85,24 @@ export default function App() {
 
         if (route.type === "player") {
           const player = await getPlayerByToken(route.token);
-          if (!player) { setLoading(false); return; } // handled by invalid token screen
+          if (!player) { setLoading(false); return; }
           setMyPlayer(player);
-          const team = await getTeamByPlayerToken(route.token);
-          if (!team) { setError("Could not find your team."); setLoading(false); return; }
-          resolvedTeamId = team.id;
+
+          // Check how many teams this player belongs to
+          const teams = await getPlayerTeams(player.id);
+          setPlayerTeams(teams);
+
+          if (teams.length === 0) {
+            setError("Could not find your team."); setLoading(false); return;
+          }
+
+          if (teams.length === 1) {
+            // Single team — load directly
+            resolvedTeamId = teams[0].id;
+          } else {
+            // Multiple teams — show switcher, don't load data yet
+            setLoading(false); return;
+          }
         }
 
         if (!resolvedTeamId) { setLoading(false); return; }
@@ -116,6 +131,28 @@ export default function App() {
     }
     load();
   }, []);
+
+  // ── Load a specific team's data (used by game switcher) ──────────────────
+  const loadTeam = async (tId) => {
+    setLoading(true);
+    try {
+      const [players, matches, bibs, sched, setts] = await Promise.all([
+        getPlayers(tId), getMatches(tId), getBibHistory(tId),
+        getSchedule(tId), getSettings(tId),
+      ]);
+      setTeamId(tId);
+      setSelectedTeam(tId);
+      setSquadRaw(players);
+      setMatchHistRaw(matches);
+      setBibHistRaw(bibs);
+      setScheduleRaw(sched || DEFAULT_SCHEDULE);
+      setSettingsRaw(setts || DEFAULT_SETTINGS);
+      setLoading(false);
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
+  };
 
   // ── Setters — all pass teamId ─────────────────────────────────────────────
   const setSquad = async (updater) => {
@@ -157,6 +194,40 @@ export default function App() {
     el.rel = "stylesheet"; el.href = FONT_LINK;
     document.head.appendChild(el);
   }, []);
+
+  // ── Multi-team game switcher ──────────────────────────────────────────────
+  if (route.type==="player" && myPlayer && playerTeams.length > 1 && !selectedTeam) return (
+    <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
+      maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
+      <InstallBanner/>
+      <div style={{ padding:"20px 18px 12px", background:"#0f0f0f",
+        borderBottom:`1px solid ${C.border}` }}>
+        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
+          color:C.amber, letterSpacing:3 }}>IN OR OUT</div>
+        <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
+          color:C.muted, marginTop:2 }}>Welcome back, {myPlayer.name}</div>
+      </div>
+      <div style={{ padding:18 }}>
+        <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+          color:C.muted, letterSpacing:1.5, textTransform:"uppercase",
+          marginBottom:16 }}>YOUR GAMES</div>
+        {playerTeams.map(team => (
+          <div key={team.id} onClick={() => loadTeam(team.id)}
+            style={{ background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:12, padding:20, marginBottom:14, cursor:"pointer" }}
+            onMouseEnter={e => e.currentTarget.style.borderColor=C.amber}
+            onMouseLeave={e => e.currentTarget.style.borderColor=C.border}>
+            <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
+              color:C.amber, letterSpacing:2 }}>{team.name}</div>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+              color:C.amber, marginTop:12, fontWeight:600, textAlign:"right" }}>
+              Open →
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   // ── Routes ────────────────────────────────────────────────────────────────
   if (route.type === "create") return <Onboarding/>;

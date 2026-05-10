@@ -210,3 +210,19 @@ function dbToSchedule(r) {
     cancelReason: r.cancel_reason,
   };
 }
+
+// ─── Get all teams for a player ───────────────────────────────────────────────
+export async function getPlayerTeams(playerId) {
+  const { data, error } = await supabase
+    .from("team_players")
+    .select("team_id")
+    .eq("player_id", playerId);
+  if (error || !data?.length) return [];
+  const teamIds = data.map(r => r.team_id);
+  const { data: teams, error: tErr } = await supabase
+    .from("teams")
+    .select("id, name, admin_token")
+    .in("id", teamIds);
+  if (tErr) return [];
+  return teams || [];
+}
