@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { colors as C, newPlayer } from "@platform/core";
-import { resetPlayerToken } from "@platform/supabase";
+import { resetPlayerToken, deletePlayer as removePlayerFromDb } from "@platform/supabase";
 import { BackBtn, Btn, SecTitle, Card, Toggle, Badge, CopyBtn } from "@platform/ui";
 
 export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
-  const [name,       setName]       = useState("");
-  const [type,       setType]       = useState("regular");
-  const [priority,   setPriority]   = useState(false);
-  const [deputy,     setDeputy]     = useState(false);
-  const [confirmDel, setConfirmDel] = useState(null);
-  const [resetState, setResetState] = useState({}); // { [playerId]: 'confirming'|'loading'|'done' }
+  const [name,             setName]             = useState("");
+  const [type,             setType]             = useState("regular");
+  const [priority,         setPriority]         = useState(false);
+  const [deputy,           setDeputy]           = useState(false);
+  const [confirmDel,       setConfirmDel]       = useState(null);
+  const [resetState,       setResetState]       = useState({});
+  const [injuryToast,      setInjuryToast]      = useState(null);
+  const [guestPrompt,      setGuestPrompt]      = useState(null); // { guestId, guestName, hostName }
 
   const resetToken = async (playerId) => {
     setResetState(s => ({ ...s, [playerId]: "loading" }));
@@ -35,12 +37,75 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
   const toggleDeputy   = id => setSquad(squad.map(p => p.id===id ? { ...p, deputy:!p.deputy }   : p));
   const deletePlayer   = id => { setSquad(squad.filter(p => p.id!==id)); setConfirmDel(null); };
 
+  const toggleInjured = (playerId) => {
+    const player = squad.find(p => p.id === playerId);
+    if (!player) return;
+    const newInjured = !player.injured;
+    const autoOut    = newInjured && ["in", "reserve", "maybe"].includes(player.status);
+    setSquad(squad.map(p => p.id === playerId
+      ? { ...p, injured: newInjured, status: autoOut ? "out" : p.status }
+      : p
+    ));
+    if (autoOut) {
+      setInjuryToast(`${player.name} set to OUT — marked as injured`);
+      setTimeout(() => setInjuryToast(null), 4000);
+    }
+    if (newInjured) {
+      const guest = squad.find(g => g.isGuest && g.guestOf === playerId && g.status !== "out");
+      if (guest) setGuestPrompt({ guestId: guest.id, guestName: guest.name, hostName: player.name });
+    }
+  };
+
+  const keepGuest   = () => setGuestPrompt(null);
+  const removeGuest = async () => {
+    if (!guestPrompt) return;
+    try {
+      await removePlayerFromDb(guestPrompt.guestId);
+      setSquad(squad.filter(p => p.id !== guestPrompt.guestId));
+    } catch(e) { console.error(e); }
+    setGuestPrompt(null);
+  };
+
   return (
     <div style={{ padding:18 }}>
       <BackBtn onClick={onBack}/>
       <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22, color:C.amber, letterSpacing:2, marginBottom:18 }}>
         MANAGE SQUAD
       </div>
+
+      {/* Injury toast */}
+      {injuryToast && (
+        <div style={{ padding:"10px 14px", borderRadius:6, marginBottom:14,
+          background:C.red+"12", border:`1px solid ${C.red}30`,
+          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.red }}>
+          🤕 {injuryToast}
+        </div>
+      )}
+
+      {/* Guest prompt when host is marked injured */}
+      {guestPrompt && (
+        <Card color={C.amber} style={{ marginBottom:16 }}>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
+            color:C.amber, marginBottom:4 }}>
+            👤 {guestPrompt.hostName} is now injured
+          </div>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginBottom:12 }}>
+            Keep {guestPrompt.guestName} in the game?
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={keepGuest} style={{ padding:"7px 16px", borderRadius:5,
+              border:`1px solid ${C.green}`, background:C.green+"18", color:C.green,
+              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              Yes, keep them
+            </button>
+            <button onClick={removeGuest} style={{ padding:"7px 16px", borderRadius:5,
+              border:`1px solid ${C.red}`, background:C.red+"18", color:C.red,
+              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              Remove {guestPrompt.guestName}
+            </button>
+          </div>
+        </Card>
+      )}
 
       {/* Invite link */}
       {teamId && (
@@ -103,6 +168,7 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
               {p.name}
             </span>
             {p.type==="guest" && <Badge text="guest"   color={C.muted}/>}
+            {p.injured        && <Badge text="🤕"      color={C.red}/>}
             {p.priority       && <Badge text="★"       color={C.purple}/>}
             {p.deputy         && <Badge text="deputy"  color={C.blue}/>}
             {p.disabled       && <Badge text="disabled"color={C.red}/>}
@@ -143,6 +209,13 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
               color:p.deputy?C.blue:C.muted,
               fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
               {p.deputy?"Deputy ✓":"Deputy"}
+            </button>
+            <button onClick={() => toggleInjured(p.id)} style={{ padding:"5px 11px", borderRadius:4,
+              border:`1px solid ${p.injured?C.red:C.border}`,
+              background:p.injured?C.red+"18":"transparent",
+              color:p.injured?C.red:C.muted,
+              fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+              {p.injured?"🤕 Clear injury":"🤕 Injure"}
             </button>
             <button onClick={() => toggleDisable(p.id)} style={{ padding:"5px 11px", borderRadius:4,
               border:`1px solid ${p.disabled?C.green:C.amber}`,

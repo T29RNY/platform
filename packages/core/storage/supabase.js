@@ -153,6 +153,7 @@ function playerToDb(p) {
     token: p.token,
     is_guest: p.isGuest || false,
     guest_of: p.guestOf || null,
+    injured: p.injured || false,
   };
 }
 
@@ -169,6 +170,7 @@ function dbToPlayer(r) {
     token: r.token,
     isGuest: r.is_guest || false,
     guestOf: r.guest_of || null,
+    injured: r.injured || false,
   };
 }
 

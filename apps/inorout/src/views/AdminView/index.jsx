@@ -126,8 +126,8 @@ export default function AdminView({
   const [adminSelfPaid,    setAdminSelfPaid]     = useState(false);
   const [addingAdminGuest, setAddingAdminGuest] = useState(false);
 
-  const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled);
-  const reservePlayers = squad.filter(p => p.status==="reserve" && !p.disabled);
+  const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
+  const reservePlayers = squad.filter(p => p.status==="reserve" && !p.disabled && !p.injured);
   const selfPaidPending = inPlayers.filter(p => p.selfPaid && !p.paid);
 
   // Guests whose host has dropped out
@@ -213,7 +213,7 @@ export default function AdminView({
       cancelled:true, cancelReason,
     }, ...matchHistory]);
     sendTemplate(notificationTemplates.gameCancelled, cancelReason);
-    // Push notification to IN players
+    // Push notification to IN players (excluding injured)
     if (teamId && inPlayers.length) {
       fetch('/api/notify', {
         method: 'POST',
@@ -221,7 +221,7 @@ export default function AdminView({
         body: JSON.stringify({
           type: 'gameCancelled',
           teamId,
-          playerIds: inPlayers.map(p => p.id),
+          playerIds: inPlayers.filter(p => !p.injured).map(p => p.id),
           payload: {
             title: 'In or Out ⚽',
             body: `❌ ${schedule.dayOfWeek}'s game is cancelled.`,
@@ -246,7 +246,7 @@ export default function AdminView({
     setSchedule({ ...schedule, gameIsLive:true, isDraft:false, isCancelled:false });
     sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
     // Push notification to all active players
-    const allPlayerIds = squad.filter(p => !p.disabled).map(p => p.id);
+    const allPlayerIds = squad.filter(p => !p.disabled && !p.injured).map(p => p.id);
     fetch('/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -671,7 +671,10 @@ export default function AdminView({
                 padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
                 <div style={{ flex:1 }}>
                   <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
-                    fontWeight:500, color:C.text }}>{p.name}</div>
+                    fontWeight:500, color:C.text, display:"flex", alignItems:"center", gap:6 }}>
+                    {p.name}
+                    {p.injured && <span style={{ fontSize:12 }}>🤕</span>}
+                  </div>
                   <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
                     color:C.red, marginTop:2 }}>Owes £{p.owes}</div>
                 </div>

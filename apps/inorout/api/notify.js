@@ -150,10 +150,10 @@ async function handleCron(cronType) {
     const { data: tps } = await supabase
       .from('team_players').select('player_id').eq('team_id', teamId);
     const { data: players } = await supabase
-      .from('players').select('id, name, status, paid, token')
+      .from('players').select('id, name, status, paid, token, injured')
       .in('id', (tps || []).map(t => t.player_id));
 
-    const inPlayers = (players || []).filter(p => p.status === 'in');
+    const inPlayers = (players || []).filter(p => p.status === 'in' && !p.injured);
 
     // 5. Game day 9am — cron schedule: "0 9 * * *"
     if (cronType === 'gameDay9am') {
@@ -211,7 +211,7 @@ async function handleCron(cronType) {
         .single();
 
       if (!lastMatch?.bib_holder) continue;
-      const bibPlayer = (players || []).find(p => p.name === lastMatch.bib_holder);
+      const bibPlayer = (players || []).find(p => p.name === lastMatch.bib_holder && !p.injured);
       if (!bibPlayer) continue;
 
       // 8. Bibs 24hr before — cron schedule: "0 * * * *"
@@ -278,7 +278,15 @@ module.exports = async function handler(req, res) {
   const quietEnd   = rc.quietEnd   || '08:00';
   const quiet      = isQuietHours(quietStart, quietEnd);
 
-  const subs = await getSubsForPlayers(teamId, playerIds);
+  // Filter out injured players before sending
+  let targetIds = playerIds;
+  if (playerIds?.length) {
+    const { data: ps } = await supabase
+      .from('players').select('id, injured').in('id', playerIds);
+    targetIds = (ps || []).filter(p => !p.injured).map(p => p.id);
+  }
+
+  const subs = await getSubsForPlayers(teamId, targetIds);
   if (!subs.length) return res.status(200).json({ sent: 0 });
 
   if (quiet) {

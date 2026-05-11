@@ -96,7 +96,7 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
       const currentInCount = inPlayers.length;
       const willBeFull     = currentInCount + 1 >= (schedule.squadSize || 14);
       if (willBeFull) {
-        const toNotify = squad.filter(p => p.id !== myId && p.status !== "in" && !p.disabled);
+        const toNotify = squad.filter(p => p.id !== myId && p.status !== "in" && !p.disabled && !p.injured);
         notifyServer("squadFull", teamId, toNotify.map(p => p.id), {
           title: "In or Out ⚽",
           body: "🔒 Squad's full! Get on the reserve list before it's too late.",
@@ -165,7 +165,16 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
     }
   };
 
-  const inPlayers    = squad.filter(p => p.status === "in" && !p.disabled);
+  const toggleInjury = () => {
+    const newInjured = !me?.injured;
+    const needsStatusReset = newInjured && ["in", "reserve", "maybe"].includes(me?.status);
+    setSquad(squad.map(p => p.id === myId
+      ? { ...p, injured: newInjured, status: needsStatusReset ? "out" : p.status }
+      : p
+    ));
+  };
+
+  const inPlayers    = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
   const teamsSet     = inPlayers.length > 0 && inPlayers.every(p => p.team);
   const isFull       = inPlayers.length >= (schedule.squadSize || 14);
   const groups       = groupByStatus(squad);
@@ -280,49 +289,60 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
             letterSpacing:1, textTransform:"uppercase", marginBottom:14 }}>
             {me?.name} — are you in {schedule.dayOfWeek}?
           </div>
-          <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-            <button onClick={() => !isFull && setStatus("in")} style={{
+          {/* Injured notice */}
+          {me?.injured && (
+            <div style={{ padding:"10px 12px", borderRadius:6, marginBottom:12,
+              background:C.red+"12", border:`1px solid ${C.red}30`,
+              fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color:C.red }}>
+              🤕 You're marked as injured — respond when you're back
+            </div>
+          )}
+
+          <div style={{ display:"flex", gap:8, marginBottom:8, opacity:me?.injured?0.35:1 }}>
+            <button onClick={() => !me?.injured && !isFull && setStatus("in")} style={{
               flex:1, padding:"14px 0", borderRadius:6,
               border:`2px solid ${me?.status==="in" ? C.green : isFull ? C.faint : C.border}`,
               background:me?.status==="in" ? C.green+"18" : "transparent",
               color:me?.status==="in" ? C.green : isFull ? C.faint : C.muted,
               fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
-              cursor:isFull && me?.status!=="in" ? "not-allowed" : "pointer",
-              opacity:isFull && me?.status!=="in" ? 0.4 : 1 }}>
+              cursor:me?.injured || (isFull && me?.status!=="in") ? "not-allowed" : "pointer" }}>
               ✅ I'M IN
             </button>
-            <button onClick={() => setStatus("out")} style={{
+            <button onClick={() => !me?.injured && setStatus("out")} style={{
               flex:1, padding:"14px 0", borderRadius:6,
               border:`2px solid ${me?.status==="out" ? C.red : C.border}`,
               background:me?.status==="out" ? C.red+"18" : "transparent",
               color:me?.status==="out" ? C.red : C.muted,
-              fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+              fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
+              cursor:me?.injured ? "not-allowed" : "pointer" }}>
               ❌ I'M OUT
             </button>
           </div>
-          <button onClick={() => !isFull && setStatus("maybe")} style={{
+          <button onClick={() => !me?.injured && !isFull && setStatus("maybe")} style={{
             width:"100%", padding:"12px 0", borderRadius:6, marginBottom:8,
             border:`2px solid ${me?.status==="maybe" ? C.amber : isFull ? C.faint : C.border}`,
             background:me?.status==="maybe" ? C.amber+"18" : "transparent",
             color:me?.status==="maybe" ? C.amber : isFull ? C.faint : C.muted,
             fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
-            cursor:isFull && me?.status!=="maybe" ? "not-allowed" : "pointer",
-            opacity:isFull && me?.status!=="maybe" ? 0.4 : 1 }}>
+            cursor:me?.injured || (isFull && me?.status!=="maybe") ? "not-allowed" : "pointer",
+            opacity:me?.injured || (isFull && me?.status!=="maybe") ? 0.35 : 1 }}>
             ❓ MAYBE — I'll try
           </button>
-          {isFull && me?.status !== "in" && (
+          {!me?.injured && isFull && me?.status !== "in" && (
             <div style={{ padding:"8px 12px", borderRadius:6, marginBottom:8, textAlign:"center",
               background:C.amber+"12", border:`1px solid ${C.amber}30`,
               fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.amber }}>
               🔒 Squad is full — join the reserve list
             </div>
           )}
-          <button onClick={() => setStatus("reserve")} style={{
+          <button onClick={() => !me?.injured && setStatus("reserve")} style={{
             width:"100%", padding:"12px 0", borderRadius:6, marginBottom:10,
             border:`2px solid ${me?.status==="reserve" ? C.purple : C.border}`,
             background:me?.status==="reserve" ? C.purple+"18" : "transparent",
             color:me?.status==="reserve" ? C.purple : C.muted,
-            fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+            fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
+            cursor:me?.injured ? "not-allowed" : "pointer",
+            opacity:me?.injured ? 0.35 : 1 }}>
             🟣 RESERVE — add me to the list
           </button>
 
@@ -396,6 +416,17 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
           )}
         </Card>
       )}
+
+      {/* Injury toggle */}
+      <button onClick={toggleInjury} style={{
+        width:"100%", padding:"10px 14px", borderRadius:6, marginBottom:16,
+        border:`1px solid ${me?.injured ? C.red+"60" : C.border}`,
+        background:me?.injured ? C.red+"0c" : "transparent",
+        color:me?.injured ? C.red : C.muted,
+        fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:600,
+        cursor:"pointer", textAlign:"left" }}>
+        {me?.injured ? "🤕 Injured — tap to clear" : "🤕 Mark as injured"}
+      </button>
 
       {/* Plus One section */}
       {schedule.gameIsLive && (
@@ -516,7 +547,8 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
                         fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color,
                         display:"flex", flexDirection:"column", gap:2 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                          {p.name}
+                          <span style={{ opacity:p.injured?0.45:1 }}>{p.name}</span>
+                          {p.injured && <span style={{ fontSize:11 }}>🤕</span>}
                           {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
                         </div>
                         {p.isGuest && hostName && (
