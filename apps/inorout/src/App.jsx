@@ -25,6 +25,7 @@ import JoinTeam      from "./views/JoinTeam.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
 import Legal         from "./views/Legal.jsx";
+import PWAWelcome   from "./views/PWAWelcome.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
 
@@ -96,6 +97,14 @@ function getRoute() {
     }
   } catch(e) {
     console.warn("[ioo] redirect bridge error:", e);
+  }
+
+  // Standalone PWA with no known player — show welcome screen, not the create-a-team landing
+  const isStandalone = window.navigator.standalone === true
+    || window.matchMedia("(display-mode: standalone)").matches;
+  if (isStandalone) {
+    console.log("[ioo] standalone + no lastVisited → PWA welcome screen");
+    return { type:"pwa_welcome" };
   }
 
   console.log("[ioo] no redirect — showing landing");
@@ -307,7 +316,8 @@ export default function App() {
   };
 
   // ── Special routes ────────────────────────────────────────────────────────
-  if (route.type === "redirecting") return null;
+  if (route.type === "redirecting")  return null;
+  if (route.type === "pwa_welcome")  return <PWAWelcome/>;
   if (route.type === "auth_callback") return <AuthCallback/>;
   if (route.type === "legal") return <Legal/>;
   if (route.type === "create") return <Onboarding/>;
