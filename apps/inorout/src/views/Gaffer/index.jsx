@@ -156,7 +156,8 @@ function FeedbackRow({ msg, onFeedback }) {
 
 // ── Main Gaffer component ─────────────────────────────────────────────────────
 
-export default function Gaffer({ context, onNavigate, isBlocked }) {
+export default function Gaffer({ context, onNavigate, isBlocked, enabled }) {
+  if (!enabled) return null;
   const [isOpen,   setIsOpen]   = useState(false);
   const [isPeek,   setIsPeek]   = useState(false);
   const [peekMsg,  setPeekMsg]  = useState("");

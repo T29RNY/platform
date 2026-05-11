@@ -67,14 +67,16 @@ APP KNOWLEDGE:
 
 PLAYER VIEW (/p/TOKEN)
 - Each player has a unique link — their personal URL, no login needed day-to-day
+- The game must be open (admin-controlled) before players can respond — before that they see a "not open yet" state
 - Players respond IN, OUT, MAYBE, or RESERVE
 - RESERVE = wants to play but is a backup if someone drops out
-- Squad full = IN buttons lock, only RESERVE available
+- Once the IN count hits squad size, the IN button locks for everyone not already IN — only RESERVE is available at that point
 - Players can add a plus one at any time — guest appears as "Jay 👤 (guest of Dave)"
-- Players can mark themselves as injured — status buttons disabled, can still add a plus one
-- Players can self-pay from their view
+- Players can mark themselves as injured — status buttons are disabled, they cannot change status until the injury is cleared by themselves or admin; they can still add a plus one while injured
+- Players can self-pay from their view — self-paid counts as paid
 - Debt banner shows if they owe money from a previous game
-- If player is #2 in reserve queue, tell them their position directly
+- If player is in reserve queue, tell them their position directly
+- Team sheet: teams only appear once admin confirms the split in Pick Teams. Before that, players only see who is IN. Once confirmed, each player can see which team they're on.
 - Stats tab: goals, MOTM, W/L/D, attendance, streaks, bibs, payment reliability
 - History tab: all past games with scorers, MOTM, result
 
@@ -82,22 +84,22 @@ ADMIN VIEW (/admin/TOKEN)
 - Admin URL is secret — never share it
 - Live board shows all players, status, payment, debt
 - Admin can mark players paid, clear debt, add plus ones, mark injured
-- Squad summary strip shows IN X/Y + RESERVE N
-- Reserve list is draggable — #1 is next in line
-- Manage Squad: invite link, reset player link, injure/clear players
+- Squad summary strip shows IN count vs squad size, and reserve count
+- Reserve list is draggable — position 1 is next called up
+- Manage Squad: invite link, reset individual player links, injure/clear players
 - Input Result: who won, score, scorers, MOTM, bib holder dropdown
 - Bib Tracker: who has the bibs, full history
 - Schedule Settings: kickoff, venue, price, squad size, opening time, match duration, reminders
-- Reminders tab: quiet hours + per-trigger notification toggles
+- Reminders tab: quiet hours and per-trigger notification toggles
 - Cover Pool: casual players, no app needed, admin managed
 - Cancel Week: sends cancellation push to all IN players
-- If admin runs multiple teams: game switcher is top right of header
+- If admin runs multiple teams: game switcher available to switch between teams
 
 ONBOARDING (/create)
 - 3 steps: Create Team → Add Players → Share Links
 - Admin sets team name, city, kickoff day/time, venue, squad size, price
 - Players added by name in step 2
-- Invite links generated in step 3 — share to WhatsApp group
+- Invite links generated in step 3, ready to share with the squad
 
 JOINING A TEAM (/join/TEAMID)
 - New players join via invite link
@@ -122,40 +124,44 @@ AUTH CALLBACK (/auth/callback)
 - If it appears to hang: tell user to go back and try signing in again
 - Common cause: slow connection — wait 10 seconds before retrying
 
-PAYMENTS
-- Admin sets price in Schedule Settings
-- Players marked IN who haven't paid show Mark Paid in admin
-- Players can self-pay from their own view
-- Debt carries over if unpaid after result saved
-- Outstanding debts shown at bottom of admin view
+PAYMENTS AND DEBT
+- Admin sets price per game in Schedule Settings
+- When the result is saved, any player who was marked IN and hasn't paid gets that game's price added to their debt automatically — self-paid counts as paid
+- Debt carries forward to the next game and is shown on the player's own view and in the admin outstanding debts section
+- Players can self-pay from their own view; admin confirms or marks paid directly
+- Outstanding debts persist until admin clears them
 - Stripe payments coming soon — cash or self-pay for now
 
-NOTIFICATIONS
-- Players get pushes for: game open, squad full, spot opened, game cancelled, debt reminder, bib reminders, MOTM voting
-- Only works if player subscribed (prompted after first status set on Android / installed iOS)
-- Admin controls triggers and quiet hours in Schedule → Reminders tab
-- Injured players receive no notifications
+RESERVE PROMOTION
+- When a spot opens, the reserve queue determines who gets notified
+- More than 24hrs to kickoff: the next player in queue gets notified first and has time to respond
+- Less than 24hrs to kickoff: all reserves are notified simultaneously — first to respond IN gets the spot
+- Reserve must respond IN to confirm the spot — it's not automatic
 
-RESERVE LIST
-- Always visible — not just when squad is full
-- Admin drags to reorder — position 1 is next called up
-- <24hrs to kickoff: all reserves notified simultaneously
-- >24hrs: next in queue notified first
+SQUAD FULL LOGIC
+- Once IN count hits squad size, the IN button locks for anyone not already IN
+- RESERVE is the only available response at that point
+- Admin can still manually override from the admin view
+
+GAME LIFECYCLE
+- Game doesn't open for responses until the admin-configured opening time — players see a "not open yet" state before that
+- Once admin saves the result, a new draft game is auto-created for next week — all player statuses reset to none, and the new game goes live once admin opens it
+- Saving a result also triggers automatic debt calculation for unpaid IN players
 
 PLUS ONE
 - Any player can bring a guest at any time
+- A guest takes a real squad spot — if squad is full, a host can only add a plus one if they themselves are IN (using their own spot for the guest)
 - Guest appears as "Jay 👤 (guest of Dave)" on live board
-- Host pays or guest pays cash/via link
-- Guest takes a squad spot
-- Admin: keep/reserve/remove guest if host drops out
+- Host pays or guest pays cash
+- Once added, the guest is independent — if the host drops out, admin is prompted to decide what happens to the guest, not auto-removed
 - After game: admin can add guest to cover pool with one tap
 - Guests don't need the app — name only
 
 INJURED PLAYERS
 - Player or admin can mark as injured
-- Auto-set to OUT, status buttons disabled
-- Excluded from squad count, notifications, MOTM voting
-- Debt still shows
+- Auto-set to OUT; injured players cannot change their status until the injury is cleared by themselves or admin
+- Excluded from squad count, push notifications, and MOTM voting
+- Debt from previous games still shows and applies
 - Can still add a plus one while injured
 
 STATS & HISTORY
@@ -164,17 +170,24 @@ STATS & HISTORY
 - History: tap any game to drill in
 
 BIBS
-- Admin picks bib holder in Input Result screen (dropdown)
-- BibsScreen lets admin override
+- Admin picks bib holder when inputting the result (dropdown)
+- Bib Tracker lets admin override at any time
 - Guests and injured excluded from bib picker
 
 COVER POOL
 - Casual fillers — no app needed, admin managed
-- Add guest to cover pool after game with one tap
+- Admin adds them manually by name
+- Cover pool players don't appear on the live board unless admin adds them as a plus one for a specific game
+
+NOTIFICATIONS
+- Players get pushes for: game open, squad full, spot opened, game cancelled, debt reminder, bib reminders, MOTM voting
+- Only works if player has subscribed (prompted after first status set on Android or installed iOS PWA)
+- Admin controls which triggers are active and quiet hours in Schedule Settings → Reminders
+- Injured players receive no notifications
 
 MULTIPLE TEAMS
-- Admins running more than one team see a game switcher in the header
-- Tap to switch between teams
+- Admins running more than one team can switch between them using the game switcher
+- Each team has its own schedule, squad, and history
 
 LEGAL
 - T&Cs and Privacy Policy at /legal
