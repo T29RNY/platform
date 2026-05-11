@@ -2,10 +2,11 @@
 // Handles in/out/maybe logic, late dropouts, notes
 
 export const STATUS = {
-  IN:    "in",
-  OUT:   "out",
-  MAYBE: "maybe",
-  NONE:  "none",
+  IN:      "in",
+  OUT:     "out",
+  MAYBE:   "maybe",
+  NONE:    "none",
+  RESERVE: "reserve",
 };
 
 export function isLateDropout(previousStatus, newStatus, gameDateTime) {
@@ -18,10 +19,11 @@ export function isLateDropout(previousStatus, newStatus, gameDateTime) {
 
 export function groupByStatus(players) {
   return {
-    in:    players.filter(p => p.status === STATUS.IN    && !p.disabled),
-    maybe: players.filter(p => p.status === STATUS.MAYBE && !p.disabled),
-    out:   players.filter(p => p.status === STATUS.OUT   && !p.disabled),
-    none:  players.filter(p => p.status === STATUS.NONE  && !p.disabled),
+    in:      players.filter(p => p.status === STATUS.IN      && !p.disabled),
+    maybe:   players.filter(p => p.status === STATUS.MAYBE   && !p.disabled),
+    out:     players.filter(p => p.status === STATUS.OUT     && !p.disabled),
+    none:    players.filter(p => p.status === STATUS.NONE    && !p.disabled),
+    reserve: players.filter(p => p.status === STATUS.RESERVE && !p.disabled),
   };
 }
 

@@ -114,9 +114,28 @@ export default function AdminView({
   const [payments,      setPayments]      = useState(
     () => Object.fromEntries(squad.map(p => [p.id, p.paid]))
   );
+  const [dragId, setDragId] = useState(null);
 
-  const inPlayers       = squad.filter(p => p.status==="in" && !p.disabled);
+  const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled);
+  const reservePlayers = squad.filter(p => p.status==="reserve" && !p.disabled);
   const selfPaidPending = inPlayers.filter(p => p.selfPaid && !p.paid);
+
+  const moveReserve = (fromId, toId) => {
+    if (fromId === toId) return;
+    const reserveIndices = squad
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => p.status === "reserve" && !p.disabled)
+      .map(({ i }) => i);
+    const inOrder = reserveIndices.map(i => squad[i]);
+    const fromPos = inOrder.findIndex(p => p.id === fromId);
+    const toPos   = inOrder.findIndex(p => p.id === toId);
+    const reordered = [...inOrder];
+    const [moved] = reordered.splice(fromPos, 1);
+    reordered.splice(toPos, 0, moved);
+    const newSquad = [...squad];
+    reserveIndices.forEach((squadIdx, i) => { newSquad[squadIdx] = reordered[i]; });
+    setSquad(newSquad);
+  };
 
   const enableNotifs = async () => {
     const p = await requestNotifPerm();
@@ -221,6 +240,64 @@ export default function AdminView({
           fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:500, color:C.green }}>
           ✅ Push notifications active
         </div>
+      )}
+
+      {/* Squad summary */}
+      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+        <div style={{ flex:1, padding:"10px 12px", borderRadius:6, background:C.surface,
+          border:`1px solid ${inPlayers.length>=(schedule.squadSize||14)?C.green+"50":C.border}`,
+          textAlign:"center" }}>
+          <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
+            color:inPlayers.length>=(schedule.squadSize||14)?C.green:C.amber }}>
+            {inPlayers.length}<span style={{ fontSize:14, color:C.muted }}>/{schedule.squadSize||14}</span>
+          </div>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:10, color:C.muted,
+            letterSpacing:1, textTransform:"uppercase" }}>IN</div>
+        </div>
+        {reservePlayers.length > 0 && (
+          <div style={{ flex:1, padding:"10px 12px", borderRadius:6, background:C.surface,
+            border:`1px solid ${C.purple}40`, textAlign:"center" }}>
+            <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22, color:C.purple }}>
+              {reservePlayers.length}
+            </div>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:10, color:C.muted,
+              letterSpacing:1, textTransform:"uppercase" }}>RESERVE</div>
+          </div>
+        )}
+      </div>
+
+      {/* Reserve list */}
+      {reservePlayers.length > 0 && (
+        <Card color={C.purple} style={{ marginBottom:16 }}>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+            color:C.purple, letterSpacing:1, marginBottom:4 }}>🟣 RESERVE LIST</div>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:12 }}>
+            Drag to reorder — #1 gets notified first when a spot opens
+          </div>
+          {/* TODO(Stripe session): on spot opening, reserve player has 30 mins to pay to confirm */}
+          {reservePlayers.map((p, i) => (
+            <div key={p.id}
+              draggable
+              onDragStart={() => setDragId(p.id)}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => { moveReserve(dragId, p.id); setDragId(null); }}
+              style={{ display:"flex", alignItems:"center", gap:10,
+                padding:"11px 0", borderBottom:`1px solid ${C.border}`,
+                opacity:dragId===p.id?0.4:1, cursor:"grab" }}>
+              <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:18,
+                color:C.faint, minWidth:20 }}>{i+1}</div>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.faint,
+                marginRight:2, userSelect:"none" }}>⠿</div>
+              <div style={{ flex:1, fontFamily:"Inter,sans-serif", fontSize:14,
+                fontWeight:500, color:C.purple }}>{p.name}</div>
+              {i === 0 && (
+                <span style={{ fontFamily:"Inter,sans-serif", fontSize:10, fontWeight:700,
+                  padding:"2px 8px", borderRadius:4,
+                  background:C.purple+"20", color:C.purple }}>Next</span>
+              )}
+            </div>
+          ))}
+        </Card>
       )}
 
       {/* Action grid */}

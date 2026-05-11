@@ -6,7 +6,7 @@ export default function PlayerView({ squad, setSquad, myId, schedule }) {
   const me = squad.find(p => p.id === myId);
   const [note, setNote]         = useState(me?.note || "");
   const [showNote, setShowNote] = useState(false);
-  const SC = { in:C.green, maybe:C.amber, out:C.red, none:C.muted };
+  const SC = { in:C.green, maybe:C.amber, out:C.red, reserve:C.purple, none:C.muted };
 
   const setStatus = (s) => {
     const late = isLateDropout(me?.status, s, schedule.gameDateTime);
@@ -15,6 +15,7 @@ export default function PlayerView({ squad, setSquad, myId, schedule }) {
       ? { ...p, status:s, note, lateDropouts:(p.lateDropouts||0)+(late?1:0) }
       : p
     ));
+    // TODO(Reminders session): if me?.status === "in" && s !== "in" && reserve list exists -> trigger reserve notification sequence
   };
 
   const saveNote = () => {
@@ -126,25 +127,49 @@ export default function PlayerView({ squad, setSquad, myId, schedule }) {
             {me?.name} — are you in {schedule.dayOfWeek}?
           </div>
           <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-            {["in","out"].map(s => (
-              <button key={s} onClick={() => setStatus(s)} style={{
-                flex:1, padding:"14px 0", borderRadius:6,
-                border:`2px solid ${me?.status===s ? SC[s] : C.border}`,
-                background:me?.status===s ? SC[s]+"18" : "transparent",
-                color:me?.status===s ? SC[s] : C.muted,
-                fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, cursor:"pointer" }}>
-                {s==="in" ? "✅ I'M IN" : "❌ I'M OUT"}
-              </button>
-            ))}
+            <button onClick={() => !isFull && setStatus("in")} style={{
+              flex:1, padding:"14px 0", borderRadius:6,
+              border:`2px solid ${me?.status==="in" ? C.green : isFull ? C.faint : C.border}`,
+              background:me?.status==="in" ? C.green+"18" : "transparent",
+              color:me?.status==="in" ? C.green : isFull ? C.faint : C.muted,
+              fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
+              cursor:isFull && me?.status!=="in" ? "not-allowed" : "pointer",
+              opacity:isFull && me?.status!=="in" ? 0.4 : 1 }}>
+              ✅ I'M IN
+            </button>
+            <button onClick={() => setStatus("out")} style={{
+              flex:1, padding:"14px 0", borderRadius:6,
+              border:`2px solid ${me?.status==="out" ? C.red : C.border}`,
+              background:me?.status==="out" ? C.red+"18" : "transparent",
+              color:me?.status==="out" ? C.red : C.muted,
+              fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+              ❌ I'M OUT
+            </button>
           </div>
-          <button onClick={() => setStatus("maybe")} style={{
-            width:"100%", padding:"12px 0", borderRadius:6,
-            border:`2px solid ${me?.status==="maybe" ? C.amber : C.border}`,
+          <button onClick={() => !isFull && setStatus("maybe")} style={{
+            width:"100%", padding:"12px 0", borderRadius:6, marginBottom:8,
+            border:`2px solid ${me?.status==="maybe" ? C.amber : isFull ? C.faint : C.border}`,
             background:me?.status==="maybe" ? C.amber+"18" : "transparent",
-            color:me?.status==="maybe" ? C.amber : C.muted,
+            color:me?.status==="maybe" ? C.amber : isFull ? C.faint : C.muted,
             fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
-            cursor:"pointer", marginBottom:10 }}>
+            cursor:isFull && me?.status!=="maybe" ? "not-allowed" : "pointer",
+            opacity:isFull && me?.status!=="maybe" ? 0.4 : 1 }}>
             ❓ MAYBE — I'll try
+          </button>
+          {isFull && me?.status !== "in" && (
+            <div style={{ padding:"8px 12px", borderRadius:6, marginBottom:8, textAlign:"center",
+              background:C.amber+"12", border:`1px solid ${C.amber}30`,
+              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.amber }}>
+              🔒 Squad is full — join the reserve list
+            </div>
+          )}
+          <button onClick={() => setStatus("reserve")} style={{
+            width:"100%", padding:"12px 0", borderRadius:6, marginBottom:10,
+            border:`2px solid ${me?.status==="reserve" ? C.purple : C.border}`,
+            background:me?.status==="reserve" ? C.purple+"18" : "transparent",
+            color:me?.status==="reserve" ? C.purple : C.muted,
+            fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+            🟣 RESERVE — add me to the list
           </button>
 
           {/* Note */}
@@ -176,8 +201,9 @@ export default function PlayerView({ squad, setSquad, myId, schedule }) {
             <div style={{ padding:"10px 12px", borderRadius:6, textAlign:"center",
               background:SC[me.status]+"12", color:SC[me.status],
               fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500 }}>
-              {me.status==="in" ? `Locked in 👊 See you ${schedule.dayOfWeek}`
-               : me.status==="maybe" ? "Got it — we'll keep a spot open 🤞"
+              {me.status==="in"      ? `Locked in 👊 See you ${schedule.dayOfWeek}`
+               : me.status==="maybe"   ? "Got it — we'll keep a spot open 🤞"
+               : me.status==="reserve" ? "You're on the reserve list — we'll let you know if a spot opens 🟣"
                : "No worries, we'll find cover 👍"}
             </div>
           )}
@@ -216,6 +242,25 @@ export default function PlayerView({ squad, setSquad, myId, schedule }) {
                 </div>
               </div>
             )
+          )}
+          {groups.reserve?.length > 0 && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, color:C.purple,
+                letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>
+                🟣 RESERVE ({groups.reserve.length})
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                {groups.reserve.map((p, i) => (
+                  <div key={p.id} style={{ padding:"5px 12px", borderRadius:4,
+                    background:C.purple+"14", border:`1px solid ${C.purple}40`,
+                    fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color:C.purple,
+                    display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ fontSize:11, color:C.faint }}>{i+1}.</span>
+                    {p.name}{p.id===myId && <Badge text="you" color={C.purple}/>}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </>
       )}
