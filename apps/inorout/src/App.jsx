@@ -46,6 +46,25 @@ function getRoute() {
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
+
+  // Redirect bridge — only at root "/"
+  try {
+    const stored = localStorage.getItem("ioo_redirect_to");
+    if (stored) {
+      const { path, ts } = JSON.parse(stored);
+      localStorage.removeItem("ioo_redirect_to");
+      if (path && ts && Date.now() - ts < 7 * 24 * 60 * 60 * 1000) {
+        window.location.replace(path);
+        return { type:"redirecting" };
+      }
+    }
+    const last = localStorage.getItem("ioo_last_visited");
+    if (last) {
+      window.location.replace(last);
+      return { type:"redirecting" };
+    }
+  } catch {}
+
   return { type:"landing" };
 }
 
@@ -65,6 +84,10 @@ export default function App() {
   const [playerTeams,  setPlayerTeams] = useState([]);
   const [selectedTeam, setSelectedTeam]= useState(null);
   const [isAdmin,      setIsAdmin]     = useState(false);
+
+  // Landing player-link input
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkInput,     setLinkInput]     = useState("");
 
   // Join flow state
   const [joinTeam,     setJoinTeam]    = useState(null);
@@ -250,6 +273,7 @@ export default function App() {
   };
 
   // ── Special routes ────────────────────────────────────────────────────────
+  if (route.type === "redirecting") return null;
   if (route.type === "auth_callback") return <AuthCallback/>;
   if (route.type === "legal") return <Legal/>;
   if (route.type === "create") return <Onboarding/>;
@@ -310,9 +334,49 @@ export default function App() {
           Create Your Team →
         </button>
       </a>
-      <div style={{ marginTop:16, fontFamily:"Inter,sans-serif",
-        fontSize:12, color:C.muted, textAlign:"center" }}>
-        Already have a link? Use the link your organiser sent you.
+      <div style={{ marginTop:20, textAlign:"center" }}>
+        {!showLinkInput ? (
+          <button onClick={() => setShowLinkInput(true)} style={{
+            background:"none", border:"none", padding:0, cursor:"pointer",
+            fontFamily:"Inter,sans-serif", fontSize:13,
+            color:C.muted, textDecoration:"underline", textDecorationStyle:"dotted",
+          }}>
+            Already have a player link?
+          </button>
+        ) : (
+          <div style={{ maxWidth:320, margin:"0 auto" }}>
+            <input
+              autoFocus
+              value={linkInput}
+              onChange={e => setLinkInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key !== "Enter") return;
+                const m = linkInput.match(/\/p\/([a-zA-Z0-9_-]+)/);
+                if (m) window.location.href = `/p/${m[1]}`;
+              }}
+              placeholder="Paste your link here"
+              style={{ width:"100%", padding:"12px 14px", borderRadius:6,
+                border:`1.5px solid ${linkInput ? C.amber : C.border}`,
+                background:"#0a0a0a", color:C.text,
+                fontFamily:"Inter,sans-serif", fontSize:14,
+                outline:"none", boxSizing:"border-box", marginBottom:8 }}
+            />
+            <button
+              onClick={() => {
+                const m = linkInput.match(/\/p\/([a-zA-Z0-9_-]+)/);
+                if (m) window.location.href = `/p/${m[1]}`;
+              }}
+              style={{ width:"100%", padding:"12px 0", borderRadius:6,
+                border:"none",
+                background: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? C.amber : "#2a2a2a",
+                color: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? "#000" : C.muted,
+                fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
+                cursor: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? "pointer" : "not-allowed",
+              }}>
+              Go →
+            </button>
+          </div>
+        )}
       </div>
       <div style={{ marginTop:40, fontFamily:"Inter,sans-serif", fontSize:11,
         color:"#444", textAlign:"center", display:"flex", gap:16,

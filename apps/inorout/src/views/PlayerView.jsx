@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates } from "@platform/core";
 import { savePushSubscription } from "@platform/supabase";
 import { Card, Badge, Btn } from "@platform/ui";
@@ -25,7 +25,20 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
     () => (typeof localStorage !== "undefined" && localStorage.getItem(`notif_${myId}`)) || "idle"
   );
   const SC = { in:C.green, maybe:C.amber, out:C.red, reserve:C.purple, none:C.muted };
-  const canPush = typeof window !== "undefined" && "PushManager" in window && "serviceWorker" in navigator;
+
+  const isIOS        = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = typeof window !== "undefined" && (window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches);
+  // Only offer push on Android or installed iOS PWA — iOS Safari non-standalone can't subscribe
+  const canPush = typeof window !== "undefined" && "PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone);
+
+  // Save redirect bridge for iOS Safari non-standalone
+  useEffect(() => {
+    if (isIOS && !isStandalone) {
+      const path = window.location.pathname;
+      localStorage.setItem("ioo_redirect_to", JSON.stringify({ path, ts: Date.now() }));
+      localStorage.setItem("ioo_last_visited", path);
+    }
+  }, []);
 
   const handleSubscribe = async () => {
     setNotifState("asking");

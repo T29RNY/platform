@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { colors as C } from "@platform/core";
 import { supabase } from "@platform/supabase";
+import InstallBanner from "./InstallBanner.jsx";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
@@ -179,10 +180,16 @@ function NameStep({ team, onSubmit, loading, error }) {
 
 // Main JoinTeam component — orchestrates the steps
 export default function JoinTeam({ team, authUser, onNameSubmit, loading, error }) {
+  useEffect(() => {
+    const path = window.location.pathname;
+    localStorage.setItem("ioo_redirect_to", JSON.stringify({ path, ts: Date.now() }));
+  }, []);
+
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif",
       display:"flex", flexDirection:"column" }}>
+      <InstallBanner/>
 
       {/* Header */}
       <div style={{ padding:"24px 24px 20px", background:"#0f0f0f",
