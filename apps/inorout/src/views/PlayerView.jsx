@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates } from "@platform/core";
-import { savePushSubscription } from "@platform/supabase";
+import { savePushSubscription, addGuestPlayer, deletePlayer } from "@platform/supabase";
 import { Card, Badge, Btn } from "@platform/ui";
 
 function urlBase64ToUint8Array(b64) {
@@ -24,12 +24,24 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
   const [notifState, setNotifState] = useState(
     () => (typeof localStorage !== "undefined" && localStorage.getItem(`notif_${myId}`)) || "idle"
   );
+
+  // Plus one state
+  const [showPlusOneForm, setShowPlusOneForm] = useState(false);
+  const [guestName,       setGuestName]       = useState("");
+  const [guestSelfPaid,   setGuestSelfPaid]   = useState(false);
+  const [addingGuest,     setAddingGuest]     = useState(false);
+  const [pickerPlayer,    setPickerPlayer]    = useState(null);
+  const [removingGuest,   setRemovingGuest]   = useState(false);
+
   const SC = { in:C.green, maybe:C.amber, out:C.red, reserve:C.purple, none:C.muted };
 
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-  // Only offer push on Android or installed iOS PWA — iOS Safari non-standalone can't subscribe
   const canPush = "PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone);
+
+  const myGuest = squad.find(p => p.isGuest && p.guestOf === myId);
+  // Can remove guest until next week is drafted (i.e., result not yet saved)
+  const canRemoveGuest = !schedule.isDraft;
 
   const handleSubscribe = async () => {
     setNotifState("asking");
@@ -65,15 +77,12 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
     if (!teamId) return;
     const gameDate = schedule.gameDateTime?.split("T")[0];
 
-    // Spot opened — notify reserve list
     if (me?.status === "in" && s !== "in") {
       const reserves = squad.filter(p => p.status === "reserve" && !p.disabled);
       if (reserves.length) {
         const hoursToKick = schedule.gameDateTime
           ? (new Date(schedule.gameDateTime) - new Date()) / 3600000
           : Infinity;
-        // <24hrs: notify all simultaneously. >24hrs: notify #1 only.
-        // TODO(Reminders v2): >24hrs sequential escalation — 60-min window per player then move to next
         const toNotify = hoursToKick < 24 ? reserves : [reserves[0]];
         notifyServer("spotOpened", teamId, toNotify.map(p => p.id), {
           title: "In or Out ⚽",
@@ -83,9 +92,8 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
       }
     }
 
-    // Squad just filled — notify everyone not already IN
     if (s === "in" && me?.status !== "in") {
-      const currentInCount = inPlayers.length; // before this player's change
+      const currentInCount = inPlayers.length;
       const willBeFull     = currentInCount + 1 >= (schedule.squadSize || 14);
       if (willBeFull) {
         const toNotify = squad.filter(p => p.id !== myId && p.status !== "in" && !p.disabled);
@@ -106,6 +114,55 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
   const markSelfPaid = () => {
     setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
     sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
+  };
+
+  const handleGuestNameChange = (val) => {
+    setGuestName(val);
+    if (val.trim().length >= 2) {
+      const match = squad.find(p => !p.isGuest && !p.disabled && p.id !== myId &&
+        p.name.toLowerCase().startsWith(val.toLowerCase().trim()));
+      setPickerPlayer(match || null);
+    } else {
+      setPickerPlayer(null);
+    }
+  };
+
+  const submitGuest = async () => {
+    if (!guestName.trim() || addingGuest) return;
+    setAddingGuest(true);
+    try {
+      const guest = await addGuestPlayer(myId, guestName.trim(), teamId, guestSelfPaid);
+      setSquad([...squad, guest]);
+      setGuestName("");
+      setGuestSelfPaid(false);
+      setPickerPlayer(null);
+      setShowPlusOneForm(false);
+    } catch(e) {
+      console.error("Failed to add guest:", e);
+    } finally {
+      setAddingGuest(false);
+    }
+  };
+
+  const confirmExistingPlayer = () => {
+    if (!pickerPlayer) return;
+    setSquad(squad.map(p => p.id === pickerPlayer.id ? { ...p, status: "in" } : p));
+    setGuestName("");
+    setPickerPlayer(null);
+    setShowPlusOneForm(false);
+  };
+
+  const removeMyGuest = async () => {
+    if (!myGuest || removingGuest) return;
+    setRemovingGuest(true);
+    try {
+      await deletePlayer(myGuest.id);
+      setSquad(squad.filter(p => p.id !== myGuest.id));
+    } catch(e) {
+      console.error("Failed to remove guest:", e);
+    } finally {
+      setRemovingGuest(false);
+    }
   };
 
   const inPlayers    = squad.filter(p => p.status === "in" && !p.disabled);
@@ -178,6 +235,7 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
                     display:"flex", alignItems:"center", gap:6 }}>
                     <span style={{ fontSize:11, color:C.faint, minWidth:16 }}>{i+1}</span>
                     {p.name}{p.id===myId && <Badge text="you" color={color}/>}
+                    {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
                   </div>
                 ))}
               </div>
@@ -199,6 +257,7 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
               <span style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:16,
                 color:C.faint, minWidth:22 }}>{i+1}</span>
               {p.name}{p.id===myId && <Badge text="you" color={C.green}/>}
+              {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
             </div>
           ))}
         </Card>
@@ -338,6 +397,103 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
         </Card>
       )}
 
+      {/* Plus One section */}
+      {schedule.gameIsLive && (
+        <div style={{ marginBottom:20 }}>
+          {myGuest ? (
+            <div style={{ padding:"12px 14px", borderRadius:8,
+              background:C.muted+"0c", border:`1px solid ${C.border}` }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div>
+                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:600, color:C.text }}>
+                    👤 {myGuest.name} <span style={{ color:C.muted, fontWeight:400 }}>— your plus one</span>
+                  </div>
+                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:2 }}>
+                    {myGuest.selfPaid ? "Paying cash" : "You're covering payment"}
+                  </div>
+                </div>
+                {canRemoveGuest && (
+                  <button onClick={removeMyGuest} disabled={removingGuest}
+                    style={{ padding:"5px 11px", borderRadius:4,
+                      border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
+                      fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
+                    {removingGuest ? "..." : "Remove"}
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : showPlusOneForm ? (
+            <div style={{ padding:"14px 16px", borderRadius:8,
+              background:C.surface, border:`1px solid ${C.border}` }}>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
+                color:C.text, marginBottom:12 }}>➕ Add a plus one</div>
+
+              {pickerPlayer ? (
+                <div style={{ padding:"12px 14px", borderRadius:6, marginBottom:12,
+                  background:C.amber+"0c", border:`1px solid ${C.amber}40` }}>
+                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500,
+                    color:C.amber, marginBottom:10 }}>
+                    Is this {pickerPlayer.name} (already on the team)?
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={confirmExistingPlayer} style={{ padding:"7px 14px", borderRadius:5,
+                      border:`1px solid ${C.green}`, background:C.green+"18", color:C.green,
+                      fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                      Yes, that's them
+                    </button>
+                    <button onClick={() => setPickerPlayer(null)} style={{ padding:"7px 14px",
+                      borderRadius:5, border:`1px solid ${C.border}`, background:"transparent",
+                      color:C.muted, fontFamily:"Inter,sans-serif", fontSize:12, cursor:"pointer" }}>
+                      No, different person
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <input value={guestName} onChange={e => handleGuestNameChange(e.target.value)}
+                  placeholder="Guest's name..."
+                  style={{ width:"100%", padding:"11px 13px", borderRadius:6, marginBottom:12,
+                    border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
+                    fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
+                    boxSizing:"border-box" }}/>
+              )}
+
+              {/* Payment toggle */}
+              <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                {[
+                  { label:`${me?.name} pays`, value:false },
+                  { label:"They pay cash", value:true },
+                ].map(opt => (
+                  <button key={String(opt.value)} onClick={() => setGuestSelfPaid(opt.value)} style={{
+                    flex:1, padding:"9px 0", borderRadius:5,
+                    border:`1.5px solid ${guestSelfPaid===opt.value ? C.amber : C.border}`,
+                    background:guestSelfPaid===opt.value ? C.amber+"18" : "transparent",
+                    color:guestSelfPaid===opt.value ? C.amber : C.muted,
+                    fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display:"flex", gap:8 }}>
+                <Btn label={addingGuest ? "Adding..." : "Add Plus One"} color={C.green} fill
+                  onClick={submitGuest} disabled={!guestName.trim() || addingGuest || !!pickerPlayer} small block/>
+                <Btn label="Cancel" color={C.muted}
+                  onClick={() => { setShowPlusOneForm(false); setGuestName(""); setPickerPlayer(null); }}
+                  small block/>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShowPlusOneForm(true)} style={{
+              width:"100%", padding:"11px 14px", borderRadius:6,
+              border:`1px solid ${C.border}`, background:C.surface,
+              color:C.muted, fontFamily:"Inter,sans-serif", fontSize:13,
+              fontWeight:600, cursor:"pointer", textAlign:"left" }}>
+              ➕ Add a plus one
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Live board */}
       {!teamsSet && (
         <>
@@ -352,21 +508,28 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
                   {emoji} {label} ({groups[k].length})
                 </div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {groups[k].map(p => (
-                    <div key={p.id} style={{ padding:"5px 12px", borderRadius:4,
-                      background:color+"14", border:`1px solid ${color}40`,
-                      fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color,
-                      display:"flex", flexDirection:"column", gap:2 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                        {p.name}{p.type==="guest" && <Badge text="guest" color={C.muted}/>}
-                      </div>
-                      {p.note && (
-                        <div style={{ fontSize:10, color:C.muted, fontStyle:"italic" }}>
-                          "{p.note}"
+                  {groups[k].map(p => {
+                    const hostName = p.isGuest ? squad.find(h => h.id === p.guestOf)?.name : null;
+                    return (
+                      <div key={p.id} style={{ padding:"5px 12px", borderRadius:4,
+                        background:color+"14", border:`1px solid ${color}40`,
+                        fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color,
+                        display:"flex", flexDirection:"column", gap:2 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                          {p.name}
+                          {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {p.isGuest && hostName && (
+                          <div style={{ fontSize:10, color:color+"99" }}>guest of {hostName}</div>
+                        )}
+                        {p.note && (
+                          <div style={{ fontSize:10, color:C.muted, fontStyle:"italic" }}>
+                            "{p.note}"
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )

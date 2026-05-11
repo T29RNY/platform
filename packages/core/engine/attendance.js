@@ -58,11 +58,15 @@ export function updatePlayerRecords(players, match, scorers, motmVote, payments,
 
   return players.map(p => {
     if (!allPlayers.includes(p.name)) return p;
-    const onA    = teamAPlayers.includes(p.name);
-    const won    = (onA && match.winner === "A") || (!onA && match.winner === "B");
-    const drew   = match.winner === "D";
-    const paid   = payments[p.name] || false;
+    const paid    = payments[p.name] || false;
     const addOwes = !paid && pricePerPlayer > 0 ? pricePerPlayer : 0;
+    // Guests take a squad spot and owe payment but don't accumulate stats
+    if (p.isGuest) {
+      return { ...p, owes: (p.owes || 0) + addOwes, team: null, status: "none", paid: false };
+    }
+    const onA  = teamAPlayers.includes(p.name);
+    const won  = (onA && match.winner === "A") || (!onA && match.winner === "B");
+    const drew = match.winner === "D";
     return {
       ...p,
       w:        (p.w || 0) + (won ? 1 : 0),

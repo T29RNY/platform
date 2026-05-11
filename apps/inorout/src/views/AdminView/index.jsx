@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { colors as C, requestNotifPerm, sendTemplate, notificationTemplates,
   carryForwardDebts, nextWeekDateTime, storage } from "@platform/core";
-import { addCoverPlayer, removeCoverPlayer } from "@platform/supabase";
+import { addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer } from "@platform/supabase";
 import { Card, SecTitle, Btn } from "@platform/ui";
 import TeamsScreen    from "./TeamsScreen.jsx";
 import ScoreScreen    from "./ScoreScreen.jsx";
@@ -116,9 +116,63 @@ export default function AdminView({
   );
   const [dragId, setDragId] = useState(null);
 
+  // Guest orphan prompts — dismissed per guest
+  const [dismissedOrphans, setDismissedOrphans] = useState(new Set());
+
+  // Admin plus one form
+  const [showAdminPlusOne, setShowAdminPlusOne] = useState(false);
+  const [adminHostId,      setAdminHostId]      = useState("");
+  const [adminGuestName,   setAdminGuestName]   = useState("");
+  const [adminSelfPaid,    setAdminSelfPaid]     = useState(false);
+  const [addingAdminGuest, setAddingAdminGuest] = useState(false);
+
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled);
   const reservePlayers = squad.filter(p => p.status==="reserve" && !p.disabled);
   const selfPaidPending = inPlayers.filter(p => p.selfPaid && !p.paid);
+
+  // Guests whose host has dropped out
+  const orphanedGuests = squad.filter(p =>
+    p.isGuest && !p.disabled &&
+    squad.find(h => h.id === p.guestOf)?.status !== "in" &&
+    !dismissedOrphans.has(p.id)
+  );
+
+  const dismissOrphan = (guestId) =>
+    setDismissedOrphans(prev => new Set([...prev, guestId]));
+
+  const reserveGuest = (guestId) => {
+    setSquad(squad.map(p => p.id === guestId ? { ...p, status: "reserve" } : p));
+    dismissOrphan(guestId);
+  };
+
+  const removeGuest = async (guestId) => {
+    try {
+      await deletePlayer(guestId);
+      setSquad(squad.filter(p => p.id !== guestId));
+      dismissOrphan(guestId);
+    } catch(e) { console.error(e); }
+  };
+
+  const addGuestToCoverPool = async (guest) => {
+    try {
+      const cp = await addCoverPlayer(teamId, guest.name);
+      setCoverPool(prev => [...prev, cp]);
+      await deletePlayer(guest.id);
+      setSquad(squad.filter(p => p.id !== guest.id));
+    } catch(e) { console.error(e); }
+  };
+
+  const submitAdminGuest = async () => {
+    if (!adminHostId || !adminGuestName.trim() || addingAdminGuest) return;
+    setAddingAdminGuest(true);
+    try {
+      const guest = await addGuestPlayer(adminHostId, adminGuestName.trim(), teamId, adminSelfPaid);
+      setSquad([...squad, guest]);
+      setAdminHostId(""); setAdminGuestName(""); setAdminSelfPaid(false);
+      setShowAdminPlusOne(false);
+    } catch(e) { console.error(e); }
+    finally { setAddingAdminGuest(false); }
+  };
 
   const moveReserve = (fromId, toId) => {
     if (fromId === toId) return;
@@ -232,6 +286,42 @@ export default function AdminView({
           <Btn label="🟢 Go Live — Notify Players" color={C.green} fill onClick={openNextWeek}/>
         </Card>
       )}
+
+      {/* Orphaned guest prompts — host dropped out */}
+      {orphanedGuests.map(guest => {
+        const host = squad.find(h => h.id === guest.guestOf);
+        return (
+          <Card key={guest.id} color={C.amber} style={{ marginBottom:16 }}>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
+              color:C.amber, marginBottom:4 }}>
+              👤 {guest.name}'s host dropped out
+            </div>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginBottom:12 }}>
+              {host?.name || "Their host"} is now out. What should happen to {guest.name}?
+            </div>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              <button onClick={() => dismissOrphan(guest.id)} style={{ padding:"7px 14px",
+                borderRadius:5, border:`1px solid ${C.green}`, background:C.green+"18",
+                color:C.green, fontFamily:"Inter,sans-serif", fontSize:12,
+                fontWeight:700, cursor:"pointer" }}>
+                Keep IN
+              </button>
+              <button onClick={() => reserveGuest(guest.id)} style={{ padding:"7px 14px",
+                borderRadius:5, border:`1px solid ${C.purple}`, background:C.purple+"18",
+                color:C.purple, fontFamily:"Inter,sans-serif", fontSize:12,
+                fontWeight:700, cursor:"pointer" }}>
+                Move to reserve
+              </button>
+              <button onClick={() => removeGuest(guest.id)} style={{ padding:"7px 14px",
+                borderRadius:5, border:`1px solid ${C.red}`, background:C.red+"18",
+                color:C.red, fontFamily:"Inter,sans-serif", fontSize:12,
+                fontWeight:700, cursor:"pointer" }}>
+                Remove {guest.name}
+              </button>
+            </div>
+          </Card>
+        );
+      })}
 
       {/* Self-pay confirmations */}
       {selfPaidPending.length > 0 && (
@@ -439,31 +529,110 @@ export default function AdminView({
           const allPaid = Object.fromEntries(inPlayers.map(p => [p.id, true]));
           setPayments(pm => ({ ...pm, ...allPaid }));
           setSquad(squad.map(p => inPlayers.find(ip => ip.id===p.id) ? { ...p, paid:true, selfPaid:false } : p));
-        }} style={{ width:"100%", padding:"10px 0", borderRadius:6, marginBottom:12,
+        }} style={{ width:"100%", padding:"10px 0", borderRadius:6, marginBottom:8,
           border:`1px solid ${C.green}`, background:C.green+"12", color:C.green,
           fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
           ✅ Mark All Paid
         </button>
       )}
-      {inPlayers.map(p => (
+
+      {/* Admin: add a plus one on behalf of any player */}
+      {showAdminPlusOne ? (
+        <div style={{ padding:"14px 16px", borderRadius:8, marginBottom:12,
+          background:C.surface, border:`1px solid ${C.border}` }}>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
+            color:C.text, marginBottom:10 }}>➕ Add a plus one</div>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:8 }}>
+            Host player:
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+            {squad.filter(p => !p.isGuest && !p.disabled).map(p => (
+              <button key={p.id} onClick={() => setAdminHostId(p.id)} style={{
+                padding:"6px 12px", borderRadius:5,
+                border:`1.5px solid ${adminHostId===p.id ? C.amber : C.border}`,
+                background:adminHostId===p.id ? C.amber+"18" : "transparent",
+                color:adminHostId===p.id ? C.amber : C.muted,
+                fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:500, cursor:"pointer" }}>
+                {p.name}
+              </button>
+            ))}
+          </div>
+          <input value={adminGuestName} onChange={e => setAdminGuestName(e.target.value)}
+            placeholder="Guest's name..."
+            style={{ width:"100%", padding:"11px 13px", borderRadius:6, marginBottom:10,
+              border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
+              fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
+              boxSizing:"border-box" }}/>
+          <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+            {[
+              { label:`Host pays`, value:false },
+              { label:"Guest pays cash", value:true },
+            ].map(opt => (
+              <button key={String(opt.value)} onClick={() => setAdminSelfPaid(opt.value)} style={{
+                flex:1, padding:"8px 0", borderRadius:5,
+                border:`1.5px solid ${adminSelfPaid===opt.value ? C.amber : C.border}`,
+                background:adminSelfPaid===opt.value ? C.amber+"18" : "transparent",
+                color:adminSelfPaid===opt.value ? C.amber : C.muted,
+                fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <Btn label={addingAdminGuest ? "Adding..." : "Add Plus One"} color={C.green} fill
+              onClick={submitAdminGuest}
+              disabled={!adminHostId || !adminGuestName.trim() || addingAdminGuest} small block/>
+            <Btn label="Cancel" color={C.muted}
+              onClick={() => { setShowAdminPlusOne(false); setAdminHostId(""); setAdminGuestName(""); }}
+              small block/>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setShowAdminPlusOne(true)} style={{
+          width:"100%", padding:"9px 14px", borderRadius:6, marginBottom:12,
+          border:`1px solid ${C.border}`, background:C.surface, color:C.muted,
+          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer",
+          textAlign:"left" }}>
+          ➕ Add a plus one
+        </button>
+      )}
+
+      {inPlayers.map(p => {
+        const host = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
+        return (
         <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
           padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
           <div style={{ flex:1 }}>
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500,
               color:C.text, display:"flex", alignItems:"center", gap:6 }}>
               {p.name}
+              {p.isGuest && <span style={{ fontSize:13 }}>👤</span>}
               {p.selfPaid && !p.paid && (
                 <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
                   background:C.amber+"20", color:C.amber }}>self-paid</span>
               )}
             </div>
+            {p.isGuest && host && (
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:1 }}>
+                guest of {host.name}
+              </div>
+            )}
             {p.owes > 0 && (
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.red, marginTop:2 }}>
                 Owes £{p.owes} from before
               </div>
             )}
           </div>
-          <div style={{ display:"flex", gap:6 }}>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"flex-end" }}>
+            {/* Add guest to cover pool — shown after result saved (next week drafted) */}
+            {p.isGuest && schedule.isDraft && (
+              <button onClick={() => addGuestToCoverPool(p)} style={{ padding:"7px 10px",
+                borderRadius:5, border:`1px solid ${C.blue}`, background:C.blue+"18",
+                color:C.blue, fontFamily:"Inter,sans-serif", fontSize:11,
+                fontWeight:700, cursor:"pointer" }}>
+                + Cover pool
+              </button>
+            )}
             {p.owes > 0 && (
               <button onClick={() => {
                 setSquad(squad.map(s => s.id===p.id ? { ...s, owes:0 } : s));
@@ -482,7 +651,8 @@ export default function AdminView({
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
 
       {/* Outstanding debts — players not in this week's game */}
       {(() => {

@@ -107,12 +107,22 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
             {p.deputy         && <Badge text="deputy"  color={C.blue}/>}
             {p.disabled       && <Badge text="disabled"color={C.red}/>}
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:9 }}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:"#2e2e2e", flex:1 }}>
-              🔗 in-or-out.com/p/{p.token || p.id}
+          {!p.isGuest && (
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:9 }}>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:"#2e2e2e", flex:1 }}>
+                🔗 in-or-out.com/p/{p.token || p.id}
+              </div>
+              <CopyBtn text={`https://in-or-out.com/p/${p.token || p.id}`}/>
             </div>
-            <CopyBtn text={`https://in-or-out.com/p/${p.token || p.id}`}/>
-          </div>
+          )}
+          {p.isGuest && (() => {
+            const host = squad.find(h => h.id === p.guestOf);
+            return host ? (
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:9 }}>
+                👤 plus one — guest of {host.name}
+              </div>
+            ) : null;
+          })()}
           {resetState[p.id] === "done" && (
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.green,
               padding:"6px 10px", borderRadius:5, background:C.green+"14", marginBottom:8 }}>
@@ -158,7 +168,7 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
                 Delete
               </button>
             )}
-            {resetState[p.id] === "loading" ? (
+            {!p.isGuest && (resetState[p.id] === "loading" ? (
               <button disabled style={{ padding:"5px 11px", borderRadius:4,
                 border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
                 fontFamily:"Inter,sans-serif", fontSize:11, cursor:"not-allowed" }}>
@@ -171,9 +181,9 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
                   fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
                 Reset Link
               </button>
-            ) : null}
+            ) : null)}
           </div>
-          {resetState[p.id] === "confirming" && (
+          {!p.isGuest && resetState[p.id] === "confirming" && (
             <div style={{ marginTop:8, padding:"10px 12px", borderRadius:5,
               border:`1px solid ${C.amber}44`, background:C.amber+"0a" }}>
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.amber, marginBottom:8 }}>

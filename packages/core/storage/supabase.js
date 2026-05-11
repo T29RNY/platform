@@ -151,6 +151,8 @@ function playerToDb(p) {
     pay_count: p.payCount, late_dropouts: p.lateDropouts,
     note: p.note || "", self_paid: p.selfPaid || false,
     token: p.token,
+    is_guest: p.isGuest || false,
+    guest_of: p.guestOf || null,
   };
 }
 
@@ -165,6 +167,8 @@ function dbToPlayer(r) {
     payCount: r.pay_count, lateDropouts: r.late_dropouts,
     note: r.note || "", selfPaid: r.self_paid,
     token: r.token,
+    isGuest: r.is_guest || false,
+    guestOf: r.guest_of || null,
   };
 }
 
@@ -270,6 +274,26 @@ export async function addPlayerToTeam(name, teamId, userId = null) {
   if (tErr) throw tErr;
 
   return { id, name, token };
+}
+
+// ─── Guest players ────────────────────────────────────────────────────────────
+export async function addGuestPlayer(hostPlayerId, guestName, teamId, selfPaid = false) {
+  const id = "p_" + Math.random().toString(36).slice(2, 10);
+  const row = {
+    id, name: guestName.trim(), type: "regular",
+    disabled: false, priority: false, deputy: false,
+    status: "in", paid: false, owes: 0,
+    goals: 0, motm: 0, attended: 0, total: 0,
+    bib_count: 0, team: null, w: 0, l: 0, d: 0,
+    pay_count: 0, late_dropouts: 0, note: "", self_paid: selfPaid,
+    token: null, is_guest: true, guest_of: hostPlayerId,
+  };
+  const { error: pErr } = await supabase.from("players").insert(row);
+  if (pErr) throw pErr;
+  const { error: tErr } = await supabase
+    .from("team_players").insert({ team_id: teamId, player_id: id });
+  if (tErr) throw tErr;
+  return dbToPlayer(row);
 }
 
 // ─── Cover pool ───────────────────────────────────────────────────────────────
