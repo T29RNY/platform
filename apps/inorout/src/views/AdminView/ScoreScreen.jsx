@@ -162,7 +162,7 @@ export default function ScoreScreen({
           <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:14 }}>
             They'll get a reminder before next week's game.
           </div>
-          {inPlayers.filter(p => p.type !== "guest").map(p => (
+          {inPlayers.filter(p => !p.isGuest).map(p => (
             <button key={p.id} onClick={() => setBibHolder(p.name)} style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
               width:"100%", padding:"11px 14px", borderRadius:6, marginBottom:6,
