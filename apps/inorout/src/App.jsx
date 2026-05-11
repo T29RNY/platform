@@ -39,8 +39,28 @@ const DEFAULT_SETTINGS = { groupName:"My Team" };
 // ─── Routing ──────────────────────────────────────────────────────────────────
 function getRoute() {
   const parts = window.location.pathname.split("/").filter(Boolean);
-  if (parts[0]==="p"             && parts[1]) return { type:"player",   token:parts[1] };
-  if (parts[0]==="admin"         && parts[1]) return { type:"admin",    token:parts[1] };
+
+  // For player/admin routes — save localStorage immediately, before any async work
+  if ((parts[0]==="p" || parts[0]==="admin") && parts[1]) {
+    const path = window.location.pathname;
+    const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+
+    // Always keep lastVisited fresh — used for permanent redirect on every subsequent app open
+    localStorage.setItem("ioo_last_visited", path);
+    console.log("[ioo] saved ioo_last_visited:", path);
+
+    // On iOS Safari non-standalone — also set redirectTo for fresh-install bridge
+    if (isIOS && !isStandalone) {
+      const payload = JSON.stringify({ path, ts: Date.now() });
+      localStorage.setItem("ioo_redirect_to", payload);
+      console.log("[ioo] saved ioo_redirect_to (iOS non-standalone):", path);
+    }
+
+    if (parts[0]==="p") return { type:"player", token:parts[1] };
+    return { type:"admin", token:parts[1] };
+  }
+
   if (parts[0]==="create")                    return { type:"create" };
   if (parts[0]==="join"          && parts[1]) return { type:"join",     code:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
@@ -48,23 +68,37 @@ function getRoute() {
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
 
   // Redirect bridge — only at root "/"
+  console.log("[ioo] at root /");
   try {
     const stored = localStorage.getItem("ioo_redirect_to");
+    console.log("[ioo] ioo_redirect_to raw:", stored);
     if (stored) {
       const { path, ts } = JSON.parse(stored);
-      localStorage.removeItem("ioo_redirect_to");
-      if (path && ts && Date.now() - ts < 7 * 24 * 60 * 60 * 1000) {
+      const age = Date.now() - ts;
+      console.log("[ioo] ioo_redirect_to path:", path, "age(ms):", age);
+      if (path && ts && age < 7 * 24 * 60 * 60 * 1000) {
+        localStorage.removeItem("ioo_redirect_to");
+        console.log("[ioo] redirecting via ioo_redirect_to →", path);
         window.location.replace(path);
         return { type:"redirecting" };
       }
+      // Expired — remove it but fall through to lastVisited
+      localStorage.removeItem("ioo_redirect_to");
+      console.log("[ioo] ioo_redirect_to expired, removed");
     }
+
     const last = localStorage.getItem("ioo_last_visited");
+    console.log("[ioo] ioo_last_visited:", last);
     if (last) {
+      console.log("[ioo] redirecting via ioo_last_visited →", last);
       window.location.replace(last);
       return { type:"redirecting" };
     }
-  } catch {}
+  } catch(e) {
+    console.warn("[ioo] redirect bridge error:", e);
+  }
 
+  console.log("[ioo] no redirect — showing landing");
   return { type:"landing" };
 }
 

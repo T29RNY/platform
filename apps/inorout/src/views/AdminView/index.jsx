@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { colors as C, requestNotifPerm, sendTemplate, notificationTemplates,
   carryForwardDebts, nextWeekDateTime, storage } from "@platform/core";
 import { addCoverPlayer, removeCoverPlayer } from "@platform/supabase";
@@ -115,16 +115,6 @@ export default function AdminView({
     () => Object.fromEntries(squad.map(p => [p.id, p.paid]))
   );
   const [dragId, setDragId] = useState(null);
-
-  useEffect(() => {
-    const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-    if (isIOS && !isStandalone) {
-      const path = window.location.pathname;
-      localStorage.setItem("ioo_redirect_to", JSON.stringify({ path, ts: Date.now() }));
-      localStorage.setItem("ioo_last_visited", path);
-    }
-  }, []);
 
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled);
   const reservePlayers = squad.filter(p => p.status==="reserve" && !p.disabled);
