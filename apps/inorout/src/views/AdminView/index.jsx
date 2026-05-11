@@ -159,6 +159,24 @@ export default function AdminView({
       cancelled:true, cancelReason,
     }, ...matchHistory]);
     sendTemplate(notificationTemplates.gameCancelled, cancelReason);
+    // Push notification to IN players
+    if (teamId && inPlayers.length) {
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'gameCancelled',
+          teamId,
+          playerIds: inPlayers.map(p => p.id),
+          payload: {
+            title: 'In or Out ⚽',
+            body: `❌ ${schedule.dayOfWeek}'s game is cancelled.`,
+            icon: '/icons/icon-192.png',
+          },
+          gameDate: schedule.gameDateTime?.split('T')[0],
+        }),
+      }).catch(console.error);
+    }
     setShowCancel(false);
     setCancelReason("");
   };
@@ -173,6 +191,23 @@ export default function AdminView({
   const openNextWeek = () => {
     setSchedule({ ...schedule, gameIsLive:true, isDraft:false, isCancelled:false });
     sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
+    // Push notification to all active players
+    const allPlayerIds = squad.filter(p => !p.disabled).map(p => p.id);
+    fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'gameLive',
+        teamId,
+        playerIds: allPlayerIds,
+        payload: {
+          title: 'In or Out ⚽',
+          body: `⚽ ${schedule.dayOfWeek}'s game is open — are you in or out?`,
+          icon: '/icons/icon-192.png',
+        },
+        gameDate: schedule.gameDateTime?.split('T')[0],
+      }),
+    }).catch(console.error);
   };
 
   // Route to sub-screens
@@ -451,14 +486,15 @@ export default function AdminView({
 
       {/* Outstanding debts — players not in this week's game */}
       {(() => {
-        const debtors = squad.filter(p => !p.disabled && p.owes > 0 && p.status !== "in");
+        const debtors  = squad.filter(p => !p.disabled && p.owes > 0 && p.status !== "in");
+        const totalOwed = debtors.reduce((sum, p) => sum + p.owes, 0);
         if (!debtors.length) return null;
         return (
           <>
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
               color:C.red, letterSpacing:1, textTransform:"uppercase",
               margin:"20px 0 10px" }}>
-              💸 Outstanding Debts
+              💸 Outstanding Debts — £{totalOwed} across {debtors.length} player{debtors.length !== 1 ? "s" : ""}
             </div>
             {debtors.map(p => (
               <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,

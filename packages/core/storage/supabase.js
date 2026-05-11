@@ -202,6 +202,7 @@ function scheduleToDb(s) {
     is_draft: s.isDraft, is_cancelled: s.isCancelled,
     cancel_reason: s.cancelReason,
     city: s.city || null,
+    reminders_config: s.remindersConfig || null,
   };
 }
 
@@ -217,6 +218,7 @@ function dbToSchedule(r) {
     isDraft: r.is_draft, isCancelled: r.is_cancelled,
     cancelReason: r.cancel_reason,
     city: r.city || null,
+    remindersConfig: r.reminders_config || null,
   };
 }
 
@@ -298,6 +300,39 @@ export async function removeCoverPlayer(id) {
 
 export async function updateCoverPlayer(id, updates) {
   const { error } = await supabase.from("cover_pool").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Push subscriptions ───────────────────────────────────────────────────────
+export async function savePushSubscription(playerId, teamId, subscription, playerToken) {
+  const id = "sub_" + Math.random().toString(36).slice(2, 12);
+  // Upsert — one active subscription per player
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    { id, player_id: playerId, player_token: playerToken, team_id: teamId, subscription },
+    { onConflict: "player_id" }
+  );
+  if (error) throw error;
+}
+
+// ─── Notification log ─────────────────────────────────────────────────────────
+export async function alreadyNotified(teamId, type, gameDate) {
+  const { data } = await supabase
+    .from("notification_log")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("type", type)
+    .eq("game_date", gameDate)
+    .not("sent_at", "is", null)
+    .limit(1);
+  return (data?.length || 0) > 0;
+}
+
+// ─── Matches (update bib holder after result saved) ───────────────────────────
+export async function updateMatchBibHolder(matchId, bibHolder) {
+  const { error } = await supabase
+    .from("matches")
+    .update({ bib_holder: bibHolder })
+    .eq("id", matchId);
   if (error) throw error;
 }
 

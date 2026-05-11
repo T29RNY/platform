@@ -407,7 +407,7 @@ export default function App() {
         hasMultipleTeams={playerTeams.length > 1}
         onSwitchGame={playerTeams.length > 1 ? () => setSelectedTeam(null) : null}
       />
-      {view==="player"  && <PlayerView  {...sharedProps} myId={myId}/>}
+      {view==="player"  && <PlayerView  {...sharedProps} myId={myId} teamId={teamId}/>}
       {view==="stats"   && <StatsView   squad={squad} bibHistory={bibHistory} matchHistory={matchHistory}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} settings={settings}/>}
       {view==="admin"   && isAdmin && (

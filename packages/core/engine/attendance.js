@@ -51,16 +51,18 @@ export function getHatTricks(matchHistory) {
     .sort((a, b) => b.goals - a.goals);
 }
 
-export function updatePlayerRecords(players, match, scorers, motmVote, payments) {
+export function updatePlayerRecords(players, match, scorers, motmVote, payments, pricePerPlayer = 0) {
   const teamAPlayers = match.teamA || [];
   const teamBPlayers = match.teamB || [];
   const allPlayers   = [...teamAPlayers, ...teamBPlayers];
 
   return players.map(p => {
     if (!allPlayers.includes(p.name)) return p;
-    const onA  = teamAPlayers.includes(p.name);
-    const won  = (onA && match.winner === "A") || (!onA && match.winner === "B");
-    const drew = match.winner === "D";
+    const onA    = teamAPlayers.includes(p.name);
+    const won    = (onA && match.winner === "A") || (!onA && match.winner === "B");
+    const drew   = match.winner === "D";
+    const paid   = payments[p.name] || false;
+    const addOwes = !paid && pricePerPlayer > 0 ? pricePerPlayer : 0;
     return {
       ...p,
       w:        (p.w || 0) + (won ? 1 : 0),
@@ -70,7 +72,8 @@ export function updatePlayerRecords(players, match, scorers, motmVote, payments)
       motm:     (p.motm || 0) + (motmVote === p.name ? 1 : 0),
       attended: (p.attended || 0) + 1,
       total:    (p.total || 0) + 1,
-      payCount: (p.payCount || 0) + (payments[p.name] ? 1 : 0),
+      payCount: (p.payCount || 0) + (paid ? 1 : 0),
+      owes:     (p.owes || 0) + addOwes,
       team:     null,
       status:   "none",
       paid:     false,

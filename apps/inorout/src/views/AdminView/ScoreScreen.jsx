@@ -6,12 +6,14 @@ export default function ScoreScreen({
   squad, setSquad, schedule, matchHistory, setMatchHistory,
   payments, bibHistory, onBack, onDraftNext,
 }) {
-  const [winner,    setWinner]    = useState(null);
-  const [scoreA,    setScoreA]    = useState(0);
-  const [scoreB,    setScoreB]    = useState(0);
-  const [scorers,   setScorers]   = useState({});
-  const [motmVote,  setMotmVote]  = useState(null);
-  const [scoreSaved,setScoreSaved]= useState(false);
+  const [winner,       setWinner]       = useState(null);
+  const [scoreA,       setScoreA]       = useState(0);
+  const [scoreB,       setScoreB]       = useState(0);
+  const [scorers,      setScorers]      = useState({});
+  const [motmVote,     setMotmVote]     = useState(null);
+  const [pendingResult,setPendingResult]= useState(null); // result staged, awaiting bib pick
+  const [bibHolder,    setBibHolder]    = useState("");
+  const [scoreSaved,   setScoreSaved]   = useState(false);
 
   const inPlayers  = squad.filter(p => p.status==="in" && !p.disabled);
   const addGoal    = id => setScorers(s => ({ ...s,[id]:(s[id]||0)+1 }));
@@ -21,22 +23,28 @@ export default function ScoreScreen({
     return u;
   });
 
-  const saveResult = () => {
+  // Stage the result — show bib picker before committing
+  const stageResult = () => {
     if (!winner) return;
     const teamAPlayers = inPlayers.filter(p=>p.team==="A").map(p=>p.name);
     const teamBPlayers = inPlayers.filter(p=>p.team==="B").map(p=>p.name);
     const scorerMap    = Object.fromEntries(inPlayers.map(p=>[p.name, scorers[p.id]||0]));
     const payMap       = Object.fromEntries(inPlayers.map(p=>[p.name, payments[p.id]||false]));
+    setPendingResult({ teamAPlayers, teamBPlayers, scorerMap, payMap });
+  };
 
+  // Commit result with bib holder
+  const confirmResult = () => {
+    if (!pendingResult) return;
+    const { teamAPlayers, teamBPlayers, scorerMap, payMap } = pendingResult;
     const match = newMatch({
       teamA:teamAPlayers, teamB:teamBPlayers, winner, scoreA, scoreB,
       scorers:scorerMap, motm:motmVote,
-      bibHolder:bibHistory[0]?.name||"",
+      bibHolder,
       payments:payMap,
     });
-
     setMatchHistory([match, ...matchHistory]);
-    setSquad(updatePlayerRecords(squad, match, scorers, motmVote, payMap));
+    setSquad(updatePlayerRecords(squad, match, scorers, motmVote, payMap, schedule.pricePerPlayer));
     setScoreSaved(true);
   };
 
@@ -140,25 +148,63 @@ export default function ScoreScreen({
         ))}
       </div>
 
-      {!scoreSaved
-        ? <Btn label={winner?"Save & Update All Records":"Select a Winner First"}
-            color={C.amber} fill={!!winner} onClick={saveResult} disabled={!winner}/>
-        : <div style={{ padding:14, borderRadius:6, textAlign:"center",
-            background:C.green+"12", border:`1px solid ${C.green}44` }}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:600, color:C.green }}>
-              ✅ Result saved — all records updated
-            </div>
-            {motmVote && (
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:4 }}>
-                MOTM: {motmVote} 🏆
-              </div>
-            )}
-            <div style={{ marginTop:12 }}>
-              <Btn label="📋 Draft Next Week" color={C.purple} fill
-                onClick={() => { onDraftNext(); onBack(); }} block/>
-            </div>
+      {!pendingResult && !scoreSaved && (
+        <Btn label={winner?"Save & Update All Records":"Select a Winner First"}
+          color={C.amber} fill={!!winner} onClick={stageResult} disabled={!winner}/>
+      )}
+
+      {/* Bib holder picker — shown after staging, before committing */}
+      {pendingResult && !scoreSaved && (
+        <div style={{ padding:16, borderRadius:8, background:C.amber+"0c",
+          border:`1px solid ${C.amber}40` }}>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
+            color:C.amber, marginBottom:4 }}>🧺 Who took the bibs home?</div>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:14 }}>
+            They'll get a reminder before next week's game.
           </div>
-      }
+          {inPlayers.filter(p => p.type !== "guest").map(p => (
+            <button key={p.id} onClick={() => setBibHolder(p.name)} style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              width:"100%", padding:"11px 14px", borderRadius:6, marginBottom:6,
+              cursor:"pointer",
+              border:`2px solid ${bibHolder===p.name?C.amber:C.border}`,
+              background:bibHolder===p.name?C.amber+"12":"transparent",
+              fontFamily:"Inter,sans-serif" }}>
+              <span style={{ fontSize:13, fontWeight:500,
+                color:bibHolder===p.name?C.amber:C.text }}>{p.name}</span>
+              {bibHolder===p.name && <span style={{ fontSize:16 }}>🟡</span>}
+            </button>
+          ))}
+          <div style={{ display:"flex", gap:8, marginTop:12 }}>
+            <Btn label="Confirm & Save Result" color={C.amber} fill onClick={confirmResult}
+              disabled={!bibHolder} small block/>
+            <Btn label="Skip" color={C.muted} onClick={confirmResult} small block/>
+          </div>
+        </div>
+      )}
+
+      {scoreSaved && (
+        <div style={{ padding:14, borderRadius:6, textAlign:"center",
+          background:C.green+"12", border:`1px solid ${C.green}44` }}>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:600, color:C.green }}>
+            ✅ Result saved — all records updated
+          </div>
+          {motmVote && (
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:4 }}>
+              MOTM: {motmVote} 🏆
+            </div>
+          )}
+          {bibHolder && (
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:2 }}>
+              🧺 {bibHolder} has the bibs — reminder set
+            </div>
+          )}
+          <div style={{ marginTop:12 }}>
+            <Btn label="📋 Draft Next Week" color={C.purple} fill
+              onClick={() => { onDraftNext(); onBack(); }} block/>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,12 +1,54 @@
 import { useState } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates } from "@platform/core";
+import { savePushSubscription } from "@platform/supabase";
 import { Card, Badge, Btn } from "@platform/ui";
 
-export default function PlayerView({ squad, setSquad, myId, schedule }) {
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const b   = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b).split('').map(c => c.charCodeAt(0)));
+}
+
+function notifyServer(type, teamId, playerIds, payload, gameDate) {
+  fetch('/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, teamId, playerIds, payload, gameDate }),
+  }).catch(console.error);
+}
+
+export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) {
   const me = squad.find(p => p.id === myId);
   const [note, setNote]         = useState(me?.note || "");
   const [showNote, setShowNote] = useState(false);
+  const [notifState, setNotifState] = useState(
+    () => (typeof localStorage !== "undefined" && localStorage.getItem(`notif_${myId}`)) || "idle"
+  );
   const SC = { in:C.green, maybe:C.amber, out:C.red, reserve:C.purple, none:C.muted };
+  const canPush = typeof window !== "undefined" && "PushManager" in window && "serviceWorker" in navigator;
+
+  const handleSubscribe = async () => {
+    setNotifState("asking");
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        localStorage.setItem(`notif_${myId}`, "denied");
+        setNotifState("denied");
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+      });
+      await savePushSubscription(myId, teamId, sub.toJSON(), me?.token);
+      localStorage.setItem(`notif_${myId}`, "subscribed");
+      setNotifState("subscribed");
+    } catch(e) {
+      console.error("Push subscribe failed:", e);
+      setNotifState("idle");
+    }
+  };
 
   const setStatus = (s) => {
     const late = isLateDropout(me?.status, s, schedule.gameDateTime);
@@ -15,7 +57,41 @@ export default function PlayerView({ squad, setSquad, myId, schedule }) {
       ? { ...p, status:s, note, lateDropouts:(p.lateDropouts||0)+(late?1:0) }
       : p
     ));
-    // TODO(Reminders session): if me?.status === "in" && s !== "in" && reserve list exists -> trigger reserve notification sequence
+
+    if (!teamId) return;
+    const gameDate = schedule.gameDateTime?.split("T")[0];
+
+    // Spot opened — notify reserve list
+    if (me?.status === "in" && s !== "in") {
+      const reserves = squad.filter(p => p.status === "reserve" && !p.disabled);
+      if (reserves.length) {
+        const hoursToKick = schedule.gameDateTime
+          ? (new Date(schedule.gameDateTime) - new Date()) / 3600000
+          : Infinity;
+        // <24hrs: notify all simultaneously. >24hrs: notify #1 only.
+        // TODO(Reminders v2): >24hrs sequential escalation — 60-min window per player then move to next
+        const toNotify = hoursToKick < 24 ? reserves : [reserves[0]];
+        notifyServer("spotOpened", teamId, toNotify.map(p => p.id), {
+          title: "In or Out ⚽",
+          body: `🟣 A spot's opened up for ${schedule.dayOfWeek} — tap to claim it!`,
+          icon: "/icons/icon-192.png",
+        }, gameDate);
+      }
+    }
+
+    // Squad just filled — notify everyone not already IN
+    if (s === "in" && me?.status !== "in") {
+      const currentInCount = inPlayers.length; // before this player's change
+      const willBeFull     = currentInCount + 1 >= (schedule.squadSize || 14);
+      if (willBeFull) {
+        const toNotify = squad.filter(p => p.id !== myId && p.status !== "in" && !p.disabled);
+        notifyServer("squadFull", teamId, toNotify.map(p => p.id), {
+          title: "In or Out ⚽",
+          body: "🔒 Squad's full! Get on the reserve list before it's too late.",
+          icon: "/icons/icon-192.png",
+        }, gameDate);
+      }
+    }
   };
 
   const saveNote = () => {
@@ -53,6 +129,21 @@ export default function PlayerView({ squad, setSquad, myId, schedule }) {
 
   return (
     <div style={{ padding:18 }}>
+      {/* Debt banner */}
+      {me?.owes > 0 && (
+        <div style={{ padding:"12px 16px", borderRadius:8, marginBottom:14,
+          background:C.red+"14", border:`1px solid ${C.red}40`,
+          fontFamily:"Inter,sans-serif" }}>
+          <div style={{ fontSize:14, fontWeight:700, color:C.red, marginBottom:2 }}>
+            💸 You owe £{me.owes}
+          </div>
+          <div style={{ fontSize:12, color:C.muted }}>
+            {/* TODO(Stripe session): link to payment flow */}
+            See the balance section below to sort it
+          </div>
+        </div>
+      )}
+
       {/* Price strip */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
         padding:"10px 14px", background:C.surface, borderRadius:6,
@@ -205,6 +296,39 @@ export default function PlayerView({ squad, setSquad, myId, schedule }) {
                : me.status==="maybe"   ? "Got it — we'll keep a spot open 🤞"
                : me.status==="reserve" ? "You're on the reserve list — we'll let you know if a spot opens 🟣"
                : "No worries, we'll find cover 👍"}
+            </div>
+          )}
+
+          {/* Push subscription prompt — show once after first status set */}
+          {me?.status && me.status !== "none" && canPush && notifState === "idle" && (
+            <div style={{ marginTop:10, padding:"10px 12px", borderRadius:6,
+              background:C.blue+"0c", border:`1px solid ${C.blue}25`,
+              display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+              <span style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+                fontWeight:500, color:C.blue }}>
+                🔔 Get notified for game updates
+              </span>
+              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                <button onClick={handleSubscribe} style={{ padding:"5px 11px", borderRadius:4,
+                  border:`1px solid ${C.blue}`, background:C.blue+"18", color:C.blue,
+                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                  {notifState === "asking" ? "..." : "Enable"}
+                </button>
+                <button onClick={() => {
+                  localStorage.setItem(`notif_${myId}`, "dismissed");
+                  setNotifState("dismissed");
+                }} style={{ padding:"5px 11px", borderRadius:4,
+                  border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
+                  fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
+                  Not now
+                </button>
+              </div>
+            </div>
+          )}
+          {notifState === "subscribed" && (
+            <div style={{ marginTop:8, fontFamily:"Inter,sans-serif", fontSize:12,
+              color:C.green, textAlign:"center" }}>
+              ✅ Notifications on
             </div>
           )}
         </Card>
