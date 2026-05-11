@@ -22,7 +22,7 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
         🟡 BIB TRACKER
       </div>
       <SecTitle>Who has them tonight?</SecTitle>
-      {squad.filter(p => p.status==="in" && !p.disabled && p.type!=="guest").map(p => (
+      {squad.filter(p => p.status==="in" && !p.disabled && !p.isGuest).map(p => (
         <button key={p.id} onClick={() => { setBibHolder(p.name); setBibSaved(false); }} style={{
           display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%",
           padding:"13px 14px", borderRadius:6, marginBottom:7, cursor:"pointer",
