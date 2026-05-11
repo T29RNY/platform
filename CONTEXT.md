@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 10 2026*
+*Last updated: May 11 2026*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -394,7 +394,7 @@ Gurnam needs: full name, DOB, address, sort code, account number
 |---|---|---|
 | Rotate Supabase keys | 15 mins | Do first — security |
 | Admin link reset per player | 30 mins | Security |
-| Reserve list | 1 session | Full design above |
+| Reserve list | 1 session | ✅ DONE |
 | Reminders engine | 2 sessions | Full design above |
 | Plus one | 1 session | Full design above |
 | Help chatbot | 1 session | System prompt ready |
@@ -536,9 +536,11 @@ Designed (not yet built): Reserve list, plus one, reminders engine, Stripe payme
 **Session 3 (May 11 2026):**
 Built admin link reset — Reset Link button per player in Manage Squad with two-step confirmation. New token written to Supabase via resetPlayerToken(); local squad state updated immediately. Old link invalidated on confirm, success banner auto-dismisses after 5s.
 
+Built reserve list — RESERVE as 4th status (purple). Player view: reserve button always visible, IN/MAYBE disabled when squad full, "🔒 Squad is full" notice, reserve queue on live board with position numbers. Admin view: squad summary strip (IN X/Y + RESERVE N), draggable reserve list (⠿ drag handles, #1 "Next" badge, array-position reorder). TODO placeholders in code for Reminders and Stripe sessions.
+
 **Next session — start with:**
 1. Rotate Supabase keys
-2. Reserve list
-3. Reminders engine
+2. Reminders engine
+3. Plus one
 4. Help chatbot
 5. Stripe Connect (Gurnam test case)
