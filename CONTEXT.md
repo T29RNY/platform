@@ -332,6 +332,96 @@ Gurnam needs: full name, DOB, address, sort code, account number
 
 **System prompt saved separately — request it if needed**
 
+### MOTM Voting System
+*Status: Designed, not yet built. Effort: ~60–90 mins.*
+
+**Overview**
+After each game, all IN players receive a push notification to vote for Man of the Match. Voting is anonymous — admin sees counts only. MOTM is auto-confirmed when a threshold is reached, or admin decides after 12 hours.
+
+**DB Changes**
+```sql
+ALTER TABLE schedule ADD COLUMN match_duration_mins int DEFAULT 60;
+ALTER TABLE matches  ADD COLUMN match_duration_mins int DEFAULT null; -- per-match override
+ALTER TABLE matches  ADD COLUMN motm_votes         jsonb DEFAULT '[]';
+ALTER TABLE matches  ADD COLUMN voting_closes_at   timestamptz;
+ALTER TABLE matches  ADD COLUMN motm_confirmed     boolean DEFAULT false;
+```
+
+**Match Duration Setting**
+- Added to ScheduleScreen settings — "⏱ Match duration" — default 60 mins
+- Stored on schedule table, applies every week; overrideable per match
+- Voting notification fires at: kickoff + match_duration_mins + 10 mins
+
+**Voting Rules**
+- Only IN players can vote (non-guests, non-injured)
+- Players cannot vote for themselves — own name excluded from ballot
+- One vote per player, tap to select, tap again to lock — no changes after locking
+- Voting window: 60 mins from notification fire time
+- If no winner after 12 hours → admin prompted to decide manually
+- `motm_votes` stores: `[{voter_id, nominee_id, locked_at}]` — voter identity never exposed to admin
+
+**Auto-Confirm Threshold**
+| Players | Votes to auto-confirm |
+|---|---|
+| 4–5 | 2 |
+| 6–8 | 3 |
+| 9–11 | 4 |
+| 12+ | 5 |
+
+~40% of eligible voters = auto-confirm. Ties don't auto-confirm — wait for more votes or 12hr timeout.
+
+**Notification Flow**
+1. Admin saves result
+2. Cron fires voting notification at kickoff + duration + 10 mins
+3. All eligible IN players get push: "🗳️ Vote for MOTM — who was the best tonight?"
+4. Player taps → player view opens → voting card appears front and centre
+5. If already in app → voting card appears automatically via realtime
+6. Threshold reached → MOTM gets special push: "🏆 You've been voted Man of the Match!"
+7. MOTM taps notification → full screen celebration
+8. If no winner after 12hrs → admin push: "⚽ Split vote — pick MOTM for Tuesday's game"
+9. Admin picks manually → same celebration fires for chosen player
+
+**Admin View**
+- Live vote tally visible during window — counts only, no voter names (e.g. "Hassan ●●● Mike ●● Robbie ●")
+- Manual override always available
+- After 12hr timeout: prompted to decide, sees final counts
+
+**MOTM Celebration Screen**
+Full screen takeover on MOTM's device:
+- Confetti cannon animation
+- Ballon d'Or gold ball or 🏆 trophy — large, centred
+- Player name in huge gold text
+- "MAN OF THE MATCH" heading
+- Game details: "Finbar's Tuesdays · Tuesday 13 May · 20:00"
+- Sound effect — crowd roar, respects silent mode (triggered by notification tap)
+- Share button → generates text for WhatsApp: "🏆 Hassan voted MOTM — Finbar's Tuesdays 13 May"
+- Auto-dismisses after 5 seconds or on tap
+
+**Edge Cases**
+| Scenario | Handling |
+|---|---|
+| Player votes for themselves | Blocked — own name excluded from ballot |
+| Guest tries to vote | Excluded — no token/auth |
+| Injured player | Excluded from voting |
+| OUT/no-show player | Excluded — IN only |
+| Admin is also a player | Can vote from their player view |
+| MOTM already set before votes close | Auto-confirm skipped, manual takes precedence |
+| Tie at threshold | Don't auto-confirm, wait for more votes or 12hr timeout |
+| Very small game (4–5 players) | 2 votes to auto-confirm |
+| Player has no push subscription | Excluded from push, voting card still appears if they open app |
+| Sound on silent mode | Respects device silent switch — no sound |
+
+**Files to Touch**
+- `packages/core/storage/supabase.js` — `submitMotmVote()`, `getMotmVotes()`, `confirmMotm()`
+- `packages/core/engine/availability.js` — eligible voter logic
+- `apps/inorout/src/views/PlayerView.jsx` — voting card + celebration screen
+- `apps/inorout/src/views/AdminView/ScoreScreen.jsx` — manual MOTM override, live tally
+- `apps/inorout/src/views/AdminView/ScheduleScreen.jsx` — match duration setting
+- `apps/inorout/api/notify.js` — voting notification trigger, MOTM confirmed notification
+- `apps/inorout/api/cron.js` — new triggers: `motmVoting` (kickoff + duration + 10 mins), `motmTimeout` (12hrs after `voting_closes_at` if not confirmed)
+
+---
+
 ### Random Player Pool (Phase 2)
 **Three tiers of casual player:**
 1. Plus one (one-off) — no app needed
