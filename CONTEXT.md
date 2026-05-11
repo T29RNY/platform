@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 11 2026*
+*Last updated: May 11 2026 (session 4)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -144,6 +144,23 @@ id, team_id, group_name
 ```
 id, team_id, name, played, owes, created_at
 ```
+
+### push_subscriptions *(new — add to Supabase)*
+```
+id text PK, player_id text, player_token text, team_id text,
+subscription jsonb, created_at timestamptz default now()
+UNIQUE on player_id
+```
+
+### notification_log *(new — add to Supabase)*
+```
+id text PK, team_id text, player_id text, type text, game_date text,
+sent_at timestamptz, queued_for timestamptz, queued_payload jsonb,
+created_at timestamptz default now()
+```
+
+### schedule (updated)
+`reminders_config jsonb` column added — stores quiet hours + per-trigger toggles.
 
 **Realtime enabled on:** players, schedule, matches
 
@@ -393,9 +410,9 @@ Gurnam needs: full name, DOB, address, sort code, account number
 | Feature | Est | Notes |
 |---|---|---|
 | Rotate Supabase keys | 15 mins | Do first — security |
-| Admin link reset per player | 30 mins | Security |
+| Admin link reset per player | 30 mins | ✅ DONE |
 | Reserve list | 1 session | ✅ DONE |
-| Reminders engine | 2 sessions | Full design above |
+| Reminders engine | 2 sessions | ✅ DONE (session 4) |
 | Plus one | 1 session | Full design above |
 | Help chatbot | 1 session | System prompt ready |
 | Stripe Connect | 2 sessions | Gurnam test case |
@@ -538,9 +555,21 @@ Built admin link reset — Reset Link button per player in Manage Squad with two
 
 Built reserve list — RESERVE as 4th status (purple). Player view: reserve button always visible, IN/MAYBE disabled when squad full, "🔒 Squad is full" notice, reserve queue on live board with position numbers. Admin view: squad summary strip (IN X/Y + RESERVE N), draggable reserve list (⠿ drag handles, #1 "Next" badge, array-position reorder). TODO placeholders in code for Reminders and Stripe sessions.
 
+**Session 4 (May 11 2026):**
+Built reminders engine + debt tracking.
+- Web push: sw.js push/notificationclick handlers, api/notify.js (quiet hours, trigger toggles, queuing, expired sub cleanup), api/cron.js (every 15min: flush queued, game day 9am, 1hr before, 24hrs after, bibs 24hr+45min)
+- Player view: "Get notified" subscription prompt after first status set, debt banner
+- Squad full + spot opened notifications fired client-side from setStatus
+- Game live + cancelled notifications fired from AdminView
+- ScoreScreen: staged save with bib-holder picker before committing; debt auto-calc via pricePerPlayer in updatePlayerRecords
+- ScheduleScreen: Reminders tab with quiet-hours pickers + 9 per-trigger toggles
+- Outstanding debts header: shows total £ and player count
+- New Supabase tables needed: push_subscriptions, notification_log
+- New Vercel env vars needed: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL, VITE_VAPID_PUBLIC_KEY, CRON_SECRET
+
 **Next session — start with:**
-1. Rotate Supabase keys
-2. Reminders engine
+1. Rotate Supabase keys + add new env vars (VAPID, service role key, cron secret)
+2. Create push_subscriptions + notification_log tables in Supabase
 3. Plus one
 4. Help chatbot
 5. Stripe Connect (Gurnam test case)
