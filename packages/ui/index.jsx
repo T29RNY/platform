@@ -32,17 +32,18 @@ export const Btn = ({ label, color, fill, onClick, disabled, small, block, icon 
   </button>
 );
 
-export const Card = ({ children, color, onClick, style = {} }) => (
+export const Card = ({ children, color, onClick, style = {}, ...rest }) => (
   <div onClick={onClick} style={{ background:C.surface, border:`1px solid ${color||C.border}`,
     borderRadius:8, padding:"14px 16px", marginBottom:12,
-    cursor:onClick?"pointer":"default", ...style }}>
+    cursor:onClick?"pointer":"default", ...style }} {...rest}>
     {children}
   </div>
 );
 
-export const SecTitle = ({ children, color, size }) => (
+export const SecTitle = ({ children, color, size, ...rest }) => (
   <div style={{ fontFamily:"Inter,sans-serif", fontSize:size||11, fontWeight:800,
-    color:color||C.muted, letterSpacing:1.5, textTransform:"uppercase", margin:"20px 0 12px" }}>
+    color:color||C.muted, letterSpacing:1.5, textTransform:"uppercase", margin:"20px 0 12px" }}
+    {...rest}>
     {children}
   </div>
 );

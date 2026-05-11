@@ -109,7 +109,8 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
 
       {/* Invite link */}
       {teamId && (
-        <div style={{ background:C.green+"0f", border:`1px solid ${C.green}33`,
+        <div data-gaffer-target="invite-link"
+          style={{ background:C.green+"0f", border:`1px solid ${C.green}33`,
           borderRadius:8, padding:14, marginBottom:20 }}>
           <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
             color:C.green, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>

@@ -104,8 +104,8 @@ export default function AdminView({
   squad, setSquad, bibHistory, setBibHistory,
   schedule, setSchedule, matchHistory, setMatchHistory,
   settings, setSettings, coverPool, setCoverPool, teamId,
+  screen, setScreen,
 }) {
-  const [screen,     setScreen]     = useState("main");
   const [notifPerm,  setNotifPerm]  = useState(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
@@ -393,7 +393,7 @@ export default function AdminView({
 
       {/* Reserve list */}
       {reservePlayers.length > 0 && (
-        <Card color={C.purple} style={{ marginBottom:16 }}>
+        <Card color={C.purple} style={{ marginBottom:16 }} data-gaffer-target="reserve-list">
           <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
             color:C.purple, letterSpacing:1, marginBottom:4 }}>🟣 RESERVE LIST</div>
           <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:12 }}>
@@ -447,7 +447,7 @@ export default function AdminView({
 
       {/* Cancel this week */}
       {!schedule.isCancelled && (
-        <div style={{ marginBottom:16 }}>
+        <div style={{ marginBottom:16 }} data-gaffer-target="cancel-week">
           {!showCancel
             ? <button onClick={() => setShowCancel(true)} style={{ width:"100%", padding:"11px 14px",
                 borderRadius:6, border:`1px solid ${C.border}`, background:C.surface,
@@ -518,7 +518,7 @@ export default function AdminView({
       </Card>
 
       {/* Payments */}
-      <SecTitle color={C.muted}>💰 Payments — £{schedule.pricePerPlayer}/player</SecTitle>
+      <SecTitle color={C.muted} data-gaffer-target="mark-paid">💰 Payments — £{schedule.pricePerPlayer}/player</SecTitle>
       {inPlayers.length === 0 && (
         <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.muted, padding:"10px 0" }}>
           No confirmed players yet.
@@ -661,7 +661,8 @@ export default function AdminView({
         if (!debtors.length) return null;
         return (
           <>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+            <div data-gaffer-target="outstanding-debts"
+              style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
               color:C.red, letterSpacing:1, textTransform:"uppercase",
               margin:"20px 0 10px" }}>
               💸 Outstanding Debts — £{totalOwed} across {debtors.length} player{debtors.length !== 1 ? "s" : ""}

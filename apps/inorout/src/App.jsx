@@ -26,6 +26,7 @@ import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
 import Legal         from "./views/Legal.jsx";
 import PWAWelcome   from "./views/PWAWelcome.jsx";
+import Gaffer        from "./views/Gaffer/index.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
 
@@ -127,6 +128,11 @@ export default function App() {
   const [playerTeams,  setPlayerTeams] = useState([]);
   const [selectedTeam, setSelectedTeam]= useState(null);
   const [isAdmin,      setIsAdmin]     = useState(false);
+
+  // Admin sub-screen (hoisted so Gaffer can navigate)
+  const [adminScreen,    setAdminScreen]  = useState("main");
+  // Gaffer: blocks navigate actions when player is mid-flow
+  const [isActionBlocked, setIsActionBlocked] = useState(false);
 
   // Landing player-link input
   const [showLinkInput, setShowLinkInput] = useState(false);
@@ -289,6 +295,11 @@ export default function App() {
     try { await upsertSettings(next, teamId); } catch(e) { console.error(e); }
   };
 
+  // Reset admin sub-screen when leaving admin view
+  useEffect(() => {
+    if (view !== "admin") setAdminScreen("main");
+  }, [view]);
+
   // ── Join handler — auth first, name only after signed in ─────────────────
   const handleJoin = async (name) => {
     if (!authUser) return;
@@ -315,12 +326,71 @@ export default function App() {
     }
   };
 
+  // ── Gaffer context + navigation ──────────────────────────────────────────
+  const _me          = myPlayer ? squad.find(p => p.id === myPlayer.id) : null;
+  const _inPlayers   = squad.filter(p => p.status === "in"      && !p.disabled && !p.injured);
+  const _reserves    = squad.filter(p => p.status === "reserve" && !p.disabled);
+  const _reservePos  = _me?.status === "reserve"
+    ? _reserves.findIndex(p => p.id === _me.id) + 1 || null
+    : null;
+  const gafferContext = {
+    currentScreen:  view === "admin" ? adminScreen : view,
+    isAdmin,
+    playerName:     _me?.name || myPlayer?.name || null,
+    playerStatus:   _me?.status || "none",
+    reservePosition: _reservePos,
+    isInjured:      _me?.injured || false,
+    gameDate:       schedule.gameDateTime?.split("T")[0] || null,
+    kickoff:        schedule.kickoff || null,
+    venue:          schedule.venue   || null,
+    squadSize:      schedule.squadSize   || 14,
+    inCount:        _inPlayers.length,
+    reserveCount:   _reserves.length,
+    price:          schedule.pricePerPlayer || null,
+    gameIsLive:     schedule.gameIsLive    || false,
+    isMember:       _me ? (_me.attended > 0) : false,
+    multipleTeams:  playerTeams.length > 1,
+  };
+
+  const handleGafferNavigate = (target) => {
+    switch (target) {
+      case "stats":        setView("stats"); break;
+      case "history":      setView("history"); break;
+      case "bibs":         setView("admin"); setAdminScreen("bibs"); break;
+      case "score":        setView("admin"); setAdminScreen("score"); break;
+      case "squad":        setView("admin"); setAdminScreen("squad"); break;
+      case "schedule":     setView("admin"); setAdminScreen("schedule"); break;
+      case "payments":     setView("admin"); setAdminScreen("main"); break;
+      case "cover-pool":   setView("admin"); setAdminScreen("main"); break;
+      case "game-switcher": setSelectedTeam(null); break;
+      default: break;
+    }
+  };
+
   // ── Special routes ────────────────────────────────────────────────────────
   if (route.type === "redirecting")  return null;
-  if (route.type === "pwa_welcome")  return <PWAWelcome/>;
+  if (route.type === "pwa_welcome")  return (
+    <>
+      <PWAWelcome/>
+      <Gaffer context={{ currentScreen: "pwa_welcome", isAdmin: false, playerName: null,
+        playerStatus: "none", reservePosition: null, isInjured: false, gameDate: null,
+        kickoff: null, venue: null, squadSize: 14, inCount: 0, reserveCount: 0,
+        price: null, gameIsLive: false, isMember: false, multipleTeams: false }}
+        onNavigate={() => {}} isBlocked={false}/>
+    </>
+  );
   if (route.type === "auth_callback") return <AuthCallback/>;
   if (route.type === "legal") return <Legal/>;
-  if (route.type === "create") return <Onboarding/>;
+  if (route.type === "create") return (
+    <>
+      <Onboarding/>
+      <Gaffer context={{ currentScreen: "create", isAdmin: true, playerName: null,
+        playerStatus: "none", reservePosition: null, isInjured: false, gameDate: null,
+        kickoff: null, venue: null, squadSize: 14, inCount: 0, reserveCount: 0,
+        price: null, gameIsLive: false, isMember: false, multipleTeams: false }}
+        onNavigate={() => {}} isBlocked={false}/>
+    </>
+  );
 
   if (route.type === "join") {
     if (loading) return (
@@ -339,21 +409,32 @@ export default function App() {
         </div>
       </div>
     );
+    const _joinCtx = { currentScreen: "join", isAdmin: false, playerName: null,
+      playerStatus: "none", reservePosition: null, isInjured: false, gameDate: null,
+      kickoff: null, venue: null, squadSize: 14, inCount: 0, reserveCount: 0,
+      price: null, gameIsLive: false, isMember: false, multipleTeams: false };
     if (joinedPlayer) return (
-      <JoinSuccess
-        playerName={joinedPlayer.name}
-        playerToken={joinedPlayer.token}
-        teamName={joinTeam.name}
-      />
+      <>
+        <JoinSuccess
+          playerName={joinedPlayer.name}
+          playerToken={joinedPlayer.token}
+          teamName={joinTeam.name}
+        />
+        <Gaffer context={{ ..._joinCtx, currentScreen: "join_success",
+          playerName: joinedPlayer.name }} onNavigate={() => {}} isBlocked={false}/>
+      </>
     );
     return (
-      <JoinTeam
-        team={joinTeam}
-        authUser={authUser}
-        onNameSubmit={handleJoin}
-        loading={joinLoading}
-        error={joinError}
-      />
+      <>
+        <JoinTeam
+          team={joinTeam}
+          authUser={authUser}
+          onNameSubmit={handleJoin}
+          loading={joinLoading}
+          error={joinError}
+        />
+        <Gaffer context={_joinCtx} onNavigate={() => {}} isBlocked={false}/>
+      </>
     );
   }
 
@@ -515,7 +596,10 @@ export default function App() {
         hasMultipleTeams={playerTeams.length > 1}
         onSwitchGame={playerTeams.length > 1 ? () => setSelectedTeam(null) : null}
       />
-      {view==="player"  && <PlayerView  {...sharedProps} myId={myId} teamId={teamId}/>}
+      {view==="player"  && (
+        <PlayerView  {...sharedProps} myId={myId} teamId={teamId}
+          onMidFlowChange={setIsActionBlocked}/>
+      )}
       {view==="stats"   && <StatsView   squad={squad} bibHistory={bibHistory} matchHistory={matchHistory}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} settings={settings}/>}
       {view==="admin"   && isAdmin && (
@@ -525,8 +609,14 @@ export default function App() {
           matchHistory={matchHistory} setMatchHistory={setMatchHistory}
           coverPool={coverPool}       setCoverPool={setCoverPoolRaw}
           teamId={teamId}
+          screen={adminScreen}        setScreen={setAdminScreen}
         />
       )}
+      <Gaffer
+        context={gafferContext}
+        onNavigate={handleGafferNavigate}
+        isBlocked={isActionBlocked || adminScreen === "score"}
+      />
     </div>
   );
 }

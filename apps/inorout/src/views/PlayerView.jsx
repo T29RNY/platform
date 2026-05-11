@@ -17,7 +17,7 @@ function notifyServer(type, teamId, playerIds, payload, gameDate) {
   }).catch(console.error);
 }
 
-export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) {
+export default function PlayerView({ squad, setSquad, myId, teamId, schedule, onMidFlowChange }) {
   const me = squad.find(p => p.id === myId);
   const [note, setNote]         = useState(me?.note || "");
   const [showNote, setShowNote] = useState(false);
@@ -137,6 +137,7 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
       setGuestSelfPaid(false);
       setPickerPlayer(null);
       setShowPlusOneForm(false);
+      onMidFlowChange?.(false);
     } catch(e) {
       console.error("Failed to add guest:", e);
     } finally {
@@ -298,7 +299,8 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
             </div>
           )}
 
-          <div style={{ display:"flex", gap:8, marginBottom:8, opacity:me?.injured?0.35:1 }}>
+          <div data-gaffer-target="status-buttons"
+            style={{ display:"flex", gap:8, marginBottom:8, opacity:me?.injured?0.35:1 }}>
             <button onClick={() => !me?.injured && !isFull && setStatus("in")} style={{
               flex:1, padding:"14px 0", borderRadius:6,
               border:`2px solid ${me?.status==="in" ? C.green : isFull ? C.faint : C.border}`,
@@ -509,16 +511,19 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
                 <Btn label={addingGuest ? "Adding..." : "Add Plus One"} color={C.green} fill
                   onClick={submitGuest} disabled={!guestName.trim() || addingGuest} small block/>
                 <Btn label="Cancel" color={C.muted}
-                  onClick={() => { setShowPlusOneForm(false); setGuestName(""); setPickerPlayer(null); }}
+                  onClick={() => { setShowPlusOneForm(false); setGuestName(""); setPickerPlayer(null); onMidFlowChange?.(false); }}
                   small block/>
               </div>
             </div>
           ) : (
-            <button onClick={() => setShowPlusOneForm(true)} style={{
-              width:"100%", padding:"11px 14px", borderRadius:6,
-              border:`1px solid ${C.border}`, background:C.surface,
-              color:C.muted, fontFamily:"Inter,sans-serif", fontSize:13,
-              fontWeight:600, cursor:"pointer", textAlign:"left" }}>
+            <button
+              data-gaffer-target="add-plus-one"
+              onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
+              style={{
+                width:"100%", padding:"11px 14px", borderRadius:6,
+                border:`1px solid ${C.border}`, background:C.surface,
+                color:C.muted, fontFamily:"Inter,sans-serif", fontSize:13,
+                fontWeight:600, cursor:"pointer", textAlign:"left" }}>
               ➕ Add a plus one
             </button>
           )}
@@ -567,7 +572,7 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
             )
           )}
           {groups.reserve?.length > 0 && (
-            <div style={{ marginBottom:14 }}>
+            <div data-gaffer-target="reserve-list" style={{ marginBottom:14 }}>
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, color:C.purple,
                 letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>
                 🟣 RESERVE ({groups.reserve.length})
