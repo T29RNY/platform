@@ -428,40 +428,40 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
                 color:C.text, marginBottom:12 }}>➕ Add a plus one</div>
 
-              {pickerPlayer ? (
-                <div style={{ padding:"12px 14px", borderRadius:6, marginBottom:12,
-                  background:C.amber+"0c", border:`1px solid ${C.amber}40` }}>
-                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500,
-                    color:C.amber, marginBottom:10 }}>
+              <input value={guestName} onChange={e => handleGuestNameChange(e.target.value)}
+                placeholder="Guest's name..."
+                style={{ width:"100%", padding:"11px 13px", borderRadius:6,
+                  marginBottom: pickerPlayer ? 8 : 12,
+                  border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
+                  fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
+                  boxSizing:"border-box" }}/>
+              {pickerPlayer && (
+                <div style={{ padding:"10px 12px", borderRadius:6, marginBottom:12,
+                  background:C.amber+"0c", border:`1px solid ${C.amber}40`,
+                  display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                  <span style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.amber }}>
                     Is this {pickerPlayer.name} (already on the team)?
-                  </div>
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={confirmExistingPlayer} style={{ padding:"7px 14px", borderRadius:5,
+                  </span>
+                  <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                    <button onClick={confirmExistingPlayer} style={{ padding:"5px 11px", borderRadius:4,
                       border:`1px solid ${C.green}`, background:C.green+"18", color:C.green,
-                      fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                      Yes, that's them
+                      fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      Yes
                     </button>
-                    <button onClick={() => setPickerPlayer(null)} style={{ padding:"7px 14px",
-                      borderRadius:5, border:`1px solid ${C.border}`, background:"transparent",
-                      color:C.muted, fontFamily:"Inter,sans-serif", fontSize:12, cursor:"pointer" }}>
-                      No, different person
+                    <button onClick={() => setPickerPlayer(null)} style={{ padding:"5px 11px",
+                      borderRadius:4, border:`1px solid ${C.border}`, background:"transparent",
+                      color:C.muted, fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
+                      No
                     </button>
                   </div>
                 </div>
-              ) : (
-                <input value={guestName} onChange={e => handleGuestNameChange(e.target.value)}
-                  placeholder="Guest's name..."
-                  style={{ width:"100%", padding:"11px 13px", borderRadius:6, marginBottom:12,
-                    border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-                    fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
-                    boxSizing:"border-box" }}/>
               )}
 
               {/* Payment toggle */}
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 {[
                   { label:`${me?.name} pays`, value:false },
-                  { label:"They pay cash", value:true },
+                  { label:"They pay", value:true },
                 ].map(opt => (
                   <button key={String(opt.value)} onClick={() => setGuestSelfPaid(opt.value)} style={{
                     flex:1, padding:"9px 0", borderRadius:5,
@@ -476,7 +476,7 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule }) 
 
               <div style={{ display:"flex", gap:8 }}>
                 <Btn label={addingGuest ? "Adding..." : "Add Plus One"} color={C.green} fill
-                  onClick={submitGuest} disabled={!guestName.trim() || addingGuest || !!pickerPlayer} small block/>
+                  onClick={submitGuest} disabled={!guestName.trim() || addingGuest} small block/>
                 <Btn label="Cancel" color={C.muted}
                   onClick={() => { setShowPlusOneForm(false); setGuestName(""); setPickerPlayer(null); }}
                   small block/>
