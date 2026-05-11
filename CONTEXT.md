@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 11 2026 (session 4)*
+*Last updated: May 11 2026 (session 5)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -48,7 +48,8 @@ platform/
           PlayerView.jsx
           StatsView.jsx
           HistoryView.jsx
-          InstallBanner.jsx
+          InstallBanner.jsx  ← fixed bottom banner + iOS 4-screen tutorial modal
+          PWAWelcome.jsx     ← standalone PWA welcome (email lookup + paste link)
           JoinTeam.jsx       ← auth-first join flow
           JoinSuccess.jsx
           AuthCallback.jsx   ← handles OAuth redirect
@@ -162,6 +163,9 @@ created_at timestamptz default now()
 ### schedule (updated)
 `reminders_config jsonb` column added — stores quiet hours + per-trigger toggles.
 
+### RPC functions
+`find_player_by_email(lookup_email text)` — SECURITY DEFINER, joins auth.users → players → team_players → teams. Returns `(token, player_id, player_name, team_id, team_name)` rows. Called from PWAWelcome email lookup. SQL must be run manually in Supabase SQL Editor.
+
 **Realtime enabled on:** players, schedule, matches
 
 ---
@@ -170,7 +174,7 @@ created_at timestamptz default now()
 
 | URL | What it renders |
 |---|---|
-| / | Landing page with Create Your Team CTA + footer links |
+| / | Landing page (new visitors) OR PWA welcome screen (standalone + no ioo_last_visited) OR redirect to ioo_last_visited |
 | /create | 3-step onboarding flow |
 | /p/TOKEN | Player view (no auth required) |
 | /admin/TOKEN | Admin view (validated against teams table) |
@@ -246,6 +250,14 @@ created_at timestamptz default now()
 - Clear Debt button per player
 - Outstanding Debts section
 - PWA (manifest, service worker, icons, install banner)
+- Web push notifications — VAPID, push_subscriptions table, notification_log table, api/notify.js (direct + pg_cron modes), quiet hours queuing, 6 cron trigger types (gameDay9am, oneHrBefore, debtReminder, bibs24hr, bibs45min, flushQueue)
+- Notification subscription prompt (Android + installed iOS PWA only; iOS Safari non-standalone excluded)
+- Reminders config UI — quiet hours pickers + 9 per-trigger toggles in admin Schedule settings
+- Bib holder picker in ScoreScreen — staged save flow before committing result
+- Debt auto-calc on result save (pricePerPlayer added to owes for unpaid IN players)
+- PWA install flow — redirect bridge (ioo_redirect_to 7-day expiry, ioo_last_visited permanent), saves on every /p/ and /admin/ load
+- InstallBanner — 4-screen iOS tutorial modal ("How to" → step-by-step with dots nav), Android deferred prompt install button
+- PWA welcome screen — shown on first standalone open (no ioo_last_visited); email lookup via find_player_by_email RPC + paste link fallback; multi-team picker; saves ioo_last_visited and never shows again
 - Stats: Goals, MOTM, W/L/D, Streaks, Attendance, Bibs, Records, Payment reliability
 - Match history with drill-down, share report
 - Team selection (manual + random split)
@@ -267,17 +279,6 @@ created_at timestamptz default now()
 
 ## CONFIRMED FEATURE DESIGNS — NOT YET BUILT
 
-### Reserve List (formerly waiting list)
-- Always visible as a 4th option alongside IN/OUT/MAYBE
-- When game is full — IN and MAYBE disabled, only RESERVE active
-- Admin can reorder via drag and drop
-- <24hrs to kickoff — ALL reserve players notified simultaneously, first to respond gets spot
-- >24hrs — sequential notification, 60 min window per player, then moves to next
-- If all reserve players pass — admin notified, spot stays open
-- Reserve players shown on live board: ⏳ RESERVE (3) Jordan · Liam · Declan
-- Supabase: status column already supports 'reserve' value
-- Payment: if Stripe enabled, reserve player has 30 mins to pay on confirmation
-
 ### Plus One
 - Player can add a plus one from their view at any time (before or after paying)
 - Admin can add a plus one on behalf of a player
@@ -287,40 +288,6 @@ created_at timestamptz default now()
 - Plus one spot is INDEPENDENT once paid — Dave dropping out doesn't auto-remove Jay
 - After game: admin can add Jay to cover pool with one tap
 - Jay never needs the app — name only is sufficient
-
-### Reminders Engine
-Full configurable reminders tab in admin Schedule settings.
-
-**Pre-game reminders:**
-- Game is open → immediate
-- You haven't responded → configurable (12/24/48hrs after open)
-- Squad not full → configurable (12/24/48hrs after open)
-- Game filling up (80% full) → immediate
-- Squad full → immediate
-- Game confirmed → immediate
-- Teams announced → immediate
-- Game day reminder → 9am game day
-- Kickoff reminder → configurable (1/2/4hrs before)
-- Pay to secure spot → immediate on confirming IN
-- Payment deadline → configurable (12/24/48hrs before kickoff)
-
-**Post-game reminders:**
-- Payment due → configurable (24/48/72hrs after)
-- Payment overdue → configurable (3/5/7/14 days after)
-- Rate the random → 2hrs after (Phase 2)
-- Next game opening soon → 1 day before
-
-**Event-based (always on, always immediate):**
-- Game cancelled
-- You've been dropped
-- Spot opened up
-- Late dropout recorded
-- Random player pinged
-
-**Quiet hours:** Admin sets window e.g. 10pm-8am — no reminders sent
-
-**Delivery Phase 1:** Email (Google auth users) + Web Push (Android + installed PWA iOS 16.4+)
-**Delivery Phase 3:** Native push (Capacitor), WhatsApp Business API
 
 ### Stripe Payments
 **Architecture:** Stripe Connect with application fees
@@ -413,12 +380,15 @@ Gurnam needs: full name, DOB, address, sort code, account number
 | Admin link reset per player | 30 mins | ✅ DONE |
 | Reserve list | 1 session | ✅ DONE |
 | Reminders engine | 2 sessions | ✅ DONE (session 4) |
+| Notification subscriptions | 1 session | ✅ DONE (session 5) |
+| PWA install flow | 1 session | ✅ DONE (session 5) |
+| PWA welcome screen | 1 session | ✅ DONE (session 5) |
+| iOS PWA fix | 1 session | ✅ DONE (session 5) |
 | Plus one | 1 session | Full design above |
 | Help chatbot | 1 session | System prompt ready |
 | Stripe Connect | 2 sessions | Gurnam test case |
 | Super admin dashboard | 1 session | Read-only, quick |
 | UI redesign | 2 sessions | Better than current, not final |
-| iOS PWA fix | 1 session | |
 | Undo last action | 30 mins | |
 | Apple Sign In | 1 session | Needs Apple Dev account £79 |
 
@@ -495,6 +465,8 @@ Gurnam needs: full name, DOB, address, sort code, account number
 - Quiet hours for reminders — admin configurable
 - Stripe Connect with application fees architecture
 - postcodes.io for postcode → lat/lng (free, no key needed)
+- iOS localStorage does NOT bridge Safari → PWA (separate storage contexts) — ioo_redirect_to only works if the player visited /p/TOKEN in Safari before installing. Solved for cold PWA first-open with PWA welcome screen: email lookup via find_player_by_email RPC + paste link fallback
+- ioo_last_visited is permanent, never cleared — redirects every future app open. ioo_redirect_to is a one-time install bridge, cleared after use (7-day expiry)
 
 ---
 
@@ -567,9 +539,20 @@ Built reminders engine + debt tracking.
 - New Supabase tables needed: push_subscriptions, notification_log
 - New Vercel env vars needed: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL, VITE_VAPID_PUBLIC_KEY, CRON_SECRET
 
+**Session 5 (May 11 2026):**
+Built PWA install flow, notification subscriptions, and PWA welcome screen.
+- Redirect bridge: ioo_redirect_to (7-day expiry, one-time) + ioo_last_visited (permanent). Both saved synchronously in getRoute() on every /p/ and /admin/ load — not in useEffect, which was too late (fires after Supabase data loads).
+- InstallBanner rewritten: 4-screen iOS tutorial modal ("How to" → step-by-step with animated dots nav), Android deferred prompt unchanged.
+- Notification subscription prompt: canPush now false for iOS Safari non-standalone — no dead-end permission request before install.
+- PWA welcome screen (PWAWelcome.jsx): shown when standalone + no ioo_last_visited. Option A: email → find_player_by_email RPC → redirect or team picker. Option B: paste full URL or raw token (validates p_ prefix). Both save ioo_last_visited so screen never shows again.
+- Key discovery: iOS localStorage does NOT persist from Safari to PWA — separate contexts. The redirect bridge only helps players who visited /p/TOKEN in Safari before installing. Welcome screen is the real solution for cold installs.
+- find_player_by_email RPC: SECURITY DEFINER Postgres function, joins auth.users → players → team_players → teams. SQL must be run manually in Supabase.
+- Fixed bug: localStorage saves were in useEffect hooks (fired after async data load) — moved to getRoute() for synchronous save on every page load.
+
 **Next session — start with:**
 1. Rotate Supabase keys + add new env vars (VAPID, service role key, cron secret)
 2. Create push_subscriptions + notification_log tables in Supabase
-3. Plus one
-4. Help chatbot
-5. Stripe Connect (Gurnam test case)
+3. Run find_player_by_email RPC SQL in Supabase SQL Editor
+4. Plus one
+5. Help chatbot
+6. Stripe Connect (Gurnam test case)
