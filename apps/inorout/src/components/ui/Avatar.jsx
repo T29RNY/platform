@@ -18,7 +18,7 @@ function initials(name) {
 // player:     { id, name, injured?, isGuest? }
 // reserveIndex: 1-based queue position, shown as "#N" below name
 // hasGuest:   show "+1" below name
-export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest }) {
+export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest, isInjured }) {
   const variant = player?.injured ? "injured" : isMe ? "you" : (tileColour || "green");
   const c       = CIRCLE[variant] ?? CIRCLE.green;
 
@@ -28,14 +28,21 @@ export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGues
       alignItems:"center", gap:3, width:34,
     }}>
       {/* Initials circle */}
-      <div style={{
-        width:32, height:32, borderRadius:"50%",
-        display:"flex", alignItems:"center", justifyContent:"center",
-        fontSize:9, fontWeight:500, flexShrink:0,
-        background:c.bg, border:c.border,
-        color:c.color, boxShadow:c.shadow,
-      }}>
-        {initials(player?.name)}
+      <div style={{ position:"relative", width:32, height:32, flexShrink:0 }}>
+        <div style={{
+          width:32, height:32, borderRadius:"50%",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:9, fontWeight:500,
+          background: isInjured ? "rgba(120,20,20,0.3)" : c.bg,
+          border:     isInjured ? "0.5px solid rgba(255,80,80,0.3)" : c.border,
+          color:      isInjured ? "rgba(255,100,100,0.8)" : c.color,
+          boxShadow:  c.shadow,
+        }}>
+          {initials(player?.name)}
+        </div>
+        {isInjured && (
+          <span style={{ position:"absolute", bottom:-2, right:-2, fontSize:10, lineHeight:1 }}>🤕</span>
+        )}
       </div>
 
       {/* Name */}

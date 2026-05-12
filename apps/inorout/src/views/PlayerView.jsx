@@ -604,67 +604,83 @@ export default function PlayerView({
 
           {/* c — Quick actions row */}
           <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-
-            {/* Plus One */}
-            {schedule.gameIsLive && (
-              myGuest ? (
-                /* Guest card */
-                <div style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
-                  border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
-                  display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>
-                      👤 {myGuest.name}
-                      <span style={{ color:"var(--t2)", fontWeight:400 }}> — your +1</span>
-                    </div>
-                    <div style={{ fontSize:11, color:"var(--t2)", marginTop:2, fontWeight:300 }}>
-                      {myGuest.selfPaid ? "Paying cash" : "You're covering payment"}
-                    </div>
-                  </div>
-                  {canRemoveGuest && (
-                    <button onClick={removeMyGuest} disabled={removingGuest} style={{
-                      padding:"5px 11px", borderRadius:4,
-                      border:"0.5px solid var(--border-subtle)", background:"transparent",
-                      color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11, cursor:"pointer" }}>
-                      {removingGuest ? "..." : "Remove"}
-                    </button>
-                  )}
+            {me?.injured ? (
+              /* Full-width injured tile */
+              <button onClick={toggleInjury} style={{
+                flex:1, padding:"11px 12px",
+                background:"var(--red2)", border:"0.5px solid var(--redb)",
+                borderRadius:"var(--rs)", boxShadow:"0 0 10px rgba(255,64,64,0.15)",
+                display:"flex", alignItems:"center", gap:8, cursor:"pointer",
+              }}>
+                <Bandaids size={20} weight="thin" color="var(--red)" style={{ flexShrink:0 }} />
+                <div style={{ textAlign:"left" }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:"var(--red)" }}>Injured</div>
+                  <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Tap to clear</div>
                 </div>
-              ) : !showPlusOneForm ? (
-                <button
-                  data-gaffer-target="add-plus-one"
-                  onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
-                  style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
-                    border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
-                    display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
-                  <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+              </button>
+            ) : (
+              <>
+                {/* Plus One */}
+                {schedule.gameIsLive && (
+                  myGuest ? (
+                    /* Guest card */
+                    <div style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
+                      border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                      display:"flex", flexDirection:"column", gap:6 }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>{myGuest.name}</div>
+                            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>your +1</div>
+                          </div>
+                        </div>
+                        {canRemoveGuest && (
+                          <button onClick={removeMyGuest} disabled={removingGuest} style={{
+                            padding:"5px 10px", borderRadius:6,
+                            border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                            color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11,
+                            cursor:"pointer", flexShrink:0 }}>
+                            {removingGuest ? "..." : "Remove"}
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                        {myGuest.selfPaid ? "Paying cash" : "You're covering payment"}
+                      </div>
+                    </div>
+                  ) : !showPlusOneForm ? (
+                    <button
+                      data-gaffer-target="add-plus-one"
+                      onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
+                      style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
+                        border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                        display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+                      <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                      <div style={{ textAlign:"left" }}>
+                        <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Plus One</div>
+                        <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Bring a guest</div>
+                      </div>
+                    </button>
+                  ) : null
+                )}
+
+                {/* Injured toggle */}
+                <button onClick={toggleInjury} style={{
+                  flex: schedule.gameIsLive && !myGuest && !showPlusOneForm ? undefined : 1,
+                  padding:"11px 12px", background:"var(--s1)",
+                  border:"0.5px solid var(--border-subtle)",
+                  borderRadius:"var(--rs)",
+                  display:"flex", alignItems:"center", gap:8, cursor:"pointer",
+                }}>
+                  <Bandaids size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
                   <div style={{ textAlign:"left" }}>
-                    <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Plus One</div>
-                    <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Bring a guest</div>
+                    <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Injured?</div>
+                    <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Mark yourself out</div>
                   </div>
                 </button>
-              ) : null
+              </>
             )}
-
-            {/* Injured toggle */}
-            <button onClick={toggleInjury} style={{
-              flex: schedule.gameIsLive && !myGuest && !showPlusOneForm ? undefined : 1,
-              padding:"11px 12px", background:"var(--s1)",
-              border: me?.injured ? "0.5px solid var(--redb)" : "0.5px solid var(--border-subtle)",
-              borderRadius:"var(--rs)",
-              display:"flex", alignItems:"center", gap:8, cursor:"pointer",
-              background: me?.injured ? "var(--red2)" : "var(--s1)",
-            }}>
-              <Bandaids size={20} weight="thin" color={me?.injured ? "var(--red)" : "var(--t1)"} style={{ flexShrink:0 }} />
-              <div style={{ textAlign:"left" }}>
-                <div style={{ fontSize:13, fontWeight:400, color: me?.injured ? "var(--red)" : "var(--t1)" }}>
-                  {me?.injured ? "Injured" : "Injured"}
-                </div>
-                <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>
-                  {me?.injured ? "Tap to clear" : "Mark yourself out"}
-                </div>
-              </div>
-            </button>
           </div>
 
           {/* Plus One form (expanded) */}
@@ -766,7 +782,7 @@ export default function PlayerView({
                       player={p}
                       isMe={p.id === myId}
                       tileColour="green"
-                      hasGuest={squad.some(g => g.isGuest && g.guestOf === p.id)}
+                      hasGuest={p.isGuest === true}
                     />
                   ))}
                 </Tile>
@@ -784,7 +800,7 @@ export default function PlayerView({
                 {outPlayers.length > 0 && (
                   <Tile colour="red" icon="❌" label="Out" count={outPlayers.length}>
                     {outPlayers.map(p => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" />
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} />
                     ))}
                   </Tile>
                 )}
