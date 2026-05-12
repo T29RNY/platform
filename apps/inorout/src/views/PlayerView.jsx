@@ -100,8 +100,9 @@ export default function PlayerView({
   const myGuest       = squad.find(p => p.isGuest && p.guestOf === myId);
   const canRemoveGuest = !schedule.isDraft;
 
-  const inPlayers    = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
-  const teamsSet     = inPlayers.length > 0 && inPlayers.every(p => p.team);
+  const inPlayers        = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
+  const nonGuestInPlayers = inPlayers.filter(p => !p.isGuest);
+  const teamsSet         = nonGuestInPlayers.length > 0 && nonGuestInPlayers.every(p => p.team);
 
   useEffect(() => {
     if (!teamsSet || !teamId) return;
