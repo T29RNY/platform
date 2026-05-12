@@ -578,7 +578,8 @@ export default function App() {
       {view==="player"  && (
         <PlayerView  {...sharedProps} myId={myId} teamId={teamId}
           onMidFlowChange={setIsActionBlocked}
-          isAdmin={isAdmin} onGoAdmin={() => setView("admin")}/>
+          isAdmin={isAdmin} onGoAdmin={() => setView("admin")}
+          matchHistory={matchHistory} bibHistory={bibHistory}/>
       )}
       {view==="stats"   && <StatsView squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} settings={settings}/>}
