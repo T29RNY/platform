@@ -92,15 +92,6 @@ export default function PlayerView({
   const [playerForm,      setPlayerForm]      = useState({});
   const [lastMatchMeta,   setLastMatchMeta]   = useState(null);
 
-  useEffect(() => {
-    if (!teamsSet || !teamId) return;
-    const ids = squad.filter(p => p.status === "in" && !p.disabled && !p.isGuest).map(p => p.id);
-    if (!ids.length) return;
-    Promise.all([getPlayerMatchForm(teamId, ids), getLastMatchMeta(teamId)])
-      .then(([form, meta]) => { setPlayerForm(form || {}); setLastMatchMeta(meta); })
-      .catch(() => {});
-  }, [teamsSet, teamId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
@@ -111,6 +102,15 @@ export default function PlayerView({
 
   const inPlayers    = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
   const teamsSet     = inPlayers.length > 0 && inPlayers.every(p => p.team);
+
+  useEffect(() => {
+    if (!teamsSet || !teamId) return;
+    const ids = squad.filter(p => p.status === "in" && !p.disabled && !p.isGuest).map(p => p.id);
+    if (!ids.length) return;
+    Promise.all([getPlayerMatchForm(teamId, ids), getLastMatchMeta(teamId)])
+      .then(([form, meta]) => { setPlayerForm(form || {}); setLastMatchMeta(meta); })
+      .catch(() => {});
+  }, [teamsSet, teamId]); // eslint-disable-line react-hooks/exhaustive-deps
   const isFull   = inPlayers.length >= (schedule.squadSize || 14);
   const gameDay  = schedule?.gameDateTime
     ? new Date(schedule.gameDateTime).toLocaleDateString('en-GB', { weekday:'long' })
