@@ -222,7 +222,7 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
             {[
               { label:"Played", val: p.attended   || 0 },
               { label:"Goals",  val: p.goals       || 0 },
-              { label:"MOTM",   val: p.motm        || 0 },
+              { label:"POTM",   val: p.motm        || 0 },
               { label:"Bibs",   val: p.bibCount    || 0 },
               { label:"Late",   val: p.lateDropouts|| 0 },
             ].map(({ label, val }, i) => (
@@ -449,8 +449,10 @@ export default function AdminView({
   schedule, setSchedule, matchHistory, setMatchHistory,
   settings, setSettings, coverPool, setCoverPool, teamId,
   screen, setScreen, onGoPlayer, onGoStats, onGoHistory,
+  isDemoMode = false, onResetDemo,
 }) {
   const [showCancel,       setShowCancel]       = useState(false);
+  const [demoResetState,   setDemoResetState]   = useState(null);
   const [cancelReason,     setCancelReason]     = useState("");
   const [dragId,           setDragId]           = useState(null);
   const [dismissedOrphans, setDismissedOrphans] = useState(new Set());
@@ -482,6 +484,13 @@ export default function AdminView({
     !dismissedOrphans.has(p.id)
   );
   const selfPaidPending = inPlayers.filter(p => p.selfPaid === true && p.paid !== true && !p.paidBy);
+
+  const handleDemoReset = async () => {
+    setDemoResetState("resetting");
+    try { await onResetDemo?.(); } catch(e) { console.error(e); }
+    setDemoResetState("done");
+    setTimeout(() => setDemoResetState(null), 3000);
+  };
 
   // ── functions (all preserved from original) ───────────────────────────────
   const dismissOrphan = (id) => setDismissedOrphans(prev => new Set([...prev, id]));
@@ -773,6 +782,18 @@ export default function AdminView({
 
       {/* ── Hero card ── */}
       <div style={{ position:"relative", height:140, overflow:"hidden", background:"#0a0e08" }}>
+        {isDemoMode && (
+          <div style={{ position:"absolute", top:12, right:12, zIndex:10 }}>
+            <button onClick={handleDemoReset} style={{
+              background:"rgba(255,255,255,0.12)", backdropFilter:"blur(12px)",
+              border:"0.5px solid rgba(255,255,255,0.15)", borderRadius:"var(--r-pill)",
+              padding:"5px 12px", fontSize:10, color:"#fff", fontFamily:"var(--font-body)",
+              cursor:"pointer", letterSpacing:"0.05em", WebkitTapHighlightColor:"transparent",
+            }}>
+              {demoResetState === "resetting" ? "Resetting..." : demoResetState === "done" ? "Demo Reset ✓" : "🔄 Reset Demo"}
+            </button>
+          </div>
+        )}
         <img src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80"
           alt="" style={{ position:"absolute", inset:0, width:"100%", height:"100%",
             objectFit:"cover", filter:"brightness(0.35) saturate(0.6)" }}/>
@@ -1009,7 +1030,7 @@ export default function AdminView({
             icon:FlagCheckered, iconColor:"var(--green)",
             bg:"linear-gradient(135deg,rgba(61,220,106,0.14) 0%,rgba(61,220,106,0.03) 60%,rgba(10,10,8,0.5) 100%)",
             border:"rgba(61,220,106,0.25)",
-            title:"Input Result", sub:"Score, scorers, MOTM, bibs",
+            title:"Input Result", sub:"Score, scorers, POTM, bibs",
             badge:pendingResults, onClick:() => setScreen("score"),
           })}
         </div>

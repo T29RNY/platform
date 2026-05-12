@@ -12,6 +12,7 @@ import {
   getTeamByJoinCode, addPlayerToTeam,
   getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
   getSession, getUser, findPlayerByUserId,
+  resetDemoData, updateDemoInteraction,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
 import Header        from "./views/Header.jsx";
@@ -69,6 +70,7 @@ function getRoute() {
     return { type:"admin", token:parts[1] };
   }
 
+  if (parts[0]==="demoadmin")                  return { type:"demoadmin" };
   if (parts[0]==="create")                    return { type:"create" };
   if (parts[0]==="join"          && parts[1]) return { type:"join",     code:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
@@ -179,6 +181,13 @@ export default function App() {
         if (session?.user) setAuthUser(session.user);
 
         let resolvedTeamId = null;
+
+        if (route.type === "demoadmin") {
+          setIsAdmin(true);
+          setView("admin");
+          try { await updateDemoInteraction(); } catch(e) {}
+          resolvedTeamId = "team_demo";
+        }
 
         if (route.type === "admin") {
           if (route.token === "local") {
@@ -601,6 +610,8 @@ export default function App() {
           onGoPlayer={() => setView("player")}
           onGoStats={() => setView("stats")}
           onGoHistory={() => setView("history")}
+          isDemoMode={route.type === "demoadmin"}
+          onResetDemo={async () => { await resetDemoData(); await loadTeamData("team_demo"); }}
         />
       )}
       <Gaffer

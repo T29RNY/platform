@@ -183,7 +183,7 @@ export default function ScoreScreen({
           </div>
           {motmVote && (
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:4 }}>
-              MOTM: {motmVote} 🏆
+              POTM: {motmVote} 🏆
             </div>
           )}
           {bibHolder && (

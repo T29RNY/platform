@@ -160,12 +160,12 @@ PLUS ONE
 INJURED PLAYERS
 - Player or admin can mark as injured
 - Auto-set to OUT; injured players cannot change their status until the injury is cleared by themselves or admin
-- Excluded from squad count, push notifications, and MOTM voting
+- Excluded from squad count, push notifications, and POTM voting
 - Debt from previous games still shows and applies
 - Can still add a plus one while injured
 
 STATS & HISTORY
-- Goals, MOTM, W/L/D, attendance %, streaks, bibs, payment reliability
+- Goals, POTM, W/L/D, attendance %, streaks, bibs, payment reliability
 - Updated automatically when admin saves result
 - History: tap any game to drill in
 
@@ -180,7 +180,7 @@ COVER POOL
 - Cover pool players don't appear on the live board unless admin adds them as a plus one for a specific game
 
 NOTIFICATIONS
-- Players get pushes for: game open, squad full, spot opened, game cancelled, debt reminder, bib reminders, MOTM voting
+- Players get pushes for: game open, squad full, spot opened, game cancelled, debt reminder, bib reminders, POTM voting
 - Only works if player has subscribed (prompted after first status set on Android or installed iOS PWA)
 - Admin controls which triggers are active and quiet hours in Schedule Settings → Reminders
 - Injured players receive no notifications

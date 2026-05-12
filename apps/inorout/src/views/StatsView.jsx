@@ -473,7 +473,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
             {/* 4. MOTM Kings */}
             <SecLabel icon={Star} label="Man of the Match" />
             {topMotm.length > 0 ? (
-              <LeaderCard icon={Star} label="MOTM Awards">
+              <LeaderCard icon={Star} label="POTM Awards">
                 {topMotm.map((p, i) => {
                   const every = (p.attended || 0) > 0 ? Math.round(p.attended / (p.motm || 1)) : 0;
                   return (
@@ -490,7 +490,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               </LeaderCard>
             ) : (
               <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "16px 14px", marginBottom: 8, fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>
-                No MOTM awarded yet
+                No POTM awarded yet
               </div>
             )}
 
@@ -705,7 +705,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                     sub={longestUnbeaten > 0 ? "games unbeaten" : "No data yet"} color="var(--amber)" />
                   <RecordTile label="Top Scorer" value={topGoalScorer?.goals > 0 ? topGoalScorer.name.split(" ")[0] : "—"}
                     sub={topGoalScorer?.goals > 0 ? `${topGoalScorer.goals} goals` : "No data yet"} color="var(--gold)" />
-                  <RecordTile label="Most MOTM" value={mostMotm?.motm > 0 ? mostMotm.name.split(" ")[0] : "—"}
+                  <RecordTile label="Most POTM" value={mostMotm?.motm > 0 ? mostMotm.name.split(" ")[0] : "—"}
                     sub={mostMotm?.motm > 0 ? `${mostMotm.motm} awards` : "No data yet"} color="var(--gold)" />
                   <RecordTile label="Never Missed" value={mostAttended?.attended > 0 ? mostAttended.name.split(" ")[0] : "—"}
                     sub={mostAttended?.attended > 0 ? `${mostAttended.attended} games` : "No data yet"} color="var(--green)" />

@@ -115,7 +115,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
       `🔴 Team B: ${(m.teamB || []).join(", ") || "—"}`,
       "",
       scorersStr           ? `⚽ Scorers: ${scorersStr}` : null,
-      m.motm               ? `🏆 MOTM: ${m.motm}`       : null,
+      m.motm               ? `🏆 POTM: ${m.motm}`       : null,
       m.bibHolder          ? `🟡 Bibs: ${m.bibHolder}`   : null,
       (venue||kickoffTime) ? `📍 ${[venue, kickoffTime].filter(Boolean).join(" · ")}` : null,
     ].filter(l => l !== null).join("\n");

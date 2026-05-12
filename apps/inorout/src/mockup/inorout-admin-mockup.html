@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>In or Out — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/thin/index.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0A0A08;--s1:#141412;--s2:#1C1C19;--s3:#222220;
+  --b1:rgba(255,255,255,0.08);--b2:rgba(255,255,255,0.05);
+  --t1:#F2F0EA;--t2:#D0CCC2;--t3:#7A7670;
+  --gold:#E8A020;--gold2:rgba(232,160,32,0.15);--goldb:rgba(232,160,32,0.35);
+  --green:#3DDC6A;--green2:rgba(61,220,106,0.12);--greenb:rgba(61,220,106,0.3);
+  --red:#FF4040;--red2:rgba(255,64,64,0.12);--redb:rgba(255,64,64,0.3);
+  --amber:#FFB020;--amber2:rgba(255,176,32,0.12);--amberb:rgba(255,176,32,0.3);
+  --purple:#B060F0;--purple2:rgba(176,96,240,0.12);--purpleb:rgba(176,96,240,0.3);
+  --r:16px;--rs:10px;--rb:12px;--rp:20px;
+}
+html,body{width:100%;overflow-x:hidden}
+body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:var(--t1);max-width:390px;margin:0 auto;min-height:100vh;font-weight:400}
+.sb{display:flex;justify-content:space-between;padding:14px 16px 0;font-size:14px;color:var(--t1)}
+
+/* HERO */
+.hero{position:relative;height:140px;overflow:hidden;background:linear-gradient(160deg,#1a0e08 0%,#0e1208 40%,#080e14 100%)}
+
+.hero-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,8,0.2) 0%,rgba(10,10,8,0.82) 100%)}
+.hero-c{position:absolute;bottom:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-end}
+.hero-eyebrow{font-size:10px;font-weight:400;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:2px}
+.hero-title{font-family:'Bebas Neue',sans-serif;font-size:34px;line-height:0.95;letter-spacing:0.02em;font-style:italic;color:var(--t1)}
+.hero-title span{color:var(--green)}
+.hero-right{display:flex;gap:8px;align-items:flex-end}
+.glass-chip{background:rgba(255,255,255,0.1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:0.5px solid rgba(255,255,255,0.18);border-radius:var(--rs);width:80px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;flex-shrink:0}
+.gc-num{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;color:var(--t1)}
+.gc-num.green{color:var(--green);text-shadow:0 0 10px rgba(61,220,106,0.4)}
+.gc-num.red{color:var(--red)}
+.gc-label{font-size:9px;font-weight:300;letter-spacing:0.08em;text-transform:uppercase;color:rgba(242,240,234,0.6);margin-top:1px}
+
+.content{padding:10px 16px 100px}
+.slabel{font-size:10px;font-weight:400;letter-spacing:0.14em;text-transform:uppercase;color:var(--t3);margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.slabel::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.06)}
+
+/* GAME LIVE TOGGLE */
+.live-toggle{background:var(--s1);border:0.5px solid var(--b1);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.lt-left{display:flex;align-items:center;gap:10px}
+.lt-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(61,220,106,0.6);animation:blink 2s infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+.lt-title{font-size:15px;font-weight:400;color:var(--t1)}
+.toggle-switch{width:44px;height:26px;background:var(--green);border-radius:13px;position:relative;flex-shrink:0;box-shadow:0 0 10px rgba(61,220,106,0.3);cursor:pointer;transition:all 0.2s}
+.toggle-knob{width:20px;height:20px;background:#fff;border-radius:50%;position:absolute;top:3px;right:3px;transition:all 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.3)}
+
+/* OPTION B ACTION ROWS */
+.action-rows{background:var(--s1);border:0.5px solid var(--b1);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.action-row{display:flex;align-items:center;padding:12px 14px;border-bottom:0.5px solid var(--b2);cursor:pointer;gap:12px;transition:opacity 0.15s}
+.action-row:last-child{border-bottom:none}
+.action-row:active{opacity:0.7}
+.ar-icon{width:36px;height:36px;border-radius:var(--rs);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ar-icon.chase{background:var(--amber2);border:0.5px solid var(--amberb)}
+.ar-icon.chase i{color:var(--amber);font-size:18px}
+.ar-icon.cancel{background:var(--red2);border:0.5px solid var(--redb)}
+.ar-icon.cancel i{color:var(--red);font-size:18px}
+.ar-icon.announce{background:var(--purple2);border:0.5px solid var(--purpleb)}
+.ar-icon.announce i{color:var(--purple);font-size:18px}
+.ar-info{flex:1}
+.ar-title{font-size:13px;font-weight:400;color:var(--t1)}
+.ar-sub{font-size:11px;color:var(--t2);font-weight:300;margin-top:2px}
+.ar-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.ar-badge{background:var(--amber);border-radius:10px;padding:2px 8px;font-size:10px;font-weight:600;color:#000}
+.ar-chevron{color:var(--t3);font-size:16px}
+
+/* LIVE BOARD */
+.board-section{background:var(--s1);border:0.5px solid var(--b1);border-radius:var(--r);overflow:hidden;margin-bottom:8px}
+.bs-header{display:flex;align-items:center;justify-content:space-between;padding:0 14px;min-height:48px;cursor:pointer;border-bottom:0.5px solid transparent}
+.bs-header.open{border-bottom-color:var(--b2)}
+.bs-left{display:flex;align-items:center;gap:8px}
+.bs-icon{font-size:14px;line-height:1}
+.bs-label{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase}
+.bs-label.in{color:var(--green)}.bs-label.maybe{color:var(--amber)}.bs-label.out{color:var(--red)}.bs-label.res{color:var(--purple)}.bs-label.inj{color:var(--red)}.bs-label.none{color:var(--t3)}
+.bs-count{font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;color:var(--t1)}
+.bs-right{display:flex;align-items:center;gap:8px}
+.bs-chevron{font-size:16px;color:var(--t3);transition:transform 0.2s}
+.bs-chevron.open{transform:rotate(90deg)}
+
+/* PLAYER ROW */
+.player-row{display:flex;align-items:center;padding:10px 14px;border-bottom:0.5px solid var(--b2);gap:10px;cursor:pointer}
+.player-row:last-child{border-bottom:none}
+.pr-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.pr-av.in{background:var(--green2);border:0.5px solid var(--greenb);color:var(--green)}
+.pr-av.out{background:var(--red2);border:0.5px solid var(--redb);color:var(--red)}
+.pr-av.maybe{background:var(--amber2);border:0.5px solid var(--amberb);color:var(--amber)}
+.pr-av.res{background:var(--purple2);border:0.5px solid var(--purpleb);color:var(--purple)}
+.pr-av.inj{background:rgba(255,64,64,0.1);border:0.5px solid rgba(255,64,64,0.2);color:var(--red)}
+.pr-av.none{background:rgba(255,255,255,0.05);border:0.5px solid var(--b1);color:var(--t3)}
+.pr-info{flex:1;min-width:0}
+.pr-name{font-size:13px;color:var(--t1);font-weight:400}
+.pr-sub{font-size:11px;color:var(--t3);font-weight:300;margin-top:1px}
+.pr-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.pr-paid{background:var(--green2);border:0.5px solid var(--greenb);border-radius:var(--rp);padding:4px 10px;font-size:11px;font-weight:500;color:var(--green)}
+.pr-unpaid{background:var(--red2);border:0.5px solid var(--redb);border-radius:var(--rp);padding:4px 10px;font-size:11px;font-weight:500;color:var(--red)}
+.pr-debt{background:var(--amber2);border:0.5px solid var(--amberb);border-radius:var(--rp);padding:4px 8px;font-size:11px;font-weight:500;color:var(--amber)}
+.pr-copy{width:28px;height:28px;background:var(--s2);border:0.5px solid var(--b1);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.pr-copy i{font-size:14px;color:var(--t3)}
+.pr-drag{color:var(--t3);font-size:16px;cursor:grab;padding:0 4px;flex-shrink:0}
+.pr-clear{background:var(--red2);border:0.5px solid var(--redb);border-radius:var(--rp);padding:4px 10px;font-size:11px;font-weight:400;color:var(--red);cursor:pointer}
+
+/* 2-COL TILES */
+.tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.action-tile{background:var(--s1);border:0.5px solid var(--b1);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:6px;cursor:pointer;transition:opacity 0.15s;position:relative;overflow:hidden}
+.action-tile:active{opacity:0.8}
+.at-icon{font-size:22px;margin-bottom:2px}
+.at-title{font-size:13px;font-weight:500;color:var(--t1)}
+.at-sub{font-size:11px;color:var(--t2);font-weight:300;line-height:1.3}
+.at-badge{position:absolute;top:10px;right:10px;background:var(--red);border-radius:10px;padding:2px 7px;font-size:9px;font-weight:700;color:#fff}
+.at-status{font-size:10px;font-weight:400;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px}
+.at-status.confirmed{color:var(--green)}.at-status.pending{color:var(--amber)}
+.action-tile.teams{background:linear-gradient(135deg,rgba(96,160,255,0.14) 0%,rgba(96,160,255,0.03) 60%,rgba(10,10,8,0.5) 100%);border-color:rgba(96,160,255,0.25)}
+.action-tile.result{background:linear-gradient(135deg,rgba(61,220,106,0.14) 0%,rgba(61,220,106,0.03) 60%,rgba(10,10,8,0.5) 100%);border-color:rgba(61,220,106,0.25)}
+.action-tile.squad{background:linear-gradient(135deg,rgba(232,160,32,0.14) 0%,rgba(232,160,32,0.03) 60%,rgba(10,10,8,0.5) 100%);border-color:rgba(232,160,32,0.25)}
+.action-tile.schedule{background:linear-gradient(135deg,rgba(176,96,240,0.14) 0%,rgba(176,96,240,0.03) 60%,rgba(10,10,8,0.5) 100%);border-color:rgba(176,96,240,0.25)}
+.action-tile.notif{background:linear-gradient(135deg,rgba(255,176,32,0.14) 0%,rgba(255,176,32,0.03) 60%,rgba(10,10,8,0.5) 100%);border-color:rgba(255,176,32,0.25)}
+.action-tile.bibs{background:linear-gradient(135deg,rgba(232,160,32,0.14) 0%,rgba(232,160,32,0.03) 60%,rgba(10,10,8,0.5) 100%);border-color:rgba(232,160,32,0.25)}
+
+/* COVER POOL */
+.cover-pool{background:var(--s1);border:0.5px solid var(--b1);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.cp-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;min-height:48px}
+.cp-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--t2)}
+.cp-title i{font-size:16px}
+.cp-row{display:flex;align-items:center;padding:9px 14px;border-top:0.5px solid var(--b2);gap:10px}
+.cp-av{width:30px;height:30px;border-radius:50%;background:var(--s3);border:0.5px solid var(--b1);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--t2);flex-shrink:0}
+.cp-name{flex:1;font-size:12px;color:var(--t2);font-weight:400}
+.cp-games{font-size:11px;color:var(--t3);font-weight:300}
+.cp-add{background:var(--s2);border:0.5px solid var(--b1);border-radius:var(--rp);padding:4px 10px;font-size:11px;font-weight:400;color:var(--t2);cursor:pointer}
+
+/* BOTTOM NAV */
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:390px;background:rgba(8,8,6,0.97);backdrop-filter:blur(30px);border-top:0.5px solid rgba(255,255,255,0.1);display:flex;padding:10px 0 26px;z-index:100}
+.bnav::before{content:'';position:absolute;top:-1px;left:5%;right:5%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2) 30%,rgba(255,255,255,0.25) 50%,rgba(255,255,255,0.2) 70%,transparent)}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 4px;border-radius:10px;margin:0 2px;position:relative;transition:all 0.2s}
+.ni i{font-size:20px;color:var(--t2);transition:all 0.2s}
+.ni-lbl{font-size:9px;font-weight:400;letter-spacing:0.07em;text-transform:uppercase;color:var(--t2)}
+.ni.active{background:rgba(232,160,32,0.04)}
+.ni.active::after{content:'';position:absolute;inset:0;border-radius:10px;padding:0.5px;background:linear-gradient(180deg,rgba(232,160,32,0.9) 0%,rgba(232,160,32,0.7) 8%,rgba(232,160,32,0.3) 22%,rgba(232,160,32,0.05) 40%,transparent 55%);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.ni.active i{color:var(--gold);filter:drop-shadow(0 0 5px rgba(232,160,32,0.75)) drop-shadow(0 0 12px rgba(232,160,32,0.35))}
+.ni.active .ni-lbl{color:var(--gold)}
+.ni-dot{width:3px;height:3px;background:var(--gold);border-radius:50%;margin-top:1px;display:none;box-shadow:0 0 5px var(--gold)}
+.ni.active .ni-dot{display:block}
+
+.fu{animation:fu 0.4s cubic-bezier(0.16,1,0.3,1) both}
+@keyframes fu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.d1{animation-delay:0.04s}.d2{animation-delay:0.08s}.d3{animation-delay:0.12s}
+.d4{animation-delay:0.16s}.d5{animation-delay:0.20s}.d6{animation-delay:0.24s}
+</style>
+</head>
+<body>
+
+<div class="sb">
+  <span>9:41</span>
+  <span style="font-size:12px;color:var(--t2)">▲▲▲ WiFi 🔋</span>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  
+  <div class="hero-ov"></div>
+  <div class="hero-c">
+    <div>
+      <div class="hero-eyebrow">Finbar's Tuesdays</div>
+      <div class="hero-title">ADMIN <span>PANEL</span></div>
+    </div>
+    <div class="hero-right">
+      <div class="glass-chip">
+        <div class="gc-num green">6</div>
+        <div class="gc-label">In this week</div>
+      </div>
+      <div class="glass-chip">
+        <div class="gc-num green">4</div>
+        <div class="gc-label">Paid</div>
+      </div>
+      <div class="glass-chip">
+        <div class="gc-num red">£25</div>
+        <div class="gc-label">Outstanding</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- GAME LIVE TOGGLE -->
+  <div class="live-toggle fu d1">
+    <div class="lt-left">
+      <div class="lt-dot"></div>
+      <div class="lt-title">Game is Open</div>
+    </div>
+    <div class="toggle-switch">
+      <div class="toggle-knob"></div>
+    </div>
+  </div>
+
+  <!-- ACTIONS — Option B rows -->
+  <div class="slabel fu d2">Actions</div>
+  <div class="action-rows fu d2">
+    <div class="action-row">
+      <div class="ar-icon chase"><i class="ph-thin ph-megaphone"></i></div>
+      <div class="ar-info">
+        <div class="ar-title">Chase No-Responses</div>
+        <div class="ar-sub">Nudge the 5 players who haven't replied</div>
+      </div>
+      <div class="ar-right">
+        <span class="ar-badge">5</span>
+        <i class="ph-thin ph-caret-right ar-chevron"></i>
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="ar-icon cancel"><i class="ph-thin ph-x-circle"></i></div>
+      <div class="ar-info">
+        <div class="ar-title">Cancel This Week</div>
+        <div class="ar-sub">Notify all confirmed players</div>
+      </div>
+      <div class="ar-right">
+        <i class="ph-thin ph-caret-right ar-chevron"></i>
+      </div>
+    </div>
+    <div class="action-row">
+      <div class="ar-icon announce"><i class="ph-thin ph-paper-plane-tilt"></i></div>
+      <div class="ar-info">
+        <div class="ar-title">Announce to Squad</div>
+        <div class="ar-sub">Choose who receives your message</div>
+      </div>
+      <div class="ar-right">
+        <i class="ph-thin ph-caret-right ar-chevron"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE BOARD -->
+  <div class="slabel fu d3">Live Board</div>
+
+  <!-- IN -->
+  <div class="board-section fu d3">
+    <div class="bs-header open" onclick="toggleSection(this)">
+      <div class="bs-left">
+        <span class="bs-icon">✅</span>
+        <span class="bs-label in">In</span>
+        <span class="bs-count">6</span>
+      </div>
+      <div class="bs-right">
+        <i class="ph-thin ph-caret-right bs-chevron open"></i>
+      </div>
+    </div>
+    <div class="player-row">
+      <div class="pr-av in">HA</div>
+      <div class="pr-info">
+        <div class="pr-name">Hassan</div>
+        <div class="pr-sub">Confirmed</div>
+      </div>
+      <div class="pr-actions">
+        <span class="pr-paid">✓ Paid</span>
+        <div class="pr-copy"><i class="ph-thin ph-link"></i></div>
+      </div>
+    </div>
+    <div class="player-row">
+      <div class="pr-av in">MI</div>
+      <div class="pr-info">
+        <div class="pr-name">Mike</div>
+        <div class="pr-sub">Confirmed</div>
+      </div>
+      <div class="pr-actions">
+        <span class="pr-unpaid">Unpaid</span>
+        <span class="pr-debt">+£5 owed</span>
+        <div class="pr-copy"><i class="ph-thin ph-link"></i></div>
+      </div>
+    </div>
+    <div class="player-row">
+      <div class="pr-av in" style="background:var(--gold2);border-color:var(--goldb);color:var(--gold)">TA</div>
+      <div class="pr-info">
+        <div class="pr-name">Tarny <span style="font-size:10px;color:var(--gold)">· Admin</span></div>
+        <div class="pr-sub">Confirmed · Pala +1</div>
+      </div>
+      <div class="pr-actions">
+        <span class="pr-paid">✓ Paid</span>
+        <div class="pr-copy"><i class="ph-thin ph-link"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESERVE -->
+  <div class="board-section fu d3">
+    <div class="bs-header open" onclick="toggleSection(this)">
+      <div class="bs-left">
+        <span class="bs-icon">🟣</span>
+        <span class="bs-label res">Reserve</span>
+        <span class="bs-count">2</span>
+      </div>
+      <div class="bs-right">
+        <i class="ph-thin ph-caret-right bs-chevron open"></i>
+      </div>
+    </div>
+    <div class="player-row">
+      <span class="pr-drag">⠿</span>
+      <div class="pr-av res">LI</div>
+      <div class="pr-info">
+        <div class="pr-name">Liam <span style="font-size:10px;color:var(--purple)">· #1</span></div>
+        <div class="pr-sub">Next in queue</div>
+      </div>
+      <div class="pr-actions">
+        <span class="pr-unpaid">Unpaid</span>
+        <div class="pr-copy"><i class="ph-thin ph-link"></i></div>
+      </div>
+    </div>
+    <div class="player-row">
+      <span class="pr-drag">⠿</span>
+      <div class="pr-av res">PA</div>
+      <div class="pr-info">
+        <div class="pr-name">Paul <span style="font-size:10px;color:var(--purple)">· #2</span></div>
+        <div class="pr-sub">On standby</div>
+      </div>
+      <div class="pr-actions">
+        <span class="pr-unpaid">Unpaid</span>
+        <div class="pr-copy"><i class="ph-thin ph-link"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAYBE -->
+  <div class="board-section fu d4">
+    <div class="bs-header open" onclick="toggleSection(this)">
+      <div class="bs-left">
+        <span class="bs-icon">❓</span>
+        <span class="bs-label maybe">Maybe</span>
+        <span class="bs-count">1</span>
+      </div>
+      <div class="bs-right">
+        <i class="ph-thin ph-caret-right bs-chevron open"></i>
+      </div>
+    </div>
+    <div class="player-row">
+      <div class="pr-av maybe">JO</div>
+      <div class="pr-info">
+        <div class="pr-name">Jordan</div>
+        <div class="pr-sub">"Might be late from work"</div>
+      </div>
+      <div class="pr-actions">
+        <span class="pr-unpaid">Unpaid</span>
+        <div class="pr-copy"><i class="ph-thin ph-link"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUT -->
+  <div class="board-section fu d4">
+    <div class="bs-header" onclick="toggleSection(this)">
+      <div class="bs-left">
+        <span class="bs-icon">❌</span>
+        <span class="bs-label out">Out</span>
+        <span class="bs-count">3</span>
+      </div>
+      <div class="bs-right">
+        <i class="ph-thin ph-caret-right bs-chevron"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- INJURED -->
+  <div class="board-section fu d4">
+    <div class="bs-header open" onclick="toggleSection(this)">
+      <div class="bs-left">
+        <span class="bs-icon">🤕</span>
+        <span class="bs-label inj">Injured</span>
+        <span class="bs-count">1</span>
+      </div>
+      <div class="bs-right">
+        <i class="ph-thin ph-caret-right bs-chevron open"></i>
+      </div>
+    </div>
+    <div class="player-row">
+      <div class="pr-av inj">FI</div>
+      <div class="pr-info">
+        <div class="pr-name">Finbar</div>
+        <div class="pr-sub">Injured 5 days ago · 1st injury</div>
+      </div>
+      <div class="pr-actions">
+        <span class="pr-clear">Clear</span>
+        <div class="pr-copy"><i class="ph-thin ph-link"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NO RESPONSE -->
+  <div class="board-section fu d5">
+    <div class="bs-header" onclick="toggleSection(this)">
+      <div class="bs-left">
+        <span class="bs-icon">⏳</span>
+        <span class="bs-label none">No Response</span>
+        <span class="bs-count">5</span>
+      </div>
+      <div class="bs-right">
+        <i class="ph-thin ph-caret-right bs-chevron"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- THIS WEEK TILES -->
+  <div class="slabel fu d5">This Week</div>
+  <div class="tile-grid fu d5">
+    <div class="action-tile teams">
+      <i class="ph-thin ph-users-three at-icon" style="color:#60A0FF"></i>
+      <div class="at-title">Make Teams</div>
+      <div class="at-sub">Split squad into A and B</div>
+      <div class="at-status pending">Not confirmed</div>
+    </div>
+    <div class="action-tile result">
+      <i class="ph-thin ph-flag-checkered at-icon" style="color:var(--green)"></i>
+      <div class="at-title">Input Result</div>
+      <div class="at-sub">Score, scorers, MOTM, bibs</div>
+      <div class="at-badge">2</div>
+    </div>
+  </div>
+
+  <!-- MANAGE TILES -->
+  <div class="slabel fu d5">Manage</div>
+  <div class="tile-grid fu d5">
+    <div class="action-tile squad">
+      <i class="ph-thin ph-user-list at-icon" style="color:var(--gold)"></i>
+      <div class="at-title">Squad</div>
+      <div class="at-sub">Invites, links, players</div>
+    </div>
+    <div class="action-tile schedule">
+      <i class="ph-thin ph-calendar-blank at-icon" style="color:var(--purple)"></i>
+      <div class="at-title">Schedule</div>
+      <div class="at-sub">Kickoff, venue, price</div>
+    </div>
+    <div class="action-tile notif">
+      <i class="ph-thin ph-bell at-icon" style="color:var(--amber)"></i>
+      <div class="at-title">Notifications</div>
+      <div class="at-sub">Reminders, quiet hours</div>
+    </div>
+    <div class="action-tile bibs">
+      <i class="ph-thin ph-t-shirt at-icon" style="color:var(--gold)"></i>
+      <div class="at-title">Bibs</div>
+      <div class="at-sub">Tracker and history</div>
+    </div>
+  </div>
+
+  <!-- COVER POOL -->
+  <div class="slabel fu d6">Cover Pool</div>
+  <div class="cover-pool fu d6">
+    <div class="cp-header" onclick="toggleCover(this)">
+      <div class="cp-title">
+        <i class="ph-thin ph-users"></i>
+        Cover Pool · 4 players
+      </div>
+      <i class="ph-thin ph-caret-right" style="font-size:14px;color:var(--t3)"></i>
+    </div>
+    <div id="cover-body" style="display:none">
+      <div class="cp-row">
+        <div class="cp-av">JA</div>
+        <div class="cp-name">James</div>
+        <div class="cp-games">3 games</div>
+        <div class="cp-add">+ Add</div>
+      </div>
+      <div class="cp-row">
+        <div class="cp-av">RI</div>
+        <div class="cp-name">Richard</div>
+        <div class="cp-games">1 game</div>
+        <div class="cp-add">+ Add</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bnav">
+  <div class="ni"><i class="ph-thin ph-house"></i><span class="ni-lbl">My View</span><span class="ni-dot"></span></div>
+  <div class="ni"><i class="ph-thin ph-chart-bar"></i><span class="ni-lbl">Stats</span><span class="ni-dot"></span></div>
+  <div class="ni"><i class="ph-thin ph-clock-counter-clockwise"></i><span class="ni-lbl">Results</span><span class="ni-dot"></span></div>
+  <div class="ni active"><i class="ph-thin ph-gear"></i><span class="ni-lbl">Admin</span><span class="ni-dot"></span></div>
+</div>
+
+<script>
+function toggleSection(header){
+  const ch=header.querySelector('.bs-chevron');
+  const isOpen=ch.classList.contains('open');
+  ch.classList.toggle('open');
+  header.classList.toggle('open');
+  let next=header.nextElementSibling;
+  while(next && next.classList.contains('player-row')){
+    next.style.display=isOpen?'none':'flex';
+    next=next.nextElementSibling;
+  }
+}
+function toggleCover(el){
+  const body=document.getElementById('cover-body');
+  body.style.display=body.style.display==='none'?'block':'none';
+}
+document.querySelectorAll('.ni').forEach(n=>{
+  n.addEventListener('click',()=>{
+    document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));
+    n.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
