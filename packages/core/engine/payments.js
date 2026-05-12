@@ -1,4 +1,61 @@
 // Payment engine — shared across all products
+import { supabase } from "../storage/supabase.js";
+
+// ─── Payment state ────────────────────────────────────────────────────────────
+
+/**
+ * Returns the canonical payment state for a player.
+ * cashPending — caller-supplied local UI flag (set when player taps "Will Pay Cash"
+ * but hasn't yet confirmed; never persisted to DB).
+ */
+export function getPaymentState(player, cashPending = false) {
+  if (player.paid === true || player.selfPaid === true) return 'paid';
+  if ((player.owes || 0) > 0)                          return 'debt';
+  if (cashPending)                                      return 'cash_pending';
+  return 'unpaid';
+}
+
+/**
+ * Returns the active payment mode.
+ * Reads schedule.payment_mode when the column exists; defaults to 'both'.
+ * When Stripe Connect is live, admin sets schedule.payment_mode = 'stripe_only'.
+ */
+export function getPaymentMode(schedule) {
+  return schedule?.payment_mode || 'both';
+}
+
+// ─── Payment handlers ─────────────────────────────────────────────────────────
+
+/** Player confirms they've paid cash. Sets self_paid = true in DB. */
+export async function handleCashPayment(playerId, teamId) {
+  const { error } = await supabase
+    .from("players")
+    .update({ self_paid: true })
+    .eq("id", playerId);
+  if (error) throw error;
+  return { selfPaid: true };
+}
+
+/** Admin or player clears a prior-game debt. Sets owes = 0 in DB. */
+export async function handleClearDebt(playerId, teamId) {
+  const { error } = await supabase
+    .from("players")
+    .update({ owes: 0 })
+    .eq("id", playerId);
+  if (error) throw error;
+  return { owes: 0 };
+}
+
+/**
+ * Stripe integration point — stub only.
+ * When Stripe Connect is built, replace this body. No other file needs changes.
+ */
+export async function handleStripePayment(playerId, teamId, amount) {
+  console.log('[ioo] Stripe payment triggered — not yet live', { playerId, teamId, amount });
+  return { success: false, reason: 'stripe_not_configured' };
+}
+
+// ─── Existing functions ───────────────────────────────────────────────────────
 
 export function carryForwardDebts(players, pricePerPlayer) {
   return players.map(p => ({

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { colors as C, requestNotifPerm, sendTemplate, notificationTemplates,
-  carryForwardDebts, nextWeekDateTime, storage } from "@platform/core";
+  carryForwardDebts, nextWeekDateTime, storage,
+  getPaymentState, handleCashPayment, handleClearDebt } from "@platform/core";
 import { addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer } from "@platform/supabase";
 import { Card, SecTitle, Btn } from "@platform/ui";
 import TeamsScreen    from "./TeamsScreen.jsx";
@@ -128,7 +129,7 @@ export default function AdminView({
 
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
   const reservePlayers = squad.filter(p => p.status==="reserve" && !p.disabled && !p.injured);
-  const selfPaidPending = inPlayers.filter(p => p.selfPaid && !p.paid);
+  const selfPaidPending = inPlayers.filter(p => p.selfPaid === true && p.paid !== true);
 
   // Guests whose host has dropped out
   const orphanedGuests = squad.filter(p =>
@@ -196,10 +197,16 @@ export default function AdminView({
     setNotifPerm(p);
   };
 
-  const togglePaid = (id) => {
+  const togglePaid = async (id) => {
     const nowPaid = !payments[id];
     setPayments(pm => ({ ...pm, [id]:nowPaid }));
-    setSquad(squad.map(p => p.id===id ? { ...p, paid:nowPaid, selfPaid:false } : p));
+    if (nowPaid) {
+      // handleCashPayment writes self_paid=true to DB; admin confirmation also sets paid=true locally
+      await handleCashPayment(id, teamId).catch(console.error);
+      setSquad(squad.map(p => p.id===id ? { ...p, paid:true, selfPaid:false } : p));
+    } else {
+      setSquad(squad.map(p => p.id===id ? { ...p, paid:false, selfPaid:false } : p));
+    }
   };
 
   const cancelWeek = () => {
@@ -607,7 +614,7 @@ export default function AdminView({
               color:C.text, display:"flex", alignItems:"center", gap:6 }}>
               {p.name}
               {p.isGuest && <span style={{ fontSize:13 }}>👤</span>}
-              {p.selfPaid && !p.paid && (
+              {p.selfPaid === true && p.paid !== true && (
                 <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
                   background:C.amber+"20", color:C.amber }}>self-paid</span>
               )}
@@ -633,8 +640,9 @@ export default function AdminView({
                 + Cover pool
               </button>
             )}
-            {p.owes > 0 && (
-              <button onClick={() => {
+            {getPaymentState(p) === 'debt' && (
+              <button onClick={async () => {
+                await handleClearDebt(p.id, teamId).catch(console.error);
                 setSquad(squad.map(s => s.id===p.id ? { ...s, owes:0 } : s));
               }} style={{ padding:"7px 10px", borderRadius:5, border:`1px solid ${C.amber}`,
                 background:C.amber+"12", color:C.amber,
@@ -679,7 +687,8 @@ export default function AdminView({
                   <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
                     color:C.red, marginTop:2 }}>Owes £{p.owes}</div>
                 </div>
-                <button onClick={() => {
+                <button onClick={async () => {
+                  await handleClearDebt(p.id, teamId).catch(console.error);
                   setSquad(squad.map(s => s.id===p.id ? { ...s, owes:0 } : s));
                 }} style={{ padding:"7px 12px", borderRadius:5,
                   border:`1px solid ${C.amber}`, background:C.amber+"12", color:C.amber,

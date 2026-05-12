@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates } from "@platform/core";
+import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
+  getPaymentState, getPaymentMode, handleCashPayment, handleClearDebt } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, deletePlayer } from "@platform/supabase";
 import {
   Check, X, Question, ArrowDown,
@@ -346,16 +347,12 @@ export default function PlayerView({
                     </div>
                   </div>
 
-                  {/* Payment actions */}
+                  {/* Payment actions — driven by getPaymentState + getPaymentMode */}
                   {(() => {
-                    const PAYMENT_MODE = 'both'; // placeholder: 'both' | 'cash_only' | 'stripe_only'
-                    // Strict equality — paid/selfPaid may be null/undefined in DB, not false
-                    const isPaid = me?.paid === true || me?.selfPaid === true;
-                    const notPaid = me?.paid !== true && me?.selfPaid !== true;
+                    const paymentState = getPaymentState(me, payState === "confirming");
+                    const paymentMode  = getPaymentMode(schedule);
 
-                    console.log("[ioo] payment debug — paid:", me?.paid, "selfPaid:", me?.selfPaid, "status:", me?.status);
-
-                    if (isPaid) return (
+                    if (paymentState === 'paid') return (
                       <button disabled style={{
                         padding:"6px 12px", borderRadius:8,
                         border:"0.5px solid var(--greenb)", background:"var(--green2)",
@@ -364,8 +361,11 @@ export default function PlayerView({
                       }}>✓ All paid up</button>
                     );
 
-                    if ((me?.owes || 0) > 0) return (
-                      <button style={{
+                    if (paymentState === 'debt') return (
+                      <button onClick={async () => {
+                        await handleClearDebt(me.id, teamId);
+                        setSquad(squad.map(p => p.id === myId ? { ...p, owes: 0 } : p));
+                      }} style={{
                         padding:"6px 12px", borderRadius:8,
                         border:"0.5px solid var(--gold)", background:"transparent",
                         color:"var(--gold)", fontFamily:"var(--font-body)",
@@ -373,9 +373,12 @@ export default function PlayerView({
                       }}>Clear Debt</button>
                     );
 
-                    if (me?.status === "in" && notPaid) {
-                      if (payState === "confirming") return (
-                        <button onClick={() => markSelfPaid()} style={{
+                    if (me?.status === "in") {
+                      if (paymentState === 'cash_pending') return (
+                        <button onClick={async () => {
+                          await handleCashPayment(me.id, teamId);
+                          setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
+                        }} style={{
                           padding:"6px 12px", borderRadius:8,
                           border:"0.5px solid var(--amber)", background:"transparent",
                           color:"var(--amber)", fontFamily:"var(--font-body)",
@@ -383,9 +386,10 @@ export default function PlayerView({
                         }}>Confirm — Paid Cash</button>
                       );
 
-                      return (
+                      // unpaid + in — show payment buttons
+                      if (paymentState === 'unpaid') return (
                         <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
-                          {(PAYMENT_MODE === 'both' || PAYMENT_MODE === 'stripe_only') && (
+                          {(paymentMode === 'both' || paymentMode === 'stripe_only') && (
                             <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
                               <button disabled style={{
                                 padding:"6px 12px", borderRadius:8,
@@ -398,7 +402,7 @@ export default function PlayerView({
                               </span>
                             </div>
                           )}
-                          {(PAYMENT_MODE === 'both' || PAYMENT_MODE === 'cash_only') && (
+                          {(paymentMode === 'both' || paymentMode === 'cash_only') && (
                             <button onClick={() => setPayState("confirming")} style={{
                               padding:"6px 12px", borderRadius:8,
                               border:"none", background:"var(--gold)",
