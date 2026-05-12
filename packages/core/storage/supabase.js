@@ -409,6 +409,7 @@ export async function getPlayerMatchForm(teamId, playerIds) {
 
 // ─── Last match meta (MOTM + bib holder for teams tile) ──────────────────────
 export async function getLastMatchMeta(teamId) {
+  console.log('[ioo] getLastMatchMeta called with teamId', teamId);
   const { data, error } = await supabase
     .from("matches")
     .select("motm, bib_holder")
@@ -417,6 +418,7 @@ export async function getLastMatchMeta(teamId) {
     .order("created_at", { ascending: false })
     .limit(1)
     .single();
+  console.log('[ioo] getLastMatchMeta raw result', data, error);
   if (error || !data) return null;
   return { motm: data.motm || null, bibHolder: data.bib_holder || null };
 }
