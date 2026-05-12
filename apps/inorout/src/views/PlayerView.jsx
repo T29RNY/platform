@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getPaymentMode, getGuestPaymentState,
   handleCashPayment, handleClearDebt, handleGuestCashPayment } from "@platform/core";
-import { savePushSubscription, addGuestPlayer, deletePlayer } from "@platform/supabase";
+import { savePushSubscription, addGuestPlayer, deletePlayer,
+  getPlayerMatchForm, getLastMatchMeta } from "@platform/supabase";
 import {
   Check, X, Question, ArrowDown,
   PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
@@ -88,6 +89,17 @@ export default function PlayerView({
   const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
   const [hideConfirmation,  setHideConfirmation]  = useState(false);
   const confirmationTimer = useRef(null);
+  const [playerForm,      setPlayerForm]      = useState({});
+  const [lastMatchMeta,   setLastMatchMeta]   = useState(null);
+
+  useEffect(() => {
+    if (!teamsSet || !teamId) return;
+    const ids = squad.filter(p => p.status === "in" && !p.disabled && !p.isGuest).map(p => p.id);
+    if (!ids.length) return;
+    Promise.all([getPlayerMatchForm(teamId, ids), getLastMatchMeta(teamId)])
+      .then(([form, meta]) => { setPlayerForm(form || {}); setLastMatchMeta(meta); })
+      .catch(() => {});
+  }, [teamsSet, teamId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -290,38 +302,6 @@ export default function PlayerView({
           {/* a — Hero card */}
           <HeroCard dayOfWeek={schedule.dayOfWeek} pricePerPlayer={schedule.pricePerPlayer} />
 
-          {/* Teams confirmed */}
-          {teamsSet && (
-            <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
-              borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
-              <div style={{ padding:"12px 16px", fontSize:10, fontWeight:400,
-                letterSpacing:"0.14em", textTransform:"uppercase", color:"var(--gold)" }}>
-                🏟 Teams confirmed
-              </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:0 }}>
-                {[["A", teamAPlayers, C.teamA], ["B", teamBPlayers, C.teamB]].map(([t, players, color]) => (
-                  <div key={t} style={{ padding:"0 16px 14px" }}>
-                    <div style={{ fontSize:11, fontWeight:700, color, letterSpacing:1,
-                      textTransform:"uppercase", marginBottom:8, paddingBottom:6,
-                      borderBottom:`1px solid ${color}44` }}>
-                      Team {t}
-                    </div>
-                    {players.map((p, i) => (
-                      <div key={p.id} style={{ fontSize:13, fontWeight:500,
-                        color: p.id === myId ? color : "var(--t1)",
-                        padding:"4px 0", borderBottom:"1px solid var(--b2)",
-                        display:"flex", alignItems:"center", gap:6 }}>
-                        <span style={{ fontSize:11, color:"var(--t2)", minWidth:16 }}>{i + 1}</span>
-                        {p.name}
-                        {p.id === myId && <span style={{ fontSize:10, color, background:color+"22", border:`1px solid ${color}44`, borderRadius:4, padding:"1px 5px" }}>you</span>}
-                        {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* b — Response card */}
           <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
@@ -816,97 +796,159 @@ export default function PlayerView({
           )}
 
           {/* e — Live board */}
-          {!teamsSet && (
-            <>
-              <div style={{ display:"flex", alignItems:"center", marginBottom:7, marginTop:12 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:7, fontSize:10, fontWeight:400,
-                  letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)" }}>
-                  <span style={{ width:6, height:6, background:"var(--green)", borderRadius:"50%",
-                    animation:"ioo-blink 2s infinite", boxShadow:"0 0 8px var(--green)",
-                    display:"inline-block", flexShrink:0 }} />
-                  Live Board
-                </div>
+          <>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:7, marginTop:12 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:7, fontSize:10, fontWeight:400,
+                letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)" }}>
+                <span style={{ width:6, height:6, background:"var(--green)", borderRadius:"50%",
+                  animation:"ioo-blink 2s infinite", boxShadow:"0 0 8px var(--green)",
+                  display:"inline-block", flexShrink:0 }} />
+                Live Board
               </div>
+            </div>
 
-              <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:8 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:8 }}>
 
-                {/* IN */}
+              {/* TEAMS TILE (when confirmed) or IN TILE */}
+              {teamsSet ? (
+                <div style={{
+                  borderRadius:"var(--rs)", overflow:"hidden",
+                  border:"0.5px solid rgba(61,220,106,0.35)",
+                  background:"linear-gradient(135deg,rgba(61,220,106,0.22) 0%,rgba(61,220,106,0.06) 45%,rgba(10,10,8,0.6) 100%)",
+                  boxShadow:"0 0 18px rgba(61,220,106,0.1),inset 0 0 30px rgba(61,220,106,0.05)",
+                }}>
+                  {/* Header row */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"0.5px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ padding:"8px 14px", fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#60A0FF", display:"flex", alignItems:"center", gap:6, borderRight:"0.5px solid rgba(255,255,255,0.06)" }}>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#60A0FF", boxShadow:"0 0 6px rgba(96,160,255,0.5)", flexShrink:0 }} />
+                      Team A · {teamAPlayers.length}
+                    </div>
+                    <div style={{ padding:"8px 14px", fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#FF6060", display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#FF6060", boxShadow:"0 0 6px rgba(255,96,96,0.5)", flexShrink:0 }} />
+                      Team B · {teamBPlayers.length}
+                    </div>
+                  </div>
+                  {/* Body — two columns */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr" }}>
+                    {[
+                      ["A", teamAPlayers, "#60A0FF", "rgba(96,160,255,0.15)", "rgba(96,160,255,0.4)"],
+                      ["B", teamBPlayers, "#FF6060", "rgba(255,96,96,0.15)",  "rgba(255,96,96,0.4)"],
+                    ].map(([team, players, color, avBg, avBorder], colIdx) => (
+                      <div key={team} style={{ borderRight: colIdx === 0 ? "0.5px solid rgba(255,255,255,0.06)" : "none", paddingTop:8, paddingBottom:8 }}>
+                        {players.map(p => {
+                          const isMe    = p.id === myId;
+                          const form    = playerForm[p.id] || [];
+                          const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
+                          const isMotm  = lastMatchMeta?.motmName === p.name;
+                          const hasBibs = lastMatchMeta?.bibHolderName === p.name;
+                          const parts   = (p.name || "").trim().split(/\s+/);
+                          const ini     = parts.length >= 2
+                            ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+                            : (p.name || "?").slice(0, 2).toUpperCase();
+                          return (
+                            <div key={p.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px", background: isMe ? "rgba(232,160,32,0.06)" : "transparent" }}>
+                              <div style={{
+                                width:28, height:28, borderRadius:"50%",
+                                display:"flex", alignItems:"center", justifyContent:"center",
+                                fontSize:9, fontWeight:600, flexShrink:0,
+                                background: isMe ? "var(--gold2)" : avBg,
+                                border:     `0.5px solid ${isMe ? "var(--goldb)" : avBorder}`,
+                                color:      isMe ? "var(--gold)" : color,
+                                boxShadow:  isMe ? "0 0 8px rgba(232,160,32,0.2)" : "none",
+                              }}>
+                                {ini}
+                              </div>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                                  <span style={{ fontSize:12, color:"var(--t1)", fontWeight:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flexShrink:1 }}>
+                                    {p.name}{isMotm ? " 🏆" : ""}
+                                  </span>
+                                  {form.length > 0 && (
+                                    <div style={{ display:"flex", gap:3, flexShrink:0 }}>
+                                      {form.map((r, i) => (
+                                        <span key={i} style={{ width:7, height:7, borderRadius:"50%", display:"inline-block",
+                                          background: r === "w" ? "var(--green)" : r === "l" ? "var(--red)" : "var(--amber)" }} />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                {hasBibs && <div style={{ fontSize:9, color:"var(--t2)", fontWeight:300, marginTop:1 }}>has bibs 🟡</div>}
+                                {host   && <div style={{ fontSize:9, color:"var(--gold)",  fontWeight:300, marginTop:1 }}>+1 {host.name}</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
                 <Tile colour="green" icon="✅" label="In" count={inPlayers.length}>
                   {inPlayers.map(p => (
-                    <Avatar
-                      key={p.id}
-                      player={p}
-                      isMe={p.id === myId}
-                      tileColour="green"
-                      hasGuest={p.isGuest === true}
-                    />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} />
                   ))}
                 </Tile>
-
-                {/* MAYBE */}
-                {maybePlayers.length > 0 && (
-                  <Tile colour="amber" icon="❓" label="Maybe" count={maybePlayers.length}>
-                    {maybePlayers.map(p => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" />
-                    ))}
-                  </Tile>
-                )}
-
-                {/* OUT */}
-                {outPlayers.length > 0 && (
-                  <Tile colour="red" icon="❌" label="Out" count={outPlayers.length}>
-                    {outPlayers.map(p => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} />
-                    ))}
-                  </Tile>
-                )}
-
-                {/* RESERVE */}
-                {reservePlayers.length > 0 && (
-                  <div data-gaffer-target="reserve-list">
-                    <Tile colour="purple" icon="🟣" label="Reserve" count={reservePlayers.length}>
-                      {reservePlayers.map((p, i) => (
-                        <Avatar
-                          key={p.id} player={p}
-                          isMe={p.id === myId} tileColour="purple"
-                          reserveIndex={i + 1}
-                        />
-                      ))}
-                    </Tile>
-                  </div>
-                )}
-              </div>
-
-              {/* No response row */}
-              {noRespPlayers.length > 0 && (
-                <>
-                  <div
-                    onClick={() => setShowNoResp(s => !s)}
-                    style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
-                      borderRadius:"var(--rs)", padding:"10px 14px",
-                      display:"flex", alignItems:"center", justifyContent:"space-between",
-                      marginBottom:8, cursor:"pointer" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8,
-                      fontSize:12, color:"var(--t2)", fontWeight:400 }}>
-                      <Hourglass size={16} weight="thin" />
-                      No response · {noRespPlayers.length}
-                    </div>
-                    <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
-                      {showNoResp ? "Tap to hide ↑" : "Tap to view ↓"}
-                    </div>
-                  </div>
-                  {showNoResp && (
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 9px",
-                      padding:"0 4px", marginBottom:8 }}>
-                      {noRespPlayers.map(p => (
-                        <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" />
-                      ))}
-                    </div>
-                  )}
-                </>
               )}
-            </>
-          )}
+
+              {/* RESERVE */}
+              {reservePlayers.length > 0 && (
+                <div data-gaffer-target="reserve-list">
+                  <Tile colour="purple" icon="🟣" label="Reserve" count={reservePlayers.length}>
+                    {reservePlayers.map((p, i) => (
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="purple" reserveIndex={i + 1} />
+                    ))}
+                  </Tile>
+                </div>
+              )}
+
+              {/* MAYBE */}
+              {maybePlayers.length > 0 && (
+                <Tile colour="amber" icon="❓" label="Maybe" count={maybePlayers.length}>
+                  {maybePlayers.map(p => (
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" />
+                  ))}
+                </Tile>
+              )}
+
+              {/* OUT */}
+              {outPlayers.length > 0 && (
+                <Tile colour="red" icon="❌" label="Out" count={outPlayers.length}>
+                  {outPlayers.map(p => (
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} />
+                  ))}
+                </Tile>
+              )}
+            </div>
+
+            {/* No response row */}
+            {noRespPlayers.length > 0 && (
+              <>
+                <div
+                  onClick={() => setShowNoResp(s => !s)}
+                  style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+                    borderRadius:"var(--rs)", padding:"10px 14px",
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                    marginBottom:8, cursor:"pointer" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8,
+                    fontSize:12, color:"var(--t2)", fontWeight:400 }}>
+                    <Hourglass size={16} weight="thin" />
+                    No response · {noRespPlayers.length}
+                  </div>
+                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                    {showNoResp ? "Tap to hide ↑" : "Tap to view ↓"}
+                  </div>
+                </div>
+                {showNoResp && (
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 9px",
+                    padding:"0 4px", marginBottom:8 }}>
+                    {noRespPlayers.map(p => (
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
 
         </div>
       )}

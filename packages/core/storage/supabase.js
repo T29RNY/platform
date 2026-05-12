@@ -353,6 +353,74 @@ export async function alreadyNotified(teamId, type, gameDate) {
   return (data?.length || 0) > 0;
 }
 
+// ─── Player match rows ────────────────────────────────────────────────────────
+// winner: 'A'|'B'|'D'  scorers: { [playerId]: goalCount }
+export async function writePlayerMatchRows(matchId, teamId, players, winner, motmId, bibHolderName, scoreA, scoreB, scorers = {}) {
+  const rows = players
+    .filter(p => !p.isGuest)
+    .map(p => {
+      let result;
+      if (winner === 'D') {
+        result = 'd';
+      } else if (p.team === 'A') {
+        result = winner === 'A' ? 'w' : 'l';
+      } else if (p.team === 'B') {
+        result = winner === 'B' ? 'w' : 'l';
+      } else {
+        result = 'd';
+      }
+      return {
+        team_id:          teamId,
+        match_id:         matchId,
+        player_id:        p.id,
+        team_assignment:  p.team || null,
+        result,
+        attended:         true,
+        late_cancel:      false,
+        injury_absence:   p.injured === true,
+        was_motm:         p.id === motmId,
+        had_bibs:         p.name === bibHolderName,
+        goals:            scorers[p.id] || 0,
+        is_guest:         false,
+      };
+    });
+  if (!rows.length) return;
+  const { error } = await supabase.from("player_match").insert(rows);
+  if (error) throw error;
+}
+
+// ─── Player form (last 5 results per player for teams tile) ───────────────────
+export async function getPlayerMatchForm(teamId, playerIds) {
+  if (!playerIds.length) return {};
+  const { data, error } = await supabase
+    .from("player_match")
+    .select("player_id, result, created_at")
+    .eq("team_id", teamId)
+    .in("player_id", playerIds)
+    .order("created_at", { ascending: false });
+  if (error) return {};
+  const form = {};
+  (data || []).forEach(row => {
+    if (!form[row.player_id]) form[row.player_id] = [];
+    if (form[row.player_id].length < 5) form[row.player_id].push(row.result);
+  });
+  return form;
+}
+
+// ─── Last match meta (MOTM + bib holder for teams tile) ──────────────────────
+export async function getLastMatchMeta(teamId) {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("motm, bib_holder")
+    .eq("team_id", teamId)
+    .not("winner", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+  if (error || !data) return null;
+  return { motmName: data.motm || null, bibHolderName: data.bib_holder || null };
+}
+
 // ─── Matches (update bib holder after result saved) ───────────────────────────
 export async function updateMatchBibHolder(matchId, bibHolder) {
   const { error } = await supabase

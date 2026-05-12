@@ -283,7 +283,7 @@ export default function AdminView({
 
   // Route to sub-screens
   if (screen === "teams")    return <TeamsScreen    squad={squad} setSquad={setSquad} schedule={schedule} onBack={() => setScreen("main")}/>;
-  if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={payments} bibHistory={bibHistory} onBack={() => setScreen("main")} onDraftNext={draftNextWeek}/>;
+  if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={payments} bibHistory={bibHistory} onBack={() => setScreen("main")} onDraftNext={draftNextWeek}/>;
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")}/>;

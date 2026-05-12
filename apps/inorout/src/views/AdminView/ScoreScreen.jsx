@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { colors as C, newMatch, updatePlayerRecords } from "@platform/core";
+import { writePlayerMatchRows } from "@platform/supabase";
 import { BackBtn, Btn, SecTitle } from "@platform/ui";
 
 export default function ScoreScreen({
-  squad, setSquad, schedule, matchHistory, setMatchHistory,
+  squad, setSquad, teamId, schedule, matchHistory, setMatchHistory,
   payments, bibHistory, onBack, onDraftNext,
 }) {
   const [winner,     setWinner]     = useState(null);
@@ -38,6 +39,14 @@ export default function ScoreScreen({
     setMatchHistory([match, ...matchHistory]);
     setSquad(updatePlayerRecords(squad, match, scorers, motmVote, payMap, schedule.pricePerPlayer));
     setScoreSaved(true);
+
+    // Write per-player match rows — fire and forget, does not affect existing save flow
+    const motmPlayer = inPlayers.find(p => p.name === motmVote);
+    writePlayerMatchRows(
+      match.id, teamId, inPlayers, winner,
+      motmPlayer?.id || null, bibHolder,
+      scoreA, scoreB, scorers,
+    ).catch(err => console.error('[ioo] player_match write failed:', err));
   };
 
   const GoalCounter = ({ label, val, setter, color }) => (
