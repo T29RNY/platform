@@ -492,15 +492,27 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
             </div>
           </div>
           {/* Right stats — vertically centred */}
-          <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, padding: "0 16px",
-            display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 40, lineHeight: 1,
-              color: "var(--t1)", textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
-              {totalPlayed}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--t2)", fontWeight: 300,
-              textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
-              games played
+          <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, marginRight: 16,
+            display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{
+              background: "rgba(255,255,255,0.08)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: "0.5px solid rgba(255,255,255,0.15)",
+              borderRadius: "var(--rs)",
+              padding: "10px 16px",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              minWidth: 80,
+            }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 40, lineHeight: 1,
+                color: "var(--t1)", textAlign: "center" }}>
+                {totalPlayed}
+              </div>
+              <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300,
+                textAlign: "center", marginTop: 2 }}>
+                games played
+              </div>
             </div>
           </div>
         </div>
