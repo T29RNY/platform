@@ -82,7 +82,8 @@ export default function PlayerView({
   // ── new UI state ──
   const [activeTab,   setActiveTab]   = useState("my-view");
   const [showNoResp,  setShowNoResp]  = useState(false);
-  const [payState,    setPayState]    = useState("idle"); // "idle" | "confirming"
+  const [cashPending,      setCashPending]      = useState(false);
+  const [clearNowExpanded, setClearNowExpanded] = useState(false);
 
   // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -343,72 +344,131 @@ export default function PlayerView({
 
                   {/* Payment actions — driven by getPaymentState + getPaymentMode */}
                   {(() => {
-                    const cashPending  = payState === "confirming";
                     const paymentState = getPaymentState(me, cashPending);
                     const paymentMode  = getPaymentMode(schedule);
+                    const status       = me?.status;
+
+                    const nothingOwed = (
+                      <span style={{ fontSize:11, color:"var(--green)", fontWeight:500 }}>Nothing owed 👊</span>
+                    );
+
+                    const confirmBtn = (
+                      <button onClick={async () => {
+                        await handleCashPayment(me.id, teamId);
+                        setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
+                        setCashPending(false);
+                      }} style={{
+                        padding:"6px 12px", borderRadius:8,
+                        border:"0.5px solid var(--amber)", background:"transparent",
+                        color:"var(--amber)", fontFamily:"var(--font-body)",
+                        fontSize:11, fontWeight:500, cursor:"pointer",
+                      }}>Confirm — You've Paid?</button>
+                    );
+
+                    const paidCashBtn = (
+                      <button onClick={() => setCashPending(true)} style={{
+                        padding:"6px 12px", borderRadius:8,
+                        border:"none", background:"var(--gold)",
+                        color:"#000", fontFamily:"var(--font-body)",
+                        fontSize:11, fontWeight:600, cursor:"pointer",
+                      }}>Paid Cash</button>
+                    );
 
                     let content = null;
-                    if (paymentState === 'paid') {
+
+                    if (paymentState === 'debt') {
                       content = (
-                        <button disabled style={{
-                          padding:"6px 12px", borderRadius:8,
-                          border:"0.5px solid var(--greenb)", background:"var(--green2)",
-                          color:"var(--green)", fontFamily:"var(--font-body)",
-                          fontSize:11, fontWeight:500, cursor:"default",
-                        }}>✓ All paid up</button>
-                      );
-                    } else if (paymentState === 'debt') {
-                      content = (
-                        <button onClick={async () => {
-                          await handleClearDebt(me.id, teamId);
-                          setSquad(squad.map(p => p.id === myId ? { ...p, owes: 0 } : p));
-                        }} style={{
-                          padding:"6px 12px", borderRadius:8,
-                          border:"0.5px solid var(--gold)", background:"transparent",
-                          color:"var(--gold)", fontFamily:"var(--font-body)",
-                          fontSize:11, fontWeight:500, cursor:"pointer",
-                        }}>Clear Debt</button>
-                      );
-                    } else if (paymentState === 'cash_pending') {
-                      content = (
-                        <button onClick={async () => {
-                          await handleCashPayment(me.id, teamId);
-                          setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
-                        }} style={{
-                          padding:"6px 12px", borderRadius:8,
-                          border:"0.5px solid var(--amber)", background:"transparent",
-                          color:"var(--amber)", fontFamily:"var(--font-body)",
-                          fontSize:11, fontWeight:500, cursor:"pointer",
-                        }}>Confirm — Paid Cash</button>
-                      );
-                    } else if (me?.status === "in") {
-                      content = (
-                        <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
-                          {(paymentMode === 'both' || paymentMode === 'stripe_only') && (
-                            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
-                              <button disabled style={{
-                                padding:"6px 12px", borderRadius:8,
-                                border:"0.5px solid var(--border-subtle)", background:"transparent",
-                                color:"var(--t2)", fontFamily:"var(--font-body)",
-                                fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
-                              }}>Pay Now</button>
-                              <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>
-                                Stripe — coming soon
-                              </span>
+                        <div style={{ display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
+                          <button onClick={async () => {
+                            await handleClearDebt(me.id, teamId);
+                            setSquad(squad.map(p => p.id === myId ? { ...p, owes: 0 } : p));
+                            setClearNowExpanded(false);
+                          }} style={{
+                            padding:"6px 12px", borderRadius:8,
+                            border:"0.5px solid var(--gold)", background:"transparent",
+                            color:"var(--gold)", fontFamily:"var(--font-body)",
+                            fontSize:11, fontWeight:500, cursor:"pointer",
+                          }}>Clear Debt</button>
+                          {status === 'in' && (
+                            <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
+                              {paymentMode !== 'cash_only' && (
+                                <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
+                                  <button disabled style={{
+                                    padding:"6px 12px", borderRadius:8,
+                                    border:"0.5px solid var(--border-subtle)", background:"transparent",
+                                    color:"var(--t2)", fontFamily:"var(--font-body)",
+                                    fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
+                                  }}>Pay Now</button>
+                                  <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>coming soon</span>
+                                </div>
+                              )}
+                              {paymentMode !== 'stripe_only' && paidCashBtn}
                             </div>
-                          )}
-                          {(paymentMode === 'both' || paymentMode === 'cash_only') && (
-                            <button onClick={() => setPayState("confirming")} style={{
-                              padding:"6px 12px", borderRadius:8,
-                              border:"none", background:"var(--gold)",
-                              color:"#000", fontFamily:"var(--font-body)",
-                              fontSize:11, fontWeight:600, cursor:"pointer",
-                            }}>Will Pay Cash</button>
                           )}
                         </div>
                       );
+                    } else if (status === 'in') {
+                      if (paymentState === 'unpaid') {
+                        content = (
+                          <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
+                            {paymentMode !== 'cash_only' && (
+                              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
+                                <button disabled style={{
+                                  padding:"6px 12px", borderRadius:8,
+                                  border:"0.5px solid var(--border-subtle)", background:"transparent",
+                                  color:"var(--t2)", fontFamily:"var(--font-body)",
+                                  fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
+                                }}>Pay Now</button>
+                                <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>coming soon</span>
+                              </div>
+                            )}
+                            {paymentMode !== 'stripe_only' && paidCashBtn}
+                          </div>
+                        );
+                      } else if (paymentState === 'cash_pending') {
+                        content = confirmBtn;
+                      } else {
+                        content = nothingOwed;
+                      }
+                    } else if (status === 'out' || status === 'maybe' || status === 'reserve') {
+                      if (paymentState === 'unpaid') {
+                        content = !clearNowExpanded ? (
+                          <button onClick={() => setClearNowExpanded(true)} style={{
+                            padding:"6px 12px", borderRadius:8,
+                            border:"0.5px solid var(--gold)", background:"transparent",
+                            color:"var(--gold)", fontFamily:"var(--font-body)",
+                            fontSize:11, fontWeight:500, cursor:"pointer",
+                          }}>Clear Now</button>
+                        ) : (
+                          <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
+                            {paymentMode !== 'cash_only' && (
+                              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
+                                <button disabled style={{
+                                  padding:"6px 12px", borderRadius:8,
+                                  border:"0.5px solid var(--border-subtle)", background:"transparent",
+                                  color:"var(--t2)", fontFamily:"var(--font-body)",
+                                  fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
+                                }}>Pay via Stripe</button>
+                                <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>coming soon</span>
+                              </div>
+                            )}
+                            {paymentMode !== 'stripe_only' && (
+                              <button onClick={() => { setCashPending(true); setClearNowExpanded(false); }} style={{
+                                padding:"6px 12px", borderRadius:8,
+                                border:"none", background:"var(--gold)",
+                                color:"#000", fontFamily:"var(--font-body)",
+                                fontSize:11, fontWeight:600, cursor:"pointer",
+                              }}>Paid Cash</button>
+                            )}
+                          </div>
+                        );
+                      } else if (paymentState === 'cash_pending') {
+                        content = confirmBtn;
+                      } else {
+                        content = nothingOwed;
+                      }
                     } else {
-                      return null;
+                      content = nothingOwed;
                     }
 
                     return (

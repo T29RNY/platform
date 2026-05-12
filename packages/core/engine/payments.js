@@ -9,11 +9,10 @@ import { supabase } from "../storage/supabase.js";
  * but hasn't yet confirmed; never persisted to DB).
  */
 export function getPaymentState(player, cashPending = false) {
+  if (cashPending === true) return 'cash_pending';
   // Check both camelCase (JS objects via dbToPlayer) and snake_case (raw DB rows)
-  const isPaid = player.paid === true || player.selfPaid === true || player.self_paid === true;
-  if (isPaid)                  return 'paid';
-  if ((player.owes || 0) > 0) return 'debt';
-  if (cashPending)             return 'cash_pending';
+  if (player.paid === true || player.selfPaid === true || player.self_paid === true) return 'paid';
+  if (player.owes > 0)      return 'debt';
   return 'unpaid';
 }
 
@@ -55,6 +54,26 @@ export async function handleClearDebt(playerId, teamId) {
 export async function handleStripePayment(playerId, teamId, amount) {
   console.log('[ioo] Stripe payment triggered — not yet live', { playerId, teamId, amount });
   return { success: false, reason: 'stripe_not_configured' };
+}
+
+/** Admin confirms a player has paid (e.g. Stripe). Sets paid = true in DB. */
+export async function handleMarkPaid(playerId, teamId) {
+  const { error } = await supabase
+    .from("players")
+    .update({ paid: true })
+    .eq("id", playerId);
+  if (error) throw error;
+  return { paid: true };
+}
+
+/** Resets all payment flags for a player. Sets paid = false and self_paid = false in DB. */
+export async function handleResetPayment(playerId, teamId) {
+  const { error } = await supabase
+    .from("players")
+    .update({ paid: false, self_paid: false })
+    .eq("id", playerId);
+  if (error) throw error;
+  return { paid: false, selfPaid: false };
 }
 
 // ─── Existing functions ───────────────────────────────────────────────────────

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { colors as C, requestNotifPerm, sendTemplate, notificationTemplates,
   carryForwardDebts, nextWeekDateTime, storage,
-  getPaymentState, handleCashPayment, handleClearDebt } from "@platform/core";
+  getPaymentState, handleCashPayment, handleClearDebt,
+  handleMarkPaid, handleResetPayment } from "@platform/core";
 import { addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer } from "@platform/supabase";
 import { Card, SecTitle, Btn } from "@platform/ui";
 import TeamsScreen    from "./TeamsScreen.jsx";
@@ -197,16 +198,21 @@ export default function AdminView({
     setNotifPerm(p);
   };
 
-  const togglePaid = async (id) => {
-    const nowPaid = !payments[id];
-    setPayments(pm => ({ ...pm, [id]:nowPaid }));
-    if (nowPaid) {
-      // handleCashPayment writes self_paid=true to DB; admin confirmation also sets paid=true locally
-      await handleCashPayment(id, teamId).catch(console.error);
-      setSquad(squad.map(p => p.id===id ? { ...p, paid:true, selfPaid:false } : p));
-    } else {
-      setSquad(squad.map(p => p.id===id ? { ...p, paid:false, selfPaid:false } : p));
-    }
+  const markPaid = async (id) => {
+    await handleMarkPaid(id, teamId).catch(console.error);
+    setSquad(squad.map(p => p.id===id ? { ...p, paid:true } : p));
+    setPayments(pm => ({ ...pm, [id]:true }));
+  };
+
+  const markCashPaid = async (id) => {
+    await handleCashPayment(id, teamId).catch(console.error);
+    setSquad(squad.map(p => p.id===id ? { ...p, selfPaid:true } : p));
+  };
+
+  const resetPayment = async (id) => {
+    await handleResetPayment(id, teamId).catch(console.error);
+    setSquad(squad.map(p => p.id===id ? { ...p, paid:false, selfPaid:false } : p));
+    setPayments(pm => ({ ...pm, [id]:false }));
   };
 
   const cancelWeek = () => {
@@ -341,7 +347,7 @@ export default function AdminView({
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.text }}>
                 {p.name} says they've paid
               </div>
-              <button onClick={() => togglePaid(p.id)} style={{ padding:"5px 12px", borderRadius:4,
+              <button onClick={() => markPaid(p.id)} style={{ padding:"5px 12px", borderRadius:4,
                 border:"none", background:C.green+"20", color:C.green,
                 fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
                 Confirm ✓
@@ -611,22 +617,26 @@ export default function AdminView({
           padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
           <div style={{ flex:1 }}>
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500,
-              color:C.text, display:"flex", alignItems:"center", gap:6 }}>
+              color:C.text, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
               {p.name}
               {p.isGuest && <span style={{ fontSize:13 }}>👤</span>}
-              {p.selfPaid === true && p.paid !== true && (
+              {p.paid === true ? (
                 <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
-                  background:C.amber+"20", color:C.amber }}>self-paid</span>
+                  background:C.green+"20", color:C.green }}>Stripe ✓</span>
+              ) : p.selfPaid === true ? (
+                <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
+                  background:C.amber+"20", color:C.amber }}>Cash ✓</span>
+              ) : (
+                <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
+                  background:C.red+"15", color:C.muted }}>Unpaid</span>
+              )}
+              {p.owes > 0 && (
+                <span style={{ fontSize:10, color:C.red }}>£{p.owes} owed</span>
               )}
             </div>
             {p.isGuest && host && (
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:1 }}>
                 guest of {host.name}
-              </div>
-            )}
-            {p.owes > 0 && (
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.red, marginTop:2 }}>
-                Owes £{p.owes} from before
               </div>
             )}
           </div>
@@ -650,13 +660,24 @@ export default function AdminView({
                 Clear Debt
               </button>
             )}
-            <button onClick={() => togglePaid(p.id)} style={{ padding:"7px 14px", borderRadius:5,
-              border:"none", cursor:"pointer",
-              background:payments[p.id]?C.green+"20":C.red+"20",
-              color:payments[p.id]?C.green:C.red,
-              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700 }}>
-              {payments[p.id] ? "✅ Paid" : "Mark Paid"}
+            <button onClick={() => markCashPaid(p.id)} style={{ padding:"7px 10px", borderRadius:5,
+              border:`1px solid ${C.amber}`, background:C.amber+"12", color:C.amber,
+              fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+              Mark Cash Paid
             </button>
+            <button onClick={() => markPaid(p.id)} style={{ padding:"7px 14px", borderRadius:5,
+              border:"none", cursor:"pointer",
+              background:C.green+"20", color:C.green,
+              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700 }}>
+              Mark Paid
+            </button>
+            {(p.paid === true || p.selfPaid === true) && (
+              <button onClick={() => resetPayment(p.id)} style={{ padding:"7px 10px", borderRadius:5,
+                border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
+                fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                Reset
+              </button>
+            )}
           </div>
         </div>
         );
