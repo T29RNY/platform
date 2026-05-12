@@ -956,7 +956,7 @@ export default function PlayerView({
 
       {/* STATS tab */}
       {activeTab === "stats" && (
-        <StatsView squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} />
+        <StatsView squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule} />
       )}
 
       {/* HISTORY tab */}
