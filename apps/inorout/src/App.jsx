@@ -191,6 +191,13 @@ export default function App() {
             resolvedTeamId = team.id;
             setIsAdmin(true);
           }
+          // Identify which squad member is the admin so My View shows their own data
+          if (session?.user) {
+            try {
+              const adminPlayer = await findPlayerByUserId(session.user.id);
+              if (adminPlayer) setMyPlayer(adminPlayer);
+            } catch(e) {}
+          }
         }
 
         if (route.type === "player") {

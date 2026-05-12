@@ -456,6 +456,12 @@ export default function PlayerView({
 
               {/* Status buttons 4-grid — gameIsLive only */}
               {schedule.gameIsLive && (
+                <>
+                {me?.status && me.status !== "none" && (
+                  <div style={{ display:"flex", justifyContent:"center", padding:"10px 12px 2px" }}>
+                    <StatusBadge status={me.status} />
+                  </div>
+                )}
                 <div data-gaffer-target="status-buttons"
                   style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
                     gap:8, padding:"10px 12px" }}>
@@ -488,6 +494,7 @@ export default function PlayerView({
                     disabled={!!me?.injured}
                   />
                 </div>
+                </>
               )}
 
               {/* Note row — gameIsLive only */}
@@ -963,7 +970,7 @@ export default function PlayerView({
 
       {/* HISTORY tab */}
       {activeTab === "history" && (
-        <HistoryView matchHistory={matchHistory} settings={settings} />
+        <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule} />
       )}
 
       {/* 4 ── NAVBAR */}
