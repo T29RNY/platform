@@ -133,6 +133,9 @@ export default function PlayerView({
   const teamAPlayers = [...inPlayers.filter(p => p.team === "A")].sort((a, b) => a.name.localeCompare(b.name));
   const teamBPlayers = [...inPlayers.filter(p => p.team === "B")].sort((a, b) => a.name.localeCompare(b.name));
 
+  console.log('[ioo] lastMatchMeta', lastMatchMeta);
+  console.log('[ioo] team players names', [...teamAPlayers, ...teamBPlayers].map(p => p.name));
+
   // ── tile arrays ──
   const maybePlayers   = (groups.maybe   || []).filter(p => !p.disabled);
   const outPlayers     = (groups.out     || []).filter(p => !p.disabled);
