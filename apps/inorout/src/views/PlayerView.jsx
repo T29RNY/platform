@@ -104,6 +104,19 @@ export default function PlayerView({
   const nonGuestInPlayers = inPlayers.filter(p => !p.isGuest);
   const teamsSet         = nonGuestInPlayers.length > 0 && nonGuestInPlayers.every(p => p.team);
 
+  console.log('[ioo] teamsSet debug', {
+    teamsSet,
+    inPlayersCount: inPlayers?.length,
+    nonGuestInPlayers: inPlayers?.filter(p => !p.isGuest)?.map(p => ({
+      id: p.id,
+      name: p.name,
+      team: p.team,
+      isGuest: p.isGuest
+    })),
+    scheduleTeamsConfirmed: schedule?.teamsConfirmed,
+    allHaveTeam: inPlayers?.filter(p => !p.isGuest)?.every(p => p.team)
+  });
+
   useEffect(() => {
     if (!teamsSet || !teamId) return;
     const ids = squad.filter(p => p.status === "in" && !p.disabled && !p.isGuest).map(p => p.id);
