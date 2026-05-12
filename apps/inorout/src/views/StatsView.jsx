@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { biggestWins, payRate } from "@platform/core";
+// import { useState } from "react"; // re-enable when Records tab is restored
+import { /* biggestWins, */ payRate } from "@platform/core";
 import {
-  SoccerBall, Star, CalendarCheck, Hourglass, Trophy,
+  SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy,
 } from "@phosphor-icons/react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function StatsView({ squad, bibHistory = [], matchHistory = [], settings, schedule }) {
-  const [tab, setTab] = useState("overview");
+  // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 
   // ── Match data ─────────────────────────────────────────────────────────────
   const allMatches     = matchHistory || [];
@@ -250,8 +250,8 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
   const teamAPct    = totalGames > 0 ? Math.round(teamAWins / totalGames * 100) : 0;
   const teamBPct    = totalGames > 0 ? Math.round(teamBWins / totalGames * 100) : 0;
 
-  const longestDecisive = calcLongestDecisive(played);
-  const longestUnbeaten = calcLongestUnbeaten(played);
+  // const longestDecisive = calcLongestDecisive(played); // Records tab
+  // const longestUnbeaten = calcLongestUnbeaten(played); // Records tab
 
   // ── Player data ────────────────────────────────────────────────────────────
   const allPlayers    = (squad || []).filter(p => !p.disabled);
@@ -301,11 +301,11 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
     .sort((a, b) => (b.bibCount || 0) - (a.bibCount || 0))
     .slice(0, 3);
 
-  // Late dropouts
-  const topLate = [...active]
-    .filter(p => (p.lateDropouts || 0) > 0)
-    .sort((a, b) => (b.lateDropouts || 0) - (a.lateDropouts || 0))
-    .slice(0, 3);
+  // Late dropouts — Records tab only
+  // const topLate = [...active]
+  //   .filter(p => (p.lateDropouts || 0) > 0)
+  //   .sort((a, b) => (b.lateDropouts || 0) - (a.lateDropouts || 0))
+  //   .slice(0, 3);
 
   // Payment reliability
   const payers         = active.filter(p => (p.total || 0) > 0);
@@ -322,14 +322,14 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
     .sort((a, b) => b.scoredIn - a.scoredIn);
   const topConsistent = scorerRanking[0] || null;
 
-  // Records
-  const byKey          = key => [...active].sort((a, b) => (b[key] || 0) - (a[key] || 0));
-  const topGoalScorer  = byKey("goals")[0];
-  const mostMotm       = byKey("motm")[0];
-  const mostAttended   = byKey("attended")[0];
-  const bibKing        = byKey("bibCount")[0];
-  const mostGoalsGame  = played.reduce((max, m) => Math.max(max, (m.scoreA || 0) + (m.scoreB || 0)), 0);
-  const bigWin         = biggestWins(matchHistory)[0];
+  // Records tab data — restore when re-enabling Records tab
+  // const byKey          = key => [...active].sort((a, b) => (b[key] || 0) - (a[key] || 0));
+  // const topGoalScorer  = byKey("goals")[0];
+  // const mostMotm       = byKey("motm")[0];
+  // const mostAttended   = byKey("attended")[0];
+  // const bibKing        = byKey("bibCount")[0];
+  // const mostGoalsGame  = played.reduce((max, m) => Math.max(max, (m.scoreA || 0) + (m.scoreB || 0)), 0);
+  // const bigWin         = biggestWins(matchHistory)[0];
 
   // Player form table
   const formPlayers = [...active]
@@ -345,14 +345,9 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
         {/* ── Season hero ── */}
         <SeasonHeroCard groupName={groupName} totalGames={totalGames} avgGoals={avgGoals} />
 
-        {/* ── Sticky tabs ── */}
-        <div style={{
-          position: "sticky", top: 0, zIndex: 50,
-          background: "var(--bg)",
-          padding: "10px 16px",
-          borderBottom: "0.5px solid var(--b2)",
-          marginBottom: 6,
-        }}>
+        {/* ── Tabs pill — hidden until Records tab is restored ── */}
+        {/* <div style={{ position: "sticky", top: 0, zIndex: 50, background: "var(--bg)",
+          padding: "10px 16px", borderBottom: "0.5px solid var(--b2)", marginBottom: 6 }}>
           <div style={{ display: "flex", gap: 6 }}>
             {[["overview", "Overview"], ["records", "Records"]].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} style={{
@@ -365,7 +360,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               }}>{label}</button>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* ── Empty state ── */}
         {totalGames === 0 && (
@@ -377,7 +372,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
         )}
 
         {/* ════════════════════════════ OVERVIEW ════════════════════════════ */}
-        {tab === "overview" && totalGames > 0 && (
+        {totalGames > 0 && (
           <>
             {/* 1. Player Form */}
             <SecLabel label="Player Form" />
@@ -688,8 +683,9 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
           </>
         )}
 
-        {/* ════════════════════════════ RECORDS ════════════════════════════ */}
-        {tab === "records" && (
+        {/* ════════════════════════════ RECORDS (hidden) ═══════════════════ */}
+        {/* Restore: uncomment below + re-enable tab state, tab pill, Records data vars, biggestWins/Hourglass imports */}
+        {/* {tab === "records" && (
           <>
             {totalGames < 5 ? (
               <div style={{ marginTop: 8 }}>
@@ -697,78 +693,38 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               </div>
             ) : (
               <>
-                {/* 1. All-Time Records grid */}
                 <SecLabel label="All-Time Records" />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-                  <RecordTile
-                    label="Most Goals · Game"
-                    value={mostGoalsGame > 0 ? mostGoalsGame : "—"}
-                    sub={mostGoalsGame > 0 ? "total in one game" : "No data yet"}
-                    color="var(--gold)"
-                  />
-                  <RecordTile
-                    label="Biggest Win"
-                    value={bigWin ? `${bigWin.scoreA}–${bigWin.scoreB}` : "—"}
-                    sub={bigWin ? `${bigWin.diff} goal margin` : "No data yet"}
-                    color="var(--green)"
-                  />
-                  <RecordTile
-                    label="Win Streak"
-                    value={longestDecisive > 0 ? longestDecisive : "—"}
-                    sub={longestDecisive > 0 ? "decisive in a row" : "No streak yet"}
-                    color="var(--green)"
-                  />
-                  <RecordTile
-                    label="Unbeaten Run"
-                    value={longestUnbeaten > 0 ? longestUnbeaten : "—"}
-                    sub={longestUnbeaten > 0 ? "games unbeaten" : "No data yet"}
-                    color="var(--amber)"
-                  />
-                  <RecordTile
-                    label="Top Scorer"
-                    value={topGoalScorer?.goals > 0 ? topGoalScorer.name.split(" ")[0] : "—"}
-                    sub={topGoalScorer?.goals > 0 ? `${topGoalScorer.goals} goals` : "No data yet"}
-                    color="var(--gold)"
-                  />
-                  <RecordTile
-                    label="Most MOTM"
-                    value={mostMotm?.motm > 0 ? mostMotm.name.split(" ")[0] : "—"}
-                    sub={mostMotm?.motm > 0 ? `${mostMotm.motm} awards` : "No data yet"}
-                    color="var(--gold)"
-                  />
-                  <RecordTile
-                    label="Never Missed"
-                    value={mostAttended?.attended > 0 ? mostAttended.name.split(" ")[0] : "—"}
-                    sub={mostAttended?.attended > 0 ? `${mostAttended.attended} games` : "No data yet"}
-                    color="var(--green)"
-                  />
-                  <RecordTile
-                    label="Bib King"
-                    value={bibKing?.bibCount > 0 ? bibKing.name.split(" ")[0] : "—"}
-                    sub={bibKing?.bibCount > 0 ? `${bibKing.bibCount} times` : "No data yet"}
-                    color="var(--amber)"
-                  />
+                  <RecordTile label="Most Goals · Game" value={mostGoalsGame > 0 ? mostGoalsGame : "—"}
+                    sub={mostGoalsGame > 0 ? "total in one game" : "No data yet"} color="var(--gold)" />
+                  <RecordTile label="Biggest Win" value={bigWin ? `${bigWin.scoreA}–${bigWin.scoreB}` : "—"}
+                    sub={bigWin ? `${bigWin.diff} goal margin` : "No data yet"} color="var(--green)" />
+                  <RecordTile label="Win Streak" value={longestDecisive > 0 ? longestDecisive : "—"}
+                    sub={longestDecisive > 0 ? "decisive in a row" : "No streak yet"} color="var(--green)" />
+                  <RecordTile label="Unbeaten Run" value={longestUnbeaten > 0 ? longestUnbeaten : "—"}
+                    sub={longestUnbeaten > 0 ? "games unbeaten" : "No data yet"} color="var(--amber)" />
+                  <RecordTile label="Top Scorer" value={topGoalScorer?.goals > 0 ? topGoalScorer.name.split(" ")[0] : "—"}
+                    sub={topGoalScorer?.goals > 0 ? `${topGoalScorer.goals} goals` : "No data yet"} color="var(--gold)" />
+                  <RecordTile label="Most MOTM" value={mostMotm?.motm > 0 ? mostMotm.name.split(" ")[0] : "—"}
+                    sub={mostMotm?.motm > 0 ? `${mostMotm.motm} awards` : "No data yet"} color="var(--gold)" />
+                  <RecordTile label="Never Missed" value={mostAttended?.attended > 0 ? mostAttended.name.split(" ")[0] : "—"}
+                    sub={mostAttended?.attended > 0 ? `${mostAttended.attended} games` : "No data yet"} color="var(--green)" />
+                  <RecordTile label="Bib King" value={bibKing?.bibCount > 0 ? bibKing.name.split(" ")[0] : "—"}
+                    sub={bibKing?.bibCount > 0 ? `${bibKing.bibCount} times` : "No data yet"} color="var(--amber)" />
                 </div>
-
-                {/* 2. Late Dropouts */}
                 {topLate.length > 0 && (
                   <>
                     <SecLabel icon={Hourglass} label="Late Dropouts" />
                     <LeaderCard icon={Hourglass} label="Late Cancellations">
                       {topLate.map((p, i) => (
-                        <LeaderRow
-                          key={p.id} rank={i + 1} name={p.name}
+                        <LeaderRow key={p.id} rank={i + 1} name={p.name}
                           value={p.lateDropouts || 0}
                           bar={p.lateDropouts || 0} maxBar={topLate[0].lateDropouts || 1}
-                          barColor="var(--red)"
-                          isLast={i === topLate.length - 1}
-                        />
+                          barColor="var(--red)" isLast={i === topLate.length - 1} />
                       ))}
                     </LeaderCard>
                   </>
                 )}
-
-                {/* 3. Streaks tiles */}
                 <SecLabel label="Streaks" />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
                   <div style={{ background: "var(--green2)", border: "0.5px solid var(--greenb)", borderRadius: "var(--rs)", padding: 14, boxShadow: "0 0 12px rgba(61,220,106,0.08)" }}>
@@ -785,7 +741,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               </>
             )}
           </>
-        )}
+        )} */}
 
       </div>
     </div>
