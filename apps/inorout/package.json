@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@platform/core": "*",
     "@platform/ui": "*",
     "@supabase/auth-ui-react": "^0.4.7",
