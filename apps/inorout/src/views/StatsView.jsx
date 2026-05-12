@@ -1,629 +1,849 @@
 import { useState, useEffect, useRef } from "react";
 import { biggestWins, payRate } from "@platform/core";
 import {
-  SoccerBall, Star, CalendarCheck, Hourglass, TrendUp,
-  Trophy, X as XIcon, Equals, ChartBarHorizontal,
+  SoccerBall, Star, CalendarCheck, Hourglass, Trophy,
 } from "@phosphor-icons/react";
 
-// ── Date parser ───────────────────────────────────────────────────────────────
-const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const MONTHS = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
 function parseMatchDate(d) {
   if (!d) return new Date(0);
   const [day, mon, year] = (d || "").split(" ");
-  return new Date(year, MONTHS[mon] ?? 0, parseInt(day) || 1);
+  return new Date(+year, MONTHS[mon] ?? 0, +day || 1);
 }
 
-function getInitials(name) {
+function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
   return parts.length >= 2
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     : (name || "?").slice(0, 2).toUpperCase();
 }
 
-// Last 5 W/L/D results for a player (newest first) using name matching
+// Last 5 games a player actually played — W/L/D
 function getPlayerForm(playerName, played) {
   const name = (playerName || "").toLowerCase().trim();
   const results = [];
   for (const m of played) {
     if (results.length >= 5) break;
-    const inA = (m.teamA || []).some(n => (n || "").toLowerCase().trim() === name);
-    const inB = (m.teamB || []).some(n => (n || "").toLowerCase().trim() === name);
+    const inA = (m.teamA || []).some(x => (x || "").toLowerCase().trim() === name);
+    const inB = (m.teamB || []).some(x => (x || "").toLowerCase().trim() === name);
     if (!inA && !inB) continue;
-    if (m.winner === "D")      results.push("d");
-    else if (inA)              results.push(m.winner === "A" ? "w" : "l");
-    else                       results.push(m.winner === "B" ? "w" : "l");
+    if (!m.winner || m.winner === "D") results.push("d");
+    else if (inA) results.push(m.winner === "A" ? "w" : "l");
+    else          results.push(m.winner === "B" ? "w" : "l");
   }
   return results;
 }
 
-// Current streak (requires ≥2 identical results to display)
+// Current streak from newest game (any count >= 1)
 function getStreak(results) {
-  if (results.length < 2) return null;
+  if (!results.length) return null;
   const first = results[0];
   let count = 0;
-  for (const r of results) {
-    if (r === first) count++; else break;
-  }
-  return count >= 2 ? { result: first, count } : null;
+  for (const r of results) { if (r === first) count++; else break; }
+  return { result: first, count };
 }
 
-// Team-level streaks from played matches (newest first)
-function teamStreaks(played) {
-  let currentDecisive = 0, drawStreak = 0, longestUnbeaten = 0, cur = 0;
+// Games where player appears in scorers object with > 0 goals
+function scoredInCount(playerName, played) {
+  const name = (playerName || "").toLowerCase().trim();
+  return played.filter(m => {
+    if (!m.scorers) return false;
+    return Object.keys(m.scorers).some(
+      k => k.toLowerCase().trim() === name && (m.scorers[k] || 0) > 0
+    );
+  }).length;
+}
+
+// Team-level: longest run of decisive results (winner !== "D")
+function calcLongestDecisive(played) {
+  let max = 0, cur = 0;
   for (const m of played) {
-    if (m.winner !== "D") currentDecisive++; else break;
-  }
-  for (const m of played) {
-    if (m.winner === "D") drawStreak++; else break;
-  }
-  for (const m of played) {
-    if (m.winner !== "D") { cur++; longestUnbeaten = Math.max(longestUnbeaten, cur); }
+    if (m.winner && m.winner !== "D") { cur++; max = Math.max(max, cur); }
     else cur = 0;
   }
-  return { currentDecisive, drawStreak, longestUnbeaten };
+  return max;
 }
 
-// ── Canvas pitch (reused from HeroCard pattern) ───────────────────────────────
-function PitchCanvas({ canvasRef }) {
+// Team-level: longest run of any result (W or D — never "lost" as a squad)
+function calcLongestUnbeaten(played) {
+  let max = 0, cur = 0;
+  for (const m of played) {
+    if (m.winner) { cur++; max = Math.max(max, cur); }
+    else cur = 0;
+  }
+  return max;
+}
+
+// Current run from newest: decisive ("w") or draw ("d")
+function calcCurrentRun(played) {
+  if (!played.length) return null;
+  const first = played[0].winner === "D" ? "d" : "w";
+  let count = 0;
+  for (const m of played) {
+    const type = m.winner === "D" ? "d" : "w";
+    if (type === first) count++; else break;
+  }
+  return { type: first, count };
+}
+
+// ── LockedCard ────────────────────────────────────────────────────────────────
+
+function LockedCard({ statName, gamesNeeded, gamesPlayed }) {
+  const n = gamesNeeded - gamesPlayed;
+  return (
+    <div style={{
+      clipPath: "polygon(0% 8%, 8% 0%, 92% 0%, 100% 8%, 100% 100%, 0% 100%)",
+      background: "linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 50%, rgba(10,10,8,0.8) 100%)",
+      border: "0.5px solid rgba(255,255,255,0.1)",
+      padding: "20px 16px 16px",
+      minHeight: 100,
+      position: "relative",
+      boxShadow: "0 0 12px rgba(232,160,32,0.06)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+    }}>
+      <svg width="28" height="32" viewBox="0 0 32 32" fill="none">
+        <path
+          d="M 16 2 L 30 7 L 30 18 C 30 25 16 30 16 30 C 16 30 2 25 2 18 L 2 7 Z"
+          stroke="rgba(255,255,255,0.15)"
+          strokeWidth="1.5"
+        />
+      </svg>
+      <div style={{ fontSize: 11, fontWeight: 400, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--t2)", textAlign: "center", marginTop: 8 }}>
+        {statName}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 300, color: "var(--t2)", textAlign: "center", marginTop: 4 }}>
+        Play {n} more {n === 1 ? "game" : "games"} to unlock
+      </div>
+    </div>
+  );
+}
+
+// ── Season hero card ──────────────────────────────────────────────────────────
+
+function SeasonHeroCard({ groupName, totalGames, avgGoals }) {
+  const canvasRef = useRef(null);
+  const rafRef    = useRef(null);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    let t = 0, rafId;
-
-    function resize() {
-      canvas.width  = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-    }
+    let t = 0;
+    function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
     resize();
-
     function draw() {
       const w = canvas.width, h = canvas.height;
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#0a1f0a";
-      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#0a1f0a"; ctx.fillRect(0, 0, w, h);
       for (let i = 0; i < 10; i++) {
         ctx.fillStyle = i % 2 === 0 ? "rgba(55,150,45,0.28)" : "rgba(35,110,28,0.18)";
         ctx.fillRect(i * (w / 10), 0, w / 10, h);
       }
-      ctx.strokeStyle = "rgba(255,255,255,0.22)";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 1;
       const p = 1 + Math.sin(t * 0.4) * 0.015;
-      ctx.beginPath();
-      ctx.arc(w * 0.5, h * 1.2, h * 0.65 * p, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, h * 0.5);
-      ctx.lineTo(w, h * 0.5);
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(w * 0.5, h * 1.2, h * 0.65 * p, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, h * 0.5); ctx.lineTo(w, h * 0.5); ctx.stroke();
       ctx.strokeRect(w * 0.12, 0, w * 0.76, h * 0.42);
       ctx.strokeRect(w * 0.26, 0, w * 0.48, h * 0.22);
       [0.08, 0.26, 0.5, 0.74, 0.92].forEach((xp, i) => {
         const f = 0.12 + Math.sin(t * 0.7 + i * 1.4) * 0.025;
         const g = ctx.createLinearGradient(w * xp, 0, w * xp + 12, h * 0.8);
-        g.addColorStop(0, `rgba(255,255,200,${f})`);
-        g.addColorStop(1, "rgba(255,255,200,0)");
+        g.addColorStop(0, `rgba(255,255,200,${f})`); g.addColorStop(1, "rgba(255,255,200,0)");
         ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.moveTo(w * xp - 1, 0);
-        ctx.lineTo(w * xp + 1, 0);
-        ctx.lineTo(w * xp + 30, h * 0.8);
-        ctx.lineTo(w * xp - 30, h * 0.8);
-        ctx.closePath();
-        ctx.fill();
+        ctx.beginPath(); ctx.moveTo(w * xp - 1, 0); ctx.lineTo(w * xp + 1, 0);
+        ctx.lineTo(w * xp + 30, h * 0.8); ctx.lineTo(w * xp - 30, h * 0.8); ctx.closePath(); ctx.fill();
       });
       const pg = ctx.createRadialGradient(w * 0.5, h, 0, w * 0.5, h, w * 0.6);
-      pg.addColorStop(0, "rgba(45,140,35,0.26)");
-      pg.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = pg;
-      ctx.fillRect(0, 0, w, h);
-      t += 0.016;
-      rafId = requestAnimationFrame(draw);
+      pg.addColorStop(0, "rgba(45,140,35,0.26)"); pg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = pg; ctx.fillRect(0, 0, w, h);
+      t += 0.016; rafRef.current = requestAnimationFrame(draw);
     }
     draw();
-    return () => cancelAnimationFrame(rafId);
-  }, [canvasRef]);
-
-  return null;
-}
-
-// ── Stats hero card ───────────────────────────────────────────────────────────
-function StatsHeroCard({ groupName, totalGames, winRate, totalGoals }) {
-  const canvasRef = useRef(null);
-  const statsText = totalGames === 0
-    ? "0 games · —% wins · 0 goals"
-    : `${totalGames} games · ${winRate}% wins · ${totalGoals} goals`;
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
 
   return (
-    <div style={{
-      position:"relative", borderRadius:"var(--r)", overflow:"hidden",
-      marginBottom:8, height:130, background:"#061006",
-    }}>
-      <canvas ref={canvasRef}
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%" }} />
-      <PitchCanvas canvasRef={canvasRef} />
-      {/* Darker overlay for stats context */}
-      <div style={{
-        position:"absolute", inset:0,
-        background:"linear-gradient(180deg,rgba(4,8,4,0.35) 0%,rgba(4,4,4,0.88) 100%)",
-      }} />
-      <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"10px 16px 12px" }}>
-        {groupName && (
-          <div style={{ fontSize:10, fontWeight:300, letterSpacing:"0.18em", textTransform:"uppercase", color:"var(--gold)", marginBottom:2 }}>
-            {groupName}
+    <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8, height: 130, background: "#061006" }}>
+      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(4,8,4,0.45) 0%, rgba(4,4,4,0.92) 100%)" }} />
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 16px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div>
+          {groupName && (
+            <div style={{ fontSize: 10, fontWeight: 300, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)", marginBottom: 2 }}>
+              {groupName}
+            </div>
+          )}
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 32, lineHeight: 1, letterSpacing: "0.04em", fontStyle: "italic", color: "var(--t1)" }}>
+            2026 SEASON
           </div>
-        )}
-        <div style={{ fontFamily:"var(--font-display)", fontSize:32, lineHeight:1, letterSpacing:"0.04em", fontStyle:"italic", color:"var(--t1)" }}>
-          2026 SEASON
         </div>
-        <div style={{ fontSize:12, color:"var(--t2)", marginTop:5, fontWeight:300 }}>
-          {statsText}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, lineHeight: 1, color: "var(--t1)" }}>{totalGames}</div>
+          <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300 }}>games played</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, lineHeight: 1, color: "var(--gold)", marginTop: 4 }}>{avgGoals}</div>
+          <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300 }}>avg goals/game</div>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Shared sub-components ─────────────────────────────────────────────────────
 
-const SecLabel = ({ icon: Icon, label }) => (
-  <div style={{ display:"flex", alignItems:"center", gap:8, margin:"16px 0 10px" }}>
-    {Icon && <Icon size={13} weight="thin" color="var(--t2)" style={{ flexShrink:0 }} />}
-    <span style={{ fontSize:10, fontWeight:400, letterSpacing:"0.14em", textTransform:"uppercase", color:"var(--t2)", flexShrink:0 }}>
+const SecLabel = ({ icon: Icon, emoji, label }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "16px 0 10px" }}>
+    {Icon  && <Icon size={13} weight="thin" color="var(--t2)" style={{ flexShrink: 0 }} />}
+    {emoji && <span style={{ fontSize: 13, lineHeight: 1, flexShrink: 0 }}>{emoji}</span>}
+    <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--t2)", flexShrink: 0 }}>
       {label}
     </span>
-    <div style={{ flex:1, height:"0.5px", background:"rgba(255,255,255,0.07)" }} />
+    <div style={{ flex: 1, height: "0.5px", background: "var(--b2)" }} />
   </div>
 );
 
-const LeaderCard = ({ icon: Icon, iconLabel, label, children }) => (
-  <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)", borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
-    <div style={{ display:"flex", alignItems:"center", gap:7, padding:"12px 14px", borderBottom:"0.5px solid var(--b2)" }}>
-      {Icon && <Icon size={14} weight="thin" color="var(--t2)" />}
-      {iconLabel && <span style={{ fontSize:14, lineHeight:1 }}>{iconLabel}</span>}
-      <span style={{ fontSize:10, fontWeight:400, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)" }}>{label}</span>
+const LeaderCard = ({ icon: Icon, emoji, label, children }) => (
+  <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "12px 14px", borderBottom: "0.5px solid var(--b2)" }}>
+      {Icon  && <Icon size={14} weight="thin" color="var(--t2)" />}
+      {emoji && <span style={{ fontSize: 14, lineHeight: 1 }}>{emoji}</span>}
+      <span style={{ fontSize: 10, fontWeight: 400, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--t2)" }}>{label}</span>
     </div>
     {children}
   </div>
 );
 
-const RANK_COLORS = ["var(--gold)", "#C0C0C0", "#CD7F32"];
+const RANK_C = ["var(--gold)", "rgba(192,192,192,0.9)", "rgba(205,127,50,0.9)"];
 
 const LeaderRow = ({ rank, name, value, bar, maxBar, barColor, sub, isLast }) => (
-  <div style={{
-    display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
-    borderBottom: isLast ? "none" : "0.5px solid var(--b2)",
-  }}>
-    <div style={{ width:18, fontSize:11, fontWeight:700, color: rank <= 3 ? RANK_COLORS[rank-1] : "var(--t2)", flexShrink:0, textAlign:"center" }}>
+  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: isLast ? "none" : "0.5px solid var(--b2)" }}>
+    <div style={{ width: 18, fontSize: 11, fontWeight: 700, color: rank <= 3 ? RANK_C[rank - 1] : "var(--t2)", flexShrink: 0, textAlign: "center" }}>
       {rank}
     </div>
     <div style={{
-      width:32, height:32, borderRadius:"50%",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      fontSize:9, fontWeight:600, flexShrink:0,
-      background:"var(--green2)", border:"0.5px solid var(--greenb)", color:"var(--green)",
+      width: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 9, fontWeight: 600, flexShrink: 0,
+      background: "var(--green2)", border: "0.5px solid var(--greenb)", color: "var(--green)",
     }}>
-      {getInitials(name)}
+      {initials(name)}
     </div>
-    <div style={{ flex:1, minWidth:0 }}>
-      <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{name}</div>
-      {sub && <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300, marginTop:1 }}>{sub}</div>}
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: 13, fontWeight: 400, color: "var(--t1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+      {sub && <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, marginTop: 1 }}>{sub}</div>}
     </div>
-    <div style={{ width:56, height:4, background:"var(--s3)", borderRadius:2, flexShrink:0 }}>
-      <div style={{ height:"100%", borderRadius:2, background:barColor, width:`${maxBar > 0 ? Math.min(100, (bar / maxBar) * 100) : 0}%` }} />
+    <div style={{ width: 56, height: 4, background: "var(--s3)", borderRadius: 2, flexShrink: 0 }}>
+      <div style={{ height: "100%", borderRadius: 2, background: barColor, width: `${maxBar > 0 ? Math.min(100, (bar / maxBar) * 100) : 0}%` }} />
     </div>
-    <div style={{ fontFamily:"var(--font-display)", fontSize:22, color:barColor, minWidth:28, textAlign:"right", flexShrink:0 }}>
+    <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: barColor, minWidth: 28, textAlign: "right", flexShrink: 0 }}>
       {value}
     </div>
   </div>
 );
 
-// Gradient tint stat tile with icon bottom-right
-const StatTile = ({ label, value, sub, gradient, border, icon: Icon, iconColor }) => (
-  <div style={{ position:"relative", background:gradient, border:`0.5px solid ${border}`, borderRadius:"var(--rs)", padding:"12px 14px", overflow:"hidden" }}>
-    <div style={{ fontSize:9, fontWeight:400, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)", marginBottom:4 }}>{label}</div>
-    <div style={{ fontFamily:"var(--font-display)", fontSize:36, lineHeight:1, color:"var(--t1)" }}>{value}</div>
-    {sub && <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300, marginTop:4 }}>{sub}</div>}
-    {Icon && (
-      <div style={{ position:"absolute", bottom:10, right:12, opacity:0.5, pointerEvents:"none" }}>
-        <Icon size={16} weight="thin" color={iconColor || "var(--t1)"} />
-      </div>
-    )}
+const InsightTile = ({ label, value, valueFontSize = 32, valueColor, sub }) => (
+  <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--rs)", padding: "12px 14px" }}>
+    <div style={{ fontSize: 9, fontWeight: 400, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--t2)", marginBottom: 4 }}>{label}</div>
+    <div style={{ fontFamily: "var(--font-display)", fontSize: valueFontSize, lineHeight: 1, color: valueColor || "var(--t1)" }}>{value}</div>
+    {sub && <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, marginTop: 4 }}>{sub}</div>}
   </div>
 );
 
 const RecordTile = ({ label, value, sub, color }) => (
-  <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)", padding:"12px 14px" }}>
-    <div style={{ fontSize:9, fontWeight:400, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)", marginBottom:6 }}>{label}</div>
-    <div style={{ fontFamily:"var(--font-display)", fontSize:26, lineHeight:1, color }}>{value}</div>
-    {sub && <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300, marginTop:4 }}>{sub}</div>}
+  <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--rs)", padding: "12px 14px" }}>
+    <div style={{ fontSize: 9, fontWeight: 400, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--t2)", marginBottom: 6 }}>{label}</div>
+    <div style={{ fontFamily: "var(--font-display)", fontSize: 26, lineHeight: 1, color: color || "var(--t1)" }}>{value}</div>
+    {sub && <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, marginTop: 4 }}>{sub}</div>}
   </div>
 );
 
-const DOT_COLOR = { w:"var(--green)", l:"var(--red)", d:"var(--amber)" };
-const STREAK_COLOR = { w:"var(--green)", l:"var(--red)", d:"var(--amber)" };
+const DOT_C   = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
+const STREAK_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
+
 export default function StatsView({ squad, bibHistory = [], matchHistory = [], settings, schedule }) {
   const [tab, setTab] = useState("overview");
 
-  const active = squad.filter(p => !p.disabled && !p.isGuest);
+  // ── Match data ─────────────────────────────────────────────────────────────
+  const allMatches     = matchHistory || [];
+  const cancelledCount = allMatches.filter(m => m.cancelled).length;
+  const totalAll       = allMatches.length;
 
-  // Played matches — filter out cancelled and matchless entries
-  const played = [...matchHistory]
-    .filter(m => !m.cancelled && !m.is_cancelled && m.winner)
+  const played = allMatches
+    .filter(m => !m.cancelled)
     .sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
 
-  const totalGames   = played.length;
-  const winsA        = played.filter(m => m.winner === "A").length;
-  const winsB        = played.filter(m => m.winner === "B").length;
-  const drawGames    = played.filter(m => m.winner === "D").length;
-  const decisive     = winsA + winsB;
-  const winRate      = totalGames > 0 ? Math.round(decisive / totalGames * 100) : 0;
-  const totalGoals   = played.reduce((s, m) => s + (m.scoreA || 0) + (m.scoreB || 0), 0);
-  const totalMotm    = active.reduce((s, p) => s + (p.motm || 0), 0);
-  const form5        = played.slice(0, 5).map(m => m.winner === "D" ? "d" : "w");
-  const winsIn5      = form5.filter(r => r === "w").length;
-  const { currentDecisive, drawStreak, longestUnbeaten } = teamStreaks(played);
+  const totalGames  = played.length;
+  const totalGoals  = played.reduce((s, m) => s + (m.scoreA || 0) + (m.scoreB || 0), 0);
+  const avgGoals    = totalGames > 0 ? (totalGoals / totalGames).toFixed(1) : "—";
+  const cancRate    = totalAll > 0 ? Math.round(cancelledCount / totalAll * 100) : 0;
+  const tightGames  = played.filter(m => Math.abs((m.scoreA || 0) - (m.scoreB || 0)) === 1).length;
+  const teamAWins   = played.filter(m => m.winner === "A").length;
+  const teamBWins   = played.filter(m => m.winner === "B").length;
+  const teamAPct    = totalGames > 0 ? Math.round(teamAWins / totalGames * 100) : 0;
+  const teamBPct    = totalGames > 0 ? Math.round(teamBWins / totalGames * 100) : 0;
 
-  // Leaderboards
-  const topScorers = [...active].filter(p => (p.goals || 0) > 0)
-    .sort((a, b) => (b.goals || 0) - (a.goals || 0)).slice(0, 5);
-  const topMotm = [...active].filter(p => (p.motm || 0) > 0)
-    .sort((a, b) => (b.motm || 0) - (a.motm || 0)).slice(0, 3);
-  const topAttend = [...active].filter(p => (p.total || 0) > 0)
-    .sort((a, b) => {
-      const pa = b.total > 0 ? b.attended / b.total : 0;
-      const pb = a.total > 0 ? a.attended / a.total : 0;
-      return pa - pb;
-    }).slice(0, 5);
-  const topBibs = [...active].filter(p => (p.bibCount || 0) > 0)
-    .sort((a, b) => (b.bibCount || 0) - (a.bibCount || 0)).slice(0, 3);
-  const topLate = [...active].filter(p => (p.lateDropouts || 0) > 0)
-    .sort((a, b) => (b.lateDropouts || 0) - (a.lateDropouts || 0)).slice(0, 3);
+  const longestDecisive = calcLongestDecisive(played);
+  const longestUnbeaten = calcLongestUnbeaten(played);
+  const currentRun      = calcCurrentRun(played);
 
-  // Players with form (attended > 0, sorted by attendance)
-  const formPlayers = [...active]
+  // ── Player data ────────────────────────────────────────────────────────────
+  const allPlayers    = (squad || []).filter(p => !p.disabled);
+  const active        = allPlayers.filter(p => !p.isGuest);
+  const regularsCount = active.length;
+  const guestsCount   = allPlayers.filter(p => p.isGuest).length;
+
+  // Top scorers
+  const topScorers = [...active]
+    .filter(p => (p.goals || 0) > 0)
+    .sort((a, b) => (b.goals || 0) - (a.goals || 0))
+    .slice(0, 5);
+
+  // Clinical: goals per game, min 2 attended
+  const clinical = [...active]
+    .filter(p => (p.attended || 0) >= 2 && (p.goals || 0) > 0)
+    .map(p => ({ ...p, gpg: p.goals / p.attended }))
+    .sort((a, b) => b.gpg - a.gpg)
+    .slice(0, 5);
+
+  // MOTM Kings
+  const topMotm = [...active]
+    .filter(p => (p.motm || 0) > 0)
+    .sort((a, b) => (b.motm || 0) - (a.motm || 0))
+    .slice(0, 3);
+
+  // Win rate (min 4 games played by player)
+  const withGames4 = active
+    .filter(p => (p.w || 0) + (p.l || 0) + (p.d || 0) >= 4)
+    .map(p => {
+      const tot = (p.w || 0) + (p.l || 0) + (p.d || 0);
+      return { ...p, winRate: Math.round((p.w || 0) / tot * 100), totalPlayed: tot };
+    });
+  const winLeaders   = [...withGames4].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
+  const relegation   = [...withGames4].sort((a, b) => a.winRate - b.winRate).slice(0, 3);
+
+  // Attendance
+  const topAttend = [...active]
     .filter(p => (p.attended || 0) > 0)
-    .sort((a, b) => (b.attended || 0) - (a.attended || 0));
+    .map(p => ({ ...p, attPct: totalGames > 0 ? Math.round(p.attended / totalGames * 100) : 0 }))
+    .sort((a, b) => b.attPct - a.attPct)
+    .slice(0, 5);
+
+  // Bib duty
+  const topBibs = [...active]
+    .filter(p => (p.bibCount || 0) > 0)
+    .sort((a, b) => (b.bibCount || 0) - (a.bibCount || 0))
+    .slice(0, 3);
+
+  // Late dropouts
+  const topLate = [...active]
+    .filter(p => (p.lateDropouts || 0) > 0)
+    .sort((a, b) => (b.lateDropouts || 0) - (a.lateDropouts || 0))
+    .slice(0, 3);
 
   // Payment reliability
-  const payers = active.filter(p => (p.total || 0) > 0);
+  const payers         = active.filter(p => (p.total || 0) > 0);
   const avgReliability = payers.length > 0
     ? Math.round(payers.reduce((s, p) => s + payRate(p), 0) / payers.length) : 0;
   const alwaysPays  = payers.filter(p => payRate(p) >= 90).length;
   const usuallyPays = payers.filter(p => payRate(p) >= 50 && payRate(p) < 90).length;
   const owesMoney   = payers.filter(p => payRate(p) < 50).length;
 
-  // Records
-  const byKey      = (key) => [...active].sort((a, b) => (b[key] || 0) - (a[key] || 0));
-  const topScorer  = byKey("goals")[0];
-  const mostMotm   = byKey("motm")[0];
-  const mostAtt    = byKey("attended")[0];
-  const bibKing    = byKey("bibCount")[0];
-  const mostGoalsGame = played.reduce((max, m) => Math.max(max, (m.scoreA || 0) + (m.scoreB || 0)), 0);
-  const biggestWin = biggestWins(matchHistory)[0];
+  // Most consistent scorer (by scored-in count)
+  const scorerRanking = [...active]
+    .map(p => ({ ...p, scoredIn: scoredInCount(p.name, played) }))
+    .filter(p => p.scoredIn > 0)
+    .sort((a, b) => b.scoredIn - a.scoredIn);
+  const topConsistent = scorerRanking[0] || null;
 
-  const groupName  = settings?.groupName || "";
-  const pct        = (n, d) => d > 0 ? Math.round((n / d) * 100) : 0;
+  // Records
+  const byKey          = key => [...active].sort((a, b) => (b[key] || 0) - (a[key] || 0));
+  const topGoalScorer  = byKey("goals")[0];
+  const mostMotm       = byKey("motm")[0];
+  const mostAttended   = byKey("attended")[0];
+  const bibKing        = byKey("bibCount")[0];
+  const mostGoalsGame  = played.reduce((max, m) => Math.max(max, (m.scoreA || 0) + (m.scoreB || 0)), 0);
+  const bigWin         = biggestWins(matchHistory)[0];
+
+  // Player form table
+  const formPlayers = [...active]
+    .filter(p => (p.attended || 0) >= 1)
+    .sort((a, b) => (b.attended || 0) - (a.attended || 0));
+
+  const groupName = settings?.groupName || "";
 
   return (
-    <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+    <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--t1)", fontFamily: "var(--font-body)" }}>
+      <div style={{ padding: "0 16px 110px" }}>
 
-      {/* ── Content ── */}
-      <div style={{ padding:"0 16px 110px" }}>
+        {/* ── Season hero ── */}
+        <SeasonHeroCard groupName={groupName} totalGames={totalGames} avgGoals={avgGoals} />
 
-        {/* Hero card */}
-        <StatsHeroCard
-          groupName={groupName}
-          totalGames={totalGames}
-          winRate={winRate}
-          totalGoals={totalGoals}
-        />
-
-        {/* Tab pills */}
-        <div style={{ display:"flex", gap:6, marginBottom:14 }}>
-          {[["overview","Overview"],["records","Records"]].map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)} style={{
-              padding:"7px 18px", borderRadius:"var(--r-pill)",
-              border:`0.5px solid ${tab === id ? "var(--greenb)" : "var(--border-subtle)"}`,
-              background: tab === id ? "var(--green2)" : "transparent",
-              color: tab === id ? "var(--green)" : "var(--t2)",
-              fontFamily:"var(--font-body)", fontSize:12, fontWeight:500,
-              cursor:"pointer", transition:"all 0.15s",
-            }}>
-              {label}
-            </button>
-          ))}
+        {/* ── Sticky tabs ── */}
+        <div style={{
+          position: "sticky", top: 0, zIndex: 20,
+          background: "var(--bg)",
+          marginLeft: -16, marginRight: -16,
+          paddingLeft: 16, paddingRight: 16,
+          paddingTop: 8, paddingBottom: 8,
+          marginBottom: 6,
+        }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[["overview", "Overview"], ["records", "Records"]].map(([id, label]) => (
+              <button key={id} onClick={() => setTab(id)} style={{
+                padding: "7px 18px", borderRadius: "var(--r-pill)",
+                border: `0.5px solid ${tab === id ? "var(--greenb)" : "var(--border-subtle)"}`,
+                background: tab === id ? "var(--green2)" : "transparent",
+                color: tab === id ? "var(--green)" : "var(--t2)",
+                fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500,
+                cursor: "pointer", transition: "all 0.15s",
+              }}>{label}</button>
+            ))}
+          </div>
         </div>
 
-        {/* Empty state */}
+        {/* ── Empty state ── */}
         {totalGames === 0 && (
-          <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)", borderRadius:"var(--r)", padding:"24px 20px", textAlign:"center", marginBottom:8 }}>
-            <div style={{ fontSize:28, marginBottom:10 }}>⚽</div>
-            <div style={{ fontSize:14, fontWeight:500, color:"var(--t1)", marginBottom:6 }}>No games recorded yet</div>
-            <div style={{ fontSize:12, fontWeight:300, color:"var(--t2)", lineHeight:1.5 }}>Stats will appear after your first result is saved.</div>
+          <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "32px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>⚽</div>
+            <div style={{ fontSize: 16, fontWeight: 400, color: "var(--t1)", marginBottom: 6 }}>No games recorded yet</div>
+            <div style={{ fontSize: 12, fontWeight: 300, color: "var(--t2)" }}>Stats appear after your first result is saved</div>
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════ OVERVIEW ═══ */}
+        {/* ════════════════════════════ OVERVIEW ════════════════════════════ */}
         {tab === "overview" && totalGames > 0 && (
           <>
-            {/* Team form */}
-            {form5.length > 0 && (
-              <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)", borderRadius:"var(--r)", padding:"14px 16px", marginBottom:8 }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-                  <div style={{ fontSize:10, fontWeight:400, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)" }}>Last 5 Results</div>
-                  <div style={{ fontSize:11, fontWeight:400, color:"var(--green)" }}>{winsIn5} decisive in last {form5.length}</div>
-                </div>
-                <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-                  {form5.map((r, i) => (
-                    <div key={i} style={{
-                      width:38, height:38, borderRadius:"50%",
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      fontSize:11, fontWeight:700,
-                      background: r === "w" ? "var(--green2)" : "var(--amber2)",
-                      border:`1.5px solid ${r === "w" ? "var(--greenb)" : "var(--amberb)"}`,
-                      color: r === "w" ? "var(--green)" : "var(--amber)",
-                      boxShadow: r === "w" ? "0 0 8px rgba(61,220,106,0.2)" : "0 0 8px rgba(255,176,32,0.15)",
+            {/* 1. Player Form */}
+            <SecLabel label="Player Form" />
+            <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8 }}>
+              {formPlayers.length === 0 ? (
+                <div style={{ padding: "16px 14px", fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>No player data yet</div>
+              ) : formPlayers.map((p, i) => {
+                const form       = getPlayerForm(p.name, played);
+                const streak     = form.length > 0 ? getStreak(form) : null;
+                const showStreak = streak && (p.attended || 0) >= 3;
+                return (
+                  <div key={p.id} style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                    borderBottom: i < formPlayers.length - 1 ? "0.5px solid var(--b2)" : "none",
+                  }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 600,
+                      background: "var(--green2)", border: "0.5px solid var(--greenb)", color: "var(--green)",
                     }}>
-                      {r === "w" ? "W" : "D"}
+                      {initials(p.name)}
                     </div>
-                  ))}
-                </div>
-                <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:"var(--t2)", fontWeight:300 }}>
-                  <TrendUp size={13} weight="thin" color={winsIn5 >= 3 ? "var(--green)" : "var(--amber)"} />
-                  {winsIn5 >= 4 ? "Great run — keep the momentum"
-                    : winsIn5 >= 3 ? "Good run — keep it going"
-                    : winsIn5 >= 2 ? "Mixed bag lately"
-                    : "Tough spell — bounce back next week"}
-                </div>
-              </div>
-            )}
-
-            {/* Player form table */}
-            {formPlayers.length > 0 && (
-              <LeaderCard label="Player Form">
-                {formPlayers.map((p, i) => {
-                  const pForm   = getPlayerForm(p.name, played);
-                  const streak  = getStreak(pForm);
-                  const sColor  = streak ? STREAK_COLOR[streak.result] : "var(--t2)";
-                  const sLabel  = streak ? `${streak.result.toUpperCase()}${streak.count}` : null;
-                  return (
-                    <div key={p.id} style={{
-                      display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
-                      borderBottom: i < formPlayers.length - 1 ? "0.5px solid var(--b2)" : "none",
-                    }}>
-                      {/* Avatar */}
-                      <div style={{
-                        width:28, height:28, borderRadius:"50%",
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        fontSize:8, fontWeight:600, flexShrink:0,
-                        background:"var(--green2)", border:"0.5px solid var(--greenb)", color:"var(--green)",
-                      }}>
-                        {getInitials(p.name)}
+                    {/* Name */}
+                    <div style={{ fontSize: 13, fontWeight: 400, color: "var(--t1)", minWidth: 50, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.name}
+                    </div>
+                    {/* Form dots */}
+                    <div style={{ flex: 1, display: "flex", gap: 4, alignItems: "center" }}>
+                      {form.length === 0
+                        ? <span style={{ fontSize: 11, color: "var(--t2)" }}>—</span>
+                        : form.map((r, j) => (
+                          <span key={j} style={{
+                            width: 8, height: 8, borderRadius: "50%", display: "inline-block",
+                            background: DOT_C[r], boxShadow: `0 0 4px ${DOT_C[r]}80`,
+                          }} />
+                        ))
+                      }
+                    </div>
+                    {/* Right: W/L/D totals + streak */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, whiteSpace: "nowrap" }}>
+                        W{p.w || 0} L{p.l || 0} D{p.d || 0}
                       </div>
-                      {/* Name */}
-                      <div style={{ flex:1, fontSize:13, fontWeight:400, color:"var(--t1)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        {p.name}
-                      </div>
-                      {/* Form dots */}
-                      <div style={{ display:"flex", gap:4, flexShrink:0 }}>
-                        {pForm.length === 0 ? (
-                          <span style={{ fontSize:12, color:"var(--t2)" }}>—</span>
-                        ) : (
-                          pForm.map((r, j) => (
-                            <span key={j} style={{
-                              width:8, height:8, borderRadius:"50%", display:"inline-block",
-                              background: DOT_COLOR[r],
-                              boxShadow: `0 0 4px ${DOT_COLOR[r]}80`,
-                            }} />
-                          ))
-                        )}
-                      </div>
-                      {/* Streak */}
-                      {sLabel && (
-                        <div style={{ fontFamily:"var(--font-display)", fontSize:18, color:sColor, minWidth:28, textAlign:"right", flexShrink:0 }}>
-                          {sLabel}
+                      {showStreak && (
+                        <div style={{ fontFamily: "var(--font-display)", fontSize: 16, color: STREAK_C[streak.result], lineHeight: 1, marginTop: 2 }}>
+                          {streak.result.toUpperCase()}{streak.count}
                         </div>
                       )}
                     </div>
-                  );
-                })}
-              </LeaderCard>
-            )}
-
-            {/* Key stat tiles */}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:6 }}>
-              <StatTile
-                label="Wins" value={winsA}
-                sub={`of ${totalGames} games · ${pct(winsA, totalGames)}%`}
-                gradient="linear-gradient(135deg,rgba(61,220,106,0.22) 0%,rgba(61,220,106,0.07) 45%,rgba(10,10,8,0.55) 100%)"
-                border="var(--greenb)"
-                icon={Trophy} iconColor="var(--green)"
-              />
-              <StatTile
-                label="Losses" value={winsB}
-                sub={`of ${totalGames} games · ${pct(winsB, totalGames)}%`}
-                gradient="linear-gradient(135deg,rgba(255,64,64,0.22) 0%,rgba(255,64,64,0.07) 45%,rgba(10,10,8,0.55) 100%)"
-                border="var(--redb)"
-                icon={XIcon} iconColor="var(--red)"
-              />
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:8 }}>
-              <StatTile
-                label="Goals" value={totalGoals}
-                gradient="linear-gradient(135deg,rgba(232,160,32,0.22) 0%,rgba(232,160,32,0.07) 45%,rgba(10,10,8,0.55) 100%)"
-                border="var(--goldb)"
-                icon={SoccerBall} iconColor="var(--gold)"
-              />
-              <StatTile
-                label="Draws" value={drawGames}
-                gradient="var(--s1)"
-                border="var(--border-subtle)"
-                icon={Equals} iconColor="var(--t2)"
-              />
-              <StatTile
-                label="MOTM" value={totalMotm}
-                gradient="linear-gradient(135deg,rgba(176,96,240,0.22) 0%,rgba(176,96,240,0.07) 45%,rgba(10,10,8,0.55) 100%)"
-                border="var(--purpleb)"
-                icon={Star} iconColor="var(--purple)"
-              />
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Top scorers */}
-            {topScorers.length > 0 && (
+            {/* 2. Top Scorers */}
+            <SecLabel icon={SoccerBall} label="Top Scorers" />
+            {topScorers.length > 0 ? (
               <LeaderCard icon={SoccerBall} label="Goals">
                 {topScorers.map((p, i) => (
-                  <LeaderRow key={p.id} rank={i+1} name={p.name} value={p.goals || 0}
+                  <LeaderRow
+                    key={p.id} rank={i + 1} name={p.name}
+                    value={p.goals || 0}
                     bar={p.goals || 0} maxBar={topScorers[0].goals || 1}
-                    barColor="var(--green)" isLast={i === topScorers.length - 1} />
+                    barColor="var(--green)"
+                    sub={`scored in ${scoredInCount(p.name, played)} of ${totalGames} games`}
+                    isLast={i === topScorers.length - 1}
+                  />
                 ))}
               </LeaderCard>
+            ) : (
+              <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "16px 14px", marginBottom: 8, fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>
+                No goals recorded yet
+              </div>
             )}
 
-            {/* MOTM */}
-            {topMotm.length > 0 && (
-              <LeaderCard icon={Star} label="Man of the Match">
-                {topMotm.map((p, i) => (
-                  <LeaderRow key={p.id} rank={i+1} name={p.name} value={p.motm || 0}
-                    bar={p.motm || 0} maxBar={topMotm[0].motm || 1}
-                    barColor="var(--gold)" isLast={i === topMotm.length - 1} />
-                ))}
-              </LeaderCard>
+            {/* 3. Clinical */}
+            <SecLabel label="Clinical" />
+            {totalGames >= 2 ? (
+              clinical.length > 0 ? (
+                <LeaderCard label="Goals Per Game">
+                  {clinical.map((p, i) => (
+                    <LeaderRow
+                      key={p.id} rank={i + 1} name={p.name}
+                      value={p.gpg.toFixed(2)}
+                      bar={p.gpg} maxBar={clinical[0].gpg || 1}
+                      barColor="var(--gold)"
+                      sub="goals per game"
+                      isLast={i === clinical.length - 1}
+                    />
+                  ))}
+                </LeaderCard>
+              ) : (
+                <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "16px 14px", marginBottom: 8, fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>
+                  Need goal data to calculate
+                </div>
+              )
+            ) : (
+              <div style={{ marginBottom: 8 }}>
+                <LockedCard statName="Clinical" gamesNeeded={2} gamesPlayed={totalGames} />
+              </div>
             )}
 
-            {/* Attendance */}
-            {topAttend.length > 0 && (
-              <LeaderCard icon={CalendarCheck} label="Attendance">
-                {topAttend.map((p, i) => {
-                  const attPct = p.total > 0 ? Math.round((p.attended / p.total) * 100) : 0;
+            {/* 4. MOTM Kings */}
+            <SecLabel icon={Star} label="Man of the Match" />
+            {topMotm.length > 0 ? (
+              <LeaderCard icon={Star} label="MOTM Awards">
+                {topMotm.map((p, i) => {
+                  const every = (p.attended || 0) > 0 ? Math.round(p.attended / (p.motm || 1)) : 0;
                   return (
-                    <LeaderRow key={p.id} rank={i+1} name={p.name} value={`${attPct}%`}
-                      bar={attPct} maxBar={100}
-                      barColor={attPct >= 80 ? "var(--green)" : attPct >= 60 ? "var(--amber)" : "var(--red)"}
-                      sub={`${p.attended} of ${p.total} games`}
-                      isLast={i === topAttend.length - 1} />
+                    <LeaderRow
+                      key={p.id} rank={i + 1} name={p.name}
+                      value={p.motm || 0}
+                      bar={p.motm || 0} maxBar={topMotm[0].motm || 1}
+                      barColor="var(--gold)"
+                      sub={every > 0 ? `1 in every ${every} games` : undefined}
+                      isLast={i === topMotm.length - 1}
+                    />
                   );
                 })}
               </LeaderCard>
+            ) : (
+              <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "16px 14px", marginBottom: 8, fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>
+                No MOTM awarded yet
+              </div>
             )}
 
-            {/* Payment reliability */}
+            {/* 5. Win % Leaders */}
+            <SecLabel icon={Trophy} label="Winners" />
+            {totalGames >= 4 ? (
+              winLeaders.length > 0 ? (
+                <LeaderCard icon={Trophy} label="Win Rate">
+                  {winLeaders.map((p, i) => (
+                    <LeaderRow
+                      key={p.id} rank={i + 1} name={p.name}
+                      value={`${p.winRate}%`}
+                      bar={p.winRate} maxBar={100}
+                      barColor="var(--green)"
+                      sub={`${p.w || 0} wins from ${p.totalPlayed} games`}
+                      isLast={i === winLeaders.length - 1}
+                    />
+                  ))}
+                </LeaderCard>
+              ) : (
+                <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "16px 14px", marginBottom: 8, fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>
+                  Need more player game data
+                </div>
+              )
+            ) : (
+              <div style={{ marginBottom: 8 }}>
+                <LockedCard statName="Win % Leaders" gamesNeeded={4} gamesPlayed={totalGames} />
+              </div>
+            )}
+
+            {/* 6. Relegation Zone */}
+            <SecLabel label="Relegation Zone" />
+            {totalGames >= 4 ? (
+              relegation.length > 0 && (
+                <LeaderCard label="Lowest Win Rate">
+                  {relegation.map((p, i) => (
+                    <LeaderRow
+                      key={p.id} rank={i + 1} name={p.name}
+                      value={`${p.winRate}%`}
+                      bar={100 - p.winRate} maxBar={100}
+                      barColor="var(--red)"
+                      sub={`${p.w || 0} wins from ${p.totalPlayed} games`}
+                      isLast={i === relegation.length - 1}
+                    />
+                  ))}
+                </LeaderCard>
+              )
+            ) : (
+              <div style={{ marginBottom: 8 }}>
+                <LockedCard statName="Relegation Zone" gamesNeeded={4} gamesPlayed={totalGames} />
+              </div>
+            )}
+
+            {/* 7. Never Miss — Attendance */}
+            <SecLabel icon={CalendarCheck} label="Never Miss" />
+            {topAttend.length > 0 && (
+              <LeaderCard icon={CalendarCheck} label="Attendance">
+                {topAttend.map((p, i) => (
+                  <LeaderRow
+                    key={p.id} rank={i + 1} name={p.name}
+                    value={`${p.attPct}%`}
+                    bar={p.attPct} maxBar={100}
+                    barColor={p.attPct >= 80 ? "var(--green)" : p.attPct >= 60 ? "var(--amber)" : "var(--red)"}
+                    sub={`${p.attended} of ${totalGames} games`}
+                    isLast={i === topAttend.length - 1}
+                  />
+                ))}
+              </LeaderCard>
+            )}
+
+            {/* 8. Insight Tiles */}
+            <SecLabel label="This Season" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
+
+              {/* Cancellation Rate — 1+ */}
+              <InsightTile
+                label="Cancelled"
+                value={`${cancRate}%`}
+                valueColor="var(--red)"
+                sub={`${cancelledCount} of ${totalAll} games`}
+              />
+
+              {/* Avg Goals — 1+ */}
+              <InsightTile
+                label="Avg Goals"
+                value={avgGoals}
+                valueColor="var(--gold)"
+                sub="per game"
+              />
+
+              {/* Tight Games — 3+ */}
+              {totalGames >= 3
+                ? <InsightTile label="Thrillers" value={tightGames} valueColor="var(--green)" sub="decided by 1 goal" />
+                : <LockedCard statName="Thrillers" gamesNeeded={3} gamesPlayed={totalGames} />
+              }
+
+              {/* Current Run — 3+ */}
+              {totalGames >= 3 && currentRun
+                ? (
+                  <InsightTile
+                    label="Current Run"
+                    value={`${currentRun.type.toUpperCase()}${currentRun.count}`}
+                    valueColor={currentRun.type === "w" ? "var(--green)" : "var(--amber)"}
+                    sub={currentRun.type === "w" ? "decisive in a row" : "draws in a row"}
+                  />
+                ) : totalGames < 3
+                  ? <LockedCard statName="Current Run" gamesNeeded={3} gamesPlayed={totalGames} />
+                  : null
+              }
+
+              {/* Team A vs B — 4+ */}
+              {totalGames >= 4
+                ? (
+                  <InsightTile
+                    label="Team A vs Team B"
+                    value={`${teamAWins}–${teamBWins}`}
+                    valueFontSize={28}
+                    sub={`Team A ${teamAPct}% · Team B ${teamBPct}%`}
+                  />
+                ) : (
+                  <LockedCard statName="Team A vs B" gamesNeeded={4} gamesPlayed={totalGames} />
+                )
+              }
+
+              {/* Regulars vs Guests — 1+ */}
+              <InsightTile
+                label="The Core"
+                value={regularsCount}
+                sub={`${guestsCount} guest${guestsCount !== 1 ? "s" : ""} have played`}
+              />
+
+              {/* Most Consistent Scorer — 1+ */}
+              {topConsistent ? (
+                <InsightTile
+                  label="Most Consistent"
+                  value={topConsistent.name.split(" ")[0]}
+                  valueFontSize={24}
+                  valueColor="var(--gold)"
+                  sub={`scored in ${topConsistent.scoredIn} of ${totalGames} games`}
+                />
+              ) : (
+                <InsightTile label="Most Consistent" value="—" sub="No goals yet" />
+              )}
+
+            </div>
+
+            {/* 9. Bib Duty */}
+            <SecLabel emoji="🟡" label="Bib Duty" />
+            {topBibs.length > 0 ? (
+              <LeaderCard emoji="🟡" label="Times Taken Bibs">
+                {topBibs.map((p, i) => (
+                  <LeaderRow
+                    key={p.id} rank={i + 1} name={p.name}
+                    value={`${p.bibCount}×`}
+                    bar={p.bibCount || 0} maxBar={topBibs[0].bibCount || 1}
+                    barColor="var(--amber)"
+                    isLast={i === topBibs.length - 1}
+                  />
+                ))}
+              </LeaderCard>
+            ) : (
+              <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "16px 14px", marginBottom: 8, fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>
+                No bib data recorded
+              </div>
+            )}
+
+            {/* 10. Payment Reliability */}
+            <SecLabel label="Payment Reliability" />
             {payers.length > 0 && (
-              <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)", borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
-                <div style={{ padding:"14px 16px", borderBottom:"0.5px solid var(--b2)" }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                    <div style={{ fontSize:10, fontWeight:400, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)" }}>Payment Reliability</div>
+              <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8 }}>
+                <div style={{ padding: "14px 16px", borderBottom: "0.5px solid var(--b2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ fontSize: 10, fontWeight: 400, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--t2)" }}>Group Average</div>
                     <div style={{
-                      padding:"3px 10px", borderRadius:"var(--r-pill)", fontSize:10, fontWeight:500,
+                      padding: "3px 10px", borderRadius: "var(--r-pill)", fontSize: 10, fontWeight: 500,
                       background: avgReliability >= 80 ? "var(--green2)" : "var(--amber2)",
-                      border:`0.5px solid ${avgReliability >= 80 ? "var(--greenb)" : "var(--amberb)"}`,
+                      border: `0.5px solid ${avgReliability >= 80 ? "var(--greenb)" : "var(--amberb)"}`,
                       color: avgReliability >= 80 ? "var(--green)" : "var(--amber)",
                     }}>
                       {avgReliability >= 80 ? "Solid Group" : "Needs Work"}
                     </div>
                   </div>
-                  <div style={{ fontFamily:"var(--font-display)", fontSize:32, lineHeight:1, color:"var(--t1)", marginTop:6 }}>{avgReliability}%</div>
-                  <div style={{ fontSize:10, fontWeight:300, color:"var(--t2)", marginTop:2 }}>group average</div>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 32, lineHeight: 1, color: "var(--t1)", marginTop: 6 }}>{avgReliability}%</div>
+                  <div style={{ fontSize: 10, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>group average</div>
                 </div>
                 {[
-                  { label:"Always pays",  count:alwaysPays,  color:"var(--green)" },
-                  { label:"Usually pays", count:usuallyPays, color:"var(--amber)" },
-                  { label:"Owes money",   count:owesMoney,   color:"var(--red)"   },
+                  { label: "Always pays",  count: alwaysPays,  color: "var(--green)" },
+                  { label: "Usually pays", count: usuallyPays, color: "var(--amber)" },
+                  { label: "Owes money",   count: owesMoney,   color: "var(--red)"   },
                 ].map(({ label, count, color }, i, arr) => (
                   <div key={label} style={{
-                    padding:"10px 16px", borderBottom: i < arr.length - 1 ? "0.5px solid var(--b2)" : "none",
-                    display:"flex", alignItems:"center", gap:10,
+                    padding: "10px 16px", borderBottom: i < arr.length - 1 ? "0.5px solid var(--b2)" : "none",
+                    display: "flex", alignItems: "center", gap: 10,
                   }}>
-                    <div style={{ fontSize:12, fontWeight:400, color:"var(--t1)", minWidth:100 }}>{label}</div>
-                    <div style={{ flex:1, height:4, background:"var(--s3)", borderRadius:2 }}>
-                      <div style={{ height:"100%", borderRadius:2, background:color, width:`${payers.length > 0 ? (count / payers.length) * 100 : 0}%` }} />
+                    <div style={{ fontSize: 12, fontWeight: 400, color: "var(--t1)", minWidth: 100 }}>{label}</div>
+                    <div style={{ flex: 1, height: 4, background: "var(--s3)", borderRadius: 2 }}>
+                      <div style={{ height: "100%", borderRadius: 2, background: color, width: `${payers.length > 0 ? (count / payers.length) * 100 : 0}%` }} />
                     </div>
-                    <div style={{ fontSize:12, fontWeight:500, color, minWidth:20, textAlign:"right" }}>{count}</div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color, minWidth: 20, textAlign: "right" }}>{count}</div>
                   </div>
                 ))}
               </div>
             )}
-
-            {/* Bib hall of shame */}
-            {topBibs.length > 0 && (
-              <LeaderCard iconLabel="🟡" label="Bib Hall of Shame">
-                {topBibs.map((p, i) => (
-                  <LeaderRow key={p.id} rank={i+1} name={p.name} value={`${p.bibCount || 0}×`}
-                    bar={p.bibCount || 0} maxBar={topBibs[0].bibCount || 1}
-                    barColor="var(--amber)" isLast={i === topBibs.length - 1} />
-                ))}
-              </LeaderCard>
-            )}
           </>
         )}
 
-        {/* ═══════════════════════════════════════════ RECORDS ═══ */}
-        {tab === "records" && totalGames > 0 && (
+        {/* ════════════════════════════ RECORDS ════════════════════════════ */}
+        {tab === "records" && (
           <>
-            <SecLabel label="All-Time Records" />
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:8 }}>
-              <RecordTile label="Most Goals · Game"
-                value={mostGoalsGame > 0 ? mostGoalsGame : "—"}
-                sub={mostGoalsGame > 0 ? "total in one game" : "No data yet"}
-                color="var(--gold)" />
-              <RecordTile label="Biggest Win"
-                value={biggestWin ? `${biggestWin.scoreA}–${biggestWin.scoreB}` : "—"}
-                sub={biggestWin ? `${biggestWin.diff} goal margin` : "No data yet"}
-                color="var(--green)" />
-              <RecordTile label="Win Streak"
-                value={currentDecisive > 0 ? currentDecisive : "—"}
-                sub={currentDecisive > 0 ? "decisive in a row" : "No streak yet"}
-                color="var(--green)" />
-              <RecordTile label="Draw Streak"
-                value={drawStreak > 0 ? drawStreak : "—"}
-                sub={drawStreak > 0 ? "draws in a row" : "No streak yet"}
-                color="var(--amber)" />
-              <RecordTile label="Top Scorer"
-                value={topScorer?.goals > 0 ? topScorer.name.split(" ")[0] : "—"}
-                sub={topScorer?.goals > 0 ? `${topScorer.goals} goals` : "No data yet"}
-                color="var(--gold)" />
-              <RecordTile label="Most MOTM"
-                value={mostMotm?.motm > 0 ? mostMotm.name.split(" ")[0] : "—"}
-                sub={mostMotm?.motm > 0 ? `${mostMotm.motm} awards` : "No data yet"}
-                color="var(--gold)" />
-              <RecordTile label="Never Missed"
-                value={mostAtt?.attended > 0 ? mostAtt.name.split(" ")[0] : "—"}
-                sub={mostAtt?.attended > 0 ? `${mostAtt.attended} games` : "No data yet"}
-                color="var(--green)" />
-              <RecordTile label="Bib King"
-                value={bibKing?.bibCount > 0 ? bibKing.name.split(" ")[0] : "—"}
-                sub={bibKing?.bibCount > 0 ? `${bibKing.bibCount} times` : "No data yet"}
-                color="var(--amber)" />
-            </div>
-
-            {topLate.length > 0 && (
+            {totalGames < 5 ? (
+              <div style={{ marginTop: 8 }}>
+                <LockedCard statName="All-Time Records" gamesNeeded={5} gamesPlayed={totalGames} />
+              </div>
+            ) : (
               <>
-                <SecLabel icon={Hourglass} label="Late Dropouts" />
-                <LeaderCard label="Late Cancellations">
-                  {topLate.map((p, i) => (
-                    <LeaderRow key={p.id} rank={i+1} name={p.name} value={p.lateDropouts || 0}
-                      bar={p.lateDropouts || 0} maxBar={topLate[0].lateDropouts || 1}
-                      barColor="var(--red)" isLast={i === topLate.length - 1} />
-                  ))}
-                </LeaderCard>
+                {/* 1. All-Time Records grid */}
+                <SecLabel label="All-Time Records" />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
+                  <RecordTile
+                    label="Most Goals · Game"
+                    value={mostGoalsGame > 0 ? mostGoalsGame : "—"}
+                    sub={mostGoalsGame > 0 ? "total in one game" : "No data yet"}
+                    color="var(--gold)"
+                  />
+                  <RecordTile
+                    label="Biggest Win"
+                    value={bigWin ? `${bigWin.scoreA}–${bigWin.scoreB}` : "—"}
+                    sub={bigWin ? `${bigWin.diff} goal margin` : "No data yet"}
+                    color="var(--green)"
+                  />
+                  <RecordTile
+                    label="Win Streak"
+                    value={longestDecisive > 0 ? longestDecisive : "—"}
+                    sub={longestDecisive > 0 ? "decisive in a row" : "No streak yet"}
+                    color="var(--green)"
+                  />
+                  <RecordTile
+                    label="Unbeaten Run"
+                    value={longestUnbeaten > 0 ? longestUnbeaten : "—"}
+                    sub={longestUnbeaten > 0 ? "games unbeaten" : "No data yet"}
+                    color="var(--amber)"
+                  />
+                  <RecordTile
+                    label="Top Scorer"
+                    value={topGoalScorer?.goals > 0 ? topGoalScorer.name.split(" ")[0] : "—"}
+                    sub={topGoalScorer?.goals > 0 ? `${topGoalScorer.goals} goals` : "No data yet"}
+                    color="var(--gold)"
+                  />
+                  <RecordTile
+                    label="Most MOTM"
+                    value={mostMotm?.motm > 0 ? mostMotm.name.split(" ")[0] : "—"}
+                    sub={mostMotm?.motm > 0 ? `${mostMotm.motm} awards` : "No data yet"}
+                    color="var(--gold)"
+                  />
+                  <RecordTile
+                    label="Never Missed"
+                    value={mostAttended?.attended > 0 ? mostAttended.name.split(" ")[0] : "—"}
+                    sub={mostAttended?.attended > 0 ? `${mostAttended.attended} games` : "No data yet"}
+                    color="var(--green)"
+                  />
+                  <RecordTile
+                    label="Bib King"
+                    value={bibKing?.bibCount > 0 ? bibKing.name.split(" ")[0] : "—"}
+                    sub={bibKing?.bibCount > 0 ? `${bibKing.bibCount} times` : "No data yet"}
+                    color="var(--amber)"
+                  />
+                </div>
+
+                {/* 2. Late Dropouts */}
+                {topLate.length > 0 && (
+                  <>
+                    <SecLabel icon={Hourglass} label="Late Dropouts" />
+                    <LeaderCard icon={Hourglass} label="Late Cancellations">
+                      {topLate.map((p, i) => (
+                        <LeaderRow
+                          key={p.id} rank={i + 1} name={p.name}
+                          value={p.lateDropouts || 0}
+                          bar={p.lateDropouts || 0} maxBar={topLate[0].lateDropouts || 1}
+                          barColor="var(--red)"
+                          isLast={i === topLate.length - 1}
+                        />
+                      ))}
+                    </LeaderCard>
+                  </>
+                )}
+
+                {/* 3. Streaks tiles */}
+                <SecLabel label="Streaks" />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
+                  <div style={{ background: "var(--green2)", border: "0.5px solid var(--greenb)", borderRadius: "var(--rs)", padding: 14, boxShadow: "0 0 12px rgba(61,220,106,0.08)" }}>
+                    <div style={{ fontSize: 9, fontWeight: 400, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--t2)", marginBottom: 6 }}>Win Streak</div>
+                    <div style={{ fontFamily: "var(--font-display)", fontSize: 36, lineHeight: 1, color: "var(--green)" }}>{longestDecisive}</div>
+                    <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, marginTop: 4 }}>decisive in a row</div>
+                  </div>
+                  <div style={{ background: "var(--gold2)", border: "0.5px solid var(--goldb)", borderRadius: "var(--rs)", padding: 14, boxShadow: "0 0 12px rgba(232,160,32,0.08)" }}>
+                    <div style={{ fontSize: 9, fontWeight: 400, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--t2)", marginBottom: 6 }}>Unbeaten Run</div>
+                    <div style={{ fontFamily: "var(--font-display)", fontSize: 36, lineHeight: 1, color: "var(--gold)" }}>{longestUnbeaten}</div>
+                    <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, marginTop: 4 }}>games unbeaten</div>
+                  </div>
+                </div>
               </>
             )}
-
-            <SecLabel label="Streaks" />
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:8 }}>
-              <div style={{ background:"var(--green2)", border:"0.5px solid var(--greenb)", borderRadius:"var(--rs)", padding:"14px", boxShadow:"0 0 12px rgba(61,220,106,0.08)" }}>
-                <div style={{ fontSize:9, fontWeight:400, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)", marginBottom:6 }}>Current Run</div>
-                <div style={{ fontFamily:"var(--font-display)", fontSize:36, lineHeight:1, color:"var(--green)" }}>{currentDecisive}</div>
-                <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300, marginTop:4 }}>decisive in a row</div>
-              </div>
-              <div style={{ background:"var(--gold2)", border:"0.5px solid var(--goldb)", borderRadius:"var(--rs)", padding:"14px", boxShadow:"0 0 12px rgba(232,160,32,0.08)" }}>
-                <div style={{ fontSize:9, fontWeight:400, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)", marginBottom:6 }}>Longest Unbeaten</div>
-                <div style={{ fontFamily:"var(--font-display)", fontSize:36, lineHeight:1, color:"var(--gold)" }}>{longestUnbeaten}</div>
-                <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300, marginTop:4 }}>decisive in a row</div>
-              </div>
-            </div>
           </>
         )}
 
