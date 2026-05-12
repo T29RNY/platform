@@ -349,7 +349,11 @@ export default function PlayerView({
                   {/* Payment actions */}
                   {(() => {
                     const PAYMENT_MODE = 'both'; // placeholder: 'both' | 'cash_only' | 'stripe_only'
-                    const isPaid = me?.paid || me?.selfPaid;
+                    // Strict equality — paid/selfPaid may be null/undefined in DB, not false
+                    const isPaid = me?.paid === true || me?.selfPaid === true;
+                    const notPaid = me?.paid !== true && me?.selfPaid !== true;
+
+                    console.log("[ioo] payment debug — paid:", me?.paid, "selfPaid:", me?.selfPaid, "status:", me?.status);
 
                     if (isPaid) return (
                       <button disabled style={{
@@ -369,7 +373,7 @@ export default function PlayerView({
                       }}>Clear Debt</button>
                     );
 
-                    if (me?.status === "in") {
+                    if (me?.status === "in" && notPaid) {
                       if (payState === "confirming") return (
                         <button onClick={() => markSelfPaid()} style={{
                           padding:"6px 12px", borderRadius:8,
