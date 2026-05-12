@@ -104,19 +104,6 @@ export default function PlayerView({
   const nonGuestInPlayers = inPlayers.filter(p => !p.isGuest);
   const teamsSet         = nonGuestInPlayers.length > 0 && nonGuestInPlayers.every(p => p.team);
 
-  console.log('[ioo] teamsSet debug', {
-    teamsSet,
-    inPlayersCount: inPlayers?.length,
-    nonGuestInPlayers: inPlayers?.filter(p => !p.isGuest)?.map(p => ({
-      id: p.id,
-      name: p.name,
-      team: p.team,
-      isGuest: p.isGuest
-    })),
-    scheduleTeamsConfirmed: schedule?.teamsConfirmed,
-    allHaveTeam: inPlayers?.filter(p => !p.isGuest)?.every(p => p.team)
-  });
-
   useEffect(() => {
     if (!teamsSet || !teamId) return;
     const ids = squad.filter(p => p.status === "in" && !p.disabled && !p.isGuest).map(p => p.id);
@@ -132,9 +119,6 @@ export default function PlayerView({
   const groups   = groupByStatus(squad);
   const teamAPlayers = [...inPlayers.filter(p => p.team === "A")].sort((a, b) => a.name.localeCompare(b.name));
   const teamBPlayers = [...inPlayers.filter(p => p.team === "B")].sort((a, b) => a.name.localeCompare(b.name));
-
-  console.log('[ioo] lastMatchMeta', lastMatchMeta);
-  console.log('[ioo] team players names', [...teamAPlayers, ...teamBPlayers].map(p => p.name));
 
   // ── tile arrays ──
   const maybePlayers   = (groups.maybe   || []).filter(p => !p.disabled);
