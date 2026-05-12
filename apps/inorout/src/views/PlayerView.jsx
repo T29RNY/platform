@@ -853,8 +853,8 @@ export default function PlayerView({
                           const isMe    = p.id === myId;
                           const form    = playerForm[p.id] || [];
                           const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
-                          const isMotm  = lastMatchMeta?.motmName === p.name;
-                          const hasBibs = lastMatchMeta?.bibHolderName === p.name;
+                          const isMotm  = lastMatchMeta?.motm?.toLowerCase() === p.name?.toLowerCase();
+                          const hasBibs = lastMatchMeta?.bibHolder?.toLowerCase() === p.name?.toLowerCase();
                           const parts   = (p.name || "").trim().split(/\s+/);
                           const ini     = parts.length >= 2
                             ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()

@@ -418,7 +418,7 @@ export async function getLastMatchMeta(teamId) {
     .limit(1)
     .single();
   if (error || !data) return null;
-  return { motmName: data.motm || null, bibHolderName: data.bib_holder || null };
+  return { motm: data.motm || null, bibHolder: data.bib_holder || null };
 }
 
 // ─── Matches (update bib holder after result saved) ───────────────────────────
