@@ -1,4 +1,4 @@
-import { House, ChartBar, ClockCounterClockwise } from "@phosphor-icons/react";
+import { House, ChartBar, ClockCounterClockwise, Gear } from "@phosphor-icons/react";
 
 // Inject nav styles — pseudo-elements can't be done with inline styles
 if (typeof document !== "undefined" && !document.getElementById("ioo-nav-styles")) {
@@ -34,13 +34,17 @@ if (typeof document !== "undefined" && !document.getElementById("ioo-nav-styles"
   document.head.appendChild(el);
 }
 
-const TABS = [
+const BASE_TABS = [
   { id:"player",  label:"My View", Icon:House               },
   { id:"stats",   label:"Stats",   Icon:ChartBar            },
   { id:"history", label:"History", Icon:ClockCounterClockwise },
 ];
 
-export default function NavBar({ activeTab, onTabChange }) {
+export default function NavBar({ activeTab, onTabChange, onAdminClick }) {
+  const tabs = onAdminClick
+    ? [...BASE_TABS, { id:"admin", label:"Admin", Icon:Gear }]
+    : BASE_TABS;
+
   return (
     <nav style={{
       position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
@@ -58,13 +62,14 @@ export default function NavBar({ activeTab, onTabChange }) {
         pointerEvents:"none",
       }} />
 
-      {TABS.map(({ id, label, Icon }) => {
+      {tabs.map(({ id, label, Icon }) => {
         const active = activeTab === id;
+        const handleClick = id === "admin" ? onAdminClick : () => onTabChange?.(id);
         return (
           <div
             key={id}
             className={`ioo-ni${active ? " active" : ""}`}
-            onClick={() => onTabChange?.(id)}
+            onClick={handleClick}
           >
             <Icon
               size={22}

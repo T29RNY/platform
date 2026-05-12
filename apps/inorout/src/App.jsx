@@ -566,7 +566,7 @@ export default function App() {
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
-      {isAdmin && (
+      {isAdmin && view !== "player" && (
         <Header
           view={view} setView={setView}
           squad={squad} schedule={schedule} settings={settings}
@@ -577,7 +577,8 @@ export default function App() {
       )}
       {view==="player"  && (
         <PlayerView  {...sharedProps} myId={myId} teamId={teamId}
-          onMidFlowChange={setIsActionBlocked}/>
+          onMidFlowChange={setIsActionBlocked}
+          isAdmin={isAdmin} onGoAdmin={() => setView("admin")}/>
       )}
       {view==="stats"   && <StatsView   squad={squad} bibHistory={bibHistory} matchHistory={matchHistory}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} settings={settings}/>}

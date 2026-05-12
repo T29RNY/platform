@@ -62,6 +62,7 @@ export default function PlayerView({
   squad, setSquad, myId, teamId, schedule, settings,
   setSchedule, setSettings, onMidFlowChange,
   bibHistory = [], matchHistory = [],
+  isAdmin = false, onGoAdmin,
 }) {
   const me = squad.find(p => p.id === myId);
 
@@ -775,7 +776,7 @@ export default function PlayerView({
       )}
 
       {/* 4 ── NAVBAR */}
-      <NavBar activeTab={activeTab} onTabChange={setActiveTab} />
+      <NavBar activeTab={activeTab} onTabChange={setActiveTab} onAdminClick={isAdmin ? onGoAdmin : undefined} />
     </div>
   );
 }
