@@ -193,7 +193,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
             { team: "B", label: "Team B", score: m.scoreB, color: scoreC.B, weight: result === "loss" ? 500 : result === "win" ? 400 : 400 },
           ].map(({ team, label, score, color, weight }) => (
             <div key={team} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 13, fontWeight: weight, color }}>{label}</span>
+              <span style={{ fontSize: 16, fontWeight: weight, color }}>{label}</span>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color, lineHeight: 1, flexShrink: 0 }}>
                 {score ?? "?"}
               </div>
