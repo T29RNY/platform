@@ -83,7 +83,7 @@ export default function PlayerView({
   const [activeTab,   setActiveTab]   = useState("my-view");
   const [showNoResp,  setShowNoResp]  = useState(false);
   const [cashPending,      setCashPending]      = useState(false);
-  const [clearNowExpanded, setClearNowExpanded] = useState(false);
+  const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
 
   // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -95,8 +95,11 @@ export default function PlayerView({
 
   const inPlayers    = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
   const teamsSet     = inPlayers.length > 0 && inPlayers.every(p => p.team);
-  const isFull       = inPlayers.length >= (schedule.squadSize || 14);
-  const groups       = groupByStatus(squad);
+  const isFull   = inPlayers.length >= (schedule.squadSize || 14);
+  const gameDay  = schedule?.gameDateTime
+    ? new Date(schedule.gameDateTime).toLocaleDateString('en-GB', { weekday:'long' })
+    : schedule?.dayOfWeek || 'Tuesday';
+  const groups   = groupByStatus(squad);
   const teamAPlayers = [...inPlayers.filter(p => p.team === "A")].sort((a, b) => a.name.localeCompare(b.name));
   const teamBPlayers = [...inPlayers.filter(p => p.team === "B")].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -133,7 +136,7 @@ export default function PlayerView({
 
   const setStatus = (s) => {
     setCashPending(false);
-    setClearNowExpanded(false);
+    setClearDebtExpanded(false);
     const late = isLateDropout(me?.status, s, schedule.gameDateTime);
     if (late) sendTemplate(notificationTemplates.lateDropout, me?.name);
     setSquad(squad.map(p => p.id === myId
@@ -316,24 +319,14 @@ export default function PlayerView({
           <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
             borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
 
-            {!schedule.gameIsLive ? (
-              /* Not open yet */
-              <div style={{ padding:"24px 16px", textAlign:"center" }}>
-                <div style={{ fontSize:28, marginBottom:8 }}>⏸</div>
-                <div style={{ fontSize:14, fontWeight:600, color:"var(--t2)" }}>
-                  Game not open yet
-                </div>
-                <div style={{ fontSize:12, color:"var(--t2)", opacity:0.6, marginTop:4 }}>
-                  Opens {schedule.opensDay} at {schedule.opensTime}
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Top row: name */}
-                <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid var(--b2)" }}>
+            <>
+              {/* Top row: name + payment column */}
+              <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid var(--b2)",
+                display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                <div>
                   <div style={{ fontSize:10, fontWeight:300, letterSpacing:"0.1em",
                     textTransform:"uppercase", color:"var(--t2)", marginBottom:3 }}>
-                    Are you in this {schedule.dayOfWeek}?
+                    {schedule.gameIsLive ? `Are you in this ${gameDay}?` : "This week's game isn't live yet"}
                   </div>
                   <div style={{ fontFamily:"var(--font-display)", fontSize:30,
                     lineHeight:1, color:"var(--t1)", letterSpacing:"0.04em" }}>
@@ -341,150 +334,145 @@ export default function PlayerView({
                   </div>
                 </div>
 
-                {/* Locked row */}
-                {me?.status === "in" && (
-                  <div style={{ display:"flex", alignItems:"center", gap:6,
-                    padding:"8px 16px", fontSize:12, color:"var(--green)",
-                    fontWeight:400, borderBottom:"1px solid var(--b2)" }}>
-                    🔒 Locked in. See you {schedule.dayOfWeek}.
-                  </div>
-                )}
-
-                {/* Payment row */}
+                {/* Payment column — right */}
                 {(() => {
                   const price        = schedule.pricePerPlayer || 0;
                   const owes         = me?.owes || 0;
                   const paymentState = getPaymentState(me, cashPending);
                   const paymentMode  = getPaymentMode(schedule);
                   const status       = me?.status;
-                  const isNone       = !status || status === 'none';
                   const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
 
-                  // Amount label
                   let amountText, amountColor = "var(--t2)";
                   if (paymentState === 'paid') {
                     amountText = "Nothing owed 👊"; amountColor = "var(--green)";
-                  } else if (isNone) {
-                    if (paymentState === 'debt') {
-                      amountText = `£${owes} outstanding`;
-                    } else {
-                      amountText = "Nothing owed 👊"; amountColor = "var(--green)";
-                    }
                   } else if (paymentState === 'debt') {
                     amountText = status === 'in'
-                      ? `£${owes} owed + £${price} this week = £${owes + price}`
+                      ? `£${owes} + £${price} = £${owes + price}`
                       : `£${owes} outstanding`;
-                  } else {
+                  } else if (status === 'in') {
                     amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
                     if (!price) amountColor = "var(--green)";
+                  } else {
+                    amountText = "Nothing owed 👊"; amountColor = "var(--green)";
                   }
 
-                  // Button tiles — flex:1 so single tiles stretch full-width, multiples share equally
-                  const tile = (extra) => ({
-                    flex:1, minHeight:40, borderRadius:"var(--r-button)",
+                  const tileStyle = (extra) => ({
+                    minHeight:36, borderRadius:"var(--r-button)",
                     fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
                     display:"flex", alignItems:"center", justifyContent:"center",
                     transition:"all 0.15s", cursor:"pointer", border:"none",
+                    padding:"0 10px", whiteSpace:"nowrap",
                     ...extra,
                   });
 
                   const btns = [];
 
                   if (paymentState === 'debt') {
-                    btns.push(
-                      <button key="clear" onClick={async () => {
-                        await handleClearDebt(me.id, teamId);
-                        setSquad(squad.map(p => p.id === myId ? { ...p, owes:0 } : p));
-                        setClearNowExpanded(false);
-                      }} style={tile({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
-                        Clear Debt — £{owes}
-                      </button>
-                    );
-                    if (status === 'in') {
+                    if (!clearDebtExpanded) {
+                      btns.push(
+                        <button key="clear" onClick={() => setClearDebtExpanded(true)}
+                          style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
+                          Clear Debt — £{owes}
+                        </button>
+                      );
+                    } else if (!cashPending) {
                       if (paymentMode !== 'cash_only') btns.push(
-                        <button key="stripe" disabled style={tile({ background:"transparent", border:"0.5px solid var(--border-subtle)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>Pay Now</button>
+                        <button key="stripe" disabled
+                          style={tileStyle({ background:"transparent", border:"0.5px solid var(--border-subtle)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                          Transfer £{owes + (status === 'in' ? price : 0)}
+                        </button>
                       );
                       if (paymentMode !== 'stripe_only') btns.push(
-                        <button key="cash" onClick={() => setCashPending(true)} style={tile({ background:"var(--gold)", color:"#000" })}>Paid Cash</button>
+                        <button key="cash" onClick={() => setCashPending(true)}
+                          style={tileStyle({ background:"var(--gold)", color:"#000" })}>
+                          Paid Cash
+                        </button>
+                      );
+                    } else {
+                      btns.push(
+                        <button key="confirm" onClick={async () => {
+                          await handleClearDebt(me.id, teamId);
+                          await handleCashPayment(me.id, teamId);
+                          setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
+                          setCashPending(false);
+                          setClearDebtExpanded(false);
+                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                          Confirm — You've Paid?
+                        </button>
                       );
                     }
                   } else if (status === 'in') {
                     if (paymentState === 'unpaid') {
                       if (paymentMode !== 'cash_only') btns.push(
-                        <button key="stripe" disabled style={tile({ background:"transparent", border:"0.5px solid var(--border-subtle)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>Pay Now</button>
-                      );
-                      if (paymentMode !== 'stripe_only') btns.push(
-                        <button key="cash" onClick={() => setCashPending(true)} style={tile({ background:"var(--gold)", color:"#000" })}>Paid Cash</button>
-                      );
-                    } else if (paymentState === 'cash_pending') {
-                      btns.push(
-                        <button key="confirm" onClick={async () => {
-                          await handleCashPayment(me.id, teamId);
-                          setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
-                          setCashPending(false);
-                        }} style={tile({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                          Confirm — You've Paid?
+                        <button key="stripe" disabled
+                          style={tileStyle({ background:"transparent", border:"0.5px solid var(--border-subtle)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                          Transfer £{price}
                         </button>
                       );
-                    }
-                  } else if (isNonPlay) {
-                    if (paymentState === 'unpaid') {
-                      if (!clearNowExpanded) {
-                        btns.push(
-                          <button key="clearnow" onClick={() => setClearNowExpanded(true)} style={tile({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>Clear Now</button>
-                        );
-                      } else {
-                        if (paymentMode !== 'cash_only') btns.push(
-                          <button key="stripe" disabled style={tile({ background:"transparent", border:"0.5px solid var(--border-subtle)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>Pay via Stripe</button>
-                        );
-                        if (paymentMode !== 'stripe_only') btns.push(
-                          <button key="cash" onClick={() => { setCashPending(true); setClearNowExpanded(false); }} style={tile({ background:"var(--gold)", color:"#000" })}>Paid Cash</button>
-                        );
-                      }
+                      if (paymentMode !== 'stripe_only') btns.push(
+                        <button key="cash" onClick={() => setCashPending(true)}
+                          style={tileStyle({ background:"var(--gold)", color:"#000" })}>
+                          Paid Cash
+                        </button>
+                      );
                     } else if (paymentState === 'cash_pending') {
                       btns.push(
                         <button key="confirm" onClick={async () => {
                           await handleCashPayment(me.id, teamId);
                           setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
                           setCashPending(false);
-                        }} style={tile({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
                           Confirm — You've Paid?
                         </button>
                       );
                     }
                   }
+                  // isNonPlay + unpaid + no debt → "Nothing owed 👊", no buttons
 
                   return (
-                    <div style={{ padding:"10px 16px", borderTop:"1px solid var(--b2)" }}>
-                      <div style={{ fontSize:11, color:amountColor, fontWeight:400,
-                        marginBottom: btns.length > 0 ? 8 : 0 }}>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, paddingTop:2 }}>
+                      <div style={{ fontSize:11, color:amountColor, fontWeight:400, textAlign:"right" }}>
                         {amountText}
                       </div>
                       {btns.length > 0 && (
-                        <div style={{ display:"flex", gap:6 }}>{btns}</div>
+                        <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
+                          {btns}
+                        </div>
                       )}
                     </div>
                   );
                 })()}
+              </div>
 
-                {/* Injured notice */}
-                {me?.injured && (
-                  <div style={{ padding:"10px 16px", fontSize:13, color:"var(--red)",
-                    background:"var(--red2)", borderBottom:"1px solid var(--b2)" }}>
-                    🤕 You're marked as injured — respond when you're back
-                  </div>
-                )}
+              {/* Locked row — gameIsLive only */}
+              {schedule.gameIsLive && me?.status === "in" && (
+                <div style={{ display:"flex", alignItems:"center", gap:6,
+                  padding:"8px 16px", fontSize:12, color:"var(--green)",
+                  fontWeight:400, borderBottom:"1px solid var(--b2)" }}>
+                  🔒 Locked in. See you {gameDay}.
+                </div>
+              )}
 
-                {/* Squad full notice */}
-                {!me?.injured && isFull && me?.status !== "in" && (
-                  <div style={{ padding:"8px 16px", fontSize:12, fontWeight:600,
-                    color:"var(--amber)", background:"var(--amber2)",
-                    borderBottom:"1px solid var(--b2)" }}>
-                    🔒 Squad is full — join the reserve list
-                  </div>
-                )}
+              {/* Injured notice */}
+              {me?.injured && (
+                <div style={{ padding:"10px 16px", fontSize:13, color:"var(--red)",
+                  background:"var(--red2)", borderBottom:"1px solid var(--b2)" }}>
+                  🤕 You're marked as injured — respond when you're back
+                </div>
+              )}
 
-                {/* Status buttons 4-grid */}
+              {/* Squad full notice */}
+              {!me?.injured && isFull && me?.status !== "in" && (
+                <div style={{ padding:"8px 16px", fontSize:12, fontWeight:600,
+                  color:"var(--amber)", background:"var(--amber2)",
+                  borderBottom:"1px solid var(--b2)" }}>
+                  🔒 Squad is full — join the reserve list
+                </div>
+              )}
+
+              {/* Status buttons 4-grid — gameIsLive only */}
+              {schedule.gameIsLive && (
                 <div data-gaffer-target="status-buttons"
                   style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
                     gap:8, padding:"10px 12px" }}>
@@ -517,8 +505,10 @@ export default function PlayerView({
                     disabled={!!me?.injured}
                   />
                 </div>
+              )}
 
-                {/* Note row */}
+              {/* Note row — gameIsLive only */}
+              {schedule.gameIsLive && (
                 <div style={{ borderTop:"1px solid var(--b2)" }}>
                   {showNote ? (
                     <div style={{ padding:"10px 16px" }}>
@@ -563,53 +553,53 @@ export default function PlayerView({
                     </div>
                   )}
                 </div>
+              )}
 
-                {/* Status confirmation message */}
-                {me?.status && me.status !== "none" && (
-                  <div style={{ padding:"9px 16px", borderTop:"1px solid var(--b2)",
-                    fontSize:12, fontWeight:400, color:"var(--t2)", fontStyle:"italic" }}>
-                    {me.status === "in"
-                      ? `👊 Locked in — see you ${schedule.dayOfWeek}`
-                      : me.status === "maybe"
-                        ? "🤞 Got it — we'll keep a spot open"
-                        : me.status === "reserve"
-                          ? "🟣 On the reserve list — we'll let you know if a spot opens"
-                          : "👍 No worries, we'll find cover"}
-                  </div>
-                )}
+              {/* Status confirmation message — gameIsLive only */}
+              {schedule.gameIsLive && me?.status && me.status !== "none" && (
+                <div style={{ padding:"9px 16px", borderTop:"1px solid var(--b2)",
+                  fontSize:12, fontWeight:400, color:"var(--t2)", fontStyle:"italic" }}>
+                  {me.status === "in"
+                    ? `👊 Locked in — see you ${gameDay}`
+                    : me.status === "maybe"
+                      ? "🤞 Got it — we'll keep a spot open"
+                      : me.status === "reserve"
+                        ? "🟣 On the reserve list — we'll let you know if a spot opens"
+                        : "👍 No worries, we'll find cover"}
+                </div>
+              )}
 
-                {/* Push subscription prompt */}
-                {me?.status && me.status !== "none" && canPush && notifState === "idle" && (
-                  <div style={{ margin:"0 12px 12px", padding:"10px 14px", borderRadius:"var(--rs)",
-                    background:"var(--s2)", border:"0.5px solid var(--border-subtle)",
-                    display:"flex", alignItems:"center", gap:10 }}>
-                    <Bell size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
-                    <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
-                      Get notified when a spot opens or squad fills up
-                    </div>
-                    <button onClick={handleSubscribe} style={{
-                      background:"var(--gold)", color:"#000", border:"none", borderRadius:7,
-                      padding:"7px 12px", fontSize:12, fontWeight:500,
-                      fontFamily:"var(--font-body)", cursor:"pointer", flexShrink:0 }}>
-                      {notifState === "asking" ? "..." : "Enable"}
-                    </button>
-                    <button onClick={() => {
-                      localStorage.setItem(`notif_${myId}`, "dismissed");
-                      setNotifState("dismissed");
-                    }} style={{ fontSize:12, color:"var(--t2)", background:"none", border:"none",
-                      fontFamily:"var(--font-body)", cursor:"pointer", padding:"7px 4px",
-                      flexShrink:0, fontWeight:300 }}>
-                      Not now
-                    </button>
+              {/* Push subscription prompt — gameIsLive only */}
+              {schedule.gameIsLive && me?.status && me.status !== "none" && canPush && notifState === "idle" && (
+                <div style={{ margin:"0 12px 12px", padding:"10px 14px", borderRadius:"var(--rs)",
+                  background:"var(--s2)", border:"0.5px solid var(--border-subtle)",
+                  display:"flex", alignItems:"center", gap:10 }}>
+                  <Bell size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                  <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
+                    Get notified when a spot opens or squad fills up
                   </div>
-                )}
-                {notifState === "subscribed" && (
-                  <div style={{ padding:"8px 16px 12px", fontSize:12, color:"var(--green)", textAlign:"center" }}>
-                    ✅ Notifications on
-                  </div>
-                )}
-              </>
-            )}
+                  <button onClick={handleSubscribe} style={{
+                    background:"var(--gold)", color:"#000", border:"none", borderRadius:7,
+                    padding:"7px 12px", fontSize:12, fontWeight:500,
+                    fontFamily:"var(--font-body)", cursor:"pointer", flexShrink:0 }}>
+                    {notifState === "asking" ? "..." : "Enable"}
+                  </button>
+                  <button onClick={() => {
+                    localStorage.setItem(`notif_${myId}`, "dismissed");
+                    setNotifState("dismissed");
+                  }} style={{ fontSize:12, color:"var(--t2)", background:"none", border:"none",
+                    fontFamily:"var(--font-body)", cursor:"pointer", padding:"7px 4px",
+                    flexShrink:0, fontWeight:300 }}>
+                    Not now
+                  </button>
+                </div>
+              )}
+              {schedule.gameIsLive && notifState === "subscribed" && (
+                <div style={{ padding:"8px 16px 12px", fontSize:12, color:"var(--green)", textAlign:"center" }}>
+                  ✅ Notifications on
+                </div>
+              )}
+            </>
           </div>
 
           {/* c — Quick actions row */}
