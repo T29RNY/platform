@@ -82,7 +82,8 @@ export default function PlayerView({
   // ── new UI state ──
   const [activeTab,   setActiveTab]   = useState("my-view");
   const [showNoResp,  setShowNoResp]  = useState(false);
-  const [cashPending,      setCashPending]      = useState(false);
+  const [cashPending,       setCashPending]       = useState(false);
+  const [guestCashPending,  setGuestCashPending]  = useState(false);
   const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
 
   // ── existing derived ── (unchanged)
@@ -136,6 +137,7 @@ export default function PlayerView({
 
   const setStatus = (s) => {
     setCashPending(false);
+    setGuestCashPending(false);
     setClearDebtExpanded(false);
     const late = isLateDropout(me?.status, s, schedule.gameDateTime);
     if (late) sendTemplate(notificationTemplates.lateDropout, me?.name);
@@ -430,6 +432,9 @@ export default function PlayerView({
                   }
                   // isNonPlay + unpaid + no debt → "Nothing owed 👊", no buttons
 
+                  // Guest payment — when host is covering and guest not yet paid
+                  const guestOwed  = myGuest && !myGuest.selfPaid && !myGuest.paid;
+
                   return (
                     <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, paddingTop:2 }}>
                       <div style={{ fontSize:11, color:amountColor, fontWeight:400, textAlign:"right" }}>
@@ -439,6 +444,45 @@ export default function PlayerView({
                         <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
                           {btns}
                         </div>
+                      )}
+
+                      {/* Guest payment */}
+                      {myGuest && status !== 'in' && (
+                        myGuest.selfPaid || myGuest.paid ? (
+                          <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, textAlign:"right",
+                            borderTop:"1px solid var(--b2)", paddingTop:5, marginTop:2 }}>
+                            {myGuest.name} paying cash
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, textAlign:"right",
+                              borderTop:"1px solid var(--b2)", paddingTop:5, marginTop:2 }}>
+                              Pay for {myGuest.name}
+                            </div>
+                            {guestCashPending ? (
+                              <button onClick={async () => {
+                                await handleCashPayment(myGuest.id, teamId);
+                                setSquad(squad.map(p => p.id === myGuest.id ? { ...p, selfPaid:true } : p));
+                                setGuestCashPending(false);
+                              }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                                Confirm — {myGuest.name} paid?
+                              </button>
+                            ) : (
+                              <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
+                                {paymentMode !== 'cash_only' && (
+                                  <button disabled style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                                    Transfer £{price}
+                                  </button>
+                                )}
+                                {paymentMode !== 'stripe_only' && (
+                                  <button onClick={() => setGuestCashPending(true)} style={tileStyle({ background:"var(--gold)", color:"#000" })}>
+                                    Paid Cash
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )
                       )}
                     </div>
                   );
@@ -604,8 +648,54 @@ export default function PlayerView({
 
           {/* c — Quick actions row */}
           <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+
+            {/* Plus One — always visible */}
+            {schedule.gameIsLive && (
+              myGuest ? (
+                /* Guest card */
+                <div style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
+                  border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                  display:"flex", flexDirection:"column", gap:6 }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                      <div>
+                        <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>{myGuest.name}</div>
+                        <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>your +1</div>
+                      </div>
+                    </div>
+                    {canRemoveGuest && (
+                      <button onClick={removeMyGuest} disabled={removingGuest} style={{
+                        padding:"5px 10px", borderRadius:6,
+                        border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                        color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11,
+                        cursor:"pointer", flexShrink:0 }}>
+                        {removingGuest ? "..." : "Remove"}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                    {myGuest.selfPaid ? "Paying cash" : "You're covering payment"}
+                  </div>
+                </div>
+              ) : !showPlusOneForm ? (
+                <button
+                  data-gaffer-target="add-plus-one"
+                  onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
+                  style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
+                    border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                    display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+                  <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                  <div style={{ textAlign:"left" }}>
+                    <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Plus One</div>
+                    <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Bring a guest</div>
+                  </div>
+                </button>
+              ) : null
+            )}
+
+            {/* Injured tile */}
             {me?.injured ? (
-              /* Full-width injured tile */
               <button onClick={toggleInjury} style={{
                 flex:1, padding:"11px 12px",
                 background:"var(--red2)", border:"0.5px solid var(--redb)",
@@ -619,67 +709,18 @@ export default function PlayerView({
                 </div>
               </button>
             ) : (
-              <>
-                {/* Plus One */}
-                {schedule.gameIsLive && (
-                  myGuest ? (
-                    /* Guest card */
-                    <div style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
-                      border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
-                      display:"flex", flexDirection:"column", gap:6 }}>
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                          <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
-                          <div>
-                            <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>{myGuest.name}</div>
-                            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>your +1</div>
-                          </div>
-                        </div>
-                        {canRemoveGuest && (
-                          <button onClick={removeMyGuest} disabled={removingGuest} style={{
-                            padding:"5px 10px", borderRadius:6,
-                            border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
-                            color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11,
-                            cursor:"pointer", flexShrink:0 }}>
-                            {removingGuest ? "..." : "Remove"}
-                          </button>
-                        )}
-                      </div>
-                      <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
-                        {myGuest.selfPaid ? "Paying cash" : "You're covering payment"}
-                      </div>
-                    </div>
-                  ) : !showPlusOneForm ? (
-                    <button
-                      data-gaffer-target="add-plus-one"
-                      onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
-                      style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
-                        border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
-                        display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
-                      <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
-                      <div style={{ textAlign:"left" }}>
-                        <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Plus One</div>
-                        <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Bring a guest</div>
-                      </div>
-                    </button>
-                  ) : null
-                )}
-
-                {/* Injured toggle */}
-                <button onClick={toggleInjury} style={{
-                  flex: schedule.gameIsLive && !myGuest && !showPlusOneForm ? undefined : 1,
-                  padding:"11px 12px", background:"var(--s1)",
-                  border:"0.5px solid var(--border-subtle)",
-                  borderRadius:"var(--rs)",
-                  display:"flex", alignItems:"center", gap:8, cursor:"pointer",
-                }}>
-                  <Bandaids size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
-                  <div style={{ textAlign:"left" }}>
-                    <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Injured?</div>
-                    <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Mark yourself out</div>
-                  </div>
-                </button>
-              </>
+              <button onClick={toggleInjury} style={{
+                flex:1, padding:"11px 12px", background:"var(--s1)",
+                border:"0.5px solid var(--border-subtle)",
+                borderRadius:"var(--rs)",
+                display:"flex", alignItems:"center", gap:8, cursor:"pointer",
+              }}>
+                <Bandaids size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                <div style={{ textAlign:"left" }}>
+                  <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Injured?</div>
+                  <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Mark yourself out</div>
+                </div>
+              </button>
             )}
           </div>
 
