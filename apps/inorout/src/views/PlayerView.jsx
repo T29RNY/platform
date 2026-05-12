@@ -82,6 +82,7 @@ export default function PlayerView({
   // ── new UI state ──
   const [activeTab,   setActiveTab]   = useState("my-view");
   const [showNoResp,  setShowNoResp]  = useState(false);
+  const [payState,    setPayState]    = useState("idle"); // "idle" | "confirming"
 
   // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -330,7 +331,7 @@ export default function PlayerView({
               </div>
             ) : (
               <>
-                {/* Top row: name + badge */}
+                {/* Top row: name + payment area */}
                 <div style={{ padding:"12px 16px 10px", display:"flex",
                   alignItems:"center", justifyContent:"space-between",
                   borderBottom:"1px solid var(--b2)" }}>
@@ -344,7 +345,69 @@ export default function PlayerView({
                       {me?.name}
                     </div>
                   </div>
-                  {me?.status && me.status !== "none" && <StatusBadge status={me.status} />}
+
+                  {/* Payment actions */}
+                  {(() => {
+                    const PAYMENT_MODE = 'both'; // placeholder: 'both' | 'cash_only' | 'stripe_only'
+                    const isPaid = me?.paid || me?.selfPaid;
+
+                    if (isPaid) return (
+                      <button disabled style={{
+                        padding:"6px 12px", borderRadius:8,
+                        border:"0.5px solid var(--greenb)", background:"var(--green2)",
+                        color:"var(--green)", fontFamily:"var(--font-body)",
+                        fontSize:11, fontWeight:500, cursor:"default",
+                      }}>✓ All paid up</button>
+                    );
+
+                    if ((me?.owes || 0) > 0) return (
+                      <button style={{
+                        padding:"6px 12px", borderRadius:8,
+                        border:"0.5px solid var(--gold)", background:"transparent",
+                        color:"var(--gold)", fontFamily:"var(--font-body)",
+                        fontSize:11, fontWeight:500, cursor:"pointer",
+                      }}>Clear Debt</button>
+                    );
+
+                    if (me?.status === "in") {
+                      if (payState === "confirming") return (
+                        <button onClick={() => markSelfPaid()} style={{
+                          padding:"6px 12px", borderRadius:8,
+                          border:"0.5px solid var(--amber)", background:"transparent",
+                          color:"var(--amber)", fontFamily:"var(--font-body)",
+                          fontSize:11, fontWeight:500, cursor:"pointer",
+                        }}>Confirm — Paid Cash</button>
+                      );
+
+                      return (
+                        <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
+                          {(PAYMENT_MODE === 'both' || PAYMENT_MODE === 'stripe_only') && (
+                            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
+                              <button disabled style={{
+                                padding:"6px 12px", borderRadius:8,
+                                border:"0.5px solid var(--border-subtle)", background:"transparent",
+                                color:"var(--t2)", fontFamily:"var(--font-body)",
+                                fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
+                              }}>Pay Now</button>
+                              <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>
+                                Stripe — coming soon
+                              </span>
+                            </div>
+                          )}
+                          {(PAYMENT_MODE === 'both' || PAYMENT_MODE === 'cash_only') && (
+                            <button onClick={() => setPayState("confirming")} style={{
+                              padding:"6px 12px", borderRadius:8,
+                              border:"none", background:"var(--gold)",
+                              color:"#000", fontFamily:"var(--font-body)",
+                              fontSize:11, fontWeight:600, cursor:"pointer",
+                            }}>Will Pay Cash</button>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })()}
                 </div>
 
                 {/* Locked row */}
