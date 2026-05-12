@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { biggestWins, payRate } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, Hourglass, Trophy,
@@ -76,17 +76,6 @@ function calcLongestUnbeaten(played) {
   return max;
 }
 
-// Current run from newest: decisive ("w") or draw ("d")
-function calcCurrentRun(played) {
-  if (!played.length) return null;
-  const first = played[0].winner === "D" ? "d" : "w";
-  let count = 0;
-  for (const m of played) {
-    const type = m.winner === "D" ? "d" : "w";
-    if (type === first) count++; else break;
-  }
-  return { type: first, count };
-}
 
 // ── LockedCard ────────────────────────────────────────────────────────────────
 
@@ -125,68 +114,43 @@ function LockedCard({ statName, gamesNeeded, gamesPlayed }) {
 
 // ── Season hero card ──────────────────────────────────────────────────────────
 
+const HERO_IMG = "https://images.unsplash.com/photo-1540747913346-19378d20b683?w=800&q=80";
+
 function SeasonHeroCard({ groupName, totalGames, avgGoals }) {
-  const canvasRef = useRef(null);
-  const rafRef    = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    let t = 0;
-    function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
-    resize();
-    function draw() {
-      const w = canvas.width, h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#0a1f0a"; ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < 10; i++) {
-        ctx.fillStyle = i % 2 === 0 ? "rgba(55,150,45,0.28)" : "rgba(35,110,28,0.18)";
-        ctx.fillRect(i * (w / 10), 0, w / 10, h);
-      }
-      ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 1;
-      const p = 1 + Math.sin(t * 0.4) * 0.015;
-      ctx.beginPath(); ctx.arc(w * 0.5, h * 1.2, h * 0.65 * p, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, h * 0.5); ctx.lineTo(w, h * 0.5); ctx.stroke();
-      ctx.strokeRect(w * 0.12, 0, w * 0.76, h * 0.42);
-      ctx.strokeRect(w * 0.26, 0, w * 0.48, h * 0.22);
-      [0.08, 0.26, 0.5, 0.74, 0.92].forEach((xp, i) => {
-        const f = 0.12 + Math.sin(t * 0.7 + i * 1.4) * 0.025;
-        const g = ctx.createLinearGradient(w * xp, 0, w * xp + 12, h * 0.8);
-        g.addColorStop(0, `rgba(255,255,200,${f})`); g.addColorStop(1, "rgba(255,255,200,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.moveTo(w * xp - 1, 0); ctx.lineTo(w * xp + 1, 0);
-        ctx.lineTo(w * xp + 30, h * 0.8); ctx.lineTo(w * xp - 30, h * 0.8); ctx.closePath(); ctx.fill();
-      });
-      const pg = ctx.createRadialGradient(w * 0.5, h, 0, w * 0.5, h, w * 0.6);
-      pg.addColorStop(0, "rgba(45,140,35,0.26)"); pg.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = pg; ctx.fillRect(0, 0, w, h);
-      t += 0.016; rafRef.current = requestAnimationFrame(draw);
-    }
-    draw();
-    return () => cancelAnimationFrame(rafRef.current);
-  }, []);
-
+  const textShadow = "0 0 20px rgba(0,0,0,0.9)";
   return (
-    <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8, height: 130, background: "#061006" }}>
-      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(4,8,4,0.45) 0%, rgba(4,4,4,0.92) 100%)" }} />
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 16px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+    <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8, height: 104 }}>
+      <img
+        src={HERO_IMG}
+        alt=""
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+          filter: "brightness(0.55) saturate(0.8)" }}
+      />
+      <div style={{ position: "absolute", inset: 0,
+        background: "linear-gradient(180deg, rgba(10,10,8,0.2) 0%, rgba(10,10,8,0.65) 100%)" }} />
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 16px",
+        display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           {groupName && (
-            <div style={{ fontSize: 10, fontWeight: 300, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--gold)", marginBottom: 2 }}>
+            <div style={{ fontSize: 10, fontWeight: 300, letterSpacing: "0.18em", textTransform: "uppercase",
+              color: "var(--gold)", marginBottom: 2, textShadow }}>
               {groupName}
             </div>
           )}
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 32, lineHeight: 1, letterSpacing: "0.04em", fontStyle: "italic", color: "var(--t1)" }}>
-            2026 SEASON
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 32, lineHeight: 1,
+            letterSpacing: "0.04em", fontStyle: "italic", textShadow }}>
+            <span style={{ color: "var(--green)" }}>I</span>
+            <span style={{ color: "var(--red)" }}>O</span>
+            <span style={{ color: "var(--t1)" }}> STATBOOK</span>
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, lineHeight: 1, color: "var(--t1)" }}>{totalGames}</div>
-          <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300 }}>games played</div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, lineHeight: 1, color: "var(--gold)", marginTop: 4 }}>{avgGoals}</div>
-          <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300 }}>avg goals/game</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, lineHeight: 1,
+            color: "var(--t1)", textShadow }}>{totalGames}</div>
+          <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, textShadow }}>games played</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, lineHeight: 1,
+            color: "var(--gold)", marginTop: 4, textShadow }}>{avgGoals}</div>
+          <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, textShadow }}>avg goals/game</div>
         </div>
       </div>
     </div>
@@ -260,8 +224,7 @@ const RecordTile = ({ label, value, sub, color }) => (
   </div>
 );
 
-const DOT_C   = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
-const STREAK_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
+const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -289,7 +252,6 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
 
   const longestDecisive = calcLongestDecisive(played);
   const longestUnbeaten = calcLongestUnbeaten(played);
-  const currentRun      = calcCurrentRun(played);
 
   // ── Player data ────────────────────────────────────────────────────────────
   const allPlayers    = (squad || []).filter(p => !p.disabled);
@@ -385,11 +347,10 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
 
         {/* ── Sticky tabs ── */}
         <div style={{
-          position: "sticky", top: 0, zIndex: 20,
+          position: "sticky", top: 0, zIndex: 50,
           background: "var(--bg)",
-          marginLeft: -16, marginRight: -16,
-          paddingLeft: 16, paddingRight: 16,
-          paddingTop: 8, paddingBottom: 8,
+          padding: "10px 16px",
+          borderBottom: "0.5px solid var(--b2)",
           marginBottom: 6,
         }}>
           <div style={{ display: "flex", gap: 6 }}>
@@ -424,9 +385,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               {formPlayers.length === 0 ? (
                 <div style={{ padding: "16px 14px", fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>No player data yet</div>
               ) : formPlayers.map((p, i) => {
-                const form       = getPlayerForm(p.name, played);
-                const streak     = form.length > 0 ? getStreak(form) : null;
-                const showStreak = streak && (p.attended || 0) >= 3;
+                const form = getPlayerForm(p.name, played);
                 return (
                   <div key={p.id} style={{
                     display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
@@ -457,16 +416,11 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                         ))
                       }
                     </div>
-                    {/* Right: W/L/D totals + streak */}
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
-                      <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300, whiteSpace: "nowrap" }}>
-                        W{p.w || 0} L{p.l || 0} D{p.d || 0}
-                      </div>
-                      {showStreak && (
-                        <div style={{ fontFamily: "var(--font-display)", fontSize: 16, color: STREAK_C[streak.result], lineHeight: 1, marginTop: 2 }}>
-                          {streak.result.toUpperCase()}{streak.count}
-                        </div>
-                      )}
+                    {/* Right: W/L/D totals */}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--green)", lineHeight: 1 }}>W{p.w || 0}</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--red)", lineHeight: 1 }}>L{p.l || 0}</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--amber)", lineHeight: 1 }}>D{p.d || 0}</span>
                     </div>
                   </div>
                 );
@@ -636,20 +590,6 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               {totalGames >= 3
                 ? <InsightTile label="Thrillers" value={tightGames} valueColor="var(--green)" sub="decided by 1 goal" />
                 : <LockedCard statName="Thrillers" gamesNeeded={3} gamesPlayed={totalGames} />
-              }
-
-              {/* Current Run — 3+ */}
-              {totalGames >= 3 && currentRun
-                ? (
-                  <InsightTile
-                    label="Current Run"
-                    value={`${currentRun.type.toUpperCase()}${currentRun.count}`}
-                    valueColor={currentRun.type === "w" ? "var(--green)" : "var(--amber)"}
-                    sub={currentRun.type === "w" ? "decisive in a row" : "draws in a row"}
-                  />
-                ) : totalGames < 3
-                  ? <LockedCard statName="Current Run" gamesNeeded={3} gamesPlayed={totalGames} />
-                  : null
               }
 
               {/* Team A vs B — 4+ */}
