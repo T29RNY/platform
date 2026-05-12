@@ -373,13 +373,13 @@ export default function PlayerView({
                       btns.push(
                         <button key="clear" onClick={() => setClearDebtExpanded(true)}
                           style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
-                          Clear Debt — £{owes}
+                          Clear Debt — £{owes + (status === 'in' ? price : 0)}
                         </button>
                       );
                     } else if (!cashPending) {
                       if (paymentMode !== 'cash_only') btns.push(
                         <button key="stripe" disabled
-                          style={tileStyle({ background:"transparent", border:"0.5px solid var(--border-subtle)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                          style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
                           Transfer £{owes + (status === 'in' ? price : 0)}
                         </button>
                       );
@@ -406,7 +406,7 @@ export default function PlayerView({
                     if (paymentState === 'unpaid') {
                       if (paymentMode !== 'cash_only') btns.push(
                         <button key="stripe" disabled
-                          style={tileStyle({ background:"transparent", border:"0.5px solid var(--border-subtle)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                          style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
                           Transfer £{price}
                         </button>
                       );
