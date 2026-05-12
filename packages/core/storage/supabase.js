@@ -411,15 +411,19 @@ export async function getPlayerMatchForm(teamId, playerIds) {
 export async function getLastMatchMeta(teamId) {
   const { data, error } = await supabase
     .from("matches")
-    .select("motm, bib_holder")
+    .select("motm, bib_holder, date")
     .eq("team_id", teamId)
     .eq("cancelled", false)
-    .not("winner", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-  if (error || !data) return null;
-  return { motm: data.motm || null, bibHolder: data.bib_holder || null };
+    .not("winner", "is", null);
+  if (error || !data?.length) return null;
+  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  const parseDate = (d) => {
+    const [day, mon, year] = d.split(' ');
+    return new Date(year, months[mon], parseInt(day));
+  };
+  const sorted = [...data].sort((a, b) => parseDate(b.date) - parseDate(a.date));
+  const match = sorted[0];
+  return { motm: match.motm || null, bibHolder: match.bib_holder || null };
 }
 
 // ─── Matches (update bib holder after result saved) ───────────────────────────
