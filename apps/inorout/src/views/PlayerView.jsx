@@ -343,8 +343,20 @@ export default function PlayerView({
 
                   {/* Payment actions — driven by getPaymentState + getPaymentMode */}
                   {(() => {
-                    const paymentState = getPaymentState(me, payState === "confirming");
+                    // Status gate — spec: show nothing when out/maybe/reserve
+                    if (me?.status !== "in") return null;
+
+                    const cashPending  = payState === "confirming";
+                    const paymentState = getPaymentState(me, cashPending);
                     const paymentMode  = getPaymentMode(schedule);
+
+                    console.log('[ioo] payment debug', {
+                      paid: me?.paid,
+                      selfPaid: me?.self_paid,  // snake_case: undefined if dbToPlayer mapped it correctly
+                      owes: me?.owes,
+                      cashPending,
+                      paymentState: getPaymentState(me, cashPending),
+                    });
 
                     if (paymentState === 'paid') return (
                       <button disabled style={{
@@ -367,48 +379,44 @@ export default function PlayerView({
                       }}>Clear Debt</button>
                     );
 
-                    if (me?.status === "in") {
-                      if (paymentState === 'cash_pending') return (
-                        <button onClick={async () => {
-                          await handleCashPayment(me.id, teamId);
-                          setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
-                        }} style={{
-                          padding:"6px 12px", borderRadius:8,
-                          border:"0.5px solid var(--amber)", background:"transparent",
-                          color:"var(--amber)", fontFamily:"var(--font-body)",
-                          fontSize:11, fontWeight:500, cursor:"pointer",
-                        }}>Confirm — Paid Cash</button>
-                      );
+                    if (paymentState === 'cash_pending') return (
+                      <button onClick={async () => {
+                        await handleCashPayment(me.id, teamId);
+                        setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
+                      }} style={{
+                        padding:"6px 12px", borderRadius:8,
+                        border:"0.5px solid var(--amber)", background:"transparent",
+                        color:"var(--amber)", fontFamily:"var(--font-body)",
+                        fontSize:11, fontWeight:500, cursor:"pointer",
+                      }}>Confirm — Paid Cash</button>
+                    );
 
-                      // unpaid + in — show payment buttons
-                      if (paymentState === 'unpaid') return (
-                        <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
-                          {(paymentMode === 'both' || paymentMode === 'stripe_only') && (
-                            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
-                              <button disabled style={{
-                                padding:"6px 12px", borderRadius:8,
-                                border:"0.5px solid var(--border-subtle)", background:"transparent",
-                                color:"var(--t2)", fontFamily:"var(--font-body)",
-                                fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
-                              }}>Pay Now</button>
-                              <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>
-                                Stripe — coming soon
-                              </span>
-                            </div>
-                          )}
-                          {(paymentMode === 'both' || paymentMode === 'cash_only') && (
-                            <button onClick={() => setPayState("confirming")} style={{
+                    // unpaid + in — show payment buttons
+                    return (
+                      <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
+                        {(paymentMode === 'both' || paymentMode === 'stripe_only') && (
+                          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
+                            <button disabled style={{
                               padding:"6px 12px", borderRadius:8,
-                              border:"none", background:"var(--gold)",
-                              color:"#000", fontFamily:"var(--font-body)",
-                              fontSize:11, fontWeight:600, cursor:"pointer",
-                            }}>Will Pay Cash</button>
-                          )}
-                        </div>
-                      );
-                    }
-
-                    return null;
+                              border:"0.5px solid var(--border-subtle)", background:"transparent",
+                              color:"var(--t2)", fontFamily:"var(--font-body)",
+                              fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
+                            }}>Pay Now</button>
+                            <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>
+                              Stripe — coming soon
+                            </span>
+                          </div>
+                        )}
+                        {(paymentMode === 'both' || paymentMode === 'cash_only') && (
+                          <button onClick={() => setPayState("confirming")} style={{
+                            padding:"6px 12px", borderRadius:8,
+                            border:"none", background:"var(--gold)",
+                            color:"#000", fontFamily:"var(--font-body)",
+                            fontSize:11, fontWeight:600, cursor:"pointer",
+                          }}>Will Pay Cash</button>
+                        )}
+                      </div>
+                    );
                   })()}
                 </div>
 
