@@ -9,9 +9,11 @@ import { supabase } from "../storage/supabase.js";
  * but hasn't yet confirmed; never persisted to DB).
  */
 export function getPaymentState(player, cashPending = false) {
-  if (player.paid === true || player.selfPaid === true) return 'paid';
-  if ((player.owes || 0) > 0)                          return 'debt';
-  if (cashPending)                                      return 'cash_pending';
+  // Check both camelCase (JS objects via dbToPlayer) and snake_case (raw DB rows)
+  const isPaid = player.paid === true || player.selfPaid === true || player.self_paid === true;
+  if (isPaid)                  return 'paid';
+  if ((player.owes || 0) > 0) return 'debt';
+  if (cashPending)             return 'cash_pending';
   return 'unpaid';
 }
 

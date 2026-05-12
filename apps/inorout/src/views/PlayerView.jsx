@@ -343,9 +343,6 @@ export default function PlayerView({
 
                   {/* Payment actions — driven by getPaymentState + getPaymentMode */}
                   {(() => {
-                    // Status gate — spec: show nothing when out/maybe/reserve
-                    if (me?.status !== "in") return null;
-
                     const cashPending  = payState === "confirming";
                     const paymentState = getPaymentState(me, cashPending);
                     const paymentMode  = getPaymentMode(schedule);
@@ -384,7 +381,7 @@ export default function PlayerView({
                           fontSize:11, fontWeight:500, cursor:"pointer",
                         }}>Confirm — Paid Cash</button>
                       );
-                    } else {
+                    } else if (me?.status === "in") {
                       content = (
                         <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
                           {(paymentMode === 'both' || paymentMode === 'stripe_only') && (
@@ -410,15 +407,13 @@ export default function PlayerView({
                           )}
                         </div>
                       );
+                    } else {
+                      return null;
                     }
 
                     return (
                       <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
                         {content}
-                        {/* DEBUG — remove after diagnosis */}
-                        <div style={{ fontSize:9, color:"var(--t2)", marginTop:4, opacity:0.5, textAlign:"right" }}>
-                          paid:{String(me?.paid)} self_paid:{String(me?.self_paid)} owes:{String(me?.owes)} state:{paymentState}
-                        </div>
                       </div>
                     );
                   })()}
