@@ -360,7 +360,7 @@ export default function PlayerView({
                 {me?.injured && (
                   <div style={{ padding:"10px 16px", fontSize:13, color:"var(--red)",
                     background:"var(--red2)", borderBottom:"1px solid var(--b2)" }}>
-                    🤕 You&apos;re marked as injured — respond when you&apos;re back
+                    🤕 You're marked as injured — respond when you're back
                   </div>
                 )}
 
@@ -517,7 +517,7 @@ export default function PlayerView({
                       <span style={{ color:"var(--t2)", fontWeight:400 }}> — your +1</span>
                     </div>
                     <div style={{ fontSize:11, color:"var(--t2)", marginTop:2, fontWeight:300 }}>
-                      {myGuest.selfPaid ? "Paying cash" : "You&apos;re covering payment"}
+                      {myGuest.selfPaid ? "Paying cash" : "You're covering payment"}
                     </div>
                   </div>
                   {canRemoveGuest && (
