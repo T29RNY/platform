@@ -186,59 +186,26 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
           <div style={{ fontSize: 10, fontWeight: 600, color: "var(--t2)" }}>{monthStr}</div>
         </div>
 
-        {/* Teams + avatar chips */}
-        <div style={{ flex: 1, padding: "10px 10px" }}>
+        {/* Teams + scores */}
+        <div style={{ flex: 1, padding: "10px 12px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
           {[
-            { objs: teamAObjs, team: "A", score: m.scoreA, scoreColor: scoreC.A },
-            { objs: teamBObjs, team: "B", score: m.scoreB, scoreColor: scoreC.B },
-          ].map(({ objs, team, score, scoreColor }) => {
-            const visible  = objs.slice(0, 7);
-            const overflow = objs.length - 7;
-            return (
-              <div key={team} style={{
-                display: "flex", alignItems: "center", gap: 5,
-                marginBottom: team === "A" ? 6 : 0,
-              }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: "var(--t2)", width: 12, flexShrink: 0 }}>{team}</span>
-                <div style={{ display: "flex", gap: 3, flex: 1, flexWrap: "nowrap", overflow: "hidden" }}>
-                  {visible.map((p, i) => (
-                    <AvatarChip key={i} name={p.name} isGuest={p.isGuest} team={team} />
-                  ))}
-                  {overflow > 0 && (
-                    <div style={{
-                      width: 22, height: 22, borderRadius: "50%",
-                      background: "var(--s3)", color: "var(--t2)",
-                      fontSize: 8, fontWeight: 600, flexShrink: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>+{overflow}</div>
-                  )}
-                </div>
-                <div style={{
-                  fontFamily: "var(--font-display)", fontSize: 24,
-                  color: scoreColor, lineHeight: 1, flexShrink: 0, marginLeft: 4,
-                }}>
-                  {score ?? "?"}
-                </div>
+            { team: "A", label: "Team A", score: m.scoreA, color: scoreC.A, weight: result === "win" ? 500 : result === "loss" ? 400 : 400 },
+            { team: "B", label: "Team B", score: m.scoreB, color: scoreC.B, weight: result === "loss" ? 500 : result === "win" ? 400 : 400 },
+          ].map(({ team, label, score, color, weight }) => (
+            <div key={team} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 13, fontWeight: weight, color }}>{label}</span>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color, lineHeight: 1, flexShrink: 0 }}>
+                {score ?? "?"}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
-        {/* Result badge + meta + chevron */}
+        {/* Meta + chevron — no badge */}
         <div style={{
           display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center",
-          padding: "10px 10px 10px 0", minWidth: 58, gap: 4,
+          padding: "10px 10px 10px 0", minWidth: 48, gap: 4,
         }}>
-          {badge && (
-            <div style={{
-              background: badge.bg,
-              border: `0.5px solid ${badge.border}`,
-              color: badge.color,
-              fontSize: 11, fontWeight: 700,
-              borderRadius: "var(--r-pill)", padding: "3px 9px",
-              whiteSpace: "nowrap",
-            }}>{badge.label}</div>
-          )}
           {venue && (
             <div style={{ fontSize: 9, color: "var(--t2)", fontWeight: 300, textAlign: "right" }}>{venue}</div>
           )}
@@ -428,7 +395,7 @@ function MonthSection({ monthKey, label, matches, isOpen, onToggle, players, sch
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function HistoryView({ matchHistory = [], players = [], settings, schedule }) {
-  const [filter, setFilter] = useState("all");
+  // const [filter, setFilter] = useState("all"); // restore with filter pills
 
   const now = new Date();
   const [openMonths, setOpenMonths] = useState(() => {
@@ -445,16 +412,16 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
   const currentYear  = now.getFullYear();
   const totalPlayed  = matchHistory.filter(m => !m.cancelled).length;
 
-  // Apply filter then sort DESC
+  // Sort DESC — filter disabled while pills are hidden
   const filtered = matchHistory
-    .filter(m => {
-      if (filter === "all")    return true;
-      const r = getResult(m);
-      if (filter === "wins")   return r === "win";
-      if (filter === "draws")  return r === "draw";
-      if (filter === "losses") return r === "loss";
-      return true;
-    })
+    // .filter(m => { // restore with filter pills
+    //   if (filter === "all")    return true;
+    //   const r = getResult(m);
+    //   if (filter === "wins")   return r === "win";
+    //   if (filter === "draws")  return r === "draw";
+    //   if (filter === "losses") return r === "loss";
+    //   return true;
+    // })
     .sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
 
   // Group by year → month
@@ -475,22 +442,22 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
   const toggleYear  = year => setOpenYears(prev  => { const n = new Set(prev); n.has(year) ? n.delete(year) : n.add(year); return n; });
   const toggleCard  = id   => setExpandedCards(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const FILTERS = [
-    { id: "all",    label: "All"    },
-    { id: "wins",   label: "Wins"   },
-    { id: "draws",  label: "Draws"  },
-    { id: "losses", label: "Losses" },
-  ];
-
-  const pillStyle = (id) => {
-    const base = { borderRadius: "var(--r-pill)", padding: "6px 14px", fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: "var(--font-body)", transition: "all 0.15s" };
-    if (id !== filter) return { ...base, background: "var(--s2)", border: "0.5px solid var(--border-subtle)", color: "var(--t2)" };
-    if (id === "all")    return { ...base, background: "var(--s3)", border: "0.5px solid var(--border-subtle)", color: "var(--t1)" };
-    if (id === "wins")   return { ...base, background: "var(--green2)", border: "0.5px solid var(--greenb)", color: "var(--green)" };
-    if (id === "draws")  return { ...base, background: "var(--amber2)", border: "0.5px solid var(--amberb)", color: "var(--amber)" };
-    if (id === "losses") return { ...base, background: "var(--red2)",   border: "0.5px solid var(--redb)",   color: "var(--red)"   };
-    return base;
-  };
+  // Filter pills — hidden, restore when re-enabling
+  // const FILTERS = [
+  //   { id: "all",    label: "All"    },
+  //   { id: "wins",   label: "Wins"   },
+  //   { id: "draws",  label: "Draws"  },
+  //   { id: "losses", label: "Losses" },
+  // ];
+  // const pillStyle = (id) => {
+  //   const base = { borderRadius: "var(--r-pill)", padding: "6px 14px", fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: "var(--font-body)", transition: "all 0.15s" };
+  //   if (id !== filter) return { ...base, background: "var(--s2)", border: "0.5px solid var(--border-subtle)", color: "var(--t2)" };
+  //   if (id === "all")    return { ...base, background: "var(--s3)", border: "0.5px solid var(--border-subtle)", color: "var(--t1)" };
+  //   if (id === "wins")   return { ...base, background: "var(--green2)", border: "0.5px solid var(--greenb)", color: "var(--green)" };
+  //   if (id === "draws")  return { ...base, background: "var(--amber2)", border: "0.5px solid var(--amberb)", color: "var(--amber)" };
+  //   if (id === "losses") return { ...base, background: "var(--red2)",   border: "0.5px solid var(--redb)",   color: "var(--red)"   };
+  //   return base;
+  // };
 
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--t1)", fontFamily: "var(--font-body)", paddingBottom: 110 }}>
@@ -505,46 +472,46 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
           />
           <div style={{ position: "absolute", inset: 0,
             background: "linear-gradient(180deg, rgba(10,10,8,0.15) 0%, rgba(10,10,8,0.7) 100%)" }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 16px",
-            display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-            <div>
-              {groupName && (
-                <div style={{ fontSize: 10, fontWeight: 300, letterSpacing: "0.18em",
-                  textTransform: "uppercase", color: "var(--gold)", marginBottom: 2,
-                  textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
-                  {groupName}
-                </div>
-              )}
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 38, lineHeight: 1,
-                letterSpacing: "0.04em", fontStyle: "italic", textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
-                <span style={{ color: "var(--t1)" }}>R</span>
-                <span style={{ color: "var(--green)" }}>ESULTS</span>
-              </div>
-              <div style={{ fontSize: 11, color: "var(--t2)", fontWeight: 300, marginTop: 3,
+          {/* Left text — anchored bottom */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, padding: "10px 16px" }}>
+            {groupName && (
+              <div style={{ fontSize: 10, fontWeight: 300, letterSpacing: "0.18em",
+                textTransform: "uppercase", color: "var(--gold)", marginBottom: 2,
                 textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
-                Every game. Every moment.
+                {groupName}
               </div>
+            )}
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 38, lineHeight: 1,
+              letterSpacing: "0.04em", fontStyle: "italic", color: "var(--green)",
+              textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+              RESULTS
             </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 32, lineHeight: 1,
-                color: "var(--t1)", textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
-                {totalPlayed}
-              </div>
-              <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300,
-                textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
-                games played
-              </div>
+            <div style={{ fontSize: 11, color: "var(--t2)", fontWeight: 300, marginTop: 3,
+              textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+              Every game. Every moment.
+            </div>
+          </div>
+          {/* Right stats — vertically centred */}
+          <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, padding: "0 16px",
+            display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 40, lineHeight: 1,
+              color: "var(--t1)", textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+              {totalPlayed}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--t2)", fontWeight: 300,
+              textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+              games played
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Filter pills ── */}
-      <div style={{ padding: "10px 16px", display: "flex", gap: 6 }}>
+      {/* ── Filter pills — hidden, restore when re-enabling ── */}
+      {/* <div style={{ padding: "10px 16px", display: "flex", gap: 6 }}>
         {FILTERS.map(({ id, label }) => (
           <button key={id} onClick={() => setFilter(id)} style={pillStyle(id)}>{label}</button>
         ))}
-      </div>
+      </div> */}
 
       {/* ── Empty state ── */}
       {matchHistory.length === 0 && (
