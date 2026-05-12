@@ -17,6 +17,19 @@ export function getPaymentState(player, cashPending = false) {
 }
 
 /**
+ * Returns the payment state for a guest player.
+ * guestCashPending — caller-supplied UI flag while host is confirming.
+ * Returns: 'cash_pending' | 'paid_stripe' | 'paid_cash' | 'unpaid'
+ */
+export function getGuestPaymentState(guest, guestCashPending = false) {
+  if (guestCashPending === true) return 'cash_pending';
+  if (guest.paid === true) return 'paid_stripe';
+  if (guest.self_paid === true || guest.selfPaid === true) return 'paid_cash';
+  if (guest.guest_of || guest.guestOf) return 'unpaid';
+  return 'unpaid';
+}
+
+/**
  * Returns the active payment mode.
  * Reads schedule.payment_mode when the column exists; defaults to 'both'.
  * When Stripe Connect is live, admin sets schedule.payment_mode = 'stripe_only'.
@@ -27,14 +40,24 @@ export function getPaymentMode(schedule) {
 
 // ─── Payment handlers ─────────────────────────────────────────────────────────
 
-/** Player confirms they've paid cash. Sets self_paid = true in DB. */
-export async function handleCashPayment(playerId, teamId) {
+/** Player confirms they've paid cash. Sets self_paid = true and paid_by in DB. */
+export async function handleCashPayment(playerId, teamId, paidBy = 'self') {
   const { error } = await supabase
     .from("players")
-    .update({ self_paid: true })
+    .update({ self_paid: true, paid_by: paidBy })
     .eq("id", playerId);
   if (error) throw error;
-  return { selfPaid: true };
+  return { selfPaid: true, paidBy };
+}
+
+/** Host or admin confirms cash payment for a guest. */
+export async function handleGuestCashPayment(guestId, teamId, paidBy = 'host') {
+  const { error } = await supabase
+    .from("players")
+    .update({ self_paid: true, paid_by: paidBy })
+    .eq("id", guestId);
+  if (error) throw error;
+  return { selfPaid: true, paidBy };
 }
 
 /** Admin or player clears a prior-game debt. Sets owes = 0 in DB. */
@@ -49,7 +72,7 @@ export async function handleClearDebt(playerId, teamId) {
 
 /**
  * Stripe integration point — stub only.
- * When Stripe Connect is built, replace this body. No other file needs changes.
+ * When live: writes paid=true, paid_by='stripe' to players table.
  */
 export async function handleStripePayment(playerId, teamId, amount) {
   console.log('[ioo] Stripe payment triggered — not yet live', { playerId, teamId, amount });
@@ -66,14 +89,14 @@ export async function handleMarkPaid(playerId, teamId) {
   return { paid: true };
 }
 
-/** Resets all payment flags for a player. Sets paid = false and self_paid = false in DB. */
+/** Resets all payment flags for a player. */
 export async function handleResetPayment(playerId, teamId) {
   const { error } = await supabase
     .from("players")
-    .update({ paid: false, self_paid: false })
+    .update({ paid: false, self_paid: false, paid_by: null })
     .eq("id", playerId);
   if (error) throw error;
-  return { paid: false, selfPaid: false };
+  return { paid: false, selfPaid: false, paidBy: null };
 }
 
 // ─── Existing functions ───────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { colors as C, requestNotifPerm, sendTemplate, notificationTemplates,
   carryForwardDebts, nextWeekDateTime, storage,
   getPaymentState, handleCashPayment, handleClearDebt,
-  handleMarkPaid, handleResetPayment } from "@platform/core";
+  handleMarkPaid, handleResetPayment, handleGuestCashPayment } from "@platform/core";
 import { addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer } from "@platform/supabase";
 import { Card, SecTitle, Btn } from "@platform/ui";
 import TeamsScreen    from "./TeamsScreen.jsx";
@@ -204,14 +204,18 @@ export default function AdminView({
     setPayments(pm => ({ ...pm, [id]:true }));
   };
 
-  const markCashPaid = async (id) => {
-    await handleCashPayment(id, teamId).catch(console.error);
-    setSquad(squad.map(p => p.id===id ? { ...p, selfPaid:true } : p));
+  const markCashPaid = async (p) => {
+    if (p.isGuest) {
+      await handleGuestCashPayment(p.id, teamId, 'admin').catch(console.error);
+    } else {
+      await handleCashPayment(p.id, teamId, 'admin').catch(console.error);
+    }
+    setSquad(squad.map(s => s.id===p.id ? { ...s, selfPaid:true, paidBy:'admin' } : s));
   };
 
   const resetPayment = async (id) => {
     await handleResetPayment(id, teamId).catch(console.error);
-    setSquad(squad.map(p => p.id===id ? { ...p, paid:false, selfPaid:false } : p));
+    setSquad(squad.map(p => p.id===id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
     setPayments(pm => ({ ...pm, [id]:false }));
   };
 
@@ -625,7 +629,11 @@ export default function AdminView({
                   background:C.green+"20", color:C.green }}>Stripe ✓</span>
               ) : p.selfPaid === true ? (
                 <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
-                  background:C.amber+"20", color:C.amber }}>Cash ✓</span>
+                  background:C.amber+"20", color:C.amber }}>
+                  {p.paidBy === 'host'  ? `Paid by ${host?.name || 'host'}`
+                 : p.paidBy === 'admin' ? 'Admin ✓'
+                 :                        'Cash ✓'}
+                </span>
               ) : (
                 <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
                   background:C.red+"15", color:C.muted }}>Unpaid</span>
@@ -660,7 +668,7 @@ export default function AdminView({
                 Clear Debt
               </button>
             )}
-            <button onClick={() => markCashPaid(p.id)} style={{ padding:"7px 10px", borderRadius:5,
+            <button onClick={() => markCashPaid(p)} style={{ padding:"7px 10px", borderRadius:5,
               border:`1px solid ${C.amber}`, background:C.amber+"12", color:C.amber,
               fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
               Mark Cash Paid
@@ -685,7 +693,7 @@ export default function AdminView({
 
       {/* Outstanding debts — players not in this week's game */}
       {(() => {
-        const debtors  = squad.filter(p => !p.disabled && p.owes > 0 && p.status !== "in");
+        const debtors  = squad.filter(p => !p.disabled && p.owes > 0 && (p.status !== "in" || p.isGuest));
         const totalOwed = debtors.reduce((sum, p) => sum + p.owes, 0);
         if (!debtors.length) return null;
         return (
@@ -703,8 +711,17 @@ export default function AdminView({
                   <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
                     fontWeight:500, color:C.text, display:"flex", alignItems:"center", gap:6 }}>
                     {p.name}
+                    {p.isGuest && <span style={{ fontSize:13 }}>👤</span>}
                     {p.injured && <span style={{ fontSize:12 }}>🤕</span>}
                   </div>
+                  {p.isGuest && (() => {
+                    const h = squad.find(s => s.id === p.guestOf);
+                    return h ? (
+                      <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:1 }}>
+                        guest of {h.name}
+                      </div>
+                    ) : null;
+                  })()}
                   <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
                     color:C.red, marginTop:2 }}>Owes £{p.owes}</div>
                 </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
-  getPaymentState, getPaymentMode, handleCashPayment, handleClearDebt } from "@platform/core";
+  getPaymentState, getPaymentMode, getGuestPaymentState,
+  handleCashPayment, handleClearDebt, handleGuestCashPayment } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, deletePlayer } from "@platform/supabase";
 import {
   Check, X, Question, ArrowDown,
@@ -432,9 +433,6 @@ export default function PlayerView({
                   }
                   // isNonPlay + unpaid + no debt → "Nothing owed 👊", no buttons
 
-                  // Guest payment — when host is covering and guest not yet paid
-                  const guestOwed  = myGuest && !myGuest.selfPaid && !myGuest.paid;
-
                   return (
                     <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, paddingTop:2 }}>
                       <div style={{ fontSize:11, color:amountColor, fontWeight:400, textAlign:"right" }}>
@@ -445,49 +443,70 @@ export default function PlayerView({
                           {btns}
                         </div>
                       )}
-
-                      {/* Guest payment */}
-                      {myGuest && status !== 'in' && (
-                        myGuest.selfPaid || myGuest.paid ? (
-                          <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, textAlign:"right",
-                            borderTop:"1px solid var(--b2)", paddingTop:5, marginTop:2 }}>
-                            {myGuest.name} paying cash
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, textAlign:"right",
-                              borderTop:"1px solid var(--b2)", paddingTop:5, marginTop:2 }}>
-                              Pay for {myGuest.name}
-                            </div>
-                            {guestCashPending ? (
-                              <button onClick={async () => {
-                                await handleCashPayment(myGuest.id, teamId);
-                                setSquad(squad.map(p => p.id === myGuest.id ? { ...p, selfPaid:true } : p));
-                                setGuestCashPending(false);
-                              }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                                Confirm — {myGuest.name} paid?
-                              </button>
-                            ) : (
-                              <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
-                                {paymentMode !== 'cash_only' && (
-                                  <button disabled style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
-                                    Transfer £{price}
-                                  </button>
-                                )}
-                                {paymentMode !== 'stripe_only' && (
-                                  <button onClick={() => setGuestCashPending(true)} style={tileStyle({ background:"var(--gold)", color:"#000" })}>
-                                    Paid Cash
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        )
-                      )}
                     </div>
                   );
                 })()}
               </div>
+
+              {/* Guest payment row */}
+              {myGuest && (() => {
+                const gps      = getGuestPaymentState(myGuest, guestCashPending);
+                const price    = schedule.pricePerPlayer || 0;
+                const payMode  = getPaymentMode(schedule);
+                const ts = (extra) => ({
+                  minHeight:34, borderRadius:"var(--r-button)",
+                  fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  transition:"all 0.15s", cursor:"pointer", border:"none",
+                  padding:"0 10px", whiteSpace:"nowrap",
+                  ...extra,
+                });
+
+                let right;
+                if (gps === 'paid_stripe') {
+                  right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>✓ Stripe</span>;
+                } else if (gps === 'paid_cash') {
+                  const label = myGuest.paidBy === 'host'  ? "✓ You paid — cash"
+                              : myGuest.paidBy === 'admin' ? "✓ Admin confirmed"
+                              : `✓ ${myGuest.name} paid — cash`;
+                  right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>{label}</span>;
+                } else if (gps === 'cash_pending') {
+                  right = (
+                    <button onClick={async () => {
+                      await handleGuestCashPayment(myGuest.id, teamId, 'host');
+                      setSquad(sq => sq.map(p => p.id === myGuest.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
+                      setGuestCashPending(false);
+                    }} style={ts({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                      Confirm — You've Paid?
+                    </button>
+                  );
+                } else if (myGuest.selfPaid) {
+                  right = <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>Paying cash</span>;
+                } else {
+                  right = (
+                    <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
+                      {payMode !== 'cash_only' && (
+                        <button disabled style={ts({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                          Transfer £{price}
+                        </button>
+                      )}
+                      {payMode !== 'stripe_only' && (
+                        <button onClick={() => setGuestCashPending(true)} style={ts({ background:"var(--gold)", color:"#000" })}>
+                          Paid Cash
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ padding:"10px 16px", borderTop:"0.5px solid var(--b2)",
+                    display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                    <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>👤 {myGuest.name}</div>
+                    {right}
+                  </div>
+                );
+              })()}
 
               {/* Locked row — gameIsLive only */}
               {schedule.gameIsLive && me?.status === "in" && (
@@ -495,14 +514,6 @@ export default function PlayerView({
                   padding:"8px 16px", fontSize:12, color:"var(--green)",
                   fontWeight:400, borderBottom:"1px solid var(--b2)" }}>
                   🔒 Locked in. See you {gameDay}.
-                </div>
-              )}
-
-              {/* Injured notice */}
-              {me?.injured && (
-                <div style={{ padding:"10px 16px", fontSize:13, color:"var(--red)",
-                  background:"var(--red2)", borderBottom:"1px solid var(--b2)" }}>
-                  🤕 You're marked as injured — respond when you're back
                 </div>
               )}
 
