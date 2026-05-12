@@ -320,7 +320,7 @@ export default function PlayerView({
 
           {/* b — Response card */}
           <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
-            borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
+            borderRadius:"var(--r)", overflow:"hidden", marginBottom: myGuest ? 0 : 8 }}>
 
             <>
               {/* Top row: name + payment column */}
@@ -447,66 +447,6 @@ export default function PlayerView({
                   );
                 })()}
               </div>
-
-              {/* Guest payment row */}
-              {myGuest && (() => {
-                const gps      = getGuestPaymentState(myGuest, guestCashPending);
-                const price    = schedule.pricePerPlayer || 0;
-                const payMode  = getPaymentMode(schedule);
-                const ts = (extra) => ({
-                  minHeight:34, borderRadius:"var(--r-button)",
-                  fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  transition:"all 0.15s", cursor:"pointer", border:"none",
-                  padding:"0 10px", whiteSpace:"nowrap",
-                  ...extra,
-                });
-
-                let right;
-                if (gps === 'paid_stripe') {
-                  right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>✓ Stripe</span>;
-                } else if (gps === 'paid_cash') {
-                  const label = myGuest.paidBy === 'host'  ? "✓ You paid — cash"
-                              : myGuest.paidBy === 'admin' ? "✓ Admin confirmed"
-                              : `✓ ${myGuest.name} paid — cash`;
-                  right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>{label}</span>;
-                } else if (gps === 'cash_pending') {
-                  right = (
-                    <button onClick={async () => {
-                      await handleGuestCashPayment(myGuest.id, teamId, 'host');
-                      setSquad(sq => sq.map(p => p.id === myGuest.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
-                      setGuestCashPending(false);
-                    }} style={ts({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                      Confirm — You've Paid?
-                    </button>
-                  );
-                } else if (myGuest.selfPaid) {
-                  right = <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>Paying cash</span>;
-                } else {
-                  right = (
-                    <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
-                      {payMode !== 'cash_only' && (
-                        <button disabled style={ts({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
-                          Transfer £{price}
-                        </button>
-                      )}
-                      {payMode !== 'stripe_only' && (
-                        <button onClick={() => setGuestCashPending(true)} style={ts({ background:"var(--gold)", color:"#000" })}>
-                          Paid Cash
-                        </button>
-                      )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div style={{ padding:"10px 16px", borderTop:"0.5px solid var(--b2)",
-                    display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                    <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>👤 {myGuest.name}</div>
-                    {right}
-                  </div>
-                );
-              })()}
 
               {/* Locked row — gameIsLive only */}
               {schedule.gameIsLive && me?.status === "in" && (
@@ -656,6 +596,75 @@ export default function PlayerView({
               )}
             </>
           </div>
+
+          {/* Guest payment row — outside card so gold border isn't clipped */}
+          {myGuest && (() => {
+            const gps      = getGuestPaymentState(myGuest, guestCashPending);
+            const price    = schedule.pricePerPlayer || 0;
+            const payMode  = getPaymentMode(schedule);
+            const guestName = myGuest.name.charAt(0).toUpperCase() + myGuest.name.slice(1);
+            const ts = (extra) => ({
+              height:32, borderRadius:"var(--r-pill)",
+              fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              transition:"all 0.15s", cursor:"pointer", border:"none",
+              padding:"0 12px", whiteSpace:"nowrap",
+              ...extra,
+            });
+
+            let right;
+            if (gps === 'paid_stripe') {
+              right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>✓ Stripe</span>;
+            } else if (gps === 'paid_cash') {
+              const label = myGuest.paidBy === 'host'  ? "✓ You paid — cash"
+                          : myGuest.paidBy === 'admin' ? "✓ Admin confirmed"
+                          : `✓ ${guestName} paid — cash`;
+              right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>{label}</span>;
+            } else if (gps === 'cash_pending') {
+              right = (
+                <button onClick={async () => {
+                  await handleGuestCashPayment(myGuest.id, teamId, 'host');
+                  setSquad(sq => sq.map(p => p.id === myGuest.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
+                  setGuestCashPending(false);
+                }} style={ts({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                  Confirm — You've Paid?
+                </button>
+              );
+            } else if (myGuest.selfPaid) {
+              right = <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>Paying cash</span>;
+            } else {
+              right = (
+                <div style={{ display:"flex", flexDirection:"row", gap:6, alignItems:"center" }}>
+                  {payMode !== 'cash_only' && (
+                    <button disabled style={ts({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                      Transfer £{price}
+                    </button>
+                  )}
+                  {payMode !== 'stripe_only' && (
+                    <button onClick={() => setGuestCashPending(true)} style={ts({ background:"var(--gold)", color:"#000" })}>
+                      Paid Cash
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div style={{
+                padding:"10px 16px",
+                background:"rgba(232,160,32,0.04)",
+                border:"0.5px solid rgba(232,160,32,0.5)",
+                borderTop:"none",
+                borderRadius:"0 0 var(--r) var(--r)",
+                boxShadow:"0 0 12px rgba(232,160,32,0.12), inset 0 0 16px rgba(232,160,32,0.04)",
+                marginBottom:8,
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+              }}>
+                <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>👤 {guestName}</div>
+                {right}
+              </div>
+            );
+          })()}
 
           {/* c — Quick actions row */}
           <div style={{ display:"flex", gap:8, marginBottom:8 }}>
