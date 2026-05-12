@@ -1,7 +1,21 @@
 import { useState } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, deletePlayer } from "@platform/supabase";
-import { Card, Badge, Btn } from "@platform/ui";
+import {
+  Check, X, Question, ArrowDown,
+  PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
+} from "@phosphor-icons/react";
+import PageHeader  from "../components/ui/PageHeader.jsx";
+import HeroCard    from "../components/ui/HeroCard.jsx";
+import StatusButton from "../components/ui/StatusButton.jsx";
+import Tile        from "../components/ui/Tile.jsx";
+import Avatar      from "../components/ui/Avatar.jsx";
+import NavBar      from "../components/ui/NavBar.jsx";
+import BalanceCard from "../components/ui/BalanceCard.jsx";
+import StatsView   from "./StatsView.jsx";
+import HistoryView from "./HistoryView.jsx";
+
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 function urlBase64ToUint8Array(b64) {
   const pad = '='.repeat((4 - b64.length % 4) % 4);
@@ -17,15 +31,46 @@ function notifyServer(type, teamId, playerIds, payload, gameDate) {
   }).catch(console.error);
 }
 
-export default function PlayerView({ squad, setSquad, myId, teamId, schedule, onMidFlowChange }) {
+// ── StatusBadge (inline, player view only) ────────────────────────────────────
+
+const BADGE = {
+  in:      { label:"✓ In",      bg:"var(--green2)",  border:"var(--greenb)",  color:"var(--green)",  shadow:"0 0 10px rgba(61,220,106,0.15)"   },
+  out:     { label:"✕ Out",     bg:"var(--red2)",    border:"var(--redb)",    color:"var(--red)",    shadow:"0 0 10px rgba(255,64,64,0.15)"    },
+  maybe:   { label:"? Maybe",   bg:"var(--amber2)",  border:"var(--amberb)",  color:"var(--amber)",  shadow:"0 0 10px rgba(255,176,32,0.15)"   },
+  reserve: { label:"↓ Reserve", bg:"var(--purple2)", border:"var(--purpleb)", color:"var(--purple)", shadow:"0 0 10px rgba(176,96,240,0.15)"   },
+};
+
+function StatusBadge({ status }) {
+  const c = BADGE[status];
+  if (!c) return null;
+  return (
+    <div style={{
+      display:"flex", alignItems:"center", gap:5,
+      borderRadius:"var(--r-pill)", padding:"5px 12px",
+      fontSize:12, fontWeight:400,
+      background:c.bg, border:`0.5px solid ${c.border}`,
+      color:c.color, boxShadow:c.shadow,
+    }}>
+      {c.label}
+    </div>
+  );
+}
+
+// ── main component ────────────────────────────────────────────────────────────
+
+export default function PlayerView({
+  squad, setSquad, myId, teamId, schedule, settings,
+  setSchedule, setSettings, onMidFlowChange,
+  bibHistory = [], matchHistory = [],
+}) {
   const me = squad.find(p => p.id === myId);
-  const [note, setNote]         = useState(me?.note || "");
-  const [showNote, setShowNote] = useState(false);
-  const [notifState, setNotifState] = useState(
+
+  // ── existing state ── (unchanged)
+  const [note,          setNote]         = useState(me?.note || "");
+  const [showNote,      setShowNote]     = useState(false);
+  const [notifState,    setNotifState]   = useState(
     () => (typeof localStorage !== "undefined" && localStorage.getItem(`notif_${myId}`)) || "idle"
   );
-
-  // Plus one state
   const [showPlusOneForm, setShowPlusOneForm] = useState(false);
   const [guestName,       setGuestName]       = useState("");
   const [guestSelfPaid,   setGuestSelfPaid]   = useState(false);
@@ -33,15 +78,32 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule, on
   const [pickerPlayer,    setPickerPlayer]    = useState(null);
   const [removingGuest,   setRemovingGuest]   = useState(false);
 
-  const SC = { in:C.green, maybe:C.amber, out:C.red, reserve:C.purple, none:C.muted };
+  // ── new UI state ──
+  const [activeTab,   setActiveTab]   = useState("my-view");
+  const [showNoResp,  setShowNoResp]  = useState(false);
 
+  // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-  const canPush = "PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone);
+  const canPush      = "PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone);
 
-  const myGuest = squad.find(p => p.isGuest && p.guestOf === myId);
-  // Can remove guest until next week is drafted (i.e., result not yet saved)
+  const myGuest       = squad.find(p => p.isGuest && p.guestOf === myId);
   const canRemoveGuest = !schedule.isDraft;
+
+  const inPlayers    = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
+  const teamsSet     = inPlayers.length > 0 && inPlayers.every(p => p.team);
+  const isFull       = inPlayers.length >= (schedule.squadSize || 14);
+  const groups       = groupByStatus(squad);
+  const teamAPlayers = [...inPlayers.filter(p => p.team === "A")].sort((a, b) => a.name.localeCompare(b.name));
+  const teamBPlayers = [...inPlayers.filter(p => p.team === "B")].sort((a, b) => a.name.localeCompare(b.name));
+
+  // ── tile arrays ──
+  const maybePlayers   = (groups.maybe   || []).filter(p => !p.disabled);
+  const outPlayers     = (groups.out     || []).filter(p => !p.disabled);
+  const reservePlayers = (groups.reserve || []).filter(p => !p.disabled);
+  const noRespPlayers  = (groups.none    || []).filter(p => !p.disabled);
+
+  // ── existing handlers ── (all unchanged)
 
   const handleSubscribe = async () => {
     setNotifState("asking");
@@ -70,7 +132,7 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule, on
     const late = isLateDropout(me?.status, s, schedule.gameDateTime);
     if (late) sendTemplate(notificationTemplates.lateDropout, me?.name);
     setSquad(squad.map(p => p.id === myId
-      ? { ...p, status:s, note, lateDropouts:(p.lateDropouts||0)+(late?1:0) }
+      ? { ...p, status: s, note, lateDropouts: (p.lateDropouts || 0) + (late ? 1 : 0) }
       : p
     ));
 
@@ -112,7 +174,7 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule, on
   };
 
   const markSelfPaid = () => {
-    setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
+    setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
     sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
   };
 
@@ -175,453 +237,545 @@ export default function PlayerView({ squad, setSquad, myId, teamId, schedule, on
     ));
   };
 
-  const inPlayers    = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
-  const teamsSet     = inPlayers.length > 0 && inPlayers.every(p => p.team);
-  const isFull       = inPlayers.length >= (schedule.squadSize || 14);
-  const groups       = groupByStatus(squad);
-  const teamAPlayers = [...inPlayers.filter(p => p.team==="A")].sort((a,b)=>a.name.localeCompare(b.name));
-  const teamBPlayers = [...inPlayers.filter(p => p.team==="B")].sort((a,b)=>a.name.localeCompare(b.name));
+  // ── cancelled early return ────────────────────────────────────────────────
 
   if (schedule.isCancelled) return (
-    <div style={{ padding:18 }}>
-      <Card color={C.red} style={{ textAlign:"center", padding:"30px 20px" }}>
+    <div style={{ minHeight:"100dvh", background:"var(--bg)", display:"flex",
+      flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
+      <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:40, marginBottom:12 }}>❌</div>
-        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28, color:C.red, letterSpacing:2 }}>
-          THIS WEEK CANCELLED
+        <div style={{ fontFamily:"var(--font-display)", fontSize:28, color:"var(--red)", letterSpacing:2 }}>
+          This week cancelled
         </div>
         {schedule.cancelReason && (
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.muted, marginTop:8 }}>
-            {schedule.cancelReason}
-          </div>
+          <div style={{ fontSize:13, color:"var(--t2)", marginTop:8 }}>{schedule.cancelReason}</div>
         )}
-      </Card>
+      </div>
     </div>
   );
 
-  return (
-    <div style={{ padding:18 }}>
-      {/* Debt banner */}
-      {me?.owes > 0 && (
-        <div style={{ padding:"12px 16px", borderRadius:8, marginBottom:14,
-          background:C.red+"14", border:`1px solid ${C.red}40`,
-          fontFamily:"Inter,sans-serif" }}>
-          <div style={{ fontSize:14, fontWeight:700, color:C.red, marginBottom:2 }}>
-            💸 You owe £{me.owes}
-          </div>
-          <div style={{ fontSize:12, color:C.muted }}>
-            {/* TODO(Stripe session): link to payment flow */}
-            See the balance section below to sort it
-          </div>
-        </div>
-      )}
+  // ── render ────────────────────────────────────────────────────────────────
 
-      {/* Price strip */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-        padding:"10px 14px", background:C.surface, borderRadius:6,
-        border:`1px solid ${C.border}`, marginBottom:16 }}>
-        <span style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color:C.muted }}>
-          💵 This week
-        </span>
-        <span style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:800, color:C.amber }}>
-          £{schedule.pricePerPlayer}
-        </span>
+  return (
+    <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+
+      {/* 1 ── PAGE HEADER */}
+      <PageHeader
+        teamName={settings?.groupName}
+        dayOfWeek={schedule.dayOfWeek}
+        venue={schedule.venue}
+        kickoff={schedule.kickoff}
+        inCount={inPlayers.length}
+        squadSize={schedule.squadSize || 14}
+        gameIsLive={schedule.gameIsLive}
+      />
+
+      {/* 2 ── TABS (segmented control) */}
+      <div style={{
+        display:"flex", background:"var(--s2)", borderRadius:9,
+        padding:3, margin:"0 16px 16px",
+      }}>
+        {[["my-view","My View"],["stats","Stats"],["history","History"]].map(([id, label]) => (
+          <button key={id} onClick={() => setActiveTab(id)} style={{
+            flex:1, padding:"6px 0", border:"none", cursor:"pointer",
+            borderRadius:7, fontSize:11, fontWeight:700,
+            letterSpacing:"0.07em", textTransform:"uppercase",
+            fontFamily:"var(--font-body)",
+            background: activeTab === id ? "var(--s3)" : "transparent",
+            color:      activeTab === id ? "var(--t1)" : "var(--t2)",
+            boxShadow:  activeTab === id ? "0 1px 4px rgba(0,0,0,0.5)" : "none",
+            transition:"all 0.15s",
+          }}>
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* Teams confirmed */}
-      {teamsSet && (
-        <Card color={C.blue} style={{ marginBottom:20 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800, color:C.blue,
-            letterSpacing:1.5, textTransform:"uppercase", marginBottom:14 }}>🏟 TEAMS CONFIRMED</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-            {[["A", teamAPlayers, C.teamA], ["B", teamBPlayers, C.teamB]].map(([t, players, color]) => (
-              <div key={t}>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:800, color,
-                  letterSpacing:1, textTransform:"uppercase", marginBottom:10,
-                  paddingBottom:6, borderBottom:`2px solid ${color}` }}>TEAM {t}</div>
-                {players.map((p, i) => (
-                  <div key={p.id} style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500,
-                    color:p.id===myId?color:C.text, padding:"4px 0",
-                    borderBottom:`1px solid ${C.border}`,
-                    display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ fontSize:11, color:C.faint, minWidth:16 }}>{i+1}</span>
-                    {p.name}{p.id===myId && <Badge text="you" color={color}/>}
-                    {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
+      {/* 3 ── MY VIEW */}
+      {activeTab === "my-view" && (
+        <div style={{ padding:"0 16px 110px" }}>
+
+          {/* a — Hero card */}
+          <HeroCard dayOfWeek={schedule.dayOfWeek} pricePerPlayer={schedule.pricePerPlayer} />
+
+          {/* Teams confirmed */}
+          {teamsSet && (
+            <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+              borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
+              <div style={{ padding:"12px 16px", fontSize:10, fontWeight:400,
+                letterSpacing:"0.14em", textTransform:"uppercase", color:"var(--gold)" }}>
+                🏟 Teams confirmed
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:0 }}>
+                {[["A", teamAPlayers, C.teamA], ["B", teamBPlayers, C.teamB]].map(([t, players, color]) => (
+                  <div key={t} style={{ padding:"0 16px 14px" }}>
+                    <div style={{ fontSize:11, fontWeight:700, color, letterSpacing:1,
+                      textTransform:"uppercase", marginBottom:8, paddingBottom:6,
+                      borderBottom:`1px solid ${color}44` }}>
+                      Team {t}
+                    </div>
+                    {players.map((p, i) => (
+                      <div key={p.id} style={{ fontSize:13, fontWeight:500,
+                        color: p.id === myId ? color : "var(--t1)",
+                        padding:"4px 0", borderBottom:"1px solid var(--b2)",
+                        display:"flex", alignItems:"center", gap:6 }}>
+                        <span style={{ fontSize:11, color:"var(--t2)", minWidth:16 }}>{i + 1}</span>
+                        {p.name}
+                        {p.id === myId && <span style={{ fontSize:10, color, background:color+"22", border:`1px solid ${color}44`, borderRadius:4, padding:"1px 5px" }}>you</span>}
+                        {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Full squad list */}
-      {isFull && !teamsSet && (
-        <Card color={C.green} style={{ marginBottom:20 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800, color:C.green,
-            letterSpacing:1.5, textTransform:"uppercase", marginBottom:12 }}>✅ SQUAD CONFIRMED</div>
-          {inPlayers.map((p, i) => (
-            <div key={p.id} style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500,
-              color:p.id===myId?C.green:C.text, padding:"5px 0",
-              borderBottom:`1px solid ${C.border}`,
-              display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:16,
-                color:C.faint, minWidth:22 }}>{i+1}</span>
-              {p.name}{p.id===myId && <Badge text="you" color={C.green}/>}
-              {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
-            </div>
-          ))}
-        </Card>
-      )}
-
-      {/* Response card */}
-      {!schedule.gameIsLive ? (
-        <Card style={{ textAlign:"center", marginBottom:20 }}>
-          <div style={{ fontSize:28, marginBottom:10 }}>⏸</div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:600, color:C.muted }}>
-            Game not open yet
-          </div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.faint, marginTop:4 }}>
-            Opens {schedule.opensDay} at {schedule.opensTime}
-          </div>
-        </Card>
-      ) : (
-        <Card style={{ marginBottom:20 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, color:C.muted,
-            letterSpacing:1, textTransform:"uppercase", marginBottom:14 }}>
-            {me?.name} — are you in {schedule.dayOfWeek}?
-          </div>
-          {/* Injured notice */}
-          {me?.injured && (
-            <div style={{ padding:"10px 12px", borderRadius:6, marginBottom:12,
-              background:C.red+"12", border:`1px solid ${C.red}30`,
-              fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color:C.red }}>
-              🤕 You're marked as injured — respond when you're back
             </div>
           )}
 
-          <div data-gaffer-target="status-buttons"
-            style={{ display:"flex", gap:8, marginBottom:8, opacity:me?.injured?0.35:1 }}>
-            <button onClick={() => !me?.injured && !isFull && setStatus("in")} style={{
-              flex:1, padding:"14px 0", borderRadius:6,
-              border:`2px solid ${me?.status==="in" ? C.green : isFull ? C.faint : C.border}`,
-              background:me?.status==="in" ? C.green+"18" : "transparent",
-              color:me?.status==="in" ? C.green : isFull ? C.faint : C.muted,
-              fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
-              cursor:me?.injured || (isFull && me?.status!=="in") ? "not-allowed" : "pointer" }}>
-              ✅ I'M IN
-            </button>
-            <button onClick={() => !me?.injured && setStatus("out")} style={{
-              flex:1, padding:"14px 0", borderRadius:6,
-              border:`2px solid ${me?.status==="out" ? C.red : C.border}`,
-              background:me?.status==="out" ? C.red+"18" : "transparent",
-              color:me?.status==="out" ? C.red : C.muted,
-              fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
-              cursor:me?.injured ? "not-allowed" : "pointer" }}>
-              ❌ I'M OUT
-            </button>
-          </div>
-          <button onClick={() => !me?.injured && !isFull && setStatus("maybe")} style={{
-            width:"100%", padding:"12px 0", borderRadius:6, marginBottom:8,
-            border:`2px solid ${me?.status==="maybe" ? C.amber : isFull ? C.faint : C.border}`,
-            background:me?.status==="maybe" ? C.amber+"18" : "transparent",
-            color:me?.status==="maybe" ? C.amber : isFull ? C.faint : C.muted,
-            fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
-            cursor:me?.injured || (isFull && me?.status!=="maybe") ? "not-allowed" : "pointer",
-            opacity:me?.injured || (isFull && me?.status!=="maybe") ? 0.35 : 1 }}>
-            ❓ MAYBE — I'll try
-          </button>
-          {!me?.injured && isFull && me?.status !== "in" && (
-            <div style={{ padding:"8px 12px", borderRadius:6, marginBottom:8, textAlign:"center",
-              background:C.amber+"12", border:`1px solid ${C.amber}30`,
-              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.amber }}>
-              🔒 Squad is full — join the reserve list
-            </div>
-          )}
-          <button onClick={() => !me?.injured && setStatus("reserve")} style={{
-            width:"100%", padding:"12px 0", borderRadius:6, marginBottom:10,
-            border:`2px solid ${me?.status==="reserve" ? C.purple : C.border}`,
-            background:me?.status==="reserve" ? C.purple+"18" : "transparent",
-            color:me?.status==="reserve" ? C.purple : C.muted,
-            fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
-            cursor:me?.injured ? "not-allowed" : "pointer",
-            opacity:me?.injured ? 0.35 : 1 }}>
-            🟣 RESERVE — add me to the list
-          </button>
+          {/* b — Response card */}
+          <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+            borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
 
-          {/* Note */}
-          {me?.status && me.status !== "none" && me.status !== "in" && (
-            <div style={{ marginBottom:10 }}>
-              {showNote ? (
-                <div>
-                  <textarea value={note} onChange={e => setNote(e.target.value)}
-                    placeholder="Add a note e.g. 'Might be late from work'" rows={2}
-                    style={{ width:"100%", padding:"10px 12px", borderRadius:6,
-                      border:`1px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-                      fontFamily:"Inter,sans-serif", fontSize:13, outline:"none",
-                      boxSizing:"border-box", resize:"none", marginBottom:8 }}/>
-                  <div style={{ display:"flex", gap:8 }}>
-                    <Btn label="Save Note" color={C.amber} fill onClick={saveNote} small block/>
-                    <Btn label="Cancel" color={C.muted} onClick={() => setShowNote(false)} small block/>
-                  </div>
+            {!schedule.gameIsLive ? (
+              /* Not open yet */
+              <div style={{ padding:"24px 16px", textAlign:"center" }}>
+                <div style={{ fontSize:28, marginBottom:8 }}>⏸</div>
+                <div style={{ fontSize:14, fontWeight:600, color:"var(--t2)" }}>
+                  Game not open yet
                 </div>
-              ) : (
-                <button onClick={() => setShowNote(true)} style={{ background:"none", border:"none",
-                  color:C.muted, fontFamily:"Inter,sans-serif", fontSize:12, cursor:"pointer", padding:0 }}>
-                  {me?.note ? `📝 "${me.note}"` : "+ Add a note"}
-                </button>
-              )}
-            </div>
-          )}
-
-          {me?.status && me.status !== "none" && (
-            <div style={{ padding:"10px 12px", borderRadius:6, textAlign:"center",
-              background:SC[me.status]+"12", color:SC[me.status],
-              fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500 }}>
-              {me.status==="in"      ? `Locked in 👊 See you ${schedule.dayOfWeek}`
-               : me.status==="maybe"   ? "Got it — we'll keep a spot open 🤞"
-               : me.status==="reserve" ? "You're on the reserve list — we'll let you know if a spot opens 🟣"
-               : "No worries, we'll find cover 👍"}
-            </div>
-          )}
-
-          {/* Push subscription prompt — show once after first status set */}
-          {me?.status && me.status !== "none" && canPush && notifState === "idle" && (
-            <div style={{ marginTop:10, padding:"10px 12px", borderRadius:6,
-              background:C.blue+"0c", border:`1px solid ${C.blue}25`,
-              display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-              <span style={{ fontFamily:"Inter,sans-serif", fontSize:12,
-                fontWeight:500, color:C.blue }}>
-                🔔 Get notified for game updates
-              </span>
-              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                <button onClick={handleSubscribe} style={{ padding:"5px 11px", borderRadius:4,
-                  border:`1px solid ${C.blue}`, background:C.blue+"18", color:C.blue,
-                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                  {notifState === "asking" ? "..." : "Enable"}
-                </button>
-                <button onClick={() => {
-                  localStorage.setItem(`notif_${myId}`, "dismissed");
-                  setNotifState("dismissed");
-                }} style={{ padding:"5px 11px", borderRadius:4,
-                  border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                  fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
-                  Not now
-                </button>
+                <div style={{ fontSize:12, color:"var(--t2)", opacity:0.6, marginTop:4 }}>
+                  Opens {schedule.opensDay} at {schedule.opensTime}
+                </div>
               </div>
-            </div>
-          )}
-          {notifState === "subscribed" && (
-            <div style={{ marginTop:8, fontFamily:"Inter,sans-serif", fontSize:12,
-              color:C.green, textAlign:"center" }}>
-              ✅ Notifications on
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* Injury toggle */}
-      <button onClick={toggleInjury} style={{
-        width:"100%", padding:"10px 14px", borderRadius:6, marginBottom:16,
-        border:`1px solid ${me?.injured ? C.red+"60" : C.border}`,
-        background:me?.injured ? C.red+"0c" : "transparent",
-        color:me?.injured ? C.red : C.muted,
-        fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:600,
-        cursor:"pointer", textAlign:"left" }}>
-        {me?.injured ? "🤕 Injured — tap to clear" : "🤕 Mark as injured"}
-      </button>
-
-      {/* Plus One section */}
-      {schedule.gameIsLive && (
-        <div style={{ marginBottom:20 }}>
-          {myGuest ? (
-            <div style={{ padding:"12px 14px", borderRadius:8,
-              background:C.muted+"0c", border:`1px solid ${C.border}` }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                <div>
-                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:600, color:C.text }}>
-                    👤 {myGuest.name} <span style={{ color:C.muted, fontWeight:400 }}>— your plus one</span>
+            ) : (
+              <>
+                {/* Top row: name + badge */}
+                <div style={{ padding:"12px 16px 10px", display:"flex",
+                  alignItems:"center", justifyContent:"space-between",
+                  borderBottom:"1px solid var(--b2)" }}>
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:300, letterSpacing:"0.1em",
+                      textTransform:"uppercase", color:"var(--t2)", marginBottom:3 }}>
+                      Are you in this {schedule.dayOfWeek}?
+                    </div>
+                    <div style={{ fontFamily:"var(--font-display)", fontSize:30,
+                      lineHeight:1, color:"var(--t1)", letterSpacing:"0.04em" }}>
+                      {me?.name}
+                    </div>
                   </div>
-                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:2 }}>
-                    {myGuest.selfPaid ? "Paying cash" : "You're covering payment"}
-                  </div>
+                  {me?.status && me.status !== "none" && <StatusBadge status={me.status} />}
                 </div>
-                {canRemoveGuest && (
-                  <button onClick={removeMyGuest} disabled={removingGuest}
-                    style={{ padding:"5px 11px", borderRadius:4,
-                      border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                      fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
-                    {removingGuest ? "..." : "Remove"}
-                  </button>
+
+                {/* Locked row */}
+                {me?.status === "in" && (
+                  <div style={{ display:"flex", alignItems:"center", gap:6,
+                    padding:"8px 16px", fontSize:12, color:"var(--green)",
+                    fontWeight:400, borderBottom:"1px solid var(--b2)" }}>
+                    🔒 Locked in. See you {schedule.dayOfWeek}.
+                  </div>
                 )}
-              </div>
-            </div>
-          ) : showPlusOneForm ? (
-            <div style={{ padding:"14px 16px", borderRadius:8,
-              background:C.surface, border:`1px solid ${C.border}` }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
-                color:C.text, marginBottom:12 }}>➕ Add a plus one</div>
 
-              <input value={guestName} onChange={e => handleGuestNameChange(e.target.value)}
-                placeholder="Guest's name..."
-                style={{ width:"100%", padding:"11px 13px", borderRadius:6,
-                  marginBottom: pickerPlayer ? 8 : 12,
-                  border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-                  fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
-                  boxSizing:"border-box" }}/>
-              {pickerPlayer && (
-                <div style={{ padding:"10px 12px", borderRadius:6, marginBottom:12,
-                  background:C.amber+"0c", border:`1px solid ${C.amber}40`,
+                {/* Injured notice */}
+                {me?.injured && (
+                  <div style={{ padding:"10px 16px", fontSize:13, color:"var(--red)",
+                    background:"var(--red2)", borderBottom:"1px solid var(--b2)" }}>
+                    🤕 You&apos;re marked as injured — respond when you&apos;re back
+                  </div>
+                )}
+
+                {/* Squad full notice */}
+                {!me?.injured && isFull && me?.status !== "in" && (
+                  <div style={{ padding:"8px 16px", fontSize:12, fontWeight:600,
+                    color:"var(--amber)", background:"var(--amber2)",
+                    borderBottom:"1px solid var(--b2)" }}>
+                    🔒 Squad is full — join the reserve list
+                  </div>
+                )}
+
+                {/* Status buttons 4-grid */}
+                <div data-gaffer-target="status-buttons"
+                  style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
+                    gap:8, padding:"10px 12px" }}>
+                  <StatusButton
+                    status="in" label="In"
+                    icon={<Check size={18} weight="thin" />}
+                    active={me?.status === "in"}
+                    onClick={() => !me?.injured && !isFull && setStatus("in")}
+                    disabled={me?.injured || (isFull && me?.status !== "in")}
+                  />
+                  <StatusButton
+                    status="out" label="Out"
+                    icon={<X size={18} weight="thin" />}
+                    active={me?.status === "out"}
+                    onClick={() => !me?.injured && setStatus("out")}
+                    disabled={!!me?.injured}
+                  />
+                  <StatusButton
+                    status="maybe" label="Maybe"
+                    icon={<Question size={18} weight="thin" />}
+                    active={me?.status === "maybe"}
+                    onClick={() => !me?.injured && !isFull && setStatus("maybe")}
+                    disabled={me?.injured || (isFull && me?.status !== "maybe")}
+                  />
+                  <StatusButton
+                    status="reserve" label="Reserve"
+                    icon={<ArrowDown size={18} weight="thin" />}
+                    active={me?.status === "reserve"}
+                    onClick={() => !me?.injured && setStatus("reserve")}
+                    disabled={!!me?.injured}
+                  />
+                </div>
+
+                {/* Note row */}
+                <div style={{ borderTop:"1px solid var(--b2)" }}>
+                  {showNote ? (
+                    <div style={{ padding:"10px 16px" }}>
+                      <textarea
+                        value={note}
+                        onChange={e => setNote(e.target.value)}
+                        placeholder="Might be 5 mins late…"
+                        rows={2}
+                        style={{ width:"100%", padding:"9px 12px", borderRadius:8,
+                          border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                          color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:13,
+                          outline:"none", boxSizing:"border-box", resize:"none",
+                          marginBottom:8 }}
+                      />
+                      <div style={{ display:"flex", gap:8 }}>
+                        <button onClick={saveNote} style={{
+                          flex:1, padding:"9px 0", borderRadius:8, border:"none",
+                          background:"var(--gold)", color:"#000",
+                          fontFamily:"var(--font-body)", fontSize:13, fontWeight:500, cursor:"pointer" }}>
+                          Save Note
+                        </button>
+                        <button onClick={() => setShowNote(false)} style={{
+                          flex:1, padding:"9px 0", borderRadius:8,
+                          border:"0.5px solid var(--border-subtle)", background:"transparent",
+                          color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:13, cursor:"pointer" }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div onClick={() => setShowNote(true)} style={{
+                      padding:"9px 16px", display:"flex", alignItems:"center",
+                      justifyContent:"space-between", cursor:"pointer" }}>
+                      <span style={{ display:"flex", alignItems:"center", gap:6,
+                        fontSize:12, color:"var(--t2)", fontWeight:400 }}>
+                        <PencilSimple size={14} weight="thin" />
+                        Add a note
+                      </span>
+                      <span style={{ fontSize:12, color:"var(--t2)", fontStyle:"italic", fontWeight:300 }}>
+                        {me?.note || "e.g. \"Might be 5 mins late\""}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Status confirmation message */}
+                {me?.status && me.status !== "none" && (
+                  <div style={{ padding:"9px 16px", borderTop:"1px solid var(--b2)",
+                    fontSize:12, fontWeight:400, color:"var(--t2)", fontStyle:"italic" }}>
+                    {me.status === "in"
+                      ? `👊 Locked in — see you ${schedule.dayOfWeek}`
+                      : me.status === "maybe"
+                        ? "🤞 Got it — we'll keep a spot open"
+                        : me.status === "reserve"
+                          ? "🟣 On the reserve list — we'll let you know if a spot opens"
+                          : "👍 No worries, we'll find cover"}
+                  </div>
+                )}
+
+                {/* Push subscription prompt */}
+                {me?.status && me.status !== "none" && canPush && notifState === "idle" && (
+                  <div style={{ margin:"0 12px 12px", padding:"10px 14px", borderRadius:"var(--rs)",
+                    background:"var(--s2)", border:"0.5px solid var(--border-subtle)",
+                    display:"flex", alignItems:"center", gap:10 }}>
+                    <Bell size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                    <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
+                      Get notified when a spot opens or squad fills up
+                    </div>
+                    <button onClick={handleSubscribe} style={{
+                      background:"var(--gold)", color:"#000", border:"none", borderRadius:7,
+                      padding:"7px 12px", fontSize:12, fontWeight:500,
+                      fontFamily:"var(--font-body)", cursor:"pointer", flexShrink:0 }}>
+                      {notifState === "asking" ? "..." : "Enable"}
+                    </button>
+                    <button onClick={() => {
+                      localStorage.setItem(`notif_${myId}`, "dismissed");
+                      setNotifState("dismissed");
+                    }} style={{ fontSize:12, color:"var(--t2)", background:"none", border:"none",
+                      fontFamily:"var(--font-body)", cursor:"pointer", padding:"7px 4px",
+                      flexShrink:0, fontWeight:300 }}>
+                      Not now
+                    </button>
+                  </div>
+                )}
+                {notifState === "subscribed" && (
+                  <div style={{ padding:"8px 16px 12px", fontSize:12, color:"var(--green)", textAlign:"center" }}>
+                    ✅ Notifications on
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* c — Quick actions row */}
+          <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+
+            {/* Plus One */}
+            {schedule.gameIsLive && (
+              myGuest ? (
+                /* Guest card */
+                <div style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
+                  border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
                   display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-                  <span style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.amber }}>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>
+                      👤 {myGuest.name}
+                      <span style={{ color:"var(--t2)", fontWeight:400 }}> — your +1</span>
+                    </div>
+                    <div style={{ fontSize:11, color:"var(--t2)", marginTop:2, fontWeight:300 }}>
+                      {myGuest.selfPaid ? "Paying cash" : "You&apos;re covering payment"}
+                    </div>
+                  </div>
+                  {canRemoveGuest && (
+                    <button onClick={removeMyGuest} disabled={removingGuest} style={{
+                      padding:"5px 11px", borderRadius:4,
+                      border:"0.5px solid var(--border-subtle)", background:"transparent",
+                      color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11, cursor:"pointer" }}>
+                      {removingGuest ? "..." : "Remove"}
+                    </button>
+                  )}
+                </div>
+              ) : !showPlusOneForm ? (
+                <button
+                  data-gaffer-target="add-plus-one"
+                  onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
+                  style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
+                    border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                    display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+                  <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                  <div style={{ textAlign:"left" }}>
+                    <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Plus One</div>
+                    <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Bring a guest</div>
+                  </div>
+                </button>
+              ) : null
+            )}
+
+            {/* Injured toggle */}
+            <button onClick={toggleInjury} style={{
+              flex: schedule.gameIsLive && !myGuest && !showPlusOneForm ? undefined : 1,
+              padding:"11px 12px", background:"var(--s1)",
+              border: me?.injured ? "0.5px solid var(--redb)" : "0.5px solid var(--border-subtle)",
+              borderRadius:"var(--rs)",
+              display:"flex", alignItems:"center", gap:8, cursor:"pointer",
+              background: me?.injured ? "var(--red2)" : "var(--s1)",
+            }}>
+              <Bandaids size={20} weight="thin" color={me?.injured ? "var(--red)" : "var(--t1)"} style={{ flexShrink:0 }} />
+              <div style={{ textAlign:"left" }}>
+                <div style={{ fontSize:13, fontWeight:400, color: me?.injured ? "var(--red)" : "var(--t1)" }}>
+                  {me?.injured ? "Injured" : "Injured"}
+                </div>
+                <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>
+                  {me?.injured ? "Tap to clear" : "Mark yourself out"}
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Plus One form (expanded) */}
+          {showPlusOneForm && (
+            <div style={{ padding:"14px 16px", borderRadius:"var(--r)",
+              background:"var(--s1)", border:"0.5px solid var(--border-subtle)", marginBottom:8 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"var(--t1)", marginBottom:12 }}>
+                ➕ Add a plus one
+              </div>
+              <input
+                value={guestName}
+                onChange={e => handleGuestNameChange(e.target.value)}
+                placeholder="Guest's name..."
+                style={{ width:"100%", padding:"11px 13px", borderRadius:8,
+                  marginBottom: pickerPlayer ? 8 : 12,
+                  border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                  color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:14,
+                  outline:"none", boxSizing:"border-box" }}
+              />
+              {pickerPlayer && (
+                <div style={{ padding:"10px 12px", borderRadius:8, marginBottom:12,
+                  background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+                  display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                  <span style={{ fontSize:12, color:"var(--amber)" }}>
                     Is this {pickerPlayer.name} (already on the team)?
                   </span>
                   <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                    <button onClick={confirmExistingPlayer} style={{ padding:"5px 11px", borderRadius:4,
-                      border:`1px solid ${C.green}`, background:C.green+"18", color:C.green,
-                      fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                    <button onClick={confirmExistingPlayer} style={{
+                      padding:"5px 11px", borderRadius:4,
+                      border:"0.5px solid var(--greenb)", background:"var(--green2)",
+                      color:"var(--green)", fontFamily:"var(--font-body)",
+                      fontSize:11, fontWeight:700, cursor:"pointer" }}>
                       Yes
                     </button>
-                    <button onClick={() => setPickerPlayer(null)} style={{ padding:"5px 11px",
-                      borderRadius:4, border:`1px solid ${C.border}`, background:"transparent",
-                      color:C.muted, fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
+                    <button onClick={() => setPickerPlayer(null)} style={{
+                      padding:"5px 11px", borderRadius:4,
+                      border:"0.5px solid var(--border-subtle)", background:"transparent",
+                      color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11, cursor:"pointer" }}>
                       No
                     </button>
                   </div>
                 </div>
               )}
-
               {/* Payment toggle */}
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-                {[
-                  { label:`${me?.name} pays`, value:false },
-                  { label:"They pay", value:true },
-                ].map(opt => (
+                {[{ label:`${me?.name} pays`, value: false }, { label:"They pay", value: true }].map(opt => (
                   <button key={String(opt.value)} onClick={() => setGuestSelfPaid(opt.value)} style={{
-                    flex:1, padding:"9px 0", borderRadius:5,
-                    border:`1.5px solid ${guestSelfPaid===opt.value ? C.amber : C.border}`,
-                    background:guestSelfPaid===opt.value ? C.amber+"18" : "transparent",
-                    color:guestSelfPaid===opt.value ? C.amber : C.muted,
-                    fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                    flex:1, padding:"9px 0", borderRadius:8,
+                    border: guestSelfPaid === opt.value ? "0.5px solid var(--amberb)" : "0.5px solid var(--border-subtle)",
+                    background: guestSelfPaid === opt.value ? "var(--amber2)" : "transparent",
+                    color: guestSelfPaid === opt.value ? "var(--amber)" : "var(--t2)",
+                    fontFamily:"var(--font-body)", fontSize:12, fontWeight:600, cursor:"pointer" }}>
                     {opt.label}
                   </button>
                 ))}
               </div>
-
               <div style={{ display:"flex", gap:8 }}>
-                <Btn label={addingGuest ? "Adding..." : "Add Plus One"} color={C.green} fill
-                  onClick={submitGuest} disabled={!guestName.trim() || addingGuest} small block/>
-                <Btn label="Cancel" color={C.muted}
-                  onClick={() => { setShowPlusOneForm(false); setGuestName(""); setPickerPlayer(null); onMidFlowChange?.(false); }}
-                  small block/>
+                <button onClick={submitGuest} disabled={!guestName.trim() || addingGuest} style={{
+                  flex:1, padding:"10px 0", borderRadius:8, border:"none",
+                  background: guestName.trim() ? "var(--green)" : "var(--s3)",
+                  color: guestName.trim() ? "#000" : "var(--t2)",
+                  fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+                  cursor: guestName.trim() && !addingGuest ? "pointer" : "not-allowed" }}>
+                  {addingGuest ? "Adding..." : "Add Plus One"}
+                </button>
+                <button onClick={() => {
+                  setShowPlusOneForm(false); setGuestName(""); setPickerPlayer(null);
+                  onMidFlowChange?.(false);
+                }} style={{
+                  flex:1, padding:"10px 0", borderRadius:8,
+                  border:"0.5px solid var(--border-subtle)", background:"transparent",
+                  color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:13, cursor:"pointer" }}>
+                  Cancel
+                </button>
               </div>
             </div>
-          ) : (
-            <button
-              data-gaffer-target="add-plus-one"
-              onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
-              style={{
-                width:"100%", padding:"11px 14px", borderRadius:6,
-                border:`1px solid ${C.border}`, background:C.surface,
-                color:C.muted, fontFamily:"Inter,sans-serif", fontSize:13,
-                fontWeight:600, cursor:"pointer", textAlign:"left" }}>
-              ➕ Add a plus one
-            </button>
           )}
-        </div>
-      )}
 
-      {/* Live board */}
-      {!teamsSet && (
-        <>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800, color:C.muted,
-            letterSpacing:1.5, textTransform:"uppercase", margin:"20px 0 12px" }}>LIVE BOARD</div>
-          {[["in","✅","IN",C.green],["maybe","❓","MAYBE",C.amber],
-            ["out","❌","OUT",C.red],["none","⏳","NO RESPONSE",C.muted]].map(([k,emoji,label,color]) =>
-            groups[k].length > 0 && (
-              <div key={k} style={{ marginBottom:14 }}>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, color,
-                  letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>
-                  {emoji} {label} ({groups[k].length})
-                </div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {groups[k].map(p => {
-                    const hostName = p.isGuest ? squad.find(h => h.id === p.guestOf)?.name : null;
-                    return (
-                      <div key={p.id} style={{ padding:"5px 12px", borderRadius:4,
-                        background:color+"14", border:`1px solid ${color}40`,
-                        fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color,
-                        display:"flex", flexDirection:"column", gap:2 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                          <span style={{ opacity:p.injured?0.45:1 }}>{p.name}</span>
-                          {p.injured && <span style={{ fontSize:11 }}>🤕</span>}
-                          {p.isGuest && <span style={{ fontSize:11 }}>👤</span>}
-                        </div>
-                        {p.isGuest && hostName && (
-                          <div style={{ fontSize:10, color:color+"99" }}>guest of {hostName}</div>
-                        )}
-                        {p.note && (
-                          <div style={{ fontSize:10, color:C.muted, fontStyle:"italic" }}>
-                            "{p.note}"
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+          {/* e — Live board */}
+          {!teamsSet && (
+            <>
+              <div style={{ display:"flex", alignItems:"center", marginBottom:7, marginTop:12 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:7, fontSize:10, fontWeight:400,
+                  letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)" }}>
+                  <span style={{ width:6, height:6, background:"var(--green)", borderRadius:"50%",
+                    animation:"ioo-blink 2s infinite", boxShadow:"0 0 8px var(--green)",
+                    display:"inline-block", flexShrink:0 }} />
+                  Live Board
                 </div>
               </div>
-            )
-          )}
-          {groups.reserve?.length > 0 && (
-            <div data-gaffer-target="reserve-list" style={{ marginBottom:14 }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, color:C.purple,
-                letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>
-                🟣 RESERVE ({groups.reserve.length})
-              </div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                {groups.reserve.map((p, i) => (
-                  <div key={p.id} style={{ padding:"5px 12px", borderRadius:4,
-                    background:C.purple+"14", border:`1px solid ${C.purple}40`,
-                    fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color:C.purple,
-                    display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ fontSize:11, color:C.faint }}>{i+1}.</span>
-                    {p.name}{p.id===myId && <Badge text="you" color={C.purple}/>}
+
+              <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:8 }}>
+
+                {/* IN */}
+                <Tile colour="green" icon="✅" label="In" count={inPlayers.length}>
+                  {inPlayers.map(p => (
+                    <Avatar
+                      key={p.id}
+                      player={p}
+                      isMe={p.id === myId}
+                      tileColour="green"
+                      hasGuest={squad.some(g => g.isGuest && g.guestOf === p.id)}
+                    />
+                  ))}
+                </Tile>
+
+                {/* MAYBE */}
+                {maybePlayers.length > 0 && (
+                  <Tile colour="amber" icon="❓" label="Maybe" count={maybePlayers.length}>
+                    {maybePlayers.map(p => (
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" />
+                    ))}
+                  </Tile>
+                )}
+
+                {/* OUT */}
+                {outPlayers.length > 0 && (
+                  <Tile colour="red" icon="❌" label="Out" count={outPlayers.length}>
+                    {outPlayers.map(p => (
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" />
+                    ))}
+                  </Tile>
+                )}
+
+                {/* RESERVE */}
+                {reservePlayers.length > 0 && (
+                  <div data-gaffer-target="reserve-list">
+                    <Tile colour="purple" icon="🟣" label="Reserve" count={reservePlayers.length}>
+                      {reservePlayers.map((p, i) => (
+                        <Avatar
+                          key={p.id} player={p}
+                          isMe={p.id === myId} tileColour="purple"
+                          reserveIndex={i + 1}
+                        />
+                      ))}
+                    </Tile>
                   </div>
-                ))}
+                )}
               </div>
-            </div>
+
+              {/* No response row */}
+              {noRespPlayers.length > 0 && (
+                <>
+                  <div
+                    onClick={() => setShowNoResp(s => !s)}
+                    style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+                      borderRadius:"var(--rs)", padding:"10px 14px",
+                      display:"flex", alignItems:"center", justifyContent:"space-between",
+                      marginBottom:8, cursor:"pointer" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8,
+                      fontSize:12, color:"var(--t2)", fontWeight:400 }}>
+                      <Hourglass size={16} weight="thin" />
+                      No response · {noRespPlayers.length}
+                    </div>
+                    <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                      {showNoResp ? "Tap to hide ↑" : "Tap to view ↓"}
+                    </div>
+                  </div>
+                  {showNoResp && (
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 9px",
+                      padding:"0 4px", marginBottom:8 }}>
+                      {noRespPlayers.map(p => (
+                        <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
-        </>
+
+          {/* f — Balance card */}
+          <BalanceCard
+            owes={me?.owes || 0}
+            status={me?.status}
+            paid={me?.paid}
+            selfPaid={me?.selfPaid}
+            onSelfPay={markSelfPaid}
+          />
+        </div>
       )}
 
-      {/* Balance + self-pay */}
-      <div style={{ marginTop:16, padding:"13px 16px", background:C.surface,
-        borderRadius:6, border:`1px solid ${C.border}` }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
-              color:C.muted, letterSpacing:1, textTransform:"uppercase" }}>Your Balance</div>
-            <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
-              color:me?.owes ? C.red : C.green, marginTop:2 }}>
-              {me?.owes ? `£${me.owes} OWED` : "ALL CLEAR ✅"}
-            </div>
-          </div>
-          <div style={{ fontSize:26 }}>💰</div>
-        </div>
-        {me?.status==="in" && !me?.paid && !me?.selfPaid && (
-          <button onClick={markSelfPaid} style={{ marginTop:10, width:"100%", padding:"10px 0",
-            borderRadius:6, border:`1.5px solid ${C.green}`, background:"transparent", color:C.green,
-            fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700, cursor:"pointer" }}>
-            I've Paid — Notify Admin
-          </button>
-        )}
-        {me?.selfPaid && !me?.paid && (
-          <div style={{ marginTop:10, padding:"8px 12px", borderRadius:6,
-            background:C.amber+"12", fontFamily:"Inter,sans-serif", fontSize:12,
-            fontWeight:500, color:C.amber, textAlign:"center" }}>
-            ⏳ Payment flagged — awaiting admin confirmation
-          </div>
-        )}
-      </div>
+      {/* STATS tab */}
+      {activeTab === "stats" && (
+        <StatsView squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} />
+      )}
+
+      {/* HISTORY tab */}
+      {activeTab === "history" && (
+        <HistoryView matchHistory={matchHistory} settings={settings} />
+      )}
+
+      {/* 4 ── NAVBAR */}
+      <NavBar activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }
