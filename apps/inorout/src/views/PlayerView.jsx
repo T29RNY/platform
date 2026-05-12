@@ -12,7 +12,6 @@ import StatusButton from "../components/ui/StatusButton.jsx";
 import Tile        from "../components/ui/Tile.jsx";
 import Avatar      from "../components/ui/Avatar.jsx";
 import NavBar      from "../components/ui/NavBar.jsx";
-import BalanceCard from "../components/ui/BalanceCard.jsx";
 import StatsView   from "./StatsView.jsx";
 import HistoryView from "./HistoryView.jsx";
 
@@ -174,11 +173,6 @@ export default function PlayerView({
   const saveNote = () => {
     setSquad(squad.map(p => p.id === myId ? { ...p, note } : p));
     setShowNote(false);
-  };
-
-  const markSelfPaid = () => {
-    setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
-    sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
   };
 
   const handleGuestNameChange = (val) => {
@@ -806,14 +800,6 @@ export default function PlayerView({
             </>
           )}
 
-          {/* f — Balance card */}
-          <BalanceCard
-            owes={me?.owes || 0}
-            status={me?.status}
-            paid={me?.paid}
-            selfPaid={me?.selfPaid}
-            onSelfPay={markSelfPaid}
-          />
         </div>
       )}
 
