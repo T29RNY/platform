@@ -350,71 +350,75 @@ export default function PlayerView({
                     const paymentState = getPaymentState(me, cashPending);
                     const paymentMode  = getPaymentMode(schedule);
 
-                    console.log('[ioo] payment debug', {
-                      paid: me?.paid,
-                      selfPaid: me?.self_paid,  // snake_case: undefined if dbToPlayer mapped it correctly
-                      owes: me?.owes,
-                      cashPending,
-                      paymentState: getPaymentState(me, cashPending),
-                    });
-
-                    if (paymentState === 'paid') return (
-                      <button disabled style={{
-                        padding:"6px 12px", borderRadius:8,
-                        border:"0.5px solid var(--greenb)", background:"var(--green2)",
-                        color:"var(--green)", fontFamily:"var(--font-body)",
-                        fontSize:11, fontWeight:500, cursor:"default",
-                      }}>✓ All paid up</button>
-                    );
-
-                    if (paymentState === 'debt') return (
-                      <button onClick={async () => {
-                        await handleClearDebt(me.id, teamId);
-                        setSquad(squad.map(p => p.id === myId ? { ...p, owes: 0 } : p));
-                      }} style={{
-                        padding:"6px 12px", borderRadius:8,
-                        border:"0.5px solid var(--gold)", background:"transparent",
-                        color:"var(--gold)", fontFamily:"var(--font-body)",
-                        fontSize:11, fontWeight:500, cursor:"pointer",
-                      }}>Clear Debt</button>
-                    );
-
-                    if (paymentState === 'cash_pending') return (
-                      <button onClick={async () => {
-                        await handleCashPayment(me.id, teamId);
-                        setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
-                      }} style={{
-                        padding:"6px 12px", borderRadius:8,
-                        border:"0.5px solid var(--amber)", background:"transparent",
-                        color:"var(--amber)", fontFamily:"var(--font-body)",
-                        fontSize:11, fontWeight:500, cursor:"pointer",
-                      }}>Confirm — Paid Cash</button>
-                    );
-
-                    // unpaid + in — show payment buttons
-                    return (
-                      <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
-                        {(paymentMode === 'both' || paymentMode === 'stripe_only') && (
-                          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
-                            <button disabled style={{
+                    let content = null;
+                    if (paymentState === 'paid') {
+                      content = (
+                        <button disabled style={{
+                          padding:"6px 12px", borderRadius:8,
+                          border:"0.5px solid var(--greenb)", background:"var(--green2)",
+                          color:"var(--green)", fontFamily:"var(--font-body)",
+                          fontSize:11, fontWeight:500, cursor:"default",
+                        }}>✓ All paid up</button>
+                      );
+                    } else if (paymentState === 'debt') {
+                      content = (
+                        <button onClick={async () => {
+                          await handleClearDebt(me.id, teamId);
+                          setSquad(squad.map(p => p.id === myId ? { ...p, owes: 0 } : p));
+                        }} style={{
+                          padding:"6px 12px", borderRadius:8,
+                          border:"0.5px solid var(--gold)", background:"transparent",
+                          color:"var(--gold)", fontFamily:"var(--font-body)",
+                          fontSize:11, fontWeight:500, cursor:"pointer",
+                        }}>Clear Debt</button>
+                      );
+                    } else if (paymentState === 'cash_pending') {
+                      content = (
+                        <button onClick={async () => {
+                          await handleCashPayment(me.id, teamId);
+                          setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid: true } : p));
+                        }} style={{
+                          padding:"6px 12px", borderRadius:8,
+                          border:"0.5px solid var(--amber)", background:"transparent",
+                          color:"var(--amber)", fontFamily:"var(--font-body)",
+                          fontSize:11, fontWeight:500, cursor:"pointer",
+                        }}>Confirm — Paid Cash</button>
+                      );
+                    } else {
+                      content = (
+                        <div style={{ display:"flex", flexDirection:"column", gap:5, alignItems:"flex-end" }}>
+                          {(paymentMode === 'both' || paymentMode === 'stripe_only') && (
+                            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:2 }}>
+                              <button disabled style={{
+                                padding:"6px 12px", borderRadius:8,
+                                border:"0.5px solid var(--border-subtle)", background:"transparent",
+                                color:"var(--t2)", fontFamily:"var(--font-body)",
+                                fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
+                              }}>Pay Now</button>
+                              <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>
+                                Stripe — coming soon
+                              </span>
+                            </div>
+                          )}
+                          {(paymentMode === 'both' || paymentMode === 'cash_only') && (
+                            <button onClick={() => setPayState("confirming")} style={{
                               padding:"6px 12px", borderRadius:8,
-                              border:"0.5px solid var(--border-subtle)", background:"transparent",
-                              color:"var(--t2)", fontFamily:"var(--font-body)",
-                              fontSize:11, fontWeight:500, opacity:0.5, cursor:"not-allowed",
-                            }}>Pay Now</button>
-                            <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>
-                              Stripe — coming soon
-                            </span>
-                          </div>
-                        )}
-                        {(paymentMode === 'both' || paymentMode === 'cash_only') && (
-                          <button onClick={() => setPayState("confirming")} style={{
-                            padding:"6px 12px", borderRadius:8,
-                            border:"none", background:"var(--gold)",
-                            color:"#000", fontFamily:"var(--font-body)",
-                            fontSize:11, fontWeight:600, cursor:"pointer",
-                          }}>Will Pay Cash</button>
-                        )}
+                              border:"none", background:"var(--gold)",
+                              color:"#000", fontFamily:"var(--font-body)",
+                              fontSize:11, fontWeight:600, cursor:"pointer",
+                            }}>Will Pay Cash</button>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
+                        {content}
+                        {/* DEBUG — remove after diagnosis */}
+                        <div style={{ fontSize:9, color:"var(--t2)", marginTop:4, opacity:0.5, textAlign:"right" }}>
+                          paid:{String(me?.paid)} self_paid:{String(me?.self_paid)} owes:{String(me?.owes)} state:{paymentState}
+                        </div>
                       </div>
                     );
                   })()}
