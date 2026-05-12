@@ -566,7 +566,7 @@ export default function App() {
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
-      {route.type !== "player" && (
+      {isAdmin && (
         <Header
           view={view} setView={setView}
           squad={squad} schedule={schedule} settings={settings}
