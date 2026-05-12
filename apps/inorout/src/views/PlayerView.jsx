@@ -260,36 +260,17 @@ export default function PlayerView({
   return (
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
 
-      {/* 1 ── PAGE HEADER */}
-      <PageHeader
-        teamName={settings?.groupName}
-        dayOfWeek={schedule.dayOfWeek}
-        venue={schedule.venue}
-        kickoff={schedule.kickoff}
-        inCount={inPlayers.length}
-        squadSize={schedule.squadSize || 14}
-        gameIsLive={schedule.gameIsLive}
-      />
-
-      {/* 2 ── TABS (segmented control) */}
-      <div style={{
-        display:"flex", background:"var(--s2)", borderRadius:9,
-        padding:3, margin:"0 16px 16px",
-      }}>
-        {[["my-view","My View"],["stats","Stats"],["history","History"]].map(([id, label]) => (
-          <button key={id} onClick={() => setActiveTab(id)} style={{
-            flex:1, padding:"6px 0", border:"none", cursor:"pointer",
-            borderRadius:7, fontSize:11, fontWeight:700,
-            letterSpacing:"0.07em", textTransform:"uppercase",
-            fontFamily:"var(--font-body)",
-            background: activeTab === id ? "var(--s3)" : "transparent",
-            color:      activeTab === id ? "var(--t1)" : "var(--t2)",
-            boxShadow:  activeTab === id ? "0 1px 4px rgba(0,0,0,0.5)" : "none",
-            transition:"all 0.15s",
-          }}>
-            {label}
-          </button>
-        ))}
+      {/* 1 ── PAGE HEADER (sticky) */}
+      <div style={{ position:"sticky", top:0, zIndex:50, background:"var(--bg)" }}>
+        <PageHeader
+          teamName={settings?.groupName}
+          dayOfWeek={schedule.dayOfWeek}
+          venue={schedule.venue}
+          kickoff={schedule.kickoff}
+          inCount={inPlayers.length}
+          squadSize={schedule.squadSize || 14}
+          gameIsLive={schedule.gameIsLive}
+        />
       </div>
 
       {/* 3 ── MY VIEW */}

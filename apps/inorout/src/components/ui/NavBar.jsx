@@ -35,7 +35,7 @@ if (typeof document !== "undefined" && !document.getElementById("ioo-nav-styles"
 }
 
 const BASE_TABS = [
-  { id:"player",  label:"My View", Icon:House               },
+  { id:"my-view", label:"My View", Icon:House               },
   { id:"stats",   label:"Stats",   Icon:ChartBar            },
   { id:"history", label:"History", Icon:ClockCounterClockwise },
 ];
