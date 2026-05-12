@@ -156,7 +156,7 @@ export default function ScoreScreen({
         </div>
       ))}
 
-      <SecTitle>🏆 Man of the Match</SecTitle>
+      <SecTitle>🏆 Player of the Match</SecTitle>
       <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:22 }}>
         {inPlayers.filter(p => !p.isGuest).map(p => (
           <button key={p.id} onClick={() => setMotmVote(p.name)} style={{

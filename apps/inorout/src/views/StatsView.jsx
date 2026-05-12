@@ -471,7 +471,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
             )}
 
             {/* 4. MOTM Kings */}
-            <SecLabel icon={Star} label="Man of the Match" />
+            <SecLabel icon={Star} label="Player of the Match" />
             {topMotm.length > 0 ? (
               <LeaderCard icon={Star} label="POTM Awards">
                 {topMotm.map((p, i) => {
