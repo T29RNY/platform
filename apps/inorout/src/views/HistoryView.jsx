@@ -1,155 +1,635 @@
 import { useState } from "react";
-import { colors as C, generateMatchReport } from "@platform/core";
-import { Card, SecTitle, BackBtn } from "@platform/ui";
+import { ShareNetwork, CaretRight } from "@phosphor-icons/react";
 
-export default function HistoryView({ matchHistory, settings }) {
-  const [selected, setSelected] = useState(null);
-  const [copied,   setCopied]   = useState(false);
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  const copyReport = (match) => {
-    const report = generateMatchReport(match, settings.groupName);
-    navigator.clipboard.writeText(report).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+const MONTHS_IDX = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+const MONTH_ABBR = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+function parseMatchDate(d) {
+  if (!d) return new Date(0);
+  const [day, mon, year] = (d || "").split(" ");
+  return new Date(+year, MONTHS_IDX[mon] ?? 0, +day || 1);
+}
+
+function getResult(m) {
+  if (m.cancelled) return "cancelled";
+  if (!m.winner || m.winner === "D") return "draw";
+  return m.winner === "A" ? "win" : "loss";
+}
+
+function initials(name) {
+  const parts = (name || "").trim().split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : (name || "?").slice(0, 2).toUpperCase();
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const HERO_IMG = "https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&q=80";
+
+const RESULT_STYLES = {
+  win:       { border: "0.5px solid rgba(61,220,106,0.35)",  shadow: "0 0 14px rgba(61,220,106,0.08)"  },
+  loss:      { border: "0.5px solid rgba(255,64,64,0.35)",   shadow: "0 0 14px rgba(255,64,64,0.08)"   },
+  draw:      { border: "0.5px solid rgba(255,176,32,0.35)",  shadow: "0 0 14px rgba(255,176,32,0.08)"  },
+  cancelled: { border: "0.5px solid rgba(255,64,64,0.2)",    shadow: "none"                            },
+};
+
+const BADGE = {
+  win:  { bg: "var(--green2)", border: "var(--greenb)", color: "var(--green)", label: "WIN"  },
+  loss: { bg: "var(--red2)",   border: "var(--redb)",   color: "var(--red)",   label: "LOSS" },
+  draw: { bg: "var(--amber2)", border: "var(--amberb)", color: "var(--amber)", label: "DRAW" },
+};
+
+const SCORE_C = {
+  win:  { A: "var(--green)", B: "var(--red)"   },
+  loss: { A: "var(--red)",   B: "var(--green)" },
+  draw: { A: "var(--amber)", B: "var(--amber)" },
+};
+
+// ── Avatar chip (22px, initials only) ────────────────────────────────────────
+
+function AvatarChip({ name, isGuest, team }) {
+  const isTeamA = team === "A";
+  const bg    = isGuest ? "rgba(232,160,32,0.2)"  : isTeamA ? "rgba(96,160,255,0.2)"  : "rgba(255,96,96,0.2)";
+  const color = isGuest ? "var(--gold)"            : isTeamA ? "#60A0FF"               : "#FF6060";
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <div style={{
+        width: 22, height: 22, borderRadius: "50%",
+        background: bg, color,
+        fontSize: 7, fontWeight: 700,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "var(--font-body)",
+      }}>
+        {initials(name)}
+      </div>
+      {isGuest && (
+        <div style={{
+          position: "absolute", bottom: -1, right: -1,
+          width: 8, height: 8, borderRadius: "50%",
+          background: "var(--gold)", border: "1px solid var(--bg)",
+          fontSize: 5, color: "#000",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontWeight: 700, lineHeight: 1,
+        }}>+</div>
+      )}
+    </div>
+  );
+}
+
+// ── Match card ────────────────────────────────────────────────────────────────
+
+function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
+  const [copied, setCopied] = useState(false);
+
+  const result   = getResult(m);
+  const rs       = RESULT_STYLES[result];
+  const d        = parseMatchDate(m.date);
+  const dayOfWeek = d.getTime() ? d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase() : "—";
+  const dateNum   = d.getTime() ? d.getDate() : "—";
+  const monthStr  = d.getTime() ? MONTH_ABBR[d.getMonth()] : "—";
+
+  const findPlayer = name =>
+    (players || []).find(p => (p.name || "").toLowerCase().trim() === (name || "").toLowerCase().trim());
+
+  const teamAObjs = (m.teamA || []).map(n => ({ name: n, ...(findPlayer(n) || {}) }));
+  const teamBObjs = (m.teamB || []).map(n => ({ name: n, ...(findPlayer(n) || {}) }));
+
+  const venue       = m.venue        || schedule?.venue   || null;
+  const kickoffTime = m.kickoff_time || schedule?.kickoff || null;
+
+  const scorersList = Object.entries(m.scorers || {})
+    .filter(([, g]) => g > 0)
+    .sort(([, a], [, b]) => b - a);
+
+  const buildShareText = () => {
+    const resEmoji   = result === "win" ? "🟢" : result === "draw" ? "🟡" : result === "loss" ? "🔴" : "❌";
+    const scorersStr = scorersList.map(([n, g]) => `${n} (${g})`).join(", ");
+    return [
+      `⚽ ${groupName || "Match"} · ${dayOfWeek} ${m.date}`,
+      `${resEmoji} Team A ${m.scoreA ?? "?"} – ${m.scoreB ?? "?"} Team B`,
+      "",
+      `🔵 Team A: ${(m.teamA || []).join(", ") || "—"}`,
+      `🔴 Team B: ${(m.teamB || []).join(", ") || "—"}`,
+      "",
+      scorersStr           ? `⚽ Scorers: ${scorersStr}` : null,
+      m.motm               ? `🏆 MOTM: ${m.motm}`       : null,
+      m.bibHolder          ? `🟡 Bibs: ${m.bibHolder}`   : null,
+      (venue||kickoffTime) ? `📍 ${[venue, kickoffTime].filter(Boolean).join(" · ")}` : null,
+    ].filter(l => l !== null).join("\n");
   };
 
-  if (selected) {
-    const m = matchHistory.find(x => x.id === selected);
-    if (!m) return null;
+  const handleShare = async (e) => {
+    e.stopPropagation();
+    const text = buildShareText();
+    if (navigator.share) {
+      try { await navigator.share({ text }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
-    if (m.cancelled) return (
-      <div style={{ padding:18 }}>
-        <BackBtn onClick={() => setSelected(null)}/>
-        <Card color={C.red} style={{ textAlign:"center", padding:"30px 20px" }}>
-          <div style={{ fontSize:40, marginBottom:12 }}>❌</div>
-          <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:26, color:C.red, letterSpacing:2 }}>{m.date}</div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:600, color:C.red, marginTop:8 }}>CANCELLED</div>
-          {m.cancelReason && (
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.muted, marginTop:8 }}>{m.cancelReason}</div>
-          )}
-        </Card>
-      </div>
-    );
-
-    const resultColor = m.winner==="A" ? C.teamA : m.winner==="B" ? C.teamB : C.amber;
+  // ── Cancelled card ──────────────────────────────────────────────────────────
+  if (m.cancelled) {
     return (
-      <div style={{ padding:18 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
-          <BackBtn onClick={() => setSelected(null)}/>
-          <button onClick={() => copyReport(m)} style={{ padding:"6px 12px", borderRadius:5,
-            border:`1px solid ${C.border}`, background:"transparent",
-            color:copied?C.green:C.muted, fontFamily:"Inter,sans-serif",
-            fontSize:11, fontWeight:700, cursor:"pointer" }}>
-            {copied ? "✓ Copied" : "📋 Share Report"}
-          </button>
-        </div>
-        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22, color:C.amber, letterSpacing:2, marginBottom:2 }}>{m.date}</div>
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700, color:resultColor,
-          letterSpacing:1, textTransform:"uppercase", marginBottom:20 }}>
-          {m.winner==="D" ? "DRAW" : `TEAM ${m.winner} WIN`}
-        </div>
-
-        <Card color={resultColor} style={{ textAlign:"center", marginBottom:20 }}>
-          <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:20 }}>
-            <div>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, color:C.teamA, letterSpacing:1 }}>TEAM A</div>
-              <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:52, color:C.teamA, lineHeight:1 }}>{m.scoreA}</div>
-            </div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:18, fontWeight:800, color:C.muted }}>VS</div>
-            <div>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, color:C.teamB, letterSpacing:1 }}>TEAM B</div>
-              <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:52, color:C.teamB, lineHeight:1 }}>{m.scoreB}</div>
-            </div>
+      <div style={{
+        background: "var(--s1)", borderRadius: "var(--r)",
+        margin: "0 0 8px", border: rs.border,
+      }}>
+        <div style={{ display: "flex", alignItems: "stretch" }}>
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            minWidth: 52, borderRight: "0.5px solid var(--b2)", padding: "12px 10px",
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--t2)" }}>{dayOfWeek}</div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 28, color: "var(--t1)", lineHeight: 1 }}>{dateNum}</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--t2)" }}>{monthStr}</div>
           </div>
-          {m.motm && (
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.amber, marginTop:10 }}>
-              🏆 MOTM: {m.motm}
-            </div>
-          )}
-        </Card>
-
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
-          {[["A", m.teamA, C.teamA], ["B", m.teamB, C.teamB]].map(([t, players, color]) => (
-            <div key={t}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800, color,
-                letterSpacing:1, textTransform:"uppercase", marginBottom:8,
-                paddingBottom:5, borderBottom:`2px solid ${color}` }}>TEAM {t}</div>
-              {[...(players||[])].sort().map(name => (
-                <div key={name} style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500,
-                  color:C.text, padding:"4px 0", borderBottom:`1px solid ${C.border}`,
-                  display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  {name}
-                  {m.scorers[name] > 0 && (
-                    <span style={{ color:C.green, fontSize:11, fontWeight:700 }}>
-                      {"⚽".repeat(Math.min(m.scorers[name],4))} {m.scorers[name]}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        <SecTitle>Payments</SecTitle>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-          {Object.entries(m.payments||{}).map(([name, paid]) => (
-            <div key={name} style={{ padding:"4px 10px", borderRadius:4,
-              background:paid?C.green+"14":C.red+"14",
-              border:`1px solid ${paid?C.green+"40":C.red+"40"}`,
-              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:500,
-              color:paid?C.green:C.red }}>
-              {name} {paid ? "✅" : "💸"}
-            </div>
-          ))}
+          <div style={{ flex: 1, padding: "14px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "var(--red)" }}>❌ Cancelled</div>
+            {m.cancelReason && (
+              <div style={{ fontSize: 11, fontWeight: 300, color: "var(--t2)", marginTop: 4 }}>{m.cancelReason}</div>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div style={{ padding:18 }}>
-      <SecTitle size={13} color={C.text}>Match History</SecTitle>
-      {matchHistory.length === 0 && (
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.muted,
-          padding:"20px 0", textAlign:"center" }}>No matches recorded yet.</div>
-      )}
-      {matchHistory.map(m => {
-        if (m.cancelled) return (
-          <Card key={m.id} color={C.red} onClick={() => setSelected(m.id)}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, color:C.text }}>{m.date}</div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.red, marginTop:3 }}>❌ Cancelled</div>
-            {m.cancelReason && (
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:2 }}>{m.cancelReason}</div>
-            )}
-          </Card>
-        );
+  const badge = BADGE[result];
+  const scoreC = SCORE_C[result] || { A: "var(--t1)", B: "var(--t1)" };
 
-        const resultColor = m.winner==="A" ? C.teamA : m.winner==="B" ? C.teamB : C.amber;
-        return (
-          <Card key={m.id} color={C.border} onClick={() => setSelected(m.id)}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-              <div>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, color:C.text }}>{m.date}</div>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:resultColor, marginTop:3 }}>
-                  {m.winner==="D" ? "Draw" : `Team ${m.winner} Win`}
+  // ── Result card ─────────────────────────────────────────────────────────────
+  return (
+    <div
+      onClick={onToggle}
+      style={{
+        background: "var(--s1)", borderRadius: "var(--r)",
+        margin: "0 0 8px", border: rs.border,
+        boxShadow: rs.shadow, cursor: "pointer",
+      }}
+    >
+      {/* Row 1 — date · teams · result */}
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+
+        {/* Date column */}
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          minWidth: 52, borderRight: "0.5px solid var(--b2)", padding: "12px 10px",
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--t2)" }}>{dayOfWeek}</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, color: "var(--t1)", lineHeight: 1 }}>{dateNum}</div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--t2)" }}>{monthStr}</div>
+        </div>
+
+        {/* Teams + avatar chips */}
+        <div style={{ flex: 1, padding: "10px 10px" }}>
+          {[
+            { objs: teamAObjs, team: "A", score: m.scoreA, scoreColor: scoreC.A },
+            { objs: teamBObjs, team: "B", score: m.scoreB, scoreColor: scoreC.B },
+          ].map(({ objs, team, score, scoreColor }) => {
+            const visible  = objs.slice(0, 7);
+            const overflow = objs.length - 7;
+            return (
+              <div key={team} style={{
+                display: "flex", alignItems: "center", gap: 5,
+                marginBottom: team === "A" ? 6 : 0,
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "var(--t2)", width: 12, flexShrink: 0 }}>{team}</span>
+                <div style={{ display: "flex", gap: 3, flex: 1, flexWrap: "nowrap", overflow: "hidden" }}>
+                  {visible.map((p, i) => (
+                    <AvatarChip key={i} name={p.name} isGuest={p.isGuest} team={team} />
+                  ))}
+                  {overflow > 0 && (
+                    <div style={{
+                      width: 22, height: 22, borderRadius: "50%",
+                      background: "var(--s3)", color: "var(--t2)",
+                      fontSize: 8, fontWeight: 600, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>+{overflow}</div>
+                  )}
                 </div>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:2 }}>
-                  {(m.teamA||[]).length+(m.teamB||[]).length} players · MOTM: {m.motm||"—"}
+                <div style={{
+                  fontFamily: "var(--font-display)", fontSize: 24,
+                  color: scoreColor, lineHeight: 1, flexShrink: 0, marginLeft: 4,
+                }}>
+                  {score ?? "?"}
                 </div>
               </div>
-              <div style={{ textAlign:"center" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:32, color:C.teamA, lineHeight:1 }}>{m.scoreA}</div>
-                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, color:C.muted }}>—</div>
-                  <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:32, color:C.teamB, lineHeight:1 }}>{m.scoreB}</div>
+            );
+          })}
+        </div>
+
+        {/* Result badge + meta + chevron */}
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center",
+          padding: "10px 10px 10px 0", minWidth: 58, gap: 4,
+        }}>
+          {badge && (
+            <div style={{
+              background: badge.bg,
+              border: `0.5px solid ${badge.border}`,
+              color: badge.color,
+              fontSize: 11, fontWeight: 700,
+              borderRadius: "var(--r-pill)", padding: "3px 9px",
+              whiteSpace: "nowrap",
+            }}>{badge.label}</div>
+          )}
+          {venue && (
+            <div style={{ fontSize: 9, color: "var(--t2)", fontWeight: 300, textAlign: "right" }}>{venue}</div>
+          )}
+          {kickoffTime && (
+            <div style={{ fontSize: 9, color: "var(--t2)", fontWeight: 300 }}>{kickoffTime}</div>
+          )}
+          <CaretRight
+            size={14} weight="thin" color="var(--t2)"
+            style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.2s", marginTop: 2 }}
+          />
+        </div>
+      </div>
+
+      {/* Row 2 — goals · MOTM · bibs */}
+      <div style={{
+        borderTop: "0.5px solid var(--b2)", padding: "7px 12px 7px 14px",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+      }}>
+        <div style={{
+          fontSize: 11, color: "var(--t2)", fontWeight: 300,
+          flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {scorersList.length > 0
+            ? `⚽ ${scorersList.map(([n, g]) => `${n}${g > 1 ? ` (${g})` : ""}`).join(", ")}`
+            : <span style={{ opacity: 0.45 }}>No goals recorded</span>
+          }
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--t2)", flexShrink: 0 }}>
+          {m.motm      && <span>🏆 {m.motm}</span>}
+          {m.motm && m.bibHolder && <span style={{ opacity: 0.4 }}>·</span>}
+          {m.bibHolder && <span>🟡 {m.bibHolder}</span>}
+        </div>
+      </div>
+
+      {/* Expanded drill-down */}
+      {expanded && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            borderTop: "0.5px solid var(--b2)",
+            padding: "12px 14px",
+            background: "rgba(255,255,255,0.02)",
+          }}
+        >
+          {/* Team lineups */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+            {[
+              { label: "🔵 TEAM A", objs: teamAObjs, color: "#60A0FF" },
+              { label: "🔴 TEAM B", objs: teamBObjs, color: "#FF6060" },
+            ].map(({ label, objs, color }) => (
+              <div key={label}>
+                <div style={{
+                  fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em",
+                  color, fontWeight: 600, marginBottom: 7,
+                }}>{label}</div>
+                {objs.map((p, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", gap: 6, marginBottom: 5,
+                  }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                      background: p.isGuest ? "rgba(232,160,32,0.2)" : `${color}22`,
+                      color: p.isGuest ? "var(--gold)" : color,
+                      fontSize: 8, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {initials(p.name)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 12, color: "var(--t1)",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {p.name}{p.name === m.motm ? " 🏆" : ""}
+                      </div>
+                      {p.isGuest && p.guestOf && (
+                        <div style={{ fontSize: 9, color: "var(--gold)", marginTop: 1 }}>+1 {p.guestOf}</div>
+                      )}
+                    </div>
+                    {(m.scorers || {})[p.name] > 0 && (
+                      <div style={{ fontSize: 11, color: "var(--t2)", flexShrink: 0 }}>
+                        ⚽ {m.scorers[p.name]}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Detail chips */}
+          {(venue || kickoffTime || m.bibHolder) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {venue && (
+                <div style={{
+                  background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
+                  borderRadius: "var(--r-pill)", padding: "4px 10px",
+                  fontSize: 11, color: "var(--t2)",
+                }}>📍 {venue}</div>
+              )}
+              {kickoffTime && (
+                <div style={{
+                  background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
+                  borderRadius: "var(--r-pill)", padding: "4px 10px",
+                  fontSize: 11, color: "var(--t2)",
+                }}>🕗 {kickoffTime}</div>
+              )}
+              {m.bibHolder && (
+                <div style={{
+                  background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
+                  borderRadius: "var(--r-pill)", padding: "4px 10px",
+                  fontSize: 11, color: "var(--t2)",
+                }}>🟡 {m.bibHolder} had the bibs</div>
+              )}
+            </div>
+          )}
+
+          {/* Share button */}
+          <button
+            onClick={handleShare}
+            style={{
+              width: "100%",
+              background: "linear-gradient(135deg, rgba(232,160,32,0.9) 0%, rgba(232,160,32,0.7) 100%)",
+              border: "0.5px solid rgba(232,160,32,0.6)",
+              boxShadow: "0 0 20px rgba(232,160,32,0.35), 0 0 40px rgba(232,160,32,0.15)",
+              borderRadius: "var(--r)",
+              padding: "13px 16px",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              cursor: "pointer",
+            }}
+          >
+            <ShareNetwork size={18} color="white" weight="thin" />
+            <span style={{ fontSize: 14, fontWeight: 500, color: "white" }}>
+              {copied ? "Copied!" : "Share Result"}
+            </span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Month section (header + cards) ────────────────────────────────────────────
+
+function MonthSection({ monthKey, label, matches, isOpen, onToggle, players, schedule, groupName, expandedCards, onCardToggle }) {
+  return (
+    <div>
+      <div
+        onClick={onToggle}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px",
+          borderBottom: isOpen ? "0.5px solid var(--b2)" : "none",
+          cursor: "pointer",
+        }}
+      >
+        <span style={{
+          fontSize: 11, fontWeight: 600, letterSpacing: "0.1em",
+          textTransform: "uppercase", color: "var(--t2)",
+        }}>
+          {label} · {matches.length} {matches.length === 1 ? "game" : "games"}
+        </span>
+        <CaretRight
+          size={13} weight="thin" color="var(--t2)"
+          style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}
+        />
+      </div>
+      {isOpen && (
+        <div style={{ padding: "8px 16px 4px" }}>
+          {matches.map(m => (
+            <MatchCard
+              key={m.id}
+              m={m}
+              players={players}
+              schedule={schedule}
+              groupName={groupName}
+              expanded={expandedCards.has(m.id)}
+              onToggle={() => onCardToggle(m.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export default function HistoryView({ matchHistory = [], players = [], settings, schedule }) {
+  const [filter, setFilter] = useState("all");
+
+  const now = new Date();
+  const [openMonths, setOpenMonths] = useState(() => {
+    const s = new Set();
+    s.add(`${now.getFullYear()}-${now.getMonth()}`);
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    s.add(`${prev.getFullYear()}-${prev.getMonth()}`);
+    return s;
+  });
+  const [openYears,    setOpenYears]    = useState(new Set());
+  const [expandedCards, setExpandedCards] = useState(new Set());
+
+  const groupName    = settings?.groupName || "";
+  const currentYear  = now.getFullYear();
+  const totalPlayed  = matchHistory.filter(m => !m.cancelled).length;
+
+  // Apply filter then sort DESC
+  const filtered = matchHistory
+    .filter(m => {
+      if (filter === "all")    return true;
+      const r = getResult(m);
+      if (filter === "wins")   return r === "win";
+      if (filter === "draws")  return r === "draw";
+      if (filter === "losses") return r === "loss";
+      return true;
+    })
+    .sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
+
+  // Group by year → month
+  const grouped = {};
+  for (const m of filtered) {
+    const d  = parseMatchDate(m.date);
+    const y  = d.getFullYear();
+    const mo = d.getMonth();
+    if (!grouped[y])     grouped[y]     = {};
+    if (!grouped[y][mo]) grouped[y][mo] = [];
+    grouped[y][mo].push(m);
+  }
+
+  const thisYearMonths = Object.entries(grouped[currentYear] || {}).sort(([a], [b]) => +b - +a);
+  const pastYears      = Object.entries(grouped).filter(([y]) => +y < currentYear).sort(([a], [b]) => +b - +a);
+
+  const toggleMonth = key => setOpenMonths(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggleYear  = year => setOpenYears(prev  => { const n = new Set(prev); n.has(year) ? n.delete(year) : n.add(year); return n; });
+  const toggleCard  = id   => setExpandedCards(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const FILTERS = [
+    { id: "all",    label: "All"    },
+    { id: "wins",   label: "Wins"   },
+    { id: "draws",  label: "Draws"  },
+    { id: "losses", label: "Losses" },
+  ];
+
+  const pillStyle = (id) => {
+    const base = { borderRadius: "var(--r-pill)", padding: "6px 14px", fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: "var(--font-body)", transition: "all 0.15s" };
+    if (id !== filter) return { ...base, background: "var(--s2)", border: "0.5px solid var(--border-subtle)", color: "var(--t2)" };
+    if (id === "all")    return { ...base, background: "var(--s3)", border: "0.5px solid var(--border-subtle)", color: "var(--t1)" };
+    if (id === "wins")   return { ...base, background: "var(--green2)", border: "0.5px solid var(--greenb)", color: "var(--green)" };
+    if (id === "draws")  return { ...base, background: "var(--amber2)", border: "0.5px solid var(--amberb)", color: "var(--amber)" };
+    if (id === "losses") return { ...base, background: "var(--red2)",   border: "0.5px solid var(--redb)",   color: "var(--red)"   };
+    return base;
+  };
+
+  return (
+    <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--t1)", fontFamily: "var(--font-body)", paddingBottom: 110 }}>
+
+      {/* ── Hero ── */}
+      <div style={{ padding: "0 16px" }}>
+        <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", height: 110 }}>
+          <img
+            src={HERO_IMG} alt=""
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%",
+              objectFit: "cover", filter: "brightness(0.55) saturate(0.8)" }}
+          />
+          <div style={{ position: "absolute", inset: 0,
+            background: "linear-gradient(180deg, rgba(10,10,8,0.15) 0%, rgba(10,10,8,0.7) 100%)" }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 16px",
+            display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+            <div>
+              {groupName && (
+                <div style={{ fontSize: 10, fontWeight: 300, letterSpacing: "0.18em",
+                  textTransform: "uppercase", color: "var(--gold)", marginBottom: 2,
+                  textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+                  {groupName}
                 </div>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:9, fontWeight:700, color:C.muted, letterSpacing:1 }}>A — B</div>
+              )}
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 38, lineHeight: 1,
+                letterSpacing: "0.04em", fontStyle: "italic", textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+                <span style={{ color: "var(--t1)" }}>R</span>
+                <span style={{ color: "var(--green)" }}>ESULTS</span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--t2)", fontWeight: 300, marginTop: 3,
+                textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+                Every game. Every moment.
               </div>
             </div>
-          </Card>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 32, lineHeight: 1,
+                color: "var(--t1)", textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+                {totalPlayed}
+              </div>
+              <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300,
+                textShadow: "0 0 20px rgba(0,0,0,0.9)" }}>
+                games played
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Filter pills ── */}
+      <div style={{ padding: "10px 16px", display: "flex", gap: 6 }}>
+        {FILTERS.map(({ id, label }) => (
+          <button key={id} onClick={() => setFilter(id)} style={pillStyle(id)}>{label}</button>
+        ))}
+      </div>
+
+      {/* ── Empty state ── */}
+      {matchHistory.length === 0 && (
+        <div style={{
+          background: "var(--s1)", border: "0.5px solid var(--border-subtle)",
+          borderRadius: "var(--r)", margin: "8px 16px",
+          padding: "32px 16px", textAlign: "center",
+        }}>
+          <div style={{ fontSize: 36 }}>⚽</div>
+          <div style={{ fontSize: 16, fontWeight: 400, color: "var(--t1)", marginTop: 8 }}>No results yet.</div>
+          <div style={{ fontSize: 12, fontWeight: 300, color: "var(--t2)", marginTop: 4 }}>
+            Get out there and play some football.
+          </div>
+        </div>
+      )}
+
+      {/* ── Current year months ── */}
+      {thisYearMonths.map(([mo, matches]) => {
+        const key   = `${currentYear}-${mo}`;
+        const label = `${MONTH_ABBR[+mo]} ${currentYear}`;
+        return (
+          <div key={key} style={{
+            background: "var(--s1)", border: "0.5px solid var(--border-subtle)",
+            borderRadius: "var(--r)", margin: "0 16px 8px", overflow: "hidden",
+          }}>
+            <MonthSection
+              monthKey={key} label={label} matches={matches}
+              isOpen={openMonths.has(key)} onToggle={() => toggleMonth(key)}
+              players={players} schedule={schedule} groupName={groupName}
+              expandedCards={expandedCards} onCardToggle={toggleCard}
+            />
+          </div>
         );
       })}
+
+      {/* ── Past years ── */}
+      {pastYears.map(([year, months]) => {
+        const yearTotal  = Object.values(months).flat().length;
+        const isYearOpen = openYears.has(year);
+        return (
+          <div key={year} style={{
+            background: "var(--s1)", border: "0.5px solid var(--border-subtle)",
+            borderRadius: "var(--r)", margin: "0 16px 8px", overflow: "hidden",
+          }}>
+            {/* Year header */}
+            <div
+              onClick={() => toggleYear(year)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "12px 16px",
+                borderBottom: isYearOpen ? "0.5px solid var(--b2)" : "none",
+                cursor: "pointer",
+              }}
+            >
+              <span style={{
+                fontSize: 13, fontWeight: 600, letterSpacing: "0.1em",
+                textTransform: "uppercase", color: "var(--t2)",
+              }}>
+                {year} · {yearTotal} {yearTotal === 1 ? "game" : "games"}
+              </span>
+              <CaretRight
+                size={13} weight="thin" color="var(--t2)"
+                style={{ transform: isYearOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}
+              />
+            </div>
+
+            {/* Month sub-accordions */}
+            {isYearOpen && Object.entries(months).sort(([a], [b]) => +b - +a).map(([mo, matches]) => {
+              const key   = `${year}-${mo}`;
+              const label = `${MONTH_ABBR[+mo]} ${year}`;
+              return (
+                <div key={key} style={{ borderTop: "0.5px solid var(--b2)" }}>
+                  <MonthSection
+                    monthKey={key} label={label} matches={matches}
+                    isOpen={openMonths.has(key)} onToggle={() => toggleMonth(key)}
+                    players={players} schedule={schedule} groupName={groupName}
+                    expandedCards={expandedCards} onCardToggle={toggleCard}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+
     </div>
   );
 }

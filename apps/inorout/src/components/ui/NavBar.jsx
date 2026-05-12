@@ -37,7 +37,7 @@ if (typeof document !== "undefined" && !document.getElementById("ioo-nav-styles"
 const BASE_TABS = [
   { id:"my-view", label:"My View", Icon:House               },
   { id:"stats",   label:"Stats",   Icon:ChartBar            },
-  { id:"history", label:"History", Icon:ClockCounterClockwise },
+  { id:"history", label:"Results", Icon:ClockCounterClockwise },
 ];
 
 export default function NavBar({ activeTab, onTabChange, onAdminClick }) {
