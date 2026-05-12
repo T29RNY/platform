@@ -154,6 +154,8 @@ function playerToDb(p) {
     is_guest: p.isGuest || false,
     guest_of: p.guestOf || null,
     injured: p.injured || false,
+    injured_since: p.injuredSince || null,
+    nickname: p.nickname || null,
   };
 }
 
@@ -171,6 +173,8 @@ function dbToPlayer(r) {
     isGuest: r.is_guest || false,
     guestOf: r.guest_of || null,
     injured: r.injured || false,
+    injuredSince: r.injured_since || null,
+    nickname: r.nickname || null,
   };
 }
 
@@ -502,4 +506,45 @@ export async function findPlayersByName(name) {
 export async function getPlayerByUserId(userId) {
   const result = await findPlayerByUserId(userId);
   return result;
+}
+
+// ─── Player injuries ──────────────────────────────────────────────────────────
+export async function insertPlayerInjury(playerId, teamId, markedBy = null) {
+  const id  = "inj_" + Math.random().toString(36).slice(2, 12);
+  const now = new Date().toISOString();
+  const { error: injErr } = await supabase.from("player_injuries").insert({
+    id, player_id: playerId, team_id: teamId,
+    injured_at: now, cleared_at: null, marked_by: markedBy,
+  });
+  if (injErr) throw injErr;
+  const { error: pErr } = await supabase.from("players")
+    .update({ injured: true, injured_since: now }).eq("id", playerId);
+  if (pErr) throw pErr;
+}
+
+export async function clearPlayerInjury(playerId, teamId) {
+  const now = new Date().toISOString();
+  const { data, error: fetchErr } = await supabase
+    .from("player_injuries").select("id")
+    .eq("player_id", playerId).eq("team_id", teamId)
+    .is("cleared_at", null)
+    .order("injured_at", { ascending: false }).limit(1);
+  if (fetchErr) throw fetchErr;
+  if (data?.length) {
+    const { error: updErr } = await supabase.from("player_injuries")
+      .update({ cleared_at: now }).eq("id", data[0].id);
+    if (updErr) throw updErr;
+  }
+  const { error: pErr } = await supabase.from("players")
+    .update({ injured: false, injured_since: null }).eq("id", playerId);
+  if (pErr) throw pErr;
+}
+
+export async function getPlayerInjuries(playerId) {
+  const { data, error } = await supabase
+    .from("player_injuries").select("*")
+    .eq("player_id", playerId)
+    .order("injured_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
 }

@@ -598,6 +598,9 @@ export default function App() {
           coverPool={coverPool}       setCoverPool={setCoverPoolRaw}
           teamId={teamId}
           screen={adminScreen}        setScreen={setAdminScreen}
+          onGoPlayer={() => setView("player")}
+          onGoStats={() => setView("stats")}
+          onGoHistory={() => setView("history")}
         />
       )}
       <Gaffer

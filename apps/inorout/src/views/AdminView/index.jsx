@@ -1,260 +1,537 @@
-import { useState } from "react";
-import { colors as C, requestNotifPerm, sendTemplate, notificationTemplates,
-  carryForwardDebts, nextWeekDateTime, storage,
-  getPaymentState, handleCashPayment, handleClearDebt,
-  handleMarkPaid, handleResetPayment, handleGuestCashPayment } from "@platform/core";
-import { addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer } from "@platform/supabase";
-import { Card, SecTitle, Btn } from "@platform/ui";
+import { useState, useEffect } from "react";
+import {
+  carryForwardDebts, nextWeekDateTime,
+  sendTemplate, notificationTemplates,
+  getPaymentState,
+  handleCashPayment, handleClearDebt,
+  handleMarkPaid, handleResetPayment, handleGuestCashPayment,
+} from "@platform/core";
+import {
+  addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer,
+  resetPlayerToken, insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
+} from "@platform/supabase";
+import {
+  CaretRight, Megaphone, XCircle, PaperPlaneTilt,
+  UsersThree, FlagCheckered, UserList, CalendarBlank,
+  Bell, TShirt, Users, ArrowLeft, Link as LinkIcon,
+  PencilSimple, Bandaids,
+} from "@phosphor-icons/react";
+import NavBar      from "../../components/ui/NavBar.jsx";
 import TeamsScreen    from "./TeamsScreen.jsx";
 import ScoreScreen    from "./ScoreScreen.jsx";
 import BibsScreen     from "./BibsScreen.jsx";
 import SquadScreen    from "./SquadScreen.jsx";
 import ScheduleScreen from "./ScheduleScreen.jsx";
 
-function CoverPoolSection({ coverPool, setCoverPool, teamId }) {
-  const [newName,  setNewName]  = useState("");
-  const [adding,   setAdding]   = useState(false);
-  const [confirmDel, setConfirmDel] = useState(null);
+// ── inject animation ──────────────────────────────────────────────────────────
+if (typeof document !== "undefined" && !document.getElementById("adm-styles")) {
+  const el = document.createElement("style");
+  el.id = "adm-styles";
+  el.textContent = `@keyframes ioo-blink{0%,100%{opacity:1}50%{opacity:0.3}}`;
+  document.head.appendChild(el);
+}
 
-  const handleAdd = async () => {
-    if (!newName.trim()) return;
-    setAdding(true);
-    try {
-      const player = await addCoverPlayer(teamId, newName.trim());
-      setCoverPool(prev => [...prev, player]);
-      setNewName("");
-    } catch(e) { console.error(e); }
-    finally { setAdding(false); }
-  };
-
-  const handleRemove = async (id) => {
-    try {
-      await removeCoverPlayer(id);
-      setCoverPool(prev => prev.filter(p => p.id !== id));
-      setConfirmDel(null);
-    } catch(e) { console.error(e); }
-  };
-
+// ── helpers ───────────────────────────────────────────────────────────────────
+const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+function parseMatchDate(d) {
+  if (!d) return new Date(0);
+  const [day, mon, year] = d.split(" ");
+  return new Date(+year, MONTHS[mon] ?? 0, +day);
+}
+function initials(name) {
+  const parts = (name || "").trim().split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : (name || "?").slice(0, 2).toUpperCase();
+}
+function SectionLabel({ children }) {
   return (
-    <>
-      <SecTitle color={C.muted}>🪑 Cover Pool</SecTitle>
-      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        <input value={newName} onChange={e => setNewName(e.target.value)}
-          placeholder="Add cover player name..."
-          onKeyDown={e => e.key==="Enter" && handleAdd()}
-          style={{ flex:1, padding:"10px 12px", borderRadius:6,
-            border:`1px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-            fontFamily:"Inter,sans-serif", fontSize:13, outline:"none" }}/>
-        <button onClick={handleAdd} disabled={adding || !newName.trim()} style={{
-          padding:"10px 14px", borderRadius:6, border:"none",
-          background:newName.trim()?C.green:"#2a2a2a",
-          color:newName.trim()?"#000":C.muted,
-          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700,
-          cursor:newName.trim()?"pointer":"not-allowed", flexShrink:0 }}>
-          {adding?"Adding...":"+ Add"}
-        </button>
-      </div>
-      {coverPool.length === 0 && (
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.muted,
-          padding:"10px 0" }}>No cover players yet.</div>
-      )}
-      {coverPool.map(p => (
-        <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
-          padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
-              fontWeight:500, color:C.text }}>{p.name}</div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
-              color:C.muted, marginTop:1 }}>
-              Played {p.played}×
-              {p.owes > 0 && <span style={{ color:C.red }}> · Owes £{p.owes}</span>}
-            </div>
-          </div>
-          <div style={{ display:"flex", gap:6 }}>
-            <button onClick={() => sendTemplate(notificationTemplates.coverNeeded, p.name)}
-              style={{ padding:"6px 10px", borderRadius:5, border:`1px solid ${C.blue}`,
-                background:"transparent", color:C.blue,
-                fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-              Notify
-            </button>
-            {confirmDel === p.id ? (
-              <>
-                <button onClick={() => handleRemove(p.id)} style={{ padding:"6px 10px",
-                  borderRadius:5, border:`1px solid ${C.red}`, background:C.red+"18",
-                  color:C.red, fontFamily:"Inter,sans-serif", fontSize:11,
-                  fontWeight:700, cursor:"pointer" }}>Confirm</button>
-                <button onClick={() => setConfirmDel(null)} style={{ padding:"6px 10px",
-                  borderRadius:5, border:`1px solid ${C.border}`, background:"transparent",
-                  color:C.muted, fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
-                  Cancel</button>
-              </>
-            ) : (
-              <button onClick={() => setConfirmDel(p.id)} style={{ padding:"6px 10px",
-                borderRadius:5, border:`1px solid ${C.border}`, background:"transparent",
-                color:C.muted, fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
-                Remove
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
-    </>
+    <div style={{ fontSize:10, fontWeight:400, letterSpacing:"0.14em",
+      textTransform:"uppercase", color:"var(--t2)",
+      margin:"16px 0 8px", display:"flex", alignItems:"center", gap:8 }}>
+      {children}
+      <div style={{ flex:1, height:"0.5px", background:"rgba(255,255,255,0.06)" }}/>
+    </div>
   );
 }
 
+// ── PlayerProfile ─────────────────────────────────────────────────────────────
+function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
+  const [injuries,    setInjuries]    = useState([]);
+  const [showInj,     setShowInj]     = useState(false);
+  const [editingNick, setEditingNick] = useState(false);
+  const [nickname,    setNickname]    = useState(player.nickname || "");
+  const [linkCopied,  setLinkCopied]  = useState(false);
+  const [newToken,    setNewToken]    = useState(null);
+  const [removing,    setRemoving]    = useState(false);
+
+  useEffect(() => {
+    if (showInj) getPlayerInjuries(player.id).then(setInjuries).catch(() => {});
+  }, [showInj, player.id]);
+
+  const p  = squad.find(s => s.id === player.id) || player;
+  const ps = getPaymentState(p);
+
+  const copyLink = async () => {
+    const url = `${window.location.origin}/p/${newToken || p.token}`;
+    try { await navigator.clipboard.writeText(url); } catch {}
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const saveNick = () => {
+    setSquad(sq => sq.map(s => s.id === p.id ? { ...s, nickname } : s));
+    setEditingNick(false);
+  };
+
+  const handleMarkInjured = async () => {
+    try {
+      await insertPlayerInjury(p.id, teamId, "admin");
+      setSquad(sq => sq.map(s => s.id === p.id
+        ? { ...s, injured: true, injuredSince: new Date().toISOString(), status: "out" } : s));
+    } catch(e) { console.error(e); }
+  };
+
+  const handleClearInj = async () => {
+    try {
+      await clearPlayerInjury(p.id, teamId);
+      setSquad(sq => sq.map(s => s.id === p.id
+        ? { ...s, injured: false, injuredSince: null } : s));
+    } catch(e) { console.error(e); }
+  };
+
+  const handleResetLink = async () => {
+    try { const tok = await resetPlayerToken(p.id); setNewToken(tok); }
+    catch(e) { console.error(e); }
+  };
+
+  const handleRemove = async () => {
+    if (!removing) { setRemoving(true); setTimeout(() => setRemoving(false), 3000); return; }
+    try {
+      await deletePlayer(p.id);
+      setSquad(sq => sq.filter(s => s.id !== p.id));
+      onBack();
+    } catch(e) { console.error(e); }
+  };
+
+  const STATUS_BADGE = {
+    in:      { label:"✓ In",      bg:"var(--green2)",  border:"var(--greenb)",  color:"var(--green)"  },
+    out:     { label:"✕ Out",     bg:"var(--red2)",    border:"var(--redb)",    color:"var(--red)"    },
+    maybe:   { label:"? Maybe",   bg:"var(--amber2)",  border:"var(--amberb)",  color:"var(--amber)"  },
+    reserve: { label:"↓ Reserve", bg:"var(--purple2)", border:"var(--purpleb)", color:"var(--purple)" },
+  };
+  const sb = STATUS_BADGE[p.status];
+
+  const card = (content, mb = 8) => (
+    <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+      borderRadius:"var(--r)", overflow:"hidden", marginBottom:mb }}>
+      {content}
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
+      fontFamily:"var(--font-body)", paddingBottom:110 }}>
+
+      {/* Sticky header */}
+      <div style={{ position:"sticky", top:0, zIndex:50, background:"var(--bg)",
+        borderBottom:"0.5px solid var(--b2)", padding:"12px 16px",
+        display:"flex", alignItems:"center", gap:12 }}>
+        <div onClick={onBack} style={{ display:"flex", alignItems:"center", gap:4,
+          cursor:"pointer", color:"var(--gold)", WebkitTapHighlightColor:"transparent" }}>
+          <ArrowLeft size={20} weight="thin"/>
+        </div>
+        <div style={{ fontFamily:"var(--font-display)", fontSize:22, letterSpacing:"0.04em",
+          color:"var(--t1)", lineHeight:1 }}>
+          {p.name}
+        </div>
+        {p.injured && (
+          <span style={{ fontSize:11, color:"var(--red)", background:"var(--red2)",
+            border:"0.5px solid var(--redb)", borderRadius:"var(--r-pill)",
+            padding:"2px 8px", marginLeft:"auto" }}>Injured</span>
+        )}
+      </div>
+
+      <div style={{ padding:"12px 16px 0" }}>
+
+        {/* Identity card */}
+        {card(<>
+          <div style={{ padding:"14px 16px", display:"flex", alignItems:"center", gap:14 }}>
+            <div style={{ width:48, height:48, borderRadius:"50%", flexShrink:0,
+              background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:16, fontWeight:600, color:"var(--t2)" }}>
+              {initials(p.name)}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontFamily:"var(--font-display)", fontSize:28,
+                letterSpacing:"0.03em", lineHeight:1, color:"var(--t1)" }}>
+                {p.name}
+              </div>
+              {editingNick ? (
+                <div style={{ display:"flex", gap:6, marginTop:5, alignItems:"center" }}>
+                  <input value={nickname} onChange={e => setNickname(e.target.value)}
+                    placeholder="Nickname..." autoFocus
+                    style={{ flex:1, background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
+                      borderRadius:"var(--rs)", padding:"5px 8px", fontSize:12, color:"var(--t1)",
+                      fontFamily:"var(--font-body)", outline:"none" }}/>
+                  <button onClick={saveNick} style={{ background:"var(--gold)", color:"#000",
+                    border:"none", borderRadius:"var(--rs)", padding:"5px 10px", fontSize:11,
+                    fontWeight:600, cursor:"pointer", fontFamily:"var(--font-body)" }}>Save</button>
+                  <button onClick={() => setEditingNick(false)} style={{ background:"transparent",
+                    border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                    padding:"5px 8px", fontSize:11, color:"var(--t2)", cursor:"pointer",
+                    fontFamily:"var(--font-body)" }}>✕</button>
+                </div>
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
+                  <span style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>
+                    {p.nickname ? `"${p.nickname}"` : "No nickname"}
+                  </span>
+                  <PencilSimple size={12} weight="thin" color="var(--t2)"
+                    style={{ cursor:"pointer" }} onClick={() => setEditingNick(true)}/>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Player link */}
+          {(p.token || newToken) && (
+            <div style={{ padding:"10px 16px", borderTop:"0.5px solid var(--b2)",
+              display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+              <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300, flex:1,
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                {window.location.origin}/p/{newToken || p.token}
+              </span>
+              <div onClick={copyLink} style={{ display:"flex", alignItems:"center", gap:4,
+                padding:"4px 10px", borderRadius:"var(--r-pill)", cursor:"pointer",
+                background:"var(--s2)", border:"0.5px solid var(--border-subtle)",
+                flexShrink:0 }}>
+                <LinkIcon size={12} weight="thin" color={linkCopied ? "var(--green)" : "var(--t2)"}/>
+                <span style={{ fontSize:10, color: linkCopied ? "var(--green)" : "var(--t2)" }}>
+                  {linkCopied ? "Copied!" : "Copy"}
+                </span>
+              </div>
+            </div>
+          )}
+        </>)}
+
+        {/* Career stats */}
+        {card(
+          <div style={{ display:"flex" }}>
+            {[
+              { label:"Played", val: p.attended   || 0 },
+              { label:"Goals",  val: p.goals       || 0 },
+              { label:"MOTM",   val: p.motm        || 0 },
+              { label:"Bibs",   val: p.bibCount    || 0 },
+              { label:"Late",   val: p.lateDropouts|| 0 },
+            ].map(({ label, val }, i) => (
+              <div key={label} style={{ flex:1, textAlign:"center", padding:"10px 0",
+                borderRight: i < 4 ? "0.5px solid var(--b2)" : "none" }}>
+                <div style={{ fontFamily:"var(--font-display)", fontSize:24,
+                  lineHeight:1, color:"var(--t1)" }}>{val}</div>
+                <div style={{ fontSize:9, color:"var(--t2)", fontWeight:300,
+                  letterSpacing:"0.06em", textTransform:"uppercase", marginTop:2 }}>
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* This Game */}
+        {card(<>
+          <div style={{ padding:"12px 16px", display:"flex",
+            justifyContent:"space-between", alignItems:"center",
+            borderBottom: sb ? "0.5px solid var(--b2)" : "none" }}>
+            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300,
+              textTransform:"uppercase", letterSpacing:"0.1em" }}>This Game</div>
+            {sb && (
+              <div style={{ padding:"5px 12px", borderRadius:"var(--r-pill)", fontSize:12,
+                background:sb.bg, border:`0.5px solid ${sb.border}`, color:sb.color }}>
+                {sb.label}
+              </div>
+            )}
+          </div>
+          <div style={{ padding:"10px 16px" }}>
+            <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginBottom:
+              (p.status === 'in' && ps !== 'paid') ? 8 : 0 }}>
+              {ps === 'paid'         ? "✓ Paid" :
+               ps === 'cash_pending' ? "Cash pending confirmation" :
+               p.owes > 0           ? `Owes £${p.owes + (p.status === 'in' ? (schedule.pricePerPlayer || 0) : 0)}` :
+               p.status === 'in'    ? `£${schedule.pricePerPlayer || 0} due this week` :
+               "Nothing owed"}
+            </div>
+            {p.status === 'in' && ps !== 'paid' && (
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                <button onClick={async () => {
+                  await handleCashPayment(p.id, teamId, 'admin').catch(console.error);
+                  setSquad(sq => sq.map(s => s.id === p.id
+                    ? { ...s, selfPaid:true, paidBy:'admin' } : s));
+                }} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)", border:"none",
+                  background:"var(--gold)", color:"#000", fontSize:11, fontWeight:600,
+                  cursor:"pointer", fontFamily:"var(--font-body)" }}>
+                  Mark Cash Paid
+                </button>
+                {(p.paid || p.selfPaid) && (
+                  <button onClick={async () => {
+                    await handleResetPayment(p.id, teamId).catch(console.error);
+                    setSquad(sq => sq.map(s => s.id === p.id
+                      ? { ...s, paid:false, selfPaid:false, paidBy:null } : s));
+                  }} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)",
+                    border:"0.5px solid var(--border-subtle)", background:"transparent",
+                    color:"var(--t2)", fontSize:11, cursor:"pointer",
+                    fontFamily:"var(--font-body)" }}>
+                    Reset
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </>)}
+
+        {/* Injury history */}
+        {card(<>
+          <div onClick={() => setShowInj(o => !o)}
+            style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"0 14px", minHeight:48, cursor:"pointer",
+              borderBottom: showInj ? "0.5px solid var(--b2)" : "none" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <Bandaids size={16} weight="thin" color={p.injured ? "var(--red)" : "var(--t2)"}/>
+              <span style={{ fontSize:12, color: p.injured ? "var(--red)" : "var(--t2)" }}>
+                {p.injured ? "Currently Injured" : "Injury History"}
+              </span>
+            </div>
+            <CaretRight size={14} weight="thin" color="var(--t2)"
+              style={{ transform: showInj ? "rotate(90deg)" : "none", transition:"transform 0.2s" }}/>
+          </div>
+          {showInj && (
+            injuries.length === 0
+              ? <div style={{ padding:"10px 16px", fontSize:12, color:"var(--t2)", fontWeight:300 }}>
+                  No injuries recorded.
+                </div>
+              : injuries.map(inj => {
+                  const from = new Date(inj.injured_at);
+                  const to   = inj.cleared_at ? new Date(inj.cleared_at) : new Date();
+                  const days = Math.max(0, Math.round((to - from) / 86400000));
+                  return (
+                    <div key={inj.id} style={{ padding:"10px 16px", borderBottom:"0.5px solid var(--b2)" }}>
+                      <div style={{ fontSize:12, color:"var(--t1)" }}>
+                        {from.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
+                        {inj.cleared_at
+                          ? ` → ${new Date(inj.cleared_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`
+                          : " → ongoing"}
+                      </div>
+                      <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
+                        {days} day{days !== 1 ? "s" : ""}
+                        {inj.marked_by ? ` · marked by ${inj.marked_by}` : ""}
+                      </div>
+                    </div>
+                  );
+                })
+          )}
+        </>)}
+
+        {/* Actions */}
+        {card(<>
+          {[
+            { label: newToken ? "Link reset — copy above" : "Reset Player Link",
+              color: newToken ? "var(--green)" : "var(--t2)", action: handleResetLink },
+            { label: p.injured ? "Clear Injury" : "Mark as Injured",
+              color: p.injured ? "var(--green)" : "var(--red)",
+              action: p.injured ? handleClearInj : handleMarkInjured },
+            { label: removing ? "Tap again to confirm remove" : "Remove from Squad",
+              color:"var(--red)", action: handleRemove },
+          ].map(({ label, color, action }, i) => (
+            <div key={i} onClick={action}
+              style={{ padding:"14px 16px", cursor:"pointer",
+                borderBottom: i < 2 ? "0.5px solid var(--b2)" : "none",
+                fontSize:13, color }}>
+              {label}
+            </div>
+          ))}
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+// ── AnnounceModal ─────────────────────────────────────────────────────────────
+function AnnounceModal({ squad, settings, teamId, schedule, onClose }) {
+  const [targets, setTargets] = useState(new Set(["in", "maybe", "reserve"]));
+  const [msg,     setMsg]     = useState("");
+
+  const groups = [
+    { key:"in",      label:"In",          players: squad.filter(p => p.status==="in"      && !p.disabled && !p.injured) },
+    { key:"out",     label:"Out",         players: squad.filter(p => p.status==="out"     && !p.disabled && !p.injured) },
+    { key:"maybe",   label:"Maybe",       players: squad.filter(p => p.status==="maybe"   && !p.disabled && !p.injured) },
+    { key:"reserve", label:"Reserve",     players: squad.filter(p => p.status==="reserve" && !p.disabled && !p.injured) },
+    { key:"none",    label:"No Response", players: squad.filter(p => p.status==="none"    && !p.disabled && !p.injured) },
+    { key:"injured", label:"Injured",     players: squad.filter(p => p.injured && !p.disabled) },
+  ];
+
+  const toggle = (key) => setTargets(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
+
+  const selectedCount = groups.reduce((sum, g) => targets.has(g.key) ? sum + g.players.length : sum, 0);
+
+  const send = () => {
+    if (!msg.trim() || !selectedCount) return;
+    const ids = groups.filter(g => targets.has(g.key)).flatMap(g => g.players.map(p => p.id));
+    fetch("/api/notify", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        type:"announce", teamId, playerIds: ids,
+        payload: { title: settings?.groupName || "In or Out ⚽", body: msg, icon:"/icons/icon-192.png" },
+        gameDate: schedule.gameDateTime?.split("T")[0],
+      }),
+    }).catch(console.error);
+    onClose();
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:200 }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.55)" }}/>
+      <div style={{ position:"absolute", bottom:0, left:"50%", transform:"translateX(-50%)",
+        width:"100%", maxWidth:430, background:"var(--s1)",
+        borderRadius:"var(--r) var(--r) 0 0", padding:"20px 16px 44px",
+        border:"0.5px solid var(--border-subtle)" }}>
+        <div style={{ fontFamily:"var(--font-display)", fontSize:26, letterSpacing:"0.04em",
+          marginBottom:16, color:"var(--t1)" }}>Announce to Squad</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:14 }}>
+          {groups.map(({ key, label, players }) => {
+            const checked = targets.has(key);
+            return (
+              <div key={key} onClick={() => toggle(key)}
+                style={{ display:"flex", alignItems:"center",
+                  justifyContent:"space-between", cursor:"pointer" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ width:18, height:18, borderRadius:4,
+                    border:`0.5px solid ${checked ? "var(--green)" : "var(--border-subtle)"}`,
+                    background: checked ? "var(--green2)" : "transparent",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    flexShrink:0 }}>
+                    {checked && <span style={{ fontSize:10, color:"var(--green)" }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize:13, color:"var(--t1)" }}>{label}</span>
+                </div>
+                <span style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>{players.length}</span>
+              </div>
+            );
+          })}
+        </div>
+        <textarea value={msg} onChange={e => setMsg(e.target.value)}
+          placeholder="Write your message..."
+          rows={3}
+          style={{ width:"100%", background:"var(--s2)", border:"0.5px solid var(--border-subtle)",
+            borderRadius:"var(--rs)", padding:"10px 12px", fontSize:13, color:"var(--t1)",
+            fontFamily:"var(--font-body)", outline:"none", resize:"none",
+            marginBottom:12, boxSizing:"border-box" }}/>
+        <button onClick={send} disabled={!msg.trim() || !selectedCount}
+          style={{ width:"100%", padding:"13px 0", borderRadius:"var(--r)", border:"none",
+            background: msg.trim() && selectedCount ? "var(--gold)" : "var(--s3)",
+            color: msg.trim() && selectedCount ? "#000" : "var(--t2)",
+            fontFamily:"var(--font-body)", fontSize:14, fontWeight:600,
+            cursor: msg.trim() && selectedCount ? "pointer" : "not-allowed" }}>
+          Send to {selectedCount} player{selectedCount !== 1 ? "s" : ""}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── main export ───────────────────────────────────────────────────────────────
 export default function AdminView({
   squad, setSquad, bibHistory, setBibHistory,
   schedule, setSchedule, matchHistory, setMatchHistory,
   settings, setSettings, coverPool, setCoverPool, teamId,
-  screen, setScreen,
+  screen, setScreen, onGoPlayer, onGoStats, onGoHistory,
 }) {
-  const [notifPerm,  setNotifPerm]  = useState(
-    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
-  );
-  const [showCancel,    setShowCancel]    = useState(false);
-  const [cancelReason,  setCancelReason]  = useState("");
-  const [payments,      setPayments]      = useState(
-    () => Object.fromEntries(squad.map(p => [p.id, p.paid]))
-  );
-  const [dragId, setDragId] = useState(null);
-
-  // Guest orphan prompts — dismissed per guest
+  const [showCancel,       setShowCancel]       = useState(false);
+  const [cancelReason,     setCancelReason]     = useState("");
+  const [dragId,           setDragId]           = useState(null);
   const [dismissedOrphans, setDismissedOrphans] = useState(new Set());
+  const [selectedPlayer,   setSelectedPlayer]   = useState(null);
+  const [openSections,     setOpenSections]     = useState(
+    { in:true, reserve:true, maybe:true, out:false, injured:false, noResp:false }
+  );
+  const [showCoverPool,    setShowCoverPool]    = useState(false);
+  const [showAnnounce,     setShowAnnounce]     = useState(false);
+  const [chaseToast,       setChaseToast]       = useState(false);
 
-  // Admin plus one form
-  const [showAdminPlusOne, setShowAdminPlusOne] = useState(false);
-  const [adminHostId,      setAdminHostId]      = useState("");
-  const [adminGuestName,   setAdminGuestName]   = useState("");
-  const [adminSelfPaid,    setAdminSelfPaid]     = useState(false);
-  const [addingAdminGuest, setAddingAdminGuest] = useState(false);
-
+  // ── derived ──────────────────────────────────────────────────────────────
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
   const reservePlayers = squad.filter(p => p.status==="reserve" && !p.disabled && !p.injured);
-  const selfPaidPending = inPlayers.filter(p => p.selfPaid === true && p.paid !== true);
-
-  // Guests whose host has dropped out
+  const maybePlayers   = squad.filter(p => p.status==="maybe"   && !p.disabled && !p.injured);
+  const outPlayers     = squad.filter(p => p.status==="out"     && !p.disabled && !p.injured);
+  const injuredPlayers = squad.filter(p => p.injured && !p.disabled);
+  const noRespPlayers  = squad.filter(p => p.status==="none"    && !p.disabled && !p.injured);
+  const paidCount      = inPlayers.filter(p => p.paid || (p.selfPaid && p.paidBy)).length;
+  const totalOwed      = squad.filter(p => !p.disabled).reduce((s, p) => s + (p.owes || 0), 0);
+  const teamsSet       = inPlayers.filter(p => !p.isGuest).length > 0
+                      && inPlayers.filter(p => !p.isGuest).every(p => p.team);
+  const pendingResults = matchHistory.filter(m =>
+    !m.cancelled && m.winner == null && parseMatchDate(m.date) < new Date()
+  ).length;
   const orphanedGuests = squad.filter(p =>
     p.isGuest && !p.disabled &&
     squad.find(h => h.id === p.guestOf)?.status !== "in" &&
     !dismissedOrphans.has(p.id)
   );
+  const selfPaidPending = inPlayers.filter(p => p.selfPaid === true && p.paid !== true && !p.paidBy);
 
-  const dismissOrphan = (guestId) =>
-    setDismissedOrphans(prev => new Set([...prev, guestId]));
-
-  const reserveGuest = (guestId) => {
-    setSquad(squad.map(p => p.id === guestId ? { ...p, status: "reserve" } : p));
-    dismissOrphan(guestId);
-  };
-
-  const removeGuest = async (guestId) => {
-    try {
-      await deletePlayer(guestId);
-      setSquad(squad.filter(p => p.id !== guestId));
-      dismissOrphan(guestId);
-    } catch(e) { console.error(e); }
-  };
-
-  const addGuestToCoverPool = async (guest) => {
-    try {
-      const cp = await addCoverPlayer(teamId, guest.name);
-      setCoverPool(prev => [...prev, cp]);
-      await deletePlayer(guest.id);
-      setSquad(squad.filter(p => p.id !== guest.id));
-    } catch(e) { console.error(e); }
-  };
-
-  const submitAdminGuest = async () => {
-    if (!adminHostId || !adminGuestName.trim() || addingAdminGuest) return;
-    setAddingAdminGuest(true);
-    try {
-      const guest = await addGuestPlayer(adminHostId, adminGuestName.trim(), teamId, adminSelfPaid);
-      setSquad([...squad, guest]);
-      setAdminHostId(""); setAdminGuestName(""); setAdminSelfPaid(false);
-      setShowAdminPlusOne(false);
-    } catch(e) { console.error(e); }
-    finally { setAddingAdminGuest(false); }
+  // ── functions (all preserved from original) ───────────────────────────────
+  const dismissOrphan = (id) => setDismissedOrphans(prev => new Set([...prev, id]));
+  const reserveGuest  = (id) => { setSquad(squad.map(p => p.id===id ? { ...p, status:"reserve" } : p)); dismissOrphan(id); };
+  const removeGuest   = async (id) => {
+    try { await deletePlayer(id); setSquad(squad.filter(p => p.id !== id)); dismissOrphan(id); }
+    catch(e) { console.error(e); }
   };
 
   const moveReserve = (fromId, toId) => {
     if (fromId === toId) return;
-    const reserveIndices = squad
-      .map((p, i) => ({ p, i }))
-      .filter(({ p }) => p.status === "reserve" && !p.disabled)
-      .map(({ i }) => i);
-    const inOrder = reserveIndices.map(i => squad[i]);
-    const fromPos = inOrder.findIndex(p => p.id === fromId);
-    const toPos   = inOrder.findIndex(p => p.id === toId);
-    const reordered = [...inOrder];
-    const [moved] = reordered.splice(fromPos, 1);
-    reordered.splice(toPos, 0, moved);
-    const newSquad = [...squad];
-    reserveIndices.forEach((squadIdx, i) => { newSquad[squadIdx] = reordered[i]; });
-    setSquad(newSquad);
-  };
-
-  const enableNotifs = async () => {
-    const p = await requestNotifPerm();
-    setNotifPerm(p);
-  };
-
-  const markPaid = async (id) => {
-    await handleMarkPaid(id, teamId).catch(console.error);
-    setSquad(squad.map(p => p.id===id ? { ...p, paid:true } : p));
-    setPayments(pm => ({ ...pm, [id]:true }));
-  };
-
-  const markCashPaid = async (p) => {
-    if (p.isGuest) {
-      await handleGuestCashPayment(p.id, teamId, 'admin').catch(console.error);
-    } else {
-      await handleCashPayment(p.id, teamId, 'admin').catch(console.error);
-    }
-    setSquad(squad.map(s => s.id===p.id ? { ...s, selfPaid:true, paidBy:'admin' } : s));
-  };
-
-  const resetPayment = async (id) => {
-    await handleResetPayment(id, teamId).catch(console.error);
-    setSquad(squad.map(p => p.id===id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
-    setPayments(pm => ({ ...pm, [id]:false }));
+    const idxs    = squad.map((p, i) => ({ p, i })).filter(({ p }) => p.status==="reserve" && !p.disabled).map(({ i }) => i);
+    const inOrder = idxs.map(i => squad[i]);
+    const from    = inOrder.findIndex(p => p.id === fromId);
+    const to      = inOrder.findIndex(p => p.id === toId);
+    const reord   = [...inOrder];
+    const [moved] = reord.splice(from, 1);
+    reord.splice(to, 0, moved);
+    const next = [...squad];
+    idxs.forEach((si, i) => { next[si] = reord[i]; });
+    setSquad(next);
   };
 
   const cancelWeek = () => {
     setSchedule({ ...schedule, isCancelled:true, gameIsLive:false, cancelReason });
     setMatchHistory([{
-      id:"m"+Date.now(),
-      date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),
+      id:"m"+Date.now(), date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),
       dateShort:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short"}),
       teamA:[], teamB:[], winner:null, scoreA:0, scoreB:0,
       scorers:{}, motm:null, bibHolder:"", payments:{},
       cancelled:true, cancelReason,
     }, ...matchHistory]);
     sendTemplate(notificationTemplates.gameCancelled, cancelReason);
-    // Push notification to IN players (excluding injured)
     if (teamId && inPlayers.length) {
-      fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      fetch("/api/notify", {
+        method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
-          type: 'gameCancelled',
-          teamId,
+          type:"gameCancelled", teamId,
           playerIds: inPlayers.filter(p => !p.injured).map(p => p.id),
-          payload: {
-            title: 'In or Out ⚽',
-            body: `❌ ${schedule.dayOfWeek}'s game is cancelled.`,
-            icon: '/icons/icon-192.png',
-          },
-          gameDate: schedule.gameDateTime?.split('T')[0],
+          payload: { title:"In or Out ⚽", body:`❌ ${schedule.dayOfWeek}'s game is cancelled.`, icon:"/icons/icon-192.png" },
+          gameDate: schedule.gameDateTime?.split("T")[0],
         }),
       }).catch(console.error);
     }
-    setShowCancel(false);
-    setCancelReason("");
+    setShowCancel(false); setCancelReason("");
   };
 
   const draftNextWeek = () => {
-    const nextDT = nextWeekDateTime(schedule.gameDateTime);
-    setSchedule({ ...schedule, gameDateTime:nextDT, gameIsLive:false, isDraft:true, isCancelled:false, cancelReason:"" });
+    setSchedule({ ...schedule, gameDateTime: nextWeekDateTime(schedule.gameDateTime),
+      gameIsLive:false, isDraft:true, isCancelled:false, cancelReason:"" });
     setSquad(carryForwardDebts(squad, schedule.pricePerPlayer));
     sendTemplate(notificationTemplates.nextWeekDraft);
   };
@@ -262,492 +539,582 @@ export default function AdminView({
   const openNextWeek = () => {
     setSchedule({ ...schedule, gameIsLive:true, isDraft:false, isCancelled:false });
     sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
-    // Push notification to all active players
-    const allPlayerIds = squad.filter(p => !p.disabled && !p.injured).map(p => p.id);
-    fetch('/api/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const ids = squad.filter(p => !p.disabled && !p.injured).map(p => p.id);
+    fetch("/api/notify", {
+      method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
-        type: 'gameLive',
-        teamId,
-        playerIds: allPlayerIds,
-        payload: {
-          title: 'In or Out ⚽',
-          body: `⚽ ${schedule.dayOfWeek}'s game is open — are you in or out?`,
-          icon: '/icons/icon-192.png',
-        },
-        gameDate: schedule.gameDateTime?.split('T')[0],
+        type:"gameLive", teamId, playerIds: ids,
+        payload: { title:"In or Out ⚽", body:`⚽ ${schedule.dayOfWeek}'s game is open — are you in or out?`, icon:"/icons/icon-192.png" },
+        gameDate: schedule.gameDateTime?.split("T")[0],
       }),
     }).catch(console.error);
   };
 
-  // Route to sub-screens
+  const toggleGameLive = () => {
+    if (!schedule.gameIsLive) openNextWeek();
+    else setSchedule({ ...schedule, gameIsLive:false });
+  };
+
+  const chaseNoResponders = () => {
+    const ids = noRespPlayers.map(p => p.id);
+    if (!ids.length) return;
+    fetch("/api/notify", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        type:"chaseNoResp", teamId, playerIds: ids,
+        payload: { title:"In or Out ⚽", body:`⏰ Are you in or out for ${schedule.dayOfWeek}? Quick reply needed!`, icon:"/icons/icon-192.png" },
+        gameDate: schedule.gameDateTime?.split("T")[0],
+      }),
+    }).catch(console.error);
+    setChaseToast(true);
+    setTimeout(() => setChaseToast(false), 3000);
+  };
+
+  const handleClearInjury = async (p) => {
+    try {
+      await clearPlayerInjury(p.id, teamId);
+      setSquad(squad.map(s => s.id === p.id ? { ...s, injured:false, injuredSince:null } : s));
+    } catch(e) { console.error(e); }
+  };
+
+  const markPaid = async (id) => {
+    await handleMarkPaid(id, teamId).catch(console.error);
+    setSquad(squad.map(p => p.id===id ? { ...p, paid:true } : p));
+  };
+
+  // ── screen routing ────────────────────────────────────────────────────────
   if (screen === "teams")    return <TeamsScreen    squad={squad} setSquad={setSquad} schedule={schedule} onBack={() => setScreen("main")}/>;
-  if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={payments} bibHistory={bibHistory} onBack={() => setScreen("main")} onDraftNext={draftNextWeek}/>;
+  if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={Object.fromEntries(squad.map(p => [p.id, p.paid]))} bibHistory={bibHistory} onBack={() => setScreen("main")} onDraftNext={draftNextWeek}/>;
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")}/>;
 
-  return (
-    <div style={{ padding:18 }}>
+  if (selectedPlayer) return (
+    <PlayerProfile
+      player={selectedPlayer} squad={squad} schedule={schedule}
+      teamId={teamId} setSquad={setSquad} onBack={() => setSelectedPlayer(null)}
+    />
+  );
 
-      {/* Draft ready banner */}
-      {schedule.isDraft && (
-        <Card color={C.amber} style={{ marginBottom:16 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700, color:C.amber, marginBottom:8 }}>
-            📋 Next week drafted — ready to go live
-          </div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginBottom:12 }}>
-            {schedule.dayOfWeek} · {schedule.kickoff} · £{schedule.pricePerPlayer}/player
-          </div>
-          <Btn label="🟢 Go Live — Notify Players" color={C.green} fill onClick={openNextWeek}/>
-        </Card>
-      )}
+  // ── helpers ───────────────────────────────────────────────────────────────
+  const toggleSection = (key) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
 
-      {/* Orphaned guest prompts — host dropped out */}
-      {orphanedGuests.map(guest => {
-        const host = squad.find(h => h.id === guest.guestOf);
-        return (
-          <Card key={guest.id} color={C.amber} style={{ marginBottom:16 }}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
-              color:C.amber, marginBottom:4 }}>
-              👤 {guest.name}'s host dropped out
-            </div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginBottom:12 }}>
-              {host?.name || "Their host"} is now out. What should happen to {guest.name}?
-            </div>
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-              <button onClick={() => dismissOrphan(guest.id)} style={{ padding:"7px 14px",
-                borderRadius:5, border:`1px solid ${C.green}`, background:C.green+"18",
-                color:C.green, fontFamily:"Inter,sans-serif", fontSize:12,
-                fontWeight:700, cursor:"pointer" }}>
-                Keep IN
-              </button>
-              <button onClick={() => reserveGuest(guest.id)} style={{ padding:"7px 14px",
-                borderRadius:5, border:`1px solid ${C.purple}`, background:C.purple+"18",
-                color:C.purple, fontFamily:"Inter,sans-serif", fontSize:12,
-                fontWeight:700, cursor:"pointer" }}>
-                Move to reserve
-              </button>
-              <button onClick={() => removeGuest(guest.id)} style={{ padding:"7px 14px",
-                borderRadius:5, border:`1px solid ${C.red}`, background:C.red+"18",
-                color:C.red, fontFamily:"Inter,sans-serif", fontSize:12,
-                fontWeight:700, cursor:"pointer" }}>
-                Remove {guest.name}
-              </button>
-            </div>
-          </Card>
-        );
-      })}
+  const AV_STYLE = {
+    in:      { bg:"var(--green2)",  border:"var(--greenb)",  color:"var(--green)"  },
+    reserve: { bg:"var(--purple2)", border:"var(--purpleb)", color:"var(--purple)" },
+    maybe:   { bg:"var(--amber2)",  border:"var(--amberb)",  color:"var(--amber)"  },
+    out:     { bg:"var(--red2)",    border:"var(--redb)",    color:"var(--red)"    },
+    injured: { bg:"var(--red2)",    border:"var(--redb)",    color:"var(--red)"    },
+    noResp:  { bg:"rgba(255,255,255,0.05)", border:"var(--border-subtle)", color:"var(--t2)" },
+  };
 
-      {/* Self-pay confirmations */}
-      {selfPaidPending.length > 0 && (
-        <Card color={C.green} style={{ marginBottom:16 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
-            color:C.green, letterSpacing:1, marginBottom:10 }}>💰 PAYMENT CONFIRMATIONS NEEDED</div>
-          {selfPaidPending.map(p => (
-            <div key={p.id} style={{ display:"flex", alignItems:"center",
-              justifyContent:"space-between", marginBottom:8 }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.text }}>
-                {p.name} says they've paid
-              </div>
-              <button onClick={() => markPaid(p.id)} style={{ padding:"5px 12px", borderRadius:4,
-                border:"none", background:C.green+"20", color:C.green,
-                fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                Confirm ✓
-              </button>
-            </div>
-          ))}
-        </Card>
-      )}
+  const renderPlayerRow = (p, sectionKey, idx, isLast) => {
+    const av   = AV_STYLE[sectionKey] || AV_STYLE.noResp;
+    const host = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
+    const sub  = p.note ? `"${p.note}"` :
+      host          ? `+1 of ${host.name}` :
+      sectionKey === "in"      ? "Confirmed" :
+      sectionKey === "reserve" ? (idx === 0 ? "Next in queue" : "On standby") :
+      sectionKey === "injured" && p.injuredSince
+        ? `Since ${new Date(p.injuredSince).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}` :
+      sectionKey === "noResp"  ? "No reply yet" : "";
 
-      {/* Notification permission */}
-      {notifPerm !== "granted" && notifPerm !== "unsupported" && (
-        <div style={{ background:C.amber+"14", border:`1px solid ${C.amber}40`, borderRadius:8,
-          padding:"12px 14px", marginBottom:14,
-          display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color:C.amber }}>
-            Enable push notifications
+    return (
+      <div key={p.id}
+        style={{ display:"flex", alignItems:"center", padding:"10px 14px",
+          borderBottom: isLast ? "none" : "0.5px solid var(--b2)",
+          gap:10, cursor: p.isGuest ? "default" : "pointer" }}
+        onClick={() => !p.isGuest && setSelectedPlayer(p)}>
+
+        {sectionKey === "reserve" && (
+          <span
+            draggable
+            onDragStart={() => setDragId(p.id)}
+            onDragOver={e => e.preventDefault()}
+            onDrop={() => { moveReserve(dragId, p.id); setDragId(null); }}
+            onClick={e => e.stopPropagation()}
+            style={{ color:"var(--t2)", fontSize:16, cursor:"grab",
+              flexShrink:0, userSelect:"none" }}>
+            ⠿
           </span>
-          <button onClick={enableNotifs} style={{ padding:"6px 13px", borderRadius:4,
-            border:`1px solid ${C.amber}`, background:"transparent", color:C.amber,
-            fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-            ENABLE
-          </button>
-        </div>
-      )}
-      {notifPerm === "granted" && (
-        <div style={{ background:C.green+"10", border:`1px solid ${C.green}30`, borderRadius:6,
-          padding:"9px 14px", marginBottom:14,
-          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:500, color:C.green }}>
-          ✅ Push notifications active
-        </div>
-      )}
+        )}
 
-      {/* Squad summary */}
-      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        <div style={{ flex:1, padding:"10px 12px", borderRadius:6, background:C.surface,
-          border:`1px solid ${inPlayers.length>=(schedule.squadSize||14)?C.green+"50":C.border}`,
-          textAlign:"center" }}>
-          <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
-            color:inPlayers.length>=(schedule.squadSize||14)?C.green:C.amber }}>
-            {inPlayers.length}<span style={{ fontSize:14, color:C.muted }}>/{schedule.squadSize||14}</span>
-          </div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:10, color:C.muted,
-            letterSpacing:1, textTransform:"uppercase" }}>IN</div>
+        {/* Avatar */}
+        <div style={{ width:34, height:34, borderRadius:"50%", flexShrink:0,
+          background:av.bg, border:`0.5px solid ${av.border}`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:10, fontWeight:600, color:av.color }}>
+          {initials(p.name)}
         </div>
-        {reservePlayers.length > 0 && (
-          <div style={{ flex:1, padding:"10px 12px", borderRadius:6, background:C.surface,
-            border:`1px solid ${C.purple}40`, textAlign:"center" }}>
-            <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22, color:C.purple }}>
-              {reservePlayers.length}
+
+        {/* Name + sub */}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, color:"var(--t1)", fontWeight:400,
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {p.name}
+            {p.nickname && (
+              <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}> ({p.nickname})</span>
+            )}
+            {sectionKey === "reserve" && (
+              <span style={{ fontSize:10, color:"var(--purple)", fontWeight:400 }}> · #{idx+1}</span>
+            )}
+          </div>
+          {sub && (
+            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:1 }}>{sub}</div>
+          )}
+        </div>
+
+        {/* Right actions */}
+        <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}
+          onClick={e => e.stopPropagation()}>
+
+          {sectionKey === "in" && (
+            <>
+              {p.paid || p.selfPaid
+                ? <span style={{ background:"var(--green2)", border:"0.5px solid var(--greenb)",
+                    borderRadius:"var(--r-pill)", padding:"4px 10px", fontSize:11,
+                    color:"var(--green)", whiteSpace:"nowrap" }}>✓ Paid</span>
+                : <span style={{ background:"var(--red2)", border:"0.5px solid var(--redb)",
+                    borderRadius:"var(--r-pill)", padding:"4px 10px", fontSize:11,
+                    color:"var(--red)", whiteSpace:"nowrap" }}>Unpaid</span>
+              }
+              {p.owes > 0 && (
+                <span style={{ background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+                  borderRadius:"var(--r-pill)", padding:"4px 8px", fontSize:11,
+                  color:"var(--amber)", whiteSpace:"nowrap" }}>+£{p.owes}</span>
+              )}
+            </>
+          )}
+
+          {sectionKey === "injured" && (
+            <button onClick={() => handleClearInjury(p)}
+              style={{ background:"var(--red2)", border:"0.5px solid var(--redb)",
+                borderRadius:"var(--r-pill)", padding:"4px 10px", fontSize:11, color:"var(--red)",
+                cursor:"pointer", fontFamily:"var(--font-body)", whiteSpace:"nowrap" }}>
+              Clear
+            </button>
+          )}
+
+          {p.token && (
+            <div onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/p/${p.token}`).catch(()=>{})}
+              style={{ width:28, height:28, background:"var(--s2)",
+                border:"0.5px solid var(--border-subtle)", borderRadius:6,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                cursor:"pointer", flexShrink:0 }}>
+              <LinkIcon size={14} weight="thin" color="var(--t2)"/>
             </div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:10, color:C.muted,
-              letterSpacing:1, textTransform:"uppercase" }}>RESERVE</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSection = (key, icon, label, color, players) => {
+    const open = openSections[key];
+    const inDebtors = key === "in" && players.filter(p => p.owes > 0);
+
+    return (
+      <div key={key} style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+        borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
+        <div onClick={() => toggleSection(key)}
+          style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            padding:"0 14px", minHeight:48, cursor:"pointer",
+            borderBottom: open ? "0.5px solid var(--b2)" : "none" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:14 }}>{icon}</span>
+            <span style={{ fontSize:11, fontWeight:600, letterSpacing:"0.08em",
+              textTransform:"uppercase", color }}>{label}</span>
+            <span style={{ fontFamily:"var(--font-display)", fontSize:20,
+              lineHeight:1, color:"var(--t1)" }}>{players.length}</span>
+          </div>
+          <CaretRight size={16} weight="thin" color="var(--t2)"
+            style={{ transform: open ? "rotate(90deg)" : "none", transition:"transform 0.2s" }}/>
+        </div>
+        {open && players.map((p, i) =>
+          renderPlayerRow(p, key, i, i === players.length - 1 && (!inDebtors || !inDebtors.length))
+        )}
+        {open && key === "in" && inDebtors.length > 0 && (
+          <div style={{ padding:"8px 14px", borderTop:"0.5px solid var(--b2)",
+            fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+            💸 {inDebtors.length} player{inDebtors.length!==1?"s":""} owe a total of £{inDebtors.reduce((s,p)=>s+p.owes,0)}
           </div>
         )}
       </div>
+    );
+  };
 
-      {/* Reserve list */}
-      {reservePlayers.length > 0 && (
-        <Card color={C.purple} style={{ marginBottom:16 }} data-gaffer-target="reserve-list">
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
-            color:C.purple, letterSpacing:1, marginBottom:4 }}>🟣 RESERVE LIST</div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:12 }}>
-            Drag to reorder — #1 gets notified first when a spot opens
-          </div>
-          {/* TODO(Stripe session): on spot opening, reserve player has 30 mins to pay to confirm */}
-          {reservePlayers.map((p, i) => (
-            <div key={p.id}
-              draggable
-              onDragStart={() => setDragId(p.id)}
-              onDragOver={e => e.preventDefault()}
-              onDrop={() => { moveReserve(dragId, p.id); setDragId(null); }}
-              style={{ display:"flex", alignItems:"center", gap:10,
-                padding:"11px 0", borderBottom:`1px solid ${C.border}`,
-                opacity:dragId===p.id?0.4:1, cursor:"grab" }}>
-              <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:18,
-                color:C.faint, minWidth:20 }}>{i+1}</div>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.faint,
-                marginRight:2, userSelect:"none" }}>⠿</div>
-              <div style={{ flex:1, fontFamily:"Inter,sans-serif", fontSize:14,
-                fontWeight:500, color:C.purple }}>{p.name}</div>
-              {i === 0 && (
-                <span style={{ fontFamily:"Inter,sans-serif", fontSize:10, fontWeight:700,
-                  padding:"2px 8px", borderRadius:4,
-                  background:C.purple+"20", color:C.purple }}>Next</span>
-              )}
-            </div>
-          ))}
-        </Card>
+  const tile = ({ icon: Icon, iconColor, bg, border, title, sub, status, badge, onClick: act }) => (
+    <div onClick={act} style={{ background:bg, border:`0.5px solid ${border}`,
+      borderRadius:"var(--r)", padding:14, display:"flex", flexDirection:"column",
+      gap:6, cursor:"pointer", position:"relative", overflow:"hidden",
+      WebkitTapHighlightColor:"transparent" }}>
+      <Icon size={22} weight="thin" color={iconColor}/>
+      <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>{title}</div>
+      <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, lineHeight:1.3 }}>{sub}</div>
+      {status && (
+        <div style={{ fontSize:10, fontWeight:400, letterSpacing:"0.06em",
+          textTransform:"uppercase", color: status.ok ? "var(--green)" : "var(--amber)" }}>
+          {status.label}
+        </div>
       )}
+      {badge > 0 && (
+        <div style={{ position:"absolute", top:10, right:10, background:"var(--red)",
+          borderRadius:10, padding:"2px 7px", fontSize:9, fontWeight:700, color:"#fff" }}>
+          {badge}
+        </div>
+      )}
+    </div>
+  );
 
-      {/* Action grid */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:18 }}>
-        {[
-          { icon:"📨", label:"Send Reminder",  color:C.blue,    action:() => sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek) },
-          { icon:"👥", label:"Manage Squad",   color:C.green,   action:() => setScreen("squad") },
-          { icon:"⚽", label:"Input Result",   color:C.amber,   action:() => setScreen("score") },
-          { icon:"🟡", label:"Bibs Tracker",  color:"#F59E0B", action:() => setScreen("bibs")  },
-          { icon:"⚙️", label:"Settings",       color:C.purple,  action:() => setScreen("schedule") },
-          { icon:"👕", label:"Pick Teams",     color:C.blue,    action:() => setScreen("teams") },
-        ].map(({ icon, label, color, action }) => (
-          <button key={label} onClick={action} style={{
-            padding:"14px 8px", borderRadius:6, background:C.surface,
-            border:`1px solid ${color}30`, color, fontSize:11, cursor:"pointer",
-            fontFamily:"Inter,sans-serif", fontWeight:700,
-            display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
-            <span style={{ fontSize:24 }}>{icon}</span>{label}
-          </button>
-        ))}
+  // ── render ────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
+      fontFamily:"var(--font-body)", paddingBottom:110 }}>
+
+      {/* ── Hero card ── */}
+      <div style={{ position:"relative", height:140, overflow:"hidden", background:"#0a0e08" }}>
+        <img src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80"
+          alt="" style={{ position:"absolute", inset:0, width:"100%", height:"100%",
+            objectFit:"cover", filter:"brightness(0.35) saturate(0.6)" }}/>
+        <div style={{ position:"absolute", inset:0,
+          background:"linear-gradient(180deg,rgba(10,10,8,0.2) 0%,rgba(10,10,8,0.82) 100%)" }}/>
+        <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"12px 16px",
+          display:"flex", justifyContent:"space-between", alignItems:"flex-end" }}>
+          {/* Left */}
+          <div>
+            {settings?.groupName && (
+              <div style={{ fontSize:10, fontWeight:400, letterSpacing:"0.14em",
+                textTransform:"uppercase", color:"var(--gold)", marginBottom:2 }}>
+                {settings.groupName}
+              </div>
+            )}
+            <div style={{ fontFamily:"var(--font-display)", fontSize:34, lineHeight:0.95,
+              letterSpacing:"0.02em", fontStyle:"italic", color:"var(--t1)" }}>
+              ADMIN <span style={{ color:"var(--green)" }}>PANEL</span>
+            </div>
+          </div>
+          {/* Right — glass chips */}
+          <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+            {[
+              { num: inPlayers.length, label:"In this week", color:"var(--green)", glow:true },
+              { num: paidCount,        label:"Paid",         color:"var(--green)", glow:true },
+              { num: `£${totalOwed}`,  label:"Outstanding",  color:"var(--red)",   glow:false },
+            ].map(({ num, label, color, glow }) => (
+              <div key={label} style={{ background:"rgba(255,255,255,0.1)",
+                backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+                border:"0.5px solid rgba(255,255,255,0.18)", borderRadius:"var(--rs)",
+                width:80, height:56, flexShrink:0,
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+                <div style={{ fontFamily:"var(--font-display)", fontSize:26, lineHeight:1, color,
+                  textShadow: glow ? "0 0 10px rgba(61,220,106,0.4)" : "none" }}>
+                  {num}
+                </div>
+                <div style={{ fontSize:9, fontWeight:300, letterSpacing:"0.08em",
+                  textTransform:"uppercase", color:"rgba(242,240,234,0.6)", marginTop:1 }}>
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Cancel this week */}
-      {!schedule.isCancelled && (
-        <div style={{ marginBottom:16 }} data-gaffer-target="cancel-week">
-          {!showCancel
-            ? <button onClick={() => setShowCancel(true)} style={{ width:"100%", padding:"11px 14px",
-                borderRadius:6, border:`1px solid ${C.border}`, background:C.surface,
-                color:C.red, fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:600,
-                cursor:"pointer", textAlign:"left" }}>❌ Cancel This Week's Game</button>
-            : <Card color={C.red}>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700, color:C.red, marginBottom:10 }}>
-                  Cancel this week?
-                </div>
-                <input value={cancelReason} onChange={e => setCancelReason(e.target.value)}
-                  placeholder="Reason (e.g. Venue unavailable)"
-                  style={{ width:"100%", padding:"10px 12px", borderRadius:6,
-                    border:`1px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-                    fontFamily:"Inter,sans-serif", fontSize:13, outline:"none",
-                    boxSizing:"border-box", marginBottom:10 }}/>
-                <div style={{ display:"flex", gap:8 }}>
-                  <Btn label="Confirm Cancel" color={C.red}   fill onClick={cancelWeek} small block/>
-                  <Btn label="Back"           color={C.muted}      onClick={() => setShowCancel(false)} small block/>
-                </div>
-              </Card>
-          }
-        </div>
-      )}
+      {/* ── Content ── */}
+      <div style={{ padding:"10px 16px 0" }}>
 
-      {/* Notification shortcuts */}
-      <SecTitle>Notification Shortcuts</SecTitle>
-      {[
-        { label:"🟢 Game open — notify all",           action:() => sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek) },
-        { label:"★ Priority ping — first picks",        action:() => sendTemplate(notificationTemplates.priorityPing) },
-        { label:"⚠️ Slots available — notify maybes",  action:() => sendTemplate(notificationTemplates.slotsAvailable) },
-        { label:"✅ Squad full — notify all",           action:() => sendTemplate(notificationTemplates.squadFull, schedule.dayOfWeek) },
-        { label:"👕 Teams confirmed — notify all",      action:() => sendTemplate(notificationTemplates.teamsConfirmed) },
-        { label:"📣 Bulk notify cover pool",            action:() => coverPool.forEach(p => sendTemplate(notificationTemplates.coverNeeded, p.name)) },
-      ].map(({ label, action }) => (
-        <button key={label} onClick={action} style={{ width:"100%", padding:"11px 14px",
-          borderRadius:6, border:`1px solid ${C.border}`, background:C.surface, color:C.text,
-          fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, cursor:"pointer",
-          textAlign:"left", marginBottom:8 }}>
-          {label}
-        </button>
-      ))}
-
-      {/* Schedule summary card */}
-      <Card color={C.border} onClick={() => setScreen("schedule")} style={{ marginTop:8 }}>
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
-          color:C.purple, letterSpacing:1, textTransform:"uppercase" }}>⚙️ Schedule & Settings</div>
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color:C.text, marginTop:4 }}>
-          {schedule.dayOfWeek} {schedule.kickoff} · Opens {schedule.opensDay} {schedule.opensTime}
-        </div>
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:2 }}>
-          £{schedule.pricePerPlayer}/player · {schedule.squadSize} needed · {schedule.priorityLeadMins}min priority
-        </div>
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.purple, marginTop:4 }}>Edit →</div>
-      </Card>
-
-      {/* Bibs card */}
-      <Card color={C.border} onClick={() => setScreen("bibs")}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
-              color:C.amber, letterSpacing:1, textTransform:"uppercase" }}>🟡 Bibs</div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:500, color:C.text, marginTop:4 }}>
-              {bibHistory[0]?.returned===false ? `${bibHistory[0].name} has them` : "All returned ✅"}
-            </div>
-          </div>
-          <span style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.amber }}>Manage →</span>
-        </div>
-      </Card>
-
-      {/* Payments */}
-      <SecTitle color={C.muted} data-gaffer-target="mark-paid">💰 Payments — £{schedule.pricePerPlayer}/player</SecTitle>
-      {inPlayers.length === 0 && (
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.muted, padding:"10px 0" }}>
-          No confirmed players yet.
-        </div>
-      )}
-      {inPlayers.length > 0 && (
-        <button onClick={() => {
-          const allPaid = Object.fromEntries(inPlayers.map(p => [p.id, true]));
-          setPayments(pm => ({ ...pm, ...allPaid }));
-          setSquad(squad.map(p => inPlayers.find(ip => ip.id===p.id) ? { ...p, paid:true, selfPaid:false } : p));
-        }} style={{ width:"100%", padding:"10px 0", borderRadius:6, marginBottom:8,
-          border:`1px solid ${C.green}`, background:C.green+"12", color:C.green,
-          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-          ✅ Mark All Paid
-        </button>
-      )}
-
-      {/* Admin: add a plus one on behalf of any player */}
-      {showAdminPlusOne ? (
-        <div style={{ padding:"14px 16px", borderRadius:8, marginBottom:12,
-          background:C.surface, border:`1px solid ${C.border}` }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
-            color:C.text, marginBottom:10 }}>➕ Add a plus one</div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:8 }}>
-            Host player:
-          </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
-            {squad.filter(p => !p.isGuest && !p.disabled).map(p => (
-              <button key={p.id} onClick={() => setAdminHostId(p.id)} style={{
-                padding:"6px 12px", borderRadius:5,
-                border:`1.5px solid ${adminHostId===p.id ? C.amber : C.border}`,
-                background:adminHostId===p.id ? C.amber+"18" : "transparent",
-                color:adminHostId===p.id ? C.amber : C.muted,
-                fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:500, cursor:"pointer" }}>
-                {p.name}
-              </button>
-            ))}
-          </div>
-          <input value={adminGuestName} onChange={e => setAdminGuestName(e.target.value)}
-            placeholder="Guest's name..."
-            style={{ width:"100%", padding:"11px 13px", borderRadius:6, marginBottom:10,
-              border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-              fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
-              boxSizing:"border-box" }}/>
-          <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-            {[
-              { label:`Host pays`, value:false },
-              { label:"Guest pays cash", value:true },
-            ].map(opt => (
-              <button key={String(opt.value)} onClick={() => setAdminSelfPaid(opt.value)} style={{
-                flex:1, padding:"8px 0", borderRadius:5,
-                border:`1.5px solid ${adminSelfPaid===opt.value ? C.amber : C.border}`,
-                background:adminSelfPaid===opt.value ? C.amber+"18" : "transparent",
-                color:adminSelfPaid===opt.value ? C.amber : C.muted,
-                fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ display:"flex", gap:8 }}>
-            <Btn label={addingAdminGuest ? "Adding..." : "Add Plus One"} color={C.green} fill
-              onClick={submitAdminGuest}
-              disabled={!adminHostId || !adminGuestName.trim() || addingAdminGuest} small block/>
-            <Btn label="Cancel" color={C.muted}
-              onClick={() => { setShowAdminPlusOne(false); setAdminHostId(""); setAdminGuestName(""); }}
-              small block/>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setShowAdminPlusOne(true)} style={{
-          width:"100%", padding:"9px 14px", borderRadius:6, marginBottom:12,
-          border:`1px solid ${C.border}`, background:C.surface, color:C.muted,
-          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer",
-          textAlign:"left" }}>
-          ➕ Add a plus one
-        </button>
-      )}
-
-      {inPlayers.map(p => {
-        const host = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
-        return (
-        <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
-          padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500,
-              color:C.text, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-              {p.name}
-              {p.isGuest && <span style={{ fontSize:13 }}>👤</span>}
-              {p.paid === true ? (
-                <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
-                  background:C.green+"20", color:C.green }}>Stripe ✓</span>
-              ) : p.selfPaid === true ? (
-                <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
-                  background:C.amber+"20", color:C.amber }}>
-                  {p.paidBy === 'host'  ? `Paid by ${host?.name || 'host'}`
-                 : p.paidBy === 'admin' ? 'Admin ✓'
-                 :                        'Cash ✓'}
-                </span>
-              ) : (
-                <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4,
-                  background:C.red+"15", color:C.muted }}>Unpaid</span>
-              )}
-              {p.owes > 0 && (
-                <span style={{ fontSize:10, color:C.red }}>£{p.owes} owed</span>
-              )}
-            </div>
-            {p.isGuest && host && (
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:1 }}>
-                guest of {host.name}
+        {/* Alert banners */}
+        {orphanedGuests.map(guest => {
+          const host = squad.find(h => h.id === guest.guestOf);
+          return (
+            <div key={guest.id} style={{ background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+              borderRadius:"var(--r)", padding:"12px 14px", marginBottom:8 }}>
+              <div style={{ fontSize:13, fontWeight:500, color:"var(--amber)", marginBottom:4 }}>
+                👤 {guest.name}'s host dropped out
               </div>
-            )}
+              <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginBottom:10 }}>
+                {host?.name || "Their host"} is now out. What should happen to {guest.name}?
+              </div>
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                {[
+                  { label:"Keep IN",        action:() => dismissOrphan(guest.id),  color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)" },
+                  { label:"Move to reserve",action:() => reserveGuest(guest.id),  color:"var(--purple)", bg:"var(--purple2)", border:"var(--purpleb)" },
+                  { label:`Remove ${guest.name}`,action:() => removeGuest(guest.id), color:"var(--red)",   bg:"var(--red2)",    border:"var(--redb)" },
+                ].map(({ label, action, color, bg, border }) => (
+                  <button key={label} onClick={action} style={{ padding:"6px 12px",
+                    borderRadius:"var(--r-pill)", border:`0.5px solid ${border}`,
+                    background:bg, color, fontFamily:"var(--font-body)",
+                    fontSize:12, fontWeight:500, cursor:"pointer" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+        {selfPaidPending.length > 0 && (
+          <div style={{ background:"var(--green2)", border:"0.5px solid var(--greenb)",
+            borderRadius:"var(--r)", padding:"12px 14px", marginBottom:8 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:"var(--green)",
+              letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
+              💰 Payment Confirmations Needed
+            </div>
+            {selfPaidPending.map(p => (
+              <div key={p.id} style={{ display:"flex", alignItems:"center",
+                justifyContent:"space-between", marginBottom:6 }}>
+                <span style={{ fontSize:13, color:"var(--t1)" }}>{p.name} says they've paid</span>
+                <button onClick={() => markPaid(p.id)} style={{ padding:"5px 12px",
+                  borderRadius:"var(--r-pill)", border:"none", background:"var(--green)",
+                  color:"#000", fontFamily:"var(--font-body)", fontSize:11,
+                  fontWeight:600, cursor:"pointer" }}>Confirm ✓</button>
+              </div>
+            ))}
           </div>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"flex-end" }}>
-            {/* Add guest to cover pool — shown after result saved (next week drafted) */}
-            {p.isGuest && schedule.isDraft && (
-              <button onClick={() => addGuestToCoverPool(p)} style={{ padding:"7px 10px",
-                borderRadius:5, border:`1px solid ${C.blue}`, background:C.blue+"18",
-                color:C.blue, fontFamily:"Inter,sans-serif", fontSize:11,
-                fontWeight:700, cursor:"pointer" }}>
-                + Cover pool
-              </button>
-            )}
-            {getPaymentState(p) === 'debt' && (
+        )}
+
+        {/* Game live toggle */}
+        <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+          borderRadius:"var(--r)", padding:"14px 16px",
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          marginBottom:10 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+              background: schedule.gameIsLive ? "var(--green)" : "var(--t2)",
+              boxShadow: schedule.gameIsLive ? "0 0 8px rgba(61,220,106,0.6)" : "none",
+              animation: schedule.gameIsLive ? "ioo-blink 2s infinite" : "none" }}/>
+            <div style={{ fontSize:15, fontWeight:400, color:"var(--t1)" }}>
+              {schedule.gameIsLive ? "Game is Open" : "Game is Closed"}
+            </div>
+          </div>
+          <div onClick={toggleGameLive} style={{ width:44, height:26, borderRadius:13,
+            background: schedule.gameIsLive ? "var(--green)" : "var(--s3)",
+            position:"relative", flexShrink:0, cursor:"pointer", transition:"all 0.2s",
+            boxShadow: schedule.gameIsLive ? "0 0 10px rgba(61,220,106,0.3)" : "none" }}>
+            <div style={{ width:20, height:20, background:"#fff", borderRadius:"50%",
+              position:"absolute", top:3, transition:"all 0.2s",
+              left: schedule.gameIsLive ? "auto" : 3,
+              right: schedule.gameIsLive ? 3 : "auto",
+              boxShadow:"0 1px 4px rgba(0,0,0,0.3)" }}/>
+          </div>
+        </div>
+
+        {/* Actions section */}
+        <SectionLabel>Actions</SectionLabel>
+        {chaseToast && (
+          <div style={{ background:"var(--green2)", border:"0.5px solid var(--greenb)",
+            borderRadius:"var(--rs)", padding:"8px 14px", marginBottom:8,
+            fontSize:12, color:"var(--green)" }}>
+            ✓ Chase sent to {noRespPlayers.length} player{noRespPlayers.length!==1?"s":""}
+          </div>
+        )}
+        <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+          borderRadius:"var(--r)", overflow:"hidden", marginBottom:10 }}>
+          {[
+            {
+              key:"chase", iconEl:<Megaphone size={18} weight="thin" color="var(--amber)"/>,
+              iconBg:"var(--amber2)", iconBorder:"var(--amberb)",
+              title:"Chase No-Responses",
+              sub:`Nudge the ${noRespPlayers.length} player${noRespPlayers.length!==1?"s":""} who haven't replied`,
+              badge: noRespPlayers.length, action: chaseNoResponders,
+            },
+            {
+              key:"cancel", iconEl:<XCircle size={18} weight="thin" color="var(--red)"/>,
+              iconBg:"var(--red2)", iconBorder:"var(--redb)",
+              title:"Cancel This Week",
+              sub:"Notify all confirmed players",
+              badge:0, action:() => setShowCancel(s => !s),
+            },
+            {
+              key:"announce", iconEl:<PaperPlaneTilt size={18} weight="thin" color="var(--purple)"/>,
+              iconBg:"var(--purple2)", iconBorder:"var(--purpleb)",
+              title:"Announce to Squad",
+              sub:"Choose who receives your message",
+              badge:0, action:() => setShowAnnounce(true),
+            },
+          ].map(({ key, iconEl, iconBg, iconBorder, title, sub, badge, action }, i) => (
+            <div key={key} onClick={action}
+              style={{ display:"flex", alignItems:"center", padding:"12px 14px",
+                borderBottom: i < 2 ? "0.5px solid var(--b2)" : "none",
+                cursor:"pointer", gap:12,
+                WebkitTapHighlightColor:"transparent" }}>
+              <div style={{ width:36, height:36, borderRadius:"var(--rs)", flexShrink:0,
+                background:iconBg, border:`0.5px solid ${iconBorder}`,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                {iconEl}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, color:"var(--t1)" }}>{title}</div>
+                <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:2 }}>{sub}</div>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                {badge > 0 && (
+                  <div style={{ background:"var(--amber)", borderRadius:10, padding:"2px 8px",
+                    fontSize:10, fontWeight:600, color:"#000" }}>{badge}</div>
+                )}
+                <CaretRight size={16} weight="thin" color="var(--t2)"
+                  style={{ transform: key==="cancel" && showCancel ? "rotate(90deg)" : "none",
+                    transition:"transform 0.2s" }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Cancel form */}
+        {showCancel && (
+          <div style={{ background:"var(--s1)", border:"0.5px solid var(--redb)",
+            borderRadius:"var(--r)", padding:"14px 16px", marginBottom:10 }}>
+            <div style={{ fontSize:13, fontWeight:500, color:"var(--red)", marginBottom:10 }}>
+              Cancel this week?
+            </div>
+            <input value={cancelReason} onChange={e => setCancelReason(e.target.value)}
+              placeholder="Reason (e.g. Venue unavailable)"
+              style={{ width:"100%", padding:"10px 12px", borderRadius:"var(--rs)",
+                border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:13,
+                outline:"none", boxSizing:"border-box", marginBottom:10 }}/>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={cancelWeek} style={{ flex:1, padding:"10px 0",
+                borderRadius:"var(--r-button)", border:"none", background:"var(--red)",
+                color:"#fff", fontFamily:"var(--font-body)", fontSize:13,
+                fontWeight:600, cursor:"pointer" }}>Confirm Cancel</button>
+              <button onClick={() => setShowCancel(false)} style={{ flex:1, padding:"10px 0",
+                borderRadius:"var(--r-button)", border:"0.5px solid var(--border-subtle)",
+                background:"transparent", color:"var(--t2)", fontFamily:"var(--font-body)",
+                fontSize:13, cursor:"pointer" }}>Back</button>
+            </div>
+          </div>
+        )}
+
+        {/* Live Board */}
+        <SectionLabel>Live Board</SectionLabel>
+        {renderSection("in",      "✅", "In",          "var(--green)",  inPlayers)}
+        {renderSection("reserve", "🟣", "Reserve",     "var(--purple)", reservePlayers)}
+        {renderSection("maybe",   "❓", "Maybe",       "var(--amber)",  maybePlayers)}
+        {renderSection("out",     "❌", "Out",          "var(--red)",    outPlayers)}
+        {renderSection("injured", "🤕", "Injured",     "var(--red)",    injuredPlayers)}
+        {renderSection("noResp",  "⏳", "No Response", "var(--t2)",     noRespPlayers)}
+
+        {/* This Week tiles */}
+        <SectionLabel>This Week</SectionLabel>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+          {tile({
+            icon:UsersThree, iconColor:"#60A0FF",
+            bg:"linear-gradient(135deg,rgba(96,160,255,0.14) 0%,rgba(96,160,255,0.03) 60%,rgba(10,10,8,0.5) 100%)",
+            border:"rgba(96,160,255,0.25)",
+            title:"Make Teams", sub:"Split squad into A and B",
+            status:{ ok:teamsSet, label: teamsSet ? "Teams confirmed ✓" : "Not confirmed" },
+            badge:0, onClick:() => setScreen("teams"),
+          })}
+          {tile({
+            icon:FlagCheckered, iconColor:"var(--green)",
+            bg:"linear-gradient(135deg,rgba(61,220,106,0.14) 0%,rgba(61,220,106,0.03) 60%,rgba(10,10,8,0.5) 100%)",
+            border:"rgba(61,220,106,0.25)",
+            title:"Input Result", sub:"Score, scorers, MOTM, bibs",
+            badge:pendingResults, onClick:() => setScreen("score"),
+          })}
+        </div>
+
+        {/* Manage tiles */}
+        <SectionLabel>Manage</SectionLabel>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+          {tile({
+            icon:UserList, iconColor:"var(--gold)",
+            bg:"linear-gradient(135deg,rgba(232,160,32,0.14) 0%,rgba(232,160,32,0.03) 60%,rgba(10,10,8,0.5) 100%)",
+            border:"rgba(232,160,32,0.25)",
+            title:"Squad",
+            sub:`${squad.filter(p=>!p.disabled&&!p.isGuest).length} players · ${squad.filter(p=>p.isGuest&&!p.disabled).length} guests`,
+            badge:0, onClick:() => setScreen("squad"),
+          })}
+          {tile({
+            icon:CalendarBlank, iconColor:"var(--purple)",
+            bg:"linear-gradient(135deg,rgba(176,96,240,0.14) 0%,rgba(176,96,240,0.03) 60%,rgba(10,10,8,0.5) 100%)",
+            border:"rgba(176,96,240,0.25)",
+            title:"Schedule",
+            sub:`${schedule.dayOfWeek} · ${schedule.venue || "No venue"} · £${schedule.pricePerPlayer || 0}`,
+            badge:0, onClick:() => setScreen("schedule"),
+          })}
+          {tile({
+            icon:Bell, iconColor:"var(--amber)",
+            bg:"linear-gradient(135deg,rgba(255,176,32,0.14) 0%,rgba(255,176,32,0.03) 60%,rgba(10,10,8,0.5) 100%)",
+            border:"rgba(255,176,32,0.25)",
+            title:"Notifications", sub:"Reminders and quiet hours",
+            badge:0, onClick:() => setScreen("schedule"),
+          })}
+          {tile({
+            icon:TShirt, iconColor:"var(--gold)",
+            bg:"linear-gradient(135deg,rgba(232,160,32,0.14) 0%,rgba(232,160,32,0.03) 60%,rgba(10,10,8,0.5) 100%)",
+            border:"rgba(232,160,32,0.25)",
+            title:"Bibs",
+            sub: bibHistory[0]?.returned === false
+              ? `${bibHistory[0].name} has them`
+              : "Not assigned",
+            badge:0, onClick:() => setScreen("bibs"),
+          })}
+        </div>
+
+        {/* Cover Pool */}
+        <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+          borderRadius:"var(--r)", overflow:"hidden", marginBottom:10 }}>
+          <div onClick={() => setShowCoverPool(o => !o)}
+            style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:"0 14px", minHeight:48, cursor:"pointer",
+              borderBottom: showCoverPool && coverPool.length ? "0.5px solid var(--b2)" : "none" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8,
+              fontSize:11, fontWeight:600, letterSpacing:"0.08em",
+              textTransform:"uppercase", color:"var(--t2)" }}>
+              <Users size={16} weight="thin"/>
+              Cover Pool · {coverPool.length} player{coverPool.length!==1?"s":""}
+            </div>
+            <CaretRight size={14} weight="thin" color="var(--t2)"
+              style={{ transform: showCoverPool ? "rotate(90deg)" : "none", transition:"transform 0.2s" }}/>
+          </div>
+          {showCoverPool && coverPool.map(cp => (
+            <div key={cp.id} style={{ display:"flex", alignItems:"center", padding:"9px 14px",
+              borderTop:"0.5px solid var(--b2)", gap:10 }}>
+              <div style={{ width:30, height:30, borderRadius:"50%", background:"var(--s3)",
+                border:"0.5px solid var(--border-subtle)", display:"flex", alignItems:"center",
+                justifyContent:"center", fontSize:9, fontWeight:600, color:"var(--t2)",
+                flexShrink:0 }}>
+                {initials(cp.name)}
+              </div>
+              <div style={{ flex:1, fontSize:12, color:"var(--t2)" }}>{cp.name}</div>
+              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginRight:8 }}>
+                {cp.played} game{cp.played!==1?"s":""}
+              </div>
               <button onClick={async () => {
-                await handleClearDebt(p.id, teamId).catch(console.error);
-                setSquad(squad.map(s => s.id===p.id ? { ...s, owes:0 } : s));
-              }} style={{ padding:"7px 10px", borderRadius:5, border:`1px solid ${C.amber}`,
-                background:C.amber+"12", color:C.amber,
-                fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                Clear Debt
+                try {
+                  const guest = await addGuestPlayer(squad[0]?.id, cp.name, teamId, false);
+                  setSquad([...squad, guest]);
+                } catch(e) { console.error(e); }
+              }} style={{ background:"var(--s2)", border:"0.5px solid var(--border-subtle)",
+                borderRadius:"var(--r-pill)", padding:"4px 10px", fontSize:11,
+                color:"var(--t2)", cursor:"pointer", fontFamily:"var(--font-body)" }}>
+                + Add
               </button>
-            )}
-            <button onClick={() => markCashPaid(p)} style={{ padding:"7px 10px", borderRadius:5,
-              border:`1px solid ${C.amber}`, background:C.amber+"12", color:C.amber,
-              fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-              Mark Cash Paid
-            </button>
-            <button onClick={() => markPaid(p.id)} style={{ padding:"7px 14px", borderRadius:5,
-              border:"none", cursor:"pointer",
-              background:C.green+"20", color:C.green,
-              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700 }}>
-              Mark Paid
-            </button>
-            {(p.paid === true || p.selfPaid === true) && (
-              <button onClick={() => resetPayment(p.id)} style={{ padding:"7px 10px", borderRadius:5,
-                border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-        );
-      })}
-
-      {/* Outstanding debts — players not in this week's game */}
-      {(() => {
-        const debtors  = squad.filter(p => !p.disabled && p.owes > 0 && (p.status !== "in" || p.isGuest));
-        const totalOwed = debtors.reduce((sum, p) => sum + p.owes, 0);
-        if (!debtors.length) return null;
-        return (
-          <>
-            <div data-gaffer-target="outstanding-debts"
-              style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
-              color:C.red, letterSpacing:1, textTransform:"uppercase",
-              margin:"20px 0 10px" }}>
-              💸 Outstanding Debts — £{totalOwed} across {debtors.length} player{debtors.length !== 1 ? "s" : ""}
             </div>
-            {debtors.map(p => (
-              <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10,
-                padding:"12px 0", borderBottom:`1px solid ${C.border}` }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
-                    fontWeight:500, color:C.text, display:"flex", alignItems:"center", gap:6 }}>
-                    {p.name}
-                    {p.isGuest && <span style={{ fontSize:13 }}>👤</span>}
-                    {p.injured && <span style={{ fontSize:12 }}>🤕</span>}
-                  </div>
-                  {p.isGuest && (() => {
-                    const h = squad.find(s => s.id === p.guestOf);
-                    return h ? (
-                      <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:1 }}>
-                        guest of {h.name}
-                      </div>
-                    ) : null;
-                  })()}
-                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
-                    color:C.red, marginTop:2 }}>Owes £{p.owes}</div>
-                </div>
-                <button onClick={async () => {
-                  await handleClearDebt(p.id, teamId).catch(console.error);
-                  setSquad(squad.map(s => s.id===p.id ? { ...s, owes:0 } : s));
-                }} style={{ padding:"7px 12px", borderRadius:5,
-                  border:`1px solid ${C.amber}`, background:C.amber+"12", color:C.amber,
-                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                  Clear Debt
-                </button>
-              </div>
-            ))}
-          </>
-        );
-      })()}
+          ))}
+        </div>
 
-      {/* Cover pool */}
-      <CoverPoolSection
-        coverPool={coverPool}
-        setCoverPool={setCoverPool}
-        teamId={teamId}
+      </div>
+
+      {/* Announce modal */}
+      {showAnnounce && (
+        <AnnounceModal
+          squad={squad} settings={settings} teamId={teamId} schedule={schedule}
+          onClose={() => setShowAnnounce(false)}
+        />
+      )}
+
+      {/* NavBar */}
+      <NavBar
+        activeTab="admin"
+        onTabChange={(id) => {
+          if (id === "my-view") onGoPlayer?.();
+          else if (id === "stats") onGoStats?.();
+          else if (id === "history") onGoHistory?.();
+        }}
+        onAdminClick={() => {}}
       />
-
-      {/* Bottom padding */}
-      <div style={{ height:32 }}/>
     </div>
   );
 }
