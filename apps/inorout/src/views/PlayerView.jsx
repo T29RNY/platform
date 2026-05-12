@@ -284,7 +284,6 @@ export default function PlayerView({
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
 
       {/* 1 ── PAGE HEADER (sticky) — my-view only; stats/history render their own headers */}
-      {console.log('[ioo] PageHeader rendering, activeTab:', activeTab)}
       {activeTab === "my-view" && (
         <div style={{ position:"sticky", top:0, zIndex:50, background:"var(--bg)" }}>
           <PageHeader

@@ -580,7 +580,7 @@ export default function App() {
           onMidFlowChange={setIsActionBlocked}
           isAdmin={isAdmin} onGoAdmin={() => setView("admin")}/>
       )}
-      {view==="stats"   && (() => { console.log('[ioo] StatsView props', { matchesLength: matches?.length, matchesDefined: matches !== undefined, playersLength: players?.length, activeTab }); return <StatsView   squad={squad} bibHistory={bibHistory} matchHistory={matchHistory}/>; })()}
+      {view==="stats"   && <StatsView squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} settings={settings}/>}
       {view==="admin"   && isAdmin && (
         <AdminView
