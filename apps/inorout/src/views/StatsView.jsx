@@ -245,6 +245,12 @@ const STREAK_COLOR = { w:"var(--green)", l:"var(--red)", d:"var(--amber)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function StatsView({ squad, bibHistory = [], matchHistory = [], settings, schedule }) {
+  console.log('[ioo] StatsView received', {
+    matchesProp: matches,
+    matchesLength: matches?.length,
+    playersProp: players?.length
+  });
+
   const [tab, setTab] = useState("overview");
 
   const active = squad.filter(p => !p.disabled && !p.isGuest);

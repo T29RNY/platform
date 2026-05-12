@@ -283,18 +283,21 @@ export default function PlayerView({
   return (
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
 
-      {/* 1 ── PAGE HEADER (sticky) */}
-      <div style={{ position:"sticky", top:0, zIndex:50, background:"var(--bg)" }}>
-        <PageHeader
-          teamName={settings?.groupName}
-          dayOfWeek={schedule.dayOfWeek}
-          venue={schedule.venue}
-          kickoff={schedule.kickoff}
-          inCount={inPlayers.length}
-          squadSize={schedule.squadSize || 14}
-          gameIsLive={schedule.gameIsLive}
-        />
-      </div>
+      {/* 1 ── PAGE HEADER (sticky) — my-view only; stats/history render their own headers */}
+      {console.log('[ioo] PageHeader rendering, activeTab:', activeTab)}
+      {activeTab === "my-view" && (
+        <div style={{ position:"sticky", top:0, zIndex:50, background:"var(--bg)" }}>
+          <PageHeader
+            teamName={settings?.groupName}
+            dayOfWeek={schedule.dayOfWeek}
+            venue={schedule.venue}
+            kickoff={schedule.kickoff}
+            inCount={inPlayers.length}
+            squadSize={schedule.squadSize || 14}
+            gameIsLive={schedule.gameIsLive}
+          />
+        </div>
+      )}
 
       {/* 3 ── MY VIEW */}
       {activeTab === "my-view" && (
