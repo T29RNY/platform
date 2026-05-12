@@ -245,6 +245,16 @@ const STREAK_COLOR = { w:"var(--green)", l:"var(--red)", d:"var(--amber)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function StatsView({ squad, bibHistory = [], matchHistory = [], settings, schedule }) {
+  console.log('[ioo] StatsView data check', {
+    matchesReceived: matchHistory,
+    matchesLength: matchHistory?.length,
+    firstMatch: matchHistory?.[0],
+    cancelledField: matchHistory?.[0]?.cancelled,
+    isCancelledField: matchHistory?.[0]?.is_cancelled,
+    cancelledFilter: matchHistory?.filter(m => !m.cancelled)?.length,
+    isCancelledFilter: matchHistory?.filter(m => !m.is_cancelled)?.length
+  });
+
   const [tab, setTab] = useState("overview");
 
   const active = squad.filter(p => !p.disabled && !p.isGuest);
