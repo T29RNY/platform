@@ -563,7 +563,7 @@ const DEMO_BASELINE = [
   { id:"p_demo_10", goals:0,  motm:0, attended:22, w:14, l:6, d:2, bib_count:4, pay_count:22, late_dropouts:0, owes:0, injured:false },
   { id:"p_demo_11", goals:2,  motm:0, attended:10, w:6,  l:3, d:1, bib_count:1, pay_count:10, late_dropouts:1, owes:0, injured:false },
   { id:"p_demo_12", goals:4,  motm:1, attended:8,  w:5,  l:2, d:1, bib_count:1, pay_count:8,  late_dropouts:0, owes:0, injured:false },
-  { id:"p_demo_13", goals:3,  motm:1, attended:14, w:9,  l:4, d:1, bib_count:2, pay_count:13, late_dropouts:2, owes:0, injured:true },
+  { id:"p_demo_13", goals:3,  motm:1, attended:14, w:9,  l:4, d:1, bib_count:2, pay_count:13, late_dropouts:2, owes:0, injured:false },
   { id:"p_demo_14", goals:1,  motm:0, attended:8,  w:5,  l:2, d:1, bib_count:0, pay_count:6,  late_dropouts:1, owes:0, injured:false },
   { id:"p_demo_15", goals:11, motm:4, attended:18, w:11, l:5, d:2, bib_count:2, pay_count:17, late_dropouts:1, owes:0, injured:false },
   { id:"p_demo_16", goals:6,  motm:2, attended:20, w:13, l:5, d:2, bib_count:1, pay_count:20, late_dropouts:0, owes:0, injured:false },
@@ -574,25 +574,101 @@ const DEMO_BASELINE = [
   { id:"p_demo_21", goals:5,  motm:2, attended:17, w:10, l:5, d:2, bib_count:3, pay_count:16, late_dropouts:2, owes:0, injured:false },
   { id:"p_demo_22", goals:4,  motm:1, attended:16, w:11, l:3, d:2, bib_count:2, pay_count:15, late_dropouts:1, owes:0, injured:false },
   { id:"p_demo_23", goals:3,  motm:1, attended:19, w:12, l:5, d:2, bib_count:1, pay_count:19, late_dropouts:0, owes:0, injured:false },
-  { id:"p_demo_24", goals:5,  motm:1, attended:15, w:9,  l:4, d:2, bib_count:2, pay_count:13, late_dropouts:4, owes:0, injured:false },
+  { id:"p_demo_24", goals:4,  motm:1, attended:11, w:7,  l:3, d:1, bib_count:1, pay_count:10, late_dropouts:2, owes:0, injured:false },
   { id:"p_demo_25", goals:6,  motm:2, attended:18, w:11, l:5, d:2, bib_count:1, pay_count:18, late_dropouts:1, owes:0, injured:false },
 ];
 
+// [matchId, winner, teamA_nums[], teamB_nums[], {scorer_num:goals}, motm_num, bib_num]
+// Nums: Hassan=1,Dave=2,Mike=3,Steve=4,Jordan=5,Liam=6,Callum=7,Chris=8,Robbie=9,
+//       Finbar=10,Paul=11,Tom=12,Kieran=13,Declan=14,Sarah=15,Priya=16,Maya=17,
+//       Aisha=18,Marcus=19,Danny=20,Ryan=21,Aaron=22,Luke=23,Gav=24,Tarny=25
+const DEMO_MATCH_DATA = [
+  ['m_demo_01','A',[1,20,4,10,15,16,7],[2,3,23,25,13,21,9],{1:2,20:1,15:1,2:1,21:1},1,3],
+  ['m_demo_02','A',[2,4,10,19,13,22,23],[1,20,7,3,16,25,21],{2:2,19:1,1:1,20:1},2,3],
+  ['m_demo_03','A',[1,20,4,10,19,15,16],[2,3,7,23,25,21,5],{1:2,19:2,15:1,2:1,21:1},19,3],
+  ['m_demo_04','B',[1,20,4,10,16,6,7],[2,3,23,25,13,11,21],{1:1,20:1,2:2,21:1},2,23],
+  ['m_demo_05','A',[1,20,4,10,16,24,15],[2,3,7,23,25,13,21],{1:2,20:1,15:1,2:1},1,3],
+  ['m_demo_06','B',[2,4,10,9,22,23,25],[1,20,7,3,16,15,21],{22:1,1:1,20:1,15:2},15,7],
+  ['m_demo_07','A',[2,1,4,10,19,24,16],[3,20,7,23,25,21,13],{2:2,1:1,19:1,3:1,21:1},2,3],
+  ['m_demo_09','A',[2,4,10,3,12,23,25],[1,20,7,16,15,5,21],{2:2,3:1,1:1,20:1},2,10],
+  ['m_demo_10','A',[1,20,4,10,19,16,13],[2,3,7,23,25,21,18],{1:2,19:2,2:1},1,3],
+  ['m_demo_11','A',[1,20,4,10,15,16,8],[2,3,7,23,25,21,14],{1:1,20:2,2:1,21:1},20,3],
+  ['m_demo_12','A',[2,4,10,19,24,22,23],[1,20,7,3,16,25,21],{2:2,19:1,1:1,21:1},2,2],
+  ['m_demo_13','A',[1,20,4,10,15,16,13],[2,3,7,23,25,21,9],{1:2,20:1,15:1,2:1,9:1},1,25],
+  ['m_demo_14','A',[1,20,4,10,15,16,11],[2,3,7,23,25,21,6],{15:2,1:1,2:1},15,4],
+  ['m_demo_16','A',[2,4,10,19,13,22,23],[1,20,7,3,16,25,21],{2:2,19:2,1:2,20:1},2,16],
+  ['m_demo_17','A',[1,20,4,10,19,16,13],[2,3,7,24,23,25,21],{19:3,1:1,20:1,2:2,21:1},19,23],
+  ['m_demo_18','A',[1,20,4,10,15,16,13],[2,3,7,23,25,21,9],{1:3,15:1,2:1,21:1},1,7],
+  ['m_demo_19','B',[1,20,4,10,19,16,13],[2,3,7,22,23,25,21],{1:2,20:1,3:2,2:1,21:1},3,3],
+  ['m_demo_20','A',[2,4,10,9,24,23,25],[1,20,7,3,16,15,21],{2:3,9:1,1:1,15:1},2,9],
+  ['m_demo_21','A',[1,20,4,10,15,16,19],[2,3,7,23,25,21,22],{20:2,1:1,15:1,2:1,3:1},20,10],
+  ['m_demo_22','A',[1,20,4,10,15,16,14],[2,3,7,24,23,25,21],{15:2,1:1,2:1,3:1},15,25],
+];
+
 export async function resetDemoData() {
-  const injuredSince = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+  const pid = n => `p_demo_${String(n).padStart(2, '0')}`;
+
+  // 1. Delete and re-insert player_match rows
+  await supabase.from('player_match').delete().eq('team_id', 'team_demo');
+  const pmRows = [];
+  for (const [mid, winner, ta, tb, scorers, motm, bib] of DEMO_MATCH_DATA) {
+    const push = (ids, side) => ids.forEach(n => pmRows.push({
+      team_id: 'team_demo', match_id: mid, player_id: pid(n),
+      team_assignment: side,
+      result: winner === 'D' ? 'd' : (side === winner ? 'w' : 'l'),
+      attended: true, was_motm: n === motm, had_bibs: n === bib,
+      goals: scorers[n] || 0, is_guest: false, late_cancel: false, injury_absence: false,
+    }));
+    push(ta, 'A');
+    push(tb, 'B');
+  }
+  for (let i = 0; i < pmRows.length; i += 50)
+    await supabase.from('player_match').insert(pmRows.slice(i, i + 50));
+
+  // 2. Delete and re-insert Gav's injury history
+  await supabase.from('player_injuries').delete().eq('team_id', 'team_demo');
+  await supabase.from('player_injuries').insert([
+    { id:'inj_demo_01', player_id:'p_demo_24', team_id:'team_demo', injured_at:'2025-09-28', cleared_at:'2025-10-12', marked_by:'player' },
+    { id:'inj_demo_02', player_id:'p_demo_24', team_id:'team_demo', injured_at:'2025-11-16', cleared_at:'2025-11-30', marked_by:'player' },
+    { id:'inj_demo_03', player_id:'p_demo_24', team_id:'team_demo', injured_at:'2026-01-11', cleared_at:'2026-02-01', marked_by:'admin' },
+    { id:'inj_demo_04', player_id:'p_demo_24', team_id:'team_demo', injured_at:'2026-03-22', cleared_at:'2026-04-06', marked_by:'player' },
+  ]);
+
+  // 3. Remove any guest players added to team_demo during a demo session
+  const { data: tpRows } = await supabase
+    .from('team_players').select('player_id').eq('team_id', 'team_demo');
+  if (tpRows?.length) {
+    const allIds = tpRows.map(r => r.player_id);
+    const { data: guests } = await supabase
+      .from('players').select('id').in('id', allIds).eq('is_guest', true);
+    if (guests?.length) {
+      const guestIds = guests.map(g => g.id);
+      await supabase.from('team_players').delete()
+        .eq('team_id', 'team_demo').in('player_id', guestIds);
+      await supabase.from('players').delete().in('id', guestIds);
+    }
+  }
+
+  // 4. Remove any extra matches added during the demo
+  await supabase.from('matches').delete()
+    .eq('team_id', 'team_demo')
+    .not('id', 'like', 'm_demo_%');
+
+  // 5. Reset each player to baseline stats
   for (const p of DEMO_BASELINE) {
-    const { error } = await supabase.from("players").update({
-      status: "none", paid: false, self_paid: false, owes: p.owes,
+    await supabase.from('players').update({
+      status: 'none', paid: false, self_paid: false, paid_by: null,
+      owes: p.owes, note: null, injured: false, injured_since: null,
       goals: p.goals, motm: p.motm, attended: p.attended,
       w: p.w, l: p.l, d: p.d, bib_count: p.bib_count,
       pay_count: p.pay_count, late_dropouts: p.late_dropouts,
-      injured: p.injured, injured_since: p.injured ? injuredSince : null,
-    }).eq("id", p.id);
-    if (error) console.error("resetDemoData:", p.id, error.message);
+    }).eq('id', p.id);
   }
-  await supabase.from("demo_sessions")
-    .update({ last_reset: new Date().toISOString() })
-    .eq("id", "main");
+
+  // 6. Stamp reset time
+  await supabase.from('demo_sessions')
+    .update({ last_reset: new Date().toISOString(), last_interaction: new Date().toISOString() })
+    .eq('id', 'main');
 }
 
 export async function updateDemoInteraction() {

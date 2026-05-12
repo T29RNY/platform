@@ -210,6 +210,9 @@ export default function App() {
         }
 
         if (route.type === "player") {
+          if (route.token?.startsWith("p_demotoken_")) {
+            try { await updateDemoInteraction(); } catch(e) {}
+          }
           const player = await getPlayerByToken(route.token);
           if (!player) { setLoading(false); return; }
           setMyPlayer(player);
