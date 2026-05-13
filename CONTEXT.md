@@ -95,7 +95,7 @@ platform/
           InstallBanner.jsx
           PWAWelcome.jsx
           JoinTeam.jsx
-          JoinSuccess.jsx
+          JoinSuccess.jsx       ← rebuilt session 8, PWA install screen (platform-detected)
           AuthCallback.jsx
           Legal.jsx
           IsThisYou.jsx
@@ -109,9 +109,9 @@ platform/
         steps/AddPlayers.jsx
         steps/ShareLinks.jsx
       public/
-        manifest.json
+        manifest.json          ← 4 icon sizes, theme_color #0A0A08
         sw.js
-        icons/
+        icons/                 ← favicon.ico, favicon-96x96.png, favicon.svg, apple-touch-icon.png, web-app-manifest-192x192.png, web-app-manifest-512x512.png
       mockup/
         inorout-v4-mockup.html
         inorout-liveboard-mockup.html
@@ -604,6 +604,7 @@ self | host | admin | stripe | null
 | My IO screen | ✅ Done | MyIOView.jsx, useIOIntelligence.js |
 | Admin screens redesign | 🔲 Next | TeamsScreen etc |
 | Onboarding redesign | 🔲 Pre-launch | |
+| JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
 | Join/login redesign | 🔲 Pre-launch | |
 | Stripe Connect | 🔒 Blocked | Needs platform account |
 | Apple Sign In | 🔒 Blocked | Needs Dev account £79 |
@@ -828,7 +829,7 @@ Planning + demo environment hardening. No major new UI.
 - Beta launch checklist drafted (separate doc: BETA_LAUNCH_CHECKLIST.md)
 
 **Session 8 (May 13 2026):**
-Built the complete My IO screen. Multiple visual fix rounds applied.
+Built the complete My IO screen, rebuilt JoinSuccess, and shipped new app icons.
 - NavBar.jsx — Brain icon (Phosphor), MY IO tab with green I + red O label, admin tab order fixed (My IO before Admin)
 - supabase.js — 10 new IO Intelligence query functions added (getPlayerMatchStats, getWinRate, getCurrentRun, getReliabilityScore, getMostPlayedWith, getOpponentStats, getNemesis, getBestPartnership, getPlayerImpact, getPOTMVoteStats)
 - useIOIntelligence.js — new hook, parallel queries gated by gamesPlayed unlock thresholds
@@ -844,17 +845,29 @@ Built the complete My IO screen. Multiple visual fix rounds applied.
   - 0-game and guest empty states
   - Scroll reveal via IntersectionObserver, unlock animation via localStorage
 - PlayerView.jsx — wired my-io tab to MyIOView
-- Key gotchas logged: position:sticky breaks inside transform parent (io-section uses translateY); CSS vars can't be used in SVG fill attributes; PostgREST can't self-join so partner/nemesis queries use two-step JS
+- Key gotchas: position:sticky breaks inside transform parent (io-section uses translateY); CSS vars can't be used in SVG fill attributes; PostgREST can't self-join so partner/nemesis queries use two-step JS
+- New app icons shipped — favicon package from realfavicongenerator.net:
+  - public/icons/: favicon.ico, favicon-96x96.png, favicon.svg, apple-touch-icon.png, web-app-manifest-192x192.png, web-app-manifest-512x512.png
+  - index.html: full 5-tag icon set, theme-color corrected to #0A0A08
+  - manifest.json: 4 icon sizes, background_color + theme_color = #0A0A08
+  - sw.js: notification icon + badge updated to new filenames
+- JoinSuccess.jsx fully rebuilt as PWA install instruction screen:
+  - Platform detection: iOS Safari, Android Chrome, desktop, already-installed (standalone → redirect)
+  - iOS: 3-step instructions (Share → Add to Home Screen → Tap Add), gold info row
+  - Android: 2-step instructions (menu ⋮ → Install app), gold info row
+  - Desktop: join URL copy pill with Copied! feedback
+  - PlaceholderScreenshot component (140×240, dashed border) — swap in real screenshots later
+  - Green CTA button + muted "skip for now" link, both navigate to /p/[token]
+  - Posthog events: install_screen_cta_tapped, install_screen_skipped (both include { platform })
+  - App.jsx call site updated: player={joinedPlayer} team={joinTeam}
 
 **Next session (Session 9) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
-   — capture iOS install screenshots while testing
+   — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
 2. Rotate Supabase publishable key — security, OVERDUE
 3. Google DNS TXT record via 123-reg — fixes OAuth branding
-4. JoinSuccess.jsx install screen overhaul (platform-detected)
-5. Install screenshot mockups (iOS bezel + arrows + captions)
-6. Tuesday-night standby kit set up (Posthog + Supabase dashboards)
-7. WhatsApp comms to Finbar's Tuesdays admin
+4. Tuesday-night standby kit set up (Posthog + Supabase dashboards)
+5. WhatsApp comms to Finbar's Tuesdays admin
 
 **Aspirational for May 19 matchday (Stage 1 live):**
 - Ask the Gaffer open to admin role
