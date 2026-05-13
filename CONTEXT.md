@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 13 2026 (session 7)*
+*Last updated: May 13 2026 (session 8)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -79,6 +79,7 @@ platform/
           ui/                ← reusable components
         views/
           PlayerView.jsx     ← rebuilt session 6, new design system
+          MyIOView.jsx       ← built session 8, IO Intelligence screen
           StatsView.jsx      ← rebuilt session 6, IO Statbook
           HistoryView.jsx    ← rebuilt session 6, Results screen
           Gaffer/
@@ -98,6 +99,8 @@ platform/
           AuthCallback.jsx
           Legal.jsx
           IsThisYou.jsx
+        hooks/
+          useIOIntelligence.js ← IO Intelligence data hook, unlock thresholds
       onboarding/
         index.jsx
         config.js
@@ -354,7 +357,7 @@ last_interaction timestamptz
 My View | Stats | Results | My IO
 
 ### Admin nav (5 tabs)
-My View | Stats | Results | Admin | My IO
+My View | Stats | Results | My IO | Admin
 
 ### Tab branding
 - MY IO: MY in var(--t2), I in var(--green), O in var(--red)
@@ -424,53 +427,73 @@ My View | Stats | Results | Admin | My IO
 ## IO INTELLIGENCE SYSTEM
 
 ### Branding
-- Tab: MY IO (MY=var(--t2), I=green, O=red)
-- Screen heading: Your IO Intelligence (IO=branded colours)
-- Locked cards: shield/crest SVG, pentagon clip-path
+- Tab: MY IO (MY=var(--t2), I=green, O=red), Phosphor Brain icon weight=thin
+- Screen heading: IO Intelligence (IO=branded colours, italic skew, sticky at top)
+- Locked cards: pentagon crest SVG (path d="M27 2L52 12V30C52 43.5 41 54.5 27 58C13 54.5 2 43.5 2 30V12L27 2Z"), ghost shield opacity 0.15
 - Season report: IO Wrapped (Phase 2)
 
 ### Progressive unlock thresholds (per player per team)
 | Games | Unlocks |
 |---|---|
-| 1+ | Goals, POTM, W/L/D, Bibs, Attendance, Reliability, Form strip |
-| 2+ | Win rate % |
-| 3+ | Unbeaten run OR loss run — whichever current |
-| 4+ | Most faced opponent |
-| 5+ | Reliability ranking within group |
-| 6+ | Most played with |
-| 7+ | Team impact — win % with/without you |
-| 8+ | Nemesis, Best partnership, Advanced chemistry |
-| 16+ | Legacy insights, all-time records, club legends |
+| 1+ | Goals, POTM, W/L/D, Attendance ring, Reliability, Form strip |
+| 2+ | Win Rate card |
+| 3+ | Current Run card (unbeaten OR losing run) |
+| 4+ | Most Faced Opponent (not yet built) |
+| 5+ | Reliability Ranking (not yet built) |
+| 6+ | Most Played With card |
+| 7+ | Team Impact card |
+| 8+ | Nemesis, Best Partnership, Advanced Chemistry cards |
+| 16+ | Legacy Insights |
 
-### Locked card design
-- clip-path: polygon(0% 8%, 8% 0%, 92% 0%, 100% 8%, 100% 100%, 0% 100%)
-- Shield SVG outline centred, stroke rgba(255,255,255,0.15), fill none
-- Stat name in var(--t2) 11px uppercase
-- Unlock copy: "Play X more game(s) to unlock [stat]"
-- Gold glow box-shadow subtle
-- Singular/plural: "1 more game" not "1 more games"
+### MyIOView.jsx structure (built session 8)
+- IO brand header — sticky top:0 zIndex:20 background:var(--bg)
+- TacticsBoardHero — tactics board SVG pitch, YOUR GAME/YOUR STORY heading (40px Bebas Neue italic), attendance ring with glass tile
+- StatsRow — 3 tiles: POTM (gold), Goals/Run (green), W/D/L (subtext=var(--t2))
+- InsightsGrid — 2-col grid, 8 insight cards in unlock order
+- UnlockBar — shows next unlock step
+- DeeperIntelSection — ranked rows (partnerships, nemeses, played with, impact), unlocks at 6
+- LegacySection — gold crest cards, unlocks at 16
+- JourneyStartsHere — 0 games empty state
+- GuestCard — guest player state
 
-### Supabase queries needed (not yet built)
-- getPlayerMatchStats(playerId, teamId)
-- getPartnershipStats(playerId, teamId)
-- getOpponentStats(playerId, teamId)
-- getPlayerImpact(playerId, teamId)
-- getMostPlayedWith(playerId, teamId)
-- getMostFaced(playerId, teamId)
-- getNemesis(playerId, teamId)
-- getBestPartnership(playerId, teamId)
+### Insight cards order (2-col grid)
+1. Win Rate (2+) — gold, winRate% on badge
+2. Current Run (3+) — dynamic green/red based on run type
+3. Most Played With (6+) — blue
+4. Team Impact (7+) — purple
+5. Nemesis (8+) — red
+6. Best Partnership (8+) — green
+7. Advanced Chemistry (8+) — amber, "Coming soon"
+8. Legacy Insights (16+) — gold
+
+### useIOIntelligence.js hook
+Parallel Promise.all queries gated by gamesPlayed threshold.
+Returns: `{ stats, loading, error }` where stats contains keys:
+matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, bestPartnership, potmVotes
+
+### Supabase queries (all built in packages/core/storage/supabase.js)
+- getPlayerMatchStats(playerId, teamId) → { goals, motm, wins, losses, draws, attended }
+- getWinRate(playerId, teamId) → { winRate, wins, draws, losses }
+- getCurrentRun(playerId, teamId) → { type: "unbeaten"|"losing", length }
+- getReliabilityScore(playerId, teamId) → { score }
+- getMostPlayedWith(playerId, teamId) → [{ playerId, name, games }]
+- getPlayerImpact(playerId, teamId) → { withRate, withoutRate, diff }
+- getNemesis(playerId, teamId) → [{ playerId, name, games, lossRate }]
+- getBestPartnership(playerId, teamId) → [{ playerId, name, games, winRate }]
+- getPOTMVoteStats(playerId, teamId) → wrapped in try/catch (table may not exist)
+- NOTE: PostgREST self-join workaround — getMostPlayedWith/getNemesis/getBestPartnership/getPlayerImpact use two sequential queries + JS computation
+
+### Hero card — attendance ring
+- SVG 56×56, viewBox "0 0 38 38", R=16, progress ring stroke #3DDC6A strokeWidth 3
+- Glass tile wrapper: rgba(255,255,255,0.07), blur(12px), 0.5px border rgba(255,255,255,0.18), borderRadius 14px, padding 10px, minWidth/minHeight 80px
+- Ring text (HTML spans, not SVG): number 16px/600/#fff, "/X" 9px/#fff, "games" 7px/rgba(255,255,255,0.6)
 
 ### Edge cases
-- 0 games: "Your first game starts your IO journey"
+- 0 games: "YOUR IO JOURNEY STARTS HERE" empty state
 - Guest player: "Join the squad properly to unlock IO Intelligence"
-- Form strip: only games player actually played, no gaps or placeholders
-- Partnership min: 3 games together to qualify
-- Nemesis min: 3 head-to-head games to qualify
-- Impact negative: show honestly with neutral copy
-- Names in insight cards: always resolve to display name, never IDs
-- Skeleton loaders per section while queries run
-- Only run queries for unlocked tiers
-- Multi-team note: "Stats shown for [team name] only"
+- POTM zero state: "yet to win one" (not "0% of wins")
+- position:sticky breaks with transform on parent — hero uses sticky only on brand header (not inside io-section which has transform)
+- CSS vars can't be used in SVG fill/stroke — use hex literals inside SVG
 
 ---
 
@@ -578,7 +601,7 @@ self | host | admin | stripe | null
 | Teams confirmed view | ✅ Done | |
 | Demo environment | ✅ Done | team_demo |
 | POTM + Results display text | ✅ Done | |
-| My IO screen | 🔲 Next | |
+| My IO screen | ✅ Done | MyIOView.jsx, useIOIntelligence.js |
 | Admin screens redesign | 🔲 Next | TeamsScreen etc |
 | Onboarding redesign | 🔲 Pre-launch | |
 | Join/login redesign | 🔲 Pre-launch | |
@@ -804,7 +827,26 @@ Planning + demo environment hardening. No major new UI.
   (source of truth in code, not DB — survives any Supabase manual edits)
 - Beta launch checklist drafted (separate doc: BETA_LAUNCH_CHECKLIST.md)
 
-**Next session (Session 8 — May 14 2026 morning) — start with:**
+**Session 8 (May 13 2026):**
+Built the complete My IO screen. Multiple visual fix rounds applied.
+- NavBar.jsx — Brain icon (Phosphor), MY IO tab with green I + red O label, admin tab order fixed (My IO before Admin)
+- supabase.js — 10 new IO Intelligence query functions added (getPlayerMatchStats, getWinRate, getCurrentRun, getReliabilityScore, getMostPlayedWith, getOpponentStats, getNemesis, getBestPartnership, getPlayerImpact, getPOTMVoteStats)
+- useIOIntelligence.js — new hook, parallel queries gated by gamesPlayed unlock thresholds
+- MyIOView.jsx — full screen built:
+  - Sticky IO brand header (zIndex 20)
+  - TacticsBoardHero — tactics board SVG, YOUR GAME/YOUR STORY 40px italic, attendance ring with glass tile
+  - StatsRow — 3 tiles (POTM, Goals/Run, W/D/L with win rate subtext)
+  - InsightsGrid — 8 insight cards in 2-col grid, ordered by unlock threshold
+  - Win Rate card (unlocks 2+) and Current Run card (unlocks 3+) built with data
+  - Unlock bar showing next unlock step
+  - DeeperIntelSection (partnerships, nemeses, played with, team impact)
+  - LegacySection (16+ games)
+  - 0-game and guest empty states
+  - Scroll reveal via IntersectionObserver, unlock animation via localStorage
+- PlayerView.jsx — wired my-io tab to MyIOView
+- Key gotchas logged: position:sticky breaks inside transform parent (io-section uses translateY); CSS vars can't be used in SVG fill attributes; PostgREST can't self-join so partner/nemesis queries use two-step JS
+
+**Next session (Session 9) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing
 2. Rotate Supabase publishable key — security, OVERDUE
@@ -815,5 +857,4 @@ Planning + demo environment hardening. No major new UI.
 7. WhatsApp comms to Finbar's Tuesdays admin
 
 **Aspirational for May 19 matchday (Stage 1 live):**
-- My IO screen skeleton with locked cards + 1+ tier insights
 - Ask the Gaffer open to admin role
