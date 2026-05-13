@@ -109,7 +109,7 @@ export default function POTMVotingModal({
       padding: "20px",
     }}>
       <div style={{
-        width: "100%", maxWidth: 400,
+        width: "100%", maxWidth: 380,
         background: "var(--s1)",
         borderRadius: 20,
         border: "1px solid var(--gold)",
@@ -167,15 +167,15 @@ export default function POTMVotingModal({
 
           {/* Counting state */}
           {!isResult && !hasVoted && phase === "locked" && (
-            <div style={{ textAlign: "center", padding: "20px 0" }}>
-              <Trophy size={36} weight="fill" color="var(--gold)" />
+            <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
+              <Trophy size={28} weight="fill" color="var(--gold)" />
               <div style={{
-                fontFamily: "var(--font-display)", fontSize: 22,
-                color: "var(--gold)", marginTop: 12, letterSpacing: "0.05em",
+                fontFamily: "var(--font-display)", fontSize: 20,
+                color: "var(--gold)", marginTop: 6, letterSpacing: "0.05em",
               }}>
                 VOTE LOCKED IN
               </div>
-              <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 8, fontWeight: 300 }}>
+              <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 4, fontWeight: 300 }}>
                 You voted for{" "}
                 <span style={{ color: "var(--t1)", fontWeight: 600 }}>{selected?.name}</span>
               </div>
