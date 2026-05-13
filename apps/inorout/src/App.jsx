@@ -418,9 +418,8 @@ export default function App() {
     );
     if (joinedPlayer) return (
       <JoinSuccess
-        playerName={joinedPlayer.name}
-        playerToken={joinedPlayer.token}
-        teamName={joinTeam.name}
+        player={joinedPlayer}
+        team={joinTeam}
       />
     );
     return (
