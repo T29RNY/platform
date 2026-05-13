@@ -114,7 +114,7 @@ function LockedCard({ statName, gamesNeeded, gamesPlayed }) {
 
 // ── Season hero card ──────────────────────────────────────────────────────────
 
-const HERO_IMG = "https://images.unsplash.com/photo-1540747913346-19378d20b683?w=800&q=80";
+const HERO_IMG = "/io-statbook-hero.svg";
 
 function SeasonHeroCard({ groupName, totalGames, avgGoals }) {
   const textShadow = "0 0 20px rgba(0,0,0,0.9)";
@@ -123,8 +123,7 @@ function SeasonHeroCard({ groupName, totalGames, avgGoals }) {
       <img
         src={HERO_IMG}
         alt=""
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
-          filter: "brightness(0.55) saturate(0.8)" }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
       />
       <div style={{ position: "absolute", inset: 0,
         background: "linear-gradient(180deg, rgba(10,10,8,0.2) 0%, rgba(10,10,8,0.65) 100%)" }} />
