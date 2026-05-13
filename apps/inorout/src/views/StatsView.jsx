@@ -340,10 +340,13 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
 
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--t1)", fontFamily: "var(--font-body)" }}>
-      <div style={{ padding: "0 16px 110px" }}>
 
-        {/* ── Season hero ── */}
+      {/* ── Season hero (sticky) ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "0 16px" }}>
         <SeasonHeroCard groupName={groupName} totalGames={totalGames} avgGoals={avgGoals} />
+      </div>
+
+      <div style={{ padding: "0 16px 110px" }}>
 
         {/* ── Tabs pill — hidden until Records tab is restored ── */}
         {/* <div style={{ position: "sticky", top: 0, zIndex: 50, background: "var(--bg)",

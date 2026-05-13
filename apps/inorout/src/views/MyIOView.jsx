@@ -790,8 +790,10 @@ export default function MyIOView({ player, teamId, teamName }) {
         <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--bg)", padding:"12px 16px" }}>
           <IOBrandHeader />
         </div>
-        <div style={{ padding:"0 16px" }}>
+        <div style={{ position:"sticky", top:48, zIndex:15, background:"var(--bg)", padding:"0 16px" }}>
           <TacticsBoardHero player={player} gamesPlayed={0} total={0} stats={null} />
+        </div>
+        <div style={{ padding:"0 16px" }}>
           <GuestCard />
         </div>
       </div>
@@ -801,13 +803,17 @@ export default function MyIOView({ player, teamId, teamName }) {
   return (
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"0 0 110px" }}>
 
-      {/* IO brand header — sticky, always visible as content scrolls beneath */}
+      {/* IO brand header — sticky at top:0 */}
       <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--bg)", padding:"12px 16px" }}>
         <IOBrandHeader />
       </div>
 
+      {/* Tactics board hero — sticky at top:48 */}
+      <div style={{ position:"sticky", top:48, zIndex:15, background:"var(--bg)", padding:"0 16px" }}>
+        <TacticsBoardHero player={player} gamesPlayed={gamesPlayed} total={total} stats={loading ? null : stats} />
+      </div>
+
       <div style={{ padding:"0 16px" }}>
-      <TacticsBoardHero player={player} gamesPlayed={gamesPlayed} total={total} stats={loading ? null : stats} />
 
       {gamesPlayed === 0 ? (
         <div ref={secRef(2)} className="io-section">

@@ -68,6 +68,7 @@ export default function PlayerView({
   setSchedule, setSettings, onMidFlowChange,
   bibHistory = [], matchHistory = [],
   isAdmin = false, onGoAdmin,
+  startTab = null,
 }) {
   const me = squad.find(p => p.id === myId);
 
@@ -85,7 +86,7 @@ export default function PlayerView({
   const [removingGuest,   setRemovingGuest]   = useState(false);
 
   // ── new UI state ──
-  const [activeTab,   setActiveTab]   = useState("my-view");
+  const [activeTab,   setActiveTab]   = useState(startTab || "my-view");
   const [showNoResp,  setShowNoResp]  = useState(false);
   const [cashPending,       setCashPending]       = useState(false);
   const [guestCashPending,  setGuestCashPending]  = useState(false);

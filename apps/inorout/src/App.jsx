@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { colors as C } from "@platform/core";
 import { supabase } from "@platform/supabase";
 import {
@@ -15,7 +15,6 @@ import {
   resetDemoData, updateDemoInteraction,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
-import Header        from "./views/Header.jsx";
 import PlayerView    from "./views/PlayerView.jsx";
 import StatsView     from "./views/StatsView.jsx";
 import HistoryView   from "./views/HistoryView.jsx";
@@ -38,6 +37,9 @@ const DEFAULT_SCHEDULE = {
   isDraft:true, isCancelled:false, cancelReason:"",
 };
 const DEFAULT_SETTINGS = { groupName:"My Team" };
+
+// ─── Feature flags ────────────────────────────────────────────────────────────
+const ENABLE_GAFFER = false;
 
 // ─── Gaffer access control ────────────────────────────────────────────────────
 const GAFFER_ALLOWED = new Set([
@@ -136,6 +138,9 @@ export default function App() {
   const [playerTeams,  setPlayerTeams] = useState([]);
   const [selectedTeam, setSelectedTeam]= useState(null);
   const [isAdmin,      setIsAdmin]     = useState(false);
+
+  // Track which PlayerView tab to open on next mount
+  const playerStartTabRef = useRef(null);
 
   // Admin sub-screen (hoisted so Gaffer can navigate)
   const [adminScreen,    setAdminScreen]  = useState("main");
@@ -591,20 +596,12 @@ export default function App() {
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
-      {isAdmin && view !== "player" && (
-        <Header
-          view={view} setView={setView}
-          squad={squad} schedule={schedule} settings={settings}
-          isAdmin={isAdmin} playerName={myPlayer?.name}
-          hasMultipleTeams={playerTeams.length > 1}
-          onSwitchGame={playerTeams.length > 1 ? () => setSelectedTeam(null) : null}
-        />
-      )}
       {view==="player"  && (
         <PlayerView  {...sharedProps} myId={myId} teamId={teamId}
           onMidFlowChange={setIsActionBlocked}
           isAdmin={isAdmin} onGoAdmin={() => setView("admin")}
-          matchHistory={matchHistory} bibHistory={bibHistory}/>
+          matchHistory={matchHistory} bibHistory={bibHistory}
+          startTab={playerStartTabRef.current}/>
       )}
       {view==="stats"   && <StatsView squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule}/>}
@@ -616,19 +613,22 @@ export default function App() {
           coverPool={coverPool}       setCoverPool={setCoverPoolRaw}
           teamId={teamId}
           screen={adminScreen}        setScreen={setAdminScreen}
-          onGoPlayer={() => setView("player")}
-          onGoStats={() => setView("stats")}
-          onGoHistory={() => setView("history")}
+          onGoPlayer={() => { playerStartTabRef.current = null; setView("player"); }}
+          onGoStats={() => { playerStartTabRef.current = "stats"; setView("player"); }}
+          onGoHistory={() => { playerStartTabRef.current = "history"; setView("player"); }}
+          onGoMyIO={() => { playerStartTabRef.current = "my-io"; setView("player"); }}
           isDemoMode={route.type === "demoadmin"}
           onResetDemo={async () => { await resetDemoData(); await loadTeamData("team_demo"); }}
         />
       )}
-      <Gaffer
-        context={gafferContext}
-        onNavigate={handleGafferNavigate}
-        isBlocked={isActionBlocked || adminScreen === "score"}
-        enabled={GAFFER_ALLOWED.has(route.token)}
-      />
+      {ENABLE_GAFFER && (
+        <Gaffer
+          context={gafferContext}
+          onNavigate={handleGafferNavigate}
+          isBlocked={isActionBlocked || adminScreen === "score"}
+          enabled={GAFFER_ALLOWED.has(route.token)}
+        />
+      )}
     </div>
   );
 }

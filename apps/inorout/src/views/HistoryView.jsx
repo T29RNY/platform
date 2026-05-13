@@ -489,8 +489,8 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--t1)", fontFamily: "var(--font-body)", paddingBottom: 110 }}>
 
-      {/* ── Hero ── */}
-      <div style={{ padding: "0 16px" }}>
+      {/* ── Hero (sticky) ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "0 16px" }}>
         <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", height: 110 }}>
           <img
             src={HERO_IMG} alt=""

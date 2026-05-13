@@ -550,7 +550,7 @@ export default function AdminView({
   squad, setSquad, bibHistory, setBibHistory,
   schedule, setSchedule, matchHistory, setMatchHistory,
   settings, setSettings, coverPool, setCoverPool, teamId,
-  screen, setScreen, onGoPlayer, onGoStats, onGoHistory,
+  screen, setScreen, onGoPlayer, onGoStats, onGoHistory, onGoMyIO,
   isDemoMode = false, onResetDemo,
 }) {
   const [showCancel,       setShowCancel]       = useState(false);
@@ -896,6 +896,7 @@ export default function AdminView({
       )}
 
       {/* ── Hero card ── */}
+      <div style={{ position:"sticky", top:0, zIndex:10 }}>
       <div style={{ position:"relative", height:140, overflow:"hidden", background:"#0a0e08" }}>
         {isDemoMode && (
           <div style={{ position:"absolute", top:12, right:12, zIndex:10 }}>
@@ -953,6 +954,7 @@ export default function AdminView({
             ))}
           </div>
         </div>
+      </div>
       </div>
 
       {/* ── Content ── */}
@@ -1248,6 +1250,7 @@ export default function AdminView({
           if (id === "my-view") onGoPlayer?.();
           else if (id === "stats") onGoStats?.();
           else if (id === "history") onGoHistory?.();
+          else if (id === "my-io") onGoMyIO?.();
         }}
         onAdminClick={() => {}}
       />
