@@ -202,9 +202,9 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
               position:"absolute", inset:0, display:"flex", flexDirection:"column",
               alignItems:"center", justifyContent:"center", gap:0,
             }}>
-              <span style={{ fontSize:"22px", fontWeight:600, color:"#ffffff", lineHeight:1.1 }}>{attended}</span>
-              <span style={{ fontSize:"11px", color:"#ffffff", lineHeight:1.1 }}>/ {safeTotal}</span>
-              <span style={{ fontSize:"9px", color:"rgba(255,255,255,0.6)", lineHeight:1.1 }}>games</span>
+              <span style={{ fontSize:"18px", fontWeight:600, color:"#ffffff", lineHeight:1.1 }}>{attended}</span>
+              <span style={{ fontSize:"10px", color:"#ffffff", lineHeight:1.1 }}>/ {safeTotal}</span>
+              <span style={{ fontSize:"8px", color:"rgba(255,255,255,0.6)", lineHeight:1.1 }}>games</span>
             </div>
           </div>
         </div>
@@ -231,7 +231,7 @@ function StatsRow({ player, stats }) {
   };
   const numStyle = { fontFamily:"var(--font-display)", fontSize:28, lineHeight:1, height:28 };
   const lbl = { fontSize:9, fontWeight:400, letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--t2)" };
-  const sub = { fontSize:9, color:"rgba(255,255,255,0.3)", fontWeight:300 };
+  const sub = { fontSize:9, color:"var(--t2)", fontWeight:300 };
 
   const totalGames = wins + draws + losses;
   const winRatePct = totalGames > 0 ? Math.round((wins / totalGames) * 100) : null;
