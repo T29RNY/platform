@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 13 2026 (session 10)*
+*Last updated: May 13 2026 (session 11)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -89,7 +89,7 @@ platform/
           AdminView/
             index.jsx        ← rebuilt session 6, POTM tiebreak modal added session 10
             TeamsScreen.jsx
-            ScoreScreen.jsx  ← writes player_match on save, uses schedule.activeMatchId
+            ScoreScreen.jsx  ← rebuilt session 11, 6-stage progressive flow, score_type + last_goal_scorer
             BibsScreen.jsx
             SquadScreen.jsx
             ScheduleScreen.jsx
@@ -197,6 +197,8 @@ scorers (jsonb), motm, bib_holder,
 team_a (jsonb array), team_b (jsonb array),
 winner, cancelled, cancel_reason,
 payments (jsonb),
+score_type text CHECK (exact/margin/declared),
+last_goal_scorer text,
 voting_open bool DEFAULT false,
 voting_closes_at timestamptz,
 vote_count int DEFAULT 0,
@@ -920,7 +922,49 @@ Built complete POTM voting system end-to-end.
 - isResult condition must check `!votingOpen && !!motm` not just `!!motm` — motm can be set on a previous match while current voting is open
 - `votingClosesAt` is NOT cleared when voting closes (cron only sets voting_open=false) — cannot use timestamp presence/staleness to detect open state; must pass `votingOpen` boolean explicitly as prop
 
-**Next session (Session 11) — start with:**
+**Session 11 (May 13 2026):**
+POTM bug fixes + ScoreScreen full rebuild + UI polish.
+
+**POTM bug fixes:**
+- `cron.js` `potmVotingOpenJob`: removed broken PostgREST embedded join `players(id,name,token)` — now selects only `player_id` from `potm_votes` then does a separate players lookup for tokens
+- `supabase.js` `closePOTMVoting` + `cron.js` `potmTallyJob`: fixed motm field storing ID instead of name; both now look up player name first then store name string. Fixed broken `rpc("increment_motm")` → replaced with read-then-increment pattern on `players` table
+- `PlayerView.jsx`: fixed POTM winner banner that assumed `motm` was a player ID — now uses `motm` directly as winnerName and does name-compare for isWinner
+
+**ScoreScreen full rebuild:**
+- `ScoreScreen.jsx`: complete rewrite — 6-stage progressive reveal:
+  1. Mode selection: Exact Score / Won By / Declare (glow tiles)
+  2. Score entry: mode-specific (scoreline + optional scorers / winner + margin / who won dropdown)
+  3. Last goal winner: YES/NO → player picker if YES
+  4. Bibs: dropdown picker
+  5. POTM status: informational (voting open countdown / winner / admin decide)
+  6. Save: green CTA with isSaving guard + error message
+- Peek-scroll: after each stage completes, next card scrolls to 80px from viewport bottom
+- `score_type`: 'exact'|'margin'|'declared' stored on match and passed through
+- `last_goal_scorer`: player ID stored on match
+- Double-fire save guard: `isSavingRef = useRef(false)` synchronous check before any async work
+
+**supabase.js additions:**
+- `saveMatchResult(matchId, teamId, match)`: UPDATEs result fields only — never touches motm/voting columns (safe after lineup lock stub row already exists)
+- `saveBibHolder(matchId, teamId, playerId, playerName)`: 4-step atomic write (bib_holder on match, bib_count++ on player, bib_history insert, had_bibs flags)
+- `matchToDb`/`dbToMatch`: added `score_type` + `last_goal_scorer`
+- `insertMatch`: changed to upsert with `ignoreDuplicates:true` — no-ops cleanly if stub match already created by lineup lock
+- `getPlayerMatchStats`: second query for score_type per match; goals only counted for exact/null score_type matches
+
+**squad.js:** `newMatch()` now includes `scoreType` + `lastGoalScorer` fields.
+
+**Five ScoreScreen UI fixes:**
+- Mode tile titles: fontSize 14→16, letterSpacing 0.06em→0.1em
+- DRAW button in Declare mode: always shows `1px solid var(--t2)` border (even unselected)
+- NO button in Last Goal stage: selected state now bg `var(--s3)`, border `var(--t2)`, color `var(--t1)`
+- Bibs label: "BIBS 👕" → "WHO TOOK THE BIBS? 👕"
+- Removed "Draft Next Week" button from saved screen entirely
+
+**Key gotchas from session 11:**
+- motm field convention: ALWAYS store player **name** (never ID) — matches all historical data, HistoryView display, and ScoreScreen; variable/column names remain `motm` unchanged
+- Two-query pattern is standard for any Supabase join — PostgREST foreign key joins unreliable in this config
+- `isSavingRef` (useRef) required for double-fire guard — React state batching means two rapid taps both read `isSaving===false` before first render; ref is synchronous
+
+**Next session (Session 12) — start with:**
 1. Run demo seed script with Supabase service role key: `SUPABASE_SERVICE_ROLE_KEY=<key> node scripts/seed-demo.js`
 2. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
