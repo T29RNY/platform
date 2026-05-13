@@ -5,7 +5,7 @@ import InstallBanner from "./InstallBanner.jsx";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
-  : "https://in-or-out.com";
+  : "https://www.in-or-out.com";
 
 // Step 1 — Not signed in: show Google + Email options only
 function SignInStep({ team }) {

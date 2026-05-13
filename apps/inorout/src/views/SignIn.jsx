@@ -4,7 +4,7 @@ import { supabase } from "@platform/supabase";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
-  : "https://in-or-out.com";
+  : "https://www.in-or-out.com";
 
 export default function SignIn({ teamName, onBack, returnTo }) {
   const [email,      setEmail]      = useState("");
