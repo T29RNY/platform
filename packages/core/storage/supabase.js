@@ -186,6 +186,13 @@ function matchToDb(m) {
     scorers: m.scorers, motm: m.motm,
     bib_holder: m.bibHolder, payments: m.payments,
     cancelled: m.cancelled, cancel_reason: m.cancelReason,
+    voting_open: m.votingOpen || false,
+    voting_closes_at: m.votingClosesAt || null,
+    vote_count: m.voteCount || 0,
+    total_voters: m.totalVoters || 0,
+    was_admin_decided: m.wasAdminDecided || false,
+    admin_decision_pending: m.adminDecisionPending || false,
+    tied_candidates: m.tiedCandidates || null,
   };
 }
 
@@ -197,6 +204,13 @@ function dbToMatch(r) {
     scorers: r.scorers || {}, motm: r.motm,
     bibHolder: r.bib_holder, payments: r.payments || {},
     cancelled: r.cancelled, cancelReason: r.cancel_reason,
+    votingOpen: r.voting_open || false,
+    votingClosesAt: r.voting_closes_at || null,
+    voteCount: r.vote_count || 0,
+    totalVoters: r.total_voters || 0,
+    wasAdminDecided: r.was_admin_decided || false,
+    adminDecisionPending: r.admin_decision_pending || false,
+    tiedCandidates: r.tied_candidates || null,
   };
 }
 
@@ -213,6 +227,10 @@ function scheduleToDb(s) {
     cancel_reason: s.cancelReason,
     city: s.city || null,
     reminders_config: s.remindersConfig || null,
+    lineup_locked: s.lineupLocked || false,
+    active_match_id: s.activeMatchId || null,
+    voting_open: s.votingOpen || false,
+    voting_closes_at: s.votingClosesAt || null,
   };
 }
 
@@ -229,6 +247,10 @@ function dbToSchedule(r) {
     cancelReason: r.cancel_reason,
     city: r.city || null,
     remindersConfig: r.reminders_config || null,
+    lineupLocked: r.lineup_locked || false,
+    activeMatchId: r.active_match_id || null,
+    votingOpen: r.voting_open || false,
+    votingClosesAt: r.voting_closes_at || null,
   };
 }
 
@@ -389,7 +411,7 @@ export async function writePlayerMatchRows(matchId, teamId, players, winner, mot
       };
     });
   if (!rows.length) return;
-  const { error } = await supabase.from("player_match").insert(rows);
+  const { error } = await supabase.from("player_match").upsert(rows, { onConflict: "match_id,player_id" });
   if (error) throw error;
 }
 
@@ -938,4 +960,92 @@ export async function getPOTMVoteStats(playerId, teamId) {
     const mine = (data || []).filter(v => v.vote_for === playerId);
     return { votesReceived: mine.length, timesNominated: mine.length, timesRunnerUp: mine.filter(v => v.is_runner_up).length };
   } catch (e) { return null; }
+}
+
+// ─── POTM Voting ──────────────────────────────────────────────────────────────
+
+export async function submitPOTMVote(matchId, teamId, voterId, nomineeId) {
+  const { error } = await supabase.from("potm_votes").insert({
+    match_id: matchId, team_id: teamId, voter_id: voterId, nominee_id: nomineeId,
+  });
+  if (error) {
+    if (error.code === "23505") return { error: "already_voted" };
+    throw error;
+  }
+  return { ok: true };
+}
+
+export async function getPOTMVotes(matchId) {
+  const { data, error } = await supabase
+    .from("potm_votes")
+    .select("voter_id, nominee_id")
+    .eq("match_id", matchId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getPOTMEligiblePlayers(matchId, teamId) {
+  const { data, error } = await supabase
+    .from("player_match")
+    .select("player_id, team_assignment, players(id, name)")
+    .eq("match_id", matchId)
+    .eq("team_id", teamId)
+    .eq("attended", true)
+    .eq("is_guest", false);
+  if (error) throw error;
+  return (data || []).map(r => ({
+    id: r.player_id,
+    name: r.players?.name || r.player_id,
+    team: r.team_assignment,
+  }));
+}
+
+export async function tallyPOTMVotes(matchId, teamId) {
+  const votes = await getPOTMVotes(matchId);
+  if (!votes.length) return { winner: null, voteCount: 0, totalVoters: 0, isTie: false, tiedCandidates: [] };
+  const counts = {};
+  for (const v of votes) {
+    counts[v.nominee_id] = (counts[v.nominee_id] || 0) + 1;
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const topCount = sorted[0][1];
+  const tied = sorted.filter(([, c]) => c === topCount).map(([id]) => id);
+  const isTie = tied.length > 1;
+  return {
+    winner: isTie ? null : tied[0],
+    voteCount: topCount,
+    totalVoters: votes.length,
+    isTie,
+    tiedCandidates: isTie ? tied : [],
+  };
+}
+
+export async function closePOTMVoting(matchId, winnerId, wasAdminDecided = false) {
+  const { error: mErr } = await supabase.from("matches").update({
+    voting_open: false,
+    motm: winnerId,
+    was_admin_decided: wasAdminDecided,
+    admin_decision_pending: false,
+  }).eq("id", matchId);
+  if (mErr) throw mErr;
+
+  const { error: pmErr } = await supabase.from("player_match")
+    .update({ was_motm: true })
+    .eq("match_id", matchId)
+    .eq("player_id", winnerId);
+  if (pmErr) throw pmErr;
+
+  const { error: plErr } = await supabase.from("players")
+    .update({ motm: supabase.rpc("increment_motm", { player_id: winnerId }) })
+    .eq("id", winnerId);
+  // motm increment is best-effort; ignore error
+}
+
+export async function openPOTMVoting(matchId, teamId, closesAt, totalVoters) {
+  const { error } = await supabase.from("matches").update({
+    voting_open: true,
+    voting_closes_at: closesAt,
+    total_voters: totalVoters,
+  }).eq("id", matchId).eq("team_id", teamId);
+  if (error) throw error;
 }

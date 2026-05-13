@@ -36,6 +36,7 @@ export default function ScoreScreen({
       teamA: teamAPlayers, teamB: teamBPlayers, winner, scoreA, scoreB,
       scorers: scorerMap, motm: motmVote, bibHolder, payments: payMap,
     });
+    if (schedule?.activeMatchId) match.id = schedule.activeMatchId;
     setMatchHistory([match, ...matchHistory]);
     setSquad(updatePlayerRecords(squad, match, scorers, motmVote, payMap, schedule.pricePerPlayer));
     setScoreSaved(true);

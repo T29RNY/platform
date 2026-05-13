@@ -286,7 +286,7 @@ export default function App() {
         async () => { const s = await getSchedule(teamId); if (s) setScheduleRaw(s); })
       .subscribe();
     const matchSub = supabase.channel(`matches:${teamId}`)
-      .on("postgres_changes", { event:"INSERT", schema:"public", table:"matches", filter:`team_id=eq.${teamId}` },
+      .on("postgres_changes", { event:"*", schema:"public", table:"matches", filter:`team_id=eq.${teamId}` },
         async () => { const m = await getMatches(teamId); setMatchHistRaw(m); })
       .subscribe();
     return () => {

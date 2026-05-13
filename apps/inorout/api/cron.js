@@ -65,8 +65,242 @@ module.exports = async function handler(req, res) {
   await callNotify("bibs24hr");
   await callNotify("bibs45min");
 
+  // ── Lineup lock (at kickoff) ──────────────────────────────────────────────
+  try {
+    await lineupLockJob(base, results);
+  } catch (e) {
+    results.push(`lineupLock: error — ${e.message}`);
+  }
+
+  // ── Open POTM voting (kickoff + 60 min) ───────────────────────────────────
+  try {
+    await potmVotingOpenJob(base, results);
+  } catch (e) {
+    results.push(`potmVotingOpen: error — ${e.message}`);
+  }
+
+  // ── Tally POTM votes when window closes ───────────────────────────────────
+  try {
+    await potmTallyJob(base, results);
+  } catch (e) {
+    results.push(`potmTally: error — ${e.message}`);
+  }
+
   res.json({ ok: true, ts: new Date().toISOString(), results });
 };
+
+// ── Lineup lock ───────────────────────────────────────────────────────────────
+async function lineupLockJob(base, results) {
+  const now = new Date();
+  const { data: schedules, error } = await supabase
+    .from("schedule")
+    .select("*")
+    .eq("game_is_live", true)
+    .eq("lineup_locked", false);
+  if (error || !schedules?.length) { results.push("lineupLock: no schedules"); return; }
+
+  for (const sched of schedules) {
+    const kickoff = new Date(sched.game_date_time);
+    if (now < kickoff) { results.push(`lineupLock: ${sched.team_id} not yet`); continue; }
+
+    // Get players who are "in"
+    const { data: players } = await supabase
+      .from("players")
+      .select("id, name, team, is_guest")
+      .eq("team_id", sched.team_id)
+      .eq("status", "in")
+      .eq("disabled", false);
+    if (!players?.length) { results.push(`lineupLock: ${sched.team_id} no players`); continue; }
+
+    const matchId = sched.active_match_id || ("m_" + Math.random().toString(36).slice(2, 12));
+
+    // Create stub match row if needed
+    if (!sched.active_match_id) {
+      await supabase.from("matches").upsert({
+        id: matchId, team_id: sched.team_id,
+        date: now.toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }),
+        voting_open: false,
+      }, { onConflict: "id" });
+    }
+
+    // Write player_match rows for all in-players
+    const rows = players.filter(p => !p.is_guest).map(p => ({
+      team_id: sched.team_id, match_id: matchId, player_id: p.id,
+      team_assignment: p.team || null, attended: true, late_cancel: false,
+      injury_absence: false, was_motm: false, had_bibs: false, goals: 0, is_guest: false,
+    }));
+    if (rows.length) {
+      await supabase.from("player_match").upsert(rows, { onConflict: "match_id,player_id" });
+    }
+
+    // Mark schedule as locked
+    await supabase.from("schedule").update({
+      lineup_locked: true,
+      active_match_id: matchId,
+    }).eq("id", sched.id);
+
+    results.push(`lineupLock: ${sched.team_id} locked (${rows.length} players, match ${matchId})`);
+  }
+}
+
+// ── Open POTM voting (kickoff + 60 min) ───────────────────────────────────────
+async function potmVotingOpenJob(base, results) {
+  const now = new Date();
+  const { data: schedules, error } = await supabase
+    .from("schedule")
+    .select("*")
+    .eq("game_is_live", true)
+    .eq("lineup_locked", true)
+    .eq("voting_open", false);
+  if (error || !schedules?.length) { results.push("potmVotingOpen: no schedules"); return; }
+
+  for (const sched of schedules) {
+    if (!sched.active_match_id) continue;
+    const kickoff = new Date(sched.game_date_time);
+    const votingStartsAt = new Date(kickoff.getTime() + 60 * 60 * 1000);
+    if (now < votingStartsAt) { results.push(`potmVotingOpen: ${sched.team_id} not yet`); continue; }
+
+    // Get eligible voters from player_match
+    const { data: pm } = await supabase
+      .from("player_match")
+      .select("player_id, players(id, name, token)")
+      .eq("match_id", sched.active_match_id)
+      .eq("attended", true)
+      .eq("is_guest", false);
+    if (!pm?.length || pm.length < 3) {
+      results.push(`potmVotingOpen: ${sched.team_id} not enough players (${pm?.length || 0})`);
+      continue;
+    }
+
+    const closesAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+
+    // Update matches table
+    await supabase.from("matches").update({
+      voting_open: true, voting_closes_at: closesAt, total_voters: pm.length,
+    }).eq("id", sched.active_match_id);
+
+    // Denormalize onto schedule for realtime propagation
+    await supabase.from("schedule").update({
+      voting_open: true, voting_closes_at: closesAt,
+    }).eq("id", sched.id);
+
+    // Send push notification
+    const playerIds = pm.map(r => r.player_id);
+    try {
+      await fetch(`${base}/api/notify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` },
+        body: JSON.stringify({
+          type: "potmVotingOpen", teamId: sched.team_id, playerIds,
+          payload: { title: "Vote for POTM 🏆", body: "Who was the best player tonight? You've got 60 minutes." },
+        }),
+      });
+    } catch(e) {}
+
+    results.push(`potmVotingOpen: ${sched.team_id} opened (${pm.length} voters)`);
+  }
+}
+
+// ── Tally POTM votes when window closes ───────────────────────────────────────
+async function potmTallyJob(base, results) {
+  const now = new Date();
+  const { data: matches, error } = await supabase
+    .from("matches")
+    .select("id, team_id, voting_closes_at, total_voters")
+    .eq("voting_open", true)
+    .not("voting_closes_at", "is", null);
+  if (error || !matches?.length) { results.push("potmTally: no open matches"); return; }
+
+  for (const match of matches) {
+    if (new Date(match.voting_closes_at) > now) continue;
+
+    // Tally votes
+    const { data: votes } = await supabase
+      .from("potm_votes")
+      .select("nominee_id")
+      .eq("match_id", match.id);
+    const voteList = votes || [];
+    const counts = {};
+    for (const v of voteList) counts[v.nominee_id] = (counts[v.nominee_id] || 0) + 1;
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    if (!sorted.length) {
+      // No votes — mark pending for admin
+      await supabase.from("matches").update({
+        voting_open: false, admin_decision_pending: true,
+      }).eq("id", match.id);
+      await supabase.from("schedule").update({ voting_open: false }).eq("team_id", match.team_id);
+      results.push(`potmTally: ${match.id} no votes, admin pending`);
+      continue;
+    }
+
+    const topCount = sorted[0][1];
+    const tied = sorted.filter(([, c]) => c === topCount).map(([id]) => id);
+    const isTie = tied.length > 1;
+
+    if (isTie) {
+      // Admin must decide
+      await supabase.from("matches").update({
+        voting_open: false, admin_decision_pending: true, tied_candidates: tied,
+      }).eq("id", match.id);
+      await supabase.from("schedule").update({ voting_open: false }).eq("team_id", match.team_id);
+
+      // Notify admin
+      const { data: team } = await supabase.from("teams").select("admin_token").eq("id", match.team_id).single();
+      if (team) {
+        try {
+          await fetch(`${base}/api/notify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` },
+            body: JSON.stringify({
+              type: "potmAdminDecide", teamId: match.team_id,
+              payload: { title: "POTM — You need to decide", body: "It's a tie. Pick tonight's POTM." },
+            }),
+          });
+        } catch(e) {}
+      }
+      results.push(`potmTally: ${match.id} tie among ${tied.length}, admin notified`);
+    } else {
+      const winnerId = tied[0];
+      // Close voting and set winner
+      await supabase.from("matches").update({
+        voting_open: false, motm: winnerId, was_admin_decided: false,
+      }).eq("id", match.id);
+      await supabase.from("player_match").update({ was_motm: true })
+        .eq("match_id", match.id).eq("player_id", winnerId);
+      await supabase.from("players").update({ motm: supabase.rpc ? undefined : undefined })
+        .eq("id", winnerId);
+      // Increment motm on players using raw SQL increment
+      await supabase.rpc("increment_player_motm", { p_id: winnerId }).catch(() => {
+        supabase.from("players").select("motm").eq("id", winnerId).single()
+          .then(({ data }) => {
+            if (data) supabase.from("players").update({ motm: (data.motm || 0) + 1 }).eq("id", winnerId);
+          });
+      });
+
+      await supabase.from("schedule").update({ voting_open: false }).eq("team_id", match.team_id);
+
+      // Get winner name + all attended player_ids for push
+      const { data: winnerRow } = await supabase.from("players").select("name").eq("id", winnerId).single();
+      const winnerName = winnerRow?.name || "Unknown";
+      const { data: attended } = await supabase.from("player_match")
+        .select("player_id").eq("match_id", match.id).eq("attended", true).eq("is_guest", false);
+      const playerIds = (attended || []).map(r => r.player_id);
+
+      try {
+        await fetch(`${base}/api/notify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` },
+          body: JSON.stringify({
+            type: "potmResult", teamId: match.team_id, playerIds,
+            payload: { title: "🏆 POTM Result", body: `${winnerName} wins POTM tonight!`, winnerId, winnerName },
+          }),
+        });
+      } catch(e) {}
+      results.push(`potmTally: ${match.id} winner ${winnerName}`);
+    }
+  }
+}
 
 // ── Demo player reset ─────────────────────────────────────────────────────────
 const DEMO_BASELINE = [

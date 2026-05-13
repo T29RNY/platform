@@ -3,7 +3,9 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   getPaymentState, getPaymentMode, getGuestPaymentState,
   handleCashPayment, handleClearDebt, handleGuestCashPayment } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, deletePlayer,
-  getPlayerMatchForm, getLastMatchMeta } from "@platform/supabase";
+  getPlayerMatchForm, getLastMatchMeta,
+  getPOTMEligiblePlayers, getPOTMVotes } from "@platform/supabase";
+import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,
   PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
@@ -92,6 +94,12 @@ export default function PlayerView({
   const confirmationTimer = useRef(null);
   const [playerForm,      setPlayerForm]      = useState({});
   const [lastMatchMeta,   setLastMatchMeta]   = useState(null);
+  const [showPOTMModal,   setShowPOTMModal]   = useState(false);
+  const [potmEligible,    setPotmEligible]    = useState([]);
+  const [potmHasVoted,    setPotmHasVoted]    = useState(false);
+  const [potmExistingVote,setPotmExistingVote]= useState(null);
+  const [potmBanner,      setPotmBanner]      = useState(null); // { winnerName, isWinner }
+  const prevVotingOpen = useRef(false);
 
   // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -113,6 +121,41 @@ export default function PlayerView({
       .then(([form, meta]) => { setPlayerForm(form || {}); setLastMatchMeta(meta); })
       .catch(() => {});
   }, [teamsSet, teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // POTM voting — open modal when voting becomes active for this player
+  useEffect(() => {
+    const activeMatch = matchHistory?.[0];
+    const wasOpen = prevVotingOpen.current;
+    const nowOpen = schedule?.votingOpen;
+
+    // Voting just opened → check eligibility
+    if (nowOpen && !wasOpen && activeMatch && me && !me.isGuest) {
+      prevVotingOpen.current = true;
+      const matchId = schedule.activeMatchId || activeMatch.id;
+      Promise.all([
+        getPOTMEligiblePlayers(matchId, teamId),
+        getPOTMVotes(matchId),
+      ]).then(([eligible, votes]) => {
+        const myVote = votes.find(v => v.voter_id === myId);
+        setPotmEligible(eligible);
+        setPotmHasVoted(!!myVote);
+        setPotmExistingVote(myVote?.nominee_id || null);
+        const amEligible = eligible.some(p => p.id === myId);
+        if (amEligible) setShowPOTMModal(true);
+      }).catch(() => {});
+    }
+
+    // Voting just closed + result is in → show banner
+    if (!nowOpen && wasOpen && activeMatch?.motm) {
+      prevVotingOpen.current = false;
+      const winnerName = squad.find(p => p.id === activeMatch.motm)?.name || "Unknown";
+      const isWinner = activeMatch.motm === myId;
+      setPotmBanner({ winnerName, isWinner });
+      setTimeout(() => setPotmBanner(null), 5000);
+    } else if (!nowOpen) {
+      prevVotingOpen.current = false;
+    }
+  }, [schedule?.votingOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const isFull   = inPlayers.length >= (schedule.squadSize || 14);
   const gameDay  = schedule?.gameDateTime
     ? new Date(schedule.gameDateTime).toLocaleDateString('en-GB', { weekday:'long' })
@@ -283,6 +326,37 @@ export default function PlayerView({
 
   return (
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+
+      {/* POTM voting modal */}
+      {showPOTMModal && (
+        <POTMVotingModal
+          matchId={schedule.activeMatchId || matchHistory?.[0]?.id}
+          teamId={teamId}
+          voterId={myId}
+          voterName={me?.name}
+          eligiblePlayers={potmEligible}
+          hasVoted={potmHasVoted}
+          existingVote={potmExistingVote}
+          votingClosesAt={schedule.votingClosesAt}
+          motm={matchHistory?.[0]?.motm}
+          onClose={() => setShowPOTMModal(false)}
+        />
+      )}
+
+      {/* POTM result banner */}
+      {potmBanner && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 90,
+          background: "var(--gold)", padding: "14px 20px",
+          textAlign: "center", fontFamily: "var(--font-body)",
+        }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--bg)" }}>
+            {potmBanner.isWinner
+              ? "🏆 You've been voted POTM tonight. Get in."
+              : `🏆 ${potmBanner.winnerName} wins POTM tonight!`}
+          </span>
+        </div>
+      )}
 
       {/* 1 ── PAGE HEADER (sticky) — my-view only; stats/history render their own headers */}
       {activeTab === "my-view" && (
