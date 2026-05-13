@@ -120,7 +120,6 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
   const goals  = stats?.matchStats?.goals ?? player?.goals ?? 0;
   const motm   = stats?.matchStats?.motm  ?? player?.motm  ?? 0;
   const winPct = stats?.winRate?.winRate ?? null;
-  const rel    = stats?.reliability?.score ?? null;
 
   return (
     <div style={{
@@ -171,17 +170,20 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
       <div style={{ position:"absolute", inset:0, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         {/* Left: heading + season label */}
         <div>
-          <div style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontSize:18, lineHeight:1.1, marginBottom:3 }}>
+          <div style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontSize:40, lineHeight:1.1 }}>
             <div style={{ color:"var(--t1)", letterSpacing:"0.04em" }}>YOUR GAME</div>
             <div style={{ color:"var(--green)", letterSpacing:"0.04em" }}>YOUR STORY</div>
           </div>
-          <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.35)", fontWeight:300, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-            Season stats
-          </div>
         </div>
 
-        {/* Right: compact progress ring */}
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
+        {/* Right: compact progress ring with glass tile */}
+        <div style={{
+          display:"flex", flexDirection:"column", alignItems:"center",
+          background:"rgba(255,255,255,0.08)",
+          backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+          border:"0.5px solid rgba(255,255,255,0.15)",
+          borderRadius:12, padding:10,
+        }}>
           <div style={{ position:"relative", width:38, height:38 }}>
             <svg width="38" height="38" viewBox="0 0 38 38" style={{ display:"block" }}>
               <circle cx="19" cy="19" r={R} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
@@ -201,19 +203,6 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
         </div>
       </div>
 
-      {/* Glass reliability tile — absolute bottom-left */}
-      {rel !== null && (
-        <div style={{
-          position:"absolute", bottom:9, left:12,
-          background:"rgba(255,255,255,0.08)",
-          backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
-          border:"0.5px solid rgba(255,255,255,0.15)", borderRadius:8, padding:"5px 10px",
-          display:"flex", alignItems:"center", gap:5,
-        }}>
-          <span style={{ fontSize:12, color:"var(--green)", fontWeight:500 }}>{rel}%</span>
-          <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>reliable</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -236,6 +225,10 @@ function StatsRow({ player, stats }) {
   const numStyle = { fontFamily:"var(--font-display)", fontSize:28, lineHeight:1, height:28 };
   const lbl = { fontSize:9, fontWeight:400, letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--t2)" };
   const sub = { fontSize:9, color:"rgba(255,255,255,0.3)", fontWeight:300 };
+
+  const totalGames = wins + draws + losses;
+  const winRatePct = totalGames > 0 ? Math.round((wins / totalGames) * 100) : null;
+  const wdlSub = winRatePct !== null ? `${winRatePct}% win rate this season` : "no games yet";
 
   const potmOfWins = motm > 0 ? `${Math.round((motm / Math.max(wins, 1)) * 100)}% of wins` : "yet to win one";
   const goalsPerGame = attended > 0 ? (goals / attended).toFixed(1) : "0.0";
@@ -274,13 +267,13 @@ function StatsRow({ player, stats }) {
       <div style={tileBase}>
         <ChartBar size={18} weight="thin" color="var(--t2)" />
         {/* Fixed-height row matching numStyle height so all tiles align */}
-        <div style={{ display:"flex", gap:5, alignItems:"center", height:28 }}>
+        <div style={{ display:"flex", justifyContent:"space-around", alignItems:"center", height:28, width:"100%" }}>
           <span style={{ fontFamily:"var(--font-display)", fontSize:22, color:"var(--green)", lineHeight:1 }}>{wins}</span>
           <span style={{ fontFamily:"var(--font-display)", fontSize:22, color:"var(--amber)", lineHeight:1 }}>{draws}</span>
           <span style={{ fontFamily:"var(--font-display)", fontSize:22, color:"var(--red)",   lineHeight:1 }}>{losses}</span>
         </div>
         <div style={lbl}>W / D / L</div>
-        <div style={sub}>&nbsp;</div>
+        <div style={sub}>{wdlSub}</div>
       </div>
     </div>
   );
