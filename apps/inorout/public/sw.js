@@ -15,8 +15,8 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(title || 'In or Out ⚽', {
       body,
-      icon: icon || '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: icon || '/icons/web-app-manifest-192x192.png',
+      badge: '/icons/favicon-96x96.png',
       data: { url },
     })
   );
