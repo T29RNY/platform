@@ -164,15 +164,15 @@ function NameStep({ team, onSubmit, loading, error }) {
         onClick={() => name.trim() && onSubmit(name.trim())}
         disabled={loading || !name.trim()}
         style={{ width:"100%", padding:"15px 0", borderRadius:6, border:"none",
-          background: loading || !name.trim() ? "#2a2a2a" : C.amber,
-          color: loading || !name.trim() ? C.muted : "#000",
+          background: loading || !name.trim() ? "var(--s3)" : "var(--gold)",
+          color: loading || !name.trim() ? "var(--t2)" : "var(--bg)",
           fontFamily:"Inter,sans-serif", fontSize:15, fontWeight:800,
           cursor: loading || !name.trim() ? "not-allowed" : "pointer" }}>
         {loading ? "Joining..." : `Join ${team.name} →`}
       </button>
       <div style={{ fontFamily:"Inter,sans-serif", fontSize:11,
         color:C.muted, textAlign:"center", marginTop:16 }}>
-        No account needed · Takes 5 seconds
+        Takes 10 seconds — no password needed
       </div>
     </div>
   );
@@ -194,8 +194,12 @@ export default function JoinTeam({ team, authUser, onNameSubmit, loading, error 
       {/* Header */}
       <div style={{ padding:"24px 24px 20px", background:"#0f0f0f",
         borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
-          color:C.amber, letterSpacing:3 }}>IN OR OUT</div>
+        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28, letterSpacing:3 }}>
+          <span style={{ color:"var(--green)" }}>I</span>
+          <span style={{ color:"var(--t1)" }}>n or </span>
+          <span style={{ color:"var(--red)" }}>O</span>
+          <span style={{ color:"var(--t1)" }}>ut</span>
+        </div>
         <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
           color:C.muted, marginTop:4 }}>
           You've been invited to join{" "}

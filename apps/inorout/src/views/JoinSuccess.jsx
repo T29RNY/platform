@@ -30,7 +30,7 @@ function PlaceholderScreenshot({ width = 140, height = 240 }) {
 // ── Numbered install step ─────────────────────────────────────────────────────
 function InstallStep({ num, text }) {
   return (
-    <div style={{ marginBottom: 24 }}>
+    <div style={{ marginBottom: 32 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
         <div style={{
           width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
@@ -99,7 +99,7 @@ function NavButtons({ onCta, onSkip }) {
 function IOSInstructions() {
   return (
     <>
-      <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.03em", marginBottom: 6 }}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t1)", letterSpacing: "0.05em", marginBottom: 6 }}>
         Add to your home screen
       </div>
       <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.5, marginBottom: 24 }}>
@@ -119,7 +119,7 @@ function IOSInstructions() {
 function AndroidInstructions() {
   return (
     <>
-      <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.03em", marginBottom: 6 }}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t1)", letterSpacing: "0.05em", marginBottom: 6 }}>
         Install In or Out
       </div>
       <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.5, marginBottom: 24 }}>
@@ -147,7 +147,7 @@ function DesktopInstructions({ joinUrl }) {
 
   return (
     <>
-      <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", letterSpacing: "0.03em", marginBottom: 6 }}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t1)", letterSpacing: "0.05em", marginBottom: 6 }}>
         Open on your phone
       </div>
       <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.5, marginBottom: 24 }}>
@@ -221,8 +221,11 @@ export default function JoinSuccess({ player, team }) {
             alt="In or Out"
             style={{ width: 72, height: 72, borderRadius: 16, marginBottom: 10, display: "block" }}
           />
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, color: "var(--t1)", letterSpacing: "0.03em", lineHeight: 1 }}>
-            In or Out
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: "0.05em", lineHeight: 1 }}>
+            <span style={{ color: "var(--green)" }}>I</span>
+            <span style={{ color: "var(--t1)" }}>n or </span>
+            <span style={{ color: "var(--red)" }}>O</span>
+            <span style={{ color: "var(--t1)" }}>ut</span>
           </div>
           {team?.name && (
             <div style={{ fontSize: 14, color: "var(--t2)", fontWeight: 300, marginTop: 6, textAlign: "center" }}>
