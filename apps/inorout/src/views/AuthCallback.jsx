@@ -11,12 +11,26 @@ export default function AuthCallback() {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
 
-        // Get returnTo from URL params first, then localStorage fallback
-        const urlParams = new URLSearchParams(window.location.search);
-        const returnToParam = urlParams.get("returnTo");
-        const returnTo = returnToParam
-          ? decodeURIComponent(returnToParam)
-          : localStorage.getItem("auth_return_to") || "/";
+        // Primary: sessionStorage pendingJoin survives the redirect regardless of
+        // whether Supabase preserves the returnTo query param (URL allowlist)
+        let returnTo = null;
+        try {
+          const pending = sessionStorage.getItem("ioo_pending_join");
+          if (pending) {
+            const { returnTo: r } = JSON.parse(pending);
+            sessionStorage.removeItem("ioo_pending_join");
+            returnTo = r;
+          }
+        } catch(e) {}
+
+        // Fallback: URL param, then localStorage, then root
+        if (!returnTo) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const returnToParam = urlParams.get("returnTo");
+          returnTo = returnToParam
+            ? decodeURIComponent(returnToParam)
+            : localStorage.getItem("auth_return_to") || "/";
+        }
         localStorage.removeItem("auth_return_to");
 
         setStatus("success");

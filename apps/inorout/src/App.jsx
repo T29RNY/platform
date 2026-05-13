@@ -167,6 +167,13 @@ export default function App() {
     }
 
     if (route.type === "join") {
+      // Store pending join so AuthCallback can redirect back here even if Supabase
+      // strips the returnTo query param (URL allowlist doesn't include wildcards)
+      try {
+        sessionStorage.setItem("ioo_pending_join", JSON.stringify({
+          returnTo: window.location.pathname,
+        }));
+      } catch(e) {}
       getTeamByJoinCode(route.code).then(team => {
         if (team) setJoinTeam(team);
         setLoading(false);
