@@ -985,17 +985,27 @@ export async function getPOTMVotes(matchId) {
 }
 
 export async function getPOTMEligiblePlayers(matchId, teamId) {
-  const { data, error } = await supabase
+  const { data: pmRows, error: pmErr } = await supabase
     .from("player_match")
-    .select("player_id, team_assignment, players(id, name)")
+    .select("player_id, team_assignment")
     .eq("match_id", matchId)
     .eq("team_id", teamId)
     .eq("attended", true)
     .eq("is_guest", false);
-  if (error) throw error;
-  return (data || []).map(r => ({
+  if (pmErr) throw pmErr;
+  if (!pmRows?.length) return [];
+
+  const playerIds = pmRows.map(r => r.player_id);
+  const { data: players, error: plErr } = await supabase
+    .from("players")
+    .select("id, name")
+    .in("id", playerIds);
+  if (plErr) throw plErr;
+
+  const nameById = Object.fromEntries((players || []).map(p => [p.id, p.name]));
+  return pmRows.map(r => ({
     id: r.player_id,
-    name: r.players?.name || r.player_id,
+    name: nameById[r.player_id] || r.player_id,
     team: r.team_assignment,
   }));
 }
