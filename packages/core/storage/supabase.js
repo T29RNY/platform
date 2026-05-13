@@ -676,3 +676,266 @@ export async function updateDemoInteraction() {
     .update({ last_interaction: new Date().toISOString() })
     .eq("id", "main");
 }
+
+// ─── IO Intelligence queries ───────────────────────────────────────────────────
+
+export async function getPlayerMatchStats(playerId, teamId) {
+  try {
+    const { data, error } = await supabase
+      .from("player_match")
+      .select("attended, result, was_motm, had_bibs, late_cancel, goals")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId);
+    if (error) return null;
+    const rows = data || [];
+    const attended = rows.filter(r => r.attended).length;
+    const attendedRows = rows.filter(r => r.attended);
+    return {
+      games: rows.length,
+      goals: rows.reduce((s, r) => s + (r.goals || 0), 0),
+      motm: rows.filter(r => r.was_motm).length,
+      wins: attendedRows.filter(r => r.result === "w").length,
+      losses: attendedRows.filter(r => r.result === "l").length,
+      draws: attendedRows.filter(r => r.result === "d").length,
+      attended,
+      bibs: rows.filter(r => r.had_bibs).length,
+      lateDropouts: rows.filter(r => r.late_cancel).length,
+      totalInvited: rows.length,
+      potmVotesReceived: rows.filter(r => r.was_motm).length,
+    };
+  } catch (e) { return null; }
+}
+
+export async function getWinRate(playerId, teamId) {
+  try {
+    const { data, error } = await supabase
+      .from("player_match")
+      .select("result")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .eq("attended", true);
+    if (error) return null;
+    const rows = data || [];
+    const wins = rows.filter(r => r.result === "w").length;
+    const losses = rows.filter(r => r.result === "l").length;
+    const draws = rows.filter(r => r.result === "d").length;
+    const total = rows.length;
+    return { winRate: total > 0 ? Math.round((wins / total) * 100) : 0, wins, draws, losses };
+  } catch (e) { return null; }
+}
+
+export async function getCurrentRun(playerId, teamId) {
+  try {
+    const { data, error } = await supabase
+      .from("player_match")
+      .select("result")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .eq("attended", true)
+      .order("created_at", { ascending: false });
+    if (error || !data?.length) return null;
+    let unbeaten = 0;
+    for (const r of data) {
+      if (r.result === "w" || r.result === "d") unbeaten++;
+      else break;
+    }
+    if (unbeaten > 0) return { type: "unbeaten", length: unbeaten };
+    let losing = 0;
+    for (const r of data) {
+      if (r.result === "l") losing++;
+      else break;
+    }
+    return { type: "losing", length: losing };
+  } catch (e) { return null; }
+}
+
+export async function getReliabilityScore(playerId, teamId) {
+  try {
+    const { data, error } = await supabase
+      .from("players")
+      .select("attended, total, late_dropouts")
+      .eq("id", playerId)
+      .single();
+    if (error || !data) return null;
+    const base = data.total > 0 ? (data.attended / data.total) * 100 : 0;
+    const score = Math.max(0, Math.min(100, Math.round(base - (data.late_dropouts || 0) * 5)));
+    const label = score >= 80 ? "Very reliable" : score >= 60 ? "Reliable" : "Room to improve";
+    return { score, label };
+  } catch (e) { return null; }
+}
+
+export async function getMostPlayedWith(playerId, teamId) {
+  try {
+    const { data: myRows, error: e1 } = await supabase
+      .from("player_match")
+      .select("match_id, team_assignment")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .eq("attended", true);
+    if (e1 || !myRows?.length) return null;
+    const myTeam = {};
+    myRows.forEach(r => { myTeam[r.match_id] = r.team_assignment; });
+    const { data: others, error: e2 } = await supabase
+      .from("player_match")
+      .select("match_id, player_id, team_assignment")
+      .eq("team_id", teamId)
+      .in("match_id", myRows.map(r => r.match_id))
+      .neq("player_id", playerId)
+      .eq("attended", true);
+    if (e2) return null;
+    const counts = {};
+    for (const r of (others || [])) {
+      if (r.team_assignment === myTeam[r.match_id]) counts[r.player_id] = (counts[r.player_id] || 0) + 1;
+    }
+    const top3 = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id);
+    if (!top3.length) return null;
+    const { data: players } = await supabase.from("players").select("id, name").in("id", top3);
+    return top3.map(id => ({ playerId: id, name: (players || []).find(p => p.id === id)?.name || "Unknown", games: counts[id] }));
+  } catch (e) { return null; }
+}
+
+export async function getOpponentStats(playerId, teamId) {
+  try {
+    const { data: myRows } = await supabase
+      .from("player_match")
+      .select("match_id, team_assignment")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .eq("attended", true);
+    if (!myRows?.length) return null;
+    const myTeam = {};
+    myRows.forEach(r => { myTeam[r.match_id] = r.team_assignment; });
+    const { data: others } = await supabase
+      .from("player_match")
+      .select("match_id, player_id, team_assignment")
+      .eq("team_id", teamId)
+      .in("match_id", myRows.map(r => r.match_id))
+      .neq("player_id", playerId)
+      .eq("attended", true);
+    const counts = {};
+    for (const r of (others || [])) {
+      if (r.team_assignment !== myTeam[r.match_id]) counts[r.player_id] = (counts[r.player_id] || 0) + 1;
+    }
+    const top3 = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id);
+    if (!top3.length) return null;
+    const { data: players } = await supabase.from("players").select("id, name").in("id", top3);
+    return top3.map(id => ({ playerId: id, name: (players || []).find(p => p.id === id)?.name || "Unknown", games: counts[id] }));
+  } catch (e) { return null; }
+}
+
+export async function getNemesis(playerId, teamId) {
+  try {
+    const { data: myRows } = await supabase
+      .from("player_match")
+      .select("match_id, team_assignment, result")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .eq("attended", true);
+    if (!myRows?.length) return null;
+    const myByMatch = {};
+    myRows.forEach(r => { myByMatch[r.match_id] = r; });
+    const { data: others } = await supabase
+      .from("player_match")
+      .select("match_id, player_id, team_assignment")
+      .eq("team_id", teamId)
+      .in("match_id", myRows.map(r => r.match_id))
+      .neq("player_id", playerId)
+      .eq("attended", true);
+    const h2h = {};
+    for (const r of (others || [])) {
+      const my = myByMatch[r.match_id];
+      if (!my || r.team_assignment === my.team_assignment) continue;
+      if (!h2h[r.player_id]) h2h[r.player_id] = { wins: 0, losses: 0, draws: 0, games: 0 };
+      h2h[r.player_id].games++;
+      if (my.result === "w") h2h[r.player_id].wins++;
+      else if (my.result === "l") h2h[r.player_id].losses++;
+      else h2h[r.player_id].draws++;
+    }
+    const qualified = Object.entries(h2h)
+      .filter(([, v]) => v.games >= 3)
+      .map(([id, v]) => ({ playerId: id, lossRate: Math.round((v.losses / v.games) * 100), ...v }))
+      .sort((a, b) => b.lossRate - a.lossRate)
+      .slice(0, 3);
+    if (!qualified.length) return null;
+    const { data: players } = await supabase.from("players").select("id, name").in("id", qualified.map(q => q.playerId));
+    return qualified.map(q => ({ ...q, name: (players || []).find(p => p.id === q.playerId)?.name || "Unknown" }));
+  } catch (e) { return null; }
+}
+
+export async function getBestPartnership(playerId, teamId) {
+  try {
+    const { data: myRows } = await supabase
+      .from("player_match")
+      .select("match_id, team_assignment, result")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .eq("attended", true);
+    if (!myRows?.length) return null;
+    const myByMatch = {};
+    myRows.forEach(r => { myByMatch[r.match_id] = r; });
+    const { data: others } = await supabase
+      .from("player_match")
+      .select("match_id, player_id, team_assignment")
+      .eq("team_id", teamId)
+      .in("match_id", myRows.map(r => r.match_id))
+      .neq("player_id", playerId)
+      .eq("attended", true);
+    const pairs = {};
+    for (const r of (others || [])) {
+      const my = myByMatch[r.match_id];
+      if (!my || r.team_assignment !== my.team_assignment) continue;
+      if (!pairs[r.player_id]) pairs[r.player_id] = { wins: 0, games: 0 };
+      pairs[r.player_id].games++;
+      if (my.result === "w") pairs[r.player_id].wins++;
+    }
+    const qualified = Object.entries(pairs)
+      .filter(([, v]) => v.games >= 3)
+      .map(([id, v]) => ({ playerId: id, winRate: Math.round((v.wins / v.games) * 100), games: v.games }))
+      .sort((a, b) => b.winRate - a.winRate)
+      .slice(0, 3);
+    if (!qualified.length) return null;
+    const { data: players } = await supabase.from("players").select("id, name").in("id", qualified.map(q => q.playerId));
+    return qualified.map(q => ({ ...q, name: (players || []).find(p => p.id === q.playerId)?.name || "Unknown" }));
+  } catch (e) { return null; }
+}
+
+export async function getPlayerImpact(playerId, teamId) {
+  try {
+    const { data: myRows, error: e1 } = await supabase
+      .from("player_match")
+      .select("match_id, result")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .eq("attended", true);
+    if (e1 || !myRows?.length) return null;
+    const attended = new Set(myRows.map(r => r.match_id));
+    const withRate = Math.round((myRows.filter(r => r.result === "w").length / myRows.length) * 100);
+    const { data: allRows, error: e2 } = await supabase
+      .from("player_match")
+      .select("match_id, result")
+      .eq("team_id", teamId)
+      .neq("player_id", playerId)
+      .eq("attended", true);
+    if (e2) return { withRate, withoutRate: null, diff: null };
+    const withoutMap = {};
+    for (const r of (allRows || [])) {
+      if (!attended.has(r.match_id) && !withoutMap[r.match_id]) withoutMap[r.match_id] = r.result;
+    }
+    const withoutVals = Object.values(withoutMap);
+    if (withoutVals.length < 3) return { withRate, withoutRate: null, diff: null };
+    const withoutRate = Math.round((withoutVals.filter(r => r === "w").length / withoutVals.length) * 100);
+    return { withRate, withoutRate, diff: withRate - withoutRate };
+  } catch (e) { return null; }
+}
+
+export async function getPOTMVoteStats(playerId, teamId) {
+  try {
+    const { data, error } = await supabase
+      .from("potm_votes")
+      .select("vote_for, is_runner_up")
+      .eq("team_id", teamId);
+    if (error) return null;
+    const mine = (data || []).filter(v => v.vote_for === playerId);
+    return { votesReceived: mine.length, timesNominated: mine.length, timesRunnerUp: mine.filter(v => v.is_runner_up).length };
+  } catch (e) { return null; }
+}

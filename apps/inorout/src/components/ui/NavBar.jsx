@@ -1,4 +1,4 @@
-import { House, ChartBar, ClockCounterClockwise, Gear } from "@phosphor-icons/react";
+import { House, ChartBar, ClockCounterClockwise, Gear, Brain } from "@phosphor-icons/react";
 
 // Inject nav styles — pseudo-elements can't be done with inline styles
 if (typeof document !== "undefined" && !document.getElementById("ioo-nav-styles")) {
@@ -40,10 +40,22 @@ const BASE_TABS = [
   { id:"history", label:"Results", Icon:ClockCounterClockwise },
 ];
 
+const MY_IO_TAB = { id:"my-io", label:"MY IO", Icon:Brain, myio:true };
+
+function MyIOLabel() {
+  return (
+    <span style={{ fontSize:9, letterSpacing:"0.07em", textTransform:"uppercase", lineHeight:1 }}>
+      <span style={{ color:"var(--t2)", fontWeight:400 }}>MY </span>
+      <span style={{ color:"var(--green)", fontWeight:400 }}>I</span>
+      <span style={{ color:"var(--red)", fontWeight:400 }}>O</span>
+    </span>
+  );
+}
+
 export default function NavBar({ activeTab, onTabChange, onAdminClick }) {
   const tabs = onAdminClick
-    ? [...BASE_TABS, { id:"admin", label:"Admin", Icon:Gear }]
-    : BASE_TABS;
+    ? [...BASE_TABS, { id:"admin", label:"Admin", Icon:Gear }, MY_IO_TAB]
+    : [...BASE_TABS, MY_IO_TAB];
 
   return (
     <nav style={{
@@ -62,30 +74,27 @@ export default function NavBar({ activeTab, onTabChange, onAdminClick }) {
         pointerEvents:"none",
       }} />
 
-      {tabs.map(({ id, label, Icon }) => {
+      {tabs.map(({ id, label, Icon, myio }) => {
         const active = activeTab === id;
+        const glow = active ? { filter:"drop-shadow(0 0 5px rgba(232,160,32,0.75)) drop-shadow(0 0 12px rgba(232,160,32,0.35))" } : undefined;
         const handleClick = id === "admin" ? onAdminClick : () => onTabChange?.(id);
+        const TabIcon = myio ? Brain : Icon;
         return (
           <div
             key={id}
             className={`ioo-ni${active ? " active" : ""}`}
             onClick={handleClick}
           >
-            <Icon
-              size={22}
-              weight="thin"
-              color={active ? "var(--gold)" : "var(--t2)"}
-              style={active ? {
-                filter:"drop-shadow(0 0 5px rgba(232,160,32,0.75)) drop-shadow(0 0 12px rgba(232,160,32,0.35))",
-              } : undefined}
-            />
-            <span style={{
-              fontSize:9, fontWeight:400,
-              letterSpacing:"0.07em", textTransform:"uppercase",
-              color: active ? "var(--gold)" : "var(--t2)",
-            }}>
-              {label}
-            </span>
+            <TabIcon size={22} weight="thin" color={active ? "var(--gold)" : "var(--t2)"} style={glow} />
+            {myio ? <MyIOLabel /> : (
+              <span style={{
+                fontSize:9, fontWeight:400,
+                letterSpacing:"0.07em", textTransform:"uppercase",
+                color: active ? "var(--gold)" : "var(--t2)",
+              }}>
+                {label}
+              </span>
+            )}
             <span className="ioo-ni-dot" />
           </div>
         );

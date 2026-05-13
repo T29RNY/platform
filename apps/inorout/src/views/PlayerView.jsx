@@ -16,6 +16,7 @@ import Avatar      from "../components/ui/Avatar.jsx";
 import NavBar      from "../components/ui/NavBar.jsx";
 import StatsView   from "./StatsView.jsx";
 import HistoryView from "./HistoryView.jsx";
+import MyIOView    from "./MyIOView.jsx";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -971,6 +972,11 @@ export default function PlayerView({
       {/* HISTORY tab */}
       {activeTab === "history" && (
         <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule} />
+      )}
+
+      {/* MY IO tab */}
+      {activeTab === "my-io" && (
+        <MyIOView player={me} teamId={teamId} teamName={settings?.groupName} />
       )}
 
       {/* 4 ── NAVBAR */}
