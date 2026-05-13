@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 13 2026 (session 8)*
+*Last updated: May 13 2026 (session 9)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -861,7 +861,15 @@ Built the complete My IO screen, rebuilt JoinSuccess, and shipped new app icons.
   - Posthog events: install_screen_cta_tapped, install_screen_skipped (both include { platform })
   - App.jsx call site updated: player={joinedPlayer} team={joinTeam}
 
-**Next session (Session 9) — start with:**
+**Session 9 (May 13 2026):**
+Auth routing fixed + join/success UI polish.
+- Root cause identified: Supabase URL allowlist (exact match only, no wildcard) was stripping the `?returnTo=` query param from magic link redirects. AuthCallback fell back to `auth_return_to` in localStorage — never set — and redirected to `/`, so JoinSuccess never appeared.
+- Fix 1: App.jsx join route useEffect now writes `ioo_pending_join` to sessionStorage (`{ returnTo: "/join/CODE" }`) before any auth redirect. AuthCallback reads this first, clears it, redirects to `/join/CODE`. URL param remains as secondary fallback.
+- Fix 2: BASE_URL fallback in JoinTeam.jsx and SignIn.jsx changed from `https://in-or-out.com` → `https://www.in-or-out.com` to match production domain used in Supabase allowlist.
+- JoinTeam.jsx UI: "IN OR OUT" header → IO brand treatment (green I, white "n or ", red O, white "ut") in Bebas Neue. NameStep join button: gold (var(--gold)) when name typed, muted (var(--s3)) when empty. Sub-text: "No account needed · Takes 5 seconds" → "Takes 10 seconds — no password needed".
+- JoinSuccess.jsx UI: Section headings (IOSInstructions, AndroidInstructions, DesktopInstructions) — `var(--font-display)` replaced with `'Bebas Neue', sans-serif` + letterSpacing 0.05em (was rendering as system font). "In or Out" app name → IO brand span treatment. InstallStep marginBottom 24 → 32 (8px more breathing room).
+
+**Next session (Session 10) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
 2. Rotate Supabase publishable key — security, OVERDUE
