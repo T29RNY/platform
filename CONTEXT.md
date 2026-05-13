@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 13 2026 (session 11)*
+*Last updated: May 14 2026 (session 12)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -78,16 +78,16 @@ platform/
         components/
           ui/                ← reusable components
         views/
-          PlayerView.jsx     ← rebuilt session 6, new design system
-          MyIOView.jsx       ← built session 8, IO Intelligence screen
-          StatsView.jsx      ← rebuilt session 6, IO Statbook
-          HistoryView.jsx    ← rebuilt session 6, Results screen
+          PlayerView.jsx     ← rebuilt session 6; startTab prop added session 12
+          MyIOView.jsx       ← built session 8, IO Intelligence screen; TacticsBoardHero sticky (session 12)
+          StatsView.jsx      ← rebuilt session 6, IO Statbook; local SVG hero + sticky (session 12)
+          HistoryView.jsx    ← rebuilt session 6, Results screen; score_type + last_goal_scorer display (session 12)
           Gaffer/
-            index.jsx        ← Ask the Gaffer chatbot
+            index.jsx        ← Ask the Gaffer chatbot (disabled via ENABLE_GAFFER=false in App.jsx)
             systemPrompt.js  ← 820-word system prompt
           POTMVotingModal.jsx   ← built session 10
           AdminView/
-            index.jsx        ← rebuilt session 6, POTM tiebreak modal added session 10
+            index.jsx        ← rebuilt session 6; POTM tiebreak modal (session 10); sticky hero + My IO nav (session 12)
             TeamsScreen.jsx
             ScoreScreen.jsx  ← rebuilt session 11, 6-stage progressive flow, score_type + last_goal_scorer
             BibsScreen.jsx
@@ -112,6 +112,7 @@ platform/
       public/
         manifest.json          ← 4 icon sizes, theme_color #0A0A08
         sw.js
+        io-statbook-hero.svg   ← local hero for StatsView (replaces Unsplash hot-link)
         icons/                 ← favicon.ico, favicon-96x96.png, favicon.svg, apple-touch-icon.png, web-app-manifest-192x192.png, web-app-manifest-512x512.png
       mockup/
         inorout-v4-mockup.html
@@ -388,7 +389,7 @@ My View | Stats | Results | My IO | Admin
 ### Tab branding
 - MY IO: MY in var(--t2), I in var(--green), O in var(--red)
 - Active tab: gold glow border treatment
-- NavBar accepts isAdmin prop — renders 4 or 5 tabs
+- NavBar renders 5 tabs when `onAdminClick` prop is truthy, 4 tabs otherwise (no isAdmin prop)
 
 ---
 
@@ -473,9 +474,9 @@ My View | Stats | Results | My IO | Admin
 | 8+ | Nemesis, Best Partnership, Advanced Chemistry cards |
 | 16+ | Legacy Insights |
 
-### MyIOView.jsx structure (built session 8)
+### MyIOView.jsx structure (built session 8, sticky updated session 12)
 - IO brand header — sticky top:0 zIndex:20 background:var(--bg)
-- TacticsBoardHero — tactics board SVG pitch, YOUR GAME/YOUR STORY heading (40px Bebas Neue italic), attendance ring with glass tile
+- TacticsBoardHero — sticky top:48 zIndex:15 (48px = IOBrandHeader height: 12+24+12), tactics board SVG pitch, YOUR GAME/YOUR STORY heading (40px Bebas Neue italic), attendance ring with glass tile
 - StatsRow — 3 tiles: POTM (gold), Goals/Run (green), W/D/L (subtext=var(--t2))
 - InsightsGrid — 2-col grid, 8 insight cards in unlock order
 - UnlockBar — shows next unlock step
@@ -526,7 +527,7 @@ matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, b
 - 0 games: "YOUR IO JOURNEY STARTS HERE" empty state
 - Guest player: "Join the squad properly to unlock IO Intelligence"
 - POTM zero state: "yet to win one" (not "0% of wins")
-- position:sticky breaks with transform on parent — hero uses sticky only on brand header (not inside io-section which has transform)
+- position:sticky breaks with CSS transform on parent — TacticsBoardHero is a sibling above .io-section divs (which have translateY), NOT inside them; sticky at top:48 works
 - CSS vars can't be used in SVG fill/stroke — use hex literals inside SVG
 
 ---
@@ -638,7 +639,8 @@ self | host | admin | stripe | null
 | My IO screen | ✅ Done | MyIOView.jsx, useIOIntelligence.js |
 | POTM voting system | ✅ Done | Modal, cron jobs, push, admin tiebreak |
 | ScoreScreen Part A | ✅ Done | 6-stage progressive flow, score_type, last_goal_scorer |
-| ScoreScreen Part B | 🔲 Next | HistoryView integration |
+| ScoreScreen Part B | ✅ Done | HistoryView: score type badges, won-by display, last goal scorer |
+| Admin view consistency | ✅ Done | Sticky heroes, 5-tab admin nav, My IO handler, Gaffer disabled |
 | Admin screens redesign | 🔲 Next | TeamsScreen etc |
 | Onboarding redesign | 🔲 Pre-launch | |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
@@ -970,15 +972,43 @@ POTM bug fixes + ScoreScreen full rebuild + UI polish.
 - Two-query pattern is standard for any Supabase join — PostgREST foreign key joins unreliable in this config
 - `isSavingRef` (useRef) required for double-fire guard — React state batching means two rapid taps both read `isSaving===false` before first render; ref is synchronous
 
-**Next session (Session 12) — start with:**
-1. Run demo seed script with Supabase service role key: `SUPABASE_SERVICE_ROLE_KEY=<key> node scripts/seed-demo.js`
-2. Test /join/team_finbars flow end-to-end on iPhone (clean device)
+**Session 12 (May 14 2026):**
+HistoryView score display + admin view consistency + StatsView hero fix.
+
+**HistoryView Part B — score type display:**
+- Score type aware rendering per match card: exact (legacy scoreline), margin ("Won by N" + WON BY pill), declared (DECLARED pill on winner row; centered badge on draw)
+- `ScoreTypePill` component: 9px Bebas Neue, pill style using gold (margin) or amber (declared) tokens
+- `lastGoalScorerPlayer` derived by ID lookup against players array — silent fail if not found
+- Last goal scorer shown in collapsed info row: `⚽ Last: [name]`
+
+**HistoryView Part C — consolidated info row:**
+- Collapsed card bottom row: shows only POTM / bibs / last goal scorer, separated by opacity 0.4 `·` dividers. Handles all 7 presence/absence combos correctly.
+- Removed duplicate chip row (venue/time/bibs pills) from expanded card — share button follows directly after teamsheet grid.
+
+**Admin view consistency + sticky heroes (4 scopes):**
+- **Scope 1** — Old admin Header chrome removed from App.jsx entirely (sticky tab strip + status bar). `Header.jsx` import removed.
+- **Scope 2** — AdminView NavBar 5-tab: `onGoMyIO` prop threaded from App.jsx → AdminView; NavBar `onTabChange` now handles `"my-io"`. All 4 non-admin tabs navigate to PlayerView via `startTab` prop — Stats/Results/My IO land on the correct PlayerView tab directly. `startTab` prop added to PlayerView; `useState(startTab || "my-view")` sets initial tab on mount.
+- **Scope 3** — Sticky heroes: StatsView SeasonHeroCard extracted to `position:sticky, top:0` wrapper outside the padding div; HistoryView hero wrapper made sticky; AdminView hero wrapped in `position:sticky, top:0` outer div (inner keeps `overflow:hidden`); MyIOView TacticsBoardHero in `position:sticky, top:48` wrapper (stacks below IOBrandHeader).
+- **Scope 4** — Gaffer disabled: `ENABLE_GAFFER = false` const in App.jsx; `<Gaffer/>` wrapped in `{ENABLE_GAFFER && ...}`.
+
+**StatsView hero image fix:**
+- `HERO_IMG` constant changed from Unsplash hot-link to `"/io-statbook-hero.svg"` (local public asset)
+- `filter: "brightness(0.55) saturate(0.8)"` removed from `<img>` — SVG has darkening baked in; double-darkening removed
+
+**Key gotchas from session 12:**
+- `position:sticky` on AdminView hero required outer wrapper div — the hero div itself has `overflow:hidden` which would prevent sticky on the same element; wrapper is separate, inner keeps overflow
+- NavBar does NOT have an `isAdmin` prop — the 5th Admin tab appears when `onAdminClick` is truthy
+- `startTab` prop only works correctly because PlayerView remounts on every `view` switch (conditional render in App.jsx) — no need to reset state manually
+- IOBrandHeader height is exactly 48px: `padding:"12px 16px"` + `fontSize:24, lineHeight:1` = 12+24+12
+
+**Next session (Session 13) — start with:**
+1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
-3. Rotate Supabase publishable key — security, OVERDUE
-4. Google DNS TXT record via 123-reg — fixes OAuth branding
-5. Tuesday-night standby kit set up (Posthog + Supabase dashboards)
-6. WhatsApp comms to Finbar's Tuesdays admin
+2. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
+3. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
+4. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
+5. Stage 1 ship blockers review — is May 19 still on track?
 
 **Aspirational for May 19 matchday (Stage 1 live):**
-- Ask the Gaffer open to admin role
 - POTM voting live for Finbar's Tuesdays first match
+- Re-enable Gaffer for admin role (ENABLE_GAFFER = true + remove token gate)
