@@ -48,6 +48,25 @@ const SCORE_C = {
   draw: { A: "var(--amber)", B: "var(--amber)" },
 };
 
+const SCORE_TYPE_PILL = {
+  margin:   { label: "WON BY",   color: "var(--gold)",  bg: "var(--gold2)",  border: "1px solid var(--goldb)"  },
+  declared: { label: "DECLARED", color: "var(--amber)", bg: "var(--amber2)", border: "1px solid var(--amberb)" },
+};
+
+// ── Score type pill ───────────────────────────────────────────────────────────
+
+function ScoreTypePill({ type }) {
+  const p = SCORE_TYPE_PILL[type];
+  if (!p) return null;
+  return (
+    <span style={{
+      fontFamily: "'Bebas Neue', sans-serif", fontSize: 9,
+      borderRadius: 4, padding: "2px 6px", letterSpacing: "0.05em",
+      color: p.color, background: p.bg, border: p.border, flexShrink: 0,
+    }}>{p.label}</span>
+  );
+}
+
 // ── Avatar chip (22px, initials only) ────────────────────────────────────────
 
 function AvatarChip({ name, isGuest, team }) {
@@ -86,6 +105,10 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
 
   const result   = getResult(m);
   const rs       = RESULT_STYLES[result];
+  const scoreType = m.scoreType || null;
+  const lastGoalScorerPlayer = m.lastGoalScorer
+    ? (players || []).find(p => p.id === m.lastGoalScorer) || null
+    : null;
   const d        = parseMatchDate(m.date);
   const dayOfWeek = d.getTime() ? d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase() : "—";
   const dateNum   = d.getTime() ? d.getDate() : "—";
@@ -187,18 +210,54 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
         </div>
 
         {/* Teams + scores */}
-        <div style={{ flex: 1, padding: "10px 12px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
+        <div style={{ flex: 1, padding: "10px 12px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, position: "relative" }}>
           {[
-            { team: "A", label: "Team A", score: m.scoreA, color: scoreC.A, weight: result === "win" ? 500 : result === "loss" ? 400 : 400 },
-            { team: "B", label: "Team B", score: m.scoreB, color: scoreC.B, weight: result === "loss" ? 500 : result === "win" ? 400 : 400 },
-          ].map(({ team, label, score, color, weight }) => (
-            <div key={team} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 16, fontWeight: weight, color }}>{label}</span>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color, lineHeight: 1, flexShrink: 0 }}>
-                {score ?? "?"}
+            { team: "A", label: "Team A", score: m.scoreA, color: scoreC.A, weight: result === "win" ? 500 : 400 },
+            { team: "B", label: "Team B", score: m.scoreB, color: scoreC.B, weight: result === "loss" ? 500 : 400 },
+          ].map(({ team, label, score, color, weight }) => {
+            const isWinner = m.winner === team;
+            let right = null;
+            if (scoreType === "declared") {
+              if (isWinner) right = <ScoreTypePill type="declared" />;
+              // draw: absolute badge below; loser: nothing
+            } else if (scoreType === "margin") {
+              if (result === "draw" && team === "A") {
+                right = (
+                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color, lineHeight: 1 }}>
+                    Draw
+                  </span>
+                );
+              } else if (isWinner) {
+                const marginVal = team === "A" ? m.scoreA : m.scoreB;
+                right = (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color, lineHeight: 1 }}>
+                      Won by {marginVal}
+                    </span>
+                    <ScoreTypePill type="margin" />
+                  </div>
+                );
+              }
+            } else {
+              right = (
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color, lineHeight: 1, flexShrink: 0 }}>
+                  {score ?? "?"}
+                </div>
+              );
+            }
+            return (
+              <div key={team} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 16, fontWeight: weight, color }}>{label}</span>
+                {right}
               </div>
+            );
+          })}
+          {/* Declared draw: badge vertically centred between both rows */}
+          {scoreType === "declared" && result === "draw" && (
+            <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
+              <ScoreTypePill type="declared" />
             </div>
-          ))}
+          )}
         </div>
 
         {/* Meta + chevron — no badge */}
@@ -237,6 +296,8 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
           {m.motm      && <span>🏆 {m.motm}</span>}
           {m.motm && m.bibHolder && <span style={{ opacity: 0.4 }}>·</span>}
           {m.bibHolder && <span>🟡 {m.bibHolder}</span>}
+          {lastGoalScorerPlayer && (m.motm || m.bibHolder) && <span style={{ opacity: 0.4 }}>·</span>}
+          {lastGoalScorerPlayer && <span>⚽ Last: {lastGoalScorerPlayer.name}</span>}
         </div>
       </div>
 
