@@ -202,9 +202,9 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
               position:"absolute", inset:0, display:"flex", flexDirection:"column",
               alignItems:"center", justifyContent:"center", gap:0,
             }}>
-              <span style={{ fontSize:"18px", fontWeight:600, color:"#ffffff", lineHeight:1.1 }}>{attended}</span>
-              <span style={{ fontSize:"10px", color:"#ffffff", lineHeight:1.1 }}>/ {safeTotal}</span>
-              <span style={{ fontSize:"8px", color:"rgba(255,255,255,0.6)", lineHeight:1.1 }}>games</span>
+              <span style={{ fontSize:"16px", fontWeight:600, color:"#ffffff", lineHeight:1.1 }}>{attended}</span>
+              <span style={{ fontSize:"9px", color:"#ffffff", lineHeight:1.1 }}>/ {safeTotal}</span>
+              <span style={{ fontSize:"7px", color:"rgba(255,255,255,0.6)", lineHeight:1.1 }}>games</span>
             </div>
           </div>
         </div>
