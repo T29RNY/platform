@@ -129,7 +129,8 @@ export default function ScoreScreen({
   const [bibsPlayerId, setBibsPlayerId] = useState(null);
 
   // Save
-  const [saving, setSaving]     = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false); // synchronous guard — prevents double-fire before state update lands
   const [saved, setSaved]       = useState(false);
   const [saveError, setSaveError] = useState(null);
 
@@ -217,8 +218,17 @@ export default function ScoreScreen({
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!canSave || saving) return;
-    setSaving(true); setSaveError(null);
+    console.log("[ioo] ScoreScreen save fired", {
+      selectedMode: mode,
+      scoreA,
+      scoreB,
+      winner,
+      lastGoalScorerPlayerId: lastGoalChoice === "yes" ? lastGoalPlayerId : null,
+      selectedBibPlayerId: bibsPlayerId,
+    });
+    if (!canSave || isSavingRef.current) return;
+    isSavingRef.current = true;
+    setIsSaving(true); setSaveError(null);
     try {
       const teamAPlayers = inPlayers.filter(p => p.team === "A").map(p => p.name);
       const teamBPlayers = inPlayers.filter(p => p.team === "B").map(p => p.name);
@@ -261,7 +271,8 @@ export default function ScoreScreen({
       setSaveError("Save failed — check connection and try again.");
       console.error("[ioo] ScoreScreen save:", e);
     } finally {
-      setSaving(false);
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -643,17 +654,17 @@ export default function ScoreScreen({
           )}
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={isSaving}
             style={{
               width: "100%", height: 56, borderRadius: 12, border: "none",
-              background: saving ? "var(--s3)" : "var(--green)",
-              color: saving ? "var(--t2)" : "#0A0A08",
+              background: isSaving ? "var(--s3)" : "var(--green)",
+              color: isSaving ? "var(--t2)" : "#0A0A08",
               fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.08em",
-              cursor: saving ? "not-allowed" : "pointer",
-              boxShadow: saving ? "none" : "0 0 20px rgba(61,220,106,0.3)",
+              cursor: isSaving ? "not-allowed" : "pointer",
+              boxShadow: isSaving ? "none" : "0 0 20px rgba(61,220,106,0.3)",
             }}
           >
-            {saving ? "SAVING..." : "SAVE RESULT 💾"}
+            {isSaving ? "SAVING..." : "SAVE RESULT 💾"}
           </button>
         </div>
       )}
