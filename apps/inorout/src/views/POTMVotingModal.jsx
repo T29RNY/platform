@@ -47,7 +47,7 @@ export default function POTMVotingModal({
   // Auto-dismiss after locked state
   useEffect(() => {
     if (phase === "locked") {
-      const t = setTimeout(onClose, 2500);
+      const t = setTimeout(onClose, 3000);
       return () => clearTimeout(t);
     }
   }, [phase, onClose]);
@@ -102,7 +102,7 @@ export default function POTMVotingModal({
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 100,
-      background: "rgba(0,0,0,0.85)",
+      background: "rgba(0,0,0,0.75)",
       backdropFilter: "blur(12px)",
       WebkitBackdropFilter: "blur(12px)",
       display: "flex", alignItems: "center", justifyContent: "center",
@@ -112,7 +112,8 @@ export default function POTMVotingModal({
         width: "100%", maxWidth: 400,
         background: "var(--s1)",
         borderRadius: 20,
-        boxShadow: "0 0 0 1px rgba(232,160,32,0.3), 0 0 40px rgba(232,160,32,0.15)",
+        border: "1px solid var(--gold)",
+        boxShadow: "0 0 24px rgba(232,160,32,0.4)",
         overflow: "hidden",
         animation: "potm-fade-in 0.25s ease",
       }}>
