@@ -101,17 +101,16 @@ export default function POTMVotingModal({
 
   return (
     <div style={{
-      position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
-      zIndex: 100,
+      position: "fixed", inset: 0, zIndex: 100,
       background: "rgba(0,0,0,0.75)",
       backdropFilter: "blur(12px)",
       WebkitBackdropFilter: "blur(12px)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "20px", boxSizing: "border-box",
+      padding: "20px",
     }}>
       <div style={{
-        maxWidth: 360, margin: "0 auto",
-        background: "rgba(20,20,18,0.95)",
+        width: "100%", maxWidth: 380,
+        background: "var(--s1)",
         borderRadius: 20,
         border: "1px solid var(--gold)",
         boxShadow: "0 0 24px rgba(232,160,32,0.4)",
