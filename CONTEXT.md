@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 13 2026 (session 9)*
+*Last updated: May 13 2026 (session 10)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -33,7 +33,7 @@ Differentiator: football-specific, frictionless, random player pool, in-app paym
 - My IO skeleton — locked cards + 1+ tier insights
 - Ask the Gaffer opened to admin role
 
-**Out of Stage 1:** POTM voting, admin screens redesign, onboarding redesign, Stripe Connect.
+**Out of Stage 1:** admin screens redesign, onboarding redesign, Stripe Connect.
 
 **Stage 2:** Tuesday May 26 — Monday Footy added if Stage 1 week 1 clean.
 **Broader beta:** ~Jun 9 — anyone willing to mandate the app for their team.
@@ -53,7 +53,7 @@ See `BETA_LAUNCH_CHECKLIST.md` for the full pre-flight checklist.
 | Vercel | auto-deploys on push to main, project: platform-clubmanager |
 | Vercel build command | `cd ../.. && npm install && cd apps/inorout && npm run build` |
 | Supabase | https://ktvpzpnqbwhooiaqrigm.supabase.co |
-| Supabase publishable key | sb_publishable_tG3ErIB1e19YIJsraHMrPA_0xIozTN- |
+| Supabase publishable key | sb_publishable_vJfG62PWTeaYEdvBj6rI5A_ZhRh75Fd |
 | Domain | in-or-out.com (123-reg, DNS → Vercel) |
 | Posthog | phc_nKE8bJkj8skLdsxpierEVHgDyGGwaiwbwXoR7F7gLBc7 (EU region) |
 | Google OAuth Client ID | GOOGLE_CLIENT_ID_HERE |
@@ -85,10 +85,11 @@ platform/
           Gaffer/
             index.jsx        ← Ask the Gaffer chatbot
             systemPrompt.js  ← 820-word system prompt
+          POTMVotingModal.jsx   ← built session 10
           AdminView/
-            index.jsx        ← rebuilt session 6
+            index.jsx        ← rebuilt session 6, POTM tiebreak modal added session 10
             TeamsScreen.jsx
-            ScoreScreen.jsx  ← writes player_match on save
+            ScoreScreen.jsx  ← writes player_match on save, uses schedule.activeMatchId
             BibsScreen.jsx
             SquadScreen.jsx
             ScheduleScreen.jsx
@@ -191,11 +192,18 @@ team_id, player_id
 
 ### matches
 ```
-id, team_id, date, score_a, score_b,
-scorers (jsonb), motm, bib_holder, result,
+id, team_id, date, date_short, score_a, score_b,
+scorers (jsonb), motm, bib_holder,
 team_a (jsonb array), team_b (jsonb array),
 winner, cancelled, cancel_reason,
-venue, kickoff_time,
+payments (jsonb),
+voting_open bool DEFAULT false,
+voting_closes_at timestamptz,
+vote_count int DEFAULT 0,
+total_voters int DEFAULT 0,
+was_admin_decided bool DEFAULT false,
+admin_decision_pending bool DEFAULT false,
+tied_candidates jsonb,
 created_at
 ```
 
@@ -210,7 +218,11 @@ id, team_id, day_of_week, kickoff, venue, city,
 opens_day, opens_time, priority_lead_mins,
 price_per_player, game_is_live, squad_size,
 game_date_time, is_draft, is_cancelled, cancel_reason,
-reminders_config (jsonb)
+reminders_config (jsonb),
+lineup_locked bool DEFAULT false,
+active_match_id text,
+voting_open bool DEFAULT false,
+voting_closes_at timestamptz
 ```
 
 ### settings
@@ -285,6 +297,17 @@ marked_by text (player/admin),
 created_at timestamptz
 ```
 
+### potm_votes
+```
+id uuid PK DEFAULT gen_random_uuid(),
+match_id text,
+team_id text,
+voter_id text,
+nominee_id text,
+created_at timestamptz DEFAULT now(),
+UNIQUE (match_id, voter_id)
+```
+
 ### demo_sessions
 ```
 id text PK default 'main',
@@ -296,6 +319,7 @@ last_interaction timestamptz
 `find_player_by_email(lookup_email text)` — SECURITY DEFINER, joins auth.users → players → team_players → teams
 
 **Realtime enabled on:** players, schedule, matches
+**player_match UNIQUE constraint:** (match_id, player_id) — required for UPSERT in writePlayerMatchRows and lineupLockJob
 
 ---
 
@@ -414,13 +438,15 @@ My View | Stats | Results | My IO | Admin
 - Bibs tile → BibsScreen
 - Cover Pool accordion
 - Drag to reorder reserve list
+- POTM tiebreak modal — detects adminDecisionPending matches, shows tied candidates only, no skip, calls closePOTMVoting + fires potmResult push
 
 ### Platform
 - Multi-tenant — all queries filtered by team_id
-- Realtime — players, schedule, matches
-- player_match writes on every result save
+- Realtime — players, schedule, matches (matchSub listens to event:"*" not just INSERT)
+- player_match writes on every result save (UPSERT with onConflict: match_id,player_id)
 - Demo environment — team_demo, 25 players, 22 matches, /demoadmin, auto-reset
 - Design system — tokens.css, Phosphor icons thin, mockup reference files
+- POTM voting system — full end-to-end: lineup lock cron → voting open cron → tally cron → modal → admin tiebreak
 
 ---
 
@@ -481,7 +507,13 @@ matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, b
 - getNemesis(playerId, teamId) → [{ playerId, name, games, lossRate }]
 - getBestPartnership(playerId, teamId) → [{ playerId, name, games, winRate }]
 - getPOTMVoteStats(playerId, teamId) → wrapped in try/catch (table may not exist)
-- NOTE: PostgREST self-join workaround — getMostPlayedWith/getNemesis/getBestPartnership/getPlayerImpact use two sequential queries + JS computation
+- submitPOTMVote(matchId, teamId, voterId, nomineeId) → {ok} or {error:"already_voted"} on UNIQUE violation
+- getPOTMVotes(matchId) → [{voter_id, nominee_id}]
+- getPOTMEligiblePlayers(matchId, teamId) → [{id, name, team}] — two-query pattern (player_match then players)
+- tallyPOTMVotes(matchId, teamId) → {winner, voteCount, totalVoters, isTie, tiedCandidates}
+- closePOTMVoting(matchId, winnerId, wasAdminDecided) — updates matches + player_match
+- openPOTMVoting(matchId, teamId, closesAt, totalVoters) — updates matches
+- NOTE: PostgREST self-join workaround — getMostPlayedWith/getNemesis/getBestPartnership/getPlayerImpact/getPOTMEligiblePlayers all use two sequential queries + JS computation
 
 ### Hero card — attendance ring
 - SVG 56×56, viewBox "0 0 38 38", R=16, progress ring stroke #3DDC6A strokeWidth 3
@@ -599,9 +631,10 @@ self | host | admin | stripe | null
 | player_match + player_career tables | ✅ Done | |
 | player_injuries table | ✅ Done | |
 | Teams confirmed view | ✅ Done | |
-| Demo environment | ✅ Done | team_demo |
+| Demo environment | ✅ Done | team_demo, seed script at scripts/seed-demo.js |
 | POTM + Results display text | ✅ Done | |
 | My IO screen | ✅ Done | MyIOView.jsx, useIOIntelligence.js |
+| POTM voting system | ✅ Done | Modal, cron jobs, push, admin tiebreak |
 | Admin screens redesign | 🔲 Next | TeamsScreen etc |
 | Onboarding redesign | 🔲 Pre-launch | |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
@@ -618,7 +651,7 @@ self | host | admin | stripe | null
 | Feature | Notes |
 |---|---|
 | IO Wrapped | End of season shareable card |
-| POTM voting | Post-game push, 60min window, car park voting |
+| POTM voting | ✅ Done (session 10) — full system built |
 | Monthly summary notifications | End of month push |
 | Streak notifications | 3/5/10 game streaks |
 | Random player signup | Postcode, availability |
@@ -869,13 +902,33 @@ Auth routing fixed + join/success UI polish.
 - JoinTeam.jsx UI: "IN OR OUT" header → IO brand treatment (green I, white "n or ", red O, white "ut") in Bebas Neue. NameStep join button: gold (var(--gold)) when name typed, muted (var(--s3)) when empty. Sub-text: "No account needed · Takes 5 seconds" → "Takes 10 seconds — no password needed".
 - JoinSuccess.jsx UI: Section headings (IOSInstructions, AndroidInstructions, DesktopInstructions) — `var(--font-display)` replaced with `'Bebas Neue', sans-serif` + letterSpacing 0.05em (was rendering as system font). "In or Out" app name → IO brand span treatment. InstallStep marginBottom 24 → 32 (8px more breathing room).
 
-**Next session (Session 10) — start with:**
-1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
+**Session 10 (May 13 2026):**
+Built complete POTM voting system end-to-end.
+- **Schema additions:** `potm_votes` table (UNIQUE match_id,voter_id); new columns on `matches` (voting_open, voting_closes_at, vote_count, total_voters, was_admin_decided, admin_decision_pending, tied_candidates); new columns on `schedule` (lineup_locked, active_match_id, voting_open, voting_closes_at)
+- **supabase.js:** matchToDb/dbToMatch + scheduleToDb/dbToSchedule updated for new columns; writePlayerMatchRows changed INSERT→UPSERT (onConflict: match_id,player_id); 6 new POTM query functions added; getPOTMEligiblePlayers uses two-query pattern (no join)
+- **cron.js:** lineupLockJob (at kickoff — generates matchId, writes player_match stubs, sets lineup_locked + active_match_id); potmVotingOpenJob (kickoff+60min — opens voting if ≥3 players, denormalizes to schedule for realtime, sends potmVotingOpen push); potmTallyJob (when voting_closes_at passes — tallies, announces winner or sets admin_decision_pending on tie)
+- **POTMVotingModal.jsx:** new file — full-screen overlay (rgba(0,0,0,0.75) + blur(12px)), gold glow card (maxWidth 380px), Team A/B sections, 4-state machine (idle→selected→confirming→locked), pulse animation on Vote buttons, skip link, already-voted read-only state, 3s auto-dismiss on lock-in
+- **AdminView/index.jsx:** POTMTiebreakModal component added — detects adminDecisionPending on any match, shows tied candidates only, no skip, calls closePOTMVoting(matchId, winnerId, true) + fires potmResult push on lock-in
+- **PlayerView.jsx:** POTM modal wired up (shows when schedule.votingOpen transitions true + player is eligible); gold result banner (5s auto-dismiss); getPOTMEligiblePlayers + getPOTMVotes imported
+- **App.jsx:** matchSub changed from event:"INSERT" to event:"*" to catch voting_open UPDATEs in realtime
+- **ScoreScreen.jsx:** uses schedule.activeMatchId if set (lineup lock integration)
+- **scripts/seed-demo.js:** standalone Node.js full demo seed script — team, 25 players, 22 matches, player_match rows, injuries, schedule, settings, demo_sessions; run with `SUPABASE_SERVICE_ROLE_KEY=<key> node scripts/seed-demo.js`
+- **Architectural decisions:** schedule.voting_open denormalized (not just matches) so existing realtime schedule subscription drives PlayerView modal; schedule.active_match_id solves match_id chicken-and-egg between lineup lock and ScoreScreen; UPSERT on player_match prevents duplicate rows when both cron and ScoreScreen write
+
+**Key gotchas from session 10:**
+- PostgREST 400 error on `players(id, name)` embedded join from player_match — PostgREST foreign key join not supported in this configuration; use two sequential queries instead
+- isResult condition must check `!votingOpen && !!motm` not just `!!motm` — motm can be set on a previous match while current voting is open
+- `votingClosesAt` is NOT cleared when voting closes (cron only sets voting_open=false) — cannot use timestamp presence/staleness to detect open state; must pass `votingOpen` boolean explicitly as prop
+
+**Next session (Session 11) — start with:**
+1. Run demo seed script with Supabase service role key: `SUPABASE_SERVICE_ROLE_KEY=<key> node scripts/seed-demo.js`
+2. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
-2. Rotate Supabase publishable key — security, OVERDUE
-3. Google DNS TXT record via 123-reg — fixes OAuth branding
-4. Tuesday-night standby kit set up (Posthog + Supabase dashboards)
-5. WhatsApp comms to Finbar's Tuesdays admin
+3. Rotate Supabase publishable key — security, OVERDUE
+4. Google DNS TXT record via 123-reg — fixes OAuth branding
+5. Tuesday-night standby kit set up (Posthog + Supabase dashboards)
+6. WhatsApp comms to Finbar's Tuesdays admin
 
 **Aspirational for May 19 matchday (Stage 1 live):**
 - Ask the Gaffer open to admin role
+- POTM voting live for Finbar's Tuesdays first match
