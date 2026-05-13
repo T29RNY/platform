@@ -178,15 +178,21 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
 
         {/* Right: attendance ring with glass tile */}
         <div style={{
-          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-          background:"rgba(255,255,255,0.12)",
-          backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
-          border:"1px solid rgba(255,255,255,0.25)",
-          borderRadius:16, padding:16,
-          minWidth:100, minHeight:100,
+          background: "rgba(255,255,255,0.07)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "0.5px solid rgba(255,255,255,0.18)",
+          borderRadius: "14px",
+          padding: "10px",
+          minWidth: "80px",
+          minHeight: "80px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
         }}>
-          <div style={{ position:"relative", width:72, height:72 }}>
-            <svg width="72" height="72" viewBox="0 0 38 38" style={{ display:"block" }}>
+          <div style={{ position:"relative", width:56, height:56 }}>
+            <svg width="56" height="56" viewBox="0 0 38 38" style={{ display:"block" }}>
               <circle cx="19" cy="19" r={R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
               <circle cx="19" cy="19" r={R} fill="none" stroke="#3DDC6A" strokeWidth="3"
                 strokeDasharray={circ} strokeDashoffset={offset}
@@ -196,9 +202,9 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
               position:"absolute", inset:0, display:"flex", flexDirection:"column",
               alignItems:"center", justifyContent:"center", gap:0,
             }}>
-              <span style={{ fontFamily:"var(--font-display)", fontSize:24, fontWeight:600, lineHeight:1.1, color:"#ffffff" }}>{attended}</span>
-              <span style={{ fontSize:13, color:"#ffffff", lineHeight:1.1 }}>/ {safeTotal}</span>
-              <span style={{ fontSize:10, color:"rgba(255,255,255,0.7)", lineHeight:1.1 }}>games</span>
+              <span style={{ fontSize:"22px", fontWeight:600, color:"#ffffff", lineHeight:1.1 }}>{attended}</span>
+              <span style={{ fontSize:"11px", color:"#ffffff", lineHeight:1.1 }}>/ {safeTotal}</span>
+              <span style={{ fontSize:"9px", color:"rgba(255,255,255,0.6)", lineHeight:1.1 }}>games</span>
             </div>
           </div>
         </div>
