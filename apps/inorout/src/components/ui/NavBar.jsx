@@ -54,7 +54,7 @@ function MyIOLabel() {
 
 export default function NavBar({ activeTab, onTabChange, onAdminClick }) {
   const tabs = onAdminClick
-    ? [...BASE_TABS, { id:"admin", label:"Admin", Icon:Gear }, MY_IO_TAB]
+    ? [...BASE_TABS, MY_IO_TAB, { id:"admin", label:"Admin", Icon:Gear }]
     : [...BASE_TABS, MY_IO_TAB];
 
   return (

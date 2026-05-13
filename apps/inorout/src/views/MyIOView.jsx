@@ -97,120 +97,123 @@ function AvatarStack({ players, rgb }) {
 // ── IO Brand Header ───────────────────────────────────────────────────────────
 function IOBrandHeader() {
   return (
-    <div style={{ display:"flex", alignItems:"baseline", gap:5, marginBottom:14 }}>
-      <div style={{ fontStyle:"italic", transform:"skewX(-8deg)", display:"inline-flex", gap:0 }}>
+    <div style={{ marginBottom:14 }}>
+      <div style={{ fontStyle:"italic", transform:"skewX(-8deg)", display:"inline-flex", alignItems:"baseline", gap:5 }}>
         <span style={{ color:"var(--green)", fontFamily:"var(--font-display)", fontSize:24, lineHeight:1 }}>I</span>
         <span style={{ color:"var(--red)",   fontFamily:"var(--font-display)", fontSize:24, lineHeight:1 }}>O</span>
+        <span style={{ color:"var(--t1)", fontFamily:"var(--font-display)", fontSize:24, lineHeight:1, letterSpacing:"0.03em" }}>
+          Intelligence
+        </span>
       </div>
-      <span style={{ fontStyle:"italic", color:"rgba(255,255,255,0.28)", fontSize:14, fontWeight:300, letterSpacing:"0.01em" }}>
-        Intelligence
-      </span>
     </div>
   );
 }
 
 // ── Tactics board hero card ───────────────────────────────────────────────────
 function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
-  const attended = gamesPlayed;
+  const attended  = gamesPlayed;
   const safeTotal = Math.max(total, attended, 1);
-  const progress = attended / safeTotal;
-  const R = 22;
-  const circ = 2 * Math.PI * R;
+  const progress  = attended / safeTotal;
+  const R = 16;
+  const circ   = 2 * Math.PI * R;
   const offset = circ * (1 - progress);
-  const goals = stats?.matchStats?.goals ?? player?.goals ?? 0;
-  const motm  = stats?.matchStats?.motm  ?? player?.motm  ?? 0;
+  const goals  = stats?.matchStats?.goals ?? player?.goals ?? 0;
+  const motm   = stats?.matchStats?.motm  ?? player?.motm  ?? 0;
   const winPct = stats?.winRate?.winRate ?? null;
-  const rel   = stats?.reliability?.score ?? null;
+  const rel    = stats?.reliability?.score ?? null;
 
   return (
     <div style={{
       position:"relative", borderRadius:16, overflow:"hidden",
-      height:182, marginBottom:12,
+      height:112, marginBottom:12,
       boxShadow:"0 2px 24px rgba(0,0,0,0.5)",
     }}>
-      {/* SVG tactics board background */}
-      <svg viewBox="0 0 340 160" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
+      {/* SVG tactics board — viewBox height reduced 40% (160→96), all y-coords ×0.6 */}
+      <svg viewBox="0 0 340 96" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"
         style={{ position:"absolute", inset:0, width:"100%", height:"100%", display:"block" }}>
-        <rect width="340" height="160" fill="#0e1a12" />
-        <rect width="340" height="160" fill="rgba(0,0,0,0.35)" />
-        <rect x="6" y="8" width="328" height="144" rx="4" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="0.8" />
-        <line x1="170" y1="8" x2="170" y2="152" stroke="rgba(255,255,255,0.14)" strokeWidth="0.7" />
-        <circle cx="170" cy="80" r="22" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.7" />
-        <rect x="6"   y="40" width="48" height="80" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.6" />
-        <rect x="286" y="40" width="48" height="80" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.6" />
-        <rect x="6"   y="58" width="18" height="44" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
-        <rect x="316" y="58" width="18" height="44" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
-        {/* Green (left) 4-3-3 */}
-        {[[20,80],[55,22],[55,52],[55,108],[55,138],[98,38],[98,80],[98,122],[135,28],[135,80],[135,132]].map(([cx,cy],i) => (
-          <circle key={`g${i}`} cx={cx} cy={cy} r="3.5" fill="rgba(61,220,106,0.6)" stroke="rgba(61,220,106,0.9)" strokeWidth="0.8" />
+        <rect width="340" height="96" fill="#0e1a12" />
+        <rect width="340" height="96" fill="rgba(0,0,0,0.55)" />
+        <rect x="6" y="5" width="328" height="86" rx="3" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="0.8" />
+        <line x1="170" y1="5" x2="170" y2="91"  stroke="rgba(255,255,255,0.14)" strokeWidth="0.7" />
+        <circle cx="170" cy="48" r="13" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="0.7" />
+        <rect x="6"   y="24" width="48" height="48" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.6" />
+        <rect x="286" y="24" width="48" height="48" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.6" />
+        <rect x="6"   y="35" width="18" height="26" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+        <rect x="316" y="35" width="18" height="26" fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+        {/* Green (left) 4-3-3 — cy×0.6 */}
+        {[[20,48],[55,13],[55,31],[55,65],[55,83],[98,23],[98,48],[98,73],[135,17],[135,48],[135,79]].map(([cx,cy],i) => (
+          <circle key={`g${i}`} cx={cx} cy={cy} r="3" fill="rgba(61,220,106,0.6)" stroke="rgba(61,220,106,0.9)" strokeWidth="0.8" />
         ))}
-        {/* Red (right) 4-3-3 mirror */}
-        {[[320,80],[285,22],[285,52],[285,108],[285,138],[242,38],[242,80],[242,122],[205,28],[205,80],[205,132]].map(([cx,cy],i) => (
-          <circle key={`r${i}`} cx={cx} cy={cy} r="3.5" fill="rgba(255,96,96,0.5)" stroke="rgba(255,96,96,0.8)" strokeWidth="0.8" />
+        {/* Red (right) 4-3-3 mirror — cy×0.6 */}
+        {[[320,48],[285,13],[285,31],[285,65],[285,83],[242,23],[242,48],[242,73],[205,17],[205,48],[205,79]].map(([cx,cy],i) => (
+          <circle key={`r${i}`} cx={cx} cy={cy} r="3" fill="rgba(255,96,96,0.5)" stroke="rgba(255,96,96,0.8)" strokeWidth="0.8" />
         ))}
-        {/* Tactical arrows */}
-        <path d="M98,80 L128,80"       stroke="rgba(255,220,80,0.5)" strokeWidth="0.9" strokeDasharray="3,2" fill="none" />
-        <path d="M98,38 Q115,25 128,28" stroke="rgba(255,220,80,0.5)" strokeWidth="0.9" strokeDasharray="3,2" fill="none" />
-        <path d="M242,80 L212,80"       stroke="rgba(255,220,80,0.5)" strokeWidth="0.9" strokeDasharray="3,2" fill="none" />
-        {/* Stat overlay — top right */}
-        <text x="330" y="19" textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.38)" fontFamily="DM Sans,sans-serif">⚽ {goals} goals</text>
-        <text x="330" y="29" textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.38)" fontFamily="DM Sans,sans-serif">🏆 {motm} POTM</text>
+        {/* Tactical arrows — y×0.6 */}
+        <path d="M98,48 L128,48"        stroke="rgba(255,220,80,0.5)" strokeWidth="0.9" strokeDasharray="3,2" fill="none" />
+        <path d="M98,23 Q115,15 128,17"  stroke="rgba(255,220,80,0.5)" strokeWidth="0.9" strokeDasharray="3,2" fill="none" />
+        <path d="M242,48 L212,48"        stroke="rgba(255,220,80,0.5)" strokeWidth="0.9" strokeDasharray="3,2" fill="none" />
+        {/* Stat overlay — top right, y×0.6 */}
+        <text x="330" y="11" textAnchor="end" fontSize="6" fill="rgba(255,255,255,0.38)" fontFamily="DM Sans,sans-serif">⚽ {goals} goals</text>
+        <text x="330" y="19" textAnchor="end" fontSize="6" fill="rgba(255,255,255,0.38)" fontFamily="DM Sans,sans-serif">🏆 {motm} POTM</text>
         {winPct !== null && (
-          <text x="330" y="39" textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.38)" fontFamily="DM Sans,sans-serif">{winPct}% win</text>
-        )}
-        {rel !== null && (
-          <text x="330" y="49" textAnchor="end" fontSize="6.5" fill="rgba(255,255,255,0.38)" fontFamily="DM Sans,sans-serif">{rel}% reliable</text>
+          <text x="330" y="27" textAnchor="end" fontSize="6" fill="rgba(255,255,255,0.38)" fontFamily="DM Sans,sans-serif">{winPct}% win</text>
         )}
       </svg>
 
-      {/* Dark gradient overlay for text readability */}
+      {/* Dark gradient overlay */}
       <div style={{
         position:"absolute", inset:0,
-        background:"linear-gradient(135deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.1) 100%)",
+        background:"linear-gradient(135deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.1) 100%)",
         pointerEvents:"none",
       }} />
 
       {/* Text overlay */}
-      <div style={{ position:"absolute", inset:0, padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+      <div style={{ position:"absolute", inset:0, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         {/* Left: heading + season label */}
         <div>
-          <div style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontSize:20, lineHeight:1.1, marginBottom:4 }}>
+          <div style={{ fontFamily:"var(--font-display)", fontStyle:"italic", fontSize:18, lineHeight:1.1, marginBottom:3 }}>
             <div style={{ color:"var(--t1)", letterSpacing:"0.04em" }}>YOUR GAME</div>
             <div style={{ color:"var(--green)", letterSpacing:"0.04em" }}>YOUR STORY</div>
           </div>
-          <div style={{ fontSize:9, color:"rgba(255,255,255,0.35)", fontWeight:300, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+          <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.35)", fontWeight:300, letterSpacing:"0.08em", textTransform:"uppercase" }}>
             Season stats
           </div>
         </div>
 
-        {/* Right: progress ring */}
+        {/* Right: compact progress ring */}
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
-          <div style={{ position:"relative", width:52, height:52 }}>
-            <svg width="52" height="52" viewBox="0 0 52 52" style={{ display:"block" }}>
-              <circle cx="26" cy="26" r={R} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3.5" />
-              <circle cx="26" cy="26" r={R} fill="none" stroke="#3DDC6A" strokeWidth="3.5"
+          <div style={{ position:"relative", width:38, height:38 }}>
+            <svg width="38" height="38" viewBox="0 0 38 38" style={{ display:"block" }}>
+              <circle cx="19" cy="19" r={R} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+              <circle cx="19" cy="19" r={R} fill="none" stroke="#3DDC6A" strokeWidth="3"
                 strokeDasharray={circ} strokeDashoffset={offset}
-                strokeLinecap="round" transform="rotate(-90 26 26)" />
+                strokeLinecap="round" transform="rotate(-90 19 19)" />
             </svg>
             <div style={{
               position:"absolute", inset:0, display:"flex", flexDirection:"column",
-              alignItems:"center", justifyContent:"center",
+              alignItems:"center", justifyContent:"center", gap:0,
             }}>
-              <span style={{ fontFamily:"var(--font-display)", fontSize:16, lineHeight:1, color:"var(--t1)" }}>
-                {attended}
-              </span>
+              <span style={{ fontFamily:"var(--font-display)", fontSize:12, lineHeight:1.1, color:"var(--t1)" }}>{attended}</span>
+              <span style={{ fontSize:6.5, color:"rgba(255,255,255,0.4)", fontWeight:300, lineHeight:1.1 }}>/ {safeTotal}</span>
+              <span style={{ fontSize:6, color:"rgba(255,255,255,0.28)", fontWeight:300, lineHeight:1.1 }}>games</span>
             </div>
           </div>
-          <div style={{ fontSize:8.5, color:"rgba(255,255,255,0.35)", marginTop:2, fontWeight:300 }}>of {safeTotal}</div>
-          <div style={{ fontSize:8, color:"rgba(255,255,255,0.25)", fontWeight:300 }}>games</div>
-          {rel !== null && (
-            <div style={{ fontSize:11, color:"var(--green)", fontWeight:700, marginTop:4 }}>{rel}%</div>
-          )}
-          {rel !== null && (
-            <div style={{ fontSize:8, color:"rgba(255,255,255,0.28)", fontWeight:300 }}>reliable</div>
-          )}
         </div>
       </div>
+
+      {/* Glass reliability tile — absolute bottom-left */}
+      {rel !== null && (
+        <div style={{
+          position:"absolute", bottom:9, left:12,
+          background:"rgba(255,255,255,0.08)",
+          backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+          border:"0.5px solid rgba(255,255,255,0.15)", borderRadius:8, padding:"5px 10px",
+          display:"flex", alignItems:"center", gap:5,
+        }}>
+          <span style={{ fontSize:12, color:"var(--green)", fontWeight:500 }}>{rel}%</span>
+          <span style={{ fontSize:9, color:"var(--t2)", fontWeight:300 }}>reliable</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -227,15 +230,15 @@ function StatsRow({ player, stats }) {
 
   const tileBase = {
     background:"var(--s2)", border:"0.5px solid rgba(255,255,255,0.12)",
-    borderRadius:10, padding:"12px 8px", flex:1,
+    borderRadius:10, padding:"12px 8px", flex:1, minHeight:104,
     display:"flex", flexDirection:"column", alignItems:"center", gap:4,
   };
-  const numStyle = { fontFamily:"var(--font-display)", fontSize:28, lineHeight:1 };
+  const numStyle = { fontFamily:"var(--font-display)", fontSize:28, lineHeight:1, height:28 };
   const lbl = { fontSize:9, fontWeight:400, letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--t2)" };
   const sub = { fontSize:9, color:"rgba(255,255,255,0.3)", fontWeight:300 };
 
-  const winsOfAttended = attended > 0 ? Math.round((wins / attended) * 100) : 0;
-  const goalsPerGame   = attended > 0 ? (goals / attended).toFixed(1) : "0.0";
+  const potmOfWins = motm > 0 ? `${Math.round((motm / Math.max(wins, 1)) * 100)}% of wins` : "yet to win one";
+  const goalsPerGame = attended > 0 ? (goals / attended).toFixed(1) : "0.0";
 
   return (
     <div style={{ display:"flex", gap:8, marginBottom:12 }}>
@@ -244,7 +247,7 @@ function StatsRow({ player, stats }) {
         <Trophy size={18} weight="thin" color="var(--gold)" />
         <div style={{ ...numStyle, color:"var(--gold)" }}>{motm}</div>
         <div style={lbl}>POTM</div>
-        <div style={sub}>{winsOfAttended}% of wins</div>
+        <div style={sub}>{potmOfWins}</div>
       </div>
 
       {/* Goals / current run tile */}
@@ -270,7 +273,8 @@ function StatsRow({ player, stats }) {
       {/* W/D/L tile */}
       <div style={tileBase}>
         <ChartBar size={18} weight="thin" color="var(--t2)" />
-        <div style={{ display:"flex", gap:6, alignItems:"baseline" }}>
+        {/* Fixed-height row matching numStyle height so all tiles align */}
+        <div style={{ display:"flex", gap:5, alignItems:"center", height:28 }}>
           <span style={{ fontFamily:"var(--font-display)", fontSize:22, color:"var(--green)", lineHeight:1 }}>{wins}</span>
           <span style={{ fontFamily:"var(--font-display)", fontSize:22, color:"var(--amber)", lineHeight:1 }}>{draws}</span>
           <span style={{ fontFamily:"var(--font-display)", fontSize:22, color:"var(--red)",   lineHeight:1 }}>{losses}</span>
@@ -297,11 +301,11 @@ function InsightCard({ insight, data, gamesPlayed }) {
         alignItems:"center", justifyContent:"center", gap:6, minHeight:140,
         boxShadow:"0 0 0 0.5px rgba(255,255,255,0.03),0 0 12px rgba(255,255,255,0.02)",
       }}>
-        <GhostShield size={48} opacity={0.07} />
-        <div style={{ fontSize:11, color:"rgba(255,255,255,0.14)", textAlign:"center", fontWeight:400, letterSpacing:"0.06em" }}>
+        <GhostShield size={48} opacity={0.15} />
+        <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", textAlign:"center", fontWeight:400, letterSpacing:"0.06em" }}>
           {label}
         </div>
-        <div style={{ fontSize:9, color:"rgba(255,255,255,0.09)", textAlign:"center", fontWeight:300, lineHeight:1.4 }}>
+        <div style={{ fontSize:9, color:"rgba(255,255,255,0.22)", textAlign:"center", fontWeight:300, lineHeight:1.4 }}>
           Play {needed} more {needed === 1 ? "game" : "games"} to unlock
         </div>
       </div>
@@ -751,7 +755,9 @@ export default function MyIOView({ player, teamId, teamName }) {
     return (
       <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"16px 16px 110px" }}>
         <IOBrandHeader />
-        <TacticsBoardHero player={player} gamesPlayed={0} total={0} stats={null} />
+        <div style={{ position:"sticky", top:0, zIndex:10 }}>
+          <TacticsBoardHero player={player} gamesPlayed={0} total={0} stats={null} />
+        </div>
         <GuestCard />
       </div>
     );
@@ -764,7 +770,8 @@ export default function MyIOView({ player, teamId, teamName }) {
         <IOBrandHeader />
       </div>
 
-      <div ref={secRef(1)} className="io-section">
+      {/* Hero is sticky — no io-section wrapper (transform on parent breaks position:sticky) */}
+      <div style={{ position:"sticky", top:0, zIndex:10, marginBottom:0 }}>
         <TacticsBoardHero player={player} gamesPlayed={gamesPlayed} total={total} stats={loading ? null : stats} />
       </div>
 
