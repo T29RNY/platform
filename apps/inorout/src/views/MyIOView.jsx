@@ -32,12 +32,12 @@ const UNLOCK_STEPS = [
 ];
 
 const INSIGHTS = [
-  { id:"bestPartnership", label:"Best Partnership", rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:8,  dataKey:"bestPartnership", gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
-  { id:"nemesis",         label:"Nemesis",          rgb:"255,64,64",   hex:"#FF4040", unlockAt:8,  dataKey:"nemesis",         gradFrom:"rgba(255,64,64,0.18)",   gradTo:"rgba(255,64,64,0.06)"   },
-  { id:"impact",          label:"Team Impact",      rgb:"176,96,240",  hex:"#B060F0", unlockAt:7,  dataKey:"impact",          gradFrom:"rgba(176,96,240,0.18)",  gradTo:"rgba(176,96,240,0.06)"  },
-  { id:"mostPlayedWith",  label:"Most Played With", rgb:"96,160,255",  hex:"#60A0FF", unlockAt:6,  dataKey:"mostPlayedWith",  gradFrom:"rgba(96,160,255,0.18)",  gradTo:"rgba(96,160,255,0.06)"  },
-  { id:"advancedChem",    label:"Advanced Chemistry",rgb:"255,176,32", hex:"#FFB020", unlockAt:8,  dataKey:null,              gradFrom:"rgba(255,176,32,0.18)",  gradTo:"rgba(255,176,32,0.06)"  },
-  { id:"legacy",          label:"Legacy Insights",  rgb:"232,160,32",  hex:"#E8A020", unlockAt:16, dataKey:null,              gradFrom:"rgba(232,160,32,0.18)",  gradTo:"rgba(232,160,32,0.06)"  },
+  { id:"bestPartnership", label:"Best Partnership",   rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:8,  dataKey:"bestPartnership", gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
+  { id:"mostPlayedWith",  label:"Most Played With",   rgb:"96,160,255",  hex:"#60A0FF", unlockAt:6,  dataKey:"mostPlayedWith",  gradFrom:"rgba(96,160,255,0.18)",  gradTo:"rgba(96,160,255,0.06)"  },
+  { id:"impact",          label:"Team Impact",        rgb:"176,96,240",  hex:"#B060F0", unlockAt:7,  dataKey:"impact",          gradFrom:"rgba(176,96,240,0.18)",  gradTo:"rgba(176,96,240,0.06)"  },
+  { id:"nemesis",         label:"Nemesis",            rgb:"255,64,64",   hex:"#FF4040", unlockAt:8,  dataKey:"nemesis",         gradFrom:"rgba(255,64,64,0.18)",   gradTo:"rgba(255,64,64,0.06)"   },
+  { id:"advancedChem",    label:"Advanced Chemistry", rgb:"255,176,32",  hex:"#FFB020", unlockAt:8,  dataKey:null,              gradFrom:"rgba(255,176,32,0.18)",  gradTo:"rgba(255,176,32,0.06)"  },
+  { id:"legacy",          label:"Legacy Insights",    rgb:"232,160,32",  hex:"#E8A020", unlockAt:16, dataKey:null,              gradFrom:"rgba(232,160,32,0.18)",  gradTo:"rgba(232,160,32,0.06)"  },
 ];
 
 // ── Ghost shield (locked / empty) ─────────────────────────────────────────────
@@ -97,14 +97,12 @@ function AvatarStack({ players, rgb }) {
 // ── IO Brand Header ───────────────────────────────────────────────────────────
 function IOBrandHeader() {
   return (
-    <div style={{ marginBottom:14 }}>
-      <div style={{ fontStyle:"italic", transform:"skewX(-8deg)", display:"inline-flex", alignItems:"baseline", gap:5 }}>
-        <span style={{ color:"var(--green)", fontFamily:"var(--font-display)", fontSize:24, lineHeight:1 }}>I</span>
-        <span style={{ color:"var(--red)",   fontFamily:"var(--font-display)", fontSize:24, lineHeight:1 }}>O</span>
-        <span style={{ color:"var(--t1)", fontFamily:"var(--font-display)", fontSize:24, lineHeight:1, letterSpacing:"0.03em" }}>
-          Intelligence
-        </span>
-      </div>
+    <div style={{ fontStyle:"italic", transform:"skewX(-8deg)", display:"inline-flex", alignItems:"baseline", gap:5 }}>
+      <span style={{ color:"var(--green)", fontFamily:"var(--font-display)", fontSize:24, lineHeight:1 }}>I</span>
+      <span style={{ color:"var(--red)",   fontFamily:"var(--font-display)", fontSize:24, lineHeight:1 }}>O</span>
+      <span style={{ color:"var(--t1)", fontFamily:"var(--font-display)", fontSize:24, lineHeight:1, letterSpacing:"0.03em" }}>
+        Intelligence
+      </span>
     </div>
   );
 }
@@ -195,9 +193,9 @@ function TacticsBoardHero({ player, gamesPlayed, total, stats }) {
               position:"absolute", inset:0, display:"flex", flexDirection:"column",
               alignItems:"center", justifyContent:"center", gap:0,
             }}>
-              <span style={{ fontFamily:"var(--font-display)", fontSize:12, lineHeight:1.1, color:"var(--t1)" }}>{attended}</span>
-              <span style={{ fontSize:6.5, color:"rgba(255,255,255,0.4)", fontWeight:300, lineHeight:1.1 }}>/ {safeTotal}</span>
-              <span style={{ fontSize:6, color:"rgba(255,255,255,0.28)", fontWeight:300, lineHeight:1.1 }}>games</span>
+              <span style={{ fontFamily:"var(--font-display)", fontSize:22, fontWeight:500, lineHeight:1.1, color:"var(--t1)" }}>{attended}</span>
+              <span style={{ fontSize:11, color:"var(--t1)", lineHeight:1.1 }}>/ {safeTotal}</span>
+              <span style={{ fontSize:9, color:"var(--t2)", lineHeight:1.1 }}>games</span>
             </div>
           </div>
         </div>
@@ -746,27 +744,28 @@ export default function MyIOView({ player, teamId, teamName }) {
 
   if (isGuest) {
     return (
-      <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"16px 16px 110px" }}>
-        <IOBrandHeader />
-        <div style={{ position:"sticky", top:0, zIndex:10 }}>
-          <TacticsBoardHero player={player} gamesPlayed={0} total={0} stats={null} />
+      <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"0 0 110px" }}>
+        <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--bg)", padding:"12px 16px" }}>
+          <IOBrandHeader />
         </div>
-        <GuestCard />
+        <div style={{ padding:"0 16px" }}>
+          <TacticsBoardHero player={player} gamesPlayed={0} total={0} stats={null} />
+          <GuestCard />
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"16px 16px 110px" }}>
+    <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"0 0 110px" }}>
 
-      <div ref={secRef(0)} className="io-section">
+      {/* IO brand header — sticky, always visible as content scrolls beneath */}
+      <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--bg)", padding:"12px 16px" }}>
         <IOBrandHeader />
       </div>
 
-      {/* Hero is sticky — no io-section wrapper (transform on parent breaks position:sticky) */}
-      <div style={{ position:"sticky", top:0, zIndex:10, marginBottom:0 }}>
-        <TacticsBoardHero player={player} gamesPlayed={gamesPlayed} total={total} stats={loading ? null : stats} />
-      </div>
+      <div style={{ padding:"0 16px" }}>
+      <TacticsBoardHero player={player} gamesPlayed={gamesPlayed} total={total} stats={loading ? null : stats} />
 
       {gamesPlayed === 0 ? (
         <div ref={secRef(2)} className="io-section">
@@ -797,6 +796,7 @@ export default function MyIOView({ player, teamId, teamName }) {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
