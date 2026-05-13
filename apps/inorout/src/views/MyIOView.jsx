@@ -32,10 +32,12 @@ const UNLOCK_STEPS = [
 ];
 
 const INSIGHTS = [
-  { id:"bestPartnership", label:"Best Partnership",   rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:8,  dataKey:"bestPartnership", gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
+  { id:"winRate",         label:"Win Rate",           rgb:"232,160,32",  hex:"#E8A020", unlockAt:2,  dataKey:"winRate",         gradFrom:"rgba(232,160,32,0.18)",  gradTo:"rgba(232,160,32,0.06)"  },
+  { id:"currentRun",      label:"Current Run",        rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:3,  dataKey:"currentRun",      gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
   { id:"mostPlayedWith",  label:"Most Played With",   rgb:"96,160,255",  hex:"#60A0FF", unlockAt:6,  dataKey:"mostPlayedWith",  gradFrom:"rgba(96,160,255,0.18)",  gradTo:"rgba(96,160,255,0.06)"  },
   { id:"impact",          label:"Team Impact",        rgb:"176,96,240",  hex:"#B060F0", unlockAt:7,  dataKey:"impact",          gradFrom:"rgba(176,96,240,0.18)",  gradTo:"rgba(176,96,240,0.06)"  },
   { id:"nemesis",         label:"Nemesis",            rgb:"255,64,64",   hex:"#FF4040", unlockAt:8,  dataKey:"nemesis",         gradFrom:"rgba(255,64,64,0.18)",   gradTo:"rgba(255,64,64,0.06)"   },
+  { id:"bestPartnership", label:"Best Partnership",   rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:8,  dataKey:"bestPartnership", gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
   { id:"advancedChem",    label:"Advanced Chemistry", rgb:"255,176,32",  hex:"#FFB020", unlockAt:8,  dataKey:null,              gradFrom:"rgba(255,176,32,0.18)",  gradTo:"rgba(255,176,32,0.06)"  },
   { id:"legacy",          label:"Legacy Insights",    rgb:"232,160,32",  hex:"#E8A020", unlockAt:16, dataKey:null,              gradFrom:"rgba(232,160,32,0.18)",  gradTo:"rgba(232,160,32,0.06)"  },
 ];
@@ -279,7 +281,19 @@ function StatsRow({ player, stats }) {
 
 // ── Insight card (unlocked) ───────────────────────────────────────────────────
 function InsightCard({ insight, data, gamesPlayed }) {
-  const { id, label, rgb, hex, gradFrom, gradTo, unlockAt } = insight;
+  let { id, label, rgb, hex, gradFrom, gradTo, unlockAt } = insight;
+
+  // Current Run uses dynamic colour based on run type
+  if (id === "currentRun" && data) {
+    if (data.type === "losing") {
+      rgb = "255,64,64"; hex = "#FF4040";
+      gradFrom = "rgba(255,64,64,0.18)"; gradTo = "rgba(255,64,64,0.06)";
+    } else {
+      rgb = "61,220,106"; hex = "#3DDC6A";
+      gradFrom = "rgba(61,220,106,0.18)"; gradTo = "rgba(61,220,106,0.06)";
+    }
+  }
+
   const locked = gamesPlayed < unlockAt;
 
   if (locked) {
@@ -362,6 +376,27 @@ function InsightCard({ insight, data, gamesPlayed }) {
     title = top ? `${top.name}` : "Most Played With";
     body = top ? <>Shared the pitch <em>{top.games} times</em></> : "Not enough data yet";
     avatars = data;
+  } else if (id === "winRate" && data) {
+    const total = (data.wins ?? 0) + (data.draws ?? 0) + (data.losses ?? 0);
+    badgeContent = (
+      <>
+        <text x="27" y="32" textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="Bebas Neue,sans-serif">{data.winRate}%</text>
+        <text x="27" y="43" textAnchor="middle" fontSize="5.5" fill={`${hex}cc`} fontFamily="DM Sans,sans-serif" letterSpacing="0.5">WIN RATE</text>
+      </>
+    );
+    title = `${data.winRate}% win rate this season`;
+    body = `${data.wins} wins from ${total} games`;
+  } else if (id === "currentRun" && data) {
+    const isUnbeaten = data.type === "unbeaten";
+    badgeContent = (
+      <>
+        <text x="27" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="white" fontFamily="Bebas Neue,sans-serif">{data.length}</text>
+        <text x="27" y="43" textAnchor="middle" fontSize="5" fill={`${hex}cc`} fontFamily="DM Sans,sans-serif" letterSpacing="0.5">{isUnbeaten ? "UNBEATEN" : "W/O WIN"}</text>
+      </>
+    );
+    title = isUnbeaten
+      ? `${data.length} game unbeaten run`
+      : `${data.length} games without a win`;
   } else if (id === "advancedChem") {
     badgeContent = <text x="27" y="36" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.4)" fontFamily="DM Sans,sans-serif">Soon</text>;
     title = "Advanced Chemistry";
