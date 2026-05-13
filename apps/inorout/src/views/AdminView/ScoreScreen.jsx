@@ -34,7 +34,7 @@ const MODES = [
 
 const DECLARE_OPTS = [
   { val: "A", label: "TEAM A WIN", bg: "rgba(96,160,255,0.12)", c: "#60A0FF" },
-  { val: "D", label: "DRAW 🤝",    bg: "var(--s2)",             c: "var(--t2)" },
+  { val: "D", label: "DRAW 🤝",    bg: "var(--s2)",             c: "var(--t2)", unselBorder: "var(--t2)" },
   { val: "B", label: "TEAM B WIN", bg: "rgba(255,96,96,0.12)",  c: "#FF6060" },
 ];
 
@@ -287,20 +287,9 @@ export default function ScoreScreen({
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "var(--green)", letterSpacing: "0.06em" }}>
             RESULT SAVED ✓
           </div>
-          <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, marginTop: 8, marginBottom: 40 }}>
+          <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, marginTop: 8 }}>
             All player records updated
           </div>
-          <button
-            onClick={() => { onDraftNext(); onBack(); }}
-            style={{
-              width: "100%", height: 52, borderRadius: 12,
-              background: "var(--s2)", border: "0.5px solid var(--s3)",
-              color: "var(--t2)", fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 16, letterSpacing: "0.08em", cursor: "pointer",
-            }}
-          >
-            DRAFT NEXT WEEK →
-          </button>
         </div>
       </div>
     );
@@ -341,7 +330,7 @@ export default function ScoreScreen({
                 transition: "all 0.18s ease", padding: 8,
               }}>
                 <Icon size={28} weight="thin" color={active ? color : "var(--t2)"} />
-                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.06em", color: active ? color : "var(--t2)" }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.1em", color: active ? color : "var(--t2)" }}>
                   {title}
                 </div>
                 <div style={{ fontSize: 10, color: active ? color : "var(--t2)", fontWeight: 300, opacity: 0.7 }}>
@@ -498,13 +487,13 @@ export default function ScoreScreen({
           {mode === "declared" && (
             <>
               <StageLbl>WHO WON?</StageLbl>
-              {DECLARE_OPTS.map(({ val, label, bg, c }) => {
+              {DECLARE_OPTS.map(({ val, label, bg, c, unselBorder }) => {
                 const sel = declaredWinner === val;
                 return (
                   <button key={val} onClick={() => setDeclaredWinner(val)} style={{
                     width: "100%", height: 56, borderRadius: 10, marginBottom: 8,
                     background: sel ? bg : "var(--s2)",
-                    border: `1px solid ${sel ? c : "var(--s3)"}`,
+                    border: `1px solid ${sel ? c : (unselBorder || "var(--s3)")}`,
                     boxShadow: sel ? `0 0 14px ${c}44` : "none",
                     color: sel ? c : "var(--t2)",
                     fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.06em",
@@ -525,7 +514,7 @@ export default function ScoreScreen({
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             {[
               { val: "yes", label: "YES", bg: "var(--green2)", border: "var(--greenb)", color: "var(--green)" },
-              { val: "no",  label: "NO",  bg: "var(--s2)",     border: "var(--s3)",     color: "var(--t2)"   },
+              { val: "no",  label: "NO",  bg: "var(--s3)",     border: "var(--t2)",     color: "var(--t1)"   },
             ].map(({ val, label, bg, border, color }) => (
               <button key={val}
                 onClick={() => { setLastGoalChoice(val); if (val === "no") setLastGoalPlayerId(null); }}
@@ -570,7 +559,7 @@ export default function ScoreScreen({
       {/* ── STAGE 4 — BIBS ──────────────────────────────────────────────────── */}
       {stage3Done && (
         <StageCard refProp={s4Ref}>
-          <StageLbl>BIBS 👕</StageLbl>
+          <StageLbl>WHO TOOK THE BIBS? 👕</StageLbl>
           <div style={{ position: "relative" }}>
             <select
               value={bibsPlayerId ?? ""}
