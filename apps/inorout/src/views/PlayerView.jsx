@@ -337,6 +337,7 @@ export default function PlayerView({
           eligiblePlayers={potmEligible}
           hasVoted={potmHasVoted}
           existingVote={potmExistingVote}
+          votingOpen={!!schedule.votingOpen}
           votingClosesAt={schedule.votingClosesAt}
           motm={matchHistory?.[0]?.motm}
           onClose={() => setShowPOTMModal(false)}

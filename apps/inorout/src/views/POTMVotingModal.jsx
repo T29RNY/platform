@@ -25,7 +25,7 @@ function countdown(closesAt) {
 export default function POTMVotingModal({
   matchId, teamId, voterId, voterName,
   eligiblePlayers, hasVoted, existingVote,
-  votingClosesAt, motm, onClose,
+  votingOpen, votingClosesAt, motm, onClose,
 }) {
   // State machine: idle → selected → confirming → locked | counting
   const [selected,    setSelected]    = useState(null);
@@ -34,8 +34,8 @@ export default function POTMVotingModal({
   const [error,       setError]       = useState(null);
   const [submitting,  setSubmitting]  = useState(false);
 
-  // If motm already set → counting/result phase
-  const isResult = !!motm;
+  // Show result only when voting is closed AND a winner has been set
+  const isResult = !votingOpen && !!motm;
 
   // Tick countdown
   useEffect(() => {
