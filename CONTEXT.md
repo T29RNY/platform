@@ -60,7 +60,7 @@ See `BETA_LAUNCH_CHECKLIST.md` for the full pre-flight checklist.
 | Google OAuth Secret | GOOGLE_CLIENT_SECRET_HERE |
 
 **TODO — SECURITY:**
-- Rotate Supabase anon key (keys visible in conversation history) ⚠️ OVERDUE
+- ✅ Supabase publishable key rotated — current key: sb_publishable_vJfG62PWTeaYEdvBj6rI5A_ZhRh75Fd
 - Google DNS verification via 123-reg TXT record (fixes OAuth branding showing Supabase URL)
 
 ---
@@ -625,7 +625,7 @@ self | host | admin | stripe | null
 
 | Feature | Status | Notes |
 |---|---|---|
-| Rotate Supabase keys | ⚠️ OVERDUE | Do immediately |
+| Rotate Supabase keys | ✅ Done | New key in INFRASTRUCTURE section |
 | PlayerView redesign | ✅ Done | |
 | StatsView rebuild | ✅ Done | IO Statbook |
 | HistoryView rebuild | ✅ Done | Results screen |
@@ -637,6 +637,8 @@ self | host | admin | stripe | null
 | POTM + Results display text | ✅ Done | |
 | My IO screen | ✅ Done | MyIOView.jsx, useIOIntelligence.js |
 | POTM voting system | ✅ Done | Modal, cron jobs, push, admin tiebreak |
+| ScoreScreen Part A | ✅ Done | 6-stage progressive flow, score_type, last_goal_scorer |
+| ScoreScreen Part B | 🔲 Next | HistoryView integration |
 | Admin screens redesign | 🔲 Next | TeamsScreen etc |
 | Onboarding redesign | 🔲 Pre-launch | |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
@@ -645,6 +647,10 @@ self | host | admin | stripe | null
 | Apple Sign In | 🔒 Blocked | Needs Dev account £79 |
 | Undo last action | 🔲 Backlog | |
 | Super admin dashboard | 🔲 Backlog | Read-only, Tarny only |
+| Last goal scorer in IO Intelligence | 🔲 Backlog | Use last_goal_scorer field on matches |
+| Bib streak in IO Intelligence | 🔲 Backlog | Consecutive bib games insight |
+| WhatsApp share text update | 🔲 Backlog | Update share copy in HistoryView |
+| bibs_enabled boolean on schedule | 🔲 Backlog | Hide bibs stage in ScoreScreen when false |
 
 ---
 
