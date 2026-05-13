@@ -278,28 +278,21 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
         </div>
       </div>
 
-      {/* Row 2 — goals · MOTM · bibs */}
-      <div style={{
-        borderTop: "0.5px solid var(--b2)", padding: "7px 12px 7px 14px",
-        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-      }}>
+      {/* Row 2 — POTM · bibs · last goal (hidden entirely when all absent) */}
+      {(m.motm || m.bibHolder || lastGoalScorerPlayer) && (
         <div style={{
+          borderTop: "0.5px solid var(--b2)", padding: "7px 12px 7px 14px",
+          display: "flex", alignItems: "center", gap: 5,
           fontSize: 11, color: "var(--t2)", fontWeight: 300,
-          flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
-          {scorersList.length > 0
-            ? `⚽ ${scorersList.map(([n, g]) => `${n}${g > 1 ? ` (${g})` : ""}`).join(", ")}`
-            : <span style={{ opacity: 0.45 }}>No goals recorded</span>
-          }
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--t2)", flexShrink: 0 }}>
-          {m.motm      && <span>🏆 {m.motm}</span>}
-          {m.motm && m.bibHolder && <span style={{ opacity: 0.4 }}>·</span>}
-          {m.bibHolder && <span>🟡 {m.bibHolder}</span>}
-          {lastGoalScorerPlayer && (m.motm || m.bibHolder) && <span style={{ opacity: 0.4 }}>·</span>}
+          {m.motm && <span>🏆 {m.motm}</span>}
+          {m.motm && (m.bibHolder || lastGoalScorerPlayer) && <span style={{ opacity: 0.4 }}>·</span>}
+          {m.bibHolder && <span>🟡 {m.bibHolder} has bibs</span>}
+          {m.bibHolder && lastGoalScorerPlayer && <span style={{ opacity: 0.4 }}>·</span>}
           {lastGoalScorerPlayer && <span>⚽ Last: {lastGoalScorerPlayer.name}</span>}
         </div>
-      </div>
+      )}
 
       {/* Expanded drill-down */}
       {expanded && (
@@ -356,33 +349,6 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
               </div>
             ))}
           </div>
-
-          {/* Detail chips */}
-          {(venue || kickoffTime || m.bibHolder) && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-              {venue && (
-                <div style={{
-                  background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
-                  borderRadius: "var(--r-pill)", padding: "4px 10px",
-                  fontSize: 11, color: "var(--t2)",
-                }}>📍 {venue}</div>
-              )}
-              {kickoffTime && (
-                <div style={{
-                  background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
-                  borderRadius: "var(--r-pill)", padding: "4px 10px",
-                  fontSize: 11, color: "var(--t2)",
-                }}>🕗 {kickoffTime}</div>
-              )}
-              {m.bibHolder && (
-                <div style={{
-                  background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
-                  borderRadius: "var(--r-pill)", padding: "4px 10px",
-                  fontSize: 11, color: "var(--t2)",
-                }}>🟡 {m.bibHolder} had the bibs</div>
-              )}
-            </div>
-          )}
 
           {/* Share button */}
           <button
