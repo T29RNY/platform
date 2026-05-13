@@ -85,7 +85,8 @@ export async function getMatches(teamId) {
 
 export async function insertMatch(match, teamId) {
   const row = { ...matchToDb(match), team_id: teamId };
-  const { error } = await supabase.from("matches").insert(row);
+  // ignoreDuplicates: stub matches from lineup lock already exist — skip silently
+  const { error } = await supabase.from("matches").upsert(row, { onConflict: "id", ignoreDuplicates: true });
   if (error) throw error;
 }
 
@@ -193,6 +194,8 @@ function matchToDb(m) {
     was_admin_decided: m.wasAdminDecided || false,
     admin_decision_pending: m.adminDecisionPending || false,
     tied_candidates: m.tiedCandidates || null,
+    score_type: m.scoreType || null,
+    last_goal_scorer: m.lastGoalScorer || null,
   };
 }
 
@@ -211,6 +214,8 @@ function dbToMatch(r) {
     wasAdminDecided: r.was_admin_decided || false,
     adminDecisionPending: r.admin_decision_pending || false,
     tiedCandidates: r.tied_candidates || null,
+    scoreType: r.score_type || null,
+    lastGoalScorer: r.last_goal_scorer || null,
   };
 }
 
@@ -461,6 +466,64 @@ export async function updateMatchBibHolder(matchId, bibHolder) {
   if (error) throw error;
 }
 
+// ─── Save result fields without touching motm/voting columns ──────────────────
+// Used by ScoreScreen so that a pre-set motm (from voting) is never overwritten.
+export async function saveMatchResult(matchId, teamId, match) {
+  const fields = {
+    date: match.date, date_short: match.dateShort,
+    team_a: match.teamA, team_b: match.teamB,
+    winner: match.winner,
+    score_a: match.scoreA !== undefined ? match.scoreA : null,
+    score_b: match.scoreB !== undefined ? match.scoreB : null,
+    scorers: match.scorers || {},
+    payments: match.payments || {},
+    bib_holder: null, // bibs handled separately by saveBibHolder
+    score_type: match.scoreType || null,
+    last_goal_scorer: match.lastGoalScorer || null,
+  };
+  const { data: existing } = await supabase.from("matches").select("id").eq("id", matchId).single();
+  if (existing) {
+    const { error } = await supabase.from("matches").update(fields).eq("id", matchId);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from("matches").insert({ ...fields, id: matchId, team_id: teamId, voting_open: false });
+    if (error) throw error;
+  }
+}
+
+// ─── Bibs — 4-step atomic write ───────────────────────────────────────────────
+export async function saveBibHolder(matchId, teamId, playerId, playerName) {
+  // Update matches.bib_holder for Teams Confirmed tile display
+  await supabase.from("matches").update({ bib_holder: playerName }).eq("id", matchId);
+
+  // Step 1: increment player bib_count
+  const { data: pData } = await supabase.from("players").select("bib_count").eq("id", playerId).single();
+  const { error: e1 } = await supabase.from("players")
+    .update({ bib_count: (pData?.bib_count || 0) + 1 })
+    .eq("id", playerId);
+  if (e1) throw e1;
+
+  // Step 2: insert bib_history row
+  const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const { error: e2 } = await supabase.from("bib_history")
+    .insert({ team_id: teamId, name: playerName, date, returned: false });
+  if (e2) throw e2;
+
+  // Step 3: mark bib holder in player_match
+  const { error: e3 } = await supabase.from("player_match")
+    .update({ had_bibs: true })
+    .eq("match_id", matchId)
+    .eq("player_id", playerId);
+  if (e3) throw e3;
+
+  // Step 4: clear had_bibs for all other players in this match
+  const { error: e4 } = await supabase.from("player_match")
+    .update({ had_bibs: false })
+    .eq("match_id", matchId)
+    .neq("player_id", playerId);
+  if (e4) throw e4;
+}
+
 // ─── PWA welcome — find player token by email via secure RPC ─────────────────
 // Requires the find_player_by_email(lookup_email text) SQL function in Supabase.
 // Returns [{ token, player_id, player_name, team_id, team_name }] — one row per team.
@@ -705,16 +768,30 @@ export async function getPlayerMatchStats(playerId, teamId) {
   try {
     const { data, error } = await supabase
       .from("player_match")
-      .select("attended, result, was_motm, had_bibs, late_cancel, goals")
+      .select("match_id, attended, result, was_motm, had_bibs, late_cancel, goals")
       .eq("player_id", playerId)
       .eq("team_id", teamId);
     if (error) return null;
     const rows = data || [];
+
+    // Goals only count for exact-score matches (or legacy null score_type)
+    const matchIds = [...new Set(rows.map(r => r.match_id))];
+    let exactMatchIds = new Set();
+    if (matchIds.length > 0) {
+      const { data: matchData } = await supabase
+        .from("matches").select("id, score_type").in("id", matchIds);
+      exactMatchIds = new Set(
+        (matchData || [])
+          .filter(m => !m.score_type || m.score_type === "exact")
+          .map(m => m.id)
+      );
+    }
+
     const attended = rows.filter(r => r.attended).length;
     const attendedRows = rows.filter(r => r.attended);
     return {
       games: rows.length,
-      goals: rows.reduce((s, r) => s + (r.goals || 0), 0),
+      goals: rows.reduce((s, r) => s + (exactMatchIds.has(r.match_id) ? (r.goals || 0) : 0), 0),
       motm: rows.filter(r => r.was_motm).length,
       wins: attendedRows.filter(r => r.result === "w").length,
       losses: attendedRows.filter(r => r.result === "l").length,

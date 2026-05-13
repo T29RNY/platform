@@ -62,8 +62,10 @@ export function newMatch(options = {}) {
     motm:         options.motm     || null,
     bibHolder:    options.bibHolder|| "",
     payments:     options.payments || {},
-    cancelled:    options.cancelled|| false,
-    cancelReason: options.cancelReason || "",
+    cancelled:      options.cancelled || false,
+    cancelReason:   options.cancelReason || "",
+    scoreType:      options.scoreType || null,
+    lastGoalScorer: options.lastGoalScorer || null,
   };
 }
 
