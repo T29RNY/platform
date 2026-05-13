@@ -1031,9 +1031,13 @@ export async function tallyPOTMVotes(matchId, teamId) {
 }
 
 export async function closePOTMVoting(matchId, winnerId, wasAdminDecided = false) {
+  // Look up name + current motm count in one query — store name in motm to match historical convention
+  const { data: pData } = await supabase.from("players").select("name, motm").eq("id", winnerId).single();
+  const winnerName = pData?.name || winnerId;
+
   const { error: mErr } = await supabase.from("matches").update({
     voting_open: false,
-    motm: winnerId,
+    motm: winnerName,
     was_admin_decided: wasAdminDecided,
     admin_decision_pending: false,
   }).eq("id", matchId);
@@ -1045,10 +1049,10 @@ export async function closePOTMVoting(matchId, winnerId, wasAdminDecided = false
     .eq("player_id", winnerId);
   if (pmErr) throw pmErr;
 
-  const { error: plErr } = await supabase.from("players")
-    .update({ motm: supabase.rpc("increment_motm", { player_id: winnerId }) })
-    .eq("id", winnerId);
-  // motm increment is best-effort; ignore error
+  // Increment motm counter — best-effort
+  if (pData) {
+    await supabase.from("players").update({ motm: (pData.motm || 0) + 1 }).eq("id", winnerId);
+  }
 }
 
 export async function openPOTMVoting(matchId, teamId, closesAt, totalVoters) {

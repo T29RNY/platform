@@ -163,7 +163,7 @@ async function potmVotingOpenJob(base, results) {
     // Get eligible voters from player_match
     const { data: pm } = await supabase
       .from("player_match")
-      .select("player_id, players(id, name, token)")
+      .select("player_id")
       .eq("match_id", sched.active_match_id)
       .eq("attended", true)
       .eq("is_guest", false);
@@ -262,27 +262,24 @@ async function potmTallyJob(base, results) {
       results.push(`potmTally: ${match.id} tie among ${tied.length}, admin notified`);
     } else {
       const winnerId = tied[0];
+
+      // Look up winner name first — stored in motm to match ScoreScreen/historical convention
+      const { data: winnerRow } = await supabase.from("players").select("name, motm").eq("id", winnerId).single();
+      const winnerName = winnerRow?.name || "Unknown";
+
       // Close voting and set winner
       await supabase.from("matches").update({
-        voting_open: false, motm: winnerId, was_admin_decided: false,
+        voting_open: false, motm: winnerName, was_admin_decided: false,
       }).eq("id", match.id);
       await supabase.from("player_match").update({ was_motm: true })
         .eq("match_id", match.id).eq("player_id", winnerId);
-      await supabase.from("players").update({ motm: supabase.rpc ? undefined : undefined })
+
+      // Increment motm counter on player record
+      await supabase.from("players")
+        .update({ motm: (winnerRow?.motm || 0) + 1 })
         .eq("id", winnerId);
-      // Increment motm on players using raw SQL increment
-      await supabase.rpc("increment_player_motm", { p_id: winnerId }).catch(() => {
-        supabase.from("players").select("motm").eq("id", winnerId).single()
-          .then(({ data }) => {
-            if (data) supabase.from("players").update({ motm: (data.motm || 0) + 1 }).eq("id", winnerId);
-          });
-      });
 
       await supabase.from("schedule").update({ voting_open: false }).eq("team_id", match.team_id);
-
-      // Get winner name + all attended player_ids for push
-      const { data: winnerRow } = await supabase.from("players").select("name").eq("id", winnerId).single();
-      const winnerName = winnerRow?.name || "Unknown";
       const { data: attended } = await supabase.from("player_match")
         .select("player_id").eq("match_id", match.id).eq("attended", true).eq("is_guest", false);
       const playerIds = (attended || []).map(r => r.player_id);

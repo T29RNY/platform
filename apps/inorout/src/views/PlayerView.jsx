@@ -148,8 +148,8 @@ export default function PlayerView({
     // Voting just closed + result is in → show banner
     if (!nowOpen && wasOpen && activeMatch?.motm) {
       prevVotingOpen.current = false;
-      const winnerName = squad.find(p => p.id === activeMatch.motm)?.name || "Unknown";
-      const isWinner = activeMatch.motm === myId;
+      const winnerName = activeMatch.motm || "Unknown";
+      const isWinner = !!(me && activeMatch.motm && activeMatch.motm.toLowerCase() === me.name?.toLowerCase());
       setPotmBanner({ winnerName, isWinner });
       setTimeout(() => setPotmBanner(null), 5000);
     } else if (!nowOpen) {
