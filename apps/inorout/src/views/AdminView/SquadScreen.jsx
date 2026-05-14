@@ -280,6 +280,14 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
           )}
         </div>
       ))}
+      <button onClick={onBack} style={{
+        width: "100%", padding: "16px 0", borderRadius: 12, border: "none",
+        background: "var(--gold)", color: "#0A0A08",
+        fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em",
+        cursor: "pointer", marginTop: 24,
+      }}>
+        DONE
+      </button>
     </div>
   );
 }

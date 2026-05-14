@@ -22,7 +22,8 @@ import TeamsScreen    from "./TeamsScreen.jsx";
 import ScoreScreen    from "./ScoreScreen.jsx";
 import BibsScreen     from "./BibsScreen.jsx";
 import SquadScreen    from "./SquadScreen.jsx";
-import ScheduleScreen from "./ScheduleScreen.jsx";
+import ScheduleScreen   from "./ScheduleScreen.jsx";
+import RemindersScreen  from "./RemindersScreen.jsx";
 
 // ── Admin POTM Tiebreak Modal ─────────────────────────────────────────────────
 function POTMTiebreakModal({ match, squad, teamId, onDecide }) {
@@ -723,6 +724,7 @@ export default function AdminView({
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")} teamId={teamId}/>;
+  if (screen === "reminders") return <RemindersScreen schedule={schedule} setSchedule={setSchedule} onBack={() => setScreen("main")} teamId={teamId}/>;
 
   if (selectedPlayer) return (
     <PlayerProfile
@@ -1185,15 +1187,15 @@ export default function AdminView({
             bg:"linear-gradient(135deg,rgba(176,96,240,0.14) 0%,rgba(176,96,240,0.03) 60%,rgba(10,10,8,0.5) 100%)",
             border:"rgba(176,96,240,0.25)",
             title:"Match Settings",
-            sub:`${schedule.dayOfWeek} · ${schedule.venue || "No venue"} · £${schedule.pricePerPlayer || 0}`,
+            sub:[schedule.dayOfWeek, schedule.venue, schedule.pricePerPlayer != null ? `£${schedule.pricePerPlayer}` : null].filter(Boolean).join(" · ") || "Not configured",
             badge:0, onClick:() => setScreen("schedule"),
           })}
           {tile({
             icon:Bell, iconColor:"var(--amber)",
             bg:"linear-gradient(135deg,rgba(255,176,32,0.14) 0%,rgba(255,176,32,0.03) 60%,rgba(10,10,8,0.5) 100%)",
             border:"rgba(255,176,32,0.25)",
-            title:"Notifications", sub:"Reminders and quiet hours",
-            badge:0, onClick:() => setScreen("schedule"),
+            title:"Reminders", sub:"Quiet hours · triggers",
+            badge:0, onClick:() => setScreen("reminders"),
           })}
           {tile({
             icon:TShirt, iconColor:"var(--gold)",

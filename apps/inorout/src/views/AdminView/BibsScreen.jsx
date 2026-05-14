@@ -37,12 +37,14 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
       {!bibSaved
         ? <Btn label={bibHolder?`Confirm — ${bibHolder} has the bibs`:"Select a player first"}
             color={C.amber} fill={!!bibHolder} onClick={saveBibs} disabled={!bibHolder}/>
-        : <div style={{ padding:14, borderRadius:6, textAlign:"center",
-            background:C.amber+"12", border:`1px solid ${C.amber}44` }}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:600, color:C.amber }}>
-              ✅ Logged — reminder set for next {schedule.dayOfWeek}
-            </div>
-          </div>
+        : <button onClick={onBack} style={{
+            width: "100%", padding: "16px 0", borderRadius: 12, border: "none",
+            background: "var(--gold)", color: "#0A0A08",
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em",
+            cursor: "pointer",
+          }}>
+            DONE
+          </button>
       }
       <SecTitle>History</SecTitle>
       {bibHistory.map((b,i) => (

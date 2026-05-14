@@ -38,17 +38,6 @@ const DEFAULT_REMINDERS = {
   },
 };
 
-const TRIGGER_LABELS = [
-  { key:"gameLive",      label:"⚽ Game open — notify all players" },
-  { key:"squadFull",     label:"🔒 Squad full — notify remaining players" },
-  { key:"spotOpened",    label:"🟣 Spot opened — notify reserve list" },
-  { key:"gameCancelled", label:"❌ Game cancelled — notify IN players" },
-  { key:"gameDay9am",    label:"☀️ Game day 9am reminder (IN players)" },
-  { key:"oneHrBefore",   label:"🕐 1hr before kickoff — unpaid players" },
-  { key:"debtReminder",  label:"💸 24hrs after game — unpaid players" },
-  { key:"bibs24hr",      label:"🧺 Bibs reminder — 24hrs before" },
-  { key:"bibs45min",     label:"👕 Bibs reminder — 45 mins before" },
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -252,7 +241,6 @@ function VenueField({ venue, setVenue, city, setCity }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack, teamId }) {
-  const [tab,       setTab]       = useState("matchday");
   const [sched,     setSched]     = useState(schedule);
   const [groupName, setGroupName] = useState(settings.groupName || "");
   const [reminders, setReminders] = useState(schedule.remindersConfig || DEFAULT_REMINDERS);
@@ -270,9 +258,6 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
   const [priceZeroAck, setPriceZeroAck] = useState(false);
   const [priceError,   setPriceError]   = useState(null);
   const [priceFocused, setPriceFocused] = useState(false);
-
-  const setTrigger = (key, val) =>
-    setReminders(r => ({ ...r, triggers: { ...r.triggers, [key]: val } }));
 
   // ── One-off date override ────────────────────────────────────────────────────
   const applyDateOverride = async () => {
@@ -335,37 +320,14 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
           display:"flex", alignItems:"center", WebkitTapHighlightColor:"transparent" }}>
           <ArrowLeft size={20} weight="thin"/>
         </div>
-        <div style={{ fontFamily:"var(--font-display)", fontSize:24, color:"var(--t1)",
+        <div style={{ fontFamily:"var(--font-display)", fontSize:28, color:"var(--gold)",
           letterSpacing:"0.06em" }}>
-          MATCH SETTINGS
+          MATCHDAY SETTINGS
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display:"flex", padding:"0 18px", marginBottom:24 }}>
-        {[
-          { key:"matchday",      label:"MATCHDAY" },
-          { key:"notifications", label:"NOTIFICATIONS" },
-        ].map(({ key, label }) => (
-          <button key={key} onClick={() => setTab(key)} style={{
-            flex:1, padding:"10px 0", border:"none",
-            background: tab === key ? "var(--s1)" : "transparent",
-            borderBottom: tab === key ? "2px solid var(--gold)" : "2px solid transparent",
-            borderRadius: tab === key ? "10px 10px 0 0" : 0,
-            color: tab === key ? "var(--gold)" : "var(--t2)",
-            fontFamily:"var(--font-display)", fontSize:13, letterSpacing:"0.08em",
-            cursor:"pointer",
-          }}>
-            {label}
-          </button>
-        ))}
       </div>
 
       <div style={{ padding:"0 18px" }}>
 
-        {/* ── MATCHDAY TAB ── */}
-        {tab === "matchday" && (
-          <>
             {/* Next matchday display */}
             <div style={{ marginBottom:16 }}>
               <div style={LABEL}>NEXT MATCHDAY</div>
@@ -578,70 +540,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
                 color="var(--green)"
               />
             </div>
-          </>
-        )}
 
-        {/* ── NOTIFICATIONS TAB ── */}
-        {tab === "notifications" && (
-          <>
-            {/* Quiet hours */}
-            <div style={{ background:"var(--s2)", border:"1px solid var(--s3)",
-              borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
-              <div style={{ ...LABEL, marginBottom:12 }}>
-                🌙 QUIET HOURS — NO NOTIFICATIONS SENT
-              </div>
-              <div style={{ display:"flex", gap:12 }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:6 }}>From</div>
-                  <input type="time" value={reminders.quietStart}
-                    onChange={e => setReminders(r => ({ ...r, quietStart: e.target.value }))}
-                    style={{
-                      width:"100%", padding:"10px 12px", borderRadius:10,
-                      border:"1px solid var(--s3)", background:"var(--s1)", color:"var(--t1)",
-                      fontFamily:"var(--font-body)", fontSize:14, outline:"none",
-                      boxSizing:"border-box", colorScheme:"dark",
-                    }}/>
-                </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:6 }}>To</div>
-                  <input type="time" value={reminders.quietEnd}
-                    onChange={e => setReminders(r => ({ ...r, quietEnd: e.target.value }))}
-                    style={{
-                      width:"100%", padding:"10px 12px", borderRadius:10,
-                      border:"1px solid var(--s3)", background:"var(--s1)", color:"var(--t1)",
-                      fontFamily:"var(--font-body)", fontSize:14, outline:"none",
-                      boxSizing:"border-box", colorScheme:"dark",
-                    }}/>
-                </div>
-              </div>
-              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:10 }}>
-                Notifications triggered during quiet hours are queued and sent at {reminders.quietEnd}.
-              </div>
-            </div>
-
-            {/* Trigger toggles */}
-            <div style={{ ...LABEL, marginBottom:12 }}>NOTIFICATION TRIGGERS</div>
-            <div style={{ background:"var(--s2)", borderRadius:10, border:"1px solid var(--s3)",
-              overflow:"hidden", marginBottom:24 }}>
-              {TRIGGER_LABELS.map(({ key, label }, i) => (
-                <div key={key} style={{
-                  display:"flex", alignItems:"center", justifyContent:"space-between",
-                  padding:"14px 16px",
-                  borderBottom: i < TRIGGER_LABELS.length - 1 ? "1px solid var(--s3)" : "none",
-                }}>
-                  <span style={{ fontSize:14, color:"var(--t1)", fontWeight:300, flex:1, paddingRight:12 }}>
-                    {label}
-                  </span>
-                  <Toggle
-                    on={reminders.triggers?.[key] !== false}
-                    onChange={() => setTrigger(key, reminders.triggers?.[key] === false)}
-                    color="var(--green)"
-                  />
-                </div>
-              ))}
-            </div>
-          </>
-        )}
 
         {/* ── SAVE ── */}
         {saveStatus === "error" && (

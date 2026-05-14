@@ -280,9 +280,6 @@ export default function ScoreScreen({
   if (saved) {
     return (
       <div style={{ padding: "20px 16px" }}>
-        <button onClick={onBack} style={backBtn}>
-          <ArrowLeft size={20} weight="thin" color="var(--t2)" />
-        </button>
         <div style={{ textAlign: "center", paddingTop: 60 }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "var(--green)", letterSpacing: "0.06em" }}>
             RESULT SAVED ✓
@@ -291,6 +288,14 @@ export default function ScoreScreen({
             All player records updated
           </div>
         </div>
+        <button onClick={onBack} style={{
+          width: "100%", padding: "16px 0", borderRadius: 12, border: "none",
+          background: "var(--gold)", color: "#0A0A08",
+          fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em",
+          cursor: "pointer", marginTop: 32,
+        }}>
+          DONE
+        </button>
       </div>
     );
   }
