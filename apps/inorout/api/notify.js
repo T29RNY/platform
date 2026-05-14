@@ -4,7 +4,7 @@
 //   { type, teamId, playerIds?, payload: { title, body, icon }, gameDate? }
 //
 // Cron (called by pg_cron via pg_net, requires Authorization header):
-//   { cronType: "flushQueue"|"gameDay9am"|"oneHrBefore"|"debtReminder"|"bibs24hr"|"bibs45min" }
+//   { cronType: "flushQueue"|"gameDay9am"|"oneHrBefore"|"debtReminder"|"bibs24hr"|"bibs45min"|"autoOpen" }
 //
 // Required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL, CRON_SECRET
@@ -238,6 +238,19 @@ async function handleCron(cronType) {
           icon: '/icons/icon-192.png',
         }, cronType, teamId, gameDate);
       }
+    }
+
+    // 10. Auto-open — game just went live, notify all players
+    if (cronType === 'autoOpen') {
+      if (await alreadySent(teamId, 'autoOpen', gameDate)) continue;
+      const allActive = (players || []).filter(p => !p.injured);
+      if (!allActive.length) continue;
+      const subs = await getSubsForPlayers(teamId, allActive.map(p => p.id));
+      await pushToSubs(subs, {
+        title: 'In or Out ⚽',
+        body: `${sched.day_of_week || 'Game'} is open — are you in?`,
+        icon: '/icons/icon-192.png',
+      }, 'autoOpen', teamId, gameDate);
     }
   }
 

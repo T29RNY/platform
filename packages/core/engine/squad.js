@@ -72,5 +72,5 @@ export function newMatch(options = {}) {
 export function nextWeekDateTime(currentDateTime) {
   const d = new Date(currentDateTime || Date.now());
   d.setDate(d.getDate() + 7);
-  return d.toISOString().slice(0, 16);
+  return d.toISOString();
 }

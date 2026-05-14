@@ -28,14 +28,13 @@ function computeNextGameDateTime(dayOfWeek, kickoffTime) {
   const date = new Date(now);
   date.setDate(date.getDate() + daysAhead);
   date.setHours(hours, minutes, 0, 0);
-  const pad = n => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(hours)}:${pad(minutes)}:00`;
+  return date.toISOString();
 }
 
-// ── Opens day computation (day after game day) ─────────────────────────────────
+// ── Opens day computation (day before game day) ────────────────────────────────
 function computeOpensDay(dayOfWeek) {
   const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-  return DAYS[(DAYS.indexOf(dayOfWeek) + 1) % 7];
+  return DAYS[(DAYS.indexOf(dayOfWeek) + 6) % 7];
 }
 
 export function useOnboarding({ onComplete }) {

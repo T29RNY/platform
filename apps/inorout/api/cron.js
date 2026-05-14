@@ -86,6 +86,21 @@ module.exports = async function handler(req, res) {
     results.push(`potmTally: error — ${e.message}`);
   }
 
+  // ── Auto-open game when opens_day/opens_time reached ──────────────────────
+  try {
+    await autoOpenGameJob(results);
+  } catch (e) {
+    results.push(`autoOpenGame: error — ${e.message}`);
+  }
+  await callNotify("autoOpen");
+
+  // ── Advance game date to next week (midnight daily) ───────────────────────
+  try {
+    await advanceGameDateJob(results);
+  } catch (e) {
+    results.push(`advanceGameDate: error — ${e.message}`);
+  }
+
   res.json({ ok: true, ts: new Date().toISOString(), results });
 };
 
@@ -100,6 +115,7 @@ async function lineupLockJob(base, results) {
   if (error || !schedules?.length) { results.push("lineupLock: no schedules"); return; }
 
   for (const sched of schedules) {
+    if (!sched.game_date_time) { results.push(`lineupLock: ${sched.team_id} no game_date_time`); continue; }
     const kickoff = new Date(sched.game_date_time);
     if (now < kickoff) { results.push(`lineupLock: ${sched.team_id} not yet`); continue; }
 
@@ -156,6 +172,7 @@ async function potmVotingOpenJob(base, results) {
 
   for (const sched of schedules) {
     if (!sched.active_match_id) continue;
+    if (!sched.game_date_time) { results.push(`potmVotingOpen: ${sched.team_id} no game_date_time`); continue; }
     const kickoff = new Date(sched.game_date_time);
     const votingStartsAt = new Date(kickoff.getTime() + 60 * 60 * 1000);
     if (now < votingStartsAt) { results.push(`potmVotingOpen: ${sched.team_id} not yet`); continue; }
@@ -296,6 +313,76 @@ async function potmTallyJob(base, results) {
       } catch(e) {}
       results.push(`potmTally: ${match.id} winner ${winnerName}`);
     }
+  }
+}
+
+// ── Auto-open game when opens_day/opens_time reached ─────────────────────────
+async function autoOpenGameJob(results) {
+  const now = new Date();
+  const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const todayName = DAY_NAMES[now.getDay()];
+  const nowMins   = now.getHours() * 60 + now.getMinutes();
+
+  const { data: schedules, error } = await supabase
+    .from("schedule")
+    .select("id, team_id, opens_day, opens_time, game_date_time")
+    .eq("active", true)
+    .eq("is_draft", true)
+    .eq("is_cancelled", false)
+    .not("game_date_time", "is", null);
+
+  if (error || !schedules?.length) { results.push("autoOpenGame: no drafts"); return; }
+
+  for (const sched of schedules) {
+    if (!sched.opens_day || !sched.opens_time) continue;
+    if (sched.opens_day !== todayName) continue;
+    const [oh, om] = sched.opens_time.split(":").map(Number);
+    const opensMins = oh * 60 + om;
+    if (nowMins < opensMins || nowMins >= opensMins + 15) continue;
+
+    await supabase.from("schedule")
+      .update({ game_is_live: true, is_draft: false })
+      .eq("id", sched.id);
+    results.push(`autoOpenGame: ${sched.team_id} opened`);
+  }
+}
+
+// ── Advance game date to next week (midnight daily) ──────────────────────────
+async function advanceGameDateJob(results) {
+  const now = new Date();
+  if (now.getHours() !== 0 || now.getMinutes() >= 15) {
+    results.push("advanceGameDate: not midnight window");
+    return;
+  }
+
+  const { data: schedules, error } = await supabase
+    .from("schedule")
+    .select("id, team_id, game_date_time")
+    .eq("active", true)
+    .not("game_date_time", "is", null);
+
+  if (error || !schedules?.length) { results.push("advanceGameDate: no schedules"); return; }
+
+  for (const sched of schedules) {
+    const kickoff    = new Date(sched.game_date_time);
+    const hoursAfter = (now - kickoff) / (60 * 60 * 1000);
+    if (hoursAfter < 3) { results.push(`advanceGameDate: ${sched.team_id} kickoff not passed`); continue; }
+
+    const d = new Date(sched.game_date_time);
+    d.setDate(d.getDate() + 7);
+    const nextDt = d.toISOString();
+
+    await supabase.from("schedule").update({
+      game_date_time:   nextDt,
+      lineup_locked:    false,
+      active_match_id:  null,
+      game_is_live:     false,
+      is_draft:         true,
+      voting_open:      false,
+      voting_closes_at: null,
+    }).eq("id", sched.id);
+
+    results.push(`advanceGameDate: ${sched.team_id} → ${nextDt}`);
   }
 }
 
