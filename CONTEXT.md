@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 14 2026 (session 14)*
+*Last updated: May 14 2026 (session 15)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -193,7 +193,7 @@ team_id, player_id
 
 ### matches
 ```
-id, team_id, date, date_short, score_a, score_b,
+id, team_id, match_date (date), score_a, score_b,
 scorers (jsonb), motm, bib_holder,
 team_a (jsonb array), team_b (jsonb array),
 winner, cancelled, cancel_reason,
@@ -212,7 +212,7 @@ created_at
 
 ### bib_history
 ```
-id, team_id, name, returned, date
+id, team_id, name, player_id, match_date (date), returned
 ```
 
 ### schedule
@@ -1085,14 +1085,52 @@ Nickname display audit + HistoryView score type display corrections.
 - `lastGoalScorerPlayer` is derived by `players.find(p => p.id === m.lastGoalScorer)` — silent null if player not found (e.g. guest or deleted player)
 - Last goal scorer shown in two places: collapsed info row (Row 2) AND expanded score header — intentional, gives context before and during drill-down
 
-**Next session (Session 15) — start with:**
+**Session 15 (May 14 2026):**
+Date field migration + BibsScreen rework + bib holder display fixes.
+
+**ScoreScreen bibs gate:**
+- `ScoreScreen.jsx`: Stage 4 (bibs picker) hidden when `schedule.bibsEnabled === false`
+- `stage4Done` auto-completes immediately when `!bibsEnabled`; peek chain fixed to avoid double-scroll to s5
+
+**Date field migration — `matches.date`/`date_short` → `match_date` (ISO date), `bib_history.date` → `match_date`:**
+- `packages/core/engine/squad.js` `newMatch()`: removed `date`/`dateShort`, added `matchDate`
+- `packages/core/storage/supabase.js`: `matchToDb`/`dbToMatch`/`saveMatchResult` use `match_date`; `getBibHistory`/`insertBib`/`saveBibHolder` use `match_date`; `getLastMatchMeta` sorts by `match_date`
+- `packages/core/engine/payments.js` `generateMatchReport`: derives display date from `match.matchDate`
+- `packages/core/engine/attendance.js` `topSingleGame`/`getHatTricks`: `m.dateShort` → `m.matchDate`
+- `apps/inorout/src/views/StatsView.jsx`: removed `MONTHS`/`parseMatchDate`, sort uses `new Date(b.matchDate)`
+- `apps/inorout/src/views/HistoryView.jsx`: removed `parseMatchDate`/`MONTHS_IDX`, all display/sort/share uses `m.matchDate` ISO string
+- `apps/inorout/src/views/AdminView/index.jsx`: removed `parseMatchDate`/`MONTHS`, `pendingResults` and `cancelWeek()` use `matchDate`
+- `apps/inorout/api/cron.js` `lineupLockJob`: stub match insert uses `match_date`
+- `scripts/seed-demo.js`: removed `fmtLong`/`fmtShort`, all writes use `.toISOString().split('T')[0]`
+
+**Bib holder display fix (HistoryView.jsx):**
+- `resolveBibHolder(bibHolder, players)` used at match card display and WhatsApp share text
+- `packages/core/index.js`: `resolveBibHolder` added to barrel export from `./storage/supabase.js`
+
+**bib_history schema — `player_id` column added:**
+- `saveBibHolder`: inserts `player_id: playerId` alongside `name`
+- `getBibHistory`: returns `playerId: b.player_id` in mapped result
+- New `getBibStats(teamId, squadPlayers)`: queries all bib_history rows, counts per player in discrete 3-month buckets (0–3M, 3–6M, 6–9M, 9–12M) + allTime; matches by `player_id` falling back to name string
+- `getBibHistory`: reordered from `created_at DESC` → `match_date DESC`
+
+**BibsScreen.jsx full rework:**
+- Imports: `TShirt, CaretDown, CaretUp` Phosphor thin; CSS vars throughout (no `colors as C`)
+- Sections: header (28px gold Bebas Neue + TShirt icon + entry count), current holder card (amber glow, name, date, days since), hidden dropdown (display:none — all old picker logic preserved), history (5 entries, "View N more" expand), bib stats accordion (collapsed by default, discrete bucket table)
+- Stats computed from `bibHistory` + `squad` props; player_id → name fallback match
+- History rows resolve nickname via squad lookup
+
+**Key conventions:**
+- `matches.match_date` is a Supabase `date` type — returns ISO string `"2026-05-14"`, sorts/compares correctly with `new Date()`
+- `bib_history.match_date` same type; `bib_history.player_id` is a text player ID (nullable for legacy rows)
+- `resolveBibHolder(value, players)` does `players.find(p => p.id === value)` → `nickname || name`; falls back to raw string for legacy name values
+
+**Next session (Session 16) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
 2. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
-3. Hide bibs stage in ScoreScreen when `schedule.bibsEnabled === false`
-4. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
-5. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
-6. Stage 1 ship blockers review — is May 19 still on track?
+3. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
+4. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
+5. Stage 1 ship blockers review — is May 19 still on track?
 
 **Aspirational for May 19 matchday (Stage 1 live):**
 - POTM voting live for Finbar's Tuesdays first match
