@@ -1,20 +1,40 @@
-import { useState } from "react";
-import { colors as C } from "@platform/core";
-import { BackBtn, Btn, FieldRow, Toggle } from "@platform/ui";
+import { useState, useRef, useCallback } from "react";
+import { ArrowLeft, MapPin } from "@phosphor-icons/react";
+import { Toggle } from "@platform/ui";
+import { upsertSchedule, upsertSettings } from "@platform/supabase";
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+const KICKOFF_TIMES = (() => {
+  const t = [];
+  for (let h = 6; h < 24; h++)
+    for (let m = 0; m < 60; m += 15)
+      t.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+  return t;
+})();
+
+const OPEN_TIMES = (() => {
+  const t = [];
+  for (let h = 6; h <= 22; h++)
+    for (let m = 0; m < 60; m += 30) {
+      if (h === 22 && m > 0) break;
+      t.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+    }
+  return t;
+})();
+
+const SQUAD_SIZES   = [6,7,8,9,10,11,12,13,14,16,18,20,22];
+const PRIORITY_LEADS = [30,45,60,90,120];
 
 const DEFAULT_REMINDERS = {
   quietStart: "22:00",
   quietEnd:   "08:00",
   triggers: {
-    gameLive:      true,
-    squadFull:     true,
-    spotOpened:    true,
-    gameCancelled: true,
-    gameDay9am:    true,
-    oneHrBefore:   true,
-    debtReminder:  true,
-    bibs24hr:      true,
-    bibs45min:     true,
+    gameLive:true, squadFull:true, spotOpened:true,
+    gameCancelled:true, gameDay9am:true, oneHrBefore:true,
+    debtReminder:true, bibs24hr:true, bibs45min:true,
   },
 };
 
@@ -30,150 +50,625 @@ const TRIGGER_LABELS = [
   { key:"bibs45min",     label:"👕 Bibs reminder — 45 mins before" },
 ];
 
-export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack }) {
-  const [tab,       setTab]       = useState("schedule");
-  const [sched,     setSched]     = useState(schedule);
-  const [groupName, setGroupName] = useState(settings.groupName);
-  const [reminders, setReminders] = useState(
-    schedule.remindersConfig || DEFAULT_REMINDERS
-  );
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  const save = () => {
-    setSchedule({ ...sched, remindersConfig: reminders });
-    setSettings({ ...settings, groupName });
-    onBack();
+function computeOpensDay(dayOfWeek) {
+  return DAYS[(DAYS.indexOf(dayOfWeek) + 6) % 7];
+}
+
+function formatNextMatchday(gameDateTime, kickoff) {
+  if (!gameDateTime) return null;
+  const d = new Date(gameDateTime);
+  if (isNaN(d)) return null;
+  const datePart = d.toLocaleDateString("en-GB", {
+    weekday:"long", day:"numeric", month:"long", year:"numeric",
+  });
+  return `${datePart} at ${kickoff}`;
+}
+
+function buildOverrideDateISO(dateStr, kickoff) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hours, minutes]   = kickoff.split(":").map(Number);
+  return new Date(year, month - 1, day, hours, minutes, 0, 0).toISOString();
+}
+
+// ── Shared styles ─────────────────────────────────────────────────────────────
+
+const LABEL = {
+  fontFamily:"var(--font-display)", fontSize:11, color:"var(--t2)",
+  letterSpacing:"0.08em", marginBottom:6, display:"block",
+};
+
+const BASE_INPUT = {
+  width:"100%", padding:"12px 14px", borderRadius:10,
+  background:"var(--s2)", color:"var(--t1)",
+  fontFamily:"var(--font-body)", fontWeight:300, fontSize:15,
+  outline:"none", boxSizing:"border-box",
+};
+
+// ── Field components ──────────────────────────────────────────────────────────
+
+function FInput({ label, value, onChange, placeholder, type="text" }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{ marginBottom:16 }}>
+      {label && <div style={LABEL}>{label}</div>}
+      <input
+        type={type} value={value} placeholder={placeholder}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{ ...BASE_INPUT, border: focused ? "1px solid var(--goldb)" : "1px solid var(--s3)" }}
+      />
+    </div>
+  );
+}
+
+function FSelect({ label, value, onChange, children, helper }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{ marginBottom:16 }}>
+      {label && <div style={LABEL}>{label}</div>}
+      <div style={{ position:"relative" }}>
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{
+            ...BASE_INPUT,
+            border: focused ? "1px solid var(--goldb)" : "1px solid var(--s3)",
+            appearance:"none", WebkitAppearance:"none", paddingRight:36, cursor:"pointer",
+          }}
+        >
+          {children}
+        </select>
+        <div style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)",
+          color:"var(--t2)", pointerEvents:"none", fontSize:12 }}>▾</div>
+      </div>
+      {helper && (
+        <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:6, paddingLeft:2 }}>
+          {helper}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Venue autocomplete ────────────────────────────────────────────────────────
+
+function VenueField({ venue, setVenue, city, setCity }) {
+  const [suggestions,   setSuggestions]   = useState([]);
+  const [inputFocused,  setInputFocused]  = useState(false);
+  const [cityAuto,      setCityAuto]      = useState(city || "");
+  const [showCityInput, setShowCityInput] = useState(!city);
+  const debounceRef = useRef(null);
+  const abortRef    = useRef(null);
+
+  const fetchSuggestions = useCallback((q) => {
+    if (q.length < 3) { setSuggestions([]); return; }
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
+    fetch(url, { signal:ctrl.signal, headers:{ "Accept-Language":"en" } })
+      .then(r => r.json())
+      .then(data => setSuggestions(data.slice(0,5).map(r => ({
+        name: r.display_name.split(",")[0],
+        sub:  r.display_name.split(",").slice(1,3).join(",").trim(),
+        city: r.address?.city || r.address?.town || r.address?.village || "",
+      }))))
+      .catch(() => {});
+  }, []);
+
+  const handleChange = (val) => {
+    setVenue(val);
+    clearTimeout(debounceRef.current);
+    if (val.length >= 3) debounceRef.current = setTimeout(() => fetchSuggestions(val), 400);
+    else setSuggestions([]);
   };
+
+  const handleSelect = (sug) => {
+    setVenue(sug.name);
+    if (sug.city) {
+      setCityAuto(sug.city);
+      setCity(sug.city);
+      setShowCityInput(false);
+    }
+    setSuggestions([]);
+  };
+
+  return (
+    <div style={{ marginBottom:16 }}>
+      <div style={LABEL}>VENUE</div>
+      <div style={{ position:"relative" }}>
+        <div style={{ position:"relative" }}>
+          <input
+            value={venue}
+            onChange={e => handleChange(e.target.value)}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setTimeout(() => { setInputFocused(false); setSuggestions([]); }, 150)}
+            placeholder="e.g. Powerleague Salford"
+            style={{
+              ...BASE_INPUT,
+              border: inputFocused ? "1px solid var(--goldb)" : "1px solid var(--s3)",
+              paddingRight:40,
+            }}
+          />
+          <MapPin size={16} weight="thin" color="var(--t2)" style={{
+            position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", pointerEvents:"none",
+          }}/>
+        </div>
+        {suggestions.length > 0 && (
+          <div style={{
+            position:"absolute", top:"100%", left:0, right:0, zIndex:100,
+            background:"var(--s2)", border:"1px solid var(--goldb)",
+            borderRadius:10, overflow:"hidden", marginTop:4,
+          }}>
+            {suggestions.map((sug, i) => (
+              <div key={i} onMouseDown={() => handleSelect(sug)} style={{
+                padding:"12px 14px", cursor:"pointer",
+                borderBottom: i < suggestions.length - 1 ? "1px solid var(--s3)" : "none",
+              }}>
+                <div style={{ fontSize:14, color:"var(--t1)", fontWeight:300 }}>{sug.name}</div>
+                {sug.sub && <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:2 }}>{sug.sub}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {cityAuto && !showCityInput ? (
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
+          <span style={{
+            fontSize:12, color:"var(--gold)", fontWeight:300,
+            background:"var(--gold2)", border:"1px solid var(--goldb)",
+            borderRadius:20, padding:"4px 12px",
+          }}>
+            📍 {cityAuto}
+          </span>
+          <button onClick={() => setShowCityInput(true)} style={{
+            background:"none", border:"none", color:"var(--t2)",
+            fontSize:11, cursor:"pointer", fontFamily:"var(--font-body)", fontWeight:300,
+          }}>
+            · change
+          </button>
+        </div>
+      ) : showCityInput && (
+        <div style={{ marginTop:8 }}>
+          <div style={LABEL}>CITY / TOWN</div>
+          <input
+            value={city}
+            onChange={e => { setCity(e.target.value); setCityAuto(e.target.value); }}
+            placeholder="e.g. Manchester"
+            style={{ ...BASE_INPUT, border:"1px solid var(--s3)" }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack, teamId }) {
+  const [tab,       setTab]       = useState("matchday");
+  const [sched,     setSched]     = useState(schedule);
+  const [groupName, setGroupName] = useState(settings.groupName || "");
+  const [reminders, setReminders] = useState(schedule.remindersConfig || DEFAULT_REMINDERS);
+
+  const [saving,     setSaving]     = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // null | "ok" | "error"
+
+  const [dateOverride,      setDateOverride]      = useState("");
+  const [dateOverrideSaved, setDateOverrideSaved] = useState(false);
+
+  const [priceDisplay, setPriceDisplay] = useState(
+    sched.pricePerPlayer !== null && sched.pricePerPlayer !== undefined
+      ? String(sched.pricePerPlayer) : ""
+  );
+  const [priceZeroAck, setPriceZeroAck] = useState(false);
+  const [priceError,   setPriceError]   = useState(null);
+  const [priceFocused, setPriceFocused] = useState(false);
 
   const setTrigger = (key, val) =>
     setReminders(r => ({ ...r, triggers: { ...r.triggers, [key]: val } }));
 
+  // ── One-off date override ────────────────────────────────────────────────────
+  const applyDateOverride = async () => {
+    if (!dateOverride || dateOverrideSaved) return;
+    const newDt = buildOverrideDateISO(dateOverride, sched.kickoff);
+    const newSched = { ...sched, gameDateTime: newDt };
+    setSched(newSched);
+    if (teamId) {
+      try { await upsertSchedule({ ...newSched, remindersConfig: reminders }, teamId); } catch (_) {}
+    }
+    setDateOverrideSaved(true);
+    setTimeout(() => { setDateOverrideSaved(false); setDateOverride(""); }, 2000);
+  };
+
+  // ── Save ────────────────────────────────────────────────────────────────────
+  const save = async () => {
+    if (!priceDisplay.trim()) {
+      setPriceError("Enter a price (or 0 for free)"); return;
+    }
+    const priceVal = parseFloat(priceDisplay);
+    if (isNaN(priceVal)) {
+      setPriceError("Enter a valid number"); return;
+    }
+    if (priceVal === 0 && !priceZeroAck) {
+      setPriceError("Is this game free? Tap Save again to confirm.");
+      setPriceZeroAck(true); return;
+    }
+    setPriceError(null);
+
+    const finalSched = { ...sched, pricePerPlayer: priceVal, remindersConfig: reminders };
+
+    setSaving(true);
+    try {
+      if (teamId) {
+        await upsertSchedule(finalSched, teamId);
+        await upsertSettings({ groupName }, teamId);
+      }
+      setSchedule(finalSched);
+      setSettings({ ...settings, groupName });
+      setSaveStatus("ok");
+      setTimeout(() => { setSaveStatus(null); onBack(); }, 1000);
+    } catch (_) {
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus(null), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const matchdayDisplay = formatNextMatchday(sched.gameDateTime, sched.kickoff);
+
   return (
-    <div style={{ padding:18 }}>
-      <BackBtn onClick={onBack}/>
-      <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22, color:C.amber,
-        letterSpacing:2, marginBottom:20 }}>SETTINGS & SCHEDULE</div>
+    <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
+      fontFamily:"var(--font-body)", paddingBottom:80 }}>
+
+      {/* Header */}
+      <div style={{ padding:"16px 18px 0", display:"flex", alignItems:"center",
+        gap:12, marginBottom:20 }}>
+        <div onClick={onBack} style={{ cursor:"pointer", color:"var(--gold)",
+          display:"flex", alignItems:"center", WebkitTapHighlightColor:"transparent" }}>
+          <ArrowLeft size={20} weight="thin"/>
+        </div>
+        <div style={{ fontFamily:"var(--font-display)", fontSize:24, color:"var(--t1)",
+          letterSpacing:"0.06em" }}>
+          MATCH SETTINGS
+        </div>
+      </div>
 
       {/* Tabs */}
-      <div style={{ display:"flex", gap:4, marginBottom:20, background:C.surface,
-        padding:4, borderRadius:8, border:`1px solid ${C.border}` }}>
-        {["schedule","reminders"].map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            flex:1, padding:"9px 0", borderRadius:6, border:"none",
-            background:tab===t?C.amber+"18":"transparent",
-            color:tab===t?C.amber:C.muted,
-            fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700,
-            letterSpacing:0.5, textTransform:"uppercase", cursor:"pointer" }}>
-            {t==="schedule" ? "⚙️ Schedule" : "🔔 Reminders"}
+      <div style={{ display:"flex", padding:"0 18px", marginBottom:24 }}>
+        {[
+          { key:"matchday",      label:"MATCHDAY" },
+          { key:"notifications", label:"NOTIFICATIONS" },
+        ].map(({ key, label }) => (
+          <button key={key} onClick={() => setTab(key)} style={{
+            flex:1, padding:"10px 0", border:"none",
+            background: tab === key ? "var(--s1)" : "transparent",
+            borderBottom: tab === key ? "2px solid var(--gold)" : "2px solid transparent",
+            borderRadius: tab === key ? "10px 10px 0 0" : 0,
+            color: tab === key ? "var(--gold)" : "var(--t2)",
+            fontFamily:"var(--font-display)", fontSize:13, letterSpacing:"0.08em",
+            cursor:"pointer",
+          }}>
+            {label}
           </button>
         ))}
       </div>
 
-      {tab === "schedule" && (
-        <>
-          <FieldRow label="Group Name"           value={groupName}               onChange={setGroupName}                   placeholder="e.g. Finbar's Tuesdays"/>
-          <FieldRow label="Game Day"             value={sched.dayOfWeek}         onChange={v=>setSched(s=>({...s,dayOfWeek:v}))}       placeholder="e.g. Tuesday"/>
-          <FieldRow label="Kick Off Time"        value={sched.kickoff}           onChange={v=>setSched(s=>({...s,kickoff:v}))}         placeholder="e.g. 19:00"/>
-          <FieldRow label="Venue"                value={sched.venue}             onChange={v=>setSched(s=>({...s,venue:v}))}           placeholder="e.g. Powerleague Salford"/>
-          <FieldRow label="Players Needed"       value={String(sched.squadSize)} onChange={v=>setSched(s=>({...s,squadSize:parseInt(v)||14}))} placeholder="e.g. 14"/>
-          <FieldRow label="Price Per Player (£)" value={String(sched.pricePerPlayer)} onChange={v=>setSched(s=>({...s,pricePerPlayer:parseFloat(v)||0}))} placeholder="e.g. 6"/>
+      <div style={{ padding:"0 18px" }}>
 
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, color:C.muted,
-            letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Game Date & Time</div>
-          <input type="datetime-local" value={sched.gameDateTime||""}
-            onChange={e=>setSched(s=>({...s,gameDateTime:e.target.value}))}
-            style={{ width:"100%", padding:"11px 13px", borderRadius:6,
-              border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-              fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
-              boxSizing:"border-box", marginBottom:14, colorScheme:"dark" }}/>
-
-          <FieldRow label="Invites Open Day"     value={sched.opensDay}    onChange={v=>setSched(s=>({...s,opensDay:v}))}    placeholder="e.g. Wednesday"/>
-          <FieldRow label="Invites Open Time"    value={sched.opensTime}   onChange={v=>setSched(s=>({...s,opensTime:v}))}   placeholder="e.g. 10:00"/>
-          <FieldRow label="Priority Lead (mins)" value={String(sched.priorityLeadMins)} onChange={v=>setSched(s=>({...s,priorityLeadMins:parseInt(v)||0}))} placeholder="e.g. 60"/>
-
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-            padding:"14px", background:C.surface, borderRadius:6,
-            border:`1px solid ${C.border}`, marginBottom:14 }}>
-            <div>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:600, color:C.text }}>
-                Game Is Live This Week
-              </div>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:2 }}>
-                Players can confirm availability now
+        {/* ── MATCHDAY TAB ── */}
+        {tab === "matchday" && (
+          <>
+            {/* Next matchday display */}
+            <div style={{ marginBottom:16 }}>
+              <div style={LABEL}>NEXT MATCHDAY</div>
+              <div style={{
+                background:"var(--s2)", borderRadius:10, padding:14,
+                color: matchdayDisplay ? "var(--t1)" : "var(--t2)",
+                fontFamily:"var(--font-body)", fontWeight:300, fontSize:15,
+                fontStyle: matchdayDisplay ? "normal" : "italic",
+              }}>
+                {matchdayDisplay || "Not yet scheduled — complete setup to activate"}
               </div>
             </div>
-            <Toggle on={sched.gameIsLive} onChange={() => setSched(s=>({...s,gameIsLive:!s.gameIsLive}))} color={C.green}/>
-          </div>
 
-          <div style={{ padding:"12px 14px", background:C.purple+"0c", border:`1px solid ${C.purple}30`,
-            borderRadius:6, marginBottom:22,
-            fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:500, color:C.purple }}>
-            ★ Priority players notified {sched.priorityLeadMins} mins before everyone else.
-          </div>
-        </>
-      )}
-
-      {tab === "reminders" && (
-        <>
-          {/* Quiet hours */}
-          <div style={{ background:C.surface, border:`1px solid ${C.border}`,
-            borderRadius:8, padding:"14px 16px", marginBottom:16 }}>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
-              color:C.muted, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>
-              🌙 Quiet Hours — no notifications sent
-            </div>
-            <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted,
-                  marginBottom:6 }}>From</div>
-                <input type="time" value={reminders.quietStart}
-                  onChange={e => setReminders(r => ({ ...r, quietStart: e.target.value }))}
-                  style={{ width:"100%", padding:"10px 12px", borderRadius:6,
-                    border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-                    fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
-                    boxSizing:"border-box", colorScheme:"dark" }}/>
+            {/* One-off date override */}
+            <div style={{ background:"var(--s2)", borderRadius:10, padding:14,
+              border:"1px solid var(--s3)", marginBottom:24 }}>
+              <div style={LABEL}>ONE-OFF DATE CHANGE</div>
+              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300,
+                marginBottom:12, lineHeight:1.5 }}>
+                Use for bank holidays or venue changes. Cron resets automatically next week.
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted,
-                  marginBottom:6 }}>To</div>
-                <input type="time" value={reminders.quietEnd}
-                  onChange={e => setReminders(r => ({ ...r, quietEnd: e.target.value }))}
-                  style={{ width:"100%", padding:"10px 12px", borderRadius:6,
-                    border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-                    fontFamily:"Inter,sans-serif", fontSize:14, outline:"none",
-                    boxSizing:"border-box", colorScheme:"dark" }}/>
+              <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+                <input
+                  type="date"
+                  value={dateOverride}
+                  onChange={e => setDateOverride(e.target.value)}
+                  style={{
+                    flex:1, padding:"12px 14px", borderRadius:10,
+                    background:"var(--bg)", color:"var(--t1)",
+                    border:"1px solid var(--s3)",
+                    fontFamily:"var(--font-body)", fontWeight:300, fontSize:15,
+                    outline:"none", boxSizing:"border-box", colorScheme:"dark",
+                  }}
+                />
+                <button
+                  onClick={applyDateOverride}
+                  disabled={!dateOverride || dateOverrideSaved}
+                  style={{
+                    padding:"12px 16px", borderRadius:8, cursor: dateOverride ? "pointer" : "not-allowed",
+                    background:"transparent",
+                    border: `1px solid ${dateOverrideSaved ? "var(--green)" : (!dateOverride ? "var(--s3)" : "var(--gold)")}`,
+                    color: dateOverrideSaved ? "var(--green)" : (!dateOverride ? "var(--t2)" : "var(--gold)"),
+                    fontFamily:"var(--font-display)", fontSize:14, letterSpacing:"0.06em",
+                    flexShrink:0, whiteSpace:"nowrap",
+                  }}
+                >
+                  {dateOverrideSaved ? "UPDATED ✓" : "UPDATE THIS WEEK"}
+                </button>
               </div>
             </div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.faint,
-              marginTop:10 }}>
-              Notifications triggered during quiet hours are queued and sent at {reminders.quietEnd}.
-            </div>
-          </div>
 
-          {/* Trigger toggles */}
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
-            color:C.muted, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>
-            Notification Triggers
-          </div>
-          {TRIGGER_LABELS.map(({ key, label }) => (
-            <div key={key} style={{ display:"flex", alignItems:"center",
-              justifyContent:"space-between", padding:"13px 0",
-              borderBottom:`1px solid ${C.border}` }}>
-              <span style={{ fontFamily:"Inter,sans-serif", fontSize:13,
-                fontWeight:500, color:C.text, flex:1, paddingRight:12 }}>
-                {label}
-              </span>
+            {/* Squad name */}
+            <FInput
+              label="SQUAD NAME"
+              value={groupName}
+              onChange={setGroupName}
+              placeholder="e.g. Finbar's Tuesdays"
+            />
+
+            {/* Game day */}
+            <FSelect
+              label="GAME DAY"
+              value={sched.dayOfWeek}
+              onChange={v => setSched(s => ({ ...s, dayOfWeek: v }))}
+              helper={`Invites auto-open ${computeOpensDay(sched.dayOfWeek)} at ${sched.opensTime || "10:00"}`}
+            >
+              {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+            </FSelect>
+
+            {/* Kick off */}
+            <FSelect
+              label="KICK OFF"
+              value={sched.kickoff}
+              onChange={v => setSched(s => ({ ...s, kickoff: v }))}
+            >
+              {KICKOFF_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+            </FSelect>
+
+            {/* Venue + city */}
+            <VenueField
+              venue={sched.venue || ""}
+              setVenue={v => setSched(s => ({ ...s, venue: v }))}
+              city={sched.city || ""}
+              setCity={v => setSched(s => ({ ...s, city: v }))}
+            />
+
+            {/* Players needed */}
+            <FSelect
+              label="PLAYERS NEEDED"
+              value={String(sched.squadSize)}
+              onChange={v => setSched(s => ({ ...s, squadSize: parseInt(v) }))}
+            >
+              {SQUAD_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
+            </FSelect>
+
+            {/* Price per player */}
+            <div style={{ marginBottom:16 }}>
+              <div style={LABEL}>PRICE PER PLAYER (£)</div>
+              <input
+                type="number" min="0" step="0.5"
+                value={priceDisplay}
+                onChange={e => {
+                  setPriceDisplay(e.target.value);
+                  setPriceError(null);
+                  if (e.target.value !== "0") setPriceZeroAck(false);
+                }}
+                onFocus={() => setPriceFocused(true)}
+                onBlur={() => setPriceFocused(false)}
+                placeholder="e.g. 6"
+                style={{
+                  ...BASE_INPUT,
+                  border: priceFocused ? "1px solid var(--goldb)" : "1px solid var(--s3)",
+                }}
+              />
+              {priceError && (
+                <div style={{ fontSize:12, color:"var(--amber)", fontWeight:300, marginTop:4 }}>
+                  {priceError}
+                </div>
+              )}
+            </div>
+
+            {/* Bibs */}
+            <div style={{ marginBottom:16 }}>
+              <div style={LABEL}>DOES YOUR GAME USE BIBS?</div>
+              <div style={{ display:"flex", gap:8 }}>
+                {[true, false].map(val => (
+                  <button key={String(val)}
+                    onClick={() => setSched(s => ({ ...s, bibsEnabled: val }))}
+                    style={{
+                      flex:1, padding:"12px 0", borderRadius:10, border:"none", cursor:"pointer",
+                      background: (sched.bibsEnabled ?? true) === val ? "var(--gold)" : "var(--s3)",
+                      color:      (sched.bibsEnabled ?? true) === val ? "#000" : "var(--t2)",
+                      fontFamily:"var(--font-display)", fontSize:14, letterSpacing:"0.06em",
+                    }}
+                  >
+                    {val ? "YES" : "NO"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Invites open */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <div>
+                <div style={LABEL}>INVITES OPEN DAY</div>
+                <div style={{ position:"relative" }}>
+                  <select
+                    value={sched.opensDay}
+                    onChange={e => setSched(s => ({ ...s, opensDay: e.target.value }))}
+                    style={{
+                      ...BASE_INPUT, border:"1px solid var(--s3)",
+                      appearance:"none", WebkitAppearance:"none", paddingRight:30, cursor:"pointer",
+                    }}
+                  >
+                    {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <div style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
+                    color:"var(--t2)", pointerEvents:"none", fontSize:12 }}>▾</div>
+                </div>
+              </div>
+              <div>
+                <div style={LABEL}>INVITES OPEN TIME</div>
+                <div style={{ position:"relative" }}>
+                  <select
+                    value={sched.opensTime}
+                    onChange={e => setSched(s => ({ ...s, opensTime: e.target.value }))}
+                    style={{
+                      ...BASE_INPUT, border:"1px solid var(--s3)",
+                      appearance:"none", WebkitAppearance:"none", paddingRight:30, cursor:"pointer",
+                    }}
+                  >
+                    {OPEN_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <div style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
+                    color:"var(--t2)", pointerEvents:"none", fontSize:12 }}>▾</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize:11, color:"var(--gold)", fontWeight:300, marginTop:6, marginBottom:16 }}>
+              Game auto-opens for players on {sched.opensDay} at {sched.opensTime}
+            </div>
+
+            {/* Priority lead */}
+            <FSelect
+              label="PRIORITY LEAD (MINS)"
+              value={String(sched.priorityLeadMins)}
+              onChange={v => setSched(s => ({ ...s, priorityLeadMins: parseInt(v) }))}
+              helper="Priority players notified this many minutes before everyone else"
+            >
+              {PRIORITY_LEADS.map(n => <option key={n} value={n}>{n}</option>)}
+            </FSelect>
+
+            {/* Game is live toggle */}
+            <div style={{
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              padding:14, background:"var(--s2)", borderRadius:10,
+              border:"1px solid var(--s3)", marginBottom:24,
+            }}>
+              <div>
+                <div style={{ fontSize:14, color:"var(--t1)", fontWeight:300 }}>
+                  Game Is Live This Week
+                </div>
+                <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
+                  Players can confirm availability now
+                </div>
+              </div>
               <Toggle
-                on={reminders.triggers?.[key] !== false}
-                onChange={() => setTrigger(key, reminders.triggers?.[key] === false)}
-                color={C.green}
+                on={sched.gameIsLive}
+                onChange={() => setSched(s => ({ ...s, gameIsLive: !s.gameIsLive }))}
+                color="var(--green)"
               />
             </div>
-          ))}
-          <div style={{ height:20 }}/>
-        </>
-      )}
+          </>
+        )}
 
-      <Btn label="Save Settings" color={C.amber} fill onClick={save}/>
+        {/* ── NOTIFICATIONS TAB ── */}
+        {tab === "notifications" && (
+          <>
+            {/* Quiet hours */}
+            <div style={{ background:"var(--s2)", border:"1px solid var(--s3)",
+              borderRadius:10, padding:"14px 16px", marginBottom:16 }}>
+              <div style={{ ...LABEL, marginBottom:12 }}>
+                🌙 QUIET HOURS — NO NOTIFICATIONS SENT
+              </div>
+              <div style={{ display:"flex", gap:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:6 }}>From</div>
+                  <input type="time" value={reminders.quietStart}
+                    onChange={e => setReminders(r => ({ ...r, quietStart: e.target.value }))}
+                    style={{
+                      width:"100%", padding:"10px 12px", borderRadius:10,
+                      border:"1px solid var(--s3)", background:"var(--s1)", color:"var(--t1)",
+                      fontFamily:"var(--font-body)", fontSize:14, outline:"none",
+                      boxSizing:"border-box", colorScheme:"dark",
+                    }}/>
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:6 }}>To</div>
+                  <input type="time" value={reminders.quietEnd}
+                    onChange={e => setReminders(r => ({ ...r, quietEnd: e.target.value }))}
+                    style={{
+                      width:"100%", padding:"10px 12px", borderRadius:10,
+                      border:"1px solid var(--s3)", background:"var(--s1)", color:"var(--t1)",
+                      fontFamily:"var(--font-body)", fontSize:14, outline:"none",
+                      boxSizing:"border-box", colorScheme:"dark",
+                    }}/>
+                </div>
+              </div>
+              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:10 }}>
+                Notifications triggered during quiet hours are queued and sent at {reminders.quietEnd}.
+              </div>
+            </div>
+
+            {/* Trigger toggles */}
+            <div style={{ ...LABEL, marginBottom:12 }}>NOTIFICATION TRIGGERS</div>
+            <div style={{ background:"var(--s2)", borderRadius:10, border:"1px solid var(--s3)",
+              overflow:"hidden", marginBottom:24 }}>
+              {TRIGGER_LABELS.map(({ key, label }, i) => (
+                <div key={key} style={{
+                  display:"flex", alignItems:"center", justifyContent:"space-between",
+                  padding:"14px 16px",
+                  borderBottom: i < TRIGGER_LABELS.length - 1 ? "1px solid var(--s3)" : "none",
+                }}>
+                  <span style={{ fontSize:13, color:"var(--t1)", fontWeight:300, flex:1, paddingRight:12 }}>
+                    {label}
+                  </span>
+                  <Toggle
+                    on={reminders.triggers?.[key] !== false}
+                    onChange={() => setTrigger(key, reminders.triggers?.[key] === false)}
+                    color="var(--green)"
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── SAVE ── */}
+        {saveStatus === "error" && (
+          <div style={{
+            padding:"10px 14px", borderRadius:10, marginBottom:12,
+            background:"rgba(255,64,64,0.08)", border:"1px solid rgba(255,64,64,0.3)",
+            fontSize:13, color:"var(--red)", fontWeight:300,
+          }}>
+            Failed to save. Please try again.
+          </div>
+        )}
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{
+            width:"100%", padding:16, borderRadius:12, border:"none",
+            background: saveStatus === "ok" ? "var(--green)" : "var(--gold)",
+            color: "#000",
+            fontFamily:"var(--font-display)", fontSize:18, letterSpacing:"0.06em",
+            cursor: saving ? "not-allowed" : "pointer",
+            opacity: saving ? 0.7 : 1,
+          }}
+        >
+          {saving ? "SAVING..." : saveStatus === "ok" ? "SAVED ✓" : "SAVE SETTINGS"}
+        </button>
+
+      </div>
     </div>
   );
 }
