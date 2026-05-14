@@ -1116,13 +1116,11 @@ export async function tallyPOTMVotes(matchId, teamId) {
 }
 
 export async function closePOTMVoting(matchId, winnerId, wasAdminDecided = false) {
-  // Look up name + current motm count in one query — store name in motm to match historical convention
-  const { data: pData } = await supabase.from("players").select("name, motm").eq("id", winnerId).single();
-  const winnerName = pData?.name || winnerId;
+  const { data: pData } = await supabase.from("players").select("motm").eq("id", winnerId).single();
 
   const { error: mErr } = await supabase.from("matches").update({
     voting_open: false,
-    motm: winnerName,
+    motm: winnerId,
     was_admin_decided: wasAdminDecided,
     admin_decision_pending: false,
   }).eq("id", matchId);

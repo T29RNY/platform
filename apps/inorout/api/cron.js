@@ -280,13 +280,12 @@ async function potmTallyJob(base, results) {
     } else {
       const winnerId = tied[0];
 
-      // Look up winner name first — stored in motm to match ScoreScreen/historical convention
       const { data: winnerRow } = await supabase.from("players").select("name, motm").eq("id", winnerId).single();
       const winnerName = winnerRow?.name || "Unknown";
 
       // Close voting and set winner
       await supabase.from("matches").update({
-        voting_open: false, motm: winnerName, was_admin_decided: false,
+        voting_open: false, motm: winnerId, was_admin_decided: false,
       }).eq("id", match.id);
       await supabase.from("player_match").update({ was_motm: true })
         .eq("match_id", match.id).eq("player_id", winnerId);
@@ -311,7 +310,7 @@ async function potmTallyJob(base, results) {
           }),
         });
       } catch(e) {}
-      results.push(`potmTally: ${match.id} winner ${winnerName}`);
+      results.push(`potmTally: ${match.id} winner ${winnerId}`);
     }
   }
 }
