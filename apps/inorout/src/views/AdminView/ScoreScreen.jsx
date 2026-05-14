@@ -595,7 +595,7 @@ export default function ScoreScreen({
                   VOTING OPEN
                 </div>
                 <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 4, fontWeight: 300 }}>
-                  Closes in {countdown}
+                  {countdown === "Closed" || !countdown ? "Closed" : `Closes in ${countdown}`}
                 </div>
               </div>
             </StageCard>
