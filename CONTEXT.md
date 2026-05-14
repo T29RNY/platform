@@ -803,6 +803,9 @@ all have venue contracts. Sticky but beatable on product quality.
 - Onboarding + join/login redesign: pre-launch, not now
 - My IO tab: 4 tabs for players, 5 tabs for admins
 - postcodes.io for postcode to lat/lng (free, no key)
+- Returning player joining a second team: REUSES the existing players row — new team_players entry only, no new players record created
+- Flat stat columns (goals, motm, bib_count, w, l, d, attended etc.) are cross-team totals on one row, not per-team — player_match rows support per-team breakdowns but denormalised columns don't
+- **Known bug**: NameStep asks returning player "what should we call you?" but the typed name is silently discarded — handleJoin uses existing.name from DB, ignores the input
 
 ---
 
@@ -1052,6 +1055,13 @@ Cron infrastructure hardening + full onboarding + ScheduleScreen rebuild (Stages
 - `is_draft` is NOT the auto-open flag — `auto_open_pending` is. `is_draft=true` means onboarding incomplete only.
 - `advanceGameDateJob` resets `auto_open_pending=true` weekly so games auto-open next week without admin action
 - Onboarding `computeOpensDay` (day-before) matches `autoOpenGameJob` filter — they must agree or games won't auto-open
+
+**Returning player join flow audit (session 13):**
+- `handleJoin` in App.jsx calls `findPlayerByUserId(authUser.id)` first; if found, inserts a `team_players` row only — no new `players` record
+- `findPlayerByEmail` RPC returns one row per team `[{ token, player_id, player_name, team_id, team_name }]` — multiple rows for multi-team players
+- `findPlayerByUserId` uses `.single()` — returns one `players` row; `team_players?.[0]?.teams?.name` only resolves the first team
+- Stat columns are shared/accumulated across all teams — no per-team reset on join
+- **Bug**: NameStep name input is silently discarded for returning players — `handleJoin` sets `joinedPlayer.name = existing.name`, ignores what was typed; fix = skip NameStep entirely for users with `user_id` match, or show their existing name pre-filled
 
 **Next session (Session 14) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
