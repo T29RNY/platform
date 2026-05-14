@@ -11,7 +11,8 @@ import {
   getPlayerByToken, getPlayerTeams,
   getTeamByJoinCode, addPlayerToTeam,
   getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
-  getSession, getUser, findPlayerByUserId,
+  getSession, getUser, findPlayerByUserId, findPlayerByEmail,
+  getUserProfile, linkPlayerToUser, updateUserProfile,
   resetDemoData, updateDemoInteraction,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
@@ -21,7 +22,8 @@ import HistoryView   from "./views/HistoryView.jsx";
 import AdminView     from "./views/AdminView/index.jsx";
 import InstallBanner from "./views/InstallBanner.jsx";
 import Onboarding    from "./onboarding/index.jsx";
-import JoinTeam      from "./views/JoinTeam.jsx";
+import JoinTeam             from "./views/JoinTeam.jsx";
+import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
 import Legal         from "./views/Legal.jsx";
@@ -152,13 +154,19 @@ export default function App() {
   const [linkInput,     setLinkInput]     = useState("");
 
   // Join flow state
-  const [joinTeam,     setJoinTeam]    = useState(null);
-  const [joinedPlayer, setJoinedPlayer]= useState(null);
-  const [joinLoading,  setJoinLoading] = useState(false);
-  const [joinError,    setJoinError]   = useState(null);
+  const [joinTeam,       setJoinTeam]      = useState(null);
+  const [joinedPlayer,   setJoinedPlayer]  = useState(null);
+  const [joinLoading,    setJoinLoading]   = useState(false);
+  const [joinError,      setJoinError]     = useState(null);
+  const [joinPrefillName,setJoinPrefillName]= useState("");
+  const [joinChecking,   setJoinChecking]  = useState(false);
 
   // Auth state
   const [authUser,     setAuthUser]    = useState(null);
+
+  // Email capture overlay (visit 3+ for unlinked token players)
+  const [showEmailCapture, setShowEmailCapture] = useState(false);
+  const [linkConflict,     setLinkConflict]     = useState(null);
 
   useEffect(() => {
     const el = document.createElement("link");
@@ -227,6 +235,36 @@ export default function App() {
           }
           const player = await getPlayerByToken(route.token);
           if (!player) { setLoading(false); return; }
+
+          // Visit count — increment on every load
+          const vcKey = `ioo_visit_count_${route.token}`;
+          const visitCount = (parseInt(localStorage.getItem(vcKey) || "0", 10)) + 1;
+          localStorage.setItem(vcKey, String(visitCount));
+
+          // If auth'd and not yet linked — attempt to link
+          if (session?.user && !player.userId) {
+            try {
+              const emailMatches = await findPlayerByEmail(session.user.email);
+              const conflict = emailMatches.find(m => m.player_id !== player.id);
+              if (conflict) {
+                setLinkConflict("This email is already linked to another account — contact your admin");
+              } else {
+                await linkPlayerToUser(player.id, session.user.id);
+                const display_name = session.user.user_metadata?.full_name
+                  || session.user.user_metadata?.name
+                  || session.user.email;
+                try { await updateUserProfile(session.user.id, { display_name }); } catch(e) {}
+                player.userId = session.user.id;
+                localStorage.setItem(vcKey, "0");
+              }
+            } catch(e) {}
+          }
+
+          // Show email capture overlay on visit 3+ if still unlinked
+          if (!player.userId && visitCount >= 3) {
+            setShowEmailCapture(true);
+          }
+
           setMyPlayer(player);
           const teams = await getPlayerTeams(player.id);
           setPlayerTeams(teams);
@@ -256,6 +294,36 @@ export default function App() {
     );
     return () => subscription.unsubscribe();
   }, []);
+
+  // Part A — returning user recognition on /join
+  // Runs when both authUser and joinTeam are available
+  useEffect(() => {
+    if (route.type !== "join" || !authUser || !joinTeam) return;
+    let cancelled = false;
+    setJoinChecking(true);
+    (async () => {
+      try {
+        const matches = await findPlayerByEmail(authUser.email);
+        if (cancelled) return;
+        const alreadyMember = matches.find(m => m.team_id === joinTeam.id);
+        if (alreadyMember) {
+          window.location.replace(`/p/${alreadyMember.token}`);
+          return;
+        }
+        if (matches.length > 0) {
+          const profile = await getUserProfile(authUser.id);
+          if (cancelled) return;
+          const display = profile?.display_name
+            || authUser.user_metadata?.full_name
+            || authUser.user_metadata?.name
+            || authUser.email;
+          setJoinPrefillName(display);
+        }
+      } catch(e) {}
+      if (!cancelled) setJoinChecking(false);
+    })();
+    return () => { cancelled = true; };
+  }, [authUser, joinTeam]);
 
   const loadTeamData = async (tId) => {
     setLoading(true);
@@ -441,6 +509,8 @@ export default function App() {
         onNameSubmit={handleJoin}
         loading={joinLoading}
         error={joinError}
+        prefillName={joinPrefillName}
+        checking={joinChecking}
       />
     );
   }
@@ -628,6 +698,9 @@ export default function App() {
           isBlocked={isActionBlocked || adminScreen === "score"}
           enabled={GAFFER_ALLOWED.has(route.token)}
         />
+      )}
+      {showEmailCapture && (
+        <EmailCaptureOverlay conflictMessage={linkConflict}/>
       )}
     </div>
   );

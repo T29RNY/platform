@@ -129,8 +129,8 @@ function SignInStep({ team }) {
 }
 
 // Step 2 — Signed in, new player: ask for name
-function NameStep({ team, onSubmit, loading, error }) {
-  const [name, setName] = useState("");
+function NameStep({ team, onSubmit, loading, error, prefillName }) {
+  const [name, setName] = useState(prefillName || "");
 
   return (
     <div style={{ padding:24, flex:1 }}>
@@ -179,7 +179,7 @@ function NameStep({ team, onSubmit, loading, error }) {
 }
 
 // Main JoinTeam component — orchestrates the steps
-export default function JoinTeam({ team, authUser, onNameSubmit, loading, error }) {
+export default function JoinTeam({ team, authUser, onNameSubmit, loading, error, prefillName, checking }) {
   useEffect(() => {
     const path = window.location.pathname;
     localStorage.setItem("ioo_redirect_to", JSON.stringify({ path, ts: Date.now() }));
@@ -210,7 +210,11 @@ export default function JoinTeam({ team, authUser, onNameSubmit, loading, error 
       {/* Steps */}
       {!authUser
         ? <SignInStep team={team}/>
-        : <NameStep team={team} onSubmit={onNameSubmit} loading={loading} error={error}/>
+        : checking
+          ? <div style={{ display:"flex", justifyContent:"center", padding:40 }}>
+              <div style={{ fontSize:32 }}>⚽</div>
+            </div>
+          : <NameStep team={team} onSubmit={onNameSubmit} loading={loading} error={error} prefillName={prefillName}/>
       }
     </div>
   );

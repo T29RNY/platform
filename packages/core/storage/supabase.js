@@ -176,6 +176,7 @@ function dbToPlayer(r) {
     injured: r.injured || false,
     injuredSince: r.injured_since || null,
     nickname: r.nickname || null,
+    userId: r.user_id || null,
   };
 }
 
