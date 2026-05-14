@@ -38,7 +38,7 @@ export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGues
           color:      isInjured ? "rgba(255,100,100,0.8)" : c.color,
           boxShadow:  c.shadow,
         }}>
-          {initials(player?.name)}
+          {initials(player?.nickname || player?.name)}
         </div>
         {isInjured && (
           <span style={{ position:"absolute", bottom:-2, right:-2, fontSize:10, lineHeight:1 }}>🤕</span>
@@ -51,7 +51,7 @@ export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGues
         width:34, textAlign:"center",
         overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis",
       }}>
-        {player?.name}
+        {player?.nickname || player?.name}
       </span>
 
       {/* +1 badge */}

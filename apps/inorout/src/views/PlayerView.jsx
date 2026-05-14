@@ -992,10 +992,10 @@ export default function PlayerView({
                           const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
                           const isMotm  = !!lastMatchMeta?.motm && lastMatchMeta.motm === p.id;
                           const hasBibs = lastMatchMeta?.bibHolder?.toLowerCase() === p.name?.toLowerCase();
-                          const parts   = (p.name || "").trim().split(/\s+/);
+                          const parts   = ((p.nickname || p.name) || "").trim().split(/\s+/);
                           const ini     = parts.length >= 2
                             ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-                            : (p.name || "?").slice(0, 2).toUpperCase();
+                            : ((p.nickname || p.name) || "?").slice(0, 2).toUpperCase();
                           return (
                             <div key={p.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px", background: isMe ? "rgba(232,160,32,0.06)" : "transparent" }}>
                               <div style={{
@@ -1024,7 +1024,7 @@ export default function PlayerView({
                                   )}
                                 </div>
                                 {hasBibs && <div style={{ fontSize:9, color:"var(--t2)", fontWeight:300, marginTop:1 }}>has bibs 🟡</div>}
-                                {host   && <div style={{ fontSize:9, color:"var(--gold)",  fontWeight:300, marginTop:1 }}>+1 {host.name}</div>}
+                                {host   && <div style={{ fontSize:9, color:"var(--gold)",  fontWeight:300, marginTop:1 }}>+1 {host.nickname || host.name}</div>}
                               </div>
                             </div>
                           );
