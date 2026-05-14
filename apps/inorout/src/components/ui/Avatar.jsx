@@ -18,7 +18,8 @@ function initials(name) {
 // player:     { id, name, injured?, isGuest? }
 // reserveIndex: 1-based queue position, shown as "#N" below name
 // hasGuest:   show "+1" below name
-export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest, isInjured }) {
+// hasBibs:    true → amber dot badge bottom-right of circle
+export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest, isInjured, hasBibs = false }) {
   const variant = player?.injured ? "injured" : isMe ? "you" : (tileColour || "green");
   const c       = CIRCLE[variant] ?? CIRCLE.green;
 
@@ -42,6 +43,13 @@ export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGues
         </div>
         {isInjured && (
           <span style={{ position:"absolute", bottom:-2, right:-2, fontSize:10, lineHeight:1 }}>🤕</span>
+        )}
+        {hasBibs && !isInjured && (
+          <div style={{
+            position:"absolute", bottom:0, right:0,
+            width:10, height:10, borderRadius:"50%",
+            background:"var(--amber)",
+          }}/>
         )}
       </div>
 
