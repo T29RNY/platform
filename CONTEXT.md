@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 14 2026 (session 12)*
+*Last updated: May 14 2026 (session 13)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -92,7 +92,7 @@ platform/
             ScoreScreen.jsx  ← rebuilt session 11, 6-stage progressive flow, score_type + last_goal_scorer
             BibsScreen.jsx
             SquadScreen.jsx
-            ScheduleScreen.jsx
+            ScheduleScreen.jsx  ← rebuilt session 13: MATCH SETTINGS, pickers, computed next matchday, bibs, Nominatim, opens helper, upsert save
           InstallBanner.jsx
           PWAWelcome.jsx
           JoinTeam.jsx
@@ -103,12 +103,12 @@ platform/
         hooks/
           useIOIntelligence.js ← IO Intelligence data hook, unlock thresholds
       onboarding/
-        index.jsx
+        index.jsx              ← teamId prop wired to ShareLinks (session 13)
         config.js
-        hooks/useOnboarding.js
-        steps/CreateTeam.jsx
-        steps/AddPlayers.jsx
-        steps/ShareLinks.jsx
+        hooks/useOnboarding.js ← computeOpensDay day-before fix, auto_open_pending, bibsEnabled, adminEmail (session 13)
+        steps/CreateTeam.jsx   ← rebuilt session 13: Nominatim venue, city chip, price validation, bibs YES/NO, admin email
+        steps/AddPlayers.jsx   ← rebuilt session 13: design system, brand header, numbered badges
+        steps/ShareLinks.jsx   ← rebuilt session 13: www URL fix, window.location.href nav, onboarding_complete flag
       public/
         manifest.json          ← 4 icon sizes, theme_color #0A0A08
         sw.js
@@ -168,7 +168,7 @@ platform/
 
 ### teams
 ```
-id, name, admin_token, join_code, onboarding_complete, created_at
+id, name, admin_token, join_code, onboarding_complete, admin_email, created_at
 ```
 
 ### players
@@ -220,12 +220,18 @@ id, team_id, name, returned, date
 id, team_id, day_of_week, kickoff, venue, city,
 opens_day, opens_time, priority_lead_mins,
 price_per_player, game_is_live, squad_size,
-game_date_time, is_draft, is_cancelled, cancel_reason,
+game_date_time,
+is_draft bool,         ← ONLY means "onboarding not complete" now (NOT the auto-open flag)
+is_cancelled, cancel_reason,
 reminders_config (jsonb),
 lineup_locked bool DEFAULT false,
 active_match_id text,
 voting_open bool DEFAULT false,
-voting_closes_at timestamptz
+voting_closes_at timestamptz,
+bibs_enabled bool DEFAULT true,
+auto_open_pending bool DEFAULT true,  ← replaces is_draft as auto-open flag; reset to true by advanceGameDateJob
+season_id text,
+active bool DEFAULT true
 ```
 
 ### settings
@@ -597,7 +603,7 @@ self | host | admin | stripe | null
 
 ### Config
 - Quiet hours — admin configurable per team
-- 9+ per-trigger toggles in ScheduleScreen Reminders tab
+- 9+ per-trigger toggles in ScheduleScreen Notifications tab
 - push_subscriptions + notification_log tables
 
 ---
@@ -641,8 +647,8 @@ self | host | admin | stripe | null
 | ScoreScreen Part A | ✅ Done | 6-stage progressive flow, score_type, last_goal_scorer |
 | ScoreScreen Part B | ✅ Done | HistoryView: score type badges, won-by display, last goal scorer |
 | Admin view consistency | ✅ Done | Sticky heroes, 5-tab admin nav, My IO handler, Gaffer disabled |
-| Admin screens redesign | 🔲 Next | TeamsScreen etc |
-| Onboarding redesign | 🔲 Pre-launch | |
+| Admin screens redesign | 🔲 Next | TeamsScreen, BibsScreen etc — ScheduleScreen ✅ session 13 |
+| Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
 | Join/login redesign | 🔲 Pre-launch | |
 | Stripe Connect | 🔒 Blocked | Needs platform account |
@@ -652,7 +658,7 @@ self | host | admin | stripe | null
 | Last goal scorer in IO Intelligence | 🔲 Backlog | Use last_goal_scorer field on matches |
 | Bib streak in IO Intelligence | 🔲 Backlog | Consecutive bib games insight |
 | WhatsApp share text update | 🔲 Backlog | Update share copy in HistoryView |
-| bibs_enabled boolean on schedule | 🔲 Backlog | Hide bibs stage in ScoreScreen when false |
+| bibs_enabled boolean on schedule | ✅ Done | Column added session 13; ScheduleScreen + ScoreScreen to use it |
 
 ---
 
@@ -1001,13 +1007,60 @@ HistoryView score display + admin view consistency + StatsView hero fix.
 - `startTab` prop only works correctly because PlayerView remounts on every `view` switch (conditional render in App.jsx) — no need to reset state manually
 - IOBrandHeader height is exactly 48px: `padding:"12px 16px"` + `fontSize:24, lineHeight:1` = 12+24+12
 
-**Next session (Session 13) — start with:**
+**Session 13 (May 14 2026):**
+Cron infrastructure hardening + full onboarding + ScheduleScreen rebuild (Stages 2–5).
+
+**Cron infrastructure (Stage 2):**
+- `advanceGameDateJob` — midnight-only guard (`getHours()===0 && getMinutes()<15`); finds schedules where game_date_time kickoff was >3hrs ago; adds 7 days via `setDate`; resets: lineup_locked=false, active_match_id=null, game_is_live=false, is_draft=true, voting_open=false, voting_closes_at=null, auto_open_pending=true
+- `autoOpenGameJob` — every 15-min cron; filters `auto_open_pending=true, active=true, is_cancelled=false`; checks opens_day matches today and current time is in the 15-min window after opens_time; sets game_is_live=true, auto_open_pending=false; fires autoOpen push notification to all active players
+- Null guards added to `lineupLockJob` and `potmVotingOpenJob` (skip schedules with null game_date_time or null active_match_id)
+- **Timezone fix**: `computeNextGameDateTime` and `nextWeekDateTime` now return `date.toISOString()` (UTC). Previously returned local-time string without Z, causing 1hr offset in BST when Node.js cron parsed as UTC.
+- **computeOpensDay fix**: was `(idx+1)%7` (day-after); corrected to `(idx+6)%7` (day-before) — Tuesday game → Monday opens
+- `notify.js`: added `autoOpen` cronType handler — fires "are you in?" push to all active (non-injured) players
+
+**auto_open_pending column (Stage 2.5):**
+- New `auto_open_pending bool DEFAULT true` column on schedule
+- `is_draft` semantics clarified: now ONLY means "onboarding not complete" — never used as auto-open flag again
+- `autoOpenGameJob` filters on `auto_open_pending` not `is_draft`
+- `advanceGameDateJob` resets `auto_open_pending=true` on weekly advance
+- `scheduleToDb`/`dbToSchedule` in supabase.js updated; `useOnboarding.js` schedule insert includes `auto_open_pending:true`
+
+**Schema additions:**
+- `teams`: added `admin_email` column
+- `schedule`: added `bibs_enabled bool DEFAULT true`, `auto_open_pending bool DEFAULT true`, `season_id text`, `active bool DEFAULT true`
+
+**Onboarding rebuild (Stages 3–4):**
+- `CreateTeam.jsx` — full design system rewrite: brand header (IN/OR/OUT), progress bar 1/3, Nominatim venue autocomplete (400ms debounce, 3-char min, AbortController, silent fallback), city auto-chip "📍 city · change", price validation (empty→error, 0→confirm ack), bibs YES/NO pills, admin email field, gold CTA disabled until name entered
+- `AddPlayers.jsx` — design system rewrite: brand header, progress bar 2/3, gold focus input, numbered gold badge per player, × remove, gold/muted CTA, skip link
+- `ShareLinks.jsx` — full rewrite: progress bar 3/3 (all gold), admin goldb card + AdminCopyButton, per-player rows with PlayerCopyButton + WHATSAPP green button; **critical fixes**: BASE_URL=`https://www.in-or-out.com` (was missing www); `window.location.href` navigation (replaces `<a href>`); `onboarding_complete=true` written to teams before admin redirect; `teamId` prop wired from index.jsx
+- `useOnboarding.js`: `computeOpensDay` fixed (day-before), `computeNextGameDateTime` returns `date.toISOString()`, `bibsEnabled`/`adminEmail` state added, `auto_open_pending:true` in schedule insert
+
+**ScheduleScreen rebuild (Stage 5):**
+- Renamed from "SETTINGS & SCHEDULE" → "MATCH SETTINGS"; tabs "SCHEDULE/REMINDERS" → "MATCHDAY/NOTIFICATIONS"
+- Removed `datetime-local` input; replaced with read-only **NEXT MATCHDAY** card (`"Tuesday 19 May 2026 at 20:00"` format)
+- **ONE-OFF DATE CHANGE**: date picker + UPDATE THIS WEEK button; builds UTC-correct ISO string (local Date constructor + `.toISOString()`); immediately upserts to Supabase; shows "UPDATED ✓"
+- All fields as typed pickers: kickoff (15-min steps 06:00–23:45), game day (select), players needed (select), invites open day/time (30-min steps), priority lead (30/45/60/90/120 mins)
+- Nominatim venue autocomplete (same as CreateTeam) with city chip
+- **Bibs YES/NO pills** — reads `schedule.bibsEnabled ?? true`, saves on main save
+- **Game Day helper**: "Invites auto-open [day] at [time]" — live-updates via `computeOpensDay`
+- **Invites open helper**: "Game auto-opens for players on [day] at [time]" in gold
+- Save button: "SAVE MATCH SETTINGS" — async `upsertSchedule` + `upsertSettings` → "SAVED ✓" → `onBack()`; pass-through fields: `autoOpenPending`, `seasonId`, `active` (never reset on manual save)
+- `teamId` prop added to ScheduleScreen; AdminView now passes `teamId={teamId}` to it
+- All old imports (`@platform/core` colours, `FieldRow`, `BackBtn`, `Btn`) removed
+
+**Key decisions from session 13:**
+- `is_draft` is NOT the auto-open flag — `auto_open_pending` is. `is_draft=true` means onboarding incomplete only.
+- `advanceGameDateJob` resets `auto_open_pending=true` weekly so games auto-open next week without admin action
+- Onboarding `computeOpensDay` (day-before) matches `autoOpenGameJob` filter — they must agree or games won't auto-open
+
+**Next session (Session 14) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
 2. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
-3. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
-4. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
-5. Stage 1 ship blockers review — is May 19 still on track?
+3. Hide bibs stage in ScoreScreen when `schedule.bibsEnabled === false`
+4. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
+5. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
+6. Stage 1 ship blockers review — is May 19 still on track?
 
 **Aspirational for May 19 matchday (Stage 1 live):**
 - POTM voting live for Finbar's Tuesdays first match
