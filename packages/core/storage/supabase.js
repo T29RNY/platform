@@ -758,7 +758,12 @@ export async function resetDemoData() {
     }).eq('id', p.id);
   }
 
-  // 6. Stamp reset time
+  // 6. Reset schedule voting state
+  await supabase.from('schedule')
+    .update({ voting_open: false, voting_closes_at: null })
+    .eq('team_id', 'team_demo');
+
+  // 7. Stamp reset time
   await supabase.from('demo_sessions')
     .update({ last_reset: new Date().toISOString(), last_interaction: new Date().toISOString() })
     .eq('id', 'main');

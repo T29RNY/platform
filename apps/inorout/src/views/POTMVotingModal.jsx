@@ -130,7 +130,7 @@ export default function POTMVotingModal({
           </div>
           {!isResult && votingClosesAt && (
             <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 6, fontWeight: 300 }}>
-              Closes in {timeLeft}
+              {timeLeft === "Closed" ? "Closed" : `Closes in ${timeLeft}`}
             </div>
           )}
         </div>
