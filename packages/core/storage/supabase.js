@@ -236,6 +236,9 @@ function scheduleToDb(s) {
     active_match_id: s.activeMatchId || null,
     voting_open: s.votingOpen || false,
     voting_closes_at: s.votingClosesAt || null,
+    bibs_enabled: s.bibsEnabled ?? true,
+    season_id: s.seasonId || null,
+    active: s.active ?? true,
   };
 }
 
@@ -256,6 +259,9 @@ function dbToSchedule(r) {
     activeMatchId: r.active_match_id || null,
     votingOpen: r.voting_open || false,
     votingClosesAt: r.voting_closes_at || null,
+    bibsEnabled: r.bibs_enabled ?? true,
+    seasonId: r.season_id || null,
+    active: r.active ?? true,
   };
 }
 

@@ -6,6 +6,38 @@ function generateToken(prefix) {
   return prefix + "_" + Math.random().toString(36).slice(2, 18);
 }
 
+// ── Next game date computation ─────────────────────────────────────────────────
+// Returns a local-time ISO string for the next occurrence of dayOfWeek at kickoffTime.
+// Unit test cases (inline):
+//   today=Monday,    day=Tuesday, kickoff=20:00 → next Tuesday 20:00       ✓
+//   today=Tue 18:00, day=Tuesday, kickoff=20:00 → today 20:00 (not passed) ✓
+//   today=Tue 21:00, day=Tuesday, kickoff=20:00 → next Tuesday 20:00       ✓
+//   today=Wednesday, day=Tuesday, kickoff=20:00 → next Tuesday 20:00       ✓
+function computeNextGameDateTime(dayOfWeek, kickoffTime) {
+  const DAY_NUMS = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
+  const targetDay = DAY_NUMS[dayOfWeek];
+  const [hours, minutes] = kickoffTime.split(':').map(Number);
+  const now = new Date();
+  let daysAhead = (targetDay - now.getDay() + 7) % 7;
+  if (daysAhead === 0) {
+    // Same day — only use today if kickoff hasn't passed yet
+    const todayKickoff = new Date(now);
+    todayKickoff.setHours(hours, minutes, 0, 0);
+    if (todayKickoff <= now) daysAhead = 7;
+  }
+  const date = new Date(now);
+  date.setDate(date.getDate() + daysAhead);
+  date.setHours(hours, minutes, 0, 0);
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(hours)}:${pad(minutes)}:00`;
+}
+
+// ── Opens day computation (day after game day) ─────────────────────────────────
+function computeOpensDay(dayOfWeek) {
+  const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+  return DAYS[(DAYS.indexOf(dayOfWeek) + 1) % 7];
+}
+
 export function useOnboarding({ onComplete }) {
   const [step,      setStep]      = useState(1); // 1, 2, 3
   const [loading,   setLoading]   = useState(false);
@@ -19,6 +51,8 @@ export function useOnboarding({ onComplete }) {
   const [city,            setCity]            = useState('');
   const [squadSize,       setSquadSize]       = useState(CFG.defaults.squadSize);
   const [pricePerPlayer,  setPricePerPlayer]  = useState(CFG.defaults.pricePerPlayer);
+  const [bibsEnabled,     setBibsEnabled]     = useState(true);
+  const [adminEmail,      setAdminEmail]      = useState('');
 
   // Step 2 state
   const [playerNames, setPlayerNames] = useState([""]);
@@ -44,6 +78,7 @@ export function useOnboarding({ onComplete }) {
       const { error: teamErr } = await supabase.from("teams").insert({
         id: tId, name: groupName.trim(), admin_token: aToken,
         onboarding_complete: false,
+        admin_email: adminEmail || null,
       });
       if (teamErr) throw teamErr;
 
@@ -51,13 +86,16 @@ export function useOnboarding({ onComplete }) {
       const { error: schedErr } = await supabase.from("schedule").insert({
         id: schId, team_id: tId,
         day_of_week: dayOfWeek, kickoff, venue,
-        opens_day: CFG.defaults.opensDay, opens_time: CFG.defaults.opensTime,
+        opens_day: computeOpensDay(dayOfWeek), opens_time: CFG.defaults.opensTime,
         priority_lead_mins: CFG.defaults.priorityLeadMins,
         price_per_player: pricePerPlayer,
         city: city,
         game_is_live: false, squad_size: squadSize,
-        game_date_time: null, is_draft: true,
+        game_date_time: computeNextGameDateTime(dayOfWeek, kickoff), is_draft: true,
         is_cancelled: false, cancel_reason: "",
+        bibs_enabled: bibsEnabled ?? true,
+        season_id: null,
+        active: true,
       });
       if (schedErr) throw schedErr;
 
@@ -139,6 +177,8 @@ export function useOnboarding({ onComplete }) {
     city,      setCity,
     squadSize, setSquadSize,
     pricePerPlayer, setPricePerPlayer,
+    bibsEnabled, setBibsEnabled,
+    adminEmail, setAdminEmail,
     submitTeam,
     // Step 2
     playerNames, newName, setNewName, addPlayer, removePlayer,
