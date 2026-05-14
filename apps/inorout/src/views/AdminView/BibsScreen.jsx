@@ -29,7 +29,7 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
           border:`2px solid ${bibHolder===p.name?C.amber:C.border}`,
           background:bibHolder===p.name?C.amber+"12":"transparent",
           fontFamily:"Inter,sans-serif" }}>
-          <span style={{ fontSize:14, fontWeight:500, color:bibHolder===p.name?C.amber:C.text }}>{p.name}</span>
+          <span style={{ fontSize:14, fontWeight:500, color:bibHolder===p.name?C.amber:C.text }}>{p.nickname || p.name}</span>
           <span style={{ fontSize:12, color:C.muted }}>taken {bibCounts[p.name]||0}× before</span>
         </button>
       ))}

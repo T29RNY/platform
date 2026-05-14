@@ -89,7 +89,7 @@ function AvatarStack({ players, rgb }) {
           marginLeft: i === 0 ? 0 : -8, zIndex: 3 - i,
           fontFamily:"var(--font-body)",
         }}>
-          {(p.name || "?")[0].toUpperCase()}
+          {(p.nickname || p.name || "?")[0].toUpperCase()}
         </div>
       ))}
     </div>
@@ -341,7 +341,7 @@ function InsightCard({ insight, data, gamesPlayed }) {
     ) : (
       <text x="27" y="36" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.5)" fontFamily="DM Sans,sans-serif">—</text>
     );
-    title = best ? `${best.name}` : "Best Partnership";
+    title = best ? `${best.nickname || best.name}` : "Best Partnership";
     body = best ? <><em>{best.winRate}%</em> win rate together ({best.games} games)</> : "Not enough data yet";
     avatars = data;
   } else if (id === "nemesis" && data) {
@@ -352,7 +352,7 @@ function InsightCard({ insight, data, gamesPlayed }) {
         <line x1="36" y1="22" x2="18" y2="40" stroke={hex} strokeWidth="1.5" strokeLinecap="round" />
       </>
     );
-    title = top ? `${top.name}` : "Nemesis";
+    title = top ? `${top.nickname || top.name}` : "Nemesis";
     body = top ? <>You lose <em>{top.lossRate}%</em> when facing them ({top.games} games)</> : "Not enough data yet";
     avatars = data;
   } else if (id === "impact" && data) {
@@ -380,7 +380,7 @@ function InsightCard({ insight, data, gamesPlayed }) {
     ) : (
       <text x="27" y="36" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.5)" fontFamily="DM Sans,sans-serif">—</text>
     );
-    title = top ? `${top.name}` : "Most Played With";
+    title = top ? `${top.nickname || top.name}` : "Most Played With";
     body = top ? <>Shared the pitch <em>{top.games} times</em></> : "Not enough data yet";
     avatars = data;
   } else if (id === "winRate" && data) {
@@ -583,7 +583,7 @@ function DeeperIntelSection({ stats, gamesPlayed }) {
         <DeeperBlock label="Partnerships" Icon={UsersThree} rgb="61,220,106">
           {(partnerships ?? []).length > 0 ? (
             partnerships.map((p, i) => (
-              <RankedRow key={p.playerId} rank={i+1} name={p.name} stat={`${p.winRate}%`} rgb="61,220,106" />
+              <RankedRow key={p.playerId} rank={i+1} name={p.nickname || p.name} stat={`${p.winRate}%`} rgb="61,220,106" />
             ))
           ) : (
             <div style={{ padding:"12px", fontSize:11, color:"rgba(255,255,255,0.25)", fontWeight:300 }}>Not enough data yet</div>
@@ -594,7 +594,7 @@ function DeeperIntelSection({ stats, gamesPlayed }) {
         <DeeperBlock label="Nemeses" Icon={Crosshair} rgb="255,64,64">
           {(nemeses ?? []).length > 0 ? (
             nemeses.map((p, i) => (
-              <RankedRow key={p.playerId} rank={i+1} name={p.name} stat={`${p.lossRate}% L`} rgb="255,64,64" />
+              <RankedRow key={p.playerId} rank={i+1} name={p.nickname || p.name} stat={`${p.lossRate}% L`} rgb="255,64,64" />
             ))
           ) : (
             <div style={{ padding:"12px", fontSize:11, color:"rgba(255,255,255,0.25)", fontWeight:300 }}>
@@ -607,7 +607,7 @@ function DeeperIntelSection({ stats, gamesPlayed }) {
         <DeeperBlock label="Most Played With" Icon={Users} rgb="96,160,255">
           {(playedWith ?? []).length > 0 ? (
             playedWith.map((p, i) => (
-              <RankedRow key={p.playerId} rank={i+1} name={p.name} stat={`${p.games}`} rgb="96,160,255" />
+              <RankedRow key={p.playerId} rank={i+1} name={p.nickname || p.name} stat={`${p.games}`} rgb="96,160,255" />
             ))
           ) : (
             <div style={{ padding:"12px", fontSize:11, color:"rgba(255,255,255,0.25)", fontWeight:300 }}>Not enough data yet</div>

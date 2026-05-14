@@ -146,7 +146,7 @@ export default function POTMVotingModal({
             }}>
               You voted for{" "}
               <span style={{ color: "var(--gold)", fontWeight: 600 }}>
-                {votedPlayer?.name || "Unknown"}
+                {votedPlayer?.nickname || votedPlayer?.name || "Unknown"}
               </span>
             </div>
           )}
@@ -176,7 +176,7 @@ export default function POTMVotingModal({
               </div>
               <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 4, fontWeight: 300 }}>
                 You voted for{" "}
-                <span style={{ color: "var(--t1)", fontWeight: 600 }}>{selected?.name}</span>
+                <span style={{ color: "var(--t1)", fontWeight: 600 }}>{selected?.nickname || selected?.name}</span>
               </div>
             </div>
           )}
@@ -210,7 +210,7 @@ export default function POTMVotingModal({
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 14, color: "var(--t1)", fontWeight: 400 }}>
-                          {player.name}
+                          {player.nickname || player.name}
                         </span>
                         {isMe && (
                           <span style={{

@@ -902,8 +902,11 @@ export async function getMostPlayedWith(playerId, teamId) {
     }
     const top3 = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id);
     if (!top3.length) return null;
-    const { data: players } = await supabase.from("players").select("id, name").in("id", top3);
-    return top3.map(id => ({ playerId: id, name: (players || []).find(p => p.id === id)?.name || "Unknown", games: counts[id] }));
+    const { data: players } = await supabase.from("players").select("id, name, nickname").in("id", top3);
+    return top3.map(id => {
+      const pl = (players || []).find(p => p.id === id);
+      return { playerId: id, name: pl?.name || "Unknown", nickname: pl?.nickname || null, games: counts[id] };
+    });
   } catch (e) { return null; }
 }
 
@@ -970,8 +973,11 @@ export async function getNemesis(playerId, teamId) {
       .sort((a, b) => b.lossRate - a.lossRate)
       .slice(0, 3);
     if (!qualified.length) return null;
-    const { data: players } = await supabase.from("players").select("id, name").in("id", qualified.map(q => q.playerId));
-    return qualified.map(q => ({ ...q, name: (players || []).find(p => p.id === q.playerId)?.name || "Unknown" }));
+    const { data: players } = await supabase.from("players").select("id, name, nickname").in("id", qualified.map(q => q.playerId));
+    return qualified.map(q => {
+      const pl = (players || []).find(p => p.id === q.playerId);
+      return { ...q, name: pl?.name || "Unknown", nickname: pl?.nickname || null };
+    });
   } catch (e) { return null; }
 }
 
@@ -1007,8 +1013,11 @@ export async function getBestPartnership(playerId, teamId) {
       .sort((a, b) => b.winRate - a.winRate)
       .slice(0, 3);
     if (!qualified.length) return null;
-    const { data: players } = await supabase.from("players").select("id, name").in("id", qualified.map(q => q.playerId));
-    return qualified.map(q => ({ ...q, name: (players || []).find(p => p.id === q.playerId)?.name || "Unknown" }));
+    const { data: players } = await supabase.from("players").select("id, name, nickname").in("id", qualified.map(q => q.playerId));
+    return qualified.map(q => {
+      const pl = (players || []).find(p => p.id === q.playerId);
+      return { ...q, name: pl?.name || "Unknown", nickname: pl?.nickname || null };
+    });
   } catch (e) { return null; }
 }
 
@@ -1089,14 +1098,15 @@ export async function getPOTMEligiblePlayers(matchId, teamId) {
   const playerIds = pmRows.map(r => r.player_id);
   const { data: players, error: plErr } = await supabase
     .from("players")
-    .select("id, name")
+    .select("id, name, nickname")
     .in("id", playerIds);
   if (plErr) throw plErr;
 
-  const nameById = Object.fromEntries((players || []).map(p => [p.id, p.name]));
+  const byId = Object.fromEntries((players || []).map(p => [p.id, p]));
   return pmRows.map(r => ({
     id: r.player_id,
-    name: nameById[r.player_id] || r.player_id,
+    name: byId[r.player_id]?.name || r.player_id,
+    nickname: byId[r.player_id]?.nickname || null,
     team: r.team_assignment,
   }));
 }
