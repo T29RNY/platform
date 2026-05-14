@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Trophy } from "@phosphor-icons/react";
 import { submitPOTMVote } from "@platform/supabase";
+import { resolveMotm } from "@platform/core";
 
 if (typeof document !== "undefined" && !document.getElementById("potm-styles")) {
   const el = document.createElement("style");
@@ -95,9 +96,7 @@ export default function POTMVotingModal({
     ? eligiblePlayers.find(p => p.id === existingVote)
     : null;
 
-  const winnerPlayer = motm
-    ? eligiblePlayers.find(p => p.id === motm)
-    : null;
+  const winnerName = resolveMotm(motm, eligiblePlayers);
 
   return (
     <div style={{
@@ -157,7 +156,7 @@ export default function POTMVotingModal({
             <div style={{ textAlign: "center", padding: "20px 0" }}>
               <Trophy size={40} weight="fill" color="var(--gold)" />
               <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", marginTop: 12 }}>
-                {winnerPlayer?.name || "Unknown"}
+                {winnerName || "Unknown"}
               </div>
               <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 6, fontWeight: 300 }}>
                 wins POTM tonight!

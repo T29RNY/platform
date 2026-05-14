@@ -46,7 +46,7 @@ function POTMTiebreakModal({ match, squad, teamId, onDecide }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "potmResult", teamId,
-          payload: { title: "🏆 POTM Result", body: `${selected.name} wins POTM tonight!`, winnerId: selected.id, winnerName: selected.name },
+          payload: { title: "🏆 POTM Result", body: `${selected.nickname || selected.name} wins POTM tonight!`, winnerId: selected.id, winnerName: selected.nickname || selected.name },
         }),
       }).catch(console.error);
       onDecide();
@@ -90,7 +90,7 @@ function POTMTiebreakModal({ match, squad, teamId, onDecide }) {
                 border: `0.5px solid ${isSel ? "rgba(232,160,32,0.5)" : "rgba(255,255,255,0.06)"}`,
                 marginBottom: 8,
               }}>
-                <span style={{ fontSize: 14, color: "var(--t1)", fontWeight: 400 }}>{player.name}</span>
+                <span style={{ fontSize: 14, color: "var(--t1)", fontWeight: 400 }}>{player.nickname || player.name}</span>
                 <div style={{ display: "flex", gap: 6 }}>
                   {isSel && (
                     <button onClick={() => { setSelected(null); setPhase("idle"); }}

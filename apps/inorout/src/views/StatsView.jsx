@@ -1,5 +1,5 @@
 // import { useState } from "react"; // re-enable when Records tab is restored
-import { /* biggestWins, */ payRate } from "@platform/core";
+import { /* biggestWins, */ payRate, resolveMotm } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy,
 } from "@phosphor-icons/react";
@@ -480,7 +480,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                   const every = (p.attended || 0) > 0 ? Math.round(p.attended / (p.motm || 1)) : 0;
                   return (
                     <LeaderRow
-                      key={p.id} rank={i + 1} name={p.name}
+                      key={p.id} rank={i + 1} name={resolveMotm(p.id, active)}
                       value={p.motm || 0}
                       bar={p.motm || 0} maxBar={topMotm[0].motm || 1}
                       barColor="var(--gold)"

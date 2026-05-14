@@ -74,3 +74,12 @@ export function nextWeekDateTime(currentDateTime) {
   d.setDate(d.getDate() + 7);
   return d.toISOString();
 }
+
+// Resolve a matches.motm value (now a player_id) to a display name.
+// Falls back to the raw value for legacy name strings or departed players.
+export function resolveMotm(motmValue, players) {
+  if (!motmValue) return motmValue;
+  const match = (players || []).find(p => p.id === motmValue);
+  if (match) return match.nickname || match.name;
+  return motmValue;
+}

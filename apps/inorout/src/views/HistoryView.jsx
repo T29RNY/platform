@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ShareNetwork, CaretRight } from "@phosphor-icons/react";
+import { resolveMotm } from "@platform/core";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ function AvatarChip({ name, isGuest, team }) {
 function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
   const [copied, setCopied] = useState(false);
 
+  const motmName = resolveMotm(m.motm, players);
   const result   = getResult(m);
   const rs       = RESULT_STYLES[result];
   const scoreType = m.scoreType || null;
@@ -138,7 +140,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
       `🔴 Team B: ${(m.teamB || []).join(", ") || "—"}`,
       "",
       scorersStr           ? `⚽ Scorers: ${scorersStr}` : null,
-      m.motm               ? `🏆 POTM: ${m.motm}`       : null,
+      m.motm               ? `🏆 POTM: ${motmName}`      : null,
       m.bibHolder          ? `🟡 Bibs: ${m.bibHolder}`   : null,
       (venue||kickoffTime) ? `📍 ${[venue, kickoffTime].filter(Boolean).join(" · ")}` : null,
     ].filter(l => l !== null).join("\n");
@@ -286,7 +288,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
           fontSize: 11, color: "var(--t2)", fontWeight: 300,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
-          {m.motm && <span>🏆 {m.motm}</span>}
+          {m.motm && <span>🏆 {motmName}</span>}
           {m.motm && (m.bibHolder || lastGoalScorerPlayer) && <span style={{ opacity: 0.4 }}>·</span>}
           {m.bibHolder && <span>🟡 {m.bibHolder} has bibs</span>}
           {m.bibHolder && lastGoalScorerPlayer && <span style={{ opacity: 0.4 }}>·</span>}
@@ -333,7 +335,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
                         fontSize: 12, color: "var(--t1)",
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                       }}>
-                        {p.name}{p.name === m.motm ? " 🏆" : ""}
+                        {p.name}{m.motm && p.id === m.motm ? " 🏆" : ""}
                       </div>
                       {p.isGuest && p.guestOf && (
                         <div style={{ fontSize: 9, color: "var(--gold)", marginTop: 1 }}>+1 {p.guestOf}</div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft } from "@phosphor-icons/react";
-import { newMatch, updatePlayerRecords } from "@platform/core";
+import { newMatch, updatePlayerRecords, resolveMotm } from "@platform/core";
 import { writePlayerMatchRows, saveMatchResult, saveBibHolder } from "@platform/supabase";
 
 if (typeof document !== "undefined" && !document.getElementById("ss-styles")) {
@@ -608,7 +608,7 @@ export default function ScoreScreen({
               <div style={{ textAlign: "center" }}>
                 <Trophy size={32} weight="fill" color="var(--gold)" />
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "var(--gold)", marginTop: 8, letterSpacing: "0.04em" }}>
-                  {potmMatch.motm}
+                  {resolveMotm(potmMatch.motm, squad)}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 4, fontWeight: 300 }}>
                   wins POTM tonight

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getPaymentMode, getGuestPaymentState,
-  handleCashPayment, handleClearDebt, handleGuestCashPayment } from "@platform/core";
+  handleCashPayment, handleClearDebt, handleGuestCashPayment,
+  resolveMotm } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, deletePlayer,
   getPlayerMatchForm, getLastMatchMeta,
   getPOTMEligiblePlayers, getPOTMVotes } from "@platform/supabase";
@@ -149,8 +150,8 @@ export default function PlayerView({
     // Voting just closed + result is in → show banner
     if (!nowOpen && wasOpen && activeMatch?.motm) {
       prevVotingOpen.current = false;
-      const winnerName = activeMatch.motm || "Unknown";
-      const isWinner = !!(me && activeMatch.motm && activeMatch.motm.toLowerCase() === me.name?.toLowerCase());
+      const winnerName = resolveMotm(activeMatch.motm, squad) || "Unknown";
+      const isWinner = !!(me && activeMatch.motm === me.id);
       setPotmBanner({ winnerName, isWinner });
       setTimeout(() => setPotmBanner(null), 5000);
     } else if (!nowOpen) {
@@ -926,7 +927,7 @@ export default function PlayerView({
                           const isMe    = p.id === myId;
                           const form    = playerForm[p.id] || [];
                           const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
-                          const isMotm  = lastMatchMeta?.motm?.toLowerCase() === p.name?.toLowerCase();
+                          const isMotm  = !!lastMatchMeta?.motm && lastMatchMeta.motm === p.id;
                           const hasBibs = lastMatchMeta?.bibHolder?.toLowerCase() === p.name?.toLowerCase();
                           const parts   = (p.name || "").trim().split(/\s+/);
                           const ini     = parts.length >= 2
