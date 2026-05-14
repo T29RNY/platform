@@ -102,9 +102,6 @@ function matchDates() {
   });
 }
 
-function fmtLong(d)  { return d.toLocaleDateString('en-GB', { day:'numeric', month:'long',  year:'numeric', timeZone:'UTC' }); }
-function fmtShort(d) { return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', timeZone:'UTC' }); }
-
 async function run(label, fn) {
   process.stdout.write(`  ${label}... `);
   try { await fn(); console.log('✓'); }
@@ -202,8 +199,7 @@ async function main() {
         matchRows.push({
           id: mid,
           team_id: 'team_demo',
-          date: fmtLong(d),
-          date_short: fmtShort(d),
+          match_date: d.toISOString().split('T')[0],
           team_a: [], team_b: [],
           winner: null, score_a: 0, score_b: 0,
           scorers: {}, motm: null, bib_holder: '',
@@ -225,8 +221,7 @@ async function main() {
       matchRows.push({
         id: mid,
         team_id: 'team_demo',
-        date: fmtLong(d),
-        date_short: fmtShort(d),
+        match_date: d.toISOString().split('T')[0],
         team_a: ta.map(n => NAMES[n]),
         team_b: tb.map(n => NAMES[n]),
         winner, score_a: scoreA, score_b: scoreB,
@@ -346,7 +341,7 @@ async function main() {
       return {
         team_id: 'team_demo',
         name: NAMES[bib_n],
-        date: fmtShort(dates[dateIdx]),
+        match_date: dates[dateIdx].toISOString().split('T')[0],
         returned: i < 5,
       };
     });
