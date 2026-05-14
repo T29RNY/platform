@@ -6,13 +6,6 @@ import {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const MONTHS = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
-function parseMatchDate(d) {
-  if (!d) return new Date(0);
-  const [day, mon, year] = (d || "").split(" ");
-  return new Date(+year, MONTHS[mon] ?? 0, +day || 1);
-}
-
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
   return parts.length >= 2
@@ -237,7 +230,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
 
   const played = allMatches
     .filter(m => !m.cancelled)
-    .sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
+    .sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate));
 
   const totalGames  = played.length;
   const totalGoals  = played.reduce((s, m) => s + (m.scoreA || 0) + (m.scoreB || 0), 0);

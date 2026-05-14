@@ -134,7 +134,7 @@ async function lineupLockJob(base, results) {
     if (!sched.active_match_id) {
       await supabase.from("matches").upsert({
         id: matchId, team_id: sched.team_id,
-        date: now.toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }),
+        match_date: now.toISOString().split('T')[0],
         voting_open: false,
       }, { onConflict: "id" });
     }

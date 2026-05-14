@@ -121,8 +121,11 @@ export function getSelfPaidPending(players) {
 }
 
 export function generateMatchReport(match, groupName) {
+  const dateStr = match.matchDate
+    ? new Date(match.matchDate).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })
+    : "";
   if (match.cancelled) {
-    return `${groupName}\n${match.date}\n\n❌ CANCELLED\n${match.cancelReason || ""}`;
+    return `${groupName}\n${dateStr}\n\n❌ CANCELLED\n${match.cancelReason || ""}`;
   }
   const result  = match.winner === "D" ? "DRAW" : `TEAM ${match.winner} WIN`;
   const scorerLines = Object.entries(match.scorers || {})
@@ -131,7 +134,7 @@ export function generateMatchReport(match, groupName) {
     .join("\n");
   return [
     groupName,
-    match.date,
+    dateStr,
     "",
     result,
     `Team A ${match.scoreA} — ${match.scoreB} Team B`,

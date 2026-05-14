@@ -30,7 +30,7 @@ export function topSingleGame(matchHistory) {
   let best = { name: "", goals: 0, date: "" };
   matchHistory.filter(m => !m.cancelled).forEach(m => {
     Object.entries(m.scorers || {}).forEach(([name, goals]) => {
-      if (goals > best.goals) best = { name, goals, date: m.dateShort };
+      if (goals > best.goals) best = { name, goals, date: m.matchDate };
     });
   });
   return best;
@@ -46,7 +46,7 @@ export function getHatTricks(matchHistory) {
     .flatMap(m =>
       Object.entries(m.scorers || {})
         .filter(([, g]) => g >= 3)
-        .map(([name, goals]) => ({ name, goals, date: m.dateShort, id: m.id + name }))
+        .map(([name, goals]) => ({ name, goals, date: m.matchDate, id: m.id + name }))
     )
     .sort((a, b) => b.goals - a.goals);
 }
