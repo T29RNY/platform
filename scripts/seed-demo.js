@@ -279,17 +279,19 @@ async function main() {
 
   // 6. Player injuries (Gav's history)
   await run('player_injuries: Gav (p_demo_24)', async () => {
-    await upsert('player_injuries', [
-      { id:'inj_demo_01', player_id:'p_demo_24', team_id:'team_demo', injured_at:'2025-09-28', cleared_at:'2025-10-12', marked_by:'player' },
-      { id:'inj_demo_02', player_id:'p_demo_24', team_id:'team_demo', injured_at:'2025-11-16', cleared_at:'2025-11-30', marked_by:'player' },
-      { id:'inj_demo_03', player_id:'p_demo_24', team_id:'team_demo', injured_at:'2026-01-11', cleared_at:'2026-02-01', marked_by:'admin' },
-      { id:'inj_demo_04', player_id:'p_demo_24', team_id:'team_demo', injured_at:'2026-03-22', cleared_at:'2026-04-06', marked_by:'player' },
-    ], 'id');
+    const { error } = await supabase.from('player_injuries').insert([
+      { player_id:'p_demo_24', team_id:'team_demo', injured_at:'2025-09-28', cleared_at:'2025-10-12', marked_by:'player' },
+      { player_id:'p_demo_24', team_id:'team_demo', injured_at:'2025-11-16', cleared_at:'2025-11-30', marked_by:'player' },
+      { player_id:'p_demo_24', team_id:'team_demo', injured_at:'2026-01-11', cleared_at:'2026-02-01', marked_by:'admin' },
+      { player_id:'p_demo_24', team_id:'team_demo', injured_at:'2026-03-22', cleared_at:'2026-04-06', marked_by:'player' },
+    ]);
+    if (error) throw error;
   });
 
   // 7. Schedule
   await run('schedule: team_demo', async () => {
-    await upsert('schedule', [{
+    await supabase.from('schedule').delete().eq('team_id', 'team_demo');
+    const { error } = await supabase.from('schedule').insert({
       id: 'sched_demo',
       team_id: 'team_demo',
       day_of_week: 'Tuesday',
@@ -310,16 +312,19 @@ async function main() {
       active_match_id: null,
       voting_open: false,
       voting_closes_at: null,
-    }], 'team_id');
+    });
+    if (error) throw error;
   });
 
   // 8. Settings
   await run('settings: team_demo', async () => {
-    await upsert('settings', [{
+    await supabase.from('settings').delete().eq('team_id', 'team_demo');
+    const { error } = await supabase.from('settings').insert({
       id: 'sett_team_demo',
       team_id: 'team_demo',
       group_name: "Finbar's Tuesdays",
-    }], 'team_id');
+    });
+    if (error) throw error;
   });
 
   // 9. demo_sessions
