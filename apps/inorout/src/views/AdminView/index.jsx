@@ -135,12 +135,6 @@ if (typeof document !== "undefined" && !document.getElementById("adm-styles")) {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-function parseMatchDate(d) {
-  if (!d) return new Date(0);
-  const [day, mon, year] = d.split(" ");
-  return new Date(+year, MONTHS[mon] ?? 0, +day);
-}
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
   return parts.length >= 2
@@ -600,7 +594,7 @@ export default function AdminView({
   const teamsSet       = inPlayers.filter(p => !p.isGuest).length > 0
                       && inPlayers.filter(p => !p.isGuest).every(p => p.team);
   const pendingResults = matchHistory.filter(m =>
-    !m.cancelled && m.winner == null && parseMatchDate(m.date) < new Date()
+    !m.cancelled && m.winner == null && new Date(m.matchDate) < new Date()
   ).length;
   const pendingTiebreak = !tiebreakDismissed
     ? matchHistory.find(m => m.adminDecisionPending && m.tiedCandidates?.length > 1)
@@ -644,8 +638,7 @@ export default function AdminView({
   const cancelWeek = () => {
     setSchedule({ ...schedule, isCancelled:true, gameIsLive:false, cancelReason });
     setMatchHistory([{
-      id:"m"+Date.now(), date:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),
-      dateShort:new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short"}),
+      id:"m"+Date.now(), matchDate: new Date().toISOString().split('T')[0],
       teamA:[], teamB:[], winner:null, scoreA:0, scoreB:0,
       scorers:{}, motm:null, bibHolder:"", payments:{},
       cancelled:true, cancelReason,
