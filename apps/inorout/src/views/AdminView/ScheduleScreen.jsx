@@ -385,7 +385,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
               <div style={LABEL}>ONE-OFF DATE CHANGE</div>
               <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300,
                 marginBottom:12, lineHeight:1.5 }}>
-                Use for bank holidays or venue changes. Cron resets automatically next week.
+                Use for bank holidays or one-off venue changes. Resets automatically next week.
               </div>
               <div style={{ display:"flex", gap:10, alignItems:"center" }}>
                 <input

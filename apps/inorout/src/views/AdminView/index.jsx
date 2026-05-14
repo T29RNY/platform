@@ -1167,7 +1167,7 @@ export default function AdminView({
             icon:CalendarBlank, iconColor:"var(--purple)",
             bg:"linear-gradient(135deg,rgba(176,96,240,0.14) 0%,rgba(176,96,240,0.03) 60%,rgba(10,10,8,0.5) 100%)",
             border:"rgba(176,96,240,0.25)",
-            title:"Schedule",
+            title:"Match Settings",
             sub:`${schedule.dayOfWeek} · ${schedule.venue || "No venue"} · £${schedule.pricePerPlayer || 0}`,
             badge:0, onClick:() => setScreen("schedule"),
           })}
