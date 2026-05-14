@@ -575,6 +575,16 @@ export async function saveBibHolder(matchId, teamId, playerId, playerName) {
     const { data: playerRow } = await supabase
       .from("players").select("user_id").eq("id", playerId).single();
     await updateCareerBibCount(playerRow?.user_id || null);
+
+    // e. Authoritative had_bibs flags — corrects any writePlayerMatchRows mismatch
+    await supabase.from("player_match")
+      .update({ had_bibs: true })
+      .eq("match_id", matchId)
+      .eq("player_id", playerId);
+    await supabase.from("player_match")
+      .update({ had_bibs: false })
+      .eq("match_id", matchId)
+      .neq("player_id", playerId);
   } else {
     // No Bibs — close open history rows and null out match
     await supabase.from("bib_history")
@@ -586,6 +596,11 @@ export async function saveBibHolder(matchId, teamId, playerId, playerName) {
       .update({ bib_holder: null })
       .eq("id", matchId);
     if (error) throw error;
+
+    // clear had_bibs for all players in this match
+    await supabase.from("player_match")
+      .update({ had_bibs: false })
+      .eq("match_id", matchId);
   }
 }
 
