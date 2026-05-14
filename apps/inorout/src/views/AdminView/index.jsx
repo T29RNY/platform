@@ -306,12 +306,12 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
                   )}
                 </div>
               ) : (
-                <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
+                <div onClick={() => setEditingNick(true)}
+                  style={{ display:"flex", alignItems:"center", gap:6, marginTop:3, cursor:"pointer" }}>
                   <span style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>
                     {p.nickname ? `"${p.nickname}"` : "Add nickname"}
                   </span>
-                  <PencilSimple size={12} weight="thin" color="var(--t2)"
-                    style={{ cursor:"pointer" }} onClick={() => setEditingNick(true)}/>
+                  <PencilSimple size={12} weight="thin" color="var(--t2)"/>
                 </div>
               )}
             </div>
