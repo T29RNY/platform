@@ -14,7 +14,7 @@ function detectPlatform() {
 const IOS_STEPS = [
   {
     img: "/ios-install-step1.png",
-    text: "Open in-or-out.com in Safari, then tap the ··· menu in the bottom bar",
+    text: "Tap the ··· menu in the bottom bar",
   },
   {
     img: "/ios-install-step2.png",
@@ -26,7 +26,7 @@ const IOS_STEPS = [
   },
   {
     img: "/ios-install-step4.png",
-    text: "Tap Add — make sure Open as Web App is on. Allow notifications when prompted for match alerts, teamsheets, POTM voting and more.",
+    text: "Tap Add — make sure Open as Web App is on.",
   },
 ];
 
@@ -67,9 +67,18 @@ function IOSCarousel({ playerUrl }) {
       {/* Header */}
       <div style={{
         fontFamily: "'Bebas Neue', sans-serif", fontSize: 28,
-        letterSpacing: "0.08em", color: "var(--gold)", marginBottom: 20,
+        letterSpacing: "0.08em", color: "var(--gold)", marginBottom: 8,
       }}>
         ADD TO HOME SCREEN
+      </div>
+
+      {/* Notifications subtitle */}
+      <div style={{
+        fontSize: 12, color: "var(--gold)", fontFamily: "'DM Sans', sans-serif",
+        fontWeight: 300, textAlign: "center", opacity: 0.85,
+        maxWidth: 280, lineHeight: 1.5, marginBottom: 16,
+      }}>
+        This will enable important notifications for match alerts, teamsheets, POTM voting and more.
       </div>
 
       {/* Carousel row */}
