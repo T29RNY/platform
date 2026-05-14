@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft } from "@phosphor-icons/react";
 import { newMatch, updatePlayerRecords, resolveMotm } from "@platform/core";
-import { writePlayerMatchRows, saveMatchResult, saveBibHolder } from "@platform/supabase";
+import { writePlayerMatchRows, saveMatchResult, saveBibHolder, getBibEligiblePlayers } from "@platform/supabase";
 
 if (typeof document !== "undefined" && !document.getElementById("ss-styles")) {
   const el = document.createElement("style");
@@ -127,6 +127,7 @@ export default function ScoreScreen({
 
   // Stage 4 — bibs: null=untouched, ''=no bibs, id=player selected
   const [bibsPlayerId, setBibsPlayerId] = useState(null);
+  const [bibEligible,  setBibEligible]  = useState(null); // null until fetched at stage3Done
 
   // Save
   const [isSaving, setIsSaving] = useState(false);
@@ -208,11 +209,19 @@ export default function ScoreScreen({
   useEffect(() => { if (stage3Done && !p3.current) { p3.current = true; peek(s4Ref); } }, [stage3Done]); // eslint-disable-line
   useEffect(() => { if (stage4Done && !p4.current) { p4.current = true; peek(s5Ref); } }, [stage4Done]); // eslint-disable-line
 
+  useEffect(() => {
+    if (!stage3Done) return;
+    if (!schedule?.activeMatchId) { setBibEligible(bibsSorted); return; }
+    getBibEligiblePlayers(schedule.activeMatchId, teamId)
+      .then(rows => setBibEligible([...rows].sort((a, b) => (a.nickname || a.name).localeCompare(b.nickname || b.name))))
+      .catch(() => setBibEligible(bibsSorted));
+  }, [stage3Done]); // eslint-disable-line
+
   const changeMode = (m) => {
     setMode(m);
     setScoreConfirmed(false); setScoreA(0); setScoreB(0); setExactScorers({});
     setMarginWinner(null); setMargin(0); setDeclaredWinner(null);
-    setLastGoalChoice(null); setLastGoalPlayerId(null); setBibsPlayerId(null);
+    setLastGoalChoice(null); setLastGoalPlayerId(null); setBibsPlayerId(null); setBibEligible(null);
     p2.current = false; p3.current = false; p4.current = false;
   };
 
@@ -261,9 +270,12 @@ export default function ScoreScreen({
       );
 
       // 4. Bibs — 4-step write
+      const bibSource = bibEligible ?? bibsSorted;
       if (bibsPlayerId) {
-        const bib = bibsSorted.find(p => p.id === bibsPlayerId);
-        if (bib) await saveBibHolder(match.id, teamId, bib.id, bib.name);
+        const bib = bibSource.find(p => p.id === bibsPlayerId);
+        if (bib) await saveBibHolder(match.id, teamId, bib.id, bib.nickname || bib.name);
+      } else {
+        await saveBibHolder(match.id, teamId, null, null);
       }
 
       setSaved(true);
@@ -578,8 +590,8 @@ export default function ScoreScreen({
                 outline: "none", appearance: "none", cursor: "pointer",
               }}
             >
-              <option value="">No bibs this game</option>
-              {bibsSorted.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              <option value="">No Bibs</option>
+              {(bibEligible ?? bibsSorted).map(p => <option key={p.id} value={p.id}>{p.nickname || p.name}</option>)}
             </select>
             <div style={{
               position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
