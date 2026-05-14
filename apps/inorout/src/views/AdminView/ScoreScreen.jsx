@@ -125,7 +125,7 @@ export default function ScoreScreen({
   const [lastGoalChoice, setLastGoalChoice]     = useState(null); // 'yes'|'no'
   const [lastGoalPlayerId, setLastGoalPlayerId] = useState(null);
 
-  // Stage 4 — bibs: null=untouched, ''=no bibs, id=player selected
+  // Stage 4 — bibs: null=untouched, 'none'=no bibs, id=player selected
   const [bibsPlayerId, setBibsPlayerId] = useState(null);
   const [bibEligible,  setBibEligible]  = useState(null); // null until fetched at stage3Done
 
@@ -271,7 +271,7 @@ export default function ScoreScreen({
 
       // 4. Bibs — 4-step write
       const bibSource = bibEligible ?? bibsSorted;
-      if (bibsPlayerId) {
+      if (bibsPlayerId && bibsPlayerId !== "none") {
         const bib = bibSource.find(p => p.id === bibsPlayerId);
         if (bib) await saveBibHolder(match.id, teamId, bib.id, bib.nickname || bib.name);
       } else {
@@ -580,7 +580,7 @@ export default function ScoreScreen({
           <div style={{ position: "relative" }}>
             <select
               value={bibsPlayerId ?? ""}
-              onChange={e => setBibsPlayerId(e.target.value || "")}
+              onChange={e => setBibsPlayerId(e.target.value)}
               style={{
                 width: "100%", padding: "12px 40px 12px 16px", borderRadius: 10,
                 border: `0.5px solid ${bibsPlayerId ? "rgba(255,255,255,0.18)" : "var(--s3)"}`,
@@ -590,8 +590,9 @@ export default function ScoreScreen({
                 outline: "none", appearance: "none", cursor: "pointer",
               }}
             >
-              <option value="">No Bibs</option>
+              <option value="" disabled>Select...</option>
               {(bibEligible ?? bibsSorted).map(p => <option key={p.id} value={p.id}>{p.nickname || p.name}</option>)}
+              <option value="none">No Bibs</option>
             </select>
             <div style={{
               position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
