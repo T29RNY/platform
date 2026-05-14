@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ShareNetwork, CaretRight } from "@phosphor-icons/react";
-import { resolveMotm } from "@platform/core";
+import { resolveMotm, resolveBibHolder } from "@platform/core";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
       "",
       scorersStr           ? `⚽ Scorers: ${scorersStr}` : null,
       m.motm               ? `🏆 POTM: ${motmName}`      : null,
-      m.bibHolder          ? `🟡 Bibs: ${m.bibHolder}`   : null,
+      m.bibHolder          ? `🟡 Bibs: ${resolveBibHolder(m.bibHolder, players)}`   : null,
       (venue||kickoffTime) ? `📍 ${[venue, kickoffTime].filter(Boolean).join(" · ")}` : null,
     ].filter(l => l !== null).join("\n");
   };
@@ -274,7 +274,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
         }}>
           {m.motm && <span>🏆 {motmName}</span>}
           {m.motm && (m.bibHolder || lastGoalScorerPlayer) && <span style={{ opacity: 0.4 }}>·</span>}
-          {m.bibHolder && <span>🟡 {m.bibHolder} has bibs</span>}
+          {m.bibHolder && <span>🟡 {resolveBibHolder(m.bibHolder, players)} has bibs</span>}
           {m.bibHolder && lastGoalScorerPlayer && <span style={{ opacity: 0.4 }}>·</span>}
           {lastGoalScorerPlayer && <span>⚽ Last: {lastGoalScorerPlayer.nickname || lastGoalScorerPlayer.name}</span>}
         </div>
