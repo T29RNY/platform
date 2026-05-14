@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { colors as C } from "@platform/core";
-import { supabase } from "@platform/supabase";
+import { supabase, updateUserProfile } from "@platform/supabase";
 
 export default function AuthCallback() {
   const [status, setStatus] = useState("processing");
@@ -10,6 +10,15 @@ export default function AuthCallback() {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
+
+        const user = data.session?.user;
+        if (user) {
+          const display_name =
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email;
+          try { await updateUserProfile(user.id, { display_name }); } catch(e) {}
+        }
 
         // Primary: sessionStorage pendingJoin survives the redirect regardless of
         // whether Supabase preserves the returnTo query param (URL allowlist)

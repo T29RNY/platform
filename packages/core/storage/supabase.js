@@ -1151,3 +1151,20 @@ export async function openPOTMVoting(matchId, teamId, closesAt, totalVoters) {
   }).eq("id", matchId).eq("team_id", teamId);
   if (error) throw error;
 }
+
+export async function getUserProfile(userId) {
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+  if (error && error.code !== "PGRST116") throw error;
+  return data || null;
+}
+
+export async function updateUserProfile(userId, updates) {
+  const { error } = await supabase
+    .from("user_profiles")
+    .upsert({ user_id: userId, ...updates, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+  if (error) throw error;
+}
