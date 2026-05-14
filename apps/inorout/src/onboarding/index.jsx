@@ -42,6 +42,7 @@ export default function Onboarding({ onComplete }) {
 
       {ob.step === 3 && (
         <ShareLinks
+          teamId={ob.teamId}
           groupName={ob.groupName}
           adminToken={ob.adminToken}
           players={ob.players}
