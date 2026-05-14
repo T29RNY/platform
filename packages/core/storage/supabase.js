@@ -95,7 +95,7 @@ export async function getBibHistory(teamId) {
   const { data, error } = await supabase
     .from("bib_history").select("*")
     .eq("team_id", teamId)
-    .order("created_at", { ascending: false });
+    .order("match_date", { ascending: false });
   if (error) throw error;
   return (data || []).map(b => ({ name: b.name, matchDate: b.match_date, returned: b.returned }));
 }
