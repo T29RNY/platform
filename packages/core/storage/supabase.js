@@ -112,18 +112,22 @@ export async function getBibStats(teamId, squadPlayers) {
   return (squadPlayers || [])
     .filter(p => !p.disabled && !p.isGuest)
     .map(p => {
-      const mine  = r => (r.player_id && r.player_id === p.id) || (!r.player_id && r.name === p.name);
-      const all   = rows.filter(mine);
-      const since = (r, d) => r.match_date && new Date(r.match_date) >= ago(d);
+      const mine   = r => (r.player_id && r.player_id === p.id) || (!r.player_id && r.name === p.name);
+      const all    = rows.filter(mine);
+      const inBand = (r, fromDays, toDays) => {
+        if (!r.match_date) return false;
+        const d = new Date(r.match_date);
+        return d >= ago(fromDays) && (toDays == null || d < ago(toDays));
+      };
       return {
-        id:        p.id,
-        name:      p.name,
-        nickname:  p.nickname,
-        allTime:   all.length,
-        lastMonth: all.filter(r => since(r, 30)).length,
-        last3:     all.filter(r => since(r, 90)).length,
-        last6:     all.filter(r => since(r, 180)).length,
-        lastYear:  all.filter(r => since(r, 365)).length,
+        id:          p.id,
+        name:        p.name,
+        nickname:    p.nickname,
+        allTime:     all.length,
+        bucket0to3:  all.filter(r => inBand(r,  90, null)).length,
+        bucket3to6:  all.filter(r => inBand(r, 180,  90)).length,
+        bucket6to9:  all.filter(r => inBand(r, 270, 180)).length,
+        bucket9to12: all.filter(r => inBand(r, 365, 270)).length,
       };
     })
     .filter(p => p.allTime > 0)

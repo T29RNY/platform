@@ -34,17 +34,21 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
     .filter(p => !p.disabled && !p.isGuest)
     .map(p => {
       const mine  = b => (b.playerId && b.playerId === p.id) || (!b.playerId && b.name === p.name);
-      const all   = bibHistory.filter(mine);
-      const since = (b, d) => b.matchDate && new Date(b.matchDate) >= ago(d);
+      const all    = bibHistory.filter(mine);
+      const inBand = (b, fromDays, toDays) => {
+        if (!b.matchDate) return false;
+        const d = new Date(b.matchDate);
+        return d >= ago(fromDays) && (toDays == null || d < ago(toDays));
+      };
       return {
-        id:        p.id,
-        name:      p.name,
-        nickname:  p.nickname,
-        allTime:   all.length,
-        lastMonth: all.filter(b => since(b, 30)).length,
-        last3:     all.filter(b => since(b, 90)).length,
-        last6:     all.filter(b => since(b, 180)).length,
-        lastYear:  all.filter(b => since(b, 365)).length,
+        id:          p.id,
+        name:        p.name,
+        nickname:    p.nickname,
+        allTime:     all.length,
+        bucket0to3:  all.filter(b => inBand(b,  90, null)).length,
+        bucket3to6:  all.filter(b => inBand(b, 180,  90)).length,
+        bucket6to9:  all.filter(b => inBand(b, 270, 180)).length,
+        bucket9to12: all.filter(b => inBand(b, 365, 270)).length,
       };
     })
     .filter(p => p.allTime > 0)
@@ -246,7 +250,7 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["Player", "All time", "Month", "3M", "6M", "Year"].map(h => (
+                    {["Player", "All", "0-3M", "3-6M", "6-9M", "9-12M"].map(h => (
                       <th key={h} style={{
                         fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, color: "var(--t2)",
                         letterSpacing: "0.08em", fontWeight: 400,
@@ -262,7 +266,7 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
                       <td style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 300, fontSize: 13, color: "var(--t1)", padding: "8px 6px" }}>
                         {p.nickname || p.name}
                       </td>
-                      {[p.allTime, p.lastMonth, p.last3, p.last6, p.lastYear].map((n, j) => (
+                      {[p.allTime, p.bucket0to3, p.bucket3to6, p.bucket6to9, p.bucket9to12].map((n, j) => (
                         <td key={j} style={{
                           fontFamily: "'DM Sans', sans-serif", fontWeight: 300, fontSize: 12,
                           color: "var(--t2)", padding: "8px 6px", textAlign: "center",
