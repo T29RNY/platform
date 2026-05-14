@@ -448,6 +448,14 @@ export async function getPlayerMatchForm(teamId, playerIds) {
 }
 
 // ─── Last match meta (MOTM + bib holder for teams tile) ──────────────────────
+// bib_holder stores player_id post-migration; falls back to raw value for legacy name strings.
+export function resolveBibHolder(bibValue, players) {
+  if (!bibValue) return null;
+  const match = (players || []).find(p => p.id === bibValue);
+  if (match) return match.nickname || match.name;
+  return bibValue;
+}
+
 export async function getLastMatchMeta(teamId) {
   const { data, error } = await supabase
     .from("matches")
@@ -475,6 +483,27 @@ export async function updateMatchBibHolder(matchId, bibHolder) {
   if (error) throw error;
 }
 
+// ─── Bib-eligible players — two-query pattern, non-guests only ───────────────
+export async function getBibEligiblePlayers(matchId, teamId) {
+  const { data: pmRows, error: pmErr } = await supabase
+    .from("player_match")
+    .select("player_id")
+    .eq("match_id", matchId)
+    .eq("team_id", teamId)
+    .eq("is_guest", false);
+  if (pmErr) throw pmErr;
+  if (!pmRows?.length) return [];
+
+  const playerIds = pmRows.map(r => r.player_id);
+  const { data: players, error: plErr } = await supabase
+    .from("players")
+    .select("id, name, nickname")
+    .in("id", playerIds);
+  if (plErr) throw plErr;
+
+  return (players || []).map(p => ({ id: p.id, name: p.name, nickname: p.nickname || null }));
+}
+
 // ─── Save result fields without touching motm/voting columns ──────────────────
 // Used by ScoreScreen so that a pre-set motm (from voting) is never overwritten.
 export async function saveMatchResult(matchId, teamId, match) {
@@ -500,37 +529,57 @@ export async function saveMatchResult(matchId, teamId, match) {
   }
 }
 
-// ─── Bibs — 4-step atomic write ───────────────────────────────────────────────
+// ─── Career bib count — sum across all player records for this user ───────────
+export async function updateCareerBibCount(userId) {
+  if (!userId) return;
+  const { data: rows, error } = await supabase
+    .from("players")
+    .select("id, bib_count")
+    .eq("user_id", userId);
+  if (error || !rows?.length) return;
+  const total    = rows.reduce((sum, r) => sum + (r.bib_count || 0), 0);
+  const playerId = rows[0].id;
+  await supabase.from("player_career")
+    .upsert({ player_id: playerId, total_bib_count: total }, { onConflict: "player_id" });
+}
+
+// ─── Bibs — atomic write (bib_holder stores player_id post-migration) ─────────
 export async function saveBibHolder(matchId, teamId, playerId, playerName) {
-  // Update matches.bib_holder for Teams Confirmed tile display
-  await supabase.from("matches").update({ bib_holder: playerName }).eq("id", matchId);
+  if (playerId) {
+    // a. Close any open bib_history rows for this team
+    await supabase.from("bib_history")
+      .update({ returned: true })
+      .eq("team_id", teamId)
+      .eq("returned", false);
 
-  // Step 1: increment player bib_count
-  const { data: pData } = await supabase.from("players").select("bib_count").eq("id", playerId).single();
-  const { error: e1 } = await supabase.from("players")
-    .update({ bib_count: (pData?.bib_count || 0) + 1 })
-    .eq("id", playerId);
-  if (e1) throw e1;
+    // b. Insert new bib_history row (name string — historical log, unchanged)
+    const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    const { error: e1 } = await supabase.from("bib_history")
+      .insert({ team_id: teamId, name: playerName, date, returned: false });
+    if (e1) throw e1;
 
-  // Step 2: insert bib_history row
-  const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  const { error: e2 } = await supabase.from("bib_history")
-    .insert({ team_id: teamId, name: playerName, date, returned: false });
-  if (e2) throw e2;
+    // c. Store player_id on match
+    const { error: e2 } = await supabase.from("matches")
+      .update({ bib_holder: playerId })
+      .eq("id", matchId);
+    if (e2) throw e2;
 
-  // Step 3: mark bib holder in player_match
-  const { error: e3 } = await supabase.from("player_match")
-    .update({ had_bibs: true })
-    .eq("match_id", matchId)
-    .eq("player_id", playerId);
-  if (e3) throw e3;
+    // d. Update career total
+    const { data: playerRow } = await supabase
+      .from("players").select("user_id").eq("id", playerId).single();
+    await updateCareerBibCount(playerRow?.user_id || null);
+  } else {
+    // No Bibs — close open history rows and null out match
+    await supabase.from("bib_history")
+      .update({ returned: true })
+      .eq("team_id", teamId)
+      .eq("returned", false);
 
-  // Step 4: clear had_bibs for all other players in this match
-  const { error: e4 } = await supabase.from("player_match")
-    .update({ had_bibs: false })
-    .eq("match_id", matchId)
-    .neq("player_id", playerId);
-  if (e4) throw e4;
+    const { error } = await supabase.from("matches")
+      .update({ bib_holder: null })
+      .eq("id", matchId);
+    if (error) throw error;
+  }
 }
 
 // ─── PWA welcome — find player token by email via secure RPC ─────────────────
