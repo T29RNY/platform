@@ -9,8 +9,8 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
 
   const saveBibs = () => {
     if (!bibHolder) return;
-    const date = new Date().toLocaleDateString("en-GB", { day:"numeric", month:"short" });
-    setBibHistory([{ name:bibHolder, date, returned:false }, ...bibHistory]);
+    const matchDate = new Date().toISOString().split('T')[0];
+    setBibHistory([{ name:bibHolder, matchDate, returned:false }, ...bibHistory]);
     setSquad(squad.map(p => p.name===bibHolder ? { ...p, bibCount:(p.bibCount||0)+1 } : p));
     setBibSaved(true);
   };
@@ -53,7 +53,7 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
           <div style={{ fontSize:18 }}>{b.returned?"✅":"🟡"}</div>
           <div style={{ flex:1 }}>
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500, color:C.text }}>{b.name}</div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:2 }}>{b.date}</div>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:2 }}>{b.matchDate ? new Date(b.matchDate).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : ""}</div>
           </div>
           <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:600,
             padding:"3px 9px", borderRadius:4,
