@@ -50,8 +50,8 @@ const SCORE_C = {
 };
 
 const SCORE_TYPE_PILL = {
-  margin:   { label: "WON BY",   color: "var(--gold)",  bg: "var(--gold2)",  border: "1px solid var(--goldb)"  },
-  declared: { label: "DECLARED", color: "var(--amber)", bg: "var(--amber2)", border: "1px solid var(--amberb)" },
+  margin:   { label: "WON BY",   color: "var(--amber)", bg: "var(--amber2)", border: "0.5px solid var(--amberb)" },
+  declared: { label: "DECLARED", color: "var(--amber)", bg: "var(--amber2)", border: "0.5px solid var(--amberb)" },
 };
 
 // ── Score type pill ───────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ function ScoreTypePill({ type }) {
   if (!p) return null;
   return (
     <span style={{
-      fontFamily: "'Bebas Neue', sans-serif", fontSize: 9,
+      fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
       borderRadius: 4, padding: "2px 6px", letterSpacing: "0.05em",
       color: p.color, background: p.bg, border: p.border, flexShrink: 0,
     }}>{p.label}</span>
@@ -220,23 +220,20 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
             const isWinner = m.winner === team;
             let right = null;
             if (scoreType === "declared") {
-              if (isWinner) right = <ScoreTypePill type="declared" />;
-              // draw: absolute badge below; loser: nothing
+              if (result === "draw") right = <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color, lineHeight: 1 }}>D</span>;
+              else if (isWinner)    right = <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color, lineHeight: 1 }}>W</span>;
+              else                  right = <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t2)", lineHeight: 1 }}>L</span>;
             } else if (scoreType === "margin") {
-              if (result === "draw" && team === "A") {
-                right = (
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color, lineHeight: 1 }}>
-                    Draw
-                  </span>
-                );
+              if (result === "draw") {
+                right = <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color, lineHeight: 1 }}>D</span>;
               } else if (isWinner) {
                 const marginVal = team === "A" ? m.scoreA : m.scoreB;
                 right = (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color, lineHeight: 1 }}>
-                      Won by {marginVal}
-                    </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     <ScoreTypePill type="margin" />
+                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color, lineHeight: 1 }}>
+                      {marginVal}
+                    </span>
                   </div>
                 );
               }
@@ -254,12 +251,6 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
               </div>
             );
           })}
-          {/* Declared draw: badge vertically centred between both rows */}
-          {scoreType === "declared" && result === "draw" && (
-            <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
-              <ScoreTypePill type="declared" />
-            </div>
-          )}
         </div>
 
         {/* Meta + chevron — no badge */}
@@ -306,6 +297,34 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
             background: "rgba(255,255,255,0.02)",
           }}
         >
+          {/* Score display + last goal scorer */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 14, paddingBottom: 12, borderBottom: "0.5px solid var(--b2)" }}>
+            {scoreType === "margin" ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ScoreTypePill type="margin" />
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "var(--green)", lineHeight: 1 }}>
+                  {m.winner === "A" ? m.scoreA : m.winner === "B" ? m.scoreB : "?"}
+                </span>
+              </div>
+            ) : scoreType === "declared" ? (
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, lineHeight: 1,
+                color: result === "win" ? "var(--green)" : result === "loss" ? "var(--red)" : "var(--amber)" }}>
+                {result === "win" ? "W" : result === "loss" ? "L" : "D"}
+              </span>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: scoreC.A, lineHeight: 1 }}>{m.scoreA ?? "?"}</span>
+                <span style={{ fontSize: 18, color: "var(--t2)", fontWeight: 300 }}>—</span>
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: scoreC.B, lineHeight: 1 }}>{m.scoreB ?? "?"}</span>
+              </div>
+            )}
+            {lastGoalScorerPlayer && (
+              <div style={{ fontSize: 11, color: "var(--t2)", fontWeight: 300, marginTop: 6 }}>
+                ⚽ Last: {lastGoalScorerPlayer.nickname || lastGoalScorerPlayer.name}
+              </div>
+            )}
+          </div>
+
           {/* Team lineups */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
             {[
