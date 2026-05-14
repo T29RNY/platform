@@ -150,7 +150,7 @@ async function handleCron(cronType) {
     const { data: tps } = await supabase
       .from('team_players').select('player_id').eq('team_id', teamId);
     const { data: players } = await supabase
-      .from('players').select('id, name, status, paid, token, injured')
+      .from('players').select('id, name, nickname, status, paid, token, injured')
       .in('id', (tps || []).map(t => t.player_id));
 
     const inPlayers = (players || []).filter(p => p.status === 'in' && !p.injured);
@@ -205,13 +205,12 @@ async function handleCron(cronType) {
         .select('bib_holder')
         .eq('team_id', teamId)
         .not('bib_holder', 'is', null)
-        .neq('bib_holder', '')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
       if (!lastMatch?.bib_holder) continue;
-      const bibPlayer = (players || []).find(p => p.name === lastMatch.bib_holder && !p.injured);
+      const bibPlayer = (players || []).find(p => p.id === lastMatch.bib_holder);
       if (!bibPlayer) continue;
 
       // 8. Bibs 24hr before — cron schedule: "0 * * * *"
