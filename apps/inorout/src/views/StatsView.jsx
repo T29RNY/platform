@@ -395,7 +395,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                       fontSize: 9, fontWeight: 600,
                       background: "var(--green2)", border: "0.5px solid var(--greenb)", color: "var(--green)",
                     }}>
-                      {initials(p.name)}
+                      {initials(p.nickname || p.name)}
                     </div>
                     {/* Name */}
                     <div style={{ fontSize: 13, fontWeight: 400, color: "var(--t1)", minWidth: 50, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -430,7 +430,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               <LeaderCard icon={SoccerBall} label="Goals">
                 {topScorers.map((p, i) => (
                   <LeaderRow
-                    key={p.id} rank={i + 1} name={p.name}
+                    key={p.id} rank={i + 1} name={p.nickname || p.name}
                     value={p.goals || 0}
                     bar={p.goals || 0} maxBar={topScorers[0].goals || 1}
                     barColor="var(--green)"
@@ -452,7 +452,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                 <LeaderCard label="Goals Per Game">
                   {clinical.map((p, i) => (
                     <LeaderRow
-                      key={p.id} rank={i + 1} name={p.name}
+                      key={p.id} rank={i + 1} name={p.nickname || p.name}
                       value={p.gpg.toFixed(2)}
                       bar={p.gpg} maxBar={clinical[0].gpg || 1}
                       barColor="var(--gold)"
@@ -503,7 +503,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                 <LeaderCard icon={Trophy} label="Win Rate">
                   {winLeaders.map((p, i) => (
                     <LeaderRow
-                      key={p.id} rank={i + 1} name={p.name}
+                      key={p.id} rank={i + 1} name={p.nickname || p.name}
                       value={`${p.winRate}%`}
                       bar={p.winRate} maxBar={100}
                       barColor="var(--green)"
@@ -530,7 +530,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                 <LeaderCard label="Lowest Win Rate">
                   {relegation.map((p, i) => (
                     <LeaderRow
-                      key={p.id} rank={i + 1} name={p.name}
+                      key={p.id} rank={i + 1} name={p.nickname || p.name}
                       value={`${p.winRate}%`}
                       bar={100 - p.winRate} maxBar={100}
                       barColor="var(--red)"
@@ -552,7 +552,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               <LeaderCard icon={CalendarCheck} label="Attendance">
                 {topAttend.map((p, i) => (
                   <LeaderRow
-                    key={p.id} rank={i + 1} name={p.name}
+                    key={p.id} rank={i + 1} name={p.nickname || p.name}
                     value={`${p.attPct}%`}
                     bar={p.attPct} maxBar={100}
                     barColor={p.attPct >= 80 ? "var(--green)" : p.attPct >= 60 ? "var(--amber)" : "var(--red)"}
@@ -614,7 +614,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               {topConsistent ? (
                 <InsightTile
                   label="Most Consistent"
-                  value={topConsistent.name.split(" ")[0]}
+                  value={(topConsistent.nickname || topConsistent.name).split(" ")[0]}
                   valueFontSize={24}
                   valueColor="var(--gold)"
                   sub={`scored in ${topConsistent.scoredIn} of ${totalGames} games`}
@@ -631,7 +631,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
               <LeaderCard emoji="🟡" label="Times Taken Bibs">
                 {topBibs.map((p, i) => (
                   <LeaderRow
-                    key={p.id} rank={i + 1} name={p.name}
+                    key={p.id} rank={i + 1} name={p.nickname || p.name}
                     value={`${p.bibCount}×`}
                     bar={p.bibCount || 0} maxBar={topBibs[0].bibCount || 1}
                     barColor="var(--amber)"
