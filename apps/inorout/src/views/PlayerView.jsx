@@ -1076,7 +1076,7 @@ export default function PlayerView({
               {maybePlayers.length > 0 && (
                 <Tile colour="amber" icon="❓" label="Maybe" count={maybePlayers.length}>
                   {maybePlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" hasBibs={matchHistory[0]?.bibHolder === p.id} />
                   ))}
                 </Tile>
               )}
@@ -1085,7 +1085,7 @@ export default function PlayerView({
               {outPlayers.length > 0 && (
                 <Tile colour="red" icon="❌" label="Out" count={outPlayers.length}>
                   {outPlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} hasBibs={matchHistory[0]?.bibHolder === p.id} />
                   ))}
                 </Tile>
               )}
@@ -1113,7 +1113,7 @@ export default function PlayerView({
                   <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 9px",
                     padding:"0 4px", marginBottom:8 }}>
                     {noRespPlayers.map(p => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" />
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasBibs={matchHistory[0]?.bibHolder === p.id} />
                     ))}
                   </div>
                 )}
