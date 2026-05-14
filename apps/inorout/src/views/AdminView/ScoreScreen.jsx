@@ -159,7 +159,8 @@ export default function ScoreScreen({
     return false;
   })();
   const stage3Done = lastGoalChoice === "no" || (lastGoalChoice === "yes" && lastGoalPlayerId !== null);
-  const stage4Done = bibsPlayerId !== null;
+  const bibsEnabled = schedule?.bibsEnabled !== false;
+  const stage4Done = !bibsEnabled || bibsPlayerId !== null;
   const canSave    = stage1Done && stage2Done && stage3Done && stage4Done;
 
   const winner = (() => {
@@ -206,8 +207,8 @@ export default function ScoreScreen({
 
   useEffect(() => { if (stage1Done && !p1.current) { p1.current = true; peek(s2Ref); } }, [stage1Done]); // eslint-disable-line
   useEffect(() => { if (stage2Done && !p2.current) { p2.current = true; peek(s3Ref); } }, [stage2Done]); // eslint-disable-line
-  useEffect(() => { if (stage3Done && !p3.current) { p3.current = true; peek(s4Ref); } }, [stage3Done]); // eslint-disable-line
-  useEffect(() => { if (stage4Done && !p4.current) { p4.current = true; peek(s5Ref); } }, [stage4Done]); // eslint-disable-line
+  useEffect(() => { if (stage3Done && !p3.current) { p3.current = true; peek(bibsEnabled ? s4Ref : s5Ref); } }, [stage3Done]); // eslint-disable-line
+  useEffect(() => { if (stage4Done && bibsEnabled && !p4.current) { p4.current = true; peek(s5Ref); } }, [stage4Done]); // eslint-disable-line
 
   useEffect(() => {
     if (!stage3Done) return;
@@ -574,7 +575,7 @@ export default function ScoreScreen({
       )}
 
       {/* ── STAGE 4 — BIBS ──────────────────────────────────────────────────── */}
-      {stage3Done && (
+      {stage3Done && bibsEnabled && (
         <StageCard refProp={s4Ref}>
           <StageLbl>WHO TOOK THE BIBS? 👕</StageLbl>
           <div style={{ position: "relative" }}>
