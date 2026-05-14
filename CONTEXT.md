@@ -571,18 +571,63 @@ matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, b
 
 ## PAYMENT SYSTEM
 
+### DB fields (players table)
+| Field | Type | Meaning |
+|---|---|---|
+| `paid` | bool | Admin has confirmed payment (or Stripe paid) |
+| `self_paid` | bool | Player/host self-reported cash — may await admin confirm |
+| `paid_by` | text | `'self'` / `'host'` / `'admin'` / `'stripe'` / null |
+| `owes` | int | Accumulated debt across missed games (no per-game breakdown) |
+| `pay_count` | int | Lifetime count of games paid — used in payRate() for IO stats |
+
+### Payment states (getPaymentState)
+`'cash_pending'` (UI-only, never persisted) → `'paid'` (paid||selfPaid) → `'debt'` (owes>0) → `'unpaid'`
+
+### Guest payment states (getGuestPaymentState)
+`'cash_pending'` → `'paid_stripe'` (paid===true) → `'paid_cash'` (self_paid===true) → `'unpaid'`
+
 ### payments.js functions
-- getPaymentState(player, schedule, cashPending)
-- getGuestPaymentState(guest, guestCashPending)
-- getPaymentMode(schedule)
-- handleCashPayment(playerId, teamId, paidBy='self')
-- handleGuestCashPayment(guestId, teamId, paidBy='host')
-- handleMarkPaid(playerId, teamId)
-- handleResetPayment(playerId, teamId)
-- handleStripePayment(playerId, teamId, amount) — stub
+- `getPaymentState(player, cashPending)` — reads paid, selfPaid, owes
+- `getGuestPaymentState(guest, guestCashPending)` — reads paid, selfPaid, paidBy
+- `getPaymentMode(schedule)` — reads schedule.payment_mode (column doesn't exist yet; always returns 'both')
+- `handleCashPayment(playerId, teamId, paidBy='self')` — writes self_paid=true, paid_by=paidBy
+- `handleGuestCashPayment(guestId, teamId, paidBy='host')` — identical write, different default paidBy
+- `handleMarkPaid(playerId, teamId)` — writes paid=true only; does NOT touch self_paid/paid_by/owes
+- `handleResetPayment(playerId, teamId)` — writes paid=false, self_paid=false, paid_by=null; does NOT touch owes
+- `handleClearDebt(playerId, teamId)` — writes owes=0 only
+- `handleStripePayment(playerId, teamId, amount)` — stub, returns { success:false }
+- `carryForwardDebts(players, pricePerPlayer)` — pure fn; adds pricePerPlayer to owes for unpaid in-players, resets paid/selfPaid/status/team
+- `getUnpaidPlayers(players, payments)` — pure filter; not called anywhere (orphaned)
+- `getSelfPaidPending(players)` — pure filter; not called anywhere (superseded by inline filter in AdminView)
+- `generateMatchReport(match, groupName)` — text formatter; not called anywhere (orphaned)
 
 ### paid_by values
 self | host | admin | stripe | null
+
+### matches.payments jsonb
+- Format: `{ "PlayerName": true/false, ... }` — keyed by **player name string** (not ID)
+- Built in ScoreScreen at result save: converts `{ [player.id]: player.paid }` → `{ [player.name]: bool }`
+- Written by `saveMatchResult` to `matches.payments`; read back by `dbToMatch` into `match.payments`
+- Used by `updatePlayerRecords` (attendance.js) to determine `payCount` increment and `owes` growth
+- **Never displayed anywhere in the UI** — purely an accounting artifact
+- **Name-keyed = fragile**: historical entries won't match if a player's name changes
+
+### owes recalculation — two independent paths
+1. `draftNextWeek()` in AdminView → `carryForwardDebts()` → `upsertPlayers()` — advances week, adds price to unpaid in-players
+2. `updatePlayerRecords()` in ScoreScreen save — adds price to unpaid in-players at result entry time
+Both can run; both add to `owes`. No deduplication.
+
+### Payment confirmation flow (known bug)
+`selfPaidPending` filter in AdminView is `selfPaid===true && paid!==true && !paidBy`.
+But `handleCashPayment` always sets `paid_by`. So a player who self-reports via PlayerView gets `paid_by='self'` → `paidBy` is truthy → excluded from the confirmation banner.
+Result: self-paying players show as "✓ Paid" to admin (via selfPaid) with no confirmation prompt. Admin confirmation step is effectively skipped for player-initiated cash payments.
+
+### Per-game payment history — what's missing
+- No table linking a payment to a specific match_id — player_match has no payment fields
+- No amount stored per payment — pay_count is a count only, no dates or amounts
+- No timestamp on when payment was made or confirmed
+- owes accumulates across missed games with no breakdown of which games
+- matches.payments is the closest thing but: name-keyed, boolean only, never displayed, not queryable per player
 
 ---
 
