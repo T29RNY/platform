@@ -97,7 +97,37 @@ export async function getBibHistory(teamId) {
     .eq("team_id", teamId)
     .order("match_date", { ascending: false });
   if (error) throw error;
-  return (data || []).map(b => ({ name: b.name, matchDate: b.match_date, returned: b.returned }));
+  return (data || []).map(b => ({ name: b.name, playerId: b.player_id, matchDate: b.match_date, returned: b.returned }));
+}
+
+export async function getBibStats(teamId, squadPlayers) {
+  const { data, error } = await supabase
+    .from("bib_history").select("*")
+    .eq("team_id", teamId);
+  if (error) throw error;
+  const rows = data || [];
+  const now  = new Date();
+  const ago  = days => new Date(now - days * 86400000);
+
+  return (squadPlayers || [])
+    .filter(p => !p.disabled && !p.isGuest)
+    .map(p => {
+      const mine  = r => (r.player_id && r.player_id === p.id) || (!r.player_id && r.name === p.name);
+      const all   = rows.filter(mine);
+      const since = (r, d) => r.match_date && new Date(r.match_date) >= ago(d);
+      return {
+        id:        p.id,
+        name:      p.name,
+        nickname:  p.nickname,
+        allTime:   all.length,
+        lastMonth: all.filter(r => since(r, 30)).length,
+        last3:     all.filter(r => since(r, 90)).length,
+        last6:     all.filter(r => since(r, 180)).length,
+        lastYear:  all.filter(r => since(r, 365)).length,
+      };
+    })
+    .filter(p => p.allTime > 0)
+    .sort((a, b) => b.allTime - a.allTime);
 }
 
 export async function insertBib(bib, teamId) {
@@ -547,9 +577,9 @@ export async function saveBibHolder(matchId, teamId, playerId, playerName) {
       .eq("team_id", teamId)
       .eq("returned", false);
 
-    // b. Insert new bib_history row (name string — historical log, unchanged)
+    // b. Insert new bib_history row
     const { error: e1 } = await supabase.from("bib_history")
-      .insert({ team_id: teamId, name: playerName, match_date: new Date().toISOString().split('T')[0], returned: false });
+      .insert({ team_id: teamId, name: playerName, player_id: playerId, match_date: new Date().toISOString().split('T')[0], returned: false });
     if (e1) throw e1;
 
     // c. Store player_id on match
