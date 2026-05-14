@@ -564,6 +564,13 @@ export async function saveBibHolder(matchId, teamId, playerId, playerName) {
       .eq("id", matchId);
     if (e2) throw e2;
 
+    // increment bib_count on players row (source for Bib Duty leaderboard + updateCareerBibCount)
+    const { data: pData } = await supabase.from("players").select("bib_count").eq("id", playerId).single();
+    const { error: e3 } = await supabase.from("players")
+      .update({ bib_count: (pData?.bib_count || 0) + 1 })
+      .eq("id", playerId);
+    if (e3) throw e3;
+
     // d. Update career total
     const { data: playerRow } = await supabase
       .from("players").select("user_id").eq("id", playerId).single();
