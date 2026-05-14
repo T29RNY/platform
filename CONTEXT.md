@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 14 2026 (session 13)*
+*Last updated: May 14 2026 (session 14)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -81,7 +81,7 @@ platform/
           PlayerView.jsx     ← rebuilt session 6; startTab prop added session 12
           MyIOView.jsx       ← built session 8, IO Intelligence screen; TacticsBoardHero sticky (session 12)
           StatsView.jsx      ← rebuilt session 6, IO Statbook; local SVG hero + sticky (session 12)
-          HistoryView.jsx    ← rebuilt session 6, Results screen; score_type + last_goal_scorer display (session 12)
+          HistoryView.jsx    ← rebuilt session 6, Results screen; score_type + last_goal_scorer display corrected (session 14)
           Gaffer/
             index.jsx        ← Ask the Gaffer chatbot (disabled via ENABLE_GAFFER=false in App.jsx)
             systemPrompt.js  ← 820-word system prompt
@@ -1063,7 +1063,29 @@ Cron infrastructure hardening + full onboarding + ScheduleScreen rebuild (Stages
 - Stat columns are shared/accumulated across all teams — no per-team reset on join
 - **Bug**: NameStep name input is silently discarded for returning players — `handleJoin` sets `joinedPlayer.name = existing.name`, ignores what was typed; fix = skip NameStep entirely for users with `user_id` match, or show their existing name pre-filled
 
-**Next session (Session 14) — start with:**
+**Session 14 (May 14 2026):**
+Nickname display audit + HistoryView score type display corrections.
+
+**Nickname tap fix (AdminView PlayerProfile):**
+- `AdminView/index.jsx` PlayerProfile — `onClick={() => setEditingNick(true)}` moved from 12px `PencilSimple` icon to outer div wrapper; entire nickname row (text + icon) is now tappable
+
+**Nickname display audit — all remaining `player.name` display instances fixed:**
+- `StatsView.jsx` — 8 lines: avatar initials (Player Form), LeaderRow `name` prop in Top Scorers, Clinical, Win Rate Leaders, Relegation Zone, Attendance, Bib Duty; InsightTile Most Consistent value
+- `PlayerView.jsx` — 3 lines: teams tile avatar `ini` variable (2 uses: `p.name` → `p.nickname || p.name`), teams tile guest host label (`host.name` → `host.nickname || host.name`)
+- `Avatar.jsx` (`src/components/ui/Avatar.jsx`) — 2 lines: initials circle (`player?.name` → `player?.nickname || player?.name`), name label below circle (same); fixes all IN/Reserve/Maybe/Out/No Response chips
+
+**HistoryView score type display — corrected from session 12 partial implementation:**
+- `SCORE_TYPE_PILL.margin` badge: color gold → amber, bg gold2 → amber2, border 1px goldb → 0.5px amberb
+- `ScoreTypePill` fontSize: 9 → 10
+- Collapsed **declared** display: replaced `ScoreTypePill type="declared"` with W/L/D Bebas Neue 22px spans; loser gets `var(--t2)` L; removed absolute-positioned draw badge
+- Collapsed **margin** winner display: removed "Won by N" text; now `[WON BY amber pill] [N number]` only; margin draw shows D span (consistent)
+- Expanded drill-down: added score display header before lineup grid — exact shows `scoreA — scoreB`, margin shows `[WON BY] N`, declared shows 36px W/L/D letter; below it, `lastGoalScorerPlayer` shows "⚽ Last: [nickname || name]" if set, nothing if null
+
+**Key convention note (HistoryView):**
+- `lastGoalScorerPlayer` is derived by `players.find(p => p.id === m.lastGoalScorer)` — silent null if player not found (e.g. guest or deleted player)
+- Last goal scorer shown in two places: collapsed info row (Row 2) AND expanded score header — intentional, gives context before and during drill-down
+
+**Next session (Session 15) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
 2. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
