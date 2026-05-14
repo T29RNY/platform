@@ -629,7 +629,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
                   padding:"14px 16px",
                   borderBottom: i < TRIGGER_LABELS.length - 1 ? "1px solid var(--s3)" : "none",
                 }}>
-                  <span style={{ fontSize:13, color:"var(--t1)", fontWeight:300, flex:1, paddingRight:12 }}>
+                  <span style={{ fontSize:14, color:"var(--t1)", fontWeight:300, flex:1, paddingRight:12 }}>
                     {label}
                   </span>
                   <Toggle
@@ -648,9 +648,9 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
           <div style={{
             padding:"10px 14px", borderRadius:10, marginBottom:12,
             background:"rgba(255,64,64,0.08)", border:"1px solid rgba(255,64,64,0.3)",
-            fontSize:13, color:"var(--red)", fontWeight:300,
+            fontSize:12, color:"var(--red)", fontWeight:300,
           }}>
-            Failed to save. Please try again.
+            Save failed — try again
           </div>
         )}
         <button
@@ -665,7 +665,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
             opacity: saving ? 0.7 : 1,
           }}
         >
-          {saving ? "SAVING..." : saveStatus === "ok" ? "SAVED ✓" : "SAVE SETTINGS"}
+          {saving ? "SAVING..." : saveStatus === "ok" ? "SAVED ✓" : "SAVE MATCH SETTINGS"}
         </button>
 
       </div>
