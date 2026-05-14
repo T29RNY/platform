@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Info } from "@phosphor-icons/react";
 
 // ── Platform detection ────────────────────────────────────────────────────────
@@ -8,6 +8,176 @@ function detectPlatform() {
   if (/iphone|ipad|ipod/i.test(ua) && !window.MSStream) return "ios";
   if (/android/i.test(ua)) return "android";
   return "desktop";
+}
+
+// ── iOS carousel data ─────────────────────────────────────────────────────────
+const IOS_STEPS = [
+  {
+    img: "/ios-install-step1.png",
+    text: "Open in-or-out.com in Safari, then tap the ··· menu in the bottom bar",
+  },
+  {
+    img: "/ios-install-step2.png",
+    text: "Tap Share",
+  },
+  {
+    img: "/ios-install-step3.png",
+    text: "Scroll down and tap Add to Home Screen",
+  },
+  {
+    img: "/ios-install-step4.png",
+    text: "Tap Add — make sure Open as Web App is on. Allow notifications when prompted for match alerts, teamsheets, POTM voting and more.",
+  },
+];
+
+// ── iOS install carousel ──────────────────────────────────────────────────────
+function IOSCarousel({ playerUrl }) {
+  const [step, setStep] = useState(0);
+  const touchStartX = useRef(null);
+
+  const prev = () => setStep(s => Math.max(0, s - 1));
+  const next = () => setStep(s => Math.min(3, s + 1));
+
+  const onTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+  const onTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (dx < -40) next();
+    else if (dx > 40) prev();
+    touchStartX.current = null;
+  };
+
+  const handleCta = () => {
+    window.posthog?.capture("install_screen_cta_tapped", { platform: "ios" });
+    window.location.href = playerUrl;
+  };
+
+  const handleSkip = () => {
+    window.posthog?.capture("install_screen_skipped", { platform: "ios" });
+    window.location.href = playerUrl;
+  };
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", minHeight: "100vh",
+      background: "var(--bg)", padding: 24, boxSizing: "border-box",
+    }}>
+
+      {/* Header */}
+      <div style={{
+        fontFamily: "'Bebas Neue', sans-serif", fontSize: 28,
+        letterSpacing: "0.08em", color: "var(--gold)", marginBottom: 20,
+      }}>
+        ADD TO HOME SCREEN
+      </div>
+
+      {/* Carousel row */}
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        <button
+          onClick={prev}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 28, color: "var(--t2)", lineHeight: 1,
+            visibility: step === 0 ? "hidden" : "visible",
+            padding: "0 4px",
+          }}
+        >
+          ‹
+        </button>
+
+        {/* Fixed 280×220 image container — no height jump between steps */}
+        <div style={{
+          width: 280, height: 220, flexShrink: 0,
+          borderRadius: 12, border: "3px solid var(--gold)",
+          background: "var(--s1)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          overflow: "hidden",
+        }}>
+          <img
+            src={IOS_STEPS[step].img}
+            alt={`Step ${step + 1}`}
+            style={{ maxWidth: 280, maxHeight: 220, objectFit: "contain", display: "block" }}
+          />
+        </div>
+
+        <button
+          onClick={next}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 28, color: "var(--t2)", lineHeight: 1,
+            visibility: step === 3 ? "hidden" : "visible",
+            padding: "0 4px",
+          }}
+        >
+          ›
+        </button>
+      </div>
+
+      {/* Dot indicators */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+        {IOS_STEPS.map((_, i) => (
+          <div key={i} style={{
+            width: i === step ? 8 : 6,
+            height: i === step ? 8 : 6,
+            borderRadius: "50%",
+            background: i === step ? "var(--gold)" : "var(--s3)",
+            border: i === step ? "none" : "1px solid var(--t2)",
+            transition: "all 0.2s ease",
+          }} />
+        ))}
+      </div>
+
+      {/* Step counter */}
+      <div style={{
+        fontSize: 11, color: "var(--t2)", fontFamily: "'DM Sans', sans-serif",
+        fontWeight: 300, marginBottom: 8,
+      }}>
+        {step + 1} of 4
+      </div>
+
+      {/* Step text */}
+      <div style={{
+        fontSize: 13, color: "var(--t1)", fontWeight: 300,
+        fontFamily: "'DM Sans', sans-serif",
+        textAlign: "center", maxWidth: 280, lineHeight: 1.5,
+        marginBottom: 20,
+      }}>
+        {IOS_STEPS[step].text}
+      </div>
+
+      {/* CTA button — step 4 only */}
+      <button
+        onClick={handleCta}
+        style={{
+          display: step === 3 ? "block" : "none",
+          width: "100%", maxWidth: 280,
+          background: "var(--green)", color: "#000",
+          fontFamily: "'Bebas Neue', sans-serif", fontSize: 18,
+          borderRadius: 12, padding: 14, border: "none", cursor: "pointer",
+          marginBottom: 12, boxSizing: "border-box",
+        }}
+      >
+        Open the App
+      </button>
+
+      {/* Skip link */}
+      <button
+        onClick={handleSkip}
+        style={{
+          background: "none", border: "none", cursor: "pointer",
+          fontSize: 12, color: "var(--t2)", fontWeight: 300, padding: "4px 8px",
+          fontFamily: "'DM Sans', sans-serif",
+        }}
+      >
+        skip for now
+      </button>
+    </div>
+  );
 }
 
 // ── Placeholder screenshot slot ───────────────────────────────────────────────
@@ -92,26 +262,6 @@ function NavButtons({ onCta, onSkip }) {
         skip for now
       </button>
     </div>
-  );
-}
-
-// ── iOS instructions ──────────────────────────────────────────────────────────
-function IOSInstructions() {
-  return (
-    <>
-      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t1)", letterSpacing: "0.05em", marginBottom: 6 }}>
-        Add to your home screen
-      </div>
-      <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.5, marginBottom: 24 }}>
-        To get match reminders, POTM votes and squad updates
-      </div>
-
-      <InstallStep num={1} text="Tap the Share button at the bottom of Safari" />
-      <InstallStep num={2} text="Scroll down and tap Add to Home Screen" />
-      <InstallStep num={3} text="Tap Add, then open In or Out from your home screen" />
-
-      <NotifInfoRow text="You must open from your home screen icon — not Safari — to receive notifications" />
-    </>
   );
 }
 
@@ -205,6 +355,11 @@ export default function JoinSuccess({ player, team }) {
 
   if (platform === "installed") return null;
 
+  // iOS — full-page centred carousel
+  if (platform === "ios") {
+    return <IOSCarousel playerUrl={playerUrl} />;
+  }
+
   return (
     <div style={{
       minHeight: "100dvh", background: "var(--bg)",
@@ -235,7 +390,6 @@ export default function JoinSuccess({ player, team }) {
         </div>
 
         {/* Platform-specific instructions */}
-        {platform === "ios"     && <IOSInstructions />}
         {platform === "android" && <AndroidInstructions />}
         {platform === "desktop" && <DesktopInstructions joinUrl={joinUrl} />}
 
