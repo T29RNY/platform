@@ -48,11 +48,9 @@ export function newPlayer(name, type = "regular", options = {}) {
 }
 
 export function newMatch(options = {}) {
-  const now = new Date();
   return {
     id:           "m" + Date.now(),
-    date:         now.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
-    dateShort:    now.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+    matchDate:    new Date().toISOString().split('T')[0],
     teamA:        options.teamA    || [],
     teamB:        options.teamB    || [],
     winner:       options.winner   || null,

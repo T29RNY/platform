@@ -97,12 +97,12 @@ export async function getBibHistory(teamId) {
     .eq("team_id", teamId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data || []).map(b => ({ name: b.name, date: b.date, returned: b.returned }));
+  return (data || []).map(b => ({ name: b.name, matchDate: b.match_date, returned: b.returned }));
 }
 
 export async function insertBib(bib, teamId) {
   const { error } = await supabase.from("bib_history").insert({
-    name: bib.name, date: bib.date, returned: bib.returned, team_id: teamId,
+    name: bib.name, match_date: bib.matchDate, returned: bib.returned, team_id: teamId,
   });
   if (error) throw error;
 }
@@ -182,7 +182,7 @@ function dbToPlayer(r) {
 
 function matchToDb(m) {
   return {
-    id: m.id, date: m.date, date_short: m.dateShort,
+    id: m.id, match_date: m.matchDate,
     team_a: m.teamA, team_b: m.teamB,
     winner: m.winner, score_a: m.scoreA, score_b: m.scoreB,
     scorers: m.scorers, motm: m.motm,
@@ -202,7 +202,7 @@ function matchToDb(m) {
 
 function dbToMatch(r) {
   return {
-    id: r.id, date: r.date, dateShort: r.date_short,
+    id: r.id, matchDate: r.match_date,
     teamA: r.team_a || [], teamB: r.team_b || [],
     winner: r.winner, scoreA: r.score_a, scoreB: r.score_b,
     scorers: r.scorers || {}, motm: r.motm,
@@ -459,17 +459,12 @@ export function resolveBibHolder(bibValue, players) {
 export async function getLastMatchMeta(teamId) {
   const { data, error } = await supabase
     .from("matches")
-    .select("motm, bib_holder, date")
+    .select("motm, bib_holder, match_date")
     .eq("team_id", teamId)
     .eq("cancelled", false)
     .not("winner", "is", null);
   if (error || !data?.length) return null;
-  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  const parseDate = (d) => {
-    const [day, mon, year] = d.split(' ');
-    return new Date(year, months[mon], parseInt(day));
-  };
-  const sorted = [...data].sort((a, b) => parseDate(b.date) - parseDate(a.date));
+  const sorted = [...data].sort((a, b) => new Date(b.match_date) - new Date(a.match_date));
   const match = sorted[0];
   return { motm: match.motm || null, bibHolder: match.bib_holder || null };
 }
@@ -508,7 +503,7 @@ export async function getBibEligiblePlayers(matchId, teamId) {
 // Used by ScoreScreen so that a pre-set motm (from voting) is never overwritten.
 export async function saveMatchResult(matchId, teamId, match) {
   const fields = {
-    date: match.date, date_short: match.dateShort,
+    match_date: match.matchDate,
     team_a: match.teamA, team_b: match.teamB,
     winner: match.winner,
     score_a: match.scoreA !== undefined ? match.scoreA : null,
@@ -553,9 +548,8 @@ export async function saveBibHolder(matchId, teamId, playerId, playerName) {
       .eq("returned", false);
 
     // b. Insert new bib_history row (name string — historical log, unchanged)
-    const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const { error: e1 } = await supabase.from("bib_history")
-      .insert({ team_id: teamId, name: playerName, date, returned: false });
+      .insert({ team_id: teamId, name: playerName, match_date: new Date().toISOString().split('T')[0], returned: false });
     if (e1) throw e1;
 
     // c. Store player_id on match
