@@ -1,49 +1,27 @@
-import { colors as C } from "@platform/core";
 import { useOnboarding } from "./hooks/useOnboarding.js";
 import CreateTeam from "./steps/CreateTeam.jsx";
 import AddPlayers from "./steps/AddPlayers.jsx";
 import ShareLinks from "./steps/ShareLinks.jsx";
 
-function ProgressBar({ step }) {
-  return (
-    <div style={{ padding:"16px 24px 0", background:"#0f0f0f",
-      borderBottom:`1px solid ${C.border}` }}>
-      {/* Logo */}
-      <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:20,
-        color:C.amber, letterSpacing:3, marginBottom:14 }}>IN OR OUT</div>
-      {/* Steps */}
-      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
-        {[1,2,3].map(s => (
-          <div key={s} style={{ flex:1, height:3, borderRadius:2,
-            background: s <= step ? C.amber : C.border,
-            transition:"background 0.3s" }}/>
-        ))}
-      </div>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:11,
-        color:C.muted, marginBottom:12, letterSpacing:0.5 }}>
-        Step {step} of 3
-      </div>
-    </div>
-  );
-}
-
 export default function Onboarding({ onComplete }) {
   const ob = useOnboarding({ onComplete });
 
   return (
-    <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
-      <ProgressBar step={ob.step}/>
-
+    <div style={{
+      background: "var(--bg)", minHeight: "100dvh", color: "var(--t1)",
+      maxWidth: 430, margin: "0 auto", fontFamily: "var(--font-body)",
+    }}>
       {ob.step === 1 && (
         <CreateTeam
-          groupName={ob.groupName}       setGroupName={ob.setGroupName}
-          dayOfWeek={ob.dayOfWeek}       setDayOfWeek={ob.setDayOfWeek}
-          kickoff={ob.kickoff}           setKickoff={ob.setKickoff}
-          venue={ob.venue}               setVenue={ob.setVenue}
-          city={ob.city}                 setCity={ob.setCity}
-          squadSize={ob.squadSize}       setSquadSize={ob.setSquadSize}
+          groupName={ob.groupName}           setGroupName={ob.setGroupName}
+          dayOfWeek={ob.dayOfWeek}           setDayOfWeek={ob.setDayOfWeek}
+          kickoff={ob.kickoff}               setKickoff={ob.setKickoff}
+          venue={ob.venue}                   setVenue={ob.setVenue}
+          city={ob.city}                     setCity={ob.setCity}
+          squadSize={ob.squadSize}           setSquadSize={ob.setSquadSize}
           pricePerPlayer={ob.pricePerPlayer} setPricePerPlayer={ob.setPricePerPlayer}
+          bibsEnabled={ob.bibsEnabled}       setBibsEnabled={ob.setBibsEnabled}
+          adminEmail={ob.adminEmail}         setAdminEmail={ob.setAdminEmail}
           onSubmit={ob.submitTeam}
           loading={ob.loading}
           error={ob.error}
