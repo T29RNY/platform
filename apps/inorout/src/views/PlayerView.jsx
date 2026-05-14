@@ -5,7 +5,8 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   resolveMotm } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, deletePlayer,
   getPlayerMatchForm, getLastMatchMeta,
-  getPOTMEligiblePlayers, getPOTMVotes, setPlayerNickname } from "@platform/supabase";
+  getPOTMEligiblePlayers, getPOTMVotes, setPlayerNickname,
+  resolveBibHolder } from "@platform/supabase";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,
@@ -463,6 +464,17 @@ export default function PlayerView({
                         onClick={() => { setMyNick(me?.nickname || ""); setMyNickError(null); setEditingMyNick(true); }}
                       />
                     </div>
+                  )}
+                  {me?.id === matchHistory[0]?.bibHolder && (
+                    <span style={{
+                      display:"inline-block", marginTop:6,
+                      background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+                      color:"var(--amber)",
+                      fontFamily:"var(--font-display)", fontSize:11, letterSpacing:"0.08em",
+                      borderRadius:6, padding:"3px 8px",
+                    }}>
+                      YOU'VE GOT THE BIBS 👕
+                    </span>
                   )}
                 </div>
 
@@ -991,7 +1003,7 @@ export default function PlayerView({
                           const form    = playerForm[p.id] || [];
                           const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
                           const isMotm  = !!lastMatchMeta?.motm && lastMatchMeta.motm === p.id;
-                          const hasBibs = lastMatchMeta?.bibHolder?.toLowerCase() === p.name?.toLowerCase();
+                          const hasBibs = lastMatchMeta?.bibHolder === p.id;
                           const parts   = ((p.nickname || p.name) || "").trim().split(/\s+/);
                           const ini     = parts.length >= 2
                             ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
@@ -999,6 +1011,7 @@ export default function PlayerView({
                           return (
                             <div key={p.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px", background: isMe ? "rgba(232,160,32,0.06)" : "transparent" }}>
                               <div style={{
+                                position:"relative",
                                 width:28, height:28, borderRadius:"50%",
                                 display:"flex", alignItems:"center", justifyContent:"center",
                                 fontSize:9, fontWeight:600, flexShrink:0,
@@ -1008,6 +1021,13 @@ export default function PlayerView({
                                 boxShadow:  isMe ? "0 0 8px rgba(232,160,32,0.2)" : "none",
                               }}>
                                 {ini}
+                                {hasBibs && (
+                                  <div style={{
+                                    position:"absolute", bottom:0, right:0,
+                                    width:10, height:10, borderRadius:"50%",
+                                    background:"var(--amber)",
+                                  }}/>
+                                )}
                               </div>
                               <div style={{ flex:1, minWidth:0 }}>
                                 <div style={{ display:"flex", alignItems:"center", gap:4 }}>
@@ -1023,7 +1043,7 @@ export default function PlayerView({
                                     </div>
                                   )}
                                 </div>
-                                {hasBibs && <div style={{ fontSize:9, color:"var(--t2)", fontWeight:300, marginTop:1 }}>has bibs 🟡</div>}
+                                {hasBibs && <div style={{ fontSize:9, color:"var(--amber)", fontWeight:300, marginTop:1 }}>{resolveBibHolder(lastMatchMeta?.bibHolder, squad)} has bibs 👕</div>}
                                 {host   && <div style={{ fontSize:9, color:"var(--gold)",  fontWeight:300, marginTop:1 }}>+1 {host.nickname || host.name}</div>}
                               </div>
                             </div>
@@ -1036,7 +1056,7 @@ export default function PlayerView({
               ) : (
                 <Tile colour="green" icon="✅" label="In" count={inPlayers.length}>
                   {inPlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} hasBibs={matchHistory[0]?.bibHolder === p.id} />
                   ))}
                 </Tile>
               )}
@@ -1046,7 +1066,7 @@ export default function PlayerView({
                 <div data-gaffer-target="reserve-list">
                   <Tile colour="purple" icon="🟣" label="Reserve" count={reservePlayers.length}>
                     {reservePlayers.map((p, i) => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="purple" reserveIndex={i + 1} />
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="purple" reserveIndex={i + 1} hasBibs={matchHistory[0]?.bibHolder === p.id} />
                     ))}
                   </Tile>
                 </div>
