@@ -1153,6 +1153,37 @@ export async function openPOTMVoting(matchId, teamId, closesAt, totalVoters) {
   if (error) throw error;
 }
 
+export async function getTeamPlayerNames(teamId) {
+  const { data: tpRows } = await supabase
+    .from("team_players").select("player_id").eq("team_id", teamId);
+  const ids = (tpRows || []).map(r => r.player_id);
+  if (!ids.length) return [];
+  const { data } = await supabase
+    .from("players").select("id, name, nickname").in("id", ids);
+  return data || [];
+}
+
+export async function setPlayerNickname(playerId, teamId, nickname) {
+  const trimmed = nickname ? nickname.trim() : null;
+  if (trimmed) {
+    const { data: tpRows } = await supabase
+      .from("team_players").select("player_id").eq("team_id", teamId);
+    const teamIds = (tpRows || []).map(r => r.player_id);
+    if (teamIds.length) {
+      const { data: clash } = await supabase
+        .from("players").select("id")
+        .in("id", teamIds)
+        .eq("nickname", trimmed)
+        .neq("id", playerId)
+        .maybeSingle();
+      if (clash) { const e = new Error("nickname_taken"); e.code = "nickname_taken"; throw e; }
+    }
+  }
+  const { error } = await supabase
+    .from("players").update({ nickname: trimmed || null }).eq("id", playerId);
+  if (error) throw error;
+}
+
 export async function getUserProfile(userId) {
   const { data, error } = await supabase
     .from("user_profiles")

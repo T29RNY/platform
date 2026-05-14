@@ -45,15 +45,15 @@ export default function TeamsScreen({ squad, setSquad, schedule, onBack }) {
           padding:"11px 0", borderBottom:`1px solid ${C.border}` }}>
           <div style={{ flex:1 }}>
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500, color:C.text }}>
-              {p.name}
+              {p.nickname || p.name}
             </div>
             {p.isGuest && host && (
               <>
                 <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginTop:1 }}>
-                  👤 guest of {host.name}
+                  👤 guest of {host.nickname || host.name}
                 </div>
                 <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.faint, marginTop:1 }}>
-                  {p.selfPaid ? "They pay" : `${host.name} pays`}
+                  {p.selfPaid ? "They pay" : `${host.nickname || host.name} pays`}
                 </div>
               </>
             )}

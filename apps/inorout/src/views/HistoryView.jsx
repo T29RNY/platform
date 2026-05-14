@@ -292,7 +292,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
           {m.motm && (m.bibHolder || lastGoalScorerPlayer) && <span style={{ opacity: 0.4 }}>·</span>}
           {m.bibHolder && <span>🟡 {m.bibHolder} has bibs</span>}
           {m.bibHolder && lastGoalScorerPlayer && <span style={{ opacity: 0.4 }}>·</span>}
-          {lastGoalScorerPlayer && <span>⚽ Last: {lastGoalScorerPlayer.name}</span>}
+          {lastGoalScorerPlayer && <span>⚽ Last: {lastGoalScorerPlayer.nickname || lastGoalScorerPlayer.name}</span>}
         </div>
       )}
 
@@ -335,7 +335,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
                         fontSize: 12, color: "var(--t1)",
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                       }}>
-                        {p.name}{m.motm && p.id === m.motm ? " 🏆" : ""}
+                        {p.nickname || p.name}{m.motm && p.id === m.motm ? " 🏆" : ""}
                       </div>
                       {p.isGuest && p.guestOf && (
                         <div style={{ fontSize: 9, color: "var(--gold)", marginTop: 1 }}>+1 {p.guestOf}</div>

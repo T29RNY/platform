@@ -399,7 +399,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                     </div>
                     {/* Name */}
                     <div style={{ fontSize: 13, fontWeight: 400, color: "var(--t1)", minWidth: 50, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {p.name}
+                      {p.nickname || p.name}
                     </div>
                     {/* Form dots */}
                     <div style={{ flex: 1, display: "flex", gap: 4, alignItems: "center" }}>

@@ -9,7 +9,7 @@ import {
 import {
   addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer,
   resetPlayerToken, insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
-  getPOTMEligiblePlayers, closePOTMVoting,
+  getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname,
 } from "@platform/supabase";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
@@ -163,6 +163,8 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
   const [showInj,     setShowInj]     = useState(false);
   const [editingNick, setEditingNick] = useState(false);
   const [nickname,    setNickname]    = useState(player.nickname || "");
+  const [nickError,   setNickError]   = useState(null);
+  const [nickSaving,  setNickSaving]  = useState(false);
   const [linkCopied,  setLinkCopied]  = useState(false);
   const [newToken,    setNewToken]    = useState(null);
   const [removing,    setRemoving]    = useState(false);
@@ -181,9 +183,18 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
     setTimeout(() => setLinkCopied(false), 2000);
   };
 
-  const saveNick = () => {
-    setSquad(sq => sq.map(s => s.id === p.id ? { ...s, nickname } : s));
-    setEditingNick(false);
+  const saveNick = async () => {
+    setNickSaving(true); setNickError(null);
+    try {
+      await setPlayerNickname(p.id, teamId, nickname);
+      const trimmed = nickname.trim() || null;
+      setSquad(sq => sq.map(s => s.id === p.id ? { ...s, nickname: trimmed } : s));
+      setEditingNick(false);
+    } catch(e) {
+      setNickError(e?.code === "nickname_taken" ? "Already taken on this squad" : "Failed to save");
+    } finally {
+      setNickSaving(false);
+    }
   };
 
   const handleMarkInjured = async () => {
@@ -245,7 +256,7 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
         </div>
         <div style={{ fontFamily:"var(--font-display)", fontSize:22, letterSpacing:"0.04em",
           color:"var(--t1)", lineHeight:1 }}>
-          {p.name}
+          {p.nickname || p.name}
         </div>
         {p.injured && (
           <span style={{ fontSize:11, color:"var(--red)", background:"var(--red2)",
@@ -268,27 +279,36 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:"var(--font-display)", fontSize:28,
                 letterSpacing:"0.03em", lineHeight:1, color:"var(--t1)" }}>
-                {p.name}
+                {p.nickname || p.name}
               </div>
               {editingNick ? (
-                <div style={{ display:"flex", gap:6, marginTop:5, alignItems:"center" }}>
-                  <input value={nickname} onChange={e => setNickname(e.target.value)}
-                    placeholder="Nickname..." autoFocus
-                    style={{ flex:1, background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
-                      borderRadius:"var(--rs)", padding:"5px 8px", fontSize:12, color:"var(--t1)",
-                      fontFamily:"var(--font-body)", outline:"none" }}/>
-                  <button onClick={saveNick} style={{ background:"var(--gold)", color:"#000",
-                    border:"none", borderRadius:"var(--rs)", padding:"5px 10px", fontSize:11,
-                    fontWeight:600, cursor:"pointer", fontFamily:"var(--font-body)" }}>Save</button>
-                  <button onClick={() => setEditingNick(false)} style={{ background:"transparent",
-                    border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
-                    padding:"5px 8px", fontSize:11, color:"var(--t2)", cursor:"pointer",
-                    fontFamily:"var(--font-body)" }}>✕</button>
+                <div style={{ marginTop:5 }}>
+                  <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                    <input value={nickname} onChange={e => { setNickname(e.target.value); setNickError(null); }}
+                      placeholder="Add nickname" autoFocus
+                      onKeyDown={e => e.key === "Enter" && saveNick()}
+                      style={{ flex:1, background:"var(--s3)", border:`0.5px solid ${nickError ? "var(--red)" : "var(--border-subtle)"}`,
+                        borderRadius:"var(--rs)", padding:"5px 8px", fontSize:12, color:"var(--t1)",
+                        fontFamily:"var(--font-body)", outline:"none" }}/>
+                    <button onClick={saveNick} disabled={nickSaving} style={{ background:"var(--gold)", color:"#000",
+                      border:"none", borderRadius:"var(--rs)", padding:"5px 10px", fontSize:11,
+                      fontWeight:600, cursor: nickSaving ? "not-allowed" : "pointer", fontFamily:"var(--font-body)",
+                      opacity: nickSaving ? 0.6 : 1 }}>
+                      {nickSaving ? "…" : "Save"}
+                    </button>
+                    <button onClick={() => { setEditingNick(false); setNickError(null); }} style={{ background:"transparent",
+                      border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                      padding:"5px 8px", fontSize:11, color:"var(--t2)", cursor:"pointer",
+                      fontFamily:"var(--font-body)" }}>✕</button>
+                  </div>
+                  {nickError && (
+                    <div style={{ fontSize:11, color:"var(--red)", marginTop:4, fontWeight:300 }}>{nickError}</div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
                   <span style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>
-                    {p.nickname ? `"${p.nickname}"` : "No nickname"}
+                    {p.nickname ? `"${p.nickname}"` : "Add nickname"}
                   </span>
                   <PencilSimple size={12} weight="thin" color="var(--t2)"
                     style={{ cursor:"pointer" }} onClick={() => setEditingNick(true)}/>
@@ -766,10 +786,7 @@ export default function AdminView({
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:13, color:"var(--t1)", fontWeight:400,
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-            {p.name}
-            {p.nickname && (
-              <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}> ({p.nickname})</span>
-            )}
+            {p.nickname || p.name}
             {sectionKey === "reserve" && (
               <span style={{ fontSize:10, color:"var(--purple)", fontWeight:400 }}> · #{idx+1}</span>
             )}

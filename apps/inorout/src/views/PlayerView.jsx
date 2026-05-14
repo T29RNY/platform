@@ -5,7 +5,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   resolveMotm } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, deletePlayer,
   getPlayerMatchForm, getLastMatchMeta,
-  getPOTMEligiblePlayers, getPOTMVotes } from "@platform/supabase";
+  getPOTMEligiblePlayers, getPOTMVotes, setPlayerNickname } from "@platform/supabase";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,
@@ -102,6 +102,26 @@ export default function PlayerView({
   const [potmExistingVote,setPotmExistingVote]= useState(null);
   const [potmBanner,      setPotmBanner]      = useState(null); // { winnerName, isWinner }
   const prevVotingOpen = useRef(false);
+
+  // Inline nickname edit (My View header)
+  const [editingMyNick, setEditingMyNick] = useState(false);
+  const [myNick,        setMyNick]        = useState("");
+  const [myNickError,   setMyNickError]   = useState(null);
+  const [myNickSaving,  setMyNickSaving]  = useState(false);
+
+  const saveMyNick = async () => {
+    setMyNickSaving(true); setMyNickError(null);
+    try {
+      await setPlayerNickname(myId, teamId, myNick);
+      const trimmed = myNick.trim() || null;
+      setSquad(sq => sq.map(p => p.id === myId ? { ...p, nickname: trimmed } : p));
+      setEditingMyNick(false);
+    } catch(e) {
+      setMyNickError(e?.code === "nickname_taken" ? "Already taken on this squad" : "Failed to save");
+    } finally {
+      setMyNickSaving(false);
+    }
+  };
 
   // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -397,10 +417,53 @@ export default function PlayerView({
                     textTransform:"uppercase", color:"var(--t2)", marginBottom:3 }}>
                     {schedule.gameIsLive ? `Are you in this ${gameDay}?` : "This week's game isn't live yet"}
                   </div>
-                  <div style={{ fontFamily:"var(--font-display)", fontSize:30,
-                    lineHeight:1, color:"var(--t1)", letterSpacing:"0.04em" }}>
-                    {me?.name}
-                  </div>
+                  {editingMyNick ? (
+                    <div style={{ marginTop:2 }}>
+                      <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                        <input
+                          value={myNick}
+                          onChange={e => { setMyNick(e.target.value); setMyNickError(null); }}
+                          onKeyDown={e => { if (e.key === "Enter") saveMyNick(); if (e.key === "Escape") setEditingMyNick(false); }}
+                          placeholder="Add nickname"
+                          autoFocus
+                          style={{
+                            flex:1, background:"var(--s2)",
+                            border:`0.5px solid ${myNickError ? "var(--red)" : "var(--goldb)"}`,
+                            borderRadius:6, padding:"5px 8px", fontSize:14, color:"var(--t1)",
+                            fontFamily:"var(--font-body)", outline:"none", minWidth:0,
+                          }}
+                        />
+                        <button onClick={saveMyNick} disabled={myNickSaving} style={{
+                          background:"var(--gold)", color:"var(--bg)", border:"none",
+                          borderRadius:6, padding:"5px 10px", fontSize:11, fontWeight:600,
+                          cursor: myNickSaving ? "not-allowed" : "pointer",
+                          opacity: myNickSaving ? 0.6 : 1, fontFamily:"var(--font-body)",
+                        }}>
+                          {myNickSaving ? "…" : "Save"}
+                        </button>
+                        <button onClick={() => { setEditingMyNick(false); setMyNickError(null); }} style={{
+                          background:"transparent", border:"0.5px solid var(--border-subtle)",
+                          borderRadius:6, padding:"5px 8px", fontSize:11, color:"var(--t2)",
+                          cursor:"pointer", fontFamily:"var(--font-body)",
+                        }}>✕</button>
+                      </div>
+                      {myNickError && (
+                        <div style={{ fontSize:11, color:"var(--red)", marginTop:4, fontWeight:300 }}>{myNickError}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <div style={{ fontFamily:"var(--font-display)", fontSize:30,
+                        lineHeight:1, color:"var(--t1)", letterSpacing:"0.04em" }}>
+                        {me?.nickname || me?.name}
+                      </div>
+                      <PencilSimple
+                        size={14} weight="thin" color="var(--t2)"
+                        style={{ cursor:"pointer", flexShrink:0, marginTop:4 }}
+                        onClick={() => { setMyNick(me?.nickname || ""); setMyNickError(null); setEditingMyNick(true); }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Payment column — right */}
@@ -949,7 +1012,7 @@ export default function PlayerView({
                               <div style={{ flex:1, minWidth:0 }}>
                                 <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                                   <span style={{ fontSize:12, color:"var(--t1)", fontWeight:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flexShrink:1 }}>
-                                    {p.name}{isMotm ? " 🏆" : ""}
+                                    {p.nickname || p.name}{isMotm ? " 🏆" : ""}
                                   </span>
                                   {form.length > 0 && (
                                     <div style={{ display:"flex", gap:3, flexShrink:0 }}>

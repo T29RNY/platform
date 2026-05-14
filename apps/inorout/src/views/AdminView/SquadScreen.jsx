@@ -166,7 +166,7 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
         <div key={p.id} style={{ padding:"13px 0", borderBottom:`1px solid ${C.border}`, opacity:p.disabled?0.4:1 }}>
           <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:6, flexWrap:"wrap" }}>
             <span style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:600, color:C.text, flex:1 }}>
-              {p.name}
+              {p.nickname || p.name}
             </span>
             {p.type==="guest" && <Badge text="guest"   color={C.muted}/>}
             {p.injured        && <Badge text="🤕"      color={C.red}/>}
@@ -186,7 +186,7 @@ export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
             const host = squad.find(h => h.id === p.guestOf);
             return host ? (
               <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:9 }}>
-                👤 plus one — guest of {host.name}
+                👤 plus one — guest of {host.nickname || host.name}
               </div>
             ) : null;
           })()}
