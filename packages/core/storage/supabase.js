@@ -239,6 +239,7 @@ function scheduleToDb(s) {
     bibs_enabled: s.bibsEnabled ?? true,
     season_id: s.seasonId || null,
     active: s.active ?? true,
+    auto_open_pending: s.autoOpenPending ?? true,
   };
 }
 
@@ -262,6 +263,7 @@ function dbToSchedule(r) {
     bibsEnabled: r.bibs_enabled ?? true,
     seasonId: r.season_id || null,
     active: r.active ?? true,
+    autoOpenPending: r.auto_open_pending ?? true,
   };
 }
 

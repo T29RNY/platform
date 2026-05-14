@@ -327,7 +327,7 @@ async function autoOpenGameJob(results) {
     .from("schedule")
     .select("id, team_id, opens_day, opens_time, game_date_time")
     .eq("active", true)
-    .eq("is_draft", true)
+    .eq("auto_open_pending", true)
     .eq("is_cancelled", false)
     .not("game_date_time", "is", null);
 
@@ -341,7 +341,7 @@ async function autoOpenGameJob(results) {
     if (nowMins < opensMins || nowMins >= opensMins + 15) continue;
 
     await supabase.from("schedule")
-      .update({ game_is_live: true, is_draft: false })
+      .update({ game_is_live: true, auto_open_pending: false })
       .eq("id", sched.id);
     results.push(`autoOpenGame: ${sched.team_id} opened`);
   }
@@ -373,13 +373,14 @@ async function advanceGameDateJob(results) {
     const nextDt = d.toISOString();
 
     await supabase.from("schedule").update({
-      game_date_time:   nextDt,
-      lineup_locked:    false,
-      active_match_id:  null,
-      game_is_live:     false,
-      is_draft:         true,
-      voting_open:      false,
-      voting_closes_at: null,
+      game_date_time:    nextDt,
+      lineup_locked:     false,
+      active_match_id:   null,
+      game_is_live:      false,
+      is_draft:          true,
+      voting_open:       false,
+      voting_closes_at:  null,
+      auto_open_pending: true,
     }).eq("id", sched.id);
 
     results.push(`advanceGameDate: ${sched.team_id} → ${nextDt}`);

@@ -95,6 +95,7 @@ export function useOnboarding({ onComplete }) {
         bibs_enabled: bibsEnabled ?? true,
         season_id: null,
         active: true,
+        auto_open_pending: true,
       });
       if (schedErr) throw schedErr;
 
