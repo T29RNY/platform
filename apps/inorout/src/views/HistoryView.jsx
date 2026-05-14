@@ -4,14 +4,7 @@ import { resolveMotm } from "@platform/core";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const MONTHS_IDX = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
 const MONTH_ABBR = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-
-function parseMatchDate(d) {
-  if (!d) return new Date(0);
-  const [day, mon, year] = (d || "").split(" ");
-  return new Date(+year, MONTHS_IDX[mon] ?? 0, +day || 1);
-}
 
 function getResult(m) {
   if (m.cancelled) return "cancelled";
@@ -111,10 +104,10 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
   const lastGoalScorerPlayer = m.lastGoalScorer
     ? (players || []).find(p => p.id === m.lastGoalScorer) || null
     : null;
-  const d        = parseMatchDate(m.date);
-  const dayOfWeek = d.getTime() ? d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase() : "—";
-  const dateNum   = d.getTime() ? d.getDate() : "—";
-  const monthStr  = d.getTime() ? MONTH_ABBR[d.getMonth()] : "—";
+  const d        = m.matchDate ? new Date(m.matchDate) : null;
+  const dayOfWeek = d ? d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase() : "—";
+  const dateNum   = d ? d.getDate() : "—";
+  const monthStr  = d ? d.toLocaleDateString("en-GB", { month: "short" }).toUpperCase() : "—";
 
   const findPlayer = name =>
     (players || []).find(p => (p.name || "").toLowerCase().trim() === (name || "").toLowerCase().trim());
@@ -133,7 +126,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
     const resEmoji   = result === "win" ? "🟢" : result === "draw" ? "🟡" : result === "loss" ? "🔴" : "❌";
     const scorersStr = scorersList.map(([n, g]) => `${n} (${g})`).join(", ");
     return [
-      `⚽ ${groupName || "Match"} · ${dayOfWeek} ${m.date}`,
+      `⚽ ${groupName || "Match"} · ${dayOfWeek} ${m.matchDate ? new Date(m.matchDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : ""}`,
       `${resEmoji} Team A ${m.scoreA ?? "?"} – ${m.scoreB ?? "?"} Team B`,
       "",
       `🔵 Team A: ${(m.teamA || []).join(", ") || "—"}`,
@@ -470,12 +463,12 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
     //   if (filter === "losses") return r === "loss";
     //   return true;
     // })
-    .sort((a, b) => parseMatchDate(b.date) - parseMatchDate(a.date));
+    .sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate));
 
   // Group by year → month
   const grouped = {};
   for (const m of filtered) {
-    const d  = parseMatchDate(m.date);
+    const d  = new Date(m.matchDate);
     const y  = d.getFullYear();
     const mo = d.getMonth();
     if (!grouped[y])     grouped[y]     = {};
