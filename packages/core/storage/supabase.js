@@ -1363,20 +1363,36 @@ function dbToLedger(r) {
 }
 
 export async function createLedgerEntry(entry) {
+  const row = {
+    team_id:   entry.teamId,
+    player_id: entry.playerId,
+    match_id:  entry.matchId  || null,
+    amount:    entry.amount,
+    type:      entry.type,
+    status:    entry.status,
+    method:    entry.method   || null,
+    paid_by:   entry.paidBy   || null,
+    paid_at:   entry.paidAt   || null,
+    note:      entry.note     || null,
+  };
+  if (entry.upsert) {
+    // Conflict target must match the partial index that applies for this row.
+    // payment_ledger_uniq_with_match: (player_id, team_id, type, match_id) WHERE match_id IS NOT NULL
+    // payment_ledger_uniq_without_match: (player_id, team_id, type) WHERE match_id IS NULL
+    const conflictCols = entry.matchId
+      ? 'player_id,team_id,type,match_id'
+      : 'player_id,team_id,type';
+    const { data, error } = await supabase
+      .from("payment_ledger")
+      .upsert(row, { onConflict: conflictCols, ignoreDuplicates: false })
+      .select()
+      .single();
+    if (error) throw error;
+    return dbToLedger(data);
+  }
   const { data, error } = await supabase
     .from("payment_ledger")
-    .insert({
-      team_id:   entry.teamId,
-      player_id: entry.playerId,
-      match_id:  entry.matchId  || null,
-      amount:    entry.amount,
-      type:      entry.type,
-      status:    entry.status,
-      method:    entry.method   || null,
-      paid_by:   entry.paidBy   || null,
-      paid_at:   entry.paidAt   || null,
-      note:      entry.note     || null,
-    })
+    .insert(row)
     .select()
     .single();
   if (error) throw error;
@@ -1385,11 +1401,12 @@ export async function createLedgerEntry(entry) {
 
 export async function updateLedgerEntry(id, updates) {
   const patch = {};
-  if (updates.status  !== undefined) patch.status   = updates.status;
-  if (updates.method  !== undefined) patch.method   = updates.method;
-  if (updates.paidBy  !== undefined) patch.paid_by  = updates.paidBy;
-  if (updates.paidAt  !== undefined) patch.paid_at  = updates.paidAt;
-  if (updates.note    !== undefined) patch.note     = updates.note;
+  if (updates.status  !== undefined) patch.status    = updates.status;
+  if (updates.method  !== undefined) patch.method    = updates.method;
+  if (updates.paidBy  !== undefined) patch.paid_by   = updates.paidBy;
+  if (updates.paidAt  !== undefined) patch.paid_at   = updates.paidAt;
+  if (updates.note    !== undefined) patch.note      = updates.note;
+  if (updates.matchId !== undefined) patch.match_id  = updates.matchId;
   const { data, error } = await supabase
     .from("payment_ledger")
     .update(patch)
@@ -1426,7 +1443,10 @@ export async function findMatchLedgerEntry(playerId, teamId, matchId, type) {
     .limit(1);
   query = matchId ? query.eq("match_id", matchId) : query.is("match_id", null);
   const { data, error } = await query;
-  if (error) return null;
+  if (error) {
+    console.error('[findMatchLedgerEntry] query error:', error, { playerId, teamId, matchId, type });
+    return null;
+  }
   const row = data?.[0];
   return row ? { id: row.id, status: row.status } : null;
 }

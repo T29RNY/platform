@@ -117,17 +117,23 @@ export async function handleMarkPaid(playerId, teamId, matchId = null, amount = 
     .update({ paid: true, paid_at: paidAt })
     .eq("id", playerId);
   if (error) throw error;
-  // Always query — findMatchLedgerEntry handles null matchId via IS NULL filter
   console.log('[handleMarkPaid] checking existing ledger entry', { playerId, matchId });
-  const existing = await findMatchLedgerEntry(playerId, teamId, matchId || null, 'game_fee');
-  console.log('[handleMarkPaid] existing:', existing);
+  const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
+  // Cross-path: if lineup lock now exists but player self-paid earlier (matchId was null then),
+  // find that null-matchId entry and promote it rather than creating a duplicate.
+  const existingNull = (!existing && matchId)
+    ? await findMatchLedgerEntry(playerId, teamId, null, 'game_fee')
+    : null;
+  console.log('[handleMarkPaid] existing:', existing, 'existingNull:', existingNull);
   if (existing) {
     await updateLedgerEntry(existing.id, { status: 'paid', method: 'admin', paidBy: 'admin', paidAt });
+  } else if (existingNull) {
+    await updateLedgerEntry(existingNull.id, { status: 'paid', method: 'admin', paidBy: 'admin', paidAt, matchId });
   } else {
     await createLedgerEntry({
       teamId, playerId, matchId: matchId || null, amount: amount || 0,
       type: 'game_fee', status: 'paid', method: 'admin',
-      paidBy: 'admin', paidAt, note: null,
+      paidBy: 'admin', paidAt, note: null, upsert: true,
     });
   }
   return { paid: true, paidAt };
@@ -140,10 +146,10 @@ export async function handleResetPayment(playerId, teamId, matchId = null) {
     .update({ paid: false, self_paid: false, paid_by: null, paid_at: null })
     .eq("id", playerId);
   if (error) throw error;
+  // Always reset ledger — findMatchLedgerEntry handles null matchId via IS NULL
+  const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
+  if (existing) await updateLedgerEntry(existing.id, { status: 'unpaid', paidAt: null });
   if (matchId) {
-    const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
-    if (existing) await updateLedgerEntry(existing.id, { status: 'unpaid', paidAt: null });
-    // FIX 2 — also clear player_match payment fields when match is known
     await supabase.from("player_match")
       .update({ paid: false, paid_at: null })
       .eq("match_id", matchId)
