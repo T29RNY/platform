@@ -190,28 +190,6 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
 
           {/* Action row — Reset moved inline to ledger rows (FIX 2) */}
           <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
-            {isPaid && (
-              <button onClick={async () => {
-                await handleResetPayment(player.id, teamId,
-                  schedule.activeMatchId || null).catch(console.error);
-                setSquad(sq => sq.map(p => p.id === player.id
-                  ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
-                getLedgerForPlayer(player.id, teamId, 20)
-                  .then(rows => setLedger(rows))
-                  .catch(() => setLedger([]));
-              }} style={{
-                background:'transparent',
-                border:'0.5px solid var(--t2)',
-                color:'var(--t2)',
-                borderRadius:20,
-                padding:'8px 16px',
-                fontSize:13,
-                fontFamily:'DM Sans, sans-serif',
-                cursor:'pointer'
-              }}>
-                Reset Payment
-              </button>
-            )}
             {!isPaid && (
               <button onClick={async () => {
                 await handleMarkPaid(player.id, teamId, schedule.activeMatchId || null, price).catch(console.error);
