@@ -504,6 +504,13 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
     <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--t1)", fontFamily: "var(--font-body)", paddingBottom: 110 }}>
 
       {/* ── Hero (sticky) ── */}
+      <style>{`
+        .heroGlassStatTile{position:absolute;top:0;right:0;width:clamp(132px,24vw,194px);height:100%;border-radius:0 var(--r) var(--r) 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,255,255,0.24) 0%,rgba(255,255,255,0.10) 38%,rgba(255,255,255,0.05) 100%);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border-left:1px solid rgba(255,255,255,0.22);border-bottom:1px solid rgba(255,255,255,0.16);box-shadow:0 18px 45px rgba(0,0,0,0.32),inset 0 1px 0 rgba(255,255,255,0.28),inset 0 -1px 0 rgba(255,255,255,0.08);overflow:hidden;z-index:2}
+        .heroGlassStatTile::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 24% 12%,rgba(255,255,255,0.34),rgba(255,255,255,0.08) 34%,transparent 58%);pointer-events:none}
+        .heroGlassStatTile::after{content:"";position:absolute;inset:1px;border-radius:inherit;border:1px solid rgba(255,255,255,0.08);pointer-events:none}
+        .heroGlassStatValue{position:relative;z-index:1;font-size:clamp(34px,5vw,54px);line-height:0.9;font-weight:700;letter-spacing:-0.04em;color:rgba(255,255,255,0.96);text-shadow:0 2px 10px rgba(0,0,0,0.28),0 0 24px rgba(255,255,255,0.08)}
+        .heroGlassStatLabel{position:relative;z-index:1;margin-top:10px;font-size:clamp(12px,1.7vw,16px);line-height:1;font-weight:400;letter-spacing:-0.01em;color:rgba(255,255,255,0.72);white-space:nowrap}
+      `}</style>
       <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "0 16px" }}>
         <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", height: 110 }}>
           <img
@@ -532,29 +539,10 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
               Every game. Every moment.
             </div>
           </div>
-        </div>
-        {/* Games played chip — sibling outside overflow:hidden so backdropFilter renders */}
-        <div style={{ position: "absolute", top: "50%", right: 16, transform: "translateY(-50%)" }}>
-          <div style={{
-            background: "rgba(255,255,255,0.08)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "0.5px solid rgba(255,255,255,0.25)",
-            borderRadius: 16,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.15)",
-            padding: "10px 16px",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            minWidth: 80,
-          }}>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 40, lineHeight: 1,
-              color: "var(--t1)", textAlign: "center" }}>
-              {totalPlayed}
-            </div>
-            <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300,
-              textAlign: "center", marginTop: 2 }}>
-              games played
-            </div>
+          {/* Games played glass tile — inside overflow:hidden so border-radius clips correctly */}
+          <div className="heroGlassStatTile">
+            <span className="heroGlassStatValue">{totalPlayed}</span>
+            <span className="heroGlassStatLabel">games played</span>
           </div>
         </div>
       </div>
