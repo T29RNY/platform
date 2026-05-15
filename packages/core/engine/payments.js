@@ -51,8 +51,6 @@ export async function handleCashPayment(playerId, teamId, paidBy = 'self', match
       .eq("id", playerId);
     if (error) throw error;
     const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
-    console.log('[handleCashPayment] existing:', existing, 'playerId:', playerId, 'teamId:', teamId, 'matchId:', matchId);
-    console.log('[handleCashPayment] existing full:', JSON.stringify(existing));
     if (existing) {
       await updateLedgerEntry(existing.id, {
         status: 'paid',
@@ -60,7 +58,6 @@ export async function handleCashPayment(playerId, teamId, paidBy = 'self', match
         paidBy,
         paidAt,
       });
-      console.log('[handleCashPayment] updated ledger entry');
     } else {
       await createLedgerEntry({
         teamId, playerId, matchId: matchId || null, amount: amount || 0,
@@ -68,7 +65,6 @@ export async function handleCashPayment(playerId, teamId, paidBy = 'self', match
         method: paidBy === 'stripe' ? 'stripe' : 'cash',
         paidBy, paidAt, note: null,
       });
-      console.log('[handleCashPayment] created ledger entry');
     }
     return { selfPaid: true, paidBy, paidAt };
   } catch (error) {
@@ -136,14 +132,12 @@ export async function handleMarkPaid(playerId, teamId, matchId = null, amount = 
     .update({ paid: true, paid_at: paidAt })
     .eq("id", playerId);
   if (error) throw error;
-  console.log('[handleMarkPaid] checking existing ledger entry', { playerId, matchId });
   const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
   // Cross-path: if lineup lock now exists but player self-paid earlier (matchId was null then),
   // find that null-matchId entry and promote it rather than creating a duplicate.
   const existingNull = (!existing && matchId)
     ? await findMatchLedgerEntry(playerId, teamId, null, 'game_fee')
     : null;
-  console.log('[handleMarkPaid] existing:', existing, 'existingNull:', existingNull);
   if (existing) {
     await updateLedgerEntry(existing.id, { status: 'paid', method: 'admin', paidBy: 'admin', paidAt });
   } else if (existingNull) {

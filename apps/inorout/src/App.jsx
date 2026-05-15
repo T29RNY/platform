@@ -61,13 +61,11 @@ function getRoute() {
 
     // Always keep lastVisited fresh — used for permanent redirect on every subsequent app open
     localStorage.setItem("ioo_last_visited", path);
-    console.log("[ioo] saved ioo_last_visited:", path);
 
     // On iOS Safari non-standalone — also set redirectTo for fresh-install bridge
     if (isIOS && !isStandalone) {
       const payload = JSON.stringify({ path, ts: Date.now() });
       localStorage.setItem("ioo_redirect_to", payload);
-      console.log("[ioo] saved ioo_redirect_to (iOS non-standalone):", path);
     }
 
     if (parts[0]==="p") return { type:"player", token:parts[1] };
@@ -82,29 +80,22 @@ function getRoute() {
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
 
   // Redirect bridge — only at root "/"
-  console.log("[ioo] at root /");
   try {
     const stored = localStorage.getItem("ioo_redirect_to");
-    console.log("[ioo] ioo_redirect_to raw:", stored);
     if (stored) {
       const { path, ts } = JSON.parse(stored);
       const age = Date.now() - ts;
-      console.log("[ioo] ioo_redirect_to path:", path, "age(ms):", age);
       if (path && ts && age < 7 * 24 * 60 * 60 * 1000) {
         localStorage.removeItem("ioo_redirect_to");
-        console.log("[ioo] redirecting via ioo_redirect_to →", path);
         window.location.replace(path);
         return { type:"redirecting" };
       }
       // Expired — remove it but fall through to lastVisited
       localStorage.removeItem("ioo_redirect_to");
-      console.log("[ioo] ioo_redirect_to expired, removed");
     }
 
     const last = localStorage.getItem("ioo_last_visited");
-    console.log("[ioo] ioo_last_visited:", last);
     if (last) {
-      console.log("[ioo] redirecting via ioo_last_visited →", last);
       window.location.replace(last);
       return { type:"redirecting" };
     }
@@ -116,11 +107,9 @@ function getRoute() {
   const isStandalone = window.navigator.standalone === true
     || window.matchMedia("(display-mode: standalone)").matches;
   if (isStandalone) {
-    console.log("[ioo] standalone + no lastVisited → PWA welcome screen");
     return { type:"pwa_welcome" };
   }
 
-  console.log("[ioo] no redirect — showing landing");
   return { type:"landing" };
 }
 

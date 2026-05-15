@@ -228,14 +228,6 @@ export default function ScoreScreen({
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    console.log("[ioo] ScoreScreen save fired", {
-      selectedMode: mode,
-      scoreA,
-      scoreB,
-      winner,
-      lastGoalScorerPlayerId: lastGoalChoice === "yes" ? lastGoalPlayerId : null,
-      selectedBibPlayerId: bibsPlayerId,
-    });
     if (!canSave || isSavingRef.current) return;
     isSavingRef.current = true;
     setIsSaving(true); setSaveError(null);
