@@ -408,221 +408,228 @@ export default function PlayerView({
             borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
 
             <>
-              {/* Top row: name + payment column */}
-              <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid var(--b2)",
-                display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                <div>
-                  <div style={{ fontSize:10, fontWeight:300, letterSpacing:"0.1em",
-                    textTransform:"uppercase", color:"var(--t2)", marginBottom:3 }}>
-                    {schedule.gameIsLive ? `Are you in this ${gameDay}?` : "This week's game isn't live yet"}
-                  </div>
-                  {editingMyNick ? (
-                    <div style={{ marginTop:2 }}>
-                      <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                        <input
-                          value={myNick}
-                          onChange={e => { setMyNick(e.target.value); setMyNickError(null); }}
-                          onKeyDown={e => { if (e.key === "Enter") saveMyNick(); if (e.key === "Escape") setEditingMyNick(false); }}
-                          placeholder="Add nickname"
-                          autoFocus
-                          style={{
-                            flex:1, background:"var(--s2)",
-                            border:`0.5px solid ${myNickError ? "var(--red)" : "var(--goldb)"}`,
-                            borderRadius:6, padding:"5px 8px", fontSize:14, color:"var(--t1)",
-                            fontFamily:"var(--font-body)", outline:"none", minWidth:0,
-                          }}
-                        />
-                        <button onClick={saveMyNick} disabled={myNickSaving} style={{
-                          background:"var(--gold)", color:"var(--bg)", border:"none",
-                          borderRadius:6, padding:"5px 10px", fontSize:11, fontWeight:600,
-                          cursor: myNickSaving ? "not-allowed" : "pointer",
-                          opacity: myNickSaving ? 0.6 : 1, fontFamily:"var(--font-body)",
-                        }}>
-                          {myNickSaving ? "…" : "Save"}
-                        </button>
-                        <button onClick={() => { setEditingMyNick(false); setMyNickError(null); }} style={{
-                          background:"transparent", border:"0.5px solid var(--border-subtle)",
-                          borderRadius:6, padding:"5px 8px", fontSize:11, color:"var(--t2)",
-                          cursor:"pointer", fontFamily:"var(--font-body)",
-                        }}>✕</button>
-                      </div>
-                      {myNickError && (
-                        <div style={{ fontSize:11, color:"var(--red)", marginTop:4, fontWeight:300 }}>{myNickError}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <div style={{ fontFamily:"var(--font-display)", fontSize:30,
-                        lineHeight:1, color:"var(--t1)", letterSpacing:"0.04em" }}>
-                        {me?.nickname || me?.name}
-                      </div>
-                      <PencilSimple
-                        size={14} weight="thin" color="var(--t2)"
-                        style={{ cursor:"pointer", flexShrink:0, marginTop:4 }}
-                        onClick={() => { setMyNick(me?.nickname || ""); setMyNickError(null); setEditingMyNick(true); }}
-                      />
-                    </div>
-                  )}
-                  {me?.id === lastMatchMeta?.bibHolder && (
-                    <span style={{
-                      display:"inline-block", marginTop:6,
+              <style>{`@keyframes ioo-name-glow{0%{text-shadow:-20px 0 8px transparent}40%{text-shadow:0px 0 12px rgba(232,160,32,0.6)}80%{text-shadow:20px 0 8px transparent}100%{text-shadow:none}}`}</style>
+
+              {/* Header: subtitle row | name row | payment row */}
+              {(() => {
+                const price          = schedule.pricePerPlayer || 0;
+                const owes           = me?.owes || 0;
+                const effectiveDebt  = (ledgerBalance !== null && ledgerBalance > 0) ? ledgerBalance : owes;
+                const paymentState = getPaymentState(me, cashPending);
+                const paymentMode  = 'both';
+                const status       = me?.status;
+                const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
+
+                let amountText, amountColor = "var(--t2)";
+                if (paymentState === 'paid') {
+                  amountText = "Nothing owed 👊"; amountColor = "var(--green)";
+                } else if (effectiveDebt > 0) {
+                  amountText = status === 'in'
+                    ? `£${effectiveDebt} + £${price} = £${effectiveDebt + price}`
+                    : `£${effectiveDebt} outstanding`;
+                } else if (status === 'in') {
+                  amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
+                  if (!price) amountColor = "var(--green)";
+                } else {
+                  amountText = "Nothing owed 👊"; amountColor = "var(--green)";
+                }
+
+                const tileStyle = (extra) => ({
+                  flex:1, minHeight:28, borderRadius:"var(--r-button)",
+                  fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  transition:"all 0.15s", cursor:"pointer", border:"none",
+                  padding:"0 10px", whiteSpace:"nowrap",
+                  ...extra,
+                });
+
+                const btns = [];
+
+                if (me?.selfPaid === true && me?.paid !== true && !cashPending) {
+                  btns.push(
+                    <span key="awaiting" style={{
+                      flex:1, display:"flex", alignItems:"center", justifyContent:"center",
                       background:"var(--amber2)", border:"0.5px solid var(--amberb)",
-                      color:"var(--amber)",
-                      fontFamily:"var(--font-display)", fontSize:11, letterSpacing:"0.08em",
-                      borderRadius:6, padding:"3px 8px",
-                    }}>
-                      YOU'VE GOT THE BIBS 👕
-                    </span>
-                  )}
-                </div>
-
-                {/* Payment column — right */}
-                {(() => {
-                  const price          = schedule.pricePerPlayer || 0;
-                  const owes           = me?.owes || 0;
-                  const effectiveDebt  = (ledgerBalance !== null && ledgerBalance > 0) ? ledgerBalance : owes;
-                  const paymentState = getPaymentState(me, cashPending);
-                  const paymentMode  = 'both';
-                  const status       = me?.status;
-                  const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
-
-                  let amountText, amountColor = "var(--t2)";
-                  if (paymentState === 'paid') {
-                    amountText = "Nothing owed 👊"; amountColor = "var(--green)";
-                  } else if (effectiveDebt > 0) {
-                    amountText = status === 'in'
-                      ? `£${effectiveDebt} + £${price} = £${effectiveDebt + price}`
-                      : `£${effectiveDebt} outstanding`;
-                  } else if (status === 'in') {
-                    amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
-                    if (!price) amountColor = "var(--green)";
+                      color:"var(--amber)", borderRadius:"var(--r-button)",
+                      padding:"0 10px", fontSize:12, fontWeight:400,
+                      minHeight:28, fontFamily:"var(--font-body)",
+                    }}>Awaiting confirmation</span>
+                  );
+                } else if (me?.paid === true) {
+                  btns.push(
+                    <span key="confirmed" style={{
+                      flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+                      background:"var(--green2)", border:"0.5px solid var(--greenb)",
+                      color:"var(--green)", borderRadius:"var(--r-button)",
+                      padding:"0 10px", fontSize:12, fontWeight:400,
+                      minHeight:28, fontFamily:"var(--font-body)",
+                    }}>✓ Paid</span>
+                  );
+                } else if (paymentState === 'debt') {
+                  if (!clearDebtExpanded) {
+                    btns.push(
+                      <button key="clear" onClick={() => setClearDebtExpanded(true)}
+                        style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
+                        Clear Debt — £{owes + (status === 'in' ? price : 0)}
+                      </button>
+                    );
+                  } else if (!cashPending) {
+                    if (paymentMode !== 'cash_only') btns.push(
+                      <button key="stripe" disabled
+                        style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                        Transfer £{owes + (status === 'in' ? price : 0)}
+                      </button>
+                    );
+                    if (paymentMode !== 'stripe_only') btns.push(
+                      <button key="cash" onClick={() => setCashPending(true)}
+                        style={tileStyle({ background:"var(--gold)", color:"#000" })}>
+                        Paid Cash
+                      </button>
+                    );
                   } else {
-                    amountText = "Nothing owed 👊"; amountColor = "var(--green)";
-                  }
-
-                  const tileStyle = (extra) => ({
-                    minHeight:28, borderRadius:"var(--r-button)",
-                    fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    transition:"all 0.15s", cursor:"pointer", border:"none",
-                    padding:"0 10px", whiteSpace:"nowrap",
-                    ...extra,
-                  });
-
-                  const btns = [];
-
-                  if (me?.selfPaid === true && me?.paid !== true && !cashPending) {
                     btns.push(
-                      <span key="awaiting" style={{
-                        display:"inline-flex", alignItems:"center",
-                        background:"var(--amber2)", border:"0.5px solid var(--amberb)",
-                        color:"var(--amber)", borderRadius:"var(--r-button)",
-                        padding:"0 10px", fontSize:12, fontWeight:400,
-                        minHeight:28, fontFamily:"var(--font-body)",
-                      }}>Awaiting confirmation</span>
+                      <div key="confirm-debt" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
+                        <button onClick={async () => {
+                          setPayError(null);
+                          try {
+                            await handleClearDebt(me.id, teamId, owes + price);
+                            await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
+                            setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
+                            setCashPending(false);
+                            setClearDebtExpanded(false);
+                          } catch {
+                            setPayError("Something went wrong — try again");
+                          }
+                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                          Confirm — You've Paid?
+                        </button>
+                        {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"center", fontWeight:300 }}>{payError}</div>}
+                      </div>
                     );
-                  } else if (me?.paid === true) {
-                    btns.push(
-                      <span key="confirmed" style={{
-                        display:"inline-flex", alignItems:"center",
-                        background:"var(--green2)", border:"0.5px solid var(--greenb)",
-                        color:"var(--green)", borderRadius:"var(--r-button)",
-                        padding:"0 10px", fontSize:12, fontWeight:400,
-                        minHeight:28, fontFamily:"var(--font-body)",
-                      }}>✓ Paid</span>
-                    );
-                  } else if (paymentState === 'debt') {
-                    if (!clearDebtExpanded) {
-                      btns.push(
-                        <button key="clear" onClick={() => setClearDebtExpanded(true)}
-                          style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
-                          Clear Debt — £{owes + (status === 'in' ? price : 0)}
-                        </button>
-                      );
-                    } else if (!cashPending) {
-                      if (paymentMode !== 'cash_only') btns.push(
-                        <button key="stripe" disabled
-                          style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
-                          Transfer £{owes + (status === 'in' ? price : 0)}
-                        </button>
-                      );
-                      if (paymentMode !== 'stripe_only') btns.push(
-                        <button key="cash" onClick={() => setCashPending(true)}
-                          style={tileStyle({ background:"var(--gold)", color:"#000" })}>
-                          Paid Cash
-                        </button>
-                      );
-                    } else {
-                      btns.push(
-                        <div key="confirm-debt" style={{ display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
-                          <button onClick={async () => {
-                            setPayError(null);
-                            try {
-                              await handleClearDebt(me.id, teamId, owes + price);
-                              await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
-                              setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
-                              setCashPending(false);
-                              setClearDebtExpanded(false);
-                            } catch {
-                              setPayError("Something went wrong — try again");
-                            }
-                          }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                            Confirm — You've Paid?
-                          </button>
-                          {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"right", fontWeight:300 }}>{payError}</div>}
-                        </div>
-                      );
-                    }
-                  } else if (status === 'in') {
-                    if (paymentState === 'unpaid') {
-                      if (paymentMode !== 'cash_only') btns.push(
-                        <button key="stripe" disabled
-                          style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
-                          Transfer £{price}
-                        </button>
-                      );
-                      if (paymentMode !== 'stripe_only') btns.push(
-                        <button key="cash" onClick={() => setCashPending(true)}
-                          style={tileStyle({ background:"var(--gold)", color:"#000" })}>
-                          Paid Cash
-                        </button>
-                      );
-                    } else if (paymentState === 'cash_pending') {
-                      btns.push(
-                        <div key="confirm-in" style={{ display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
-                          <button onClick={async () => {
-                            setPayError(null);
-                            try {
-                              await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
-                              setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
-                              setCashPending(false);
-                            } catch {
-                              setPayError("Something went wrong — try again");
-                            }
-                          }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                            Confirm — You've Paid?
-                          </button>
-                          {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"right", fontWeight:300 }}>{payError}</div>}
-                        </div>
-                      );
-                    }
                   }
-                  // isNonPlay + unpaid + no debt → "Nothing owed 👊", no buttons
+                } else if (status === 'in') {
+                  if (paymentState === 'unpaid') {
+                    if (paymentMode !== 'cash_only') btns.push(
+                      <button key="stripe" disabled
+                        style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                        Transfer £{price}
+                      </button>
+                    );
+                    if (paymentMode !== 'stripe_only') btns.push(
+                      <button key="cash" onClick={() => setCashPending(true)}
+                        style={tileStyle({ background:"var(--gold)", color:"#000" })}>
+                        Paid Cash
+                      </button>
+                    );
+                  } else if (paymentState === 'cash_pending') {
+                    btns.push(
+                      <div key="confirm-in" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
+                        <button onClick={async () => {
+                          setPayError(null);
+                          try {
+                            await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
+                            setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
+                            setCashPending(false);
+                          } catch {
+                            setPayError("Something went wrong — try again");
+                          }
+                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                          Confirm — You've Paid?
+                        </button>
+                        {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"center", fontWeight:300 }}>{payError}</div>}
+                      </div>
+                    );
+                  }
+                }
+                // isNonPlay + unpaid + no debt → "Nothing owed 👊", no buttons
 
-                  return (
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3 }}>
-                      <div style={{ fontSize:11, color:amountColor, fontWeight:400, textAlign:"right" }}>
+                return (
+                  <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid var(--b2)" }}>
+
+                    {/* Row 1: subtitle | amount */}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
+                      <div style={{ fontSize:10, fontWeight:300, letterSpacing:"0.1em",
+                        textTransform:"uppercase", color:"var(--t2)" }}>
+                        {schedule.gameIsLive ? `Are you in this ${gameDay}?` : "This week's game isn't live yet"}
+                      </div>
+                      <div style={{ fontSize:12, fontWeight:300, fontFamily:"var(--font-body)", color:amountColor }}>
                         {amountText}
                       </div>
-                      {btns.length > 0 && (
-                        <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"stretch" }}>
-                          {btns}
-                        </div>
-                      )}
                     </div>
-                  );
-                })()}
-              </div>
+
+                    {/* Row 2: name + pencil / edit form */}
+                    {editingMyNick ? (
+                      <div style={{ marginTop:2 }}>
+                        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                          <input
+                            value={myNick}
+                            onChange={e => { setMyNick(e.target.value); setMyNickError(null); }}
+                            onKeyDown={e => { if (e.key === "Enter") saveMyNick(); if (e.key === "Escape") setEditingMyNick(false); }}
+                            placeholder="Add nickname"
+                            autoFocus
+                            style={{
+                              flex:1, background:"var(--s2)",
+                              border:`0.5px solid ${myNickError ? "var(--red)" : "var(--goldb)"}`,
+                              borderRadius:6, padding:"5px 8px", fontSize:14, color:"var(--t1)",
+                              fontFamily:"var(--font-body)", outline:"none", minWidth:0,
+                            }}
+                          />
+                          <button onClick={saveMyNick} disabled={myNickSaving} style={{
+                            background:"var(--gold)", color:"var(--bg)", border:"none",
+                            borderRadius:6, padding:"5px 10px", fontSize:11, fontWeight:600,
+                            cursor: myNickSaving ? "not-allowed" : "pointer",
+                            opacity: myNickSaving ? 0.6 : 1, fontFamily:"var(--font-body)",
+                          }}>
+                            {myNickSaving ? "…" : "Save"}
+                          </button>
+                          <button onClick={() => { setEditingMyNick(false); setMyNickError(null); }} style={{
+                            background:"transparent", border:"0.5px solid var(--border-subtle)",
+                            borderRadius:6, padding:"5px 8px", fontSize:11, color:"var(--t2)",
+                            cursor:"pointer", fontFamily:"var(--font-body)",
+                          }}>✕</button>
+                        </div>
+                        {myNickError && (
+                          <div style={{ fontSize:11, color:"var(--red)", marginTop:4, fontWeight:300 }}>{myNickError}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ fontFamily:"var(--font-display)", fontSize:30,
+                          lineHeight:1, color:"var(--t1)", letterSpacing:"0.04em",
+                          animation:"ioo-name-glow 1.2s ease-in-out 2", animationFillMode:"forwards" }}>
+                          {me?.nickname || me?.name}
+                        </div>
+                        <PencilSimple
+                          size={14} weight="thin" color="var(--t2)"
+                          style={{ cursor:"pointer", flexShrink:0, marginTop:4 }}
+                          onClick={() => { setMyNick(me?.nickname || ""); setMyNickError(null); setEditingMyNick(true); }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Bibs badge */}
+                    {me?.id === lastMatchMeta?.bibHolder && (
+                      <span style={{
+                        display:"inline-block", marginTop:6,
+                        background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+                        color:"var(--amber)",
+                        fontFamily:"var(--font-display)", fontSize:11, letterSpacing:"0.08em",
+                        borderRadius:6, padding:"3px 8px",
+                      }}>
+                        YOU'VE GOT THE BIBS 👕
+                      </span>
+                    )}
+
+                    {/* Row 3: payment buttons full width, side by side */}
+                    {btns.length > 0 && (
+                      <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                        {btns}
+                      </div>
+                    )}
+
+                  </div>
+                );
+              })()}
 
               {/* Locked row — gameIsLive only */}
               {schedule.gameIsLive && me?.status === "in" && (
