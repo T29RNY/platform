@@ -153,6 +153,9 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
 
   return (
     <div style={{ marginBottom: 8 }}>
+      <div style={{color:'red', fontSize:11, padding:4}}>
+        teamId: {teamId || 'NULL'} | loading: {String(loading)} | data: {tableData.length} | error: {error || 'none'}
+      </div>
       <style>{`@keyframes ioo-plt-pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}`}</style>
 
       {/* Header */}
