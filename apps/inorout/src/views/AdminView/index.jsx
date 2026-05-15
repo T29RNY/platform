@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   carryForwardDebts, nextWeekDateTime,
   sendTemplate, notificationTemplates,
@@ -575,6 +575,9 @@ export default function AdminView({
   const [demoResetState,   setDemoResetState]   = useState(null);
   const [cancelReason,     setCancelReason]     = useState("");
   const [cancelLoading,    setCancelLoading]    = useState(false);
+  const [showCancelNudge,  setShowCancelNudge]  = useState(false);
+  const [gameOpenLoading,  setGameOpenLoading]  = useState(false);
+  const cancelWeekRef = useRef(null);
   const [dragId,           setDragId]           = useState(null);
   const [dismissedOrphans, setDismissedOrphans] = useState(new Set());
   const [selectedPlayer,   setSelectedPlayer]   = useState(null);
@@ -585,6 +588,12 @@ export default function AdminView({
   const [showAnnounce,     setShowAnnounce]     = useState(false);
   const [chaseToast,       setChaseToast]       = useState(false);
   const [tiebreakDismissed, setTiebreakDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!showCancelNudge) return;
+    const t = setTimeout(() => setShowCancelNudge(false), 4000);
+    return () => clearTimeout(t);
+  }, [showCancelNudge]);
 
   // ── derived ──────────────────────────────────────────────────────────────
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
@@ -763,23 +772,31 @@ export default function AdminView({
     sendTemplate(notificationTemplates.nextWeekDraft);
   };
 
-  const openNextWeek = () => {
-    setSchedule({ ...schedule, gameIsLive:true, isDraft:false, isCancelled:false });
-    sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
-    const ids = squad.filter(p => !p.disabled && !p.injured).map(p => p.id);
-    fetch("/api/notify", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        type:"gameLive", teamId, playerIds: ids,
-        payload: { title:"In or Out ⚽", body:`⚽ ${schedule.dayOfWeek}'s game is open — are you in or out?`, icon:"/icons/icon-192.png" },
-        gameDate: schedule.gameDateTime?.split("T")[0],
-      }),
-    }).catch(console.error);
+  const openNextWeek = async () => {
+    setGameOpenLoading(true);
+    try {
+      await upsertSchedule({ ...schedule, gameIsLive:true, isDraft:false, isCancelled:false }, teamId);
+      setSchedule(s => ({ ...s, gameIsLive:true, isDraft:false, isCancelled:false }));
+      sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
+      const ids = squad.filter(p => !p.disabled && !p.injured).map(p => p.id);
+      fetch("/api/notify", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          type:"gameLive", teamId, playerIds: ids,
+          payload: { title:"In or Out ⚽", body:`⚽ ${schedule.dayOfWeek}'s game is open — are you in or out?`, icon:"/icons/icon-192.png" },
+          gameDate: schedule.gameDateTime?.split("T")[0],
+        }),
+      }).catch(console.error);
+    } catch(e) {
+      console.error('openNextWeek error:', e);
+    } finally {
+      setGameOpenLoading(false);
+    }
   };
 
   const toggleGameLive = () => {
     if (!schedule.gameIsLive) openNextWeek();
-    else setSchedule({ ...schedule, gameIsLive:false });
+    else setShowCancelNudge(true);
   };
 
   const chaseNoResponders = () => {
@@ -1147,7 +1164,9 @@ export default function AdminView({
         <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
           borderRadius:"var(--r)", padding:"14px 16px",
           display:"flex", alignItems:"center", justifyContent:"space-between",
-          marginBottom:10 }}>
+          marginBottom: showCancelNudge ? 0 : 10,
+          opacity: gameOpenLoading ? 0.6 : 1,
+          pointerEvents: gameOpenLoading ? "none" : "auto" }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <div style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
               background: schedule.gameIsLive ? "var(--green)" : "var(--t2)",
@@ -1169,6 +1188,24 @@ export default function AdminView({
           </div>
         </div>
 
+        {/* Cancel nudge — shown when admin tries to toggle OFF */}
+        {showCancelNudge && (
+          <div style={{ background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+            borderRadius:10, padding:"10px 14px", marginBottom:10,
+            fontFamily:"var(--font-body)", fontSize:13, fontWeight:300, color:"var(--t1)" }}>
+            To cancel this week's game, use{" "}
+            <span
+              onClick={() => {
+                setShowCancelNudge(false);
+                cancelWeekRef.current?.scrollIntoView({ behavior:"smooth" });
+                setShowCancel(true);
+              }}
+              style={{ color:"var(--amber)", fontWeight:600, cursor:"pointer" }}>
+              Cancel Week ↓
+            </span>
+          </div>
+        )}
+
         {/* Actions section */}
         <SectionLabel>Actions</SectionLabel>
         {chaseToast && (
@@ -1178,7 +1215,7 @@ export default function AdminView({
             ✓ Chase sent to {noRespPlayers.length} player{noRespPlayers.length!==1?"s":""}
           </div>
         )}
-        <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+        <div ref={cancelWeekRef} style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
           borderRadius:"var(--r)", overflow:"hidden", marginBottom:10 }}>
           {[
             {
