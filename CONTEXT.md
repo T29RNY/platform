@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 15 2026 (session 18)*
+*Last updated: May 15 2026 (session 19)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -1302,16 +1302,48 @@ Cancel Week system — full implementation (Stages 7A–7D) + PlayerView cancell
 - `cancelWeekRef` (useRef) on the actions card container; scrollIntoView after 100ms delay on nudge show
 - `openNextWeek` rewritten async: `gameOpenLoading` state; `await upsertSchedule(...)` before notifications; toggle card gets `opacity:0.6, pointerEvents:none` during load — prevents double-tap push
 
-**Next session (Session 19) — start with:**
-1. Run Supabase CHECK constraint SQL for payment_ledger type/status to enable bulkCancelLedgerEntries
-2. Test Cancel Week flow end-to-end (demo team or Finbar's)
-3. Test /join/team_finbars flow end-to-end on iPhone (clean device)
+**Session 19 (May 15 2026):**
+Full codebase audit + dead code sweep + critical cron bug fixes.
+
+**Audit delivered (18-area, grouped by severity):**
+- CRITICAL: `potmTallyJob` stores `motm: winnerId` (player ID) not player name — see fix needed below
+- CRITICAL: `advanceGameDateJob` did not reset `is_cancelled` on advance (fixed this session)
+- CRITICAL: `advanceGameDateJob` set `is_draft: true` every week (wrong semantics, fixed this session)
+- CRITICAL: `payment_ledger` CHECK constraints block `bulkCancelLedgerEntries` (SQL still needed)
+- MEDIUM: `players` realtime subscription has no `team_id` filter (fires cross-team, low impact at Stage 1)
+- MEDIUM: `player_career` table — only `total_bib_count` ever written; 11 other fields permanently empty
+- MEDIUM: `owes` double-increment — audited and found NOT a live bug; `draftNextWeek` is dead code
+- LOW: Dead exports, console.logs, missing sw.js, getPaymentMode stub — all fixed this session
+
+**Fixes shipped this session:**
+- `cron.js advanceGameDateJob`: added `is_cancelled: false, cancel_reason: null`; removed `is_draft: true`
+- `sw.js` and `index.html`: restored from HEAD (both had been deleted from working tree)
+- Debug `console.log` removed: 4+2 from payments.js handleCashPayment/handleMarkPaid; 8-line block from ScoreScreen.jsx; 12 routing logs from App.jsx `getRoute()`; all `console.error` preserved
+- Dead code removed: `draftNextWeek` function + `onDraftNext` prop + 4 now-unused imports from AdminView/index.jsx; `onDraftNext` from ScoreScreen prop destructuring; stale `src/views/index.jsx` deleted (294 lines, pre-session-6 file not imported anywhere)
+- Dead exports removed from payments.js: `getUnpaidPlayers`, `getSelfPaidPending`, `generateMatchReport`, `getPaymentMode` (reads nonexistent `schedule.payment_mode`, always returned 'both'); PlayerView.jsx updated to inline `'both'` at both call sites
+
+**STILL OPEN — fix before first match:**
+1. `cron.js potmTallyJob` line 295: `motm: winnerId` → must be `motm: winnerName` (fetched 4 lines above but not used). One-line fix.
+2. Supabase CHECK constraint SQL — must run before `bulkCancelLedgerEntries` works in production:
+   ```sql
+   ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_type_check;
+   ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_type_check
+     CHECK (type IN ('game_fee','guest_fee','debt_payment','waiver','refund','cancelled'));
+   ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_status_check;
+   ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_status_check
+     CHECK (status IN ('paid','unpaid','waived','disputed','refunded','cancelled'));
+   ```
+
+**Next session (Session 20) — start with:**
+1. Fix `potmTallyJob` motm bug: `motm: winnerId` → `motm: winnerName` (cron.js line ~295)
+2. Run Supabase CHECK constraint SQL (above) to enable Cancel Week ledger writes
+3. Test Cancel Week flow end-to-end (demo team or Finbar's)
+4. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
-4. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
-5. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
-6. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
-7. Stage 1 ship blockers review — is May 19 still on track?
-8. Remove debug console.log statements from handleCashPayment when payment flow confirmed working
+5. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
+6. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
+7. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
+8. Stage 1 ship blockers review — is May 19 still on track?
 
 **Aspirational for May 19 matchday (Stage 1 live):**
 - POTM voting live for Finbar's Tuesdays first match
