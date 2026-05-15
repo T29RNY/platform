@@ -16,7 +16,7 @@ import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
   UsersThree, FlagCheckered, UserList, CalendarBlank,
   Bell, TShirt, Users, ArrowLeft, Link as LinkIcon,
-  PencilSimple, Bandaids,
+  PencilSimple, Bandaids, CurrencyPound,
 } from "@phosphor-icons/react";
 import NavBar      from "../../components/ui/NavBar.jsx";
 import TeamsScreen    from "./TeamsScreen.jsx";
@@ -25,6 +25,7 @@ import BibsScreen     from "./BibsScreen.jsx";
 import SquadScreen    from "./SquadScreen.jsx";
 import ScheduleScreen   from "./ScheduleScreen.jsx";
 import RemindersScreen  from "./RemindersScreen.jsx";
+import PaymentsScreen   from "./PaymentsScreen.jsx";
 
 // ── Admin POTM Tiebreak Modal ─────────────────────────────────────────────────
 function POTMTiebreakModal({ match, squad, teamId, onDecide }) {
@@ -729,6 +730,7 @@ export default function AdminView({
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "reminders") return <RemindersScreen schedule={schedule} setSchedule={setSchedule} onBack={() => setScreen("main")} teamId={teamId}/>;
+  if (screen === "payments")  return <PaymentsScreen squad={squad} setSquad={setSquad} schedule={schedule} teamId={teamId} coverPool={coverPool} onBack={() => setScreen("main")}/> ;
 
   if (selectedPlayer) return (
     <PlayerProfile
@@ -1177,6 +1179,16 @@ export default function AdminView({
 
         {/* Manage tiles */}
         <SectionLabel>Manage</SectionLabel>
+        <div style={{ marginBottom:8 }}>
+          {tile({
+            icon: CurrencyPound, iconColor:"var(--green)",
+            bg:"linear-gradient(135deg, var(--green2), transparent)",
+            border:"var(--greenb)",
+            title:"Payments",
+            sub:`£${totalOwed} outstanding`,
+            badge:0, onClick:() => setScreen("payments"),
+          })}
+        </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
           {tile({
             icon:UserList, iconColor:"var(--gold)",
