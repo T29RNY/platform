@@ -30,15 +30,6 @@ export function getGuestPaymentState(guest, guestCashPending = false) {
   return 'unpaid';
 }
 
-/**
- * Returns the active payment mode.
- * Reads schedule.payment_mode when the column exists; defaults to 'both'.
- * When Stripe Connect is live, admin sets schedule.payment_mode = 'stripe_only'.
- */
-export function getPaymentMode(schedule) {
-  return schedule?.payment_mode || 'both';
-}
-
 // ─── Payment handlers ─────────────────────────────────────────────────────────
 
 /** Player confirms they've paid cash. Sets self_paid = true and paid_by in DB. */
@@ -205,38 +196,3 @@ export function carryForwardDebts(players, pricePerPlayer) {
   }));
 }
 
-export function getUnpaidPlayers(players, payments) {
-  return players.filter(p => p.status === "in" && !p.disabled && !payments[p.id]);
-}
-
-export function getSelfPaidPending(players) {
-  return players.filter(p => p.selfPaid && !p.paid);
-}
-
-export function generateMatchReport(match, groupName) {
-  const dateStr = match.matchDate
-    ? new Date(match.matchDate).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })
-    : "";
-  if (match.cancelled) {
-    return `${groupName}\n${dateStr}\n\n❌ CANCELLED\n${match.cancelReason || ""}`;
-  }
-  const result  = match.winner === "D" ? "DRAW" : `TEAM ${match.winner} WIN`;
-  const scorerLines = Object.entries(match.scorers || {})
-    .filter(([, g]) => g > 0)
-    .map(([n, g]) => `  ${n} ${"⚽".repeat(g)}`)
-    .join("\n");
-  return [
-    groupName,
-    dateStr,
-    "",
-    result,
-    `Team A ${match.scoreA} — ${match.scoreB} Team B`,
-    "",
-    "Scorers:",
-    scorerLines || "  None recorded",
-    "",
-    `MOTM: ${match.motm || "—"}`,
-    "",
-    "via in-or-out.com",
-  ].join("\n");
-}

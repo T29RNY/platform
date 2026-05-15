@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
-  getPaymentState, getPaymentMode, getGuestPaymentState,
+  getPaymentState, getGuestPaymentState,
   handleCashPayment, handleClearDebt, handleGuestCashPayment,
   resolveMotm } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, deletePlayer,
@@ -482,7 +482,7 @@ export default function PlayerView({
                   const owes           = me?.owes || 0;
                   const effectiveDebt  = (ledgerBalance !== null && ledgerBalance > 0) ? ledgerBalance : owes;
                   const paymentState = getPaymentState(me, cashPending);
-                  const paymentMode  = getPaymentMode(schedule);
+                  const paymentMode  = 'both';
                   const status       = me?.status;
                   const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
 
@@ -780,7 +780,7 @@ export default function PlayerView({
               {myGuest && (() => {
                 const gps      = getGuestPaymentState(myGuest, guestCashPending);
                 const price    = schedule.pricePerPlayer || 0;
-                const payMode  = getPaymentMode(schedule);
+                const payMode  = 'both';
                 const guestName = myGuest.name.charAt(0).toUpperCase() + myGuest.name.slice(1);
                 const ts = (extra) => ({
                   height:32, borderRadius:"var(--r-pill)",
