@@ -103,7 +103,7 @@ function smBtn(color) {
 
 export default function ScoreScreen({
   squad, setSquad, teamId, schedule, matchHistory, setMatchHistory,
-  payments, bibHistory, onBack, onDraftNext,
+  payments, bibHistory, onBack,
 }) {
   // Stage 1 — mode
   const [mode, setMode] = useState(null);

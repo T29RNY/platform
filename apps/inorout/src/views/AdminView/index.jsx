@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  carryForwardDebts, nextWeekDateTime,
   sendTemplate, notificationTemplates,
   getPaymentState,
   handleCashPayment, handleClearDebt,
@@ -9,8 +8,8 @@ import {
 import {
   addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer,
   resetPlayerToken, insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
-  getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname, upsertPlayers,
-  createLedgerEntry, insertMatch, upsertSchedule,
+  getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname,
+  insertMatch, upsertSchedule,
   bulkCancelLedgerEntries, bulkResetPlayerStatuses, deletePlayerMatchRows,
 } from "@platform/supabase";
 import {
@@ -758,23 +757,6 @@ export default function AdminView({
     }
   };
 
-  const draftNextWeek = async () => {
-    const carried = carryForwardDebts(squad, schedule.pricePerPlayer);
-    setSchedule({ ...schedule, gameDateTime: nextWeekDateTime(schedule.gameDateTime),
-      gameIsLive:false, isDraft:true, isCancelled:false, cancelReason:"" });
-    setSquad(carried);
-    await upsertPlayers(carried, teamId).catch(console.error);
-    const debtors = carried.filter(p => p.owes > 0);
-    await Promise.all(debtors.map(p =>
-      createLedgerEntry({
-        teamId, playerId: p.id, matchId: null,
-        amount: p.owes, type: 'game_fee', status: 'unpaid',
-        method: null, paidBy: null, paidAt: null, note: 'carried forward',
-      }).catch(console.error)
-    ));
-    sendTemplate(notificationTemplates.nextWeekDraft);
-  };
-
   const openNextWeek = async () => {
     setGameOpenLoading(true);
     try {
@@ -834,7 +816,7 @@ export default function AdminView({
 
   // ── screen routing ────────────────────────────────────────────────────────
   if (screen === "teams")    return <TeamsScreen    squad={squad} setSquad={setSquad} schedule={schedule} onBack={() => setScreen("main")}/>;
-  if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={Object.fromEntries(squad.map(p => [p.id, p.paid]))} bibHistory={bibHistory} onBack={() => setScreen("main")} onDraftNext={draftNextWeek}/>;
+  if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={Object.fromEntries(squad.map(p => [p.id, p.paid]))} bibHistory={bibHistory} onBack={() => setScreen("main")}/>;
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")} teamId={teamId}/>;
