@@ -576,6 +576,7 @@ export default function AdminView({
   const [cancelReason,     setCancelReason]     = useState("");
   const [cancelLoading,    setCancelLoading]    = useState(false);
   const [showCancelNudge,  setShowCancelNudge]  = useState(false);
+  const [pulseCancelTile,  setPulseCancelTile]  = useState(false);
   const [gameOpenLoading,  setGameOpenLoading]  = useState(false);
   const cancelWeekRef = useRef(null);
   const [dragId,           setDragId]           = useState(null);
@@ -592,7 +593,9 @@ export default function AdminView({
   useEffect(() => {
     if (!showCancelNudge) return;
     const t = setTimeout(() => setShowCancelNudge(false), 4000);
-    return () => clearTimeout(t);
+    setPulseCancelTile(true);
+    const p = setTimeout(() => setPulseCancelTile(false), 3000);
+    return () => { clearTimeout(t); clearTimeout(p); };
   }, [showCancelNudge]);
 
   // ── derived ──────────────────────────────────────────────────────────────
@@ -796,7 +799,10 @@ export default function AdminView({
 
   const toggleGameLive = () => {
     if (!schedule.gameIsLive) openNextWeek();
-    else setShowCancelNudge(true);
+    else {
+      setShowCancelNudge(true);
+      setTimeout(() => cancelWeekRef.current?.scrollIntoView({ behavior:"smooth", block:"center" }), 100);
+    }
   };
 
   const chaseNoResponders = () => {
@@ -1192,21 +1198,14 @@ export default function AdminView({
         {showCancelNudge && (
           <div style={{ background:"var(--amber2)", border:"0.5px solid var(--amberb)",
             borderRadius:10, padding:"10px 14px", marginBottom:10,
-            fontFamily:"var(--font-body)", fontSize:13, fontWeight:300, color:"var(--t1)" }}>
-            To cancel this week's game, use{" "}
-            <span
-              onClick={() => {
-                setShowCancelNudge(false);
-                cancelWeekRef.current?.scrollIntoView({ behavior:"smooth" });
-                setShowCancel(true);
-              }}
-              style={{ color:"var(--amber)", fontWeight:600, cursor:"pointer" }}>
-              Cancel Week ↓
-            </span>
+            fontFamily:"var(--font-body)", fontSize:13, fontWeight:300, color:"var(--t1)",
+            textAlign:"center" }}>
+            To cancel this week's game, use Cancel Week ↓
           </div>
         )}
 
         {/* Actions section */}
+        <style>{`@keyframes ioo-cancel-pulse{0%{box-shadow:0 0 0px rgba(255,64,64,0)}50%{box-shadow:0 0 20px rgba(255,64,64,0.6)}100%{box-shadow:0 0 0px rgba(255,64,64,0)}}`}</style>
         <SectionLabel>Actions</SectionLabel>
         {chaseToast && (
           <div style={{ background:"var(--green2)", border:"0.5px solid var(--greenb)",
@@ -1244,7 +1243,11 @@ export default function AdminView({
               style={{ display:"flex", alignItems:"center", padding:"12px 14px",
                 borderBottom: i < 2 ? "0.5px solid var(--b2)" : "none",
                 cursor:"pointer", gap:12,
-                WebkitTapHighlightColor:"transparent" }}>
+                WebkitTapHighlightColor:"transparent",
+                ...(key === "cancel" && pulseCancelTile && {
+                  animation:"ioo-cancel-pulse 0.8s ease-in-out 3",
+                  border:"0.5px solid var(--red)",
+                }) }}>
               <div style={{ width:36, height:36, borderRadius:"var(--rs)", flexShrink:0,
                 background:iconBg, border:`0.5px solid ${iconBorder}`,
                 display:"flex", alignItems:"center", justifyContent:"center" }}>
