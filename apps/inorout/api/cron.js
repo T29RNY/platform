@@ -119,11 +119,18 @@ async function lineupLockJob(base, results) {
     const kickoff = new Date(sched.game_date_time);
     if (now < kickoff) { results.push(`lineupLock: ${sched.team_id} not yet`); continue; }
 
-    // Get players who are "in"
+    // Get players who are "in" — two-query pattern (players has no team_id column)
+    const { data: tpRows } = await supabase
+      .from("team_players")
+      .select("player_id")
+      .eq("team_id", sched.team_id);
+    const teamPlayerIds = (tpRows || []).map(r => r.player_id);
+    if (!teamPlayerIds.length) { results.push(`lineupLock: ${sched.team_id} no players`); continue; }
+
     const { data: players } = await supabase
       .from("players")
       .select("id, name, team, is_guest")
-      .eq("team_id", sched.team_id)
+      .in("id", teamPlayerIds)
       .eq("status", "in")
       .eq("disabled", false);
     if (!players?.length) { results.push(`lineupLock: ${sched.team_id} no players`); continue; }
@@ -419,7 +426,7 @@ async function resetDemoPlayers() {
   const injuredSince = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
   for (const p of DEMO_BASELINE) {
     await supabase.from("players").update({
-      status: "none", paid: false, self_paid: false, owes: p.owes,
+      status: "none", paid: false, self_paid: false, paid_by: null, owes: p.owes,
       goals: p.goals, motm: p.motm, attended: p.attended,
       w: p.w, l: p.l, d: p.d, bib_count: p.bib_count,
       pay_count: p.pay_count, late_dropouts: p.late_dropouts,

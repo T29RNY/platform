@@ -9,5 +9,12 @@ export * from "./engine/attendance.js";
 export * from "./engine/payments.js";
 export * from "./engine/squad.js";
 export { storage } from "./storage/localStorage.js";
-export { resolveBibHolder } from "./storage/supabase.js";
+export {
+  resolveBibHolder,
+  createLedgerEntry,
+  updateLedgerEntry,
+  getLedgerForPlayer,
+  getLedgerForTeam,
+  getOutstandingBalance,
+} from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

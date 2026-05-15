@@ -185,6 +185,7 @@ function playerToDb(p) {
     w: p.w, l: p.l, d: p.d,
     pay_count: p.payCount, late_dropouts: p.lateDropouts,
     note: p.note || "", self_paid: p.selfPaid || false, paid_by: p.paidBy || null,
+    paid_at: p.paidAt || null,
     token: p.token,
     is_guest: p.isGuest || false,
     guest_of: p.guestOf || null,
@@ -204,6 +205,7 @@ function dbToPlayer(r) {
     w: r.w, l: r.l, d: r.d,
     payCount: r.pay_count, lateDropouts: r.late_dropouts,
     note: r.note || "", selfPaid: r.self_paid, paidBy: r.paid_by || null,
+    paidAt: r.paid_at || null,
     token: r.token,
     isGuest: r.is_guest || false,
     guestOf: r.guest_of || null,
@@ -429,7 +431,7 @@ export async function alreadyNotified(teamId, type, gameDate) {
 
 // ─── Player match rows ────────────────────────────────────────────────────────
 // winner: 'A'|'B'|'D'  scorers: { [playerId]: goalCount }
-export async function writePlayerMatchRows(matchId, teamId, players, winner, motmId, bibHolderName, scoreA, scoreB, scorers = {}) {
+export async function writePlayerMatchRows(matchId, teamId, players, winner, motmId, bibHolderName, scoreA, scoreB, scorers = {}, pricePerPlayer = null) {
   const rows = players
     .filter(p => !p.isGuest)
     .map(p => {
@@ -456,6 +458,9 @@ export async function writePlayerMatchRows(matchId, teamId, players, winner, mot
         had_bibs:         p.name === bibHolderName,
         goals:            scorers[p.id] || 0,
         is_guest:         false,
+        paid:             p.paid || false,
+        paid_at:          p.paidAt || null,
+        amount:           pricePerPlayer || null,
       };
     });
   if (!rows.length) return;
@@ -1151,13 +1156,25 @@ export async function getPlayerImpact(playerId, teamId) {
 
 export async function getPOTMVoteStats(playerId, teamId) {
   try {
-    const { data, error } = await supabase
+    const { data: votes, error: vErr } = await supabase
       .from("potm_votes")
-      .select("vote_for, is_runner_up")
-      .eq("team_id", teamId);
-    if (error) return null;
-    const mine = (data || []).filter(v => v.vote_for === playerId);
-    return { votesReceived: mine.length, timesNominated: mine.length, timesRunnerUp: mine.filter(v => v.is_runner_up).length };
+      .select("nominee_id")
+      .eq("team_id", teamId)
+      .eq("nominee_id", playerId);
+    if (vErr) return null;
+
+    const { data: wins, error: wErr } = await supabase
+      .from("player_match")
+      .select("was_motm")
+      .eq("player_id", playerId)
+      .eq("team_id", teamId)
+      .eq("was_motm", true);
+    if (wErr) return null;
+
+    return {
+      votesReceived: (votes || []).length,
+      matchesWon:    (wins  || []).length,
+    };
   } catch (e) { return null; }
 }
 
@@ -1308,4 +1325,95 @@ export async function updateUserProfile(userId, updates) {
     .from("user_profiles")
     .upsert({ user_id: userId, ...updates, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
   if (error) throw error;
+}
+
+// ─── Payment ledger ───────────────────────────────────────────────────────────
+
+function dbToLedger(r) {
+  return {
+    id:        r.id,
+    teamId:    r.team_id,
+    playerId:  r.player_id,
+    matchId:   r.match_id,
+    amount:    r.amount,
+    type:      r.type,
+    status:    r.status,
+    method:    r.method,
+    paidBy:    r.paid_by,
+    paidAt:    r.paid_at,
+    note:      r.note,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function createLedgerEntry(entry) {
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .insert({
+      team_id:   entry.teamId,
+      player_id: entry.playerId,
+      match_id:  entry.matchId  || null,
+      amount:    entry.amount,
+      type:      entry.type,
+      status:    entry.status,
+      method:    entry.method   || null,
+      paid_by:   entry.paidBy   || null,
+      paid_at:   entry.paidAt   || null,
+      note:      entry.note     || null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return dbToLedger(data);
+}
+
+export async function updateLedgerEntry(id, updates) {
+  const patch = {};
+  if (updates.status  !== undefined) patch.status   = updates.status;
+  if (updates.method  !== undefined) patch.method   = updates.method;
+  if (updates.paidBy  !== undefined) patch.paid_by  = updates.paidBy;
+  if (updates.paidAt  !== undefined) patch.paid_at  = updates.paidAt;
+  if (updates.note    !== undefined) patch.note     = updates.note;
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return dbToLedger(data);
+}
+
+export async function getLedgerForPlayer(playerId, teamId, limit = 20) {
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .select("*")
+    .eq("player_id", playerId)
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []).map(dbToLedger);
+}
+
+export async function getLedgerForTeam(teamId) {
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .select("*")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(dbToLedger);
+}
+
+export async function getOutstandingBalance(playerId, teamId) {
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .select("amount")
+    .eq("player_id", playerId)
+    .eq("team_id", teamId)
+    .eq("status", "unpaid");
+  if (error) throw error;
+  return (data || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 }

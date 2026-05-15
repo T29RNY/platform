@@ -341,6 +341,7 @@ async function main() {
       return {
         team_id: 'team_demo',
         name: NAMES[bib_n],
+        player_id: pid(bib_n),
         match_date: dates[dateIdx].toISOString().split('T')[0],
         returned: i < 5,
       };

@@ -267,7 +267,7 @@ export default function ScoreScreen({
       await writePlayerMatchRows(
         match.id, teamId, inPlayers, winner,
         null, null,
-        finalScoreA, finalScoreB, scorers,
+        finalScoreA, finalScoreB, scorers, schedule.pricePerPlayer,
       );
 
       // 4. Bibs — 4-step write
