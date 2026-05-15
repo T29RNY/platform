@@ -501,7 +501,7 @@ export default function PlayerView({
                   }
 
                   const tileStyle = (extra) => ({
-                    minHeight:36, borderRadius:"var(--r-button)",
+                    minHeight:28, borderRadius:"var(--r-button)",
                     fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
                     display:"flex", alignItems:"center", justifyContent:"center",
                     transition:"all 0.15s", cursor:"pointer", border:"none",
@@ -518,7 +518,7 @@ export default function PlayerView({
                         background:"var(--amber2)", border:"0.5px solid var(--amberb)",
                         color:"var(--amber)", borderRadius:"var(--r-button)",
                         padding:"0 10px", fontSize:12, fontWeight:400,
-                        minHeight:36, fontFamily:"var(--font-body)",
+                        minHeight:28, fontFamily:"var(--font-body)",
                       }}>Awaiting confirmation</span>
                     );
                   } else if (me?.paid === true) {
@@ -528,7 +528,7 @@ export default function PlayerView({
                         background:"var(--green2)", border:"0.5px solid var(--greenb)",
                         color:"var(--green)", borderRadius:"var(--r-button)",
                         padding:"0 10px", fontSize:12, fontWeight:400,
-                        minHeight:36, fontFamily:"var(--font-body)",
+                        minHeight:28, fontFamily:"var(--font-body)",
                       }}>✓ Paid</span>
                     );
                   } else if (paymentState === 'debt') {
@@ -610,7 +610,7 @@ export default function PlayerView({
                   // isNonPlay + unpaid + no debt → "Nothing owed 👊", no buttons
 
                   return (
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, paddingTop:2 }}>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3 }}>
                       <div style={{ fontSize:11, color:amountColor, fontWeight:400, textAlign:"right" }}>
                         {amountText}
                       </div>
@@ -626,9 +626,9 @@ export default function PlayerView({
 
               {/* Locked row — gameIsLive only */}
               {schedule.gameIsLive && me?.status === "in" && (
-                <div style={{ display:"flex", alignItems:"center", gap:6,
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
                   padding:"8px 16px", fontSize:12, color:"var(--green)",
-                  fontWeight:400, borderBottom:"1px solid var(--b2)" }}>
+                  fontWeight:400, borderBottom:"1px solid var(--b2)", textAlign:"center" }}>
                   🔒 Locked in. See you {gameDay}.
                 </div>
               )}
