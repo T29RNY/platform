@@ -342,22 +342,6 @@ export default function PlayerView({
     ));
   };
 
-  // ── cancelled early return ────────────────────────────────────────────────
-
-  if (schedule.isCancelled) return (
-    <div style={{ minHeight:"100dvh", background:"var(--bg)", display:"flex",
-      flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:40, marginBottom:12 }}>❌</div>
-        <div style={{ fontFamily:"var(--font-display)", fontSize:28, color:"var(--red)", letterSpacing:2 }}>
-          This week cancelled
-        </div>
-        {schedule.cancelReason && (
-          <div style={{ fontSize:13, color:"var(--t2)", marginTop:8 }}>{schedule.cancelReason}</div>
-        )}
-      </div>
-    </div>
-  );
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -658,12 +642,23 @@ export default function PlayerView({
                 </div>
               )}
 
-              {/* Status buttons 4-grid — gameIsLive only */}
-              {schedule.gameIsLive && (
+              {/* Cancelled banner */}
+              {schedule.isCancelled && (
+                <div style={{ margin:"10px 12px 0", background:"var(--red2)",
+                  border:"0.5px solid var(--redb)", color:"var(--red)",
+                  fontFamily:"var(--font-body)", fontWeight:400, fontSize:13,
+                  padding:"8px 16px", borderRadius:8 }}>
+                  ❌ This week is cancelled
+                </div>
+              )}
+
+              {/* Status buttons 4-grid — gameIsLive or cancelled */}
+              {(schedule.gameIsLive || schedule.isCancelled) && (
                 <>
                 <div data-gaffer-target="status-buttons"
                   style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
-                    gap:8, padding:"10px 12px" }}>
+                    gap:8, padding:"10px 12px",
+                    ...(schedule.isCancelled && { opacity:0.4, pointerEvents:"none" }) }}>
                   <StatusButton
                     status="in" label="In"
                     icon={<Check size={18} weight="thin" />}
@@ -857,7 +852,7 @@ export default function PlayerView({
           </div>
 
           {/* c — Quick actions row */}
-          <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+          {!schedule.isCancelled && <div style={{ display:"flex", gap:8, marginBottom:8 }}>
 
             {/* Plus One — always visible */}
             {schedule.gameIsLive && (
@@ -932,10 +927,10 @@ export default function PlayerView({
                 </div>
               </button>
             )}
-          </div>
+          </div>}
 
           {/* Plus One form (expanded) */}
-          {showPlusOneForm && (
+          {!schedule.isCancelled && showPlusOneForm && (
             <div style={{ padding:"14px 16px", borderRadius:"var(--r)",
               background:"var(--s1)", border:"0.5px solid var(--border-subtle)", marginBottom:8 }}>
               <div style={{ fontSize:13, fontWeight:700, color:"var(--t1)", marginBottom:12 }}>
