@@ -150,7 +150,7 @@ async function handleCron(cronType) {
     const { data: tps } = await supabase
       .from('team_players').select('player_id').eq('team_id', teamId);
     const { data: players } = await supabase
-      .from('players').select('id, name, nickname, status, paid, token, injured')
+      .from('players').select('id, name, nickname, status, paid, self_paid, token, injured')
       .in('id', (tps || []).map(t => t.player_id));
 
     const inPlayers = (players || []).filter(p => p.status === 'in' && !p.injured);
@@ -172,7 +172,7 @@ async function handleCron(cronType) {
     // 6. 1hr before kickoff — cron schedule: "*/15 * * * *"
     if (cronType === 'oneHrBefore') {
       if (minsToKick <= 55 || minsToKick > 70) continue;
-      const unpaid = inPlayers.filter(p => !p.paid);
+      const unpaid = inPlayers.filter(p => !p.paid && !p.self_paid);
       if (!unpaid.length) continue;
       if (await alreadySent(teamId, cronType, gameDate)) continue;
       const subs = await getSubsForPlayers(teamId, unpaid.map(p => p.id));
@@ -187,7 +187,7 @@ async function handleCron(cronType) {
     if (cronType === 'debtReminder') {
       const target = 24 * 60;
       if (minsAfter <= target - 7 || minsAfter > target + 7) continue;
-      const unpaid = inPlayers.filter(p => !p.paid);
+      const unpaid = inPlayers.filter(p => !p.paid && !p.self_paid);
       if (!unpaid.length) continue;
       if (await alreadySent(teamId, cronType, gameDate)) continue;
       const subs = await getSubsForPlayers(teamId, unpaid.map(p => p.id));
@@ -205,7 +205,7 @@ async function handleCron(cronType) {
         .select('bib_holder')
         .eq('team_id', teamId)
         .not('bib_holder', 'is', null)
-        .order('created_at', { ascending: false })
+        .order('match_date', { ascending: false })
         .limit(1)
         .single();
 
