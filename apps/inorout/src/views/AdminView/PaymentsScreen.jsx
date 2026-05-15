@@ -8,14 +8,16 @@ import { ArrowLeft, CaretDown, CaretUp } from "@phosphor-icons/react";
 const TYPE_LABEL = {
   game_fee: 'Game', guest_fee: 'Guest +1',
   debt_payment: 'Debt', waiver: 'Waived', refund: 'Refund',
+  cancelled: 'Cancelled',
 };
 
 const STATUS_STYLE = {
-  paid:     { bg:"var(--green2)",         border:"var(--greenb)",         color:"var(--green)"  },
-  unpaid:   { bg:"var(--amber2)",         border:"var(--amberb)",         color:"var(--amber)"  },
-  waived:   { bg:"var(--purple2)",        border:"var(--purpleb)",        color:"var(--purple)" },
-  refunded: { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF"       },
-  disputed: { bg:"var(--red2)",           border:"var(--redb)",           color:"var(--red)"    },
+  paid:      { bg:"var(--green2)",         border:"var(--greenb)",         color:"var(--green)"  },
+  unpaid:    { bg:"var(--amber2)",         border:"var(--amberb)",         color:"var(--amber)"  },
+  waived:    { bg:"var(--purple2)",        border:"var(--purpleb)",        color:"var(--purple)" },
+  refunded:  { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF"       },
+  disputed:  { bg:"var(--red2)",           border:"var(--redb)",           color:"var(--red)"    },
+  cancelled: { bg:"var(--s3)",             border:"0.5px solid var(--t2)", color:"var(--t2)"     },
 };
 
 const STATUS_PILL = {

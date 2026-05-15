@@ -1178,6 +1178,7 @@ export default function PlayerView({
             const TYPE_LABEL = {
               game_fee: 'Game fee', guest_fee: 'Guest fee',
               debt_payment: 'Debt payment', waiver: 'Waived', refund: 'Refund',
+              cancelled: 'Match cancelled',
             };
             const STATUS_STYLE = {
               paid:      { bg:"var(--green2)",  border:"var(--greenb)",  color:"var(--green)"  },
@@ -1185,6 +1186,7 @@ export default function PlayerView({
               waived:    { bg:"var(--purple2)", border:"var(--purpleb)", color:"var(--purple)" },
               refunded:  { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF" },
               disputed:  { bg:"var(--red2)",   border:"var(--redb)",    color:"var(--red)"    },
+              cancelled: { bg:"var(--s3)",     border:"0.5px solid var(--t2)",        color:"var(--t2)"  },
             };
             const fmtDate = iso => iso
               ? new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
