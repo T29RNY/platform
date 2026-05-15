@@ -117,8 +117,10 @@ export async function handleMarkPaid(playerId, teamId, matchId = null, amount = 
     .update({ paid: true, paid_at: paidAt })
     .eq("id", playerId);
   if (error) throw error;
-  // FIX 5 — update existing entry if present to avoid duplicates on repeat mark/reset cycles
-  const existing = matchId ? await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee') : null;
+  // Always query — findMatchLedgerEntry handles null matchId via IS NULL filter
+  console.log('[handleMarkPaid] checking existing ledger entry', { playerId, matchId });
+  const existing = await findMatchLedgerEntry(playerId, teamId, matchId || null, 'game_fee');
+  console.log('[handleMarkPaid] existing:', existing);
   if (existing) {
     await updateLedgerEntry(existing.id, { status: 'paid', method: 'admin', paidBy: 'admin', paidAt });
   } else {
@@ -138,10 +140,14 @@ export async function handleResetPayment(playerId, teamId, matchId = null) {
     .update({ paid: false, self_paid: false, paid_by: null, paid_at: null })
     .eq("id", playerId);
   if (error) throw error;
-  // FIX 5 — targeted lookup; clears paid_at on reset
   if (matchId) {
     const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
     if (existing) await updateLedgerEntry(existing.id, { status: 'unpaid', paidAt: null });
+    // FIX 2 — also clear player_match payment fields when match is known
+    await supabase.from("player_match")
+      .update({ paid: false, paid_at: null })
+      .eq("match_id", matchId)
+      .eq("player_id", playerId);
   }
   return { paid: false, selfPaid: false, paidBy: null, paidAt: null };
 }

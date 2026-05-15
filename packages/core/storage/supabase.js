@@ -1412,19 +1412,23 @@ export async function getLedgerForPlayer(playerId, teamId, limit = 20) {
   return (data || []).map(dbToLedger);
 }
 
-// FIX 5 — targeted lookup to avoid duplicate ledger entries on Mark Paid / Reset
+// Targeted lookup to avoid duplicate ledger entries on Mark Paid / Reset.
+// Handles null matchId (no lineup lock) by querying IS NULL — avoids maybeSingle()
+// errors when pre-existing duplicates are present.
 export async function findMatchLedgerEntry(playerId, teamId, matchId, type) {
-  if (!matchId) return null;
-  const { data, error } = await supabase
+  let query = supabase
     .from("payment_ledger")
     .select("id, status")
     .eq("player_id", playerId)
     .eq("team_id", teamId)
-    .eq("match_id", matchId)
     .eq("type", type)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(1);
+  query = matchId ? query.eq("match_id", matchId) : query.is("match_id", null);
+  const { data, error } = await query;
   if (error) return null;
-  return data ? { id: data.id, status: data.status } : null;
+  const row = data?.[0];
+  return row ? { id: row.id, status: row.status } : null;
 }
 
 export async function getLedgerForTeam(teamId) {

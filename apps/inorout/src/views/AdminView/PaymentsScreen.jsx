@@ -170,14 +170,27 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
                   <span style={{ fontSize:11, fontWeight:600, color:"var(--t1)", minWidth:28, textAlign:"right" }}>
                     £{Number(entry.amount || 0).toFixed(0)}
                   </span>
+                  {/* FIX 2 — inline Reset on paid game_fee rows only */}
+                  {entry.status === 'paid' && entry.type === 'game_fee' && (
+                    <button onClick={async (e) => {
+                      e.stopPropagation();
+                      await handleResetPayment(player.id, teamId, entry.matchId || null).catch(console.error);
+                      setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
+                      setLedger(null);
+                    }} style={{ marginLeft:8, padding:"3px 8px", borderRadius:6,
+                      background:"var(--s3)", color:"var(--t2)", fontSize:11, fontWeight:400,
+                      border:"none", cursor:"pointer", fontFamily:"var(--font-body)" }}>
+                      Reset
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
 
-          {/* Action row — FIX 4: "Mark Paid — This Week" */}
+          {/* Action row — Reset moved inline to ledger rows (FIX 2) */}
           <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
-            {!isPaid ? (
+            {!isPaid && (
               <button onClick={async () => {
                 await handleMarkPaid(player.id, teamId, schedule.activeMatchId || null, price).catch(console.error);
                 setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true } : p));
@@ -186,17 +199,6 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
                 background:"var(--gold)", color:"#000", fontSize:11, fontWeight:600,
                 cursor:"pointer", fontFamily:"var(--font-body)" }}>
                 Mark Paid — This Week
-              </button>
-            ) : (
-              <button onClick={async () => {
-                await handleResetPayment(player.id, teamId, schedule.activeMatchId || null).catch(console.error);
-                setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
-                setLedger(null);
-              }} style={{ padding:"6px 14px", borderRadius:"var(--r-pill)",
-                border:"0.5px solid var(--border-subtle)", background:"transparent",
-                color:"var(--t2)", fontSize:11, cursor:"pointer",
-                fontFamily:"var(--font-body)" }}>
-                Reset
               </button>
             )}
             {owes > 0 && !waiverOpen && (
@@ -350,7 +352,7 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, cove
             background:"var(--green2)", border:"0.5px solid var(--greenb)",
             fontFamily:"var(--font-display)", fontSize:13, letterSpacing:"0.08em",
             color:"var(--green)" }}>
-            {paidCount} PLAYERS PAID
+            {paidCount === 1 ? "1 PLAYER PAID" : `${paidCount} PLAYERS PAID`}
           </div>
         </div>
       </div>
