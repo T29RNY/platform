@@ -6,7 +6,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
 import { savePushSubscription, addGuestPlayer, deletePlayer,
   getPlayerMatchForm, getLastMatchMeta,
   getPOTMEligiblePlayers, getPOTMVotes, setPlayerNickname,
-  resolveBibHolder } from "@platform/supabase";
+  resolveBibHolder, getLedgerForPlayer, getOutstandingBalance } from "@platform/supabase";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,
@@ -104,6 +104,11 @@ export default function PlayerView({
   const [potmBanner,      setPotmBanner]      = useState(null); // { winnerName, isWinner }
   const prevVotingOpen = useRef(false);
 
+  const [ledgerBalance,   setLedgerBalance]   = useState(null);
+  const [payHistOpen,     setPayHistOpen]     = useState(false);
+  const [payHistory,      setPayHistory]      = useState(null);
+  const [payHistLoading,  setPayHistLoading]  = useState(false);
+
   // Inline nickname edit (My View header)
   const [editingMyNick, setEditingMyNick] = useState(false);
   const [myNick,        setMyNick]        = useState("");
@@ -147,6 +152,11 @@ export default function PlayerView({
     if (!ids.length) return;
     getPlayerMatchForm(teamId, ids).then(form => setPlayerForm(form || {})).catch(() => {});
   }, [teamsSet, teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!myId || !teamId) return;
+    getOutstandingBalance(myId, teamId).then(setLedgerBalance).catch(() => {});
+  }, [myId, teamId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // POTM voting — open modal when voting becomes active for this player
   useEffect(() => {
@@ -483,8 +493,11 @@ export default function PlayerView({
 
                 {/* Payment column — right */}
                 {(() => {
-                  const price        = schedule.pricePerPlayer || 0;
-                  const owes         = me?.owes || 0;
+                  const price          = schedule.pricePerPlayer || 0;
+                  const owes           = me?.owes || 0;
+                  const effectiveDebt  = (ledgerBalance !== null && ledgerBalance > 0) ? ledgerBalance : owes;
+                  const kickoffMs      = schedule.gameDateTime ? new Date(schedule.gameDateTime) - Date.now() : null;
+                  const inGracePeriod  = kickoffMs !== null && kickoffMs > 24 * 3600 * 1000;
                   const paymentState = getPaymentState(me, cashPending);
                   const paymentMode  = getPaymentMode(schedule);
                   const status       = me?.status;
@@ -493,13 +506,17 @@ export default function PlayerView({
                   let amountText, amountColor = "var(--t2)";
                   if (paymentState === 'paid') {
                     amountText = "Nothing owed 👊"; amountColor = "var(--green)";
-                  } else if (paymentState === 'debt') {
+                  } else if (effectiveDebt > 0) {
                     amountText = status === 'in'
-                      ? `£${owes} + £${price} = £${owes + price}`
-                      : `£${owes} outstanding`;
+                      ? `£${effectiveDebt} + £${price} = £${effectiveDebt + price}`
+                      : `£${effectiveDebt} outstanding`;
                   } else if (status === 'in') {
-                    amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
-                    if (!price) amountColor = "var(--green)";
+                    if (inGracePeriod) {
+                      amountText = "Nothing owed 👊"; amountColor = "var(--green)";
+                    } else {
+                      amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
+                      if (!price) amountColor = "var(--green)";
+                    }
                   } else {
                     amountText = "Nothing owed 👊"; amountColor = "var(--green)";
                   }
@@ -539,7 +556,7 @@ export default function PlayerView({
                     } else {
                       btns.push(
                         <button key="confirm" onClick={async () => {
-                          await handleClearDebt(me.id, teamId, owes);
+                          await handleClearDebt(me.id, teamId, owes + price);
                           await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
                           setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
                           setCashPending(false);
@@ -591,6 +608,89 @@ export default function PlayerView({
                   );
                 })()}
               </div>
+
+              {/* Payment history accordion — own card only */}
+              {(me?.payCount > 0 || me?.owes > 0) && (() => {
+                const TYPE_LABEL = {
+                  game_fee: 'Game fee', guest_fee: 'Guest fee',
+                  debt_payment: 'Debt payment', waiver: 'Waived', refund: 'Refund',
+                };
+                const STATUS_STYLE = {
+                  paid:      { bg:"var(--green2)",  border:"var(--greenb)",  color:"var(--green)"  },
+                  unpaid:    { bg:"var(--amber2)",  border:"var(--amberb)",  color:"var(--amber)"  },
+                  waived:    { bg:"var(--purple2)", border:"var(--purpleb)", color:"var(--purple)" },
+                  refunded:  { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF" },
+                  disputed:  { bg:"var(--red2)",   border:"var(--redb)",    color:"var(--red)"    },
+                };
+                const fmtDate = iso => iso
+                  ? new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+                  : '—';
+                const handleToggle = async () => {
+                  if (!payHistOpen && payHistory === null) {
+                    setPayHistLoading(true);
+                    try {
+                      const rows = await getLedgerForPlayer(myId, teamId, 20);
+                      setPayHistory(rows);
+                    } catch { setPayHistory([]); }
+                    finally { setPayHistLoading(false); }
+                  }
+                  setPayHistOpen(o => !o);
+                };
+                return (
+                  <div style={{ borderTop:"0.5px solid var(--b2)" }}>
+                    <button onClick={handleToggle} style={{
+                      width:"100%", padding:"10px 16px",
+                      display:"flex", justifyContent:"space-between", alignItems:"center",
+                      background:"none", border:"none", cursor:"pointer",
+                      fontFamily:"var(--font-body)", fontSize:11, fontWeight:600,
+                      color:"var(--t2)", letterSpacing:"0.06em", textTransform:"uppercase",
+                    }}>
+                      Payment History
+                      <span style={{ fontSize:10, color:"var(--t2)", opacity:0.6 }}>{payHistOpen ? "▲" : "▼"}</span>
+                    </button>
+                    {payHistOpen && (
+                      <div style={{ paddingBottom:8 }}>
+                        {payHistLoading ? (
+                          <div style={{ padding:"8px 16px", fontSize:11, color:"var(--t2)", fontWeight:300 }}>Loading…</div>
+                        ) : !payHistory?.length ? (
+                          <div style={{ padding:"8px 16px", fontSize:11, color:"var(--t2)", fontWeight:300 }}>No payment history yet</div>
+                        ) : payHistory.map((entry, i) => {
+                          const ss = STATUS_STYLE[entry.status] || STATUS_STYLE.unpaid;
+                          return (
+                            <div key={entry.id || i} style={{
+                              padding:"7px 16px", display:"flex", alignItems:"center",
+                              justifyContent:"space-between", gap:8,
+                              borderTop: i === 0 ? "none" : "0.5px solid var(--b2)",
+                            }}>
+                              <div style={{ display:"flex", flexDirection:"column", gap:2, minWidth:0 }}>
+                                <div style={{ fontSize:12, color:"var(--t1)", fontWeight:400 }}>
+                                  {TYPE_LABEL[entry.type] || entry.type}
+                                </div>
+                                <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300 }}>
+                                  {fmtDate(entry.createdAt)}
+                                  {entry.method && <span style={{ opacity:0.6 }}> · {entry.method}</span>}
+                                </div>
+                              </div>
+                              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                                <span style={{
+                                  fontSize:10, fontWeight:600, padding:"2px 7px",
+                                  borderRadius:"var(--r-pill)", border:`0.5px solid ${ss.border}`,
+                                  background:ss.bg, color:ss.color, letterSpacing:"0.04em",
+                                }}>
+                                  {entry.status.toUpperCase()}
+                                </span>
+                                <span style={{ fontSize:12, fontWeight:600, color:"var(--t1)", minWidth:30, textAlign:"right" }}>
+                                  £{Number(entry.amount || 0).toFixed(0)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Locked row — gameIsLive only */}
               {schedule.gameIsLive && me?.status === "in" && (
