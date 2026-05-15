@@ -51,6 +51,7 @@ export async function handleCashPayment(playerId, teamId, paidBy = 'self', match
       .eq("id", playerId);
     if (error) throw error;
     const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
+    console.log('[handleCashPayment] existing:', existing, 'playerId:', playerId, 'teamId:', teamId, 'matchId:', matchId);
     if (existing) {
       await updateLedgerEntry(existing.id, {
         status: 'paid',
@@ -58,6 +59,7 @@ export async function handleCashPayment(playerId, teamId, paidBy = 'self', match
         paidBy,
         paidAt,
       });
+      console.log('[handleCashPayment] updated ledger entry');
     } else {
       await createLedgerEntry({
         teamId, playerId, matchId: matchId || null, amount: amount || 0,
@@ -65,6 +67,7 @@ export async function handleCashPayment(playerId, teamId, paidBy = 'self', match
         method: paidBy === 'stripe' ? 'stripe' : 'cash',
         paidBy, paidAt, note: null,
       });
+      console.log('[handleCashPayment] created ledger entry');
     }
     return { selfPaid: true, paidBy, paidAt };
   } catch (error) {
