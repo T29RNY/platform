@@ -20,5 +20,6 @@ export {
   bulkCancelLedgerEntries,
   deletePlayerMatchRows,
   getRecentNotification,
+  getPlayerLeagueTable,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

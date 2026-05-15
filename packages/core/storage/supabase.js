@@ -1594,3 +1594,157 @@ export async function deletePlayerMatchRows(matchId, teamId) {
   if (error) throw error;
   return { count: (data || []).length };
 }
+
+// ─── League table ─────────────────────────────────────────────────────────────
+// period: 'all' | 'month' | 'season'
+// Returns players sorted: ranked (played>=3) by points/goals/winRate/potm, then unranked by name.
+export async function getPlayerLeagueTable(teamId, period = 'all') {
+  try {
+    // Step 1 — Date cutoff
+    const now = new Date();
+    let cutoff = null;
+    if (period === 'month') {
+      cutoff = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    } else if (period === 'season') {
+      cutoff = `${now.getFullYear()}-01-01`;
+    }
+
+    // Step 2 — Matches within period (for stats)
+    let matchQuery = supabase
+      .from('matches')
+      .select('id, match_date, score_type')
+      .eq('team_id', teamId)
+      .neq('cancelled', true);
+    if (cutoff) matchQuery = matchQuery.gte('match_date', cutoff);
+    const { data: matchData, error: matchErr } = await matchQuery;
+    if (matchErr) throw matchErr;
+    const matches = matchData || [];
+    if (!matches.length) return [];
+
+    const matchMap = {};
+    for (const m of matches) matchMap[m.id] = { matchDate: m.match_date, scoreType: m.score_type };
+    const matchIds = Object.keys(matchMap);
+
+    // Step 3 — player_match rows for those match IDs
+    const { data: pmData, error: pmErr } = await supabase
+      .from('player_match')
+      .select('player_id, match_id, attended, result, goals, was_motm, had_bibs, team_assignment')
+      .eq('team_id', teamId)
+      .in('match_id', matchIds);
+    if (pmErr) throw pmErr;
+    const pmRows = pmData || [];
+    if (!pmRows.length) return [];
+
+    // Step 4 — All uncancelled match dates for reliability denominator (not period-filtered)
+    let allTeamMatchDates;
+    if (!cutoff) {
+      allTeamMatchDates = matches.map(m => m.match_date);
+    } else {
+      const { data: allMatchData } = await supabase
+        .from('matches')
+        .select('match_date')
+        .eq('team_id', teamId)
+        .neq('cancelled', true);
+      allTeamMatchDates = (allMatchData || []).map(m => m.match_date);
+    }
+
+    // Step 5 — Player details (created_at used as join date for reliability)
+    const allPlayerIds = [...new Set(pmRows.map(r => r.player_id))];
+    const { data: playerData, error: playerErr } = await supabase
+      .from('players')
+      .select('id, name, nickname, injured, disabled, is_guest, created_at')
+      .in('id', allPlayerIds);
+    if (playerErr) throw playerErr;
+    const playerMap = {};
+    for (const p of (playerData || [])) playerMap[p.id] = p;
+
+    // Step 6 — Compute per player
+    const exactMatchIds = new Set(
+      Object.entries(matchMap)
+        .filter(([, m]) => !m.scoreType || m.scoreType === 'exact')
+        .map(([id]) => id)
+    );
+
+    const rowsByPlayer = {};
+    for (const r of pmRows) {
+      if (!rowsByPlayer[r.player_id]) rowsByPlayer[r.player_id] = [];
+      rowsByPlayer[r.player_id].push(r);
+    }
+
+    const entries = [];
+    for (const [playerId, rows] of Object.entries(rowsByPlayer)) {
+      const player = playerMap[playerId];
+      if (!player || player.is_guest || player.disabled) continue;
+
+      const attended = rows.filter(r => r.attended);
+      const played   = attended.length;
+      const wins     = attended.filter(r => r.result === 'w').length;
+      const draws    = attended.filter(r => r.result === 'd').length;
+      const losses   = attended.filter(r => r.result === 'l').length;
+      const points   = (wins * 3) + draws;
+      const winRate  = played > 0 ? Math.round((wins / played) * 100) : 0;
+      const goals    = rows.reduce((s, r) =>
+        s + (exactMatchIds.has(r.match_id) ? (r.goals || 0) : 0), 0);
+      const potm     = rows.filter(r => r.was_motm).length;
+
+      const joinDate       = player.created_at ? new Date(player.created_at) : null;
+      const totalTeamGames = joinDate
+        ? allTeamMatchDates.filter(d => new Date(d) >= joinDate).length
+        : allTeamMatchDates.length;
+      const reliability = played >= 3 && totalTeamGames > 0
+        ? Math.round((played / totalTeamGames) * 100)
+        : null;
+
+      const last5 = [...attended]
+        .sort((a, b) =>
+          new Date(matchMap[b.match_id]?.matchDate) -
+          new Date(matchMap[a.match_id]?.matchDate))
+        .slice(0, 5)
+        .map(r => r.result.toUpperCase());
+
+      const ranked = played >= 3;
+
+      entries.push({
+        playerId, name: player.name, nickname: player.nickname || null,
+        injured: player.injured || false,
+        played, wins, draws, losses, points,
+        winRate, goals, potm, reliability,
+        form: last5, ranked,
+      });
+    }
+
+    // Step 7 — Sort: ranked first by points/goals/winRate/potm, then unranked by name
+    const rankedEntries   = entries.filter(e => e.ranked);
+    const unrankedEntries = entries.filter(e => !e.ranked);
+
+    rankedEntries.sort((a, b) =>
+      b.points  - a.points  ||
+      b.goals   - a.goals   ||
+      b.winRate - a.winRate ||
+      b.potm    - a.potm    ||
+      a.name.localeCompare(b.name)
+    );
+    unrankedEntries.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Step 8 — Assign ranks; tied players share rank, next rank skips
+    let rank = 1;
+    for (let i = 0; i < rankedEntries.length; i++) {
+      if (i > 0) {
+        const prev = rankedEntries[i - 1];
+        const curr = rankedEntries[i];
+        const tied =
+          prev.points  === curr.points  &&
+          prev.goals   === curr.goals   &&
+          prev.winRate === curr.winRate &&
+          prev.potm    === curr.potm;
+        if (!tied) rank = i + 1;
+      }
+      rankedEntries[i].rank = rank;
+    }
+    for (const u of unrankedEntries) u.rank = null;
+
+    return [...rankedEntries, ...unrankedEntries];
+  } catch (e) {
+    return [];
+  }
+}
