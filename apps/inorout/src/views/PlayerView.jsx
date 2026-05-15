@@ -647,8 +647,8 @@ export default function PlayerView({
                 <div style={{ margin:"10px 12px 0", background:"var(--red2)",
                   border:"0.5px solid var(--redb)", color:"var(--red)",
                   fontFamily:"var(--font-body)", fontWeight:400, fontSize:13,
-                  padding:"8px 16px", borderRadius:8 }}>
-                  ❌ This week is cancelled
+                  padding:"8px 16px", borderRadius:8, textAlign:"center" }}>
+                  ❌ This week's match is cancelled
                 </div>
               )}
 
