@@ -539,8 +539,8 @@ export default function PlayerView({
                     } else {
                       btns.push(
                         <button key="confirm" onClick={async () => {
-                          await handleClearDebt(me.id, teamId);
-                          await handleCashPayment(me.id, teamId);
+                          await handleClearDebt(me.id, teamId, owes);
+                          await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
                           setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
                           setCashPending(false);
                           setClearDebtExpanded(false);
@@ -566,7 +566,7 @@ export default function PlayerView({
                     } else if (paymentState === 'cash_pending') {
                       btns.push(
                         <button key="confirm" onClick={async () => {
-                          await handleCashPayment(me.id, teamId);
+                          await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
                           setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
                           setCashPending(false);
                         }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
@@ -766,7 +766,7 @@ export default function PlayerView({
                 } else if (gps === 'cash_pending') {
                   right = (
                     <button onClick={async () => {
-                      await handleGuestCashPayment(myGuest.id, teamId, 'host');
+                      await handleGuestCashPayment(myGuest.id, teamId, 'host', schedule.activeMatchId || null, price, guestName);
                       setSquad(sq => sq.map(p => p.id === myGuest.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
                       setGuestCashPending(false);
                     }} style={ts({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>

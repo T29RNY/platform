@@ -9,7 +9,8 @@ import {
 import {
   addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer,
   resetPlayerToken, insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
-  getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname,
+  getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname, upsertPlayers,
+  createLedgerEntry,
 } from "@platform/supabase";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
@@ -382,7 +383,7 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
             {p.status === 'in' && ps !== 'paid' && (
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                 <button onClick={async () => {
-                  await handleCashPayment(p.id, teamId, 'admin').catch(console.error);
+                  await handleCashPayment(p.id, teamId, 'admin', schedule.activeMatchId || null, schedule.pricePerPlayer || 0).catch(console.error);
                   setSquad(sq => sq.map(s => s.id === p.id
                     ? { ...s, selfPaid:true, paidBy:'admin' } : s));
                 }} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)", border:"none",
@@ -392,7 +393,7 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
                 </button>
                 {(p.paid || p.selfPaid) && (
                   <button onClick={async () => {
-                    await handleResetPayment(p.id, teamId).catch(console.error);
+                    await handleResetPayment(p.id, teamId, schedule.activeMatchId || null).catch(console.error);
                     setSquad(sq => sq.map(s => s.id === p.id
                       ? { ...s, paid:false, selfPaid:false, paidBy:null } : s));
                   }} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)",
@@ -604,7 +605,7 @@ export default function AdminView({
     squad.find(h => h.id === p.guestOf)?.status !== "in" &&
     !dismissedOrphans.has(p.id)
   );
-  const selfPaidPending = inPlayers.filter(p => p.selfPaid === true && p.paid !== true && !p.paidBy);
+  const selfPaidPending = inPlayers.filter(p => p.selfPaid === true && p.paid !== true);
 
   const handleDemoReset = async () => {
     setDemoResetState("resetting");
@@ -658,10 +659,20 @@ export default function AdminView({
     setShowCancel(false); setCancelReason("");
   };
 
-  const draftNextWeek = () => {
+  const draftNextWeek = async () => {
+    const carried = carryForwardDebts(squad, schedule.pricePerPlayer);
     setSchedule({ ...schedule, gameDateTime: nextWeekDateTime(schedule.gameDateTime),
       gameIsLive:false, isDraft:true, isCancelled:false, cancelReason:"" });
-    setSquad(carryForwardDebts(squad, schedule.pricePerPlayer));
+    setSquad(carried);
+    await upsertPlayers(carried, teamId).catch(console.error);
+    const debtors = carried.filter(p => p.owes > 0);
+    await Promise.all(debtors.map(p =>
+      createLedgerEntry({
+        teamId, playerId: p.id, matchId: null,
+        amount: p.owes, type: 'game_fee', status: 'unpaid',
+        method: null, paidBy: null, paidAt: null, note: 'carried forward',
+      }).catch(console.error)
+    ));
     sendTemplate(notificationTemplates.nextWeekDraft);
   };
 
@@ -707,7 +718,7 @@ export default function AdminView({
   };
 
   const markPaid = async (id) => {
-    await handleMarkPaid(id, teamId).catch(console.error);
+    await handleMarkPaid(id, teamId, schedule.activeMatchId || null, schedule.pricePerPlayer || 0).catch(console.error);
     setSquad(squad.map(p => p.id===id ? { ...p, paid:true } : p));
   };
 
