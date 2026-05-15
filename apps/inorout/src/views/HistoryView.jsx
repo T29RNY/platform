@@ -532,29 +532,28 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
               Every game. Every moment.
             </div>
           </div>
-          {/* Right stats — vertically centred */}
-          <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, marginRight: 16,
-            display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{
-              background: "rgba(255,255,255,0.08)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              border: "0.5px solid rgba(255,255,255,0.25)",
-              borderRadius: 16,
-              boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.15)",
-              padding: "10px 16px",
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              minWidth: 80,
-            }}>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 40, lineHeight: 1,
-                color: "var(--t1)", textAlign: "center" }}>
-                {totalPlayed}
-              </div>
-              <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300,
-                textAlign: "center", marginTop: 2 }}>
-                games played
-              </div>
+        </div>
+        {/* Games played chip — sibling outside overflow:hidden so backdropFilter renders */}
+        <div style={{ position: "absolute", top: "50%", right: 16, transform: "translateY(-50%)" }}>
+          <div style={{
+            background: "rgba(255,255,255,0.08)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "0.5px solid rgba(255,255,255,0.25)",
+            borderRadius: 16,
+            boxShadow: "0 4px 24px rgba(0,0,0,0.3), inset 0 0.5px 0 rgba(255,255,255,0.15)",
+            padding: "10px 16px",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            minWidth: 80,
+          }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 40, lineHeight: 1,
+              color: "var(--t1)", textAlign: "center" }}>
+              {totalPlayed}
+            </div>
+            <div style={{ fontSize: 10, color: "var(--t2)", fontWeight: 300,
+              textAlign: "center", marginTop: 2 }}>
+              games played
             </div>
           </div>
         </div>
