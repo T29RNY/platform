@@ -124,7 +124,7 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
         <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
           {owes > 0 && payPill(`£${owes}`, "var(--red2)", "var(--redb)", "var(--red)")}
           {isPaid
-            ? payPill("✓ Paid", "var(--green2)", "var(--greenb)", "var(--green)")
+            ? payPill(owes > 0 ? "✓ This week" : "✓ Paid", "var(--green2)", "var(--greenb)", "var(--green)")
             : player.status === 'in' && payPill(`£${price} due`, "var(--amber2)", "var(--amberb)", "var(--amber)")
           }
           {open
@@ -176,7 +176,7 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
                       e.stopPropagation();
                       await handleResetPayment(player.id, teamId, entry.matchId || null).catch(console.error);
                       setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
-                      setLedger(null);
+                      getLedgerForPlayer(player.id, teamId, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
                     }} style={{ marginLeft:8, padding:"3px 8px", borderRadius:6,
                       background:"var(--s3)", color:"var(--t2)", fontSize:11, fontWeight:400,
                       border:"none", cursor:"pointer", fontFamily:"var(--font-body)" }}>
@@ -194,7 +194,7 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
               <button onClick={async () => {
                 await handleMarkPaid(player.id, teamId, schedule.activeMatchId || null, price).catch(console.error);
                 setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true } : p));
-                setLedger(null);
+                getLedgerForPlayer(player.id, teamId, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
               }} style={{ padding:"6px 14px", borderRadius:"var(--r-pill)", border:"none",
                 background:"var(--gold)", color:"#000", fontSize:11, fontWeight:600,
                 cursor:"pointer", fontFamily:"var(--font-body)" }}>
@@ -342,16 +342,16 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, cove
 
         {/* Summary chips — FIX 3: "{paidCount} PLAYERS PAID" */}
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-          <div style={{ padding:"5px 12px", borderRadius:"var(--r-pill)",
+          <div style={{ padding:"6px 14px", borderRadius:"var(--r-pill)",
             background:"var(--red2)", border:"0.5px solid var(--redb)",
-            fontFamily:"var(--font-display)", fontSize:13, letterSpacing:"0.08em",
-            color:"var(--red)" }}>
+            fontFamily:"var(--font-display)", fontSize:14, fontWeight:600, letterSpacing:"0.08em",
+            color:"var(--t1)" }}>
             £{totalOwed} OUTSTANDING
           </div>
-          <div style={{ padding:"5px 12px", borderRadius:"var(--r-pill)",
+          <div style={{ padding:"6px 14px", borderRadius:"var(--r-pill)",
             background:"var(--green2)", border:"0.5px solid var(--greenb)",
-            fontFamily:"var(--font-display)", fontSize:13, letterSpacing:"0.08em",
-            color:"var(--green)" }}>
+            fontFamily:"var(--font-display)", fontSize:14, fontWeight:600, letterSpacing:"0.08em",
+            color:"var(--t1)" }}>
             {paidCount === 1 ? "1 PLAYER PAID" : `${paidCount} PLAYERS PAID`}
           </div>
         </div>
