@@ -561,6 +561,21 @@ export async function saveMatchResult(matchId, teamId, match) {
     const { error } = await supabase.from("matches").insert({ ...fields, id: matchId, team_id: teamId, voting_open: false });
     if (error) throw error;
   }
+  // Update player_match payment fields for lineup-locked games (rows exist from cron stub)
+  const payEntries = Object.entries(match.payments || {});
+  if (payEntries.length > 0) {
+    await Promise.all(payEntries.map(([playerId, info]) => {
+      const paid = info?.paid || false;
+      return supabase.from("player_match")
+        .update({
+          paid,
+          amount: info?.amount || 0,
+          paid_at: paid ? new Date().toISOString() : null,
+        })
+        .eq("match_id", matchId)
+        .eq("player_id", playerId);
+    }));
+  }
 }
 
 // ─── Career bib count — sum across all player records for this user ───────────

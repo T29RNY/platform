@@ -242,7 +242,7 @@ export default function ScoreScreen({
     try {
       const teamAPlayers = inPlayers.filter(p => p.team === "A").map(p => p.name);
       const teamBPlayers = inPlayers.filter(p => p.team === "B").map(p => p.name);
-      const payMap    = Object.fromEntries(inPlayers.map(p => [p.name, payments[p.id] || false]));
+      const payMap    = Object.fromEntries(inPlayers.map(p => [p.id, { paid: payments[p.id] || false, amount: schedule.pricePerPlayer || 0 }]));
       const scorerMap = Object.fromEntries(inPlayers.map(p => [p.name, scorers[p.id] || 0]));
 
       const match = newMatch({

@@ -216,7 +216,7 @@ async function main() {
       const scorerNames = {};
       for (const [n, g] of Object.entries(scorersRaw)) scorerNames[NAMES[+n]] = g;
       const payments = {};
-      [...ta, ...tb].forEach(n => { payments[NAMES[n]] = true; });
+      [...ta, ...tb].forEach(n => { payments[pid(n)] = { paid: true, amount: 5 }; });
 
       matchRows.push({
         id: mid,
