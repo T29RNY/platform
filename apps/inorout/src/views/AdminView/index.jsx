@@ -16,7 +16,7 @@ import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
   UsersThree, FlagCheckered, UserList, CalendarBlank,
   Bell, TShirt, Users, ArrowLeft, Link as LinkIcon,
-  PencilSimple, Bandaids, CurrencyPound,
+  PencilSimple, Bandaids, Money,
 } from "@phosphor-icons/react";
 import NavBar      from "../../components/ui/NavBar.jsx";
 import TeamsScreen    from "./TeamsScreen.jsx";
@@ -1181,7 +1181,7 @@ export default function AdminView({
         <SectionLabel>Manage</SectionLabel>
         <div style={{ marginBottom:8 }}>
           {tile({
-            icon: CurrencyPound, iconColor:"var(--green)",
+            icon: Money, iconColor:"var(--green)",
             bg:"linear-gradient(135deg, var(--green2), transparent)",
             border:"var(--greenb)",
             title:"Payments",
