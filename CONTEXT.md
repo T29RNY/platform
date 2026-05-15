@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 15 2026 (session 16)*
+*Last updated: May 15 2026 (session 17)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -650,8 +650,10 @@ Player self-pays before lineup lock (matchId=null entry created). Lineup lock th
 2. `updatePlayerRecords()` in ScoreScreen save — adds price to unpaid in-players at result entry time
 Both can run; both add to `owes`. No deduplication.
 
-### Payment confirmation flow (known bug)
-`handleCashPayment` always sets `paid_by`. So a player who self-reports via PlayerView gets `paid_by='self'` → admin confirmation step is effectively skipped for player-initiated cash payments. They show as "✓ Paid" immediately.
+### Payment confirmation flow
+`handleCashPayment` sets `self_paid=true` (not `paid=true`). Player sees amber "Awaiting confirmation" chip (`selfPaid=true, paid=false`). Admin sees player in the gold pulsing banner → taps "CONFIRM ✓" → `handleMarkPaid` sets `paid=true` → player sees green "✓ Paid" chip.
+- `selfPaid=true` still counts as `isPaid` in PaymentsScreen (player appears in PAID UP section) — admin confirmation is a UX signal, not a payment gate
+- `handleCashPayment` now uses find-then-update pattern: calls `findMatchLedgerEntry` first; if existing row found, calls `updateLedgerEntry`; otherwise `createLedgerEntry`. Wrapped in try/catch with `console.error` + re-throw.
 
 ---
 
@@ -1218,13 +1220,40 @@ Payment ledger dedup hardening + PaymentsScreen/PlayerView UI fixes.
 - Removed StatusBadge pill block above 4-button grid (was duplicating locked/live state info)
 - Removed 👊 locked-in confirmation row for IN players specifically — 🔒 row already covers it; maybe/reserve/out confirmation rows preserved
 
-**Next session (Session 17) — start with:**
+**Session 17 (May 15 2026):**
+Payment confirmation UX + handleCashPayment hardening.
+
+**handleCashPayment (payments.js) — find-then-update pattern:**
+- Replaced upsert call with explicit `findMatchLedgerEntry` → `updateLedgerEntry` (if exists) / `createLedgerEntry` (if not) — same pattern as `handleMarkPaid`
+- Entire function body wrapped in try/catch: `console.error('handleCashPayment error:', error)` + re-throw
+- Debug `console.log` statements added: logs `existing` object + `playerId/teamId/matchId` after find; logs "updated ledger entry" or "created ledger entry" after each branch
+
+**PlayerView.jsx — Confirm button error handling:**
+- `const [payError, setPayError] = useState(null)` added
+- All three "Confirm — You've Paid?" onClick handlers wrapped in try/catch: `setPayError(null)` on each tap, `setPayError("Something went wrong — try again")` on catch
+- Error message shown inline below button in red 10px text; clears on next tap
+
+**PlayerView.jsx — post-confirm payment state display:**
+- New branch BEFORE `paymentState === 'debt'`: when `selfPaid === true && paid !== true && !cashPending` → pushes amber "Awaiting confirmation" span to btns (amber2 bg, amberb border, amber color, 12px DM Sans 400, minHeight 36)
+- New second branch: when `paid === true` → pushes green "✓ Paid" span to btns (green2/greenb/green)
+- Previously both states showed nothing in the button area (just "Nothing owed 👊" as amountText)
+
+**AdminView/index.jsx — payment confirmation banner redesign:**
+- `@keyframes ioo-gold-pulse` injected inline: box-shadow 0→16px→0 on var(--goldb), 2s ease-in-out infinite
+- Outer div: gold2 bg, 0.5px goldb border, 3px solid gold left border, animated glow
+- Header: Bebas Neue 15px gold — "💰 PAYMENT CONFIRMATIONS · {count}" (was 11px green uppercase "Payment Confirmations Needed")
+- Per-row: `{nickname||name} · £{price} cash` + red `+ £{owes} debt` span when owes > 0; `"Host paid for {name}"` when paidBy==='host'
+- Rows separated by `0.5px solid rgba(232,160,32,0.2)` divider
+- Confirm button: Bebas Neue 13px, gold bg, "CONFIRM ✓" (was DM Sans 11px green)
+
+**Next session (Session 18) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
 2. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
 3. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
 4. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
 5. Stage 1 ship blockers review — is May 19 still on track?
+6. Remove debug console.log statements from handleCashPayment when payment flow confirmed working
 
 **Aspirational for May 19 matchday (Stage 1 live):**
 - POTM voting live for Finbar's Tuesdays first match
