@@ -1016,23 +1016,45 @@ export default function AdminView({
         })}
 
         {selfPaidPending.length > 0 && (
-          <div style={{ background:"var(--green2)", border:"0.5px solid var(--greenb)",
-            borderRadius:"var(--r)", padding:"12px 14px", marginBottom:8 }}>
-            <div style={{ fontSize:11, fontWeight:600, color:"var(--green)",
-              letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
-              💰 Payment Confirmations Needed
-            </div>
-            {selfPaidPending.map(p => (
-              <div key={p.id} style={{ display:"flex", alignItems:"center",
-                justifyContent:"space-between", marginBottom:6 }}>
-                <span style={{ fontSize:13, color:"var(--t1)" }}>{p.name} says they've paid</span>
-                <button onClick={() => markPaid(p.id)} style={{ padding:"5px 12px",
-                  borderRadius:"var(--r-pill)", border:"none", background:"var(--green)",
-                  color:"#000", fontFamily:"var(--font-body)", fontSize:11,
-                  fontWeight:600, cursor:"pointer" }}>Confirm ✓</button>
+          <>
+            <style>{`@keyframes ioo-gold-pulse{0%{box-shadow:0 0 0px var(--goldb)}50%{box-shadow:0 0 16px var(--goldb)}100%{box-shadow:0 0 0px var(--goldb)}}`}</style>
+            <div style={{
+              background:"var(--gold2)", border:"0.5px solid var(--goldb)",
+              borderLeft:"3px solid var(--gold)",
+              borderRadius:"var(--r)", padding:"12px 14px", marginBottom:8,
+              animation:"ioo-gold-pulse 2s ease-in-out infinite",
+            }}>
+              <div style={{ fontFamily:"var(--font-display)", fontSize:15,
+                letterSpacing:"0.08em", color:"var(--gold)", marginBottom:8 }}>
+                💰 PAYMENT CONFIRMATIONS · {selfPaidPending.length}
               </div>
-            ))}
-          </div>
+              {selfPaidPending.map((p, i) => (
+                <div key={p.id} style={{
+                  display:"flex", alignItems:"center", justifyContent:"space-between",
+                  gap:8, paddingTop: i === 0 ? 0 : 8,
+                  borderTop: i === 0 ? "none" : "0.5px solid rgba(232,160,32,0.2)",
+                }}>
+                  <div style={{ fontSize:13, color:"var(--t1)", fontWeight:400, flex:1, minWidth:0 }}>
+                    {p.paidBy === 'host'
+                      ? `Host paid for ${p.nickname || p.name}`
+                      : (
+                          <>
+                            {p.nickname || p.name} · £{schedule.pricePerPlayer || 0} cash
+                            {p.owes > 0 && <span style={{ color:"var(--red)" }}> + £{p.owes} debt</span>}
+                          </>
+                        )
+                    }
+                  </div>
+                  <button onClick={() => markPaid(p.id)} style={{
+                    padding:"5px 14px", borderRadius:"var(--r-pill)", border:"none",
+                    background:"var(--gold)", color:"#000",
+                    fontFamily:"var(--font-display)", fontSize:13,
+                    letterSpacing:"0.06em", cursor:"pointer", flexShrink:0,
+                  }}>CONFIRM ✓</button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Game live toggle */}

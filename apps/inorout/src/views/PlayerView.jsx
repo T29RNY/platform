@@ -527,7 +527,27 @@ export default function PlayerView({
 
                   const btns = [];
 
-                  if (paymentState === 'debt') {
+                  if (me?.selfPaid === true && me?.paid !== true && !cashPending) {
+                    btns.push(
+                      <span key="awaiting" style={{
+                        display:"inline-flex", alignItems:"center",
+                        background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+                        color:"var(--amber)", borderRadius:"var(--r-button)",
+                        padding:"0 10px", fontSize:12, fontWeight:400,
+                        minHeight:36, fontFamily:"var(--font-body)",
+                      }}>Awaiting confirmation</span>
+                    );
+                  } else if (me?.paid === true) {
+                    btns.push(
+                      <span key="confirmed" style={{
+                        display:"inline-flex", alignItems:"center",
+                        background:"var(--green2)", border:"0.5px solid var(--greenb)",
+                        color:"var(--green)", borderRadius:"var(--r-button)",
+                        padding:"0 10px", fontSize:12, fontWeight:400,
+                        minHeight:36, fontFamily:"var(--font-body)",
+                      }}>✓ Paid</span>
+                    );
+                  } else if (paymentState === 'debt') {
                     if (!clearDebtExpanded) {
                       btns.push(
                         <button key="clear" onClick={() => setClearDebtExpanded(true)}
