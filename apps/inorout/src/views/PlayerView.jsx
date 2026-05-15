@@ -104,6 +104,7 @@ export default function PlayerView({
   const [potmBanner,      setPotmBanner]      = useState(null); // { winnerName, isWinner }
   const prevVotingOpen = useRef(false);
 
+  const [payError,        setPayError]        = useState(null);
   const [ledgerBalance,   setLedgerBalance]   = useState(null);
   const [payHistOpen,     setPayHistOpen]     = useState(false);
   const [payHistory,      setPayHistory]      = useState(null);
@@ -549,15 +550,23 @@ export default function PlayerView({
                       );
                     } else {
                       btns.push(
-                        <button key="confirm" onClick={async () => {
-                          await handleClearDebt(me.id, teamId, owes + price);
-                          await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
-                          setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
-                          setCashPending(false);
-                          setClearDebtExpanded(false);
-                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                          Confirm — You've Paid?
-                        </button>
+                        <div key="confirm-debt" style={{ display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
+                          <button onClick={async () => {
+                            setPayError(null);
+                            try {
+                              await handleClearDebt(me.id, teamId, owes + price);
+                              await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
+                              setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
+                              setCashPending(false);
+                              setClearDebtExpanded(false);
+                            } catch {
+                              setPayError("Something went wrong — try again");
+                            }
+                          }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                            Confirm — You've Paid?
+                          </button>
+                          {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"right", fontWeight:300 }}>{payError}</div>}
+                        </div>
                       );
                     }
                   } else if (status === 'in') {
@@ -576,13 +585,21 @@ export default function PlayerView({
                       );
                     } else if (paymentState === 'cash_pending') {
                       btns.push(
-                        <button key="confirm" onClick={async () => {
-                          await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
-                          setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
-                          setCashPending(false);
-                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                          Confirm — You've Paid?
-                        </button>
+                        <div key="confirm-in" style={{ display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
+                          <button onClick={async () => {
+                            setPayError(null);
+                            try {
+                              await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
+                              setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
+                              setCashPending(false);
+                            } catch {
+                              setPayError("Something went wrong — try again");
+                            }
+                          }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                            Confirm — You've Paid?
+                          </button>
+                          {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"right", fontWeight:300 }}>{payError}</div>}
+                        </div>
                       );
                     }
                   }
@@ -769,13 +786,21 @@ export default function PlayerView({
                   right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>{label}</span>;
                 } else if (gps === 'cash_pending') {
                   right = (
-                    <button onClick={async () => {
-                      await handleGuestCashPayment(myGuest.id, teamId, 'host', schedule.activeMatchId || null, price, guestName);
-                      setSquad(sq => sq.map(p => p.id === myGuest.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
-                      setGuestCashPending(false);
-                    }} style={ts({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                      Confirm — You've Paid?
-                    </button>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+                      <button onClick={async () => {
+                        setPayError(null);
+                        try {
+                          await handleGuestCashPayment(myGuest.id, teamId, 'host', schedule.activeMatchId || null, price, guestName);
+                          setSquad(sq => sq.map(p => p.id === myGuest.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
+                          setGuestCashPending(false);
+                        } catch {
+                          setPayError("Something went wrong — try again");
+                        }
+                      }} style={ts({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                        Confirm — You've Paid?
+                      </button>
+                      {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"right", fontWeight:300 }}>{payError}</div>}
+                    </div>
                   );
                 } else if (myGuest.selfPaid) {
                   right = <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>Paying cash</span>;

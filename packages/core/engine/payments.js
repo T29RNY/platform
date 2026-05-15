@@ -43,19 +43,25 @@ export function getPaymentMode(schedule) {
 
 /** Player confirms they've paid cash. Sets self_paid = true and paid_by in DB. */
 export async function handleCashPayment(playerId, teamId, paidBy = 'self', matchId = null, amount = 0) {
-  const paidAt = new Date().toISOString();
-  const { error } = await supabase
-    .from("players")
-    .update({ self_paid: true, paid_by: paidBy, paid_at: paidAt })
-    .eq("id", playerId);
-  if (error) throw error;
-  await createLedgerEntry({
-    teamId, playerId, matchId: matchId || null, amount: amount || 0,
-    type: 'game_fee', status: 'paid',
-    method: paidBy === 'stripe' ? 'stripe' : 'cash',
-    paidBy, paidAt, note: null,
-  });
-  return { selfPaid: true, paidBy, paidAt };
+  try {
+    const paidAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("players")
+      .update({ self_paid: true, paid_by: paidBy, paid_at: paidAt })
+      .eq("id", playerId);
+    if (error) throw error;
+    await createLedgerEntry({
+      teamId, playerId, matchId: matchId || null, amount: amount || 0,
+      type: 'game_fee', status: 'paid',
+      method: paidBy === 'stripe' ? 'stripe' : 'cash',
+      paidBy, paidAt, note: null,
+      upsert: true,
+    });
+    return { selfPaid: true, paidBy, paidAt };
+  } catch (error) {
+    console.error('handleCashPayment error:', error);
+    throw error;
+  }
 }
 
 /** Host or admin confirms cash payment for a guest. */
