@@ -1,6 +1,6 @@
 // Payment engine — shared across all products
 import { supabase } from "../storage/supabase.js";
-import { createLedgerEntry, updateLedgerEntry, getLedgerForPlayer } from "../storage/supabase.js";
+import { createLedgerEntry, updateLedgerEntry, getLedgerForPlayer, findMatchLedgerEntry } from "../storage/supabase.js";
 
 // ─── Payment state ────────────────────────────────────────────────────────────
 
@@ -117,11 +117,17 @@ export async function handleMarkPaid(playerId, teamId, matchId = null, amount = 
     .update({ paid: true, paid_at: paidAt })
     .eq("id", playerId);
   if (error) throw error;
-  await createLedgerEntry({
-    teamId, playerId, matchId: matchId || null, amount: amount || 0,
-    type: 'game_fee', status: 'paid', method: 'admin',
-    paidBy: 'admin', paidAt, note: null,
-  });
+  // FIX 5 — update existing entry if present to avoid duplicates on repeat mark/reset cycles
+  const existing = matchId ? await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee') : null;
+  if (existing) {
+    await updateLedgerEntry(existing.id, { status: 'paid', method: 'admin', paidBy: 'admin', paidAt });
+  } else {
+    await createLedgerEntry({
+      teamId, playerId, matchId: matchId || null, amount: amount || 0,
+      type: 'game_fee', status: 'paid', method: 'admin',
+      paidBy: 'admin', paidAt, note: null,
+    });
+  }
   return { paid: true, paidAt };
 }
 
@@ -132,10 +138,10 @@ export async function handleResetPayment(playerId, teamId, matchId = null) {
     .update({ paid: false, self_paid: false, paid_by: null, paid_at: null })
     .eq("id", playerId);
   if (error) throw error;
+  // FIX 5 — targeted lookup; clears paid_at on reset
   if (matchId) {
-    const ledger = await getLedgerForPlayer(playerId, teamId, 50);
-    const entry = ledger.find(e => e.matchId === matchId && e.status === 'paid');
-    if (entry) await updateLedgerEntry(entry.id, { status: 'unpaid' });
+    const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
+    if (existing) await updateLedgerEntry(existing.id, { status: 'unpaid', paidAt: null });
   }
   return { paid: false, selfPaid: false, paidBy: null, paidAt: null };
 }

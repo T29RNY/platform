@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { handleMarkPaid, handleResetPayment, handleWaiveDebt } from "@platform/core";
 import { getLedgerForPlayer } from "@platform/supabase";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeft, CaretDown, CaretUp } from "@phosphor-icons/react";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -11,19 +11,19 @@ const TYPE_LABEL = {
 };
 
 const STATUS_STYLE = {
-  paid:     { bg:"var(--green2)",               border:"var(--greenb)",               color:"var(--green)"  },
-  unpaid:   { bg:"var(--amber2)",               border:"var(--amberb)",               color:"var(--amber)"  },
-  waived:   { bg:"var(--purple2)",              border:"var(--purpleb)",              color:"var(--purple)" },
-  refunded: { bg:"rgba(96,160,255,0.12)",       border:"rgba(96,160,255,0.3)",        color:"#60A0FF"       },
-  disputed: { bg:"var(--red2)",                border:"var(--redb)",                 color:"var(--red)"    },
+  paid:     { bg:"var(--green2)",         border:"var(--greenb)",         color:"var(--green)"  },
+  unpaid:   { bg:"var(--amber2)",         border:"var(--amberb)",         color:"var(--amber)"  },
+  waived:   { bg:"var(--purple2)",        border:"var(--purpleb)",        color:"var(--purple)" },
+  refunded: { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF"       },
+  disputed: { bg:"var(--red2)",           border:"var(--redb)",           color:"var(--red)"    },
 };
 
 const STATUS_PILL = {
-  in:      { label:"IN",          color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)"  },
-  out:     { label:"OUT",         color:"var(--red)",    bg:"var(--red2)",    border:"var(--redb)"    },
-  maybe:   { label:"MAYBE",       color:"var(--amber)",  bg:"var(--amber2)",  border:"var(--amberb)"  },
-  reserve: { label:"RESERVE",     color:"var(--purple)", bg:"var(--purple2)", border:"var(--purpleb)" },
-  none:    { label:"NO RESPONSE", color:"var(--t2)",     bg:"rgba(255,255,255,0.06)", border:"rgba(255,255,255,0.15)" },
+  in:      { label:"IN",          color:"var(--green)",  bg:"var(--green2)",              border:"var(--greenb)"              },
+  out:     { label:"OUT",         color:"var(--red)",    bg:"var(--red2)",                border:"var(--redb)"                },
+  maybe:   { label:"MAYBE",       color:"var(--amber)",  bg:"var(--amber2)",              border:"var(--amberb)"              },
+  reserve: { label:"RESERVE",     color:"var(--purple)", bg:"var(--purple2)",             border:"var(--purpleb)"             },
+  none:    { label:"NO RESPONSE", color:"var(--t2)",     bg:"rgba(255,255,255,0.06)",     border:"rgba(255,255,255,0.15)"     },
 };
 
 const fmtDate = iso => iso
@@ -35,6 +35,28 @@ function ini(name) {
   return parts.length >= 2
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     : (name || '?').slice(0, 2).toUpperCase();
+}
+
+// Small pill for status labels (IN / OUT / MAYBE etc.)
+function pill(label, bg, border, color) {
+  return (
+    <span style={{
+      fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:"var(--r-pill)",
+      background:bg, border:`0.5px solid ${border}`, color, letterSpacing:"0.05em",
+      whiteSpace:"nowrap",
+    }}>{label}</span>
+  );
+}
+
+// FIX 2 — Larger pill for payment amounts / paid status
+function payPill(label, bg, border, color) {
+  return (
+    <span style={{
+      fontSize:13, fontWeight:400, padding:"2px 8px", borderRadius:"var(--r-pill)",
+      background:bg, border:`0.5px solid ${border}`, color, letterSpacing:"0.02em",
+      whiteSpace:"nowrap",
+    }}>{label}</span>
+  );
 }
 
 // ── PlayerRow accordion ───────────────────────────────────────────────────────
@@ -65,17 +87,16 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
   const price  = schedule.pricePerPlayer || 0;
   const sp     = STATUS_PILL[player.status] || STATUS_PILL.none;
 
-  const pill = (label, bg, border, color) => (
-    <span style={{
-      fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:"var(--r-pill)",
-      background:bg, border:`0.5px solid ${border}`, color, letterSpacing:"0.05em",
-      whiteSpace:"nowrap",
-    }}>{label}</span>
-  );
+  // FIX 6 — guest responsibility text derived from paid_by
+  const guestLine = isGuest
+    ? player.paidBy === 'host' ? `Host: ${hostName || 'unknown'}`
+    : player.paidBy === 'self' ? 'Self pay'
+    : hostName ? `guest of ${hostName}` : null
+    : null;
 
   return (
     <div style={{ borderTop:"0.5px solid var(--b2)" }}>
-      {/* Collapsed row */}
+      {/* Collapsed row — FIX 1: chevron added far right */}
       <div onClick={toggle} style={{ padding:"10px 16px", display:"flex",
         alignItems:"center", gap:10, cursor:"pointer",
         WebkitTapHighlightColor:"transparent" }}>
@@ -92,19 +113,23 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
             overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {player.nickname || player.name}
           </div>
-          {isGuest && hostName && (
-            <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300 }}>guest of {hostName}</div>
+          {guestLine && (
+            <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300 }}>{guestLine}</div>
           )}
           <div style={{ marginTop:3 }}>
             {pill(sp.label, sp.bg, sp.border, sp.color)}
           </div>
         </div>
-        {/* Right badges */}
+        {/* Right badges — FIX 2: payPill; FIX 7: £ due only for IN */}
         <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
-          {owes > 0 && pill(`£${owes}`, "var(--red2)", "var(--redb)", "var(--red)")}
+          {owes > 0 && payPill(`£${owes}`, "var(--red2)", "var(--redb)", "var(--red)")}
           {isPaid
-            ? pill("✓ Paid",   "var(--green2)", "var(--greenb)", "var(--green)")
-            : pill(`£${price} due`, "var(--amber2)", "var(--amberb)", "var(--amber)")
+            ? payPill("✓ Paid", "var(--green2)", "var(--greenb)", "var(--green)")
+            : player.status === 'in' && payPill(`£${price} due`, "var(--amber2)", "var(--amberb)", "var(--amber)")
+          }
+          {open
+            ? <CaretUp   size={16} weight="thin" color="var(--t2)" style={{ flexShrink:0 }}/>
+            : <CaretDown size={16} weight="thin" color="var(--t2)" style={{ flexShrink:0 }}/>
           }
         </div>
       </div>
@@ -150,7 +175,7 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
             );
           })}
 
-          {/* Action row */}
+          {/* Action row — FIX 4: "Mark Paid — This Week" */}
           <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
             {!isPaid ? (
               <button onClick={async () => {
@@ -160,7 +185,7 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
               }} style={{ padding:"6px 14px", borderRadius:"var(--r-pill)", border:"none",
                 background:"var(--gold)", color:"#000", fontSize:11, fontWeight:600,
                 cursor:"pointer", fontFamily:"var(--font-body)" }}>
-                Mark Paid
+                Mark Paid — This Week
               </button>
             ) : (
               <button onClick={async () => {
@@ -241,12 +266,12 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
   );
 }
 
-// ── SectionLabel ──────────────────────────────────────────────────────────────
+// ── SectionLabel — FIX 8: color prop added ───────────────────────────────────
 
-function SectionLabel({ children }) {
+function SectionLabel({ children, color = "var(--t2)" }) {
   return (
     <div style={{ padding:"0 16px 6px", fontFamily:"var(--font-display)",
-      fontSize:13, letterSpacing:"0.1em", color:"var(--t2)" }}>
+      fontSize:13, letterSpacing:"0.1em", color }}>
       {children}
     </div>
   );
@@ -266,26 +291,35 @@ function PlayerCard({ children }) {
 // ── main export ───────────────────────────────────────────────────────────────
 
 export default function PaymentsScreen({ squad, setSquad, schedule, teamId, coverPool = [], onBack }) {
+  const [showNotPlaying, setShowNotPlaying] = useState(false);
+
   const price = schedule.pricePerPlayer || 0;
 
   const activePlayers = squad.filter(p => !p.disabled && !p.isGuest);
   const guestPlayers  = squad.filter(p => p.isGuest && !p.disabled);
 
-  const sorted = [...activePlayers].sort((a, b) => {
-    const aOwes = a.owes || 0;
-    const bOwes = b.owes || 0;
-    if (aOwes > 0 && bOwes === 0) return -1;
-    if (aOwes === 0 && bOwes > 0) return  1;
-    if (aOwes > 0 && bOwes > 0)  return bOwes - aOwes;
-    const aPaid = a.paid || a.selfPaid;
-    const bPaid = b.paid || b.selfPaid;
-    if (aPaid && !bPaid) return -1;
-    if (!aPaid && bPaid) return  1;
-    return (a.nickname || a.name).localeCompare(b.nickname || b.name);
-  });
+  // FIX 8 — 4 mutually exclusive sections, priority: owes → unpaid-in → paid → notPlaying
+  const byName = (a, b) => (a.nickname || a.name).localeCompare(b.nickname || b.name);
 
-  const totalOwed  = activePlayers.reduce((s, p) => s + (p.owes || 0), 0);
-  const paidCount  = activePlayers.filter(p => p.paid || p.selfPaid).length;
+  const owesSection = activePlayers
+    .filter(p => (p.owes || 0) > 0)
+    .sort((a, b) => (b.owes || 0) - (a.owes || 0));
+
+  const unpaidIn = activePlayers
+    .filter(p => !(p.owes > 0) && p.status === 'in' && !(p.paid || p.selfPaid))
+    .sort(byName);
+
+  const paidUp = activePlayers
+    .filter(p => !(p.owes > 0) && (p.paid || p.selfPaid))
+    .sort(byName);
+
+  const notPlaying = activePlayers
+    .filter(p => !(p.owes > 0) && !(p.paid || p.selfPaid) && p.status !== 'in')
+    .sort(byName);
+
+  const totalOwed = activePlayers.reduce((s, p) => s + (p.owes || 0), 0);
+  // FIX 3 — count all paid this week across all sections
+  const paidCount = activePlayers.filter(p => p.paid || p.selfPaid).length;
 
   return (
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
@@ -304,7 +338,7 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, cove
           </div>
         </div>
 
-        {/* Summary chips */}
+        {/* Summary chips — FIX 3: "{paidCount} PLAYERS PAID" */}
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
           <div style={{ padding:"5px 12px", borderRadius:"var(--r-pill)",
             background:"var(--red2)", border:"0.5px solid var(--redb)",
@@ -316,35 +350,107 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, cove
             background:"var(--green2)", border:"0.5px solid var(--greenb)",
             fontFamily:"var(--font-display)", fontSize:13, letterSpacing:"0.08em",
             color:"var(--green)" }}>
-            {paidCount} PAID THIS WEEK
+            {paidCount} PLAYERS PAID
           </div>
         </div>
       </div>
 
-      {/* Squad list */}
-      <PlayerCard>
-        {sorted.length ? sorted.map(p => (
-          <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule} setSquad={setSquad} />
-        )) : (
-          <div style={{ padding:"16px", fontSize:12, color:"var(--t2)", fontWeight:300 }}>No players</div>
-        )}
-      </PlayerCard>
-
-      {/* Guests */}
-      {guestPlayers.length > 0 && (
+      {/* FIX 8 — Section 1: OWES MONEY (hidden when empty) */}
+      {owesSection.length > 0 && (
         <>
-          <SectionLabel>GUESTS</SectionLabel>
+          <SectionLabel color="var(--red)">OWES MONEY · {owesSection.length}</SectionLabel>
           <PlayerCard>
-            {guestPlayers.map(p => {
-              const host = squad.find(h => h.id === p.guestOf);
-              return (
-                <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule}
-                  setSquad={setSquad} isGuest hostName={host?.nickname || host?.name || null} />
-              );
-            })}
+            {owesSection.map(p => (
+              <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+            ))}
           </PlayerCard>
         </>
       )}
+
+      {/* FIX 8 — Section 2: IN — NOT YET PAID (hidden when empty) */}
+      {unpaidIn.length > 0 && (
+        <>
+          <SectionLabel color="var(--amber)">IN — NOT YET PAID · {unpaidIn.length}</SectionLabel>
+          <PlayerCard>
+            {unpaidIn.map(p => (
+              <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+            ))}
+          </PlayerCard>
+        </>
+      )}
+
+      {/* FIX 8 — Section 3: PAID UP (hidden when empty) */}
+      {paidUp.length > 0 && (
+        <>
+          <SectionLabel color="var(--green)">PAID UP · {paidUp.length}</SectionLabel>
+          <PlayerCard>
+            {paidUp.map(p => (
+              <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+            ))}
+          </PlayerCard>
+        </>
+      )}
+
+      {/* FIX 8 — Section 4: NOT PLAYING — always shown, collapsed by default */}
+      <SectionLabel>NOT PLAYING · {notPlaying.length}</SectionLabel>
+      <div style={{ margin:"0 16px 12px" }}>
+        <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+          borderRadius:"var(--r)", overflow:"hidden" }}>
+          <div onClick={() => setShowNotPlaying(o => !o)}
+            style={{ padding:"12px 16px", display:"flex", alignItems:"center",
+              justifyContent:"space-between", cursor:"pointer",
+              WebkitTapHighlightColor:"transparent" }}>
+            <span style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>
+              {showNotPlaying
+                ? "Hide players"
+                : `Show ${notPlaying.length} player${notPlaying.length !== 1 ? "s" : ""}`}
+            </span>
+            {showNotPlaying
+              ? <CaretUp   size={14} weight="thin" color="var(--t2)"/>
+              : <CaretDown size={14} weight="thin" color="var(--t2)"/>
+            }
+          </div>
+          {showNotPlaying && notPlaying.map(p => {
+            const sp = STATUS_PILL[p.status] || STATUS_PILL.none;
+            return (
+              <div key={p.id} style={{ display:"flex", alignItems:"center",
+                padding:"9px 16px", borderTop:"0.5px solid var(--b2)", gap:10 }}>
+                <div style={{ width:32, height:32, borderRadius:"50%", flexShrink:0,
+                  background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:9, fontWeight:600, color:"var(--t2)" }}>
+                  {ini(p.nickname || p.name)}
+                </div>
+                <div style={{ flex:1, minWidth:0, fontSize:13, color:"var(--t2)",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {p.nickname || p.name}
+                </div>
+                <span style={{
+                  fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:"var(--r-pill)",
+                  background:sp.bg, border:`0.5px solid ${sp.border}`, color:sp.color,
+                  letterSpacing:"0.05em", whiteSpace:"nowrap",
+                }}>{sp.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* FIX 6 — Guests: always shown, empty state if no guests */}
+      <SectionLabel>GUESTS</SectionLabel>
+      <PlayerCard>
+        {guestPlayers.length === 0 ? (
+          <div style={{ padding:"12px 16px", fontSize:13, color:"var(--t2)", fontWeight:300 }}>
+            No guests this week
+          </div>
+        ) : guestPlayers.map(p => {
+          const host = squad.find(h => h.id === p.guestOf);
+          return (
+            <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule}
+              setSquad={setSquad} isGuest hostName={host?.nickname || host?.name || null} />
+          );
+        })}
+      </PlayerCard>
 
       {/* Cover Pool */}
       {coverPool.length > 0 && (
