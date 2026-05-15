@@ -1471,3 +1471,97 @@ export async function getOutstandingBalance(playerId, teamId) {
   if (error) throw error;
   return (data || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 }
+
+// ─── Cancel Week helpers ───────────────────────────────────────────────────────
+
+/**
+ * Resets all non-disabled players on a team to a clean between-weeks state.
+ * Called by cancelWeek() immediately before drafting next week.
+ * Two-step: players have no direct team_id column; relationship is via team_players.
+ */
+export async function bulkResetPlayerStatuses(teamId) {
+  const { data: links, error: linkErr } = await supabase
+    .from("team_players")
+    .select("player_id")
+    .eq("team_id", teamId);
+  if (linkErr) throw linkErr;
+  const ids = (links || []).map(r => r.player_id);
+  if (!ids.length) return { count: 0 };
+  const { data, error } = await supabase
+    .from("players")
+    .update({ status: 'none', paid: false, self_paid: false, paid_by: null, paid_at: null })
+    .in("id", ids)
+    .eq("disabled", false)
+    .select("id");
+  if (error) throw error;
+  return { count: (data || []).length };
+}
+
+/**
+ * For each player who was IN for a cancelled match:
+ * - Issues a 'refund' ledger entry if they had already paid (status='paid')
+ *   or self-paid pending confirmation (status='unpaid' + self_paid=true),
+ *   and clears their payment flags on the players row.
+ * - Always writes a 'cancelled' ledger entry as an audit record.
+ *
+ * REQUIRES DB CHECK constraint update in Supabase before this function
+ * will succeed. Run in the Supabase SQL editor:
+ *
+ *   ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_type_check;
+ *   ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_type_check
+ *     CHECK (type IN ('game_fee','guest_fee','debt_payment','waiver','refund','cancelled'));
+ *
+ *   ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_status_check;
+ *   ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_status_check
+ *     CHECK (status IN ('paid','unpaid','waived','disputed','refunded','cancelled'));
+ */
+export async function bulkCancelLedgerEntries(teamId, matchId, affectedPlayerIds, pricePerPlayer) {
+  let refunded = 0;
+  let cancelled = 0;
+  const paidAt = new Date().toISOString();
+
+  for (const playerId of affectedPlayerIds) {
+    const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
+
+    if (existing?.status === 'paid') {
+      await createLedgerEntry({
+        teamId, playerId, matchId, amount: pricePerPlayer,
+        type: 'refund', status: 'refunded', method: 'admin',
+        paidBy: 'admin', paidAt, note: 'Match cancelled',
+      });
+      const { error } = await supabase
+        .from("players")
+        .update({ paid: false, self_paid: false, paid_by: null, paid_at: null })
+        .eq("id", playerId);
+      if (error) throw error;
+      refunded++;
+    } else if (existing?.status === 'unpaid') {
+      const { data: p, error: pErr } = await supabase
+        .from("players").select("self_paid").eq("id", playerId).single();
+      if (pErr) throw pErr;
+      if (p?.self_paid === true) {
+        await createLedgerEntry({
+          teamId, playerId, matchId, amount: pricePerPlayer,
+          type: 'refund', status: 'refunded', method: 'admin',
+          paidBy: 'admin', paidAt, note: 'Match cancelled',
+        });
+        const { error } = await supabase
+          .from("players")
+          .update({ self_paid: false, paid_by: null, paid_at: null })
+          .eq("id", playerId);
+        if (error) throw error;
+        refunded++;
+      }
+    }
+
+    // Always write a cancellation audit record — plain insert, no upsert
+    await createLedgerEntry({
+      teamId, playerId, matchId, amount: 0,
+      type: 'cancelled', status: 'cancelled',
+      method: null, paidBy: null, paidAt: null, note: 'Match cancelled',
+    });
+    cancelled++;
+  }
+
+  return { refunded, cancelled };
+}
