@@ -132,6 +132,7 @@ async function handleCron(cronType) {
     .from('schedule')
     .select('*')
     .eq('game_is_live', true)
+    .eq('is_cancelled', false)
     .not('game_date_time', 'is', null);
 
   if (!schedules?.length) return { ok: true };
@@ -150,10 +151,10 @@ async function handleCron(cronType) {
     const { data: tps } = await supabase
       .from('team_players').select('player_id').eq('team_id', teamId);
     const { data: players } = await supabase
-      .from('players').select('id, name, nickname, status, paid, self_paid, token, injured')
+      .from('players').select('id, name, nickname, status, paid, self_paid, token, injured, disabled')
       .in('id', (tps || []).map(t => t.player_id));
 
-    const inPlayers = (players || []).filter(p => p.status === 'in' && !p.injured);
+    const inPlayers = (players || []).filter(p => p.status === 'in' && !p.injured && !p.disabled);
 
     // 5. Game day 9am — cron schedule: "0 9 * * *"
     if (cronType === 'gameDay9am') {
