@@ -505,11 +505,11 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
 
       {/* ── Hero (sticky) ── */}
       <style>{`
-        .heroGlassStatTile{position:absolute;top:50%;right:16px;transform:translateY(-50%);width:auto;height:auto;padding:10px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,255,255,0.24) 0%,rgba(255,255,255,0.10) 38%,rgba(255,255,255,0.05) 100%);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:0.5px solid rgba(255,255,255,0.25);box-shadow:0 18px 45px rgba(0,0,0,0.32),inset 0 1px 0 rgba(255,255,255,0.28),inset 0 -1px 0 rgba(255,255,255,0.08);overflow:hidden;z-index:2}
+        .heroGlassStatTile{position:absolute;top:50%;right:16px;transform:translateY(-50%);width:80px;height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,255,255,0.24) 0%,rgba(255,255,255,0.10) 38%,rgba(255,255,255,0.05) 100%);backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);border:0.5px solid rgba(255,255,255,0.25);box-shadow:0 18px 45px rgba(0,0,0,0.32),inset 0 1px 0 rgba(255,255,255,0.28),inset 0 -1px 0 rgba(255,255,255,0.08);overflow:hidden;z-index:2}
         .heroGlassStatTile::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 24% 12%,rgba(255,255,255,0.34),rgba(255,255,255,0.08) 34%,transparent 58%);pointer-events:none}
         .heroGlassStatTile::after{content:"";position:absolute;inset:1px;border-radius:inherit;border:1px solid rgba(255,255,255,0.08);pointer-events:none}
-        .heroGlassStatValue{position:relative;z-index:1;font-size:clamp(34px,5vw,54px);line-height:0.9;font-weight:700;letter-spacing:-0.04em;color:rgba(255,255,255,0.96);text-shadow:0 2px 10px rgba(0,0,0,0.28),0 0 24px rgba(255,255,255,0.08)}
-        .heroGlassStatLabel{position:relative;z-index:1;margin-top:10px;font-size:clamp(12px,1.7vw,16px);line-height:1;font-weight:400;letter-spacing:-0.01em;color:rgba(255,255,255,0.72);white-space:nowrap}
+        .heroGlassStatValue{position:relative;z-index:1;font-size:26px;line-height:0.9;font-weight:700;letter-spacing:-0.04em;color:rgba(255,255,255,0.96);text-shadow:0 2px 10px rgba(0,0,0,0.28),0 0 24px rgba(255,255,255,0.08)}
+        .heroGlassStatLabel{position:relative;z-index:1;margin-top:4px;font-size:9px;line-height:1;font-weight:400;letter-spacing:-0.01em;color:rgba(255,255,255,0.72);white-space:nowrap}
       `}</style>
       <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "0 16px" }}>
         <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", height: 110 }}>
