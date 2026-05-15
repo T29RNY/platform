@@ -52,6 +52,7 @@ export async function handleCashPayment(playerId, teamId, paidBy = 'self', match
     if (error) throw error;
     const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
     console.log('[handleCashPayment] existing:', existing, 'playerId:', playerId, 'teamId:', teamId, 'matchId:', matchId);
+    console.log('[handleCashPayment] existing full:', JSON.stringify(existing));
     if (existing) {
       await updateLedgerEntry(existing.id, {
         status: 'paid',
