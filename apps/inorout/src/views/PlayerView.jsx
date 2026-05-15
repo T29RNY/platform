@@ -707,17 +707,15 @@ export default function PlayerView({
                 </div>
               )}
 
-              {/* Status confirmation message — gameIsLive only, auto-hides after 5s */}
-              {schedule.gameIsLive && me?.status && me.status !== "none" && !hideConfirmation && (
+              {/* Status confirmation message — gameIsLive only, auto-hides after 5s; not shown for "in" (🔒 row covers it) */}
+              {schedule.gameIsLive && me?.status && me.status !== "none" && me.status !== "in" && !hideConfirmation && (
                 <div style={{ padding:"9px 16px", borderTop:"1px solid var(--b2)",
                   fontSize:12, fontWeight:400, color:"var(--t2)", fontStyle:"italic" }}>
-                  {me.status === "in"
-                    ? `👊 Locked in — see you ${gameDay}`
-                    : me.status === "maybe"
-                      ? "🤞 Got it — we'll keep a spot open"
-                      : me.status === "reserve"
-                        ? "🟣 On the reserve list — we'll let you know if a spot opens"
-                        : "👍 No worries, we'll find cover"}
+                  {me.status === "maybe"
+                    ? "🤞 Got it — we'll keep a spot open"
+                    : me.status === "reserve"
+                      ? "🟣 On the reserve list — we'll let you know if a spot opens"
+                      : "👍 No worries, we'll find cover"}
                 </div>
               )}
 
