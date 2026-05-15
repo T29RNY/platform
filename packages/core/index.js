@@ -19,5 +19,6 @@ export {
   bulkResetPlayerStatuses,
   bulkCancelLedgerEntries,
   deletePlayerMatchRows,
+  getRecentNotification,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

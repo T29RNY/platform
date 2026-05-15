@@ -11,6 +11,7 @@ import {
   getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname,
   insertMatch, upsertSchedule,
   bulkCancelLedgerEntries, bulkResetPlayerStatuses, deletePlayerMatchRows,
+  getRecentNotification,
 } from "@platform/supabase";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
@@ -587,6 +588,7 @@ export default function AdminView({
   const [showCoverPool,    setShowCoverPool]    = useState(false);
   const [showAnnounce,     setShowAnnounce]     = useState(false);
   const [chaseToast,       setChaseToast]       = useState(false);
+  const [chaseRecentMsg,   setChaseRecentMsg]   = useState(null);
   const [tiebreakDismissed, setTiebreakDismissed] = useState(false);
 
   useEffect(() => {
@@ -787,15 +789,23 @@ export default function AdminView({
     }
   };
 
-  const chaseNoResponders = () => {
+  const chaseNoResponders = async () => {
     const ids = noRespPlayers.map(p => p.id);
     if (!ids.length) return;
+    const gameDate = schedule.gameDateTime?.split("T")[0] || new Date().toISOString().split("T")[0];
+    const recentCount = await getRecentNotification(teamId, "chaseNoResp", gameDate, 120);
+    if (recentCount > 0) {
+      setChaseRecentMsg(`Already chased ${recentCount} time${recentCount > 1 ? "s" : ""} in the last 2 hours`);
+      setTimeout(() => setChaseRecentMsg(null), 4000);
+      return;
+    }
+    setChaseRecentMsg(null);
     fetch("/api/notify", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
         type:"chaseNoResp", teamId, playerIds: ids,
         payload: { title:"In or Out ⚽", body:`⏰ Are you in or out for ${schedule.dayOfWeek}? Quick reply needed!`, icon:"/icons/icon-192.png" },
-        gameDate: schedule.gameDateTime?.split("T")[0],
+        gameDate,
       }),
     }).catch(console.error);
     setChaseToast(true);
@@ -1194,6 +1204,12 @@ export default function AdminView({
             borderRadius:"var(--rs)", padding:"8px 14px", marginBottom:8,
             fontSize:12, color:"var(--green)" }}>
             ✓ Chase sent to {noRespPlayers.length} player{noRespPlayers.length!==1?"s":""}
+          </div>
+        )}
+        {chaseRecentMsg && (
+          <div style={{ padding:"6px 14px", marginBottom:8,
+            fontSize:12, color:"var(--amber)", fontWeight:300 }}>
+            {chaseRecentMsg}
           </div>
         )}
         <div ref={cancelWeekRef} style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",

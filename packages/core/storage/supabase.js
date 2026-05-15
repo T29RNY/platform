@@ -429,6 +429,23 @@ export async function alreadyNotified(teamId, type, gameDate) {
   return (data?.length || 0) > 0;
 }
 
+export async function getRecentNotification(teamId, type, gameDate, withinMinutes) {
+  try {
+    const cutoff = new Date(Date.now() - withinMinutes * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from('notification_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('team_id', teamId)
+      .eq('type', type)
+      .eq('game_date', gameDate)
+      .gte('sent_at', cutoff);
+    if (error) return 0;
+    return count || 0;
+  } catch {
+    return 0;
+  }
+}
+
 // ─── Player match rows ────────────────────────────────────────────────────────
 // winner: 'A'|'B'|'D'  scorers: { [playerId]: goalCount }
 export async function writePlayerMatchRows(matchId, teamId, players, winner, motmId, bibHolderName, scoreA, scoreB, scorers = {}, pricePerPlayer = null) {
