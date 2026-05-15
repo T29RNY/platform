@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 15 2026 (session 17)*
+*Last updated: May 15 2026 (session 18)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -1246,14 +1246,72 @@ Payment confirmation UX + handleCashPayment hardening.
 - Rows separated by `0.5px solid rgba(232,160,32,0.2)` divider
 - Confirm button: Bebas Neue 13px, gold bg, "CONFIRM ✓" (was DM Sans 11px green)
 
-**Next session (Session 18) — start with:**
-1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
+**Session 18 (May 15 2026):**
+Cancel Week system — full implementation (Stages 7A–7D) + PlayerView cancelled state + toggle intercept.
+
+**Stage 7A — New supabase.js functions:**
+- `bulkResetPlayerStatuses(teamId)` — two-step (team_players join → players update); resets status/paid/self_paid/paid_by/paid_at for all non-disabled players; returns `{ count }`
+- `bulkCancelLedgerEntries(teamId, matchId, affectedPlayerIds, pricePerPlayer)` — per-player loop: issues `refund` ledger entry + clears player payment flags if `status='paid'`; same if `status='unpaid' && self_paid=true`; always writes `type:'cancelled'` audit row; returns `{ refunded, cancelled }`
+- `deletePlayerMatchRows(matchId, teamId)` — DELETE from player_match by match+team; returns `{ count }`
+- All three exported from `packages/core/index.js`
+- **IMPORTANT:** `type:'cancelled'` and `status:'cancelled'` require Supabase CHECK constraint updates before `bulkCancelLedgerEntries` will work in production. SQL:
+  ```sql
+  ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_type_check;
+  ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_type_check
+    CHECK (type IN ('game_fee','guest_fee','debt_payment','waiver','refund','cancelled'));
+  ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_status_check;
+  ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_status_check
+    CHECK (status IN ('paid','unpaid','waived','disputed','refunded','cancelled'));
+  ```
+
+**Stage 7B — Display label additions:**
+- `PaymentsScreen.jsx` TYPE_LABEL: `cancelled: 'Cancelled'`; STATUS_STYLE: `cancelled: { bg:"var(--s3)", border:"0.5px solid var(--t2)", color:"var(--t2)" }`
+- `PlayerView.jsx` TYPE_LABEL: `cancelled: 'Match cancelled'`; same STATUS_STYLE entry
+
+**Stage 7C — cancelWeek() full async rewrite (AdminView/index.jsx):**
+- 8-step async function replacing synchronous 11-line original
+- Step 1: persist cancelled match to DB via `insertMatch` (uses `schedule.activeMatchId` or generates `cancel_${Date.now()}`)
+- Step 2: `bulkCancelLedgerEntries` for all inPlayers
+- Step 3: `bulkResetPlayerStatuses` — all players
+- Step 4: `deletePlayerMatchRows` if lineup was locked (schedule.activeMatchId exists)
+- Step 5: `upsertSchedule` with isCancelled=true, gameIsLive=false, lineupLocked=false, activeMatchId=null, votingOpen=false, autoOpenPending=true
+- Step 6: push notification to in+maybe+reserve (not injured/disabled); body includes cancelReason if set
+- Step 7: local state updates — setSquad (reset all), setMatchHistory (prepend stub), setSchedule
+- Step 8: close modal
+- `cancelLoading` state drives button disabled + "CANCELLING…" label
+- New imports added to AdminView: `insertMatch`, `upsertSchedule`, `bulkCancelLedgerEntries`, `bulkResetPlayerStatuses`, `deletePlayerMatchRows`
+
+**Stage 7D — Cancel Week modal redesign:**
+- Replaced inline expand-below form with `position:fixed` overlay (`rgba(0,0,0,0.7)` + `blur(8px)`, zIndex:300)
+- Card: `var(--s2)` bg, red border, 16px radius, maxWidth 380px
+- Contents: Bebas Neue 28px red title "CANCEL THIS WEEK?", DM Sans 300 warning text, reason input with onFocus border, "CANCEL THIS WEEK" red pill (Bebas Neue 18px), "Keep it on" muted pill
+- Both buttons disabled + `opacity:0.6` during `cancelLoading`
+- Action row trigger changed from toggle (`setShowCancel(s => !s)`) to open-only (`setShowCancel(true)`)
+
+**PlayerView.jsx — cancelled state rework:**
+- Removed full-screen early return block (was blocking entire view when `isCancelled`)
+- Added inline amber-red banner "❌ This week's match is cancelled" (red2 bg, redb border, centred, 8px radius) above status buttons
+- Status buttons still render when cancelled but with `opacity:0.4, pointerEvents:'none'`
+- Plus One tile, Injured tile, expanded Plus One form hidden when `isCancelled`
+
+**AdminView/index.jsx — toggle intercept + loading:**
+- `toggleGameLive` OFF path: no longer calls `setSchedule`; instead shows nudge + scrolls to Cancel Week tile
+- `showCancelNudge` state: amber2 banner "To cancel this week's game, use Cancel Week ↓" (centred, no tappable link); auto-dismisses after 4s
+- `pulseCancelTile` state: when nudge fires, Cancel Week tile gets `ioo-cancel-pulse` animation (red glow 0→20px→0, 0.8s × 3) + `border:0.5px solid var(--red)` for 3s
+- `@keyframes ioo-cancel-pulse` injected via `<style>` tag above actions section
+- `cancelWeekRef` (useRef) on the actions card container; scrollIntoView after 100ms delay on nudge show
+- `openNextWeek` rewritten async: `gameOpenLoading` state; `await upsertSchedule(...)` before notifications; toggle card gets `opacity:0.6, pointerEvents:none` during load — prevents double-tap push
+
+**Next session (Session 19) — start with:**
+1. Run Supabase CHECK constraint SQL for payment_ledger type/status to enable bulkCancelLedgerEntries
+2. Test Cancel Week flow end-to-end (demo team or Finbar's)
+3. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
-2. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
-3. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
-4. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
-5. Stage 1 ship blockers review — is May 19 still on track?
-6. Remove debug console.log statements from handleCashPayment when payment flow confirmed working
+4. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
+5. Tuesday-night standby kit set up (Posthog + Supabase dashboards open, error log reviewed)
+6. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
+7. Stage 1 ship blockers review — is May 19 still on track?
+8. Remove debug console.log statements from handleCashPayment when payment flow confirmed working
 
 **Aspirational for May 19 matchday (Stage 1 live):**
 - POTM voting live for Finbar's Tuesdays first match
