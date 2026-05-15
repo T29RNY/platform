@@ -496,8 +496,6 @@ export default function PlayerView({
                   const price          = schedule.pricePerPlayer || 0;
                   const owes           = me?.owes || 0;
                   const effectiveDebt  = (ledgerBalance !== null && ledgerBalance > 0) ? ledgerBalance : owes;
-                  const kickoffMs      = schedule.gameDateTime ? new Date(schedule.gameDateTime) - Date.now() : null;
-                  const inGracePeriod  = kickoffMs !== null && kickoffMs > 24 * 3600 * 1000;
                   const paymentState = getPaymentState(me, cashPending);
                   const paymentMode  = getPaymentMode(schedule);
                   const status       = me?.status;
@@ -511,12 +509,8 @@ export default function PlayerView({
                       ? `£${effectiveDebt} + £${price} = £${effectiveDebt + price}`
                       : `£${effectiveDebt} outstanding`;
                   } else if (status === 'in') {
-                    if (inGracePeriod) {
-                      amountText = "Nothing owed 👊"; amountColor = "var(--green)";
-                    } else {
-                      amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
-                      if (!price) amountColor = "var(--green)";
-                    }
+                    amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
+                    if (!price) amountColor = "var(--green)";
                   } else {
                     amountText = "Nothing owed 👊"; amountColor = "var(--green)";
                   }
@@ -608,89 +602,6 @@ export default function PlayerView({
                   );
                 })()}
               </div>
-
-              {/* Payment history accordion — own card only */}
-              {(me?.payCount > 0 || me?.owes > 0) && (() => {
-                const TYPE_LABEL = {
-                  game_fee: 'Game fee', guest_fee: 'Guest fee',
-                  debt_payment: 'Debt payment', waiver: 'Waived', refund: 'Refund',
-                };
-                const STATUS_STYLE = {
-                  paid:      { bg:"var(--green2)",  border:"var(--greenb)",  color:"var(--green)"  },
-                  unpaid:    { bg:"var(--amber2)",  border:"var(--amberb)",  color:"var(--amber)"  },
-                  waived:    { bg:"var(--purple2)", border:"var(--purpleb)", color:"var(--purple)" },
-                  refunded:  { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF" },
-                  disputed:  { bg:"var(--red2)",   border:"var(--redb)",    color:"var(--red)"    },
-                };
-                const fmtDate = iso => iso
-                  ? new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
-                  : '—';
-                const handleToggle = async () => {
-                  if (!payHistOpen && payHistory === null) {
-                    setPayHistLoading(true);
-                    try {
-                      const rows = await getLedgerForPlayer(myId, teamId, 20);
-                      setPayHistory(rows);
-                    } catch { setPayHistory([]); }
-                    finally { setPayHistLoading(false); }
-                  }
-                  setPayHistOpen(o => !o);
-                };
-                return (
-                  <div style={{ borderTop:"0.5px solid var(--b2)" }}>
-                    <button onClick={handleToggle} style={{
-                      width:"100%", padding:"10px 16px",
-                      display:"flex", justifyContent:"space-between", alignItems:"center",
-                      background:"none", border:"none", cursor:"pointer",
-                      fontFamily:"var(--font-body)", fontSize:11, fontWeight:600,
-                      color:"var(--t2)", letterSpacing:"0.06em", textTransform:"uppercase",
-                    }}>
-                      Payment History
-                      <span style={{ fontSize:10, color:"var(--t2)", opacity:0.6 }}>{payHistOpen ? "▲" : "▼"}</span>
-                    </button>
-                    {payHistOpen && (
-                      <div style={{ paddingBottom:8 }}>
-                        {payHistLoading ? (
-                          <div style={{ padding:"8px 16px", fontSize:11, color:"var(--t2)", fontWeight:300 }}>Loading…</div>
-                        ) : !payHistory?.length ? (
-                          <div style={{ padding:"8px 16px", fontSize:11, color:"var(--t2)", fontWeight:300 }}>No payment history yet</div>
-                        ) : payHistory.map((entry, i) => {
-                          const ss = STATUS_STYLE[entry.status] || STATUS_STYLE.unpaid;
-                          return (
-                            <div key={entry.id || i} style={{
-                              padding:"7px 16px", display:"flex", alignItems:"center",
-                              justifyContent:"space-between", gap:8,
-                              borderTop: i === 0 ? "none" : "0.5px solid var(--b2)",
-                            }}>
-                              <div style={{ display:"flex", flexDirection:"column", gap:2, minWidth:0 }}>
-                                <div style={{ fontSize:12, color:"var(--t1)", fontWeight:400 }}>
-                                  {TYPE_LABEL[entry.type] || entry.type}
-                                </div>
-                                <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300 }}>
-                                  {fmtDate(entry.createdAt)}
-                                  {entry.method && <span style={{ opacity:0.6 }}> · {entry.method}</span>}
-                                </div>
-                              </div>
-                              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
-                                <span style={{
-                                  fontSize:10, fontWeight:600, padding:"2px 7px",
-                                  borderRadius:"var(--r-pill)", border:`0.5px solid ${ss.border}`,
-                                  background:ss.bg, color:ss.color, letterSpacing:"0.04em",
-                                }}>
-                                  {entry.status.toUpperCase()}
-                                </span>
-                                <span style={{ fontSize:12, fontWeight:600, color:"var(--t1)", minWidth:30, textAlign:"right" }}>
-                                  £{Number(entry.amount || 0).toFixed(0)}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
 
               {/* Locked row — gameIsLive only */}
               {schedule.gameIsLive && me?.status === "in" && (
@@ -1060,6 +971,90 @@ export default function PlayerView({
               </div>
             </div>
           )}
+
+          {/* Payment history accordion — own card only */}
+          {(me?.payCount > 0 || me?.owes > 0) && (() => {
+            const TYPE_LABEL = {
+              game_fee: 'Game fee', guest_fee: 'Guest fee',
+              debt_payment: 'Debt payment', waiver: 'Waived', refund: 'Refund',
+            };
+            const STATUS_STYLE = {
+              paid:      { bg:"var(--green2)",  border:"var(--greenb)",  color:"var(--green)"  },
+              unpaid:    { bg:"var(--amber2)",  border:"var(--amberb)",  color:"var(--amber)"  },
+              waived:    { bg:"var(--purple2)", border:"var(--purpleb)", color:"var(--purple)" },
+              refunded:  { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF" },
+              disputed:  { bg:"var(--red2)",   border:"var(--redb)",    color:"var(--red)"    },
+            };
+            const fmtDate = iso => iso
+              ? new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+              : '—';
+            const handleToggle = async () => {
+              if (!payHistOpen && payHistory === null) {
+                setPayHistLoading(true);
+                try {
+                  const rows = await getLedgerForPlayer(myId, teamId, 20);
+                  setPayHistory(rows);
+                } catch { setPayHistory([]); }
+                finally { setPayHistLoading(false); }
+              }
+              setPayHistOpen(o => !o);
+            };
+            return (
+              <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+                borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
+                <button onClick={handleToggle} style={{
+                  width:"100%", padding:"10px 16px",
+                  display:"flex", justifyContent:"space-between", alignItems:"center",
+                  background:"none", border:"none", cursor:"pointer",
+                  fontFamily:"var(--font-body)", fontSize:11, fontWeight:600,
+                  color:"var(--t2)", letterSpacing:"0.06em", textTransform:"uppercase",
+                }}>
+                  Payment History
+                  <span style={{ fontSize:10, color:"var(--t2)", opacity:0.6 }}>{payHistOpen ? "▲" : "▼"}</span>
+                </button>
+                {payHistOpen && (
+                  <div style={{ paddingBottom:8, borderTop:"0.5px solid var(--b2)" }}>
+                    {payHistLoading ? (
+                      <div style={{ padding:"8px 16px", fontSize:11, color:"var(--t2)", fontWeight:300 }}>Loading…</div>
+                    ) : !payHistory?.length ? (
+                      <div style={{ padding:"8px 16px", fontSize:11, color:"var(--t2)", fontWeight:300 }}>No payment history yet</div>
+                    ) : payHistory.map((entry, i) => {
+                      const ss = STATUS_STYLE[entry.status] || STATUS_STYLE.unpaid;
+                      return (
+                        <div key={entry.id || i} style={{
+                          padding:"7px 16px", display:"flex", alignItems:"center",
+                          justifyContent:"space-between", gap:8,
+                          borderTop: i === 0 ? "none" : "0.5px solid var(--b2)",
+                        }}>
+                          <div style={{ display:"flex", flexDirection:"column", gap:2, minWidth:0 }}>
+                            <div style={{ fontSize:12, color:"var(--t1)", fontWeight:400 }}>
+                              {TYPE_LABEL[entry.type] || entry.type}
+                            </div>
+                            <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300 }}>
+                              {fmtDate(entry.createdAt)}
+                              {entry.method && <span style={{ opacity:0.6 }}> · {entry.method}</span>}
+                            </div>
+                          </div>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                            <span style={{
+                              fontSize:10, fontWeight:600, padding:"2px 7px",
+                              borderRadius:"var(--r-pill)", border:`0.5px solid ${ss.border}`,
+                              background:ss.bg, color:ss.color, letterSpacing:"0.04em",
+                            }}>
+                              {entry.status.toUpperCase()}
+                            </span>
+                            <span style={{ fontSize:12, fontWeight:600, color:"var(--t1)", minWidth:30, textAlign:"right" }}>
+                              £{Number(entry.amount || 0).toFixed(0)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* e — Live board */}
           <>
