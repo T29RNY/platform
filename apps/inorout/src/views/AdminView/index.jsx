@@ -1193,7 +1193,7 @@ export default function AdminView({
               iconBg:"var(--red2)", iconBorder:"var(--redb)",
               title:"Cancel This Week",
               sub:"Notify all confirmed players",
-              badge:0, action:() => setShowCancel(s => !s),
+              badge:0, action:() => setShowCancel(true),
             },
             {
               key:"announce", iconEl:<PaperPlaneTilt size={18} weight="thin" color="var(--purple)"/>,
@@ -1230,32 +1230,51 @@ export default function AdminView({
           ))}
         </div>
 
-        {/* Cancel form */}
+        {/* Cancel modal */}
         {showCancel && (
-          <div style={{ background:"var(--s1)", border:"0.5px solid var(--redb)",
-            borderRadius:"var(--r)", padding:"14px 16px", marginBottom:10 }}>
-            <div style={{ fontSize:13, fontWeight:500, color:"var(--red)", marginBottom:10 }}>
-              Cancel this week?
-            </div>
-            <input value={cancelReason} onChange={e => setCancelReason(e.target.value)}
-              placeholder="Reason (e.g. Venue unavailable)"
-              style={{ width:"100%", padding:"10px 12px", borderRadius:"var(--rs)",
-                border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
-                color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:13,
-                outline:"none", boxSizing:"border-box", marginBottom:10 }}/>
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={cancelWeek} disabled={cancelLoading} style={{ flex:1, padding:"10px 0",
-                borderRadius:"var(--r-button)", border:"none",
-                background: cancelLoading ? "var(--s3)" : "var(--red)",
-                color: cancelLoading ? "var(--t2)" : "#fff",
-                fontFamily:"var(--font-body)", fontSize:13,
-                fontWeight:600, cursor: cancelLoading ? "default" : "pointer" }}>
-                {cancelLoading ? "Cancelling…" : "Confirm Cancel"}
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)",
+            backdropFilter:"blur(8px)", zIndex:300,
+            display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+            <div style={{ background:"var(--s2)", border:"0.5px solid var(--redb)",
+              borderRadius:16, width:"100%", maxWidth:380, padding:24 }}>
+              <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:28,
+                color:"var(--red)", marginBottom:8, letterSpacing:"0.04em" }}>
+                CANCEL THIS WEEK?
+              </div>
+              <div style={{ fontFamily:"var(--font-body)", fontWeight:300, fontSize:13,
+                color:"var(--t2)", marginBottom:20 }}>
+                This will clear all responses and refund any payments made this week
+              </div>
+              <input
+                value={cancelReason}
+                onChange={e => setCancelReason(e.target.value)}
+                placeholder="Reason e.g. Venue flooded (optional)"
+                onFocus={e => { e.target.style.border = "0.5px solid var(--t2)"; }}
+                onBlur={e  => { e.target.style.border = "0.5px solid var(--s3)";  }}
+                style={{ width:"100%", background:"var(--s3)", color:"var(--t1)",
+                  border:"0.5px solid var(--s3)", borderRadius:10, padding:"10px 14px",
+                  fontFamily:"var(--font-body)", fontWeight:300, fontSize:13,
+                  outline:"none", boxSizing:"border-box", marginBottom:16 }}/>
+              <button
+                onClick={cancelWeek}
+                disabled={cancelLoading}
+                style={{ width:"100%", background:"var(--red)", color:"#fff",
+                  fontFamily:"'Bebas Neue', sans-serif", fontSize:18, letterSpacing:"0.08em",
+                  border:"none", borderRadius:24, padding:12, marginBottom:8,
+                  cursor: cancelLoading ? "default" : "pointer",
+                  opacity: cancelLoading ? 0.6 : 1 }}>
+                {cancelLoading ? "CANCELLING…" : "CANCEL THIS WEEK"}
               </button>
-              <button onClick={() => setShowCancel(false)} style={{ flex:1, padding:"10px 0",
-                borderRadius:"var(--r-button)", border:"0.5px solid var(--border-subtle)",
-                background:"transparent", color:"var(--t2)", fontFamily:"var(--font-body)",
-                fontSize:13, cursor:"pointer" }}>Back</button>
+              <button
+                onClick={() => { setShowCancel(false); setCancelReason(""); }}
+                disabled={cancelLoading}
+                style={{ width:"100%", background:"var(--s3)", color:"var(--t2)",
+                  fontFamily:"'Bebas Neue', sans-serif", fontSize:18, letterSpacing:"0.08em",
+                  border:"none", borderRadius:24, padding:12,
+                  cursor: cancelLoading ? "default" : "pointer",
+                  opacity: cancelLoading ? 0.6 : 1 }}>
+                Keep it on
+              </button>
             </div>
           </div>
         )}
