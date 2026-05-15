@@ -107,7 +107,7 @@ function LockedCard({ statName, gamesNeeded, gamesPlayed }) {
 
 // ── Season hero card ──────────────────────────────────────────────────────────
 
-const HERO_IMG = "/io-statbook-hero.jpg";
+const HERO_IMG = "/io-statbook-hero.png";
 
 function SeasonHeroCard({ groupName, totalGames, avgGoals }) {
   const textShadow = "0 0 20px rgba(0,0,0,0.9)";
