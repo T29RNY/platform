@@ -1,8 +1,9 @@
-// import { useState } from "react"; // re-enable when Records tab is restored
+import { useState } from "react";
 import { /* biggestWins, */ payRate, resolveMotm } from "@platform/core";
 import {
-  SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy,
+  SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
 } from "@phosphor-icons/react";
+import PlayerLeagueTable from "./PlayerLeagueTable.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -220,7 +221,8 @@ const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function StatsView({ squad, bibHistory = [], matchHistory = [], settings, schedule }) {
+export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule }) {
+  const [showPlayerForm, setShowPlayerForm] = useState(false);
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 
   // ── Match data ─────────────────────────────────────────────────────────────
@@ -369,8 +371,23 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
         {/* ════════════════════════════ OVERVIEW ════════════════════════════ */}
         {totalGames > 0 && (
           <>
-            {/* 1. Player Form */}
-            <SecLabel label="Player Form" />
+            {/* 0. Player League Table */}
+            <PlayerLeagueTable teamId={teamId} squad={squad} bibHistory={bibHistory} />
+
+            {/* 1. Player Form (accordion) */}
+            <button onClick={() => setShowPlayerForm(v => !v)} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              width: "100%", background: "none", border: "none", cursor: "pointer",
+              padding: "2px 0 8px", WebkitTapHighlightColor: "transparent",
+            }}>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 13,
+                letterSpacing: "0.08em", color: "var(--t2)" }}>
+                PLAYER FORM
+              </span>
+              <CaretRight size={14} weight="thin" color="var(--t2)"
+                style={{ transform: showPlayerForm ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
+            </button>
+            {showPlayerForm && (
             <div style={{ background: "var(--s1)", border: "0.5px solid var(--border-subtle)", borderRadius: "var(--r)", overflow: "hidden", marginBottom: 8 }}>
               {formPlayers.length === 0 ? (
                 <div style={{ padding: "16px 14px", fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>No player data yet</div>
@@ -416,6 +433,7 @@ export default function StatsView({ squad, bibHistory = [], matchHistory = [], s
                 );
               })}
             </div>
+            )}
 
             {/* 2. Top Scorers */}
             <SecLabel icon={SoccerBall} label="Top Scorers" />

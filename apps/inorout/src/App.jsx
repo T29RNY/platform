@@ -662,7 +662,7 @@ export default function App() {
           matchHistory={matchHistory} bibHistory={bibHistory}
           startTab={playerStartTabRef.current}/>
       )}
-      {view==="stats"   && <StatsView squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule}/>}
+      {view==="stats"   && <StatsView teamId={teamId} squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule}/>}
       {view==="admin"   && isAdmin && (
         <AdminView
