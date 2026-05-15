@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 14 2026 (session 15)*
+*Last updated: May 15 2026 (session 16)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -306,6 +306,26 @@ marked_by text (player/admin),
 created_at timestamptz
 ```
 
+### payment_ledger
+```
+id uuid PK,
+team_id text,
+player_id text,
+match_id text (nullable — null when lineup lock hasn't run yet),
+amount int,
+type text CHECK (game_fee/guest_fee/debt_payment/waiver/refund),
+status text CHECK (paid/unpaid/waived/disputed/refunded),
+method text (cash/stripe/admin/waived),
+paid_by text (self/host/admin/stripe),
+paid_at timestamptz,
+note text,
+created_at timestamptz,
+updated_at timestamptz
+```
+**Partial unique indexes (handles NULL match_id — standard UNIQUE won't work because NULL != NULL in PG):**
+- `payment_ledger_uniq_with_match` ON (player_id, team_id, type, match_id) WHERE match_id IS NOT NULL
+- `payment_ledger_uniq_without_match` ON (player_id, team_id, type) WHERE match_id IS NULL
+
 ### potm_votes
 ```
 id uuid PK DEFAULT gen_random_uuid(),
@@ -590,27 +610,40 @@ matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, b
 - `getPaymentState(player, cashPending)` — reads paid, selfPaid, owes
 - `getGuestPaymentState(guest, guestCashPending)` — reads paid, selfPaid, paidBy
 - `getPaymentMode(schedule)` — reads schedule.payment_mode (column doesn't exist yet; always returns 'both')
-- `handleCashPayment(playerId, teamId, paidBy='self')` — writes self_paid=true, paid_by=paidBy
-- `handleGuestCashPayment(guestId, teamId, paidBy='host')` — identical write, different default paidBy
-- `handleMarkPaid(playerId, teamId)` — writes paid=true only; does NOT touch self_paid/paid_by/owes
-- `handleResetPayment(playerId, teamId)` — writes paid=false, self_paid=false, paid_by=null; does NOT touch owes
-- `handleClearDebt(playerId, teamId)` — writes owes=0 only
-- `handleStripePayment(playerId, teamId, amount)` — stub, returns { success:false }
+- `handleCashPayment(playerId, teamId, paidBy='self')` — writes self_paid=true, paid_by=paidBy; creates game_fee ledger entry
+- `handleGuestCashPayment(guestId, teamId, paidBy='host')` — identical write, different default paidBy; creates guest_fee ledger entry
+- `handleMarkPaid(playerId, teamId, matchId, amount)` — writes paid=true; calls `findMatchLedgerEntry` for the real matchId first, then for null matchId (cross-path promotion), then upserts if neither found
+- `handleResetPayment(playerId, teamId, matchId)` — writes paid/self_paid/paid_by/paid_at reset; always resets ledger entry to 'unpaid' (both null and non-null matchId); player_match cleared only when matchId is known
+- `handleClearDebt(playerId, teamId)` — writes owes=0; creates debt_payment ledger entry
+- `handleWaiveDebt(playerId, teamId, amount, note)` — writes owes=0; creates waiver ledger entry
+- `handleStripePayment(playerId, teamId, amount)` — writes paid=true; creates game_fee/stripe ledger entry
 - `carryForwardDebts(players, pricePerPlayer)` — pure fn; adds pricePerPlayer to owes for unpaid in-players, resets paid/selfPaid/status/team
-- `getUnpaidPlayers(players, payments)` — pure filter; not called anywhere (orphaned)
-- `getSelfPaidPending(players)` — pure filter; not called anywhere (superseded by inline filter in AdminView)
-- `generateMatchReport(match, groupName)` — text formatter; not called anywhere (orphaned)
+- `getUnpaidPlayers(players, payments)` — pure filter; orphaned
+- `getSelfPaidPending(players)` — pure filter; orphaned
+- `generateMatchReport(match, groupName)` — text formatter; orphaned
 
 ### paid_by values
 self | host | admin | stripe | null
 
+### payment_ledger — supabase.js functions
+- `createLedgerEntry(entry)` — inserts; supports `entry.upsert=true` for conflict-safe write using partial-index-aware `onConflict` columns
+- `updateLedgerEntry(id, updates)` — patches status/method/paidBy/paidAt/note/matchId
+- `getLedgerForPlayer(playerId, teamId, limit=20)` — returns rows newest-first
+- `getLedgerForTeam(teamId)` — returns all team rows newest-first
+- `findMatchLedgerEntry(playerId, teamId, matchId, type)` — targeted dedup lookup; uses `.eq("match_id", matchId)` or `.is("match_id", null)` depending on matchId; `.limit(1)` + `data?.[0]` (safe vs maybeSingle when duplicates may exist); logs `console.error` on query failure to distinguish RLS/network error from genuine empty result
+- `getOutstandingBalance(playerId, teamId)` — sums unpaid ledger amounts
+
+### Ledger dedup — cross-path scenario
+Player self-pays before lineup lock (matchId=null entry created). Lineup lock then runs, admin marks paid with real matchId:
+- `handleMarkPaid` checks for real-matchId entry first (not found)
+- Then checks for null-matchId entry (`existingNull`) — found
+- Updates that entry: sets match_id = real matchId (promotes it), status = 'paid'
+- No duplicate created
+
 ### matches.payments jsonb
 - Format: `{ "PlayerName": true/false, ... }` — keyed by **player name string** (not ID)
-- Built in ScoreScreen at result save: converts `{ [player.id]: player.paid }` → `{ [player.name]: bool }`
-- Written by `saveMatchResult` to `matches.payments`; read back by `dbToMatch` into `match.payments`
-- Used by `updatePlayerRecords` (attendance.js) to determine `payCount` increment and `owes` growth
-- **Never displayed anywhere in the UI** — purely an accounting artifact
-- **Name-keyed = fragile**: historical entries won't match if a player's name changes
+- Written by `saveMatchResult`; read back by `dbToMatch`; used by `updatePlayerRecords` for payCount/owes
+- **Never displayed in UI** — purely an accounting artifact; name-keyed = fragile
 
 ### owes recalculation — two independent paths
 1. `draftNextWeek()` in AdminView → `carryForwardDebts()` → `upsertPlayers()` — advances week, adds price to unpaid in-players
@@ -618,16 +651,7 @@ self | host | admin | stripe | null
 Both can run; both add to `owes`. No deduplication.
 
 ### Payment confirmation flow (known bug)
-`selfPaidPending` filter in AdminView is `selfPaid===true && paid!==true && !paidBy`.
-But `handleCashPayment` always sets `paid_by`. So a player who self-reports via PlayerView gets `paid_by='self'` → `paidBy` is truthy → excluded from the confirmation banner.
-Result: self-paying players show as "✓ Paid" to admin (via selfPaid) with no confirmation prompt. Admin confirmation step is effectively skipped for player-initiated cash payments.
-
-### Per-game payment history — what's missing
-- No table linking a payment to a specific match_id — player_match has no payment fields
-- No amount stored per payment — pay_count is a count only, no dates or amounts
-- No timestamp on when payment was made or confirmed
-- owes accumulates across missed games with no breakdown of which games
-- matches.payments is the closest thing but: name-keyed, boolean only, never displayed, not queryable per player
+`handleCashPayment` always sets `paid_by`. So a player who self-reports via PlayerView gets `paid_by='self'` → admin confirmation step is effectively skipped for player-initiated cash payments. They show as "✓ Paid" immediately.
 
 ---
 
@@ -693,6 +717,7 @@ Result: self-paying players show as "✓ Paid" to admin (via selfPaid) with no c
 | ScoreScreen Part B | ✅ Done | HistoryView: score type badges, won-by display, last goal scorer |
 | Admin view consistency | ✅ Done | Sticky heroes, 5-tab admin nav, My IO handler, Gaffer disabled |
 | Admin screens redesign | 🔲 Next | TeamsScreen, BibsScreen etc — ScheduleScreen ✅ session 13 |
+| Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
 | Join/login redesign | 🔲 Pre-launch | |
@@ -1169,7 +1194,31 @@ Date field migration + BibsScreen rework + bib holder display fixes.
 - `bib_history.match_date` same type; `bib_history.player_id` is a text player ID (nullable for legacy rows)
 - `resolveBibHolder(value, players)` does `players.find(p => p.id === value)` → `nickname || name`; falls back to raw string for legacy name values
 
-**Next session (Session 16) — start with:**
+**Session 16 (May 15 2026):**
+Payment ledger dedup hardening + PaymentsScreen/PlayerView UI fixes.
+
+**Payment ledger dedup (4-fix pass):**
+- `findMatchLedgerEntry` (supabase.js): added `console.error` on query failure — distinguishes RLS/network error from genuine empty result (was silently returning null on any failure, masking dedup)
+- `handleResetPayment` (payments.js): removed `if (matchId)` gate from ledger update — always resets ledger to 'unpaid' using `findMatchLedgerEntry` with IS NULL handling; player_match still only cleared when matchId known
+- `createLedgerEntry` (supabase.js): added `entry.upsert` option — uses partial-index-aware `onConflict` columns (null matchId: `player_id,team_id,type`; non-null: `player_id,team_id,type,match_id`) to match the two partial unique indexes
+- `handleMarkPaid` (payments.js): added cross-path `existingNull` lookup — when real-matchId entry not found, checks for null-matchId entry and promotes it (updates match_id to real matchId via updateLedgerEntry) rather than creating a duplicate; upsert as final backstop
+- `updateLedgerEntry` (supabase.js): added `matchId` to patch map — enables match_id promotion in the cross-path case
+
+**Two partial unique indexes added to payment_ledger in Supabase:**
+- `payment_ledger_uniq_with_match` ON (player_id, team_id, type, match_id) WHERE match_id IS NOT NULL
+- `payment_ledger_uniq_without_match` ON (player_id, team_id, type) WHERE match_id IS NULL
+(Standard UNIQUE won't work because NULL != NULL in PG)
+
+**PaymentsScreen.jsx UI fixes:**
+- Ledger refresh: after Mark Paid or Reset, now calls `getLedgerForPlayer(...).then(...)` inline rather than `setLedger(null)` — user sees updated history immediately without reopening
+- Summary chips (OUTSTANDING / PLAYERS PAID): added `background: var(--red2/green2)`, `border: 0.5px solid var(--redb/greenb)`, `color: var(--t1)` — was near-invisible on dark bg
+- "✓ This week" label in OWES MONEY section: when player has debt but paid this week, shows "✓ This week" instead of "✓ Paid" (checked via `owes > 0` inline)
+
+**PlayerView.jsx fixes:**
+- Removed StatusBadge pill block above 4-button grid (was duplicating locked/live state info)
+- Removed 👊 locked-in confirmation row for IN players specifically — 🔒 row already covers it; maybe/reserve/out confirmation rows preserved
+
+**Next session (Session 17) — start with:**
 1. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
 2. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
