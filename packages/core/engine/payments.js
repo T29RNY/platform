@@ -50,13 +50,22 @@ export async function handleCashPayment(playerId, teamId, paidBy = 'self', match
       .update({ self_paid: true, paid_by: paidBy, paid_at: paidAt })
       .eq("id", playerId);
     if (error) throw error;
-    await createLedgerEntry({
-      teamId, playerId, matchId: matchId || null, amount: amount || 0,
-      type: 'game_fee', status: 'paid',
-      method: paidBy === 'stripe' ? 'stripe' : 'cash',
-      paidBy, paidAt, note: null,
-      upsert: true,
-    });
+    const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
+    if (existing) {
+      await updateLedgerEntry(existing.id, {
+        status: 'paid',
+        method: paidBy === 'stripe' ? 'stripe' : 'cash',
+        paidBy,
+        paidAt,
+      });
+    } else {
+      await createLedgerEntry({
+        teamId, playerId, matchId: matchId || null, amount: amount || 0,
+        type: 'game_fee', status: 'paid',
+        method: paidBy === 'stripe' ? 'stripe' : 'cash',
+        paidBy, paidAt, note: null,
+      });
+    }
     return { selfPaid: true, paidBy, paidAt };
   } catch (error) {
     console.error('handleCashPayment error:', error);
