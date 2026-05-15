@@ -10,7 +10,8 @@ import {
   addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer,
   resetPlayerToken, insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
   getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname, upsertPlayers,
-  createLedgerEntry,
+  createLedgerEntry, insertMatch, upsertSchedule,
+  bulkCancelLedgerEntries, bulkResetPlayerStatuses, deletePlayerMatchRows,
 } from "@platform/supabase";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
@@ -573,6 +574,7 @@ export default function AdminView({
   const [showCancel,       setShowCancel]       = useState(false);
   const [demoResetState,   setDemoResetState]   = useState(null);
   const [cancelReason,     setCancelReason]     = useState("");
+  const [cancelLoading,    setCancelLoading]    = useState(false);
   const [dragId,           setDragId]           = useState(null);
   const [dismissedOrphans, setDismissedOrphans] = useState(new Set());
   const [selectedPlayer,   setSelectedPlayer]   = useState(null);
@@ -637,27 +639,111 @@ export default function AdminView({
     setSquad(next);
   };
 
-  const cancelWeek = () => {
-    setSchedule({ ...schedule, isCancelled:true, gameIsLive:false, cancelReason });
-    setMatchHistory([{
-      id:"m"+Date.now(), matchDate: new Date().toISOString().split('T')[0],
-      teamA:[], teamB:[], winner:null, scoreA:0, scoreB:0,
-      scorers:{}, motm:null, bibHolder:"", payments:{},
-      cancelled:true, cancelReason,
-    }, ...matchHistory]);
-    sendTemplate(notificationTemplates.gameCancelled, cancelReason);
-    if (teamId && inPlayers.length) {
-      fetch("/api/notify", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          type:"gameCancelled", teamId,
-          playerIds: inPlayers.filter(p => !p.injured).map(p => p.id),
-          payload: { title:"In or Out ⚽", body:`❌ ${schedule.dayOfWeek}'s game is cancelled.`, icon:"/icons/icon-192.png" },
-          gameDate: schedule.gameDateTime?.split("T")[0],
-        }),
-      }).catch(console.error);
+  const cancelWeek = async () => {
+    try {
+      setCancelLoading(true);
+
+      // Step 1 — Persist cancelled match to DB
+      const cancelMatchId = schedule.activeMatchId || ('cancel_' + Date.now());
+      await insertMatch({
+        id: cancelMatchId,
+        teamId,
+        matchDate: new Date().toISOString().split('T')[0],
+        teamA: [], teamB: [],
+        winner: null, scoreA: 0, scoreB: 0,
+        scorers: {}, motm: null, bibHolder: null,
+        payments: {}, cancelled: true,
+        cancelReason,
+        scoreType: null, lastGoalScorer: null,
+      }, teamId);
+
+      // Step 2 — Handle payments for IN players
+      const inPlayerIds = inPlayers.map(p => p.id);
+      await bulkCancelLedgerEntries(
+        teamId,
+        schedule.activeMatchId || null,
+        inPlayerIds,
+        schedule.pricePerPlayer || 0
+      );
+
+      // Step 3 — Reset all player statuses
+      await bulkResetPlayerStatuses(teamId);
+
+      // Step 4 — Delete player_match rows if lineup locked
+      if (schedule.activeMatchId) {
+        await deletePlayerMatchRows(schedule.activeMatchId, teamId);
+      }
+
+      // Step 5 — Update schedule in DB
+      await upsertSchedule({
+        ...schedule,
+        isCancelled: true,
+        gameIsLive: false,
+        cancelReason,
+        lineupLocked: false,
+        activeMatchId: null,
+        votingOpen: false,
+        votingClosesAt: null,
+        autoOpenPending: true,
+      }, teamId);
+
+      // Step 6 — Push notification to IN+MAYBE+RESERVE
+      const notifyIds = squad
+        .filter(p => ['in', 'maybe', 'reserve'].includes(p.status) && !p.injured && !p.disabled)
+        .map(p => p.id);
+      if (notifyIds.length) {
+        fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'gameCancelled', teamId,
+            playerIds: notifyIds,
+            payload: {
+              title: 'Game Cancelled',
+              body: cancelReason
+                ? `❌ ${schedule.dayOfWeek}'s game cancelled: ${cancelReason}`
+                : `❌ ${schedule.dayOfWeek}'s game is cancelled.`,
+              icon: '/icons/icon-192.png',
+            },
+            gameDate: schedule.gameDateTime?.split('T')[0],
+          }),
+        }).catch(console.error);
+      }
+
+      // Step 7 — Update local state
+      setSquad(sq => sq.map(p => ({
+        ...p, status: 'none', paid: false,
+        selfPaid: false, paidBy: null, paidAt: null,
+      })));
+      setMatchHistory([{
+        id: cancelMatchId,
+        matchDate: new Date().toISOString().split('T')[0],
+        teamA: [], teamB: [],
+        winner: null, scoreA: 0, scoreB: 0,
+        scorers: {}, motm: null, bibHolder: null,
+        payments: {}, cancelled: true,
+        cancelReason,
+      }, ...matchHistory]);
+      setSchedule(s => ({
+        ...s,
+        isCancelled: true,
+        gameIsLive: false,
+        cancelReason,
+        lineupLocked: false,
+        activeMatchId: null,
+        votingOpen: false,
+        votingClosesAt: null,
+      }));
+
+      // Step 8 — Close modal
+      setShowCancel(false);
+      setCancelReason('');
+
+    } catch (err) {
+      console.error('cancelWeek error:', err);
+    } finally {
+      setCancelLoading(false);
     }
-    setShowCancel(false); setCancelReason("");
   };
 
   const draftNextWeek = async () => {
@@ -1158,10 +1244,14 @@ export default function AdminView({
                 color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:13,
                 outline:"none", boxSizing:"border-box", marginBottom:10 }}/>
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={cancelWeek} style={{ flex:1, padding:"10px 0",
-                borderRadius:"var(--r-button)", border:"none", background:"var(--red)",
-                color:"#fff", fontFamily:"var(--font-body)", fontSize:13,
-                fontWeight:600, cursor:"pointer" }}>Confirm Cancel</button>
+              <button onClick={cancelWeek} disabled={cancelLoading} style={{ flex:1, padding:"10px 0",
+                borderRadius:"var(--r-button)", border:"none",
+                background: cancelLoading ? "var(--s3)" : "var(--red)",
+                color: cancelLoading ? "var(--t2)" : "#fff",
+                fontFamily:"var(--font-body)", fontSize:13,
+                fontWeight:600, cursor: cancelLoading ? "default" : "pointer" }}>
+                {cancelLoading ? "Cancelling…" : "Confirm Cancel"}
+              </button>
               <button onClick={() => setShowCancel(false)} style={{ flex:1, padding:"10px 0",
                 borderRadius:"var(--r-button)", border:"0.5px solid var(--border-subtle)",
                 background:"transparent", color:"var(--t2)", fontFamily:"var(--font-body)",

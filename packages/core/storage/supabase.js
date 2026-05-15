@@ -1565,3 +1565,15 @@ export async function bulkCancelLedgerEntries(teamId, matchId, affectedPlayerIds
 
   return { refunded, cancelled };
 }
+
+/** Removes all player_match rows for a cancelled match. Safe to call even if none exist. */
+export async function deletePlayerMatchRows(matchId, teamId) {
+  const { data, error } = await supabase
+    .from("player_match")
+    .delete()
+    .eq("match_id", matchId)
+    .eq("team_id", teamId)
+    .select("id");
+  if (error) throw error;
+  return { count: (data || []).length };
+}
