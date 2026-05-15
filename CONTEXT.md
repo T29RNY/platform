@@ -1016,8 +1016,8 @@ POTM bug fixes + ScoreScreen full rebuild + UI polish.
 
 **POTM bug fixes:**
 - `cron.js` `potmVotingOpenJob`: removed broken PostgREST embedded join `players(id,name,token)` — now selects only `player_id` from `potm_votes` then does a separate players lookup for tokens
-- `supabase.js` `closePOTMVoting` + `cron.js` `potmTallyJob`: fixed motm field storing ID instead of name; both now look up player name first then store name string. Fixed broken `rpc("increment_motm")` → replaced with read-then-increment pattern on `players` table
-- `PlayerView.jsx`: fixed POTM winner banner that assumed `motm` was a player ID — now uses `motm` directly as winnerName and does name-compare for isWinner
+- `supabase.js` `closePOTMVoting` + `cron.js` `potmTallyJob`: both correctly store `winnerId` (player_id) in `matches.motm`. Fixed broken `rpc("increment_motm")` → replaced with read-then-increment pattern on `players` table
+- `PlayerView.jsx`: POTM winner banner uses `resolveMotm(activeMatch.motm, squad)` for display name; `activeMatch.motm === me.id` for isWinner check (ID comparison)
 
 **ScoreScreen full rebuild:**
 - `ScoreScreen.jsx`: complete rewrite — 6-stage progressive reveal:
@@ -1049,7 +1049,7 @@ POTM bug fixes + ScoreScreen full rebuild + UI polish.
 - Removed "Draft Next Week" button from saved screen entirely
 
 **Key gotchas from session 11:**
-- motm field convention: ALWAYS store player **name** (never ID) — matches all historical data, HistoryView display, and ScoreScreen; variable/column names remain `motm` unchanged
+- motm field convention: ALWAYS store player **ID** (never name string) — `matches.motm` stores player_id; `resolveMotm(motmValue, players)` handles display via `players.find(p => p.id === motmValue)` → `nickname || name`; isWinner checks use ID comparison (`activeMatch.motm === me.id`)
 - Two-query pattern is standard for any Supabase join — PostgREST foreign key joins unreliable in this config
 - `isSavingRef` (useRef) required for double-fire guard — React state batching means two rapid taps both read `isSaving===false` before first render; ref is synchronous
 
@@ -1306,7 +1306,6 @@ Cancel Week system — full implementation (Stages 7A–7D) + PlayerView cancell
 Full codebase audit + dead code sweep + critical cron bug fixes.
 
 **Audit delivered (18-area, grouped by severity):**
-- CRITICAL: `potmTallyJob` stores `motm: winnerId` (player ID) not player name — see fix needed below
 - CRITICAL: `advanceGameDateJob` did not reset `is_cancelled` on advance (fixed this session)
 - CRITICAL: `advanceGameDateJob` set `is_draft: true` every week (wrong semantics, fixed this session)
 - CRITICAL: `payment_ledger` CHECK constraints block `bulkCancelLedgerEntries` (SQL still needed)
@@ -1323,8 +1322,7 @@ Full codebase audit + dead code sweep + critical cron bug fixes.
 - Dead exports removed from payments.js: `getUnpaidPlayers`, `getSelfPaidPending`, `generateMatchReport`, `getPaymentMode` (reads nonexistent `schedule.payment_mode`, always returned 'both'); PlayerView.jsx updated to inline `'both'` at both call sites
 
 **STILL OPEN — fix before first match:**
-1. `cron.js potmTallyJob` line 295: `motm: winnerId` → must be `motm: winnerName` (fetched 4 lines above but not used). One-line fix.
-2. Supabase CHECK constraint SQL — must run before `bulkCancelLedgerEntries` works in production:
+1. Supabase CHECK constraint SQL — must run before `bulkCancelLedgerEntries` works in production:
    ```sql
    ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_type_check;
    ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_type_check
@@ -1335,13 +1333,12 @@ Full codebase audit + dead code sweep + critical cron bug fixes.
    ```
 
 **Next session (Session 20) — start with:**
-1. Fix `potmTallyJob` motm bug: `motm: winnerId` → `motm: winnerName` (cron.js line ~295)
-2. Run Supabase CHECK constraint SQL (above) to enable Cancel Week ledger writes
-3. Test Cancel Week flow end-to-end (demo team or Finbar's)
-4. Test /join/team_finbars flow end-to-end on iPhone (clean device)
+1. Run Supabase CHECK constraint SQL (above) to enable Cancel Week ledger writes
+2. Test Cancel Week flow end-to-end (demo team or Finbar's)
+3. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
-5. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
-6. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
+4. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
+5. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
 7. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
 8. Stage 1 ship blockers review — is May 19 still on track?
 
