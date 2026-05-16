@@ -21,5 +21,7 @@ export {
   deletePlayerMatchRows,
   getRecentNotification,
   getPlayerLeagueTable,
+  saveTeamsDraft,
+  confirmTeams,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

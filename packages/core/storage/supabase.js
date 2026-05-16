@@ -233,6 +233,7 @@ function matchToDb(m) {
     tied_candidates: m.tiedCandidates || null,
     score_type: m.scoreType || null,
     last_goal_scorer: m.lastGoalScorer || null,
+    teams_draft: m.teamsDraft ?? null,
   };
 }
 
@@ -253,6 +254,7 @@ function dbToMatch(r) {
     tiedCandidates: r.tied_candidates || null,
     scoreType: r.score_type || null,
     lastGoalScorer: r.last_goal_scorer || null,
+    teamsDraft: r.teams_draft ?? null,
   };
 }
 
@@ -1593,6 +1595,38 @@ export async function deletePlayerMatchRows(matchId, teamId) {
     .select("id");
   if (error) throw error;
   return { count: (data || []).length };
+}
+
+// ─── Team Selection ───────────────────────────────────────────────────────────
+
+export async function saveTeamsDraft(matchId, teamId, draft, changedBy = null) {
+  try {
+    const { error } = await supabase
+      .from('matches')
+      .update({ teams_draft: draft })
+      .eq('id', matchId)
+      .eq('team_id', teamId);
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    console.error('saveTeamsDraft error:', error);
+    return { error };
+  }
+}
+
+export async function confirmTeams(matchId, teamId, teamA, teamB, changedBy = null) {
+  try {
+    const { error } = await supabase
+      .from('matches')
+      .update({ team_a: teamA, team_b: teamB, teams_draft: null })
+      .eq('id', matchId)
+      .eq('team_id', teamId);
+    if (error) throw error;
+    return { ok: true };
+  } catch (error) {
+    console.error('confirmTeams error:', error);
+    return { error };
+  }
 }
 
 // ─── League table ─────────────────────────────────────────────────────────────
