@@ -902,6 +902,8 @@ all have venue contracts. Sticky but beatable on product quality.
 - StatsView reads ALL player stats from `player_match` via `getPlayerLeagueTable` — `players` flat columns (`goals`, `motm`, `w`, `l`, `d`, `attended`) are write-only convenience fields, not used for display; Payment Reliability and The Core are intentionally exempt (no `player_match` equivalent / current headcount)
 - PostgREST `.upsert()` cannot target partial unique indexes — the `onConflict` parameter generates bare `ON CONFLICT (cols)` without the `WHERE` predicate PostgreSQL requires; use INSERT + catch `23505` in application code instead
 - Period filtering in StatsView: `getPlayerLeagueTable` handles player stats; `matchHistory` is filtered client-side by `periodCutoff` date string for insight tiles; both cutoffs must use the same date format (`YYYY-MM-DD`)
+- `addPlayerToTeam` is the correct function for admin-adding players from SquadScreen — writes both `players` row and `team_players` link, generates token; `upsertPlayer` does NOT write `team_players` and must not be used for this purpose
+- Returning player join: auto-link via upsert on `team_players` (`onConflict: team_id,player_id`), skip NameStep, preserve existing name from DB; NameStep only shown for brand new players (no existing `user_id` in DB)
 
 ---
 
@@ -909,9 +911,9 @@ all have venue contracts. Sticky but beatable on product quality.
 
 | Item | Detail | Priority |
 |---|---|---|
-| NameStep discards returning player name | `handleJoin` in App.jsx sets `joinedPlayer.name = existing.name`, ignoring the typed input — fix: skip NameStep for users with existing `user_id`, or pre-fill their name | Pre-launch |
-| `handleAddPlayer` missing `teamId` | SquadScreen's `handleAddPlayer` calls `upsertPlayer` without `teamId` — player may be created without a team association | Pre-launch |
-| `addPlayerToTeam` not in core barrel | `addPlayerToTeam` exists in `packages/core/storage/supabase.js` but is not exported from `packages/core/index.js` — SquadScreen imports it via `@platform/supabase` alias, not `@platform/core` | Low |
+| ~~NameStep discards returning player name~~ | ✅ Fixed (session 22) — Part A detects returning player, upserts `team_players`, sets `joinedPlayer` directly; NameStep skipped | Pre-launch |
+| ~~`handleAddPlayer` missing `teamId`~~ | ✅ Fixed (session 22) — `handleAddPlayer` now calls `addPlayerToTeam` which writes both `players` + `team_players` rows | Pre-launch |
+| ~~`addPlayerToTeam` not in core barrel~~ | ✅ Fixed (session 22) — exported from `packages/core/index.js` | Low |
 | `players.deputy` DB column | Renamed to `is_vice_captain` in JS layer but original `deputy` column still exists in Supabase — no migration run yet; harmless but should be cleaned up | Low |
 | `player_career` mostly empty | Only `total_bib_count` ever written; 11 other career fields permanently empty | Phase 2 |
 | `owes` double-increment risk | Two paths can add to owes (draftNextWeek + updatePlayerRecords); `draftNextWeek` is dead code but risk remains if re-enabled | Low |
@@ -1516,6 +1518,9 @@ Vice Captain + Manage Squad feature — full 8-stage build.
 - Stats rewrite: ALL player leaderboard sections (Top Scorers, Clinical, POTM, Win Rate, Relegation, Attendance, Bib Duty, Player Form, Most Consistent) now read from `player_match` via `getPlayerLeagueTable` instead of `players` flat columns; `getPlayerLeagueTable` extended with `bibCount`, `lateDropouts`, `totalGamesInPeriod`; `PlayerLeagueTable` refactored to pure presenter (no internal state/fetch); `StatsView` owns period state + data fetch; all insight tiles (Avg Goals, Thrillers, Team A vs B, Cancelled Rate) period-filtered via `matchHistory` date cutoff; dead code removed (`scoredInCount`, `getPlayerForm`, `getStreak`)
 - Payment ledger fix: `createLedgerEntry` upsert branch replaced with resilient insert + `23505` conflict recovery — PostgREST cannot target partial unique indexes via `.upsert()`; `upsert: true` flag removed from `handleMarkPaid`
 - Sticky column bleed-through fix: solid opaque `STICKY_BG` colours for ranked rows on sticky Rank + Player cells (`#2A2114` gold, `#1D1D1B` silver, `#261E15` bronze)
+- Bug fix: `SquadScreen` `handleAddPlayer` now uses `addPlayerToTeam` (writes both `players` row and `team_players` link, generates token) instead of `upsertPlayer`; `addPlayerToTeam` extended with `options` parameter (`type`, `priority`, `isViceCaptain`); exported from core barrel; `newPlayer` import removed from SquadScreen entirely
+- Bug fix: Returning players joining a new team via `/join/CODE` now skip NameStep entirely — Part A `useEffect` detects existing player via `findPlayerByEmail`, upserts `team_players` link (`onConflict: team_id,player_id`), sets `joinedPlayer` directly, JoinSuccess renders immediately; no cross-team name change risk; new players still see NameStep
+- Bug fix: `addPlayerToTeam` now returns `dbToPlayer(row)` — callers receive a squad-ready JS object with real DB `id` and `token`
 
 **Key gotchas (session 22 stats rewrite):**
 - `tableData` players use `playerId` (not `id`), `wins`/`draws`/`losses` (not `w`/`l`/`d`), `played` (not `attended`), `potm` (not `motm`), `form` as uppercase `["W","L","D"]` array
@@ -1523,11 +1528,11 @@ Vice Captain + Manage Squad feature — full 8-stage build.
 - PostgREST upsert with partial unique indexes: fails with `42P10`; indexes exist in DB but PostgREST generates bare `ON CONFLICT (cols)` without the required `WHERE` predicate
 
 **Next session (Session 23) — start with:**
-1. Test handleAddPlayer with teamId fix (SquadScreen bug)
-2. /join/team_finbars end-to-end on clean iPhone
-3. Android install screenshots for JoinSuccess.jsx
-4. Verify all stats match between league table and stat sections on demo team
-5. Tuesday May 19 standby prep
+1. /join/team_finbars end-to-end on clean iPhone
+2. Android install screenshots for JoinSuccess.jsx
+3. Verify all stats match between league table and stat sections on demo team
+4. Tuesday May 19 standby prep
+5. Head to Head modal (beta feature)
 
 **Supabase SQL still to run (if not done):**
 ```sql
