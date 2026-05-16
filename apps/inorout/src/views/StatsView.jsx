@@ -14,17 +14,6 @@ function initials(name) {
     : (name || "?").slice(0, 2).toUpperCase();
 }
 
-// Games where player appears in scorers object with > 0 goals
-function scoredInCount(playerName, played) {
-  const name = (playerName || "").toLowerCase().trim();
-  return played.filter(m => {
-    if (!m.scorers) return false;
-    return Object.keys(m.scorers).some(
-      k => k.toLowerCase().trim() === name && (m.scorers[k] || 0) > 0
-    );
-  }).length;
-}
-
 // Team-level: longest run of decisive results (winner !== "D")
 function calcLongestDecisive(played) {
   let max = 0, cur = 0;
@@ -220,12 +209,23 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 
-  // ── Match data ─────────────────────────────────────────────────────────────
-  const allMatches     = matchHistory || [];
-  const cancelledCount = allMatches.filter(m => m.cancelled).length;
-  const totalAll       = allMatches.length;
+  // ── Match data (period-filtered) ──────────────────────────────────────────
+  const allMatches = matchHistory || [];
+  const now        = new Date();
+  const periodCutoff = period === "month"
+    ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+    : period === "season"
+    ? `${now.getFullYear()}-01-01`
+    : null;
 
-  const played = allMatches
+  const periodMatches  = periodCutoff
+    ? allMatches.filter(m => (m.matchDate || "") >= periodCutoff)
+    : allMatches;
+
+  const cancelledCount = periodMatches.filter(m => m.cancelled).length;
+  const totalAll       = periodMatches.length;
+
+  const played = periodMatches
     .filter(m => !m.cancelled)
     .sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate));
 
@@ -245,6 +245,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   // ── Player data ────────────────────────────────────────────────────────────
   const allPlayers    = (squad || []).filter(p => !p.disabled);
   const active        = allPlayers.filter(p => !p.isGuest);
+  // The Core — always current squad composition, not period-filtered
   const regularsCount = active.length;
   const guestsCount   = allPlayers.filter(p => p.isGuest).length;
 
@@ -299,12 +300,10 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   const usuallyPays = payers.filter(p => payRate(p) >= 50 && payRate(p) < 90).length;
   const owesMoney   = payers.filter(p => payRate(p) < 50).length;
 
-  // Most consistent scorer (by scored-in count)
-  const scorerRanking = [...active]
-    .map(p => ({ ...p, scoredIn: scoredInCount(p.name, played) }))
-    .filter(p => p.scoredIn > 0)
-    .sort((a, b) => b.scoredIn - a.scoredIn);
-  const topConsistent = scorerRanking[0] || null;
+  // Most Consistent: using goals/played ratio as proxy
+  const topConsistent = tableData
+    .filter(p => p.goals > 0 && p.played >= 3)
+    .sort((a, b) => (b.goals / b.played) - (a.goals / a.played))[0] || null;
 
   // Records tab data — restore when re-enabling Records tab
   // const byKey          = key => [...active].sort((a, b) => (b[key] || 0) - (a[key] || 0));
@@ -623,7 +622,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                   value={(topConsistent.nickname || topConsistent.name).split(" ")[0]}
                   valueFontSize={24}
                   valueColor="var(--gold)"
-                  sub={`scored in ${topConsistent.scoredIn} of ${totalGames} games`}
+                  sub={`${topConsistent.goals} goals in ${topConsistent.played} games`}
                 />
               ) : (
                 <InsightTile label="Most Consistent" value="—" sub="No goals yet" />
