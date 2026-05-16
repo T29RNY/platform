@@ -663,7 +663,7 @@ export default function App() {
           startTab={playerStartTabRef.current}/>
       )}
       {view==="stats" && <StatsView
-        teamId={teamId || settings?.teamId || "team_demo"}
+        teamId={teamId}
         squad={squad}
         bibHistory={bibHistory}
         matchHistory={matchHistory}

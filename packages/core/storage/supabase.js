@@ -1624,7 +1624,6 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
     const matchMap = {};
     for (const m of matches) matchMap[m.id] = { matchDate: m.match_date, scoreType: m.score_type };
     const matchIds = Object.keys(matchMap);
-    console.log('[LT] step2 matchIds:', matchIds.slice(0,3));
 
     // Step 3 — player_match rows for those match IDs
     const { data: pmData, error: pmErr } = await supabase
@@ -1634,7 +1633,6 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
       .in('match_id', matchIds);
     if (pmErr) throw pmErr;
     const pmRows = pmData || [];
-    console.log('[LT] step3 pmRows sample:', pmRows.slice(0,2));
     if (!pmRows.length) return [];
 
     // Step 4 — All uncancelled match dates for reliability denominator (not period-filtered)
@@ -1657,7 +1655,6 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
       .select('id, name, nickname, injured, disabled, is_guest, created_at')
       .in('id', allPlayerIds);
     if (playerErr) throw playerErr;
-    console.log('[LT] step5 playerData:', playerData?.slice(0,2));
     const playerMap = {};
     for (const p of (playerData || [])) playerMap[p.id] = p;
 
@@ -1746,9 +1743,7 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
     }
     for (const u of unrankedEntries) u.rank = null;
 
-    const result = [...rankedEntries, ...unrankedEntries];
-    console.log('[LT] final output length:', result.length);
-    return result;
+    return [...rankedEntries, ...unrankedEntries];
   } catch (e) {
     return [];
   }

@@ -138,11 +138,7 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
   const [error,     setError]     = useState(null);
 
   useEffect(() => {
-    console.log('[PLT] useEffect fired, teamId:', teamId, 'period:', period);
-    if (!teamId) {
-      console.log('[PLT] no teamId, skipping fetch');
-      return;
-    }
+    if (!teamId) return;
     setLoading(true);
     setError(null);
     getPlayerLeagueTable(teamId, period)
