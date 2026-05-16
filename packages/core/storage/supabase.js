@@ -1698,7 +1698,7 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
     const { data: matchData, error: matchErr } = await matchQuery;
     if (matchErr) throw matchErr;
     const matches = matchData || [];
-    if (!matches.length) return [];
+    if (!matches.length) return { players: [], totalGamesInPeriod: 0 };
 
     const matchMap = {};
     for (const m of matches) matchMap[m.id] = { matchDate: m.match_date, scoreType: m.score_type };
