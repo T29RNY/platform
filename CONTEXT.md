@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 16 2026 (session 22)*
+*Last updated: May 16 2026 (session 23)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -94,7 +94,7 @@ platform/
             TeamsScreen.jsx  ← full rebuild session 21: Fisher-Yates random, draft save/restore, confirm + push, pentagon badges, split A/B card; design polished session 21
             ScoreScreen.jsx  ← rebuilt session 11, 6-stage progressive flow, score_type + last_goal_scorer
             BibsScreen.jsx
-            SquadScreen.jsx  ← full rebuild session 22: isViceCaptain prop, optimistic toggles (priority/VC/injured/disable) persisted to Supabase, alphabetical sort (disabled at bottom), avatar matches Avatar.jsx circle style, copy link per player
+            SquadScreen.jsx  ← full rebuild session 22: persistent toggles (priority/VC/injured/disable), guest prompt on host injury, copy link per player, avatar taps open PlayerProfile, design system
             ScheduleScreen.jsx  ← rebuilt session 13: MATCH SETTINGS, pickers, computed next matchday, bibs, Nominatim, opens helper, upsert save; notification toggles (10 triggers incl. teamsConfirmed) added session 21
           InstallBanner.jsx
           PWAWelcome.jsx
@@ -186,6 +186,8 @@ paid_by (self/host/admin/stripe),
 is_guest, guest_of,
 injured, injured_since,
 nickname,
+role_scope jsonb DEFAULT NULL,   ← dormant; future T2 RBAC (Phase 2)
+disable_reason text DEFAULT NULL, ← dormant; future Club Manager audit (Phase 2)
 created_at
 ```
 
@@ -217,7 +219,9 @@ created_at
 ### bib_history
 ```
 id, team_id, name, player_id, match_date (date), returned
+UNIQUE: bib_history_uniq_team_date (team_id, match_date)  ← one holder per team per match night
 ```
+Both write paths (saveBibHolder + insertBib) use UPSERT with onConflict: "team_id,match_date".
 
 ### schedule
 ```
@@ -548,6 +552,8 @@ matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, b
 - closePOTMVoting(matchId, winnerId, wasAdminDecided) — updates matches + player_match
 - openPOTMVoting(matchId, teamId, closesAt, totalVoters) — updates matches
 - NOTE: PostgREST self-join workaround — getMostPlayedWith/getNemesis/getBestPartnership/getPlayerImpact/getPOTMEligiblePlayers all use two sequential queries + JS computation
+- toggleViceCaptain(playerId, value, changedBy=null) → guards is_guest (returns {error:'guests_cannot_be_vc'}), upserts is_vice_captain; changedBy stub for Phase 2 audit log
+- disablePlayer(playerId, teamId, disabled, changedBy=null) → upserts disabled boolean; teamId + changedBy stubs for Phase 2 audit log
 
 ### Hero card — attendance ring
 - SVG 56×56, viewBox "0 0 38 38", R=16, progress ring stroke #3DDC6A strokeWidth 3
@@ -728,6 +734,7 @@ Both can run; both add to `owes`. No deduplication.
 | Admin view consistency | ✅ Done | Sticky heroes, 5-tab admin nav, My IO handler, Gaffer disabled |
 | Player League Table | ✅ Done | PlayerLeagueTable.jsx + getPlayerLeagueTable; integrated in StatsView session 20 |
 | Admin screens redesign | 🔲 Partial | ScheduleScreen ✅ session 13, TeamsScreen ✅ session 21, SquadScreen ✅ session 22; BibsScreen + others still default |
+| Vice Captain system | ✅ Done | Session 22–23: VC toggle, PlayerProfile ROLES section, HeroCard ADMINS block, access gating |
 | Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
@@ -753,7 +760,7 @@ Both can run; both add to `owes`. No deduplication.
 | Streak notifications | 3/5/10 game streaks |
 | Random player signup | Postcode, availability |
 | Admin find a random | Radius search, ping system |
-| Vice Captain access | 🔲 Partial — VC gets 5-tab admin nav + AdminView; SquadScreen rebuilt with VC toggle; SquadScreen.jsx still uses `deputy` in seeds/seed-demo/useOnboarding (Stage 5+ cleanup) |
+| Vice Captain access | ✅ Done (session 22–23) — VC toggle, PlayerProfile ROLES section, HeroCard ADMINS block, full admin access gating |
 | Player profile cross-team | Career stats, player_career table |
 
 ---
@@ -887,6 +894,22 @@ all have venue contracts. Sticky but beatable on product quality.
 - Returning player joining a second team: REUSES the existing players row — new team_players entry only, no new players record created
 - Flat stat columns (goals, motm, bib_count, w, l, d, attended etc.) are cross-team totals on one row, not per-team — player_match rows support per-team breakdowns but denormalised columns don't
 - **Known bug**: NameStep asks returning player "what should we call you?" but the typed name is silently discarded — handleJoin uses existing.name from DB, ignores the input
+- `is_vice_captain` lives on the `players` table, not `team_players` — known cross-team limitation; a player is VC globally, not per-team; migrate to `team_players` in Phase 2
+- VC access = full AdminView minus Rotate Admin Link (which doesn't exist yet); scoping is done via `isViceCaptain` prop throughout, not `role_scope` (dormant for Phase 2 RBAC)
+- `bib_history` has a UNIQUE constraint on `(team_id, match_date)` — one holder per team per match night; both write paths (`saveBibHolder` + `insertBib`) use UPSERT with `onConflict: "team_id,match_date"`
+
+---
+
+## KNOWN BUGS / TECH DEBT
+
+| Item | Detail | Priority |
+|---|---|---|
+| NameStep discards returning player name | `handleJoin` in App.jsx sets `joinedPlayer.name = existing.name`, ignoring the typed input — fix: skip NameStep for users with existing `user_id`, or pre-fill their name | Pre-launch |
+| `handleAddPlayer` missing `teamId` | SquadScreen's `handleAddPlayer` calls `upsertPlayer` without `teamId` — player may be created without a team association | Pre-launch |
+| `addPlayerToTeam` not in core barrel | `addPlayerToTeam` exists in `packages/core/storage/supabase.js` but is not exported from `packages/core/index.js` — SquadScreen imports it via `@platform/supabase` alias, not `@platform/core` | Low |
+| `players.deputy` DB column | Renamed to `is_vice_captain` in JS layer but original `deputy` column still exists in Supabase — no migration run yet; harmless but should be cleaned up | Low |
+| `player_career` mostly empty | Only `total_bib_count` ever written; 11 other career fields permanently empty | Phase 2 |
+| `owes` double-increment risk | Two paths can add to owes (draftNextWeek + updatePlayerRecords); `draftNextWeek` is dead code but risk remains if re-enabled | Low |
 
 ---
 
