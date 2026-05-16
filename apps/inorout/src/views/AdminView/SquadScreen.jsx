@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { newPlayer, toggleViceCaptain, disablePlayer } from "@platform/core";
-// TODO: addPlayerToTeam not found in barrel — using upsertPlayer
+import { addPlayerToTeam, toggleViceCaptain, disablePlayer } from "@platform/core";
 import { upsertPlayer, resetPlayerToken, deletePlayer as removePlayerFromDb } from "@platform/supabase";
 import { UsersThree, Star, Shield, LinkSimple, Copy, FirstAid } from "@phosphor-icons/react";
 
@@ -45,19 +44,14 @@ export default function SquadScreen({
   async function handleAddPlayer() {
     if (!name.trim()) return;
     setAddLoading(true);
-    const player = newPlayer(name.trim(), type, { priority, isViceCaptain: vcToggle });
-    setSquad(prev => [...prev, player]);
-    setName("");
-    setType("regular");
-    setPriority(false);
-    setVcToggle(false);
+    const trimmedName = name.trim();
+    setName(""); setType("regular"); setPriority(false); setVcToggle(false);
     try {
-      await upsertPlayer(player);
-      setAddLoading(false);
-    } catch (error) {
-      console.error(error);
-      setSquad(prev => prev.filter(p => p.id !== player.id));
+      const player = await addPlayerToTeam(trimmedName, teamId, { type, priority, isViceCaptain: vcToggle });
+      setSquad(prev => [...prev, player]);
+    } catch {
       setErrorToast("Failed to add player");
+    } finally {
       setAddLoading(false);
     }
   }

@@ -25,5 +25,6 @@ export {
   confirmTeams,
   toggleViceCaptain,
   disablePlayer,
+  addPlayerToTeam,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

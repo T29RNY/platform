@@ -335,26 +335,29 @@ export async function getTeamByJoinCode(code) {
   return byId || null;
 }
 
-export async function addPlayerToTeam(name, teamId, userId = null) {
+export async function addPlayerToTeam(name, teamId, options = {}) {
   const id    = "p_" + Math.random().toString(36).slice(2, 10);
   const token = "p_" + Math.random().toString(36).slice(2, 18);
 
-  const { error: pErr } = await supabase.from("players").insert({
-    id, name: name.trim(), type:"regular",
-    disabled:false, priority:false, is_vice_captain:false,
-    status:"none", paid:false, owes:0,
+  const row = {
+    id, name: name.trim(),
+    type:            options.type          || "regular",
+    priority:        options.priority      || false,
+    is_vice_captain: options.isViceCaptain || false,
+    disabled:false, status:"none", paid:false, owes:0,
     goals:0, motm:0, attended:0, total:0,
     bib_count:0, team:null, w:0, l:0, d:0,
     pay_count:0, late_dropouts:0, note:"", self_paid:false,
-    token, user_id: userId,
-  });
+    token, user_id: null,
+  };
+  const { error: pErr } = await supabase.from("players").insert(row);
   if (pErr) throw pErr;
 
   const { error: tErr } = await supabase
     .from("team_players").insert({ team_id: teamId, player_id: id });
   if (tErr) throw tErr;
 
-  return { id, name, token };
+  return dbToPlayer(row);
 }
 
 // ─── Guest players ────────────────────────────────────────────────────────────
