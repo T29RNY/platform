@@ -725,7 +725,7 @@ Both can run; both add to `owes`. No deduplication.
 | ScoreScreen Part B | ✅ Done | HistoryView: score type badges, won-by display, last goal scorer |
 | Admin view consistency | ✅ Done | Sticky heroes, 5-tab admin nav, My IO handler, Gaffer disabled |
 | Player League Table | ✅ Done | PlayerLeagueTable.jsx + getPlayerLeagueTable; integrated in StatsView session 20 |
-| Admin screens redesign | 🔲 Next | TeamsScreen, BibsScreen etc — ScheduleScreen ✅ session 13 |
+| Admin screens redesign | 🔲 Partial | ScheduleScreen ✅ session 13, TeamsScreen ✅ session 21; BibsScreen + others still default |
 | Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
