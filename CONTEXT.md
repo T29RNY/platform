@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 16 2026 (session 20)*
+*Last updated: May 16 2026 (session 21)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -89,11 +89,11 @@ platform/
           POTMVotingModal.jsx   ← built session 10
           AdminView/
             index.jsx        ← rebuilt session 6; POTM tiebreak modal (session 10); sticky hero + My IO nav (session 12)
-            TeamsScreen.jsx
+            TeamsScreen.jsx  ← full rebuild session 21: Fisher-Yates random, draft save/restore, confirm + push, pentagon badges, split A/B card; design polished session 21
             ScoreScreen.jsx  ← rebuilt session 11, 6-stage progressive flow, score_type + last_goal_scorer
             BibsScreen.jsx
             SquadScreen.jsx
-            ScheduleScreen.jsx  ← rebuilt session 13: MATCH SETTINGS, pickers, computed next matchday, bibs, Nominatim, opens helper, upsert save
+            ScheduleScreen.jsx  ← rebuilt session 13: MATCH SETTINGS, pickers, computed next matchday, bibs, Nominatim, opens helper, upsert save; notification toggles (10 triggers incl. teamsConfirmed) added session 21
           InstallBanner.jsx
           PWAWelcome.jsx
           JoinTeam.jsx
@@ -197,6 +197,7 @@ team_id, player_id
 id, team_id, match_date (date), score_a, score_b,
 scorers (jsonb), motm, bib_holder,
 team_a (jsonb array), team_b (jsonb array),
+teams_draft jsonb,   ← { a: [playerIds], b: [playerIds] } — draft before confirmation; cleared on confirm
 winner, cancelled, cancel_reason,
 payments (jsonb),
 score_type text CHECK (exact/margin/declared),
@@ -460,7 +461,7 @@ My View | Stats | Results | My IO | Admin
 - Player profile full screen — identity, stats, payment history, attendance, injury history
 - Copy player link per row
 - Outstanding debts summary in IN section
-- Make Teams tile → TeamsScreen
+- Make Teams tile → TeamsScreen (full rebuild session 21: player pool, Fisher-Yates random, A/B assignment, draft save, confirm + teamsConfirmed push, clear, Done button, split live card)
 - Input Result tile → ScoreScreen (writes player_match on save)
 - Squad tile → SquadScreen
 - Schedule tile → ScheduleScreen
@@ -665,6 +666,8 @@ Both can run; both add to `owes`. No deduplication.
 - gameDay9am, oneHrBefore, debtReminder
 - bibs24hr, bibs45min, squadFull, spotOpened
 - gameLive, gameCancelled, scheduleChange
+- autoOpen (game goes live — notify all active players)
+- teamsConfirmed (teams picked — notify all IN players)
 - streakNotification (3/5/10 games)
 - monthlySummary (end of month)
 
@@ -675,9 +678,10 @@ Both can run; both add to `owes`. No deduplication.
 - Game is live toggle
 
 ### Config
-- Quiet hours — admin configurable per team
-- 9+ per-trigger toggles in ScheduleScreen Notifications tab
+- Quiet hours — admin configurable per team (quietStart/quietEnd in reminders_config)
+- 10 per-trigger toggles in ScheduleScreen Notifications tab: gameLive, squadFull, spotOpened, gameCancelled, gameDay9am, oneHrBefore, debtReminder, bibs24hr, bibs45min, teamsConfirmed
 - push_subscriptions + notification_log tables
+- notify.js cron handlers: flushQueue, gameDay9am, oneHrBefore, debtReminder, bibs24hr, bibs45min, autoOpen, teamsConfirmed
 
 ---
 
@@ -1380,28 +1384,76 @@ HistoryView glass chip sizing + Player League Table build + StatsView integratio
 - @platform/supabase does not exist as a package — getPlayerLeagueTable must be imported from @platform/core
 - **Bug found and fixed:** PlayerView.jsx stats tab was rendering `<StatsView>` WITHOUT `teamId` prop — so players accessing Stats via tab never passed teamId to PlayerLeagueTable. Fix: `teamId={teamId}` added to StatsView in PlayerView.jsx line 1269. PlayerView already receives teamId from App.jsx (line 659); the prop was simply not forwarded.
 
-**Next session (Session 21) — start with:**
-1. Run Supabase CHECK constraint SQL (below) to enable Cancel Week ledger writes
-2. Test Cancel Week flow end-to-end (demo team or Finbar's)
-3. Test /join/team_finbars flow end-to-end on iPhone (clean device)
-   — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
-4. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
-5. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
-6. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
-7. Stage 1 ship blockers review — is May 19 still on track?
+**Session 21 (May 16 2026):**
+Team Selection feature — full 5-stage build + design polish.
 
-**Supabase CHECK constraint SQL (MUST RUN before first match):**
+**Stage 1 — SQL (manual execution in Supabase):**
+- `matches.teams_draft jsonb` column added
+- `payment_ledger` CHECK constraints updated to include `'cancelled'` type and status
+- 3 performance indexes: `idx_player_match_team_attended`, `idx_player_match_team_player`, `idx_matches_team_date`
+
+**Stage 2 — Data layer (packages/core/storage/supabase.js + packages/core/index.js):**
+- `matchToDb`: added `teams_draft: m.teamsDraft ?? null`
+- `dbToMatch`: added `teamsDraft: r.teams_draft ?? null`
+- New `saveTeamsDraft(matchId, teamId, draft, changedBy)` — updates `teams_draft` on matches row
+- New `confirmTeams(matchId, teamId, teamA, teamB, changedBy)` — sets `team_a`/`team_b`, clears `teams_draft`
+- Both exported from `packages/core/index.js`
+
+**Stage 3 — TeamsScreen.jsx full rebuild:**
+- Props: `{ teamId, squad, schedule, matchHistory, onBack }`
+- `matchId` = `schedule.activeMatchId || matchHistory[0].id`
+- Player pool: `status=in && !injured && !disabled`, sorted alphabetically by nickname||name
+- Fisher-Yates shuffle, odd player goes to Team A
+- On mount: hydrates from `teamsDraft.a/.b` first, then `team_a/team_b` (sets `teamsConfirmed=true`)
+- `handleConfirm`: saves to DB, fires `teamsConfirmed` push fire-and-forget to all IN players
+- `handleClearConfirm`: clears assignments; calls `saveTeamsDraft(matchId, teamId, { a:[], b:[] })` only if draft was previously saved
+- Pentagon badge: path `"M27 2L52 12V30C52 43.5 41 54.5 27 58C13 54.5 2 43.5 2 30V12L27 2Z"`, `style={{ fill: "var(--s3)" }}`
+- Team colours: `#60A0FF` (A), `#FF6060` (B) — only hardcoded hex values allowed
+
+**Stage 4 — notify.js + ScheduleScreen.jsx:**
+- `notify.js`: `teamsConfirmed` cron handler added — checks `active_match_id`, verifies `team_a/team_b` populated, deduplicates via `alreadySent()`, notifies all `status=in && !injured && !disabled` players
+- `ScheduleScreen.jsx`: 10 notification toggles added (gameLive, squadFull, spotOpened, gameCancelled, gameDay9am, oneHrBefore, debtReminder, bibs24hr, bibs45min, teamsConfirmed); quiet hours FROM/TO selects; all saved to `reminders_config` in schedule
+
+**Stage 5 — AdminView/index.jsx wiring:**
+- TeamsScreen render: added `teamId={teamId}` and `matchHistory={matchHistory}` props; removed stale `setSquad` prop
+
+**Design polish (2 rounds):**
+- Round 1: action buttons 40px/15px Bebas, `#5B21B6` random, `#16A34A` confirm, Clear Teams `#3B0A0A` + `#FF4040`, split A/B live card (72px), slim player rows, A/B buttons 44×28
+- Round 2: split card redesigned (48px, horizontal layout, white count numbers `#F2F0EA`, moved below Clear Teams); all `fontWeight:300→400`; player name DM Sans 500 15px; A/B buttons 36×26 Bebas 15px; PLAYERS heading DM Sans 500 11px; Done button (full width, 48px, `var(--goldb)` border, calls `onBack()`)
+
+**Icon fix:** `Dice5` (not in installed @phosphor-icons/react) → `Shuffle`
+
+**Key gotchas from session 21:**
+- CSS vars cannot be used in SVG `fill`/`stroke` attributes — must use `style={{ fill: "var(--x)" }}`
+- Shuffle not Dice5 in installed version of @phosphor-icons/react
+- `borderRadius: "6px 0 0 6px"` / `"0 6px 6px 0"` on halves for joined card edges; VS centre has no radius
+
+**Next session (Session 22) — start with:**
+1. Run Supabase CHECK constraint SQL (below) if not yet done — required for Cancel Week ledger writes
+2. Run `matches.teams_draft` column SQL if not yet done
+3. Test Cancel Week flow end-to-end on demo team
+4. Test TeamsScreen end-to-end (random, draft save, confirm, push fires)
+5. Test /join/team_finbars end-to-end on clean iPhone
+   — capture iOS install screenshots, drop into PlaceholderScreenshot slots
+6. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
+7. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
+8. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
+9. Stage 1 ship blockers review — is May 19 still on track?
+
+**Supabase SQL still to run (if not done):**
 ```sql
+-- matches.teams_draft column
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS teams_draft jsonb;
+
+-- payment_ledger CHECK constraints (required for Cancel Week)
 ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_type_check;
 ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_type_check
   CHECK (type IN ('game_fee','guest_fee','debt_payment','waiver','refund','cancelled'));
 ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_status_check;
 ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_status_check
   CHECK (status IN ('paid','unpaid','waived','disputed','refunded','cancelled'));
-```
 
-**DB indexes to create in Supabase SQL editor (performance, not blocking):**
-```sql
+-- Performance indexes (non-blocking)
 CREATE INDEX IF NOT EXISTS idx_player_match_team_attended ON player_match (team_id, attended);
 CREATE INDEX IF NOT EXISTS idx_player_match_team_player ON player_match (team_id, player_id);
 CREATE INDEX IF NOT EXISTS idx_matches_team_date ON matches (team_id, match_date);
