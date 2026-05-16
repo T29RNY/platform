@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { ArrowLeft, Dice5, FloppyDisk, CheckCircle, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, Shuffle, FloppyDisk, CheckCircle, Trash } from "@phosphor-icons/react";
 import { saveTeamsDraft, confirmTeams } from "@platform/core";
 
 const ENABLE_SMART_RANDOM = false;
@@ -293,7 +293,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
           alignItems: "center", justifyContent: "center", gap: 1,
           cursor: "pointer",
         }}>
-          <Dice5 size={18} weight="thin" />
+          <Shuffle size={18} weight="thin" />
           <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, lineHeight: 1 }}>
             RANDOM
           </span>
