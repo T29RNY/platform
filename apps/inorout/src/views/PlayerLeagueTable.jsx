@@ -145,7 +145,7 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
     }
     setLoading(true);
     setError(null);
-    getPlayerLeagueTable(teamId || 'team_demo', period)
+    getPlayerLeagueTable(teamId, period)
       .then(data => { setTableData(data); setLoading(false); })
       .catch(e   => { setError(e.message); setLoading(false); });
   }, [teamId, period]);
