@@ -1378,6 +1378,7 @@ HistoryView glass chip sizing + Player League Table build + StatsView integratio
 - Error state not visually rendered — on fetch error, loading becomes false, tableData stays [], empty state renders
 - team_players has no created_at column — reliability join date uses players.created_at instead
 - @platform/supabase does not exist as a package — getPlayerLeagueTable must be imported from @platform/core
+- **Bug found and fixed:** PlayerView.jsx stats tab was rendering `<StatsView>` WITHOUT `teamId` prop — so players accessing Stats via tab never passed teamId to PlayerLeagueTable. Fix: `teamId={teamId}` added to StatsView in PlayerView.jsx line 1269. PlayerView already receives teamId from App.jsx (line 659); the prop was simply not forwarded.
 
 **Next session (Session 21) — start with:**
 1. Run Supabase CHECK constraint SQL (below) to enable Cancel Week ledger writes
