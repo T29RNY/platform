@@ -221,8 +221,8 @@ export default function PlayerLeagueTable({ data = [], loading, period, onPeriod
             <tbody>
               {ranked.map(p => (
                 <PlayerRow key={p.playerId} p={p} bibHolder={currentBibHolder} squad={squad}
-                  tappable={p.playerId !== myId && !!onPlayerTap}
-                  onTap={() => onPlayerTap && p.playerId !== myId && onPlayerTap(p)} />
+                  tappable={!!myId && p.playerId !== myId && !!onPlayerTap}
+                  onTap={() => onPlayerTap && myId && p.playerId !== myId && onPlayerTap(p)} />
               ))}
               {unranked.length > 0 && (
                 <>
@@ -236,8 +236,8 @@ export default function PlayerLeagueTable({ data = [], loading, period, onPeriod
                   </tr>
                   {unranked.map(p => (
                     <PlayerRow key={p.playerId} p={p} bibHolder={currentBibHolder} squad={squad}
-                      tappable={p.playerId !== myId && !!onPlayerTap}
-                      onTap={() => onPlayerTap && p.playerId !== myId && onPlayerTap(p)} />
+                      tappable={!!myId && p.playerId !== myId && !!onPlayerTap}
+                      onTap={() => onPlayerTap && myId && p.playerId !== myId && onPlayerTap(p)} />
                   ))}
                 </>
               )}

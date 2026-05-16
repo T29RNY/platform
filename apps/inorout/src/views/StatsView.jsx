@@ -759,15 +759,19 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
       </div>
 
-      {h2hPlayer && (
-        <HeadToHead
-          me={squad.find(s => s.id === myId)}
-          them={h2hPlayer}
-          teamId={teamId}
-          tableData={tableData}
-          onClose={() => setH2hPlayer(null)}
-        />
-      )}
+      {h2hPlayer && (() => {
+        const me = squad.find(s => s.id === myId);
+        if (!me) return null;
+        return (
+          <HeadToHead
+            me={me}
+            them={h2hPlayer}
+            teamId={teamId}
+            tableData={tableData}
+            onClose={() => setH2hPlayer(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

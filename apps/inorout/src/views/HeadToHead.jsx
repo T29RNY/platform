@@ -114,7 +114,6 @@ function SkeletonBars() {
 }
 
 export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
-  console.log('H2H props:', { meId: me?.id, themId: them?.id, teamId });
   const [period,  setPeriod]  = useState("season");
   const [h2hData, setH2hData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -125,7 +124,6 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
     setLoading(true);
     (async () => {
       const result = await getHeadToHead(me.id, them.id, teamId);
-      console.log('H2H result:', result);
       if (!cancelled) {
         setH2hData(result);
         setLoading(false);
@@ -138,7 +136,6 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
   const vs          = VERDICT_STYLE[verdict] || VERDICT_STYLE.early_days;
   const hasData     = !loading && h2hData && h2hData.totalSharedGames > 0;
   const isEmpty     = !loading && (!h2hData || h2hData.totalSharedGames === 0);
-  console.log('H2H state:', { hasData, isEmpty, totalSharedGames: h2hData?.totalSharedGames });
 
   return (
     <div style={{
