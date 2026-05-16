@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 15 2026 (session 19)*
+*Last updated: May 16 2026 (session 20)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -80,7 +80,8 @@ platform/
         views/
           PlayerView.jsx     ← rebuilt session 6; startTab prop added session 12
           MyIOView.jsx       ← built session 8, IO Intelligence screen; TacticsBoardHero sticky (session 12)
-          StatsView.jsx      ← rebuilt session 6, IO Statbook; local SVG hero + sticky (session 12)
+          StatsView.jsx      ← rebuilt session 6, IO Statbook; local SVG hero + sticky (session 12); PlayerLeagueTable integrated + Player Form accordion (session 20)
+          PlayerLeagueTable.jsx ← new session 20; period selector (month/season/all), ranked/unranked split, form chips, bib-holder dot, reliability colour
           HistoryView.jsx    ← rebuilt session 6, Results screen; score_type + last_goal_scorer display corrected (session 14)
           Gaffer/
             index.jsx        ← Ask the Gaffer chatbot (disabled via ENABLE_GAFFER=false in App.jsx)
@@ -536,6 +537,7 @@ matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, b
 - getNemesis(playerId, teamId) → [{ playerId, name, games, lossRate }]
 - getBestPartnership(playerId, teamId) → [{ playerId, name, games, winRate }]
 - getPOTMVoteStats(playerId, teamId) → wrapped in try/catch (table may not exist)
+- getPlayerLeagueTable(teamId, period) → full ranked player table; period='month'|'season'|'all'; ranks by points(W×3+D)→goals→winRate→potm→name; reliability null if played<3; form = last 5 W/D/L; returns [{playerId, name, nickname, injured, played, wins, draws, losses, points, winRate, goals, potm, reliability, form, ranked, rank}]; guests/disabled excluded; reliability denominator uses all-time match dates since player.created_at regardless of period
 - submitPOTMVote(matchId, teamId, voterId, nomineeId) → {ok} or {error:"already_voted"} on UNIQUE violation
 - getPOTMVotes(matchId) → [{voter_id, nominee_id}]
 - getPOTMEligiblePlayers(matchId, teamId) → [{id, name, team}] — two-query pattern (player_match then players)
@@ -718,6 +720,7 @@ Both can run; both add to `owes`. No deduplication.
 | ScoreScreen Part A | ✅ Done | 6-stage progressive flow, score_type, last_goal_scorer |
 | ScoreScreen Part B | ✅ Done | HistoryView: score type badges, won-by display, last goal scorer |
 | Admin view consistency | ✅ Done | Sticky heroes, 5-tab admin nav, My IO handler, Gaffer disabled |
+| Player League Table | ✅ Done | PlayerLeagueTable.jsx + getPlayerLeagueTable; integrated in StatsView session 20 |
 | Admin screens redesign | 🔲 Next | TeamsScreen, BibsScreen etc — ScheduleScreen ✅ session 13 |
 | Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
@@ -1332,16 +1335,73 @@ Full codebase audit + dead code sweep + critical cron bug fixes.
      CHECK (status IN ('paid','unpaid','waived','disputed','refunded','cancelled'));
    ```
 
-**Next session (Session 20) — start with:**
-1. Run Supabase CHECK constraint SQL (above) to enable Cancel Week ledger writes
+**Session 20 (May 16 2026):**
+HistoryView glass chip sizing + Player League Table build + StatsView integration.
+
+**HistoryView glass chip (from prior session context):**
+- `.heroGlassStatTile`: width:80px, height:56px (removed auto/padding)
+- `.heroGlassStatValue`: font-size:26px
+- `.heroGlassStatLabel`: font-size:9px, margin-top:4px
+
+**getPlayerLeagueTable (packages/core/storage/supabase.js):**
+- Period filter: month=start of calendar month, season=Jan 1 current year, all=no cutoff
+- 5-step query: matches → player_match → all-team-dates (reliability denom, skipped for 'all') → players → compute
+- Ranking: points(W×3+D)→goals→winRate→potm→name; tied players share rank, next rank skips
+- Reliability denominator: ALL team match dates since player.created_at, not period-filtered
+- Goals only counted where score_type=null or 'exact' (same as getPlayerMatchStats)
+- Guests and disabled players excluded
+- Exported from packages/core/index.js
+
+**PlayerLeagueTable.jsx (apps/inorout/src/views/PlayerLeagueTable.jsx) — new file:**
+- Props: `{ teamId, squad = [], bibHistory = [] }`
+- Period selector: pill tabs (This Month / Season / All Time), active=gold2+goldb+gold, default='all'
+- Loading: 3 skeleton bars 44px, ioo-plt-pulse animation, staggered 0.15s delay
+- Empty state: "Play a few more matches to unlock the player table." (catches errors too — no separate error state)
+- Table: minWidth:580, overflowX:auto wrapper, sticky Player column (position:sticky, left:0)
+- Columns: Rank | Player | P | W | D | L | Win% | Goals | POTM | Rely | Form
+- Rank colors: gold #E8A020 (1), silver #A0A0A0 (2), bronze #CD7F32 (3); "New" label for unranked
+- Avatar: 28px circle, 🤕 if injured; amber 8px dot bottom-right if current bib holder
+- Form chips: 18px circles, W=green/D=amber/L=red
+- Reliability color: ≥80=green, ≥60=amber, <60=red, null=t2
+- UNRANKED section: Bebas Neue 10px label with count
+- `currentBibHolder` derived from `bibHistory.find(b => !b.returned)?.playerId`
+
+**StatsView.jsx integration:**
+- `teamId` added to props; `useState` uncommented; `CaretRight` added to Phosphor import
+- `PlayerLeagueTable` imported from `./PlayerLeagueTable.jsx`
+- `<PlayerLeagueTable teamId={teamId} squad={squad} bibHistory={bibHistory} />` rendered as FIRST section after hero (before Player Form)
+- Player Form section wrapped in accordion: `showPlayerForm` state (default false), CaretRight rotation toggle, collapsed by default
+- App.jsx: `teamId={teamId}` added to StatsView render line
+
+**Key gotchas from session 20:**
+- No early return in PlayerLeagueTable — component always renders outer div regardless of teamId; `if (!teamId) return;` is inside useEffect callback only
+- Error state not visually rendered — on fetch error, loading becomes false, tableData stays [], empty state renders
+- team_players has no created_at column — reliability join date uses players.created_at instead
+- @platform/supabase does not exist as a package — getPlayerLeagueTable must be imported from @platform/core
+
+**Next session (Session 21) — start with:**
+1. Run Supabase CHECK constraint SQL (below) to enable Cancel Week ledger writes
 2. Test Cancel Week flow end-to-end (demo team or Finbar's)
 3. Test /join/team_finbars flow end-to-end on iPhone (clean device)
    — capture iOS install screenshots while testing, drop into PlaceholderScreenshot slots
 4. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
 5. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
-7. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
-8. Stage 1 ship blockers review — is May 19 still on track?
+6. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
+7. Stage 1 ship blockers review — is May 19 still on track?
 
-**Aspirational for May 19 matchday (Stage 1 live):**
-- POTM voting live for Finbar's Tuesdays first match
-- Re-enable Gaffer for admin role (ENABLE_GAFFER = true + remove token gate)
+**Supabase CHECK constraint SQL (MUST RUN before first match):**
+```sql
+ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_type_check;
+ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_type_check
+  CHECK (type IN ('game_fee','guest_fee','debt_payment','waiver','refund','cancelled'));
+ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_status_check;
+ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_status_check
+  CHECK (status IN ('paid','unpaid','waived','disputed','refunded','cancelled'));
+```
+
+**DB indexes to create in Supabase SQL editor (performance, not blocking):**
+```sql
+CREATE INDEX IF NOT EXISTS idx_player_match_team_attended ON player_match (team_id, attended);
+CREATE INDEX IF NOT EXISTS idx_player_match_team_player ON player_match (team_id, player_id);
+CREATE INDEX IF NOT EXISTS idx_matches_team_date ON matches (team_id, match_date);
+```
