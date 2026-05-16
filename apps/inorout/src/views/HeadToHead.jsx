@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, UploadSimple } from "@phosphor-icons/react";
+import { ArrowLeft, UploadSimple, SoccerBall, TShirt, UsersThree, Lightning, Trophy, Star, User } from "@phosphor-icons/react";
 import { getHeadToHead } from "@platform/core";
 
 function initials(name) {
@@ -279,7 +279,282 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
           </div>
         )}
 
-        {/* ═══ STAT SECTIONS — Parts 2 and 3 ═══ */}
+        {/* ═══ STAT SECTIONS 1-3 — Part 2 ═══ */}
+
+        {hasData && (() => {
+          const t  = h2hData.together;
+          const ag = h2hData.against;
+          const ch = h2hData.chemistry;
+          const meName   = me?.nickname   || me?.name   || "Me";
+          const themName = them?.nickname || them?.name || "Them";
+
+          // ── Section 1 — WHEN YOU PLAY TOGETHER ──────────────────────────
+          const sec1 = (
+            <div key="s1" style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--green)", marginBottom: 12 }}>
+                1. WHEN YOU PLAY TOGETHER
+              </div>
+              {t.games === 0 ? (
+                <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)", padding: "8px 0" }}>
+                  You&apos;ve never been teammates yet.
+                </div>
+              ) : (
+                <>
+                  {/* Stat boxes */}
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    {/* Games together */}
+                    <div style={{ flex: 1, minWidth: 0, background: "var(--s3)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>{t.games}</div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Games together</div>
+                    </div>
+                    {/* W/D/L */}
+                    <div style={{ flex: 1, minWidth: 0, background: "var(--s3)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 18, lineHeight: 1 }}>
+                        <span style={{ color: "var(--green)" }}>{t.wins}W</span>
+                        <span style={{ color: "var(--t2)", fontSize: 14 }}> / </span>
+                        <span style={{ color: "var(--t2)" }}>{t.draws}D</span>
+                        <span style={{ color: "var(--t2)", fontSize: 14 }}> / </span>
+                        <span style={{ color: "var(--red)" }}>{t.losses}L</span>
+                      </div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Record together</div>
+                    </div>
+                    {/* Win rate */}
+                    <div style={{ flex: 1, minWidth: 0, background: "var(--s3)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>{t.winRate}%</div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Win rate together</div>
+                    </div>
+                    {/* Combined goals */}
+                    <div style={{ flex: 1, minWidth: 0, background: "var(--s3)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>{t.combinedGoals}</div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Combined goals</div>
+                    </div>
+                  </div>
+
+                  {/* Goal threat row */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <SoccerBall size={16} weight="thin" color="var(--t2)" />
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>Goal threat</span>
+                    </div>
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300 }}>
+                      {t.goalThreatTogether != null ? (
+                        <>
+                          <span style={{ color: t.goalThreatTogether > (t.goalThreatApart ?? 0) ? "var(--green)" : "var(--red)" }}>
+                            {t.goalThreatTogether.toFixed(1)}
+                          </span>
+                          <span style={{ color: "var(--t2)" }}> together vs </span>
+                          <span style={{ color: "var(--t2)" }}>
+                            {t.goalThreatApart != null ? t.goalThreatApart.toFixed(1) : "—"} apart
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: "var(--t2)" }}>—</span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Bib magnet row */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <TShirt size={16} weight="thin" color="var(--t2)" />
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>Bib magnet</span>
+                    </div>
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t1)" }}>
+                      <span style={{ color: "var(--gold)" }}>{t.bibs}</span>
+                      <span style={{ color: "var(--t2)" }}> of {t.games} games</span>
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+
+          // ── Section 2 — WHEN YOU FACE EACH OTHER ────────────────────────
+          const streakText = (() => {
+            const s = ag.streak;
+            if (!s || s.length === 0) return null;
+            const winner = s.player === "me" ? meName : themName;
+            return { winner, length: s.length };
+          })();
+
+          const insightText = (() => {
+            if (ag.games === 0) return null;
+            if (ag.meWins > ag.theirWins * 2) return `${meName} dominates this matchup`;
+            if (ag.theirWins > ag.meWins * 2) return `${themName} owns this matchup`;
+            if (ag.meWins > ag.theirWins) return `${meName} has the edge`;
+            if (ag.theirWins > ag.meWins) return `${themName} has the edge`;
+            return "Dead even — this rivalry is perfectly balanced";
+          })();
+
+          const sec2 = (
+            <div key="s2" style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--red)", marginBottom: 12 }}>
+                2. WHEN YOU FACE EACH OTHER
+              </div>
+              {ag.games === 0 ? (
+                <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)", padding: "8px 0" }}>
+                  You&apos;ve never been on opposite teams yet.
+                </div>
+              ) : (
+                <>
+                  {[
+                    {
+                      icon: <UsersThree size={16} weight="thin" color="var(--t2)" />,
+                      label: "Games against each other",
+                      value: <span style={{ color: "var(--t1)" }}>{ag.games}</span>,
+                      border: true,
+                    },
+                    {
+                      icon: <Trophy size={16} weight="thin" color="var(--t2)" />,
+                      label: "Results",
+                      value: (
+                        <>
+                          <span style={{ color: "var(--green)" }}>{meName}</span>
+                          <span style={{ color: "var(--t1)" }}> {ag.meWins} wins · {ag.draws} draws · </span>
+                          <span style={{ color: "var(--red)" }}>{themName}</span>
+                          <span style={{ color: "var(--t1)" }}> {ag.theirWins} wins</span>
+                        </>
+                      ),
+                      border: true,
+                    },
+                    {
+                      icon: <SoccerBall size={16} weight="thin" color="var(--t2)" />,
+                      label: "Goals scored",
+                      value: (
+                        <>
+                          <span style={{ color: "var(--green)" }}>{meName}</span>
+                          <span style={{ color: "var(--t1)" }}> {ag.myGoals} vs </span>
+                          <span style={{ color: "var(--red)" }}>{themName}</span>
+                          <span style={{ color: "var(--t1)" }}> {ag.theirGoals}</span>
+                        </>
+                      ),
+                      border: true,
+                    },
+                    {
+                      icon: <Lightning size={16} weight="thin" color="var(--t2)" />,
+                      label: "Current streak",
+                      value: streakText
+                        ? <><span style={{ color: "var(--green)" }}>{streakText.winner}</span><span style={{ color: "var(--t1)" }}> has won {streakText.length} in a row</span></>
+                        : <span style={{ color: "var(--t2)" }}>No active streak</span>,
+                      border: false,
+                    },
+                  ].map((row, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: row.border ? "0.5px solid var(--s3)" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        {row.icon}
+                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>{row.label}</span>
+                      </div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, textAlign: "right", marginLeft: 12 }}>
+                        {row.value}
+                      </div>
+                    </div>
+                  ))}
+
+                  {insightText && (
+                    <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 300, color: "var(--gold)", marginTop: 8 }}>
+                      💡 Insight: {insightText}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+
+          // ── Section 3 — YOU MAKE THEM BETTER ────────────────────────────
+          const CHEM_STYLE = {
+            good_luck_charm: { border: "var(--goldb)",  color: "var(--gold)" },
+            bad_influence:   { border: "var(--redb)",   color: "var(--red)"  },
+            no_effect:       { border: "var(--s3)",     color: "var(--t2)"  },
+          };
+          const CHEM_LABEL = {
+            good_luck_charm: "⭐ Good luck charm",
+            bad_influence:   "👎 Bad influence",
+            no_effect:       "➖ No clear effect",
+          };
+          const chemV  = h2hData.chemistryVerdict || "no_effect";
+          const chemSt = CHEM_STYLE[chemV] || CHEM_STYLE.no_effect;
+
+          const sec3 = h2hData.totalSharedGames >= 3 ? (
+            <div key="s3" style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--purple)", marginBottom: 12 }}>
+                3. YOU MAKE THEM BETTER
+              </div>
+
+              {/* Their win rate */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <User size={16} weight="thin" color="var(--red)" />
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
+                    {themName} win rate with {meName}:
+                  </span>
+                </div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, textAlign: "right", marginLeft: 12 }}>
+                  <span style={{ fontWeight: 400, color: "var(--t1)" }}>
+                    {ch.theirWinRateWithMe != null ? `${ch.theirWinRateWithMe}%` : "—"}
+                  </span>
+                  <span style={{ fontWeight: 300, color: "var(--t2)" }}>
+                    {" "}|{"  without "}
+                    {meName}: {ch.theirWinRateWithoutMe != null ? `${ch.theirWinRateWithoutMe}%` : "—"}
+                  </span>
+                </div>
+              </div>
+
+              {/* My win rate */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <User size={16} weight="thin" color="var(--green)" />
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
+                    {meName} win rate with {themName}:
+                  </span>
+                </div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, textAlign: "right", marginLeft: 12 }}>
+                  <span style={{ fontWeight: 400, color: "var(--t1)" }}>
+                    {ch.myWinRateWithThem != null ? `${ch.myWinRateWithThem}%` : "—"}
+                  </span>
+                  <span style={{ fontWeight: 300, color: "var(--t2)" }}>
+                    {" "}|{"  without "}
+                    {themName}: {ch.myWinRateWithoutThem != null ? `${ch.myWinRateWithoutThem}%` : "—"}
+                  </span>
+                </div>
+              </div>
+
+              {/* POTM rivalry */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  <Star size={16} weight="thin" color="var(--t2)" />
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
+                    POTM rivalry in shared games:
+                  </span>
+                </div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, textAlign: "right", marginLeft: 12 }}>
+                  <span style={{ color: "var(--green)" }}>{meName}</span>
+                  <span style={{ color: "var(--gold)" }}> {ch.myPotm} </span>
+                  <span style={{ color: "var(--t2)" }}>vs </span>
+                  <span style={{ color: "var(--red)" }}>{themName}</span>
+                  <span style={{ color: "var(--gold)" }}> {ch.theirPotm}</span>
+                </div>
+              </div>
+
+              {/* Chemistry verdict pill */}
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                <div style={{
+                  background: "rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(8px)",
+                  border: `0.5px solid ${chemSt.border}`,
+                  borderRadius: 20, padding: "6px 16px",
+                  fontFamily: "var(--font-display)", fontSize: 12,
+                  letterSpacing: "0.08em", color: chemSt.color,
+                }}>
+                  {CHEM_LABEL[chemV]}
+                </div>
+              </div>
+            </div>
+          ) : null;
+
+          return <>{sec1}{sec2}{sec3}</>;
+        })()}
+
+        {/* ═══ SECTIONS 4-5 + WIRING — Part 3 ═══ */}
 
       </div>
     </div>
