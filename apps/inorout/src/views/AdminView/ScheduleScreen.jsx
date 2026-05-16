@@ -25,6 +25,13 @@ const OPEN_TIMES = (() => {
   return t;
 })();
 
+const QUIET_TIMES = (() => {
+  const t = [];
+  for (let h = 0; h < 24; h++)
+    t.push(`${String(h).padStart(2,"0")}:00`);
+  return t;
+})();
+
 const SQUAD_SIZES   = [6,7,8,9,10,11,12,13,14,16,18,20,22];
 const PRIORITY_LEADS = [30,45,60,90,120];
 
@@ -35,8 +42,22 @@ const DEFAULT_REMINDERS = {
     gameLive:true, squadFull:true, spotOpened:true,
     gameCancelled:true, gameDay9am:true, oneHrBefore:true,
     debtReminder:true, bibs24hr:true, bibs45min:true,
+    teamsConfirmed:true,
   },
 };
+
+const NOTIFICATION_TOGGLES = [
+  { key: 'gameLive',       label: 'Game is live',        sub: 'When the game opens for player responses'      },
+  { key: 'squadFull',      label: 'Squad full',           sub: 'When the squad reaches the target number'      },
+  { key: 'spotOpened',     label: 'Spot opened',          sub: 'When a reserve moves into the squad'           },
+  { key: 'gameCancelled',  label: 'Game cancelled',       sub: 'When the game is cancelled'                    },
+  { key: 'gameDay9am',     label: 'Game day morning',     sub: 'Reminder at 9am on matchday'                   },
+  { key: 'oneHrBefore',    label: '1hr before kickoff',   sub: "Sent to players who haven't paid yet"          },
+  { key: 'debtReminder',   label: 'Debt reminder',        sub: '24hrs after the game, chases unpaid players'   },
+  { key: 'bibs24hr',       label: 'Bibs — 24hrs before',  sub: 'Reminder for the bib holder to wash the bibs' },
+  { key: 'bibs45min',      label: 'Bibs — 45min before',  sub: 'Final reminder to bring the bibs'              },
+  { key: 'teamsConfirmed', label: 'Teams confirmed',      sub: 'When teams are picked and shared with players' },
+];
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -541,6 +562,79 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
               />
             </div>
 
+            {/* Notifications */}
+            <div style={{ marginBottom:24 }}>
+              <div style={LABEL}>NOTIFICATIONS</div>
+
+              {/* Quiet hours */}
+              <div style={{
+                background:"var(--s2)", borderRadius:10, padding:14,
+                border:"1px solid var(--s3)", marginBottom:8,
+              }}>
+                <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300,
+                  letterSpacing:"0.08em", marginBottom:12 }}>
+                  QUIET HOURS
+                </div>
+                <div style={{ display:"flex", gap:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:4 }}>FROM</div>
+                    <div style={{ position:"relative" }}>
+                      <select
+                        value={reminders.quietStart}
+                        onChange={e => setReminders(r => ({ ...r, quietStart: e.target.value }))}
+                        style={{
+                          ...BASE_INPUT, border:"1px solid var(--s3)",
+                          appearance:"none", WebkitAppearance:"none", paddingRight:30, cursor:"pointer",
+                        }}
+                      >
+                        {QUIET_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <div style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
+                        color:"var(--t2)", pointerEvents:"none", fontSize:12 }}>▾</div>
+                    </div>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:4 }}>TO</div>
+                    <div style={{ position:"relative" }}>
+                      <select
+                        value={reminders.quietEnd}
+                        onChange={e => setReminders(r => ({ ...r, quietEnd: e.target.value }))}
+                        style={{
+                          ...BASE_INPUT, border:"1px solid var(--s3)",
+                          appearance:"none", WebkitAppearance:"none", paddingRight:30, cursor:"pointer",
+                        }}
+                      >
+                        {QUIET_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <div style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
+                        color:"var(--t2)", pointerEvents:"none", fontSize:12 }}>▾</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Per-trigger toggles */}
+              {NOTIFICATION_TOGGLES.map(({ key, label, sub }) => (
+                <div key={key} style={{
+                  display:"flex", alignItems:"center", justifyContent:"space-between",
+                  padding:14, background:"var(--s2)", borderRadius:10,
+                  border:"1px solid var(--s3)", marginBottom:8,
+                }}>
+                  <div style={{ flex:1, paddingRight:16 }}>
+                    <div style={{ fontSize:14, color:"var(--t1)", fontWeight:300 }}>{label}</div>
+                    <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginTop:2 }}>{sub}</div>
+                  </div>
+                  <Toggle
+                    on={reminders.triggers?.[key] !== false}
+                    onChange={() => setReminders(r => ({
+                      ...r,
+                      triggers: { ...r.triggers, [key]: r.triggers?.[key] !== false ? false : true },
+                    }))}
+                    color="var(--green)"
+                  />
+                </div>
+              ))}
+            </div>
 
         {/* ── SAVE ── */}
         {saveStatus === "error" && (

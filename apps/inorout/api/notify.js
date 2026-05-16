@@ -4,7 +4,7 @@
 //   { type, teamId, playerIds?, payload: { title, body, icon }, gameDate? }
 //
 // Cron (called by pg_cron via pg_net, requires Authorization header):
-//   { cronType: "flushQueue"|"gameDay9am"|"oneHrBefore"|"debtReminder"|"bibs24hr"|"bibs45min"|"autoOpen" }
+//   { cronType: "flushQueue"|"gameDay9am"|"oneHrBefore"|"debtReminder"|"bibs24hr"|"bibs45min"|"autoOpen"|"teamsConfirmed" }
 //
 // Required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL, CRON_SECRET
@@ -251,6 +251,25 @@ async function handleCron(cronType) {
         body: `${sched.day_of_week || 'Game'} is open — are you in?`,
         icon: '/icons/icon-192.png',
       }, 'autoOpen', teamId, gameDate);
+    }
+
+    // 11. Teams confirmed — send to IN players when teams are set on the active match
+    if (cronType === 'teamsConfirmed') {
+      if (!sched.active_match_id) continue;
+      const { data: activeMatch } = await supabase
+        .from('matches')
+        .select('team_a, team_b')
+        .eq('id', sched.active_match_id)
+        .single();
+      if (!activeMatch?.team_a?.length || !activeMatch?.team_b?.length) continue;
+      if (!inPlayers.length) continue;
+      if (await alreadySent(teamId, 'teamsConfirmed', gameDate)) continue;
+      const subs = await getSubsForPlayers(teamId, inPlayers.map(p => p.id));
+      await pushToSubs(subs, {
+        title: 'Teams are up 👀',
+        body: "Check which side you're on",
+        icon: '/icons/icon-192.png',
+      }, 'teamsConfirmed', teamId, gameDate);
     }
   }
 
