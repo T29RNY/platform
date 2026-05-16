@@ -1707,12 +1707,12 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
     // Step 3 — player_match rows for those match IDs
     const { data: pmData, error: pmErr } = await supabase
       .from('player_match')
-      .select('player_id, match_id, attended, result, goals, was_motm, had_bibs, team_assignment')
+      .select('player_id, match_id, attended, result, goals, was_motm, had_bibs, late_cancel, team_assignment')
       .eq('team_id', teamId)
       .in('match_id', matchIds);
     if (pmErr) throw pmErr;
     const pmRows = pmData || [];
-    if (!pmRows.length) return [];
+    if (!pmRows.length) return { players: [], totalGamesInPeriod: matches.length };
 
     // Step 4 — All uncancelled match dates for reliability denominator (not period-filtered)
     let allTeamMatchDates;
@@ -1764,7 +1764,9 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
       const winRate  = played > 0 ? Math.round((wins / played) * 100) : 0;
       const goals    = rows.reduce((s, r) =>
         s + (exactMatchIds.has(r.match_id) ? (r.goals || 0) : 0), 0);
-      const potm     = rows.filter(r => r.was_motm).length;
+      const potm         = rows.filter(r => r.was_motm).length;
+      const bibCount     = rows.filter(r => r.had_bibs).length;
+      const lateDropouts = rows.filter(r => r.late_cancel).length;
 
       const joinDate       = player.created_at ? new Date(player.created_at) : null;
       const totalTeamGames = joinDate
@@ -1788,7 +1790,7 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
         playerId, name: player.name, nickname: player.nickname || null,
         injured: player.injured || false,
         played, wins, draws, losses, points,
-        winRate, goals, potm, reliability,
+        winRate, goals, potm, bibCount, lateDropouts, reliability,
         form: last5, ranked,
       });
     }
@@ -1823,8 +1825,10 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
     }
     for (const u of unrankedEntries) u.rank = null;
 
-    return [...rankedEntries, ...unrankedEntries];
+    // NOTE: return shape changed from array to { players, totalGamesInPeriod }
+    // PlayerLeagueTable must be updated to read .players (Execute B)
+    return { players: [...rankedEntries, ...unrankedEntries], totalGamesInPeriod: matches.length };
   } catch (e) {
-    return [];
+    return { players: [], totalGamesInPeriod: 0 };
   }
 }
