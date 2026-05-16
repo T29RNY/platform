@@ -5,7 +5,7 @@ import { upsertPlayer, resetPlayerToken, deletePlayer as removePlayerFromDb } fr
 import { UsersThree, Star, Shield, LinkSimple, Copy, FirstAid } from "@phosphor-icons/react";
 
 export default function SquadScreen({
-  squad, setSquad, teamId, isViceCaptain = false, onBack, me = null
+  squad, setSquad, teamId, isViceCaptain = false, onBack, me = null, onPlayerTap,
 }) {
 
   const [name,         setName]         = useState("");
@@ -147,9 +147,6 @@ export default function SquadScreen({
     }
     setGuestPrompt(null);
   };
-
-  // TODO: Stage 7 — wire onPlayerTap to PlayerProfile modal
-  const onPlayerTap = (_player) => {};
 
   const sortedSquad = [...squad].sort((a, b) => {
     if (a.disabled !== b.disabled) return a.disabled ? 1 : -1;
@@ -385,7 +382,7 @@ export default function SquadScreen({
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                 {/* Avatar — matches Avatar.jsx circle style */}
                 <div
-                  onClick={() => onPlayerTap(p)}
+                  onClick={() => onPlayerTap?.(p)}
                   style={{
                     width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
                     background: avBg, border: avBorder, boxShadow: avShadow,

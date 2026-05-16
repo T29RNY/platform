@@ -4,6 +4,7 @@ import {
   getPaymentState,
   handleCashPayment, handleClearDebt,
   handleMarkPaid, handleResetPayment, handleGuestCashPayment,
+  toggleViceCaptain,
 } from "@platform/core";
 import {
   addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer,
@@ -156,7 +157,7 @@ function SectionLabel({ children }) {
 }
 
 // ── PlayerProfile ─────────────────────────────────────────────────────────────
-function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
+function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack, me, isViceCaptain }) {
   const [injuries,    setInjuries]    = useState([]);
   const [showInj,     setShowInj]     = useState(false);
   const [editingNick, setEditingNick] = useState(false);
@@ -452,6 +453,59 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
           )}
         </>)}
 
+        {/* ROLES */}
+        {!p.isGuest && !isViceCaptain && (
+          <>
+            <div style={{ fontFamily:"'Bebas Neue', sans-serif", fontSize:13, color:"var(--t2)",
+              letterSpacing:"0.08em", marginTop:20, marginBottom:10 }}>
+              ROLES
+            </div>
+            {card(
+              <div style={{ padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div style={{ flex:1, paddingRight:16 }}>
+                  <div style={{ fontFamily:"'DM Sans', sans-serif", fontWeight:400, fontSize:14, color:"var(--t1)" }}>
+                    Vice Captain
+                  </div>
+                  <div style={{ fontFamily:"'DM Sans', sans-serif", fontWeight:400, fontSize:12, color:"var(--t2)", marginTop:2 }}>
+                    Can access admin view and manage the team
+                  </div>
+                </div>
+                {p.id === me?.id ? (
+                  <span style={{ fontFamily:"'DM Sans', sans-serif", fontWeight:400, fontSize:13,
+                    color:"var(--gold)", flexShrink:0 }}>
+                    You're the Admin
+                  </span>
+                ) : (
+                  <div
+                    onClick={async () => {
+                      const newVal = !p.isViceCaptain;
+                      setSquad(sq => sq.map(s => s.id === p.id ? { ...s, isViceCaptain: newVal } : s));
+                      try {
+                        const result = await toggleViceCaptain(p.id, newVal);
+                        if (result?.error) throw new Error(result.error);
+                      } catch {
+                        setSquad(sq => sq.map(s => s.id === p.id ? { ...s, isViceCaptain: !newVal } : s));
+                      }
+                    }}
+                    style={{
+                      width:44, height:24, borderRadius:12, flexShrink:0,
+                      background: p.isViceCaptain ? "var(--gold)" : "var(--s3)",
+                      cursor:"pointer", position:"relative",
+                    }}
+                  >
+                    <div style={{
+                      position:"absolute", top:2,
+                      left: p.isViceCaptain ? 22 : 2,
+                      width:20, height:20, borderRadius:"50%",
+                      background:"var(--t1)",
+                    }}/>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
         {/* Actions */}
         {card(<>
           {[
@@ -460,13 +514,15 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack }) {
             { label: p.injured ? "Clear Injury" : "Mark as Injured",
               color: p.injured ? "var(--green)" : "var(--red)",
               action: p.injured ? handleClearInj : handleMarkInjured },
-            { label: removing ? "Tap again to confirm remove" : "Remove from Squad",
-              color:"var(--red)", action: handleRemove },
-          ].map(({ label, color, action }, i) => (
-            <div key={i} onClick={action}
-              style={{ padding:"14px 16px", cursor:"pointer",
+            p.attended > 0
+              ? { label:"Has match history — use Disable instead", color:"var(--t2)", action:null, disabled:true }
+              : { label: removing ? "Tap again to confirm remove" : "Remove from Squad", color:"var(--red)", action: handleRemove },
+          ].map(({ label, color, action, disabled }, i) => (
+            <div key={i} onClick={disabled ? undefined : action}
+              style={{ padding:"14px 16px", cursor: disabled ? "default" : "pointer",
                 borderBottom: i < 2 ? "0.5px solid var(--b2)" : "none",
-                fontSize:13, color }}>
+                fontSize:13, color, opacity: disabled ? 0.4 : 1,
+                pointerEvents: disabled ? "none" : "auto" }}>
               {label}
             </div>
           ))}
@@ -828,7 +884,7 @@ export default function AdminView({
   if (screen === "teams")    return <TeamsScreen    teamId={teamId} squad={squad} schedule={schedule} matchHistory={matchHistory} onBack={() => setScreen("main")}/>;
   if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={Object.fromEntries(squad.map(p => [p.id, p.paid]))} bibHistory={bibHistory} onBack={() => setScreen("main")}/>;
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
-  if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId} isViceCaptain={isViceCaptain} me={me}/>;
+  if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId} isViceCaptain={isViceCaptain} me={me} onPlayerTap={(p) => { setScreen("main"); setSelectedPlayer(p); }}/>;
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "reminders") return <RemindersScreen schedule={schedule} setSchedule={setSchedule} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "payments")  return <PaymentsScreen squad={squad} setSquad={setSquad} schedule={schedule} teamId={teamId} coverPool={coverPool} onBack={() => setScreen("main")}/> ;
@@ -837,6 +893,7 @@ export default function AdminView({
     <PlayerProfile
       player={selectedPlayer} squad={squad} schedule={schedule}
       teamId={teamId} setSquad={setSquad} onBack={() => setSelectedPlayer(null)}
+      me={me} isViceCaptain={isViceCaptain}
     />
   );
 
