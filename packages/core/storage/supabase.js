@@ -1386,6 +1386,10 @@ function dbToLedger(r) {
 }
 
 export async function createLedgerEntry(entry) {
+  // Insert with conflict recovery — if partial unique index
+  // rejects a duplicate (23505), find + update the existing row.
+  // PostgREST cannot target partial indexes via .upsert(), so
+  // we handle conflicts in application code.
   const row = {
     team_id:   entry.teamId,
     player_id: entry.playerId,
@@ -1398,28 +1402,23 @@ export async function createLedgerEntry(entry) {
     paid_at:   entry.paidAt   || null,
     note:      entry.note     || null,
   };
-  if (entry.upsert) {
-    // Conflict target must match the partial index that applies for this row.
-    // payment_ledger_uniq_with_match: (player_id, team_id, type, match_id) WHERE match_id IS NOT NULL
-    // payment_ledger_uniq_without_match: (player_id, team_id, type) WHERE match_id IS NULL
-    const conflictCols = entry.matchId
-      ? 'player_id,team_id,type,match_id'
-      : 'player_id,team_id,type';
-    const { data, error } = await supabase
-      .from("payment_ledger")
-      .upsert(row, { onConflict: conflictCols, ignoreDuplicates: false })
-      .select()
-      .single();
-    if (error) throw error;
-    return dbToLedger(data);
-  }
   const { data, error } = await supabase
     .from("payment_ledger")
     .insert(row)
     .select()
     .single();
-  if (error) throw error;
-  return dbToLedger(data);
+  if (!error) return dbToLedger(data);
+  if (error.code !== '23505') throw error;
+  // Unique violation — a concurrent write raced us; find and update.
+  const existing = await findMatchLedgerEntry(entry.playerId, entry.teamId, entry.matchId || null, entry.type);
+  if (!existing) throw error;
+  return updateLedgerEntry(existing.id, {
+    status: entry.status,
+    method: entry.method,
+    paidBy: entry.paidBy,
+    paidAt: entry.paidAt,
+    note:   entry.note,
+  });
 }
 
 export async function updateLedgerEntry(id, updates) {

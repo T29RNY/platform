@@ -137,7 +137,7 @@ export async function handleMarkPaid(playerId, teamId, matchId = null, amount = 
     await createLedgerEntry({
       teamId, playerId, matchId: matchId || null, amount: amount || 0,
       type: 'game_fee', status: 'paid', method: 'admin',
-      paidBy: 'admin', paidAt, note: null, upsert: true,
+      paidBy: 'admin', paidAt, note: null,
     });
   }
   return { paid: true, paidAt };
