@@ -31,14 +31,14 @@ const PERIODS = [
   { key: "all",    label: "All Time"   },
 ];
 
-function PlayerRow({ p, bibHolder, squad }) {
+function PlayerRow({ p, bibHolder, squad, tappable, onTap }) {
   const squadPlayer = (squad || []).find(s => s.id === p.playerId);
   const hasBibs     = bibHolder && bibHolder === p.playerId;
   const rColor      = RANK_COLOR[p.rank] || null;
   const avatarBorder = rColor ? `0.5px solid ${rColor}` : "0.5px solid var(--s3)";
 
   return (
-    <tr style={{ height: 44, background: ROW_BG[p.rank] || "transparent", borderBottom: "0.5px solid var(--s3)" }}>
+    <tr onClick={tappable ? onTap : undefined} style={{ height: 44, background: ROW_BG[p.rank] || "transparent", borderBottom: "0.5px solid var(--s3)", cursor: tappable ? "pointer" : "default" }}>
       {/* Rank — sticky left:0 */}
       <td style={{ position: "sticky", left: 0, background: STICKY_BG[p.rank] || "var(--s1)",
         textAlign: "center", padding: "0 8px", whiteSpace: "nowrap", minWidth: 40 }}>
@@ -131,7 +131,7 @@ function PlayerRow({ p, bibHolder, squad }) {
   );
 }
 
-export default function PlayerLeagueTable({ data = [], loading, period, onPeriodChange, squad = [], bibHistory = [] }) {
+export default function PlayerLeagueTable({ data = [], loading, period, onPeriodChange, squad = [], bibHistory = [], myId, onPlayerTap }) {
   const currentBibHolder = (bibHistory || []).find(b => !b.returned)?.playerId || null;
   const ranked   = data.filter(p => p.ranked);
   const unranked = data.filter(p => !p.ranked);
@@ -220,7 +220,9 @@ export default function PlayerLeagueTable({ data = [], loading, period, onPeriod
             </thead>
             <tbody>
               {ranked.map(p => (
-                <PlayerRow key={p.playerId} p={p} bibHolder={currentBibHolder} squad={squad} />
+                <PlayerRow key={p.playerId} p={p} bibHolder={currentBibHolder} squad={squad}
+                  tappable={p.playerId !== myId && !!onPlayerTap}
+                  onTap={() => onPlayerTap && p.playerId !== myId && onPlayerTap(p)} />
               ))}
               {unranked.length > 0 && (
                 <>
@@ -233,7 +235,9 @@ export default function PlayerLeagueTable({ data = [], loading, period, onPeriod
                     </td>
                   </tr>
                   {unranked.map(p => (
-                    <PlayerRow key={p.playerId} p={p} bibHolder={currentBibHolder} squad={squad} />
+                    <PlayerRow key={p.playerId} p={p} bibHolder={currentBibHolder} squad={squad}
+                      tappable={p.playerId !== myId && !!onPlayerTap}
+                      onTap={() => onPlayerTap && p.playerId !== myId && onPlayerTap(p)} />
                   ))}
                 </>
               )}

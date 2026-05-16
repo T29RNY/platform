@@ -4,6 +4,7 @@ import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
 } from "@phosphor-icons/react";
 import PlayerLeagueTable from "./PlayerLeagueTable.jsx";
+import HeadToHead        from "./HeadToHead.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -185,12 +186,13 @@ const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule }) {
+export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule, myId }) {
   const [showPlayerForm,     setShowPlayerForm]     = useState(false);
   const [period,             setPeriod]             = useState("season");
   const [tableData,          setTableData]          = useState([]);
   const [totalGamesInPeriod, setTotalGamesInPeriod] = useState(0);
   const [tableLoading,       setTableLoading]       = useState(true);
+  const [h2hPlayer,          setH2hPlayer]          = useState(null);
 
   useEffect(() => {
     if (!teamId) return;
@@ -366,6 +368,11 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               onPeriodChange={setPeriod}
               squad={squad}
               bibHistory={bibHistory}
+              myId={myId}
+              onPlayerTap={(p) => {
+                const them = squad.find(s => s.id === p.playerId);
+                if (them) setH2hPlayer(them);
+              }}
             />
 
             {/* 1. Player Form (accordion) */}
@@ -751,6 +758,16 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
         )} */}
 
       </div>
+
+      {h2hPlayer && (
+        <HeadToHead
+          me={squad.find(s => s.id === myId)}
+          them={h2hPlayer}
+          teamId={teamId}
+          tableData={tableData}
+          onClose={() => setH2hPlayer(null)}
+        />
+      )}
     </div>
   );
 }

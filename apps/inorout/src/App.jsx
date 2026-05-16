@@ -669,7 +669,8 @@ export default function App() {
         bibHistory={bibHistory}
         matchHistory={matchHistory}
         settings={settings}
-        schedule={schedule}/>}
+        schedule={schedule}
+        myId={myId}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule}/>}
       {view==="admin"   && (isAdmin || isViceCaptain) && (
         <AdminView

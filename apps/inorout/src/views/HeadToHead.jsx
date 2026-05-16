@@ -554,7 +554,111 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
           return <>{sec1}{sec2}{sec3}</>;
         })()}
 
-        {/* ═══ SECTIONS 4-5 + WIRING — Part 3 ═══ */}
+        {/* ─── Section 4 — OVERALL COMPARISON ────────────────────────────── */}
+        {hasData && (() => {
+          const meRow   = (tableData || []).find(p => p.playerId === me?.id);
+          const themRow = (tableData || []).find(p => p.playerId === them?.id);
+          // Player not in current period tableData
+          if (!meRow || !themRow) return null;
+
+          const meGoalsPG   = meRow.played   > 0 ? (meRow.goals   / meRow.played).toFixed(2)   : "0.00";
+          const themGoalsPG = themRow.played > 0 ? (themRow.goals / themRow.played).toFixed(2) : "0.00";
+
+          function barPct(left, right) {
+            const l = parseFloat(left)  || 0;
+            const r = parseFloat(right) || 0;
+            if (l + r === 0) return 50;
+            return Math.round((l / (l + r)) * 100);
+          }
+
+          const rows = [
+            { label: "Win rate",      leftVal: `${meRow.winRate}%`,   rightVal: `${themRow.winRate}%`,   leftNum: meRow.winRate,   rightNum: themRow.winRate   },
+            { label: "Goals per game",leftVal: meGoalsPG,             rightVal: themGoalsPG,             leftNum: parseFloat(meGoalsPG), rightNum: parseFloat(themGoalsPG) },
+            { label: "POTM total",    leftVal: meRow.potm,            rightVal: themRow.potm,            leftNum: meRow.potm,      rightNum: themRow.potm      },
+            { label: "Reliability",   leftVal: meRow.reliability != null ? `${meRow.reliability}%` : "—", rightVal: themRow.reliability != null ? `${themRow.reliability}%` : "—", leftNum: meRow.reliability || 0, rightNum: themRow.reliability || 0 },
+          ];
+
+          return (
+            <div style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--gold)", marginBottom: 16 }}>
+                4. OVERALL COMPARISON
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {rows.map((row, i) => {
+                  const lPct = barPct(row.leftNum, row.rightNum);
+                  const rPct = 100 - lPct;
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {/* Left value */}
+                      <div style={{ width: 50, textAlign: "right", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, color: "var(--t1)", flexShrink: 0 }}>
+                        {row.leftVal}
+                      </div>
+                      {/* Left bar */}
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
+                        <div style={{ width: `${lPct}%`, height: "100%", background: "var(--green)", borderRadius: 4, marginLeft: "auto" }} />
+                      </div>
+                      {/* Centre label */}
+                      <div style={{ width: 100, flexShrink: 0, textAlign: "center", fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300, color: "var(--t2)" }}>
+                        {row.label}
+                      </div>
+                      {/* Right bar */}
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
+                        <div style={{ width: `${rPct}%`, height: "100%", background: "var(--red)", borderRadius: 4 }} />
+                      </div>
+                      {/* Right value */}
+                      <div style={{ width: 50, textAlign: "left", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, color: "var(--t1)", flexShrink: 0 }}>
+                        {row.rightVal}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ─── Section 5 — RECENT SHARED MATCHES ──────────────────────────── */}
+        {hasData && h2hData.recentShared.length > 0 && (() => {
+          function fmtDate(iso) {
+            if (!iso) return "—";
+            const d = new Date(iso);
+            return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+          }
+          const RESULT_COLOR = { w: "var(--green)", d: "var(--amber)", l: "var(--red)" };
+
+          return (
+            <div style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--gold)", marginBottom: 12 }}>
+                5. RECENT SHARED MATCHES
+              </div>
+              <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
+                {h2hData.recentShared.map((r, i) => (
+                  <div key={i} style={{ width: 120, flexShrink: 0, background: "var(--s3)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)" }}>
+                      {fmtDate(r.matchDate)}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)", marginTop: 4, letterSpacing: "0.04em" }}>
+                      {r.scoreA != null && r.scoreB != null ? `${r.scoreA}-${r.scoreB}` : "—"}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, marginTop: 6, color: r.type === "together" ? "var(--green)" : "var(--red)" }}>
+                      {r.type === "together" ? "👥 Together" : "⚔️ Opposed"}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+                      <div style={{
+                        width: 18, height: 18, borderRadius: "50%",
+                        background: RESULT_COLOR[r.myResult] || "var(--s3)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontFamily: "var(--font-display)", fontSize: 10, color: "#fff",
+                      }}>
+                        {(r.myResult || "").toUpperCase()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
     </div>
