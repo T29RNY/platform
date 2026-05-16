@@ -7,7 +7,6 @@ import { UsersThree, Star, Shield, LinkSimple, Copy, FirstAid } from "@phosphor-
 export default function SquadScreen({
   squad, setSquad, teamId, isViceCaptain = false, onBack, me = null
 }) {
-  // NOTE: me prop must be wired from AdminView — for now defaults null
 
   const [name,         setName]         = useState("");
   const [type,         setType]         = useState("regular");

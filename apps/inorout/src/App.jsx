@@ -678,6 +678,7 @@ export default function App() {
           matchHistory={matchHistory} setMatchHistory={setMatchHistory}
           coverPool={coverPool}       setCoverPool={setCoverPoolRaw}
           teamId={teamId}
+          me={_me}
           isViceCaptain={isViceCaptain}
           screen={adminScreen}        setScreen={setAdminScreen}
           onGoPlayer={() => { playerStartTabRef.current = null; setView("player"); }}
