@@ -222,7 +222,6 @@ const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule }) {
-  console.log('[StatsView] received teamId:', teamId, 'type:', typeof teamId);
   const [showPlayerForm, setShowPlayerForm] = useState(false);
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 

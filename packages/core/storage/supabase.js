@@ -1619,7 +1619,6 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
     const { data: matchData, error: matchErr } = await matchQuery;
     if (matchErr) throw matchErr;
     const matches = matchData || [];
-    console.log('[LeagueTable] matches found:', matches?.length, 'teamId:', teamId, 'period:', period);
     if (!matches.length) return [];
 
     const matchMap = {};
@@ -1634,7 +1633,6 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
       .in('match_id', matchIds);
     if (pmErr) throw pmErr;
     const pmRows = pmData || [];
-    console.log('[LeagueTable] player_match rows:', pmRows?.length);
     if (!pmRows.length) return [];
 
     // Step 4 — All uncancelled match dates for reliability denominator (not period-filtered)
@@ -1657,7 +1655,6 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
       .select('id, name, nickname, injured, disabled, is_guest, created_at')
       .in('id', allPlayerIds);
     if (playerErr) throw playerErr;
-    console.log('[LeagueTable] players found:', playerData?.length);
     const playerMap = {};
     for (const p of (playerData || [])) playerMap[p.id] = p;
 

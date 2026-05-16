@@ -132,7 +132,6 @@ function PlayerRow({ p, bibHolder, squad }) {
 }
 
 export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] }) {
-  console.log('[PLT render] teamId prop:', teamId);
   const [period,    setPeriod]    = useState("all");
   const [tableData, setTableData] = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -142,10 +141,9 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
     if (!teamId) return;
     setLoading(true);
     setError(null);
-    console.log('[PlayerLeagueTable] fetching for teamId:', teamId, 'period:', period);
     getPlayerLeagueTable(teamId, period)
       .then(data => { setTableData(data); setLoading(false); })
-      .catch(e   => { console.error('[PlayerLeagueTable] error:', e); setError(e.message); setLoading(false); });
+      .catch(e   => { setError(e.message); setLoading(false); });
   }, [teamId, period]);
 
   const currentBibHolder = (bibHistory || []).find(b => !b.returned)?.playerId || null;
@@ -154,9 +152,6 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{color:'red', fontSize:11, padding:4}}>
-        props.teamId: {teamId || 'NULL'} | typeof: {typeof teamId} | loading: {String(loading)} | data: {tableData.length}
-      </div>
       <style>{`@keyframes ioo-plt-pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}`}</style>
 
       {/* Header */}
