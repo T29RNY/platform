@@ -27,7 +27,7 @@ export function newPlayer(name, type = "regular", options = {}) {
     type,
     disabled:     false,
     priority:     options.priority || false,
-    deputy:       options.deputy   || false,
+    isViceCaptain: options.isViceCaptain || false,
     status:       "none",
     paid:         false,
     owes:         0,

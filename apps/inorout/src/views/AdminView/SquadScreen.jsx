@@ -1,293 +1,581 @@
-import { useState } from "react";
-import { colors as C, newPlayer } from "@platform/core";
-import { resetPlayerToken, deletePlayer as removePlayerFromDb } from "@platform/supabase";
-import { BackBtn, Btn, SecTitle, Card, Toggle, Badge, CopyBtn } from "@platform/ui";
+import { useState, useEffect } from "react";
+import { newPlayer, toggleViceCaptain, disablePlayer } from "@platform/core";
+// TODO: addPlayerToTeam not found in barrel — using upsertPlayer
+import { upsertPlayer, resetPlayerToken, deletePlayer as removePlayerFromDb } from "@platform/supabase";
+import { UsersThree, Star, Shield, LinkSimple, Copy, FirstAid } from "@phosphor-icons/react";
 
-export default function SquadScreen({ squad, setSquad, onBack, teamId }) {
-  const [name,             setName]             = useState("");
-  const [type,             setType]             = useState("regular");
-  const [priority,         setPriority]         = useState(false);
-  const [deputy,           setDeputy]           = useState(false);
-  const [confirmDel,       setConfirmDel]       = useState(null);
-  const [resetState,       setResetState]       = useState({});
-  const [injuryToast,      setInjuryToast]      = useState(null);
-  const [guestPrompt,      setGuestPrompt]      = useState(null); // { guestId, guestName, hostName }
+export default function SquadScreen({
+  squad, setSquad, teamId, isViceCaptain = false, onBack, me = null
+}) {
+  // NOTE: me prop must be wired from AdminView — for now defaults null
 
-  const resetToken = async (playerId) => {
-    setResetState(s => ({ ...s, [playerId]: "loading" }));
-    try {
-      const newToken = await resetPlayerToken(playerId);
-      setSquad(squad.map(p => p.id === playerId ? { ...p, token: newToken } : p));
-      setResetState(s => ({ ...s, [playerId]: "done" }));
-      setTimeout(() => setResetState(s => ({ ...s, [playerId]: null })), 5000);
-    } catch(e) {
-      console.error(e);
-      setResetState(s => ({ ...s, [playerId]: null }));
-    }
+  const [name,         setName]         = useState("");
+  const [type,         setType]         = useState("regular");
+  const [priority,     setPriority]     = useState(false);
+  const [vcToggle,     setVcToggle]     = useState(false);
+  const [copied,       setCopied]       = useState(false);
+  const [injuryToast,  setInjuryToast]  = useState(null);
+  const [guestPrompt,  setGuestPrompt]  = useState(null);
+  const [errorToast,   setErrorToast]   = useState(null);
+  const [addLoading,   setAddLoading]   = useState(false);
+  const [focusedInput, setFocusedInput] = useState(false);
+
+  const activeCount = squad.filter(p => !p.disabled).length;
+  const joinUrl     = `https://www.in-or-out.com/join/${teamId}`;
+
+  useEffect(() => {
+    if (!injuryToast) return;
+    const t = setTimeout(() => setInjuryToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [injuryToast]);
+
+  useEffect(() => {
+    if (!errorToast) return;
+    const t = setTimeout(() => setErrorToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [errorToast]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(joinUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
-  const addPlayer = () => {
+  async function handleAddPlayer() {
     if (!name.trim()) return;
-    setSquad([...squad, newPlayer(name, type, { priority, deputy })]);
-    setName(""); setPriority(false); setDeputy(false);
-  };
+    setAddLoading(true);
+    const player = newPlayer(name.trim(), type, { priority, isViceCaptain: vcToggle });
+    setSquad(prev => [...prev, player]);
+    setName("");
+    setType("regular");
+    setPriority(false);
+    setVcToggle(false);
+    try {
+      await upsertPlayer(player);
+      setAddLoading(false);
+    } catch (error) {
+      console.error(error);
+      setSquad(prev => prev.filter(p => p.id !== player.id));
+      setErrorToast("Failed to add player");
+      setAddLoading(false);
+    }
+  }
 
-  const toggleDisable  = id => setSquad(squad.map(p => p.id===id ? { ...p, disabled:!p.disabled } : p));
-  const togglePriority = id => setSquad(squad.map(p => p.id===id ? { ...p, priority:!p.priority } : p));
-  const toggleDeputy   = id => setSquad(squad.map(p => p.id===id ? { ...p, deputy:!p.deputy }   : p));
-  const deletePlayer   = id => { setSquad(squad.filter(p => p.id!==id)); setConfirmDel(null); };
+  async function handleTogglePriority(player) {
+    const newVal = !player.priority;
+    setSquad(prev => prev.map(p => p.id === player.id ? { ...p, priority: newVal } : p));
+    try {
+      await upsertPlayer({ ...player, priority: newVal });
+    } catch (error) {
+      console.error(error);
+      setSquad(prev => prev.map(p => p.id === player.id ? { ...p, priority: player.priority } : p));
+      setErrorToast("Failed to update priority");
+    }
+  }
 
-  const toggleInjured = (playerId) => {
-    const player = squad.find(p => p.id === playerId);
-    if (!player) return;
+  async function handleToggleViceCapt(player) {
+    const newVal = !player.isViceCaptain;
+    setSquad(prev => prev.map(p => p.id === player.id ? { ...p, isViceCaptain: newVal } : p));
+    try {
+      const result = await toggleViceCaptain(player.id, newVal);
+      if (result?.error === "guests_cannot_be_vc") {
+        setSquad(prev => prev.map(p => p.id === player.id ? { ...p, isViceCaptain: player.isViceCaptain } : p));
+        setErrorToast("Guests cannot be vice captain");
+        return;
+      }
+      if (result?.error) throw result.error;
+    } catch (error) {
+      console.error(error);
+      setSquad(prev => prev.map(p => p.id === player.id ? { ...p, isViceCaptain: player.isViceCaptain } : p));
+      setErrorToast("Failed to update vice captain");
+    }
+  }
+
+  async function handleToggleInjured(player) {
     const newInjured = !player.injured;
-    const autoOut    = newInjured && ["in", "reserve", "maybe"].includes(player.status);
-    setSquad(squad.map(p => p.id === playerId
-      ? { ...p, injured: newInjured, status: autoOut ? "out" : p.status }
-      : p
-    ));
-    if (autoOut) {
-      setInjuryToast(`${player.name} set to OUT — marked as injured`);
-      setTimeout(() => setInjuryToast(null), 4000);
-    }
+    const autoOut = newInjured && ["in", "reserve", "maybe"].includes(player.status);
+    const updated = { ...player, injured: newInjured, status: autoOut ? "out" : player.status };
+    setSquad(prev => prev.map(p => p.id === player.id ? updated : p));
+    if (autoOut) setInjuryToast(`${player.nickname || player.name} set to OUT — marked as injured`);
     if (newInjured) {
-      const guest = squad.find(g => g.isGuest && g.guestOf === playerId && g.status !== "out");
-      if (guest) setGuestPrompt({ guestId: guest.id, guestName: guest.name, hostName: player.name });
+      const guest = squad.find(g => g.guestOf === player.id && g.status !== "out");
+      if (guest) setGuestPrompt({ guestId: guest.id, guestName: guest.name, hostName: player.nickname || player.name });
     }
-  };
+    try {
+      await upsertPlayer(updated);
+    } catch (error) {
+      console.error(error);
+      setSquad(prev => prev.map(p => p.id === player.id ? player : p));
+      setErrorToast("Failed to update injury status");
+    }
+  }
 
-  const keepGuest   = () => setGuestPrompt(null);
+  async function handleToggleDisable(player) {
+    const newVal = !player.disabled;
+    setSquad(prev => prev.map(p => p.id === player.id ? { ...p, disabled: newVal } : p));
+    try {
+      await disablePlayer(player.id, teamId, newVal);
+    } catch (error) {
+      console.error(error);
+      setSquad(prev => prev.map(p => p.id === player.id ? { ...p, disabled: player.disabled } : p));
+      setErrorToast("Failed to update player");
+    }
+  }
+
+  async function handleSetStatus(player, status) {
+    setSquad(prev => prev.map(p => p.id === player.id ? { ...p, status } : p));
+    try {
+      await upsertPlayer({ ...player, status });
+    } catch (error) {
+      console.error(error);
+      setSquad(prev => prev.map(p => p.id === player.id ? { ...p, status: player.status } : p));
+      setErrorToast("Failed to update status");
+    }
+  }
+
+  const keepGuest = () => setGuestPrompt(null);
+
   const removeGuest = async () => {
     if (!guestPrompt) return;
     try {
       await removePlayerFromDb(guestPrompt.guestId);
-      setSquad(squad.filter(p => p.id !== guestPrompt.guestId));
-    } catch(e) { console.error(e); }
+      setSquad(prev => prev.filter(p => p.id !== guestPrompt.guestId));
+    } catch (error) {
+      console.error(error);
+      setErrorToast("Failed to remove guest");
+    }
     setGuestPrompt(null);
   };
 
+  // TODO: Stage 7 — wire onPlayerTap to PlayerProfile modal
+  const onPlayerTap = (_player) => {};
+
+  const sortedSquad = [...squad].sort((a, b) => {
+    if (a.disabled !== b.disabled) return a.disabled ? 1 : -1;
+    return (a.nickname || a.name).localeCompare(b.nickname || b.name);
+  });
+
+  const btnBase = {
+    display: "flex", alignItems: "center", gap: 4,
+    borderRadius: 6, padding: "5px 10px", cursor: "pointer",
+    fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.06em",
+    border: "0.5px solid var(--s3)", background: "var(--s3)", color: "var(--t2)",
+  };
+
   return (
-    <div style={{ padding:18 }}>
-      <BackBtn onClick={onBack}/>
-      <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22, color:C.amber, letterSpacing:2, marginBottom:18 }}>
-        MANAGE SQUAD
+    <div style={{ padding: 16, paddingBottom: 200, maxWidth: 480, margin: "0 auto" }}>
+
+      {/* BACK BUTTON */}
+      <div onClick={onBack} style={{ cursor: "pointer", marginBottom: 16 }}>
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 400, fontSize: 14, color: "var(--t2)" }}>
+          ← Back
+        </span>
       </div>
 
-      {/* Injury toast */}
-      {injuryToast && (
-        <div style={{ padding:"10px 14px", borderRadius:6, marginBottom:14,
-          background:C.red+"12", border:`1px solid ${C.red}30`,
-          fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.red }}>
-          🤕 {injuryToast}
+      {/* HEADER ROW */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h1 style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "var(--gold)",
+            margin: 0, letterSpacing: "0.04em",
+          }}>
+            MANAGE SQUAD
+          </h1>
+          <p style={{
+            fontFamily: "'DM Sans', sans-serif", fontWeight: 400, fontSize: 13,
+            color: "var(--t2)", margin: "4px 0 0",
+          }}>
+            Add players, set availability and roles.
+          </p>
         </div>
-      )}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6,
+          background: "var(--s2)", border: "0.5px solid var(--s3)",
+          borderRadius: 8, padding: "6px 12px",
+        }}>
+          <UsersThree size={16} color="var(--t2)" weight="thin" />
+          <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--t1)" }}>
+            {activeCount}
+          </span>
+          <span style={{
+            fontFamily: "'DM Sans', sans-serif", fontWeight: 400, fontSize: 9,
+            color: "var(--t2)", letterSpacing: "0.06em",
+          }}>
+            TOTAL PLAYERS
+          </span>
+        </div>
+      </div>
 
-      {/* Guest prompt when host is marked injured */}
-      {guestPrompt && (
-        <Card color={C.amber} style={{ marginBottom:16 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
-            color:C.amber, marginBottom:4 }}>
-            👤 {guestPrompt.hostName} is now injured
-          </div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginBottom:12 }}>
-            Keep {guestPrompt.guestName} in the game?
-          </div>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={keepGuest} style={{ padding:"7px 16px", borderRadius:5,
-              border:`1px solid ${C.green}`, background:C.green+"18", color:C.green,
-              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              Yes, keep them
-            </button>
-            <button onClick={removeGuest} style={{ padding:"7px 16px", borderRadius:5,
-              border:`1px solid ${C.red}`, background:C.red+"18", color:C.red,
-              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              Remove {guestPrompt.guestName}
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {/* Invite link */}
+      {/* PLAYER INVITE LINK CARD */}
       {teamId && (
-        <div data-gaffer-target="invite-link"
-          style={{ background:C.green+"0f", border:`1px solid ${C.green}33`,
-          borderRadius:8, padding:14, marginBottom:20 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
-            color:C.green, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>
-            🔗 Player Invite Link
+        <div style={{
+          background: "var(--s2)", border: "0.5px solid var(--greenb)",
+          borderRadius: 8, padding: 16, marginTop: 20,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <LinkSimple size={16} color="var(--green)" weight="thin" />
+            <span style={{
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color: "var(--green)",
+              letterSpacing: "0.08em",
+            }}>
+              PLAYER INVITE LINK
+            </span>
           </div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted,
-            marginBottom:10 }}>
-            Share this — players tap it, enter their name, get their personal link instantly.
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ flex:1, fontFamily:"Inter,sans-serif", fontSize:11,
-              color:C.text, background:"#0a0a0a", padding:"8px 10px",
-              borderRadius:5, border:`1px solid ${C.border}`,
-              wordBreak:"break-all" }}>
+          <p style={{
+            fontFamily: "'DM Sans', sans-serif", fontWeight: 400, fontSize: 13,
+            color: "var(--t2)", marginTop: 4,
+          }}>
+            Share this link with players to join your team.
+          </p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
+            <div style={{
+              flex: 1, background: "var(--s3)", borderRadius: 8, padding: "10px 12px",
+              fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "var(--t1)",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
               in-or-out.com/join/{teamId}
             </div>
-            <CopyBtn text={`https://in-or-out.com/join/${teamId}`}/>
+            <button
+              onClick={handleCopy}
+              style={{
+                background: copied ? "var(--green)" : "transparent",
+                border: "0.5px solid var(--green)",
+                color: copied ? "#fff" : "var(--green)",
+                borderRadius: 8, padding: "8px 16px", cursor: "pointer",
+                fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
+                letterSpacing: "0.04em", transition: "all 0.2s",
+              }}
+            >
+              {copied ? "Copied!" : "Copy Link"}
+            </button>
           </div>
         </div>
       )}
 
-      <Card>
-        <SecTitle color={C.green}>Add Player</SecTitle>
-        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Player name..."
-          style={{ width:"100%", padding:"11px 13px", borderRadius:6,
-            border:`1.5px solid ${C.border}`, background:"#0a0a0a", color:C.text,
-            fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:500,
-            outline:"none", boxSizing:"border-box", marginBottom:12 }}/>
-        <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:14, flexWrap:"wrap" }}>
-          {["regular","guest"].map(t => (
-            <button key={t} onClick={() => setType(t)} style={{
-              padding:"7px 14px", borderRadius:5,
-              border:`1.5px solid ${type===t?C.amber:C.border}`,
-              background:type===t?C.amber+"18":"transparent",
-              color:type===t?C.amber:C.muted,
-              fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700,
-              letterSpacing:0.5, textTransform:"uppercase", cursor:"pointer" }}>{t}</button>
-          ))}
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.muted }}>★</span>
-            <Toggle on={priority} onChange={() => setPriority(!priority)} color={C.purple}/>
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600, color:C.muted }}>Deputy</span>
-            <Toggle on={deputy} onChange={() => setDeputy(!deputy)} color={C.blue}/>
-          </div>
+      {/* ADD PLAYER CARD */}
+      <div style={{ background: "var(--s2)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+        <span style={{
+          fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color: "var(--green)",
+          letterSpacing: "0.08em",
+        }}>
+          ADD PLAYER
+        </span>
+        <input
+          type="text"
+          placeholder="Enter player name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onFocus={() => setFocusedInput(true)}
+          onBlur={() => setFocusedInput(false)}
+          style={{
+            width: "100%", background: "var(--s3)",
+            border: focusedInput ? "0.5px solid var(--gold)" : "0.5px solid var(--s3)",
+            borderRadius: 8, padding: 12, fontSize: 15,
+            fontFamily: "'DM Sans', sans-serif", color: "var(--t1)",
+            marginTop: 12, outline: "none", boxSizing: "border-box",
+          }}
+        />
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
+          {/* REGULAR pill */}
+          <button
+            onClick={() => setType("regular")}
+            style={{
+              border: type === "regular" ? "0.5px solid var(--gold)" : "0.5px solid var(--s3)",
+              color: type === "regular" ? "var(--gold)" : "var(--t2)",
+              background: type === "regular" ? "var(--gold2)" : "var(--s3)",
+              borderRadius: 6, padding: "6px 14px",
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 12,
+              letterSpacing: "0.08em", cursor: "pointer",
+            }}
+          >
+            REGULAR
+          </button>
+          {/* GUEST pill */}
+          <button
+            onClick={() => setType("guest")}
+            style={{
+              border: type === "guest" ? "0.5px solid var(--gold)" : "0.5px solid var(--s3)",
+              color: type === "guest" ? "var(--gold)" : "var(--t2)",
+              background: type === "guest" ? "var(--gold2)" : "var(--s3)",
+              borderRadius: 6, padding: "6px 14px",
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 12,
+              letterSpacing: "0.08em", cursor: "pointer",
+            }}
+          >
+            GUEST
+          </button>
+          {/* Priority toggle */}
+          <button
+            onClick={() => setPriority(!priority)}
+            style={{
+              border: priority ? "0.5px solid var(--gold)" : "0.5px solid var(--s3)",
+              background: priority ? "var(--gold2)" : "var(--s3)",
+              borderRadius: 4, padding: "4px 8px", cursor: "pointer",
+              display: "flex", alignItems: "center",
+            }}
+          >
+            <Star size={14} color={priority ? "var(--gold)" : "var(--t2)"} weight="thin" />
+          </button>
+          {/* Vice Captain toggle — hidden when caller is already a VC */}
+          {!isViceCaptain && (
+            <button
+              onClick={() => setVcToggle(!vcToggle)}
+              style={{
+                border: vcToggle ? "0.5px solid var(--gold)" : "0.5px solid var(--s3)",
+                background: vcToggle ? "var(--gold2)" : "var(--s3)",
+                borderRadius: 4, padding: "4px 8px", cursor: "pointer",
+                display: "flex", alignItems: "center",
+              }}
+            >
+              <Shield size={14} color={vcToggle ? "var(--gold)" : "var(--t2)"} weight="thin" />
+            </button>
+          )}
         </div>
-        <Btn label="Add to Squad" color={C.amber} fill onClick={addPlayer} disabled={!name.trim()}/>
-      </Card>
+        {/* ADD TO SQUAD button */}
+        <button
+          onClick={handleAddPlayer}
+          disabled={!name.trim() || addLoading}
+          style={{
+            width: "100%", marginTop: 12, height: 44, borderRadius: 8,
+            border: name.trim() && !addLoading ? "0.5px solid var(--greenb)" : "none",
+            cursor: name.trim() && !addLoading ? "pointer" : "default",
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.06em",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            background: name.trim() && !addLoading ? "var(--green2)" : "var(--s3)",
+            color: name.trim() && !addLoading ? "var(--green)" : "var(--t2)",
+            opacity: name.trim() && !addLoading ? 1 : 0.5,
+            pointerEvents: name.trim() && !addLoading ? "auto" : "none",
+          }}
+        >
+          {addLoading ? "ADDING..." : "+ ADD TO SQUAD"}
+        </button>
+      </div>
 
-      <SecTitle>Squad ({squad.length})</SecTitle>
-      {squad.map(p => (
-        <div key={p.id} style={{ padding:"13px 0", borderBottom:`1px solid ${C.border}`, opacity:p.disabled?0.4:1 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:6, flexWrap:"wrap" }}>
-            <span style={{ fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:600, color:C.text, flex:1 }}>
-              {p.nickname || p.name}
-            </span>
-            {p.type==="guest" && <Badge text="guest"   color={C.muted}/>}
-            {p.injured        && <Badge text="🤕"      color={C.red}/>}
-            {p.priority       && <Badge text="★"       color={C.purple}/>}
-            {p.deputy         && <Badge text="deputy"  color={C.blue}/>}
-            {p.disabled       && <Badge text="disabled"color={C.red}/>}
-          </div>
-          {!p.isGuest && (
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:9 }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:"#2e2e2e", flex:1 }}>
-                🔗 in-or-out.com/p/{p.token || p.id}
-              </div>
-              <CopyBtn text={`https://in-or-out.com/p/${p.token || p.id}`}/>
-            </div>
-          )}
-          {p.isGuest && (() => {
-            const host = squad.find(h => h.id === p.guestOf);
-            return host ? (
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.muted, marginBottom:9 }}>
-                👤 plus one — guest of {host.nickname || host.name}
-              </div>
-            ) : null;
-          })()}
-          {resetState[p.id] === "done" && (
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.green,
-              padding:"6px 10px", borderRadius:5, background:C.green+"14", marginBottom:8 }}>
-              ✓ Link reset — old link no longer works
-            </div>
-          )}
-          <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
-            <button onClick={() => togglePriority(p.id)} style={{ padding:"5px 11px", borderRadius:4,
-              border:`1px solid ${p.priority?C.purple:C.border}`,
-              background:p.priority?C.purple+"18":"transparent",
-              color:p.priority?C.purple:C.muted,
-              fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-              {p.priority?"★ Priority":"☆ Priority"}
-            </button>
-            <button onClick={() => toggleDeputy(p.id)} style={{ padding:"5px 11px", borderRadius:4,
-              border:`1px solid ${p.deputy?C.blue:C.border}`,
-              background:p.deputy?C.blue+"18":"transparent",
-              color:p.deputy?C.blue:C.muted,
-              fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-              {p.deputy?"Deputy ✓":"Deputy"}
-            </button>
-            <button onClick={() => toggleInjured(p.id)} style={{ padding:"5px 11px", borderRadius:4,
-              border:`1px solid ${p.injured?C.red:C.border}`,
-              background:p.injured?C.red+"18":"transparent",
-              color:p.injured?C.red:C.muted,
-              fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-              {p.injured?"🤕 Clear injury":"🤕 Injure"}
-            </button>
-            <button onClick={() => toggleDisable(p.id)} style={{ padding:"5px 11px", borderRadius:4,
-              border:`1px solid ${p.disabled?C.green:C.amber}`,
-              background:"transparent", color:p.disabled?C.green:C.amber,
-              fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-              {p.disabled?"Enable":"Disable"}
-            </button>
-            {confirmDel === p.id ? (
-              <>
-                <button onClick={() => deletePlayer(p.id)} style={{ padding:"5px 11px", borderRadius:4,
-                  border:`1px solid ${C.red}`, background:C.red+"18", color:C.red,
-                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                  Confirm Delete
-                </button>
-                <button onClick={() => setConfirmDel(null)} style={{ padding:"5px 11px", borderRadius:4,
-                  border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                  fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>Cancel</button>
-              </>
-            ) : (
-              <button onClick={() => setConfirmDel(p.id)} style={{ padding:"5px 11px", borderRadius:4,
-                border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                Delete
-              </button>
-            )}
-            {!p.isGuest && (resetState[p.id] === "loading" ? (
-              <button disabled style={{ padding:"5px 11px", borderRadius:4,
-                border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                fontFamily:"Inter,sans-serif", fontSize:11, cursor:"not-allowed" }}>
-                Resetting...
-              </button>
-            ) : !resetState[p.id] ? (
-              <button onClick={() => setResetState(s => ({ ...s, [p.id]: "confirming" }))}
-                style={{ padding:"5px 11px", borderRadius:4,
-                  border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                Reset Link
-              </button>
-            ) : null)}
-          </div>
-          {!p.isGuest && resetState[p.id] === "confirming" && (
-            <div style={{ marginTop:8, padding:"10px 12px", borderRadius:5,
-              border:`1px solid ${C.amber}44`, background:C.amber+"0a" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, color:C.amber, marginBottom:8 }}>
-                ⚠️ Old link stops working immediately. Share the new one with the player.
-              </div>
-              <div style={{ display:"flex", gap:6 }}>
-                <button onClick={() => resetToken(p.id)} style={{ padding:"5px 11px", borderRadius:4,
-                  border:`1px solid ${C.amber}`, background:C.amber+"18", color:C.amber,
-                  fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                  Confirm Reset
-                </button>
-                <button onClick={() => setResetState(s => ({ ...s, [p.id]: null }))}
-                  style={{ padding:"5px 11px", borderRadius:4,
-                    border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                    fontFamily:"Inter,sans-serif", fontSize:11, cursor:"pointer" }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
+      {/* SQUAD LIST */}
+      <div style={{ marginTop: 24 }}>
+        <div style={{
+          fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 11,
+          color: "var(--t2)", letterSpacing: "0.1em", marginBottom: 8,
+        }}>
+          SQUAD ({activeCount})
         </div>
-      ))}
-      <button onClick={onBack} style={{
-        width: "100%", padding: "16px 0", borderRadius: 12, border: "none",
-        background: "var(--gold)", color: "#0A0A08",
-        fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em",
-        cursor: "pointer", marginTop: 24,
-      }}>
-        DONE
-      </button>
+
+        {sortedSquad.map(p => {
+          const displayName = p.nickname || p.name;
+          const host        = p.guestOf ? squad.find(h => h.id === p.guestOf) : null;
+          const initial     = displayName[0]?.toUpperCase() || "?";
+          const isGuest     = p.isGuest || p.type === "guest";
+          const vcDisabled  = p.id === me?.id;
+
+          return (
+            <div key={p.id} style={{
+              background: "var(--s2)", borderRadius: 8, padding: 14, marginTop: 8,
+              opacity: p.disabled ? 0.4 : 1,
+            }}>
+              {/* Top row: avatar, name, type pill */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+                {/* Avatar */}
+                <div
+                  onClick={() => onPlayerTap(p)}
+                  style={{
+                    width: 40, height: 40, borderRadius: 20, flexShrink: 0,
+                    background: "var(--s3)", border: "0.5px solid var(--s3)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", position: "relative",
+                  }}
+                >
+                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--t2)" }}>
+                    {initial}
+                  </span>
+                  {p.injured && (
+                    <span style={{ position: "absolute", bottom: -2, right: -2, fontSize: 12, lineHeight: 1 }}>
+                      🤕
+                    </span>
+                  )}
+                </div>
+                {/* Name + subtitle */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 15,
+                    color: "var(--t1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {displayName}
+                  </div>
+                  {host && (
+                    <div style={{
+                      fontFamily: "'DM Sans', sans-serif", fontWeight: 400, fontSize: 12,
+                      color: "var(--t2)", marginTop: 2,
+                    }}>
+                      Guest of {host.nickname || host.name}
+                    </div>
+                  )}
+                </div>
+                {/* Type pill */}
+                <span style={{
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.06em",
+                  color: isGuest ? "var(--t2)" : "var(--gold)",
+                  border: `0.5px solid ${isGuest ? "var(--s3)" : "var(--goldb)"}`,
+                  borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap",
+                  background: isGuest ? "var(--s3)" : "var(--gold2)",
+                }}>
+                  {isGuest ? "GUEST" : "REGULAR"}
+                </span>
+              </div>
+
+              {/* IN/OUT buttons — hidden until payment complexity resolved */}
+              {false && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                  <button onClick={() => handleSetStatus(p, "in")}  style={{ ...btnBase }}>IN</button>
+                  <button onClick={() => handleSetStatus(p, "out")} style={{ ...btnBase }}>OUT</button>
+                </div>
+              )}
+
+              {/* Action row */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {/* PRIORITY */}
+                <button
+                  onClick={() => handleTogglePriority(p)}
+                  style={{
+                    ...btnBase,
+                    border:     p.priority ? "0.5px solid var(--goldb)" : "0.5px solid var(--s3)",
+                    background: p.priority ? "var(--gold2)" : "var(--s3)",
+                    color:      p.priority ? "var(--gold)"  : "var(--t2)",
+                  }}
+                >
+                  <Star size={12} color={p.priority ? "var(--gold)" : "var(--t2)"} weight="thin" />
+                  PRIORITY
+                </button>
+
+                {/* VICE CAPTAIN — hidden for guests, hidden when caller is VC */}
+                {!isGuest && !isViceCaptain && (
+                  <button
+                    onClick={() => !vcDisabled && handleToggleViceCapt(p)}
+                    disabled={vcDisabled}
+                    style={{
+                      ...btnBase,
+                      border:     p.isViceCaptain ? "0.5px solid var(--goldb)" : "0.5px solid var(--s3)",
+                      background: p.isViceCaptain ? "var(--gold2)" : "var(--s3)",
+                      color:      p.isViceCaptain ? "var(--gold)"  : "var(--t2)",
+                      opacity: vcDisabled ? 0.4 : 1,
+                      cursor:  vcDisabled ? "default" : "pointer",
+                    }}
+                  >
+                    <Shield size={12} color={p.isViceCaptain ? "var(--gold)" : "var(--t2)"} weight="thin" />
+                    VC
+                  </button>
+                )}
+
+                {/* INJURED */}
+                <button
+                  onClick={() => handleToggleInjured(p)}
+                  style={{
+                    ...btnBase,
+                    border:     p.injured ? "0.5px solid var(--amberb)" : "0.5px solid var(--s3)",
+                    background: p.injured ? "var(--amber2)" : "var(--s3)",
+                    color:      p.injured ? "var(--amber)"  : "var(--t2)",
+                  }}
+                >
+                  🤕 INJURED
+                </button>
+
+                {/* DISABLE / ENABLE */}
+                <button
+                  onClick={() => handleToggleDisable(p)}
+                  style={{
+                    ...btnBase,
+                    border:     p.disabled ? "0.5px solid var(--goldb)" : "0.5px solid var(--s3)",
+                    background: p.disabled ? "var(--gold2)" : "var(--s3)",
+                    color:      p.disabled ? "var(--gold)"  : "var(--t2)",
+                  }}
+                >
+                  {p.disabled ? "ENABLE" : "DISABLE"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* GUEST PROMPT OVERLAY */}
+      {guestPrompt && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 50,
+          background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+        }}>
+          <div style={{
+            background: "var(--s2)", border: "0.5px solid var(--amberb)",
+            borderRadius: 12, padding: 24, maxWidth: 360, width: "100%",
+          }}>
+            <div style={{
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--amber)",
+              letterSpacing: "0.04em", marginBottom: 8,
+            }}>
+              {guestPrompt.hostName} is injured
+            </div>
+            <p style={{
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 400, fontSize: 14,
+              color: "var(--t2)", margin: "0 0 20px",
+            }}>
+              Keep {guestPrompt.guestName} in the game as a guest?
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={keepGuest}
+                style={{
+                  flex: 1, height: 44, borderRadius: 8,
+                  border: "0.5px solid var(--greenb)", background: "var(--green2)",
+                  color: "var(--green)", cursor: "pointer",
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.06em",
+                }}
+              >
+                KEEP
+              </button>
+              <button
+                onClick={removeGuest}
+                style={{
+                  flex: 1, height: 44, borderRadius: 8,
+                  border: "0.5px solid var(--redb)", background: "var(--red2)",
+                  color: "var(--red)", cursor: "pointer",
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.06em",
+                }}
+              >
+                REMOVE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INJURY TOAST — 4s auto-dismiss via useEffect */}
+      {injuryToast && (
+        <div style={{
+          position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+          zIndex: 60, maxWidth: 340, width: "calc(100% - 32px)",
+          background: "var(--s2)", border: "0.5px solid var(--amberb)",
+          borderRadius: 8, padding: "12px 16px",
+          fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 13,
+          color: "var(--amber)", textAlign: "center",
+        }}>
+          {injuryToast}
+        </div>
+      )}
+
+      {/* ERROR TOAST — 3s auto-dismiss via useEffect */}
+      {errorToast && (
+        <div style={{
+          position: "fixed", bottom: 136, left: "50%", transform: "translateX(-50%)",
+          zIndex: 60, maxWidth: 340, width: "calc(100% - 32px)",
+          background: "var(--s2)", border: "0.5px solid var(--redb)",
+          borderRadius: 8, padding: "12px 16px",
+          fontFamily: "'DM Sans', sans-serif", fontWeight: 500, fontSize: 13,
+          color: "var(--red)", textAlign: "center",
+        }}>
+          {errorToast}
+        </div>
+      )}
+
     </div>
   );
 }

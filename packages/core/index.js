@@ -23,5 +23,7 @@ export {
   getPlayerLeagueTable,
   saveTeamsDraft,
   confirmTeams,
+  toggleViceCaptain,
+  disablePlayer,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

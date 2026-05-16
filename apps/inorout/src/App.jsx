@@ -422,6 +422,7 @@ export default function App() {
 
   // ── Gaffer context + navigation ──────────────────────────────────────────
   const _me          = myPlayer ? squad.find(p => p.id === myPlayer.id) : null;
+  const isViceCaptain = _me?.isViceCaptain === true;
   const _inPlayers   = squad.filter(p => p.status === "in"      && !p.disabled && !p.injured);
   const _reserves    = squad.filter(p => p.status === "reserve" && !p.disabled);
   const _reservePos  = _me?.status === "reserve"
@@ -658,7 +659,7 @@ export default function App() {
       {view==="player"  && (
         <PlayerView  {...sharedProps} myId={myId} teamId={teamId}
           onMidFlowChange={setIsActionBlocked}
-          isAdmin={isAdmin} onGoAdmin={() => setView("admin")}
+          isAdmin={isAdmin || isViceCaptain} onGoAdmin={() => setView("admin")}
           matchHistory={matchHistory} bibHistory={bibHistory}
           startTab={playerStartTabRef.current}/>
       )}
@@ -670,13 +671,14 @@ export default function App() {
         settings={settings}
         schedule={schedule}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule}/>}
-      {view==="admin"   && isAdmin && (
+      {view==="admin"   && (isAdmin || isViceCaptain) && (
         <AdminView
           {...sharedProps}
           bibHistory={bibHistory}     setBibHistory={setBibHistory}
           matchHistory={matchHistory} setMatchHistory={setMatchHistory}
           coverPool={coverPool}       setCoverPool={setCoverPoolRaw}
           teamId={teamId}
+          isViceCaptain={isViceCaptain}
           screen={adminScreen}        setScreen={setAdminScreen}
           onGoPlayer={() => { playerStartTabRef.current = null; setView("player"); }}
           onGoStats={() => { playerStartTabRef.current = "stats"; setView("player"); }}

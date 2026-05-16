@@ -178,7 +178,7 @@ export async function upsertSettings(settings, teamId) {
 function playerToDb(p) {
   return {
     id: p.id, name: p.name, type: p.type,
-    disabled: p.disabled, priority: p.priority, deputy: p.deputy,
+    disabled: p.disabled, priority: p.priority, is_vice_captain: p.isViceCaptain,
     status: p.status, paid: p.paid, owes: p.owes,
     goals: p.goals, motm: p.motm, attended: p.attended, total: p.total,
     bib_count: p.bibCount, team: p.team,
@@ -198,7 +198,7 @@ function playerToDb(p) {
 function dbToPlayer(r) {
   return {
     id: r.id, name: r.name, type: r.type,
-    disabled: r.disabled, priority: r.priority, deputy: r.deputy,
+    disabled: r.disabled, priority: r.priority, isViceCaptain: r.is_vice_captain ?? false,
     status: r.status, paid: r.paid, owes: r.owes,
     goals: r.goals, motm: r.motm, attended: r.attended, total: r.total,
     bibCount: r.bib_count, team: r.team,
@@ -340,7 +340,7 @@ export async function addPlayerToTeam(name, teamId, userId = null) {
 
   const { error: pErr } = await supabase.from("players").insert({
     id, name: name.trim(), type:"regular",
-    disabled:false, priority:false, deputy:false,
+    disabled:false, priority:false, is_vice_captain:false,
     status:"none", paid:false, owes:0,
     goals:0, motm:0, attended:0, total:0,
     bib_count:0, team:null, w:0, l:0, d:0,
@@ -361,7 +361,7 @@ export async function addGuestPlayer(hostPlayerId, guestName, teamId, selfPaid =
   const id = "p_" + Math.random().toString(36).slice(2, 10);
   const row = {
     id, name: guestName.trim(), type: "regular",
-    disabled: false, priority: false, deputy: false,
+    disabled: false, priority: false, is_vice_captain: false,
     status: "in", paid: false, owes: 0,
     goals: 0, motm: 0, attended: 0, total: 0,
     bib_count: 0, team: null, w: 0, l: 0, d: 0,
@@ -1625,6 +1625,47 @@ export async function confirmTeams(matchId, teamId, teamA, teamB, changedBy = nu
     return { ok: true };
   } catch (error) {
     console.error('confirmTeams error:', error);
+    return { error };
+  }
+}
+
+// ─── Vice captain + player management ────────────────────────────────────────
+
+export async function toggleViceCaptain(playerId, value, changedBy = null) {
+  try {
+    const { data: existing, error: fetchErr } = await supabase
+      .from('players')
+      .select('is_guest')
+      .eq('id', playerId)
+      .single();
+    if (fetchErr) throw fetchErr;
+    if (existing?.is_guest === true) {
+      return { error: 'guests_cannot_be_vc' };
+    }
+    const { error } = await supabase
+      .from('players')
+      .update({ is_vice_captain: !!value })
+      .eq('id', playerId);
+    if (error) throw error;
+    // changedBy reserved for Phase 2 audit log (unused now)
+    return { ok: true };
+  } catch (error) {
+    console.error('toggleViceCaptain error:', error);
+    return { error };
+  }
+}
+
+export async function disablePlayer(playerId, teamId, disabled, changedBy = null) {
+  try {
+    const { error } = await supabase
+      .from('players')
+      .update({ disabled: !!disabled })
+      .eq('id', playerId);
+    if (error) throw error;
+    // teamId + changedBy reserved for Phase 2 audit log (unused now)
+    return { ok: true };
+  } catch (error) {
+    console.error('disablePlayer error:', error);
     return { error };
   }
 }

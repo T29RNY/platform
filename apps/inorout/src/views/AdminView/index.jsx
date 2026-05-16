@@ -569,7 +569,7 @@ export default function AdminView({
   schedule, setSchedule, matchHistory, setMatchHistory,
   settings, setSettings, coverPool, setCoverPool, teamId,
   screen, setScreen, onGoPlayer, onGoStats, onGoHistory, onGoMyIO,
-  isDemoMode = false, onResetDemo,
+  isDemoMode = false, onResetDemo, isViceCaptain = false,
 }) {
   const [showCancel,       setShowCancel]       = useState(false);
   const [demoResetState,   setDemoResetState]   = useState(null);
@@ -828,7 +828,7 @@ export default function AdminView({
   if (screen === "teams")    return <TeamsScreen    teamId={teamId} squad={squad} schedule={schedule} matchHistory={matchHistory} onBack={() => setScreen("main")}/>;
   if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={Object.fromEntries(squad.map(p => [p.id, p.paid]))} bibHistory={bibHistory} onBack={() => setScreen("main")}/>;
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
-  if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId}/>;
+  if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId} isViceCaptain={isViceCaptain}/>;
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "reminders") return <RemindersScreen schedule={schedule} setSchedule={setSchedule} onBack={() => setScreen("main")} teamId={teamId}/>;
   if (screen === "payments")  return <PaymentsScreen squad={squad} setSquad={setSquad} schedule={schedule} teamId={teamId} coverPool={coverPool} onBack={() => setScreen("main")}/> ;
