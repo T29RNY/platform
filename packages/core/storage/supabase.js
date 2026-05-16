@@ -891,6 +891,7 @@ export async function resetDemoData() {
     await supabase.from('players').update({
       status: 'none', paid: false, self_paid: false, paid_by: null,
       owes: p.owes, note: null, injured: false, injured_since: null,
+      is_vice_captain: false, nickname: null,
       goals: p.goals, motm: p.motm, attended: p.attended,
       w: p.w, l: p.l, d: p.d, bib_count: p.bib_count,
       pay_count: p.pay_count, late_dropouts: p.late_dropouts,

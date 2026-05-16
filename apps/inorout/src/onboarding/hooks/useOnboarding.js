@@ -139,7 +139,7 @@ export function useOnboarding({ onComplete }) {
 
         const { error: pErr } = await supabase.from("players").insert({
           id: pid, name: name.trim(), type: "regular",
-          disabled: false, priority: false, deputy: false,
+          disabled: false, priority: false, is_vice_captain: false,
           status: "none", paid: false, owes: 0,
           goals: 0, motm: 0, attended: 0, total: 0,
           bib_count: 0, team: null, w: 0, l: 0, d: 0,

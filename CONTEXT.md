@@ -76,9 +76,11 @@ platform/
         theme/
           tokens.css         ← full design token system
         components/
-          ui/                ← reusable components
+          ui/
+            HeroCard.jsx     ← animated canvas pitch card; ADMINS block added session 22 (VCs from squad prop, capped at 4, sorted)
+            Avatar.jsx       ← initials circle; tileColour/isMe/injured variants; name label below circle
         views/
-          PlayerView.jsx     ← rebuilt session 6; startTab prop added session 12
+          PlayerView.jsx     ← rebuilt session 6; startTab prop added session 12; squad prop passed to HeroCard session 22
           MyIOView.jsx       ← built session 8, IO Intelligence screen; TacticsBoardHero sticky (session 12)
           StatsView.jsx      ← rebuilt session 6, IO Statbook; local SVG hero + sticky (session 12); PlayerLeagueTable integrated + Player Form accordion (session 20)
           PlayerLeagueTable.jsx ← new session 20; period selector (month/season/all), ranked/unranked split, form chips, bib-holder dot, reliability colour
@@ -888,6 +890,40 @@ all have venue contracts. Sticky but beatable on product quality.
 
 ---
 
+## WORKING PROCESS
+
+All code changes follow a 3-step workflow via Claude Code:
+
+### Step 1 — AUDIT
+Prompt Claude Code to read the target files and report findings.
+No code is edited. Audit covers: current state, imports, existing
+patterns, risk flags, legacy references, integration points.
+Developer reviews audit output and approves before proceeding.
+
+### Step 2 — EXECUTE
+Prompt Claude Code with the approved changes. Describe WHAT and
+WHY, not exact code — Claude Code writes the implementation.
+Keep prompts focused: one file or one logical unit per prompt.
+Large stages split into sub-prompts (e.g. 5B-part1, 5B-part2).
+
+### Step 3 — VERIFY
+Prompt Claude Code to run checks: grep for removed terms, presence
+checks for new code, build verification (vite build), git diff
+for scope confirmation, audit checklist sign-off.
+Developer reviews verification before moving to next stage.
+
+### Conventions
+- All async functions: try/catch, console.error on error paths
+- No console.log anywhere
+- Optimistic UI with revert on error for all Supabase-calling handlers
+- CSS variables from tokens.css only (no hardcoded colours except
+  #60A0FF Team A, #FF6060 Team B)
+- Phosphor icons weight="thin" throughout
+- Bebas Neue headings/numbers, DM Sans 400 body
+- Commit and push after each verified stage
+
+---
+
 ## TEST ACCOUNTS
 
 | Person | Role | Notes |
@@ -1428,58 +1464,35 @@ Team Selection feature — full 5-stage build + design polish.
 - Shuffle not Dice5 in installed version of @phosphor-icons/react
 - `borderRadius: "6px 0 0 6px"` / `"0 6px 6px 0"` on halves for joined card edges; VS centre has no radius
 
-**Session 22 (May 16 2026):**
-Vice Captain feature — Stages 2–5 full build + SquadScreen design polish.
+**Session 22–23 (May 16 2026):**
+Vice Captain + Manage Squad feature — full 8-stage build.
 
-**Stage 2 — Data layer (packages/core):**
-- `supabase.js`: `playerToDb`/`dbToPlayer`/`addPlayerToTeam`/`addGuestPlayer` — `deputy` → `is_vice_captain`/`isViceCaptain`
-- New `toggleViceCaptain(playerId, value, changedBy=null)` — guards `is_guest` (returns `{error:'guests_cannot_be_vc'}`), upserts `is_vice_captain` on players table
-- New `disablePlayer(playerId, teamId, disabled, changedBy=null)` — upserts `disabled` on players table; `teamId`/`changedBy` reserved for Phase 2 audit log
-- `squad.js` `newPlayer()`: `deputy` → `isViceCaptain`
-- `index.js`: exports `toggleViceCaptain` and `disablePlayer`
+- Stage 1 SQL: `players.deputy` renamed to `is_vice_captain`; `role_scope` jsonb + `disable_reason` text columns added (dormant)
+- Stage 2: `dbToPlayer`/`playerToDb` mappings updated; `addPlayerToTeam` + `addGuestPlayer` INSERT literals fixed; `newPlayer()` factory updated; `toggleViceCaptain` + `disablePlayer` functions added to core barrel
+- Stage 3: `App.jsx` — VCs get 5-tab admin nav + AdminView access via `isViceCaptain` derived from `_me`; `me={_me}` passed to AdminView
+- Stage 4: AdminView — `isViceCaptain` + `me` props threaded to SquadScreen
+- Stage 5: `SquadScreen.jsx` full rebuild — new design system, persistent Supabase toggles (priority, VC, injured, disable), guest prompt on host injury, injury auto-out, error toasts, copy link per player, avatar taps open PlayerProfile, IN/OUT buttons built but hidden
+- Stage 6: `HeroCard.jsx` — ADMINS section showing VCs (capped at 4, alphabetical, nickname priority); `squad` prop added to HeroCard in PlayerView
+- Stage 7: `PlayerProfile` modal — ROLES section with VC gold toggle (optimistic + revert), guest/self/VC caller guards, delete disabled when `attended > 0` (directs to Disable instead), SquadScreen avatar taps open PlayerProfile via `onPlayerTap` callback
+- Stage 8: Display text sweep (`deputy` → `isViceCaptain`/`is_vice_captain` in seeds.js, seed-demo.js, useOnboarding.js), demo reset updated (`is_vice_captain: false, nickname: null` added to baseline restore), WORKING PROCESS section added to CONTEXT.md
 
-**Stage 3 — App.jsx access gating:**
-- `isViceCaptain` derived from `_me` (live squad lookup, not initial fetch — responds to realtime)
-- `PlayerView`: `isAdmin={isAdmin || isViceCaptain}` — gives VCs 5-tab nav without new PlayerView prop
-- `AdminView`: gated `{view==="admin" && (isAdmin || isViceCaptain) && ...}`; `isViceCaptain={isViceCaptain}` prop passed separately for downstream scoping
+**Key gotchas:**
+- `addPlayerToTeam` exists in `supabase.js` but is NOT exported from `@platform/core` barrel — accessed via `@platform/supabase` Vite alias
+- `players.deputy` DB column still exists (not yet renamed in Supabase) — JS layer fully maps to `isViceCaptain`; all seed/onboarding JS now uses `is_vice_captain`
+- Avatar component (`Avatar.jsx`) renders column with name below — not usable in horizontal card layout; circle styles copied directly into SquadScreen
+- `me` prop in SquadScreen wired from `App.jsx _me` → AdminView → SquadScreen; VC self-toggle guard (`player.id === me?.id`) is live
+- No admin name in data model — `settings` only has `groupName`; ADMINS block in HeroCard shows VCs only
 
-**Stage 4 — AdminView prop threading:**
-- `AdminView/index.jsx`: `isViceCaptain = false` added to props destructure
-- `SquadScreen` render: `isViceCaptain={isViceCaptain}` passed through
-
-**Stage 5 — SquadScreen full rebuild:**
-- Imports: `toggleViceCaptain`, `disablePlayer` from `@platform/core`; `upsertPlayer` from `@platform/supabase`; Phosphor icons `UsersThree`, `Star`, `Shield`, `LinkSimple`, `Copy`, `FirstAid`
-- `addPlayerToTeam` not in barrel — TODO comment; uses `upsertPlayer` instead
-- Props: `squad, setSquad, teamId, isViceCaptain=false, onBack, me=null`
-- Top half: back button, header + active count chip, invite link card (conditional on teamId), add player card (name input, REGULAR/GUEST pills, ★ priority toggle, Shield VC toggle — hidden when caller is VC)
-- Handlers (all optimistic + try/catch + revert): `handleAddPlayer`, `handleTogglePriority`, `handleToggleViceCapt`, `handleToggleInjured`, `handleToggleDisable`, `handleSetStatus` (hidden), `keepGuest`, `removeGuest`
-- `handleToggleViceCapt`: handles `guests_cannot_be_vc` error specifically — reverts + shows error toast
-- Squad sorted alphabetically by nickname||name; disabled players sink to bottom
-- Player cards: Avatar.jsx-style circle (34px, green glow, injured red variant, 2-char initials); top row `alignItems:"center"`; type pill + Copy Link stacked in right column; 4-button action row (PRIORITY / VICE CAPTAIN / INJURED / DISABLE) with `flex:1`, `whiteSpace:"nowrap"`, `fontSize:11`
-- VC button guards: hidden for guests, hidden when `isViceCaptain` prop true, disabled when `player.id === me?.id`
-- IN/OUT buttons built but wrapped in `{false && ...}` (hidden until payment complexity resolved)
-- Guest prompt overlay (fixed, blur backdrop, amber border) + injury toast (4s) + error toast (3s)
-- `copiedId` state: Copy Link in top-right of card shows "Copied!" for 2s on tap; hidden for guests
-
-**Key gotchas from session 22:**
-- `addPlayerToTeam` exists in `supabase.js` (line 337) but is NOT exported from `@platform/core` barrel
-- `upsertPlayer` also not in barrel — both accessed via `@platform/supabase` Vite alias (maps directly to `packages/core/storage/supabase.js`)
-- `me` prop defaults null — must be wired from AdminView in a future session for self-toggle guard to work
-- `deputy` column still exists in DB (`players.deputy`) — not yet renamed in Supabase; JS layer already maps to `isViceCaptain`; seeds/seed-demo/useOnboarding still use `deputy` (Stage 5+ cleanup TBD)
-- Avatar component (`Avatar.jsx`) renders a column with name below — not usable in horizontal card layout; circle styles copied directly instead
-
-**Next session (Session 23) — start with:**
+**Next session (Session 24) — start with:**
 1. Run Supabase CHECK constraint SQL (below) if not yet done — required for Cancel Week ledger writes
 2. Run `matches.teams_draft` column SQL if not yet done
 3. Test Cancel Week flow end-to-end on demo team
 4. Test TeamsScreen end-to-end (random, draft save, confirm, push fires)
-5. Test /join/team_finbars end-to-end on clean iPhone
-   — capture iOS install screenshots, drop into PlaceholderScreenshot slots
+5. Test /join/team_finbars end-to-end on clean iPhone — capture iOS install screenshots, drop into PlaceholderScreenshot slots
 6. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
 7. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
 8. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
 9. Stage 1 ship blockers review — is May 19 still on track?
-10. Wire `me` prop from AdminView → SquadScreen (for self-toggle guard on VC button)
 
 **Supabase SQL still to run (if not done):**
 ```sql

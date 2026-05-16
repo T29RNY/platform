@@ -137,7 +137,7 @@ async function main() {
       type: 'regular',
       disabled: false,
       priority: [1,2,4,10].includes(b.n), // Hassan, Dave, Steve, Finbar
-      deputy: b.n === 3, // Mike
+      is_vice_captain: b.n === 3, // Mike
       status: 'none',
       paid: false,
       owes: b.owes,
