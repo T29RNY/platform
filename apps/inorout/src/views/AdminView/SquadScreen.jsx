@@ -159,9 +159,10 @@ export default function SquadScreen({
 
   const btnBase = {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-    flex: 1, borderRadius: 6, padding: "6px 12px", cursor: "pointer",
-    fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.06em",
+    flex: 1, borderRadius: 6, padding: "6px 10px", cursor: "pointer",
+    fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.06em",
     border: "0.5px solid var(--s3)", background: "var(--s3)", color: "var(--t2)",
+    whiteSpace: "nowrap",
   };
 
   return (
@@ -419,16 +420,37 @@ export default function SquadScreen({
                     </div>
                   )}
                 </div>
-                {/* Type pill */}
-                <span style={{
-                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.06em",
-                  color: isGuest ? "var(--t2)" : "var(--gold)",
-                  border: `0.5px solid ${isGuest ? "var(--s3)" : "var(--goldb)"}`,
-                  borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap",
-                  background: isGuest ? "var(--s3)" : "var(--gold2)",
-                }}>
-                  {isGuest ? "GUEST" : "REGULAR"}
-                </span>
+                {/* Right column: type pill + copy link */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                  <span style={{
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.06em",
+                    color: isGuest ? "var(--t2)" : "var(--gold)",
+                    border: `0.5px solid ${isGuest ? "var(--s3)" : "var(--goldb)"}`,
+                    borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap",
+                    background: isGuest ? "var(--s3)" : "var(--gold2)",
+                  }}>
+                    {isGuest ? "GUEST" : "REGULAR"}
+                  </span>
+                  {!isGuest && (
+                    <div
+                      onClick={() => {
+                        const url = `https://www.in-or-out.com/p/${p.token || p.id}`;
+                        navigator.clipboard.writeText(url).then(() => {
+                          setCopiedId(p.id);
+                          setTimeout(() => setCopiedId(id => id === p.id ? null : id), 2000);
+                        });
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 3, cursor: "pointer",
+                        fontFamily: "'DM Sans', sans-serif", fontWeight: 400, fontSize: 11,
+                        color: "var(--green)",
+                      }}
+                    >
+                      <Copy size={12} color="var(--green)" weight="thin" />
+                      {copiedId === p.id ? "Copied!" : "Copy Link"}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* IN/OUT buttons — hidden until payment complexity resolved */}
@@ -500,27 +522,6 @@ export default function SquadScreen({
                   {p.disabled ? "ENABLE" : "DISABLE"}
                 </button>
 
-                {/* COPY LINK — hidden for guests (no personal link) */}
-                {!isGuest && (
-                  <button
-                    onClick={() => {
-                      const url = `https://www.in-or-out.com/p/${p.token || p.id}`;
-                      navigator.clipboard.writeText(url).then(() => {
-                        setCopiedId(p.id);
-                        setTimeout(() => setCopiedId(id => id === p.id ? null : id), 2000);
-                      });
-                    }}
-                    style={{
-                      ...btnBase,
-                      border:     copiedId === p.id ? "0.5px solid var(--greenb)" : "0.5px solid var(--s3)",
-                      background: copiedId === p.id ? "var(--green2)" : "var(--s3)",
-                      color:      copiedId === p.id ? "var(--green)"  : "var(--t2)",
-                    }}
-                  >
-                    <Copy size={12} color={copiedId === p.id ? "var(--green)" : "var(--t2)"} weight="thin" />
-                    {copiedId === p.id ? "COPIED!" : "COPY LINK"}
-                  </button>
-                )}
               </div>
             </div>
           );
