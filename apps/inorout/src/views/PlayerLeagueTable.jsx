@@ -1,6 +1,4 @@
-import { useState, useEffect } from "react";
 import { Trophy, CaretRight } from "@phosphor-icons/react";
-import { getPlayerLeagueTable } from "@platform/core";
 
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
@@ -132,24 +130,10 @@ function PlayerRow({ p, bibHolder, squad }) {
   );
 }
 
-export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] }) {
-  const [period,    setPeriod]    = useState("season");
-  const [tableData, setTableData] = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState(null);
-
-  useEffect(() => {
-    if (!teamId) return;
-    setLoading(true);
-    setError(null);
-    getPlayerLeagueTable(teamId, period)
-      .then(data => { setTableData(data); setLoading(false); })
-      .catch(e   => { setError(e.message); setLoading(false); });
-  }, [teamId, period]);
-
+export default function PlayerLeagueTable({ data = [], loading, period, onPeriodChange, squad = [], bibHistory = [] }) {
   const currentBibHolder = (bibHistory || []).find(b => !b.returned)?.playerId || null;
-  const ranked   = tableData.filter(p => p.ranked);
-  const unranked = tableData.filter(p => !p.ranked);
+  const ranked   = data.filter(p => p.ranked);
+  const unranked = data.filter(p => !p.ranked);
 
   return (
     <div style={{ marginBottom: 16, border: "0.5px solid var(--s3)", borderRadius: 12,
@@ -179,7 +163,7 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
       <div style={{ background: "var(--s2)", borderRadius: 24, padding: 3,
         display: "flex", marginBottom: 12 }}>
         {PERIODS.map(({ key, label }) => (
-          <button key={key} onClick={() => setPeriod(key)} style={{
+          <button key={key} onClick={() => onPeriodChange(key)} style={{
             flex: 1, padding: "8px 0", textAlign: "center", cursor: "pointer",
             fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
             borderRadius: 20,
@@ -206,7 +190,7 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
       )}
 
       {/* Empty state */}
-      {!loading && tableData.length === 0 && (
+      {!loading && data.length === 0 && (
         <div style={{ padding: "24px 16px", textAlign: "center",
           fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
           Play a few more matches to unlock the player table.
@@ -214,7 +198,7 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
       )}
 
       {/* Table */}
-      {!loading && tableData.length > 0 && (
+      {!loading && data.length > 0 && (
         <div style={{ overflowX: "auto" }}>
           <table style={{ minWidth: 580, width: "100%", borderCollapse: "collapse" }}>
             <thead>

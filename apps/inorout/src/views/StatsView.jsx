@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { /* biggestWins, */ payRate, resolveMotm } from "@platform/core";
+import { useState, useEffect } from "react";
+import { /* biggestWins, */ payRate, resolveMotm, getPlayerLeagueTable } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
 } from "@phosphor-icons/react";
@@ -222,7 +222,27 @@ const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule }) {
-  const [showPlayerForm, setShowPlayerForm] = useState(false);
+  const [showPlayerForm,     setShowPlayerForm]     = useState(false);
+  const [period,             setPeriod]             = useState("season");
+  const [tableData,          setTableData]          = useState([]);
+  const [totalGamesInPeriod, setTotalGamesInPeriod] = useState(0);
+  const [tableLoading,       setTableLoading]       = useState(true);
+
+  useEffect(() => {
+    if (!teamId) return;
+    setTableLoading(true);
+    getPlayerLeagueTable(teamId, period)
+      .then(({ players, totalGamesInPeriod: n }) => {
+        setTableData(players);
+        setTotalGamesInPeriod(n);
+        setTableLoading(false);
+      })
+      .catch(e => {
+        console.error("getPlayerLeagueTable error:", e);
+        setTableLoading(false);
+      });
+  }, [teamId, period]);
+
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 
   // ── Match data ─────────────────────────────────────────────────────────────
@@ -372,7 +392,14 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
         {totalGames > 0 && (
           <>
             {/* 0. Player League Table */}
-            <PlayerLeagueTable teamId={teamId} squad={squad} bibHistory={bibHistory} />
+            <PlayerLeagueTable
+              data={tableData}
+              loading={tableLoading}
+              period={period}
+              onPeriodChange={setPeriod}
+              squad={squad}
+              bibHistory={bibHistory}
+            />
 
             {/* 1. Player Form (accordion) */}
             <button onClick={() => setShowPlayerForm(v => !v)} style={{
