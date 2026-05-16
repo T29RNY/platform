@@ -19,6 +19,7 @@ export default function SquadScreen({
   const [errorToast,   setErrorToast]   = useState(null);
   const [addLoading,   setAddLoading]   = useState(false);
   const [focusedInput, setFocusedInput] = useState(false);
+  const [copiedId,     setCopiedId]     = useState(null);
 
   const activeCount = squad.filter(p => !p.disabled).length;
   const joinUrl     = `https://www.in-or-out.com/join/${teamId}`;
@@ -157,8 +158,8 @@ export default function SquadScreen({
   });
 
   const btnBase = {
-    display: "flex", alignItems: "center", gap: 4,
-    borderRadius: 6, padding: "5px 10px", cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+    flex: 1, borderRadius: 6, padding: "6px 12px", cursor: "pointer",
     fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.06em",
     border: "0.5px solid var(--s3)", background: "var(--s3)", color: "var(--t2)",
   };
@@ -364,9 +365,16 @@ export default function SquadScreen({
         {sortedSquad.map(p => {
           const displayName = p.nickname || p.name;
           const host        = p.guestOf ? squad.find(h => h.id === p.guestOf) : null;
-          const initial     = displayName[0]?.toUpperCase() || "?";
+          const nameParts   = (displayName || "").trim().split(/\s+/);
+          const initial     = nameParts.length >= 2
+            ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+            : (displayName || "?").slice(0, 2).toUpperCase();
           const isGuest     = p.isGuest || p.type === "guest";
           const vcDisabled  = p.id === me?.id;
+          const avBg        = p.injured ? "rgba(120,20,20,0.3)"             : "rgba(61,220,106,0.14)";
+          const avBorder    = p.injured ? "0.5px solid rgba(255,80,80,0.3)" : "0.5px solid rgba(61,220,106,0.45)";
+          const avColor     = p.injured ? "rgba(255,100,100,0.8)"           : "var(--green)";
+          const avShadow    = p.injured ? "none"                            : "0 0 8px rgba(61,220,106,0.22)";
 
           return (
             <div key={p.id} style={{
@@ -374,22 +382,22 @@ export default function SquadScreen({
               opacity: p.disabled ? 0.4 : 1,
             }}>
               {/* Top row: avatar, name, type pill */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
-                {/* Avatar */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                {/* Avatar — matches Avatar.jsx circle style */}
                 <div
                   onClick={() => onPlayerTap(p)}
                   style={{
-                    width: 40, height: 40, borderRadius: 20, flexShrink: 0,
-                    background: "var(--s3)", border: "0.5px solid var(--s3)",
+                    width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                    background: avBg, border: avBorder, boxShadow: avShadow,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     cursor: "pointer", position: "relative",
                   }}
                 >
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--t2)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 500, color: avColor }}>
                     {initial}
                   </span>
                   {p.injured && (
-                    <span style={{ position: "absolute", bottom: -2, right: -2, fontSize: 12, lineHeight: 1 }}>
+                    <span style={{ position: "absolute", bottom: -2, right: -2, fontSize: 10, lineHeight: 1 }}>
                       🤕
                     </span>
                   )}
@@ -432,7 +440,7 @@ export default function SquadScreen({
               )}
 
               {/* Action row */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {/* PRIORITY */}
                 <button
                   onClick={() => handleTogglePriority(p)}
@@ -462,7 +470,7 @@ export default function SquadScreen({
                     }}
                   >
                     <Shield size={12} color={p.isViceCaptain ? "var(--gold)" : "var(--t2)"} weight="thin" />
-                    VC
+                    VICE CAPTAIN
                   </button>
                 )}
 
@@ -491,6 +499,28 @@ export default function SquadScreen({
                 >
                   {p.disabled ? "ENABLE" : "DISABLE"}
                 </button>
+
+                {/* COPY LINK — hidden for guests (no personal link) */}
+                {!isGuest && (
+                  <button
+                    onClick={() => {
+                      const url = `https://www.in-or-out.com/p/${p.token || p.id}`;
+                      navigator.clipboard.writeText(url).then(() => {
+                        setCopiedId(p.id);
+                        setTimeout(() => setCopiedId(id => id === p.id ? null : id), 2000);
+                      });
+                    }}
+                    style={{
+                      ...btnBase,
+                      border:     copiedId === p.id ? "0.5px solid var(--greenb)" : "0.5px solid var(--s3)",
+                      background: copiedId === p.id ? "var(--green2)" : "var(--s3)",
+                      color:      copiedId === p.id ? "var(--green)"  : "var(--t2)",
+                    }}
+                  >
+                    <Copy size={12} color={copiedId === p.id ? "var(--green)" : "var(--t2)"} weight="thin" />
+                    {copiedId === p.id ? "COPIED!" : "COPY LINK"}
+                  </button>
+                )}
               </div>
             </div>
           );
