@@ -321,6 +321,7 @@ export default function App() {
         getPlayers(tId), getMatches(tId), getBibHistory(tId),
         getSchedule(tId), getSettings(tId), getCoverPool(tId),
       ]);
+      console.log('[App] teamId set to:', tId);
       setTeamId(tId);
       setSelectedTeam(tId);
       setSquadRaw(players);
