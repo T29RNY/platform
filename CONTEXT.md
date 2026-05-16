@@ -736,6 +736,8 @@ Both can run; both add to `owes`. No deduplication.
 | Admin screens redesign | 🔲 Partial | ScheduleScreen ✅ session 13, TeamsScreen ✅ session 21, SquadScreen ✅ session 22; BibsScreen + others still default |
 | Vice Captain system | ✅ Done | Session 22–23: VC toggle, PlayerProfile ROLES section, HeroCard ADMINS block, access gating |
 | Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
+| Stats rewrite (player_match) | ✅ Done | Session 22: all player leaderboards read from player_match via getPlayerLeagueTable; period-filtered insight tiles |
+| Payment ledger dedup | ✅ Done | Session 22: createLedgerEntry resilient insert + 23505 conflict recovery; PostgREST upsert partial-index limitation |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
 | Join/login redesign | 🔲 Pre-launch | |
@@ -897,6 +899,9 @@ all have venue contracts. Sticky but beatable on product quality.
 - `is_vice_captain` lives on the `players` table, not `team_players` — known cross-team limitation; a player is VC globally, not per-team; migrate to `team_players` in Phase 2
 - VC access = full AdminView minus Rotate Admin Link (which doesn't exist yet); scoping is done via `isViceCaptain` prop throughout, not `role_scope` (dormant for Phase 2 RBAC)
 - `bib_history` has a UNIQUE constraint on `(team_id, match_date)` — one holder per team per match night; both write paths (`saveBibHolder` + `insertBib`) use UPSERT with `onConflict: "team_id,match_date"`
+- StatsView reads ALL player stats from `player_match` via `getPlayerLeagueTable` — `players` flat columns (`goals`, `motm`, `w`, `l`, `d`, `attended`) are write-only convenience fields, not used for display; Payment Reliability and The Core are intentionally exempt (no `player_match` equivalent / current headcount)
+- PostgREST `.upsert()` cannot target partial unique indexes — the `onConflict` parameter generates bare `ON CONFLICT (cols)` without the `WHERE` predicate PostgreSQL requires; use INSERT + catch `23505` in application code instead
+- Period filtering in StatsView: `getPlayerLeagueTable` handles player stats; `matchHistory` is filtered client-side by `periodCutoff` date string for insight tiles; both cutoffs must use the same date format (`YYYY-MM-DD`)
 
 ---
 
@@ -1506,16 +1511,23 @@ Vice Captain + Manage Squad feature — full 8-stage build.
 - `me` prop in SquadScreen wired from `App.jsx _me` → AdminView → SquadScreen; VC self-toggle guard (`player.id === me?.id`) is live
 - No admin name in data model — `settings` only has `groupName`; ADMINS block in HeroCard shows VCs only
 
-**Next session (Session 24) — start with:**
-1. Run Supabase CHECK constraint SQL (below) if not yet done — required for Cancel Week ledger writes
-2. Run `matches.teams_draft` column SQL if not yet done
-3. Test Cancel Week flow end-to-end on demo team
-4. Test TeamsScreen end-to-end (random, draft save, confirm, push fires)
-5. Test /join/team_finbars end-to-end on clean iPhone — capture iOS install screenshots, drop into PlaceholderScreenshot slots
-6. Google DNS TXT record via 123-reg — fixes OAuth branding showing Supabase URL
-7. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
-8. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
-9. Stage 1 ship blockers review — is May 19 still on track?
+**Stats rewrite (session 22):**
+- League table quick fixes: default tab season, row highlight opacity increased, both Rank + Player columns sticky (solid opaque `STICKY_BG` for top 3 rows to prevent bleed-through), form chips reversed (oldest→newest L→R), border wrapper + period selector around table
+- Stats rewrite: ALL player leaderboard sections (Top Scorers, Clinical, POTM, Win Rate, Relegation, Attendance, Bib Duty, Player Form, Most Consistent) now read from `player_match` via `getPlayerLeagueTable` instead of `players` flat columns; `getPlayerLeagueTable` extended with `bibCount`, `lateDropouts`, `totalGamesInPeriod`; `PlayerLeagueTable` refactored to pure presenter (no internal state/fetch); `StatsView` owns period state + data fetch; all insight tiles (Avg Goals, Thrillers, Team A vs B, Cancelled Rate) period-filtered via `matchHistory` date cutoff; dead code removed (`scoredInCount`, `getPlayerForm`, `getStreak`)
+- Payment ledger fix: `createLedgerEntry` upsert branch replaced with resilient insert + `23505` conflict recovery — PostgREST cannot target partial unique indexes via `.upsert()`; `upsert: true` flag removed from `handleMarkPaid`
+- Sticky column bleed-through fix: solid opaque `STICKY_BG` colours for ranked rows on sticky Rank + Player cells (`#2A2114` gold, `#1D1D1B` silver, `#261E15` bronze)
+
+**Key gotchas (session 22 stats rewrite):**
+- `tableData` players use `playerId` (not `id`), `wins`/`draws`/`losses` (not `w`/`l`/`d`), `played` (not `attended`), `potm` (not `motm`), `form` as uppercase `["W","L","D"]` array
+- `getPlayerLeagueTable` line 1701 early return was `return []` (bare array) — fixed to `return { players: [], totalGamesInPeriod: 0 }` to match destructuring in StatsView
+- PostgREST upsert with partial unique indexes: fails with `42P10`; indexes exist in DB but PostgREST generates bare `ON CONFLICT (cols)` without the required `WHERE` predicate
+
+**Next session (Session 23) — start with:**
+1. Test handleAddPlayer with teamId fix (SquadScreen bug)
+2. /join/team_finbars end-to-end on clean iPhone
+3. Android install screenshots for JoinSuccess.jsx
+4. Verify all stats match between league table and stat sections on demo team
+5. Tuesday May 19 standby prep
 
 **Supabase SQL still to run (if not done):**
 ```sql
