@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 16 2026 (session 21)*
+*Last updated: May 16 2026 (session 22)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -92,7 +92,7 @@ platform/
             TeamsScreen.jsx  ← full rebuild session 21: Fisher-Yates random, draft save/restore, confirm + push, pentagon badges, split A/B card; design polished session 21
             ScoreScreen.jsx  ← rebuilt session 11, 6-stage progressive flow, score_type + last_goal_scorer
             BibsScreen.jsx
-            SquadScreen.jsx
+            SquadScreen.jsx  ← full rebuild session 22: isViceCaptain prop, optimistic toggles (priority/VC/injured/disable) persisted to Supabase, alphabetical sort (disabled at bottom), avatar matches Avatar.jsx circle style, copy link per player
             ScheduleScreen.jsx  ← rebuilt session 13: MATCH SETTINGS, pickers, computed next matchday, bibs, Nominatim, opens helper, upsert save; notification toggles (10 triggers incl. teamsConfirmed) added session 21
           InstallBanner.jsx
           PWAWelcome.jsx
@@ -175,7 +175,7 @@ id, name, admin_token, join_code, onboarding_complete, admin_email, created_at
 ### players
 ```
 id, name, token, user_id (uuid → auth.users),
-type, disabled, priority, deputy,
+type, disabled, priority, is_vice_captain,
 status (none/in/out/maybe/reserve),
 paid, owes, goals, motm, attended, total,
 bib_count, team, w, l, d,
@@ -725,7 +725,7 @@ Both can run; both add to `owes`. No deduplication.
 | ScoreScreen Part B | ✅ Done | HistoryView: score type badges, won-by display, last goal scorer |
 | Admin view consistency | ✅ Done | Sticky heroes, 5-tab admin nav, My IO handler, Gaffer disabled |
 | Player League Table | ✅ Done | PlayerLeagueTable.jsx + getPlayerLeagueTable; integrated in StatsView session 20 |
-| Admin screens redesign | 🔲 Partial | ScheduleScreen ✅ session 13, TeamsScreen ✅ session 21; BibsScreen + others still default |
+| Admin screens redesign | 🔲 Partial | ScheduleScreen ✅ session 13, TeamsScreen ✅ session 21, SquadScreen ✅ session 22; BibsScreen + others still default |
 | Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
@@ -751,7 +751,7 @@ Both can run; both add to `owes`. No deduplication.
 | Streak notifications | 3/5/10 game streaks |
 | Random player signup | Postcode, availability |
 | Admin find a random | Radius search, ping system |
-| Deputy admin access | Proper permissions |
+| Vice Captain access | 🔲 Partial — VC gets 5-tab admin nav + AdminView; SquadScreen rebuilt with VC toggle; SquadScreen.jsx still uses `deputy` in seeds/seed-demo/useOnboarding (Stage 5+ cleanup) |
 | Player profile cross-team | Career stats, player_career table |
 
 ---
@@ -1428,7 +1428,47 @@ Team Selection feature — full 5-stage build + design polish.
 - Shuffle not Dice5 in installed version of @phosphor-icons/react
 - `borderRadius: "6px 0 0 6px"` / `"0 6px 6px 0"` on halves for joined card edges; VS centre has no radius
 
-**Next session (Session 22) — start with:**
+**Session 22 (May 16 2026):**
+Vice Captain feature — Stages 2–5 full build + SquadScreen design polish.
+
+**Stage 2 — Data layer (packages/core):**
+- `supabase.js`: `playerToDb`/`dbToPlayer`/`addPlayerToTeam`/`addGuestPlayer` — `deputy` → `is_vice_captain`/`isViceCaptain`
+- New `toggleViceCaptain(playerId, value, changedBy=null)` — guards `is_guest` (returns `{error:'guests_cannot_be_vc'}`), upserts `is_vice_captain` on players table
+- New `disablePlayer(playerId, teamId, disabled, changedBy=null)` — upserts `disabled` on players table; `teamId`/`changedBy` reserved for Phase 2 audit log
+- `squad.js` `newPlayer()`: `deputy` → `isViceCaptain`
+- `index.js`: exports `toggleViceCaptain` and `disablePlayer`
+
+**Stage 3 — App.jsx access gating:**
+- `isViceCaptain` derived from `_me` (live squad lookup, not initial fetch — responds to realtime)
+- `PlayerView`: `isAdmin={isAdmin || isViceCaptain}` — gives VCs 5-tab nav without new PlayerView prop
+- `AdminView`: gated `{view==="admin" && (isAdmin || isViceCaptain) && ...}`; `isViceCaptain={isViceCaptain}` prop passed separately for downstream scoping
+
+**Stage 4 — AdminView prop threading:**
+- `AdminView/index.jsx`: `isViceCaptain = false` added to props destructure
+- `SquadScreen` render: `isViceCaptain={isViceCaptain}` passed through
+
+**Stage 5 — SquadScreen full rebuild:**
+- Imports: `toggleViceCaptain`, `disablePlayer` from `@platform/core`; `upsertPlayer` from `@platform/supabase`; Phosphor icons `UsersThree`, `Star`, `Shield`, `LinkSimple`, `Copy`, `FirstAid`
+- `addPlayerToTeam` not in barrel — TODO comment; uses `upsertPlayer` instead
+- Props: `squad, setSquad, teamId, isViceCaptain=false, onBack, me=null`
+- Top half: back button, header + active count chip, invite link card (conditional on teamId), add player card (name input, REGULAR/GUEST pills, ★ priority toggle, Shield VC toggle — hidden when caller is VC)
+- Handlers (all optimistic + try/catch + revert): `handleAddPlayer`, `handleTogglePriority`, `handleToggleViceCapt`, `handleToggleInjured`, `handleToggleDisable`, `handleSetStatus` (hidden), `keepGuest`, `removeGuest`
+- `handleToggleViceCapt`: handles `guests_cannot_be_vc` error specifically — reverts + shows error toast
+- Squad sorted alphabetically by nickname||name; disabled players sink to bottom
+- Player cards: Avatar.jsx-style circle (34px, green glow, injured red variant, 2-char initials); top row `alignItems:"center"`; type pill + Copy Link stacked in right column; 4-button action row (PRIORITY / VICE CAPTAIN / INJURED / DISABLE) with `flex:1`, `whiteSpace:"nowrap"`, `fontSize:11`
+- VC button guards: hidden for guests, hidden when `isViceCaptain` prop true, disabled when `player.id === me?.id`
+- IN/OUT buttons built but wrapped in `{false && ...}` (hidden until payment complexity resolved)
+- Guest prompt overlay (fixed, blur backdrop, amber border) + injury toast (4s) + error toast (3s)
+- `copiedId` state: Copy Link in top-right of card shows "Copied!" for 2s on tap; hidden for guests
+
+**Key gotchas from session 22:**
+- `addPlayerToTeam` exists in `supabase.js` (line 337) but is NOT exported from `@platform/core` barrel
+- `upsertPlayer` also not in barrel — both accessed via `@platform/supabase` Vite alias (maps directly to `packages/core/storage/supabase.js`)
+- `me` prop defaults null — must be wired from AdminView in a future session for self-toggle guard to work
+- `deputy` column still exists in DB (`players.deputy`) — not yet renamed in Supabase; JS layer already maps to `isViceCaptain`; seeds/seed-demo/useOnboarding still use `deputy` (Stage 5+ cleanup TBD)
+- Avatar component (`Avatar.jsx`) renders a column with name below — not usable in horizontal card layout; circle styles copied directly instead
+
+**Next session (Session 23) — start with:**
 1. Run Supabase CHECK constraint SQL (below) if not yet done — required for Cancel Week ledger writes
 2. Run `matches.teams_draft` column SQL if not yet done
 3. Test Cancel Week flow end-to-end on demo team
@@ -1439,6 +1479,7 @@ Team Selection feature — full 5-stage build + design polish.
 7. Tuesday-night standby kit (Posthog + Supabase dashboards open, error log reviewed)
 8. WhatsApp comms to Finbar's Tuesdays admin with welcome + expectations
 9. Stage 1 ship blockers review — is May 19 still on track?
+10. Wire `me` prop from AdminView → SquadScreen (for self-toggle guard on VC button)
 
 **Supabase SQL still to run (if not done):**
 ```sql
