@@ -144,7 +144,7 @@ export default function HeroCard({ dayOfWeek, pricePerPlayer, squad = [] }) {
         {vcs.length > 0 && (
           <div style={{ textAlign:"right", paddingBottom:2 }}>
             <div style={{
-              fontFamily:"'Bebas Neue', sans-serif", fontSize:9,
+              fontFamily:"'Bebas Neue', sans-serif", fontSize:12,
               letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--t2)",
               marginBottom:3,
             }}>
