@@ -203,7 +203,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
           display: "flex", alignItems: "center", gap: 6,
           background: "none", border: "none", cursor: "pointer",
           color: "var(--gold)", fontSize: 13, fontFamily: "DM Sans, sans-serif",
-          fontWeight: 300, padding: 0, marginBottom: 24,
+          fontWeight: 400, padding: 0, marginBottom: 24,
         }}>
           <ArrowLeft size={16} weight="thin" />
           Back to Admin
@@ -214,7 +214,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
         }}>
           No active match
         </div>
-        <div style={{ fontSize: 14, color: "var(--t2)", fontWeight: 300 }}>
+        <div style={{ fontSize: 14, color: "var(--t2)", fontWeight: 400 }}>
           Go live first before picking teams
         </div>
       </div>
@@ -222,14 +222,14 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
   }
 
   return (
-    <div style={{ padding: "20px 16px", paddingBottom: 48 }}>
+    <div style={{ padding: "20px 16px" }}>
 
       {/* Back link */}
       <button onClick={onBack} style={{
         display: "flex", alignItems: "center", gap: 6,
         background: "none", border: "none", cursor: "pointer",
         color: "var(--gold)", fontSize: 13, fontFamily: "DM Sans, sans-serif",
-        fontWeight: 300, padding: 0, marginBottom: 20,
+        fontWeight: 400, padding: 0, marginBottom: 20,
       }}>
         <ArrowLeft size={16} weight="thin" />
         Back to Admin
@@ -241,78 +241,6 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
         color: "var(--t1)", marginBottom: 16,
       }}>
         TEAM SELECTION
-      </div>
-
-      {/* Team A / VS / Team B split card */}
-      <div style={{
-        width: "100%", height: 72, borderRadius: 8,
-        overflow: "hidden", display: "flex", marginBottom: 16,
-      }}>
-        {/* Team A — left half */}
-        <div style={{
-          flex: 1,
-          background: "rgba(96,160,255,0.12)",
-          borderTop: "1px solid #60A0FF",
-          borderBottom: "1px solid #60A0FF",
-          borderLeft: "1px solid #60A0FF",
-          borderRight: "none",
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 0,
-        }}>
-          <div style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
-            color: "#60A0FF", letterSpacing: "0.1em", lineHeight: 1,
-          }}>
-            TEAM A
-          </div>
-          <div style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 28,
-            color: "#60A0FF", lineHeight: 1.1,
-          }}>
-            {countA}
-          </div>
-        </div>
-
-        {/* VS centre */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          paddingInline: 14,
-          background: "rgba(96,160,255,0.04)",
-          borderTop: "1px solid rgba(96,160,255,0.15)",
-          borderBottom: "1px solid rgba(255,96,96,0.15)",
-        }}>
-          <span style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
-            color: "var(--t2)",
-          }}>
-            VS
-          </span>
-        </div>
-
-        {/* Team B — right half */}
-        <div style={{
-          flex: 1,
-          background: "rgba(255,96,96,0.12)",
-          borderTop: "1px solid #FF6060",
-          borderBottom: "1px solid #FF6060",
-          borderRight: "1px solid #FF6060",
-          borderLeft: "none",
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 0,
-        }}>
-          <div style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
-            color: "#FF6060", letterSpacing: "0.1em", lineHeight: 1,
-          }}>
-            TEAM B
-          </div>
-          <div style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 28,
-            color: "#FF6060", lineHeight: 1.1,
-          }}>
-            {countB}
-          </div>
-        </div>
       </div>
 
       {/* Action buttons */}
@@ -370,7 +298,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
       {confirmNudge && (
         <div style={{
           textAlign: "center", color: "var(--amber)",
-          fontSize: 12, fontWeight: 300, marginTop: 8,
+          fontSize: 12, fontWeight: 400, marginTop: 8,
         }}>
           Assign all players before confirming
         </div>
@@ -397,7 +325,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
         {showClearConfirm ? (
           <div style={{ textAlign: "center" }}>
             <div style={{
-              fontSize: 12, color: "var(--t2)", fontWeight: 300, marginBottom: 10,
+              fontSize: 12, color: "var(--t2)", fontWeight: 400, marginBottom: 10,
             }}>
               This clears all assignments — are you sure?
             </div>
@@ -444,7 +372,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
           marginTop: 10,
         }}>
           <CheckCircle size={14} weight="thin" color="var(--green)" style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>
+          <span style={{ fontSize: 12, color: "var(--t2)", fontWeight: 400 }}>
             Draft saved at {formatTime(draftSavedAt)} — not shared yet
           </span>
         </div>
@@ -453,17 +381,82 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
       {/* Error line */}
       {error && (
         <div style={{
-          fontSize: 12, color: "var(--red)", fontWeight: 300, marginTop: 8,
+          fontSize: 12, color: "var(--red)", fontWeight: 400, marginTop: 8,
         }}>
           {error}
         </div>
       )}
 
+      {/* Team A / VS / Team B split card */}
+      <div style={{
+        width: "100%", height: 48,
+        display: "flex", marginTop: 16, marginBottom: 16,
+      }}>
+        {/* Team A — left half */}
+        <div style={{
+          flex: 1,
+          background: "rgba(96,160,255,0.12)",
+          borderTop: "1px solid #60A0FF",
+          borderBottom: "1px solid #60A0FF",
+          borderLeft: "1px solid #60A0FF",
+          borderRight: "none",
+          borderRadius: "6px 0 0 6px",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>
+          <span style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
+            color: "#60A0FF", letterSpacing: "0.08em",
+          }}>TEAM A</span>
+          <span style={{ color: "var(--t2)", opacity: 0.4, fontSize: 16, lineHeight: 1 }}>·</span>
+          <span style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
+            color: "#F2F0EA",
+          }}>{countA}</span>
+        </div>
+
+        {/* VS centre */}
+        <div style={{
+          width: 40, flexShrink: 0,
+          background: "var(--s2)",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          borderLeft: "none", borderRight: "none",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <span style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
+            color: "var(--t2)",
+          }}>VS</span>
+        </div>
+
+        {/* Team B — right half */}
+        <div style={{
+          flex: 1,
+          background: "rgba(255,96,96,0.12)",
+          borderTop: "1px solid #FF6060",
+          borderBottom: "1px solid #FF6060",
+          borderRight: "1px solid #FF6060",
+          borderLeft: "none",
+          borderRadius: "0 6px 6px 0",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>
+          <span style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
+            color: "#F2F0EA",
+          }}>{countB}</span>
+          <span style={{ color: "var(--t2)", opacity: 0.4, fontSize: 16, lineHeight: 1 }}>·</span>
+          <span style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
+            color: "#FF6060", letterSpacing: "0.08em",
+          }}>TEAM B</span>
+        </div>
+      </div>
+
       {/* Player rows section heading */}
       <div style={{
-        fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
+        fontFamily: "DM Sans, sans-serif", fontWeight: 500, fontSize: 11,
         color: "var(--t2)", letterSpacing: "0.1em",
-        marginTop: 24, marginBottom: 8,
+        marginBottom: 8,
       }}>
         PLAYERS ({inPlayers.length})
       </div>
@@ -483,8 +476,8 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
 
               {/* Name */}
               <div style={{
-                flex: 1, fontSize: 14, color: "var(--t1)",
-                fontFamily: "DM Sans, sans-serif", fontWeight: 400,
+                flex: 1, fontSize: 15, color: "var(--t1)",
+                fontFamily: "DM Sans, sans-serif", fontWeight: 500,
               }}>
                 {p.nickname || p.name}
               </div>
@@ -494,8 +487,8 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
                 <button
                   onClick={() => handleAssign(p.id, "A")}
                   style={{
-                    width: 44, height: 28, borderRadius: 4,
-                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 16,
+                    width: 36, height: 26, borderRadius: 4,
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, fontWeight: 700,
                     cursor: "pointer",
                     background: aSelected ? "#1E3A5F" : "var(--s3)",
                     color: "#60A0FF",
@@ -507,8 +500,8 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
                 <button
                   onClick={() => handleAssign(p.id, "B")}
                   style={{
-                    width: 44, height: 28, borderRadius: 4,
-                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 16,
+                    width: 36, height: 26, borderRadius: 4,
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, fontWeight: 700,
                     cursor: "pointer",
                     background: bSelected ? "#3B0A0A" : "var(--s3)",
                     color: "#FF6060",
@@ -526,11 +519,24 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
       {inPlayers.length === 0 && (
         <div style={{
           textAlign: "center", fontSize: 13, color: "var(--t2)",
-          fontWeight: 300, padding: "24px 0",
+          fontWeight: 400, padding: "24px 0",
         }}>
           No confirmed players yet
         </div>
       )}
+
+      {/* Done button */}
+      <div style={{ marginTop: 24, marginBottom: 16 }}>
+        <button onClick={onBack} style={{
+          width: "100%", height: 48, borderRadius: 8,
+          background: "var(--s2)", border: "0.5px solid var(--goldb)",
+          color: "var(--gold)", cursor: "pointer",
+          fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.08em",
+        }}>
+          DONE
+        </button>
+      </div>
+
     </div>
   );
 }
