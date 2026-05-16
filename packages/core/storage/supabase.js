@@ -1834,3 +1834,206 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
     return { players: [], totalGamesInPeriod: 0 };
   }
 }
+
+export async function getHeadToHead(meId, themId, teamId) {
+  try {
+    // Query 1 — all uncancelled matches for this team
+    const { data: matchData, error: matchErr } = await supabase
+      .from('matches')
+      .select('id, match_date, score_a, score_b, winner')
+      .eq('team_id', teamId)
+      .neq('cancelled', true);
+    if (matchErr) throw matchErr;
+
+    const matchMap = {};
+    for (const m of (matchData || [])) {
+      matchMap[m.id] = { matchDate: m.match_date, scoreA: m.score_a, scoreB: m.score_b, winner: m.winner };
+    }
+
+    // Query 2 — all attended rows for both players
+    const { data: pmData, error: pmErr } = await supabase
+      .from('player_match')
+      .select('player_id, match_id, team_assignment, result, goals, was_motm, had_bibs')
+      .eq('team_id', teamId)
+      .in('player_id', [meId, themId])
+      .eq('attended', true);
+    if (pmErr) throw pmErr;
+
+    const meRows   = (pmData || []).filter(r => r.player_id === meId);
+    const themRows = (pmData || []).filter(r => r.player_id === themId);
+
+    const meMatchIds   = new Set(meRows.map(r => r.match_id));
+    const themMatchIds = new Set(themRows.map(r => r.match_id));
+    const meByMatch    = {};
+    const themByMatch  = {};
+    for (const r of meRows)   meByMatch[r.match_id]   = r;
+    for (const r of themRows) themByMatch[r.match_id] = r;
+
+    // Shared matches — both attended
+    const sharedMatchIds = [...meMatchIds].filter(id => themMatchIds.has(id));
+
+    const togetherMatches = [];
+    const againstMatches  = [];
+    for (const id of sharedMatchIds) {
+      const me   = meByMatch[id];
+      const them = themByMatch[id];
+      const md   = matchMap[id] || {};
+      if (me.team_assignment && them.team_assignment && me.team_assignment === them.team_assignment) {
+        togetherMatches.push({ me, them, ...md });
+      } else {
+        againstMatches.push({ me, them, ...md });
+      }
+    }
+
+    // ── Section 1: Together ─────────────────────────────────────────────────
+    const gamesTogether  = togetherMatches.length;
+    const winsTogether   = togetherMatches.filter(m => m.me.result === 'w').length;
+    const drawsTogether  = togetherMatches.filter(m => m.me.result === 'd').length;
+    const lossesTogether = togetherMatches.filter(m => m.me.result === 'l').length;
+    const winRateTogether = gamesTogether > 0
+      ? Math.round((winsTogether / gamesTogether) * 100) : 0;
+
+    const myGoalsTogether   = togetherMatches.reduce((s, m) => s + (m.me.goals   || 0), 0);
+    const theirGoalsTogether = togetherMatches.reduce((s, m) => s + (m.them.goals || 0), 0);
+    const combinedGoals      = myGoalsTogether + theirGoalsTogether;
+    const bibsTogether       = togetherMatches.filter(m => m.me.had_bibs || m.them.had_bibs).length;
+
+    const togetherTotalGoals = togetherMatches.reduce((s, m) => {
+      const sa = m.scoreA != null ? m.scoreA : 0;
+      const sb = m.scoreB != null ? m.scoreB : 0;
+      return s + sa + sb;
+    }, 0);
+    const goalThreatTogether = gamesTogether > 0
+      ? Math.round((togetherTotalGoals / gamesTogether) * 10) / 10 : null;
+
+    // "Apart" = matches where only me attended (not them)
+    const meOnlyMatchIds = [...meMatchIds].filter(id => !themMatchIds.has(id));
+    const apartTotalGoals = meOnlyMatchIds.reduce((s, id) => {
+      const md = matchMap[id];
+      if (!md) return s;
+      return s + (md.scoreA != null ? md.scoreA : 0) + (md.scoreB != null ? md.scoreB : 0);
+    }, 0);
+    const goalThreatApart = meOnlyMatchIds.length > 0
+      ? Math.round((apartTotalGoals / meOnlyMatchIds.length) * 10) / 10 : null;
+
+    // ── Section 2: Against ──────────────────────────────────────────────────
+    const gamesAgainst    = againstMatches.length;
+    const meWins          = againstMatches.filter(m => m.me.result === 'w').length;
+    const againstDraws    = againstMatches.filter(m => m.me.result === 'd').length;
+    const theirWins       = againstMatches.filter(m => m.me.result === 'l').length;
+    const myGoalsAgainst  = againstMatches.reduce((s, m) => s + (m.me.goals   || 0), 0);
+    const theirGoalsAgainst = againstMatches.reduce((s, m) => s + (m.them.goals || 0), 0);
+
+    // Streak — sort against games newest first, walk until streak breaks
+    const sortedAgainst = [...againstMatches].sort((a, b) =>
+      new Date(b.matchDate || 0) - new Date(a.matchDate || 0)
+    );
+    let streakPlayer = null;
+    let streakLength = 0;
+    for (const m of sortedAgainst) {
+      const winner = m.me.result === 'w' ? 'me' : m.me.result === 'l' ? 'them' : null;
+      if (winner === null) break;
+      if (streakPlayer === null) {
+        streakPlayer = winner;
+        streakLength = 1;
+      } else if (winner === streakPlayer) {
+        streakLength++;
+      } else {
+        break;
+      }
+    }
+
+    // ── Section 3: Chemistry ────────────────────────────────────────────────
+    const sharedSet    = new Set(sharedMatchIds);
+    const meNonShared  = meRows.filter(r => !sharedSet.has(r.match_id));
+    const themNonShared = themRows.filter(r => !sharedSet.has(r.match_id));
+
+    const meWithoutWins   = meNonShared.filter(r => r.result === 'w').length;
+    const themWithoutWins = themNonShared.filter(r => r.result === 'w').length;
+
+    // Their win rate WITH me = on same team (togetherMatches)
+    const theirWinRateWithMe = gamesTogether > 0
+      ? Math.round((winsTogether / gamesTogether) * 100) : null;
+    const theirWinRateWithoutMe = themNonShared.length > 0
+      ? Math.round((themWithoutWins / themNonShared.length) * 100) : null;
+
+    // My win rate WITH them = same (same team = same result)
+    const myWinRateWithThem = gamesTogether > 0
+      ? Math.round((winsTogether / gamesTogether) * 100) : null;
+    const myWinRateWithoutThem = meNonShared.length > 0
+      ? Math.round((meWithoutWins / meNonShared.length) * 100) : null;
+
+    // POTM in all shared games
+    const myPotm    = [...togetherMatches, ...againstMatches].filter(m => m.me.was_motm).length;
+    const theirPotm = [...togetherMatches, ...againstMatches].filter(m => m.them.was_motm).length;
+
+    // ── Section 5: Recent shared matches ────────────────────────────────────
+    const allShared = [...togetherMatches, ...againstMatches].map(m => ({
+      matchDate: m.matchDate,
+      scoreA:    m.scoreA,
+      scoreB:    m.scoreB,
+      type:      togetherMatches.includes(m) ? 'together' : 'against',
+      myResult:  m.me.result,
+    }));
+    allShared.sort((a, b) => new Date(b.matchDate || 0) - new Date(a.matchDate || 0));
+    const recentShared = allShared.slice(0, 5);
+
+    // ── Verdicts ─────────────────────────────────────────────────────────────
+    const totalSharedGames = sharedMatchIds.length;
+    let mainVerdict = 'early_days';
+    if (gamesTogether >= 3 && winRateTogether > 55) {
+      mainVerdict = 'better_together';
+    } else if (gamesAgainst >= 3 && theirWins > meWins * 1.5) {
+      mainVerdict = 'nemesis';
+    } else if (gamesAgainst >= 3 && meWins > theirWins * 1.5) {
+      mainVerdict = 'you_own_them';
+    } else if (totalSharedGames >= 3) {
+      mainVerdict = 'dead_even';
+    }
+
+    let chemistryVerdict = 'no_effect';
+    if (theirWinRateWithMe !== null && theirWinRateWithoutMe !== null) {
+      if (theirWinRateWithMe > theirWinRateWithoutMe + 10) chemistryVerdict = 'good_luck_charm';
+      else if (theirWinRateWithMe < theirWinRateWithoutMe - 10) chemistryVerdict = 'bad_influence';
+    }
+
+    return {
+      together: {
+        games:              gamesTogether,
+        wins:               winsTogether,
+        draws:              drawsTogether,
+        losses:             lossesTogether,
+        winRate:            winRateTogether,
+        combinedGoals,
+        myGoals:            myGoalsTogether,
+        theirGoals:         theirGoalsTogether,
+        bibs:               bibsTogether,
+        goalThreatTogether,
+        goalThreatApart,
+      },
+      against: {
+        games:       gamesAgainst,
+        meWins,
+        draws:       againstDraws,
+        theirWins,
+        myGoals:     myGoalsAgainst,
+        theirGoals:  theirGoalsAgainst,
+        streak: { player: streakPlayer, length: streakLength },
+      },
+      chemistry: {
+        theirWinRateWithMe,
+        theirWinRateWithoutMe,
+        myWinRateWithThem,
+        myWinRateWithoutThem,
+        myPotm,
+        theirPotm,
+      },
+      recentShared,
+      mainVerdict,
+      chemistryVerdict,
+      totalSharedGames,
+    };
+  } catch (e) {
+    return null;
+  }
+}
