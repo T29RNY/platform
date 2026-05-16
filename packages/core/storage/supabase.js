@@ -135,9 +135,10 @@ export async function getBibStats(teamId, squadPlayers) {
 }
 
 export async function insertBib(bib, teamId) {
-  const { error } = await supabase.from("bib_history").insert({
-    name: bib.name, match_date: bib.matchDate, returned: bib.returned, team_id: teamId,
-  });
+  const { error } = await supabase.from("bib_history").upsert(
+    { name: bib.name, match_date: bib.matchDate, returned: bib.returned, team_id: teamId },
+    { onConflict: "team_id,match_date" }
+  );
   if (error) throw error;
 }
 
@@ -620,9 +621,11 @@ export async function saveBibHolder(matchId, teamId, playerId, playerName) {
       .eq("team_id", teamId)
       .eq("returned", false);
 
-    // b. Insert new bib_history row
-    const { error: e1 } = await supabase.from("bib_history")
-      .insert({ team_id: teamId, name: playerName, player_id: playerId, match_date: new Date().toISOString().split('T')[0], returned: false });
+    // b. Upsert bib_history row — conflict on (team_id, match_date) updates in place
+    const { error: e1 } = await supabase.from("bib_history").upsert(
+      { team_id: teamId, name: playerName, player_id: playerId, match_date: new Date().toISOString().split('T')[0], returned: false },
+      { onConflict: "team_id,match_date" }
+    );
     if (e1) throw e1;
 
     // c. Store player_id on match
