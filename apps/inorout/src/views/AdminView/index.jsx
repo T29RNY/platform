@@ -825,7 +825,7 @@ export default function AdminView({
   };
 
   // ── screen routing ────────────────────────────────────────────────────────
-  if (screen === "teams")    return <TeamsScreen    squad={squad} setSquad={setSquad} schedule={schedule} onBack={() => setScreen("main")}/>;
+  if (screen === "teams")    return <TeamsScreen    teamId={teamId} squad={squad} schedule={schedule} matchHistory={matchHistory} onBack={() => setScreen("main")}/>;
   if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={Object.fromEntries(squad.map(p => [p.id, p.paid]))} bibHistory={bibHistory} onBack={() => setScreen("main")}/>;
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId}/>;
