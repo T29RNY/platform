@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { /* biggestWins, */ payRate, resolveMotm, getPlayerLeagueTable } from "@platform/core";
+import { /* biggestWins, */ payRate, getPlayerLeagueTable } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
 } from "@phosphor-icons/react";
@@ -12,31 +12,6 @@ function initials(name) {
   return parts.length >= 2
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     : (name || "?").slice(0, 2).toUpperCase();
-}
-
-// Last 5 games a player actually played — W/L/D
-function getPlayerForm(playerName, played) {
-  const name = (playerName || "").toLowerCase().trim();
-  const results = [];
-  for (const m of played) {
-    if (results.length >= 5) break;
-    const inA = (m.teamA || []).some(x => (x || "").toLowerCase().trim() === name);
-    const inB = (m.teamB || []).some(x => (x || "").toLowerCase().trim() === name);
-    if (!inA && !inB) continue;
-    if (!m.winner || m.winner === "D") results.push("d");
-    else if (inA) results.push(m.winner === "A" ? "w" : "l");
-    else          results.push(m.winner === "B" ? "w" : "l");
-  }
-  return results;
-}
-
-// Current streak from newest game (any count >= 1)
-function getStreak(results) {
-  if (!results.length) return null;
-  const first = results[0];
-  let count = 0;
-  for (const r of results) { if (r === first) count++; else break; }
-  return { result: first, count };
 }
 
 // Games where player appears in scorers object with > 0 goals
@@ -273,47 +248,42 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   const regularsCount = active.length;
   const guestsCount   = allPlayers.filter(p => p.isGuest).length;
 
-  // Top scorers
-  const topScorers = [...active]
-    .filter(p => (p.goals || 0) > 0)
-    .sort((a, b) => (b.goals || 0) - (a.goals || 0))
+  // Top scorers — player_match derived (period-filtered)
+  const topScorers = tableData
+    .filter(p => p.goals > 0)
+    .sort((a, b) => b.goals - a.goals)
     .slice(0, 5);
 
-  // Clinical: goals per game, min 2 attended
-  const clinical = [...active]
-    .filter(p => (p.attended || 0) >= 2 && (p.goals || 0) > 0)
-    .map(p => ({ ...p, gpg: p.goals / p.attended }))
+  // Clinical: goals per game, min 3 games played
+  const clinical = tableData
+    .filter(p => p.played >= 3 && p.goals > 0)
+    .map(p => ({ ...p, gpg: p.goals / p.played }))
     .sort((a, b) => b.gpg - a.gpg)
     .slice(0, 5);
 
-  // MOTM Kings
-  const topMotm = [...active]
-    .filter(p => (p.motm || 0) > 0)
-    .sort((a, b) => (b.motm || 0) - (a.motm || 0))
+  // POTM Awards
+  const topMotm = tableData
+    .filter(p => p.potm > 0)
+    .sort((a, b) => b.potm - a.potm)
     .slice(0, 3);
 
-  // Win rate (min 4 games played by player)
-  const withGames4 = active
-    .filter(p => (p.w || 0) + (p.l || 0) + (p.d || 0) >= 4)
-    .map(p => {
-      const tot = (p.w || 0) + (p.l || 0) + (p.d || 0);
-      return { ...p, winRate: Math.round((p.w || 0) / tot * 100), totalPlayed: tot };
-    });
-  const winLeaders   = [...withGames4].sort((a, b) => b.winRate - a.winRate).slice(0, 3);
-  const relegation   = [...withGames4].sort((a, b) => a.winRate - b.winRate).slice(0, 3);
+  // Win rate (min 3 games played)
+  const withGames3 = tableData.filter(p => p.played >= 3);
+  const winLeaders = [...withGames3].sort((a, b) => b.winRate - a.winRate).slice(0, 5);
+  const relegation = [...withGames3].sort((a, b) => a.winRate - b.winRate).slice(0, 5);
 
   // Attendance
-  const topAttend = [...active]
-    .filter(p => (p.attended || 0) > 0)
-    .map(p => ({ ...p, attPct: totalGames > 0 ? Math.round(p.attended / totalGames * 100) : 0 }))
+  const topAttend = tableData
+    .filter(p => p.played > 0)
+    .map(p => ({ ...p, attPct: totalGamesInPeriod > 0 ? Math.round(p.played / totalGamesInPeriod * 100) : 0 }))
     .sort((a, b) => b.attPct - a.attPct)
     .slice(0, 5);
 
   // Bib duty
-  const topBibs = [...active]
-    .filter(p => (p.bibCount || 0) > 0)
-    .sort((a, b) => (b.bibCount || 0) - (a.bibCount || 0))
-    .slice(0, 3);
+  const topBibs = tableData
+    .filter(p => p.bibCount > 0)
+    .sort((a, b) => b.bibCount - a.bibCount)
+    .slice(0, 5);
 
   // Late dropouts — Records tab only
   // const topLate = [...active]
@@ -345,10 +315,8 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   // const mostGoalsGame  = played.reduce((max, m) => Math.max(max, (m.scoreA || 0) + (m.scoreB || 0)), 0);
   // const bigWin         = biggestWins(matchHistory)[0];
 
-  // Player form table
-  const formPlayers = [...active]
-    .filter(p => (p.attended || 0) >= 1)
-    .sort((a, b) => (b.attended || 0) - (a.attended || 0));
+  // Player form
+  const formPlayers = [...tableData].sort((a, b) => b.played - a.played);
 
   const groupName = settings?.groupName || "";
 
@@ -419,9 +387,9 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               {formPlayers.length === 0 ? (
                 <div style={{ padding: "16px 14px", fontSize: 12, color: "var(--t2)", fontWeight: 300 }}>No player data yet</div>
               ) : formPlayers.map((p, i) => {
-                const form = getPlayerForm(p.name, played);
+                const form = (p.form || []).map(r => r.toLowerCase());
                 return (
-                  <div key={p.id} style={{
+                  <div key={p.playerId} style={{
                     display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
                     borderBottom: i < formPlayers.length - 1 ? "0.5px solid var(--b2)" : "none",
                   }}>
@@ -452,9 +420,9 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                     </div>
                     {/* Right: W/L/D totals */}
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--green)", lineHeight: 1 }}>W{p.w || 0}</span>
-                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--red)", lineHeight: 1 }}>L{p.l || 0}</span>
-                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--amber)", lineHeight: 1 }}>D{p.d || 0}</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--green)", lineHeight: 1 }}>W{p.wins || 0}</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--red)", lineHeight: 1 }}>L{p.losses || 0}</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--amber)", lineHeight: 1 }}>D{p.draws || 0}</span>
                     </div>
                   </div>
                 );
@@ -468,11 +436,11 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               <LeaderCard icon={SoccerBall} label="Goals">
                 {topScorers.map((p, i) => (
                   <LeaderRow
-                    key={p.id} rank={i + 1} name={p.nickname || p.name}
-                    value={p.goals || 0}
-                    bar={p.goals || 0} maxBar={topScorers[0].goals || 1}
+                    key={p.playerId} rank={i + 1} name={p.nickname || p.name}
+                    value={p.goals}
+                    bar={p.goals} maxBar={topScorers[0].goals || 1}
                     barColor="var(--green)"
-                    sub={`scored in ${scoredInCount(p.name, played)} of ${totalGames} games`}
+                    sub={`${p.goals} goals in ${p.played} games`}
                     isLast={i === topScorers.length - 1}
                   />
                 ))}
@@ -485,12 +453,12 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
             {/* 3. Clinical */}
             <SecLabel label="Clinical" />
-            {totalGames >= 2 ? (
+            {totalGamesInPeriod >= 2 ? (
               clinical.length > 0 ? (
                 <LeaderCard label="Goals Per Game">
                   {clinical.map((p, i) => (
                     <LeaderRow
-                      key={p.id} rank={i + 1} name={p.nickname || p.name}
+                      key={p.playerId} rank={i + 1} name={p.nickname || p.name}
                       value={p.gpg.toFixed(2)}
                       bar={p.gpg} maxBar={clinical[0].gpg || 1}
                       barColor="var(--gold)"
@@ -506,7 +474,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               )
             ) : (
               <div style={{ marginBottom: 8 }}>
-                <LockedCard statName="Clinical" gamesNeeded={2} gamesPlayed={totalGames} />
+                <LockedCard statName="Clinical" gamesNeeded={2} gamesPlayed={totalGamesInPeriod} />
               </div>
             )}
 
@@ -515,12 +483,12 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
             {topMotm.length > 0 ? (
               <LeaderCard icon={Star} label="POTM Awards">
                 {topMotm.map((p, i) => {
-                  const every = (p.attended || 0) > 0 ? Math.round(p.attended / (p.motm || 1)) : 0;
+                  const every = p.played > 0 ? Math.round(p.played / (p.potm || 1)) : 0;
                   return (
                     <LeaderRow
-                      key={p.id} rank={i + 1} name={resolveMotm(p.id, active)}
-                      value={p.motm || 0}
-                      bar={p.motm || 0} maxBar={topMotm[0].motm || 1}
+                      key={p.playerId} rank={i + 1} name={p.nickname || p.name}
+                      value={p.potm}
+                      bar={p.potm} maxBar={topMotm[0].potm || 1}
                       barColor="var(--gold)"
                       sub={every > 0 ? `1 in every ${every} games` : undefined}
                       isLast={i === topMotm.length - 1}
@@ -536,16 +504,16 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
             {/* 5. Win % Leaders */}
             <SecLabel icon={Trophy} label="Winners" />
-            {totalGames >= 4 ? (
+            {totalGamesInPeriod >= 4 ? (
               winLeaders.length > 0 ? (
                 <LeaderCard icon={Trophy} label="Win Rate">
                   {winLeaders.map((p, i) => (
                     <LeaderRow
-                      key={p.id} rank={i + 1} name={p.nickname || p.name}
+                      key={p.playerId} rank={i + 1} name={p.nickname || p.name}
                       value={`${p.winRate}%`}
                       bar={p.winRate} maxBar={100}
                       barColor="var(--green)"
-                      sub={`${p.w || 0} wins from ${p.totalPlayed} games`}
+                      sub={`${p.wins} wins from ${p.played} games`}
                       isLast={i === winLeaders.length - 1}
                     />
                   ))}
@@ -557,22 +525,22 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               )
             ) : (
               <div style={{ marginBottom: 8 }}>
-                <LockedCard statName="Win % Leaders" gamesNeeded={4} gamesPlayed={totalGames} />
+                <LockedCard statName="Win % Leaders" gamesNeeded={4} gamesPlayed={totalGamesInPeriod} />
               </div>
             )}
 
             {/* 6. Relegation Zone */}
             <SecLabel label="Relegation Zone" />
-            {totalGames >= 4 ? (
+            {totalGamesInPeriod >= 4 ? (
               relegation.length > 0 && (
                 <LeaderCard label="Lowest Win Rate">
                   {relegation.map((p, i) => (
                     <LeaderRow
-                      key={p.id} rank={i + 1} name={p.nickname || p.name}
+                      key={p.playerId} rank={i + 1} name={p.nickname || p.name}
                       value={`${p.winRate}%`}
                       bar={100 - p.winRate} maxBar={100}
                       barColor="var(--red)"
-                      sub={`${p.w || 0} wins from ${p.totalPlayed} games`}
+                      sub={`${p.wins} wins from ${p.played} games`}
                       isLast={i === relegation.length - 1}
                     />
                   ))}
@@ -580,7 +548,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               )
             ) : (
               <div style={{ marginBottom: 8 }}>
-                <LockedCard statName="Relegation Zone" gamesNeeded={4} gamesPlayed={totalGames} />
+                <LockedCard statName="Relegation Zone" gamesNeeded={4} gamesPlayed={totalGamesInPeriod} />
               </div>
             )}
 
@@ -590,11 +558,11 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               <LeaderCard icon={CalendarCheck} label="Attendance">
                 {topAttend.map((p, i) => (
                   <LeaderRow
-                    key={p.id} rank={i + 1} name={p.nickname || p.name}
+                    key={p.playerId} rank={i + 1} name={p.nickname || p.name}
                     value={`${p.attPct}%`}
                     bar={p.attPct} maxBar={100}
                     barColor={p.attPct >= 80 ? "var(--green)" : p.attPct >= 60 ? "var(--amber)" : "var(--red)"}
-                    sub={`${p.attended} of ${totalGames} games`}
+                    sub={`${p.played} of ${totalGamesInPeriod} games`}
                     isLast={i === topAttend.length - 1}
                   />
                 ))}
@@ -669,9 +637,9 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
               <LeaderCard emoji="🟡" label="Times Taken Bibs">
                 {topBibs.map((p, i) => (
                   <LeaderRow
-                    key={p.id} rank={i + 1} name={p.nickname || p.name}
+                    key={p.playerId} rank={i + 1} name={p.nickname || p.name}
                     value={`${p.bibCount}×`}
-                    bar={p.bibCount || 0} maxBar={topBibs[0].bibCount || 1}
+                    bar={p.bibCount} maxBar={topBibs[0].bibCount || 1}
                     barColor="var(--amber)"
                     isLast={i === topBibs.length - 1}
                   />
