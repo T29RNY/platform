@@ -400,7 +400,7 @@ export default function PlayerView({
         <div style={{ padding:"0 16px 110px" }}>
 
           {/* a — Hero card */}
-          <HeroCard dayOfWeek={schedule.dayOfWeek} pricePerPlayer={schedule.pricePerPlayer} />
+          <HeroCard dayOfWeek={schedule.dayOfWeek} pricePerPlayer={schedule.pricePerPlayer} squad={squad} />
 
 
           {/* b — Response card */}

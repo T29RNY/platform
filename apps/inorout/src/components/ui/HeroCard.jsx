@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-export default function HeroCard({ dayOfWeek, pricePerPlayer }) {
+export default function HeroCard({ dayOfWeek, pricePerPlayer, squad = [] }) {
   const canvasRef = useRef(null);
   const rafRef    = useRef(null);
 
@@ -84,6 +84,9 @@ export default function HeroCard({ dayOfWeek, pricePerPlayer }) {
   }, []);
 
   const dayName = dayOfWeek ? `${dayOfWeek} Night` : "Match Night";
+  const vcs = [...squad.filter(p => p.isViceCaptain === true && !p.disabled)]
+    .sort((a, b) => (a.nickname || a.name).localeCompare(b.nickname || b.name))
+    .slice(0, 4);
 
   return (
     <div style={{
@@ -104,32 +107,57 @@ export default function HeroCard({ dayOfWeek, pricePerPlayer }) {
       }} />
 
       {/* Text overlay */}
-      <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"8px 16px 10px" }}>
-        <div style={{
-          fontSize:9, fontWeight:400, letterSpacing:"0.14em",
-          textTransform:"uppercase", color:"var(--gold)",
-        }}>
-          This Week
+      <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"8px 16px 10px",
+        display:"flex", justifyContent:"space-between", alignItems:"flex-end" }}>
+        {/* Left: existing content — unchanged */}
+        <div>
+          <div style={{
+            fontSize:9, fontWeight:400, letterSpacing:"0.14em",
+            textTransform:"uppercase", color:"var(--gold)",
+          }}>
+            This Week
+          </div>
+          <span style={{
+            display:"block",
+            fontFamily:"var(--font-display)", fontSize:24, lineHeight:1,
+            letterSpacing:"0.04em", color:"var(--t1)", fontStyle:"italic",
+            textShadow:"0 0 30px rgba(0,0,0,1)",
+          }}>
+            {dayName}
+          </span>
+          <span style={{
+            display:"block",
+            fontFamily:"var(--font-display)", fontSize:36, lineHeight:1,
+            letterSpacing:"0.04em", color:"var(--green)", fontStyle:"italic",
+            textShadow:"0 0 18px rgba(61,220,106,0.7),0 0 45px rgba(61,220,106,0.3)",
+          }}>
+            Football
+          </span>
+          {pricePerPlayer && (
+            <div style={{ fontSize:11, color:"rgba(242,240,234,0.6)", marginTop:2, fontWeight:300 }}>
+              £{pricePerPlayer} per player
+            </div>
+          )}
         </div>
-        <span style={{
-          display:"block",
-          fontFamily:"var(--font-display)", fontSize:24, lineHeight:1,
-          letterSpacing:"0.04em", color:"var(--t1)", fontStyle:"italic",
-          textShadow:"0 0 30px rgba(0,0,0,1)",
-        }}>
-          {dayName}
-        </span>
-        <span style={{
-          display:"block",
-          fontFamily:"var(--font-display)", fontSize:36, lineHeight:1,
-          letterSpacing:"0.04em", color:"var(--green)", fontStyle:"italic",
-          textShadow:"0 0 18px rgba(61,220,106,0.7),0 0 45px rgba(61,220,106,0.3)",
-        }}>
-          Football
-        </span>
-        {pricePerPlayer && (
-          <div style={{ fontSize:11, color:"rgba(242,240,234,0.6)", marginTop:2, fontWeight:300 }}>
-            £{pricePerPlayer} per player
+
+        {/* Right: ADMINS block — only when VCs exist */}
+        {vcs.length > 0 && (
+          <div style={{ textAlign:"right", paddingBottom:2 }}>
+            <div style={{
+              fontFamily:"'Bebas Neue', sans-serif", fontSize:9,
+              letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--t2)",
+              marginBottom:3,
+            }}>
+              Admins
+            </div>
+            {vcs.map(p => (
+              <div key={p.id} style={{
+                fontFamily:"'DM Sans', sans-serif", fontWeight:400, fontSize:12,
+                color:"var(--t1)", lineHeight:1.4,
+              }}>
+                {p.nickname || p.name}
+              </div>
+            ))}
           </div>
         )}
       </div>
