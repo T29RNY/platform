@@ -9,6 +9,7 @@ function initials(name) {
 
 const RANK_COLOR = { 1: "#E8A020", 2: "#A0A0A0", 3: "#CD7F32" };
 const ROW_BG     = { 1: "rgba(232,160,32,0.15)", 2: "rgba(160,160,160,0.10)", 3: "rgba(205,127,50,0.12)" };
+const STICKY_BG  = { 1: "#2A2114",              2: "#1D1D1B",               3: "#261E15"               };
 const FORM_S     = {
   W: { bg: "var(--green2)", color: "var(--green)" },
   D: { bg: "var(--amber2)", color: "var(--amber)" },
@@ -39,7 +40,7 @@ function PlayerRow({ p, bibHolder, squad }) {
   return (
     <tr style={{ height: 44, background: ROW_BG[p.rank] || "transparent", borderBottom: "0.5px solid var(--s3)" }}>
       {/* Rank — sticky left:0 */}
-      <td style={{ position: "sticky", left: 0, background: ROW_BG[p.rank] || "var(--s1)",
+      <td style={{ position: "sticky", left: 0, background: STICKY_BG[p.rank] || "var(--s1)",
         textAlign: "center", padding: "0 8px", whiteSpace: "nowrap", minWidth: 40 }}>
         {p.ranked ? (
           <span style={{ fontFamily: "var(--font-display)", fontSize: p.rank <= 3 ? 16 : 14,
@@ -52,7 +53,7 @@ function PlayerRow({ p, bibHolder, squad }) {
       </td>
 
       {/* Player — sticky left:40 (offset past Rank column) */}
-      <td style={{ position: "sticky", left: 40, background: ROW_BG[p.rank] || "var(--s1)",
+      <td style={{ position: "sticky", left: 40, background: STICKY_BG[p.rank] || "var(--s1)",
         padding: "0 12px 0 8px", whiteSpace: "nowrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ position: "relative", flexShrink: 0 }}>
