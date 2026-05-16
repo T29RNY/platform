@@ -1779,6 +1779,7 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
           new Date(matchMap[b.match_id]?.matchDate) -
           new Date(matchMap[a.match_id]?.matchDate))
         .slice(0, 5)
+        .reverse()                           // oldest left, newest right
         .map(r => r.result.toUpperCase());
 
       const ranked = played >= 3;

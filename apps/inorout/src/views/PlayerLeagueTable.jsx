@@ -10,7 +10,7 @@ function initials(name) {
 }
 
 const RANK_COLOR = { 1: "#E8A020", 2: "#A0A0A0", 3: "#CD7F32" };
-const ROW_BG     = { 1: "rgba(232,160,32,0.06)", 2: "rgba(160,160,160,0.04)", 3: "rgba(205,127,50,0.05)" };
+const ROW_BG     = { 1: "rgba(232,160,32,0.15)", 2: "rgba(160,160,160,0.10)", 3: "rgba(205,127,50,0.12)" };
 const FORM_S     = {
   W: { bg: "var(--green2)", color: "var(--green)" },
   D: { bg: "var(--amber2)", color: "var(--amber)" },
@@ -40,8 +40,9 @@ function PlayerRow({ p, bibHolder, squad }) {
 
   return (
     <tr style={{ height: 44, background: ROW_BG[p.rank] || "transparent", borderBottom: "0.5px solid var(--s3)" }}>
-      {/* Rank */}
-      <td style={{ textAlign: "center", padding: "0 8px", whiteSpace: "nowrap" }}>
+      {/* Rank — sticky left:0 */}
+      <td style={{ position: "sticky", left: 0, background: ROW_BG[p.rank] || "var(--s1)",
+        textAlign: "center", padding: "0 8px", whiteSpace: "nowrap", minWidth: 40 }}>
         {p.ranked ? (
           <span style={{ fontFamily: "var(--font-display)", fontSize: p.rank <= 3 ? 16 : 14,
             color: rColor || "var(--t2)", lineHeight: 1 }}>
@@ -52,8 +53,8 @@ function PlayerRow({ p, bibHolder, squad }) {
         )}
       </td>
 
-      {/* Player — sticky left */}
-      <td style={{ position: "sticky", left: 0, background: ROW_BG[p.rank] || "var(--bg)",
+      {/* Player — sticky left:40 (offset past Rank column) */}
+      <td style={{ position: "sticky", left: 40, background: ROW_BG[p.rank] || "var(--s1)",
         padding: "0 12px 0 8px", whiteSpace: "nowrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ position: "relative", flexShrink: 0 }}>
@@ -132,7 +133,7 @@ function PlayerRow({ p, bibHolder, squad }) {
 }
 
 export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] }) {
-  const [period,    setPeriod]    = useState("all");
+  const [period,    setPeriod]    = useState("season");
   const [tableData, setTableData] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
@@ -151,7 +152,8 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
   const unranked = tableData.filter(p => !p.ranked);
 
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div style={{ marginBottom: 16, border: "0.5px solid var(--s3)", borderRadius: 12,
+      padding: 16, background: "var(--s1)" }}>
       <style>{`@keyframes ioo-plt-pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}`}</style>
 
       {/* Header */}
@@ -223,7 +225,8 @@ export default function PlayerLeagueTable({ teamId, squad = [], bibHistory = [] 
                     color: "var(--t2)", fontWeight: 400,
                     textAlign: col === "Player" ? "left" : "center",
                     padding: "6px 8px 8px", whiteSpace: "nowrap",
-                    ...(col === "Player" && { position: "sticky", left: 0, background: "var(--bg)" }),
+                    ...(col === "Rank"   && { position: "sticky", left: 0,  background: "var(--s1)", minWidth: 40 }),
+                    ...(col === "Player" && { position: "sticky", left: 40, background: "var(--s1)" }),
                   }}>
                     {col}
                   </th>
