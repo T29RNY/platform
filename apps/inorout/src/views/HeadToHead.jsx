@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, UploadSimple, SoccerBall, TShirt, UsersThree, Lightning, Trophy, Star, User } from "@phosphor-icons/react";
-import { getHeadToHead } from "@platform/core";
+import { getHeadToHead, getPlayerLeagueTable } from "@platform/core";
 
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
@@ -113,24 +113,35 @@ function SkeletonBars() {
   );
 }
 
-export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
-  const [period,  setPeriod]  = useState("season");
-  const [h2hData, setH2hData] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function HeadToHead({ me, them, teamId, tableData, onClose, initialPeriod = 'season' }) {
+  const [period,         setPeriod]         = useState(initialPeriod);
+  const [h2hData,        setH2hData]        = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [modalTableData, setModalTableData] = useState(tableData);
 
   useEffect(() => {
     if (!me?.id || !them?.id || !teamId) return;
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const result = await getHeadToHead(me.id, them.id, teamId);
+      const result = await getHeadToHead(me.id, them.id, teamId, period);
       if (!cancelled) {
         setH2hData(result);
         setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [me?.id, them?.id, teamId]);
+  }, [me?.id, them?.id, teamId, period]);
+
+  useEffect(() => {
+    if (!teamId) return;
+    let cancelled = false;
+    (async () => {
+      const { players } = await getPlayerLeagueTable(teamId, period);
+      if (!cancelled) setModalTableData(players);
+    })();
+    return () => { cancelled = true; };
+  }, [teamId, period]);
 
   const verdict     = h2hData?.mainVerdict || "early_days";
   const vs          = VERDICT_STYLE[verdict] || VERDICT_STYLE.early_days;
@@ -296,7 +307,9 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
               </div>
               {t.games === 0 ? (
                 <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)", padding: "8px 0" }}>
-                  You&apos;ve never been teammates yet.
+                  {period === 'month'  ? "You haven't been on the same team this month"
+                 : period === 'season' ? "You haven't been on the same team this season"
+                 : "You've never been teammates yet."}
                 </div>
               ) : (
                 <>
@@ -425,7 +438,9 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
               </div>
               {ag.games === 0 ? (
                 <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)", padding: "8px 0" }}>
-                  You&apos;ve never been on opposite teams yet.
+                  {period === 'month'  ? "You haven't been on opposite teams this month"
+                 : period === 'season' ? "You haven't been on opposite teams this season"
+                 : "You've never been on opposite teams yet."}
                 </div>
               ) : (
                 <>
@@ -643,9 +658,9 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
 
         {/* ─── Section 4 — OVERALL COMPARISON ────────────────────────────── */}
         {hasData && (() => {
-          const meRow   = (tableData || []).find(p => p.playerId === me?.id);
-          const themRow = (tableData || []).find(p => p.playerId === them?.id);
-          // Player not in current period tableData
+          const meRow   = (modalTableData || []).find(p => p.playerId === me?.id);
+          const themRow = (modalTableData || []).find(p => p.playerId === them?.id);
+          // Player not in current period modalTableData
           if (!meRow || !themRow) return null;
 
           const meGoalsPG   = meRow.played   > 0 ? (meRow.goals   / meRow.played).toFixed(2)   : "0.00";

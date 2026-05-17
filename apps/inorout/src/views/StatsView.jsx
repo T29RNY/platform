@@ -768,6 +768,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
             them={h2hPlayer}
             teamId={teamId}
             tableData={tableData}
+            initialPeriod={period}
             onClose={() => setH2hPlayer(null)}
           />
         );

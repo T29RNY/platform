@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { hasGoalData, resolveDominantType } from "../engine/scoring.js";
+import { hasGoalData, resolveDominantType, periodCutoff } from "../engine/scoring.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1683,13 +1683,7 @@ export async function disablePlayer(playerId, teamId, disabled, changedBy = null
 export async function getPlayerLeagueTable(teamId, period = 'all') {
   try {
     // Step 1 — Date cutoff
-    const now = new Date();
-    let cutoff = null;
-    if (period === 'month') {
-      cutoff = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    } else if (period === 'season') {
-      cutoff = `${now.getFullYear()}-01-01`;
-    }
+    const cutoff = periodCutoff(period);
 
     // Step 2 — Matches within period (for stats)
     let matchQuery = supabase
@@ -1848,14 +1842,29 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
   }
 }
 
-export async function getHeadToHead(meId, themId, teamId) {
+export async function getHeadToHead(meId, themId, teamId, period = 'all') {
   try {
-    // Query 1 — all uncancelled matches for this team
-    const { data: matchData, error: matchErr } = await supabase
+    const cutoff = periodCutoff(period);
+
+    // Query 1a — all-time matches for dominantType (team-wide style, not period-scoped)
+    const { data: allTimeMatchData, error: allTimeErr } = await supabase
       .from('matches')
       .select('id, match_date, score_a, score_b, winner, score_type, cancelled')
       .eq('team_id', teamId)
       .neq('cancelled', true);
+    if (allTimeErr) throw allTimeErr;
+
+    // Detect dominant scoring style from all-time data
+    const dominantType = resolveDominantType(allTimeMatchData);
+
+    // Query 1b — period-filtered matches for all stats
+    let matchQuery = supabase
+      .from('matches')
+      .select('id, match_date, score_a, score_b, winner, score_type, cancelled')
+      .eq('team_id', teamId)
+      .neq('cancelled', true);
+    if (cutoff) matchQuery = matchQuery.gte('match_date', cutoff);
+    const { data: matchData, error: matchErr } = await matchQuery;
     if (matchErr) throw matchErr;
 
     const matchMap = {};
@@ -1869,9 +1878,6 @@ export async function getHeadToHead(meId, themId, teamId) {
       };
     }
 
-    // Detect dominant scoring style (last 20 matches, 70% threshold)
-    const dominantType = resolveDominantType(matchData);
-
     // Query 2 — all attended rows for both players
     const { data: pmData, error: pmErr } = await supabase
       .from('player_match')
@@ -1881,8 +1887,12 @@ export async function getHeadToHead(meId, themId, teamId) {
       .eq('attended', true);
     if (pmErr) throw pmErr;
 
-    const meRows   = (pmData || []).filter(r => r.player_id === meId);
-    const themRows = (pmData || []).filter(r => r.player_id === themId);
+    let meRows   = (pmData || []).filter(r => r.player_id === meId);
+    let themRows = (pmData || []).filter(r => r.player_id === themId);
+
+    // Restrict to period-filtered matches so all downstream counts are period-scoped
+    meRows   = meRows.filter(r => matchMap[r.match_id]);
+    themRows = themRows.filter(r => matchMap[r.match_id]);
 
     const meMatchIds   = new Set(meRows.map(r => r.match_id));
     const themMatchIds = new Set(themRows.map(r => r.match_id));

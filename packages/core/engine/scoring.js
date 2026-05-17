@@ -31,3 +31,10 @@ export function resolveDominantType(matches, opts = {}) {
 
   return 'exact';
 }
+
+export function periodCutoff(period) {
+  const now = new Date();
+  if (period === 'month')  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  if (period === 'season') return `${now.getFullYear()}-01-01`;
+  return null;
+}
