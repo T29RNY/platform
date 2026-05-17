@@ -506,14 +506,18 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
 
           // ── Section 3 — YOU MAKE THEM BETTER ────────────────────────────
           const CHEM_STYLE = {
-            good_luck_charm: { border: "var(--goldb)",  color: "var(--gold)" },
-            bad_influence:   { border: "var(--redb)",   color: "var(--red)"  },
-            no_effect:       { border: "var(--s3)",     color: "var(--t2)"  },
+            good_luck_charm: { border: "var(--goldb)",  color: "var(--gold)"  },
+            bad_influence:   { border: "var(--redb)",   color: "var(--red)"   },
+            asymmetric:      { border: "var(--amberb)", color: "var(--amber)" },
+            no_effect:       { border: "var(--s3)",     color: "var(--t2)"   },
+            building:        { border: "var(--s3)",     color: "var(--t2)"   },
           };
           const CHEM_LABEL = {
             good_luck_charm: "⭐ Good luck charm",
             bad_influence:   "👎 Bad influence",
+            asymmetric:      "↕ Asymmetric",
             no_effect:       "➖ No clear effect",
+            building:        "🌱 Building",
           };
           const chemV  = h2hData.chemistryVerdict || "no_effect";
           const chemSt = CHEM_STYLE[chemV] || CHEM_STYLE.no_effect;
@@ -561,6 +565,45 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
                   </span>
                 </div>
               </div>
+
+              {/* Delta rows */}
+              {(() => {
+                function fmtDelta(d) {
+                  if (d == null) return <span style={{ color: "var(--t2)" }}>—</span>;
+                  const sign = d > 0 ? "+" : "";
+                  return (
+                    <span style={{ color: d > 0 ? "var(--green)" : d < 0 ? "var(--red)" : "var(--t1)" }}>
+                      {sign}{d}pp
+                    </span>
+                  );
+                }
+                return (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        <Lightning size={16} weight="thin" color="var(--t2)" />
+                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
+                          {meName}&apos;s effect on {themName}
+                        </span>
+                      </div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, textAlign: "right", marginLeft: 12 }}>
+                        {fmtDelta(ch.myEffectDelta)}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        <Lightning size={16} weight="thin" color="var(--t2)" />
+                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
+                          {themName}&apos;s effect on {meName}
+                        </span>
+                      </div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 13, textAlign: "right", marginLeft: 12 }}>
+                        {fmtDelta(ch.themEffectDelta)}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* POTM rivalry */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0" }}>
