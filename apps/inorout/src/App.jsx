@@ -411,7 +411,7 @@ export default function App() {
         return;
       }
       // New player — create with auth user_id
-      const player = await addPlayerToTeam(name, joinTeam.id, authUser.id);
+      const player = await addPlayerToTeam(name, joinTeam.id, { userId: authUser.id });
       setJoinedPlayer(player);
     } catch(e) {
       setJoinError(e.message || "Something went wrong.");

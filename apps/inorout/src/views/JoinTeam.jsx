@@ -181,8 +181,14 @@ function NameStep({ team, onSubmit, loading, error, prefillName }) {
 // Main JoinTeam component — orchestrates the steps
 export default function JoinTeam({ team, authUser, onNameSubmit, loading, error, prefillName, checking }) {
   useEffect(() => {
-    const path = window.location.pathname;
-    localStorage.setItem("ioo_redirect_to", JSON.stringify({ path, ts: Date.now() }));
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone =
+      window.navigator.standalone === true ||
+      window.matchMedia("(display-mode: standalone)").matches;
+    if (isIOS && !isStandalone) {
+      const path = window.location.pathname;
+      localStorage.setItem("ioo_redirect_to", JSON.stringify({ path, ts: Date.now() }));
+    }
   }, []);
 
   return (

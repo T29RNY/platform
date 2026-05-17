@@ -340,7 +340,7 @@ function DesktopInstructions({ joinUrl }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function JoinSuccess({ player, team }) {
   const playerUrl  = player?.token ? `/p/${player.token}` : "/";
-  const joinUrl    = `in-or-out.com/join/${team?.join_code || team?.id || ""}`;
+  const joinUrl    = `https://www.in-or-out.com/join/${team?.join_code || team?.id || ""}`;
   const platform   = detectPlatform();
 
   // Already installed — skip this screen

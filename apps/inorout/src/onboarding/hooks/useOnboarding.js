@@ -154,9 +154,6 @@ export function useOnboarding({ onComplete }) {
         created.push({ id: pid, name: name.trim(), token });
       }
 
-      // Mark onboarding complete
-      await supabase.from("teams").update({ onboarding_complete: true }).eq("id", teamId);
-
       setPlayers(created);
       setStep(3);
     } catch (e) {

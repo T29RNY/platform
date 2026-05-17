@@ -349,7 +349,7 @@ export async function addPlayerToTeam(name, teamId, options = {}) {
     goals:0, motm:0, attended:0, total:0,
     bib_count:0, team:null, w:0, l:0, d:0,
     pay_count:0, late_dropouts:0, note:"", self_paid:false,
-    token, user_id: null,
+    token, user_id: options.userId || null,
   };
   const { error: pErr } = await supabase.from("players").insert(row);
   if (pErr) throw pErr;
