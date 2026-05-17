@@ -939,6 +939,8 @@ all have venue contracts. Sticky but beatable on product quality.
 | `player_career` mostly empty | Only `total_bib_count` ever written; 11 other career fields permanently empty | Phase 2 |
 | `owes` double-increment risk | Two paths can add to owes (draftNextWeek + updatePlayerRecords); `draftNextWeek` is dead code but risk remains if re-enabled | Low |
 | `packages/core/engine/scoring.js` file name | Hosts `periodCutoff` (non-scoring helper) alongside scoring helpers. Rename to broader name (e.g. `stats-helpers.js`) when file grows further | Low |
+| `/create` flow has no auth gate | Team creation works without sign-in. Means `team_admins` insert can't reliably capture user_id in submitTeam. Fix: redirect unauthenticated users to sign-in before /create, return them after. Do before building team_admins. | Pre-Stage 2 |
+| `team_demo` has no `team_admins` row | Demo team predates the table. Switcher won't show it for Tarny until backfilled. Backfill in Session 24 after table is created. | Low |
 
 ---
 
@@ -1664,14 +1666,19 @@ Audit of /create + /join code revealed four issues. All fixed in one commit:
 8. `feat(h2h): wire up period selector — month/season/all-time filtering` (Part 4B)
 9. `fix(join): pre-launch hardening for /create + /join` (4 fixes)
 10. `fix(myio): guard InsightCard body renderer against non-React-element children` (d387c58) — affects any player with 8+ games; numbers passed as bare JSX fragment children threw TypeError on .props.children; fix extends primitive guard to include !child?.props
+11. `fix(myio): guard InsightCard body renderer` — already noted as d387c58
+12. `fix(demo): rename demo team to 5-a-Side FC` — 878898e
 
-**Next session (Session 24) — start with:**
-1. Post-mortem on Tuesday May 19 launch (Finbar's Tuesdays first real match)
-2. Visual sanity check on in-or-out.com/demoadmin — confirm all H2H sections render across periods after H2H rewrites
-3. Android install screenshots for JoinSuccess.jsx (placeholders still in place)
-4. Demo data rebuild: mix score_types (15 exact / 5 margin / 2 declared), realistic absence patterns, players with solo games so chemistry/reliability actually exercise on demo team
-5. Post-launch backlog: Weekly Dressing Room, venue save + dynamic price calculator, BibsScreen redesign
-6. Stage 2 prep: Monday Footy (team_mfw3hhu6) — May 26 onboarding
+**Session 24 (start here):**
+Priority order:
+1. Auth-gate /create — require sign-in before onboarding starts
+2. team_admins table + onboarding write (admin role only)
+3. VC per-team migration assessment — tackle or defer to Phase 2
+4. Demo data rebuild — mixed score_types, realistic absences
+5. Onboarding end-to-end test (create Finbar's fresh)
+6. iPad join test — /join/team_finbars on clean Safari
+7. Android install screenshots
+8. Tuesday standby kit + WhatsApp to Finbar's admin
 
 **Supabase SQL still to run (if not done):**
 ```sql
