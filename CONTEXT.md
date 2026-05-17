@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 16 2026 (session 23)*
+*Last updated: May 17 2026 (session 23)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -98,7 +98,7 @@ platform/
             ScheduleScreen.jsx  ← rebuilt session 13: MATCH SETTINGS, pickers, computed next matchday, bibs, Nominatim, opens helper, upsert save; notification toggles (10 triggers incl. teamsConfirmed) added session 21
           InstallBanner.jsx
           PWAWelcome.jsx
-          HeadToHead.jsx       ← session 22: head to head comparison modal; 5 sections; wired to PlayerLeagueTable tap target
+          HeadToHead.jsx       ← session 22–23: head to head comparison modal; 5 sections; period selector wired + chemistry 5-verdict system + reliability null bar (session 23); wired to PlayerLeagueTable tap target
           JoinTeam.jsx
           JoinSuccess.jsx       ← rebuilt session 8, PWA install screen (platform-detected)
           AuthCallback.jsx
@@ -134,6 +134,7 @@ platform/
       engine/attendance.js
       engine/payments.js
       engine/squad.js
+      engine/scoring.js      ← hasGoalData, resolveDominantType, periodCutoff (added session 23)
       storage/supabase.js    ← ALL Supabase queries
     ui/
       index.jsx
@@ -545,7 +546,7 @@ matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, b
 - getNemesis(playerId, teamId) → [{ playerId, name, games, lossRate }]
 - getBestPartnership(playerId, teamId) → [{ playerId, name, games, winRate }]
 - getPOTMVoteStats(playerId, teamId) → wrapped in try/catch (table may not exist)
-- getPlayerLeagueTable(teamId, period) → full ranked player table; period='month'|'season'|'all'; ranks by points(W×3+D)→goals→winRate→potm→name; reliability null if played<3; form = last 5 W/D/L; returns [{playerId, name, nickname, injured, played, wins, draws, losses, points, winRate, goals, potm, reliability, form, ranked, rank}]; guests/disabled excluded; reliability denominator uses all-time match dates since player.created_at regardless of period
+- getPlayerLeagueTable(teamId, period) → full ranked player table; period='month'|'season'|'all'; ranks by points(W×3+D)→goals→winRate→potm→name; reliability null if allTimePlayed<3; form = last 5 W/D/L; returns [{playerId, name, nickname, injured, played, wins, draws, losses, points, winRate, goals, potm, reliability, form, ranked, rank}]; guests/disabled excluded; reliability is fully period-independent: Step 3b runs a separate all-time attended query (playedAllTime map); both numerator (allTimePlayed) and denominator (totalTeamGames) are all-time counts — reliability is a player trait, not a period stat
 - submitPOTMVote(matchId, teamId, voterId, nomineeId) → {ok} or {error:"already_voted"} on UNIQUE violation
 - getPOTMVotes(matchId) → [{voter_id, nominee_id}]
 - getPOTMEligiblePlayers(matchId, teamId) → [{id, name, team}] — two-query pattern (player_match then players)
@@ -739,7 +740,7 @@ Both can run; both add to `owes`. No deduplication.
 | Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
 | Stats rewrite (player_match) | ✅ Done | Session 22: all player leaderboards read from player_match via getPlayerLeagueTable; period-filtered insight tiles |
 | Payment ledger dedup | ✅ Done | Session 22: createLedgerEntry resilient insert + 23505 conflict recovery; PostgREST upsert partial-index limitation |
-| Head to Head card | ✅ Done | Session 22: getHeadToHead backend (2 queries, JS computation), HeadToHead.jsx modal (5 sections), league table tap wiring |
+| Head to Head card | ✅ Done | Session 22: getHeadToHead backend (2 queries, JS computation), HeadToHead.jsx modal (5 sections), league table tap wiring; Session 23: period selector wired (periodCutoff + two-query pattern), chemistry 5-verdict system, reliability null bar, modalTableData state, initialPeriod prop |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
 | Join/login redesign | 🔲 Pre-launch | |
@@ -909,6 +910,9 @@ all have venue contracts. Sticky but beatable on product quality.
 - Head to Head data: all derived from `player_match` via 2 queries + JS computation, no new tables; `getHeadToHead` returns `null` on error; verdict thresholds: `> 55%` win rate = `better_together`, `> 1.5x` wins = `nemesis`/`you_own_them`, `> 10%` delta = chemistry effect
 - League table tap target activates H2H for v1; IO Intelligence cards and teams tile deferred to Phase 2
 - `myId` is required for H2H — league table rows are non-tappable when viewer has no player identity (pure admin without squad account); `!!myId` guard in PlayerLeagueTable; `me &&` guard in StatsView before mounting HeadToHead; `myId` must be passed to BOTH the top-level `<StatsView>` render AND PlayerView's internal `<StatsView>` (the admin stats-tab route uses PlayerView's internal render)
+- `getHeadToHead` uses two-query pattern for dominantType: Query 1a all-time feeds `resolveDominantType`, Query 1b period-filtered feeds all stats via `matchMap`; dominantType must see all matches to be stable across periods — if it used only period data it would flip between 'exact' and 'margin' as the period changed
+- `meRows`/`themRows` in `getHeadToHead` are filtered by `matchMap` membership immediately after Query 2 (the all-time `player_match` fetch); `matchMap` contains only period-filtered match IDs and is the single period-gating point — all downstream computation (sharedMatchIds, partition, chemistry baselines, verdicts, recentShared) inherits period scope automatically
+- Reliability in `getPlayerLeagueTable` is period-independent: numerator (`allTimePlayed`) and denominator (`totalTeamGames`) both use all-time queries; Step 3b separate all-time attended query added to support this; makes reliability a player trait not a period stat
 
 ---
 
@@ -1542,11 +1546,48 @@ Vice Captain + Manage Squad feature — full 8-stage build.
 - `getPlayerLeagueTable` line 1701 early return was `return []` (bare array) — fixed to `return { players: [], totalGamesInPeriod: 0 }` to match destructuring in StatsView
 - PostgREST upsert with partial unique indexes: fails with `42P10`; indexes exist in DB but PostgREST generates bare `ON CONFLICT (cols)` without the required `WHERE` predicate
 
-**Next session (Session 23) — start with:**
-1. H2H visual polish (review mockup vs output, adjust spacing/colours)
-2. /join/team_finbars end-to-end on clean iPhone
-3. Android install screenshots for JoinSuccess.jsx
-4. Tuesday May 19 standby prep
+**Session 23 (May 17 2026):**
+H2H feature-complete rewrite — period selector wiring, chemistry 5-verdict system, reliability null bar, full Section 4B wiring.
+
+**Shared infrastructure:**
+- `periodCutoff(period)` added to `packages/core/engine/scoring.js` — maps 'month'→first day of calendar month, 'season'→YYYY-01-01, null for 'all'; barrels automatically via `export *` in index.js
+- `getHeadToHead` extended to 4-param signature `(meId, themId, teamId, period='all')`; two-query pattern: Query 1a all-time → `resolveDominantType` (must see all matches to stay stable); Query 1b period-filtered → all stats via `matchMap`
+- Critical patch: `meRows`/`themRows` filtered by `matchMap` membership immediately after Query 2; `matchMap` is the single period-gating point; all downstream (sharedMatchIds, partition, chemistry baselines, verdicts, recentShared) inherits period scope automatically
+- `getPlayerLeagueTable` Step 3b: separate all-time attended query added; reliability numerator changed from period-filtered `played` to `allTimePlayed`; both numerator and denominator now all-time → reliability is a player trait, not a period stat
+
+**HeadToHead.jsx:**
+- `initialPeriod` prop added; StatsView passes its own `period` so first render starts on correct period
+- `modalTableData` local state initialized from `tableData` prop (avoids Section 4 flash), refetched via `getPlayerLeagueTable(teamId, period)` on period change
+- Period in `useEffect` deps; `getHeadToHead` called with 4 args; second useEffect for modal data refetch
+- Sections 1 and 2: period-aware empty state strings (month/season/all variants)
+- Section 3: `CHEM_STYLE` filled for all 5 verdicts (good_luck_charm=gold, bad_influence=red, asymmetric=amber, no_effect/building=s3/t2); `CHEM_LABEL` adds asymmetric "↕ Asymmetric" and building "🌱 Building"; delta rows show `myEffectDelta`/`themEffectDelta` via `fmtDelta()` (positive→green +Xpp, negative→red −Xpp, null→—)
+- Section 4: `noBar` flag on Reliability row suppresses inner colored div when either player's reliability is null; outer `var(--s3)` track still renders for layout consistency
+- Section 4 uses `modalTableData` instead of `tableData` prop directly
+
+**StatsView.jsx:** `initialPeriod={period}` added to `<HeadToHead>` render
+
+**Chemistry 5-verdict system:**
+- `building`: `gamesTogether<3 || meNonShared<3 || themNonShared<3` (sample floor — not enough data)
+- `good_luck_charm`: both `myEffectDelta≥+10` and `themEffectDelta≥+10`
+- `bad_influence`: both deltas `≤-10`
+- `asymmetric`: signs differ and `|max|≥10`
+- `no_effect`: both deltas within ±10
+
+**Demo data caveat:** all 25 demo players have `created_at: 2026-05-13` which post-dates all seed match dates (Sep 2025–May 2026); `totalTeamGames = allTeamMatchDates.filter(d >= joinDate).length = 0` → reliability always null in demo. Not a code bug — seeding limitation. Production teams unaffected.
+
+**Key gotchas from session 23:**
+- vite-node scripts must run from repo root `/Users/tarny/platform/` — `/tmp/` paths fail to resolve `./packages/core/...` relative imports
+- `getHeadToHead` result shape: `chemistryVerdict` is a top-level key on the result, not nested inside a `chemistry` object
+- `export *` in `packages/core/index.js` means any new named export from `scoring.js` automatically barrels — no index.js edit needed
+- `scoring.js` now hosts non-scoring helpers (`periodCutoff`) — consider renaming to `helpers.js` or `utils.js` in a future session
+
+**Commits (session 23):** cc1e2b5 (Section 3 full audit), ba3628d (4A reliability + null bar), db52030 (4B period wiring + patch)
+
+**Next session (Session 24) — start with:**
+1. /join/team_finbars end-to-end on clean iPhone
+2. JoinSuccess.jsx install instructions + Android screenshots
+3. Tuesday May 19 standby prep
+4. H2H visual polish (review rendered output vs mockup)
 5. Weekly Dressing Room / matchday card (viral loop feature)
 6. Venue save + dynamic price calculator (Phase 1.5)
 
