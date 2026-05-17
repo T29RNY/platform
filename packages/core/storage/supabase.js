@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { hasGoalData, resolveDominantType } from "../engine/scoring.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1840,15 +1841,24 @@ export async function getHeadToHead(meId, themId, teamId) {
     // Query 1 — all uncancelled matches for this team
     const { data: matchData, error: matchErr } = await supabase
       .from('matches')
-      .select('id, match_date, score_a, score_b, winner')
+      .select('id, match_date, score_a, score_b, winner, score_type, cancelled')
       .eq('team_id', teamId)
       .neq('cancelled', true);
     if (matchErr) throw matchErr;
 
     const matchMap = {};
     for (const m of (matchData || [])) {
-      matchMap[m.id] = { matchDate: m.match_date, scoreA: m.score_a, scoreB: m.score_b, winner: m.winner };
+      matchMap[m.id] = {
+        matchDate: m.match_date,
+        scoreA:    m.score_a,
+        scoreB:    m.score_b,
+        winner:    m.winner,
+        scoreType: m.score_type,
+      };
     }
+
+    // Detect dominant scoring style (last 20 matches, 70% threshold)
+    const dominantType = resolveDominantType(matchData);
 
     // Query 2 — all attended rows for both players
     const { data: pmData, error: pmErr } = await supabase
@@ -1893,31 +1903,51 @@ export async function getHeadToHead(meId, themId, teamId) {
     const winRateTogether = gamesTogether > 0
       ? Math.round((winsTogether / gamesTogether) * 100) : 0;
 
-    const myGoalsTogether   = togetherMatches.reduce((s, m) => s + (m.me.goals   || 0), 0);
-    const theirGoalsTogether = togetherMatches.reduce((s, m) => s + (m.them.goals || 0), 0);
+    const exactTogetherMatches = togetherMatches.filter(m => hasGoalData(m.scoreType));
+    const myGoalsTogether    = exactTogetherMatches.reduce((s, m) => s + (m.me.goals   || 0), 0);
+    const theirGoalsTogether = exactTogetherMatches.reduce((s, m) => s + (m.them.goals || 0), 0);
     const combinedGoals      = myGoalsTogether + theirGoalsTogether;
     const bibsTogether       = togetherMatches.filter(m => m.me.had_bibs || m.them.had_bibs).length;
+    const potmMeTogether     = togetherMatches.filter(m => m.me.was_motm).length;
+    const potmThemTogether   = togetherMatches.filter(m => m.them.was_motm).length;
 
-    const togetherTotalGoals = togetherMatches.reduce((s, m) => {
+    const scoredTogetherMatches = togetherMatches.filter(m => m.scoreA != null && m.scoreB != null);
+    const outcomeSum = scoredTogetherMatches.reduce((s, m) => {
+      const diff = m.me.team_assignment === 'A'
+        ? (m.scoreA - m.scoreB)
+        : (m.scoreB - m.scoreA);
+      return s + diff;
+    }, 0);
+    const outcomeAvg = scoredTogetherMatches.length > 0
+      ? Math.round((outcomeSum / scoredTogetherMatches.length) * 10) / 10
+      : null;
+
+    const togetherTotalGoals = exactTogetherMatches.reduce((s, m) => {
       const sa = m.scoreA != null ? m.scoreA : 0;
       const sb = m.scoreB != null ? m.scoreB : 0;
       return s + sa + sb;
     }, 0);
-    const goalThreatTogether = gamesTogether > 0
-      ? Math.round((togetherTotalGoals / gamesTogether) * 10) / 10 : null;
+    const goalThreatTogetherCount = exactTogetherMatches.length;
+    const goalThreatTogether = goalThreatTogetherCount > 0
+      ? Math.round((togetherTotalGoals / goalThreatTogetherCount) * 10) / 10
+      : null;
 
     // "Apart" = matches where only me attended (not them)
     const meOnlyMatchIds = [...meMatchIds].filter(id => !themMatchIds.has(id));
-    const apartTotalGoals = meOnlyMatchIds.reduce((s, id) => {
+    const exactMeOnlyMatchIds = meOnlyMatchIds.filter(id => hasGoalData(matchMap[id]?.scoreType));
+    const apartTotalGoals = exactMeOnlyMatchIds.reduce((s, id) => {
       const md = matchMap[id];
       if (!md) return s;
       return s + (md.scoreA != null ? md.scoreA : 0) + (md.scoreB != null ? md.scoreB : 0);
     }, 0);
-    const goalThreatApart = meOnlyMatchIds.length > 0
-      ? Math.round((apartTotalGoals / meOnlyMatchIds.length) * 10) / 10 : null;
+    const goalThreatApartCount = exactMeOnlyMatchIds.length;
+    const goalThreatApart = goalThreatApartCount > 0
+      ? Math.round((apartTotalGoals / goalThreatApartCount) * 10) / 10
+      : null;
 
     // ── Section 2: Against ──────────────────────────────────────────────────
     const gamesAgainst    = againstMatches.length;
+    const gamesBothPlayed = gamesTogether + gamesAgainst;
     const meWins          = againstMatches.filter(m => m.me.result === 'w').length;
     const againstDraws    = againstMatches.filter(m => m.me.result === 'd').length;
     const theirWins       = againstMatches.filter(m => m.me.result === 'l').length;
@@ -1999,17 +2029,23 @@ export async function getHeadToHead(meId, themId, teamId) {
 
     return {
       together: {
-        games:              gamesTogether,
-        wins:               winsTogether,
-        draws:              drawsTogether,
-        losses:             lossesTogether,
-        winRate:            winRateTogether,
+        games:                     gamesTogether,
+        wins:                      winsTogether,
+        draws:                     drawsTogether,
+        losses:                    lossesTogether,
+        winRate:                   winRateTogether,
         combinedGoals,
-        myGoals:            myGoalsTogether,
-        theirGoals:         theirGoalsTogether,
-        bibs:               bibsTogether,
+        myGoals:                   myGoalsTogether,
+        theirGoals:                theirGoalsTogether,
+        bibs:                      bibsTogether,
         goalThreatTogether,
+        goalThreatTogetherCount,
         goalThreatApart,
+        goalThreatApartCount,
+        potmMe:                    potmMeTogether,
+        potmThem:                  potmThemTogether,
+        outcomeAvg,
+        gamesBothPlayed,
       },
       against: {
         games:       gamesAgainst,
@@ -2031,6 +2067,7 @@ export async function getHeadToHead(meId, themId, teamId) {
       recentShared,
       mainVerdict,
       chemistryVerdict,
+      dominantType,
       totalSharedGames,
     };
   } catch (e) {
