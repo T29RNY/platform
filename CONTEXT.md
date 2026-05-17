@@ -98,6 +98,7 @@ platform/
             ScheduleScreen.jsx  ← rebuilt session 13: MATCH SETTINGS, pickers, computed next matchday, bibs, Nominatim, opens helper, upsert save; notification toggles (10 triggers incl. teamsConfirmed) added session 21
           InstallBanner.jsx
           PWAWelcome.jsx
+          HeadToHead.jsx       ← session 22: head to head comparison modal; 5 sections; wired to PlayerLeagueTable tap target
           JoinTeam.jsx
           JoinSuccess.jsx       ← rebuilt session 8, PWA install screen (platform-detected)
           AuthCallback.jsx
@@ -738,6 +739,7 @@ Both can run; both add to `owes`. No deduplication.
 | Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
 | Stats rewrite (player_match) | ✅ Done | Session 22: all player leaderboards read from player_match via getPlayerLeagueTable; period-filtered insight tiles |
 | Payment ledger dedup | ✅ Done | Session 22: createLedgerEntry resilient insert + 23505 conflict recovery; PostgREST upsert partial-index limitation |
+| Head to Head card | ✅ Done | Session 22: getHeadToHead backend (2 queries, JS computation), HeadToHead.jsx modal (5 sections), league table tap wiring |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
 | Join/login redesign | 🔲 Pre-launch | |
@@ -904,6 +906,9 @@ all have venue contracts. Sticky but beatable on product quality.
 - Period filtering in StatsView: `getPlayerLeagueTable` handles player stats; `matchHistory` is filtered client-side by `periodCutoff` date string for insight tiles; both cutoffs must use the same date format (`YYYY-MM-DD`)
 - `addPlayerToTeam` is the correct function for admin-adding players from SquadScreen — writes both `players` row and `team_players` link, generates token; `upsertPlayer` does NOT write `team_players` and must not be used for this purpose
 - Returning player join: auto-link via upsert on `team_players` (`onConflict: team_id,player_id`), skip NameStep, preserve existing name from DB; NameStep only shown for brand new players (no existing `user_id` in DB)
+- Head to Head data: all derived from `player_match` via 2 queries + JS computation, no new tables; `getHeadToHead` returns `null` on error; verdict thresholds: `> 55%` win rate = `better_together`, `> 1.5x` wins = `nemesis`/`you_own_them`, `> 10%` delta = chemistry effect
+- League table tap target activates H2H for v1; IO Intelligence cards and teams tile deferred to Phase 2
+- `myId` is required for H2H — league table rows are non-tappable when viewer has no player identity (pure admin without squad account); `!!myId` guard in PlayerLeagueTable; `me &&` guard in StatsView before mounting HeadToHead; `myId` must be passed to BOTH the top-level `<StatsView>` render AND PlayerView's internal `<StatsView>` (the admin stats-tab route uses PlayerView's internal render)
 
 ---
 
@@ -1522,17 +1527,28 @@ Vice Captain + Manage Squad feature — full 8-stage build.
 - Bug fix: Returning players joining a new team via `/join/CODE` now skip NameStep entirely — Part A `useEffect` detects existing player via `findPlayerByEmail`, upserts `team_players` link (`onConflict: team_id,player_id`), sets `joinedPlayer` directly, JoinSuccess renders immediately; no cross-team name change risk; new players still see NameStep
 - Bug fix: `addPlayerToTeam` now returns `dbToPlayer(row)` — callers receive a squad-ready JS object with real DB `id` and `token`
 
+**Head to Head feature (session 22):**
+- Backend: `getHeadToHead(meId, themId, teamId)` — Query 1: all matches (with `score_a`, `score_b`, `match_date`); Query 2: all attended `player_match` rows for both players; partitions into `togetherMatches` + `againstMatches` + non-shared solo rows; all stats computed in JS
+- Section 1 — When You Play Together: games/W/D/L/winRate, combined goals per player, goal threat (avg total goals together vs apart), bib magnet count; zero-state when no together games
+- Section 2 — When You Face Each Other: games/results/goals/current streak (sorted by match_date descending), insight callout; zero-state when never opposed
+- Section 3 — You Make Them Better: win rate with vs without (both directions), POTM rivalry in shared games, chemistry verdict pill; hidden entirely when `totalSharedGames < 3`
+- Section 4 — Overall Comparison: mirrored bar chart (green left, red right) for win rate / goals per game / POTM / reliability; data from `tableData` (no extra query); skipped silently if either player absent from current period
+- Section 5 — Recent Shared Matches: horizontal scroll row of up to 5 cards; date, score, together/opposed emoji label, W/D/L result chip
+- Verdicts: `better_together` / `nemesis` / `you_own_them` / `dead_even` / `early_days` (main); `good_luck_charm` / `bad_influence` / `no_effect` (chemistry)
+- myId prop chain bug: `onGoStats` in AdminView NavBar calls `setView("player")` not `setView("stats")` — stats render through PlayerView's internal `<StatsView>`, not the top-level one; both must receive `myId`
+
 **Key gotchas (session 22 stats rewrite):**
 - `tableData` players use `playerId` (not `id`), `wins`/`draws`/`losses` (not `w`/`l`/`d`), `played` (not `attended`), `potm` (not `motm`), `form` as uppercase `["W","L","D"]` array
 - `getPlayerLeagueTable` line 1701 early return was `return []` (bare array) — fixed to `return { players: [], totalGamesInPeriod: 0 }` to match destructuring in StatsView
 - PostgREST upsert with partial unique indexes: fails with `42P10`; indexes exist in DB but PostgREST generates bare `ON CONFLICT (cols)` without the required `WHERE` predicate
 
 **Next session (Session 23) — start with:**
-1. /join/team_finbars end-to-end on clean iPhone
-2. Android install screenshots for JoinSuccess.jsx
-3. Verify all stats match between league table and stat sections on demo team
+1. H2H visual polish (review mockup vs output, adjust spacing/colours)
+2. /join/team_finbars end-to-end on clean iPhone
+3. Android install screenshots for JoinSuccess.jsx
 4. Tuesday May 19 standby prep
-5. Head to Head modal (beta feature)
+5. Weekly Dressing Room / matchday card (viral loop feature)
+6. Venue save + dynamic price calculator (Phase 1.5)
 
 **Supabase SQL still to run (if not done):**
 ```sql
