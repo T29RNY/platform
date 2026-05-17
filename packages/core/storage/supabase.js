@@ -1717,6 +1717,17 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
     const pmRows = pmData || [];
     if (!pmRows.length) return { players: [], totalGamesInPeriod: matches.length };
 
+    // Step 3b — All-time attended counts per player for reliability numerator
+    const { data: allTimeData } = await supabase
+      .from('player_match')
+      .select('player_id')
+      .eq('team_id', teamId)
+      .eq('attended', true);
+    const playedAllTime = {};
+    for (const r of (allTimeData || [])) {
+      playedAllTime[r.player_id] = (playedAllTime[r.player_id] || 0) + 1;
+    }
+
     // Step 4 — All uncancelled match dates for reliability denominator (not period-filtered)
     let allTeamMatchDates;
     if (!cutoff) {
@@ -1775,8 +1786,9 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
       const totalTeamGames = joinDate
         ? allTeamMatchDates.filter(d => new Date(d) >= joinDate).length
         : allTeamMatchDates.length;
-      const reliability = played >= 3 && totalTeamGames > 0
-        ? Math.round((played / totalTeamGames) * 100)
+      const allTimePlayed = playedAllTime[playerId] || 0;
+      const reliability = allTimePlayed >= 3 && totalTeamGames > 0
+        ? Math.round((allTimePlayed / totalTeamGames) * 100)
         : null;
 
       const last5 = [...attended]

@@ -662,7 +662,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
             { label: "Win rate",      leftVal: `${meRow.winRate}%`,   rightVal: `${themRow.winRate}%`,   leftNum: meRow.winRate,   rightNum: themRow.winRate   },
             { label: "Goals per game",leftVal: meGoalsPG,             rightVal: themGoalsPG,             leftNum: parseFloat(meGoalsPG), rightNum: parseFloat(themGoalsPG) },
             { label: "POTM total",    leftVal: meRow.potm,            rightVal: themRow.potm,            leftNum: meRow.potm,      rightNum: themRow.potm      },
-            { label: "Reliability",   leftVal: meRow.reliability != null ? `${meRow.reliability}%` : "—", rightVal: themRow.reliability != null ? `${themRow.reliability}%` : "—", leftNum: meRow.reliability || 0, rightNum: themRow.reliability || 0 },
+            { label: "Reliability",   leftVal: meRow.reliability != null ? `${meRow.reliability}%` : "—", rightVal: themRow.reliability != null ? `${themRow.reliability}%` : "—", leftNum: meRow.reliability || 0, rightNum: themRow.reliability || 0, noBar: meRow.reliability == null || themRow.reliability == null },
           ];
 
           return (
@@ -682,7 +682,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
                       </div>
                       {/* Left bar */}
                       <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
-                        <div style={{ width: `${lPct}%`, height: "100%", background: "var(--green)", borderRadius: 4, marginLeft: "auto" }} />
+                        {!row.noBar && <div style={{ width: `${lPct}%`, height: "100%", background: "var(--green)", borderRadius: 4, marginLeft: "auto" }} />}
                       </div>
                       {/* Centre label */}
                       <div style={{ width: 100, flexShrink: 0, textAlign: "center", fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300, color: "var(--t2)" }}>
@@ -690,7 +690,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
                       </div>
                       {/* Right bar */}
                       <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
-                        <div style={{ width: `${rPct}%`, height: "100%", background: "var(--red)", borderRadius: 4 }} />
+                        {!row.noBar && <div style={{ width: `${rPct}%`, height: "100%", background: "var(--red)", borderRadius: 4 }} />}
                       </div>
                       {/* Right value */}
                       <div style={{ width: 50, textAlign: "left", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, color: "var(--t1)", flexShrink: 0 }}>
