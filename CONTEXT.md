@@ -740,7 +740,8 @@ Both can run; both add to `owes`. No deduplication.
 | Payments admin screen | ✅ Done | PaymentsScreen.jsx — 4-section layout, ledger dedup, inline Reset/Mark Paid |
 | Stats rewrite (player_match) | ✅ Done | Session 22: all player leaderboards read from player_match via getPlayerLeagueTable; period-filtered insight tiles |
 | Payment ledger dedup | ✅ Done | Session 22: createLedgerEntry resilient insert + 23505 conflict recovery; PostgREST upsert partial-index limitation |
-| Head to Head card | ✅ Done | Session 22: getHeadToHead backend (2 queries, JS computation), HeadToHead.jsx modal (5 sections), league table tap wiring; Session 23: period selector wired (periodCutoff + two-query pattern), chemistry 5-verdict system, reliability null bar, modalTableData state, initialPeriod prop |
+| Head to Head card | ✅ Done | Session 22: initial build. Session 23: feature-complete rewrite (score_type gating, 5-verdict chemistry, period selector wired up, adaptive tiles by dominantType, sample-size floors, reliability decoupled, null bar fix) |
+| Pre-launch /create + /join audit | ✅ Done | Session 23 commit 9: user_id propagation, joinUrl protocol fix, iOS-only redirect gate, onboarding_complete timing |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
 | Join/login redesign | 🔲 Pre-launch | |
@@ -913,6 +914,17 @@ all have venue contracts. Sticky but beatable on product quality.
 - `getHeadToHead` uses two-query pattern for dominantType: Query 1a all-time feeds `resolveDominantType`, Query 1b period-filtered feeds all stats via `matchMap`; dominantType must see all matches to be stable across periods — if it used only period data it would flip between 'exact' and 'margin' as the period changed
 - `meRows`/`themRows` in `getHeadToHead` are filtered by `matchMap` membership immediately after Query 2 (the all-time `player_match` fetch); `matchMap` contains only period-filtered match IDs and is the single period-gating point — all downstream computation (sharedMatchIds, partition, chemistry baselines, verdicts, recentShared) inherits period scope automatically
 - Reliability in `getPlayerLeagueTable` is period-independent: numerator (`allTimePlayed`) and denominator (`totalTeamGames`) both use all-time queries; Step 3b separate all-time attended query added to support this; makes reliability a player trait not a period stat
+- **H2H** `dominantType` is always team-wide all-time, regardless of period selector — it's a UI presentation decision ("which tile to show"), not a stat. Team's scoring style is stable; UI shouldn't thrash on period change
+- **Stats + H2H** Reliability is intrinsically all-time, ignores period selector — answers "is this player reliable" which is a long-term question. Numerator + denominator + gate all use all-time data
+- **H2H chemistry verdict** requires `gamesTogether >= 3 AND meNonShared >= 3 AND themNonShared >= 3` — otherwise returns `'building'`. Five-verdict system: `good_luck_charm` / `bad_influence` / `asymmetric` / `no_effect` / `building`
+- **H2H period filter** implementation: filter `meRows`/`themRows` (player_match results) by `matchMap` membership IMMEDIATELY after Query 2, before any downstream computation. This propagates period scope naturally to `sharedMatchIds`, `meNonShared`, partition loop, chemistry — no per-call gating needed
+- **H2H runs TWO matches queries**: Query 1a (all-time, for `dominantType`) and Query 1b (period-filtered, for stats). Cost is one extra small query per H2H open in 'all' mode; clarity wins over optimisation
+- **Sample size matters for verdicts**: chemistry refuses to fire with < 3 games of each baseline; main verdict requires `>= 3 totalShared`; Section 2 streak softens "1 in a row" to "won the last meeting" copy
+- **Score type gating pattern**: use `hasGoalData(scoreType)` helper for any goal-related computation. Filter the data set first, then run reductions over the filtered set, AND divide by the filtered set's count (not the unfiltered count) so averages are honest about sample size
+- **Section 4 nullability pattern**: when a metric is null for either side, suppress the bar visual but keep the label "—". Maintains layout stability without misleading visual
+- **`addPlayerToTeam` options**: accepts `{ type, priority, isViceCaptain, userId }`. All optional, all defaulting safely. user_id propagation is critical for returning-player detection
+- **`ioo_redirect_to` is iOS-only**: write site MUST be gated by `isIOS && !isStandalone`. Pattern repeats in App.jsx getRoute and JoinTeam.jsx useEffect. Writing on Android/desktop causes disorienting forced redirects
+- **`onboarding_complete=true`** is written exactly once, at step 3 (ShareLinks.jsx handleGoAdmin), when the user taps the final "go to team" button. Step 2 (submitPlayers) leaves it false
 
 ---
 
@@ -923,9 +935,10 @@ all have venue contracts. Sticky but beatable on product quality.
 | ~~NameStep discards returning player name~~ | ✅ Fixed (session 22) — Part A detects returning player, upserts `team_players`, sets `joinedPlayer` directly; NameStep skipped | Pre-launch |
 | ~~`handleAddPlayer` missing `teamId`~~ | ✅ Fixed (session 22) — `handleAddPlayer` now calls `addPlayerToTeam` which writes both `players` + `team_players` rows | Pre-launch |
 | ~~`addPlayerToTeam` not in core barrel~~ | ✅ Fixed (session 22) — exported from `packages/core/index.js` | Low |
-| `players.deputy` DB column | Renamed to `is_vice_captain` in JS layer but original `deputy` column still exists in Supabase — no migration run yet; harmless but should be cleaned up | Low |
+| ~~`players.deputy` DB column~~ | ✅ Resolved (verified session 23) — `deputy` column not present in current schema; rename completed in DB | Done |
 | `player_career` mostly empty | Only `total_bib_count` ever written; 11 other career fields permanently empty | Phase 2 |
 | `owes` double-increment risk | Two paths can add to owes (draftNextWeek + updatePlayerRecords); `draftNextWeek` is dead code but risk remains if re-enabled | Low |
+| `packages/core/engine/scoring.js` file name | Hosts `periodCutoff` (non-scoring helper) alongside scoring helpers. Rename to broader name (e.g. `stats-helpers.js`) when file grows further | Low |
 
 ---
 
@@ -1547,49 +1560,118 @@ Vice Captain + Manage Squad feature — full 8-stage build.
 - PostgREST upsert with partial unique indexes: fails with `42P10`; indexes exist in DB but PostgREST generates bare `ON CONFLICT (cols)` without the required `WHERE` predicate
 
 **Session 23 (May 17 2026):**
-H2H feature-complete rewrite — period selector wiring, chemistry 5-verdict system, reliability null bar, full Section 4B wiring.
+H2H feature-complete rewrite + pre-launch onboarding/join hardening. 9 commits.
 
-**Shared infrastructure:**
-- `periodCutoff(period)` added to `packages/core/engine/scoring.js` — maps 'month'→first day of calendar month, 'season'→YYYY-01-01, null for 'all'; barrels automatically via `export *` in index.js
-- `getHeadToHead` extended to 4-param signature `(meId, themId, teamId, period='all')`; two-query pattern: Query 1a all-time → `resolveDominantType` (must see all matches to stay stable); Query 1b period-filtered → all stats via `matchMap`
-- Critical patch: `meRows`/`themRows` filtered by `matchMap` membership immediately after Query 2; `matchMap` is the single period-gating point; all downstream (sharedMatchIds, partition, chemistry baselines, verdicts, recentShared) inherits period scope automatically
-- `getPlayerLeagueTable` Step 3b: separate all-time attended query added; reliability numerator changed from period-filtered `played` to `allTimePlayed`; both numerator and denominator now all-time → reliability is a player trait, not a period stat
+**Shared infrastructure (Part 1) — `packages/core/engine/scoring.js`:**
+- `hasGoalData(scoreType)` — canonical filter; returns true for null/undefined/'exact', false for 'margin'/'declared'. Replaces inline pattern at supabase.js:943-944
+- `resolveDominantType(matches, opts = { window: 20, threshold: 0.7 })` — pure function detecting dominant scoring style team-wide; cancelled-defensive; ISO date string sort
+- `periodCutoff(period)` — returns 'YYYY-MM-DD' for 'month'/'season', null for 'all'/other. Extracted from getPlayerLeagueTable's Step 1
+- Barrel-exported via packages/core/index.js's existing `export *` from `./engine/scoring.js`
+- Filename note: scoring.js now hosts non-scoring helpers (periodCutoff). Tech debt — rename to broader name in Session 24 if file grows
 
-**HeadToHead.jsx:**
-- `initialPeriod` prop added; StatsView passes its own `period` so first render starts on correct period
-- `modalTableData` local state initialized from `tableData` prop (avoids Section 4 flash), refetched via `getPlayerLeagueTable(teamId, period)` on period change
-- Period in `useEffect` deps; `getHeadToHead` called with 4 args; second useEffect for modal data refetch
-- Sections 1 and 2: period-aware empty state strings (month/season/all variants)
-- Section 3: `CHEM_STYLE` filled for all 5 verdicts (good_luck_charm=gold, bad_influence=red, asymmetric=amber, no_effect/building=s3/t2); `CHEM_LABEL` adds asymmetric "↕ Asymmetric" and building "🌱 Building"; delta rows show `myEffectDelta`/`themEffectDelta` via `fmtDelta()` (positive→green +Xpp, negative→red −Xpp, null→—)
-- Section 4: `noBar` flag on Reliability row suppresses inner colored div when either player's reliability is null; outer `var(--s3)` track still renders for layout consistency
-- Section 4 uses `modalTableData` instead of `tableData` prop directly
+**H2H Section 1 — adaptive tiles + score_type gating (Parts 2A + 2B):**
+- Backend (getHeadToHead):
+  - Query 1 select extended with `score_type` and `cancelled`
+  - matchMap entries gain `scoreType`
+  - `dominantType = resolveDominantType(matchData)` called after Query 1; exposed top-level in return
+  - `combinedGoals`, `goalThreatTogether`, `goalThreatApart` all filtered through `exactTogetherMatches`/`exactMeOnlyMatchIds` (hasGoalData-gated). Both numerator AND denominator now use filtered sets
+  - New `together.potmMe`/`together.potmThem` — POTM counts scoped to together-matches only (distinct from `chemistry.myPotm`/`theirPotm` which span all shared)
+  - New `together.outcomeAvg` — average match outcome (signed score differential from me's team perspective) across scored together-matches. Always computed regardless of dominantType
+  - New `together.gamesBothPlayed` = `gamesTogether + gamesAgainst`
+  - New `together.goalThreatTogetherCount` / `goalThreatApartCount` — exposed sample sizes
+- Frontend Section 1:
+  - Tile 4 replaced: Combined goals → Together ratio (`{games} / {gamesBothPlayed}`, e.g. `1 / 20`)
+  - Row 1 conditional on dominantType:
+    - 'exact' → Goal threat with sample size — `3.0 together (2 games) vs 1.5 apart (4 games)`. Together number coloured green/red; rest muted
+    - 'margin' → Match outcome — `+1.8 average` with Lightning icon; signed; coloured green/red/var(--t1)
+    - 'declared' → row hidden entirely
+  - Row 2 replaced: Bib magnet → Combined POTM — `3 (Hassan 2, Sarah 1)` with gold count + muted breakdown; zero state `0 — no POTMs together yet`
+  - Pluralisation: `1 game` / `N games`
 
-**StatsView.jsx:** `initialPeriod={period}` added to `<HeadToHead>` render
+**H2H Section 2 — goals gating + streak softening:**
+- Backend: `exactAgainstMatches` filter added; goal reductions over filtered set; new `against.goalsCount` exposed
+- Frontend:
+  - Goals scored row, three states: `goalsCount === 0` → muted `—`; `goalsCount < games` → values + `(in N tracked games)`; `goalsCount === games` → values without parenthetical
+  - Current streak row: `length === 1` → `X won the last meeting`; `length >= 2` → `X has won N in a row`; null → `No active streak`
+- The `insightText` IIFE in Section 2 (5 variants: dominates / owns / has the edge / dead even) — already locally computed and works correctly. NOT the main verdict. Left untouched
 
-**Chemistry 5-verdict system:**
-- `building`: `gamesTogether<3 || meNonShared<3 || themNonShared<3` (sample floor — not enough data)
-- `good_luck_charm`: both `myEffectDelta≥+10` and `themEffectDelta≥+10`
-- `bad_influence`: both deltas `≤-10`
-- `asymmetric`: signs differ and `|max|≥10`
-- `no_effect`: both deltas within ±10
+**H2H Section 3 — five-verdict chemistry system (Parts 3A + 3B):**
+- Backend:
+  - `chemistry.myEffectDelta = theirWinRateWithMe - theirWinRateWithoutMe` (positive = me boosts them)
+  - `chemistry.themEffectDelta = myWinRateWithThem - myWinRateWithoutThem` (positive = them boosts me)
+  - Both null when either operand is null
+  - Chemistry verdict rewritten with sample floor (`gamesTogether >= 3 && meNonShared.length >= 3 && themNonShared.length >= 3`) and two-direction logic:
+    - Floor fails → `'building'`
+    - Both deltas >= +10 → `'good_luck_charm'`
+    - Both deltas <= -10 → `'bad_influence'`
+    - Signs differ AND |max| >= 10 → `'asymmetric'`
+    - Otherwise → `'no_effect'`
+- Frontend:
+  - Two new delta rows: `{meName}'s effect on {themName}` → `fmtDelta(myEffectDelta)` and inverse. Lightning icon, sign-coloured value or `—` if null
+  - CHEM_STYLE + CHEM_LABEL extended for 5 values: good_luck_charm (gold ⭐), bad_influence (red 👎), asymmetric (amber ↕), no_effect (muted ➖), building (muted 🌱)
+  - Section 3 outer gate stays `totalSharedGames >= 3`. Building verdict can fire inside that gate when sample sub-conditions fail
+- Two redundant-looking win-rate rows (audit confirmed: identical "with" values, different "without" baselines) preserved per UX call. Could collapse into delta block in Session 24 if visual feedback warrants
 
-**Demo data caveat:** all 25 demo players have `created_at: 2026-05-13` which post-dates all seed match dates (Sep 2025–May 2026); `totalTeamGames = allTeamMatchDates.filter(d >= joinDate).length = 0` → reliability always null in demo. Not a code bug — seeding limitation. Production teams unaffected.
+**H2H Section 4 — reliability + period selector (Parts 4A + 4B):**
+- 4A: Reliability decoupled from period entirely
+  - New Step 3b query in getPlayerLeagueTable: all-time attended player_match rows, grouped client-side into `playedAllTime[playerId]`
+  - Reliability gate AND numerator both use `playedAllTime`. Denominator stays `totalTeamGames`
+  - Period-filtered `played` still used for everything else (winRate, form, ranked)
+  - Side effect: Stats league table reliability now shows for short periods where it previously showed `—`. Intended improvement
+  - Frontend: `noBar` flag added to Reliability row. When either side's reliability is null, the inner coloured `<div>` is suppressed (outer var(--s3) track still renders for layout stability). Label still shows `—`
+- 4B: Period selector now drives data
+  - `getHeadToHead(meId, themId, teamId, period = 'all')` — new 4th param
+  - Two matches queries: 1a all-time (drives dominantType, stays team-wide), 1b period-filtered (drives every stat)
+  - `meRows` and `themRows` reassigned to filter by matchMap membership immediately after Query 2 — so all downstream computations inherit period scope without per-call gating
+  - Frontend: new `initialPeriod` prop (StatsView passes its own `period` state); existing `period` useState wired to useEffect deps and as 4th arg to getHeadToHead. New `modalTableData` state with refetch on period change drives Section 4
+  - Empty state copy made period-aware:
+    - Section 1: 'all' → "You've never been teammates yet."; else → "You haven't been on the same team this {month/season}"
+    - Section 2: same pattern with "opposite teams"
 
-**Key gotchas from session 23:**
-- vite-node scripts must run from repo root `/Users/tarny/platform/` — `/tmp/` paths fail to resolve `./packages/core/...` relative imports
-- `getHeadToHead` result shape: `chemistryVerdict` is a top-level key on the result, not nested inside a `chemistry` object
-- `export *` in `packages/core/index.js` means any new named export from `scoring.js` automatically barrels — no index.js edit needed
-- `scoring.js` now hosts non-scoring helpers (`periodCutoff`) — consider renaming to `helpers.js` or `utils.js` in a future session
+**Pre-launch onboarding/join hardening (Commit 9):**
+Audit of /create + /join code revealed four issues. All fixed in one commit:
+- `addPlayerToTeam` extended: row.user_id now reads `options.userId || null` instead of hardcoded null. App.jsx handleJoin call site updated to pass `{ userId: authUser.id }` as options object. Previously authUser.id was passed positionally as a string that ended up in options.type slot (falsy fallback) and user_id was null on the row — breaking findPlayerByUserId returning-player detection
+- JoinSuccess.jsx joinUrl now `https://www.in-or-out.com/join/...` (was missing protocol). Matches every other URL construction in the codebase
+- JoinTeam.jsx ioo_redirect_to write gated to iOS Safari non-standalone only. Matches App.jsx getRoute pattern. Previously fired on every platform, causing one-time forced redirects on Android/desktop
+- useOnboarding.js submitPlayers: removed premature `onboarding_complete=true` write at step 2. ShareLinks.jsx handleGoAdmin is now the sole write site at step 3
 
-**Commits (session 23):** cc1e2b5 (Section 3 full audit), ba3628d (4A reliability + null bar), db52030 (4B period wiring + patch)
+**Demo data caveats encountered:**
+- All 25 demo player rows have `created_at: 2026-05-13` — after every seed match date. `totalTeamGames = allTeamMatchDates.filter(d => new Date(d) >= joinDate)` returns 0 → reliability stays null in /demoadmin regardless of period. Production teams won't hit this
+- Demo seed has no margin or declared score_type matches → dominantType always resolves to 'exact' in demo → can't see Match outcome row firing. Session 24 demo rebuild should mix score_types
+- Every demo player attends nearly every match → no solo games → chemistry verdict always 'building' for every pair on demo. Production teams with realistic attendance will exercise the other 4 verdicts
+
+**Working process improvements logged:**
+- AUDIT → REVIEW → EXECUTE → REVIEW → VERIFY → REVIEW → COMMIT pattern works reliably for 5+-prompt chains
+- Splitting larger features into A/B parts (backend then frontend) gives clean intermediate commits and easier revert points
+- "Spec adjustments based on audit findings" review step caught real bugs before they shipped (meRows all-time bug in 4B, chemistry one-direction bug in 3A, addPlayerToTeam positional-string bug in audit)
+- Long prompts truncate when pasted into Claude Code — shorter prompts paste reliably
+
+**Supabase schema state at end of session 23 (verified live):**
+- `matches.teams_draft` jsonb present ✓
+- `payment_ledger` type CHECK includes 'cancelled' ✓
+- `payment_ledger` status CHECK includes 'cancelled' ✓
+- 3 performance indexes present: idx_player_match_team_attended, idx_player_match_team_player, idx_matches_team_date ✓
+- `players.is_vice_captain`, `role_scope`, `disable_reason` present; `deputy` column NOT present (was renamed in DB, not just JS — earlier KNOWN BUGS entry stale) ✓
+
+**Commits shipped (in order):**
+1. `feat(scoring): add hasGoalData + resolveDominantType helpers` (Part 1)
+2. `feat(h2h): gate goal stats by score_type, expose dominantType + together-scoped POTM` (Part 2A)
+3. `feat(h2h): Section 1 UI consumes adaptive backend fields` (Part 2B)
+4. `feat(h2h): gate Section 2 goals by score_type, soften trivial streaks`
+5. `feat(h2h): two-direction chemistry deltas + 5-verdict system` (Part 3A — f2185dd)
+6. `feat(h2h): Section 3B — asymmetric/building verdicts + delta rows in chemistry UI` (cc1e2b5)
+7. `feat(h2h): reliability always all-time + null bar fix` (Part 4A)
+8. `feat(h2h): wire up period selector — month/season/all-time filtering` (Part 4B)
+9. `fix(join): pre-launch hardening for /create + /join` (4 fixes)
+10. `fix(myio): guard InsightCard body renderer against non-React-element children` (d387c58) — affects any player with 8+ games; numbers passed as bare JSX fragment children threw TypeError on .props.children; fix extends primitive guard to include !child?.props
 
 **Next session (Session 24) — start with:**
-1. /join/team_finbars end-to-end on clean iPhone
-2. JoinSuccess.jsx install instructions + Android screenshots
-3. Tuesday May 19 standby prep
-4. H2H visual polish (review rendered output vs mockup)
-5. Weekly Dressing Room / matchday card (viral loop feature)
-6. Venue save + dynamic price calculator (Phase 1.5)
+1. Post-mortem on Tuesday May 19 launch (Finbar's Tuesdays first real match)
+2. Visual sanity check on in-or-out.com/demoadmin — confirm all H2H sections render across periods after H2H rewrites
+3. Android install screenshots for JoinSuccess.jsx (placeholders still in place)
+4. Demo data rebuild: mix score_types (15 exact / 5 margin / 2 declared), realistic absence patterns, players with solo games so chemistry/reliability actually exercise on demo team
+5. Post-launch backlog: Weekly Dressing Room, venue save + dynamic price calculator, BibsScreen redesign
+6. Stage 2 prep: Monday Footy (team_mfw3hhu6) — May 26 onboarding
 
 **Supabase SQL still to run (if not done):**
 ```sql
