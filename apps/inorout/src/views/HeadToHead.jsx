@@ -323,45 +323,77 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
                       <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>{t.winRate}%</div>
                       <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Win rate together</div>
                     </div>
-                    {/* Combined goals */}
+                    {/* Together ratio */}
                     <div style={{ flex: 1, minWidth: 0, background: "var(--s3)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>{t.combinedGoals}</div>
-                      <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Combined goals</div>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>{t.games} / {t.gamesBothPlayed}</div>
+                      <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Together ratio</div>
                     </div>
                   </div>
 
-                  {/* Goal threat row */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <SoccerBall size={16} weight="thin" color="var(--t2)" />
-                      <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>Goal threat</span>
+                  {/* Row 1 — adaptive by dominantType */}
+                  {h2hData.dominantType === 'exact' ? (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <SoccerBall size={16} weight="thin" color="var(--t2)" />
+                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>Goal threat</span>
+                      </div>
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300 }}>
+                        {t.goalThreatTogether != null ? (
+                          <>
+                            <span style={{ color: t.goalThreatTogether > (t.goalThreatApart ?? 0) ? "var(--green)" : "var(--red)" }}>
+                              {t.goalThreatTogether.toFixed(1)}
+                            </span>
+                            <span style={{ color: "var(--t2)" }}>{` together (${t.goalThreatTogetherCount} game${t.goalThreatTogetherCount === 1 ? '' : 's'}) vs `}</span>
+                            {t.goalThreatApart != null ? (
+                              <>
+                                <span style={{ color: "var(--t2)" }}>{t.goalThreatApart.toFixed(1)}</span>
+                                <span style={{ color: "var(--t2)" }}>{` apart (${t.goalThreatApartCount} game${t.goalThreatApartCount === 1 ? '' : 's'})`}</span>
+                              </>
+                            ) : (
+                              <span style={{ color: "var(--t2)" }}>— apart</span>
+                            )}
+                          </>
+                        ) : (
+                          <span style={{ color: "var(--t2)" }}>—</span>
+                        )}
+                      </span>
                     </div>
-                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300 }}>
-                      {t.goalThreatTogether != null ? (
-                        <>
-                          <span style={{ color: t.goalThreatTogether > (t.goalThreatApart ?? 0) ? "var(--green)" : "var(--red)" }}>
-                            {t.goalThreatTogether.toFixed(1)}
-                          </span>
-                          <span style={{ color: "var(--t2)" }}> together vs </span>
-                          <span style={{ color: "var(--t2)" }}>
-                            {t.goalThreatApart != null ? t.goalThreatApart.toFixed(1) : "—"} apart
-                          </span>
-                        </>
-                      ) : (
-                        <span style={{ color: "var(--t2)" }}>—</span>
-                      )}
-                    </span>
-                  </div>
+                  ) : h2hData.dominantType === 'margin' ? (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "0.5px solid var(--s3)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Lightning size={16} weight="thin" color="var(--t2)" />
+                        <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>Match outcome</span>
+                      </div>
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300 }}>
+                        {t.outcomeAvg === null ? (
+                          <span style={{ color: "var(--t2)" }}>—</span>
+                        ) : (
+                          <>
+                            <span style={{ color: t.outcomeAvg > 0 ? "var(--green)" : t.outcomeAvg < 0 ? "var(--red)" : "var(--t1)" }}>
+                              {t.outcomeAvg > 0 ? `+${t.outcomeAvg.toFixed(1)}` : t.outcomeAvg.toFixed(1)}
+                            </span>
+                            <span style={{ color: "var(--t2)" }}> average</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  ) : null}
 
-                  {/* Bib magnet row */}
+                  {/* Combined POTM row */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <TShirt size={16} weight="thin" color="var(--t2)" />
-                      <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>Bib magnet</span>
+                      <Trophy size={16} weight="thin" color="var(--t2)" />
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>Combined POTM</span>
                     </div>
-                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300, color: "var(--t1)" }}>
-                      <span style={{ color: "var(--gold)" }}>{t.bibs}</span>
-                      <span style={{ color: "var(--t2)" }}> of {t.games} games</span>
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300 }}>
+                      {t.potmMe + t.potmThem === 0 ? (
+                        <span style={{ color: "var(--t2)" }}>0 — no POTMs together yet</span>
+                      ) : (
+                        <>
+                          <span style={{ color: "var(--gold)" }}>{t.potmMe + t.potmThem}</span>
+                          <span style={{ color: "var(--t2)" }}> ({meName} {t.potmMe}, {themName} {t.potmThem})</span>
+                        </>
+                      )}
                     </span>
                   </div>
                 </>
