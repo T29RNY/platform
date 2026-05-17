@@ -8,6 +8,7 @@ export * from "./engine/availability.js";
 export * from "./engine/attendance.js";
 export * from "./engine/payments.js";
 export * from "./engine/squad.js";
+export * from "./engine/scoring.js";
 export { storage } from "./storage/localStorage.js";
 export {
   resolveBibHolder,
