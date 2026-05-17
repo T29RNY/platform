@@ -1951,8 +1951,9 @@ export async function getHeadToHead(meId, themId, teamId) {
     const meWins          = againstMatches.filter(m => m.me.result === 'w').length;
     const againstDraws    = againstMatches.filter(m => m.me.result === 'd').length;
     const theirWins       = againstMatches.filter(m => m.me.result === 'l').length;
-    const myGoalsAgainst  = againstMatches.reduce((s, m) => s + (m.me.goals   || 0), 0);
-    const theirGoalsAgainst = againstMatches.reduce((s, m) => s + (m.them.goals || 0), 0);
+    const exactAgainstMatches = againstMatches.filter(m => hasGoalData(m.scoreType));
+    const myGoalsAgainst  = exactAgainstMatches.reduce((s, m) => s + (m.me.goals   || 0), 0);
+    const theirGoalsAgainst = exactAgainstMatches.reduce((s, m) => s + (m.them.goals || 0), 0);
 
     // Streak — sort against games newest first, walk until streak breaks
     const sortedAgainst = [...againstMatches].sort((a, b) =>
@@ -2054,6 +2055,7 @@ export async function getHeadToHead(meId, themId, teamId) {
         theirWins,
         myGoals:     myGoalsAgainst,
         theirGoals:  theirGoalsAgainst,
+        goalsCount:  exactAgainstMatches.length,
         streak: { player: streakPlayer, length: streakLength },
       },
       chemistry: {

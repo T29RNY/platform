@@ -452,7 +452,17 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
                     {
                       icon: <SoccerBall size={16} weight="thin" color="var(--t2)" />,
                       label: "Goals scored",
-                      value: (
+                      value: ag.goalsCount === 0 ? (
+                        <span style={{ color: "var(--t2)" }}>—</span>
+                      ) : ag.goalsCount < ag.games ? (
+                        <>
+                          <span style={{ color: "var(--green)" }}>{meName}</span>
+                          <span style={{ color: "var(--t1)" }}> {ag.myGoals} vs </span>
+                          <span style={{ color: "var(--red)" }}>{themName}</span>
+                          <span style={{ color: "var(--t1)" }}> {ag.theirGoals}</span>
+                          <span style={{ color: "var(--t2)" }}>{` (in ${ag.goalsCount} tracked game${ag.goalsCount === 1 ? '' : 's'})`}</span>
+                        </>
+                      ) : (
                         <>
                           <span style={{ color: "var(--green)" }}>{meName}</span>
                           <span style={{ color: "var(--t1)" }}> {ag.myGoals} vs </span>
@@ -466,7 +476,9 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose }) {
                       icon: <Lightning size={16} weight="thin" color="var(--t2)" />,
                       label: "Current streak",
                       value: streakText
-                        ? <><span style={{ color: "var(--green)" }}>{streakText.winner}</span><span style={{ color: "var(--t1)" }}> has won {streakText.length} in a row</span></>
+                        ? streakText.length === 1
+                          ? <><span style={{ color: "var(--green)" }}>{streakText.winner}</span><span style={{ color: "var(--t1)" }}> won the last meeting</span></>
+                          : <><span style={{ color: "var(--green)" }}>{streakText.winner}</span><span style={{ color: "var(--t1)" }}> has won {streakText.length} in a row</span></>
                         : <span style={{ color: "var(--t2)" }}>No active streak</span>,
                       border: false,
                     },
