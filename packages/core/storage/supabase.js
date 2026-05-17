@@ -2022,10 +2022,23 @@ export async function getHeadToHead(meId, themId, teamId) {
       mainVerdict = 'dead_even';
     }
 
-    let chemistryVerdict = 'no_effect';
-    if (theirWinRateWithMe !== null && theirWinRateWithoutMe !== null) {
-      if (theirWinRateWithMe > theirWinRateWithoutMe + 10) chemistryVerdict = 'good_luck_charm';
-      else if (theirWinRateWithMe < theirWinRateWithoutMe - 10) chemistryVerdict = 'bad_influence';
+    const myEffectDelta   = theirWinRateWithMe   !== null && theirWinRateWithoutMe  !== null
+      ? theirWinRateWithMe   - theirWinRateWithoutMe  : null;
+    const themEffectDelta = myWinRateWithThem    !== null && myWinRateWithoutThem   !== null
+      ? myWinRateWithThem    - myWinRateWithoutThem   : null;
+
+    let chemistryVerdict;
+    if (gamesTogether < 3 || meNonShared.length < 3 || themNonShared.length < 3) {
+      chemistryVerdict = 'building';
+    } else if (myEffectDelta >= 10 && themEffectDelta >= 10) {
+      chemistryVerdict = 'good_luck_charm';
+    } else if (myEffectDelta <= -10 && themEffectDelta <= -10) {
+      chemistryVerdict = 'bad_influence';
+    } else if (Math.sign(myEffectDelta) !== Math.sign(themEffectDelta) &&
+               (Math.abs(myEffectDelta) >= 10 || Math.abs(themEffectDelta) >= 10)) {
+      chemistryVerdict = 'asymmetric';
+    } else {
+      chemistryVerdict = 'no_effect';
     }
 
     return {
@@ -2063,6 +2076,8 @@ export async function getHeadToHead(meId, themId, teamId) {
         theirWinRateWithoutMe,
         myWinRateWithThem,
         myWinRateWithoutThem,
+        myEffectDelta,
+        themEffectDelta,
         myPotm,
         theirPotm,
       },
