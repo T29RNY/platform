@@ -449,7 +449,7 @@ function InsightCard({ insight, data, gamesPlayed }) {
           {typeof body === "string" ? body : (
             <span>
               {body.props?.children?.map?.((child, i) =>
-                typeof child === "string" ? child
+                typeof child === "string" || !child?.props ? child
                   : <em key={i} style={{ color:"rgba(255,255,255,0.55)", fontStyle:"normal" }}>{child.props.children}</em>
               ) ?? body}
             </span>
