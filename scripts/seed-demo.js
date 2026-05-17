@@ -123,7 +123,7 @@ async function main() {
   await run('teams: team_demo', async () => {
     await upsert('teams', [{
       id: 'team_demo',
-      name: "Finbar's Tuesdays",
+      name: "5-a-Side FC",
       admin_token: 'admin_demo',
       join_code: 'demo',
     }], 'id');
@@ -317,7 +317,7 @@ async function main() {
     const { error } = await supabase.from('settings').insert({
       id: 'sett_team_demo',
       team_id: 'team_demo',
-      group_name: "Finbar's Tuesdays",
+      group_name: "5-a-Side FC",
     });
     if (error) throw error;
   });
