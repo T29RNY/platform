@@ -7,9 +7,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ─── Team resolution ──────────────────────────────────────────────────────────
 export async function getTeamByAdminToken(token) {
-  const { data, error } = await supabase
-    .from("teams").select("*").eq("admin_token", token).single();
-  if (error) return null;
+  const { data, error } = await supabase.rpc('get_team_by_admin_token', { p_admin_token: token });
+  if (error || !data) return null;
   return data;
 }
 
@@ -61,10 +60,9 @@ export async function deletePlayer(id) {
 }
 
 export async function getPlayerByToken(token) {
-  const { data, error } = await supabase
-    .from("players").select("*").eq("token", token).single();
-  if (error) return null;
-  return dbToPlayer(data);
+  const { data, error } = await supabase.rpc('get_player_by_token', { p_token: token });
+  if (error || !data) return null;
+  return dbToPlayer({ ...data, token });
 }
 
 export async function resetPlayerToken(playerId) {
@@ -326,14 +324,21 @@ export async function getPlayerTeams(playerId) {
 
 // ─── Join team by join code ───────────────────────────────────────────────────
 export async function getTeamByJoinCode(code) {
-  // Try join_code first, then fall back to team id
-  const { data, error } = await supabase
-    .from("teams").select("*").eq("join_code", code).single();
-  if (!error && data) return data;
-  // Try by team id
-  const { data: byId } = await supabase
-    .from("teams").select("*").eq("id", code).single();
-  return byId || null;
+  const { data, error } = await supabase.rpc('get_team_by_join_code', { p_code: code });
+  if (error || !data) return null;
+  return data;
+}
+
+export async function getTeamStateByPlayerToken(token) {
+  const { data, error } = await supabase.rpc('get_team_state_by_player_token', { p_token: token });
+  if (error || !data) return null;
+  return data;
+}
+
+export async function getTeamStateByAdminToken(token) {
+  const { data, error } = await supabase.rpc('get_team_state_by_admin_token', { p_admin_token: token });
+  if (error || !data) return null;
+  return data;
 }
 
 export async function addPlayerToTeam(name, teamId, options = {}) {
