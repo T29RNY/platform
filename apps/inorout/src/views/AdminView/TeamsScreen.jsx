@@ -25,7 +25,7 @@ function PentagonBadge({ number }) {
   );
 }
 
-export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onBack }) {
+export default function TeamsScreen({ teamId, adminToken = null, squad, schedule, matchHistory, onBack }) {
   const matchId = schedule?.activeMatchId || matchHistory?.[0]?.id || null;
 
   const [assignments, setAssignments] = useState({});
@@ -112,9 +112,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
     clearError();
     setIsSavingDraft(true);
     try {
-      const draft = { a: teamAIds, b: teamBIds };
-      const result = await saveTeamsDraft(matchId, teamId, draft);
-      if (result?.error) throw result.error;
+      await saveTeamsDraft(adminToken, matchId, teamAIds, teamBIds);
       setDraftSaved(true);
       setDraftSavedAt(new Date());
     } catch (e) {
@@ -122,7 +120,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
       setError("Failed to save draft — try again");
     }
     setIsSavingDraft(false);
-  }, [isSavingDraft, matchId, teamId, teamAIds, teamBIds]);
+  }, [isSavingDraft, adminToken, matchId, teamAIds, teamBIds]);
 
   const handleConfirm = useCallback(async () => {
     clearError();
@@ -134,8 +132,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
     if (isConfirming) return;
     setIsConfirming(true);
     try {
-      const result = await confirmTeams(matchId, teamId, teamAIds, teamBIds);
-      if (result?.error) throw result.error;
+      await confirmTeams(adminToken, matchId, teamAIds, teamBIds);
       setTeamsConfirmed(true);
       setDraftSaved(false);
 
@@ -162,7 +159,7 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
       setError("Failed to confirm teams — try again");
     }
     setIsConfirming(false);
-  }, [allAssigned, isConfirming, matchId, teamId, teamAIds, teamBIds, inPlayers]);
+  }, [allAssigned, isConfirming, adminToken, matchId, teamAIds, teamBIds, inPlayers]);
 
   const handleClear = useCallback(() => {
     clearError();
@@ -177,12 +174,12 @@ export default function TeamsScreen({ teamId, squad, schedule, matchHistory, onB
     setShowClearConfirm(false);
     if (wasSaved) {
       try {
-        await saveTeamsDraft(matchId, teamId, { a: [], b: [] });
+        await saveTeamsDraft(adminToken, matchId, [], []);
       } catch (e) {
         console.error("handleClearConfirm draft clear error:", e);
       }
     }
-  }, [draftSaved, matchId, teamId]);
+  }, [draftSaved, adminToken, matchId]);
 
   const handleClearCancel = useCallback(() => {
     setShowClearConfirm(false);
