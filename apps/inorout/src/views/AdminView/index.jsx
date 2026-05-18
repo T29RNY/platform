@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   sendTemplate, notificationTemplates,
   getPaymentState,
-  handleCashPayment, handleClearDebt,
-  handleMarkPaid, handleResetPayment, handleGuestCashPayment,
+  handleMarkPaid, handleResetPayment,
   toggleViceCaptain,
 } from "@platform/core";
 import {
@@ -13,6 +12,7 @@ import {
   insertMatch, upsertSchedule,
   bulkCancelLedgerEntries, bulkResetPlayerStatuses, deletePlayerMatchRows,
   getRecentNotification,
+  supabase,
 } from "@platform/supabase";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
@@ -386,7 +386,12 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack, me, 
             {p.status === 'in' && ps !== 'paid' && (
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                 <button onClick={async () => {
-                  await handleCashPayment(p.id, teamId, 'admin', schedule.activeMatchId || null, schedule.pricePerPlayer || 0).catch(console.error);
+                  const { error } = await supabase.rpc('admin_confirm_payment', {
+                    p_admin_token: adminToken,
+                    p_player_id:   p.id,
+                    p_match_id:    schedule?.activeMatchId || null,
+                  });
+                  if (error) { console.error(error); return; }
                   setSquad(sq => sq.map(s => s.id === p.id
                     ? { ...s, selfPaid:true, paidBy:'admin' } : s));
                 }} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)", border:"none",
@@ -626,6 +631,7 @@ export default function AdminView({
   settings, setSettings, coverPool, setCoverPool, teamId,
   screen, setScreen, onGoPlayer, onGoStats, onGoHistory, onGoMyIO,
   isDemoMode = false, onResetDemo, isViceCaptain = false, me = null,
+  adminToken = null,
 }) {
   const [showCancel,       setShowCancel]       = useState(false);
   const [demoResetState,   setDemoResetState]   = useState(null);
