@@ -611,9 +611,8 @@ export async function findPlayerByUserId(userId) {
 }
 
 // Link an existing player record to an auth user
-export async function linkPlayerToUser(playerId, userId) {
-  const { error } = await supabase
-    .from("players").update({ user_id: userId }).eq("id", playerId);
+export async function linkPlayerToUser(token) {
+  const { error } = await supabase.rpc('link_player_to_user', { p_token: token });
   if (error) throw error;
 }
 

@@ -246,7 +246,7 @@ export default function App() {
               if (conflict) {
                 setLinkConflict("This email is already linked to another account — contact your admin");
               } else {
-                await linkPlayerToUser(player.id, session.user.id);
+                await linkPlayerToUser(route.token);
                 const display_name = session.user.user_metadata?.full_name
                   || session.user.user_metadata?.name
                   || session.user.email;
