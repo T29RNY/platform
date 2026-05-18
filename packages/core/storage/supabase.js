@@ -37,11 +37,6 @@ export async function getPlayers(teamId) {
   return (players || []).map(dbToPlayer);
 }
 
-export async function upsertPlayer(player) {
-  const { error } = await supabase.from("players").upsert(playerToDb(player));
-  if (error) throw error;
-}
-
 export async function setPlayerStatus(token, status) {
   const { error } = await supabase.rpc('set_player_status', { p_token: token, p_status: status });
   if (error) throw error;
@@ -1514,6 +1509,15 @@ export async function adminCancelMatch(adminToken, cancelReason) {
   const { error } = await supabase.rpc('admin_cancel_match', {
     p_admin_token:   adminToken,
     p_cancel_reason: cancelReason || null,
+  });
+  if (error) throw error;
+}
+
+export async function adminSetPlayerPriority(adminToken, playerId, priority) {
+  const { error } = await supabase.rpc('admin_set_player_priority', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_priority:    priority,
   });
   if (error) throw error;
 }

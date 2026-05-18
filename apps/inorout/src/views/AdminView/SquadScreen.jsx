@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { addPlayerToTeam, toggleViceCaptain, disablePlayer } from "@platform/core";
-import { upsertPlayer, resetPlayerToken, deletePlayer as removePlayerFromDb } from "@platform/supabase";
+import { insertPlayerInjury, clearPlayerInjury, deletePlayer as removePlayerFromDb, adminSetPlayerPriority } from "@platform/supabase";
 import { UsersThree, Star, Shield, LinkSimple, Copy, FirstAid } from "@phosphor-icons/react";
 
 export default function SquadScreen({
-  squad, setSquad, teamId, isViceCaptain = false, onBack, me = null, onPlayerTap,
+  squad, setSquad, teamId, adminToken = null, isViceCaptain = false, onBack, me = null, onPlayerTap,
 }) {
 
   const [name,         setName]         = useState("");
@@ -47,7 +47,7 @@ export default function SquadScreen({
     const trimmedName = name.trim();
     setName(""); setType("regular"); setPriority(false); setVcToggle(false);
     try {
-      const player = await addPlayerToTeam(trimmedName, teamId, { type, priority, isViceCaptain: vcToggle });
+      const player = await addPlayerToTeam(adminToken, trimmedName, type, priority);
       setSquad(prev => [...prev, player]);
     } catch {
       setErrorToast("Failed to add player");
@@ -60,7 +60,7 @@ export default function SquadScreen({
     const newVal = !player.priority;
     setSquad(prev => prev.map(p => p.id === player.id ? { ...p, priority: newVal } : p));
     try {
-      await upsertPlayer({ ...player, priority: newVal });
+      await adminSetPlayerPriority(adminToken, player.id, newVal);
     } catch (error) {
       console.error(error);
       setSquad(prev => prev.map(p => p.id === player.id ? { ...p, priority: player.priority } : p));
@@ -72,13 +72,7 @@ export default function SquadScreen({
     const newVal = !player.isViceCaptain;
     setSquad(prev => prev.map(p => p.id === player.id ? { ...p, isViceCaptain: newVal } : p));
     try {
-      const result = await toggleViceCaptain(player.id, newVal);
-      if (result?.error === "guests_cannot_be_vc") {
-        setSquad(prev => prev.map(p => p.id === player.id ? { ...p, isViceCaptain: player.isViceCaptain } : p));
-        setErrorToast("Guests cannot be vice captain");
-        return;
-      }
-      if (result?.error) throw result.error;
+      await toggleViceCaptain(adminToken, player.id, newVal);
     } catch (error) {
       console.error(error);
       setSquad(prev => prev.map(p => p.id === player.id ? { ...p, isViceCaptain: player.isViceCaptain } : p));
@@ -97,7 +91,11 @@ export default function SquadScreen({
       if (guest) setGuestPrompt({ guestId: guest.id, guestName: guest.name, hostName: player.nickname || player.name });
     }
     try {
-      await upsertPlayer(updated);
+      if (newInjured) {
+        await insertPlayerInjury(adminToken, player.id);
+      } else {
+        await clearPlayerInjury(adminToken, player.id);
+      }
     } catch (error) {
       console.error(error);
       setSquad(prev => prev.map(p => p.id === player.id ? player : p));
@@ -109,22 +107,11 @@ export default function SquadScreen({
     const newVal = !player.disabled;
     setSquad(prev => prev.map(p => p.id === player.id ? { ...p, disabled: newVal } : p));
     try {
-      await disablePlayer(player.id, teamId, newVal);
+      await disablePlayer(adminToken, player.id, newVal);
     } catch (error) {
       console.error(error);
       setSquad(prev => prev.map(p => p.id === player.id ? { ...p, disabled: player.disabled } : p));
       setErrorToast("Failed to update player");
-    }
-  }
-
-  async function handleSetStatus(player, status) {
-    setSquad(prev => prev.map(p => p.id === player.id ? { ...p, status } : p));
-    try {
-      await upsertPlayer({ ...player, status });
-    } catch (error) {
-      console.error(error);
-      setSquad(prev => prev.map(p => p.id === player.id ? { ...p, status: player.status } : p));
-      setErrorToast("Failed to update status");
     }
   }
 
@@ -133,7 +120,7 @@ export default function SquadScreen({
   const removeGuest = async () => {
     if (!guestPrompt) return;
     try {
-      await removePlayerFromDb(guestPrompt.guestId);
+      await removePlayerFromDb(adminToken, guestPrompt.guestId);
       setSquad(prev => prev.filter(p => p.id !== guestPrompt.guestId));
     } catch (error) {
       console.error(error);
@@ -442,14 +429,6 @@ export default function SquadScreen({
                   )}
                 </div>
               </div>
-
-              {/* IN/OUT buttons — hidden until payment complexity resolved */}
-              {false && (
-                <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                  <button onClick={() => handleSetStatus(p, "in")}  style={{ ...btnBase }}>IN</button>
-                  <button onClick={() => handleSetStatus(p, "out")} style={{ ...btnBase }}>OUT</button>
-                </div>
-              )}
 
               {/* Action row */}
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
