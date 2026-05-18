@@ -20,17 +20,29 @@ export default function AuthCallback() {
           try { await updateUserProfile(user.id, { display_name }); } catch(e) {}
         }
 
-        // Primary: sessionStorage pendingJoin survives the redirect regardless of
-        // whether Supabase preserves the returnTo query param (URL allowlist)
         let returnTo = null;
+
+        // ioo_pending_route — /create and other auth-gated routes
         try {
-          const pending = sessionStorage.getItem("ioo_pending_join");
-          if (pending) {
-            const { returnTo: r } = JSON.parse(pending);
-            sessionStorage.removeItem("ioo_pending_join");
-            returnTo = r;
+          const pendingRoute = sessionStorage.getItem('ioo_pending_route');
+          if (pendingRoute) {
+            sessionStorage.removeItem('ioo_pending_route');
+            returnTo = pendingRoute;
           }
         } catch(e) {}
+
+        // ioo_pending_join — survives the redirect regardless of whether Supabase
+        // preserves the returnTo query param (URL allowlist doesn't include wildcards)
+        if (!returnTo) {
+          try {
+            const pending = sessionStorage.getItem("ioo_pending_join");
+            if (pending) {
+              const { returnTo: r } = JSON.parse(pending);
+              sessionStorage.removeItem("ioo_pending_join");
+              returnTo = r;
+            }
+          } catch(e) {}
+        }
 
         // Fallback: URL param, then localStorage, then root
         if (!returnTo) {
