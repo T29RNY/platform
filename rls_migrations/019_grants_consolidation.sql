@@ -106,23 +106,23 @@ GRANT EXECUTE ON FUNCTION get_team_state_by_admin_token(text)  TO anon, authenti
 -- ── Migration 011: player write RPCs + broadcast helper ────────────────────────
 -- Player writes: token-based → anon + authenticated
 
-REVOKE ALL ON FUNCTION set_player_status(text, text, text)          FROM PUBLIC;
-REVOKE ALL ON FUNCTION set_player_paid(text, boolean, text)         FROM PUBLIC;
+REVOKE ALL ON FUNCTION set_player_status(text, text)               FROM PUBLIC;
+REVOKE ALL ON FUNCTION set_player_paid(text)                        FROM PUBLIC;
 REVOKE ALL ON FUNCTION set_player_injured(text, boolean)            FROM PUBLIC;
 REVOKE ALL ON FUNCTION add_guest_player(text, text)                 FROM PUBLIC;
-REVOKE ALL ON FUNCTION set_guest_payment(text, text, boolean, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION player_create_cash_payment_entry(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION set_guest_payment(text, text, text)          FROM PUBLIC;
+REVOKE ALL ON FUNCTION player_create_cash_payment_entry(text)       FROM PUBLIC;
 REVOKE ALL ON FUNCTION cast_potm_vote(text, text, text)             FROM PUBLIC;
 REVOKE ALL ON FUNCTION get_my_potm_vote(text, text)                 FROM PUBLIC;
 REVOKE ALL ON FUNCTION register_push_subscription(text, jsonb)      FROM PUBLIC;
 REVOKE ALL ON FUNCTION unregister_push_subscription(text)           FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION set_player_status(text, text, text)          TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION set_player_paid(text, boolean, text)         TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION set_player_status(text, text)               TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION set_player_paid(text)                        TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION set_player_injured(text, boolean)            TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION add_guest_player(text, text)                 TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION set_guest_payment(text, text, boolean, text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION player_create_cash_payment_entry(text, text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION set_guest_payment(text, text, text)          TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION player_create_cash_payment_entry(text)       TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION cast_potm_vote(text, text, text)             TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_my_potm_vote(text, text)                 TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION register_push_subscription(text, jsonb)      TO anon, authenticated;
@@ -136,17 +136,17 @@ REVOKE ALL ON FUNCTION notify_team_change(text, text) FROM PUBLIC;
 -- Admin RPCs validate admin_token internally; callable by authenticated only.
 -- anon callers cannot reach admin RPCs (no grant).
 
-REVOKE ALL ON FUNCTION admin_add_player(text, text, text)                FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_add_player(text, text, text, boolean)       FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_delete_player(text, text)                   FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_set_player_status(text, text, text)         FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_set_player_priority(text, text, text)       FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_set_player_priority(text, text, boolean)    FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_set_vice_captain(text, text, boolean)              FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_disable_player(text, text, boolean, text)   FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION admin_add_player(text, text, text)             TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_add_player(text, text, text, boolean)    TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_player(text, text)                TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_set_player_status(text, text, text)      TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_set_player_priority(text, text, text)    TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_set_player_priority(text, text, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_set_vice_captain(text, text, boolean)           TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_disable_player(text, text, boolean, text) TO authenticated;
 
@@ -157,34 +157,34 @@ REVOKE ALL ON FUNCTION admin_save_match_result(text, text, text, int, int, text,
 REVOKE ALL ON FUNCTION admin_save_teams(text, text, text[], text[], boolean)        FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_save_bib_holder(text, text, text)                      FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_upsert_schedule(text, text, text, text, text, int, int, boolean, text, text, int, jsonb, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_upsert_settings(text, text, text)                      FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_upsert_settings(text, text)                            FROM PUBLIC;
 -- REVOKE ALL ON FUNCTION admin_add_cover_player(text, text, text)                     FROM PUBLIC;
 -- REVOKE ALL ON FUNCTION admin_remove_cover_player(text, text)                        FROM PUBLIC;
 -- REVOKE ALL ON FUNCTION admin_update_cover_player(text, text, int, int)             FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_cancel_match(text, text, text)                         FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_cancel_match(text, text)                               FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION admin_save_match_result(text, text, text, int, int, text, int, text[], text[], jsonb, text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_save_teams(text, text, text[], text[], boolean)     TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_save_bib_holder(text, text, text)                   TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_upsert_schedule(text, text, text, text, text, int, int, boolean, text, text, int, jsonb, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_upsert_settings(text, text, text)                   TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_upsert_settings(text, text)                         TO authenticated;
 -- GRANT EXECUTE ON FUNCTION admin_add_cover_player(text, text, text)                  TO authenticated;
 -- GRANT EXECUTE ON FUNCTION admin_remove_cover_player(text, text)                     TO authenticated;
 -- GRANT EXECUTE ON FUNCTION admin_update_cover_player(text, text, int, int)          TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_cancel_match(text, text, text)                      TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_cancel_match(text, text)                            TO authenticated;
 
 
 -- ── Migration 014: admin payment RPCs ─────────────────────────────────────────
 
-REVOKE ALL ON FUNCTION admin_confirm_payment(text, text, text, int) FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_confirm_payment(text, text, text)      FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_reset_payment(text, text, text)        FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_clear_debt(text, text)                 FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_waive_debt(text, text, int, text)      FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_waive_debt(text, text, text)           FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION admin_confirm_payment(text, text, text, int) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_confirm_payment(text, text, text)      TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_reset_payment(text, text, text)        TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_clear_debt(text, text)                 TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_waive_debt(text, text, int, text)      TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_waive_debt(text, text, text)           TO authenticated;
 
 
 -- ── Migration 015: onboarding RPCs ────────────────────────────────────────────
@@ -202,12 +202,12 @@ GRANT EXECUTE ON FUNCTION join_team_as_returning_player(text, uuid)  TO authenti
 -- open/close: admin-only (authenticated; admin_token validated inside)
 
 REVOKE ALL ON FUNCTION admin_open_potm_voting(text, text, timestamptz, int)          FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_close_potm_voting(text, text)   FROM PUBLIC;
-REVOKE ALL ON FUNCTION get_potm_tally(text)                  FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_close_potm_voting(text, text, text, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION get_potm_tally(text, text)            FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION admin_open_potm_voting(text, text, timestamptz, int)       TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_close_potm_voting(text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_potm_tally(text)               TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_close_potm_voting(text, text, text, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_potm_tally(text, text)         TO authenticated;
 
 
 -- ── Migration 017: broadcast helper refinement ────────────────────────────────
