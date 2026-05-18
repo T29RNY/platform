@@ -27,9 +27,9 @@ CREATE OR REPLACE FUNCTION create_team(
   p_team_name          text,
   p_day_of_week        text,
   p_kickoff            text,             -- 'HH:MM'
+  p_squad_size         int,
   p_venue              text    DEFAULT null,
   p_city               text    DEFAULT null,
-  p_squad_size         int,
   p_price              int     DEFAULT 0,
   p_bibs_enabled       boolean DEFAULT true,
   p_player_names       text[]  DEFAULT ARRAY[]::text[],
