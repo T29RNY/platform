@@ -96,11 +96,11 @@ GRANT EXECUTE ON FUNCTION get_team_state_by_player_token(text) TO anon, authenti
 GRANT EXECUTE ON FUNCTION get_team_state_by_admin_token(text)  TO anon, authenticated;
 
 -- Authenticated-only reads (require auth.uid())
-REVOKE ALL ON FUNCTION get_my_player_for_team(text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION get_my_teams()               FROM PUBLIC;
+-- REVOKE ALL ON FUNCTION get_my_player_for_team(text) FROM PUBLIC;
+-- REVOKE ALL ON FUNCTION get_my_teams()               FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION get_my_player_for_team(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_my_teams()               TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_my_player_for_team(text) TO authenticated;
+-- GRANT EXECUTE ON FUNCTION get_my_teams()               TO authenticated;
 
 
 -- ── Migration 011: player write RPCs + broadcast helper ────────────────────────
@@ -140,37 +140,37 @@ REVOKE ALL ON FUNCTION admin_add_player(text, text, text)                FROM PU
 REVOKE ALL ON FUNCTION admin_delete_player(text, text)                   FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_set_player_status(text, text, text)         FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_set_player_priority(text, text, text)       FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_toggle_vc(text, text, boolean)              FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_set_vice_captain(text, text, boolean)              FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_disable_player(text, text, boolean, text)   FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION admin_add_player(text, text, text)             TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_player(text, text)                TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_set_player_status(text, text, text)      TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_set_player_priority(text, text, text)    TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_toggle_vc(text, text, boolean)           TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_set_vice_captain(text, text, boolean)           TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_disable_player(text, text, boolean, text) TO authenticated;
 
 
 -- ── Migration 013: admin match / schedule RPCs ────────────────────────────────
 
-REVOKE ALL ON FUNCTION admin_save_match_result(text, text, int, int, text, text, text[], text[], jsonb, text, text, text, int) FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_save_match_result(text, text, text, int, int, text, int, text[], text[], jsonb, text, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_save_teams(text, text, text[], text[], boolean)        FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_save_bib_holder(text, text, text)                      FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_upsert_schedule(text, text, text, text, text, text, int, int, boolean, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_upsert_schedule(text, text, text, text, text, int, int, boolean, text, text, int, jsonb, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_upsert_settings(text, text, text)                      FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_add_cover_player(text, text, text)                     FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_remove_cover_player(text, text)                        FROM PUBLIC;
-REVOKE ALL ON FUNCTION admin_update_cover_player(text, text, int, int)             FROM PUBLIC;
+-- REVOKE ALL ON FUNCTION admin_add_cover_player(text, text, text)                     FROM PUBLIC;
+-- REVOKE ALL ON FUNCTION admin_remove_cover_player(text, text)                        FROM PUBLIC;
+-- REVOKE ALL ON FUNCTION admin_update_cover_player(text, text, int, int)             FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_cancel_match(text, text, text)                         FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION admin_save_match_result(text, text, int, int, text, text, text[], text[], jsonb, text, text, text, int) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_save_match_result(text, text, text, int, int, text, int, text[], text[], jsonb, text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_save_teams(text, text, text[], text[], boolean)     TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_save_bib_holder(text, text, text)                   TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_upsert_schedule(text, text, text, text, text, text, int, int, boolean, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_upsert_schedule(text, text, text, text, text, int, int, boolean, text, text, int, jsonb, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_upsert_settings(text, text, text)                   TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_add_cover_player(text, text, text)                  TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_remove_cover_player(text, text)                     TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_update_cover_player(text, text, int, int)          TO authenticated;
+-- GRANT EXECUTE ON FUNCTION admin_add_cover_player(text, text, text)                  TO authenticated;
+-- GRANT EXECUTE ON FUNCTION admin_remove_cover_player(text, text)                     TO authenticated;
+-- GRANT EXECUTE ON FUNCTION admin_update_cover_player(text, text, int, int)          TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_cancel_match(text, text, text)                      TO authenticated;
 
 
@@ -190,22 +190,22 @@ GRANT EXECUTE ON FUNCTION admin_waive_debt(text, text, int, text)      TO authen
 -- ── Migration 015: onboarding RPCs ────────────────────────────────────────────
 -- Auth required for both onboarding RPCs (auth.uid() used inside)
 
-REVOKE ALL ON FUNCTION create_team(text, text, jsonb, text[])              FROM PUBLIC;
-REVOKE ALL ON FUNCTION join_team_as_returning_player(text, uuid, text)     FROM PUBLIC;
+REVOKE ALL ON FUNCTION create_team(text, text, text, text, int, text, text, int, boolean, text[], text, text, int)              FROM PUBLIC;
+REVOKE ALL ON FUNCTION join_team_as_returning_player(text, uuid)     FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION create_team(text, text, jsonb, text[])           TO authenticated;
-GRANT EXECUTE ON FUNCTION join_team_as_returning_player(text, uuid, text)  TO authenticated;
+GRANT EXECUTE ON FUNCTION create_team(text, text, text, text, int, text, text, int, boolean, text[], text, text, int)           TO authenticated;
+GRANT EXECUTE ON FUNCTION join_team_as_returning_player(text, uuid)  TO authenticated;
 
 
 -- ── Migration 016: POTM RPCs ───────────────────────────────────────────────────
 -- get_potm_tally: admin-only (authenticated; admin_token validated inside)
 -- open/close: admin-only (authenticated; admin_token validated inside)
 
-REVOKE ALL ON FUNCTION open_potm_voting(text, text)          FROM PUBLIC;
+REVOKE ALL ON FUNCTION admin_open_potm_voting(text, text, timestamptz, int)          FROM PUBLIC;
 REVOKE ALL ON FUNCTION admin_close_potm_voting(text, text)   FROM PUBLIC;
 REVOKE ALL ON FUNCTION get_potm_tally(text)                  FROM PUBLIC;
 
-GRANT EXECUTE ON FUNCTION open_potm_voting(text, text)       TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_open_potm_voting(text, text, timestamptz, int)       TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_close_potm_voting(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_potm_tally(text)               TO authenticated;
 
