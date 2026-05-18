@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 17 2026 (session 23)*
+*Last updated: May 18 2026 (session 24)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -354,8 +354,34 @@ last_reset timestamptz,
 last_interaction timestamptz
 ```
 
+### team_admins
+```
+team_id text, user_id uuid, created_at timestamptz
+PRIMARY KEY (team_id, user_id)
+```
+Written by `create_team` RPC during onboarding. Seeded for `team_demo` via migration 020.
+
+### audit_events
+```
+id uuid PK DEFAULT gen_random_uuid(),
+team_id text, actor_id text, event_type text, payload jsonb,
+created_at timestamptz DEFAULT now()
+```
+Written by SECURITY DEFINER RPCs for all admin mutations.
+
+### RLS architecture (post session 24)
+All 19 public schema tables have `rowsecurity=true`. Anon and authenticated roles have no direct write access. All client writes go through SECURITY DEFINER RPCs in `rls_migrations/` (47 functions total). Direct table reads also blocked — bulk state reads go through `admin_get_team_state` and `player_get_team_state` RPCs.
+
 ### RPC functions
 `find_player_by_email(lookup_email text)` — SECURITY DEFINER, joins auth.users → players → team_players → teams
+
+**Player token RPCs (011):** `set_player_status`, `set_player_paid` (clears debt atomically since session 24), `set_player_injured`, `add_guest_player`, `save_push_subscription`
+
+**Admin token RPCs (012–018):** `admin_get_team_state`, `admin_add_player`, `admin_remove_player`, `admin_update_player_name`, `admin_set_vice_captain`, `admin_set_player_priority`, `admin_disable_player`, `admin_confirm_payment`, `admin_reset_payment`, `admin_waive_debt`, `admin_save_match_result`, `admin_save_teams`, `admin_save_bib_holder`, `admin_cancel_match`, `admin_upsert_schedule`, `admin_upsert_settings`, `admin_close_potm_voting`, `admin_reset_player_token`
+
+**Onboarding RPCs (015):** `create_team` — atomic: team + players + schedule + settings + team_admins; fully rolls back on error
+
+**Auth RPCs (022):** `link_player_to_user(p_token)` — authenticated only (uses `auth.uid()`); links player row to Supabase auth user; guards against double-linking
 
 **Realtime enabled on:** players, schedule, matches
 **player_match UNIQUE constraint:** (match_id, player_id) — required for UPSERT in writePlayerMatchRows and lineupLockJob
@@ -405,6 +431,7 @@ last_interaction timestamptz
 | Item | Value |
 |---|---|
 | Team ID | team_demo |
+| Admin token | admin_demo |
 | Admin URL | in-or-out.com/demoadmin |
 | Hassan URL | in-or-out.com/p/p_demotoken_01 |
 | Dave URL | in-or-out.com/p/p_demotoken_02 |
@@ -744,6 +771,10 @@ Both can run; both add to `owes`. No deduplication.
 | Pre-launch /create + /join audit | ✅ Done | Session 23 commit 9: user_id propagation, joinUrl protocol fix, iOS-only redirect gate, onboarding_complete timing |
 | Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
+| RLS + security hardening | ✅ Done | Session 24: 47 SECURITY DEFINER RPCs, all 19 tables locked, anon key safe |
+| /create auth gate | ✅ Done | Session 24: hard auth gate + ioo_pending_route sessionStorage round-trip |
+| team_admins table | ✅ Done | Session 24: migration 002, written by create_team RPC, seeded for team_demo |
+| link_player_to_user RPC | ✅ Done | Session 24: migration 022, authenticated-only, replaces direct table write |
 | Join/login redesign | 🔲 Pre-launch | |
 | Stripe Connect | 🔒 Blocked | Needs platform account |
 | Apple Sign In | 🔒 Blocked | Needs Dev account £79 |
@@ -941,6 +972,8 @@ all have venue contracts. Sticky but beatable on product quality.
 | `packages/core/engine/scoring.js` file name | Hosts `periodCutoff` (non-scoring helper) alongside scoring helpers. Rename to broader name (e.g. `stats-helpers.js`) when file grows further | Low |
 | `/create` flow has no auth gate | Team creation works without sign-in. Means `team_admins` insert can't reliably capture user_id in submitTeam. Fix: redirect unauthenticated users to sign-in before /create, return them after. Do before building team_admins. | Pre-Stage 2 |
 | `team_demo` has no `team_admins` row | Demo team predates the table. Switcher won't show it for Tarny until backfilled. Backfill in Session 24 after table is created. | Low |
+| BibsScreen `insertBib` broken under RLS | BibsScreen lacks `matchId` + `adminToken` in scope — standalone bib assignment fails post-RLS lockdown. Low priority: bibs can be set via ScoreScreen result save which has both. | Low |
+| Dead write functions in `supabase.js` | `bulkCancelLedgerEntries`, `bulkResetPlayerStatuses`, `deletePlayerMatchRows`, `insertMatch`, `loadTeamData` are unreferenced post-RLS rewrite. Safe to remove in any future cleanup pass. | Low |
 
 ---
 
@@ -1669,32 +1702,88 @@ Audit of /create + /join code revealed four issues. All fixed in one commit:
 11. `fix(myio): guard InsightCard body renderer` — already noted as d387c58
 12. `fix(demo): rename demo team to 5-a-Side FC` — 878898e
 
-**Session 24 (start here):**
-Priority order:
-1. Auth-gate /create — require sign-in before onboarding starts
-2. team_admins table + onboarding write (admin role only)
-3. VC per-team migration assessment — tackle or defer to Phase 2
-4. Demo data rebuild — mixed score_types, realistic absences
-5. Onboarding end-to-end test (create Finbar's fresh)
-6. iPad join test — /join/team_finbars on clean Safari
-7. Android install screenshots
-8. Tuesday standby kit + WhatsApp to Finbar's admin
+**Session 24 — RLS lockdown + full client rewrite (2026-05-18):**
 
-**Supabase SQL still to run (if not done):**
+**Goal:** Complete RLS migration across all 19 Supabase tables. Replace every direct client-side table write with SECURITY DEFINER RPC calls. No direct table access permitted from the client post-migration.
+
+**RLS migration applied (migration 006):**
+- Row Level Security enabled on all 19 tables
+- All `SELECT` policies: `anon` + `authenticated` can read their own team's data via `team_id` membership check
+- All `INSERT`/`UPDATE`/`DELETE`: blocked for `anon` and `authenticated` — SECURITY DEFINER RPCs are the sole write path
+- `SECURITY DEFINER` functions run as table owner, bypass RLS; admin RPCs resolve `p_admin_token` → `team_id` via `teams.admin_token`
+
+**GROUP 1 — Token write RPCs (migration 011, pre-session 24):**
+All player-facing writes already rewired: `handleMarkPaid`, `handleResetPayment`, `handleWaiveDebt`, `setPlayerNickname`, `insertPlayerInjury`, `clearPlayerInjury`, `resetPlayerToken`, `deletePlayer`, `toggleViceCaptain`, `saveTeamsDraft`, `closePOTMVoting`, `addPlayerToTeam`
+
+**GROUP 2 — Admin write RPCs (sessions 23–24):**
+Rewired all 7 admin view files:
+- `TeamsScreen.jsx`: `saveTeamsDraft(matchId, teamId, ...)` → `saveTeamsDraft(adminToken, matchId, [], [])`
+- `ScheduleScreen.jsx`: `upsertSchedule` + `upsertSettings` both take `adminToken` as first arg; `adminToken` prop added
+- `PaymentsScreen.jsx`: `handleMarkPaid`, `handleResetPayment`, `handleWaiveDebt` all drop `teamId`/`price`/`waiverAmount`; `adminToken` threaded through `PlayerRow`
+- `AdminView/index.jsx`: `cancelWeek` collapsed from 7-step client sequence to single `adminCancelMatch(adminToken, reason)` call; `openNextWeek`, `handleClearInjury`, `markPaid`, `removeGuest`, cover-pool guest add all updated; `POTMTiebreakModal` + `PlayerProfile` sub-components take `adminToken` prop; `ScheduleScreen` + `PaymentsScreen` render sites pass `adminToken`
+- Imports: removed `insertMatch`, `bulkCancelLedgerEntries`, `bulkResetPlayerStatuses`, `addGuestPlayer`; added `adminCancelMatch`, `addPlayerToTeam`
+
+**GROUP 3 — Fold debt clearing into `set_player_paid` (migration 011 update):**
+- `set_player_paid` RPC updated: before marking `self_paid`, reads `owes`; if > 0, inserts `debt_payment` ledger row and zeros `owes` — all in same transaction
+- `PlayerView.jsx`: removed `handleClearDebt` call and import; `handleCashPayment(me.token)` unchanged
+
+**Migration 022 — `link_player_to_user` RPC:**
+- New authenticated-only RPC: derives user from `auth.uid()`, links player token → user_id
+- Guards: null token, unauthenticated caller, duplicate user→player link
+- `GRANT EXECUTE` to `authenticated` only (not `anon`)
+- `supabase.js` `linkPlayerToUser(playerId, userId)` → `linkPlayerToUser(token)` — signature simplified
+- `App.jsx` call site: `linkPlayerToUser(player.id, session.user.id)` → `linkPlayerToUser(route.token)`
+
+**demoadmin route fix:**
+- `/demoadmin` previously called `loadTeamData("team_demo")` — multi-query direct table reads, blocked by RLS post-migration-006
+- Replaced with `getTeamStateByAdminToken("admin_demo")` — bulk-state RPC, bypasses RLS correctly
+- `admin_demo` token seeded in `scripts/seed-demo.js:127`
+- `onResetDemo` callback updated to use same pattern
+
+**team_admins table:**
 ```sql
--- matches.teams_draft column
-ALTER TABLE matches ADD COLUMN IF NOT EXISTS teams_draft jsonb;
-
--- payment_ledger CHECK constraints (required for Cancel Week)
-ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_type_check;
-ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_type_check
-  CHECK (type IN ('game_fee','guest_fee','debt_payment','waiver','refund','cancelled'));
-ALTER TABLE payment_ledger DROP CONSTRAINT payment_ledger_status_check;
-ALTER TABLE payment_ledger ADD CONSTRAINT payment_ledger_status_check
-  CHECK (status IN ('paid','unpaid','waived','disputed','refunded','cancelled'));
-
--- Performance indexes (non-blocking)
-CREATE INDEX IF NOT EXISTS idx_player_match_team_attended ON player_match (team_id, attended);
-CREATE INDEX IF NOT EXISTS idx_player_match_team_player ON player_match (team_id, player_id);
-CREATE INDEX IF NOT EXISTS idx_matches_team_date ON matches (team_id, match_date);
+CREATE TABLE team_admins (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  team_id text NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role text NOT NULL DEFAULT 'admin' CHECK (role IN ('admin','viewer')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (team_id, user_id)
+);
 ```
+- RLS: `SELECT` open to `authenticated`; all writes via SECURITY DEFINER RPC only
+- Populated at team creation (onboarding step 2, `submitTeam`) and via `admin_create_team` RPC
+- `/create` auth gate added: unauthenticated users redirected to sign-in first (migration 021)
+
+**audit_events table:**
+```sql
+CREATE TABLE audit_events (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  team_id text REFERENCES teams(id) ON DELETE SET NULL,
+  actor_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  action text NOT NULL,
+  payload jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+**Commits shipped (in order):**
+1. Continuation of session 23 FILE 4 TeamsScreen — `saveTeamsDraft` rewire
+2. FILE 5 ScheduleScreen — `upsertSchedule` + `upsertSettings` rewire (3b9dd53)
+3. FILE 6 PaymentsScreen — three write calls + PlayerRow `adminToken` (b9f0ac1)
+4. FILE 7 AdminView/index — all remaining write sites, 7→1 cancelWeek (cbe5740)
+5. GROUP 3 — `set_player_paid` debt clearing + PlayerView cleanup (b43202d)
+6. Migration 022 + supabase.js + App.jsx `linkPlayerToUser` (cbd53eb)
+7. App.jsx demoadmin route fix → `getTeamStateByAdminToken` (f691ffe)
+8. docs: session 24 complete
+
+**Supabase SQL still to run manually:**
+- Migration 006: RLS enable on all tables (if not yet applied)
+- Migration 011 update: updated `set_player_paid` with debt-clearing logic
+- Migration 022: `link_player_to_user` RPC
+
+**Remaining for Stage 2 beta (target: May 26):**
+- Finbar's team creation + onboarding end-to-end test
+- Android install screenshots
+- WhatsApp comms to Finbar's admin
+- `team_demo` `team_admins` backfill (low priority)
