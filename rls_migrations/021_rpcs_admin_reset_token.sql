@@ -5,8 +5,8 @@ CREATE OR REPLACE FUNCTION admin_reset_player_token(
 LANGUAGE plpgsql
 VOLATILE
 SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $func$
+SET search_path = public
+AS $$
 DECLARE
   v_team_id   text;
   v_new_token text;
@@ -42,6 +42,6 @@ EXCEPTION
   WHEN OTHERS THEN
     RAISE EXCEPTION USING ERRCODE='P0001', MESSAGE='internal_error';
 END;
-$func$;
+$$;
 REVOKE EXECUTE ON FUNCTION admin_reset_player_token(text, text) FROM public;
 GRANT  EXECUTE ON FUNCTION admin_reset_player_token(text, text) TO anon, authenticated;
