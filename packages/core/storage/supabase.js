@@ -332,13 +332,33 @@ export async function getTeamByJoinCode(code) {
 export async function getTeamStateByPlayerToken(token) {
   const { data, error } = await supabase.rpc('get_team_state_by_player_token', { p_token: token });
   if (error || !data) return null;
-  return data;
+  return {
+    teamId:         data.schedule?.team_id || null,
+    player:         dbToPlayer({ ...data.player, token }),
+    squad:          (data.squad || []).map(dbToPlayer),
+    schedule:       data.schedule ? dbToSchedule(data.schedule) : null,
+    matches:        (data.matches || []).map(dbToMatch),
+    bibHistory:     (data.bib_history || []).map(b => ({ name: b.name, playerId: b.player_id, matchDate: b.match_date, returned: b.returned })),
+    settings:       data.settings ? { groupName: data.settings.group_name } : null,
+    coverPool:      data.cover_pool || [],
+    liveChannelKey: data.live_channel_key,
+  };
 }
 
 export async function getTeamStateByAdminToken(token) {
   const { data, error } = await supabase.rpc('get_team_state_by_admin_token', { p_admin_token: token });
   if (error || !data) return null;
-  return data;
+  return {
+    teamId:         data.team?.id || null,
+    team:           data.team || null,
+    squad:          (data.squad || []).map(dbToPlayer),
+    schedule:       data.schedule ? dbToSchedule(data.schedule) : null,
+    matches:        (data.matches || []).map(dbToMatch),
+    bibHistory:     (data.bib_history || []).map(b => ({ name: b.name, playerId: b.player_id, matchDate: b.match_date, returned: b.returned })),
+    settings:       data.settings ? { groupName: data.settings.group_name } : null,
+    coverPool:      data.cover_pool || [],
+    liveChannelKey: data.live_channel_key,
+  };
 }
 
 export async function addPlayerToTeam(name, teamId, options = {}) {

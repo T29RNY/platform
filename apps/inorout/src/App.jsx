@@ -7,9 +7,10 @@ import {
   getBibHistory, insertBib,
   getSchedule, upsertSchedule,
   getSettings, upsertSettings,
-  getTeamByAdminToken, getTeamByPlayerToken,
-  getPlayerByToken, getPlayerTeams,
+  getTeamByPlayerToken,
+  getPlayerTeams,
   getTeamByJoinCode, addPlayerToTeam,
+  getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
   getSession, getUser, findPlayerByUserId, findPlayerByEmail,
   getUserProfile, linkPlayerToUser, updateUserProfile,
@@ -205,17 +206,22 @@ export default function App() {
             resolvedTeamId = data?.id;
             setIsAdmin(true);
           } else {
-            const team = await getTeamByAdminToken(route.token);
-            if (!team) { setError("Invalid admin link."); setLoading(false); return; }
-            resolvedTeamId = team.id;
+            const state = await getTeamStateByAdminToken(route.token);
+            if (!state) { setError("Invalid admin link."); setLoading(false); return; }
             setIsAdmin(true);
-          }
-          // Identify which squad member is the admin so My View shows their own data
-          if (session?.user) {
-            try {
-              const adminPlayer = await findPlayerByUserId(session.user.id);
-              if (adminPlayer) setMyPlayer(adminPlayer);
-            } catch(e) {}
+            if (session?.user) {
+              try {
+                const adminPlayer = await findPlayerByUserId(session.user.id);
+                if (adminPlayer) setMyPlayer(adminPlayer);
+              } catch(e) {}
+            }
+            setTeamId(state.teamId);           setSelectedTeam(state.teamId);
+            setSquadRaw(state.squad);          setMatchHistRaw(state.matches);
+            setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+            setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+            setCoverPoolRaw(state.coverPool);
+            setLoading(false);
+            return;
           }
         }
 
@@ -223,8 +229,9 @@ export default function App() {
           if (route.token?.startsWith("p_demotoken_")) {
             try { await updateDemoInteraction(); } catch(e) {}
           }
-          const player = await getPlayerByToken(route.token);
-          if (!player) { setLoading(false); return; }
+          const state = await getTeamStateByPlayerToken(route.token);
+          if (!state) { setLoading(false); return; }
+          const player = state.player;
 
           // Visit count — increment on every load
           const vcKey = `ioo_visit_count_${route.token}`;
@@ -251,16 +258,24 @@ export default function App() {
           }
 
           // Show email capture overlay on visit 3+ if still unlinked
-          if (!player.userId && visitCount >= 3) {
-            setShowEmailCapture(true);
-          }
+          if (!player.userId && visitCount >= 3) setShowEmailCapture(true);
 
           setMyPlayer(player);
           const teams = await getPlayerTeams(player.id);
           setPlayerTeams(teams);
           if (teams.length === 0) { setError("Could not find your team."); setLoading(false); return; }
-          if (teams.length === 1) resolvedTeamId = teams[0].id;
-          else { setLoading(false); return; } // show switcher
+          if (teams.length === 1) {
+            setTeamId(state.teamId);           setSelectedTeam(state.teamId);
+            setSquadRaw([player, ...state.squad]);
+            setMatchHistRaw(state.matches);    setBibHistRaw(state.bibHistory);
+            setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+            setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+            setCoverPoolRaw(state.coverPool);
+            setLoading(false);
+            return;
+          } else {
+            setLoading(false); return; // show switcher
+          }
         }
 
         if (!resolvedTeamId) { setLoading(false); return; }
