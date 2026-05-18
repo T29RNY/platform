@@ -188,6 +188,7 @@ DECLARE
   v_team_id     text;
   v_match_id    text;
   v_price       numeric;
+  v_owes        numeric := 0;
   v_ledger_id   text;
   v_player_json jsonb;
 BEGIN
@@ -215,11 +216,23 @@ BEGIN
      AND s.active  = true
    LIMIT 1;
 
+  -- Read current debt before any updates
+  SELECT COALESCE(owes, 0) INTO v_owes FROM players WHERE id = v_player_id;
+
   -- Update player self-payment flag
   UPDATE players
   SET    self_paid = true,
          paid_by   = 'self'
   WHERE  id = v_player_id;
+
+  -- Clear any outstanding debt: insert a paid ledger entry and zero owes
+  IF v_owes > 0 THEN
+    INSERT INTO payment_ledger
+      (team_id, player_id, match_id, amount, type, status, method, paid_by, paid_at)
+    VALUES
+      (v_team_id, v_player_id, null, v_owes, 'debt_payment', 'paid', 'cash', 'self', now());
+    UPDATE players SET owes = 0 WHERE id = v_player_id;
+  END IF;
 
   -- Find-then-update ledger entry (mirrors findMatchLedgerEntry/createLedgerEntry
   -- in supabase.js). Handles null match_id (no lineup lock yet) via IS NULL branch.

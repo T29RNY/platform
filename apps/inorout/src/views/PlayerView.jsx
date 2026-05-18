@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getGuestPaymentState,
-  handleCashPayment, handleClearDebt, handleGuestCashPayment,
+  handleCashPayment, handleGuestCashPayment,
   resolveMotm } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, setPlayerStatus, setPlayerInjured, deletePlayer,
   getPlayerMatchForm, getLastMatchMeta,
@@ -495,7 +495,6 @@ export default function PlayerView({
                         <button onClick={async () => {
                           setPayError(null);
                           try {
-                            await handleClearDebt(me.id, teamId, owes + price);
                             await handleCashPayment(me.token);
                             setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
                             setCashPending(false);
