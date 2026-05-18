@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { colors as C } from "@platform/core";
 import { supabase } from "@platform/supabase";
 import {
-  getPlayers, upsertPlayers,
+  getPlayers,
   getMatches, insertMatch,
   getBibHistory, insertBib,
   getSchedule, upsertSchedule,
@@ -375,10 +375,9 @@ export default function App() {
   }, [teamId]);
 
   // ── Setters ──────────────────────────────────────────────────────────────────
-  const setSquad = async (updater) => {
+  const setSquad = (updater) => {
     const next = typeof updater==="function" ? updater(squad) : updater;
     setSquadRaw(next);
-    try { await upsertPlayers(next, teamId); } catch(e) { console.error(e); }
   };
   const setBibHistory = async (updater) => {
     const next = typeof updater==="function" ? updater(bibHistory) : updater;

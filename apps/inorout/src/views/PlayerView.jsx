@@ -3,7 +3,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleClearDebt, handleGuestCashPayment,
   resolveMotm } from "@platform/core";
-import { savePushSubscription, addGuestPlayer, deletePlayer,
+import { savePushSubscription, addGuestPlayer, setPlayerStatus, setPlayerInjured, deletePlayer,
   getPlayerMatchForm, getLastMatchMeta,
   getPOTMEligiblePlayers, getPOTMVotes, setPlayerNickname,
   resolveBibHolder, getLedgerForPlayer, getOutstandingBalance } from "@platform/supabase";
@@ -223,7 +223,7 @@ export default function PlayerView({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
       });
-      await savePushSubscription(myId, teamId, sub.toJSON(), me?.token);
+      await savePushSubscription(me?.token, sub.toJSON());
       localStorage.setItem(`notif_${myId}`, "subscribed");
       setNotifState("subscribed");
     } catch(e) {
@@ -245,6 +245,7 @@ export default function PlayerView({
       ? { ...p, status: s, note, lateDropouts: (p.lateDropouts || 0) + (late ? 1 : 0) }
       : p
     ));
+    if (me?.token) setPlayerStatus(me.token, s).catch(console.error);
 
     if (!teamId) return;
     const gameDate = schedule.gameDateTime?.split("T")[0];
@@ -298,7 +299,7 @@ export default function PlayerView({
     if (!guestName.trim() || addingGuest) return;
     setAddingGuest(true);
     try {
-      const guest = await addGuestPlayer(myId, guestName.trim(), teamId, guestSelfPaid);
+      const guest = await addGuestPlayer(me?.token, guestName.trim());
       setSquad([...squad, guest]);
       setGuestName("");
       setGuestSelfPaid(false);
@@ -315,6 +316,7 @@ export default function PlayerView({
   const confirmExistingPlayer = () => {
     if (!pickerPlayer) return;
     setSquad(squad.map(p => p.id === pickerPlayer.id ? { ...p, status: "in" } : p));
+    if (pickerPlayer.token) setPlayerStatus(pickerPlayer.token, "in").catch(console.error);
     setGuestName("");
     setPickerPlayer(null);
     setShowPlusOneForm(false);
@@ -340,6 +342,7 @@ export default function PlayerView({
       ? { ...p, injured: newInjured, status: needsStatusReset ? "out" : p.status }
       : p
     ));
+    if (me?.token) setPlayerInjured(me.token, newInjured).catch(console.error);
   };
 
 
@@ -493,7 +496,7 @@ export default function PlayerView({
                           setPayError(null);
                           try {
                             await handleClearDebt(me.id, teamId, owes + price);
-                            await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
+                            await handleCashPayment(me.token);
                             setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
                             setCashPending(false);
                             setClearDebtExpanded(false);
@@ -527,7 +530,7 @@ export default function PlayerView({
                         <button onClick={async () => {
                           setPayError(null);
                           try {
-                            await handleCashPayment(me.id, teamId, 'self', schedule.activeMatchId || null, price);
+                            await handleCashPayment(me.token);
                             setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
                             setCashPending(false);
                           } catch {
@@ -812,7 +815,7 @@ export default function PlayerView({
                       <button onClick={async () => {
                         setPayError(null);
                         try {
-                          await handleGuestCashPayment(myGuest.id, teamId, 'host', schedule.activeMatchId || null, price, guestName);
+                          await handleGuestCashPayment(me?.token, myGuest.id, 'host');
                           setSquad(sq => sq.map(p => p.id === myGuest.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
                           setGuestCashPending(false);
                         } catch {

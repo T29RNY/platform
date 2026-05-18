@@ -42,15 +42,14 @@ export async function upsertPlayer(player) {
   if (error) throw error;
 }
 
-export async function upsertPlayers(players, teamId) {
-  if (!players.length) return;
-  const { error } = await supabase.from("players").upsert(players.map(playerToDb));
+export async function setPlayerStatus(token, status) {
+  const { error } = await supabase.rpc('set_player_status', { p_token: token, p_status: status });
   if (error) throw error;
-  // Ensure all players are linked to team
-  if (teamId) {
-    const links = players.map(p => ({ team_id: teamId, player_id: p.id }));
-    await supabase.from("team_players").upsert(links, { onConflict: "team_id,player_id" });
-  }
+}
+
+export async function setPlayerInjured(token, injured) {
+  const { error } = await supabase.rpc('set_player_injured', { p_token: token, p_injured: injured });
+  if (error) throw error;
 }
 
 export async function deletePlayer(id) {
@@ -387,23 +386,13 @@ export async function addPlayerToTeam(name, teamId, options = {}) {
 }
 
 // ─── Guest players ────────────────────────────────────────────────────────────
-export async function addGuestPlayer(hostPlayerId, guestName, teamId, selfPaid = false) {
-  const id = "p_" + Math.random().toString(36).slice(2, 10);
-  const row = {
-    id, name: guestName.trim(), type: "regular",
-    disabled: false, priority: false, is_vice_captain: false,
-    status: "in", paid: false, owes: 0,
-    goals: 0, motm: 0, attended: 0, total: 0,
-    bib_count: 0, team: null, w: 0, l: 0, d: 0,
-    pay_count: 0, late_dropouts: 0, note: "", self_paid: selfPaid,
-    token: null, is_guest: true, guest_of: hostPlayerId,
-  };
-  const { error: pErr } = await supabase.from("players").insert(row);
-  if (pErr) throw pErr;
-  const { error: tErr } = await supabase
-    .from("team_players").insert({ team_id: teamId, player_id: id });
-  if (tErr) throw tErr;
-  return dbToPlayer(row);
+export async function addGuestPlayer(hostToken, guestName) {
+  const { data, error } = await supabase.rpc('add_guest_player', {
+    p_token:      hostToken,
+    p_guest_name: guestName,
+  });
+  if (error) throw error;
+  return dbToPlayer(data);
 }
 
 // ─── Cover pool ───────────────────────────────────────────────────────────────
@@ -438,13 +427,11 @@ export async function updateCoverPlayer(id, updates) {
 }
 
 // ─── Push subscriptions ───────────────────────────────────────────────────────
-export async function savePushSubscription(playerId, teamId, subscription, playerToken) {
-  const id = "sub_" + Math.random().toString(36).slice(2, 12);
-  // Upsert — one active subscription per player
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    { id, player_id: playerId, player_token: playerToken, team_id: teamId, subscription },
-    { onConflict: "player_id" }
-  );
+export async function savePushSubscription(playerToken, subscription) {
+  const { error } = await supabase.rpc('register_push_subscription', {
+    p_token:        playerToken,
+    p_subscription: subscription,
+  });
   if (error) throw error;
 }
 

@@ -32,52 +32,20 @@ export function getGuestPaymentState(guest, guestCashPending = false) {
 
 // ─── Payment handlers ─────────────────────────────────────────────────────────
 
-/** Player confirms they've paid cash. Sets self_paid = true and paid_by in DB. */
-export async function handleCashPayment(playerId, teamId, paidBy = 'self', matchId = null, amount = 0) {
-  try {
-    const paidAt = new Date().toISOString();
-    const { error } = await supabase
-      .from("players")
-      .update({ self_paid: true, paid_by: paidBy, paid_at: paidAt })
-      .eq("id", playerId);
-    if (error) throw error;
-    const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
-    if (existing) {
-      await updateLedgerEntry(existing.id, {
-        status: 'paid',
-        method: paidBy === 'stripe' ? 'stripe' : 'cash',
-        paidBy,
-        paidAt,
-      });
-    } else {
-      await createLedgerEntry({
-        teamId, playerId, matchId: matchId || null, amount: amount || 0,
-        type: 'game_fee', status: 'paid',
-        method: paidBy === 'stripe' ? 'stripe' : 'cash',
-        paidBy, paidAt, note: null,
-      });
-    }
-    return { selfPaid: true, paidBy, paidAt };
-  } catch (error) {
-    console.error('handleCashPayment error:', error);
-    throw error;
-  }
+/** Player confirms they've paid cash. */
+export async function handleCashPayment(token) {
+  const { error } = await supabase.rpc('set_player_paid', { p_token: token });
+  if (error) throw error;
 }
 
-/** Host or admin confirms cash payment for a guest. */
-export async function handleGuestCashPayment(guestId, teamId, paidBy = 'host', matchId = null, amount = 0, guestName = null) {
-  const paidAt = new Date().toISOString();
-  const { error } = await supabase
-    .from("players")
-    .update({ self_paid: true, paid_by: paidBy, paid_at: paidAt })
-    .eq("id", guestId);
-  if (error) throw error;
-  await createLedgerEntry({
-    teamId, playerId: guestId, matchId: matchId || null, amount: amount || 0,
-    type: 'guest_fee', status: 'paid', method: 'cash',
-    paidBy, paidAt, note: guestName ? `Guest: ${guestName}` : null,
+/** Host confirms cash payment for a guest. */
+export async function handleGuestCashPayment(hostToken, guestId, paidBy = 'host') {
+  const { error } = await supabase.rpc('set_guest_payment', {
+    p_host_token: hostToken,
+    p_guest_id:   guestId,
+    p_paid_by:    paidBy,
   });
-  return { selfPaid: true, paidBy, paidAt };
+  if (error) throw error;
 }
 
 /** Admin or player clears a prior-game debt. Sets owes = 0 in DB. */
