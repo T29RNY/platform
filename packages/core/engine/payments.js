@@ -1,6 +1,6 @@
 // Payment engine — shared across all products
 import { supabase } from "../storage/supabase.js";
-import { createLedgerEntry, updateLedgerEntry, getLedgerForPlayer, findMatchLedgerEntry } from "../storage/supabase.js";
+import { createLedgerEntry } from "../storage/supabase.js";
 
 // ─── Payment state ────────────────────────────────────────────────────────────
 
@@ -83,71 +83,36 @@ export async function handleStripePayment(playerId, teamId, amount, matchId = nu
   return { success: true, paid: true, paidAt };
 }
 
-/** Admin confirms a player has paid (e.g. Stripe). Sets paid = true in DB. */
-export async function handleMarkPaid(playerId, teamId, matchId = null, amount = 0) {
-  const paidAt = new Date().toISOString();
-  const { error } = await supabase
-    .from("players")
-    .update({ paid: true, paid_at: paidAt })
-    .eq("id", playerId);
+/** Admin confirms a player has paid. */
+export async function handleMarkPaid(adminToken, playerId, matchId = null) {
+  const { error } = await supabase.rpc('admin_confirm_payment', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_match_id:    matchId || null,
+  });
   if (error) throw error;
-  const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
-  // Cross-path: if lineup lock now exists but player self-paid earlier (matchId was null then),
-  // find that null-matchId entry and promote it rather than creating a duplicate.
-  const existingNull = (!existing && matchId)
-    ? await findMatchLedgerEntry(playerId, teamId, null, 'game_fee')
-    : null;
-  if (existing) {
-    await updateLedgerEntry(existing.id, { status: 'paid', method: 'admin', paidBy: 'admin', paidAt });
-  } else if (existingNull) {
-    await updateLedgerEntry(existingNull.id, { status: 'paid', method: 'admin', paidBy: 'admin', paidAt, matchId });
-  } else {
-    await createLedgerEntry({
-      teamId, playerId, matchId: matchId || null, amount: amount || 0,
-      type: 'game_fee', status: 'paid', method: 'admin',
-      paidBy: 'admin', paidAt, note: null,
-    });
-  }
-  return { paid: true, paidAt };
+  return { paid: true };
 }
 
 /** Resets all payment flags for a player. */
-export async function handleResetPayment(playerId, teamId, matchId = null) {
-  const { error } = await supabase
-    .from("players")
-    .update({ paid: false, self_paid: false, paid_by: null, paid_at: null })
-    .eq("id", playerId);
+export async function handleResetPayment(adminToken, playerId, matchId = null) {
+  const { error } = await supabase.rpc('admin_reset_payment', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_match_id:    matchId || null,
+  });
   if (error) throw error;
-  // Always reset ledger — findMatchLedgerEntry handles null matchId via IS NULL
-  const existing = await findMatchLedgerEntry(playerId, teamId, matchId, 'game_fee');
-  if (existing) await updateLedgerEntry(existing.id, { status: 'unpaid', paidAt: null });
-  if (matchId) {
-    await supabase.from("player_match")
-      .update({ paid: false, paid_at: null })
-      .eq("match_id", matchId)
-      .eq("player_id", playerId);
-  }
   return { paid: false, selfPaid: false, paidBy: null, paidAt: null };
 }
 
-/** Admin waives a player's debt. Sets owes = 0, creates a waiver ledger entry. */
-export async function handleWaiveDebt(playerId, teamId, amount = 0, note = null) {
-  const { data: playerData } = await supabase
-    .from("players")
-    .select("owes")
-    .eq("id", playerId)
-    .single();
-  const owedAmount = amount || playerData?.owes || 0;
-  const { error } = await supabase
-    .from("players")
-    .update({ owes: 0 })
-    .eq("id", playerId);
-  if (error) throw error;
-  await createLedgerEntry({
-    teamId, playerId, matchId: null, amount: owedAmount,
-    type: 'waiver', status: 'waived', method: 'waived',
-    paidBy: 'admin', paidAt: new Date().toISOString(), note: note || null,
+/** Admin waives a player's debt. */
+export async function handleWaiveDebt(adminToken, playerId, note = null) {
+  const { error } = await supabase.rpc('admin_waive_debt', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_note:        note || null,
   });
+  if (error) throw error;
   return { owes: 0 };
 }
 

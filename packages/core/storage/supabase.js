@@ -52,9 +52,8 @@ export async function setPlayerInjured(token, injured) {
   if (error) throw error;
 }
 
-export async function deletePlayer(id) {
-  await supabase.from("team_players").delete().eq("player_id", id);
-  const { error } = await supabase.from("players").delete().eq("id", id);
+export async function deletePlayer(adminToken, id) {
+  const { error } = await supabase.rpc('admin_delete_player', { p_admin_token: adminToken, p_player_id: id });
   if (error) throw error;
 }
 
@@ -64,11 +63,10 @@ export async function getPlayerByToken(token) {
   return dbToPlayer({ ...data, token });
 }
 
-export async function resetPlayerToken(playerId) {
-  const token = "p_" + Math.random().toString(36).slice(2, 18);
-  const { error } = await supabase.from("players").update({ token }).eq("id", playerId);
+export async function resetPlayerToken(adminToken, playerId) {
+  const { data, error } = await supabase.rpc('admin_reset_player_token', { p_admin_token: adminToken, p_player_id: playerId });
   if (error) throw error;
-  return token;
+  return data.token;
 }
 
 // ─── Matches ──────────────────────────────────────────────────────────────────
@@ -132,11 +130,13 @@ export async function getBibStats(teamId, squadPlayers) {
     .sort((a, b) => b.allTime - a.allTime);
 }
 
-export async function insertBib(bib, teamId) {
-  const { error } = await supabase.from("bib_history").upsert(
-    { name: bib.name, match_date: bib.matchDate, returned: bib.returned, team_id: teamId },
-    { onConflict: "team_id,match_date" }
-  );
+// TODO: BibsScreen lacks match_id in scope — this call site is deferred until BibsScreen is refactored
+export async function insertBib(adminToken, matchId, playerId) {
+  const { error } = await supabase.rpc('admin_save_bib_holder', {
+    p_admin_token: adminToken,
+    p_match_id:    matchId,
+    p_player_id:   playerId || null,
+  });
   if (error) throw error;
 }
 
@@ -148,9 +148,22 @@ export async function getSchedule(teamId) {
   return data ? dbToSchedule(data) : null;
 }
 
-export async function upsertSchedule(schedule, teamId) {
-  const row = { ...scheduleToDb(schedule), team_id: teamId };
-  const { error } = await supabase.from("schedule").upsert(row);
+export async function upsertSchedule(adminToken, schedule) {
+  const { error } = await supabase.rpc('admin_upsert_schedule', {
+    p_admin_token:        adminToken,
+    p_day_of_week:        schedule.dayOfWeek,
+    p_kickoff:            schedule.kickoff,
+    p_venue:              schedule.venue || null,
+    p_city:               schedule.city || null,
+    p_squad_size:         schedule.squadSize,
+    p_price_per_player:   schedule.pricePerPlayer,
+    p_bibs_enabled:       schedule.bibsEnabled ?? true,
+    p_opens_day:          schedule.opensDay || null,
+    p_opens_time:         schedule.opensTime || null,
+    p_priority_lead_mins: schedule.priorityLeadMins || null,
+    p_reminders_config:   schedule.remindersConfig || null,
+    p_one_off_date:       schedule.oneOffDate || null,
+  });
   if (error) throw error;
 }
 
@@ -162,13 +175,10 @@ export async function getSettings(teamId) {
   return data ? { groupName: data.group_name } : null;
 }
 
-export async function upsertSettings(settings, teamId) {
-  // Find existing settings row for this team
-  const { data: existing } = await supabase
-    .from("settings").select("id").eq("team_id", teamId).single();
-  const id = existing?.id || ("sett_" + teamId);
-  const { error } = await supabase.from("settings").upsert({
-    id, team_id: teamId, group_name: settings.groupName,
+export async function upsertSettings(adminToken, groupName) {
+  const { error } = await supabase.rpc('admin_upsert_settings', {
+    p_admin_token: adminToken,
+    p_group_name:  groupName,
   });
   if (error) throw error;
 }
@@ -360,29 +370,15 @@ export async function getTeamStateByAdminToken(token) {
   };
 }
 
-export async function addPlayerToTeam(name, teamId, options = {}) {
-  const id    = "p_" + Math.random().toString(36).slice(2, 10);
-  const token = "p_" + Math.random().toString(36).slice(2, 18);
-
-  const row = {
-    id, name: name.trim(),
-    type:            options.type          || "regular",
-    priority:        options.priority      || false,
-    is_vice_captain: options.isViceCaptain || false,
-    disabled:false, status:"none", paid:false, owes:0,
-    goals:0, motm:0, attended:0, total:0,
-    bib_count:0, team:null, w:0, l:0, d:0,
-    pay_count:0, late_dropouts:0, note:"", self_paid:false,
-    token, user_id: options.userId || null,
-  };
-  const { error: pErr } = await supabase.from("players").insert(row);
-  if (pErr) throw pErr;
-
-  const { error: tErr } = await supabase
-    .from("team_players").insert({ team_id: teamId, player_id: id });
-  if (tErr) throw tErr;
-
-  return dbToPlayer(row);
+export async function addPlayerToTeam(adminToken, name, type = 'regular', priority = false) {
+  const { data, error } = await supabase.rpc('admin_add_player', {
+    p_admin_token: adminToken,
+    p_name:        name.trim(),
+    p_type:        type,
+    p_priority:    priority,
+  });
+  if (error) throw error;
+  return dbToPlayer(data);
 }
 
 // ─── Guest players ────────────────────────────────────────────────────────────
@@ -465,44 +461,6 @@ export async function getRecentNotification(teamId, type, gameDate, withinMinute
   }
 }
 
-// ─── Player match rows ────────────────────────────────────────────────────────
-// winner: 'A'|'B'|'D'  scorers: { [playerId]: goalCount }
-export async function writePlayerMatchRows(matchId, teamId, players, winner, motmId, bibHolderName, scoreA, scoreB, scorers = {}, pricePerPlayer = null) {
-  const rows = players
-    .filter(p => !p.isGuest)
-    .map(p => {
-      let result;
-      if (winner === 'D') {
-        result = 'd';
-      } else if (p.team === 'A') {
-        result = winner === 'A' ? 'w' : 'l';
-      } else if (p.team === 'B') {
-        result = winner === 'B' ? 'w' : 'l';
-      } else {
-        result = 'd';
-      }
-      return {
-        team_id:          teamId,
-        match_id:         matchId,
-        player_id:        p.id,
-        team_assignment:  p.team || null,
-        result,
-        attended:         true,
-        late_cancel:      false,
-        injury_absence:   p.injured === true,
-        was_motm:         p.id === motmId,
-        had_bibs:         p.name === bibHolderName,
-        goals:            scorers[p.id] || 0,
-        is_guest:         false,
-        paid:             p.paid || false,
-        paid_at:          p.paidAt || null,
-        amount:           pricePerPlayer || null,
-      };
-    });
-  if (!rows.length) return;
-  const { error } = await supabase.from("player_match").upsert(rows, { onConflict: "match_id,player_id" });
-  if (error) throw error;
-}
 
 // ─── Player form (last 5 results per player for teams tile) ───────────────────
 export async function getPlayerMatchForm(teamId, playerIds) {
@@ -574,44 +532,23 @@ export async function getBibEligiblePlayers(matchId, teamId) {
   return (players || []).map(p => ({ id: p.id, name: p.name, nickname: p.nickname || null }));
 }
 
-// ─── Save result fields without touching motm/voting columns ──────────────────
-// Used by ScoreScreen so that a pre-set motm (from voting) is never overwritten.
-export async function saveMatchResult(matchId, teamId, match) {
-  const fields = {
-    match_date: match.matchDate,
-    team_a: match.teamA, team_b: match.teamB,
-    winner: match.winner,
-    score_a: match.scoreA !== undefined ? match.scoreA : null,
-    score_b: match.scoreB !== undefined ? match.scoreB : null,
-    scorers: match.scorers || {},
-    payments: match.payments || {},
-    bib_holder: null, // bibs handled separately by saveBibHolder
-    score_type: match.scoreType || null,
-    last_goal_scorer: match.lastGoalScorer || null,
-  };
-  const { data: existing } = await supabase.from("matches").select("id").eq("id", matchId).single();
-  if (existing) {
-    const { error } = await supabase.from("matches").update(fields).eq("id", matchId);
-    if (error) throw error;
-  } else {
-    const { error } = await supabase.from("matches").insert({ ...fields, id: matchId, team_id: teamId, voting_open: false });
-    if (error) throw error;
-  }
-  // Update player_match payment fields for lineup-locked games (rows exist from cron stub)
-  const payEntries = Object.entries(match.payments || {});
-  if (payEntries.length > 0) {
-    await Promise.all(payEntries.map(([playerId, info]) => {
-      const paid = info?.paid || false;
-      return supabase.from("player_match")
-        .update({
-          paid,
-          amount: info?.amount || 0,
-          paid_at: paid ? new Date().toISOString() : null,
-        })
-        .eq("match_id", matchId)
-        .eq("player_id", playerId);
-    }));
-  }
+export async function saveMatchResult(adminToken, match) {
+  const { error } = await supabase.rpc('admin_save_match_result', {
+    p_admin_token:      adminToken,
+    p_match_id:         match.id || null,
+    p_score_type:       match.scoreType || 'exact',
+    p_score_a:          match.scoreA ?? null,
+    p_score_b:          match.scoreB ?? null,
+    p_winner:           match.winner || null,
+    p_margin:           match.margin ?? null,
+    p_team_a:           match.teamA || [],
+    p_team_b:           match.teamB || [],
+    p_scorers:          match.scorers || {},
+    p_motm:             match.motm || null,
+    p_last_goal_scorer: match.lastGoalScorer || null,
+    p_bib_holder:       match.bibHolder || null,
+  });
+  if (error) throw error;
 }
 
 // ─── Career bib count — sum across all player records for this user ───────────
@@ -628,66 +565,13 @@ export async function updateCareerBibCount(userId) {
     .upsert({ player_id: playerId, total_bib_count: total }, { onConflict: "player_id" });
 }
 
-// ─── Bibs — atomic write (bib_holder stores player_id post-migration) ─────────
-export async function saveBibHolder(matchId, teamId, playerId, playerName) {
-  if (playerId) {
-    // a. Close any open bib_history rows for this team
-    await supabase.from("bib_history")
-      .update({ returned: true })
-      .eq("team_id", teamId)
-      .eq("returned", false);
-
-    // b. Upsert bib_history row — conflict on (team_id, match_date) updates in place
-    const { error: e1 } = await supabase.from("bib_history").upsert(
-      { team_id: teamId, name: playerName, player_id: playerId, match_date: new Date().toISOString().split('T')[0], returned: false },
-      { onConflict: "team_id,match_date" }
-    );
-    if (e1) throw e1;
-
-    // c. Store player_id on match
-    const { error: e2 } = await supabase.from("matches")
-      .update({ bib_holder: playerId })
-      .eq("id", matchId);
-    if (e2) throw e2;
-
-    // increment bib_count on players row (source for Bib Duty leaderboard + updateCareerBibCount)
-    const { data: pData } = await supabase.from("players").select("bib_count").eq("id", playerId).single();
-    const { error: e3 } = await supabase.from("players")
-      .update({ bib_count: (pData?.bib_count || 0) + 1 })
-      .eq("id", playerId);
-    if (e3) throw e3;
-
-    // d. Update career total
-    const { data: playerRow } = await supabase
-      .from("players").select("user_id").eq("id", playerId).single();
-    await updateCareerBibCount(playerRow?.user_id || null);
-
-    // e. Authoritative had_bibs flags — corrects any writePlayerMatchRows mismatch
-    await supabase.from("player_match")
-      .update({ had_bibs: true })
-      .eq("match_id", matchId)
-      .eq("player_id", playerId);
-    await supabase.from("player_match")
-      .update({ had_bibs: false })
-      .eq("match_id", matchId)
-      .neq("player_id", playerId);
-  } else {
-    // No Bibs — close open history rows and null out match
-    await supabase.from("bib_history")
-      .update({ returned: true })
-      .eq("team_id", teamId)
-      .eq("returned", false);
-
-    const { error } = await supabase.from("matches")
-      .update({ bib_holder: null })
-      .eq("id", matchId);
-    if (error) throw error;
-
-    // clear had_bibs for all players in this match
-    await supabase.from("player_match")
-      .update({ had_bibs: false })
-      .eq("match_id", matchId);
-  }
+export async function saveBibHolder(adminToken, matchId, playerId) {
+  const { error } = await supabase.rpc('admin_save_bib_holder', {
+    p_admin_token: adminToken,
+    p_match_id:    matchId,
+    p_player_id:   playerId || null,
+  });
+  if (error) throw error;
 }
 
 // ─── PWA welcome — find player token by email via secure RPC ─────────────────
@@ -760,35 +644,22 @@ export async function getPlayerByUserId(userId) {
 }
 
 // ─── Player injuries ──────────────────────────────────────────────────────────
-export async function insertPlayerInjury(playerId, teamId, markedBy = null) {
-  const id  = "inj_" + Math.random().toString(36).slice(2, 12);
-  const now = new Date().toISOString();
-  const { error: injErr } = await supabase.from("player_injuries").insert({
-    id, player_id: playerId, team_id: teamId,
-    injured_at: now, cleared_at: null, marked_by: markedBy,
+export async function insertPlayerInjury(adminToken, playerId) {
+  const { error } = await supabase.rpc('admin_set_player_injured', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_injured:     true,
   });
-  if (injErr) throw injErr;
-  const { error: pErr } = await supabase.from("players")
-    .update({ injured: true, injured_since: now }).eq("id", playerId);
-  if (pErr) throw pErr;
+  if (error) throw error;
 }
 
-export async function clearPlayerInjury(playerId, teamId) {
-  const now = new Date().toISOString();
-  const { data, error: fetchErr } = await supabase
-    .from("player_injuries").select("id")
-    .eq("player_id", playerId).eq("team_id", teamId)
-    .is("cleared_at", null)
-    .order("injured_at", { ascending: false }).limit(1);
-  if (fetchErr) throw fetchErr;
-  if (data?.length) {
-    const { error: updErr } = await supabase.from("player_injuries")
-      .update({ cleared_at: now }).eq("id", data[0].id);
-    if (updErr) throw updErr;
-  }
-  const { error: pErr } = await supabase.from("players")
-    .update({ injured: false, injured_since: null }).eq("id", playerId);
-  if (pErr) throw pErr;
+export async function clearPlayerInjury(adminToken, playerId) {
+  const { error } = await supabase.rpc('admin_set_player_injured', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_injured:     false,
+  });
+  if (error) throw error;
 }
 
 export async function getPlayerInjuries(playerId) {
@@ -929,9 +800,7 @@ export async function resetDemoData() {
 }
 
 export async function updateDemoInteraction() {
-  await supabase.from("demo_sessions")
-    .update({ last_interaction: new Date().toISOString() })
-    .eq("id", "main");
+  await supabase.rpc('update_demo_interaction', { p_session_id: 'main' });
 }
 
 // ─── IO Intelligence queries ───────────────────────────────────────────────────
@@ -1301,27 +1170,14 @@ export async function tallyPOTMVotes(matchId, teamId) {
   };
 }
 
-export async function closePOTMVoting(matchId, winnerId, wasAdminDecided = false) {
-  const { data: pData } = await supabase.from("players").select("motm").eq("id", winnerId).single();
-
-  const { error: mErr } = await supabase.from("matches").update({
-    voting_open: false,
-    motm: winnerId,
-    was_admin_decided: wasAdminDecided,
-    admin_decision_pending: false,
-  }).eq("id", matchId);
-  if (mErr) throw mErr;
-
-  const { error: pmErr } = await supabase.from("player_match")
-    .update({ was_motm: true })
-    .eq("match_id", matchId)
-    .eq("player_id", winnerId);
-  if (pmErr) throw pmErr;
-
-  // Increment motm counter — best-effort
-  if (pData) {
-    await supabase.from("players").update({ motm: (pData.motm || 0) + 1 }).eq("id", winnerId);
-  }
+export async function closePOTMVoting(adminToken, matchId, winnerId, wasAdminDecided = false) {
+  const { error } = await supabase.rpc('admin_close_potm_voting', {
+    p_admin_token:       adminToken,
+    p_match_id:          matchId,
+    p_winner_id:         winnerId,
+    p_was_admin_decided: wasAdminDecided,
+  });
+  if (error) throw error;
 }
 
 export async function openPOTMVoting(matchId, teamId, closesAt, totalVoters) {
@@ -1343,24 +1199,13 @@ export async function getTeamPlayerNames(teamId) {
   return data || [];
 }
 
-export async function setPlayerNickname(playerId, teamId, nickname) {
-  const trimmed = nickname ? nickname.trim() : null;
-  if (trimmed) {
-    const { data: tpRows } = await supabase
-      .from("team_players").select("player_id").eq("team_id", teamId);
-    const teamIds = (tpRows || []).map(r => r.player_id);
-    if (teamIds.length) {
-      const { data: clash } = await supabase
-        .from("players").select("id")
-        .in("id", teamIds)
-        .eq("nickname", trimmed)
-        .neq("id", playerId)
-        .maybeSingle();
-      if (clash) { const e = new Error("nickname_taken"); e.code = "nickname_taken"; throw e; }
-    }
-  }
-  const { error } = await supabase
-    .from("players").update({ nickname: trimmed || null }).eq("id", playerId);
+export async function setPlayerNickname(adminToken, playerId, nickname) {
+  const { error } = await supabase.rpc('admin_update_player_name', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_name:        null,
+    p_nickname:    nickname ? nickname.trim() : '',
+  });
   if (error) throw error;
 }
 
@@ -1618,75 +1463,59 @@ export async function deletePlayerMatchRows(matchId, teamId) {
 
 // ─── Team Selection ───────────────────────────────────────────────────────────
 
-export async function saveTeamsDraft(matchId, teamId, draft, changedBy = null) {
-  try {
-    const { error } = await supabase
-      .from('matches')
-      .update({ teams_draft: draft })
-      .eq('id', matchId)
-      .eq('team_id', teamId);
-    if (error) throw error;
-    return { ok: true };
-  } catch (error) {
-    console.error('saveTeamsDraft error:', error);
-    return { error };
-  }
+export async function saveTeamsDraft(adminToken, matchId, teamA, teamB) {
+  const { error } = await supabase.rpc('admin_save_teams', {
+    p_admin_token: adminToken,
+    p_match_id:    matchId,
+    p_team_a:      teamA || [],
+    p_team_b:      teamB || [],
+    p_confirmed:   false,
+  });
+  if (error) throw error;
+  return { ok: true };
 }
 
-export async function confirmTeams(matchId, teamId, teamA, teamB, changedBy = null) {
-  try {
-    const { error } = await supabase
-      .from('matches')
-      .update({ team_a: teamA, team_b: teamB, teams_draft: null })
-      .eq('id', matchId)
-      .eq('team_id', teamId);
-    if (error) throw error;
-    return { ok: true };
-  } catch (error) {
-    console.error('confirmTeams error:', error);
-    return { error };
-  }
+export async function confirmTeams(adminToken, matchId, teamA, teamB) {
+  const { error } = await supabase.rpc('admin_save_teams', {
+    p_admin_token: adminToken,
+    p_match_id:    matchId,
+    p_team_a:      teamA || [],
+    p_team_b:      teamB || [],
+    p_confirmed:   true,
+  });
+  if (error) throw error;
+  return { ok: true };
 }
 
 // ─── Vice captain + player management ────────────────────────────────────────
 
-export async function toggleViceCaptain(playerId, value, changedBy = null) {
-  try {
-    const { data: existing, error: fetchErr } = await supabase
-      .from('players')
-      .select('is_guest')
-      .eq('id', playerId)
-      .single();
-    if (fetchErr) throw fetchErr;
-    if (existing?.is_guest === true) {
-      return { error: 'guests_cannot_be_vc' };
-    }
-    const { error } = await supabase
-      .from('players')
-      .update({ is_vice_captain: !!value })
-      .eq('id', playerId);
-    if (error) throw error;
-    // changedBy reserved for Phase 2 audit log (unused now)
-    return { ok: true };
-  } catch (error) {
-    console.error('toggleViceCaptain error:', error);
-    return { error };
-  }
+export async function toggleViceCaptain(adminToken, playerId, value) {
+  const { error } = await supabase.rpc('admin_set_vice_captain', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_is_vc:       !!value,
+  });
+  if (error) throw error;
+  return { ok: true };
 }
 
-export async function disablePlayer(playerId, teamId, disabled, changedBy = null) {
-  try {
-    const { error } = await supabase
-      .from('players')
-      .update({ disabled: !!disabled })
-      .eq('id', playerId);
-    if (error) throw error;
-    // teamId + changedBy reserved for Phase 2 audit log (unused now)
-    return { ok: true };
-  } catch (error) {
-    console.error('disablePlayer error:', error);
-    return { error };
-  }
+export async function disablePlayer(adminToken, playerId, disabled, reason = null) {
+  const { error } = await supabase.rpc('admin_disable_player', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_disabled:    !!disabled,
+    p_reason:      reason || null,
+  });
+  if (error) throw error;
+  return { ok: true };
+}
+
+export async function adminCancelMatch(adminToken, cancelReason) {
+  const { error } = await supabase.rpc('admin_cancel_match', {
+    p_admin_token:   adminToken,
+    p_cancel_reason: cancelReason || null,
+  });
+  if (error) throw error;
 }
 
 // ─── League table ─────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft } from "@phosphor-icons/react";
 import { newMatch, updatePlayerRecords, resolveMotm } from "@platform/core";
-import { writePlayerMatchRows, saveMatchResult, saveBibHolder, getBibEligiblePlayers } from "@platform/supabase";
+import { saveMatchResult, saveBibHolder, getBibEligiblePlayers } from "@platform/supabase";
 
 if (typeof document !== "undefined" && !document.getElementById("ss-styles")) {
   const el = document.createElement("style");
