@@ -979,7 +979,7 @@ GRANT  EXECUTE ON FUNCTION admin_update_player_name(text, text, text, text) TO a
 --   players row intact. At Stage 1 every player belongs to one team;
 --   this guard prevents data loss when multi-team is introduced.
 --
--- player_career rows (if any) are not cleaned up here — see OI-49.
+-- player_career rows cleaned up in cascade (OI-49 resolved).
 -- ════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION admin_delete_player(
   p_admin_token text,
@@ -1049,6 +1049,8 @@ BEGIN
 
   DELETE FROM push_subscriptions
   WHERE  player_id = p_player_id;
+
+  DELETE FROM player_career WHERE player_id = p_player_id;
 
   -- Phase 2 multi-team guard (not implemented):
   -- At this point, if COUNT(*) FROM team_players WHERE player_id = p_player_id > 0,
