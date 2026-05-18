@@ -261,7 +261,7 @@ function VenueField({ venue, setVenue, city, setCity }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack, teamId }) {
+export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack, teamId, adminToken = null }) {
   const [sched,     setSched]     = useState(schedule);
   const [groupName, setGroupName] = useState(settings.groupName || "");
   const [reminders, setReminders] = useState(schedule.remindersConfig || DEFAULT_REMINDERS);
@@ -286,8 +286,8 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
     const newDt = buildOverrideDateISO(dateOverride, sched.kickoff);
     const newSched = { ...sched, gameDateTime: newDt };
     setSched(newSched);
-    if (teamId) {
-      try { await upsertSchedule({ ...newSched, remindersConfig: reminders }, teamId); } catch (_) {}
+    if (adminToken) {
+      try { await upsertSchedule(adminToken, { ...newSched, remindersConfig: reminders }); } catch (_) {}
     }
     setDateOverrideSaved(true);
     setTimeout(() => { setDateOverrideSaved(false); setDateOverride(""); }, 2000);
@@ -312,9 +312,9 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
 
     setSaving(true);
     try {
-      if (teamId) {
-        await upsertSchedule(finalSched, teamId);
-        await upsertSettings({ groupName }, teamId);
+      if (adminToken) {
+        await upsertSchedule(adminToken, finalSched);
+        await upsertSettings(adminToken, groupName);
       }
       setSchedule(finalSched);
       setSettings({ ...settings, groupName });
