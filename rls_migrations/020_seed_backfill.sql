@@ -27,11 +27,16 @@ WHERE  live_channel_key IS NULL;
 -- team_demo      | Demo / staging team
 -- team_mfw3hhu6  | Monday Footy (Stage 2)
 
-INSERT INTO team_admins (team_id, user_id, role, granted_by)
-VALUES
-  ('team_finbars',  'f95ad4a8-9b36-4b73-b909-8d2e10c9354b', 'team_admin', NULL),
-  ('team_demo',     'f95ad4a8-9b36-4b73-b909-8d2e10c9354b', 'team_admin', NULL),
-  ('team_mfw3hhu6', 'f95ad4a8-9b36-4b73-b909-8d2e10c9354b', 'team_admin', NULL)
+-- team_finbars and team_mfw3hhu6 will be seeded here once those teams are created via create_team RPC
+
+INSERT INTO team_admins (team_id, user_id, role, granted_by, granted_at)
+VALUES (
+  'team_demo',
+  'f95ad4a8-9b36-4b73-b909-8d2e10c9354b',
+  'team_admin',
+  null,
+  now()
+)
 ON CONFLICT DO NOTHING;
 
 -- ── Verification ─────────────────────────────────────────────────────────────
@@ -41,7 +46,7 @@ SELECT id, name
 FROM   teams
 WHERE  live_channel_key IS NULL;
 
--- [B] Tarny's team_admins rows (expected: 3 rows, one per team)
+-- [B] Tarny's team_admins rows (expected: 1 row for team_demo)
 SELECT ta.team_id, t.name AS team_name, ta.role, ta.granted_at, ta.revoked_at
 FROM   team_admins ta
 JOIN   teams t ON t.id = ta.team_id
