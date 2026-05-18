@@ -16,12 +16,13 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION is_team_member(p_team_id text)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT
+BEGIN
+  RETURN
     auth.uid() IS NOT NULL
     AND (
       EXISTS (
@@ -40,6 +41,7 @@ AS $$
         AND    ta.revoked_at IS NULL
       )
     );
+END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -49,12 +51,13 @@ $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION shares_team_with_player(p_player_id text)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT
+BEGIN
+  RETURN
     auth.uid() IS NOT NULL
     AND EXISTS (
       SELECT 1
@@ -64,6 +67,7 @@ AS $$
       WHERE  tp_them.player_id = p_player_id
       AND    p_me.user_id      = auth.uid()
     );
+END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -73,12 +77,13 @@ $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION shares_team_with_user(p_user_id uuid)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT
+BEGIN
+  RETURN
     auth.uid() IS NOT NULL
     AND p_user_id IS NOT NULL
     AND EXISTS (
@@ -90,6 +95,7 @@ AS $$
       WHERE  p_them.user_id = p_user_id
       AND    p_me.user_id   = auth.uid()
     );
+END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -99,12 +105,13 @@ $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION is_my_player_id(p_player_id text)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT
+BEGIN
+  RETURN
     auth.uid() IS NOT NULL
     AND EXISTS (
       SELECT 1
@@ -112,6 +119,7 @@ AS $$
       WHERE  p.id      = p_player_id
       AND    p.user_id = auth.uid()
     );
+END;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
