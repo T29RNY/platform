@@ -26,6 +26,7 @@ import JoinTeam             from "./views/JoinTeam.jsx";
 import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
+import SignIn        from "./views/SignIn.jsx";
 import Legal         from "./views/Legal.jsx";
 import PWAWelcome   from "./views/PWAWelcome.jsx";
 import Gaffer        from "./views/Gaffer/index.jsx";
@@ -164,7 +165,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (route.type === "landing" || route.type === "create" || route.type === "auth_callback") {
+    if (route.type === "landing" || route.type === "auth_callback") {
       setLoading(false); return;
     }
 
@@ -467,7 +468,19 @@ export default function App() {
   if (route.type === "pwa_welcome")  return <PWAWelcome/>;
   if (route.type === "auth_callback") return <AuthCallback/>;
   if (route.type === "legal") return <Legal/>;
-  if (route.type === "create") return <Onboarding/>;
+  if (route.type === "create") {
+    if (loading) return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        alignItems:"center", justifyContent:"center" }}>
+        <div style={{ fontSize:48 }}>⚽</div>
+      </div>
+    );
+    if (!authUser) {
+      sessionStorage.setItem('ioo_pending_route', '/create');
+      return <SignIn />;
+    }
+    return <Onboarding authUser={authUser} />;
+  }
 
   if (route.type === "join") {
     if (loading) return (
