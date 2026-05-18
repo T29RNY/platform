@@ -197,7 +197,15 @@ export default function App() {
           setIsAdmin(true);
           setView("admin");
           try { await updateDemoInteraction(); } catch(e) {}
-          resolvedTeamId = "team_demo";
+          const state = await getTeamStateByAdminToken("admin_demo");
+          if (!state) { setError("Demo data unavailable."); setLoading(false); return; }
+          setTeamId(state.teamId);           setSelectedTeam(state.teamId);
+          setSquadRaw(state.squad);          setMatchHistRaw(state.matches);
+          setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+          setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+          setCoverPoolRaw(state.coverPool);
+          setLoading(false);
+          return;
         }
 
         if (route.type === "admin") {
@@ -715,7 +723,16 @@ export default function App() {
           onGoHistory={() => { playerStartTabRef.current = "history"; setView("player"); }}
           onGoMyIO={() => { playerStartTabRef.current = "my-io"; setView("player"); }}
           isDemoMode={route.type === "demoadmin"}
-          onResetDemo={async () => { await resetDemoData(); await loadTeamData("team_demo"); }}
+          onResetDemo={async () => {
+            await resetDemoData();
+            const state = await getTeamStateByAdminToken("admin_demo");
+            if (!state) return;
+            setTeamId(state.teamId);         setSelectedTeam(state.teamId);
+            setSquadRaw(state.squad);        setMatchHistRaw(state.matches);
+            setBibHistRaw(state.bibHistory); setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+            setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+            setCoverPoolRaw(state.coverPool);
+          }}
         />
       )}
       {ENABLE_GAFFER && (
