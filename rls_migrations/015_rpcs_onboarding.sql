@@ -164,7 +164,7 @@ BEGIN
   IF auth.uid() IS NOT NULL THEN
     INSERT INTO team_admins (team_id, user_id, role, granted_by)
     VALUES (v_team_id, auth.uid(), 'team_admin', null)
-    ON CONFLICT DO NOTHING  -- OI-67;
+    ON CONFLICT DO NOTHING;  -- OI-67
   END IF;
 
   RETURN jsonb_build_object(
@@ -182,8 +182,8 @@ EXCEPTION
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION create_team(text,text,text,text,text,text,int,int,boolean,text[],text,text,int) FROM PUBLIC;
-GRANT  EXECUTE ON FUNCTION create_team(text,text,text,text,text,text,int,int,boolean,text[],text,text,int) TO authenticated, anon;
+REVOKE EXECUTE ON FUNCTION create_team(text,text,text,text,int,text,text,int,boolean,text[],text,text,int) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION create_team(text,text,text,text,int,text,text,int,boolean,text[],text,text,int) TO authenticated, anon;
 
 
 -- ── 2. join_team_as_returning_player ───────────────────────────────────────────
