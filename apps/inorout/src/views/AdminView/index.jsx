@@ -6,11 +6,10 @@ import {
   toggleViceCaptain,
 } from "@platform/core";
 import {
-  addCoverPlayer, removeCoverPlayer, addGuestPlayer, deletePlayer,
+  addCoverPlayer, removeCoverPlayer, deletePlayer,
   resetPlayerToken, insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
   getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname,
-  insertMatch, upsertSchedule,
-  bulkCancelLedgerEntries, bulkResetPlayerStatuses, deletePlayerMatchRows,
+  upsertSchedule, adminCancelMatch, addPlayerToTeam,
   getRecentNotification,
   supabase,
 } from "@platform/supabase";
@@ -30,7 +29,7 @@ import RemindersScreen  from "./RemindersScreen.jsx";
 import PaymentsScreen   from "./PaymentsScreen.jsx";
 
 // ── Admin POTM Tiebreak Modal ─────────────────────────────────────────────────
-function POTMTiebreakModal({ match, squad, teamId, onDecide }) {
+function POTMTiebreakModal({ match, squad, teamId, adminToken, onDecide }) {
   const [selected,   setSelected]   = useState(null);
   const [phase,      setPhase]      = useState("idle");
   const [submitting, setSubmitting] = useState(false);
@@ -44,7 +43,7 @@ function POTMTiebreakModal({ match, squad, teamId, onDecide }) {
     if (phase === "selected") { setPhase("confirming"); return; }
     setSubmitting(true);
     try {
-      await closePOTMVoting(match.id, selected.id, true);
+      await closePOTMVoting(adminToken, match.id, selected.id, true);
       // Send potmResult push
       fetch("/api/notify", {
         method: "POST",
@@ -157,7 +156,7 @@ function SectionLabel({ children }) {
 }
 
 // ── PlayerProfile ─────────────────────────────────────────────────────────────
-function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack, me, isViceCaptain }) {
+function PlayerProfile({ player, squad, schedule, teamId, adminToken, setSquad, onBack, me, isViceCaptain }) {
   const [injuries,    setInjuries]    = useState([]);
   const [showInj,     setShowInj]     = useState(false);
   const [editingNick, setEditingNick] = useState(false);
@@ -185,7 +184,7 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack, me, 
   const saveNick = async () => {
     setNickSaving(true); setNickError(null);
     try {
-      await setPlayerNickname(p.id, teamId, nickname);
+      await setPlayerNickname(adminToken, p.id, nickname);
       const trimmed = nickname.trim() || null;
       setSquad(sq => sq.map(s => s.id === p.id ? { ...s, nickname: trimmed } : s));
       setEditingNick(false);
@@ -198,7 +197,7 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack, me, 
 
   const handleMarkInjured = async () => {
     try {
-      await insertPlayerInjury(p.id, teamId, "admin");
+      await insertPlayerInjury(adminToken, p.id);
       setSquad(sq => sq.map(s => s.id === p.id
         ? { ...s, injured: true, injuredSince: new Date().toISOString(), status: "out" } : s));
     } catch(e) { console.error(e); }
@@ -206,21 +205,21 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack, me, 
 
   const handleClearInj = async () => {
     try {
-      await clearPlayerInjury(p.id, teamId);
+      await clearPlayerInjury(adminToken, p.id);
       setSquad(sq => sq.map(s => s.id === p.id
         ? { ...s, injured: false, injuredSince: null } : s));
     } catch(e) { console.error(e); }
   };
 
   const handleResetLink = async () => {
-    try { const tok = await resetPlayerToken(p.id); setNewToken(tok); }
+    try { const tok = await resetPlayerToken(adminToken, p.id); setNewToken(tok); }
     catch(e) { console.error(e); }
   };
 
   const handleRemove = async () => {
     if (!removing) { setRemoving(true); setTimeout(() => setRemoving(false), 3000); return; }
     try {
-      await deletePlayer(p.id);
+      await deletePlayer(adminToken, p.id);
       setSquad(sq => sq.filter(s => s.id !== p.id));
       onBack();
     } catch(e) { console.error(e); }
@@ -401,7 +400,7 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack, me, 
                 </button>
                 {(p.paid || p.selfPaid) && (
                   <button onClick={async () => {
-                    await handleResetPayment(p.id, teamId, schedule.activeMatchId || null).catch(console.error);
+                    await handleResetPayment(adminToken, p.id, schedule.activeMatchId || null).catch(console.error);
                     setSquad(sq => sq.map(s => s.id === p.id
                       ? { ...s, paid:false, selfPaid:false, paidBy:null } : s));
                   }} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)",
@@ -486,8 +485,7 @@ function PlayerProfile({ player, squad, schedule, teamId, setSquad, onBack, me, 
                       const newVal = !p.isViceCaptain;
                       setSquad(sq => sq.map(s => s.id === p.id ? { ...s, isViceCaptain: newVal } : s));
                       try {
-                        const result = await toggleViceCaptain(p.id, newVal);
-                        if (result?.error) throw new Error(result.error);
+                        await toggleViceCaptain(adminToken, p.id, newVal);
                       } catch {
                         setSquad(sq => sq.map(s => s.id === p.id ? { ...s, isViceCaptain: !newVal } : s));
                       }
@@ -696,7 +694,7 @@ export default function AdminView({
   const dismissOrphan = (id) => setDismissedOrphans(prev => new Set([...prev, id]));
   const reserveGuest  = (id) => { setSquad(squad.map(p => p.id===id ? { ...p, status:"reserve" } : p)); dismissOrphan(id); };
   const removeGuest   = async (id) => {
-    try { await deletePlayer(id); setSquad(squad.filter(p => p.id !== id)); dismissOrphan(id); }
+    try { await deletePlayer(adminToken, id); setSquad(squad.filter(p => p.id !== id)); dismissOrphan(id); }
     catch(e) { console.error(e); }
   };
 
@@ -718,51 +716,9 @@ export default function AdminView({
     try {
       setCancelLoading(true);
 
-      // Step 1 — Persist cancelled match to DB
-      const cancelMatchId = schedule.activeMatchId || ('cancel_' + Date.now());
-      await insertMatch({
-        id: cancelMatchId,
-        teamId,
-        matchDate: new Date().toISOString().split('T')[0],
-        teamA: [], teamB: [],
-        winner: null, scoreA: 0, scoreB: 0,
-        scorers: {}, motm: null, bibHolder: null,
-        payments: {}, cancelled: true,
-        cancelReason,
-        scoreType: null, lastGoalScorer: null,
-      }, teamId);
+      await adminCancelMatch(adminToken, cancelReason);
 
-      // Step 2 — Handle payments for IN players
-      const inPlayerIds = inPlayers.map(p => p.id);
-      await bulkCancelLedgerEntries(
-        teamId,
-        schedule.activeMatchId || null,
-        inPlayerIds,
-        schedule.pricePerPlayer || 0
-      );
-
-      // Step 3 — Reset all player statuses
-      await bulkResetPlayerStatuses(teamId);
-
-      // Step 4 — Delete player_match rows if lineup locked
-      if (schedule.activeMatchId) {
-        await deletePlayerMatchRows(schedule.activeMatchId, teamId);
-      }
-
-      // Step 5 — Update schedule in DB
-      await upsertSchedule({
-        ...schedule,
-        isCancelled: true,
-        gameIsLive: false,
-        cancelReason,
-        lineupLocked: false,
-        activeMatchId: null,
-        votingOpen: false,
-        votingClosesAt: null,
-        autoOpenPending: true,
-      }, teamId);
-
-      // Step 6 — Push notification to IN+MAYBE+RESERVE
+      // Push notification to IN+MAYBE+RESERVE
       const notifyIds = squad
         .filter(p => ['in', 'maybe', 'reserve'].includes(p.status) && !p.injured && !p.disabled)
         .map(p => p.id);
@@ -785,20 +741,11 @@ export default function AdminView({
         }).catch(console.error);
       }
 
-      // Step 7 — Update local state
+      // Update local state
       setSquad(sq => sq.map(p => ({
         ...p, status: 'none', paid: false,
         selfPaid: false, paidBy: null, paidAt: null,
       })));
-      setMatchHistory([{
-        id: cancelMatchId,
-        matchDate: new Date().toISOString().split('T')[0],
-        teamA: [], teamB: [],
-        winner: null, scoreA: 0, scoreB: 0,
-        scorers: {}, motm: null, bibHolder: null,
-        payments: {}, cancelled: true,
-        cancelReason,
-      }, ...matchHistory]);
       setSchedule(s => ({
         ...s,
         isCancelled: true,
@@ -810,7 +757,6 @@ export default function AdminView({
         votingClosesAt: null,
       }));
 
-      // Step 8 — Close modal
       setShowCancel(false);
       setCancelReason('');
 
@@ -824,7 +770,7 @@ export default function AdminView({
   const openNextWeek = async () => {
     setGameOpenLoading(true);
     try {
-      await upsertSchedule({ ...schedule, gameIsLive:true, isDraft:false, isCancelled:false }, teamId);
+      await upsertSchedule(adminToken, { ...schedule, gameIsLive:true, isDraft:false, isCancelled:false });
       setSchedule(s => ({ ...s, gameIsLive:true, isDraft:false, isCancelled:false }));
       sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
       const ids = squad.filter(p => !p.disabled && !p.injured).map(p => p.id);
@@ -876,13 +822,13 @@ export default function AdminView({
 
   const handleClearInjury = async (p) => {
     try {
-      await clearPlayerInjury(p.id, teamId);
+      await clearPlayerInjury(adminToken, p.id);
       setSquad(squad.map(s => s.id === p.id ? { ...s, injured:false, injuredSince:null } : s));
     } catch(e) { console.error(e); }
   };
 
   const markPaid = async (id) => {
-    await handleMarkPaid(id, teamId, schedule.activeMatchId || null, schedule.pricePerPlayer || 0).catch(console.error);
+    await handleMarkPaid(adminToken, id, schedule.activeMatchId || null).catch(console.error);
     setSquad(squad.map(p => p.id===id ? { ...p, paid:true } : p));
   };
 
@@ -898,7 +844,7 @@ export default function AdminView({
   if (selectedPlayer) return (
     <PlayerProfile
       player={selectedPlayer} squad={squad} schedule={schedule}
-      teamId={teamId} setSquad={setSquad} onBack={() => setSelectedPlayer(null)}
+      teamId={teamId} adminToken={adminToken} setSquad={setSquad} onBack={() => setSelectedPlayer(null)}
       me={me} isViceCaptain={isViceCaptain}
     />
   );
@@ -1080,6 +1026,7 @@ export default function AdminView({
           match={pendingTiebreak}
           squad={squad}
           teamId={teamId}
+          adminToken={adminToken}
           onDecide={() => setTiebreakDismissed(true)}
         />
       )}
@@ -1488,7 +1435,7 @@ export default function AdminView({
               </div>
               <button onClick={async () => {
                 try {
-                  const guest = await addGuestPlayer(squad[0]?.id, cp.name, teamId, false);
+                  const guest = await addPlayerToTeam(adminToken, cp.name, 'regular', false);
                   setSquad([...squad, guest]);
                 } catch(e) { console.error(e); }
               }} style={{ background:"var(--s2)", border:"0.5px solid var(--border-subtle)",
