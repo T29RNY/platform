@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft } from "@phosphor-icons/react";
 import { newMatch, updatePlayerRecords, resolveMotm } from "@platform/core";
-import { saveMatchResult, saveBibHolder, getBibEligiblePlayers } from "@platform/supabase";
+import { saveMatchResult, getBibEligiblePlayers } from "@platform/supabase";
 
 if (typeof document !== "undefined" && !document.getElementById("ss-styles")) {
   const el = document.createElement("style");
@@ -102,7 +102,7 @@ function smBtn(color) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ScoreScreen({
-  squad, setSquad, teamId, schedule, matchHistory, setMatchHistory,
+  squad, setSquad, teamId, adminToken = null, schedule, matchHistory, setMatchHistory,
   payments, bibHistory, onBack,
 }) {
   // Stage 1 — mode
@@ -234,42 +234,42 @@ export default function ScoreScreen({
     try {
       const teamAPlayers = inPlayers.filter(p => p.team === "A").map(p => p.name);
       const teamBPlayers = inPlayers.filter(p => p.team === "B").map(p => p.name);
+      const teamAIds     = inPlayers.filter(p => p.team === "A").map(p => p.id);
+      const teamBIds     = inPlayers.filter(p => p.team === "B").map(p => p.id);
       const payMap    = Object.fromEntries(inPlayers.map(p => [p.id, { paid: payments[p.id] || false, amount: schedule.pricePerPlayer || 0 }]));
       const scorerMap = Object.fromEntries(inPlayers.map(p => [p.name, scorers[p.id] || 0]));
+      const bibPlayerId = (bibsPlayerId && bibsPlayerId !== "none") ? bibsPlayerId : null;
 
       const match = newMatch({
         teamA: teamAPlayers, teamB: teamBPlayers,
         winner, bibHolder: "", scorers: scorerMap, payments: payMap,
       });
       // Overwrite after newMatch — declared mode needs null scores
-      match.scoreA        = finalScoreA;
-      match.scoreB        = finalScoreB;
-      match.scoreType     = scoreType;
+      match.scoreA         = finalScoreA;
+      match.scoreB         = finalScoreB;
+      match.scoreType      = scoreType;
       match.lastGoalScorer = lastGoalChoice === "yes" ? lastGoalPlayerId : null;
       if (schedule?.activeMatchId) match.id = schedule.activeMatchId;
 
-      // 1. Local state + insertMatch (ignoreDuplicates, safe for stub matches)
+      // 1. Local state
       await setMatchHistory([match, ...matchHistory]);
       setSquad(updatePlayerRecords(squad, match, scorers, null, payMap, schedule.pricePerPlayer));
 
-      // 2. Write result fields without touching motm/voting columns
-      await saveMatchResult(match.id, teamId, match);
-
-      // 3. Player match rows (null bibs — handled in step 4)
-      await writePlayerMatchRows(
-        match.id, teamId, inPlayers, winner,
-        null, null,
-        finalScoreA, finalScoreB, scorers, schedule.pricePerPlayer,
-      );
-
-      // 4. Bibs — 4-step write
-      const bibSource = bibEligible ?? bibsSorted;
-      if (bibsPlayerId && bibsPlayerId !== "none") {
-        const bib = bibSource.find(p => p.id === bibsPlayerId);
-        if (bib) await saveBibHolder(match.id, teamId, bib.id, bib.nickname || bib.name);
-      } else {
-        await saveBibHolder(match.id, teamId, null, null);
-      }
+      // 2. Persist — RPC handles match row, player_match rows, bib cascade in one call
+      await saveMatchResult(adminToken, {
+        id:             match.id,
+        scoreType,
+        scoreA:         finalScoreA,
+        scoreB:         finalScoreB,
+        winner,
+        margin:         mode === "margin" ? margin : null,
+        teamA:          teamAIds,
+        teamB:          teamBIds,
+        scorers,
+        motm:           null,
+        lastGoalScorer: lastGoalChoice === "yes" ? lastGoalPlayerId : null,
+        bibHolder:      bibPlayerId,
+      });
 
       setSaved(true);
     } catch (e) {
