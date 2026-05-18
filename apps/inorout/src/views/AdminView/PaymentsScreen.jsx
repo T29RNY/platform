@@ -63,7 +63,7 @@ function payPill(label, bg, border, color) {
 
 // ── PlayerRow accordion ───────────────────────────────────────────────────────
 
-function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostName = null }) {
+function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = false, hostName = null }) {
   const [open,         setOpen]         = useState(false);
   const [ledger,       setLedger]       = useState(null);
   const [loading,      setLoading]      = useState(false);
@@ -176,7 +176,7 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
                   {entry.status === 'paid' && entry.type === 'game_fee' && (
                     <button onClick={async (e) => {
                       e.stopPropagation();
-                      await handleResetPayment(player.id, teamId, entry.matchId || null).catch(console.error);
+                      await handleResetPayment(adminToken, player.id, entry.matchId || null).catch(console.error);
                       setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
                       getLedgerForPlayer(player.id, teamId, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
                     }} style={{ marginLeft:8, padding:"3px 8px", borderRadius:6,
@@ -194,7 +194,7 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
           <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
             {!isPaid && (
               <button onClick={async () => {
-                await handleMarkPaid(player.id, teamId, schedule.activeMatchId || null, price).catch(console.error);
+                await handleMarkPaid(adminToken, player.id, schedule.activeMatchId || null).catch(console.error);
                 setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true } : p));
                 getLedgerForPlayer(player.id, teamId, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
               }} style={{ padding:"6px 14px", borderRadius:"var(--r-pill)", border:"none",
@@ -245,7 +245,7 @@ function PlayerRow({ player, teamId, schedule, setSquad, isGuest = false, hostNa
               </div>
               <div style={{ display:"flex", gap:6 }}>
                 <button onClick={async () => {
-                  await handleWaiveDebt(player.id, teamId, waiverAmount, waiverNote || null).catch(console.error);
+                  await handleWaiveDebt(adminToken, player.id, waiverNote || null).catch(console.error);
                   setSquad(sq => sq.map(p => p.id === player.id ? { ...p, owes:0 } : p));
                   setWaiverOpen(false);
                   setLedger(null);
@@ -294,7 +294,7 @@ function PlayerCard({ children }) {
 
 // ── main export ───────────────────────────────────────────────────────────────
 
-export default function PaymentsScreen({ squad, setSquad, schedule, teamId, coverPool = [], onBack }) {
+export default function PaymentsScreen({ squad, setSquad, schedule, teamId, adminToken = null, coverPool = [], onBack }) {
   const [showNotPlaying, setShowNotPlaying] = useState(false);
 
   const price = schedule.pricePerPlayer || 0;
@@ -365,7 +365,7 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, cove
           <SectionLabel color="var(--red)">OWES MONEY · {owesSection.length}</SectionLabel>
           <PlayerCard>
             {owesSection.map(p => (
-              <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+              <PlayerRow key={p.id} player={p} adminToken={adminToken} teamId={teamId} schedule={schedule} setSquad={setSquad} />
             ))}
           </PlayerCard>
         </>
@@ -377,7 +377,7 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, cove
           <SectionLabel color="var(--amber)">IN — NOT YET PAID · {unpaidIn.length}</SectionLabel>
           <PlayerCard>
             {unpaidIn.map(p => (
-              <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+              <PlayerRow key={p.id} player={p} adminToken={adminToken} teamId={teamId} schedule={schedule} setSquad={setSquad} />
             ))}
           </PlayerCard>
         </>
@@ -389,7 +389,7 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, cove
           <SectionLabel color="var(--green)">PAID UP · {paidUp.length}</SectionLabel>
           <PlayerCard>
             {paidUp.map(p => (
-              <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+              <PlayerRow key={p.id} player={p} adminToken={adminToken} teamId={teamId} schedule={schedule} setSquad={setSquad} />
             ))}
           </PlayerCard>
         </>
@@ -450,7 +450,7 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, cove
         ) : guestPlayers.map(p => {
           const host = squad.find(h => h.id === p.guestOf);
           return (
-            <PlayerRow key={p.id} player={p} teamId={teamId} schedule={schedule}
+            <PlayerRow key={p.id} player={p} adminToken={adminToken} teamId={teamId} schedule={schedule}
               setSquad={setSquad} isGuest hostName={host?.nickname || host?.name || null} />
           );
         })}
