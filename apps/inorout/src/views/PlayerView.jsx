@@ -1048,7 +1048,11 @@ export default function PlayerView({
                           const isMe    = p.id === myId;
                           const form    = formMap[p.id] || [];
                           const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
-                          const isMotm  = !!lastMatchMeta?.motm && lastMatchMeta.motm === p.id;
+                          const motmValue = lastMatchMeta?.motm;
+                          const isMotm  = !!motmValue && (
+                            motmValue === p.id ||
+                            motmValue === (p.nickname || p.name)
+                          );
                           const hasBibs = lastMatchMeta?.bibHolder === p.id;
                           const parts   = ((p.nickname || p.name) || "").trim().split(/\s+/);
                           const ini     = parts.length >= 2
