@@ -4,9 +4,8 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   handleCashPayment, handleGuestCashPayment,
   resolveMotm } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, setPlayerStatus, setPlayerInjured, deletePlayer,
-  getPlayerMatchForm, getLastMatchMeta,
   getPOTMEligiblePlayers, getPOTMVotes, setPlayerNickname,
-  resolveBibHolder, getLedgerForPlayer, getOutstandingBalance } from "@platform/supabase";
+  resolveBibHolder } from "@platform/supabase";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,
@@ -96,7 +95,6 @@ export default function PlayerView({
   const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
   const [hideConfirmation,  setHideConfirmation]  = useState(false);
   const confirmationTimer = useRef(null);
-  const [playerForm,      setPlayerForm]      = useState({});
   const [lastMatchMeta,   setLastMatchMeta]   = useState(null);
   const [showPOTMModal,   setShowPOTMModal]   = useState(false);
   const [potmEligible,    setPotmEligible]    = useState([]);
@@ -142,23 +140,12 @@ export default function PlayerView({
   const inPlayers        = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
   const nonGuestInPlayers = inPlayers.filter(p => !p.isGuest);
   const teamsSet         = nonGuestInPlayers.length > 0 && nonGuestInPlayers.every(p => p.team);
+  const formMap          = Object.fromEntries((stats?.playerForm || []).map(f => [f.player_id, f.form]));
 
   useEffect(() => {
-    if (!teamId) return;
-    getLastMatchMeta(teamId).then(meta => setLastMatchMeta(meta)).catch(() => {});
-  }, [teamId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!teamsSet || !teamId) return;
-    const ids = squad.filter(p => p.status === "in" && !p.disabled && !p.isGuest).map(p => p.id);
-    if (!ids.length) return;
-    getPlayerMatchForm(teamId, ids).then(form => setPlayerForm(form || {})).catch(() => {});
-  }, [teamsSet, teamId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!myId || !teamId) return;
-    getOutstandingBalance(myId, teamId).then(setLedgerBalance).catch(() => {});
-  }, [myId, teamId]); // eslint-disable-line react-hooks/exhaustive-deps
+    setLastMatchMeta(stats?.lastMatchMeta || null);
+    setLedgerBalance(stats?.outstandingBalance ?? 0);
+  }, [stats]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // POTM voting — open modal when voting becomes active for this player
   useEffect(() => {
@@ -171,7 +158,9 @@ export default function PlayerView({
       prevVotingOpen.current = true;
       const matchId = schedule.activeMatchId || activeMatch.id;
       Promise.all([
+        // TODO Phase 2: move to RPC — blocked by RLS for anon during live voting window
         getPOTMEligiblePlayers(matchId, teamId),
+        // TODO Phase 2: move to RPC — blocked by RLS for anon during live voting window
         getPOTMVotes(matchId),
       ]).then(([eligible, votes]) => {
         const myVote = votes.find(v => v.voter_id === myId);
@@ -1057,7 +1046,7 @@ export default function PlayerView({
                       <div key={team} style={{ borderRight: colIdx === 0 ? "0.5px solid rgba(255,255,255,0.06)" : "none", paddingTop:8, paddingBottom:8 }}>
                         {players.map(p => {
                           const isMe    = p.id === myId;
-                          const form    = playerForm[p.id] || [];
+                          const form    = formMap[p.id] || [];
                           const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
                           const isMotm  = !!lastMatchMeta?.motm && lastMatchMeta.motm === p.id;
                           const hasBibs = lastMatchMeta?.bibHolder === p.id;
@@ -1196,14 +1185,9 @@ export default function PlayerView({
             const fmtDate = iso => iso
               ? new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
               : '—';
-            const handleToggle = async () => {
+            const handleToggle = () => {
               if (!payHistOpen && payHistory === null) {
-                setPayHistLoading(true);
-                try {
-                  const rows = await getLedgerForPlayer(myId, teamId, 20);
-                  setPayHistory(rows);
-                } catch { setPayHistory([]); }
-                finally { setPayHistLoading(false); }
+                setPayHistory(stats?.ledger || []);
               }
               setPayHistOpen(o => !o);
             };
