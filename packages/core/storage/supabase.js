@@ -1513,7 +1513,7 @@ export async function saveTeamsDraft(adminToken, matchId, teamA, teamB) {
     p_match_id:    matchId,
     p_team_a:      teamA || [],
     p_team_b:      teamB || [],
-    p_confirmed:   false,
+    p_confirm:     false,
   });
   if (error) throw error;
   return { ok: true };
@@ -1525,7 +1525,7 @@ export async function confirmTeams(adminToken, matchId, teamA, teamB) {
     p_match_id:    matchId,
     p_team_a:      teamA || [],
     p_team_b:      teamB || [],
-    p_confirmed:   true,
+    p_confirm:     true,
   });
   if (error) throw error;
   return { ok: true };

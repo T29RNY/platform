@@ -28,6 +28,7 @@ function PentagonBadge({ number }) {
 export default function TeamsScreen({ teamId, adminToken = null, squad, schedule, matchHistory, onBack }) {
   const matchId = schedule?.activeMatchId ||
     matchHistory?.find(m => !m.cancelled && !m.winner)?.id ||
+    matchHistory?.find(m => !m.cancelled)?.id ||
     null;
 
   const [assignments, setAssignments] = useState({});
