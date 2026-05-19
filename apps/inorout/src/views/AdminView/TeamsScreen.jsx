@@ -26,7 +26,9 @@ function PentagonBadge({ number }) {
 }
 
 export default function TeamsScreen({ teamId, adminToken = null, squad, schedule, matchHistory, onBack }) {
-  const matchId = schedule?.activeMatchId || matchHistory?.[0]?.id || null;
+  const matchId = schedule?.activeMatchId ||
+    matchHistory?.find(m => !m.cancelled && !m.winner)?.id ||
+    null;
 
   const [assignments, setAssignments] = useState({});
   const [draftSaved, setDraftSaved] = useState(false);
@@ -46,13 +48,21 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
 
     if (match.teamsDraft && (match.teamsDraft.a?.length || match.teamsDraft.b?.length)) {
       const built = {};
-      (match.teamsDraft.a || []).forEach(id => { built[id] = "A"; });
-      (match.teamsDraft.b || []).forEach(id => { built[id] = "B"; });
+      (match.teamsDraft.a || [])
+        .filter(v => typeof v === 'string' && v.startsWith('p_'))
+        .forEach(id => { built[id] = "A"; });
+      (match.teamsDraft.b || [])
+        .filter(v => typeof v === 'string' && v.startsWith('p_'))
+        .forEach(id => { built[id] = "B"; });
       setAssignments(built);
     } else if (match.teamA?.length || match.teamB?.length) {
       const built = {};
-      (match.teamA || []).forEach(id => { built[id] = "A"; });
-      (match.teamB || []).forEach(id => { built[id] = "B"; });
+      (match.teamA || [])
+        .filter(v => typeof v === 'string' && v.startsWith('p_'))
+        .forEach(id => { built[id] = "A"; });
+      (match.teamB || [])
+        .filter(v => typeof v === 'string' && v.startsWith('p_'))
+        .forEach(id => { built[id] = "B"; });
       setAssignments(built);
       setTeamsConfirmed(true);
     }
