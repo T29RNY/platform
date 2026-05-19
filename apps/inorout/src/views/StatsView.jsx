@@ -452,7 +452,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
       {/* ── Season hero (sticky) ── */}
       <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "0 16px" }}>
-        <SeasonHeroCard groupName={groupName} totalGames={totalGames} avgGoals={avgGoals} />
+        <SeasonHeroCard groupName={groupName} totalGames={stats?.matchStats?.attended ?? totalGames} avgGoals={avgGoals} />
       </div>
 
       <div style={{ padding: "0 16px 110px" }}>
