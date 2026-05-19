@@ -1151,17 +1151,34 @@ export async function getPOTMVoteStats(playerId, teamId) {
 
 // ─── POTM Voting ──────────────────────────────────────────────────────────────
 
-export async function submitPOTMVote(matchId, teamId, voterId, nomineeId) {
-  const { error } = await supabase.from("potm_votes").insert({
-    match_id: matchId, team_id: teamId, voter_id: voterId, nominee_id: nomineeId,
+export async function submitPOTMVote(token, matchId, teamId, nomineeId) {
+  const { data, error } = await supabase.rpc('submit_potm_vote', {
+    p_token:      token,
+    p_match_id:   matchId,
+    p_team_id:    teamId,
+    p_nominee_id: nomineeId,
   });
-  if (error) {
-    if (error.code === "23505") return { error: "already_voted" };
-    throw error;
-  }
-  return { ok: true };
+  if (error) throw error;
+  return data;
 }
 
+export async function getPOTMVotingState(token, matchId, teamId) {
+  const { data, error } = await supabase.rpc('get_potm_voting_state', {
+    p_token:    token,
+    p_match_id: matchId,
+    p_team_id:  teamId,
+  });
+  if (error) throw error;
+  return {
+    eligible:     data.eligible      || [],
+    existingVote: data.existing_vote || null,
+    votes:        data.votes         || [],
+    voterId:      data.voter_id      || null,
+  };
+}
+
+// Deprecated — use getPOTMVotingState instead.
+// Will be removed once PlayerView is updated.
 export async function getPOTMVotes(matchId) {
   const { data, error } = await supabase
     .from("potm_votes")
@@ -1171,6 +1188,8 @@ export async function getPOTMVotes(matchId) {
   return data || [];
 }
 
+// Deprecated — use getPOTMVotingState instead.
+// Will be removed once PlayerView is updated.
 export async function getPOTMEligiblePlayers(matchId, teamId) {
   const { data: pmRows, error: pmErr } = await supabase
     .from("player_match")
@@ -1198,26 +1217,6 @@ export async function getPOTMEligiblePlayers(matchId, teamId) {
   }));
 }
 
-export async function tallyPOTMVotes(matchId, teamId) {
-  const votes = await getPOTMVotes(matchId);
-  if (!votes.length) return { winner: null, voteCount: 0, totalVoters: 0, isTie: false, tiedCandidates: [] };
-  const counts = {};
-  for (const v of votes) {
-    counts[v.nominee_id] = (counts[v.nominee_id] || 0) + 1;
-  }
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const topCount = sorted[0][1];
-  const tied = sorted.filter(([, c]) => c === topCount).map(([id]) => id);
-  const isTie = tied.length > 1;
-  return {
-    winner: isTie ? null : tied[0],
-    voteCount: topCount,
-    totalVoters: votes.length,
-    isTie,
-    tiedCandidates: isTie ? tied : [],
-  };
-}
-
 export async function closePOTMVoting(adminToken, matchId, winnerId, wasAdminDecided = false) {
   const { error } = await supabase.rpc('admin_close_potm_voting', {
     p_admin_token:       adminToken,
@@ -1228,14 +1227,6 @@ export async function closePOTMVoting(adminToken, matchId, winnerId, wasAdminDec
   if (error) throw error;
 }
 
-export async function openPOTMVoting(matchId, teamId, closesAt, totalVoters) {
-  const { error } = await supabase.from("matches").update({
-    voting_open: true,
-    voting_closes_at: closesAt,
-    total_voters: totalVoters,
-  }).eq("id", matchId).eq("team_id", teamId);
-  if (error) throw error;
-}
 
 export async function getTeamPlayerNames(teamId) {
   const { data: tpRows } = await supabase
