@@ -114,6 +114,69 @@ function getRoute() {
   return { type:"landing" };
 }
 
+// ─── Client-side stats derivation from match history ─────────────────────────
+// Used by admin routes where the RPC doesn't include a stats block.
+function computeStatsFromHistory(playerId, squad, matches) {
+  const player = squad.find(p => p.id === playerId);
+  if (!player) return null;
+
+  const playerNames = new Set([player.name?.toLowerCase()]);
+  if (player.nickname) playerNames.add(player.nickname.toLowerCase());
+
+  const total  = matches.filter(m => !m.cancelled).length;
+  const played = matches.filter(m => !m.cancelled && m.winner);
+
+  const results = [];
+  let wins = 0, draws = 0, losses = 0, goals = 0, potm = 0;
+
+  for (const m of played) {
+    const inA = (m.teamA || []).some(n => playerNames.has(n?.toLowerCase()));
+    const inB = (m.teamB || []).some(n => playerNames.has(n?.toLowerCase()));
+    if (!inA && !inB) continue;
+
+    let result;
+    if (m.winner === "D")                              { result = "d"; draws++;  }
+    else if ((m.winner === "A" && inA) || (m.winner === "B" && inB)) { result = "w"; wins++;   }
+    else                                               { result = "l"; losses++; }
+
+    for (const [name, g] of Object.entries(m.scorers || {})) {
+      if (playerNames.has(name?.toLowerCase())) goals += (g || 0);
+    }
+
+    if (m.motm) {
+      if (m.motm === playerId || playerNames.has(m.motm?.toLowerCase())) potm++;
+    }
+
+    results.push(result);
+  }
+
+  const attended = wins + draws + losses;
+  const winRate  = attended > 0 ? Math.round((wins / attended) * 100) : 0;
+
+  // currentRun — matches arrive newest-first from the RPC
+  const last20 = results.slice(0, 20);
+  let currentRun = null;
+  if (last20.length >= 1) {
+    const first = last20[0];
+    let len = 0;
+    for (const r of last20) {
+      if (first === "l" ? r !== "l" : r === "l") break;
+      len++;
+    }
+    if (len >= 2) currentRun = { type: first === "l" ? "losing" : "unbeaten", length: len };
+  }
+
+  const reliability = total > 0 ? Math.round((attended / total) * 100) : null;
+
+  return {
+    matchStats:  { games: attended, goals, motm: potm, wins, losses, draws, attended, bibs: 0 },
+    winRate:     { played: attended, wins, draws, losses, winRate },
+    currentRun,
+    reliability,
+    leagueRaw:   [],
+  };
+}
+
 export default function App() {
   const route = getRoute();
   const [view,         setView]        = useState("player");
@@ -204,6 +267,13 @@ export default function App() {
           setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
           setSettingsRaw(state.settings || DEFAULT_SETTINGS);
           setCoverPoolRaw(state.coverPool);
+          const demoAdminPlayer = state.squad.find(
+            p => p.userId && session?.user && p.userId === session.user.id
+          );
+          if (demoAdminPlayer) {
+            setMyPlayer(demoAdminPlayer);
+            setStatsRaw(computeStatsFromHistory(demoAdminPlayer.id, state.squad, state.matches));
+          }
           setLoading(false);
           return;
         }
@@ -217,17 +287,18 @@ export default function App() {
             const state = await getTeamStateByAdminToken(route.token);
             if (!state) { setError("Invalid admin link."); setLoading(false); return; }
             setIsAdmin(true);
-            if (session?.user) {
-              try {
-                const adminPlayer = await findPlayerByUserId(session.user.id);
-                if (adminPlayer) setMyPlayer(adminPlayer);
-              } catch(e) {}
-            }
             setTeamId(state.teamId);           setSelectedTeam(state.teamId);
             setSquadRaw(state.squad);          setMatchHistRaw(state.matches);
             setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
             setSettingsRaw(state.settings || DEFAULT_SETTINGS);
             setCoverPoolRaw(state.coverPool);
+            const adminPlayer = state.squad.find(
+              p => p.userId && session?.user && p.userId === session.user.id
+            );
+            if (adminPlayer) {
+              setMyPlayer(adminPlayer);
+              setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches));
+            }
             setLoading(false);
             return;
           }
