@@ -778,6 +778,7 @@ Both can run; both add to `owes`. No deduplication.
 | All player_match reads moved to RPC | ✅ Done session 25 | `get_team_state_by_player_token` extended: match_stats, win_rate, reliability, ledger, last_match_meta, player_form |
 | Live board POTM + bibs + form dots | ✅ Done session 25 | `lastMatchMeta` + `playerForm` computed via RPC (player route) and `computeStatsFromHistory` (admin route); camelCase mapping fixed in supabase.js |
 | Teams confirmed realtime | ✅ Done session 25 | `confirmedThisSession` ref guards squad sync; `teamsConfirmedRef` prevents stale closures; `handleClearConfirm` calls `confirmTeams` to clear `players.team` server-side |
+| POTM voting RLS fix | ✅ Done session 25 | `submit_potm_vote` + `get_potm_voting_state` RPCs; voterToken threaded to modal; no-votes tally fix; attendee-scoped notify |
 | Join/login redesign | 🔲 Pre-launch | |
 | Stripe Connect | 🔒 Blocked | Needs platform account |
 | Apple Sign In | 🔒 Blocked | Needs Dev account £79 |
@@ -1838,8 +1839,25 @@ Fixes shipped:
 - Form dots: last 5, oldest→newest left→right (.slice(0,5)
   .reverse())
 - POTM trophy (🏆) and bibs dot (amber) working in teams tile
+- POTM voting full RLS fix: submit_potm_vote +
+  get_potm_voting_state SECURITY DEFINER RPCs added;
+  submitPOTMVote + getPOTMVotingState in supabase.js now
+  use RPCs instead of direct table reads; voterToken
+  threaded from PlayerView through to POTMVotingModal;
+  getPOTMVotingState replaces getPOTMEligiblePlayers +
+  getPOTMVotes (both deprecated)
+- potmTallyJob no-votes limbo fixed: tied_candidates now
+  set to all attendees when no votes cast; admin tiebreak
+  modal guard relaxed from > 1 to > 0
+- potmResult notification now targets attendees only via
+  tiedCandidates array (previously sent to all subscribers)
+- Dead exports removed from supabase.js: openPOTMVoting,
+  tallyPOTMVotes
+- Dead import removed from AdminView: getPOTMEligiblePlayers
+- formMap crash fixed: computeStatsFromHistory returns
+  playerForm as array of {player_id, form} objects not
+  plain object
 
 Known remaining:
-- POTM voting flow audit pending
 - BibsScreen standalone write broken under RLS (low priority)
 - player_career table mostly empty (Phase 2)
