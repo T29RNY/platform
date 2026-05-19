@@ -8,7 +8,7 @@ import {
 import {
   addCoverPlayer, removeCoverPlayer, deletePlayer,
   resetPlayerToken, insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
-  getPOTMEligiblePlayers, closePOTMVoting, setPlayerNickname,
+  closePOTMVoting, setPlayerNickname,
   upsertSchedule, adminCancelMatch, addPlayerToTeam,
   getRecentNotification,
   supabase,
@@ -44,12 +44,14 @@ function POTMTiebreakModal({ match, squad, teamId, adminToken, onDecide }) {
     setSubmitting(true);
     try {
       await closePOTMVoting(adminToken, match.id, selected.id, true);
-      // Send potmResult push
+      // Send potmResult push — notify attendees only (tiedCandidates = all eligible players set by cron)
+      const attendeeIds = pendingTiebreak?.tiedCandidates || [];
       fetch("/api/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "potmResult", teamId,
+          playerIds: attendeeIds,
           payload: { title: "🏆 POTM Result", body: `${selected.nickname || selected.name} wins POTM tonight!`, winnerId: selected.id, winnerName: selected.nickname || selected.name },
         }),
       }).catch(console.error);
