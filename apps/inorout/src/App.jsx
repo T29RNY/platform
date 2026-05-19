@@ -337,7 +337,8 @@ export default function App() {
           }
 
           // Show email capture overlay on visit 3+ if still unlinked
-          if (!player.userId && visitCount >= 3) setShowEmailCapture(true);
+          const isDemoToken = route.token?.startsWith('p_demotoken_');
+          if (!player.userId && visitCount >= 3 && !isDemoToken) setShowEmailCapture(true);
 
           setMyPlayer(player);
           setPlayerTeams([]);
