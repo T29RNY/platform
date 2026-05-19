@@ -444,6 +444,10 @@ export default function App() {
                 setSquadRaw([state.player, ...state.squad]);
                 setStatsRaw(state.stats || null);
               }
+            } else if (route?.type === "admin" || route?.type === "demoadmin") {
+              const adminTok = route.type === "demoadmin" ? "admin_demo" : route.token;
+              const state = await getTeamStateByAdminToken(adminTok);
+              if (state) setSquadRaw(state.squad);
             } else {
               const p = await getPlayers(teamId);
               setSquadRaw(p);
@@ -457,11 +461,43 @@ export default function App() {
       .subscribe();
     const schedSub = supabase.channel(`schedule:${teamId}`)
       .on("postgres_changes", { event:"*", schema:"public", table:"schedule", filter:`team_id=eq.${teamId}` },
-        async () => { const s = await getSchedule(teamId); if (s) setScheduleRaw(s); })
+        async () => {
+          try {
+            if (route?.type === "player" && route?.token) {
+              const state = await getTeamStateByPlayerToken(route.token);
+              if (state?.schedule) setScheduleRaw(state.schedule);
+            } else if (route?.type === "admin" || route?.type === "demoadmin") {
+              const adminTok = route.type === "demoadmin" ? "admin_demo" : route.token;
+              const state = await getTeamStateByAdminToken(adminTok);
+              if (state?.schedule) setScheduleRaw(state.schedule);
+            } else {
+              const s = await getSchedule(teamId);
+              if (s) setScheduleRaw(s);
+            }
+          } catch (e) {
+            console.error("schedule realtime refresh error:", e);
+          }
+        })
       .subscribe();
     const matchSub = supabase.channel(`matches:${teamId}`)
       .on("postgres_changes", { event:"*", schema:"public", table:"matches", filter:`team_id=eq.${teamId}` },
-        async () => { const m = await getMatches(teamId); setMatchHistRaw(m); })
+        async () => {
+          try {
+            if (route?.type === "player" && route?.token) {
+              const state = await getTeamStateByPlayerToken(route.token);
+              if (state?.matches) setMatchHistRaw(state.matches);
+            } else if (route?.type === "admin" || route?.type === "demoadmin") {
+              const adminTok = route.type === "demoadmin" ? "admin_demo" : route.token;
+              const state = await getTeamStateByAdminToken(adminTok);
+              if (state?.matches) setMatchHistRaw(state.matches);
+            } else {
+              const m = await getMatches(teamId);
+              setMatchHistRaw(m);
+            }
+          } catch (e) {
+            console.error("matches realtime refresh error:", e);
+          }
+        })
       .subscribe();
     return () => {
       isFetchingPlayers.current = false;
