@@ -173,9 +173,6 @@ export default function PlayerLeagueTable({ data = [], loading, period, onPeriod
             color:       period === key ? "var(--gold)"                 : "var(--t2)",
             transition:  "all 0.15s",
             WebkitTapHighlightColor: "transparent",
-            ...(key === "month" || key === "season"
-              ? { opacity: 0.35, pointerEvents: "none", cursor: "default" }
-              : {}),
           }}>
             {label}
           </button>

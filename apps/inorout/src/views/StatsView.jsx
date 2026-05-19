@@ -195,32 +195,111 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   const [h2hPlayer,          setH2hPlayer]          = useState(null);
 
   useEffect(() => {
-    if (!stats?.leagueRaw?.length || !squad.length) {
+    if (!squad.length || !matchHistory.length) {
+      setTableData([]);
+      setTotalGamesInPeriod(0);
       setTableLoading(false);
       return;
     }
-    const playerMap = Object.fromEntries(
-      squad.map(p => [p.id, p])
+
+    // Period cutoff
+    const now = new Date();
+    const cutoff = period === "month"
+      ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`
+      : period === "season"
+      ? `${now.getFullYear()}-01-01`
+      : null;
+
+    // Played matches only (non-cancelled, result recorded)
+    const filtered = matchHistory.filter(m =>
+      !m.cancelled &&
+      m.winner &&
+      (!cutoff || (m.matchDate || "") >= cutoff)
     );
-    const rows = stats.leagueRaw
-      .map(r => {
-        const p = playerMap[r.player_id];
+
+    setTotalGamesInPeriod(filtered.length);
+
+    if (!filtered.length) {
+      setTableData([]);
+      setTableLoading(false);
+      return;
+    }
+
+    // Squad lookup maps
+    const byId       = Object.fromEntries(squad.map(p => [p.id, p]));
+    const byName     = Object.fromEntries(squad.map(p => [p.name?.toLowerCase(), p]));
+    const byNickname = Object.fromEntries(
+      squad.filter(p => p.nickname).map(p => [p.nickname.toLowerCase(), p])
+    );
+    const lookup = (name) => {
+      if (!name) return null;
+      const low = name.toLowerCase();
+      return byName[low] || byNickname[low] || null;
+    };
+
+    // Per-player accumulators
+    const acc = {};
+    const init = (id) => {
+      if (!acc[id]) acc[id] = { wins: 0, draws: 0, losses: 0, goals: 0, potm: 0 };
+    };
+
+    for (const m of filtered) {
+      const { teamA = [], teamB = [], winner, scorers = {}, motm } = m;
+
+      const teamAIds = teamA.map(n => lookup(n)?.id).filter(Boolean);
+      const teamBIds = teamB.map(n => lookup(n)?.id).filter(Boolean);
+      const teamASet = new Set(teamAIds);
+
+      // Result per player
+      for (const id of [...teamAIds, ...teamBIds]) {
+        const p = byId[id];
+        if (!p || p.disabled || p.isGuest) continue;
+        init(id);
+        const onA = teamASet.has(id);
+        if (winner === "D") {
+          acc[id].draws++;
+        } else if ((winner === "A" && onA) || (winner === "B" && !onA)) {
+          acc[id].wins++;
+        } else {
+          acc[id].losses++;
+        }
+      }
+
+      // Goals from scorers (keyed by player name)
+      for (const [scorerName, goals] of Object.entries(scorers)) {
+        const p = lookup(scorerName);
+        if (!p || p.disabled || p.isGuest) continue;
+        init(p.id);
+        acc[p.id].goals += (goals || 0);
+      }
+
+      // POTM — try ID lookup first (recent matches), then name (legacy)
+      if (motm) {
+        const p = byId[motm] || lookup(motm);
+        if (p && !p.disabled && !p.isGuest) {
+          init(p.id);
+          acc[p.id].potm++;
+        }
+      }
+    }
+
+    // Build rows
+    const rows = Object.entries(acc)
+      .map(([id, s]) => {
+        const p = byId[id];
         if (!p || p.disabled || p.isGuest) return null;
-        const played  = r.played  || 0;
-        const wins    = r.wins    || 0;
-        const draws   = r.draws   || 0;
-        const losses  = r.losses  || 0;
-        const points  = wins * 3 + draws;
-        const winRate = played > 0
-          ? Math.round((wins / played) * 100) : 0;
+        const played  = s.wins + s.draws + s.losses;
+        const points  = s.wins * 3 + s.draws;
+        const winRate = played > 0 ? Math.round((s.wins / played) * 100) : 0;
         return {
-          playerId:    r.player_id,
+          playerId:    id,
           name:        p.name,
           nickname:    p.nickname || null,
           injured:     p.injured  || false,
-          played, wins, draws, losses, points, winRate,
-          goals:       r.goals || 0,
-          potm:        r.motm  || 0,
+          played, wins: s.wins, draws: s.draws, losses: s.losses,
+          points, winRate,
+          goals:       s.goals,
+          potm:        s.potm,
           reliability: null,
           form:        [],
           ranked:      played >= 3,
@@ -229,34 +308,32 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
       })
       .filter(Boolean)
       .sort((a, b) =>
-        b.points   - a.points   ||
-        b.goals    - a.goals    ||
-        b.winRate  - a.winRate  ||
-        b.potm     - a.potm     ||
+        b.points  - a.points  ||
+        b.goals   - a.goals   ||
+        b.winRate - a.winRate ||
+        b.potm    - a.potm    ||
         a.name.localeCompare(b.name)
       );
 
+    // Rank (tied players share rank, next rank skips)
     let rank = 1;
     let prevPoints = null;
     let prevRank   = 1;
-    rows.forEach((r, i) => {
+    rows.forEach((r) => {
       if (!r.ranked) { r.rank = null; return; }
       if (prevPoints !== null && r.points === prevPoints) {
         r.rank = prevRank;
       } else {
-        r.rank    = rank;
-        prevRank  = rank;
+        r.rank     = rank;
+        prevRank   = rank;
         prevPoints = r.points;
       }
       rank++;
     });
 
     setTableData(rows);
-    setTotalGamesInPeriod(
-      Math.max(...rows.map(r => r.played), 0)
-    );
     setTableLoading(false);
-  }, [stats, squad]);
+  }, [matchHistory, squad, period]);
 
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 
