@@ -28,6 +28,7 @@ export {
   toggleViceCaptain,
   disablePlayer,
   addPlayerToTeam,
+  removeGuestPlayer,
   getHeadToHead,
   getPOTMVotingState,
 } from "./storage/supabase.js";

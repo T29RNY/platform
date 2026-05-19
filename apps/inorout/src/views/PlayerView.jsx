@@ -3,7 +3,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
   resolveMotm } from "@platform/core";
-import { savePushSubscription, addGuestPlayer, setPlayerStatus, setPlayerInjured, deletePlayer,
+import { savePushSubscription, addGuestPlayer, removeGuestPlayer, setPlayerStatus, setPlayerInjured, deletePlayer,
   getPOTMVotingState, setPlayerNickname,
   resolveBibHolder } from "@platform/supabase";
 import POTMVotingModal from "./POTMVotingModal.jsx";
@@ -313,7 +313,7 @@ export default function PlayerView({
     if (!myGuest || removingGuest) return;
     setRemovingGuest(true);
     try {
-      await deletePlayer(myGuest.id);
+      await removeGuestPlayer(me.token, myGuest.id);
       setSquad(squad.filter(p => p.id !== myGuest.id));
     } catch(e) {
       console.error("Failed to remove guest:", e);

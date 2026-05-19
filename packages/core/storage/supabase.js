@@ -440,6 +440,15 @@ export async function addGuestPlayer(hostToken, guestName) {
   return dbToPlayer(data);
 }
 
+export async function removeGuestPlayer(hostToken, guestId) {
+  const { data, error } = await supabase.rpc('remove_guest_player', {
+    p_token:    hostToken,
+    p_guest_id: guestId,
+  });
+  if (error) throw error;
+  return data;
+}
+
 // ─── Cover pool ───────────────────────────────────────────────────────────────
 export async function getCoverPool(teamId) {
   const { data, error } = await supabase
