@@ -311,6 +311,7 @@ function dbToSchedule(r) {
 }
 
 // ─── Get all teams for a player ───────────────────────────────────────────────
+// Phase 2: multi-team — currently bypassed; direct table reads blocked by RLS for anon users. Do not call from player route.
 export async function getPlayerTeams(playerId) {
   const { data, error } = await supabase
     .from("team_players")

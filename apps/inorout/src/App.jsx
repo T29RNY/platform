@@ -8,7 +8,6 @@ import {
   getSchedule, upsertSchedule,
   getSettings, upsertSettings,
   getTeamByPlayerToken,
-  getPlayerTeams,
   getTeamByJoinCode, addPlayerToTeam,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
@@ -269,21 +268,17 @@ export default function App() {
           if (!player.userId && visitCount >= 3) setShowEmailCapture(true);
 
           setMyPlayer(player);
-          const teams = await getPlayerTeams(player.id);
-          setPlayerTeams(teams);
-          if (teams.length === 0) { setError("Could not find your team."); setLoading(false); return; }
-          if (teams.length === 1) {
-            setTeamId(state.teamId);           setSelectedTeam(state.teamId);
-            setSquadRaw([player, ...state.squad]);
-            setMatchHistRaw(state.matches);    setBibHistRaw(state.bibHistory);
-            setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
-            setSettingsRaw(state.settings || DEFAULT_SETTINGS);
-            setCoverPoolRaw(state.coverPool);
-            setLoading(false);
-            return;
-          } else {
-            setLoading(false); return; // show switcher
-          }
+          setPlayerTeams([]);
+          const resolvedId = state.teamId || state.player?.team || null;
+          if (!resolvedId) { setError("Could not find your team."); setLoading(false); return; }
+          setTeamId(resolvedId);             setSelectedTeam(resolvedId);
+          setSquadRaw([player, ...state.squad]);
+          setMatchHistRaw(state.matches);    setBibHistRaw(state.bibHistory);
+          setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+          setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+          setCoverPoolRaw(state.coverPool);
+          setLoading(false);
+          return;
         }
 
         if (!resolvedTeamId) { setLoading(false); return; }
