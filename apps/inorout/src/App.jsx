@@ -202,10 +202,9 @@ function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
     processTeam(m.teamA, "A");
     processTeam(m.teamB, "B");
   }
-  const playerForm = {};
-  for (const [pid, arr] of Object.entries(formAccum)) {
-    playerForm[pid] = [...arr].reverse();
-  }
+  const playerForm = Object.entries(formAccum).map(
+    ([pid, form]) => ({ player_id: pid, form: [...form].reverse() })
+  );
 
   return {
     matchStats:  { games: attended, goals, motm: potm, wins, losses, draws, attended, bibs: 0 },
