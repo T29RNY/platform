@@ -391,7 +391,7 @@ export async function getTeamStateByPlayerToken(token) {
         return Math.round((r.attended / r.totalGames) * 100);
       })(),
       leagueRaw:          data.stats.league_raw || [],
-      ledger:             data.stats.ledger || [],
+      ledger:             (data.stats.ledger || []).map(dbToLedger),
       outstandingBalance: data.stats.outstanding_balance ?? 0,
       lastMatchMeta: data.stats.last_match_meta ? {
         motm:      data.stats.last_match_meta.motm || null,
