@@ -338,7 +338,7 @@ export async function getTeamStateByPlayerToken(token) {
   const { data, error } = await supabase.rpc('get_team_state_by_player_token', { p_token: token });
   if (error || !data) return null;
   return {
-    teamId:         data.schedule?.team_id || null,
+    teamId:         data.team_id || data.schedule?.team_id || null,
     player:         dbToPlayer({ ...data.player, token }),
     squad:          (data.squad || []).map(dbToPlayer),
     schedule:       data.schedule ? dbToSchedule(data.schedule) : null,
@@ -347,6 +347,51 @@ export async function getTeamStateByPlayerToken(token) {
     settings:       data.settings ? { groupName: data.settings.group_name } : null,
     coverPool:      data.cover_pool || [],
     liveChannelKey: data.live_channel_key,
+    stats: data.stats ? {
+      matchStats: {
+        games:    data.stats.match_stats?.games    || 0,
+        goals:    data.stats.match_stats?.goals    || 0,
+        motm:     data.stats.match_stats?.motm     || 0,
+        wins:     data.stats.match_stats?.wins     || 0,
+        losses:   data.stats.match_stats?.losses   || 0,
+        draws:    data.stats.match_stats?.draws    || 0,
+        attended: data.stats.match_stats?.attended || 0,
+        bibs:     data.stats.match_stats?.bibs     || 0,
+      },
+      winRate: {
+        played:  data.stats.win_rate?.played  || 0,
+        wins:    data.stats.win_rate?.wins    || 0,
+        draws:   data.stats.win_rate?.draws   || 0,
+        losses:  data.stats.win_rate?.losses  || 0,
+        winRate: data.stats.win_rate?.played > 0
+          ? Math.round((data.stats.win_rate.wins /
+              data.stats.win_rate.played) * 100)
+          : 0,
+      },
+      currentRun: (() => {
+        const run = data.stats.current_run;
+        if (!run || !run.length) return null;
+        const first = run[0];
+        let len = 0;
+        for (const r of run) {
+          if (first === 'l') {
+            if (r !== 'l') break;
+          } else {
+            if (r === 'l') break;
+          }
+          len++;
+        }
+        return len >= 2
+          ? { type: first === 'l' ? 'losing' : 'unbeaten', length: len }
+          : null;
+      })(),
+      reliability: (() => {
+        const r = data.stats.reliability;
+        if (!r || !r.totalGames) return null;
+        return Math.round((r.attended / r.totalGames) * 100);
+      })(),
+      leagueRaw: data.stats.league_raw || [],
+    } : null,
   };
 }
 

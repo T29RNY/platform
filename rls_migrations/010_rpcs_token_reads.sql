@@ -173,6 +173,8 @@ GRANT  EXECUTE ON FUNCTION get_team_by_join_code(text) TO authenticated;
 -- FUNCTION 4: get_team_state_by_player_token
 -- Bulk-loads all data needed to render the player view.
 -- Self-row uses §10.1 (full own data). Squad uses §10.2 (no financial/stats).
+-- Stats block (match_stats, win_rate, current_run, reliability, league_raw)
+-- computed server-side to avoid direct player_match queries from anon clients.
 -- ════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION get_team_state_by_player_token(p_token text)
 RETURNS jsonb
@@ -182,16 +184,22 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_player_id  text;
-  v_team_id    text;
-  v_player     jsonb;
-  v_squad      jsonb;
-  v_schedule   jsonb;
-  v_matches    jsonb;
-  v_bib_hist   jsonb;
-  v_settings   jsonb;
-  v_cover_pool jsonb;
-  v_lckey      text;
+  v_player_id           text;
+  v_team_id             text;
+  v_player              jsonb;
+  v_squad               jsonb;
+  v_schedule            jsonb;
+  v_matches             jsonb;
+  v_bib_hist            jsonb;
+  v_settings            jsonb;
+  v_cover_pool          jsonb;
+  v_lckey               text;
+  v_match_stats_row     RECORD;
+  v_win_rate_row        RECORD;
+  v_current_run         jsonb;
+  v_total_team_games    int;
+  v_player_attended_all int;
+  v_league_raw          jsonb;
 BEGIN
   IF p_token IS NULL THEN RETURN NULL; END IF;
 
@@ -366,6 +374,79 @@ BEGIN
   FROM   teams t
   WHERE  t.id = v_team_id;
 
+  -- 10. match_stats: games played, goals, motm, wins, losses, draws, attended, bibs
+  SELECT
+    COUNT(*)                                          AS games,
+    SUM(pm.goals)                                     AS goals,
+    SUM(CASE WHEN pm.was_motm    THEN 1 ELSE 0 END)   AS motm,
+    SUM(CASE WHEN pm.result = 'w' THEN 1 ELSE 0 END)  AS wins,
+    SUM(CASE WHEN pm.result = 'l' THEN 1 ELSE 0 END)  AS losses,
+    SUM(CASE WHEN pm.result = 'd' THEN 1 ELSE 0 END)  AS draws,
+    SUM(CASE WHEN pm.attended    THEN 1 ELSE 0 END)   AS attended,
+    SUM(CASE WHEN pm.had_bibs    THEN 1 ELSE 0 END)   AS bibs
+  INTO v_match_stats_row
+  FROM player_match pm
+  WHERE pm.player_id = v_player_id
+    AND pm.team_id   = v_team_id;
+
+  -- 11. win_rate (attended games only)
+  SELECT
+    COUNT(*)                                          AS played,
+    SUM(CASE WHEN pm.result = 'w' THEN 1 ELSE 0 END)  AS wins,
+    SUM(CASE WHEN pm.result = 'd' THEN 1 ELSE 0 END)  AS draws,
+    SUM(CASE WHEN pm.result = 'l' THEN 1 ELSE 0 END)  AS losses
+  INTO v_win_rate_row
+  FROM player_match pm
+  WHERE pm.player_id = v_player_id
+    AND pm.team_id   = v_team_id
+    AND pm.attended  = true;
+
+  -- 12. current_run — last 20 attended results ordered by match date (subquery
+  --     ensures LIMIT applies to input rows before aggregation, not the output)
+  SELECT jsonb_agg(r.result)
+  INTO v_current_run
+  FROM (
+    SELECT pm.result
+    FROM player_match pm
+    JOIN matches m ON m.id = pm.match_id
+    WHERE pm.player_id = v_player_id
+      AND pm.team_id   = v_team_id
+      AND pm.attended  = true
+    ORDER BY m.match_date DESC
+    LIMIT 20
+  ) r;
+
+  -- 13. reliability: attended / total uncancelled team games
+  SELECT COUNT(*) INTO v_total_team_games
+  FROM matches
+  WHERE team_id  = v_team_id
+    AND cancelled IS NOT TRUE;
+
+  SELECT COUNT(*) INTO v_player_attended_all
+  FROM player_match
+  WHERE player_id = v_player_id
+    AND team_id   = v_team_id
+    AND attended  = true;
+
+  -- 14. league_raw: per-player stats for all players on this team
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'player_id', pm.player_id,
+      'played',    COUNT(*),
+      'wins',      SUM(CASE WHEN pm.result = 'w' THEN 1 ELSE 0 END),
+      'draws',     SUM(CASE WHEN pm.result = 'd' THEN 1 ELSE 0 END),
+      'losses',    SUM(CASE WHEN pm.result = 'l' THEN 1 ELSE 0 END),
+      'goals',     SUM(pm.goals),
+      'motm',      SUM(CASE WHEN pm.was_motm  THEN 1 ELSE 0 END),
+      'bibs',      SUM(CASE WHEN pm.had_bibs  THEN 1 ELSE 0 END),
+      'attended',  SUM(CASE WHEN pm.attended  THEN 1 ELSE 0 END)
+    )
+  )
+  INTO v_league_raw
+  FROM player_match pm
+  WHERE pm.team_id = v_team_id
+  GROUP BY pm.player_id;
+
   RETURN jsonb_build_object(
     'player',           v_player,
     'squad',            v_squad,
@@ -374,7 +455,32 @@ BEGIN
     'bib_history',      v_bib_hist,
     'settings',         v_settings,
     'cover_pool',       v_cover_pool,
-    'live_channel_key', v_lckey
+    'live_channel_key', v_lckey,
+    'team_id',          v_team_id,
+    'stats',            jsonb_build_object(
+      'match_stats', jsonb_build_object(
+        'games',    v_match_stats_row.games,
+        'goals',    v_match_stats_row.goals,
+        'motm',     v_match_stats_row.motm,
+        'wins',     v_match_stats_row.wins,
+        'losses',   v_match_stats_row.losses,
+        'draws',    v_match_stats_row.draws,
+        'attended', v_match_stats_row.attended,
+        'bibs',     v_match_stats_row.bibs
+      ),
+      'win_rate', jsonb_build_object(
+        'played', v_win_rate_row.played,
+        'wins',   v_win_rate_row.wins,
+        'draws',  v_win_rate_row.draws,
+        'losses', v_win_rate_row.losses
+      ),
+      'current_run', v_current_run,
+      'reliability', jsonb_build_object(
+        'attended',   v_player_attended_all,
+        'totalGames', v_total_team_games
+      ),
+      'league_raw',  v_league_raw
+    )
   );
 END;
 $$;
