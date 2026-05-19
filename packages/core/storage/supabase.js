@@ -393,7 +393,11 @@ export async function getTeamStateByPlayerToken(token) {
       leagueRaw:          data.stats.league_raw || [],
       ledger:             data.stats.ledger || [],
       outstandingBalance: data.stats.outstanding_balance ?? 0,
-      lastMatchMeta:      data.stats.last_match_meta || null,
+      lastMatchMeta: data.stats.last_match_meta ? {
+        motm:      data.stats.last_match_meta.motm || null,
+        bibHolder: data.stats.last_match_meta.bib_holder || null,
+        matchDate: data.stats.last_match_meta.match_date || null,
+      } : null,
       playerForm:         data.stats.player_form || [],
     } : null,
   };
