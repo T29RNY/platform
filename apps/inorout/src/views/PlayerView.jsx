@@ -1046,7 +1046,7 @@ export default function PlayerView({
                       <div key={team} style={{ borderRight: colIdx === 0 ? "0.5px solid rgba(255,255,255,0.06)" : "none", paddingTop:8, paddingBottom:8 }}>
                         {players.map(p => {
                           const isMe    = p.id === myId;
-                          const form    = formMap[p.id] || [];
+                          const form    = (formMap[p.id] || []).slice(0, 5).reverse();
                           const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
                           const motmValue = lastMatchMeta?.motm;
                           const isMotm  = !!motmValue && (
