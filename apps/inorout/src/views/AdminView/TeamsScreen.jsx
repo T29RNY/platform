@@ -42,6 +42,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
   const [error, setError] = useState(null);
 
   const hasHydrated = useRef(false);
+  const teamsConfirmedRef = useRef(false);
 
   // On mount — hydrate from existing match data
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
         .forEach(id => { built[id] = "B"; });
       setAssignments(built);
       setTeamsConfirmed(true);
+      teamsConfirmedRef.current = true;
     }
     hasHydrated.current = true;
   }, [matchId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -85,7 +87,8 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
     if (hasTeams) {
       setAssignments(built);
       setTeamsConfirmed(true);
-    } else if (!teamsConfirmed) {
+      teamsConfirmedRef.current = true;
+    } else if (!teamsConfirmedRef.current) {
       setAssignments({});
     }
   }, [squad]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -120,6 +123,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
     }));
     setDraftSaved(false);
     setTeamsConfirmed(false);
+    teamsConfirmedRef.current = false;
   }, []);
 
   const handleRandom = useCallback(() => {
@@ -137,6 +141,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
     setAssignments(built);
     setDraftSaved(false);
     setTeamsConfirmed(false);
+    teamsConfirmedRef.current = false;
   }, [inPlayers]);
 
   const handleSaveDraft = useCallback(async () => {
@@ -166,6 +171,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
     try {
       await confirmTeams(adminToken, matchId, teamAIds, teamBIds);
       setTeamsConfirmed(true);
+      teamsConfirmedRef.current = true;
       setDraftSaved(false);
 
       // Fire teamsConfirmed push — fire and forget, IN players only
@@ -202,6 +208,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
     setAssignments({});
     setDraftSaved(false);
     setTeamsConfirmed(false);
+    teamsConfirmedRef.current = false;
     setShowClearConfirm(false);
     try {
       await confirmTeams(adminToken, matchId, [], []);
