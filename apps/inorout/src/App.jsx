@@ -429,20 +429,29 @@ export default function App() {
   };
 
   // Realtime subscriptions
+  const isFetchingPlayers = useRef(false);
   useEffect(() => {
     if (!teamId) return;
     const playerSub = supabase.channel(`players:${teamId}`)
       .on("postgres_changes", { event:"*", schema:"public", table:"players" },
         async () => {
-          if (route?.type === "player" && route?.token) {
-            const state = await getTeamStateByPlayerToken(route.token);
-            if (state) {
-              setSquadRaw([state.player, ...state.squad]);
-              setStatsRaw(state.stats || null);
+          if (isFetchingPlayers.current) return;
+          isFetchingPlayers.current = true;
+          try {
+            if (route?.type === "player" && route?.token) {
+              const state = await getTeamStateByPlayerToken(route.token);
+              if (state && state.player) {
+                setSquadRaw([state.player, ...state.squad]);
+                setStatsRaw(state.stats || null);
+              }
+            } else {
+              const p = await getPlayers(teamId);
+              setSquadRaw(p);
             }
-          } else {
-            const p = await getPlayers(teamId);
-            setSquadRaw(p);
+          } catch (e) {
+            console.error("players realtime refresh error:", e);
+          } finally {
+            isFetchingPlayers.current = false;
           }
         })
       .subscribe();
@@ -455,6 +464,7 @@ export default function App() {
         async () => { const m = await getMatches(teamId); setMatchHistRaw(m); })
       .subscribe();
     return () => {
+      isFetchingPlayers.current = false;
       supabase.removeChannel(playerSub);
       supabase.removeChannel(schedSub);
       supabase.removeChannel(matchSub);
