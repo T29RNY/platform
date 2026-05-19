@@ -43,6 +43,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
 
   const hasHydrated = useRef(false);
   const teamsConfirmedRef = useRef(false);
+  const confirmedThisSession = useRef(false);
 
   // On mount — hydrate from existing match data
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
       setAssignments(built);
       setTeamsConfirmed(true);
       teamsConfirmedRef.current = true;
-    } else if (!teamsConfirmedRef.current) {
+    } else if (!confirmedThisSession.current) {
       setAssignments({});
     }
   }, [squad]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,6 +125,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
     setDraftSaved(false);
     setTeamsConfirmed(false);
     teamsConfirmedRef.current = false;
+    confirmedThisSession.current = false;
   }, []);
 
   const handleRandom = useCallback(() => {
@@ -142,6 +144,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
     setDraftSaved(false);
     setTeamsConfirmed(false);
     teamsConfirmedRef.current = false;
+    confirmedThisSession.current = false;
   }, [inPlayers]);
 
   const handleSaveDraft = useCallback(async () => {
@@ -172,6 +175,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
       await confirmTeams(adminToken, matchId, teamAIds, teamBIds);
       setTeamsConfirmed(true);
       teamsConfirmedRef.current = true;
+      confirmedThisSession.current = true;
       setDraftSaved(false);
 
       // Fire teamsConfirmed push — fire and forget, IN players only
@@ -209,6 +213,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
     setDraftSaved(false);
     setTeamsConfirmed(false);
     teamsConfirmedRef.current = false;
+    confirmedThisSession.current = false;
     setShowClearConfirm(false);
     try {
       await confirmTeams(adminToken, matchId, [], []);
