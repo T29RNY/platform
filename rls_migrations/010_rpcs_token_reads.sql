@@ -200,6 +200,8 @@ DECLARE
   v_total_team_games    int;
   v_player_attended_all int;
   v_league_raw          jsonb;
+  v_ledger              jsonb;
+  v_outstanding_balance numeric;
 BEGIN
   IF p_token IS NULL THEN RETURN NULL; END IF;
 
@@ -447,6 +449,36 @@ BEGIN
   WHERE pm.team_id = v_team_id
   GROUP BY pm.player_id;
 
+  -- 15. player's own ledger (last 20 entries)
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'id',        pl.id,
+      'amount',    pl.amount,
+      'type',      pl.type,
+      'status',    pl.status,
+      'method',    pl.method,
+      'paid_by',   pl.paid_by,
+      'paid_at',   pl.paid_at,
+      'match_id',  pl.match_id,
+      'note',      pl.note,
+      'created_at',pl.created_at
+    ) ORDER BY pl.created_at DESC
+  ) INTO v_ledger
+  FROM (
+    SELECT * FROM payment_ledger
+    WHERE player_id = v_player_id
+      AND team_id   = v_team_id
+    ORDER BY created_at DESC
+    LIMIT 20
+  ) pl;
+
+  -- 16. outstanding balance
+  SELECT COALESCE(SUM(amount), 0) INTO v_outstanding_balance
+  FROM payment_ledger
+  WHERE player_id = v_player_id
+    AND team_id   = v_team_id
+    AND status    = 'unpaid';
+
   RETURN jsonb_build_object(
     'player',           v_player,
     'squad',            v_squad,
@@ -479,7 +511,9 @@ BEGIN
         'attended',   v_player_attended_all,
         'totalGames', v_total_team_games
       ),
-      'league_raw',  v_league_raw
+      'league_raw',           v_league_raw,
+      'ledger',               v_ledger,
+      'outstanding_balance',  v_outstanding_balance
     )
   );
 END;
