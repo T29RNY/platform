@@ -1351,6 +1351,16 @@ export async function getLedgerForPlayer(playerId, teamId, limit = 20) {
   return (data || []).map(dbToLedger);
 }
 
+export async function adminGetPlayerLedger(adminToken, playerId, limit = 20) {
+  const { data, error } = await supabase.rpc('admin_get_player_ledger', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_limit:       limit,
+  });
+  if (error) throw error;
+  return (data || []).map(dbToLedger);
+}
+
 // Targeted lookup to avoid duplicate ledger entries on Mark Paid / Reset.
 // Handles null matchId (no lineup lock) by querying IS NULL — avoids maybeSingle()
 // errors when pre-existing duplicates are present.

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { handleMarkPaid, handleResetPayment, handleWaiveDebt } from "@platform/core";
-import { getLedgerForPlayer } from "@platform/supabase";
+import { adminGetPlayerLedger } from "@platform/supabase";
 import { ArrowLeft, CaretDown, CaretUp } from "@phosphor-icons/react";
 
 // ── constants ─────────────────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
     if (!open && ledger === null) {
       setLoading(true);
       try {
-        const rows = await getLedgerForPlayer(player.id, teamId, 20);
+        const rows = await adminGetPlayerLedger(adminToken, player.id, 20);
         setLedger(rows);
       } catch { setLedger([]); }
       finally { setLoading(false); }
@@ -178,7 +178,7 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
                       e.stopPropagation();
                       await handleResetPayment(adminToken, player.id, entry.matchId || null).catch(console.error);
                       setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
-                      getLedgerForPlayer(player.id, teamId, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
+                      adminGetPlayerLedger(adminToken, player.id, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
                     }} style={{ marginLeft:8, padding:"3px 8px", borderRadius:6,
                       background:"var(--s3)", color:"var(--t2)", fontSize:11, fontWeight:400,
                       border:"none", cursor:"pointer", fontFamily:"var(--font-body)" }}>
@@ -196,7 +196,7 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
               <button onClick={async () => {
                 await handleMarkPaid(adminToken, player.id, schedule.activeMatchId || null).catch(console.error);
                 setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true } : p));
-                getLedgerForPlayer(player.id, teamId, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
+                adminGetPlayerLedger(adminToken, player.id, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
               }} style={{ padding:"6px 14px", borderRadius:"var(--r-pill)", border:"none",
                 background:"var(--gold)", color:"#000", fontSize:11, fontWeight:600,
                 cursor:"pointer", fontFamily:"var(--font-body)" }}>

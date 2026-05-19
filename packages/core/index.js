@@ -16,6 +16,7 @@ export {
   updateLedgerEntry,
   getLedgerForPlayer,
   getLedgerForTeam,
+  adminGetPlayerLedger,
   getOutstandingBalance,
   bulkResetPlayerStatuses,
   bulkCancelLedgerEntries,
