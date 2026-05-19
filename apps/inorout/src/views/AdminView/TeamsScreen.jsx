@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { ArrowLeft, Shuffle, FloppyDisk, CheckCircle, Trash } from "@phosphor-icons/react";
 import { saveTeamsDraft, confirmTeams } from "@platform/core";
 
@@ -41,6 +41,8 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
   const [teamsConfirmed, setTeamsConfirmed] = useState(false);
   const [error, setError] = useState(null);
 
+  const hasHydrated = useRef(false);
+
   // On mount — hydrate from existing match data
   useEffect(() => {
     if (!matchId || !matchHistory) return;
@@ -67,7 +69,26 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
       setAssignments(built);
       setTeamsConfirmed(true);
     }
+    hasHydrated.current = true;
   }, [matchId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!hasHydrated.current) return;
+    if (!squad?.length) return;
+    const built = {};
+    squad.forEach(p => {
+      if (p.team === 'A' || p.team === 'B') {
+        built[p.id] = p.team;
+      }
+    });
+    const hasTeams = Object.keys(built).length > 0;
+    if (hasTeams) {
+      setAssignments(built);
+      setTeamsConfirmed(true);
+    } else if (!teamsConfirmed) {
+      setAssignments({});
+    }
+  }, [squad]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const inPlayers = useMemo(() => {
     return (squad || [])
@@ -178,19 +199,16 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
   }, []);
 
   const handleClearConfirm = useCallback(async () => {
-    const wasSaved = draftSaved;
     setAssignments({});
     setDraftSaved(false);
     setTeamsConfirmed(false);
     setShowClearConfirm(false);
-    if (wasSaved) {
-      try {
-        await saveTeamsDraft(adminToken, matchId, [], []);
-      } catch (e) {
-        console.error("handleClearConfirm draft clear error:", e);
-      }
+    try {
+      await confirmTeams(adminToken, matchId, [], []);
+    } catch (e) {
+      console.error("handleClearConfirm error:", e);
     }
-  }, [draftSaved, adminToken, matchId]);
+  }, [adminToken, matchId]);
 
   const handleClearCancel = useCallback(() => {
     setShowClearConfirm(false);
