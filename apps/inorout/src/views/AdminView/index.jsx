@@ -674,7 +674,7 @@ export default function AdminView({
     !m.cancelled && m.winner == null && new Date(m.matchDate) < new Date()
   ).length;
   const pendingTiebreak = !tiebreakDismissed
-    ? matchHistory.find(m => m.adminDecisionPending && m.tiedCandidates?.length > 1)
+    ? matchHistory.find(m => m.adminDecisionPending && m.tiedCandidates?.length > 0)
     : null;
   const orphanedGuests = squad.filter(p =>
     p.isGuest && !p.disabled &&

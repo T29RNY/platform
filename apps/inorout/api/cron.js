@@ -249,12 +249,20 @@ async function potmTallyJob(base, results) {
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
 
     if (!sorted.length) {
-      // No votes — mark pending for admin
+      // No votes — fetch eligible players so admin can pick from the full list
+      const { data: eligibleRows } = await supabase
+        .from("player_match")
+        .select("player_id")
+        .eq("match_id", match.id)
+        .eq("attended", true)
+        .eq("is_guest", false);
+      const eligibleIds = (eligibleRows || []).map(r => r.player_id);
       await supabase.from("matches").update({
         voting_open: false, admin_decision_pending: true,
+        tied_candidates: eligibleIds.length ? eligibleIds : null,
       }).eq("id", match.id);
       await supabase.from("schedule").update({ voting_open: false }).eq("team_id", match.team_id);
-      results.push(`potmTally: ${match.id} no votes, admin pending`);
+      results.push(`potmTally: ${match.id} no votes, admin pending (${eligibleIds.length} eligible)`);
       continue;
     }
 
