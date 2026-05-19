@@ -803,6 +803,10 @@ Both can run; both add to `owes`. No deduplication.
 | Admin find a random | Radius search, ping system |
 | Vice Captain access | ✅ Done (session 22–23) — VC toggle, PlayerProfile ROLES section, HeroCard ADMINS block, full admin access gating |
 | Player profile cross-team | Career stats, player_career table |
+| Multi-team player switcher | Phase 2 — tomorrow | playerTeams UI exists, needs player_get_teams RPC |
+| is_vice_captain per-team migration | Phase 2 — tomorrow | Migrate from players table to team_players |
+| owes double-increment guard | Phase 2 — tomorrow | Remove or guard draftNextWeek dead code |
+| Mid-game team switches | Phase 2 — tomorrow | ScoreScreen switches stage, team_switches jsonb, final team determines W/L/D |
 
 ---
 
@@ -819,6 +823,7 @@ Both can run; both add to `owes`. No deduplication.
 | Grassroots app | Full stats: assists, cards, ratings |
 | In or Out Ltd | Companies House £12 |
 | Trademark | ~£170 UK |
+| Apple Watch goal logger | Phase 3 | tap team → scroll to player → confirm; Swift/SwiftUI watchOS extension; ~28h total; requires Capacitor iOS first |
 
 ---
 
@@ -937,6 +942,25 @@ all have venue contracts. Sticky but beatable on product quality.
 - **Known bug**: NameStep asks returning player "what should we call you?" but the typed name is silently discarded — handleJoin uses existing.name from DB, ignores the input
 - `is_vice_captain` lives on the `players` table, not `team_players` — known cross-team limitation; a player is VC globally, not per-team; migrate to `team_players` in Phase 2
 - VC access = full AdminView minus Rotate Admin Link (which doesn't exist yet); scoping is done via `isViceCaptain` prop throughout, not `role_scope` (dormant for Phase 2 RBAC)
+
+**Mid-game team switches:**
+- New stage in ScoreScreen between score entry and bibs
+- Admin marks any player who switched teams during the game using a swap icon (⇄) next to their name
+- `team_switches jsonb` column to add to matches table: `[{player_id, from: "A", to: "B"}]`
+- `team_a`/`team_b` on match updated to reflect FINAL team assignments after switches
+- `player_match.team_assignment` records the final team the player finished on — W/L/D derived from that
+- Match history shows ⇄ icon next to any player who switched teams
+- Switch time not recorded — binary only (switched or not)
+- Stage is optional — if no switches, admin skips through
+
+**Apple Watch goal logger (Phase 3):**
+- Requires native iOS app (Capacitor) as container first
+- watchOS extension written in Swift/SwiftUI alongside Capacitor — not possible via Capacitor alone
+- Interaction: tap team A/B → crown scroll to player → tap confirm → goal logged to Supabase via companion app
+- Haptic confirmation on goal log
+- Realistic effort: ~20h Capacitor iOS + ~8h watchOS = ~28h
+- Prerequisite: Apple Dev account £79 (same as Apple Sign In)
+- Phase 3 — revisit when iOS native app is being built
 - `bib_history` has a UNIQUE constraint on `(team_id, match_date)` — one holder per team per match night; both write paths (`saveBibHolder` + `insertBib`) use UPSERT with `onConflict: "team_id,match_date"`
 - StatsView reads ALL player stats from `player_match` via `getPlayerLeagueTable` — `players` flat columns (`goals`, `motm`, `w`, `l`, `d`, `attended`) are write-only convenience fields, not used for display; Payment Reliability and The Core are intentionally exempt (no `player_match` equivalent / current headcount)
 - PostgREST `.upsert()` cannot target partial unique indexes — the `onConflict` parameter generates bare `ON CONFLICT (cols)` without the `WHERE` predicate PostgreSQL requires; use INSERT + catch `23505` in application code instead
@@ -1861,3 +1885,8 @@ Fixes shipped:
 Known remaining:
 - BibsScreen standalone write broken under RLS (low priority)
 - player_career table mostly empty (Phase 2)
+- Multi-team player switcher: playerTeams disabled, needs player_get_teams RPC (Phase 2, tomorrow)
+- is_vice_captain cross-team: lives on players table not team_players — per-team migration needed (Phase 2, tomorrow)
+- Join/login redesign: needed before broader beta Jun 9 (Phase 2, tomorrow)
+- owes double-increment: draftNextWeek dead code risk, remove or guard (Phase 2, tomorrow)
+- Mid-game team switches: new ScoreScreen stage, team_switches jsonb on matches, final team determines W/L/D, switch icon in match history (Phase 2, tomorrow)
