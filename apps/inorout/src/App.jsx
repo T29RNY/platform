@@ -116,7 +116,7 @@ function getRoute() {
 
 // ─── Client-side stats derivation from match history ─────────────────────────
 // Used by admin routes where the RPC doesn't include a stats block.
-function computeStatsFromHistory(playerId, squad, matches) {
+function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
   const player = squad.find(p => p.id === playerId);
   if (!player) return null;
 
@@ -168,12 +168,53 @@ function computeStatsFromHistory(playerId, squad, matches) {
 
   const reliability = total > 0 ? Math.round((attended / total) * 100) : null;
 
+  // lastMatchMeta — most recent played match (matches arrive newest-first)
+  const lastPlayedMatch = played[0] || null;
+  const currentBibEntry = (bibHistory || []).find(b => b.returned === false);
+  const bibHolderId = currentBibEntry?.playerId ?? currentBibEntry?.player_id ?? null;
+  const lastMatchMeta = lastPlayedMatch ? {
+    motm:      lastPlayedMatch.motm || null,
+    matchDate: lastPlayedMatch.date || lastPlayedMatch.matchDate || null,
+    bibHolder: bibHolderId,
+  } : null;
+
+  // playerForm — map of playerId → ["w","d","l",...] oldest-first (max 5)
+  const nameToId = {};
+  squad.forEach(p => {
+    if (p.name) nameToId[p.name.toLowerCase()] = p.id;
+    if (p.nickname) nameToId[p.nickname.toLowerCase()] = p.id;
+  });
+  const formAccum = {};
+  for (const m of played) {
+    const processTeam = (names, teamKey) => {
+      for (const name of (names || [])) {
+        const pid = nameToId[name?.toLowerCase()];
+        if (!pid) continue;
+        if (!formAccum[pid]) formAccum[pid] = [];
+        if (formAccum[pid].length >= 5) continue;
+        let r;
+        if (m.winner === "D") r = "d";
+        else if (m.winner === teamKey) r = "w";
+        else r = "l";
+        formAccum[pid].push(r);
+      }
+    };
+    processTeam(m.teamA, "A");
+    processTeam(m.teamB, "B");
+  }
+  const playerForm = {};
+  for (const [pid, arr] of Object.entries(formAccum)) {
+    playerForm[pid] = [...arr].reverse();
+  }
+
   return {
     matchStats:  { games: attended, goals, motm: potm, wins, losses, draws, attended, bibs: 0 },
     winRate:     { played: attended, wins, draws, losses, winRate },
     currentRun,
     reliability,
     leagueRaw:   [],
+    lastMatchMeta,
+    playerForm,
   };
 }
 
@@ -272,7 +313,7 @@ export default function App() {
           );
           if (demoAdminPlayer) {
             setMyPlayer(demoAdminPlayer);
-            setStatsRaw(computeStatsFromHistory(demoAdminPlayer.id, state.squad, state.matches));
+            setStatsRaw(computeStatsFromHistory(demoAdminPlayer.id, state.squad, state.matches, state.bibHistory));
           }
           setLoading(false);
           return;
@@ -297,7 +338,7 @@ export default function App() {
             );
             if (adminPlayer) {
               setMyPlayer(adminPlayer);
-              setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches));
+              setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches, state.bibHistory));
             }
             setLoading(false);
             return;
