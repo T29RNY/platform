@@ -24,7 +24,7 @@ function countdown(closesAt) {
 }
 
 export default function POTMVotingModal({
-  matchId, teamId, voterId, voterName,
+  matchId, teamId, voterId, voterToken, voterName,
   eligiblePlayers, hasVoted, existingVote,
   votingOpen, votingClosesAt, motm, onClose,
 }) {
@@ -78,7 +78,7 @@ export default function POTMVotingModal({
     if (!selected || submitting) return;
     setSubmitting(true);
     try {
-      const result = await submitPOTMVote(matchId, teamId, voterId, selected.id);
+      const result = await submitPOTMVote(voterToken, matchId, teamId, selected.id);
       if (result?.error === "already_voted") {
         setPhase("locked");
         return;

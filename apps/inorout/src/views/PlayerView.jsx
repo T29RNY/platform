@@ -4,7 +4,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   handleCashPayment, handleGuestCashPayment,
   resolveMotm } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, setPlayerStatus, setPlayerInjured, deletePlayer,
-  getPOTMEligiblePlayers, getPOTMVotes, setPlayerNickname,
+  getPOTMVotingState, setPlayerNickname,
   resolveBibHolder } from "@platform/supabase";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
@@ -157,19 +157,16 @@ export default function PlayerView({
     if (nowOpen && !wasOpen && activeMatch && me && !me.isGuest) {
       prevVotingOpen.current = true;
       const matchId = schedule.activeMatchId || activeMatch.id;
-      Promise.all([
-        // TODO Phase 2: move to RPC — blocked by RLS for anon during live voting window
-        getPOTMEligiblePlayers(matchId, teamId),
-        // TODO Phase 2: move to RPC — blocked by RLS for anon during live voting window
-        getPOTMVotes(matchId),
-      ]).then(([eligible, votes]) => {
-        const myVote = votes.find(v => v.voter_id === myId);
-        setPotmEligible(eligible);
-        setPotmHasVoted(!!myVote);
-        setPotmExistingVote(myVote?.nominee_id || null);
-        const amEligible = eligible.some(p => p.id === myId);
-        if (amEligible) setShowPOTMModal(true);
-      }).catch(() => {});
+      getPOTMVotingState(me.token, matchId, teamId)
+        .then(({ eligible, existingVote, votes }) => {
+          const myVote = votes.find(v => v.voter_id === myId);
+          setPotmEligible(eligible);
+          setPotmHasVoted(!!(myVote || existingVote));
+          setPotmExistingVote(existingVote || myVote?.nominee_id || null);
+          const amEligible = eligible.some(p => p.id === myId);
+          if (amEligible) setShowPOTMModal(true);
+        })
+        .catch(() => {});
     }
 
     // Voting just closed + result is in → show banner
@@ -347,6 +344,7 @@ export default function PlayerView({
           matchId={schedule.activeMatchId || matchHistory?.[0]?.id}
           teamId={teamId}
           voterId={myId}
+          voterToken={me?.token}
           voterName={me?.name}
           eligiblePlayers={potmEligible}
           hasVoted={potmHasVoted}
