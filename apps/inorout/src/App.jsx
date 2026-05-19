@@ -314,6 +314,24 @@ export default function App() {
             setMyPlayer(demoAdminPlayer);
             setStatsRaw(computeStatsFromHistory(demoAdminPlayer.id, state.squad, state.matches, state.bibHistory));
           }
+          // Always compute squad-wide stats (form dots + bibs)
+          // regardless of whether admin has a linked player record
+          if (state.squad?.length) {
+            const squadStats = computeStatsFromHistory(
+              state.squad[0].id,
+              state.squad,
+              state.matches,
+              state.bibHistory
+            );
+            setStatsRaw(prev => ({
+              ...(prev || {
+                matchStats: null, winRate: null, currentRun: null,
+                reliability: null, leagueRaw: [],
+              }),
+              playerForm:    squadStats?.playerForm    || [],
+              lastMatchMeta: squadStats?.lastMatchMeta || null,
+            }));
+          }
           setLoading(false);
           return;
         }
@@ -338,6 +356,24 @@ export default function App() {
             if (adminPlayer) {
               setMyPlayer(adminPlayer);
               setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches, state.bibHistory));
+            }
+            // Always compute squad-wide stats (form dots + bibs)
+            // regardless of whether admin has a linked player record
+            if (state.squad?.length) {
+              const squadStats = computeStatsFromHistory(
+                state.squad[0].id,
+                state.squad,
+                state.matches,
+                state.bibHistory
+              );
+              setStatsRaw(prev => ({
+                ...(prev || {
+                  matchStats: null, winRate: null, currentRun: null,
+                  reliability: null, leagueRaw: [],
+                }),
+                playerForm:    squadStats?.playerForm    || [],
+                lastMatchMeta: squadStats?.lastMatchMeta || null,
+              }));
             }
             setLoading(false);
             return;
