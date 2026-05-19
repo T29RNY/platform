@@ -433,7 +433,18 @@ export default function App() {
     if (!teamId) return;
     const playerSub = supabase.channel(`players:${teamId}`)
       .on("postgres_changes", { event:"*", schema:"public", table:"players" },
-        async () => { const p = await getPlayers(teamId); setSquadRaw(p); })
+        async () => {
+          if (route?.type === "player" && route?.token) {
+            const state = await getTeamStateByPlayerToken(route.token);
+            if (state) {
+              setSquadRaw([state.player, ...state.squad]);
+              setStatsRaw(state.stats || null);
+            }
+          } else {
+            const p = await getPlayers(teamId);
+            setSquadRaw(p);
+          }
+        })
       .subscribe();
     const schedSub = supabase.channel(`schedule:${teamId}`)
       .on("postgres_changes", { event:"*", schema:"public", table:"schedule", filter:`team_id=eq.${teamId}` },
