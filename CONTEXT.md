@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 18 2026 (session 24)*
+*Last updated: May 19 2026 (session 25)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -16,7 +16,7 @@ Differentiator: football-specific, frictionless, random player pool, in-app paym
 
 ## STAGE 1 BETA — LIVE TUESDAY MAY 19 2026
 
-**First real team: Finbar's Tuesdays.** Tarny creates the team, admin liaises with players, players self-serve via /join/team_finbars.
+**Beta held pending stability fixes. No real teams onboarded yet. Demo only (team_demo).**
 
 **Payment model:** cash only (admin marks paid). Stripe slots in if it lands in time, not a blocker.
 
@@ -775,6 +775,9 @@ Both can run; both add to `owes`. No deduplication.
 | /create auth gate | ✅ Done | Session 24: hard auth gate + ioo_pending_route sessionStorage round-trip |
 | team_admins table | ✅ Done | Session 24: migration 002, written by create_team RPC, seeded for team_demo |
 | link_player_to_user RPC | ✅ Done | Session 24: migration 022, authenticated-only, replaces direct table write |
+| All player_match reads moved to RPC | ✅ Done session 25 | `get_team_state_by_player_token` extended: match_stats, win_rate, reliability, ledger, last_match_meta, player_form |
+| Live board POTM + bibs + form dots | ✅ Done session 25 | `lastMatchMeta` + `playerForm` computed via RPC (player route) and `computeStatsFromHistory` (admin route); camelCase mapping fixed in supabase.js |
+| Teams confirmed realtime | ✅ Done session 25 | `confirmedThisSession` ref guards squad sync; `teamsConfirmedRef` prevents stale closures; `handleClearConfirm` calls `confirmTeams` to clear `players.team` server-side |
 | Join/login redesign | 🔲 Pre-launch | |
 | Stripe Connect | 🔒 Blocked | Needs platform account |
 | Apple Sign In | 🔒 Blocked | Needs Dev account £79 |
@@ -972,6 +975,9 @@ all have venue contracts. Sticky but beatable on product quality.
 | `packages/core/engine/scoring.js` file name | Hosts `periodCutoff` (non-scoring helper) alongside scoring helpers. Rename to broader name (e.g. `stats-helpers.js`) when file grows further | Low |
 | `/create` flow has no auth gate | Team creation works without sign-in. Means `team_admins` insert can't reliably capture user_id in submitTeam. Fix: redirect unauthenticated users to sign-in before /create, return them after. Do before building team_admins. | Pre-Stage 2 |
 | `team_demo` has no `team_admins` row | Demo team predates the table. Switcher won't show it for Tarny until backfilled. Backfill in Session 24 after table is created. | Low |
+| ~~getPlayerTeams RLS bypass~~ | ✅ Fixed (session 25) — `teamId` now derived from `getTeamStateByPlayerToken` state directly; `getPlayerTeams` removed from player route | Fixed session 25 |
+| ~~Stats + My IO showing no data~~ | ✅ Fixed (session 25) — `get_team_state_by_player_token` RPC extended with full stats block (match_stats, win_rate, reliability, ledger, last_match_meta, player_form); `computeStatsFromHistory` extended with `lastMatchMeta` + `playerForm` for admin routes | Fixed session 25 |
+| ~~Realtime callbacks using direct table reads~~ | ✅ Fixed (session 25) — all three realtime callbacks (players, schedule, matches) branch on `route.type`; player/admin/demoadmin routes use RPCs; direct reads remain only for authenticated fallback path | Fixed session 25 |
 | BibsScreen `insertBib` broken under RLS | BibsScreen lacks `matchId` + `adminToken` in scope — standalone bib assignment fails post-RLS lockdown. Low priority: bibs can be set via ScoreScreen result save which has both. | Low |
 | Dead write functions in `supabase.js` | `bulkCancelLedgerEntries`, `bulkResetPlayerStatuses`, `deletePlayerMatchRows`, `insertMatch`, `loadTeamData` are unreferenced post-RLS rewrite. Safe to remove in any future cleanup pass. | Low |
 
@@ -1787,3 +1793,53 @@ CREATE TABLE audit_events (
 - Android install screenshots
 - WhatsApp comms to Finbar's admin
 - `team_demo` `team_admins` backfill (low priority)
+
+**Session 25 (May 19 2026):**
+Full day of RLS post-migration fixes + live board hardening.
+Root cause: session 24 RLS lockdown blocked all direct table
+reads for anon sessions. Client code not updated to match.
+
+Fixes shipped:
+- getPlayerTeams() removed from player route — teamId now
+  derived from RPC state directly
+- get_team_state_by_player_token RPC extended: match_stats,
+  win_rate, current_run, reliability, league_raw, ledger,
+  outstanding_balance, last_match_meta (bib_holder from
+  bib_history not match row), player_form (last 5, newest first)
+- All three realtime callbacks (players, schedule, matches)
+  rewritten to branch on route.type — player route uses
+  getTeamStateByPlayerToken, admin/demoadmin uses
+  getTeamStateByAdminToken, fallback uses direct reads
+  (authenticated only)
+- computeStatsFromHistory extended with lastMatchMeta +
+  playerForm for admin routes
+- lastMatchMeta fields explicitly camelCased in supabase.js
+  (bib_holder → bibHolder, match_date → matchDate)
+- Stats hero games count reads from stats.matchStats.attended
+  not stale player.attended flat column
+- Email capture suppressed for p_demotoken_* tokens
+- League table period tabs re-enabled — computed client-side
+  from matchHistory + squad; getPlayerLeagueTable import removed
+- useIOIntelligence hook rewritten as pure consumer of
+  pre-fetched stats (no DB calls)
+- admin_save_teams RPC updated to write players.team = A/B/null
+  on confirm/clear
+- TeamsScreen hydration: confirmedThisSession ref guards squad
+  sync effect; teamsConfirmedRef prevents stale closures; mount
+  hydration filters legacy name strings via p_ prefix check
+- handleClearConfirm now calls confirmTeams([],[]) to clear
+  players.team server-side
+- matchId fallback: finds upcoming match before falling back to
+  most recent played
+- p_confirm parameter name fix (was p_confirmed) in
+  confirmTeams/saveTeamsDraft
+- demoadmin route passes "admin_demo" token to all admin RPCs
+- isFetchingPlayers ref prevents concurrent realtime RPC calls
+- Form dots: last 5, oldest→newest left→right (.slice(0,5)
+  .reverse())
+- POTM trophy (🏆) and bibs dot (amber) working in teams tile
+
+Known remaining:
+- POTM voting flow audit pending
+- BibsScreen standalone write broken under RLS (low priority)
+- player_career table mostly empty (Phase 2)
