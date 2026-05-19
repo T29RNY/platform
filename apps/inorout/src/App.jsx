@@ -126,6 +126,7 @@ export default function App() {
   const [matchHistory, setMatchHistRaw]= useState([]);
   const [settings,     setSettingsRaw] = useState(DEFAULT_SETTINGS);
   const [coverPool,    setCoverPoolRaw]= useState([]);
+  const [statsRaw,     setStatsRaw]    = useState(null);
   const [myPlayer,     setMyPlayer]    = useState(null);
   const [playerTeams,  setPlayerTeams] = useState([]);
   const [selectedTeam, setSelectedTeam]= useState(null);
@@ -277,6 +278,7 @@ export default function App() {
           setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
           setSettingsRaw(state.settings || DEFAULT_SETTINGS);
           setCoverPoolRaw(state.coverPool);
+          setStatsRaw(state.stats || null);
           setLoading(false);
           return;
         }
@@ -691,7 +693,8 @@ export default function App() {
           onMidFlowChange={setIsActionBlocked}
           isAdmin={isAdmin || isViceCaptain} onGoAdmin={() => setView("admin")}
           matchHistory={matchHistory} bibHistory={bibHistory}
-          startTab={playerStartTabRef.current}/>
+          startTab={playerStartTabRef.current}
+          stats={statsRaw}/>
       )}
       {view==="stats" && <StatsView
         teamId={teamId}
@@ -700,7 +703,8 @@ export default function App() {
         matchHistory={matchHistory}
         settings={settings}
         schedule={schedule}
-        myId={myId}/>}
+        myId={myId}
+        stats={statsRaw}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule}/>}
       {view==="admin"   && (isAdmin || isViceCaptain) && (
         <AdminView

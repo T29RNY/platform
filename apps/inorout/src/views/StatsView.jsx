@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { /* biggestWins, */ payRate, getPlayerLeagueTable } from "@platform/core";
+import { /* biggestWins, */ payRate } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
 } from "@phosphor-icons/react";
@@ -186,7 +186,7 @@ const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule, myId }) {
+export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule, myId, stats }) {
   const [showPlayerForm,     setShowPlayerForm]     = useState(false);
   const [period,             setPeriod]             = useState("season");
   const [tableData,          setTableData]          = useState([]);
@@ -195,19 +195,68 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   const [h2hPlayer,          setH2hPlayer]          = useState(null);
 
   useEffect(() => {
-    if (!teamId) return;
-    setTableLoading(true);
-    getPlayerLeagueTable(teamId, period)
-      .then(({ players, totalGamesInPeriod: n }) => {
-        setTableData(players);
-        setTotalGamesInPeriod(n);
-        setTableLoading(false);
+    if (!stats?.leagueRaw?.length || !squad.length) {
+      setTableLoading(false);
+      return;
+    }
+    const playerMap = Object.fromEntries(
+      squad.map(p => [p.id, p])
+    );
+    const rows = stats.leagueRaw
+      .map(r => {
+        const p = playerMap[r.player_id];
+        if (!p || p.disabled || p.isGuest) return null;
+        const played  = r.played  || 0;
+        const wins    = r.wins    || 0;
+        const draws   = r.draws   || 0;
+        const losses  = r.losses  || 0;
+        const points  = wins * 3 + draws;
+        const winRate = played > 0
+          ? Math.round((wins / played) * 100) : 0;
+        return {
+          playerId:    r.player_id,
+          name:        p.name,
+          nickname:    p.nickname || null,
+          injured:     p.injured  || false,
+          played, wins, draws, losses, points, winRate,
+          goals:       r.goals || 0,
+          potm:        r.motm  || 0,
+          reliability: null,
+          form:        [],
+          ranked:      played >= 3,
+          rank:        null,
+        };
       })
-      .catch(e => {
-        console.error("getPlayerLeagueTable error:", e);
-        setTableLoading(false);
-      });
-  }, [teamId, period]);
+      .filter(Boolean)
+      .sort((a, b) =>
+        b.points   - a.points   ||
+        b.goals    - a.goals    ||
+        b.winRate  - a.winRate  ||
+        b.potm     - a.potm     ||
+        a.name.localeCompare(b.name)
+      );
+
+    let rank = 1;
+    let prevPoints = null;
+    let prevRank   = 1;
+    rows.forEach((r, i) => {
+      if (!r.ranked) { r.rank = null; return; }
+      if (prevPoints !== null && r.points === prevPoints) {
+        r.rank = prevRank;
+      } else {
+        r.rank    = rank;
+        prevRank  = rank;
+        prevPoints = r.points;
+      }
+      rank++;
+    });
+
+    setTableData(rows);
+    setTotalGamesInPeriod(
+      Math.max(...rows.map(r => r.played), 0)
+    );
+    setTableLoading(false);
+  }, [stats, squad]);
 
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 

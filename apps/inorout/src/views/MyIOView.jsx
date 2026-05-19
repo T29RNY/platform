@@ -735,7 +735,7 @@ function GuestCard() {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function MyIOView({ player, teamId, teamName }) {
+export default function MyIOView({ player, teamId, teamName, stats: statsProp }) {
   const gamesPlayed = player?.attended || 0;
   const isGuest     = player?.isGuest || false;
   const total       = player?.total   || 0;
@@ -778,10 +778,9 @@ export default function MyIOView({ player, teamId, teamName }) {
   }, [player?.id, gamesPlayed, isGuest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { stats, loading } = useIOIntelligence({
-    playerId: player?.id,
-    teamId,
+    stats:      statsProp,
     gamesPlayed: isGuest ? 0 : gamesPlayed,
-    skip: isGuest || !player?.id || !teamId,
+    skip:        isGuest || !player?.id,
   });
 
   if (isGuest) {

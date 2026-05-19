@@ -71,6 +71,7 @@ export default function PlayerView({
   bibHistory = [], matchHistory = [],
   isAdmin = false, onGoAdmin,
   startTab = null,
+  stats = null,
 }) {
   const me = squad.find(p => p.id === myId);
 
@@ -1268,7 +1269,7 @@ export default function PlayerView({
 
       {/* STATS tab */}
       {activeTab === "stats" && (
-        <StatsView teamId={teamId} squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule} myId={myId} />
+        <StatsView teamId={teamId} squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule} myId={myId} stats={stats} />
       )}
 
       {/* HISTORY tab */}
@@ -1278,7 +1279,7 @@ export default function PlayerView({
 
       {/* MY IO tab */}
       {activeTab === "my-io" && (
-        <MyIOView player={me} teamId={teamId} teamName={settings?.groupName} />
+        <MyIOView player={me} teamId={teamId} teamName={settings?.groupName} stats={stats} />
       )}
 
       {/* 4 ── NAVBAR */}
