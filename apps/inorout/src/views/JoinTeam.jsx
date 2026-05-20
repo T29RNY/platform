@@ -594,9 +594,7 @@ export default function JoinTeam({
   return (
     <>
       <JoinStyles />
-      <JoinShell>
-        <BrandMark />
-      </JoinShell>
+      <NameStep team={team} onNameSubmit={onNameSubmit} loading={loading} error={error} />
     </>
   );
 }
