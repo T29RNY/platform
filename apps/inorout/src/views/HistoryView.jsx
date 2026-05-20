@@ -366,9 +366,13 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
                             </span>
                           )}
                         </div>
-                        {p.isGuest && p.guestOf && (
-                          <div style={{ fontSize: 9, color: "var(--gold)", marginTop: 1 }}>+1 {p.guestOf}</div>
-                        )}
+                        {p.isGuest && p.guestOf && (() => {
+                          const hostPlayer = findPlayer(p.guestOf);
+                          const hostLabel = hostPlayer ? (hostPlayer.nickname || hostPlayer.name) : p.guestOf;
+                          return (
+                            <div style={{ fontSize: 9, color: "var(--gold)", marginTop: 1 }}>+1 {hostLabel}</div>
+                          );
+                        })()}
                       </div>
                       {(m.scorers || {})[p.name] > 0 && (
                         <div style={{ fontSize: 11, color: "var(--t2)", flexShrink: 0 }}>
