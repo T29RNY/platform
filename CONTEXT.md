@@ -1941,5 +1941,7 @@ Commits: 97e8c79 (playerJoinTeam RPC wrapper + barrel export), 0d419f6 (App.jsx 
 - Commits: 8fe55c2, c101d3e, 98d4336, 17d8038, 7d71c39, 5cdfda2
 - Stage A: price_per_player fixed — column altered to numeric(10,2), create_team RPC p_price updated to match
 - Commits: 5e3c01c, 651f61c
-- Stage B: AddPlayers removed from onboarding — players now join via squad link; player_join_team RPC handles all joins; ShareLinks direct table write removed; onboarding now 2-step (CreateTeam → ShareLinks)
-- Commits: 28cf7c4, ac46497
+- Stage B: AddPlayers removed from onboarding — players now join via squad link only; useOnboarding.js simplified, AddPlayers.jsx deleted, index.jsx step progression updated
+- Commits: 28cf7c4
+- Stage C: ShareLinks.jsx cleaned — dead direct table write removed, unused onComplete prop removed, supabase import removed
+- Commit: ac46497
