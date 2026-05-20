@@ -1008,6 +1008,7 @@ all have venue contracts. Sticky but beatable on product quality.
 | ~~Stats + My IO showing no data~~ | ✅ Fixed (session 25) — `get_team_state_by_player_token` RPC extended with full stats block (match_stats, win_rate, reliability, ledger, last_match_meta, player_form); `computeStatsFromHistory` extended with `lastMatchMeta` + `playerForm` for admin routes | Fixed session 25 |
 | ~~Realtime callbacks using direct table reads~~ | ✅ Fixed (session 25) — all three realtime callbacks (players, schedule, matches) branch on `route.type`; player/admin/demoadmin routes use RPCs; direct reads remain only for authenticated fallback path | Fixed session 25 |
 | BibsScreen `insertBib` broken under RLS | BibsScreen lacks `matchId` + `adminToken` in scope — standalone bib assignment fails post-RLS lockdown. Low priority: bibs can be set via ScoreScreen result save which has both. | Low |
+| ~~`is_vice_captain` in players INSERT/SELECT across RPCs 011, 012, 014, 015~~ | ✅ Fixed session 27 — column moved to team_players in migration 026 but not cleaned up in all RPCs; add_guest_player, admin_add_player, four payment RPCs, create_team all fixed | Done |
 | Dead write functions in `supabase.js` | `bulkCancelLedgerEntries`, `bulkResetPlayerStatuses`, `deletePlayerMatchRows`, `insertMatch`, `loadTeamData`, `findPlayerByUserId` are unreferenced post-RLS rewrite. Safe to remove in any future cleanup pass. | Low |
 | Admin Decide button in ScoreScreen POTM stage | `onAdminDecide` prop not wired — button currently calls `onBack()`, exiting ScoreScreen instead of opening tiebreak modal. Fix: wire to new `onAdminDecide` prop from AdminView. | Pre-UAT |
 | ScoreScreen POTM stage: `GET /rest/v1/player_match 401` | Direct table read in POTM eligibility fetch not yet migrated to RPC. | Low |
@@ -1947,3 +1948,5 @@ Commits: 97e8c79 (playerJoinTeam RPC wrapper + barrel export), 0d419f6 (App.jsx 
 - Commit: ac46497
 - Stages D–H: onboarding flow complete — SetupLoadingScreen + SquadReady built, AddPlayers + ShareLinks deleted, price numeric(10,2) end to end, zero direct table writes in onboarding
 - Commits: b1d8895, 64c3f9f, c28624b, 8e4e062
+- is_vice_captain RPC cleanup — fixed in 011, 012, 014, 015; was causing add_guest_player and admin payment RPCs to throw internal_error
+- Commit: 6365f79
