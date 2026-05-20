@@ -484,7 +484,8 @@ CREATE OR REPLACE FUNCTION admin_upsert_schedule(
   p_opens_time        text,
   p_priority_lead_mins int,
   p_reminders_config  jsonb,      -- OI-22
-  p_one_off_date      text        -- 'YYYY-MM-DD'; null → keep existing game_date_time
+  p_one_off_date      text,       -- 'YYYY-MM-DD'; null → keep existing game_date_time
+  p_game_is_live      boolean DEFAULT null
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -538,7 +539,8 @@ BEGIN
     opens_time         = p_opens_time,
     priority_lead_mins = p_priority_lead_mins,
     reminders_config   = p_reminders_config,
-    game_date_time     = v_game_dt
+    game_date_time     = v_game_dt,
+    game_is_live       = COALESCE(p_game_is_live, game_is_live)
   WHERE id = v_schedule_id AND team_id = v_team_id;
 
   PERFORM notify_team_change(v_team_id, 'schedule_updated');
