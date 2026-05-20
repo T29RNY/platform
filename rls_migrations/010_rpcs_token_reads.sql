@@ -654,7 +654,8 @@ BEGIN
         'admin_decision_pending',m.admin_decision_pending,
         'tied_candidates',       m.tied_candidates,
         'payments',              m.payments,
-        'created_at',            m.created_at
+        'created_at',            m.created_at,
+        'team_switches',         m.team_switches
       )
       ORDER BY m.match_date DESC
     ),
