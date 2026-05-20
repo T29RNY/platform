@@ -672,6 +672,15 @@ export async function linkPlayerToUser(token) {
   if (error) throw error;
 }
 
+export async function playerJoinTeam(teamId, name) {
+  const { data, error } = await supabase.rpc('player_join_team', {
+    p_team_id: teamId,
+    p_name: name.trim()
+  });
+  if (error) throw error;
+  return dbToPlayer(data);
+}
+
 // Find unlinked legacy players by name (for "Is this you?" flow)
 export async function findPlayersByName(name) {
   const { data: players, error } = await supabase

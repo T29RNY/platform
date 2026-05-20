@@ -28,6 +28,7 @@ export {
   toggleViceCaptain,
   disablePlayer,
   addPlayerToTeam,
+  playerJoinTeam,
   removeGuestPlayer,
   getHeadToHead,
   getPOTMVotingState,
