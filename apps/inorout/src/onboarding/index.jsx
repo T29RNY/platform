@@ -1,6 +1,6 @@
 import { useOnboarding } from "./hooks/useOnboarding.js";
 import CreateTeam from "./steps/CreateTeam.jsx";
-import ShareLinks from "./steps/ShareLinks.jsx";
+import SquadReady from "./steps/SquadReady.jsx";
 import SetupLoadingScreen from "./steps/SetupLoadingScreen.jsx";
 
 export default function Onboarding({ onComplete }) {
@@ -31,12 +31,10 @@ export default function Onboarding({ onComplete }) {
       )}
 
       {ob.step === 2 && (
-        <ShareLinks
-          teamId={ob.teamId}
+        <SquadReady
           groupName={ob.groupName}
+          joinCode={ob.joinCode}
           adminToken={ob.adminToken}
-          players={ob.players}
-          onComplete={ob.onComplete}
         />
       )}
     </div>
