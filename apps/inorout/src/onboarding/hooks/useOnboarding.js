@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ONBOARDING_CONFIG as CFG } from "../config.js";
 import { supabase } from "@platform/supabase";
 
 
 export function useOnboarding({ onComplete }) {
+  const loadingStartRef = useRef(null);
   const [step,      setStep]      = useState(1); // 1, 2, 3
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState(null);
@@ -27,6 +28,7 @@ export function useOnboarding({ onComplete }) {
 
   // ── Submit → create everything via RPC ───────────────────────────────────
   const submitTeam = async () => {
+    loadingStartRef.current = Date.now();
     setLoading(true); setError(null);
 
     try {
@@ -53,6 +55,14 @@ export function useOnboarding({ onComplete }) {
       setAdminToken(data.admin_token);
       setPlayers(data.players ?? []);
       setJoinCode(data.join_code ?? null);
+
+      const elapsed = Date.now() - loadingStartRef.current;
+      const MIN_DISPLAY = 2500;
+      const remaining = Math.max(0, MIN_DISPLAY - elapsed);
+      if (remaining > 0) {
+        await new Promise(r => setTimeout(r, remaining));
+      }
+
       setStep(2);
     } catch (e) {
       setError(e.message || "Something went wrong. Please try again.");
