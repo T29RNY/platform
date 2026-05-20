@@ -587,10 +587,9 @@ export default function App() {
     }
     setBibHistRaw(next);
   };
-  const setSchedule = async (updater) => {
+  const setSchedule = (updater) => {
     const next = typeof updater==="function" ? updater(schedule) : updater;
     setScheduleRaw(next);
-    try { await upsertSchedule(route.token, next); } catch(e) { console.error(e); }
   };
   const setMatchHistory = async (updater) => {
     const next = typeof updater==="function" ? updater(matchHistory) : updater;
