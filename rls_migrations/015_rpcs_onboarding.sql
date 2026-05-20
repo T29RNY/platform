@@ -30,7 +30,7 @@ CREATE OR REPLACE FUNCTION create_team(
   p_squad_size         int,
   p_venue              text    DEFAULT null,
   p_city               text    DEFAULT null,
-  p_price              int     DEFAULT 0,
+  p_price              numeric(10,2) DEFAULT 0,
   p_bibs_enabled       boolean DEFAULT true,
   p_player_names       text[]  DEFAULT ARRAY[]::text[],
   p_opens_day          text    DEFAULT null,
