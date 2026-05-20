@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft } from "@phosphor-icons/react";
+import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft, ArrowsLeftRight } from "@phosphor-icons/react";
 import { newMatch, updatePlayerRecords, resolveMotm } from "@platform/core";
 import { saveMatchResult, getBibEligiblePlayers } from "@platform/supabase";
 
@@ -121,13 +121,18 @@ export default function ScoreScreen({
   // Stage 2 — declared
   const [declaredWinner, setDeclaredWinner] = useState(null);
 
-  // Stage 3 — last goal winner
+  // Stage 3 — switches
+  const [switches, setSwitches]               = useState([]);
+  const [selectedForSwitch, setSelectedForSwitch] = useState(null);
+  const [switchConfirm, setSwitchConfirm]     = useState(null);
+
+  // Stage 4 — last goal winner
   const [lastGoalChoice, setLastGoalChoice]     = useState(null); // 'yes'|'no'
   const [lastGoalPlayerId, setLastGoalPlayerId] = useState(null);
 
-  // Stage 4 — bibs: null=untouched, 'none'=no bibs, id=player selected
+  // Stage 5 — bibs: null=untouched, 'none'=no bibs, id=player selected
   const [bibsPlayerId, setBibsPlayerId] = useState(null);
-  const [bibEligible,  setBibEligible]  = useState(null); // null until fetched at stage3Done
+  const [bibEligible,  setBibEligible]  = useState(null); // null until fetched at stage4Done
 
   // Save
   const [isSaving, setIsSaving] = useState(false);
@@ -141,9 +146,11 @@ export default function ScoreScreen({
   // Scroll peek refs
   const s2Ref = useRef(null), s3Ref = useRef(null);
   const s4Ref = useRef(null), s5Ref = useRef(null);
+  const s6Ref = useRef(null);
   const saveRef = useRef(null);
   const p1 = useRef(false), p2 = useRef(false);
   const p3 = useRef(false), p4 = useRef(false);
+  const p5 = useRef(false);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const inPlayers  = squad.filter(p => p.status === "in" && !p.disabled);
@@ -158,10 +165,16 @@ export default function ScoreScreen({
     if (mode === "declared") return declaredWinner !== null;
     return false;
   })();
-  const stage3Done = lastGoalChoice === "no" || (lastGoalChoice === "yes" && lastGoalPlayerId !== null);
+  const stage3Done = true; // switches — always valid
+  const stage4Done = lastGoalChoice === "no" || (lastGoalChoice === "yes" && lastGoalPlayerId !== null);
   const bibsEnabled = schedule?.bibsEnabled !== false;
-  const stage4Done = !bibsEnabled || bibsPlayerId !== null;
-  const canSave    = stage1Done && stage2Done && stage3Done && stage4Done;
+  const stage5Done = !bibsEnabled || bibsPlayerId !== null;
+  const canSave    = stage1Done && stage2Done && stage4Done && stage5Done;
+
+  const currentTeam = (p) => {
+    const sw = switches.find(s => s.playerId === p.id);
+    return sw ? (sw.from === "A" ? "B" : "A") : p.team;
+  };
 
   const winner = (() => {
     if (mode === "exact")    return scoreA > scoreB ? "A" : scoreB > scoreA ? "B" : "D";
@@ -182,6 +195,9 @@ export default function ScoreScreen({
   const potmMatch = schedule?.activeMatchId
     ? matchHistory.find(m => m.id === schedule.activeMatchId)
     : null;
+
+  const origTeamAPlayers = inPlayers.filter(p => p.team === "A");
+  const origTeamBPlayers = inPlayers.filter(p => p.team === "B");
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -207,23 +223,55 @@ export default function ScoreScreen({
 
   useEffect(() => { if (stage1Done && !p1.current) { p1.current = true; peek(s2Ref); } }, [stage1Done]); // eslint-disable-line
   useEffect(() => { if (stage2Done && !p2.current) { p2.current = true; peek(s3Ref); } }, [stage2Done]); // eslint-disable-line
-  useEffect(() => { if (stage3Done && !p3.current) { p3.current = true; peek(bibsEnabled ? s4Ref : s5Ref); } }, [stage3Done]); // eslint-disable-line
-  useEffect(() => { if (stage4Done && bibsEnabled && !p4.current) { p4.current = true; peek(s5Ref); } }, [stage4Done]); // eslint-disable-line
+  useEffect(() => { if (stage4Done && !p4.current) { p4.current = true; peek(bibsEnabled ? s5Ref : s6Ref); } }, [stage4Done]); // eslint-disable-line
+  useEffect(() => { if (stage5Done && bibsEnabled && !p5.current) { p5.current = true; peek(s6Ref); } }, [stage5Done]); // eslint-disable-line
 
   useEffect(() => {
-    if (!stage3Done) return;
+    if (!stage4Done) return;
     if (!schedule?.activeMatchId) { setBibEligible(bibsSorted); return; }
     getBibEligiblePlayers(schedule.activeMatchId, teamId)
       .then(rows => setBibEligible([...rows].sort((a, b) => (a.nickname || a.name).localeCompare(b.nickname || b.name))))
       .catch(() => setBibEligible(bibsSorted));
-  }, [stage3Done]); // eslint-disable-line
+  }, [stage4Done]); // eslint-disable-line
 
   const changeMode = (m) => {
     setMode(m);
     setScoreConfirmed(false); setScoreA(0); setScoreB(0); setExactScorers({});
     setMarginWinner(null); setMargin(0); setDeclaredWinner(null);
+    setSwitches([]); setSelectedForSwitch(null); setSwitchConfirm(null);
     setLastGoalChoice(null); setLastGoalPlayerId(null); setBibsPlayerId(null); setBibEligible(null);
-    p2.current = false; p3.current = false; p4.current = false;
+    p2.current = false; p3.current = false; p4.current = false; p5.current = false;
+  };
+
+  const handleSwitchTap = (p) => {
+    const isSwitched = switches.some(s => s.playerId === p.id);
+
+    if (isSwitched) {
+      setSwitchConfirm({
+        undo: true,
+        playerA: { id: p.id, name: p.nickname || p.name, team: currentTeam(p) },
+        playerB: null,
+      });
+      setSelectedForSwitch(null);
+      return;
+    }
+
+    if (selectedForSwitch === null) {
+      setSelectedForSwitch(p.id);
+      return;
+    }
+
+    if (selectedForSwitch === p.id) {
+      setSelectedForSwitch(null);
+      return;
+    }
+
+    const playerA = inPlayers.find(pl => pl.id === selectedForSwitch);
+    setSwitchConfirm({
+      playerA: { id: playerA.id, name: playerA.nickname || playerA.name, team: currentTeam(playerA) },
+      playerB: { id: p.id, name: p.nickname || p.name, team: currentTeam(p) },
+    });
+    setSelectedForSwitch(null);
   };
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -232,10 +280,10 @@ export default function ScoreScreen({
     isSavingRef.current = true;
     setIsSaving(true); setSaveError(null);
     try {
-      const teamAPlayers = inPlayers.filter(p => p.team === "A").map(p => p.name);
-      const teamBPlayers = inPlayers.filter(p => p.team === "B").map(p => p.name);
-      const teamAIds     = inPlayers.filter(p => p.team === "A").map(p => p.id);
-      const teamBIds     = inPlayers.filter(p => p.team === "B").map(p => p.id);
+      const teamAPlayers = inPlayers.filter(p => currentTeam(p) === "A").map(p => p.name);
+      const teamBPlayers = inPlayers.filter(p => currentTeam(p) === "B").map(p => p.name);
+      const teamAIds     = inPlayers.filter(p => currentTeam(p) === "A").map(p => p.id);
+      const teamBIds     = inPlayers.filter(p => currentTeam(p) === "B").map(p => p.id);
       const payMap    = Object.fromEntries(inPlayers.map(p => [p.id, { paid: payments[p.id] || false, amount: schedule.pricePerPlayer || 0 }]));
       const scorerMap = Object.fromEntries(inPlayers.map(p => [p.name, scorers[p.id] || 0]));
       const bibPlayerId = (bibsPlayerId && bibsPlayerId !== "none") ? bibsPlayerId : null;
@@ -269,6 +317,7 @@ export default function ScoreScreen({
         motm:           null,
         lastGoalScorer: lastGoalChoice === "yes" ? lastGoalPlayerId : null,
         bibHolder:      bibPlayerId,
+        teamSwitches:   switches.length > 0 ? switches : null,
       });
 
       setSaved(true);
@@ -517,9 +566,93 @@ export default function ScoreScreen({
         </StageCard>
       )}
 
-      {/* ── STAGE 3 — LAST GOAL WINNER ──────────────────────────────────────── */}
+      {/* ── STAGE 3 — TEAM SWITCHES ─────────────────────────────────────────── */}
       {stage2Done && (
         <StageCard refProp={s3Ref}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <ArrowsLeftRight size={18} weight="thin" color="var(--t2)" />
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "var(--t2)", letterSpacing: "0.08em" }}>
+              TEAM SWITCHES
+            </div>
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 300, color: "var(--t2)", marginBottom: 16 }}>
+            Did any players swap teams during the game?
+          </div>
+
+          {(origTeamAPlayers.length > 0 || origTeamBPlayers.length > 0) ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[
+                { label: "TEAM A", color: "#60A0FF", players: origTeamAPlayers },
+                { label: "TEAM B", color: "#FF6060", players: origTeamBPlayers },
+              ].map(({ label, color, players }) => (
+                <div key={label}>
+                  <div style={{
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
+                    color, letterSpacing: "0.08em", marginBottom: 6,
+                  }}>
+                    {label}
+                  </div>
+                  {players.map(p => {
+                    const isSwitched = switches.some(s => s.playerId === p.id);
+                    const isSelected = selectedForSwitch === p.id;
+                    return (
+                      <div key={p.id} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "7px 8px", borderRadius: 8, marginBottom: 4,
+                        background: isSelected ? "var(--s2)" : "transparent",
+                        border: isSelected ? "0.5px solid rgba(255,255,255,0.18)" : "0.5px solid transparent",
+                      }}>
+                        <span style={{
+                          fontSize: 13, color: "var(--t1)", fontWeight: 400,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {p.nickname || p.name}
+                        </span>
+                        <button
+                          onClick={() => handleSwitchTap(p)}
+                          style={{
+                            width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                            border: isSwitched ? "none" : "1px solid rgba(255,255,255,0.12)",
+                            background: isSwitched ? "var(--gold2)" : "transparent",
+                            color: isSwitched ? "var(--gold)" : "var(--s3)",
+                            cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            padding: 0, marginLeft: 4,
+                          }}
+                        >
+                          <ArrowsLeftRight size={14} weight="thin" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", paddingBottom: 4 }}>
+              <span style={{ fontSize: 13, fontWeight: 300, color: "var(--t2)" }}>
+                Teams weren't confirmed for this match
+              </span>
+            </div>
+          )}
+
+          <button
+            onClick={() => { setSwitches([]); setSelectedForSwitch(null); peek(s4Ref); }}
+            style={{
+              width: "100%", padding: "12px 0", borderRadius: 10, marginTop: 16,
+              background: "var(--s2)", border: "0.5px solid rgba(255,255,255,0.1)",
+              color: "var(--t2)", fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 16, letterSpacing: "0.08em", cursor: "pointer",
+            }}
+          >
+            NO SWITCHES THIS WEEK
+          </button>
+        </StageCard>
+      )}
+
+      {/* ── STAGE 4 — LAST GOAL WINNER ──────────────────────────────────────── */}
+      {stage2Done && (
+        <StageCard refProp={s4Ref}>
           <StageLbl>LAST GOAL WINNER ⚽</StageLbl>
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             {[
@@ -566,9 +699,9 @@ export default function ScoreScreen({
         </StageCard>
       )}
 
-      {/* ── STAGE 4 — BIBS ──────────────────────────────────────────────────── */}
-      {stage3Done && bibsEnabled && (
-        <StageCard refProp={s4Ref}>
+      {/* ── STAGE 5 — BIBS ──────────────────────────────────────────────────── */}
+      {stage4Done && bibsEnabled && (
+        <StageCard refProp={s5Ref}>
           <StageLbl>WHO TOOK THE BIBS? 👕</StageLbl>
           <div style={{ position: "relative" }}>
             <select
@@ -595,11 +728,11 @@ export default function ScoreScreen({
         </StageCard>
       )}
 
-      {/* ── STAGE 5 — POTM (informational) ──────────────────────────────────── */}
-      {stage4Done && (() => {
+      {/* ── STAGE 6 — POTM (informational) ──────────────────────────────────── */}
+      {stage5Done && (() => {
         if (schedule?.votingOpen) {
           return (
-            <StageCard refProp={s5Ref} style={{ background: "var(--gold2)", border: "1px solid var(--goldb)" }}>
+            <StageCard refProp={s6Ref} style={{ background: "var(--gold2)", border: "1px solid var(--goldb)" }}>
               <StageLbl>PLAYER OF THE MATCH 🏆</StageLbl>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--gold)", letterSpacing: "0.06em" }}>
@@ -614,7 +747,7 @@ export default function ScoreScreen({
         }
         if (potmMatch?.motm) {
           return (
-            <StageCard refProp={s5Ref} style={{ background: "var(--gold2)", border: "1px solid var(--goldb)" }}>
+            <StageCard refProp={s6Ref} style={{ background: "var(--gold2)", border: "1px solid var(--goldb)" }}>
               <StageLbl>PLAYER OF THE MATCH 🏆</StageLbl>
               <div style={{ textAlign: "center" }}>
                 <Trophy size={32} weight="fill" color="var(--gold)" />
@@ -629,7 +762,7 @@ export default function ScoreScreen({
           );
         }
         return (
-          <StageCard refProp={s5Ref}>
+          <StageCard refProp={s6Ref}>
             <StageLbl>PLAYER OF THE MATCH 🏆</StageLbl>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300 }}>No winner yet</span>
@@ -644,7 +777,7 @@ export default function ScoreScreen({
         );
       })()}
 
-      {/* ── STAGE 6 — SAVE ──────────────────────────────────────────────────── */}
+      {/* ── STAGE 7 — SAVE ──────────────────────────────────────────────────── */}
       {canSave && !saved && (
         <div ref={saveRef} style={{ ...ANIM, marginTop: 4 }}>
           {saveError && (
@@ -666,6 +799,83 @@ export default function ScoreScreen({
           >
             {isSaving ? "SAVING..." : "SAVE RESULT 💾"}
           </button>
+        </div>
+      )}
+
+      {/* ── SWITCH CONFIRM MODAL ────────────────────────────────────────────── */}
+      {switchConfirm && (
+        <div
+          onClick={() => setSwitchConfirm(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 300,
+            background: "rgba(0,0,0,0.7)",
+            backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "0 20px",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "var(--s2)",
+              border: "0.5px solid rgba(255,255,255,0.1)",
+              borderRadius: 16, maxWidth: 360, width: "100%",
+              padding: 24,
+            }}
+          >
+            {switchConfirm.undo ? (
+              <>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t1)", letterSpacing: "0.06em" }}>
+                  UNDO SWITCH?
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 300, color: "var(--t2)", marginTop: 8 }}>
+                  Move {switchConfirm.playerA.name} back to their original team?
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t1)", letterSpacing: "0.06em" }}>
+                  SWITCH THESE PLAYERS?
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 300, color: "var(--t2)", marginTop: 8 }}>
+                  {switchConfirm.playerA.name} ({switchConfirm.playerA.team === "A" ? "Team A" : "Team B"}) and {switchConfirm.playerB.name} ({switchConfirm.playerB.team === "A" ? "Team A" : "Team B"})
+                </div>
+              </>
+            )}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 20 }}>
+              <button
+                onClick={() => {
+                  if (switchConfirm.undo) {
+                    setSwitches(prev => prev.filter(s => s.playerId !== switchConfirm.playerA.id));
+                  } else {
+                    setSwitches(prev => [
+                      ...prev,
+                      { playerId: switchConfirm.playerA.id, from: switchConfirm.playerA.team },
+                      { playerId: switchConfirm.playerB.id, from: switchConfirm.playerB.team },
+                    ]);
+                  }
+                  setSwitchConfirm(null);
+                }}
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.08em",
+                  color: "var(--green)", background: "var(--green2)", border: "1px solid var(--greenb)",
+                  borderRadius: 10, padding: "10px 24px", cursor: "pointer",
+                }}
+              >
+                YES
+              </button>
+              <button
+                onClick={() => setSwitchConfirm(null)}
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.08em",
+                  color: "var(--t2)", background: "var(--s3)", border: "0.5px solid rgba(255,255,255,0.1)",
+                  borderRadius: 10, padding: "10px 24px", cursor: "pointer",
+                }}
+              >
+                NO
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
