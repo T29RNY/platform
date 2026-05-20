@@ -781,7 +781,7 @@ Player self-pays before lineup lock (matchId=null entry created). Lineup lock th
 | Live board POTM + bibs + form dots | ✅ Done session 25 | `lastMatchMeta` + `playerForm` computed via RPC (player route) and `computeStatsFromHistory` (admin route); camelCase mapping fixed in supabase.js |
 | Teams confirmed realtime | ✅ Done session 25 | `confirmedThisSession` ref guards squad sync; `teamsConfirmedRef` prevents stale closures; `handleClearConfirm` calls `confirmTeams` to clear `players.team` server-side |
 | POTM voting RLS fix | ✅ Done session 25 | `submit_potm_vote` + `get_potm_voting_state` RPCs; voterToken threaded to modal; no-votes tally fix; attendee-scoped notify |
-| Join/login redesign | 🔲 Pre-launch | |
+| Join/login redesign | ✅ Done session 27 | |
 | Stripe Connect | 🔒 Blocked | Needs platform account |
 | Apple Sign In | 🔒 Blocked | Needs Dev account £79 |
 | Undo last action | 🔲 Backlog | |
@@ -1936,3 +1936,6 @@ Commits: 0d30124 (team_switches in admin RPC), 2a32699 (findPlayer fallback), 4e
 Fix: `addPlayerToTeam` join flow bug — join flow was calling `addPlayerToTeam(name, teamId, { userId })` which maps to `(adminToken, name, type, priority)` — wrong in every position and no admin token available in join context. Replaced with dedicated `playerJoinTeam` SECURITY DEFINER RPC: `player_join_team` SQL written, JS wrapper added to `supabase.js`, barrel-exported from `packages/core/index.js`, call site in `App.jsx` corrected.
 
 Commits: 97e8c79 (playerJoinTeam RPC wrapper + barrel export), 0d419f6 (App.jsx call site fix)
+
+- Join/login redesign complete — JoinTeam.jsx full rebuild, 5-stage build, RLS compliant, direct team_players upsert removed from App.jsx Part A, player_join_team RPC handles all join writes
+- Commits: 8fe55c2, c101d3e, 98d4336, 17d8038, 7d71c39, 5cdfda2
