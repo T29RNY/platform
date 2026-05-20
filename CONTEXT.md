@@ -769,7 +769,7 @@ Player self-pays before lineup lock (matchId=null entry created). Lineup lock th
 | Payment ledger dedup | ✅ Done | Session 22: createLedgerEntry resilient insert + 23505 conflict recovery; PostgREST upsert partial-index limitation |
 | Head to Head card | ✅ Done | Session 22: initial build. Session 23: feature-complete rewrite (score_type gating, 5-verdict chemistry, period selector wired up, adaptive tiles by dominantType, sample-size floors, reliability decoupled, null bar fix) |
 | Pre-launch /create + /join audit | ✅ Done | Session 23 commit 9: user_id propagation, joinUrl protocol fix, iOS-only redirect gate, onboarding_complete timing |
-| Onboarding redesign | ✅ Done | CreateTeam, AddPlayers, ShareLinks rebuilt session 13 |
+| Onboarding redesign | ✅ Done session 27 | SetupLoadingScreen + SquadReady built, AddPlayers + ShareLinks removed, zero direct writes in onboarding |
 | JoinSuccess install screen | ✅ Done | Platform-detected, placeholder screenshot slots |
 | RLS + security hardening | ✅ Done | Session 24: 47 SECURITY DEFINER RPCs, all 19 tables locked, anon key safe |
 | /create auth gate | ✅ Done | Session 24: hard auth gate + ioo_pending_route sessionStorage round-trip |
@@ -1945,3 +1945,5 @@ Commits: 97e8c79 (playerJoinTeam RPC wrapper + barrel export), 0d419f6 (App.jsx 
 - Commits: 28cf7c4
 - Stage C: ShareLinks.jsx cleaned — dead direct table write removed, unused onComplete prop removed, supabase import removed
 - Commit: ac46497
+- Stages D–H: onboarding flow complete — SetupLoadingScreen + SquadReady built, AddPlayers + ShareLinks deleted, price numeric(10,2) end to end, zero direct table writes in onboarding
+- Commits: b1d8895, 64c3f9f, c28624b, 8e4e062
