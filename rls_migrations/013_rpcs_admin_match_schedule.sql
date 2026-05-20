@@ -41,7 +41,8 @@ CREATE OR REPLACE FUNCTION admin_save_match_result(
   p_scorers          jsonb,      -- {player_id: goal_count} — used only for 'exact'
   p_motm             text,       -- player ID; null for no MOTM
   p_last_goal_scorer text,
-  p_bib_holder       text        -- player ID; stored on match, full cascade via admin_save_bib_holder
+  p_bib_holder       text,       -- player ID; stored on match, full cascade via admin_save_bib_holder
+  p_team_switches    jsonb DEFAULT NULL
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -106,20 +107,21 @@ BEGIN
     scorers          = COALESCE(p_scorers, scorers),
     last_goal_scorer = p_last_goal_scorer,
     motm             = NULLIF(p_motm, ''),
-    bib_holder       = COALESCE(NULLIF(p_bib_holder, ''), bib_holder)
+    bib_holder       = COALESCE(NULLIF(p_bib_holder, ''), bib_holder),
+    team_switches    = p_team_switches
   WHERE id = v_match_id AND team_id = v_team_id;
 
   -- Edge case: match record didn't exist yet (no active game started via UI)
   IF NOT FOUND THEN
     INSERT INTO matches (id, team_id, match_date, score_a, score_b, score_type,
                          winner, team_a, team_b, scorers,
-                         last_goal_scorer, motm, bib_holder, cancelled, voting_open)
+                         last_goal_scorer, motm, bib_holder, team_switches, cancelled, voting_open)
     VALUES (v_match_id, v_team_id, COALESCE(v_match_date, CURRENT_DATE),
             p_score_a, p_score_b,
             COALESCE(NULLIF(p_score_type, ''), 'exact'),
             v_winner, to_jsonb(p_team_a), to_jsonb(p_team_b),
             p_scorers, p_last_goal_scorer, NULLIF(p_motm, ''),
-            NULLIF(p_bib_holder, ''), false, false);
+            NULLIF(p_bib_holder, ''), p_team_switches, false, false);
   END IF;
 
   -- ── Idempotency guard ──────────────────────────────────────────────────────
