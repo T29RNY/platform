@@ -186,6 +186,7 @@ AS $$
 DECLARE
   v_player_id           text;
   v_team_id             text;
+  v_is_vc               boolean;
   v_player              jsonb;
   v_squad               jsonb;
   v_schedule            jsonb;
@@ -234,7 +235,6 @@ BEGIN
       'is_guest',       p.is_guest,
       'guest_of',       p.guest_of,
       'note',           p.note,
-      'is_vice_captain',p.is_vice_captain,
       'disabled',       p.disabled,
       'disable_reason', p.disable_reason,
       'team',           p.team
@@ -256,6 +256,12 @@ BEGIN
 
   IF v_team_id IS NULL THEN RETURN NULL; END IF;
 
+  -- 2b. Fetch is_vice_captain for this player from their team_players row
+  SELECT tp.is_vice_captain INTO v_is_vc
+  FROM team_players tp
+  WHERE tp.player_id = v_player_id AND tp.team_id = v_team_id;
+  v_player := v_player || jsonb_build_object('is_vice_captain', COALESCE(v_is_vc, false));
+
   -- 3. Squad — §10.2: identity + status only; no financial, no stats, no auth
   SELECT COALESCE(
     jsonb_agg(
@@ -266,7 +272,7 @@ BEGIN
         'status',         p.status,
         'type',           p.type,
         'priority',       p.priority,
-        'is_vice_captain',p.is_vice_captain,
+        'is_vice_captain',tp.is_vice_captain,
         'disabled',       p.disabled,
         'injured',        p.injured,
         'is_guest',       p.is_guest,

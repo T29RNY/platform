@@ -541,7 +541,10 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'forbidden';
   END IF;
 
-  UPDATE players SET is_vice_captain = p_is_vc WHERE id = p_player_id;
+  UPDATE team_players
+  SET    is_vice_captain = p_is_vc
+  WHERE  team_id   = v_team_id
+    AND  player_id = p_player_id;
 
   INSERT INTO audit_events (
     team_id, actor_type, actor_user_id, actor_identifier,
@@ -579,13 +582,15 @@ BEGIN
     'is_guest',       p.is_guest,
     'guest_of',       p.guest_of,
     'note',           p.note,
-    'is_vice_captain',p.is_vice_captain,
+    'is_vice_captain',tp.is_vice_captain,
     'disabled',       p.disabled,
     'disable_reason', p.disable_reason,
     'team',           p.team
   )
   INTO v_result
-  FROM players p WHERE p.id = p_player_id;
+  FROM players p
+  JOIN team_players tp ON tp.player_id = p.id AND tp.team_id = v_team_id
+  WHERE p.id = p_player_id;
 
   PERFORM notify_team_change(v_team_id, 'player_vc_toggled'); -- Phase A §11.2 locked
 

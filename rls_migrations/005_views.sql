@@ -69,36 +69,15 @@ CREATE OR REPLACE VIEW players_public
   WITH (security_invoker = false)
 AS
 SELECT
-  id,
-  name,
-  nickname,
-  status,
-  type,
-  priority,
-  paid,
-  owes,
-  self_paid,
-  paid_by,
-  pay_count,
-  goals,
-  motm,
-  attended,
-  total,
-  w,
-  l,
-  d,
-  bib_count,
-  late_dropouts,
-  injured,
-  injured_since,
-  is_guest,
-  guest_of,
-  note,
-  is_vice_captain,
-  disabled,
-  disable_reason,
-  team
-FROM players;
+  p.id, p.name, p.nickname, p.status, p.type, p.priority,
+  p.paid, p.owes, p.self_paid, p.paid_by, p.pay_count,
+  p.goals, p.motm, p.attended, p.total,
+  p.w, p.l, p.d, p.bib_count, p.late_dropouts,
+  p.injured, p.injured_since, p.is_guest, p.guest_of, p.note,
+  COALESCE(tp.is_vice_captain, false) AS is_vice_captain,
+  p.disabled, p.disable_reason, p.team
+FROM players p
+LEFT JOIN team_players tp ON tp.player_id = p.id;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
