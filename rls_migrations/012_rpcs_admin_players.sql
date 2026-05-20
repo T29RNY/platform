@@ -761,13 +761,13 @@ BEGIN
   -- Full default row — matches addPlayerToTeam column set in supabase.js
   INSERT INTO players (
     id, name, token, type, priority,
-    disabled, is_vice_captain, status,
+    disabled, status,
     paid, owes, goals, motm, attended, total,
     bib_count, team, w, l, d,
     pay_count, late_dropouts, note, self_paid
   ) VALUES (
     v_player_id, trim(p_name), v_token, p_type, COALESCE(p_priority, false),
-    false, false, 'none',
+    false, 'none',
     false, 0, 0, 0, 0, 0,
     0, null, 0, 0, 0,
     0, 0, '', false

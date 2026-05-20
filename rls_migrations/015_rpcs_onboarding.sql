@@ -142,12 +142,12 @@ BEGIN
     v_ptoken := generate_url_safe_token('p_', 14);
 
     INSERT INTO players (
-      id, name, token, type, disabled, priority, is_vice_captain,
+      id, name, token, type, disabled, priority,
       status, paid, owes, goals, motm, attended, total,
       bib_count, team, w, l, d, pay_count, late_dropouts,
       note, self_paid
     ) VALUES (
-      v_pid, trim(v_name), v_ptoken, 'regular', false, false, false,
+      v_pid, trim(v_name), v_ptoken, 'regular', false, false,
       'none', false, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, '', false
     );
 

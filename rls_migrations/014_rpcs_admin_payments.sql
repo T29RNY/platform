@@ -121,7 +121,7 @@ BEGIN
     'w', w, 'l', l, 'd', d, 'bib_count', bib_count,
     'late_dropouts', late_dropouts, 'injured', injured, 'injured_since', injured_since,
     'is_guest', is_guest, 'guest_of', guest_of, 'note', note,
-    'is_vice_captain', is_vice_captain, 'disabled', disabled,
+    'disabled', disabled,
     'disable_reason', disable_reason, 'team', team
   ) INTO v_player FROM players WHERE id = p_player_id;
 
@@ -212,7 +212,7 @@ BEGIN
     'w', w, 'l', l, 'd', d, 'bib_count', bib_count,
     'late_dropouts', late_dropouts, 'injured', injured, 'injured_since', injured_since,
     'is_guest', is_guest, 'guest_of', guest_of, 'note', note,
-    'is_vice_captain', is_vice_captain, 'disabled', disabled,
+    'disabled', disabled,
     'disable_reason', disable_reason, 'team', team
   ) INTO v_player FROM players WHERE id = p_player_id;
 
@@ -284,7 +284,7 @@ BEGIN
     'w', w, 'l', l, 'd', d, 'bib_count', bib_count,
     'late_dropouts', late_dropouts, 'injured', injured, 'injured_since', injured_since,
     'is_guest', is_guest, 'guest_of', guest_of, 'note', note,
-    'is_vice_captain', is_vice_captain, 'disabled', disabled,
+    'disabled', disabled,
     'disable_reason', disable_reason, 'team', team
   ) INTO v_player FROM players WHERE id = p_player_id;
 
@@ -356,7 +356,7 @@ BEGIN
     'w', w, 'l', l, 'd', d, 'bib_count', bib_count,
     'late_dropouts', late_dropouts, 'injured', injured, 'injured_since', injured_since,
     'is_guest', is_guest, 'guest_of', guest_of, 'note', note,
-    'is_vice_captain', is_vice_captain, 'disabled', disabled,
+    'disabled', disabled,
     'disable_reason', disable_reason, 'team', team
   ) INTO v_player FROM players WHERE id = p_player_id;
 
