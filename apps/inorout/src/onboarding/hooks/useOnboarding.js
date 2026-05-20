@@ -23,6 +23,7 @@ export function useOnboarding({ onComplete }) {
   const [teamId,      setTeamId]      = useState(null);
   const [adminToken,  setAdminToken]  = useState(null);
   const [players,     setPlayers]     = useState([]);
+  const [joinCode,    setJoinCode]    = useState(null);
 
   // ── Submit → create everything via RPC ───────────────────────────────────
   const submitTeam = async () => {
@@ -51,6 +52,7 @@ export function useOnboarding({ onComplete }) {
       setTeamId(data.team_id);
       setAdminToken(data.admin_token);
       setPlayers(data.players ?? []);
+      setJoinCode(data.join_code ?? null);
       setStep(2);
     } catch (e) {
       setError(e.message || "Something went wrong. Please try again.");
@@ -74,7 +76,7 @@ export function useOnboarding({ onComplete }) {
     adminEmail, setAdminEmail,
     submitTeam,
     // Step 2
-    teamId, adminToken, players,
+    teamId, adminToken, players, joinCode,
     onComplete,
   };
 }
