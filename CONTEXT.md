@@ -1002,7 +1002,7 @@ all have venue contracts. Sticky but beatable on product quality.
 | `owes` double-increment risk | ✅ Resolved session 26 — `carryForwardDebts` removed; `draftNextWeek` already dead (session 19); `updatePlayerRecords` has guard comment as sole write path | Done |
 | `packages/core/engine/scoring.js` file name | Hosts `periodCutoff` (non-scoring helper) alongside scoring helpers. Rename to broader name (e.g. `stats-helpers.js`) when file grows further | Low |
 | `team_demo` has no `team_admins` row | Demo team predates the table. Switcher won't show it for Tarny until backfilled. | Low |
-| `App.jsx:639` `addPlayerToTeam` call signature mismatch | Called as `(name, teamId, { userId })` but function signature is `(adminToken, name, type, priority)` — pre-existing from session 22 refactor; join flow call site never updated. Causes silent failure when new player is added via join. Fix before Stage 2. | Pre-Stage 2 |
+| ~~`App.jsx:639` `addPlayerToTeam` call signature mismatch~~ | ✅ Fixed session 27 — dedicated `playerJoinTeam` SECURITY DEFINER RPC added; join flow no longer requires admin token; `player_join_team` SQL written, wrapper in supabase.js, barrel-exported, call site in App.jsx corrected | Done |
 | ~~getPlayerTeams RLS bypass~~ | ✅ Fixed (session 25) — `teamId` now derived from `getTeamStateByPlayerToken` state directly; `getPlayerTeams` removed from player route | Fixed session 25 |
 | ~~Stats + My IO showing no data~~ | ✅ Fixed (session 25) — `get_team_state_by_player_token` RPC extended with full stats block (match_stats, win_rate, reliability, ledger, last_match_meta, player_form); `computeStatsFromHistory` extended with `lastMatchMeta` + `playerForm` for admin routes | Fixed session 25 |
 | ~~Realtime callbacks using direct table reads~~ | ✅ Fixed (session 25) — all three realtime callbacks (players, schedule, matches) branch on `route.type`; player/admin/demoadmin routes use RPCs; direct reads remain only for authenticated fallback path | Fixed session 25 |
@@ -1930,3 +1930,8 @@ Bug fixes post-Priority E:
 - Local migration file 010 updated: `team_switches` added to `get_team_state_by_admin_token` matches block
 
 Commits: 0d30124 (team_switches in admin RPC), 2a32699 (findPlayer fallback), 4ebc054 (guest label)
+
+**Session 27 (May 20 2026):**
+Fix: `addPlayerToTeam` join flow bug — join flow was calling `addPlayerToTeam(name, teamId, { userId })` which maps to `(adminToken, name, type, priority)` — wrong in every position and no admin token available in join context. Replaced with dedicated `playerJoinTeam` SECURITY DEFINER RPC: `player_join_team` SQL written, JS wrapper added to `supabase.js`, barrel-exported from `packages/core/index.js`, call site in `App.jsx` corrected.
+
+Commits: 97e8c79 (playerJoinTeam RPC wrapper + barrel export), 0d419f6 (App.jsx call site fix)
