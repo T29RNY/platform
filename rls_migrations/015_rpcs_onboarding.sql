@@ -57,6 +57,9 @@ DECLARE
   v_pid            text;
   v_ptoken         text;
   v_players_arr    jsonb := '[]'::jsonb;
+  v_admin_pid      text;
+  v_admin_ptoken   text;
+  v_admin_name     text;
 BEGIN
   -- Validate required fields
   IF p_team_name IS NULL OR trim(p_team_name) = '' THEN
@@ -167,12 +170,34 @@ BEGIN
     ON CONFLICT DO NOTHING;  -- OI-67
   END IF;
 
+  -- Step 12: Create a player record for the admin and link to the team
+  -- Allows the admin to appear in their own squad with player identity
+  IF auth.uid() IS NOT NULL THEN
+    v_admin_pid    := generate_url_safe_token('p_', 8);
+    v_admin_ptoken := generate_url_safe_token('p_', 14);
+    v_admin_name   := COALESCE(NULLIF(trim(p_admin_email), ''), 'Admin');
+
+    INSERT INTO players (
+      id, name, token, type, disabled, priority,
+      status, paid, owes, goals, motm, attended, total,
+      bib_count, team, w, l, d, pay_count, late_dropouts,
+      note, self_paid, user_id
+    ) VALUES (
+      v_admin_pid, v_admin_name, v_admin_ptoken, 'regular', false, false,
+      'none', false, 0, 0, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, '', false, auth.uid()
+    );
+
+    INSERT INTO team_players (team_id, player_id)
+    VALUES (v_team_id, v_admin_pid);
+  END IF;
+
   RETURN jsonb_build_object(
-    'team_id',          v_team_id,
-    'admin_token',      v_admin_token,
-    'join_code',        v_join_code,
-    'live_channel_key', v_channel_key,
-    'players',          v_players_arr
+    'team_id',            v_team_id,
+    'admin_token',        v_admin_token,
+    'join_code',          v_join_code,
+    'live_channel_key',   v_channel_key,
+    'players',            v_players_arr,
+    'admin_player_token', v_admin_ptoken
   );
 
 EXCEPTION
@@ -182,8 +207,8 @@ EXCEPTION
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION create_team(text,text,text,text,int,text,text,int,boolean,text[],text,text,int) FROM PUBLIC;
-GRANT  EXECUTE ON FUNCTION create_team(text,text,text,text,int,text,text,int,boolean,text[],text,text,int) TO authenticated, anon;
+REVOKE ALL    ON FUNCTION create_team(text,text,text,text,int,text,text,numeric,boolean,text[],text,text,int) FROM anon;
+GRANT  EXECUTE ON FUNCTION create_team(text,text,text,text,int,text,text,numeric,boolean,text[],text,text,int) TO authenticated;
 
 
 -- ── 2. join_team_as_returning_player ───────────────────────────────────────────
