@@ -1,5 +1,5 @@
 # IN OR OUT — Master Project Context
-*Last updated: May 19 2026 (session 25)*
+*Last updated: May 20 2026 (session 26)*
 *Always paste this at the start of a new session, or keep in Claude Projects*
 
 ---
@@ -81,6 +81,7 @@ platform/
             Avatar.jsx       ← initials circle; tileColour/isMe/injured variants; name label below circle
         views/
           PlayerView.jsx     ← rebuilt session 6; startTab prop added session 12; squad prop passed to HeroCard session 22
+          MySquads.jsx       ← new session 26; accordion showing all squads for authenticated player (current/other/disabled rows, empty + unauth states)
           MyIOView.jsx       ← built session 8, IO Intelligence screen; TacticsBoardHero sticky (session 12)
           StatsView.jsx      ← rebuilt session 6, IO Statbook; local SVG hero + sticky (session 12); PlayerLeagueTable integrated + Player Form accordion (session 20)
           PlayerLeagueTable.jsx ← new session 20; period selector (month/season/all), ranked/unranked split, form chips, bib-holder dot, reliability colour
@@ -179,7 +180,7 @@ id, name, admin_token, join_code, onboarding_complete, admin_email, created_at
 ### players
 ```
 id, name, token, user_id (uuid → auth.users),
-type, disabled, priority, is_vice_captain,
+type, disabled, priority,
 status (none/in/out/maybe/reserve),
 paid, owes, goals, motm, attended, total,
 bib_count, team, w, l, d,
@@ -195,7 +196,8 @@ created_at
 
 ### team_players
 ```
-team_id, player_id
+team_id, player_id,
+is_vice_captain bool DEFAULT false   ← migrated from players session 26 (per-team VC)
 ```
 
 ### matches
@@ -657,7 +659,6 @@ matchStats, reliability, winRate, currentRun, mostPlayedWith, impact, nemesis, b
 - `handleClearDebt(playerId, teamId)` — writes owes=0; creates debt_payment ledger entry
 - `handleWaiveDebt(playerId, teamId, amount, note)` — writes owes=0; creates waiver ledger entry
 - `handleStripePayment(playerId, teamId, amount)` — writes paid=true; creates game_fee/stripe ledger entry
-- `carryForwardDebts(players, pricePerPlayer)` — pure fn; adds pricePerPlayer to owes for unpaid in-players, resets paid/selfPaid/status/team
 - `getUnpaidPlayers(players, payments)` — pure filter; orphaned
 - `getSelfPaidPending(players)` — pure filter; orphaned
 - `generateMatchReport(match, groupName)` — text formatter; orphaned
@@ -685,10 +686,8 @@ Player self-pays before lineup lock (matchId=null entry created). Lineup lock th
 - Written by `saveMatchResult`; read back by `dbToMatch`; used by `updatePlayerRecords` for payCount/owes
 - **Never displayed in UI** — purely an accounting artifact; name-keyed = fragile
 
-### owes recalculation — two independent paths
-1. `draftNextWeek()` in AdminView → `carryForwardDebts()` → `upsertPlayers()` — advances week, adds price to unpaid in-players
-2. `updatePlayerRecords()` in ScoreScreen save — adds price to unpaid in-players at result entry time
-Both can run; both add to `owes`. No deduplication.
+### owes recalculation
+`updatePlayerRecords()` in ScoreScreen save is the sole owes-increment path — adds price to unpaid in-players at result entry time. `carryForwardDebts` removed session 26. `draftNextWeek` removed session 19.
 
 ### Payment confirmation flow
 `handleCashPayment` sets `self_paid=true` (not `paid=true`). Player sees amber "Awaiting confirmation" chip (`selfPaid=true, paid=false`). Admin sees player in the gold pulsing banner → taps "CONFIRM ✓" → `handleMarkPaid` sets `paid=true` → player sees green "✓ Paid" chip.
@@ -776,6 +775,8 @@ Both can run; both add to `owes`. No deduplication.
 | team_admins table | ✅ Done | Session 24: migration 002, written by create_team RPC, seeded for team_demo |
 | link_player_to_user RPC | ✅ Done | Session 24: migration 022, authenticated-only, replaces direct table write |
 | All player_match reads moved to RPC | ✅ Done session 25 | `get_team_state_by_player_token` extended: match_stats, win_rate, reliability, ledger, last_match_meta, player_form |
+| Multi-team player switcher | ✅ Done session 26 | player_get_teams RPC; getPlayerTeams rewritten; MySquads.jsx accordion wired into PlayerView my-view tab |
+| is_vice_captain cross-team fix | ✅ Done session 26 | Migrated from players to team_players; 5 migration files updated; supabase.js write paths cleaned |
 | Live board POTM + bibs + form dots | ✅ Done session 25 | `lastMatchMeta` + `playerForm` computed via RPC (player route) and `computeStatsFromHistory` (admin route); camelCase mapping fixed in supabase.js |
 | Teams confirmed realtime | ✅ Done session 25 | `confirmedThisSession` ref guards squad sync; `teamsConfirmedRef` prevents stale closures; `handleClearConfirm` calls `confirmTeams` to clear `players.team` server-side |
 | POTM voting RLS fix | ✅ Done session 25 | `submit_potm_vote` + `get_potm_voting_state` RPCs; voterToken threaded to modal; no-votes tally fix; attendee-scoped notify |
@@ -803,9 +804,9 @@ Both can run; both add to `owes`. No deduplication.
 | Admin find a random | Radius search, ping system |
 | Vice Captain access | ✅ Done (session 22–23) — VC toggle, PlayerProfile ROLES section, HeroCard ADMINS block, full admin access gating |
 | Player profile cross-team | Career stats, player_career table |
-| Multi-team player switcher | Phase 2 — tomorrow | playerTeams UI exists, needs player_get_teams RPC |
-| is_vice_captain per-team migration | Phase 2 — tomorrow | Migrate from players table to team_players |
-| owes double-increment guard | Phase 2 — tomorrow | Remove or guard draftNextWeek dead code |
+| Multi-team player switcher | ✅ Done session 26 | player_get_teams RPC + MySquads.jsx accordion |
+| is_vice_captain per-team migration | ✅ Done session 26 | Migrated to team_players; migration 026 |
+| owes double-increment guard | ✅ Done session 26 | carryForwardDebts removed; updatePlayerRecords guarded |
 | Mid-game team switches | Phase 2 — tomorrow | ScoreScreen switches stage, team_switches jsonb, final team determines W/L/D |
 
 ---
@@ -940,7 +941,9 @@ all have venue contracts. Sticky but beatable on product quality.
 - Returning player joining a second team: REUSES the existing players row — new team_players entry only, no new players record created
 - Flat stat columns (goals, motm, bib_count, w, l, d, attended etc.) are cross-team totals on one row, not per-team — player_match rows support per-team breakdowns but denormalised columns don't
 - **Known bug**: NameStep asks returning player "what should we call you?" but the typed name is silently discarded — handleJoin uses existing.name from DB, ignores the input
-- `is_vice_captain` lives on the `players` table, not `team_players` — known cross-team limitation; a player is VC globally, not per-team; migrate to `team_players` in Phase 2
+- `is_vice_captain` lives on `team_players` (per-team), not `players` (global) — migrated session 26; a player can be VC in one team but not another
+- Multi-team switcher uses `player_get_teams` RPC keyed on `auth.uid()` — token-only players (no `user_id`) see the empty "Sign in to see all your squads" state
+- `carryForwardDebts` removed — `updatePlayerRecords` is the sole owes-increment path; guard comment in attendance.js
 - VC access = full AdminView minus Rotate Admin Link (which doesn't exist yet); scoping is done via `isViceCaptain` prop throughout, not `role_scope` (dormant for Phase 2 RBAC)
 
 **Mid-game team switches:**
@@ -996,10 +999,10 @@ all have venue contracts. Sticky but beatable on product quality.
 | ~~`addPlayerToTeam` not in core barrel~~ | ✅ Fixed (session 22) — exported from `packages/core/index.js` | Low |
 | ~~`players.deputy` DB column~~ | ✅ Resolved (verified session 23) — `deputy` column not present in current schema; rename completed in DB | Done |
 | `player_career` mostly empty | Only `total_bib_count` ever written; 11 other career fields permanently empty | Phase 2 |
-| `owes` double-increment risk | Two paths can add to owes (draftNextWeek + updatePlayerRecords); `draftNextWeek` is dead code but risk remains if re-enabled | Low |
+| `owes` double-increment risk | ✅ Resolved session 26 — `carryForwardDebts` removed; `draftNextWeek` already dead (session 19); `updatePlayerRecords` has guard comment as sole write path | Done |
 | `packages/core/engine/scoring.js` file name | Hosts `periodCutoff` (non-scoring helper) alongside scoring helpers. Rename to broader name (e.g. `stats-helpers.js`) when file grows further | Low |
-| `/create` flow has no auth gate | Team creation works without sign-in. Means `team_admins` insert can't reliably capture user_id in submitTeam. Fix: redirect unauthenticated users to sign-in before /create, return them after. Do before building team_admins. | Pre-Stage 2 |
-| `team_demo` has no `team_admins` row | Demo team predates the table. Switcher won't show it for Tarny until backfilled. Backfill in Session 24 after table is created. | Low |
+| `team_demo` has no `team_admins` row | Demo team predates the table. Switcher won't show it for Tarny until backfilled. | Low |
+| `App.jsx:639` `addPlayerToTeam` call signature mismatch | Called as `(name, teamId, { userId })` but function signature is `(adminToken, name, type, priority)` — pre-existing from session 22 refactor; join flow call site never updated. Causes silent failure when new player is added via join. Fix before Stage 2. | Pre-Stage 2 |
 | ~~getPlayerTeams RLS bypass~~ | ✅ Fixed (session 25) — `teamId` now derived from `getTeamStateByPlayerToken` state directly; `getPlayerTeams` removed from player route | Fixed session 25 |
 | ~~Stats + My IO showing no data~~ | ✅ Fixed (session 25) — `get_team_state_by_player_token` RPC extended with full stats block (match_stats, win_rate, reliability, ledger, last_match_meta, player_form); `computeStatsFromHistory` extended with `lastMatchMeta` + `playerForm` for admin routes | Fixed session 25 |
 | ~~Realtime callbacks using direct table reads~~ | ✅ Fixed (session 25) — all three realtime callbacks (players, schedule, matches) branch on `route.type`; player/admin/demoadmin routes use RPCs; direct reads remain only for authenticated fallback path | Fixed session 25 |
@@ -1890,3 +1893,29 @@ Known remaining:
 - Join/login redesign: needed before broader beta Jun 9 (Phase 2, tomorrow)
 - owes double-increment: draftNextWeek dead code risk, remove or guard (Phase 2, tomorrow)
 - Mid-game team switches: new ScoreScreen stage, team_switches jsonb on matches, final team determines W/L/D, switch icon in match history (Phase 2, tomorrow)
+
+**Session 26 (May 20 2026):**
+Multi-team player switcher built + is_vice_captain migrated to team_players + carryForwardDebts removed.
+
+**Priority D — Codebase hygiene:**
+- `carryForwardDebts` removed from `packages/core/engine/payments.js` — was orphaned dead code; `draftNextWeek` had already been removed session 19
+- Guard comment added above `updatePlayerRecords` in `packages/core/engine/attendance.js`: sole owes-increment path — do not add a second call site without guarding against double-increment
+
+**Priority A — Multi-team player switcher:**
+- `player_get_teams` SECURITY DEFINER RPC added (authenticated role only; anon revoked); returns all squads for `auth.uid()` with team_name, player_name, player_nickname, token, disabled, is_vice_captain
+- `getPlayerTeams()` in `supabase.js` rewritten to `supabase.rpc("player_get_teams")` — no parameters (uses auth.uid() server-side); was previously a broken direct table read
+- `MySquads.jsx` new component: accordion (collapsed by default); three row types — CURRENT (gold bg, pointerEvents:none, "CURRENT" chip), DISABLED (opacity 0.4, "NO LONGER ACTIVE" chip, pointerEvents:none), ACTIVE OTHER (tappable, hover state, navigates to `/p/${token}`, shows "ADMIN" chip if is_vice_captain); loading skeleton (44px bar); empty state ("Not part of any other squads yet"); unauthenticated state ("Sign in to see all your squads"); uses snake_case `squad.is_vice_captain` directly from RPC response
+- Wired into `PlayerView.jsx` my-view tab below payment history section; `<MySquads currentTeamId={teamId} currentToken={...} userId={me?.userId || null} />`
+- `getPlayerTeams` added to `packages/core/index.js` barrel export (was causing build error)
+
+**Priority B — is_vice_captain migrated from players to team_players:**
+- Migration 026: `ALTER TABLE team_players ADD COLUMN is_vice_captain bool NOT NULL DEFAULT false`; data backfilled from `players.is_vice_captain`; `players_public` view dropped and recreated with team_players JOIN; `players.is_vice_captain` column dropped
+- `players_public` view (migration 005) updated to `LEFT JOIN team_players tp ON tp.player_id = p.id` and `COALESCE(tp.is_vice_captain, false) AS is_vice_captain`
+- `admin_set_vice_captain` (migration 012): writes `team_players.is_vice_captain`; return SELECT JOINs `team_players tp ON tp.player_id = p.id AND tp.team_id = v_team_id`; already updated session 26
+- `get_team_state_by_player_token` (migration 010): `v_is_vc boolean` added to DECLARE; after step 2 (team_id derivation), fetches `is_vice_captain` from team_players and merges into `v_player` via `||`; `p.is_vice_captain` removed from step 1 self-row build; squad query switches `p.is_vice_captain` → `tp.is_vice_captain`
+- `get_team_state_by_admin_token` (migration 010): squad query switches `p.is_vice_captain` → `tp.is_vice_captain` (tp already in scope via JOIN)
+- `get_player_by_token` (migration 010): `is_vice_captain` removed from return (function has no team context)
+- All 12 remaining `p.is_vice_captain` SELECT references across migrations 011 (5 functions) and 012 (7 functions) removed — those response SELECTs have no team_players join in scope, so field dropped from response entirely
+- `supabase.js`: `playerToDb()` and `resetDemoData()` no longer write `is_vice_captain` (column moved to team_players); `dbToPlayer()` read mapping unchanged (reads `r.is_vice_captain ?? false` from RPC responses that still return tp.is_vice_captain)
+
+Commits: 0947af1 (carryForwardDebts), 1833a1e (guard comment), 2e00f6f (getPlayerTeams RPC), 86b79b0 (MySquads.jsx), 1d1d531 (PlayerView wiring), f317bb3 (barrel export), f175fa4 (migrations 026/010/012/005), d2e769c (010 cleanup), 770f6ca (011/012 cleanup)
