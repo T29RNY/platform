@@ -186,6 +186,23 @@ admin_confirm_payment, admin_reset_payment,
 admin_clear_debt, admin_waive_debt all threw
 internal_error until session 27 cleanup.
 
+## RPC PARAMETER TYPE CHANGES
+
+When changing a parameter type on an existing
+RPC (e.g. int → numeric):
+
+- CREATE OR REPLACE does NOT replace the old
+  version — PostgreSQL treats different
+  parameter types as different overloads
+- Always DROP the old signature explicitly
+  before or after CREATE OR REPLACE:
+  DROP FUNCTION IF EXISTS fn_name(old, types);
+- Failure to do this causes:
+  "could not choose best candidate function"
+  error at runtime
+- Add the DROP to the migration file alongside
+  the CREATE OR REPLACE
+
 ---
 
 ## CONVENTIONS
