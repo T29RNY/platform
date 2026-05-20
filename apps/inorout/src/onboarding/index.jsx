@@ -1,9 +1,12 @@
 import { useOnboarding } from "./hooks/useOnboarding.js";
 import CreateTeam from "./steps/CreateTeam.jsx";
 import ShareLinks from "./steps/ShareLinks.jsx";
+import SetupLoadingScreen from "./steps/SetupLoadingScreen.jsx";
 
 export default function Onboarding({ onComplete }) {
   const ob = useOnboarding({ onComplete });
+
+  if (ob.loading) return <SetupLoadingScreen />;
 
   return (
     <div style={{
