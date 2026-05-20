@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { WhatsappLogo, CopySimple, ArrowRight } from "@phosphor-icons/react";
 
 const BASE_URL = "https://www.in-or-out.com";
-const ADVANCE_DELAY = 2500;
 
 function SquadReadyStyles() {
   return (
@@ -164,7 +163,6 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
   const waUrl    = `https://wa.me/?text=${waText}`;
 
   const [copied, setCopied] = useState(false);
-  const timerRef = useRef(null);
 
   const handleAdvance = () => {
     window.location.href = adminUrl;
@@ -185,8 +183,6 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
     if (adminPlayerToken) {
       localStorage.setItem('ioo_last_visited', `/p/${adminPlayerToken}`);
     }
-    timerRef.current = setTimeout(handleAdvance, ADVANCE_DELAY);
-    return () => clearTimeout(timerRef.current);
   }, []);
 
   return (
@@ -210,7 +206,7 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
             target="_blank"
             rel="noopener noreferrer"
             className="squad-ready-whatsapp"
-            onClick={() => clearTimeout(timerRef.current)}
+            onClick={() => {}}
           >
             <WhatsappLogo size={22} weight="fill" />
             Share on WhatsApp
