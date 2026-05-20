@@ -51,6 +51,7 @@ export function getHatTricks(matchHistory) {
     .sort((a, b) => b.goals - a.goals);
 }
 
+// Sole owes-increment path — do not add a second call site without guarding against double-increment
 export function updatePlayerRecords(players, match, scorers, motmVote, payments, pricePerPlayer = 0) {
   const teamAPlayers = match.teamA || [];
   const teamBPlayers = match.teamB || [];
