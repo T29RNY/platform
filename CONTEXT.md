@@ -231,7 +231,7 @@ Both write paths (saveBibHolder + insertBib) use UPSERT with onConflict: "team_i
 ```
 id, team_id, day_of_week, kickoff, venue, city,
 opens_day, opens_time, priority_lead_mins,
-price_per_player, game_is_live, squad_size,
+price_per_player numeric(10,2), game_is_live, squad_size,
 game_date_time,
 is_draft bool,         ← ONLY means "onboarding not complete" now (NOT the auto-open flag)
 is_cancelled, cancel_reason,
@@ -1939,3 +1939,5 @@ Commits: 97e8c79 (playerJoinTeam RPC wrapper + barrel export), 0d419f6 (App.jsx 
 
 - Join/login redesign complete — JoinTeam.jsx full rebuild, 5-stage build, RLS compliant, direct team_players upsert removed from App.jsx Part A, player_join_team RPC handles all join writes
 - Commits: 8fe55c2, c101d3e, 98d4336, 17d8038, 7d71c39, 5cdfda2
+- Stage A: price_per_player fixed — column altered to numeric(10,2), create_team RPC p_price updated to match
+- Commits: 5e3c01c, 651f61c
