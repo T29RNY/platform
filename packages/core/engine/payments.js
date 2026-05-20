@@ -118,14 +118,4 @@ export async function handleWaiveDebt(adminToken, playerId, note = null) {
 
 // ─── Existing functions ───────────────────────────────────────────────────────
 
-export function carryForwardDebts(players, pricePerPlayer) {
-  return players.map(p => ({
-    ...p,
-    owes:   p.paid ? 0 : (p.owes || 0) + (p.status === "in" ? pricePerPlayer : 0),
-    paid:   false,
-    selfPaid: false,
-    status: "none",
-    team:   null,
-  }));
-}
 
