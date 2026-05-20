@@ -1013,6 +1013,7 @@ all have venue contracts. Sticky but beatable on product quality.
 | Admin Decide button in ScoreScreen POTM stage | `onAdminDecide` prop not wired — button currently calls `onBack()`, exiting ScoreScreen instead of opening tiebreak modal. Fix: wire to new `onAdminDecide` prop from AdminView. | Pre-UAT |
 | ScoreScreen POTM stage: `GET /rest/v1/player_match 401` | Direct table read in POTM eligibility fetch not yet migrated to RPC. | Low |
 | Dead write path: `POST /rest/v1/matches 401` | Direct table write somewhere in client code. Likely a legacy path superseded by `admin_save_match_result` RPC. | Low |
+| CreateTeam email field redundant | Admin already authenticated via Google — email field should be pre-filled from `authUser.email` and hidden, not shown as a manual input. Fix: pass `authUser.email` from App.jsx through Onboarding to CreateTeam and use it silently as `adminEmail` | Pre-broader-beta |
 
 ---
 
