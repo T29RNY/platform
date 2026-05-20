@@ -109,8 +109,10 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
   const dateNum   = d ? d.getDate() : "—";
   const monthStr  = d ? d.toLocaleDateString("en-GB", { month: "short" }).toUpperCase() : "—";
 
-  const findPlayer = name =>
-    (players || []).find(p => (p.name || "").toLowerCase().trim() === (name || "").toLowerCase().trim());
+  const findPlayer = nameOrId =>
+    (players || []).find(p =>
+      (p.name || "").toLowerCase().trim() === (nameOrId || "").toLowerCase().trim()
+    ) || (players || []).find(p => p.id === nameOrId);
 
   const teamAObjs = (m.teamA || []).map(n => ({ name: n, ...(findPlayer(n) || {}) }));
   const teamBObjs = (m.teamB || []).map(n => ({ name: n, ...(findPlayer(n) || {}) }));
