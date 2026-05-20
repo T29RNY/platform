@@ -1,6 +1,5 @@
 import { useOnboarding } from "./hooks/useOnboarding.js";
 import CreateTeam from "./steps/CreateTeam.jsx";
-import AddPlayers from "./steps/AddPlayers.jsx";
 import ShareLinks from "./steps/ShareLinks.jsx";
 
 export default function Onboarding({ onComplete }) {
@@ -29,18 +28,6 @@ export default function Onboarding({ onComplete }) {
       )}
 
       {ob.step === 2 && (
-        <AddPlayers
-          playerNames={ob.playerNames}
-          newName={ob.newName}       setNewName={ob.setNewName}
-          addPlayer={ob.addPlayer}   removePlayer={ob.removePlayer}
-          onSubmit={ob.submitPlayers}
-          onSkip={() => ob.submitPlayers(true)}
-          loading={ob.loading}
-          error={ob.error}
-        />
-      )}
-
-      {ob.step === 3 && (
         <ShareLinks
           teamId={ob.teamId}
           groupName={ob.groupName}

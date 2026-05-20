@@ -19,39 +19,17 @@ export function useOnboarding({ onComplete }) {
   const [bibsEnabled,     setBibsEnabled]     = useState(true);
   const [adminEmail,      setAdminEmail]      = useState('');
 
-  // Step 2 state
-  const [playerNames, setPlayerNames] = useState([""]);
-  const [newName,     setNewName]     = useState("");
-
-  // Step 3 state — populated after creation
+  // Step 2 state — populated after creation
   const [teamId,      setTeamId]      = useState(null);
   const [adminToken,  setAdminToken]  = useState(null);
   const [players,     setPlayers]     = useState([]);
 
-  // ── Step 1 → validate and advance to player-add step ─────────────────────
-  const submitTeam = () => {
-    if (!groupName.trim()) { setError("Please enter a team name."); return; }
-    setError(null);
-    setStep(2);
-  };
-
-  // ── Step 2 → Add players ──────────────────────────────────────────────────
-  const addPlayer = () => {
-    if (!newName.trim()) return;
-    setPlayerNames(prev => [...prev, newName.trim()]);
-    setNewName("");
-  };
-
-  const removePlayer = (idx) => {
-    setPlayerNames(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  // ── Step 2 → create everything via RPC ───────────────────────────────────
-  const submitPlayers = async (skip = false) => {
+  // ── Submit → create everything via RPC ───────────────────────────────────
+  const submitTeam = async () => {
     setLoading(true); setError(null);
 
     try {
-      const namesToSend = skip ? [] : playerNames.filter(n => n.trim());
+      const namesToSend = [];
 
       const { data, error } = await supabase.rpc('create_team', {
         p_admin_email:        adminEmail || null,
@@ -73,7 +51,7 @@ export function useOnboarding({ onComplete }) {
       setTeamId(data.team_id);
       setAdminToken(data.admin_token);
       setPlayers(data.players ?? []);
-      setStep(3);
+      setStep(2);
     } catch (e) {
       setError(e.message || "Something went wrong. Please try again.");
     } finally {
@@ -96,9 +74,6 @@ export function useOnboarding({ onComplete }) {
     adminEmail, setAdminEmail,
     submitTeam,
     // Step 2
-    playerNames, newName, setNewName, addPlayer, removePlayer,
-    submitPlayers,
-    // Step 3
     teamId, adminToken, players,
     onComplete,
   };
