@@ -182,7 +182,7 @@ export async function upsertSettings(adminToken, groupName) {
 function playerToDb(p) {
   return {
     id: p.id, name: p.name, type: p.type,
-    disabled: p.disabled, priority: p.priority, is_vice_captain: p.isViceCaptain,
+    disabled: p.disabled, priority: p.priority,
     status: p.status, paid: p.paid, owes: p.owes,
     goals: p.goals, motm: p.motm, attended: p.attended, total: p.total,
     bib_count: p.bibCount, team: p.team,
@@ -259,6 +259,7 @@ function dbToMatch(r) {
     scoreType: r.score_type || null,
     lastGoalScorer: r.last_goal_scorer || null,
     teamsDraft: r.teams_draft ?? null,
+    teamSwitches: r.team_switches || null,
   };
 }
 
@@ -596,6 +597,7 @@ export async function saveMatchResult(adminToken, match) {
     p_motm:             match.motm || null,
     p_last_goal_scorer: match.lastGoalScorer || null,
     p_bib_holder:       match.bibHolder || null,
+    p_team_switches:    match.teamSwitches || null,
   });
   if (error) throw error;
 }
@@ -829,7 +831,7 @@ export async function resetDemoData() {
     await supabase.from('players').update({
       status: 'none', paid: false, self_paid: false, paid_by: null,
       owes: p.owes, note: null, injured: false, injured_since: null,
-      is_vice_captain: false, nickname: null,
+      nickname: null,
       goals: p.goals, motm: p.motm, attended: p.attended,
       w: p.w, l: p.l, d: p.d, bib_count: p.bib_count,
       pay_count: p.pay_count, late_dropouts: p.late_dropouts,
