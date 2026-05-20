@@ -840,7 +840,7 @@ export default function AdminView({
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId} adminToken={adminToken} isViceCaptain={isViceCaptain} me={me} onPlayerTap={(p) => { setScreen("main"); setSelectedPlayer(p); }}/>;
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")} teamId={teamId} adminToken={adminToken}/>;
-  if (screen === "reminders") return <RemindersScreen schedule={schedule} setSchedule={setSchedule} onBack={() => setScreen("main")} teamId={teamId}/>;
+  if (screen === "reminders") return <RemindersScreen schedule={schedule} setSchedule={setSchedule} onBack={() => setScreen("main")} teamId={teamId} adminToken={adminToken}/>;
   if (screen === "payments")  return <PaymentsScreen squad={squad} setSquad={setSquad} schedule={schedule} teamId={teamId} adminToken={adminToken} coverPool={coverPool} onBack={() => setScreen("main")}/> ;
 
   if (selectedPlayer) return (

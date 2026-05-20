@@ -30,7 +30,7 @@ const LABEL = {
   letterSpacing:"0.08em", marginBottom:6, display:"block",
 };
 
-export default function RemindersScreen({ schedule, setSchedule, onBack, teamId }) {
+export default function RemindersScreen({ schedule, setSchedule, onBack, teamId, adminToken = null }) {
   const [reminders,  setReminders]  = useState(schedule.remindersConfig || DEFAULT_REMINDERS);
   const [saving,     setSaving]     = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -42,7 +42,7 @@ export default function RemindersScreen({ schedule, setSchedule, onBack, teamId 
     setSaving(true);
     try {
       const updated = { ...schedule, remindersConfig: reminders };
-      if (teamId) await upsertSchedule(updated, teamId);
+      if (adminToken) await upsertSchedule(adminToken, updated);
       setSchedule(updated);
       setSaveStatus("ok");
       setTimeout(() => { setSaveStatus(null); onBack(); }, 800);
