@@ -8,7 +8,7 @@ import {
   getSchedule, upsertSchedule,
   getSettings, upsertSettings,
   getTeamByPlayerToken,
-  getTeamByJoinCode, addPlayerToTeam,
+  getTeamByJoinCode, playerJoinTeam,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
   getSession, getUser, findPlayerByUserId, findPlayerByEmail,
@@ -636,7 +636,7 @@ export default function App() {
         return;
       }
       // New player — create with auth user_id
-      const player = await addPlayerToTeam(name, joinTeam.id, { userId: authUser.id });
+      const player = await playerJoinTeam(joinTeam.id, name);
       setJoinedPlayer(player);
     } catch(e) {
       setJoinError(e.message || "Something went wrong.");
