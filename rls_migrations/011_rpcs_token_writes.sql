@@ -146,7 +146,6 @@ BEGIN
     'is_guest',       p.is_guest,
     'guest_of',       p.guest_of,
     'note',           p.note,
-    'is_vice_captain',p.is_vice_captain,
     'disabled',       p.disabled,
     'disable_reason', p.disable_reason,
     'team',           p.team
@@ -291,7 +290,6 @@ BEGIN
     'is_guest',       p.is_guest,
     'guest_of',       p.guest_of,
     'note',           p.note,
-    'is_vice_captain',p.is_vice_captain,
     'disabled',       p.disabled,
     'disable_reason', p.disable_reason,
     'team',           p.team
@@ -412,7 +410,6 @@ BEGIN
     'is_guest',       p.is_guest,
     'guest_of',       p.guest_of,
     'note',           p.note,
-    'is_vice_captain',p.is_vice_captain,
     'disabled',       p.disabled,
     'disable_reason', p.disable_reason,
     'team',           p.team
@@ -538,7 +535,6 @@ BEGIN
     'is_guest',       p.is_guest,
     'guest_of',       p.guest_of,
     'note',           p.note,
-    'is_vice_captain',p.is_vice_captain,
     'disabled',       p.disabled,
     'disable_reason', p.disable_reason,
     'team',           p.team
@@ -684,7 +680,6 @@ BEGIN
     'is_guest',       p.is_guest,
     'guest_of',       p.guest_of,
     'note',           p.note,
-    'is_vice_captain',p.is_vice_captain,
     'disabled',       p.disabled,
     'disable_reason', p.disable_reason,
     'team',           p.team
