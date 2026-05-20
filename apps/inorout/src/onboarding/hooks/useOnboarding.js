@@ -59,7 +59,7 @@ export function useOnboarding({ onComplete }) {
       setAdminPlayerToken(data.admin_player_token ?? null);
 
       const elapsed = Date.now() - loadingStartRef.current;
-      const MIN_DISPLAY = 2500;
+      const MIN_DISPLAY = 10000;
       const remaining = Math.max(0, MIN_DISPLAY - elapsed);
       if (remaining > 0) {
         await new Promise(r => setTimeout(r, remaining));
