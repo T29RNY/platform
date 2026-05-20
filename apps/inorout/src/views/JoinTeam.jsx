@@ -309,6 +309,49 @@ function JoinStyles() {
         to   { opacity: 1; transform: translateY(0);    }
       }
 
+      .join-name-card {
+        width: 100%;
+        text-align: left;
+      }
+
+      .join-name-title {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(46px, 13vw, 62px);
+        line-height: 0.95;
+        letter-spacing: 0.045em;
+        font-weight: 400;
+        color: var(--t1);
+        text-transform: uppercase;
+        margin: 0 0 32px;
+      }
+
+      .join-field--name {
+        margin-bottom: 0;
+      }
+
+      .join-primary-btn {
+        width: 100%;
+        min-height: 56px;
+        border-radius: 14px;
+        border: none;
+        background: var(--gold);
+        color: var(--bg);
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 18px;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 160ms ease, opacity 160ms ease;
+        margin-top: 14px;
+      }
+
+      .join-primary-btn:disabled {
+        opacity: 0.48;
+        cursor: not-allowed;
+        background: var(--s2);
+        color: var(--t2);
+      }
+
       @media (max-width: 380px) {
         .join-shell  { padding-left: 16px; padding-right: 16px; }
         .join-brand  { font-size: clamp(58px, 16vw, 78px); }
@@ -471,6 +514,60 @@ function SignInStep({ team, onGoogle }) {
             )}
           </>
         )}
+      </div>
+    </JoinShell>
+  );
+}
+
+function NameStep({ team, onNameSubmit, loading, error }) {
+  const [name, setName] = useState("");
+  const isSavingRef = useRef(false);
+
+  const teamName = team?.name || "your team";
+  const canJoin = name.trim().length > 0 && !loading;
+
+  const handleJoin = () => {
+    if (isSavingRef.current) return;
+    if (!name.trim()) return;
+    isSavingRef.current = true;
+    try {
+      onNameSubmit(name.trim());
+    } finally {
+      isSavingRef.current = false;
+    }
+  };
+
+  return (
+    <JoinShell>
+      <div className="join-name-card">
+        <BrandMark size="small" />
+        <h1 className="join-name-title">
+          What should we call you?
+        </h1>
+        <div className="join-field join-field--name">
+          <User size={20} weight="thin" aria-hidden="true" />
+          <input
+            id="join-name"
+            type="text"
+            value={name}
+            placeholder="Your name"
+            autoComplete="name"
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && canJoin) handleJoin(); }}
+            disabled={loading}
+            autoFocus
+          />
+        </div>
+        <button
+          type="button"
+          className="join-primary-btn"
+          onClick={handleJoin}
+          disabled={!canJoin}>
+          {loading ? "Joining..." : `Join ${teamName}`}
+        </button>
+        {error ? (
+          <p className="join-error" role="alert">{error}</p>
+        ) : null}
       </div>
     </JoinShell>
   );
