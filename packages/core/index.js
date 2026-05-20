@@ -31,5 +31,6 @@ export {
   removeGuestPlayer,
   getHeadToHead,
   getPOTMVotingState,
+  getPlayerTeams,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";
