@@ -311,20 +311,11 @@ function dbToSchedule(r) {
 }
 
 // ─── Get all teams for a player ───────────────────────────────────────────────
-// Phase 2: multi-team — currently bypassed; direct table reads blocked by RLS for anon users. Do not call from player route.
-export async function getPlayerTeams(playerId) {
-  const { data, error } = await supabase
-    .from("team_players")
-    .select("team_id")
-    .eq("player_id", playerId);
-  if (error || !data?.length) return [];
-  const teamIds = data.map(r => r.team_id);
-  const { data: teams, error: tErr } = await supabase
-    .from("teams")
-    .select("id, name, admin_token")
-    .in("id", teamIds);
-  if (tErr) return [];
-  return teams || [];
+// Returns all squads the authenticated player belongs to via player_get_teams RPC.
+export async function getPlayerTeams() {
+  const { data, error } = await supabase.rpc("player_get_teams");
+  if (error) throw error;
+  return data || [];
 }
 
 // ─── Join team by join code ───────────────────────────────────────────────────
