@@ -598,10 +598,9 @@ export default function App() {
     }
     setMatchHistRaw(next);
   };
-  const setSettings = async (updater) => {
+  const setSettings = (updater) => {
     const next = typeof updater==="function" ? updater(settings) : updater;
     setSettingsRaw(next);
-    try { await upsertSettings(next, teamId); } catch(e) { console.error(e); }
   };
 
   // Reset admin sub-screen when leaving admin view
