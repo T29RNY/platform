@@ -11,7 +11,7 @@ import {
   getTeamByJoinCode, playerJoinTeam,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
-  getSession, getUser, findPlayerByUserId, findPlayerByEmail,
+  getSession, getUser, findPlayerByEmail,
   getUserProfile, linkPlayerToUser, updateUserProfile,
   resetDemoData, updateDemoInteraction,
 } from "@platform/supabase";
@@ -624,18 +624,6 @@ export default function App() {
     if (!authUser) return;
     setJoinLoading(true); setJoinError(null);
     try {
-      // Check if this auth user already has a player record anywhere
-      const existing = await findPlayerByUserId(authUser.id);
-      if (existing) {
-        // Already a player — just link to this team
-        await supabase.from("team_players")
-          .upsert({ team_id: joinTeam.id, player_id: existing.id },
-            { onConflict:"team_id,player_id" });
-        setJoinedPlayer({ id: existing.id, name: existing.name, token: existing.token });
-        setJoinLoading(false);
-        return;
-      }
-      // New player — create with auth user_id
       const player = await playerJoinTeam(joinTeam.id, name);
       setJoinedPlayer(player);
     } catch(e) {
