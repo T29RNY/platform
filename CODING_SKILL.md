@@ -155,6 +155,39 @@ When modifying an existing RPC:
 
 ---
 
+## SCHEMA CHANGE CHECKLIST
+
+When any column is moved, renamed, or dropped:
+
+1. Grep ALL migration files immediately:
+   grep -r "column_name" rls_migrations/
+   Report every file and line it appears in.
+
+2. For each match assess:
+   - Is it reading from the old table? → fix
+   - Is it writing to the old table? → fix
+   - Is it the migration itself? → correct
+   - Is it a comment or parameter? → safe
+
+3. Fix all stale references in the same
+   commit as the schema change — never
+   leave them for later
+
+4. Run a build after fixes to confirm
+   no JS references are broken
+
+5. Test the affected RPCs against a real
+   team (not demo) before closing the issue
+
+Example: moving is_vice_captain from players
+to team_players in session 26 broke 6 RPCs
+silently — add_guest_player, admin_add_player,
+admin_confirm_payment, admin_reset_payment,
+admin_clear_debt, admin_waive_debt all threw
+internal_error until session 27 cleanup.
+
+---
+
 ## CONVENTIONS
 
 **Code:**
