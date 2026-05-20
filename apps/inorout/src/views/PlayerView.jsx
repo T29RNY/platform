@@ -20,6 +20,7 @@ import NavBar      from "../components/ui/NavBar.jsx";
 import StatsView   from "./StatsView.jsx";
 import HistoryView from "./HistoryView.jsx";
 import MyIOView    from "./MyIOView.jsx";
+import MySquads    from "./MySquads";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -1249,6 +1250,12 @@ export default function PlayerView({
               </div>
             );
           })()}
+
+          <MySquads
+            currentTeamId={teamId}
+            currentToken={myId && squad.find(p => p.id === myId)?.token}
+            userId={me?.userId || null}
+          />
 
         </div>
       )}
