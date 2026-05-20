@@ -384,6 +384,7 @@ All 19 public schema tables have `rowsecurity=true`. Anon and authenticated role
 **Onboarding RPCs (015):** `create_team` — atomic: team + players + schedule + settings + team_admins; fully rolls back on error
 
 **Auth RPCs (022):** `link_player_to_user(p_token)` — authenticated only (uses `auth.uid()`); links player row to Supabase auth user; guards against double-linking
+**Auth RPCs (028):** `player_join_team(p_team_id, p_name)` — authenticated only; handles both new and returning players; upserts team_players, creates players row if needed
 
 **Realtime enabled on:** players, schedule, matches
 **player_match UNIQUE constraint:** (match_id, player_id) — required for UPSERT in writePlayerMatchRows and lineupLockJob
@@ -1007,7 +1008,7 @@ all have venue contracts. Sticky but beatable on product quality.
 | ~~Stats + My IO showing no data~~ | ✅ Fixed (session 25) — `get_team_state_by_player_token` RPC extended with full stats block (match_stats, win_rate, reliability, ledger, last_match_meta, player_form); `computeStatsFromHistory` extended with `lastMatchMeta` + `playerForm` for admin routes | Fixed session 25 |
 | ~~Realtime callbacks using direct table reads~~ | ✅ Fixed (session 25) — all three realtime callbacks (players, schedule, matches) branch on `route.type`; player/admin/demoadmin routes use RPCs; direct reads remain only for authenticated fallback path | Fixed session 25 |
 | BibsScreen `insertBib` broken under RLS | BibsScreen lacks `matchId` + `adminToken` in scope — standalone bib assignment fails post-RLS lockdown. Low priority: bibs can be set via ScoreScreen result save which has both. | Low |
-| Dead write functions in `supabase.js` | `bulkCancelLedgerEntries`, `bulkResetPlayerStatuses`, `deletePlayerMatchRows`, `insertMatch`, `loadTeamData` are unreferenced post-RLS rewrite. Safe to remove in any future cleanup pass. | Low |
+| Dead write functions in `supabase.js` | `bulkCancelLedgerEntries`, `bulkResetPlayerStatuses`, `deletePlayerMatchRows`, `insertMatch`, `loadTeamData`, `findPlayerByUserId` are unreferenced post-RLS rewrite. Safe to remove in any future cleanup pass. | Low |
 | Admin Decide button in ScoreScreen POTM stage | `onAdminDecide` prop not wired — button currently calls `onBack()`, exiting ScoreScreen instead of opening tiebreak modal. Fix: wire to new `onAdminDecide` prop from AdminView. | Pre-UAT |
 | ScoreScreen POTM stage: `GET /rest/v1/player_match 401` | Direct table read in POTM eligibility fetch not yet migrated to RPC. | Low |
 | Dead write path: `POST /rest/v1/matches 401` | Direct table write somewhere in client code. Likely a legacy path superseded by `admin_save_match_result` RPC. | Low |
