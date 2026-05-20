@@ -468,15 +468,6 @@ export default function App() {
           window.location.replace(`/p/${alreadyMember.token}`);
           return;
         }
-        if (matches.length > 0) {
-          // Returning player — link to this team and skip NameStep entirely
-          const match = matches[0];
-          await supabase.from("team_players")
-            .upsert({ team_id: joinTeam.id, player_id: match.player_id },
-              { onConflict: "team_id,player_id" });
-          if (cancelled) return;
-          setJoinedPlayer({ id: match.player_id, name: match.name, token: match.token });
-        }
       } catch(e) {}
       if (!cancelled) setJoinChecking(false);
     })();
