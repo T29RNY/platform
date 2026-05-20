@@ -311,7 +311,6 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
     const finalSched = { ...sched,
       pricePerPlayer: priceVal,
       remindersConfig: reminders,
-      gameIsLive:    schedule.gameIsLive,
       isDraft:       schedule.isDraft,
       isCancelled:   schedule.isCancelled,
       lineupLocked:  schedule.lineupLocked,
