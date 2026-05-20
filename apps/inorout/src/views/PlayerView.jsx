@@ -407,7 +407,9 @@ export default function PlayerView({
                 const price          = schedule.pricePerPlayer || 0;
                 const owes           = me?.owes || 0;
                 const effectiveDebt  = (ledgerBalance !== null && ledgerBalance > 0) ? ledgerBalance : owes;
-                const paymentState = getPaymentState(me, cashPending);
+                const paymentState = me
+                  ? getPaymentState(me, cashPending)
+                  : 'unpaid';
                 const paymentMode  = 'both';
                 const status       = me?.status;
                 const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
