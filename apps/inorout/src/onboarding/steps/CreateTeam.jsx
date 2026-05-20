@@ -403,7 +403,7 @@ export default function CreateTeam({
               fontFamily: "var(--font-display)", fontSize: 16, letterSpacing: "0.06em",
               outline: "none",
               background: bibsEnabled ? "var(--gold)" : "var(--s2)",
-              color:      bibsEnabled ? "#000"       : "var(--t2)",
+              color:      bibsEnabled ? "var(--bg)" : "var(--t2)",
               border:     bibsEnabled ? "none"       : "1px solid var(--s3)",
             }}
           >
@@ -465,7 +465,7 @@ export default function CreateTeam({
         style={{
           width: "100%", padding: 16, borderRadius: 12, border: "none",
           background: nameValid ? "var(--gold)" : "var(--s3)",
-          color:      nameValid ? "#000"       : "var(--t2)",
+          color:      nameValid ? "var(--bg)"  : "var(--t2)",
           fontFamily: "var(--font-display)", fontSize: 18, letterSpacing: "0.06em",
           cursor: loading || !nameValid ? "not-allowed" : "pointer",
         }}
