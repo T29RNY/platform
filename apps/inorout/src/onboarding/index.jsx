@@ -35,6 +35,7 @@ export default function Onboarding({ onComplete }) {
           groupName={ob.groupName}
           joinCode={ob.joinCode}
           adminToken={ob.adminToken}
+          adminPlayerToken={ob.adminPlayerToken}
         />
       )}
     </div>

@@ -157,7 +157,7 @@ function SquadReadyStyles() {
   );
 }
 
-export default function SquadReady({ groupName, joinCode, adminToken }) {
+export default function SquadReady({ groupName, joinCode, adminToken, adminPlayerToken }) {
   const joinUrl  = `${BASE_URL}/join/${joinCode}`;
   const adminUrl = `${BASE_URL}/admin/${adminToken}`;
   const waText   = encodeURIComponent(`Join ${groupName} on In or Out 👊\n${joinUrl}`);
@@ -182,6 +182,9 @@ export default function SquadReady({ groupName, joinCode, adminToken }) {
 
   useEffect(() => {
     navigator.vibrate?.(200);
+    if (adminPlayerToken) {
+      localStorage.setItem('ioo_last_visited', `/p/${adminPlayerToken}`);
+    }
     timerRef.current = setTimeout(handleAdvance, ADVANCE_DELAY);
     return () => clearTimeout(timerRef.current);
   }, []);
