@@ -612,7 +612,7 @@ export default function ScoreScreen({
                           onClick={() => handleSwitchTap(p)}
                           style={{
                             width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                            border: isSwitched ? "none" : "1px solid rgba(255,255,255,0.12)",
+                            border: isSwitched ? "none" : "0.5px solid rgba(255,255,255,0.35)",
                             background: isSwitched ? "var(--gold2)" : "transparent",
                             color: isSwitched ? "var(--gold)" : "var(--s3)",
                             cursor: "pointer",
