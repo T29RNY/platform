@@ -1008,6 +1008,9 @@ all have venue contracts. Sticky but beatable on product quality.
 | ~~Realtime callbacks using direct table reads~~ | ✅ Fixed (session 25) — all three realtime callbacks (players, schedule, matches) branch on `route.type`; player/admin/demoadmin routes use RPCs; direct reads remain only for authenticated fallback path | Fixed session 25 |
 | BibsScreen `insertBib` broken under RLS | BibsScreen lacks `matchId` + `adminToken` in scope — standalone bib assignment fails post-RLS lockdown. Low priority: bibs can be set via ScoreScreen result save which has both. | Low |
 | Dead write functions in `supabase.js` | `bulkCancelLedgerEntries`, `bulkResetPlayerStatuses`, `deletePlayerMatchRows`, `insertMatch`, `loadTeamData` are unreferenced post-RLS rewrite. Safe to remove in any future cleanup pass. | Low |
+| Admin Decide button in ScoreScreen POTM stage | `onAdminDecide` prop not wired — button currently calls `onBack()`, exiting ScoreScreen instead of opening tiebreak modal. Fix: wire to new `onAdminDecide` prop from AdminView. | Pre-UAT |
+| ScoreScreen POTM stage: `GET /rest/v1/player_match 401` | Direct table read in POTM eligibility fetch not yet migrated to RPC. | Low |
+| Dead write path: `POST /rest/v1/matches 401` | Direct table write somewhere in client code. Likely a legacy path superseded by `admin_save_match_result` RPC. | Low |
 
 ---
 
@@ -1919,3 +1922,11 @@ Multi-team player switcher built + is_vice_captain migrated to team_players + ca
 - `supabase.js`: `playerToDb()` and `resetDemoData()` no longer write `is_vice_captain` (column moved to team_players); `dbToPlayer()` read mapping unchanged (reads `r.is_vice_captain ?? false` from RPC responses that still return tp.is_vice_captain)
 
 Commits: 0947af1 (carryForwardDebts), 1833a1e (guard comment), 2e00f6f (getPlayerTeams RPC), 86b79b0 (MySquads.jsx), 1d1d531 (PlayerView wiring), f317bb3 (barrel export), f175fa4 (migrations 026/010/012/005), d2e769c (010 cleanup), 770f6ca (011/012 cleanup)
+
+Bug fixes post-Priority E:
+- `get_team_state_by_admin_token` RPC: `team_switches` added to matches `jsonb_build_object` in migration 010 — was missing, caused ⇄ icon not showing in HistoryView
+- HistoryView `findPlayer`: now tries name match first, then falls back to ID match — handles both legacy name-keyed and new ID-keyed `team_a`/`team_b` arrays
+- HistoryView guest label: resolves `guestOf` ID to player name via `findPlayer` instead of rendering raw ID string
+- Local migration file 010 updated: `team_switches` added to `get_team_state_by_admin_token` matches block
+
+Commits: 0d30124 (team_switches in admin RPC), 2a32699 (findPlayer fallback), 4ebc054 (guest label)
