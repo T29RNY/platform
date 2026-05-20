@@ -158,6 +158,7 @@ export async function upsertSchedule(adminToken, schedule) {
     p_priority_lead_mins: schedule.priorityLeadMins || null,
     p_reminders_config:   schedule.remindersConfig || null,
     p_one_off_date:       schedule.oneOffDate || null,
+    p_game_is_live:       schedule.gameIsLive ?? null,
   });
   if (error) throw error;
 }
