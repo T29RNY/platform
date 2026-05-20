@@ -577,10 +577,20 @@ export default function JoinTeam({
   team, authUser, onNameSubmit, loading,
   error, prefillName, checking
 }) {
+  const handleGoogleSignIn = async () => {
+    const returnTo = encodeURIComponent(window.location.href);
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}`
+      }
+    });
+  };
+
   if (!authUser) return (
     <>
       <JoinStyles />
-      <SignInStep team={team} onGoogle={() => {}} />
+      <SignInStep team={team} onGoogle={handleGoogleSignIn} />
     </>
   );
 
