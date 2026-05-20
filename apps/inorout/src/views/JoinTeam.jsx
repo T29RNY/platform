@@ -95,6 +95,91 @@ function JoinStyles() {
         50%       { opacity: 1;    transform: scale(1);     }
       }
 
+      .join-auth-card {
+        width: 100%;
+        text-align: center;
+      }
+
+      .join-invite-label {
+        font-family: "DM Sans", sans-serif;
+        font-weight: 300;
+        font-size: 14px;
+        color: var(--t2);
+        margin: 32px 0 6px;
+        letter-spacing: 0.04em;
+      }
+
+      .join-invite-title {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(32px, 9vw, 44px);
+        line-height: 1;
+        letter-spacing: 0.045em;
+        font-weight: 400;
+        color: var(--gold);
+        text-transform: uppercase;
+        margin: 0 0 36px;
+        text-shadow: 0 0 28px rgba(232, 160, 32, 0.22);
+      }
+
+      .join-google-btn {
+        width: 100%;
+        min-height: 56px;
+        border-radius: 14px;
+        border: 1px solid rgba(232, 160, 32, 0.4);
+        background: var(--s1);
+        color: var(--t1);
+        font-family: "DM Sans", sans-serif;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 160ms ease, opacity 160ms ease;
+      }
+
+      .join-google-btn:active  { transform: scale(0.98); }
+      .join-google-btn:disabled { opacity: 0.48; cursor: not-allowed; }
+
+      .join-divider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 20px 0;
+        width: 100%;
+      }
+
+      .join-divider-line {
+        flex: 1;
+        height: 0.5px;
+        background: rgba(242, 240, 234, 0.12);
+      }
+
+      .join-divider-text {
+        font-family: "DM Sans", sans-serif;
+        font-size: 11px;
+        font-weight: 300;
+        color: var(--t2);
+        letter-spacing: 0.08em;
+      }
+
+      .join-email-link {
+        background: transparent;
+        border: none;
+        color: var(--gold);
+        font-family: "DM Sans", sans-serif;
+        font-size: 14px;
+        font-weight: 400;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        padding: 8px 10px;
+      }
+
       @media (max-width: 380px) {
         .join-shell  { padding-left: 16px; padding-right: 16px; }
         .join-brand  { font-size: clamp(58px, 16vw, 78px); }
@@ -129,10 +214,71 @@ function JoinShell({ children, checking = false }) {
   );
 }
 
+function CheckingState() {
+  return (
+    <JoinShell checking>
+      <BrandMark quiet />
+    </JoinShell>
+  );
+}
+
+function SignInStep({ team, onGoogle }) {
+  return (
+    <JoinShell>
+      <div className="join-auth-card">
+        <BrandMark />
+        <p className="join-invite-label">
+          You've been invited to join
+        </p>
+        <h1 className="join-invite-title">
+          {team?.name || "your team"}
+        </h1>
+        <button
+          type="button"
+          className="join-google-btn"
+          onClick={onGoogle}>
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+            <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
+            <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/>
+            <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/>
+            <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z"/>
+          </svg>
+          Continue with Google
+        </button>
+        <div className="join-divider">
+          <span className="join-divider-line" />
+          <span className="join-divider-text">or</span>
+          <span className="join-divider-line" />
+        </div>
+        <button
+          type="button"
+          className="join-email-link"
+          onClick={() => {}}>
+          Use email instead
+        </button>
+      </div>
+    </JoinShell>
+  );
+}
+
 export default function JoinTeam({
   team, authUser, onNameSubmit, loading,
   error, prefillName, checking
 }) {
+  if (!authUser) return (
+    <>
+      <JoinStyles />
+      <SignInStep team={team} onGoogle={() => {}} />
+    </>
+  );
+
+  if (checking) return (
+    <>
+      <JoinStyles />
+      <CheckingState />
+    </>
+  );
+
   return (
     <>
       <JoinStyles />
