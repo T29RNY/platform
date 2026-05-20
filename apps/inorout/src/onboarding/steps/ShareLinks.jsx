@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "@platform/supabase";
 import { ONBOARDING_CONFIG as CFG } from "../config.js";
 
 const BASE_URL = "https://www.in-or-out.com";
@@ -73,16 +72,11 @@ function PlayerCopyButton({ text }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function ShareLinks({
-  teamId, groupName, adminToken, players, onComplete,
+  teamId, groupName, adminToken, players,
 }) {
   const adminUrl = `${BASE_URL}/admin/${adminToken}`;
 
-  const handleGoAdmin = async () => {
-    try {
-      await supabase.from("teams").update({ onboarding_complete: true }).eq("id", teamId);
-    } catch (_) {
-      // navigate regardless
-    }
+  const handleGoAdmin = () => {
     window.location.href = adminUrl;
   };
 
