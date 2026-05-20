@@ -205,6 +205,92 @@ RPC (e.g. int → numeric):
 
 ---
 
+## RPC CALL SITE CHECKLIST
+
+After any RPC signature change or rewrite:
+
+1. Grep every call site immediately:
+   grep -r "functionName" apps/ packages/
+   Report every file, line, and exact
+   arguments passed.
+
+2. Check argument order at every call site —
+   not just the ones you changed. Inverted
+   arguments cause silent failures that are
+   hard to trace (the JS compiles clean,
+   the RPC receives wrong values).
+
+3. Check App-level state wrappers separately:
+   setSchedule, setSettings, setBibHistory
+   etc in App.jsx may contain duplicate DB
+   calls with stale argument order from
+   pre-RLS rewrites. These wrappers should
+   be pure state setters only — child screens
+   own their own persistence via explicit
+   RPC calls.
+
+4. Never assume the UI reflects the DB.
+   When something appears not to save,
+   query the DB directly first:
+   SELECT <fields> FROM <table>
+   WHERE team_id = '<id>';
+
+## SUPABASE SCHEMA CACHE
+
+PostgREST caches function signatures. After
+any RPC change, the cache may serve a stale
+version causing 404 Not Found errors.
+
+Symptoms:
+- 404 on a function that exists in pg_proc
+- Error hint shows wrong parameter order
+- Function works after waiting 5 minutes
+
+Fixes (in order of preference):
+1. Run in SQL editor:
+   SELECT pg_notify('pgrst', 'reload schema');
+2. Run CREATE OR REPLACE on the affected
+   function — forces cache invalidation
+3. Wait — Supabase auto-refreshes every
+   5 minutes on free tier
+4. Restart PostgREST — only available on
+   paid Supabase plans
+
+Note: changing a parameter TYPE (e.g. int
+→ numeric) creates a new overload. Always
+DROP the old signature explicitly:
+DROP FUNCTION IF EXISTS fn_name(old, types);
+Failure to do this causes "could not choose
+best candidate function" errors.
+
+## STATE WRAPPER PATTERN
+
+App.jsx state wrappers (setSchedule,
+setSettings etc) must be pure React state
+setters only. Never add DB persistence
+inside them.
+
+Wrong:
+const setSchedule = async (updater) => {
+  const next = ...updater...;
+  setScheduleRaw(next);
+  await upsertSchedule(token, next); // ❌
+};
+
+Correct:
+const setSchedule = (updater) => {
+  const next = ...updater...;
+  setScheduleRaw(next); // ✅ state only
+};
+
+Child screens call upsertSchedule explicitly
+with adminToken before calling setSchedule
+for UI sync. This is the established pattern
+in ScheduleScreen, AdminView openNextWeek,
+and RemindersScreen.
+
+---
+
 ## CONVENTIONS
 
 **Code:**
