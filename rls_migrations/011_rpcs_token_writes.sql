@@ -488,7 +488,7 @@ BEGIN
   -- matches existing DB records — spec says 'cover', see OI-38)
   INSERT INTO players (
     id, name, token, type,
-    disabled, priority, is_vice_captain,
+    disabled, priority,
     status, paid, owes,
     goals, motm, attended, total,
     bib_count, team, w, l, d,
@@ -496,7 +496,7 @@ BEGIN
     is_guest, guest_of
   ) VALUES (
     v_guest_id, trim(p_guest_name), v_guest_token, 'regular',
-    false, false, false,
+    false, false,
     'in', false, 0,
     0, 0, 0, 0,
     0, null, 0, 0, 0,
