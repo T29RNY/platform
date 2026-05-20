@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShareNetwork, CaretRight } from "@phosphor-icons/react";
+import { ShareNetwork, CaretRight, ArrowsLeftRight } from "@phosphor-icons/react";
 import { resolveMotm, resolveBibHolder } from "@platform/core";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -264,8 +264,8 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
         </div>
       </div>
 
-      {/* Row 2 — POTM · bibs · last goal (hidden entirely when all absent) */}
-      {(m.motm || m.bibHolder || lastGoalScorerPlayer) && (
+      {/* Row 2 — POTM · bibs · last goal · switches (hidden entirely when all absent) */}
+      {(m.motm || m.bibHolder || lastGoalScorerPlayer || (m.teamSwitches && m.teamSwitches.length > 0)) && (
         <div style={{
           borderTop: "0.5px solid var(--b2)", padding: "7px 12px 7px 14px",
           display: "flex", alignItems: "center", gap: 5,
@@ -277,6 +277,8 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
           {m.bibHolder && <span>🟡 {resolveBibHolder(m.bibHolder, players)} has bibs</span>}
           {m.bibHolder && lastGoalScorerPlayer && <span style={{ opacity: 0.4 }}>·</span>}
           {lastGoalScorerPlayer && <span>⚽ Last: {lastGoalScorerPlayer.nickname || lastGoalScorerPlayer.name}</span>}
+          {(m.motm || m.bibHolder || lastGoalScorerPlayer) && (m.teamSwitches && m.teamSwitches.length > 0) && <span style={{ opacity: 0.4 }}>·</span>}
+          {m.teamSwitches && m.teamSwitches.length > 0 && <ArrowsLeftRight size={12} weight="thin" color="var(--t2)" />}
         </div>
       )}
 
@@ -329,37 +331,51 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
                   fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em",
                   color, fontWeight: 600, marginBottom: 7,
                 }}>{label}</div>
-                {objs.map((p, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "center", gap: 6, marginBottom: 5,
-                  }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                      background: p.isGuest ? "rgba(232,160,32,0.2)" : `${color}22`,
-                      color: p.isGuest ? "var(--gold)" : color,
-                      fontSize: 8, fontWeight: 700,
-                      display: "flex", alignItems: "center", justifyContent: "center",
+                {objs.map((p, i) => {
+                  const wasSwitched = p.id && m.teamSwitches?.some(s => s.playerId === p.id);
+                  return (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", gap: 6, marginBottom: 5,
                     }}>
-                      {initials(p.name)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
-                        fontSize: 12, color: "var(--t1)",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                        background: p.isGuest ? "rgba(232,160,32,0.2)" : `${color}22`,
+                        color: p.isGuest ? "var(--gold)" : color,
+                        fontSize: 8, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
-                        {p.nickname || p.name}{m.motm && p.id === m.motm ? " 🏆" : ""}
+                        {initials(p.name)}
                       </div>
-                      {p.isGuest && p.guestOf && (
-                        <div style={{ fontSize: 9, color: "var(--gold)", marginTop: 1 }}>+1 {p.guestOf}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontSize: 12, color: "var(--t1)",
+                          display: "flex", alignItems: "center", overflow: "hidden",
+                        }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {p.nickname || p.name}{m.motm && p.id === m.motm ? " 🏆" : ""}
+                          </span>
+                          {wasSwitched && (
+                            <span style={{
+                              background: "var(--gold2)", border: "0.5px solid var(--goldb)",
+                              borderRadius: 4, padding: "1px 4px", marginLeft: 4,
+                              display: "inline-flex", alignItems: "center", flexShrink: 0,
+                            }}>
+                              <ArrowsLeftRight size={11} weight="thin" color="var(--gold)" />
+                            </span>
+                          )}
+                        </div>
+                        {p.isGuest && p.guestOf && (
+                          <div style={{ fontSize: 9, color: "var(--gold)", marginTop: 1 }}>+1 {p.guestOf}</div>
+                        )}
+                      </div>
+                      {(m.scorers || {})[p.name] > 0 && (
+                        <div style={{ fontSize: 11, color: "var(--t2)", flexShrink: 0 }}>
+                          ⚽ {m.scorers[p.name]}
+                        </div>
                       )}
                     </div>
-                    {(m.scorers || {})[p.name] > 0 && (
-                      <div style={{ fontSize: 11, color: "var(--t2)", flexShrink: 0 }}>
-                        ⚽ {m.scorers[p.name]}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
           </div>
