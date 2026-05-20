@@ -308,7 +308,14 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
     }
     setPriceError(null);
 
-    const finalSched = { ...sched, pricePerPlayer: priceVal, remindersConfig: reminders };
+    const finalSched = { ...sched,
+      pricePerPlayer: priceVal,
+      remindersConfig: reminders,
+      gameIsLive:    schedule.gameIsLive,
+      isDraft:       schedule.isDraft,
+      isCancelled:   schedule.isCancelled,
+      lineupLocked:  schedule.lineupLocked,
+      activeMatchId: schedule.activeMatchId };
 
     setSaving(true);
     try {
