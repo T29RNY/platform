@@ -475,3 +475,54 @@ Apply SQL before writing any JS wrapper.
    declaring done.
 8. BUGS.md, FEATURES.md, and DECISIONS.md must be updated when
    bugs are resolved, features ship, or architecture decisions are made.
+
+---
+
+## HOOKS — DETERMINISTIC ENFORCEMENT
+
+Three Claude Code hooks live in `.claude/` and fire automatically
+on every Claude session in this workspace. They turn the rules
+above from advisory (~80% adherence) into deterministic (100%).
+
+Open VS Code with `/Users/tarny/platform` as the workspace root
+(not the home directory) — hooks only load from the workspace's
+own `.claude/settings.json`.
+
+**1. SessionStart primer — `.claude/hooks/session-start.sh`**
+At the start of every new chat, injects branch name, working tree
+state, last 5 commits, and the BUGS.md head into the assistant's
+context. Replaces the soft "read CONTEXT.md first" expectation
+with deterministic injection. No way to skip it.
+
+**2. PostToolUse hygiene — `.claude/hooks/post-edit-hygiene.sh`**
+After every Edit/Write/MultiEdit on `.js`/`.jsx`/`.ts`/`.tsx`
+files under `apps/inorout/src/` or `packages/core/`, runs
+`skills/scripts/check-hygiene.sh <file>` and blocks (exit 2)
+on any of its 7 failures: console.log, hardcoded hex outside
+#60A0FF/#FF6060, non-thin Phosphor weight, MOTM/Man-of-the-Match
+display text, direct supabase.from() outside supabase.js, raw
+supabase.rpc() outside supabase.js, async state setters in App.jsx.
+
+Out-of-scope files (root MDs, configs, migrations) exit 0 silently.
+
+**3. PreToolUse build gate — `.claude/hooks/pre-commit-build.sh`**
+Before any Bash command matching `git ... commit ...` (any flags
+between, e.g. `git -C /path commit -m`), runs
+`skills/scripts/check-build.sh` and blocks the commit if the build
+fails. Adds ~4s to incremental commits, ~20s to cold ones. This
+is the cost of "never commit without a passing build" being
+literal rather than aspirational.
+
+**Override discipline**
+Hooks block; they don't ask. If a hook is wrong (false positive,
+intentional exception not yet codified), fix the hook script in a
+dedicated commit — don't disable hooks to push through a change.
+Per-user overrides live in `.claude/settings.local.json` (gitignored).
+
+**When hooks evolve**
+- Adding a new check to `skills/scripts/check-hygiene.sh` makes
+  it fire automatically — no hook change needed.
+- New event types (e.g. blocking PR merge, schema-sync gate) go
+  in `.claude/hooks/` with a matching entry in `settings.json`.
+- Smoke-test new hooks against realistic command shapes before
+  committing (see commit `c65b61c` for what a regex miss costs).

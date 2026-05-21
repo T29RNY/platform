@@ -4,3 +4,6 @@ dist
 .env
 .env.local
 .DS_Store
+
+# Claude Code local overrides — per-user permissions, not for sharing
+.claude/settings.local.json
