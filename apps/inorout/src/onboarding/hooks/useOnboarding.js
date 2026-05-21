@@ -3,7 +3,7 @@ import { ONBOARDING_CONFIG as CFG } from "../config.js";
 import { supabase } from "@platform/supabase";
 
 
-export function useOnboarding({ onComplete }) {
+export function useOnboarding({ onComplete, authUser }) {
   const loadingStartRef = useRef(null);
   const [step,      setStep]      = useState(1); // 1, 2, 3
   const [loading,   setLoading]   = useState(false);
@@ -18,7 +18,7 @@ export function useOnboarding({ onComplete }) {
   const [squadSize,       setSquadSize]       = useState(CFG.defaults.squadSize);
   const [pricePerPlayer,  setPricePerPlayer]  = useState(CFG.defaults.pricePerPlayer);
   const [bibsEnabled,     setBibsEnabled]     = useState(true);
-  const [adminEmail,      setAdminEmail]      = useState('');
+  const [adminEmail,      setAdminEmail]      = useState(authUser?.email || '');
 
   // Step 2 state — populated after creation
   const [teamId,      setTeamId]      = useState(null);

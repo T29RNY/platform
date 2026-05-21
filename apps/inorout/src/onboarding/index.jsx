@@ -3,8 +3,8 @@ import CreateTeam from "./steps/CreateTeam.jsx";
 import SquadReady from "./steps/SquadReady.jsx";
 import SetupLoadingScreen from "./steps/SetupLoadingScreen.jsx";
 
-export default function Onboarding({ onComplete }) {
-  const ob = useOnboarding({ onComplete });
+export default function Onboarding({ onComplete, authUser }) {
+  const ob = useOnboarding({ onComplete, authUser });
 
   if (ob.loading) return <SetupLoadingScreen />;
 

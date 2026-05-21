@@ -280,7 +280,6 @@ export default function CreateTeam({
   const [priceDisplay,   setPriceDisplay]   = useState("");
   const [priceError,     setPriceError]     = useState(null);
   const [priceZeroAck,   setPriceZeroAck]   = useState(false);
-  const [emailError,     setEmailError]     = useState(null);
 
   // Clear inherited default price on mount so the field starts empty
   useEffect(() => {
@@ -309,11 +308,6 @@ export default function CreateTeam({
       setPriceZeroAck(true);
       return;
     }
-    if (!adminEmail?.trim()) {
-      setEmailError("Please enter your email address");
-      return;
-    }
-    setEmailError(null);
     setPriceError(null);
     onSubmit();
   };
@@ -423,19 +417,6 @@ export default function CreateTeam({
           >
             NO
           </button>
-        </div>
-      </Field>
-
-      {/* Admin email */}
-      <Field label="YOUR EMAIL" error={emailError}>
-        <FInput
-          type="email"
-          value={adminEmail || ""}
-          onChange={e => { setAdminEmail(e.target.value); setEmailError(null); }}
-          placeholder="e.g. tarny@gmail.com"
-        />
-        <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 6, fontWeight: 300 }}>
-          For your admin link backup — we won't spam you
         </div>
       </Field>
 
