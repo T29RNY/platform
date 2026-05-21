@@ -6,7 +6,7 @@ import {
   toggleViceCaptain,
 } from "@platform/core";
 import {
-  addCoverPlayer, removeCoverPlayer, deletePlayer,
+  deletePlayer,
   resetPlayerToken, insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
   closePOTMVoting, setPlayerNickname,
   upsertSchedule, adminCancelMatch, addPlayerToTeam,

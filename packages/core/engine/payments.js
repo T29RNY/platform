@@ -48,41 +48,6 @@ export async function handleGuestCashPayment(hostToken, guestId, paidBy = 'host'
   if (error) throw error;
 }
 
-/** Admin or player clears a prior-game debt. Sets owes = 0 in DB. */
-export async function handleClearDebt(playerId, teamId, amount = 0) {
-  const paidAt = new Date().toISOString();
-  const { error } = await supabase
-    .from("players")
-    .update({ owes: 0 })
-    .eq("id", playerId);
-  if (error) throw error;
-  await createLedgerEntry({
-    teamId, playerId, matchId: null, amount: amount || 0,
-    type: 'debt_payment', status: 'paid', method: 'cash',
-    paidBy: 'self', paidAt, note: null,
-  });
-  return { owes: 0 };
-}
-
-/**
- * Stripe integration point.
- * Call after Stripe confirms payment server-side; writes paid=true to players + ledger.
- */
-export async function handleStripePayment(playerId, teamId, amount, matchId = null) {
-  const paidAt = new Date().toISOString();
-  const { error } = await supabase
-    .from("players")
-    .update({ paid: true, paid_by: 'stripe', paid_at: paidAt })
-    .eq("id", playerId);
-  if (error) throw error;
-  await createLedgerEntry({
-    teamId, playerId, matchId: matchId || null, amount: amount || 0,
-    type: 'game_fee', status: 'paid', method: 'stripe',
-    paidBy: 'stripe', paidAt, note: null,
-  });
-  return { success: true, paid: true, paidAt };
-}
-
 /** Admin confirms a player has paid. */
 export async function handleMarkPaid(adminToken, playerId, matchId = null) {
   const { error } = await supabase.rpc('admin_confirm_payment', {
@@ -115,7 +80,4 @@ export async function handleWaiveDebt(adminToken, playerId, note = null) {
   if (error) throw error;
   return { owes: 0 };
 }
-
-// ─── Existing functions ───────────────────────────────────────────────────────
-
 
