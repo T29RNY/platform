@@ -7,7 +7,7 @@
 
 ## LOW — Known workarounds exist
 
-### 2. BibsScreen standalone write broken under RLS
+### 1. BibsScreen standalone write broken under RLS
 **File:** `apps/inorout/src/views/AdminView/BibsScreen.jsx`
 **Detail:** BibsScreen bib assignment lacks `matchId` + `adminToken` in scope.
 Direct `insertBib` write is blocked by RLS.
@@ -16,18 +16,18 @@ BibsScreen assignment is non-functional post-RLS.
 **Fix:** Thread `adminToken` + `matchId` into BibsScreen; replace `insertBib` with
 `admin_save_bib_holder` RPC call.
 
-### 3. `player_career` mostly empty
+### 2. `player_career` mostly empty
 **Detail:** Only `total_bib_count` is ever written. 11 other career fields (`total_games`,
 `total_wins`, `total_losses`, `total_draws`, `total_goals`, `total_motm`,
 `career_win_rate`, `career_reliability`, `career_impact`, `best_team_id`) are permanently
 null/zero. Table exists but provides no value until Phase 2 career sync is built.
 
-### 4. `team_demo` has no `team_admins` row
+### 3. `team_demo` has no `team_admins` row
 **Detail:** Demo team predates the `team_admins` table. Multi-team switcher won't show
 `team_demo` for Tarny's account until backfilled. No impact on real teams.
 **Fix:** `INSERT INTO team_admins (team_id, user_id) VALUES ('team_demo', '<tarny_user_id>');`
 
-### 5. `scoring.js` filename mismatch
+### 4. `scoring.js` filename mismatch
 **File:** `packages/core/engine/scoring.js`
 **Detail:** File hosts `periodCutoff` (a non-scoring helper) alongside `hasGoalData` +
 `resolveDominantType`. Low priority until file grows further.
@@ -37,14 +37,14 @@ null/zero. Table exists but provides no value until Phase 2 career sync is built
 
 ## PRE-BROADER-BETA — Fix before Jun 9 public beta
 
-### 6. CreateTeam email field redundant
+### 5. CreateTeam email field redundant
 **File:** `apps/inorout/onboarding/steps/CreateTeam.jsx`
 **Detail:** Admin is already authenticated via Google OAuth. Showing a manual email
 input is redundant and risks the wrong email being entered.
 **Fix:** Pass `authUser.email` from App.jsx through Onboarding → CreateTeam. Use
 silently as `adminEmail`. Hide the input field from the UI.
 
-### 7. "Make game live" hint for new admins
+### 6. "Make game live" hint for new admins
 **Detail:** New admins have no prompt explaining they need Admin → Match Settings →
 game live toggle. First match will silently not open for players.
 **Fix:** One-time post-onboarding banner pointing to Match Settings. Dismiss on tap,
@@ -54,26 +54,29 @@ store flag in localStorage.
 
 ## RESOLVED THIS SESSION (May 21 2026 — session 28)
 
-- **Bug #1 (Admin Decide button) confirmed non-bug** — audit shows `POTMTiebreakModal`
-  auto-detects `adminDecisionPending` on return to AdminView. Flow works correctly.
-- **Bug #2 (insertMatch 401)** — App.jsx call site removed (`setMatchHistory` made pure);
-  `insertMatch` function deleted from `supabase.js`. Resolved.
-- **Bug #5 (upsertSchedule dead import)** — removed from App.jsx imports. Resolved.
-- **Bug #6 (insertMatch in supabase.js)** — deleted. Resolved.
-- **TeamsScreen hardcoded colours** — all 5 fixed with CSS variables (session 28).
+- **ScoreScreen bib eligibility 401** — replaced `getBibEligiblePlayers` direct
+  `player_match` read with synchronous derivation from `squad` prop (`bibsSorted`). No new
+  RPC needed. `getBibEligiblePlayers` deleted from supabase.js. Commit: `8aaae57`
+- **Admin Decide button** — confirmed non-bug. `POTMTiebreakModal` auto-detects
+  `adminDecisionPending` on return to AdminView. Flow works correctly.
+- **insertMatch 401** — App.jsx call site removed (`setMatchHistory` made pure);
+  `insertMatch` deleted from `supabase.js`.
+- **upsertSchedule dead import** — removed from App.jsx imports.
+- **TeamsScreen hardcoded colours** — all 5 fixed with CSS variables.
 - **App.jsx dead imports** — `insertMatch`, `upsertSchedule`, `addCoverPlayer`,
-  `removeCoverPlayer`, `updateCoverPlayer` all removed.
-- Dead write functions removed from `supabase.js`: `bulkCancelLedgerEntries`,
+  `removeCoverPlayer`, `updateCoverPlayer`, `getUser`, `getUserProfile`,
+  `getTeamByPlayerToken` all removed.
+- **Raw RPC in AdminView/index.jsx** — `admin_confirm_payment` extracted to
+  `confirmPayment()` wrapper in supabase.js.
+- **Gold hardcoded colours in AdminView/index.jsx** — replaced with `var(--goldb)` / `var(--gold2)`.
+- **console.warn in App.jsx** — changed to `console.error`.
+- Dead functions removed from `supabase.js`: `bulkCancelLedgerEntries`,
   `bulkResetPlayerStatuses`, `deletePlayerMatchRows`, `findPlayerByUserId`,
-  `findPlayersByName`, `getPlayerByUserId`, `updateCareerBibCount`
+  `findPlayersByName`, `getPlayerByUserId`, `updateCareerBibCount`, `insertBib`,
+  `addCoverPlayer`, `removeCoverPlayer`, `updateCoverPlayer`, `getBibEligiblePlayers`
 - Dead payment functions removed from `payments.js`: `handleClearDebt`, `handleStripePayment`
 - `IsThisYou.jsx` deleted (never routed to or imported)
-- Dead barrel exports removed from `packages/core/index.js`
-- Dead imports removed from `AdminView/index.jsx` (`addCoverPlayer`, `removeCoverPlayer`)
-- **Bug #1 (ScoreScreen bib eligibility 401)** — replaced `getBibEligiblePlayers` direct
-  `player_match` read with synchronous derivation from `squad` prop (`bibsSorted`). No new
-  RPC needed. `getBibEligiblePlayers` deleted from supabase.js.
-- Commit: `1784b44` (dead code), `3e2bfde` (docs split)
+- Commits: `1784b44`, `3e2bfde`, `9003865`, `6df6fcf`, `9441888`, `957f63d`, `8aaae57`
 
 ---
 

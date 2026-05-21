@@ -59,7 +59,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| **Bug fixes (Pre-UAT)** | 🔴 Must do | See BUGS.md #1 (POTM eligibility 401) |
+| **Bug fixes (Pre-UAT)** | ✅ All cleared session 28 | No Pre-UAT blockers remaining |
 | **Mid-game team switches** | ✅ Done session 28 | ScoreScreen new stage, team_switches jsonb, final team → W/L/D. See DECISIONS.md for spec. |
 | **Most Faced Opponent card** | 🔲 Not built | Unlocks at 4+ games. Fills unlock grid gap. |
 | **Reliability Ranking card** | 🔲 Not built | Unlocks at 5+ games. Fills unlock grid gap. |
