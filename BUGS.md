@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 21 2026 (session 28)*
+*Last updated: May 21 2026 (session 29)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -35,24 +35,18 @@ null/zero. Table exists but provides no value until Phase 2 career sync is built
 
 ---
 
-## PRE-BROADER-BETA — Fix before Jun 9 public beta
-
-### 5. CreateTeam email field redundant
-**File:** `apps/inorout/onboarding/steps/CreateTeam.jsx`
-**Detail:** Admin is already authenticated via Google OAuth. Showing a manual email
-input is redundant and risks the wrong email being entered.
-**Fix:** Pass `authUser.email` from App.jsx through Onboarding → CreateTeam. Use
-silently as `adminEmail`. Hide the input field from the UI.
-
-### 6. "Make game live" hint for new admins
-**Detail:** New admins have no prompt explaining they need Admin → Match Settings →
-game live toggle. First match will silently not open for players.
-**Fix:** One-time post-onboarding banner pointing to Match Settings. Dismiss on tap,
-store flag in localStorage.
-
 ---
 
-## RESOLVED THIS SESSION (May 21 2026 — session 28)
+## RESOLVED THIS SESSION (May 21 2026 — session 29)
+
+- **CreateTeam email field redundant** — `authUser` now flows App.jsx → Onboarding →
+  `useOnboarding`, seeding `adminEmail` from OAuth email. Input field and validation
+  removed from UI. RPC call unchanged. Commit: `419fba2`
+- **"Make game live" hint** — Dismissible banner added to AdminView showing when
+  `gameIsLive` is false and `ioo_game_live_hint_dismissed` not set. CTA links to
+  Match Settings. Permanent dismiss via localStorage. Commit: `419fba2`
+
+## RESOLVED (May 21 2026 — session 28)
 
 - **ScoreScreen bib eligibility 401** — replaced `getBibEligiblePlayers` direct
   `player_match` read with synchronous derivation from `squad` prop (`bibsSorted`). No new

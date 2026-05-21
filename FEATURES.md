@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 21 2026 (session 28)*
+*Last updated: May 21 2026 (session 29)*
 
 ---
 
@@ -73,9 +73,9 @@
 
 | Feature | Notes |
 |---|---|
-| BibsScreen fix under RLS | See BUGS.md #2 |
-| CreateTeam email pre-fill | See BUGS.md #6 |
-| "Make game live" new admin hint | See BUGS.md #7 |
+| BibsScreen fix under RLS | See BUGS.md #1 |
+| CreateTeam email pre-fill | ✅ Done session 29 |
+| "Make game live" new admin hint | ✅ Done session 29 |
 | Last goal scorer in IO Intelligence | `last_goal_scorer` field on matches — just wire into a card |
 | Bib streak insight | Consecutive bib games — data in `bib_history` |
 | WhatsApp share text update | Update share copy in HistoryView |
