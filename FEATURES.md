@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 21 2026 (session 29)*
+*Last updated: May 21 2026 (session 30)*
 
 ---
 
@@ -80,6 +80,9 @@
 | Bib streak insight | Consecutive bib games — data in `bib_history` |
 | WhatsApp share text update | Update share copy in HistoryView |
 | BibsScreen RLS write fix | BibsScreen redesigned ✅; standalone write still broken — see BUGS.md #2 |
+| **Group Balancer** | Organiser-assigned groups (1–5), tap-to-assign, win-rate-nudged generation. Full spec in `GROUP_BALANCER.md`. ~8–9h, May 27–29 window. |
+| **Ask the Gaffer — Phase 1** | Read-only AI assistant: team summary, payment summary, attendance risk, suggested next actions, matchday briefing. See "Ask the Gaffer" section below. |
+| **Marketing landing page** | Conditional render at root (Option A) for beta — unauth + no token → landing, else app shell. See DECISIONS.md. |
 
 ---
 
@@ -110,6 +113,24 @@
 ## PHASE 4 — LEAGUE MODE (parked)
 
 See full spec in `CONTEXT.md` (League Mode section) and `DECISIONS.md`.
+
+---
+
+## ASK THE GAFFER — AI football-operations agent
+
+Repurposes the disabled Gaffer tab in AdminView as a football-operations agent
+grounded in the team's actual data. **Not a generic chatbot.** Four-phase
+trust-graduated rollout. See DECISIONS.md for the rationale.
+
+| Phase | Capability | Status |
+|---|---|---|
+| 1 — Read-only assistant | Ask the Gaffer Q&A, team summary, payment summary, attendance risk, suggested next actions, matchday briefing | 🔲 Not built (Phase 2 backlog) |
+| 2 — Recommendations | Fair team suggestions (calls `generateBalancedTeams`), reserve recs, payment chase drafts, weekly match summary, player insight explanations | 🔲 Not built (Phase 3) |
+| 3 — Confirmed actions | "Send chase", "Notify reserves", "Use these teams", "Post match summary", "Confirm payment reminders" — admin one-tap approve | 🔲 Not built (Phase 3) |
+| 4 — Semi-autonomous | Auto-detect short squads, auto-draft notifications, auto-suggest reserve pings, auto-produce weekly admin report. Player-visible actions still require approval. | 🔲 Not built (Phase 3) |
+
+Sequencing: Phase 1 lands after Group Balancer (Group Balancer's
+`generateBalancedTeams` becomes a building block for Gaffer Phase 2).
 
 ---
 

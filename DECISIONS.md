@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: May 21 2026 (session 28)*
+*Last updated: May 21 2026 (session 30)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -105,6 +105,66 @@ Schema decisions to keep in mind (don't implement yet, just don't paint into cor
 - `player_match.team_assignment`: may need to reference team_id not just 'A'/'B'
 - `matches.motm`: may need to allow array (one POTM per side)
 - Future tables: venues, leagues, fixtures, referees
+
+---
+
+## GROUP BALANCER
+
+- **Tap-to-assign over drag-and-drop.** Chosen for mobile reliability,
+  accessibility, zero library footprint, and ~2–3h faster Stage 3 build. Drag
+  was rejected (dnd-kit, Framer Motion, react-beautiful-dnd all considered).
+  Drag is "playful" but the value of a balancer is *who ends up on each team*,
+  not the gesture used to assign them. Tap → panels glow as targets → tap to
+  commit. Tap outside cancels.
+- **Win rate is the only signal.** No MMR, balance scores, or per-player
+  numerical signals — keeps the system simple and avoids any path toward
+  player-visible rankings. Random tiebreak within 5% of best score gives
+  rerolls varied feel.
+- **Group numbers are admin-only.** Never expose to player routes. Enforced by
+  RLS (no anon read on `team_players.group_number`) and a header comment in
+  `packages/core/engine/groupBalancer.js`.
+- **`generateBalancedTeams` is a pure engine function**, no Supabase calls.
+  Reusable by Ask the Gaffer Phase 2 (fair team suggestions) without
+  reinventing the algorithm.
+
+Full spec: `GROUP_BALANCER.md`.
+
+---
+
+## ASK THE GAFFER
+
+- **Football-operations agent, not a generic chatbot.** Must be grounded in
+  team data (`player_match`, `bib_history`, `team_players`, `matches`,
+  `team_switches`, `ledger`). Feel: "a smart assistant for the organiser who
+  already knows the squad."
+- **Four-phase trust-graduated rollout:**
+  1. Read-only assistant (Q&A, summaries, briefings)
+  2. Recommendations (drafts shown, no actions taken)
+  3. Confirmed actions (admin one-tap approve buttons fire existing RPCs)
+  4. Semi-autonomous (auto-detect short squads etc.) — only after trust
+     proven
+- **Anything visible to players requires admin approval, even in Phase 4.**
+  Hard rule.
+- **All writes via existing SECURITY DEFINER RPCs.** No new direct-write
+  paths for the agent. Auth via `adminToken` per RLS checklist.
+- **LLM provider + data-access pattern** deferred until Phase 1 scope opens
+  (cost is the primary factor).
+
+---
+
+## MARKETING LANDING PAGE
+
+- **Beta:** Option A — conditional render at root. Single Vercel project,
+  unauth + no token + root path → render landing, else app shell. Zero
+  infrastructure change, preserves all existing `/p/TOKEN`, `/create`,
+  `/join`, `/demoadmin` URLs.
+- **Post-public-launch:** Option B — subdomain split (`in-or-out.com` =
+  marketing, `app.in-or-out.com` = app). Requires updating Supabase OAuth
+  callbacks, redirecting in-the-wild `/p/TOKEN` links, re-checking
+  push-notification origin scope. Planned migration, not now.
+- **Why now:** beta needs a public-facing landing page to capture sign-ups
+  and run ads. Option A ships in a day; Option B is 1–2 days plus settle-in
+  risk on existing share links.
 
 ---
 
