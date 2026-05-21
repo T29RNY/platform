@@ -1014,6 +1014,8 @@ all have venue contracts. Sticky but beatable on product quality.
 | ScoreScreen POTM stage: `GET /rest/v1/player_match 401` | Direct table read in POTM eligibility fetch not yet migrated to RPC. | Low |
 | Dead write path: `POST /rest/v1/matches 401` | Direct table write somewhere in client code. Likely a legacy path superseded by `admin_save_match_result` RPC. | Low |
 | CreateTeam email field redundant | Admin already authenticated via Google — email field should be pre-filled from `authUser.email` and hidden, not shown as a manual input. Fix: pass `authUser.email` from App.jsx through Onboarding to CreateTeam and use it silently as `adminEmail` | Pre-broader-beta |
+| `upsertSchedule` dead import in App.jsx | Imported at line 8 but no longer called after setSchedule wrapper was made a pure state setter. Remove in next cleanup pass. | Low |
+| "Make game live" hint for new admins | One-time banner after onboarding pointing to Admin → Match Settings — new admins don't know they need to open the game | Pre-broader-beta |
 
 ---
 
@@ -1951,3 +1953,12 @@ Commits: 97e8c79 (playerJoinTeam RPC wrapper + barrel export), 0d419f6 (App.jsx 
 - Commits: b1d8895, 64c3f9f, c28624b, 8e4e062
 - is_vice_captain RPC cleanup — fixed in 011, 012, 014, 015; was causing add_guest_player and admin payment RPCs to throw internal_error
 - Commit: 6365f79
+- Fixed game live toggle in Match Settings — added p_game_is_live to admin_upsert_schedule RPC; toggle now persists on Save
+- Fixed three inverted upsertSchedule/upsertSettings call sites: RemindersScreen, App.jsx setSchedule wrapper, App.jsx setSettings wrapper
+- Fixed PlayerView crash on empty squad — getPaymentState guard against undefined me
+- Fixed create_team step 12 — admin player row created automatically on team creation
+- Fixed admin_upsert_schedule schema cache issue — forced PostgREST refresh
+- Loading screen minimum display increased to 10s — all 4 tips now cycle
+- SquadReady auto-advance removed — user navigates manually
+- DB cleaned — all test teams and auth users deleted, only team_demo remains
+- Commits: 95d627f, fc6eaac, cf7d39a, e99322a, 3dffb72, 8b61169, 6fcf0df, 7bac7a5, 453e769, 9dfbc0e
