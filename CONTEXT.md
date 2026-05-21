@@ -428,3 +428,4 @@ Critical non-obvious behaviours that don't live in the code or schema.
 **Sessions 28–29 (May 21):** Dead code sweep — supabase.js dead functions removed, App.jsx dead imports cleared, IsThisYou.jsx deleted. BibsScreen RLS fix (ScoreScreen workaround). B1 resolved: 10 SECURITY DEFINER RPCs referencing dropped `players.is_vice_captain` (all Manage Squad buttons + player attendance + payments broken since migration 026); fixed via apply_migration. player_get_teams stale column fixed. find_player_by_email RPC dropped (PUBLIC grant security issue). player_join_team fixed (token generation, SET search_path, PUBLIC grant revoked). PWAWelcome email lookup section removed. Skills/ directory created — full AUDIT→EXECUTE→VERIFY→COMMIT→POST-DEPLOY cycle with 5 scripts and 11 skill files.
 
 
+
