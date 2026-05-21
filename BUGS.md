@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 21 2026 (session 29)*
+*Last updated: May 21 2026 (session 29 — B1 resolved)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -39,6 +39,17 @@ null/zero. Table exists but provides no value until Phase 2 career sync is built
 
 ## RESOLVED THIS SESSION (May 21 2026 — session 29)
 
+- **B1: Stale `p.is_vice_captain` in 10 deployed RPCs** — `players.is_vice_captain` was
+  removed in migration 026 (session 27) but 10 SECURITY DEFINER functions still referenced
+  it in their SELECT clause. PL/pgSQL validates column references at runtime, not definition
+  time, so all 10 failed silently with `internal_error`. Affected: all Manage Squad buttons
+  (INJURED, DISABLE, PRIORITY), player attendance (`set_player_status`), payment marking
+  (`set_player_paid`, `set_guest_payment`), injury self-report (`set_player_injured`),
+  and admin tools (`admin_set_player_note`, `admin_set_player_status`,
+  `admin_update_player_name`). Fixed via `apply_migration` — removed stale
+  `'is_vice_captain', p.is_vice_captain,` line from all 10 SELECT clauses. Verified via
+  `execute_sql` — all 10 return non-null. Schema cache reloaded. `admin_set_vice_captain`
+  was already correct (uses `tp.is_vice_captain` via JOIN). No JS changes needed.
 - **CreateTeam email field redundant** — `authUser` now flows App.jsx → Onboarding →
   `useOnboarding`, seeding `adminEmail` from OAuth email. Input field and validation
   removed from UI. RPC call unchanged. Commit: `419fba2`
@@ -90,3 +101,4 @@ null/zero. Table exists but provides no value until Phase 2 career sync is built
 | POTM voting RLS (submit_potm_vote + get_potm_voting_state RPCs) | Session 25 |
 | `add_guest_player` + payment RPCs referencing `players.is_vice_captain` | Session 27 |
 | `carryForwardDebts` dead code removed | Session 26 |
+| B1: 10 RPCs referencing removed `players.is_vice_captain` — all Manage Squad buttons + `set_player_status` + payments broken | Session 29 |
