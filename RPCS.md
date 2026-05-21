@@ -1,0 +1,144 @@
+# In or Out — RPC Inventory
+*Last updated: May 21 2026 (session 28)*
+
+All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
+only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
+
+**Rule:** If an RPC doesn't exist for a write you need, create it in Supabase SQL
+editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
+
+---
+
+## PATTERN
+
+- Admin RPCs: derive `team_id` from `p_admin_token` server-side — never trust client
+- Player RPCs: derive context from `p_token`
+- Auth RPCs: use `auth.uid()` — no identity params needed
+- All return `jsonb`
+- All use `SECURITY DEFINER`
+
+---
+
+## PLAYER TOKEN RPCs (migration 011)
+
+| SQL function | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `set_player_status` | `setPlayerStatus(token, status)` | anon | Sets status on players row |
+| `set_player_paid` | `handleCashPayment(token)` | anon | Sets self_paid; clears owes atomically if owes > 0 |
+| `set_player_injured` | `insertPlayerInjury(token, injured)` | anon | Writes player_injuries row |
+| `add_guest_player` | `addGuestPlayer(hostToken, guestName)` | anon | Creates guest player row |
+| `save_push_subscription` | `savePushSubscription(token, sub)` | anon | Upserts push_subscriptions |
+
+---
+
+## ADMIN TOKEN RPCs (migrations 012–018)
+
+| SQL function | JS wrapper | Notes |
+|---|---|---|
+| `admin_get_team_state` | `getTeamStateByAdminToken(adminToken)` | Bulk read — all squad/schedule/match data |
+| `admin_add_player` | `addPlayerToTeam(adminToken, name, type, priority)` | Writes players + team_players rows, generates token |
+| `admin_remove_player` | `deletePlayer(adminToken, playerId)` | Soft delete via disabled flag |
+| `admin_update_player_name` | `adminUpdatePlayerName(adminToken, playerId, name)` | |
+| `admin_set_vice_captain` | `toggleViceCaptain(adminToken, playerId, value)` | Writes team_players.is_vice_captain |
+| `admin_set_player_priority` | `setPlayerPriority(adminToken, playerId, priority)` | |
+| `admin_disable_player` | `disablePlayer(adminToken, playerId, disabled)` | |
+| `admin_confirm_payment` | `handleMarkPaid(adminToken, playerId, matchId)` | Sets paid=true; ledger cross-path promotion |
+| `admin_reset_payment` | `handleResetPayment(adminToken, playerId, matchId)` | Resets all payment flags + ledger |
+| `admin_waive_debt` | `handleWaiveDebt(adminToken, playerId, note)` | Zeros owes; writes waiver ledger entry; notify |
+| `admin_save_match_result` | `saveMatchResult(matchId, teamId, adminToken, match)` | Writes result fields only; never touches motm/voting |
+| `admin_save_teams` | `confirmTeams(adminToken, matchId, teamA, teamB)` | Sets team_a/team_b, writes players.team A/B/null |
+| `admin_save_bib_holder` | `saveBibHolder(adminToken, matchId, playerId, name)` | 4-step atomic: match bib_holder, player bib_count++, bib_history upsert, had_bibs flag |
+| `admin_cancel_match` | `adminCancelMatch(adminToken, reason)` | Atomic cancel — replaces 7-step cancelWeek() |
+| `admin_upsert_schedule` | `upsertSchedule(adminToken, schedule)` | Includes p_game_is_live (added session 27) |
+| `admin_upsert_settings` | `upsertSettings(adminToken, settings)` | |
+| `admin_close_potm_voting` | `closePOTMVoting(adminToken, matchId, winnerId, wasAdminDecided)` | Updates matches + player_match |
+| `admin_reset_player_token` | `resetPlayerToken(adminToken, playerId)` | Generates new token |
+| `set_player_nickname` | `setPlayerNickname(adminToken, playerId, nickname)` | Admin sets nickname |
+| `clear_player_injury` | `clearPlayerInjury(adminToken, playerId)` | Sets cleared_at |
+
+---
+
+## DRAFT RPCs
+
+| SQL function | JS wrapper | Notes |
+|---|---|---|
+| `admin_save_teams_draft` | `saveTeamsDraft(adminToken, matchId, a, b)` | Saves draft without confirming |
+
+---
+
+## AUTH RPCs
+
+| SQL function | JS wrapper | Auth | Notes |
+|---|---|---|---|
+| `link_player_to_user` | `linkPlayerToUser(token)` | authenticated only | Links player token to auth.uid(); guards double-link |
+| `player_join_team` | `playerJoinTeam(teamId, name)` | authenticated only | Handles new + returning players; upserts team_players |
+| `player_get_teams` | `getPlayerTeams()` | authenticated only | Returns all squads for auth.uid(); anon revoked |
+
+---
+
+## ONBOARDING RPCs
+
+| SQL function | JS wrapper | Auth | Notes |
+|---|---|---|---|
+| `create_team` | `createTeam(teamData)` | authenticated | Atomic: team + players + schedule + settings + team_admins; full rollback on error |
+
+---
+
+## QUERY RPCs (reads)
+
+| SQL function | JS wrapper | Notes |
+|---|---|---|
+| `get_team_state_by_player_token` | `getTeamStateByPlayerToken(token)` | Bulk read for player route; includes match_stats, win_rate, reliability, ledger, last_match_meta, player_form |
+| `get_team_state_by_admin_token` | `getTeamStateByAdminToken(adminToken)` | Bulk read for admin/demoadmin routes |
+| `submit_potm_vote` | `submitPOTMVote(matchId, teamId, voterToken, nomineeId)` | SECURITY DEFINER; UNIQUE violation returns {error:"already_voted"} |
+| `get_potm_voting_state` | `getPOTMVotingState(matchId, teamId, voterToken)` | Returns eligible players + existing vote |
+| `find_player_by_email` | `findPlayerByEmail(email)` | Returns [{token, player_id, player_name, team_id, team_name}] |
+
+---
+
+## MIGRATION FILE MAP
+
+| Migration | Contents |
+|---|---|
+| 006 | RLS enable on all 19 tables |
+| 007 | RLS team-scoped table policies |
+| 008 | RLS financial/audit table policies |
+| 010 | `get_team_state_by_player_token` + `get_team_state_by_admin_token` bulk RPCs |
+| 011 | Player token RPCs: set_player_status, set_player_paid, set_player_injured, add_guest_player, save_push_subscription |
+| 012 | Admin token RPCs: all admin write operations |
+| 013 | Admin match/schedule RPCs |
+| 014 | Admin payment RPCs |
+| 015 | Onboarding: create_team |
+| 016 | POTM: submit_potm_vote, get_potm_voting_state |
+| 017+ | Incremental additions |
+| 022 | link_player_to_user (authenticated only) |
+| 026 | is_vice_captain migrated to team_players; players_public view updated |
+| 028 | player_join_team (authenticated only) |
+
+**Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
+All were deployed in Phase C via Supabase SQL editor.
+
+---
+
+## SUPABASE SCHEMA CACHE
+
+PostgREST caches function signatures. After any RPC change, cache may serve stale version.
+
+Symptoms: 404 on a function that exists, wrong parameter order error.
+
+Fix: `SELECT pg_notify('pgrst', 'reload schema');` in Supabase SQL editor.
+
+---
+
+## ADDING A NEW RPC — CHECKLIST
+
+1. Write SQL in Supabase SQL editor first — never via Claude Code
+2. Use `SECURITY DEFINER`
+3. `REVOKE ALL` from anon if authenticated-only
+4. `GRANT EXECUTE` to correct role
+5. Authenticate via `auth.uid()` or token param — never trust passed user_id
+6. Return `jsonb`
+7. Add wrapper in `packages/core/storage/supabase.js`
+8. Export from `packages/core/index.js` barrel
+9. Import at call site
+10. Verify: grep confirms RPC name appears in exactly ONE `supabase.rpc()` call in supabase.js
