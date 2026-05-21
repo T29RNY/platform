@@ -42,7 +42,7 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | `admin_set_vice_captain` | `toggleViceCaptain(adminToken, playerId, value)` | Writes team_players.is_vice_captain |
 | `admin_set_player_priority` | `setPlayerPriority(adminToken, playerId, priority)` | |
 | `admin_disable_player` | `disablePlayer(adminToken, playerId, disabled)` | |
-| `admin_confirm_payment` | `handleMarkPaid(adminToken, playerId, matchId)` | Sets paid=true; ledger cross-path promotion |
+| `admin_confirm_payment` | `handleMarkPaid(adminToken, playerId, matchId)` (payments.js) / `confirmPayment(adminToken, playerId, matchId)` (supabase.js) | Sets paid=true; ledger cross-path promotion |
 | `admin_reset_payment` | `handleResetPayment(adminToken, playerId, matchId)` | Resets all payment flags + ledger |
 | `admin_waive_debt` | `handleWaiveDebt(adminToken, playerId, note)` | Zeros owes; writes waiver ledger entry; notify |
 | `admin_save_match_result` | `saveMatchResult(matchId, teamId, adminToken, match)` | Writes result fields only; never touches motm/voting |
