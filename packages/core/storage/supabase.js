@@ -74,13 +74,6 @@ export async function getMatches(teamId) {
   return (data || []).map(dbToMatch);
 }
 
-export async function insertMatch(match, teamId) {
-  const row = { ...matchToDb(match), team_id: teamId };
-  // ignoreDuplicates: stub matches from lineup lock already exist — skip silently
-  const { error } = await supabase.from("matches").upsert(row, { onConflict: "id", ignoreDuplicates: true });
-  if (error) throw error;
-}
-
 // ─── Bib history ──────────────────────────────────────────────────────────────
 export async function getBibHistory(teamId) {
   const { data, error } = await supabase

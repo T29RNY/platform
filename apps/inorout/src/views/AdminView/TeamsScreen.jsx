@@ -286,8 +286,8 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
 
         {/* Random Generator */}
         <button onClick={handleRandom} style={{
-          flex: 1, height: 40, borderRadius: 8, border: "none",
-          background: "#5B21B6", color: "white",
+          flex: 1, height: 40, borderRadius: 8, border: "0.5px solid var(--purpleb)",
+          background: "var(--purple2)", color: "var(--purple)",
           display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center", gap: 1,
           cursor: "pointer",
@@ -317,8 +317,8 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
 
         {/* Confirm Teams */}
         <button onClick={handleConfirm} style={{
-          flex: 1, height: 40, borderRadius: 8, border: "none",
-          background: "#16A34A", color: "white",
+          flex: 1, height: 40, borderRadius: 8, border: "0.5px solid var(--greenb)",
+          background: "var(--green2)", color: "var(--green)",
           display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center", gap: 1,
           cursor: isConfirming ? "default" : "pointer",
@@ -389,8 +389,8 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
         ) : (
           <button onClick={handleClear} style={{
             width: "100%", height: 40, borderRadius: 8,
-            background: "#3B0A0A", border: "1px solid #FF4040",
-            color: "#FF4040", cursor: "pointer",
+            background: "var(--red2)", border: "0.5px solid var(--redb)",
+            color: "var(--red)", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           }}>
             <Trash size={16} weight="thin" />
@@ -528,7 +528,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
                     width: 36, height: 26, borderRadius: 4,
                     fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, fontWeight: 700,
                     cursor: "pointer",
-                    background: aSelected ? "#1E3A5F" : "var(--s3)",
+                    background: aSelected ? "rgba(96,160,255,0.15)" : "var(--s3)",
                     color: "#60A0FF",
                     border: aSelected ? "1px solid #60A0FF" : "1px solid rgba(96,160,255,0.3)",
                   }}
@@ -541,7 +541,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
                     width: 36, height: 26, borderRadius: 4,
                     fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, fontWeight: 700,
                     cursor: "pointer",
-                    background: bSelected ? "#3B0A0A" : "var(--s3)",
+                    background: bSelected ? "rgba(255,96,96,0.15)" : "var(--s3)",
                     color: "#FF6060",
                     border: bSelected ? "1px solid #FF6060" : "1px solid rgba(255,96,96,0.3)",
                   }}

@@ -22,7 +22,7 @@
 | ScoreScreen | ✅ | 6-stage progressive flow, score_type, last_goal_scorer — session 11 |
 | Admin view consistency | ✅ | Sticky heroes, 5-tab admin nav, Gaffer disabled — session 12 |
 | Player League Table | ✅ | PlayerLeagueTable.jsx + getPlayerLeagueTable — session 20 |
-| Admin screens redesign | 🟡 Partial | ScheduleScreen ✅ (s13), TeamsScreen ✅ (s21), SquadScreen ✅ (s22); BibsScreen still default |
+| Admin screens redesign | ✅ Done | ScheduleScreen ✅ (s13), TeamsScreen ✅ (s21), SquadScreen ✅ (s22), BibsScreen ✅ (s28) |
 | Vice Captain system | ✅ | VC toggle, PlayerProfile ROLES, HeroCard ADMINS, access gating — sessions 22–23 |
 | Payments admin screen | ✅ | PaymentsScreen.jsx — 4-section layout, ledger dedup — session 22 |
 | Stats rewrite (player_match) | ✅ | All leaderboards from player_match via getPlayerLeagueTable — session 22 |
@@ -59,8 +59,8 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| **Bug fixes (Pre-UAT)** | 🔴 Must do | See BUGS.md #1, #2, #3 |
-| **Mid-game team switches** | 🔲 Not built | ScoreScreen new stage, team_switches jsonb, final team → W/L/D. See DECISIONS.md for spec. |
+| **Bug fixes (Pre-UAT)** | 🔴 Must do | See BUGS.md #1 (POTM eligibility 401) |
+| **Mid-game team switches** | ✅ Done session 28 | ScoreScreen new stage, team_switches jsonb, final team → W/L/D. See DECISIONS.md for spec. |
 | **Most Faced Opponent card** | 🔲 Not built | Unlocks at 4+ games. Fills unlock grid gap. |
 | **Reliability Ranking card** | 🔲 Not built | Unlocks at 5+ games. Fills unlock grid gap. |
 | **Monday Footy onboarding** | 🔲 Pending | Stage 2 addition — if Stage 1 week 1 clean |
@@ -79,7 +79,7 @@
 | Last goal scorer in IO Intelligence | `last_goal_scorer` field on matches — just wire into a card |
 | Bib streak insight | Consecutive bib games — data in `bib_history` |
 | WhatsApp share text update | Update share copy in HistoryView |
-| Admin screens redesign (BibsScreen) | BibsScreen still default design |
+| BibsScreen RLS write fix | BibsScreen redesigned ✅; standalone write still broken — see BUGS.md #2 |
 
 ---
 

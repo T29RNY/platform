@@ -3,14 +3,14 @@ import { colors as C } from "@platform/core";
 import { supabase } from "@platform/supabase";
 import {
   getPlayers,
-  getMatches, insertMatch,
+  getMatches,
   getBibHistory, insertBib,
-  getSchedule, upsertSchedule,
+  getSchedule,
   getSettings, upsertSettings,
   getTeamByPlayerToken,
   getTeamByJoinCode, playerJoinTeam,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
-  getCoverPool, addCoverPlayer, removeCoverPlayer, updateCoverPlayer,
+  getCoverPool,
   getSession, getUser, findPlayerByEmail,
   getUserProfile, linkPlayerToUser, updateUserProfile,
   resetDemoData, updateDemoInteraction,
@@ -591,11 +591,8 @@ export default function App() {
     const next = typeof updater==="function" ? updater(schedule) : updater;
     setScheduleRaw(next);
   };
-  const setMatchHistory = async (updater) => {
+  const setMatchHistory = (updater) => {
     const next = typeof updater==="function" ? updater(matchHistory) : updater;
-    if (next.length > matchHistory.length) {
-      try { await insertMatch(next[0], teamId); } catch(e) { console.error(e); }
-    }
     setMatchHistRaw(next);
   };
   const setSettings = (updater) => {
