@@ -555,17 +555,6 @@ export async function saveBibHolder(adminToken, matchId, playerId) {
   if (error) throw error;
 }
 
-// ─── PWA welcome — find player token by email via secure RPC ─────────────────
-// Requires the find_player_by_email(lookup_email text) SQL function in Supabase.
-// Returns [{ token, player_id, player_name, team_id, team_name }] — one row per team.
-export async function findPlayerByEmail(email) {
-  const { data, error } = await supabase.rpc("find_player_by_email", {
-    lookup_email: email.toLowerCase().trim(),
-  });
-  if (error) throw error;
-  return data || [];
-}
-
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 export async function getSession() {
   const { data: { session } } = await supabase.auth.getSession();

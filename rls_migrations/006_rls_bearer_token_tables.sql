@@ -74,9 +74,7 @@ REVOKE ALL ON teams FROM authenticated;
 ALTER TABLE players ENABLE ROW LEVEL SECURITY;
 
 -- Index for the RLS policy's self-row fast path (user_id = auth.uid()).
--- Also accelerates:
---   - find_player_by_email (existing SECURITY DEFINER RPC, supabase.js:685)
---   - join_team_as_new_player "already a member" check (migration 015)
+-- Also accelerates player_get_teams and player_join_team returning-user lookup.
 -- Partial (WHERE user_id IS NOT NULL): keeps the index small. Token-only players
 -- (no auth account linked yet) are excluded; they are never looked up by user_id.
 CREATE INDEX IF NOT EXISTS players_by_user_id

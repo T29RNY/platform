@@ -10,7 +10,7 @@ import {
   getTeamByJoinCode, playerJoinTeam,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool,
-  getSession, findPlayerByEmail,
+  getSession, getPlayerTeams,
   linkPlayerToUser, updateUserProfile,
   resetDemoData, updateDemoInteraction,
 } from "@platform/supabase";
@@ -395,9 +395,9 @@ export default function App() {
           // If auth'd and not yet linked — attempt to link
           if (session?.user && !player.userId) {
             try {
-              const emailMatches = await findPlayerByEmail(session.user.email);
-              const conflict = emailMatches.find(m => m.player_id !== player.id);
-              if (conflict) {
+              const myTeams = await getPlayerTeams();
+              // If the auth user already has any player record, it belongs to a different player
+              if (myTeams.length > 0) {
                 setLinkConflict("This email is already linked to another account — contact your admin");
               } else {
                 await linkPlayerToUser(route.token);
@@ -460,9 +460,9 @@ export default function App() {
     setJoinChecking(true);
     (async () => {
       try {
-        const matches = await findPlayerByEmail(authUser.email);
+        const myTeams = await getPlayerTeams();
         if (cancelled) return;
-        const alreadyMember = matches.find(m => m.team_id === joinTeam.id);
+        const alreadyMember = myTeams.find(m => m.team_id === joinTeam.id);
         if (alreadyMember) {
           window.location.replace(`/p/${alreadyMember.token}`);
           return;
