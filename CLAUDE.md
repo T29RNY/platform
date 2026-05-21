@@ -52,16 +52,52 @@ reading the output, and summarising in plain English.
 
 Every change follows this sequence:
 
-  AUDIT → REVIEW → EXECUTE → VERIFY → COMMIT
+  AUDIT → EXECUTE → VERIFY → COMMIT → POST-DEPLOY
 
-- Never edit during an audit prompt
-- Never skip the verify step
+Detailed skill files exist for every step. Read them at the
+start of each step — do not rely on memory of the sequence.
+The skill files are the authoritative source for each step.
+
+  skills/cycle.md       — conductor: owns the full sequence
+  skills/audit.md       — step 1: scope the change, no edits
+  skills/execute.md     — step 2: make the agreed changes
+  skills/verify.md      — step 3: prove correctness before commit
+  skills/commit.md      — step 4: lock into version control
+  skills/post-deploy.md — step 5: confirm live site is correct
+
+Deterministic checks run automatically during verify.
+Call the scripts directly — do not re-implement them inline:
+
+  bash skills/scripts/check-build.sh
+  bash skills/scripts/check-hygiene.sh               ← 7 checks incl. state-wrapper-guard
+  bash skills/scripts/check-references.sh "term" [--removed|--rpc]
+  bash skills/scripts/check-rpc-security.sh rpc_name ← security + search_path + overloads
+  bash skills/scripts/check-db-schema.sh table_name
+  bash skills/scripts/check-schema-column.sh table column ← pre-column-change impact map
+  bash skills/scripts/check-rpc-columns.sh rpc_name  ← stale column refs in RPC bodies
+
+Situation-specific skills — invoke these automatically when the
+situation matches, without waiting for the developer to ask:
+
+  skills/session-start.md     — run at the start of EVERY session before
+                                 any task begins. Produces a session brief.
+  skills/feature-plan.md      — run before audit.md when starting a new
+                                 feature from FEATURES.md backlog.
+  skills/schema-sync.md       — run before ANY column rename, move, or drop.
+                                 Mandatory. Do not skip.
+  skills/rpc-security-sweep.md — run before commit when ANY RPC was added
+                                  or modified. Gate between verify and commit.
+  skills/post-incident.md     — run after every bug fix is committed.
+                                 Proposes BUGS.md, DECISIONS.md, CONTEXT.md updates.
+
+- Never edit during audit
+- Never skip verify
 - Never commit without a passing build
+- Never rename or drop a column without running schema-sync.md first
+- Never commit an RPC change without running rpc-security-sweep.md first
 - When audit reveals ambiguity, ask ONE clarifying question
-  before writing any execute prompt
-- Long prompts truncate silently — split into two prompts
-  rather than one long one
-- One file or one logical unit per execute prompt
+  before execute starts
+- One file or one logical unit per execute part
 
 ---
 
@@ -410,6 +446,19 @@ Apply SQL before writing any JS wrapper.
   Numbered chronologically
 - `apps/inorout/src/App.jsx` — routing, data loading, realtime,
   auth. State wrappers must stay pure
+
+**Skills directory:**
+- `skills/cycle.md` — full cycle conductor. Read when resuming an abandoned cycle.
+- `skills/session-start.md` — session opener. Run at the start of every session.
+- `skills/audit.md` — step 1. Scope and report. No edits.
+- `skills/execute.md` — step 2. Make agreed changes only.
+- `skills/verify.md` — step 3. Prove correctness.
+- `skills/commit.md` — step 4. Lock into version control.
+- `skills/post-deploy.md` — step 5. Confirm live site.
+- `skills/feature-plan.md` — pre-audit research for new features.
+- `skills/schema-sync.md` — mandatory before any column change.
+- `skills/rpc-security-sweep.md` — mandatory gate before RPC commits.
+- `skills/post-incident.md` — documentation after every bug fix.
 
 ---
 
