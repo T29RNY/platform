@@ -5,17 +5,6 @@
 
 ---
 
-## PRE-UAT — Must fix before any real-user testing
-
-### 1. ScoreScreen POTM eligibility — GET /rest/v1/player_match 401
-**File:** `packages/core/storage/supabase.js` (`getBibEligiblePlayers`)
-**Detail:** POTM eligibility lookup does a direct `.from("player_match")` read at line 566 —
-blocked by RLS for the admin token role.
-**Fix:** Use existing `get_potm_voting_state` RPC (built session 25) or extend
-`admin_get_team_state` to include eligible players.
-
----
-
 ## LOW — Known workarounds exist
 
 ### 2. BibsScreen standalone write broken under RLS
@@ -81,6 +70,9 @@ store flag in localStorage.
 - `IsThisYou.jsx` deleted (never routed to or imported)
 - Dead barrel exports removed from `packages/core/index.js`
 - Dead imports removed from `AdminView/index.jsx` (`addCoverPlayer`, `removeCoverPlayer`)
+- **Bug #1 (ScoreScreen bib eligibility 401)** — replaced `getBibEligiblePlayers` direct
+  `player_match` read with synchronous derivation from `squad` prop (`bibsSorted`). No new
+  RPC needed. `getBibEligiblePlayers` deleted from supabase.js.
 - Commit: `1784b44` (dead code), `3e2bfde` (docs split)
 
 ---

@@ -526,27 +526,6 @@ export async function updateMatchBibHolder(matchId, bibHolder) {
   if (error) throw error;
 }
 
-// ─── Bib-eligible players — two-query pattern, non-guests only ───────────────
-export async function getBibEligiblePlayers(matchId, teamId) {
-  const { data: pmRows, error: pmErr } = await supabase
-    .from("player_match")
-    .select("player_id")
-    .eq("match_id", matchId)
-    .eq("team_id", teamId)
-    .eq("is_guest", false);
-  if (pmErr) throw pmErr;
-  if (!pmRows?.length) return [];
-
-  const playerIds = pmRows.map(r => r.player_id);
-  const { data: players, error: plErr } = await supabase
-    .from("players")
-    .select("id, name, nickname")
-    .in("id", playerIds);
-  if (plErr) throw plErr;
-
-  return (players || []).map(p => ({ id: p.id, name: p.name, nickname: p.nickname || null }));
-}
-
 export async function saveMatchResult(adminToken, match) {
   const { error } = await supabase.rpc('admin_save_match_result', {
     p_admin_token:      adminToken,

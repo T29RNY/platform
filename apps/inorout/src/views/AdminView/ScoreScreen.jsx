@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft, ArrowsLeftRight } from "@phosphor-icons/react";
 import { newMatch, updatePlayerRecords, resolveMotm } from "@platform/core";
-import { saveMatchResult, getBibEligiblePlayers } from "@platform/supabase";
+import { saveMatchResult } from "@platform/supabase";
 
 if (typeof document !== "undefined" && !document.getElementById("ss-styles")) {
   const el = document.createElement("style");
@@ -228,10 +228,7 @@ export default function ScoreScreen({
 
   useEffect(() => {
     if (!stage4Done) return;
-    if (!schedule?.activeMatchId) { setBibEligible(bibsSorted); return; }
-    getBibEligiblePlayers(schedule.activeMatchId, teamId)
-      .then(rows => setBibEligible([...rows].sort((a, b) => (a.nickname || a.name).localeCompare(b.nickname || b.name))))
-      .catch(() => setBibEligible(bibsSorted));
+    setBibEligible(bibsSorted);
   }, [stage4Done]); // eslint-disable-line
 
   const changeMode = (m) => {
