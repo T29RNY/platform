@@ -6,13 +6,12 @@ import {
   getMatches,
   getBibHistory,
   getSchedule,
-  getSettings, upsertSettings,
-  getTeamByPlayerToken,
+  getSettings,
   getTeamByJoinCode, playerJoinTeam,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool,
-  getSession, getUser, findPlayerByEmail,
-  getUserProfile, linkPlayerToUser, updateUserProfile,
+  getSession, findPlayerByEmail,
+  linkPlayerToUser, updateUserProfile,
   resetDemoData, updateDemoInteraction,
 } from "@platform/supabase";
 import { SEED_COVER } from "./seeds.js";
@@ -101,7 +100,7 @@ function getRoute() {
       return { type:"redirecting" };
     }
   } catch(e) {
-    console.warn("[ioo] redirect bridge error:", e);
+    console.error("[ioo] redirect bridge error:", e);
   }
 
   // Standalone PWA with no known player — show welcome screen, not the create-a-team landing

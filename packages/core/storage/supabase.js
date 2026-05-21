@@ -1287,6 +1287,15 @@ export async function adminGetPlayerLedger(adminToken, playerId, limit = 20) {
   return (data || []).map(dbToLedger);
 }
 
+export async function confirmPayment(adminToken, playerId, matchId) {
+  const { error } = await supabase.rpc('admin_confirm_payment', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_match_id:    matchId || null,
+  });
+  if (error) throw error;
+}
+
 // Targeted lookup to avoid duplicate ledger entries on Mark Paid / Reset.
 // Handles null matchId (no lineup lock) by querying IS NULL — avoids maybeSingle()
 // errors when pre-existing duplicates are present.

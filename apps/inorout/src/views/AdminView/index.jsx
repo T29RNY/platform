@@ -4,6 +4,7 @@ import {
   getPaymentState,
   handleMarkPaid, handleResetPayment,
   toggleViceCaptain,
+  confirmPayment,
 } from "@platform/core";
 import {
   deletePlayer,
@@ -11,7 +12,6 @@ import {
   closePOTMVoting, setPlayerNickname,
   upsertSchedule, adminCancelMatch, addPlayerToTeam,
   getRecentNotification,
-  supabase,
 } from "@platform/supabase";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
@@ -73,7 +73,7 @@ function POTMTiebreakModal({ match, squad, teamId, adminToken, onDecide }) {
     }}>
       <div style={{
         width: "100%", maxWidth: 380, background: "var(--s1)", borderRadius: 20,
-        boxShadow: "0 0 0 1px rgba(232,160,32,0.4), 0 0 60px rgba(232,160,32,0.2)",
+        boxShadow: "0 0 0 1px var(--goldb), 0 0 60px rgba(232,160,32,0.2)",
         overflow: "hidden",
       }}>
         <div style={{ padding: "20px 20px 16px", textAlign: "center", borderBottom: "0.5px solid rgba(255,255,255,0.08)" }}>
@@ -92,8 +92,8 @@ function POTMTiebreakModal({ match, squad, teamId, adminToken, onDecide }) {
               <div key={player.id} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "10px 14px", borderRadius: 10,
-                background: isSel ? "rgba(232,160,32,0.1)" : "var(--s2)",
-                border: `0.5px solid ${isSel ? "rgba(232,160,32,0.5)" : "rgba(255,255,255,0.06)"}`,
+                background: isSel ? "var(--gold2)" : "var(--s2)",
+                border: `0.5px solid ${isSel ? "var(--goldb)" : "rgba(255,255,255,0.06)"}`,
                 marginBottom: 8,
               }}>
                 <span style={{ fontSize: 14, color: "var(--t1)", fontWeight: 400 }}>{player.nickname || player.name}</span>
@@ -387,12 +387,8 @@ function PlayerProfile({ player, squad, schedule, teamId, adminToken, setSquad, 
             {p.status === 'in' && ps !== 'paid' && (
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                 <button onClick={async () => {
-                  const { error } = await supabase.rpc('admin_confirm_payment', {
-                    p_admin_token: adminToken,
-                    p_player_id:   p.id,
-                    p_match_id:    schedule?.activeMatchId || null,
-                  });
-                  if (error) { console.error(error); return; }
+                  try { await confirmPayment(adminToken, p.id, schedule?.activeMatchId || null); }
+                  catch(e) { console.error(e); return; }
                   setSquad(sq => sq.map(s => s.id === p.id
                     ? { ...s, selfPaid:true, paidBy:'admin' } : s));
                 }} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)", border:"none",

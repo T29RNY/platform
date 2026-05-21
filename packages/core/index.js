@@ -17,6 +17,7 @@ export {
   getLedgerForPlayer,
   getLedgerForTeam,
   adminGetPlayerLedger,
+  confirmPayment,
   getOutstandingBalance,
   getRecentNotification,
   getPlayerLeagueTable,
