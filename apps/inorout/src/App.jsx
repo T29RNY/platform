@@ -4,7 +4,7 @@ import { supabase } from "@platform/supabase";
 import {
   getPlayers,
   getMatches,
-  getBibHistory, insertBib,
+  getBibHistory,
   getSchedule,
   getSettings, upsertSettings,
   getTeamByPlayerToken,
@@ -580,11 +580,8 @@ export default function App() {
     const next = typeof updater==="function" ? updater(squad) : updater;
     setSquadRaw(next);
   };
-  const setBibHistory = async (updater) => {
+  const setBibHistory = (updater) => {
     const next = typeof updater==="function" ? updater(bibHistory) : updater;
-    if (next.length > bibHistory.length) {
-      try { await insertBib(next[0], teamId); } catch(e) { console.error(e); }
-    }
     setBibHistRaw(next);
   };
   const setSchedule = (updater) => {

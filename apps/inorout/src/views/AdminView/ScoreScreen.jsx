@@ -300,7 +300,7 @@ export default function ScoreScreen({
       if (schedule?.activeMatchId) match.id = schedule.activeMatchId;
 
       // 1. Local state
-      await setMatchHistory([match, ...matchHistory]);
+      setMatchHistory([match, ...matchHistory]);
       setSquad(updatePlayerRecords(squad, match, scorers, null, payMap, schedule.pricePerPlayer));
 
       // 2. Persist — RPC handles match row, player_match rows, bib cascade in one call
