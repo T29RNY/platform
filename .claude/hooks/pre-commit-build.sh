@@ -11,9 +11,17 @@ ROOT="/Users/tarny/platform"
 PAYLOAD=$(cat)
 CMD=$(echo "$PAYLOAD" | jq -r '.tool_input.command // empty')
 
-# Match `git commit` anywhere in the command, but not `git commit-tree`
-# or branch names that happen to contain the word "commit".
-if ! echo "$CMD" | grep -Eq '(^|[^a-zA-Z0-9_-])git[[:space:]]+commit([[:space:]]|$)'; then
+# Two-part match so flags between `git` and `commit` are allowed
+# (e.g. `git -C /path commit -m ...`):
+#   1. The command invokes `git` as a word.
+#   2. `commit` appears as a standalone subcommand word.
+# Word boundary on `commit` rejects `commit-tree`, `commit-graph`, etc.
+# Quoted commit messages that contain the literal word "commit"
+# don't match because `"commit"` lacks the required leading whitespace.
+if ! echo "$CMD" | grep -Eq '(^|[^a-zA-Z0-9_-])git([[:space:]]|$)'; then
+  exit 0
+fi
+if ! echo "$CMD" | grep -Eq '[[:space:]]commit([[:space:]]|$)'; then
   exit 0
 fi
 
