@@ -33,7 +33,14 @@ const GROUP_STYLES = {
 // chip without re-running the algorithm. Caller preserves the
 // avgGamesPlayed and disclaimerLevel from the previous prediction —
 // those don't change with team swaps.
+//
+// Returns winner=null when either side is empty — the split isn't a
+// valid prediction target, the chip should hide, and the confirm path
+// will save NULL to predicted_winner instead of a misleading "draw".
 function computePrediction(teamAIds, teamBIds, tableData) {
+  if (teamAIds.length === 0 || teamBIds.length === 0) {
+    return { winner: null, confidence: 0, balanceScore: 0 };
+  }
   const winRateMap = {};
   for (const row of (tableData?.players ?? [])) {
     const usable = (row.played ?? 0) >= 3 && row.ranked !== false;
@@ -432,6 +439,16 @@ export default function TeamsScreen({
   // One-shot guard for the auto-Smart effect. Reset by Clear Teams so
   // the screen never sits empty.
   const hasAutoFiredRef = useRef(false);
+
+  // ── Adoption analytics (session refs, no re-render cost) ────────────────
+  // Captured on the team_confirmed event as properties. Counters reset
+  // on Clear Teams; everything else lives for the duration of this
+  // TeamsScreen mount.
+  const autoFiredThisSession    = useRef(false);
+  const manualMovesBefore       = useRef(0);
+  const manualMovesAfter        = useRef(0);
+  const regenerateCount         = useRef(0);
+  const confirmCountThisSession = useRef(0);
   // Players present at mount — anyone added to the squad later gets a "NEW"
   // badge in the Needs Group panel until assigned.
   const mountedPlayerIds = useRef(null);
@@ -625,6 +642,7 @@ export default function TeamsScreen({
   // can fire, AND so the LiveBoard subtitle dismisses.
   const handleMoveToTeam = useCallback((playerId, team) => {
     clearError();
+    const fromTeam = assignments[playerId] ?? null;
     const next = { ...assignments, [playerId]: team };
     setAssignments(next);
     setSelectedPlayerId(null);
@@ -634,6 +652,19 @@ export default function TeamsScreen({
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
     setManuallyAdjusted(true);
+
+    // Adoption analytics: tick the right counter depending on whether
+    // this move comes before or after the first confirm in this session.
+    const wasPostConfirm = confirmCountThisSession.current >= 1;
+    if (wasPostConfirm) manualMovesAfter.current++;
+    else                manualMovesBefore.current++;
+    window.posthog?.capture('team_player_moved', {
+      from_team:              fromTeam,
+      to_team:                team,
+      was_post_confirm:       wasPostConfirm,
+      had_existing_prediction: !!prediction,
+    });
+
     if (prediction) {
       const nextA = inPlayers
         .filter(p => next[p.id] === "A").map(p => p.id);
@@ -815,10 +846,41 @@ export default function TeamsScreen({
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
 
-    if (!silent) {
+    const groupsAssignedCount = Object.values(localGroups)
+      .filter(g => g !== null).length;
+
+    if (silent) {
+      // Auto-Smart on entry. Mark for analytics; the manual-move counters
+      // baseline at zero from here.
+      autoFiredThisSession.current = true;
+      window.posthog?.capture('team_drafted_auto', {
+        team_a_size:           result.teamA.length,
+        team_b_size:           result.teamB.length,
+        total_in:              inPlayersForGroups.length,
+        prediction_winner:     result.predictedWinner,
+        prediction_confidence: result.predictedConfidence,
+        had_existing_groups:   groupsAssignedCount > 0,
+      });
+    } else {
+      // User-initiated regenerate via BUILD TEAMS.
+      regenerateCount.current++;
+      // Pending manual moves get discarded by the regenerate — capture
+      // how many before we reset the counter.
+      const pendingMoves = confirmCountThisSession.current === 0
+        ? manualMovesBefore.current
+        : manualMovesAfter.current;
+      window.posthog?.capture('team_regenerated', {
+        pending_manual_moves:  pendingMoves,
+        groups_assigned_count: groupsAssignedCount,
+        total_in:              inPlayersForGroups.length,
+      });
+      // Reset whichever counter applies — moves before this regenerate
+      // never reached a confirm, so they don't count toward final metrics.
+      if (confirmCountThisSession.current === 0) manualMovesBefore.current = 0;
+      else                                       manualMovesAfter.current  = 0;
+      // Keep the legacy event for historical continuity with older dashboards.
       window.posthog?.capture('group_balancer_generate', {
-        groupCount: Object.values(localGroups)
-                      .filter(g => g !== null).length,
+        groupCount: groupsAssignedCount,
         totalIn:    inPlayersForGroups.length,
       });
     }
@@ -897,6 +959,38 @@ export default function TeamsScreen({
       confirmedThisSession.current = true;
       setDraftSaved(false);
 
+      // Adoption analytics — the analytical anchor. Captures the full
+      // session state at confirm time so a single PostHog event answers:
+      //   • was this the algorithm's output, untouched? (was_ai_picked_as_is)
+      //   • how much did admin tweak? (manual_moves_before/after)
+      //   • how many BUILD TEAMS taps? (regenerate_count)
+      //   • is this a recommit after editing? (is_recommit)
+      const isRecommit = confirmCountThisSession.current >= 1;
+      const groupsAssignedCount = inPlayers
+        .filter(p => (localGroups[p.id] ?? null) !== null).length;
+      const wasAiPickedAsIs =
+        autoFiredThisSession.current &&
+        manualMovesBefore.current === 0 &&
+        regenerateCount.current === 0 &&
+        !isRecommit;
+      window.posthog?.capture('team_confirmed', {
+        team_a_size:           teamAIds.length,
+        team_b_size:           teamBIds.length,
+        total_in:              inPlayers.length,
+        prediction_winner:     prediction?.winner       ?? null,
+        prediction_confidence: prediction?.confidence   ?? null,
+        disclaimer_level:      prediction?.disclaimerLevel ?? null,
+        groups_assigned_count: groupsAssignedCount,
+        had_groups:            groupsAssignedCount > 0,
+        auto_fired:            autoFiredThisSession.current,
+        manual_moves_before:   manualMovesBefore.current,
+        manual_moves_after:    manualMovesAfter.current,
+        regenerate_count:      regenerateCount.current,
+        is_recommit:           isRecommit,
+        was_ai_picked_as_is:   wasAiPickedAsIs,
+      });
+      confirmCountThisSession.current++;
+
       // Fire teamsConfirmed push — fire and forget, IN players only
       const inPlayerIds = inPlayers.map(p => p.id);
       if (inPlayerIds.length) {
@@ -920,7 +1014,7 @@ export default function TeamsScreen({
       setError("Failed to confirm teams — try again");
     }
     setIsConfirming(false);
-  }, [allAssigned, isConfirming, adminToken, matchId, teamAIds, teamBIds, inPlayers, prediction, manuallyAdjusted]);
+  }, [allAssigned, isConfirming, adminToken, matchId, teamAIds, teamBIds, inPlayers, prediction, manuallyAdjusted, localGroups]);
 
   const handleClear = useCallback(() => {
     clearError();
@@ -928,6 +1022,14 @@ export default function TeamsScreen({
   }, []);
 
   const handleClearConfirm = useCallback(async () => {
+    // Adoption analytics — emit before resetting any state so the event
+    // captures the pre-clear context.
+    window.posthog?.capture('team_cleared', {
+      was_confirmed:         teamsConfirmedRef.current,
+      manual_moves_at_clear: manualMovesBefore.current + manualMovesAfter.current,
+      regenerate_count:      regenerateCount.current,
+    });
+
     setAssignments({});
     setDraftSaved(false);
     setTeamsConfirmed(false);
@@ -938,6 +1040,12 @@ export default function TeamsScreen({
     setPrediction(null);
     setManuallyAdjusted(false);
     setGroupsDirty(false);
+    // Reset session counters so the next confirm captures a fresh story.
+    manualMovesBefore.current = 0;
+    manualMovesAfter.current  = 0;
+    regenerateCount.current   = 0;
+    confirmCountThisSession.current = 0;
+    autoFiredThisSession.current = false;
     // SMART panel collapses unless existing groups remain to surface.
     if (!Object.values(localGroups).some(g => g !== null)) {
       setSmartTeamsRevealed(false);
@@ -1218,8 +1326,10 @@ export default function TeamsScreen({
 
 
       {/* IO Prediction — small chip below the LiveBoard. Always live:
-          recomputes on every manual move so it tracks the current split. */}
-      {prediction && (
+          recomputes on every manual move so it tracks the current split.
+          Hidden when one side is empty (winner === null) — that lineup
+          isn't a valid prediction target. */}
+      {prediction && prediction.winner && (
         <div style={{
           fontSize: 12, color: "var(--t2)",
           fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
