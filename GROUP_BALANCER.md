@@ -1679,6 +1679,51 @@ Original 5.5–7h raw / 8–9h with overhead is optimistic. Plan for
 **9–11h calendar time across 3 sessions**. Stage 3 (UI + tap-to-assign
 visual states) is the main risk; treat anything faster as a bonus.
 
+---
+
+## BUILD COMPLETE (May 22 2026 — session 30)
+
+All five stages shipped behind the `group_balancer` PostHog feature flag
+(default OFF). Commits, in order:
+
+1. `39637d0` — feat(schema): migration 031 applied + verified
+2. `b119bfd` — feat(core): JS wrappers + dbToPlayer / dbToMatch / dbToSettings
+3. `247b209` — feat(engine): pure `groupBalancer.js` algorithm
+4. `268bf54` — chore(hygiene): pre-existing hex literals → tokens
+5. `cf25829` — feat(admin): AdminView fetches tableData, threads to TeamsScreen
+6. `7674af1` — feat(teams): state + tap-to-move handlers + prediction state
+7. `2742f46` — feat(teams): Group Balancer UI (panels, labels, prediction card)
+8. `3974359` — feat(history): prediction chip in match drill-down
+
+### Deferred to Phase 2
+
+- **`teams_draft` group snapshot** — the spec's Stage 5B item to persist
+  `{ groups, predictedWinner }` inside `teams_draft` on Save Draft was
+  deferred. Reason: it requires another `admin_save_teams` reshape and
+  the data that matters for the accuracy stat (predicted_winner vs
+  winner) is already persisted on matches at confirm time. The snapshot
+  was only for "what did the algorithm see at draft time" analytics —
+  nice-to-have, not load-bearing.
+- **Group panel "summon" lifecycle bug** — when admin taps `+ ADD GROUP`,
+  the empty panel renders. If admin moves a player into it then removes
+  them all, the panel goes back to empty state. The `emptyPanels` Set
+  doesn't automatically re-add it, so the × becomes available and the
+  panel can be dismissed even though it was originally summoned. Minor
+  UX edge case; revisit during QA if it actually surfaces.
+
+### Rollout plan (recap)
+
+1. Flag stays OFF in production — zero behaviour change for all teams.
+2. Enable for `team_demo` in PostHog. Walk through the full flow against
+   demo data (assign → generate → reroll → confirm → reopen → see chip
+   in HistoryView).
+3. Enable for `team_finbars` (Tarny's real team). One week of real
+   match-day usage. Watch predictions vs actual results.
+4. Enable for the first onboarded team (Monday Footy) once confident.
+5. Enable globally in PostHog.
+6. Final cleanup PR: drop `groupBalancerEnabled` checks from
+   TeamsScreen, delete the Fisher-Yates branch, retire the PostHog flag.
+
 Note: with the expanded scope (predictions, balance score, group labels,
 audit events, HistoryView chip) the realistic range is **14–18h across
 4–5 sessions**. The 9–11h figure above stands for the *core* group

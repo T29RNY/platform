@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 22 2026 (session 30)*
+*Last updated: May 22 2026 (session 30 — Group Balancer build complete)*
 
 ---
 
@@ -81,7 +81,7 @@
 | Bib streak insight | Consecutive bib games — data in `bib_history` |
 | WhatsApp share text update | Update share copy in HistoryView |
 | BibsScreen RLS write fix | BibsScreen redesigned ✅; standalone write still broken — see BUGS.md #2 |
-| **Group Balancer** | Organiser-assigned groups (1–5), tap-to-assign, win-rate-nudged generation. Full spec in `GROUP_BALANCER.md`. ~8–9h, May 27–29 window. |
+| **Group Balancer** | ✅ Built session 30 (May 22) — behind PostHog flag `group_balancer` (default OFF). Schema + 2 new RPCs (`admin_set_player_group`, `admin_clear_all_groups`) + 3 modified RPCs applied via migration `031_group_balancer_stage_1b`. Pure algorithm `packages/core/engine/groupBalancer.js` (sample-200 for big groups, lower-headcount odd-extra rule, win-rate-nudged splits within 5% noise floor). UI: tap-to-move panels, inline labels, IO Prediction card, Needs Group amber banner, ADD/× empty panels. HistoryView prediction chip (null-safe, forward-only). Rollout: enable flag for `team_demo` → `team_finbars` → first onboarded team → global. Deferred to Phase 2: `teams_draft` group snapshot (requires another `admin_save_teams` reshape — predicted_winner is already saved at confirm time so accuracy stat works without it). |
 | **Ask the Gaffer — Phase 1** | Read-only AI assistant: team summary, payment summary, attendance risk, suggested next actions, matchday briefing. See "Ask the Gaffer" section below. |
 | **Marketing landing page** | Conditional render at root (Option A) for beta — unauth + no token → landing, else app shell. See DECISIONS.md. |
 
