@@ -12,6 +12,22 @@ export default function JoinSuccess({ player, team }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!player?.token) return;
+    try {
+      const path = `/p/${player.token}`;
+      localStorage.setItem("ioo_last_visited", path);
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const isStandalone = window.navigator.standalone === true
+        || window.matchMedia("(display-mode: standalone)").matches;
+      if (isIOS && !isStandalone) {
+        localStorage.setItem("ioo_redirect_to", JSON.stringify({ path, ts: Date.now() }));
+      }
+    } catch (e) {
+      console.error("[JoinSuccess] localStorage bridge write failed:", e);
+    }
+  }, [player?.token]);
+
   const navigate = (url) => { window.location.href = url; };
 
   const handleCta = () => {
