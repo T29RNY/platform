@@ -5,6 +5,7 @@ import {
   handleMarkPaid, handleResetPayment,
   toggleViceCaptain,
   confirmPayment,
+  getPlayerLeagueTable,
 } from "@platform/core";
 import {
   deletePlayer,
@@ -290,7 +291,7 @@ function PlayerProfile({ player, squad, schedule, teamId, adminToken, setSquad, 
                       style={{ flex:1, background:"var(--s3)", border:`0.5px solid ${nickError ? "var(--red)" : "var(--border-subtle)"}`,
                         borderRadius:"var(--rs)", padding:"5px 8px", fontSize:12, color:"var(--t1)",
                         fontFamily:"var(--font-body)", outline:"none" }}/>
-                    <button onClick={saveNick} disabled={nickSaving} style={{ background:"var(--gold)", color:"#000",
+                    <button onClick={saveNick} disabled={nickSaving} style={{ background:"var(--gold)", color:"var(--black)",
                       border:"none", borderRadius:"var(--rs)", padding:"5px 10px", fontSize:11,
                       fontWeight:600, cursor: nickSaving ? "not-allowed" : "pointer", fontFamily:"var(--font-body)",
                       opacity: nickSaving ? 0.6 : 1 }}>
@@ -392,7 +393,7 @@ function PlayerProfile({ player, squad, schedule, teamId, adminToken, setSquad, 
                   setSquad(sq => sq.map(s => s.id === p.id
                     ? { ...s, selfPaid:true, paidBy:'admin' } : s));
                 }} style={{ padding:"6px 12px", borderRadius:"var(--r-pill)", border:"none",
-                  background:"var(--gold)", color:"#000", fontSize:11, fontWeight:600,
+                  background:"var(--gold)", color:"var(--black)", fontSize:11, fontWeight:600,
                   cursor:"pointer", fontFamily:"var(--font-body)" }}>
                   Mark Cash Paid
                 </button>
@@ -610,7 +611,7 @@ function AnnounceModal({ squad, settings, teamId, schedule, onClose }) {
         <button onClick={send} disabled={!msg.trim() || !selectedCount}
           style={{ width:"100%", padding:"13px 0", borderRadius:"var(--r)", border:"none",
             background: msg.trim() && selectedCount ? "var(--gold)" : "var(--s3)",
-            color: msg.trim() && selectedCount ? "#000" : "var(--t2)",
+            color: msg.trim() && selectedCount ? "var(--black)" : "var(--t2)",
             fontFamily:"var(--font-body)", fontSize:14, fontWeight:600,
             cursor: msg.trim() && selectedCount ? "pointer" : "not-allowed" }}>
           Send to {selectedCount} player{selectedCount !== 1 ? "s" : ""}
@@ -1010,7 +1011,7 @@ export default function AdminView({
       )}
       {badge > 0 && (
         <div style={{ position:"absolute", top:10, right:10, background:"var(--red)",
-          borderRadius:10, padding:"2px 7px", fontSize:9, fontWeight:700, color:"#fff" }}>
+          borderRadius:10, padding:"2px 7px", fontSize:9, fontWeight:700, color:"var(--white)" }}>
           {badge}
         </div>
       )}
@@ -1034,13 +1035,13 @@ export default function AdminView({
 
       {/* ── Hero card ── */}
       <div style={{ position:"sticky", top:0, zIndex:10 }}>
-      <div style={{ position:"relative", height:140, overflow:"hidden", background:"#0a0e08" }}>
+      <div style={{ position:"relative", height:140, overflow:"hidden", background:"var(--bg)" }}>
         {isDemoMode && (
           <div style={{ position:"absolute", top:12, right:12, zIndex:10 }}>
             <button onClick={handleDemoReset} style={{
               background:"rgba(255,255,255,0.12)", backdropFilter:"blur(12px)",
               border:"0.5px solid rgba(255,255,255,0.15)", borderRadius:"var(--r-pill)",
-              padding:"5px 12px", fontSize:10, color:"#fff", fontFamily:"var(--font-body)",
+              padding:"5px 12px", fontSize:10, color:"var(--white)", fontFamily:"var(--font-body)",
               cursor:"pointer", letterSpacing:"0.05em", WebkitTapHighlightColor:"transparent",
             }}>
               {demoResetState === "resetting" ? "Resetting..." : demoResetState === "done" ? "Demo Reset ✓" : "🔄 Reset Demo"}
@@ -1159,7 +1160,7 @@ export default function AdminView({
                   </div>
                   <button onClick={() => markPaid(p.id)} style={{
                     padding:"5px 14px", borderRadius:"var(--r-pill)", border:"none",
-                    background:"var(--gold)", color:"#000",
+                    background:"var(--gold)", color:"var(--black)",
                     fontFamily:"var(--font-display)", fontSize:13,
                     letterSpacing:"0.06em", cursor:"pointer", flexShrink:0,
                   }}>CONFIRM ✓</button>
@@ -1226,7 +1227,7 @@ export default function AdminView({
             background: schedule.gameIsLive ? "var(--green)" : "var(--s3)",
             position:"relative", flexShrink:0, cursor:"pointer", transition:"all 0.2s",
             boxShadow: schedule.gameIsLive ? "0 0 10px rgba(61,220,106,0.3)" : "none" }}>
-            <div style={{ width:20, height:20, background:"#fff", borderRadius:"50%",
+            <div style={{ width:20, height:20, background:"var(--white)", borderRadius:"50%",
               position:"absolute", top:3, transition:"all 0.2s",
               left: schedule.gameIsLive ? "auto" : 3,
               right: schedule.gameIsLive ? 3 : "auto",
@@ -1306,7 +1307,7 @@ export default function AdminView({
               <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
                 {badge > 0 && (
                   <div style={{ background:"var(--amber)", borderRadius:10, padding:"2px 8px",
-                    fontSize:10, fontWeight:600, color:"#000" }}>{badge}</div>
+                    fontSize:10, fontWeight:600, color:"var(--black)" }}>{badge}</div>
                 )}
                 <CaretRight size={16} weight="thin" color="var(--t2)"
                   style={{ transform: key==="cancel" && showCancel ? "rotate(90deg)" : "none",
@@ -1344,7 +1345,7 @@ export default function AdminView({
               <button
                 onClick={cancelWeek}
                 disabled={cancelLoading}
-                style={{ width:"100%", background:"var(--red)", color:"#fff",
+                style={{ width:"100%", background:"var(--red)", color:"var(--white)",
                   fontFamily:"'Bebas Neue', sans-serif", fontSize:18, letterSpacing:"0.08em",
                   border:"none", borderRadius:24, padding:12, marginBottom:8,
                   cursor: cancelLoading ? "default" : "pointer",
