@@ -9,10 +9,6 @@ import {
   setPlayerGroup, clearAllGroups, saveGroupLabels,
 } from "@platform/core";
 
-const ENABLE_SMART_RANDOM = false;
-// V2 — weighted random by IO Intelligence win rate + form
-// Set to true when Phase 2 balance algorithm is ready
-
 // Group Balancer thresholds passed to generateBalancedTeams for disclaimer
 // level. Both are tunable as real data accumulates. See GROUP_BALANCER.md.
 const MIN_TEAM_GAMES         = 30;
@@ -273,10 +269,16 @@ export default function TeamsScreen({
   const [prediction,           setPrediction]           = useState(null);
   const [showNeedsGroupWarning,setShowNeedsGroupWarning]= useState(false);
   const [manuallyAdjusted,     setManuallyAdjusted]     = useState(false);
-  // Empty panels admin has explicitly added via "+ ADD GROUP" before any
-  // players are assigned. Once a player lands in a group it shows
-  // automatically (active group); this set is just for the in-between state.
-  const [emptyPanels,          setEmptyPanels]          = useState(() => new Set());
+  // Groups that should be rendered as panels. Populated from three sources:
+  // (1) Squad mount — every groupNumber currently assigned starts the
+  //     session as a visible panel.
+  // (2) localGroups sync — assigning a player into a group adds it.
+  // (3) + ADD GROUP — admin can summon an empty panel.
+  // Removal happens ONLY via the × button on an empty panel — once summoned
+  // (or once it has ever had a player this session), the panel persists even
+  // if all players move out. Prevents the surprise of a panel disappearing
+  // mid-curation.
+  const [summonedPanels,       setSummonedPanels]       = useState(() => new Set());
 
   const hasHydrated = useRef(false);
   const teamsConfirmedRef = useRef(false);
@@ -285,13 +287,6 @@ export default function TeamsScreen({
   // badge in the Needs Group panel until assigned.
   const mountedPlayerIds = useRef(null);
 
-  // ── Feature flag: Group Balancer ──────────────────────────────────────
-  // PostHog-controlled. Defaults to OFF so existing Fisher-Yates behaviour
-  // is preserved. Enable per-team in PostHog dashboard during rollout.
-  const groupBalancerEnabled = useMemo(
-    () => Boolean(window.posthog?.isFeatureEnabled?.('group_balancer')),
-    []
-  );
 
   // On mount — hydrate from existing match data
   useEffect(() => {
@@ -366,17 +361,28 @@ export default function TeamsScreen({
     [inPlayers]
   );
 
-  // Active group numbers = anything 1–5 with at least one player assigned,
-  // unioned with admin-summoned empty panels.
-  const activeGroupNumbers = useMemo(() => {
-    const populated = new Set(
-      inPlayersForGroups
-        .map(p => localGroups[p.id] ?? null)
-        .filter(g => g !== null)
-    );
-    for (const n of emptyPanels) populated.add(n);
-    return [1,2,3,4,5].filter(n => populated.has(n));
-  }, [inPlayersForGroups, localGroups, emptyPanels]);
+  // Keep summonedPanels in sync with currently-assigned groups. Additive:
+  // never auto-removes a panel even after all its players move away. The
+  // only way to remove a panel is the × button on the empty state.
+  useEffect(() => {
+    const seen = new Set();
+    for (const g of Object.values(localGroups)) {
+      if (g != null) seen.add(g);
+    }
+    if (seen.size === 0) return;
+    setSummonedPanels(prev => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const g of seen) if (!next.has(g)) { next.add(g); changed = true; }
+      return changed ? next : prev;
+    });
+  }, [localGroups]);
+
+  // Active group panels = whatever's in summonedPanels, in sorted 1–5 order.
+  const activeGroupNumbers = useMemo(
+    () => [1,2,3,4,5].filter(n => summonedPanels.has(n)),
+    [summonedPanels]
+  );
 
   const needsGroupPlayers = useMemo(
     () => inPlayersForGroups.filter(p => (localGroups[p.id] ?? null) === null),
@@ -477,32 +483,24 @@ export default function TeamsScreen({
   }, [localGroups, adminToken]);
 
   // Tap a group panel while a chip is selected → commits the move.
+  // The localGroups → summonedPanels useEffect handles persistence.
   const handlePanelTap = useCallback((groupNumber) => {
     if (!selectedPlayerId) return;
     handleSetGroup(selectedPlayerId, groupNumber);
-    // Once a group has at least one player, it's no longer "empty" — drop
-    // it from the emptyPanels set so the × button stops showing.
-    if (groupNumber !== null) {
-      setEmptyPanels(prev => {
-        if (!prev.has(groupNumber)) return prev;
-        const next = new Set(prev); next.delete(groupNumber); return next;
-      });
-    }
   }, [selectedPlayerId, handleSetGroup]);
 
   // + ADD GROUP — summon the lowest unused 1–5 panel.
   const handleAddGroup = useCallback(() => {
-    const inUse = new Set(activeGroupNumbers);
-    const next = [1,2,3,4,5].find(n => !inUse.has(n));
+    const next = [1,2,3,4,5].find(n => !summonedPanels.has(n));
     if (!next) return;
-    setEmptyPanels(prev => {
+    setSummonedPanels(prev => {
       const ns = new Set(prev); ns.add(next); return ns;
     });
-  }, [activeGroupNumbers]);
+  }, [summonedPanels]);
 
   // × on an empty panel — purely visual, no DB write.
   const handleRemoveEmptyPanel = useCallback((groupNumber) => {
-    setEmptyPanels(prev => {
+    setSummonedPanels(prev => {
       if (!prev.has(groupNumber)) return prev;
       const ns = new Set(prev); ns.delete(groupNumber); return ns;
     });
@@ -536,22 +534,26 @@ export default function TeamsScreen({
     }
   }, [groupLabels, adminToken, settings?.groupName]);
 
-  // Clears every group assignment server-side and locally.
+  // Clears every group assignment server-side and locally, and dismisses
+  // every panel — full reset for the section.
   const handleClearAllGroups = useCallback(async () => {
     const prev = localGroups;
+    const prevPanels = summonedPanels;
     const cleared = Object.fromEntries(
       Object.entries(localGroups).map(([id]) => [id, null])
     );
     setLocalGroups(cleared);
+    setSummonedPanels(new Set());
     setShowClearGroupsConfirm(false);
     try {
       await clearAllGroups(adminToken);
     } catch (e) {
       console.error('handleClearAllGroups error:', e);
       setLocalGroups(prev);
+      setSummonedPanels(prevPanels);
       setError('Failed to clear groups — try again');
     }
-  }, [localGroups, adminToken]);
+  }, [localGroups, summonedPanels, adminToken]);
 
   // The flag-on Generate path. Replaces Fisher-Yates with the balanced
   // algorithm and stores the prediction for confirmTeams to persist.
@@ -616,25 +618,6 @@ export default function TeamsScreen({
     inPlayersForGroups, localGroups, matchHistory, tableData,
     showNeedsGroupWarning,
   ]);
-
-  const handleRandom = useCallback(() => {
-    clearError();
-    const pool = [...inPlayers];
-    // Fisher-Yates shuffle
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const half = Math.floor(pool.length / 2);
-    // Odd number: extra player goes to A
-    const built = {};
-    pool.forEach((p, i) => { built[p.id] = i < pool.length - half ? "A" : "B"; });
-    setAssignments(built);
-    setDraftSaved(false);
-    setTeamsConfirmed(false);
-    teamsConfirmedRef.current = false;
-    confirmedThisSession.current = false;
-  }, [inPlayers]);
 
   const handleSaveDraft = useCallback(async () => {
     if (isSavingDraft) return;
@@ -780,10 +763,9 @@ export default function TeamsScreen({
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
 
-        {/* Generate / Random — Generate is the Group Balancer path when
-            the feature flag is on; falls back to Fisher-Yates otherwise. */}
+        {/* Generate — Group Balancer (replaces the legacy Fisher-Yates Random). */}
         <button
-          onClick={groupBalancerEnabled ? handleGenerate : handleRandom}
+          onClick={handleGenerate}
           style={{
             flex: 1, height: 40, borderRadius: 8, border: "0.5px solid var(--purpleb)",
             background: "var(--purple2)", color: "var(--purple)",
@@ -794,7 +776,7 @@ export default function TeamsScreen({
         >
           <Shuffle size={16} weight="thin" />
           <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, lineHeight: 1 }}>
-            {groupBalancerEnabled ? "GENERATE" : "RANDOM"}
+            GENERATE
           </span>
         </button>
 
@@ -834,7 +816,7 @@ export default function TeamsScreen({
 
       {/* Needs Group warning — appears each Generate with ungrouped players.
           Tap "Generate Anyway" to proceed past the gate. */}
-      {groupBalancerEnabled && showNeedsGroupWarning && needsGroupPlayers.length > 0 && (
+      {showNeedsGroupWarning && needsGroupPlayers.length > 0 && (
         <div style={{
           background: "var(--amber2)",
           border: "0.5px solid var(--amberb)",
@@ -855,7 +837,7 @@ export default function TeamsScreen({
       {/* Reroll warning — appears once a generated split has been manually
           tweaked, so the admin knows Reroll/Generate again will reset
           their tweaks. */}
-      {groupBalancerEnabled && manuallyAdjusted && (
+      {manuallyAdjusted && (
         <div style={{
           fontSize: 11, color: "var(--amber)",
           fontFamily: "'DM Sans', sans-serif",
@@ -1024,7 +1006,7 @@ export default function TeamsScreen({
       </div>
 
       {/* IO Prediction card — shown when a generated split exists. */}
-      {groupBalancerEnabled && prediction && (
+      {prediction && (
         <div style={{
           background: "var(--s2)",
           border: "0.5px solid var(--s3)",
@@ -1056,7 +1038,7 @@ export default function TeamsScreen({
       )}
 
       {/* GROUP BALANCER section — flag-gated, hidden if fewer than 4 IN. */}
-      {groupBalancerEnabled && inPlayersForGroups.length >= 4 && (
+      {inPlayersForGroups.length >= 4 && (
         <div onClick={handleSectionBgClick} style={{ marginBottom: 16 }}>
 
           {/* Header row */}

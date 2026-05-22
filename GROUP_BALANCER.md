@@ -1683,8 +1683,11 @@ visual states) is the main risk; treat anything faster as a bonus.
 
 ## BUILD COMPLETE (May 22 2026 — session 30)
 
-All five stages shipped behind the `group_balancer` PostHog feature flag
-(default OFF). Commits, in order:
+All five stages shipped. Initially gated behind the `group_balancer`
+PostHog feature flag, then promoted to permanent in the same session
+once the build was clean (feature is unconditionally on for every team).
+PostHog feature flag retired in code; analytics events still flow.
+Commits, in order:
 
 1. `39637d0` — feat(schema): migration 031 applied + verified
 2. `b119bfd` — feat(core): JS wrappers + dbToPlayer / dbToMatch / dbToSettings
