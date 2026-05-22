@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 21 2026 (session 29 — B1 resolved)*
+*Last updated: May 22 2026 (session 31 — cancel-then-relive resolved)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -37,7 +37,24 @@ null/zero. Table exists but provides no value until Phase 2 career sync is built
 
 ---
 
-## RESOLVED THIS SESSION (May 21 2026 — session 29)
+## RESOLVED THIS SESSION (May 22 2026 — session 31)
+
+- **B2: Game-is-live toggle blocked after Cancel This Week** — admin couldn't
+  re-enable the game once cancelled. Root cause: `admin_upsert_schedule`
+  writes day/kickoff/venue/etc but does NOT write `is_cancelled` or
+  `active_match_id`. After `admin_cancel_match` set both, flipping
+  `game_is_live=true` through the toggle left the schedule in conflicting
+  state (`is_cancelled=true && game_is_live=true`, `active_match_id=null`)
+  and the screen continued to render the cancelled state. New
+  `admin_reopen_week` RPC (migration 032) owns the full reopen
+  transaction: clears the cancelled state, inserts a fresh `matches`
+  row, points `active_match_id` at it, writes a `week_reopened`
+  audit_events row. JS `reopenWeek(adminToken)` wrapper. AdminView
+  `openNextWeek` and ScheduleScreen `save` both branch through it when
+  `schedule.isCancelled` is true. Verified against `team_demo`
+  end-to-end via MCP. Commits: `5061508`, `e2f67ea`.
+
+## RESOLVED (May 21 2026 — session 29)
 
 - **B1: Stale `p.is_vice_captain` in 10 deployed RPCs** — `players.is_vice_captain` was
   removed in migration 026 (session 27) but 10 SECURITY DEFINER functions still referenced
