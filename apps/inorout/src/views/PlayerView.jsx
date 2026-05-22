@@ -96,6 +96,11 @@ export default function PlayerView({
   const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
   const [hideConfirmation,  setHideConfirmation]  = useState(false);
   const confirmationTimer = useRef(null);
+  // Brief tap-feedback state: drives the green flash on the status-button
+  // row. Set true on every setStatus, cleared 600ms later. The pulse-on-
+  // attention animation is gated separately by status === 'none'.
+  const [justTapped, setJustTapped] = useState(false);
+  const tapFlashTimer = useRef(null);
   const [lastMatchMeta,   setLastMatchMeta]   = useState(null);
   const [showPOTMModal,   setShowPOTMModal]   = useState(false);
   const [potmEligible,    setPotmEligible]    = useState([]);
@@ -182,9 +187,13 @@ export default function PlayerView({
     }
   }, [schedule?.votingOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const isFull   = inPlayers.length >= (schedule.squadSize || 14);
-  const gameDay  = schedule?.gameDateTime
-    ? new Date(schedule.gameDateTime).toLocaleDateString('en-GB', { weekday:'long' })
-    : schedule?.dayOfWeek || 'Tuesday';
+  // Admin-configured day_of_week is authoritative; the timestamp-derived
+  // weekday is only a fallback (the demo schedule had drift between the
+  // two, surfacing 'Tuesday' on a Wednesday match).
+  const gameDay = schedule?.dayOfWeek
+    || (schedule?.gameDateTime
+        ? new Date(schedule.gameDateTime).toLocaleDateString('en-GB', { weekday:'long' })
+        : 'this week');
   const groups   = groupByStatus(squad);
   const teamAPlayers = [...inPlayers.filter(p => p.team === "A")].sort((a, b) => a.name.localeCompare(b.name));
   const teamBPlayers = [...inPlayers.filter(p => p.team === "B")].sort((a, b) => a.name.localeCompare(b.name));
@@ -227,6 +236,17 @@ export default function PlayerView({
     clearTimeout(confirmationTimer.current);
     setHideConfirmation(false);
     confirmationTimer.current = setTimeout(() => setHideConfirmation(true), 5000);
+
+    // Quick green flash on the status-button row (600ms).
+    clearTimeout(tapFlashTimer.current);
+    setJustTapped(true);
+    tapFlashTimer.current = setTimeout(() => setJustTapped(false), 600);
+
+    // Haptic tap-tick. Works on Android Chrome/Firefox + PWA;
+    // iOS Safari leaves navigator.vibrate undefined → no-op via the
+    // optional chain. No try/catch needed in supported browsers but
+    // defensive against a rare implementation that throws.
+    try { navigator.vibrate?.(20); } catch { /* haptic best-effort */ }
     const late = isLateDropout(me?.status, s, schedule.gameDateTime);
     if (late) sendTemplate(notificationTemplates.lateDropout, me?.name);
     setSquad(squad.map(p => p.id === myId
@@ -476,7 +496,7 @@ export default function PlayerView({
                     );
                     if (paymentMode !== 'stripe_only') btns.push(
                       <button key="cash" onClick={() => setCashPending(true)}
-                        style={tileStyle({ background:"var(--gold)", color:"#000" })}>
+                        style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
                         Paid Cash
                       </button>
                     );
@@ -510,7 +530,7 @@ export default function PlayerView({
                     );
                     if (paymentMode !== 'stripe_only') btns.push(
                       <button key="cash" onClick={() => setCashPending(true)}
-                        style={tileStyle({ background:"var(--gold)", color:"#000" })}>
+                        style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
                         Paid Cash
                       </button>
                     );
@@ -539,11 +559,18 @@ export default function PlayerView({
                 return (
                   <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid var(--b2)" }}>
 
-                    {/* Row 1: subtitle | amount */}
+                    {/* Row 1: subtitle | amount.
+                        Pre-response prompt nudges toward the buttons; once
+                        the player has tapped a status, the prompt collapses
+                        to just the day context (no nag). */}
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
                       <div style={{ fontSize:10, fontWeight:300, letterSpacing:"0.1em",
                         textTransform:"uppercase", color:"var(--t2)" }}>
-                        {schedule.gameIsLive ? `Are you in this ${gameDay}?` : "This week's game isn't live yet"}
+                        {!schedule.gameIsLive
+                          ? "This week's game isn't live yet"
+                          : (!me?.status || me?.status === "none")
+                            ? `Are you in this ${gameDay}? Tap below ↓`
+                            : `${gameDay}${schedule.kickoff ? ` · ${schedule.kickoff}` : ""}`}
                       </div>
                       <div style={{ fontSize:12, fontWeight:300, fontFamily:"var(--font-body)", color:amountColor }}>
                         {amountText}
@@ -624,12 +651,25 @@ export default function PlayerView({
                 );
               })()}
 
-              {/* Locked row — gameIsLive only */}
+              {/* Locked row — gameIsLive only. Slides + fades after 5s
+                  via the shared `hideConfirmation` timer (set in setStatus).
+                  Wrapper stays mounted so the height/opacity animation
+                  has something to play against. */}
               {schedule.gameIsLive && me?.status === "in" && (
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                  padding:"8px 16px", fontSize:12, color:"var(--green)",
-                  fontWeight:400, borderBottom:"1px solid var(--b2)", textAlign:"center" }}>
-                  🔒 Locked in. See you {gameDay}.
+                <div style={{
+                  overflow: "hidden",
+                  maxHeight:  hideConfirmation ? 0 : 60,
+                  opacity:    hideConfirmation ? 0 : 1,
+                  borderBottom: hideConfirmation ? "none" : "1px solid var(--b2)",
+                  transition: "max-height 600ms ease, opacity 500ms ease 100ms, border-bottom 500ms ease",
+                }}>
+                  <div style={{
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                    padding:"8px 16px", fontSize:12, color:"var(--green)",
+                    fontWeight:400, textAlign:"center",
+                  }}>
+                    🔒 Locked in. See you {gameDay}.
+                  </div>
                 </div>
               )}
 
@@ -652,12 +692,31 @@ export default function PlayerView({
                 </div>
               )}
 
-              {/* Status buttons 4-grid — gameIsLive or cancelled */}
+              {/* Status buttons 4-grid — gameIsLive or cancelled.
+                  Pulses gold while player hasn't responded (status='none');
+                  flashes green for 600ms on each tap. */}
               {(schedule.gameIsLive || schedule.isCancelled) && (
                 <>
+                <style>{`
+                  @keyframes ioo-status-pulse {
+                    0%,100% { box-shadow: 0 0 0 0 rgba(232,160,32,0.0); }
+                    50%     { box-shadow: 0 0 16px 2px rgba(232,160,32,0.35); }
+                  }
+                  @keyframes ioo-status-flash {
+                    0%   { box-shadow: 0 0 24px 6px rgba(61,220,106,0.85); }
+                    100% { box-shadow: 0 0 0 0 rgba(61,220,106,0); }
+                  }
+                `}</style>
                 <div data-gaffer-target="status-buttons"
                   style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
                     gap:8, padding:"10px 12px",
+                    borderRadius: 12,
+                    animation:
+                      justTapped
+                        ? "ioo-status-flash 600ms ease-out"
+                        : (schedule.gameIsLive && (!me?.status || me.status === "none"))
+                          ? "ioo-status-pulse 2.4s ease-in-out infinite"
+                          : "none",
                     ...(schedule.isCancelled && { opacity:0.4, pointerEvents:"none" }) }}>
                   <StatusButton
                     status="in" label="In"
@@ -710,7 +769,7 @@ export default function PlayerView({
                       <div style={{ display:"flex", gap:8 }}>
                         <button onClick={saveNote} style={{
                           flex:1, padding:"9px 0", borderRadius:8, border:"none",
-                          background:"var(--gold)", color:"#000",
+                          background:"var(--gold)", color:"var(--black)",
                           fontFamily:"var(--font-body)", fontSize:13, fontWeight:500, cursor:"pointer" }}>
                           Save Note
                         </button>
@@ -761,7 +820,7 @@ export default function PlayerView({
                     Get notified when a spot opens or squad fills up
                   </div>
                   <button onClick={handleSubscribe} style={{
-                    background:"var(--gold)", color:"#000", border:"none", borderRadius:7,
+                    background:"var(--gold)", color:"var(--black)", border:"none", borderRadius:7,
                     padding:"7px 12px", fontSize:12, fontWeight:500,
                     fontFamily:"var(--font-body)", cursor:"pointer", flexShrink:0 }}>
                     {notifState === "asking" ? "..." : "Enable"}
@@ -828,7 +887,7 @@ export default function PlayerView({
                         </button>
                       )}
                       {payMode !== 'stripe_only' && (
-                        <button onClick={() => setGuestCashPending(true)} style={ts({ background:"var(--gold)", color:"#000" })}>
+                        <button onClick={() => setGuestCashPending(true)} style={ts({ background:"var(--gold)", color:"var(--black)" })}>
                           Paid Cash
                         </button>
                       )}
