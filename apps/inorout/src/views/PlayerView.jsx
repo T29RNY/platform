@@ -96,10 +96,12 @@ export default function PlayerView({
   const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
   const [hideConfirmation,  setHideConfirmation]  = useState(false);
   const confirmationTimer = useRef(null);
-  // Brief tap-feedback state: drives the green flash on the status-button
-  // row. Set true on every setStatus, cleared 600ms later. The pulse-on-
-  // attention animation is gated separately by status === 'none'.
+  // Brief tap-feedback state: drives the flash on the status-button row.
+  // Colour matches the status tapped (in→green, out→red, maybe→amber,
+  // reserve→purple). Cleared 600ms after each tap. The pulse-on-attention
+  // animation is gated separately by status === 'none'.
   const [justTapped, setJustTapped] = useState(false);
+  const [lastTappedStatus, setLastTappedStatus] = useState(null);
   const tapFlashTimer = useRef(null);
   const [lastMatchMeta,   setLastMatchMeta]   = useState(null);
   const [showPOTMModal,   setShowPOTMModal]   = useState(false);
@@ -237,8 +239,10 @@ export default function PlayerView({
     setHideConfirmation(false);
     confirmationTimer.current = setTimeout(() => setHideConfirmation(true), 5000);
 
-    // Quick green flash on the status-button row (600ms).
+    // Quick flash on the status-button row (600ms). Colour matches the
+    // tapped status so the feedback feels semantic.
     clearTimeout(tapFlashTimer.current);
+    setLastTappedStatus(s);
     setJustTapped(true);
     tapFlashTimer.current = setTimeout(() => setJustTapped(false), 600);
 
@@ -702,15 +706,24 @@ export default function PlayerView({
                     0%,100% { box-shadow: 0 0 0 0 rgba(232,160,32,0.0); }
                     50%     { box-shadow: 0 0 16px 2px rgba(232,160,32,0.35); }
                   }
+                  /* Flash colour is taken from the --flash-color custom
+                     property set on the container — lets us match the
+                     tapped status (in→green, out→red, maybe→amber,
+                     reserve→purple) from a single keyframe. */
                   @keyframes ioo-status-flash {
-                    0%   { box-shadow: 0 0 24px 6px rgba(61,220,106,0.85); }
-                    100% { box-shadow: 0 0 0 0 rgba(61,220,106,0); }
+                    0%   { box-shadow: 0 0 24px 6px var(--flash-color, rgba(61,220,106,0.85)); }
+                    100% { box-shadow: 0 0 0 0   var(--flash-color, rgba(61,220,106,0)); }
                   }
                 `}</style>
                 <div data-gaffer-target="status-buttons"
                   style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
                     gap:8, padding:"10px 12px",
                     borderRadius: 12,
+                    "--flash-color":
+                      lastTappedStatus === "out"     ? "rgba(255,64,64,0.85)"
+                      : lastTappedStatus === "maybe"   ? "rgba(255,176,32,0.85)"
+                      : lastTappedStatus === "reserve" ? "rgba(176,96,240,0.85)"
+                      :                                  "rgba(61,220,106,0.85)",
                     animation:
                       justTapped
                         ? "ioo-status-flash 600ms ease-out"
