@@ -25,7 +25,12 @@ function PentagonBadge({ number }) {
   );
 }
 
-export default function TeamsScreen({ teamId, adminToken = null, squad, schedule, matchHistory, onBack }) {
+export default function TeamsScreen({
+  teamId, adminToken = null, squad, schedule, matchHistory,
+  tableData = { players: [] },
+  settings = null,
+  onBack,
+}) {
   const matchId = schedule?.activeMatchId ||
     matchHistory?.find(m => !m.cancelled && !m.winner)?.id ||
     matchHistory?.find(m => !m.cancelled)?.id ||
@@ -448,7 +453,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
           <span style={{ color: "var(--t2)", opacity: 0.4, fontSize: 16, lineHeight: 1 }}>·</span>
           <span style={{
             fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
-            color: "#F2F0EA",
+            color: "var(--t1)",
           }}>{countA}</span>
         </div>
 
@@ -480,7 +485,7 @@ export default function TeamsScreen({ teamId, adminToken = null, squad, schedule
         }}>
           <span style={{
             fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
-            color: "#F2F0EA",
+            color: "var(--t1)",
           }}>{countB}</span>
           <span style={{ color: "var(--t2)", opacity: 0.4, fontSize: 16, lineHeight: 1 }}>·</span>
           <span style={{

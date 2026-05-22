@@ -652,6 +652,11 @@ export default function AdminView({
   const [gameLiveHintDismissed, setGameLiveHintDismissed] = useState(
     () => !!localStorage.getItem('ioo_game_live_hint_dismissed')
   );
+  // Win-rate data for the Group Balancer prediction. Fetched here (rather
+  // than in TeamsScreen) so the admin shell holds it once and survives
+  // screen switches. StatsView still owns its own fetch — dedup is a
+  // Phase 2 concern.
+  const [tableData, setTableData] = useState({ players: [] });
 
   useEffect(() => {
     if (!showCancelNudge) return;
@@ -660,6 +665,23 @@ export default function AdminView({
     const p = setTimeout(() => setPulseCancelTile(false), 3000);
     return () => { clearTimeout(t); clearTimeout(p); };
   }, [showCancelNudge]);
+
+  // Fetch tableData on mount (and when teamId resolves). All-time period
+  // matches what generateBalancedTeams expects — predictions are based on
+  // career win rates, not period-filtered.
+  useEffect(() => {
+    if (!teamId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getPlayerLeagueTable(teamId, 'all');
+        if (!cancelled) setTableData(result ?? { players: [] });
+      } catch (err) {
+        console.error('AdminView tableData fetch error:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [teamId]);
 
   // ── derived ──────────────────────────────────────────────────────────────
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
@@ -835,7 +857,7 @@ export default function AdminView({
   };
 
   // ── screen routing ────────────────────────────────────────────────────────
-  if (screen === "teams")    return <TeamsScreen    teamId={teamId} adminToken={adminToken} squad={squad} schedule={schedule} matchHistory={matchHistory} onBack={() => setScreen("main")}/>;
+  if (screen === "teams")    return <TeamsScreen    teamId={teamId} adminToken={adminToken} squad={squad} schedule={schedule} matchHistory={matchHistory} tableData={tableData} settings={settings} onBack={() => setScreen("main")}/>;
   if (screen === "score")    return <ScoreScreen    squad={squad} setSquad={setSquad} teamId={teamId} adminToken={adminToken} schedule={schedule} matchHistory={matchHistory} setMatchHistory={setMatchHistory} payments={Object.fromEntries(squad.map(p => [p.id, p.paid]))} bibHistory={bibHistory} onBack={() => setScreen("main")}/>;
   if (screen === "bibs")     return <BibsScreen     squad={squad} setSquad={setSquad} bibHistory={bibHistory} setBibHistory={setBibHistory} schedule={schedule} onBack={() => setScreen("main")}/>;
   if (screen === "squad")    return <SquadScreen    squad={squad} setSquad={setSquad} onBack={() => setScreen("main")} teamId={teamId} adminToken={adminToken} isViceCaptain={isViceCaptain} me={me} onPlayerTap={(p) => { setScreen("main"); setSelectedPlayer(p); }}/>;
