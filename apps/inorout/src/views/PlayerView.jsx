@@ -94,7 +94,10 @@ export default function PlayerView({
   const [cashPending,       setCashPending]       = useState(false);
   const [guestCashPending,  setGuestCashPending]  = useState(false);
   const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
-  const [hideConfirmation,  setHideConfirmation]  = useState(false);
+  // Status confirmation messages (Locked in / We'll keep a spot / etc)
+  // start hidden so a page refresh doesn't resurrect them. setStatus
+  // flips this to false and re-arms the 5s timer that flips it back.
+  const [hideConfirmation,  setHideConfirmation]  = useState(true);
   const confirmationTimer = useRef(null);
   // Brief tap-feedback state: drives the flash on the status-button row.
   // Colour matches the status tapped (in→green, out→red, maybe→amber,
