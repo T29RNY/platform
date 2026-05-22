@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Shuffle, FloppyDisk, CheckCircle, Trash } from "@phosphor-icons/react";
+import {
+  ArrowLeft, Shuffle, FloppyDisk, CheckCircle, Trash,
+  CaretUp, CaretDown, Plus, X as XIcon,
+} from "@phosphor-icons/react";
 import {
   saveTeamsDraft, confirmTeams,
   generateBalancedTeams,
@@ -14,6 +17,208 @@ const ENABLE_SMART_RANDOM = false;
 // level. Both are tunable as real data accumulates. See GROUP_BALANCER.md.
 const MIN_TEAM_GAMES         = 30;
 const MIN_AVG_PLAYER_GAMES   = 8;
+
+// Group panel visual styling. `border` is just the colour — composed at the
+// call site with the width/style ("0.5px solid X"). #60A0FF / #FF6060 are
+// the only hardcoded hex literals permitted across the codebase (Team A/B
+// brand colours) and are reused here for visual continuity.
+const GROUP_STYLES = {
+  1:    { border: "#60A0FF",        bg: "rgba(96,160,255,0.08)" },
+  2:    { border: "var(--purple)",  bg: "rgba(176,96,240,0.08)" },
+  3:    { border: "var(--green)",   bg: "rgba(61,220,106,0.08)"  },
+  4:    { border: "var(--amber)",   bg: "rgba(255,176,32,0.08)"  },
+  5:    { border: "var(--red)",     bg: "rgba(255,64,64,0.08)"   },
+  null: { border: "var(--amber)",   bg: "var(--amber2)"          },
+};
+
+// Prediction card copy. absDelta is 0.0–1.0.
+function predictionCopy(winner, absDelta) {
+  if (winner === "draw") return "Too close to call — should be an even game";
+  const side = `Team ${winner}`;
+  if (absDelta >= 0.30) return `${side} are strong favourites`;
+  if (absDelta >= 0.15) return `${side} are favoured`;
+  return `${side} have a slight edge`;
+}
+
+const DISCLAIMER_COPY = {
+  early:        "Predictions improve as your squad builds up more games together.",
+  inconsistent: "Several players tonight don't have much history yet — this prediction may not reflect the game well.",
+  mid:          "This prediction is based on early data — it gets sharper as regulars build up more games.",
+  none:         null,
+};
+
+// Player chip used inside group panels. Tap to select for assignment; tap
+// again or tap outside to deselect.
+function PlayerChip({ player, selected, dimmed, isNew, onTap }) {
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onTap(player.id); }}
+      style={{
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "5px 8px", borderRadius: 8,
+        background: selected ? "var(--gold2)" : "var(--s2)",
+        border: selected
+          ? "0.5px solid var(--gold)"
+          : "0.5px solid rgba(255,255,255,0.08)",
+        opacity: dimmed ? 0.5 : 1,
+        cursor: "pointer",
+        transition: "opacity 0.1s, border 0.1s, background 0.1s",
+      }}
+    >
+      <div style={{
+        width: 24, height: 24, borderRadius: "50%",
+        background: "var(--s3)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 9, color: "var(--t2)",
+        fontFamily: "'Bebas Neue', sans-serif",
+        flexShrink: 0,
+      }}>
+        {(player.nickname || player.name || "?")
+          .split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+      </div>
+      <span style={{
+        fontSize: 12, color: "var(--t1)",
+        fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
+      }}>
+        {player.nickname || player.name}
+      </span>
+      {isNew && (
+        <span style={{
+          fontSize: 8, color: "var(--amber)",
+          fontFamily: "'Bebas Neue', sans-serif",
+          letterSpacing: "0.05em",
+        }}>NEW</span>
+      )}
+    </div>
+  );
+}
+
+// One group panel — Needs Group (groupNumber=null) or numbered 1–5.
+// Tap the panel body when a chip is selected to commit the move.
+function GroupPanel({
+  groupNumber, label, players,
+  selectedPlayerId, mountedPlayerIds,
+  onChipTap, onPanelTap,
+  isReceiving,
+  isEditingLabel, onLabelTap, onLabelSave,
+  canRemove, onRemove,
+}) {
+  const isNeedsGroup = groupNumber === null;
+  const style = GROUP_STYLES[groupNumber] ?? GROUP_STYLES.null;
+
+  return (
+    <div
+      onClick={onPanelTap}
+      style={{
+        background: style.bg,
+        border: "0.5px solid " + (
+          isReceiving && selectedPlayerId
+            ? style.border
+            : "rgba(255,255,255,0.08)"
+        ),
+        boxShadow: isReceiving && selectedPlayerId
+          ? "0 0 0 1px " + style.border
+          : "none",
+        borderRadius: 10,
+        padding: "8px 10px",
+        marginBottom: 8,
+        cursor: isReceiving ? "pointer" : "default",
+        transition: "border 0.15s, box-shadow 0.15s",
+      }}
+    >
+      {/* Panel header */}
+      <div style={{
+        display: "flex", alignItems: "center",
+        justifyContent: "space-between", marginBottom: 6,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {isNeedsGroup ? (
+            <span style={{
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
+              color: "var(--amber)", letterSpacing: "0.08em",
+            }}>
+              NEEDS GROUP
+            </span>
+          ) : isEditingLabel ? (
+            <input
+              autoFocus
+              defaultValue={label === `Group ${groupNumber}` ? "" : label}
+              placeholder={`Group ${groupNumber}`}
+              maxLength={20}
+              onBlur={e => onLabelSave(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") e.target.blur();
+                if (e.key === "Escape") onLabelSave(label);
+              }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: "var(--s3)", border: "none",
+                borderBottom: "1px solid " + style.border,
+                color: "var(--t1)", fontSize: 12,
+                fontFamily: "'Bebas Neue', sans-serif",
+                letterSpacing: "0.08em", outline: "none",
+                width: 110, padding: "2px 4px",
+              }}
+            />
+          ) : (
+            <span
+              onClick={e => { e.stopPropagation(); onLabelTap?.(); }}
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif", fontSize: 12,
+                color: "var(--t1)", letterSpacing: "0.08em", cursor: "text",
+              }}
+            >
+              {label}
+            </span>
+          )}
+          <span style={{
+            fontSize: 10, padding: "1px 6px",
+            background: "rgba(255,255,255,0.08)",
+            borderRadius: 10, color: "var(--t2)",
+          }}>
+            {players.length}
+          </span>
+        </div>
+        {canRemove && (
+          <button
+            onClick={e => { e.stopPropagation(); onRemove?.(); }}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "var(--t2)", padding: 0, display: "flex", alignItems: "center",
+            }}
+          >
+            <XIcon size={12} weight="thin" />
+          </button>
+        )}
+      </div>
+
+      {/* Player chips */}
+      {players.length === 0 ? (
+        <span style={{
+          fontSize: 11, color: "var(--t2)", fontStyle: "italic", opacity: 0.6,
+        }}>
+          Tap a player to move them here
+        </span>
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {players.map(p => (
+            <PlayerChip
+              key={p.id}
+              player={p}
+              selected={selectedPlayerId === p.id}
+              dimmed={selectedPlayerId !== null && selectedPlayerId !== p.id}
+              isNew={
+                mountedPlayerIds?.current &&
+                !mountedPlayerIds.current.has(p.id)
+              }
+              onTap={onChipTap}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PentagonBadge({ number }) {
   return (
@@ -68,6 +273,10 @@ export default function TeamsScreen({
   const [prediction,           setPrediction]           = useState(null);
   const [showNeedsGroupWarning,setShowNeedsGroupWarning]= useState(false);
   const [manuallyAdjusted,     setManuallyAdjusted]     = useState(false);
+  // Empty panels admin has explicitly added via "+ ADD GROUP" before any
+  // players are assigned. Once a player lands in a group it shows
+  // automatically (active group); this set is just for the in-between state.
+  const [emptyPanels,          setEmptyPanels]          = useState(() => new Set());
 
   const hasHydrated = useRef(false);
   const teamsConfirmedRef = useRef(false);
@@ -157,6 +366,33 @@ export default function TeamsScreen({
     [inPlayers]
   );
 
+  // Active group numbers = anything 1–5 with at least one player assigned,
+  // unioned with admin-summoned empty panels.
+  const activeGroupNumbers = useMemo(() => {
+    const populated = new Set(
+      inPlayersForGroups
+        .map(p => localGroups[p.id] ?? null)
+        .filter(g => g !== null)
+    );
+    for (const n of emptyPanels) populated.add(n);
+    return [1,2,3,4,5].filter(n => populated.has(n));
+  }, [inPlayersForGroups, localGroups, emptyPanels]);
+
+  const needsGroupPlayers = useMemo(
+    () => inPlayersForGroups.filter(p => (localGroups[p.id] ?? null) === null),
+    [inPlayersForGroups, localGroups]
+  );
+
+  const getPlayersInGroup = useCallback(
+    (groupNum) => inPlayersForGroups.filter(p => localGroups[p.id] === groupNum),
+    [inPlayersForGroups, localGroups]
+  );
+
+  const hasAnyGroupAssigned = useMemo(
+    () => inPlayersForGroups.some(p => (localGroups[p.id] ?? null) !== null),
+    [inPlayersForGroups, localGroups]
+  );
+
   // ── Group Balancer: effects ─────────────────────────────────────────────
 
   // Init localGroups from squad. Additive: never overwrites existing entries
@@ -210,7 +446,10 @@ export default function TeamsScreen({
     setTeamsConfirmed(false);
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
-  }, []);
+    // Manual override of a generated split — flag so reroll warns the
+    // admin that their tweaks will be lost.
+    if (prediction) setManuallyAdjusted(true);
+  }, [prediction]);
 
   // ── Group Balancer: handlers ────────────────────────────────────────────
 
@@ -241,7 +480,38 @@ export default function TeamsScreen({
   const handlePanelTap = useCallback((groupNumber) => {
     if (!selectedPlayerId) return;
     handleSetGroup(selectedPlayerId, groupNumber);
+    // Once a group has at least one player, it's no longer "empty" — drop
+    // it from the emptyPanels set so the × button stops showing.
+    if (groupNumber !== null) {
+      setEmptyPanels(prev => {
+        if (!prev.has(groupNumber)) return prev;
+        const next = new Set(prev); next.delete(groupNumber); return next;
+      });
+    }
   }, [selectedPlayerId, handleSetGroup]);
+
+  // + ADD GROUP — summon the lowest unused 1–5 panel.
+  const handleAddGroup = useCallback(() => {
+    const inUse = new Set(activeGroupNumbers);
+    const next = [1,2,3,4,5].find(n => !inUse.has(n));
+    if (!next) return;
+    setEmptyPanels(prev => {
+      const ns = new Set(prev); ns.add(next); return ns;
+    });
+  }, [activeGroupNumbers]);
+
+  // × on an empty panel — purely visual, no DB write.
+  const handleRemoveEmptyPanel = useCallback((groupNumber) => {
+    setEmptyPanels(prev => {
+      if (!prev.has(groupNumber)) return prev;
+      const ns = new Set(prev); ns.delete(groupNumber); return ns;
+    });
+  }, []);
+
+  // Tap-outside deselect — wraps the whole Group Balancer section.
+  const handleSectionBgClick = useCallback((e) => {
+    if (e.target === e.currentTarget) setSelectedPlayerId(null);
+  }, []);
 
   // Inline label editing on group panels. Empty string clears the label.
   const handleSetLabel = useCallback(async (groupNumber, label) => {
@@ -510,17 +780,21 @@ export default function TeamsScreen({
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
 
-        {/* Random Generator */}
-        <button onClick={handleRandom} style={{
-          flex: 1, height: 40, borderRadius: 8, border: "0.5px solid var(--purpleb)",
-          background: "var(--purple2)", color: "var(--purple)",
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 1,
-          cursor: "pointer",
-        }}>
+        {/* Generate / Random — Generate is the Group Balancer path when
+            the feature flag is on; falls back to Fisher-Yates otherwise. */}
+        <button
+          onClick={groupBalancerEnabled ? handleGenerate : handleRandom}
+          style={{
+            flex: 1, height: 40, borderRadius: 8, border: "0.5px solid var(--purpleb)",
+            background: "var(--purple2)", color: "var(--purple)",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 1,
+            cursor: "pointer",
+          }}
+        >
           <Shuffle size={16} weight="thin" />
           <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, lineHeight: 1 }}>
-            RANDOM
+            {groupBalancerEnabled ? "GENERATE" : "RANDOM"}
           </span>
         </button>
 
@@ -557,6 +831,39 @@ export default function TeamsScreen({
           </span>
         </button>
       </div>
+
+      {/* Needs Group warning — appears each Generate with ungrouped players.
+          Tap "Generate Anyway" to proceed past the gate. */}
+      {groupBalancerEnabled && showNeedsGroupWarning && needsGroupPlayers.length > 0 && (
+        <div style={{
+          background: "var(--amber2)",
+          border: "0.5px solid var(--amberb)",
+          borderRadius: 8, padding: "8px 12px",
+          marginTop: 8, fontSize: 12,
+          color: "var(--t1)", fontFamily: "'DM Sans', sans-serif",
+        }}>
+          {needsGroupPlayers.length} player{needsGroupPlayers.length === 1 ? "" : "s"} have no group — they'll be placed randomly.{" "}
+          <span
+            onClick={handleGenerate}
+            style={{ color: "var(--amber)", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Generate anyway
+          </span>
+        </div>
+      )}
+
+      {/* Reroll warning — appears once a generated split has been manually
+          tweaked, so the admin knows Reroll/Generate again will reset
+          their tweaks. */}
+      {groupBalancerEnabled && manuallyAdjusted && (
+        <div style={{
+          fontSize: 11, color: "var(--amber)",
+          fontFamily: "'DM Sans', sans-serif",
+          marginTop: 8, textAlign: "center",
+        }}>
+          Generating again will reset your manual changes
+        </div>
+      )}
 
       {/* Confirm nudge */}
       {confirmNudge && (
@@ -715,6 +1022,156 @@ export default function TeamsScreen({
           }}>TEAM B</span>
         </div>
       </div>
+
+      {/* IO Prediction card — shown when a generated split exists. */}
+      {groupBalancerEnabled && prediction && (
+        <div style={{
+          background: "var(--s2)",
+          border: "0.5px solid var(--s3)",
+          borderRadius: 10, padding: "10px 14px",
+          marginBottom: 12,
+        }}>
+          <div style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
+            color: "var(--t2)", letterSpacing: "0.1em", marginBottom: 4,
+          }}>
+            IO PREDICTION
+          </div>
+          <div style={{
+            fontSize: 14, color: "var(--t1)",
+            fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
+          }}>
+            {predictionCopy(prediction.winner, prediction.confidence)}
+          </div>
+          {DISCLAIMER_COPY[prediction.disclaimerLevel] && (
+            <div style={{
+              fontSize: 11, color: "var(--t2)",
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
+              fontStyle: "italic", marginTop: 6,
+            }}>
+              {DISCLAIMER_COPY[prediction.disclaimerLevel]}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* GROUP BALANCER section — flag-gated, hidden if fewer than 4 IN. */}
+      {groupBalancerEnabled && inPlayersForGroups.length >= 4 && (
+        <div onClick={handleSectionBgClick} style={{ marginBottom: 16 }}>
+
+          {/* Header row */}
+          <div style={{
+            display: "flex", alignItems: "center",
+            justifyContent: "space-between", marginBottom: 8,
+          }}>
+            <span style={{
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
+              color: "var(--t2)", letterSpacing: "0.1em",
+            }}>
+              GROUP BALANCER
+            </span>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              {hasAnyGroupAssigned && !showClearGroupsConfirm && (
+                <button
+                  onClick={() => setShowClearGroupsConfirm(true)}
+                  style={{
+                    fontSize: 11, color: "var(--t2)", background: "none",
+                    border: "none", cursor: "pointer", padding: 0,
+                  }}
+                >
+                  Clear All
+                </button>
+              )}
+              {showClearGroupsConfirm && (
+                <>
+                  <span style={{ fontSize: 11, color: "var(--t2)" }}>Clear all groups?</span>
+                  <button
+                    onClick={handleClearAllGroups}
+                    style={{
+                      fontSize: 11, color: "var(--red)", background: "none",
+                      border: "none", cursor: "pointer", padding: 0,
+                    }}
+                  >Yes, clear</button>
+                  <button
+                    onClick={() => setShowClearGroupsConfirm(false)}
+                    style={{
+                      fontSize: 11, color: "var(--t2)", background: "none",
+                      border: "none", cursor: "pointer", padding: 0,
+                    }}
+                  >Cancel</button>
+                </>
+              )}
+              <button
+                onClick={() => setGroupsCollapsed(c => !c)}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--t2)", display: "flex", alignItems: "center", padding: 0,
+                }}
+                aria-label={groupsCollapsed ? "Expand" : "Collapse"}
+              >
+                {groupsCollapsed ? <CaretDown size={16} weight="thin" /> : <CaretUp size={16} weight="thin" />}
+              </button>
+            </div>
+          </div>
+
+          {!groupsCollapsed && (
+            <>
+              {/* Needs Group panel — always shown when expanded */}
+              <GroupPanel
+                groupNumber={null}
+                label="NEEDS GROUP"
+                players={needsGroupPlayers}
+                selectedPlayerId={selectedPlayerId}
+                mountedPlayerIds={mountedPlayerIds}
+                onChipTap={handleChipTap}
+                onPanelTap={() => handlePanelTap(null)}
+                isReceiving={selectedPlayerId !== null}
+              />
+
+              {/* Active group panels */}
+              {activeGroupNumbers.map(groupNum => {
+                const playersInGroup = getPlayersInGroup(groupNum);
+                return (
+                  <GroupPanel
+                    key={groupNum}
+                    groupNumber={groupNum}
+                    label={groupLabels[String(groupNum)] || `Group ${groupNum}`}
+                    isEditingLabel={editingLabel === groupNum}
+                    onLabelTap={() => setEditingLabel(groupNum)}
+                    onLabelSave={(val) => handleSetLabel(groupNum, val)}
+                    players={playersInGroup}
+                    selectedPlayerId={selectedPlayerId}
+                    mountedPlayerIds={mountedPlayerIds}
+                    onChipTap={handleChipTap}
+                    onPanelTap={() => handlePanelTap(groupNum)}
+                    isReceiving={selectedPlayerId !== null}
+                    canRemove={playersInGroup.length === 0}
+                    onRemove={() => handleRemoveEmptyPanel(groupNum)}
+                  />
+                );
+              })}
+
+              {/* + ADD GROUP */}
+              {activeGroupNumbers.length < 5 && (
+                <button
+                  onClick={handleAddGroup}
+                  style={{
+                    width: "100%", padding: "8px", marginTop: 4,
+                    background: "none",
+                    border: "0.5px dashed rgba(255,255,255,0.15)",
+                    borderRadius: 10, color: "var(--t2)", fontSize: 12,
+                    fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
+                    cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  }}
+                >
+                  <Plus size={12} weight="thin" /> ADD GROUP
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Player rows section heading */}
       <div style={{
