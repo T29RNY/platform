@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { ArrowLeft, MapPin } from "@phosphor-icons/react";
 import { Toggle } from "@platform/ui";
 import { upsertSchedule, upsertSettings } from "@platform/supabase";
+import { reopenWeek } from "@platform/core";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -25,16 +26,11 @@ const OPEN_TIMES = (() => {
   return t;
 })();
 
-const QUIET_TIMES = (() => {
-  const t = [];
-  for (let h = 0; h < 24; h++)
-    t.push(`${String(h).padStart(2,"0")}:00`);
-  return t;
-})();
-
 const SQUAD_SIZES   = [6,7,8,9,10,11,12,13,14,16,18,20,22];
 const PRIORITY_LEADS = [30,45,60,90,120];
 
+// Fallback shape only — actual edits happen in the Notifications tab.
+// Used by the read-only passthrough so save doesn't wipe an empty config.
 const DEFAULT_REMINDERS = {
   quietStart: "22:00",
   quietEnd:   "08:00",
@@ -45,19 +41,6 @@ const DEFAULT_REMINDERS = {
     teamsConfirmed:true,
   },
 };
-
-const NOTIFICATION_TOGGLES = [
-  { key: 'gameLive',       label: 'Game is live',        sub: 'When the game opens for player responses'      },
-  { key: 'squadFull',      label: 'Squad full',           sub: 'When the squad reaches the target number'      },
-  { key: 'spotOpened',     label: 'Spot opened',          sub: 'When a reserve moves into the squad'           },
-  { key: 'gameCancelled',  label: 'Game cancelled',       sub: 'When the game is cancelled'                    },
-  { key: 'gameDay9am',     label: 'Game day morning',     sub: 'Reminder at 9am on matchday'                   },
-  { key: 'oneHrBefore',    label: '1hr before kickoff',   sub: "Sent to players who haven't paid yet"          },
-  { key: 'debtReminder',   label: 'Debt reminder',        sub: '24hrs after the game, chases unpaid players'   },
-  { key: 'bibs24hr',       label: 'Bibs — 24hrs before',  sub: 'Reminder for the bib holder to wash the bibs' },
-  { key: 'bibs45min',      label: 'Bibs — 45min before',  sub: 'Final reminder to bring the bibs'              },
-  { key: 'teamsConfirmed', label: 'Teams confirmed',      sub: 'When teams are picked and shared with players' },
-];
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -264,7 +247,10 @@ function VenueField({ venue, setVenue, city, setCity }) {
 export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack, teamId, adminToken = null }) {
   const [sched,     setSched]     = useState(schedule);
   const [groupName, setGroupName] = useState(settings.groupName || "");
-  const [reminders, setReminders] = useState(schedule.remindersConfig || DEFAULT_REMINDERS);
+  // remindersConfig is no longer editable from this screen (moved to the
+  // dedicated Notifications tab). Held as a read-only passthrough so save
+  // doesn't wipe whatever's currently set.
+  const reminders = schedule.remindersConfig || DEFAULT_REMINDERS;
 
   const [saving,     setSaving]     = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // null | "ok" | "error"
@@ -319,6 +305,16 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
     setSaving(true);
     try {
       if (adminToken) {
+        // Cancel-then-relive needs the reopen RPC because upsertSchedule
+        // doesn't touch is_cancelled / active_match_id. Detect the flip
+        // and call reopenWeek first; the rest of the schedule still
+        // saves via upsertSchedule for venue/kickoff/etc.
+        if (schedule.isCancelled && sched.gameIsLive) {
+          const result = await reopenWeek(adminToken);
+          finalSched.isCancelled   = false;
+          finalSched.cancelReason  = null;
+          finalSched.activeMatchId = result?.match_id ?? finalSched.activeMatchId;
+        }
         await upsertSchedule(adminToken, finalSched);
         await upsertSettings(adminToken, groupName);
       }
@@ -553,93 +549,46 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
               padding:14, background:"var(--s2)", borderRadius:10,
               border:"1px solid var(--s3)", marginBottom:24,
             }}>
-              <div>
-                <div style={{ fontSize:14, color:"var(--t1)", fontWeight:300 }}>
-                  Game Is Live This Week
-                </div>
-                <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
-                  Players can confirm availability now
-                </div>
-              </div>
-              <Toggle
-                on={sched.gameIsLive}
-                onChange={() => setSched(s => ({ ...s, gameIsLive: !s.gameIsLive }))}
-                color="var(--green)"
-              />
-            </div>
-
-            {/* Notifications */}
-            <div style={{ marginBottom:24 }}>
-              <div style={LABEL}>NOTIFICATIONS</div>
-
-              {/* Quiet hours */}
-              <div style={{
-                background:"var(--s2)", borderRadius:10, padding:14,
-                border:"1px solid var(--s3)", marginBottom:8,
-              }}>
-                <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300,
-                  letterSpacing:"0.08em", marginBottom:12 }}>
-                  QUIET HOURS
-                </div>
-                <div style={{ display:"flex", gap:12 }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:4 }}>FROM</div>
-                    <div style={{ position:"relative" }}>
-                      <select
-                        value={reminders.quietStart}
-                        onChange={e => setReminders(r => ({ ...r, quietStart: e.target.value }))}
-                        style={{
-                          ...BASE_INPUT, border:"1px solid var(--s3)",
-                          appearance:"none", WebkitAppearance:"none", paddingRight:30, cursor:"pointer",
-                        }}
-                      >
-                        {QUIET_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <div style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
-                        color:"var(--t2)", pointerEvents:"none", fontSize:12 }}>▾</div>
+              {sched.gameIsLive ? (
+                <>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{
+                      width:10, height:10, borderRadius:"50%", flexShrink:0,
+                      background:"var(--green)",
+                      boxShadow:"0 0 8px rgba(61,220,106,0.6)",
+                      animation:"ioo-blink 2s infinite",
+                    }}/>
+                    <div style={{
+                      fontFamily:"'Bebas Neue', sans-serif", fontSize:15,
+                      color:"var(--t1)", letterSpacing:"0.08em",
+                    }}>
+                      LIVE
                     </div>
                   </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:4 }}>TO</div>
-                    <div style={{ position:"relative" }}>
-                      <select
-                        value={reminders.quietEnd}
-                        onChange={e => setReminders(r => ({ ...r, quietEnd: e.target.value }))}
-                        style={{
-                          ...BASE_INPUT, border:"1px solid var(--s3)",
-                          appearance:"none", WebkitAppearance:"none", paddingRight:30, cursor:"pointer",
-                        }}
-                      >
-                        {QUIET_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <div style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)",
-                        color:"var(--t2)", pointerEvents:"none", fontSize:12 }}>▾</div>
-                    </div>
+                  <div style={{
+                    fontSize:11, color:"var(--t2)", fontWeight:300,
+                    fontFamily:"var(--font-body)",
+                  }}>
+                    Cancel via Cancel This Week
                   </div>
-                </div>
-              </div>
-
-              {/* Per-trigger toggles */}
-              {NOTIFICATION_TOGGLES.map(({ key, label, sub }) => (
-                <div key={key} style={{
-                  display:"flex", alignItems:"center", justifyContent:"space-between",
-                  padding:14, background:"var(--s2)", borderRadius:10,
-                  border:"1px solid var(--s3)", marginBottom:8,
-                }}>
-                  <div style={{ flex:1, paddingRight:16 }}>
-                    <div style={{ fontSize:14, color:"var(--t1)", fontWeight:300 }}>{label}</div>
-                    <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginTop:2 }}>{sub}</div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <div style={{ fontSize:14, color:"var(--t1)", fontWeight:300 }}>
+                      Make this week's game live
+                    </div>
+                    <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
+                      Players can confirm availability once it's live
+                    </div>
                   </div>
                   <Toggle
-                    on={reminders.triggers?.[key] !== false}
-                    onChange={() => setReminders(r => ({
-                      ...r,
-                      triggers: { ...r.triggers, [key]: r.triggers?.[key] !== false ? false : true },
-                    }))}
+                    on={sched.gameIsLive}
+                    onChange={() => setSched(s => ({ ...s, gameIsLive: !s.gameIsLive }))}
                     color="var(--green)"
                   />
-                </div>
-              ))}
+                </>
+              )}
             </div>
 
         {/* ── SAVE ── */}
@@ -658,7 +607,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
           style={{
             width:"100%", padding:16, borderRadius:12, border:"none",
             background: saveStatus === "ok" ? "var(--green)" : "var(--gold)",
-            color: "#000",
+            color: "var(--black)",
             fontFamily:"var(--font-display)", fontSize:18, letterSpacing:"0.06em",
             cursor: saving ? "not-allowed" : "pointer",
             opacity: saving ? 0.7 : 1,

@@ -6,6 +6,7 @@ import {
   toggleViceCaptain,
   confirmPayment,
   getPlayerLeagueTable,
+  reopenWeek,
 } from "@platform/core";
 import {
   deletePlayer,
@@ -634,8 +635,6 @@ export default function AdminView({
   const [demoResetState,   setDemoResetState]   = useState(null);
   const [cancelReason,     setCancelReason]     = useState("");
   const [cancelLoading,    setCancelLoading]    = useState(false);
-  const [showCancelNudge,  setShowCancelNudge]  = useState(false);
-  const [pulseCancelTile,  setPulseCancelTile]  = useState(false);
   const [gameOpenLoading,  setGameOpenLoading]  = useState(false);
   const cancelWeekRef = useRef(null);
   const [dragId,           setDragId]           = useState(null);
@@ -657,14 +656,6 @@ export default function AdminView({
   // screen switches. StatsView still owns its own fetch — dedup is a
   // Phase 2 concern.
   const [tableData, setTableData] = useState({ players: [] });
-
-  useEffect(() => {
-    if (!showCancelNudge) return;
-    const t = setTimeout(() => setShowCancelNudge(false), 4000);
-    setPulseCancelTile(true);
-    const p = setTimeout(() => setPulseCancelTile(false), 3000);
-    return () => { clearTimeout(t); clearTimeout(p); };
-  }, [showCancelNudge]);
 
   // Fetch tableData on mount (and when teamId resolves). All-time period
   // matches what generateBalancedTeams expects — predictions are based on
@@ -794,8 +785,24 @@ export default function AdminView({
   const openNextWeek = async () => {
     setGameOpenLoading(true);
     try {
-      await upsertSchedule(adminToken, { ...schedule, gameIsLive:true, isDraft:false, isCancelled:false });
-      setSchedule(s => ({ ...s, gameIsLive:true, isDraft:false, isCancelled:false }));
+      // Cancel-then-relive needs the reopen RPC — admin_upsert_schedule
+      // doesn't touch is_cancelled / active_match_id, so a plain
+      // upsertSchedule leaves the schedule in a conflicting state.
+      // Plain (non-cancelled) game-live flips stay on the cheap path.
+      if (schedule.isCancelled) {
+        const result = await reopenWeek(adminToken);
+        setSchedule(s => ({
+          ...s,
+          isCancelled: false,
+          gameIsLive: true,
+          isDraft: false,
+          cancelReason: null,
+          activeMatchId: result?.match_id ?? s.activeMatchId,
+        }));
+      } else {
+        await upsertSchedule(adminToken, { ...schedule, gameIsLive:true, isDraft:false });
+        setSchedule(s => ({ ...s, gameIsLive:true, isDraft:false }));
+      }
       sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
       const ids = squad.filter(p => !p.disabled && !p.injured).map(p => p.id);
       fetch("/api/notify", {
@@ -813,12 +820,11 @@ export default function AdminView({
     }
   };
 
+  // Toggle row only renders when game is NOT live (see JSX), so this
+  // handler only needs the "turn on" path. Cancel This Week handles
+  // going offline.
   const toggleGameLive = () => {
     if (!schedule.gameIsLive) openNextWeek();
-    else {
-      setShowCancelNudge(true);
-      setTimeout(() => cancelWeekRef.current?.scrollIntoView({ behavior:"smooth", block:"center" }), 100);
-    }
   };
 
   const chaseNoResponders = async () => {
@@ -1229,46 +1235,74 @@ export default function AdminView({
           </div>
         )}
 
-        {/* Game live toggle */}
-        <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
-          borderRadius:"var(--r)", padding:"14px 16px",
-          display:"flex", alignItems:"center", justifyContent:"space-between",
-          marginBottom: showCancelNudge ? 0 : 10,
-          opacity: gameOpenLoading ? 0.6 : 1,
-          pointerEvents: gameOpenLoading ? "none" : "auto" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        {/* Game live state.
+            When NOT live: full toggle row with clear "Make this week's
+            game live" label.
+            When live: status badge only — no toggle. Going offline is
+            via Cancel This Week below. */}
+        {schedule.gameIsLive ? (
+          <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+            borderRadius:"var(--r)", padding:"14px 16px",
+            display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
             <div style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
-              background: schedule.gameIsLive ? "var(--green)" : "var(--t2)",
-              boxShadow: schedule.gameIsLive ? "0 0 8px rgba(61,220,106,0.6)" : "none",
-              animation: schedule.gameIsLive ? "ioo-blink 2s infinite" : "none" }}/>
-            <div style={{ fontSize:15, fontWeight:400, color:"var(--t1)" }}>
-              {schedule.gameIsLive ? "Game is Open" : "Game is Closed"}
+              background:"var(--green)",
+              boxShadow:"0 0 8px rgba(61,220,106,0.6)",
+              animation:"ioo-blink 2s infinite" }}/>
+            <div style={{
+              fontFamily:"'Bebas Neue', sans-serif", fontSize:15,
+              color:"var(--t1)", letterSpacing:"0.08em",
+            }}>
+              LIVE
             </div>
           </div>
-          <div onClick={toggleGameLive} style={{ width:44, height:26, borderRadius:13,
-            background: schedule.gameIsLive ? "var(--green)" : "var(--s3)",
-            position:"relative", flexShrink:0, cursor:"pointer", transition:"all 0.2s",
-            boxShadow: schedule.gameIsLive ? "0 0 10px rgba(61,220,106,0.3)" : "none" }}>
-            <div style={{ width:20, height:20, background:"var(--white)", borderRadius:"50%",
-              position:"absolute", top:3, transition:"all 0.2s",
-              left: schedule.gameIsLive ? "auto" : 3,
-              right: schedule.gameIsLive ? 3 : "auto",
-              boxShadow:"0 1px 4px rgba(0,0,0,0.3)" }}/>
-          </div>
-        </div>
-
-        {/* Cancel nudge — shown when admin tries to toggle OFF */}
-        {showCancelNudge && (
-          <div style={{ background:"var(--amber2)", border:"0.5px solid var(--amberb)",
-            borderRadius:10, padding:"10px 14px", marginBottom:10,
-            fontFamily:"var(--font-body)", fontSize:13, fontWeight:300, color:"var(--t1)",
-            textAlign:"center" }}>
-            To cancel this week's game, use Cancel Week ↓
+        ) : (
+          <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+            borderRadius:"var(--r)", padding:"14px 16px",
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            marginBottom:10,
+            opacity: gameOpenLoading ? 0.6 : 1,
+            pointerEvents: gameOpenLoading ? "none" : "auto" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                background:"var(--t2)" }}/>
+              <div style={{ fontSize:15, fontWeight:400, color:"var(--t1)" }}>
+                Make this week's game live
+              </div>
+            </div>
+            <div onClick={toggleGameLive} style={{ width:44, height:26, borderRadius:13,
+              background:"var(--s3)", position:"relative", flexShrink:0,
+              cursor:"pointer", transition:"all 0.2s" }}>
+              <div style={{ width:20, height:20, background:"var(--white)", borderRadius:"50%",
+                position:"absolute", top:3, left:3, transition:"all 0.2s",
+                boxShadow:"0 1px 4px rgba(0,0,0,0.3)" }}/>
+            </div>
           </div>
         )}
 
+        {/* This Week tiles — Make Teams + Input Result.
+            Moved up from below the roster (was hidden way down) so the
+            screen reads top-to-bottom as a workflow: live status →
+            tonight's work → live actions → roster admin. */}
+        <SectionLabel>This Week</SectionLabel>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+          {tile({
+            icon:UsersThree, iconColor:"#60A0FF",
+            bg:"linear-gradient(135deg,rgba(96,160,255,0.14) 0%,rgba(96,160,255,0.03) 60%,rgba(10,10,8,0.5) 100%)",
+            border:"rgba(96,160,255,0.25)",
+            title:"Make Teams", sub:"Split squad into A and B",
+            status:{ ok:teamsSet, label: teamsSet ? "Teams confirmed ✓" : "Not confirmed" },
+            badge:0, onClick:() => setScreen("teams"),
+          })}
+          {tile({
+            icon:FlagCheckered, iconColor:"var(--green)",
+            bg:"linear-gradient(135deg,rgba(61,220,106,0.14) 0%,rgba(61,220,106,0.03) 60%,rgba(10,10,8,0.5) 100%)",
+            border:"rgba(61,220,106,0.25)",
+            title:"Input Result", sub:"Score, scorers, POTM, bibs",
+            badge:pendingResults, onClick:() => setScreen("score"),
+          })}
+        </div>
+
         {/* Actions section */}
-        <style>{`@keyframes ioo-cancel-pulse{0%{box-shadow:0 0 0px rgba(255,64,64,0)}50%{box-shadow:0 0 20px rgba(255,64,64,0.6)}100%{box-shadow:0 0 0px rgba(255,64,64,0)}}`}</style>
         <SectionLabel>Actions</SectionLabel>
         {chaseToast && (
           <div style={{ background:"var(--green2)", border:"0.5px solid var(--greenb)",
@@ -1312,11 +1346,7 @@ export default function AdminView({
               style={{ display:"flex", alignItems:"center", padding:"12px 14px",
                 borderBottom: i < 2 ? "0.5px solid var(--b2)" : "none",
                 cursor:"pointer", gap:12,
-                WebkitTapHighlightColor:"transparent",
-                ...(key === "cancel" && pulseCancelTile && {
-                  animation:"ioo-cancel-pulse 0.8s ease-in-out 3",
-                  border:"0.5px solid var(--red)",
-                }) }}>
+                WebkitTapHighlightColor:"transparent" }}>
               <div style={{ width:36, height:36, borderRadius:"var(--rs)", flexShrink:0,
                 background:iconBg, border:`0.5px solid ${iconBorder}`,
                 display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -1396,26 +1426,6 @@ export default function AdminView({
         {renderSection("out",     "❌", "Out",          "var(--red)",    outPlayers)}
         {renderSection("injured", "🤕", "Injured",     "var(--red)",    injuredPlayers)}
         {renderSection("noResp",  "⏳", "No Response", "var(--t2)",     noRespPlayers)}
-
-        {/* This Week tiles */}
-        <SectionLabel>This Week</SectionLabel>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-          {tile({
-            icon:UsersThree, iconColor:"#60A0FF",
-            bg:"linear-gradient(135deg,rgba(96,160,255,0.14) 0%,rgba(96,160,255,0.03) 60%,rgba(10,10,8,0.5) 100%)",
-            border:"rgba(96,160,255,0.25)",
-            title:"Make Teams", sub:"Split squad into A and B",
-            status:{ ok:teamsSet, label: teamsSet ? "Teams confirmed ✓" : "Not confirmed" },
-            badge:0, onClick:() => setScreen("teams"),
-          })}
-          {tile({
-            icon:FlagCheckered, iconColor:"var(--green)",
-            bg:"linear-gradient(135deg,rgba(61,220,106,0.14) 0%,rgba(61,220,106,0.03) 60%,rgba(10,10,8,0.5) 100%)",
-            border:"rgba(61,220,106,0.25)",
-            title:"Input Result", sub:"Score, scorers, POTM, bibs",
-            badge:pendingResults, onClick:() => setScreen("score"),
-          })}
-        </div>
 
         {/* Manage tiles */}
         <SectionLabel>Manage</SectionLabel>
