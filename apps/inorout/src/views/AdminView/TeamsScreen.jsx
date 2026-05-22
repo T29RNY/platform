@@ -27,21 +27,150 @@ const GROUP_STYLES = {
   null: { border: "var(--amber)",   bg: "var(--amber2)"          },
 };
 
-// Prediction card copy. absDelta is 0.0–1.0.
-function predictionCopy(winner, absDelta) {
-  if (winner === "draw") return "Too close to call — should be an even game";
+// Single-line IO Prediction chip. absDelta is 0.0–1.0.
+function predictionChipText(winner, absDelta) {
+  if (winner === "draw")  return "Even game";
   const side = `Team ${winner}`;
-  if (absDelta >= 0.30) return `${side} are strong favourites`;
-  if (absDelta >= 0.15) return `${side} are favoured`;
-  return `${side} have a slight edge`;
+  if (absDelta >= 0.30)   return `${side} strong favourites`;
+  if (absDelta >= 0.15)   return `${side} favoured`;
+  return `Slight edge to ${side}`;
 }
 
-const DISCLAIMER_COPY = {
-  early:        "Predictions improve as your squad builds up more games together.",
-  inconsistent: "Several players tonight don't have much history yet — this prediction may not reflect the game well.",
-  mid:          "This prediction is based on early data — it gets sharper as regulars build up more games.",
-  none:         null,
-};
+// LiveBoard — two-column A | B grid showing player chips, designed to
+// echo PlayerView's confirmed-teams tile. Selection is admin-only and
+// shared with the SMART panel via `selectedPlayerId`. The whole tile is
+// the primary surface for moving players between teams.
+function LiveBoard({
+  teamAPlayers, teamBPlayers,
+  selectedPlayerId, onChipTap, onColumnTap,
+}) {
+  const renderChip = (p, color, avBg, avBorder) => {
+    const isSelected = selectedPlayerId === p.id;
+    const isDimmed   = selectedPlayerId && !isSelected;
+    const parts = ((p.nickname || p.name) || "").trim().split(/\s+/);
+    const ini = parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : ((p.nickname || p.name) || "?").slice(0, 2).toUpperCase();
+    return (
+      <div
+        key={p.id}
+        onClick={(e) => { e.stopPropagation(); onChipTap(p.id); }}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "6px 14px",
+          background: isSelected ? "var(--gold2)" : "transparent",
+          opacity: isDimmed ? 0.5 : 1,
+          cursor: "pointer",
+          transition: "opacity 0.1s, background 0.1s",
+        }}
+      >
+        <div style={{
+          width: 28, height: 28, borderRadius: "50%",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 9, fontWeight: 600, flexShrink: 0,
+          background: isSelected ? "var(--gold2)" : avBg,
+          border:     `0.5px solid ${isSelected ? "var(--goldb)" : avBorder}`,
+          color:      isSelected ? "var(--gold)" : color,
+          boxShadow:  isSelected ? "0 0 8px rgba(232,160,32,0.2)" : "none",
+        }}>
+          {ini}
+        </div>
+        <span style={{
+          fontSize: 12, color: "var(--t1)", fontWeight: 400,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {p.nickname || p.name}
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      borderRadius: "var(--rs)", overflow: "hidden",
+      border: "0.5px solid rgba(61,220,106,0.35)",
+      background: "linear-gradient(135deg,rgba(61,220,106,0.18) 0%,rgba(61,220,106,0.05) 45%,rgba(10,10,8,0.6) 100%)",
+      marginTop: 16, marginBottom: 12,
+    }}>
+      {/* Header row — counts */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr 1fr",
+        borderBottom: "0.5px solid rgba(255,255,255,0.06)",
+      }}>
+        <div style={{
+          padding: "8px 14px", fontSize: 10, fontWeight: 700,
+          letterSpacing: "0.1em", textTransform: "uppercase",
+          color: "#60A0FF",
+          display: "flex", alignItems: "center", gap: 6,
+          borderRight: "0.5px solid rgba(255,255,255,0.06)",
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: "#60A0FF",
+            boxShadow: "0 0 6px rgba(96,160,255,0.5)", flexShrink: 0,
+          }} />
+          Team A · {teamAPlayers.length}
+        </div>
+        <div style={{
+          padding: "8px 14px", fontSize: 10, fontWeight: 700,
+          letterSpacing: "0.1em", textTransform: "uppercase",
+          color: "#FF6060",
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: "#FF6060",
+            boxShadow: "0 0 6px rgba(255,96,96,0.5)", flexShrink: 0,
+          }} />
+          Team B · {teamBPlayers.length}
+        </div>
+      </div>
+
+      {/* Body — two-column tap targets */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 80 }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) onColumnTap("A"); }}
+          style={{
+            borderRight: "0.5px solid rgba(255,255,255,0.06)",
+            paddingTop: 8, paddingBottom: 8,
+            cursor: selectedPlayerId ? "pointer" : "default",
+          }}
+        >
+          {teamAPlayers.map(p =>
+            renderChip(p, "#60A0FF", "rgba(96,160,255,0.15)", "rgba(96,160,255,0.4)")
+          )}
+          {teamAPlayers.length === 0 && (
+            <div style={{
+              padding: "16px 14px", fontSize: 11, color: "var(--t2)",
+              fontStyle: "italic", opacity: 0.6, textAlign: "center",
+            }}>
+              tap here to add
+            </div>
+          )}
+        </div>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) onColumnTap("B"); }}
+          style={{
+            paddingTop: 8, paddingBottom: 8,
+            cursor: selectedPlayerId ? "pointer" : "default",
+          }}
+        >
+          {teamBPlayers.map(p =>
+            renderChip(p, "#FF6060", "rgba(255,96,96,0.15)", "rgba(255,96,96,0.4)")
+          )}
+          {teamBPlayers.length === 0 && (
+            <div style={{
+              padding: "16px 14px", fontSize: 11, color: "var(--t2)",
+              fontStyle: "italic", opacity: 0.6, textAlign: "center",
+            }}>
+              tap here to add
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Player chip used inside group panels. Tap to select for assignment; tap
 // again or tap outside to deselect.
@@ -271,7 +400,6 @@ export default function TeamsScreen({
   const [groupsCollapsed,      setGroupsCollapsed]      = useState(false);
   const [showClearGroupsConfirm, setShowClearGroupsConfirm] = useState(false);
   const [prediction,           setPrediction]           = useState(null);
-  const [showNeedsGroupWarning,setShowNeedsGroupWarning]= useState(false);
   const [manuallyAdjusted,     setManuallyAdjusted]     = useState(false);
   // Groups that should be rendered as panels. Populated from three sources:
   // (1) Squad mount — every groupNumber currently assigned starts the
@@ -286,13 +414,20 @@ export default function TeamsScreen({
   // Hide the SMART TEAMS section by default. Reveals on first SMART tap,
   // or on mount if existing groups indicate the admin already engaged.
   const [smartTeamsRevealed,   setSmartTeamsRevealed]   = useState(false);
-  // PLAYERS list collapsibility — defaults open, mirrors the SMART TEAMS
-  // header chevron pattern.
-  const [playersCollapsed,     setPlayersCollapsed]     = useState(false);
+  // PLAYERS list collapsibility — defaults COLLAPSED in the new design
+  // because the live-board is the primary surface. Admin can expand for
+  // the row-based fallback if they prefer.
+  const [playersCollapsed,     setPlayersCollapsed]     = useState(true);
+  // Flips true when admin edits groups since the last algorithm run.
+  // Drives the contextual BUILD TEAMS button. Cleared by runAlgorithm.
+  const [groupsDirty,          setGroupsDirty]          = useState(false);
 
   const hasHydrated = useRef(false);
   const teamsConfirmedRef = useRef(false);
   const confirmedThisSession = useRef(false);
+  // One-shot guard for the auto-Smart effect. Reset by Clear Teams so
+  // the screen never sits empty.
+  const hasAutoFiredRef = useRef(false);
   // Players present at mount — anyone added to the squad later gets a "NEW"
   // badge in the Needs Group panel until assigned.
   const mountedPlayerIds = useRef(null);
@@ -342,9 +477,11 @@ export default function TeamsScreen({
       setAssignments(built);
       setTeamsConfirmed(true);
       teamsConfirmedRef.current = true;
-    } else if (!confirmedThisSession.current) {
-      setAssignments({});
     }
+    // No else-branch: auto-Smart populates assignments locally without
+    // touching squad.team, so clearing here would wipe its output on
+    // every realtime squad refresh. handleClearConfirm is the only
+    // explicit clearer.
   }, [squad]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const inPlayers = useMemo(() => {
@@ -432,15 +569,6 @@ export default function TeamsScreen({
     setGroupLabels(settings?.groupLabels ?? {});
   }, [settings]);
 
-  // Auto-dismiss the Needs Group warning the moment the admin starts
-  // addressing it — assigning a player, clearing, or simply changing the
-  // ungrouped count by any means. Treats the banner as a one-shot Generate
-  // nudge instead of persistent state. Re-fires only on the next Generate.
-  useEffect(() => {
-    if (showNeedsGroupWarning) setShowNeedsGroupWarning(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsGroupPlayers.length]);
-
   // Mount-only: capture initial player set + decide whether to start
   // collapsed (everyone already grouped → start collapsed). Also reveal
   // the SMART TEAMS section if any player already has a group from a
@@ -463,6 +591,15 @@ export default function TeamsScreen({
   const allAssigned = inPlayers.length > 0 && inPlayers.every(p => assignments[p.id] === "A" || assignments[p.id] === "B");
   const teamAIds = inPlayers.filter(p => assignments[p.id] === "A").map(p => p.id);
   const teamBIds = inPlayers.filter(p => assignments[p.id] === "B").map(p => p.id);
+  // Full player objects for the LiveBoard, A on left and B on right.
+  const teamAPlayers = useMemo(
+    () => inPlayers.filter(p => assignments[p.id] === "A"),
+    [inPlayers, assignments]
+  );
+  const teamBPlayers = useMemo(
+    () => inPlayers.filter(p => assignments[p.id] === "B"),
+    [inPlayers, assignments]
+  );
 
   const clearError = () => setError(null);
 
@@ -489,12 +626,60 @@ export default function TeamsScreen({
     setSelectedPlayerId(prev => prev === playerId ? null : playerId);
   }, []);
 
+  // Unconditional team assignment used by the LiveBoard tap flow.
+  // (handleAssign toggles to null on same-team tap — wrong for the
+  // "tap target side to place" pattern.)
+  const handleMoveToTeam = useCallback((playerId, team) => {
+    clearError();
+    setAssignments(prev => ({ ...prev, [playerId]: team }));
+    setSelectedPlayerId(null);
+    setDraftSaved(false);
+    setTeamsConfirmed(false);
+    setJustConfirmed(false);
+    teamsConfirmedRef.current = false;
+    confirmedThisSession.current = false;
+    if (prediction) setManuallyAdjusted(true);
+  }, [prediction]);
+
+  // LiveBoard chip tap: smarter than the group-panel chip tap because the
+  // tapped chip itself encodes a target team. Rules:
+  //   • no selection → select
+  //   • same chip → deselect
+  //   • another chip on same team → switch selection
+  //   • another chip on other team → move selected to that team
+  const handleLiveBoardChipTap = useCallback((playerId) => {
+    if (selectedPlayerId === playerId) {
+      setSelectedPlayerId(null);
+      return;
+    }
+    if (!selectedPlayerId) {
+      setSelectedPlayerId(playerId);
+      return;
+    }
+    const tappedTeam   = assignments[playerId];
+    const selectedTeam = assignments[selectedPlayerId];
+    if (tappedTeam === selectedTeam || !tappedTeam) {
+      setSelectedPlayerId(playerId);
+    } else {
+      handleMoveToTeam(selectedPlayerId, tappedTeam);
+    }
+  }, [selectedPlayerId, assignments, handleMoveToTeam]);
+
+  // LiveBoard column tap: tap empty space in a column to drop the selected
+  // player there. No-op if no selection, or if already on that team.
+  const handleColumnTap = useCallback((team) => {
+    if (!selectedPlayerId) return;
+    if (assignments[selectedPlayerId] === team) return;
+    handleMoveToTeam(selectedPlayerId, team);
+  }, [selectedPlayerId, assignments, handleMoveToTeam]);
+
   // Commit a player → group assignment with optimistic UI + revert on error.
   // groupNumber is 1–5 or null (Needs Group). RPC writes audit_events.
   const handleSetGroup = useCallback(async (playerId, groupNumber) => {
     const prev = localGroups[playerId] ?? null;
     setLocalGroups(g => ({ ...g, [playerId]: groupNumber }));
     setSelectedPlayerId(null);
+    setGroupsDirty(true);
     window.posthog?.capture('group_assigned', {
       group: groupNumber ?? 'needs_group',
     });
@@ -570,6 +755,7 @@ export default function TeamsScreen({
     setLocalGroups(cleared);
     setSummonedPanels(new Set());
     setShowClearGroupsConfirm(false);
+    setGroupsDirty(true);
     try {
       await clearAllGroups(adminToken);
     } catch (e) {
@@ -580,23 +766,12 @@ export default function TeamsScreen({
     }
   }, [localGroups, summonedPanels, adminToken]);
 
-  // The flag-on Generate path. Replaces Fisher-Yates with the balanced
-  // algorithm and stores the prediction for confirmTeams to persist.
-  const handleGenerate = useCallback(() => {
+  // Pure run of the balancer. `silent: true` skips PostHog and side-effects
+  // tied to a user-initiated Generate (used by the auto-Smart effect on
+  // mount). Always clears manuallyAdjusted + groupsDirty since the live
+  // board now reflects the algorithm's output.
+  const runAlgorithm = useCallback(({ silent = false } = {}) => {
     clearError();
-
-    const needsGroupCount = inPlayersForGroups.filter(
-      p => (localGroups[p.id] ?? null) === null
-    ).length;
-
-    // Friction step: every Generate with ungrouped players shows the
-    // warning. Tapping Generate Anyway re-fires this handler with the
-    // warning state set, which proceeds past the gate.
-    if (needsGroupCount > 0 && !showNeedsGroupWarning) {
-      setShowNeedsGroupWarning(true);
-      return;
-    }
-    setShowNeedsGroupWarning(false);
     setManuallyAdjusted(false);
 
     const playersWithGroups = inPlayersForGroups.map(p => ({
@@ -625,27 +800,69 @@ export default function TeamsScreen({
       avgGamesPlayed:  result.avgGamesPlayed,
       disclaimerLevel: result.disclaimerLevel,
     });
+    setGroupsDirty(false);
     setDraftSaved(false);
     setTeamsConfirmed(false);
     setJustConfirmed(false);
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
-    // First tap on SMART unhides the grouping UI so the admin can refine.
-    setSmartTeamsRevealed(true);
 
-    window.posthog?.capture('group_balancer_generate', {
-      groupCount:       Object.values(localGroups)
-                          .filter(g => g !== null).length,
-      needsGroupCount,
-      totalIn:          inPlayersForGroups.length,
-    });
-    if (showNeedsGroupWarning) {
-      window.posthog?.capture('group_balancer_needs_group_confirmed');
+    if (!silent) {
+      window.posthog?.capture('group_balancer_generate', {
+        groupCount: Object.values(localGroups)
+                      .filter(g => g !== null).length,
+        totalIn:    inPlayersForGroups.length,
+      });
     }
   }, [
     inPlayersForGroups, localGroups, matchHistory, tableData,
-    showNeedsGroupWarning,
   ]);
+
+  // User-initiated re-balance via the BUILD TEAMS button. Same as
+  // runAlgorithm but always non-silent.
+  const handleGenerate = useCallback(() => {
+    runAlgorithm({ silent: false });
+  }, [runAlgorithm]);
+
+  // Auto-Smart on first viable render: if the match has no teams set
+  // (draft or confirmed) AND there are ≥4 IN players, silently run the
+  // algorithm so the screen shows a balanced split the moment admin
+  // arrives. Skips if assignments are already populated. Re-fires after
+  // Clear Teams (hasAutoFiredRef reset in handleClearConfirm).
+  useEffect(() => {
+    if (hasAutoFiredRef.current) return;
+    if (!hasHydrated.current) return;
+    if (inPlayersForGroups.length < 4) return;
+    const alreadyAssigned = Object.values(assignments)
+      .some(v => v === 'A' || v === 'B');
+    if (alreadyAssigned) {
+      hasAutoFiredRef.current = true;
+      return;
+    }
+    hasAutoFiredRef.current = true;
+    runAlgorithm({ silent: true });
+  }, [inPlayersForGroups.length, assignments, runAlgorithm]);
+
+  // SMART button = show/hide the grouping panel only. The algorithm runs
+  // through BUILD TEAMS (and the auto-Smart effect on entry), never from
+  // this button directly. First reveal seeds the default panels.
+  const handleSmartTap = useCallback(() => {
+    if (smartTeamsRevealed) {
+      setSmartTeamsRevealed(false);
+      return;
+    }
+    setSmartTeamsRevealed(true);
+    // Seed Group 1 + Group 2 empty panels only when no existing groups
+    // — returning admins keep their saved organisation untouched.
+    if (!hasAnyGroupAssigned) {
+      setSummonedPanels(prev => {
+        const next = new Set(prev);
+        next.add(1);
+        next.add(2);
+        return next;
+      });
+    }
+  }, [smartTeamsRevealed, hasAnyGroupAssigned]);
 
   const handleSaveDraft = useCallback(async () => {
     if (isSavingDraft) return;
@@ -729,10 +946,8 @@ export default function TeamsScreen({
     setShowClearConfirm(false);
     setPrediction(null);
     setManuallyAdjusted(false);
-    // Clear Teams returns the screen to its quiet default: SMART TEAMS hidden
-    // unless existing groups remain (which they do — Clear Teams doesn't
-    // touch group assignments). So we only collapse the section if there
-    // are no groups left to surface.
+    setGroupsDirty(false);
+    // SMART panel collapses unless existing groups remain to surface.
     if (!Object.values(localGroups).some(g => g !== null)) {
       setSmartTeamsRevealed(false);
     }
@@ -741,6 +956,9 @@ export default function TeamsScreen({
     } catch (e) {
       console.error("handleClearConfirm error:", e);
     }
+    // Allow the auto-Smart effect to fire again so the live board never
+    // sits empty after a clear.
+    hasAutoFiredRef.current = false;
   }, [adminToken, matchId, localGroups]);
 
   const handleClearCancel = useCallback(() => {
@@ -805,9 +1023,11 @@ export default function TeamsScreen({
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
 
-        {/* Generate — Group Balancer (replaces the legacy Fisher-Yates Random). */}
+        {/* SMART — toggles the grouping panel. Algorithm runs via BUILD
+            TEAMS (contextual gold button when groups are dirty) or the
+            auto-Smart effect on screen entry. */}
         <button
-          onClick={handleGenerate}
+          onClick={handleSmartTap}
           style={{
             flex: 1, height: 40, borderRadius: 8, border: "0.5px solid var(--purpleb)",
             background: "var(--purple2)", color: "var(--purple)",
@@ -855,26 +1075,6 @@ export default function TeamsScreen({
           </span>
         </button>
       </div>
-
-      {/* Needs Group warning — appears each Generate with ungrouped players.
-          Tap "Generate Anyway" to proceed past the gate. */}
-      {showNeedsGroupWarning && needsGroupPlayers.length > 0 && (
-        <div style={{
-          background: "var(--amber2)",
-          border: "0.5px solid var(--amberb)",
-          borderRadius: 8, padding: "8px 12px",
-          marginTop: 8, fontSize: 12,
-          color: "var(--t1)", fontFamily: "'DM Sans', sans-serif",
-        }}>
-          {needsGroupPlayers.length} player{needsGroupPlayers.length === 1 ? "" : "s"} have no group — they'll be placed randomly.{" "}
-          <span
-            onClick={handleGenerate}
-            style={{ color: "var(--amber)", cursor: "pointer", textDecoration: "underline" }}
-          >
-            Generate anyway
-          </span>
-        </div>
-      )}
 
       {/* Reroll warning — appears once a generated split has been manually
           tweaked, so the admin knows Reroll/Generate again will reset
@@ -983,113 +1183,34 @@ export default function TeamsScreen({
         </div>
       )}
 
-      {/* Team A / VS / Team B split card */}
-      <div style={{
-        width: "100%", height: 48,
-        display: "flex", marginTop: 16, marginBottom: 16,
-      }}>
-        {/* Team A — left half */}
-        <div style={{
-          flex: 1,
-          background: "rgba(96,160,255,0.12)",
-          borderTop: "1px solid #60A0FF",
-          borderBottom: "1px solid #60A0FF",
-          borderLeft: "1px solid #60A0FF",
-          borderRight: "none",
-          borderRadius: "6px 0 0 6px",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-        }}>
-          <span style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
-            color: "#60A0FF", letterSpacing: "0.08em",
-          }}>TEAM A</span>
-          <span style={{ color: "var(--t2)", opacity: 0.4, fontSize: 16, lineHeight: 1 }}>·</span>
-          <span style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
-            color: "var(--t1)",
-          }}>{countA}</span>
-        </div>
+      {/* LIVE BOARD — the primary surface. Auto-fills on screen entry
+          via the runAlgorithm effect. Tap a player chip to select; tap
+          a chip on the other team (or empty space in the other column)
+          to move them. Tap outside the board to deselect.
+          Design mirrors PlayerView's confirmed-teams tile. */}
+      <LiveBoard
+        teamAPlayers={teamAPlayers}
+        teamBPlayers={teamBPlayers}
+        selectedPlayerId={selectedPlayerId}
+        onChipTap={handleLiveBoardChipTap}
+        onColumnTap={handleColumnTap}
+      />
 
-        {/* VS centre */}
-        <div style={{
-          width: 40, flexShrink: 0,
-          background: "var(--s2)",
-          borderTop: "1px solid rgba(255,255,255,0.08)",
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
-          borderLeft: "none", borderRight: "none",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <span style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
-            color: "var(--t2)",
-          }}>VS</span>
-        </div>
 
-        {/* Team B — right half */}
-        <div style={{
-          flex: 1,
-          background: "rgba(255,96,96,0.12)",
-          borderTop: "1px solid #FF6060",
-          borderBottom: "1px solid #FF6060",
-          borderRight: "1px solid #FF6060",
-          borderLeft: "none",
-          borderRadius: "0 6px 6px 0",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-        }}>
-          <span style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
-            color: "var(--t1)",
-          }}>{countB}</span>
-          <span style={{ color: "var(--t2)", opacity: 0.4, fontSize: 16, lineHeight: 1 }}>·</span>
-          <span style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
-            color: "#FF6060", letterSpacing: "0.08em",
-          }}>TEAM B</span>
-        </div>
-      </div>
-
-      {/* IO Prediction card — shown when a generated split exists. */}
+      {/* IO Prediction — small chip inline under the team counts.
+          Dims + strikes through when manuallyAdjusted (the saved chip
+          will be null at Confirm). */}
       {prediction && (
         <div style={{
-          background: "var(--s2)",
-          border: "0.5px solid var(--s3)",
-          borderRadius: 10, padding: "10px 14px",
-          marginBottom: 12,
-          opacity: manuallyAdjusted ? 0.55 : 1,
+          fontSize: 12, color: "var(--t2)",
+          fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
+          textAlign: "center",
+          padding: "6px 0", marginBottom: 12,
+          opacity: manuallyAdjusted ? 0.5 : 1,
+          textDecoration: manuallyAdjusted ? "line-through" : "none",
           transition: "opacity 0.15s",
         }}>
-          <div style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
-            color: "var(--t2)", letterSpacing: "0.1em", marginBottom: 4,
-          }}>
-            IO PREDICTION{manuallyAdjusted ? " — STALE" : ""}
-          </div>
-          <div style={{
-            fontSize: 14, color: "var(--t1)",
-            fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
-            textDecoration: manuallyAdjusted ? "line-through" : "none",
-          }}>
-            {predictionCopy(prediction.winner, prediction.confidence)}
-          </div>
-          {manuallyAdjusted ? (
-            <div style={{
-              fontSize: 11, color: "var(--amber)",
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
-              marginTop: 6,
-            }}>
-              You've edited the teams since this prediction was made — it won't be saved on Confirm.
-            </div>
-          ) : (
-            DISCLAIMER_COPY[prediction.disclaimerLevel] && (
-              <div style={{
-                fontSize: 11, color: "var(--t2)",
-                fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
-                fontStyle: "italic", marginTop: 6,
-              }}>
-                {DISCLAIMER_COPY[prediction.disclaimerLevel]}
-              </div>
-            )
-          )}
+          🎯 {predictionChipText(prediction.winner, prediction.confidence)}
         </div>
       )}
 
@@ -1230,6 +1351,28 @@ export default function TeamsScreen({
             </>
           )}
         </div>
+      )}
+
+      {/* BUILD TEAMS — contextual gold CTA. Appears only when admin has
+          edited groups since the last algorithm run and the SMART panel is
+          open. Tapping runs the algorithm against the current groups and
+          the live board updates. Auto-dismisses on success. */}
+      {smartTeamsRevealed && groupsDirty && inPlayersForGroups.length >= 4 && (
+        <button
+          onClick={handleGenerate}
+          style={{
+            width: "100%", height: 48, borderRadius: 8,
+            background: "var(--gold)", color: "var(--bg)",
+            border: "none", cursor: "pointer",
+            fontFamily: "'Bebas Neue', sans-serif",
+            fontSize: 16, letterSpacing: "0.08em",
+            marginTop: 4, marginBottom: 16,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}
+        >
+          <Shuffle size={16} weight="thin" />
+          BUILD TEAMS
+        </button>
       )}
 
       {/* Player rows section heading — collapsible (matches Smart Teams header) */}
