@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: May 22 2026 (session 30)*
+*Last updated: May 23 2026 (session 31)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -56,6 +56,12 @@ Read this before building new features to avoid re-litigating settled questions.
 - **Multi-team admin:** Phase 2. Multi-team player switcher already built (MySquads.jsx, session 26).
 - **PostgREST self-join workaround:** `getMostPlayedWith`, `getNemesis`, `getBestPartnership`, `getPlayerImpact`, `getPOTMEligiblePlayers` all use two sequential queries + JS computation. PostgREST foreign key joins unreliable in this config.
 - **Install ("Add to Home Screen") UX is shared across join and create flows.** Lives in `apps/inorout/src/components/InstallSection.jsx` — platform-detected inline block (iOS 4-step carousel, Android numbered steps, desktop copy-link), no outer shell or CTA. Parent screens (`JoinSuccess`, `SquadReady`) own page chrome + sticky CTA + PostHog event with `flow: "join" | "create"`. Standalone PWA users get the section auto-hidden (returns `null`). Desktop copy-link target: join URL for the join flow, **admin URL for the create flow** — admins reopen the admin panel on phone to install (session 30).
+- **TeamsScreen is "Smart by default" — auto-Smart fires on entry** when the match has no saved teams. LiveBoard (two-column A | B grid mirroring PlayerView's confirmed-teams tile) is the primary surface; tap-to-move between teams. The old per-row A/B button list was removed entirely. SMART panel opens by default with Group 1 + Group 2 seeded. BUILD TEAMS is a contextual gold CTA that only appears when groups have been edited since the last algorithm run. Decided session 31.
+- **Game-live toggle hides when live.** Off state: "Make this week's game live" + slider. On state: pulsing green dot + "LIVE" badge, no slider. Admin uses Cancel This Week to go offline. Removes the ambiguous "Game is Open / Closed" wording (session 31).
+- **Reopen-after-cancel creates a fresh match.** Cancelled match stays in history with `cancelled=true`. New `admin_reopen_week` RPC handles the full transaction (clear is_cancelled, insert new matches row, point active_match_id at it). Keeps the audit trail honest and avoids un-cancelling payment ledger refunds (session 31).
+- **Admin-configured `schedule.dayOfWeek` is authoritative over the `gameDateTime`-derived weekday** in player-facing copy. The demo schedule had drift between the two (day_of_week='Wednesday' but timestamp on a Tuesday); when they disagree, the configured day wins. Session 31.
+- **Status confirmation banners are one-shot, not persistent.** "🔒 Locked in", "👍 No worries", "🤞 Got it" etc. flash up for 5s after a setStatus tap, then slide-fade. They do NOT resurrect on page refresh. `hideConfirmation` initial state is `true` (session 31).
+- **Smart Teams adoption analytics: rich `team_confirmed` event as the anchor.** Carries `manual_moves_before`, `manual_moves_after`, `regenerate_count`, `was_ai_picked_as_is`, `is_recommit`, plus prediction fields and team sizes. Secondary events (`team_drafted_auto`, `team_player_moved`, `team_regenerated`, `team_cleared`) fire alongside but the confirm event is what the dashboard queries. Session 31.
 
 ## SCHEDULING & CRON
 

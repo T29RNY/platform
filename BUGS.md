@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 22 2026 (session 31 — cancel-then-relive resolved)*
+*Last updated: May 23 2026 (session 31 — multiple QA fixes resolved)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -39,6 +39,29 @@ null/zero. Table exists but provides no value until Phase 2 career sync is built
 
 ## RESOLVED THIS SESSION (May 22 2026 — session 31)
 
+- **B6: Status confirmation banners persisted on page refresh** — "🔒 Locked in",
+  "👍 No worries we'll find cover" etc. all rendered on mount and only
+  disappeared if the user happened to tap a status (firing the 5s timer).
+  `hideConfirmation` initial value flipped from `false` to `true`; banners
+  now only render in the 5s window after an actual `setStatus` call. Commit:
+  `19abed9`.
+- **B5: Player tile said "Are you in this Tuesday?" on a Wednesday match** —
+  `gameDay` derived from `schedule.gameDateTime` first (which had drifted
+  to a Tuesday in the demo schedule), falling back to `schedule.dayOfWeek`.
+  Reversed the precedence: admin-configured `dayOfWeek` wins; the timestamp
+  weekday is only a fallback. Commit: `c436992`.
+- **B4: Smart Teams prediction stuck on "Even game" when one team is empty** —
+  `computePrediction`'s `mean([]) ?? 0.5` defaulted both averages to 0.5,
+  producing a draw verdict regardless of how lopsided the split was. Now
+  returns `winner=null` when either side has 0 players; render guard hides
+  the chip; confirm path saves NULL to `predicted_winner` rather than a
+  misleading 'draw'. Commit: `d7cfa2f`.
+- **B3: Manually-edited Smart Teams splits saved a stale prediction** — the
+  algorithm's prediction was passed to `confirmTeams` even when the admin
+  swapped players after Generate. Now the prediction is recomputed on every
+  manual move (live), so the saved value always reflects the actual
+  confirmed lineup. The "STALE / crossed-out" UI state was removed.
+  Commit: `b31af19`.
 - **B2: Game-is-live toggle blocked after Cancel This Week** — admin couldn't
   re-enable the game once cancelled. Root cause: `admin_upsert_schedule`
   writes day/kickoff/venue/etc but does NOT write `is_cancelled` or

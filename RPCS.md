@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 22 2026 (session 30 — Group Balancer RPCs)*
+*Last updated: May 23 2026 (session 31 — admin_reopen_week)*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -51,6 +51,7 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | `admin_save_teams` | `confirmTeams(adminToken, matchId, teamA, teamB, predictedWinner?, predictedConfidence?, balanceScore?)` | Sets team_a/team_b on confirm; 3 trailing prediction params (Group Balancer, migration 031) write to matches.predicted_winner/confidence/balance_score. Old 5-arg signature dropped. |
 | `admin_save_bib_holder` | `saveBibHolder(adminToken, matchId, playerId, name)` | 4-step atomic: match bib_holder, player bib_count++, bib_history upsert, had_bibs flag |
 | `admin_cancel_match` | `adminCancelMatch(adminToken, reason)` | Atomic cancel — replaces 7-step cancelWeek() |
+| `admin_reopen_week` | `reopenWeek(adminToken)` | Reopens a cancelled week: clears schedule.is_cancelled / cancel_reason, sets game_is_live=true, inserts a fresh matches row, points active_match_id at it. Previously cancelled match stays in history (cancelled=true). Migration 031 sibling. |
 | `admin_upsert_schedule` | `upsertSchedule(adminToken, schedule)` | Includes p_game_is_live (added session 27) |
 | `admin_upsert_settings` | `upsertSettings(adminToken, groupName, groupLabels?)` / `saveGroupLabels(adminToken, groupName, groupLabels)` | Now takes optional p_group_labels jsonb (migration 031). COALESCE means passing NULL preserves existing labels. Old 2-arg signature dropped. |
 | `admin_close_potm_voting` | `closePOTMVoting(adminToken, matchId, winnerId, wasAdminDecided)` | Updates matches + player_match |
@@ -120,6 +121,7 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | 029 | price_per_player numeric(10,2) |
 | 030 | drop create_team int variant |
 | 031 | Group Balancer: team_players.group_number, settings.group_labels, matches.predicted_winner / predicted_confidence / balance_score; new RPCs admin_set_player_group + admin_clear_all_groups; admin_save_teams + admin_upsert_settings extended (old signatures dropped) |
+| 032 | admin_reopen_week — fixes the cancel-then-relive toggle gap (admin_upsert_schedule writes neither is_cancelled nor active_match_id). Single RPC owns the clear-cancelled + fresh-matches-row + active_match_id update + audit_events insert. |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.

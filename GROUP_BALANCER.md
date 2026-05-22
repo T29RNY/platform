@@ -1,6 +1,16 @@
 # GROUP BALANCER — Full Scope Document
 *Session handoff — paste alongside CONTEXT.md at the start of each session*
-*Last updated: May 22 2026 (pre-flight addendum appended)*
+*Last updated: May 23 2026 (session 31 — post-ship redesign + adoption analytics)*
+
+> **Session 31 update.** After live QA the TeamsScreen was substantially
+> redesigned (auto-Smart on entry, LiveBoard primary surface, BUILD TEAMS
+> contextual CTA, prediction recomputes on every manual move, PLAYERS list
+> removed). Adoption analytics added: `team_confirmed` event is the
+> analytical anchor, secondary events on draft / move / regenerate /
+> clear. Bug fix: empty-side prediction now hides correctly. See
+> commits `247b209` through `19abed9` and DECISIONS.md "Smart by default"
+> entry. The body of this spec describes the original build; the
+> commits above reflect the current production state.
 
 ---
 
