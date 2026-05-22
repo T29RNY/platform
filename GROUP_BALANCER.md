@@ -1678,3 +1678,112 @@ One small commit between Stage 4 and Stage 5.
 Original 5.5–7h raw / 8–9h with overhead is optimistic. Plan for
 **9–11h calendar time across 3 sessions**. Stage 3 (UI + tap-to-assign
 visual states) is the main risk; treat anything faster as a bonus.
+
+Note: with the expanded scope (predictions, balance score, group labels,
+audit events, HistoryView chip) the realistic range is **14–18h across
+4–5 sessions**. The 9–11h figure above stands for the *core* group
+balancer only.
+
+---
+
+## FEATURE FLAG STRATEGY
+
+Build the entire spec end-to-end, ship to production with the user-facing
+UI gated behind a flag default-off, then enable per-team once confident.
+Most of the spec is naturally forward-compatible — only one file needs a
+conditional.
+
+### What ships dormant (no gating needed)
+
+All of the following are safe to land in production without any flag,
+because they activate only when called and have no effect on existing
+flows:
+
+- **Schema additions** — every new column nullable with `DEFAULT NULL`.
+  Existing rows untouched. `group_number`, `group_labels`,
+  `predicted_winner`, `predicted_confidence`, `balance_score`.
+- **New RPCs** — `admin_set_player_group`, `admin_clear_all_groups`.
+  Never called until the UI calls them.
+- **Modified `admin_upsert_settings`** — new `p_group_labels` param with
+  `COALESCE` default. Existing callers don't pass it; behaviour unchanged.
+- **Modified `admin_save_teams`** — three new params default NULL.
+  Existing callers don't pass them; columns stay null on confirm.
+- **Modified `get_team_state_by_admin_token`** — adds two fields to the
+  response that the client either ignores or maps to defaults.
+- **`dbToPlayer` / `dbToMatch` / `dbToSettings` mappings** — return
+  `null`/`{}` for absent values.
+- **`generateBalancedTeams`** pure function in
+  `packages/core/engine/groupBalancer.js` — sits unused until imported.
+- **HistoryView prediction chip** — already null-safe
+  (`{m.predictedWinner && ...}`). Invisible on every existing match.
+  Self-gating.
+
+### What needs the flag
+
+Exactly one file: **`apps/inorout/src/views/AdminView/TeamsScreen.jsx`**.
+The Group Balancer UI section and the swap from Fisher-Yates to
+`generateBalancedTeams` are the only user-visible changes. Everything
+else is dormant code paths.
+
+### Mechanism: PostHog feature flag
+
+PostHog is already integrated. Use a remote-controlled flag rather than
+an env var or localStorage — instant rollback, per-team targeting, no
+redeploy required.
+
+```js
+// Top of TeamsScreen.jsx
+const groupBalancerEnabled =
+  window.posthog?.isFeatureEnabled('group_balancer') ?? false;
+
+const handleGenerate = () => {
+  if (groupBalancerEnabled) {
+    // new generateBalancedTeams flow
+  } else {
+    // existing Fisher-Yates
+  }
+};
+
+// JSX:
+{groupBalancerEnabled && inPlayersForGroups.length >= 4 && (
+  <div>{/* GROUP BALANCER section */}</div>
+)}
+
+{prediction && groupBalancerEnabled && (
+  <div>{/* IO PREDICTION card */}</div>
+)}
+```
+
+Roughly 8–10 conditional renders/branches across the file. When the flag
+is off, TeamsScreen behaves exactly as it does today.
+
+### Rollout sequence
+
+1. Build all 8 commits as specified. PostHog flag `group_balancer` created
+   in dashboard, default off.
+2. Deploy to production. Schema + RPCs live, dormant. Existing teams see
+   zero change.
+3. Enable for `team_demo` in PostHog. Test the full flow against demo data.
+4. Enable for `team_finbars` (Tarny's real team). Run a week of real
+   match-day usage. Watch predictions vs actual results.
+5. Enable for Monday Footy (first real onboarded team) once confident.
+6. Enable globally in PostHog. Run for a release cycle.
+7. Final cleanup PR: drop the flag check from TeamsScreen, delete the
+   Fisher-Yates branch, retire the PostHog flag.
+
+### One semantic caveat
+
+`predicted_winner` only populates from the moment the flag flips on for
+a given team. The "IO predicted X% of your results correctly this season"
+stat (Phase 2) starts from that point forward — no backfill awkwardness.
+Treat this as a feature, not a bug.
+
+### What the flag does NOT gate
+
+- The HistoryView prediction chip — it's null-safe and only renders when
+  `predicted_winner IS NOT NULL`. Pre-flag matches have no chip; post-flag
+  matches do. Self-managing.
+- Database state — once the flag is on for any team and any admin
+  confirms a match, prediction columns populate. Flipping the flag back
+  off hides the UI but leaves the data in place. This is intentional
+  for accuracy tracking.
