@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: May 21 2026 (session 30)*
+*Last updated: May 22 2026 (session 30)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -55,6 +55,7 @@ Read this before building new features to avoid re-litigating settled questions.
 - **`ioo_last_visited`** — permanent. **`ioo_redirect_to`** — one-time, 7-day, iOS only.
 - **Multi-team admin:** Phase 2. Multi-team player switcher already built (MySquads.jsx, session 26).
 - **PostgREST self-join workaround:** `getMostPlayedWith`, `getNemesis`, `getBestPartnership`, `getPlayerImpact`, `getPOTMEligiblePlayers` all use two sequential queries + JS computation. PostgREST foreign key joins unreliable in this config.
+- **Install ("Add to Home Screen") UX is shared across join and create flows.** Lives in `apps/inorout/src/components/InstallSection.jsx` — platform-detected inline block (iOS 4-step carousel, Android numbered steps, desktop copy-link), no outer shell or CTA. Parent screens (`JoinSuccess`, `SquadReady`) own page chrome + sticky CTA + PostHog event with `flow: "join" | "create"`. Standalone PWA users get the section auto-hidden (returns `null`). Desktop copy-link target: join URL for the join flow, **admin URL for the create flow** — admins reopen the admin panel on phone to install (session 30).
 
 ## SCHEDULING & CRON
 

@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 21 2026 (session 30)*
+*Last updated: May 22 2026 (session 30)*
 
 ---
 
@@ -76,6 +76,7 @@
 | BibsScreen fix under RLS | See BUGS.md #1 |
 | CreateTeam email pre-fill | ✅ Done session 29 |
 | "Make game live" new admin hint | ✅ Done session 29 |
+| Install screen on create flow (SquadReady) | ✅ Done session 30 — shared `InstallSection` extracted from JoinSuccess, inlined into SquadReady with sticky "Go to my team" CTA. Desktop copy-link targets admin URL. |
 | Last goal scorer in IO Intelligence | `last_goal_scorer` field on matches — just wire into a card |
 | Bib streak insight | Consecutive bib games — data in `bib_history` |
 | WhatsApp share text update | Update share copy in HistoryView |
