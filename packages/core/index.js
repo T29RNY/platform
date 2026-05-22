@@ -31,5 +31,8 @@ export {
   getHeadToHead,
   getPOTMVotingState,
   getPlayerTeams,
+  setPlayerGroup,
+  clearAllGroups,
+  saveGroupLabels,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

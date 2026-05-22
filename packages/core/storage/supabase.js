@@ -151,15 +151,25 @@ export async function getSettings(teamId) {
   const { data, error } = await supabase
     .from("settings").select("*").eq("team_id", teamId).single();
   if (error && error.code !== "PGRST116") throw error;
-  return data ? { groupName: data.group_name } : null;
+  return data
+    ? { groupName: data.group_name, groupLabels: data.group_labels ?? {} }
+    : null;
 }
 
-export async function upsertSettings(adminToken, groupName) {
+export async function upsertSettings(adminToken, groupName, groupLabels = null) {
   const { error } = await supabase.rpc('admin_upsert_settings', {
-    p_admin_token: adminToken,
-    p_group_name:  groupName,
+    p_admin_token:  adminToken,
+    p_group_name:   groupName,
+    p_group_labels: groupLabels,
   });
   if (error) throw error;
+}
+
+export async function saveGroupLabels(adminToken, groupName, groupLabels) {
+  // Convenience wrapper — same RPC as upsertSettings, but the call site reads
+  // semantically as a group-labels save. groupName is required by the RPC
+  // (NOT NULL constraint server-side), so the caller threads it through.
+  return upsertSettings(adminToken, groupName, groupLabels);
 }
 
 // ─── Shape converters ─────────────────────────────────────────────────────────
@@ -201,6 +211,7 @@ function dbToPlayer(r) {
     injuredSince: r.injured_since || null,
     nickname: r.nickname || null,
     userId: r.user_id || null,
+    groupNumber: r.group_number ?? null,
   };
 }
 
@@ -244,6 +255,9 @@ function dbToMatch(r) {
     lastGoalScorer: r.last_goal_scorer || null,
     teamsDraft: r.teams_draft ?? null,
     teamSwitches: r.team_switches || null,
+    predictedWinner: r.predicted_winner ?? null,
+    predictedConfidence: r.predicted_confidence ?? null,
+    balanceScore: r.balance_score ?? null,
   };
 }
 
@@ -389,7 +403,10 @@ export async function getTeamStateByAdminToken(token) {
     schedule:       data.schedule ? dbToSchedule(data.schedule) : null,
     matches:        (data.matches || []).map(dbToMatch),
     bibHistory:     (data.bib_history || []).map(b => ({ name: b.name, playerId: b.player_id, matchDate: b.match_date, returned: b.returned })),
-    settings:       data.settings ? { groupName: data.settings.group_name } : null,
+    settings:       data.settings ? {
+      groupName:   data.settings.group_name,
+      groupLabels: data.settings.group_labels ?? {},
+    } : null,
     coverPool:      data.cover_pool || [],
     liveChannelKey: data.live_channel_key,
   };
@@ -1321,16 +1338,45 @@ export async function saveTeamsDraft(adminToken, matchId, teamA, teamB) {
   return { ok: true };
 }
 
-export async function confirmTeams(adminToken, matchId, teamA, teamB) {
+export async function confirmTeams(
+  adminToken, matchId, teamA, teamB,
+  predictedWinner = null,
+  predictedConfidence = null,
+  balanceScore = null,
+) {
   const { error } = await supabase.rpc('admin_save_teams', {
-    p_admin_token: adminToken,
-    p_match_id:    matchId,
-    p_team_a:      teamA || [],
-    p_team_b:      teamB || [],
-    p_confirm:     true,
+    p_admin_token:          adminToken,
+    p_match_id:             matchId,
+    p_team_a:               teamA || [],
+    p_team_b:               teamB || [],
+    p_confirm:              true,
+    p_predicted_winner:     predictedWinner,
+    p_predicted_confidence: predictedConfidence,
+    p_balance_score:        balanceScore,
   });
   if (error) throw error;
   return { ok: true };
+}
+
+// ─── Group Balancer ──────────────────────────────────────────────────────────
+
+export async function setPlayerGroup(adminToken, playerId, groupNumber) {
+  // groupNumber: 1–5, or null to clear the assignment
+  const { data, error } = await supabase.rpc('admin_set_player_group', {
+    p_admin_token:  adminToken,
+    p_player_id:    playerId,
+    p_group_number: groupNumber,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function clearAllGroups(adminToken) {
+  const { data, error } = await supabase.rpc('admin_clear_all_groups', {
+    p_admin_token: adminToken,
+  });
+  if (error) throw error;
+  return data;
 }
 
 // ─── Vice captain + player management ────────────────────────────────────────
