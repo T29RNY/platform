@@ -1,10 +1,19 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { ArrowLeft, Shuffle, FloppyDisk, CheckCircle, Trash } from "@phosphor-icons/react";
-import { saveTeamsDraft, confirmTeams } from "@platform/core";
+import {
+  saveTeamsDraft, confirmTeams,
+  generateBalancedTeams,
+  setPlayerGroup, clearAllGroups, saveGroupLabels,
+} from "@platform/core";
 
 const ENABLE_SMART_RANDOM = false;
 // V2 — weighted random by IO Intelligence win rate + form
 // Set to true when Phase 2 balance algorithm is ready
+
+// Group Balancer thresholds passed to generateBalancedTeams for disclaimer
+// level. Both are tunable as real data accumulates. See GROUP_BALANCER.md.
+const MIN_TEAM_GAMES         = 30;
+const MIN_AVG_PLAYER_GAMES   = 8;
 
 function PentagonBadge({ number }) {
   return (
@@ -46,9 +55,34 @@ export default function TeamsScreen({
   const [teamsConfirmed, setTeamsConfirmed] = useState(false);
   const [error, setError] = useState(null);
 
+  // ── Group Balancer state ────────────────────────────────────────────────
+  // localGroups: { [playerId]: 1..5 | null }
+  // Initialised additively from squad.groupNumber; never overwrites existing
+  // entries (admin can stage changes locally before saving).
+  const [localGroups,          setLocalGroups]          = useState({});
+  const [groupLabels,          setGroupLabels]          = useState({});
+  const [editingLabel,         setEditingLabel]         = useState(null);
+  const [selectedPlayerId,     setSelectedPlayerId]     = useState(null);
+  const [groupsCollapsed,      setGroupsCollapsed]      = useState(false);
+  const [showClearGroupsConfirm, setShowClearGroupsConfirm] = useState(false);
+  const [prediction,           setPrediction]           = useState(null);
+  const [showNeedsGroupWarning,setShowNeedsGroupWarning]= useState(false);
+  const [manuallyAdjusted,     setManuallyAdjusted]     = useState(false);
+
   const hasHydrated = useRef(false);
   const teamsConfirmedRef = useRef(false);
   const confirmedThisSession = useRef(false);
+  // Players present at mount — anyone added to the squad later gets a "NEW"
+  // badge in the Needs Group panel until assigned.
+  const mountedPlayerIds = useRef(null);
+
+  // ── Feature flag: Group Balancer ──────────────────────────────────────
+  // PostHog-controlled. Defaults to OFF so existing Fisher-Yates behaviour
+  // is preserved. Enable per-team in PostHog dashboard during rollout.
+  const groupBalancerEnabled = useMemo(
+    () => Boolean(window.posthog?.isFeatureEnabled?.('group_balancer')),
+    []
+  );
 
   // On mount — hydrate from existing match data
   useEffect(() => {
@@ -113,6 +147,51 @@ export default function TeamsScreen({
       });
   }, [squad]);
 
+  // ── Group Balancer: derived ─────────────────────────────────────────────
+  // Same filter as inPlayers — guests included (decision A). The Group
+  // Balancer treats this as its working population for generation and panel
+  // rendering. Reads groupNumber from squad on first load and from
+  // localGroups thereafter.
+  const inPlayersForGroups = useMemo(
+    () => inPlayers,
+    [inPlayers]
+  );
+
+  // ── Group Balancer: effects ─────────────────────────────────────────────
+
+  // Init localGroups from squad. Additive: never overwrites existing entries
+  // — the admin can stage group changes locally and they survive squad-prop
+  // refreshes from realtime updates.
+  useEffect(() => {
+    setLocalGroups(prev => {
+      const next = { ...prev };
+      (squad || []).forEach(p => {
+        if (!(p.id in next)) {
+          next[p.id] = p.groupNumber ?? null;
+        }
+      });
+      return next;
+    });
+  }, [squad]);
+
+  // Init groupLabels from settings. Replaces local state when settings
+  // refresh — the server is the source of truth for labels.
+  useEffect(() => {
+    setGroupLabels(settings?.groupLabels ?? {});
+  }, [settings]);
+
+  // Mount-only: capture initial player set + decide whether to start
+  // collapsed (everyone already grouped → start collapsed).
+  useEffect(() => {
+    const eligible = (squad || []).filter(p =>
+      p.status === 'in' && !p.injured && !p.disabled
+    );
+    const allGrouped = eligible.length > 0
+      && eligible.every(p => (p.groupNumber ?? null) !== null);
+    setGroupsCollapsed(allGrouped);
+    mountedPlayerIds.current = new Set(eligible.map(p => p.id));
+  }, []); // mount only — intentionally empty deps
+
   const countA = Object.values(assignments).filter(v => v === "A").length;
   const countB = Object.values(assignments).filter(v => v === "B").length;
   const allAssigned = inPlayers.length > 0 && inPlayers.every(p => assignments[p.id] === "A" || assignments[p.id] === "B");
@@ -132,6 +211,141 @@ export default function TeamsScreen({
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
   }, []);
+
+  // ── Group Balancer: handlers ────────────────────────────────────────────
+
+  // Tap-to-move primitive: tapping a chip selects/deselects it for assignment.
+  const handleChipTap = useCallback((playerId) => {
+    setSelectedPlayerId(prev => prev === playerId ? null : playerId);
+  }, []);
+
+  // Commit a player → group assignment with optimistic UI + revert on error.
+  // groupNumber is 1–5 or null (Needs Group). RPC writes audit_events.
+  const handleSetGroup = useCallback(async (playerId, groupNumber) => {
+    const prev = localGroups[playerId] ?? null;
+    setLocalGroups(g => ({ ...g, [playerId]: groupNumber }));
+    setSelectedPlayerId(null);
+    window.posthog?.capture('group_assigned', {
+      group: groupNumber ?? 'needs_group',
+    });
+    try {
+      await setPlayerGroup(adminToken, playerId, groupNumber);
+    } catch (e) {
+      console.error('handleSetGroup error:', e);
+      setLocalGroups(g => ({ ...g, [playerId]: prev }));
+      setError('Failed to save group — try again');
+    }
+  }, [localGroups, adminToken]);
+
+  // Tap a group panel while a chip is selected → commits the move.
+  const handlePanelTap = useCallback((groupNumber) => {
+    if (!selectedPlayerId) return;
+    handleSetGroup(selectedPlayerId, groupNumber);
+  }, [selectedPlayerId, handleSetGroup]);
+
+  // Inline label editing on group panels. Empty string clears the label.
+  const handleSetLabel = useCallback(async (groupNumber, label) => {
+    const trimmed = label.trim() || null;
+    const prev = groupLabels;
+    const next = trimmed
+      ? { ...groupLabels, [String(groupNumber)]: trimmed }
+      : Object.fromEntries(
+          Object.entries(groupLabels)
+            .filter(([k]) => k !== String(groupNumber))
+        );
+    setGroupLabels(next);
+    setEditingLabel(null);
+    try {
+      // saveGroupLabels reuses admin_upsert_settings which requires group_name.
+      // settings?.groupName is always populated post-onboarding.
+      await saveGroupLabels(adminToken, settings?.groupName ?? '', next);
+    } catch (e) {
+      console.error('handleSetLabel error:', e);
+      setGroupLabels(prev);
+      setError('Failed to save label — try again');
+    }
+  }, [groupLabels, adminToken, settings?.groupName]);
+
+  // Clears every group assignment server-side and locally.
+  const handleClearAllGroups = useCallback(async () => {
+    const prev = localGroups;
+    const cleared = Object.fromEntries(
+      Object.entries(localGroups).map(([id]) => [id, null])
+    );
+    setLocalGroups(cleared);
+    setShowClearGroupsConfirm(false);
+    try {
+      await clearAllGroups(adminToken);
+    } catch (e) {
+      console.error('handleClearAllGroups error:', e);
+      setLocalGroups(prev);
+      setError('Failed to clear groups — try again');
+    }
+  }, [localGroups, adminToken]);
+
+  // The flag-on Generate path. Replaces Fisher-Yates with the balanced
+  // algorithm and stores the prediction for confirmTeams to persist.
+  const handleGenerate = useCallback(() => {
+    clearError();
+
+    const needsGroupCount = inPlayersForGroups.filter(
+      p => (localGroups[p.id] ?? null) === null
+    ).length;
+
+    // Friction step: every Generate with ungrouped players shows the
+    // warning. Tapping Generate Anyway re-fires this handler with the
+    // warning state set, which proceeds past the gate.
+    if (needsGroupCount > 0 && !showNeedsGroupWarning) {
+      setShowNeedsGroupWarning(true);
+      return;
+    }
+    setShowNeedsGroupWarning(false);
+    setManuallyAdjusted(false);
+
+    const playersWithGroups = inPlayersForGroups.map(p => ({
+      ...p,
+      groupNumber: localGroups[p.id] ?? null,
+    }));
+
+    const completedGames = (matchHistory ?? [])
+      .filter(m => !m.cancelled && m.winner)
+      .length;
+
+    const result = generateBalancedTeams(playersWithGroups, tableData, {
+      teamGames: completedGames,
+      MIN_TEAM_GAMES,
+      MIN_AVG_PLAYER_GAMES,
+    });
+
+    const built = {};
+    result.teamA.forEach(id => { built[id] = 'A'; });
+    result.teamB.forEach(id => { built[id] = 'B'; });
+    setAssignments(built);
+    setPrediction({
+      winner:          result.predictedWinner,
+      confidence:      result.predictedConfidence,
+      balanceScore:    result.balanceScore,
+      avgGamesPlayed:  result.avgGamesPlayed,
+      disclaimerLevel: result.disclaimerLevel,
+    });
+    setDraftSaved(false);
+    setTeamsConfirmed(false);
+    teamsConfirmedRef.current = false;
+    confirmedThisSession.current = false;
+
+    window.posthog?.capture('group_balancer_generate', {
+      groupCount:       Object.values(localGroups)
+                          .filter(g => g !== null).length,
+      needsGroupCount,
+      totalIn:          inPlayersForGroups.length,
+    });
+    if (showNeedsGroupWarning) {
+      window.posthog?.capture('group_balancer_needs_group_confirmed');
+    }
+  }, [
+    inPlayersForGroups, localGroups, matchHistory, tableData,
+    showNeedsGroupWarning,
+  ]);
 
   const handleRandom = useCallback(() => {
     clearError();
@@ -177,7 +391,12 @@ export default function TeamsScreen({
     if (isConfirming) return;
     setIsConfirming(true);
     try {
-      await confirmTeams(adminToken, matchId, teamAIds, teamBIds);
+      await confirmTeams(
+        adminToken, matchId, teamAIds, teamBIds,
+        prediction?.winner       ?? null,
+        prediction?.confidence   ?? null,
+        prediction?.balanceScore ?? null,
+      );
       setTeamsConfirmed(true);
       teamsConfirmedRef.current = true;
       confirmedThisSession.current = true;
@@ -206,7 +425,7 @@ export default function TeamsScreen({
       setError("Failed to confirm teams — try again");
     }
     setIsConfirming(false);
-  }, [allAssigned, isConfirming, adminToken, matchId, teamAIds, teamBIds, inPlayers]);
+  }, [allAssigned, isConfirming, adminToken, matchId, teamAIds, teamBIds, inPlayers, prediction]);
 
   const handleClear = useCallback(() => {
     clearError();
@@ -220,6 +439,8 @@ export default function TeamsScreen({
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
     setShowClearConfirm(false);
+    setPrediction(null);
+    setManuallyAdjusted(false);
     try {
       await confirmTeams(adminToken, matchId, [], []);
     } catch (e) {
