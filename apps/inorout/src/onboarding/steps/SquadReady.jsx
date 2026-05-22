@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { WhatsappLogo, CopySimple, ArrowRight } from "@phosphor-icons/react";
+import InstallSection, { detectPlatform } from "../../components/InstallSection.jsx";
 
 const BASE_URL = "https://www.in-or-out.com";
 
@@ -15,24 +16,30 @@ function SquadReadyStyles() {
         min-height: 100dvh;
         width: 100%;
         position: relative;
-        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+      }
+
+      .squad-ready-scroll {
+        flex: 1;
+        overflow-y: auto;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        padding: max(28px, env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom));
-        background: var(--bg);
+        padding: max(28px, env(safe-area-inset-top)) 24px 24px;
         animation: squadReadyFadeIn 400ms ease both;
       }
 
       .squad-ready-orb {
-        position: absolute;
+        position: fixed;
         width: 200px;
         height: 200px;
         border-radius: 999px;
         filter: blur(60px);
         opacity: 0.32;
         pointer-events: none;
+        z-index: 0;
       }
 
       .squad-ready-orb--green {
@@ -82,7 +89,7 @@ function SquadReadyStyles() {
         font-weight: 300;
         font-size: 14px;
         color: var(--t2);
-        margin: 0 0 40px;
+        margin: 0 0 32px;
         line-height: 1.4;
       }
 
@@ -91,8 +98,8 @@ function SquadReadyStyles() {
         min-height: 56px;
         border-radius: 14px;
         border: none;
-        background: #25D366;
-        color: #fff;
+        background: var(--whatsapp);
+        color: var(--t1);
         font-family: "DM Sans", sans-serif;
         font-size: 15px;
         font-weight: 600;
@@ -129,7 +136,6 @@ function SquadReadyStyles() {
         gap: 8px;
         -webkit-tap-highlight-color: transparent;
         transition: all 160ms ease;
-        margin-bottom: 32px;
       }
 
       .squad-ready-copy--copied {
@@ -137,20 +143,49 @@ function SquadReadyStyles() {
         color: var(--green);
       }
 
-      .squad-ready-skip {
-        background: transparent;
+      .squad-ready-divider {
+        width: 100%;
+        height: 1px;
+        background: rgba(242, 240, 234, 0.08);
+        margin: 32px 0;
+      }
+
+      .squad-ready-footer {
+        position: sticky;
+        bottom: 0;
+        width: 100%;
+        background: var(--bg);
+        padding: 16px 24px max(24px, env(safe-area-inset-bottom));
+        border-top: 1px solid rgba(242, 240, 234, 0.06);
+        z-index: 3;
+      }
+
+      .squad-ready-footer-inner {
+        max-width: 410px;
+        margin: 0 auto;
+      }
+
+      .squad-ready-cta {
+        width: 100%;
+        height: 52px;
+        border-radius: 12px;
         border: none;
-        color: var(--t2);
-        opacity: 0.5;
-        font-family: "DM Sans", sans-serif;
-        font-size: 13px;
-        font-weight: 300;
         cursor: pointer;
+        background: var(--green);
+        color: var(--bg);
+        font-family: "DM Sans", sans-serif;
+        font-size: 16px;
+        font-weight: 600;
         display: flex;
         align-items: center;
-        gap: 6px;
+        justify-content: center;
+        gap: 8px;
         -webkit-tap-highlight-color: transparent;
-        padding: 8px;
+        transition: transform 160ms ease;
+      }
+
+      .squad-ready-cta:active {
+        transform: scale(0.98);
       }
     `}</style>
   );
@@ -165,6 +200,8 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
   const [copied, setCopied] = useState(false);
 
   const handleAdvance = () => {
+    const platform = detectPlatform();
+    window.posthog?.capture("install_screen_cta_tapped", { platform, flow: "create" });
     window.location.href = adminUrl;
   };
 
@@ -191,42 +228,53 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
       <main className="squad-ready-shell">
         <div className="squad-ready-orb squad-ready-orb--green" />
         <div className="squad-ready-orb squad-ready-orb--gold" />
-        <div className="squad-ready-inner">
-          <p className="squad-ready-team">
-            {groupName}
-          </p>
-          <h1 className="squad-ready-title">
-            Squad Ready
-          </h1>
-          <p className="squad-ready-sub">
-            Now invite your players
-          </p>
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="squad-ready-whatsapp"
-            onClick={() => {}}
-          >
-            <WhatsappLogo size={22} weight="fill" />
-            Share on WhatsApp
-          </a>
-          <button
-            type="button"
-            className={"squad-ready-copy" + (copied ? " squad-ready-copy--copied" : "")}
-            onClick={handleCopy}
-          >
-            <CopySimple size={18} weight="thin" />
-            {copied ? "Copied!" : "Copy squad link"}
-          </button>
-          <button
-            type="button"
-            className="squad-ready-skip"
-            onClick={handleAdvance}
-          >
-            Go to my team
-            <ArrowRight size={14} weight="thin" />
-          </button>
+
+        <div className="squad-ready-scroll">
+          <div className="squad-ready-inner">
+            <p className="squad-ready-team">
+              {groupName}
+            </p>
+            <h1 className="squad-ready-title">
+              Squad Ready
+            </h1>
+            <p className="squad-ready-sub">
+              Now invite your players
+            </p>
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="squad-ready-whatsapp"
+            >
+              <WhatsappLogo size={22} weight="thin" />
+              Share on WhatsApp
+            </a>
+            <button
+              type="button"
+              className={"squad-ready-copy" + (copied ? " squad-ready-copy--copied" : "")}
+              onClick={handleCopy}
+            >
+              <CopySimple size={18} weight="thin" />
+              {copied ? "Copied!" : "Copy squad link"}
+            </button>
+
+            <div className="squad-ready-divider" />
+
+            <InstallSection installTargetUrl={adminUrl} />
+          </div>
+        </div>
+
+        <div className="squad-ready-footer">
+          <div className="squad-ready-footer-inner">
+            <button
+              type="button"
+              className="squad-ready-cta"
+              onClick={handleAdvance}
+            >
+              Go to my team
+              <ArrowRight size={16} weight="thin" />
+            </button>
+          </div>
         </div>
       </main>
     </>

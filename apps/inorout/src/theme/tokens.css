@@ -20,6 +20,9 @@
   --green2: rgba(61,220,106,0.13);
   --greenb: rgba(61,220,106,0.35);
 
+  /* WhatsApp brand colour — used by share buttons only. */
+  --whatsapp: #25D366;
+
   /* ── Red ── */
   --red:    #FF4040;
   --red2:   rgba(255,64,64,0.13);
