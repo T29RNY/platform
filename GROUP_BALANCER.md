@@ -1683,6 +1683,11 @@ visual states) is the main risk; treat anything faster as a bonus.
 
 ## BUILD COMPLETE (May 22 2026 — session 30)
 
+> **Naming note:** user-facing label is **Smart Teams**. Internal code,
+> spec file, algorithm name, and PostHog event prefixes remain
+> `group_balancer` / `Group Balancer`. Grep either term and you'll
+> find the right place.
+
 All five stages shipped. Initially gated behind the `group_balancer`
 PostHog feature flag, then promoted to permanent in the same session
 once the build was clean (feature is unconditionally on for every team).

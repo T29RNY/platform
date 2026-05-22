@@ -254,6 +254,10 @@ export default function TeamsScreen({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [confirmNudge, setConfirmNudge] = useState(false);
   const [teamsConfirmed, setTeamsConfirmed] = useState(false);
+  // True only for the in-session window between Confirm and the next
+  // edit / reroll. Drives the green "Teams confirmed and shared" toast,
+  // which would otherwise show every time the screen reopens.
+  const [justConfirmed, setJustConfirmed] = useState(false);
   const [error, setError] = useState(null);
 
   // ── Group Balancer state ────────────────────────────────────────────────
@@ -422,6 +426,15 @@ export default function TeamsScreen({
     setGroupLabels(settings?.groupLabels ?? {});
   }, [settings]);
 
+  // Auto-dismiss the Needs Group warning the moment the admin starts
+  // addressing it — assigning a player, clearing, or simply changing the
+  // ungrouped count by any means. Treats the banner as a one-shot Generate
+  // nudge instead of persistent state. Re-fires only on the next Generate.
+  useEffect(() => {
+    if (showNeedsGroupWarning) setShowNeedsGroupWarning(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsGroupPlayers.length]);
+
   // Mount-only: capture initial player set + decide whether to start
   // collapsed (everyone already grouped → start collapsed).
   useEffect(() => {
@@ -450,6 +463,7 @@ export default function TeamsScreen({
     }));
     setDraftSaved(false);
     setTeamsConfirmed(false);
+    setJustConfirmed(false);
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
     // Manual override of a generated split — flag so reroll warns the
@@ -602,6 +616,7 @@ export default function TeamsScreen({
     });
     setDraftSaved(false);
     setTeamsConfirmed(false);
+    setJustConfirmed(false);
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
 
@@ -656,6 +671,7 @@ export default function TeamsScreen({
         predictionToSave?.balanceScore ?? null,
       );
       setTeamsConfirmed(true);
+      setJustConfirmed(true);
       teamsConfirmedRef.current = true;
       confirmedThisSession.current = true;
       setDraftSaved(false);
@@ -694,6 +710,7 @@ export default function TeamsScreen({
     setAssignments({});
     setDraftSaved(false);
     setTeamsConfirmed(false);
+    setJustConfirmed(false);
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
     setShowClearConfirm(false);
@@ -862,8 +879,9 @@ export default function TeamsScreen({
         </div>
       )}
 
-      {/* Teams confirmed success state */}
-      {teamsConfirmed && (
+      {/* Teams confirmed success state — only shown after a fresh confirm
+          in this session. Re-opening the screen doesn't re-surface it. */}
+      {teamsConfirmed && justConfirmed && (
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           background: "var(--green2)", border: "0.5px solid var(--greenb)",
@@ -1055,11 +1073,12 @@ export default function TeamsScreen({
         </div>
       )}
 
-      {/* GROUP BALANCER section — flag-gated, hidden if fewer than 4 IN. */}
+      {/* SMART TEAMS section — hidden if fewer than 4 IN. */}
       {inPlayersForGroups.length >= 4 && (
         <div onClick={handleSectionBgClick} style={{ marginBottom: 16 }}>
 
-          {/* Header row */}
+          {/* Header row — title + collapse only. Clear All moved to its own
+              line below to avoid the tap-target crowding seen in iOS QA. */}
           <div style={{
             display: "flex", alignItems: "center",
             justifyContent: "space-between", marginBottom: 8,
@@ -1068,51 +1087,59 @@ export default function TeamsScreen({
               fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
               color: "var(--t2)", letterSpacing: "0.1em",
             }}>
-              GROUP BALANCER
+              SMART TEAMS
             </span>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              {hasAnyGroupAssigned && !showClearGroupsConfirm && (
-                <button
-                  onClick={() => setShowClearGroupsConfirm(true)}
-                  style={{
-                    fontSize: 11, color: "var(--t2)", background: "none",
-                    border: "none", cursor: "pointer", padding: 0,
-                  }}
-                >
-                  Clear All
-                </button>
-              )}
-              {showClearGroupsConfirm && (
+            <button
+              onClick={() => setGroupsCollapsed(c => !c)}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--t2)", display: "flex", alignItems: "center",
+                padding: "4px 4px",
+              }}
+              aria-label={groupsCollapsed ? "Expand" : "Collapse"}
+            >
+              {groupsCollapsed ? <CaretDown size={16} weight="thin" /> : <CaretUp size={16} weight="thin" />}
+            </button>
+          </div>
+
+          {/* Clear All row — only present when there's something to clear,
+              and only when the section is expanded. */}
+          {!groupsCollapsed && (hasAnyGroupAssigned || showClearGroupsConfirm) && (
+            <div style={{
+              display: "flex", justifyContent: "flex-end",
+              gap: 12, alignItems: "center", marginBottom: 8,
+            }}>
+              {showClearGroupsConfirm ? (
                 <>
                   <span style={{ fontSize: 11, color: "var(--t2)" }}>Clear all groups?</span>
                   <button
                     onClick={handleClearAllGroups}
                     style={{
                       fontSize: 11, color: "var(--red)", background: "none",
-                      border: "none", cursor: "pointer", padding: 0,
+                      border: "none", cursor: "pointer", padding: "4px 6px",
                     }}
                   >Yes, clear</button>
                   <button
                     onClick={() => setShowClearGroupsConfirm(false)}
                     style={{
                       fontSize: 11, color: "var(--t2)", background: "none",
-                      border: "none", cursor: "pointer", padding: 0,
+                      border: "none", cursor: "pointer", padding: "4px 6px",
                     }}
                   >Cancel</button>
                 </>
+              ) : (
+                <button
+                  onClick={() => setShowClearGroupsConfirm(true)}
+                  style={{
+                    fontSize: 11, color: "var(--t2)", background: "none",
+                    border: "none", cursor: "pointer", padding: "4px 6px",
+                  }}
+                >
+                  Clear All
+                </button>
               )}
-              <button
-                onClick={() => setGroupsCollapsed(c => !c)}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "var(--t2)", display: "flex", alignItems: "center", padding: 0,
-                }}
-                aria-label={groupsCollapsed ? "Expand" : "Collapse"}
-              >
-                {groupsCollapsed ? <CaretDown size={16} weight="thin" /> : <CaretUp size={16} weight="thin" />}
-              </button>
             </div>
-          </div>
+          )}
 
           {!groupsCollapsed && (
             <>
