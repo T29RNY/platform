@@ -644,11 +644,16 @@ export default function TeamsScreen({
     if (isConfirming) return;
     setIsConfirming(true);
     try {
+      // Only save the prediction if it still matches what's being confirmed —
+      // i.e. admin hasn't manually swapped anyone since Generate. Otherwise
+      // the algorithm's prediction is for the original split, not the
+      // edited one, and would poison the accuracy stat.
+      const predictionToSave = manuallyAdjusted ? null : prediction;
       await confirmTeams(
         adminToken, matchId, teamAIds, teamBIds,
-        prediction?.winner       ?? null,
-        prediction?.confidence   ?? null,
-        prediction?.balanceScore ?? null,
+        predictionToSave?.winner       ?? null,
+        predictionToSave?.confidence   ?? null,
+        predictionToSave?.balanceScore ?? null,
       );
       setTeamsConfirmed(true);
       teamsConfirmedRef.current = true;
@@ -678,7 +683,7 @@ export default function TeamsScreen({
       setError("Failed to confirm teams — try again");
     }
     setIsConfirming(false);
-  }, [allAssigned, isConfirming, adminToken, matchId, teamAIds, teamBIds, inPlayers, prediction]);
+  }, [allAssigned, isConfirming, adminToken, matchId, teamAIds, teamBIds, inPlayers, prediction, manuallyAdjusted]);
 
   const handleClear = useCallback(() => {
     clearError();
@@ -1012,27 +1017,40 @@ export default function TeamsScreen({
           border: "0.5px solid var(--s3)",
           borderRadius: 10, padding: "10px 14px",
           marginBottom: 12,
+          opacity: manuallyAdjusted ? 0.55 : 1,
+          transition: "opacity 0.15s",
         }}>
           <div style={{
             fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
             color: "var(--t2)", letterSpacing: "0.1em", marginBottom: 4,
           }}>
-            IO PREDICTION
+            IO PREDICTION{manuallyAdjusted ? " — STALE" : ""}
           </div>
           <div style={{
             fontSize: 14, color: "var(--t1)",
             fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
+            textDecoration: manuallyAdjusted ? "line-through" : "none",
           }}>
             {predictionCopy(prediction.winner, prediction.confidence)}
           </div>
-          {DISCLAIMER_COPY[prediction.disclaimerLevel] && (
+          {manuallyAdjusted ? (
             <div style={{
-              fontSize: 11, color: "var(--t2)",
+              fontSize: 11, color: "var(--amber)",
               fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
-              fontStyle: "italic", marginTop: 6,
+              marginTop: 6,
             }}>
-              {DISCLAIMER_COPY[prediction.disclaimerLevel]}
+              You've edited the teams since this prediction was made — it won't be saved on Confirm.
             </div>
+          ) : (
+            DISCLAIMER_COPY[prediction.disclaimerLevel] && (
+              <div style={{
+                fontSize: 11, color: "var(--t2)",
+                fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
+                fontStyle: "italic", marginTop: 6,
+              }}>
+                {DISCLAIMER_COPY[prediction.disclaimerLevel]}
+              </div>
+            )
           )}
         </div>
       )}
