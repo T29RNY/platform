@@ -83,7 +83,7 @@ function AvatarChip({ name, isGuest, team }) {
           position: "absolute", bottom: -1, right: -1,
           width: 8, height: 8, borderRadius: "50%",
           background: "var(--gold)", border: "1px solid var(--bg)",
-          fontSize: 5, color: "#000",
+          fontSize: 5, color: "var(--black)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontWeight: 700, lineHeight: 1,
         }}>+</div>
@@ -320,6 +320,31 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
                 ⚽ Last: {lastGoalScorerPlayer.nickname || lastGoalScorerPlayer.name}
               </div>
             )}
+            {/* IO Prediction chip — null-safe; renders only for matches generated
+                with the Group Balancer flag on, so existing matches stay quiet. */}
+            {m.predictedWinner && (() => {
+              const pred = m.predictedWinner;
+              const actual = m.winner;
+              const predLabel = pred === "draw"
+                ? "Draw"
+                : pred === "A" ? "Team A" : "Team B";
+              const correct =
+                pred === actual ||
+                (pred === "draw" && !actual);
+              const resultLabel = actual
+                ? `Team ${actual} won`
+                : "Draw";
+              return (
+                <div style={{
+                  fontSize: 11, color: "var(--t2)", fontWeight: 300, marginTop: 4,
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  {correct
+                    ? `🎯 Predicted: ${predLabel} · ✓ Correct`
+                    : `🎯 Predicted: ${predLabel} · Result: ${resultLabel}`}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Team lineups */}
