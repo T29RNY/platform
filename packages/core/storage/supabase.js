@@ -1402,6 +1402,17 @@ export async function disablePlayer(adminToken, playerId, disabled, reason = nul
   return { ok: true };
 }
 
+// Reopen a cancelled week. Inserts a fresh matches row and points
+// schedule.active_match_id at it; the cancelled match stays in history.
+// Resolves the bug where upsertSchedule alone couldn't undo a cancel.
+export async function reopenWeek(adminToken) {
+  const { data, error } = await supabase.rpc('admin_reopen_week', {
+    p_admin_token: adminToken,
+  });
+  if (error) throw error;
+  return data; // { ok, match_id, prev_match_id }
+}
+
 export async function adminCancelMatch(adminToken, cancelReason) {
   const { error } = await supabase.rpc('admin_cancel_match', {
     p_admin_token:   adminToken,

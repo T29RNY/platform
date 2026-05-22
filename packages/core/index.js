@@ -35,5 +35,6 @@ export {
   setPlayerGroup,
   clearAllGroups,
   saveGroupLabels,
+  reopenWeek,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";
