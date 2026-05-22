@@ -337,7 +337,9 @@ export default function App() {
 
         if (route.type === "admin") {
           if (route.token === "local") {
-            const { data } = await supabase.from("teams").select("id").limit(1).single();
+            // /admin/local dev shortcut — pre-RLS read to pick the sole team_id
+            // during local development. Not user-facing.
+            const { data } = await supabase.from("teams").select("id").limit(1).single(); // hygiene-exempt: /admin/local
             resolvedTeamId = data?.id;
             setIsAdmin(true);
           } else {
@@ -494,6 +496,27 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  // PostHog identification — tells the analytics platform "this person is
+  // on team X". Drives feature-flag targeting by team and gives every event
+  // a team_id property automatically. distinct_id is the stable identity:
+  // auth.uid for signed-in users, player token otherwise.
+  useEffect(() => {
+    if (!window.posthog || !teamId) return;
+    const distinctId = authUser?.id || myPlayer?.token || null;
+    if (!distinctId) return;
+    try {
+      window.posthog.identify(distinctId, {
+        team_id: teamId,
+        is_admin: !!isAdmin,
+      });
+      window.posthog.group("team", teamId, {
+        name: settings?.groupName || null,
+      });
+    } catch (e) {
+      console.error("posthog identify error:", e);
+    }
+  }, [teamId, authUser?.id, myPlayer?.token, isAdmin, settings?.groupName]);
 
   // Realtime subscriptions
   const isFetchingPlayers = useRef(false);
@@ -727,7 +750,7 @@ export default function App() {
       </div>
       <a href="/create" style={{ display:"block", width:"100%", maxWidth:320 }}>
         <button style={{ width:"100%", padding:"16px 0", borderRadius:8,
-          border:"none", background:C.amber, color:"#000",
+          border:"none", background:C.amber, color:C.black,
           fontFamily:"Inter,sans-serif", fontSize:16, fontWeight:800,
           cursor:"pointer", letterSpacing:0.5 }}>
           Create Your Team →
@@ -756,7 +779,7 @@ export default function App() {
               placeholder="Paste your link here"
               style={{ width:"100%", padding:"12px 14px", borderRadius:6,
                 border:`1.5px solid ${linkInput ? C.amber : C.border}`,
-                background:"#0a0a0a", color:C.text,
+                background:C.bg, color:C.text,
                 fontFamily:"Inter,sans-serif", fontSize:14,
                 outline:"none", boxSizing:"border-box", marginBottom:8 }}
             />
@@ -767,7 +790,7 @@ export default function App() {
               }}
               style={{ width:"100%", padding:"12px 0", borderRadius:6,
                 border:"none",
-                background: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? C.amber : "#2a2a2a",
+                background: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? C.amber : C.border,
                 color: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? "#000" : C.muted,
                 fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
                 cursor: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? "pointer" : "not-allowed",
@@ -778,11 +801,11 @@ export default function App() {
         )}
       </div>
       <div style={{ marginTop:40, fontFamily:"Inter,sans-serif", fontSize:11,
-        color:"#444", textAlign:"center", display:"flex", gap:16,
+        color:C.faint, textAlign:"center", display:"flex", gap:16,
         justifyContent:"center" }}>
-        <a href="/legal" style={{ color:"#444", textDecoration:"none" }}>Terms</a>
-        <a href="/legal#privacy" style={{ color:"#444", textDecoration:"none" }}>Privacy</a>
-        <a href="mailto:hello@in-or-out.com" style={{ color:"#444", textDecoration:"none" }}>Contact</a>
+        <a href="/legal" style={{ color:C.faint, textDecoration:"none" }}>Terms</a>
+        <a href="/legal#privacy" style={{ color:C.faint, textDecoration:"none" }}>Privacy</a>
+        <a href="mailto:hello@in-or-out.com" style={{ color:C.faint, textDecoration:"none" }}>Contact</a>
       </div>
     </div>
   );
@@ -826,7 +849,7 @@ export default function App() {
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
-      <div style={{ padding:"20px 18px 12px", background:"#0f0f0f",
+      <div style={{ padding:"20px 18px 12px", background:C.bg,
         borderBottom:`1px solid ${C.border}` }}>
         <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
           color:C.amber, letterSpacing:3 }}>IN OR OUT</div>

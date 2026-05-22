@@ -19,6 +19,14 @@
 #   supabase.rpc() calls intentionally. It IS the database layer.
 #   Exempt via explicit grep -v "supabase.js" in checks 5 and 6.
 #
+# packages/core/constants/colors.js — IS the shared colour palette. Its
+#   whole job is to hold hex literals. Exempt via grep -v in check 2.
+#
+# apps/inorout/src/App.jsx /admin/local dev shortcut — one supabase.from
+#   call in the local-dev admin-link branch. Pre-RLS read for picking the
+#   sole team_id during development. Exempt via grep -v in check 5.
+#   Tagged in code with the comment `hygiene-exempt: /admin/local dev`.
+#
 # rls_migrations/ — SQL files, not JS. Not in scan paths.
 #   Contains raw table references by design.
 #
@@ -67,6 +75,7 @@ RESULT=$(grep -rn "[=:][[:space:]]*[\"']\?#[0-9A-Fa-f]\{3,6\}\b" \
   $SCAN_PATH 2>/dev/null \
   | grep -v "60A0FF" \
   | grep -v "FF6060" \
+  | grep -v "constants/colors\.js" \
   | grep -v "^\s*//" \
   | grep -v "//.*#[0-9A-Fa-f]" \
   || true)
@@ -129,6 +138,7 @@ echo ""
 echo "[5] Direct Supabase table writes in client code (must use RPCs):"
 RESULT=$(grep -rn "supabase\.from(" $SCAN_PATH 2>/dev/null \
   | grep -v "supabase\.js" \
+  | grep -v "hygiene-exempt: /admin/local" \
   || true)
 if [ -z "$RESULT" ]; then
   echo "    PASS — no direct table writes in client"

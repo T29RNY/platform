@@ -16,4 +16,6 @@ export const colors = {
   text:     "#F3F0EA",
   muted:    "#737373",
   faint:    "#333",
+  black:    "#000",
+  white:    "#fff",
 };
