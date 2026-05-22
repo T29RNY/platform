@@ -283,6 +283,12 @@ export default function TeamsScreen({
   // if all players move out. Prevents the surprise of a panel disappearing
   // mid-curation.
   const [summonedPanels,       setSummonedPanels]       = useState(() => new Set());
+  // Hide the SMART TEAMS section by default. Reveals on first SMART tap,
+  // or on mount if existing groups indicate the admin already engaged.
+  const [smartTeamsRevealed,   setSmartTeamsRevealed]   = useState(false);
+  // PLAYERS list collapsibility — defaults open, mirrors the SMART TEAMS
+  // header chevron pattern.
+  const [playersCollapsed,     setPlayersCollapsed]     = useState(false);
 
   const hasHydrated = useRef(false);
   const teamsConfirmedRef = useRef(false);
@@ -436,7 +442,10 @@ export default function TeamsScreen({
   }, [needsGroupPlayers.length]);
 
   // Mount-only: capture initial player set + decide whether to start
-  // collapsed (everyone already grouped → start collapsed).
+  // collapsed (everyone already grouped → start collapsed). Also reveal
+  // the SMART TEAMS section if any player already has a group from a
+  // previous session, so admins don't have to re-tap SMART to see their
+  // saved organisation.
   useEffect(() => {
     const eligible = (squad || []).filter(p =>
       p.status === 'in' && !p.injured && !p.disabled
@@ -444,6 +453,8 @@ export default function TeamsScreen({
     const allGrouped = eligible.length > 0
       && eligible.every(p => (p.groupNumber ?? null) !== null);
     setGroupsCollapsed(allGrouped);
+    const anyGrouped = eligible.some(p => (p.groupNumber ?? null) !== null);
+    if (anyGrouped) setSmartTeamsRevealed(true);
     mountedPlayerIds.current = new Set(eligible.map(p => p.id));
   }, []); // mount only — intentionally empty deps
 
@@ -619,6 +630,8 @@ export default function TeamsScreen({
     setJustConfirmed(false);
     teamsConfirmedRef.current = false;
     confirmedThisSession.current = false;
+    // First tap on SMART unhides the grouping UI so the admin can refine.
+    setSmartTeamsRevealed(true);
 
     window.posthog?.capture('group_balancer_generate', {
       groupCount:       Object.values(localGroups)
@@ -716,12 +729,19 @@ export default function TeamsScreen({
     setShowClearConfirm(false);
     setPrediction(null);
     setManuallyAdjusted(false);
+    // Clear Teams returns the screen to its quiet default: SMART TEAMS hidden
+    // unless existing groups remain (which they do — Clear Teams doesn't
+    // touch group assignments). So we only collapse the section if there
+    // are no groups left to surface.
+    if (!Object.values(localGroups).some(g => g !== null)) {
+      setSmartTeamsRevealed(false);
+    }
     try {
       await confirmTeams(adminToken, matchId, [], []);
     } catch (e) {
       console.error("handleClearConfirm error:", e);
     }
-  }, [adminToken, matchId]);
+  }, [adminToken, matchId, localGroups]);
 
   const handleClearCancel = useCallback(() => {
     setShowClearConfirm(false);
@@ -798,7 +818,7 @@ export default function TeamsScreen({
         >
           <Shuffle size={16} weight="thin" />
           <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, lineHeight: 1 }}>
-            GENERATE
+            SMART
           </span>
         </button>
 
@@ -1073,8 +1093,9 @@ export default function TeamsScreen({
         </div>
       )}
 
-      {/* SMART TEAMS section — hidden if fewer than 4 IN. */}
-      {inPlayersForGroups.length >= 4 && (
+      {/* SMART TEAMS section — hidden until admin taps SMART (or if they
+          have existing groups from a previous session). */}
+      {smartTeamsRevealed && inPlayersForGroups.length >= 4 && (
         <div onClick={handleSectionBgClick} style={{ marginBottom: 16 }}>
 
           {/* Header row — title + collapse only. Clear All moved to its own
@@ -1143,17 +1164,28 @@ export default function TeamsScreen({
 
           {!groupsCollapsed && (
             <>
-              {/* Needs Group panel — always shown when expanded */}
-              <GroupPanel
-                groupNumber={null}
-                label="NEEDS GROUP"
-                players={needsGroupPlayers}
-                selectedPlayerId={selectedPlayerId}
-                mountedPlayerIds={mountedPlayerIds}
-                onChipTap={handleChipTap}
-                onPanelTap={() => handlePanelTap(null)}
-                isReceiving={selectedPlayerId !== null}
-              />
+              {/* Needs Group panel — collapses to zero height when empty so
+                  the section visually heals after the last ungrouped player
+                  is placed. Wrapper stays mounted so the height/opacity
+                  animation has something to play against. */}
+              <div style={{
+                maxHeight:    needsGroupPlayers.length > 0 ? 400 : 0,
+                opacity:      needsGroupPlayers.length > 0 ? 1 : 0,
+                overflow:     "hidden",
+                transition:   "max-height 280ms ease, opacity 220ms ease",
+                pointerEvents: needsGroupPlayers.length > 0 ? "auto" : "none",
+              }}>
+                <GroupPanel
+                  groupNumber={null}
+                  label="NEEDS GROUP"
+                  players={needsGroupPlayers}
+                  selectedPlayerId={selectedPlayerId}
+                  mountedPlayerIds={mountedPlayerIds}
+                  onChipTap={handleChipTap}
+                  onPanelTap={() => handlePanelTap(null)}
+                  isReceiving={selectedPlayerId !== null}
+                />
+              </div>
 
               {/* Active group panels */}
               {activeGroupNumbers.map(groupNum => {
@@ -1200,16 +1232,32 @@ export default function TeamsScreen({
         </div>
       )}
 
-      {/* Player rows section heading */}
+      {/* Player rows section heading — collapsible (matches Smart Teams header) */}
       <div style={{
-        fontFamily: "DM Sans, sans-serif", fontWeight: 500, fontSize: 11,
-        color: "var(--t2)", letterSpacing: "0.1em",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
         marginBottom: 8,
       }}>
-        PLAYERS ({inPlayers.length})
+        <span style={{
+          fontFamily: "DM Sans, sans-serif", fontWeight: 500, fontSize: 11,
+          color: "var(--t2)", letterSpacing: "0.1em",
+        }}>
+          PLAYERS ({inPlayers.length})
+        </span>
+        <button
+          onClick={() => setPlayersCollapsed(c => !c)}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            color: "var(--t2)", display: "flex", alignItems: "center",
+            padding: "4px 4px",
+          }}
+          aria-label={playersCollapsed ? "Expand players" : "Collapse players"}
+        >
+          {playersCollapsed ? <CaretDown size={16} weight="thin" /> : <CaretUp size={16} weight="thin" />}
+        </button>
       </div>
 
       {/* Player rows */}
+      {!playersCollapsed && (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {inPlayers.map((p, idx) => {
           const aSelected = assignments[p.id] === "A";
@@ -1263,8 +1311,9 @@ export default function TeamsScreen({
           );
         })}
       </div>
+      )}
 
-      {inPlayers.length === 0 && (
+      {!playersCollapsed && inPlayers.length === 0 && (
         <div style={{
           textAlign: "center", fontSize: 13, color: "var(--t2)",
           fontWeight: 400, padding: "24px 0",
