@@ -1,5 +1,5 @@
 # In or Out — Database Schema
-*Last updated: May 21 2026 (session 28)*
+*Last updated: May 22 2026 (session 30 — Group Balancer columns)*
 
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
@@ -74,10 +74,14 @@ for all display stats.
 team_id text → teams.id,
 player_id text → players.id,
 is_vice_captain bool DEFAULT false,  ← per-team VC flag (migrated session 26)
+group_number int,                    ← Group Balancer assignment 1–5; NULL = ungrouped
+                                       (migration 031; CHECK group_number IS NULL OR 1..5)
 PRIMARY KEY (team_id, player_id)
 ```
-**Note:** `is_vice_captain` lives here, NOT on `players`. A player can be VC in
-one team and not another.
+**Notes:**
+- `is_vice_captain` lives here, NOT on `players`. A player can be VC in
+  one team and not another.
+- `group_number` is admin-only. Never selected in `get_team_state_by_player_token`.
 
 ### matches
 ```
@@ -106,8 +110,16 @@ was_admin_decided bool DEFAULT false,
 admin_decision_pending bool DEFAULT false,
 tied_candidates jsonb,
 team_switches jsonb,         ← [{ player_id, from: "A", to: "B" }]
+predicted_winner text,       ← "A" | "B" | "draw" | NULL (Group Balancer; migration 031)
+predicted_confidence numeric(4,2),  ← 0.00–1.00; raw win-rate delta — admin-only, never shown
+balance_score numeric(4,2),         ← duplicate of predicted_confidence at confirm time
+                                       (separate column so semantics stay distinct in future)
 created_at timestamptz
 ```
+**Group Balancer fields:** `predicted_winner`/`predicted_confidence`/`balance_score`
+are populated only when admin uses the Group Balancer to confirm teams.
+Pre-feature matches have all three NULL. Admin-only — never selected in the
+player-facing RPC.
 
 ### bib_history
 ```
@@ -156,7 +168,9 @@ means the game hasn't auto-opened yet this week. These are different flags.
 ```
 id uuid PK,
 team_id text,
-group_name text
+group_name text,
+group_labels jsonb            ← Group Balancer labels { "1": "Regulars", ... }
+                                 (migration 031; NULL = no labels). Admin-only.
 ```
 
 ### cover_pool
