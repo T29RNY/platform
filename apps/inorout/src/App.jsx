@@ -309,9 +309,10 @@ export default function App() {
           setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
           setSettingsRaw(state.settings || DEFAULT_SETTINGS);
           setCoverPoolRaw(state.coverPool);
-          const demoAdminPlayer = state.squad.find(
-            p => p.userId && session?.user && p.userId === session.user.id
-          );
+          // /demoadmin always plays as Hassan — the demo protagonist with the
+          // richest shared-game history. Auth session is ignored on this public
+          // showcase route.
+          const demoAdminPlayer = state.squad.find(p => p.id === 'p_demo_01');
           if (demoAdminPlayer) {
             setMyPlayer(demoAdminPlayer);
             setStatsRaw(computeStatsFromHistory(demoAdminPlayer.id, state.squad, state.matches, state.bibHistory));
