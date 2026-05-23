@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import {
   ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
-  SignOut, Trash,
+  SignOut, Trash, X as XIcon,
 } from "@phosphor-icons/react";
-import { getMyPaymentHistory, getMyInjuries } from "@platform/supabase";
+import {
+  getMyPaymentHistory, getMyInjuries,
+  leaveSquad, deleteMyAccount,
+} from "@platform/supabase";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -214,6 +217,14 @@ function InjuriesBody({ injuries, loading, error, currentlyInjured }) {
 
 // ── main ────────────────────────────────────────────────────────────────────
 
+function exitToHome() {
+  try {
+    localStorage.removeItem("ioo_last_visited");
+    localStorage.removeItem("ioo_redirect_to");
+  } catch {}
+  window.location.href = "/";
+}
+
 export default function PlayerProfile({ me, settings, onBack }) {
   const [payHist,        setPayHist]        = useState(null);
   const [payHistLoading, setPayHistLoading] = useState(false);
@@ -222,6 +233,24 @@ export default function PlayerProfile({ me, settings, onBack }) {
   const [injuries,        setInjuries]        = useState(null);
   const [injuriesLoading, setInjuriesLoading] = useState(false);
   const [injuriesError,   setInjuriesError]   = useState(false);
+
+  // Leave-squad — two-tap confirm, inline error
+  const [leaveConfirming, setLeaveConfirming] = useState(false);
+  const [leaving,         setLeaving]         = useState(false);
+  const [leaveError,      setLeaveError]      = useState(null);
+
+  // Delete-account — modal + typed DELETE check, error surface
+  const [showDelete,    setShowDelete]    = useState(false);
+  const [deleteText,    setDeleteText]    = useState("");
+  const [deleting,      setDeleting]      = useState(false);
+  const [deleteError,   setDeleteError]   = useState(null);
+
+  // Reset Leave's two-tap confirm after 4s if not actioned
+  useEffect(() => {
+    if (!leaveConfirming) return;
+    const t = setTimeout(() => setLeaveConfirming(false), 4000);
+    return () => clearTimeout(t);
+  }, [leaveConfirming]);
 
   const loadPayHistory = async () => {
     if (!me?.token) return;
@@ -248,6 +277,46 @@ export default function PlayerProfile({ me, settings, onBack }) {
       setInjuriesError(true);
     } finally {
       setInjuriesLoading(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!me?.token) return;
+    if (!leaveConfirming) { setLeaveConfirming(true); setLeaveError(null); return; }
+    setLeaving(true); setLeaveError(null);
+    try {
+      await leaveSquad(me.token);
+      exitToHome();
+    } catch (e) {
+      if (e?.code === 'debt_owed') {
+        setLeaveError(`Settle £${e.owes || 0} first — head to MY VIEW and pay.`);
+      } else {
+        setLeaveError("Couldn't leave — try again.");
+        console.error(e);
+      }
+      setLeaveConfirming(false);
+    } finally {
+      setLeaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!me?.token) return;
+    if (deleteText.trim().toUpperCase() !== 'DELETE') return;
+    setDeleting(true); setDeleteError(null);
+    try {
+      await deleteMyAccount(me.token);
+      exitToHome();
+    } catch (e) {
+      if (e?.code === 'last_admin') {
+        const n = e.teamIds?.length || 1;
+        setDeleteError(`You're the only admin on ${n} team${n === 1 ? '' : 's'}. Hand over admin first.`);
+      } else {
+        setDeleteError("Couldn't delete — try again.");
+        console.error(e);
+      }
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -358,7 +427,7 @@ export default function PlayerProfile({ me, settings, onBack }) {
           />
         </Section>
 
-        {/* Destructive zone — placeholders until Session B */}
+        {/* Destructive zone */}
         <div style={{ marginTop:32 }}>
           <div style={{
             fontSize:10, fontWeight:400, letterSpacing:"0.14em",
@@ -369,48 +438,169 @@ export default function PlayerProfile({ me, settings, onBack }) {
           </div>
 
           <button
-            disabled
+            onClick={handleLeave}
+            disabled={leaving}
             style={{
               width:"100%", padding:"14px 16px",
               borderRadius:"var(--r)",
-              background:"transparent",
-              border:"0.5px solid var(--amberb)",
+              background: leaveConfirming ? "var(--amber2)" : "transparent",
+              border:`0.5px solid var(--amberb)`,
               color:"var(--amber)",
               fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
               display:"flex", alignItems:"center", gap:10,
-              cursor:"not-allowed", opacity:0.5,
-              marginBottom:8,
+              cursor: leaving ? "not-allowed" : "pointer",
+              opacity: leaving ? 0.6 : 1,
+              marginBottom: leaveError ? 6 : 8,
+              WebkitTapHighlightColor:"transparent",
+              transition:"background 0.2s",
             }}
           >
             <SignOut size={16} weight="thin"/>
-            Leave this squad
-            <span style={{ marginLeft:"auto", fontSize:10, color:"var(--t2)", fontWeight:300 }}>
-              Coming soon
-            </span>
+            {leaving
+              ? "Leaving…"
+              : leaveConfirming
+                ? "Tap again to confirm — you can rejoin via invite link"
+                : "Leave this squad"}
           </button>
+          {leaveError && (
+            <div style={{
+              fontSize:11, color:"var(--red)", fontWeight:300,
+              padding:"0 4px 8px",
+            }}>
+              {leaveError}
+            </div>
+          )}
 
           <button
-            disabled
+            onClick={() => { setDeleteText(""); setDeleteError(null); setShowDelete(true); }}
             style={{
               width:"100%", padding:"14px 16px",
               borderRadius:"var(--r)",
               background:"transparent",
-              border:"0.5px solid var(--redb)",
+              border:`0.5px solid var(--redb)`,
               color:"var(--red)",
               fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
               display:"flex", alignItems:"center", gap:10,
-              cursor:"not-allowed", opacity:0.5,
+              cursor:"pointer",
+              WebkitTapHighlightColor:"transparent",
             }}
           >
             <Trash size={16} weight="thin"/>
             Delete my account
-            <span style={{ marginLeft:"auto", fontSize:10, color:"var(--t2)", fontWeight:300 }}>
-              Coming soon
-            </span>
           </button>
         </div>
 
       </div>
+
+      {/* Delete-account modal */}
+      {showDelete && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:200,
+          background:"rgba(0,0,0,0.75)",
+          backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          padding:20,
+        }}>
+          <div style={{
+            width:"100%", maxWidth:380,
+            background:"var(--s1)",
+            border:"0.5px solid var(--redb)",
+            borderRadius:"var(--r)", overflow:"hidden",
+            boxShadow:"0 0 60px rgba(255,64,64,0.2)",
+          }}>
+            <div style={{
+              padding:"18px 20px 12px",
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              borderBottom:"0.5px solid var(--b2)",
+            }}>
+              <div style={{
+                fontFamily:"var(--font-display)", fontSize:20,
+                letterSpacing:"0.04em", color:"var(--red)",
+              }}>
+                DELETE ACCOUNT
+              </div>
+              <button onClick={() => !deleting && setShowDelete(false)}
+                disabled={deleting}
+                style={{
+                  background:"none", border:"none",
+                  color:"var(--t2)", cursor: deleting ? "not-allowed" : "pointer",
+                  padding:0, display:"flex", alignItems:"center",
+                }}>
+                <XIcon size={18} weight="thin"/>
+              </button>
+            </div>
+            <div style={{ padding:"16px 20px 20px" }}>
+              <div style={{ fontSize:13, color:"var(--t1)", fontWeight:400, marginBottom:8 }}>
+                This wipes your account and signs you out everywhere.
+              </div>
+              <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginBottom:16, lineHeight:1.45 }}>
+                Your name is replaced with "Deleted player" in every team's
+                history. Stats, goals, and POTM votes you've already earned
+                stay on each match record, but anonymised. This can't be
+                undone — you'd start fresh.
+              </div>
+              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginBottom:6,
+                letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                Type DELETE to confirm
+              </div>
+              <input
+                value={deleteText}
+                onChange={e => setDeleteText(e.target.value)}
+                autoFocus
+                placeholder="DELETE"
+                style={{
+                  width:"100%", padding:"10px 12px",
+                  borderRadius:"var(--rs)",
+                  background:"var(--s2)",
+                  border:`1px solid ${deleteText.trim().toUpperCase() === 'DELETE' ? "var(--red)" : "var(--s3)"}`,
+                  color:"var(--t1)",
+                  fontFamily:"var(--font-body)", fontWeight:400, fontSize:14,
+                  letterSpacing:"0.1em",
+                  outline:"none", boxSizing:"border-box",
+                  marginBottom: deleteError ? 8 : 16,
+                }}
+              />
+              {deleteError && (
+                <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginBottom:16 }}>
+                  {deleteError}
+                </div>
+              )}
+              <button
+                onClick={handleDelete}
+                disabled={deleting || deleteText.trim().toUpperCase() !== 'DELETE'}
+                style={{
+                  width:"100%", padding:"12px 16px",
+                  borderRadius:"var(--r-button)",
+                  background: deleteText.trim().toUpperCase() === 'DELETE' ? "var(--red)" : "var(--s3)",
+                  color: deleteText.trim().toUpperCase() === 'DELETE' ? "var(--white)" : "var(--t2)",
+                  border:"none",
+                  fontFamily:"var(--font-display)", fontSize:14,
+                  letterSpacing:"0.08em",
+                  cursor: deleting || deleteText.trim().toUpperCase() !== 'DELETE' ? "not-allowed" : "pointer",
+                  opacity: deleting ? 0.7 : 1,
+                  marginBottom:8,
+                }}
+              >
+                {deleting ? "DELETING…" : "DELETE ACCOUNT"}
+              </button>
+              <button
+                onClick={() => setShowDelete(false)}
+                disabled={deleting}
+                style={{
+                  width:"100%", padding:"10px 16px",
+                  borderRadius:"var(--r-button)",
+                  background:"transparent", color:"var(--t2)",
+                  border:"0.5px solid var(--border-subtle)",
+                  fontFamily:"var(--font-body)", fontSize:13, fontWeight:400,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -650,6 +650,44 @@ export async function getMyPaymentHistory(token, limit = 50) {
   return (data || []).map(dbToLedger);
 }
 
+// Soft-remove self from current squad. Throws { code: 'debt_owed', owes }
+// if the player has outstanding debt.
+export async function leaveSquad(token) {
+  const { data, error } = await supabase.rpc('leave_squad', { p_token: token });
+  if (error) {
+    const msg = error.message || '';
+    if (msg.startsWith('debt_owed:')) {
+      const owes = Number(msg.slice('debt_owed:'.length));
+      const e = new Error('debt_owed'); e.code = 'debt_owed'; e.owes = owes;
+      throw e;
+    }
+    throw error;
+  }
+  return data;
+}
+
+// Hard-delete account via edge function (RPC anonymise + auth deletion).
+// Throws { code: 'last_admin', teamIds: [...] } when blocked by the
+// last-admin guard.
+export async function deleteMyAccount(token) {
+  const res = await fetch("/api/delete-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (body?.error === 'last_admin') {
+      const e = new Error('last_admin'); e.code = 'last_admin'; e.teamIds = body.teamIds || [];
+      throw e;
+    }
+    const e = new Error(body?.error || 'delete_failed');
+    e.code = body?.error || 'delete_failed';
+    throw e;
+  }
+  return body;
+}
+
 // ─── Demo data helpers ────────────────────────────────────────────────────────
 const DEMO_BASELINE = [
   { id:"p_demo_01", goals:18, motm:6, attended:20, w:13, l:5, d:2, bib_count:2, pay_count:20, late_dropouts:1, owes:0, injured:false },
