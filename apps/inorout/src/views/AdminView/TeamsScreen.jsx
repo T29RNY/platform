@@ -1200,21 +1200,6 @@ export default function TeamsScreen({
           </span>
         </button>
 
-        {/* Confirm Teams */}
-        <button onClick={handleConfirm} style={{
-          flex: 1, height: 40, borderRadius: "var(--rs)", border: "0.5px solid var(--greenb)",
-          background: "var(--green2)", color: "var(--green)",
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 1,
-          cursor: isConfirming ? "default" : "pointer",
-          opacity: isConfirming ? 0.6 : allAssigned ? 1 : 0.4,
-          pointerEvents: isConfirming ? "none" : "auto",
-        }}>
-          <CheckCircle size={16} weight="thin" />
-          <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, lineHeight: 1 }}>
-            CONFIRM
-          </span>
-        </button>
       </div>
 
       {/* Reroll warning — appears once a generated split has been manually
@@ -1237,23 +1222,6 @@ export default function TeamsScreen({
           fontSize: 12, fontWeight: 400, marginTop: 8,
         }}>
           Assign all players before confirming
-        </div>
-      )}
-
-      {/* Teams confirmed success state — only shown after a fresh confirm
-          in this session. Re-opening the screen doesn't re-surface it. */}
-      {teamsConfirmed && justConfirmed && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          background: "var(--green2)", border: "0.5px solid var(--greenb)",
-          borderRadius: "var(--rs)", padding: 12, marginTop: 8,
-        }}>
-          <CheckCircle size={16} weight="thin" color="var(--green)" style={{ flexShrink: 0 }} />
-          <span style={{
-            fontSize: 13, color: "var(--green)", fontWeight: 400,
-          }}>
-            Teams confirmed and shared with players
-          </span>
         </div>
       )}
 
@@ -1574,19 +1542,24 @@ export default function TeamsScreen({
         </button>
       )}
 
-      {/* Confirm Teams (bottom) — explicit primary action. Mirrors the
-          top CONFIRM but is far more discoverable. Disabled until every
-          IN player is on a team. */}
+      {/* Confirm Teams — single primary action. State-aware label so the
+          admin always sees what the button means right now. */}
       <div style={{ marginTop: 24, marginBottom: 16 }}>
         <button
           onClick={handleConfirm}
-          disabled={!allAssigned || isConfirming}
+          disabled={!allAssigned || isConfirming || teamsConfirmed}
           style={{
             width: "100%", height: 52, borderRadius: "var(--rs)",
-            background: allAssigned ? "var(--green)" : "var(--s2)",
-            border: allAssigned ? "none" : "0.5px solid var(--greenb)",
-            color: allAssigned ? "var(--bg)" : "var(--green)",
-            cursor: (allAssigned && !isConfirming) ? "pointer" : "default",
+            background: teamsConfirmed
+              ? "var(--green2)"
+              : allAssigned ? "var(--green)" : "var(--s2)",
+            border: teamsConfirmed
+              ? "0.5px solid var(--greenb)"
+              : allAssigned ? "none" : "0.5px solid var(--greenb)",
+            color: teamsConfirmed
+              ? "var(--green)"
+              : allAssigned ? "var(--bg)" : "var(--green)",
+            cursor: (allAssigned && !isConfirming && !teamsConfirmed) ? "pointer" : "default",
             opacity: isConfirming ? 0.6 : 1,
             fontFamily: "'Bebas Neue', sans-serif",
             fontSize: 18, letterSpacing: "0.08em",
@@ -1595,7 +1568,13 @@ export default function TeamsScreen({
           }}
         >
           <CheckCircle size={18} weight="thin" />
-          CONFIRM TEAMS
+          {teamsConfirmed
+            ? "✓ TEAMS CONFIRMED"
+            : isConfirming
+              ? "CONFIRMING…"
+              : allAssigned
+                ? "CONFIRM TEAMS"
+                : "ASSIGN ALL PLAYERS FIRST"}
         </button>
       </div>
 
