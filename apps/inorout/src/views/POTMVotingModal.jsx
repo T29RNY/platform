@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Trophy } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import { submitPOTMVote } from "@platform/supabase";
 import { resolveMotm } from "@platform/core";
 
@@ -8,8 +9,6 @@ if (typeof document !== "undefined" && !document.getElementById("potm-styles")) 
   el.id = "potm-styles";
   el.textContent = `
     @keyframes potm-pulse{0%{box-shadow:0 0 0 0 rgba(232,160,32,0.7)}70%{box-shadow:0 0 0 10px rgba(232,160,32,0)}100%{box-shadow:0 0 0 0 rgba(232,160,32,0)}}
-    @keyframes potm-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-    @keyframes potm-fade-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
   `;
   document.head.appendChild(el);
 }
@@ -107,15 +106,18 @@ export default function POTMVotingModal({
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: "20px",
     }}>
-      <div style={{
-        width: "100%", maxWidth: 380,
-        background: "var(--s1)",
-        borderRadius: 20,
-        border: "1px solid var(--gold)",
-        boxShadow: "0 0 24px rgba(232,160,32,0.4)",
-        overflow: "hidden",
-        animation: "potm-fade-in 0.25s ease",
-      }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 320, damping: 28 }}
+        style={{
+          width: "100%", maxWidth: 380,
+          background: "var(--s1)",
+          borderRadius: 20,
+          border: "1px solid var(--gold)",
+          boxShadow: "0 0 24px rgba(232,160,32,0.4)",
+          overflow: "hidden",
+        }}>
         {/* Header */}
         <div style={{
           padding: "20px 20px 16px",
@@ -154,31 +156,77 @@ export default function POTMVotingModal({
           {/* Result / counting */}
           {isResult && (
             <div style={{ textAlign: "center", padding: "20px 0" }}>
-              <Trophy size={40} weight="fill" color="var(--gold)" />
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", marginTop: 12 }}>
+              <motion.div
+                initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 180, damping: 14, delay: 0.1 }}
+                style={{ display: "inline-block" }}
+              >
+                <Trophy size={40} weight="thin" color="var(--gold)" />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, duration: 0.3 }}
+                style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", marginTop: 12 }}
+              >
                 {winnerName || "Unknown"}
-              </div>
-              <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 6, fontWeight: 300 }}>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.55, duration: 0.3 }}
+                style={{ fontSize: 13, color: "var(--t2)", marginTop: 6, fontWeight: 300 }}
+              >
                 wins POTM tonight!
-              </div>
+              </motion.div>
             </div>
           )}
 
           {/* Counting state */}
           {!isResult && !hasVoted && phase === "locked" && (
-            <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
-              <Trophy size={28} weight="fill" color="var(--gold)" />
-              <div style={{
-                fontFamily: "var(--font-display)", fontSize: 20,
-                color: "var(--gold)", marginTop: 6, letterSpacing: "0.05em",
-              }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", stiffness: 280, damping: 22 }}
+              style={{ textAlign: "center", padding: "12px 0 8px" }}
+            >
+              <motion.div
+                initial={{ scale: 0, rotate: -15 }}
+                animate={{
+                  scale: 1, rotate: 0,
+                  y: [0, -6, 0],
+                }}
+                transition={{
+                  scale: { type: "spring", stiffness: 220, damping: 12 },
+                  rotate: { type: "spring", stiffness: 220, damping: 12 },
+                  y: { duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
+                }}
+                style={{ display: "inline-block" }}
+              >
+                <Trophy size={28} weight="thin" color="var(--gold)" />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.3 }}
+                style={{
+                  fontFamily: "var(--font-display)", fontSize: 20,
+                  color: "var(--gold)", marginTop: 6, letterSpacing: "0.05em",
+                }}
+              >
                 VOTE LOCKED IN
-              </div>
-              <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 4, fontWeight: 300 }}>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.3 }}
+                style={{ fontSize: 13, color: "var(--t2)", marginTop: 4, fontWeight: 300 }}
+              >
                 You voted for{" "}
                 <span style={{ color: "var(--t1)", fontWeight: 600 }}>{selected?.nickname || selected?.name}</span>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           )}
 
           {/* Voting UI */}
@@ -327,7 +375,7 @@ export default function POTMVotingModal({
             </button>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }
