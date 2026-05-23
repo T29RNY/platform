@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { handleMarkPaid, handleResetPayment, handleWaiveDebt } from "@platform/core";
 import { adminGetPlayerLedger } from "@platform/supabase";
-import { ArrowLeft, CaretDown, CaretUp } from "@phosphor-icons/react";
+import { ArrowLeft, CaretDown, CaretUp, DotsThreeVertical } from "@phosphor-icons/react";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -39,7 +39,6 @@ function ini(name) {
     : (name || '?').slice(0, 2).toUpperCase();
 }
 
-// Small pill for status labels (IN / OUT / MAYBE etc.)
 function pill(label, bg, border, color) {
   return (
     <span style={{
@@ -50,7 +49,6 @@ function pill(label, bg, border, color) {
   );
 }
 
-// FIX 2 — Larger pill for payment amounts / paid status
 function payPill(label, bg, border, color) {
   return (
     <span style={{
@@ -61,52 +59,130 @@ function payPill(label, bg, border, color) {
   );
 }
 
-// ── PlayerRow accordion ───────────────────────────────────────────────────────
+// ── inline keyframes ──────────────────────────────────────────────────────────
+if (typeof document !== "undefined" && !document.getElementById("pm-styles")) {
+  const el = document.createElement("style");
+  el.id = "pm-styles";
+  el.textContent = `
+    @keyframes pm-fade-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    @keyframes pm-green-flash { 0% { background:rgba(61,220,106,0.20); } 100% { background:transparent; } }
+    .pm-row { animation: pm-fade-in 280ms ease both; }
+    .pm-row.pm-just-paid { animation: pm-green-flash 1100ms ease both; }
+  `;
+  document.head.appendChild(el);
+}
 
-function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = false, hostName = null }) {
+// ── PlayerRow ─────────────────────────────────────────────────────────────────
+
+function PlayerRow({
+  player, adminToken, schedule, setSquad, idx,
+  isGuest = false, hostName = null,
+  openMenuId, setOpenMenuId,
+}) {
   const [open,         setOpen]         = useState(false);
   const [ledger,       setLedger]       = useState(null);
   const [loading,      setLoading]      = useState(false);
   const [waiverOpen,   setWaiverOpen]   = useState(false);
   const [waiverAmount, setWaiverAmount] = useState(player.owes || 0);
   const [waiverNote,   setWaiverNote]   = useState("");
+  const [justPaid,     setJustPaid]     = useState(false);
+  const menuRef = useRef(null);
 
-  const toggle = async () => {
-    if (!open && ledger === null) {
-      setLoading(true);
-      try {
-        const rows = await adminGetPlayerLedger(adminToken, player.id, 20);
-        setLedger(rows);
-      } catch { setLedger([]); }
-      finally { setLoading(false); }
-    }
-    if (open) setWaiverOpen(false);
-    setOpen(o => !o);
-  };
+  const isMenuOpen = openMenuId === player.id;
 
   const isPaid = player.paid === true || player.selfPaid === true;
   const owes   = player.owes || 0;
   const price  = schedule.pricePerPlayer || 0;
   const sp     = STATUS_PILL[player.status] || STATUS_PILL.none;
+  const isIn   = player.status === 'in';
 
-  // FIX 6 — guest responsibility text derived from paid_by
+  // Avatar ring colour mirrors payment state
+  const ringColor =
+      owes > 0       ? "rgba(255,80,80,0.55)"
+    : isPaid         ? "rgba(61,220,106,0.55)"
+    : isIn           ? "rgba(255,176,32,0.55)"
+    : "var(--border-subtle)";
+  const ringGlow =
+      owes > 0       ? "0 0 10px rgba(255,80,80,0.22)"
+    : isPaid         ? "0 0 10px rgba(61,220,106,0.20)"
+    : isIn           ? "0 0 10px rgba(255,176,32,0.18)"
+    : "none";
+
   const guestLine = isGuest
     ? player.paidBy === 'host' ? `Host: ${hostName || 'unknown'}`
     : player.paidBy === 'self' ? 'Self pay'
     : hostName ? `guest of ${hostName}` : null
     : null;
 
+  const refreshLedger = () =>
+    adminGetPlayerLedger(adminToken, player.id, 20).then(setLedger).catch(() => setLedger([]));
+
+  const expandRow = async () => {
+    if (!open && ledger === null) {
+      setLoading(true);
+      try { setLedger(await adminGetPlayerLedger(adminToken, player.id, 20)); }
+      catch { setLedger([]); }
+      finally { setLoading(false); }
+    }
+    setOpen(true);
+  };
+
+  const toggle = async () => {
+    if (!open) await expandRow();
+    else { setOpen(false); setWaiverOpen(false); }
+  };
+
+  const doMarkPaid = async () => {
+    await handleMarkPaid(adminToken, player.id, schedule.activeMatchId || null).catch(console.error);
+    setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true } : p));
+    setJustPaid(true);
+    setTimeout(() => setJustPaid(false), 1100);
+    if (open) refreshLedger();
+  };
+
+  const doReset = async () => {
+    await handleResetPayment(adminToken, player.id, schedule.activeMatchId || null).catch(console.error);
+    setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
+    if (open) refreshLedger();
+  };
+
+  const startWaive = async () => {
+    setWaiverAmount(owes);
+    await expandRow();
+    setWaiverOpen(true);
+  };
+
+  // Click-outside menu
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const onDoc = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [isMenuOpen, setOpenMenuId]);
+
   return (
-    <div style={{ borderTop:"0.5px solid var(--b2)" }}>
-      {/* Collapsed row — FIX 1: chevron added far right */}
+    <div
+      className={`pm-row ${justPaid ? "pm-just-paid" : ""}`}
+      style={{
+        borderTop:"0.5px solid var(--b2)",
+        animationDelay: `${Math.min(idx ?? 0, 12) * 28}ms`,
+        position:"relative",
+        zIndex: isMenuOpen ? 30 : "auto",
+      }}
+    >
+      {/* Collapsed row */}
       <div onClick={toggle} style={{ padding:"10px 16px", display:"flex",
         alignItems:"center", gap:10, cursor:"pointer",
         WebkitTapHighlightColor:"transparent" }}>
-        {/* Initials circle */}
-        <div style={{ width:32, height:32, borderRadius:"50%", flexShrink:0,
-          background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
+        {/* Avatar with status ring */}
+        <div style={{ width:36, height:36, borderRadius:"50%", flexShrink:0,
+          background:"rgba(255,255,255,0.04)",
+          border:`1px solid ${ringColor}`,
+          boxShadow:ringGlow,
           display:"flex", alignItems:"center", justifyContent:"center",
-          fontSize:9, fontWeight:600, color:"var(--t2)" }}>
+          fontFamily:"'Bebas Neue', sans-serif", fontSize:13, letterSpacing:"0.04em",
+          color:"var(--t1)",
+          transition:"box-shadow 0.3s ease, border 0.3s ease" }}>
           {ini(player.nickname || player.name)}
         </div>
         {/* Name + status */}
@@ -122,17 +198,66 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
             {pill(sp.label, sp.bg, sp.border, sp.color)}
           </div>
         </div>
-        {/* Right badges — FIX 2: payPill; FIX 7: £ due only for IN */}
-        <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+        {/* Right side: owed pill, paid/PAY action, ⋯ */}
+        <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}
+          onClick={e => e.stopPropagation()}>
           {owes > 0 && payPill(`£${owes}`, "var(--red2)", "var(--redb)", "var(--red)")}
           {isPaid
             ? payPill(owes > 0 ? "✓ This week" : "✓ Paid", "var(--green2)", "var(--greenb)", "var(--green)")
-            : player.status === 'in' && payPill(`£${price} due`, "var(--amber2)", "var(--amberb)", "var(--amber)")
+            : isIn && (
+                <button onClick={doMarkPaid}
+                  style={{ padding:"4px 12px", borderRadius:"var(--r-pill)", border:"none",
+                    background:"var(--gold)", color:"var(--black)",
+                    fontFamily:"var(--font-body)", fontSize:12, fontWeight:600,
+                    letterSpacing:"0.04em", cursor:"pointer",
+                    boxShadow:"0 0 10px rgba(232,160,32,0.35)" }}>
+                  £{price} PAY
+                </button>
+              )
           }
-          {open
-            ? <CaretUp   size={16} weight="thin" color="var(--t2)" style={{ flexShrink:0 }}/>
-            : <CaretDown size={16} weight="thin" color="var(--t2)" style={{ flexShrink:0 }}/>
-          }
+          {/* ⋯ menu */}
+          <div ref={isMenuOpen ? menuRef : null} style={{ position:"relative" }}>
+            <button
+              onClick={() => setOpenMenuId(isMenuOpen ? null : player.id)}
+              style={{ width:28, height:28, borderRadius:"var(--rs)",
+                background: isMenuOpen ? "var(--s3)" : "transparent",
+                border:`0.5px solid ${isMenuOpen ? "var(--s3)" : "transparent"}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                cursor:"pointer", WebkitTapHighlightColor:"transparent" }}
+              title="More actions"
+            >
+              <DotsThreeVertical size={16} weight="thin"
+                color={isMenuOpen ? "var(--t1)" : "var(--t2)"} />
+            </button>
+            {isMenuOpen && (
+              <div style={{
+                position:"absolute", top:"100%", right:0, marginTop:6, zIndex:20,
+                background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+                borderRadius:12, padding:6, minWidth:200,
+                boxShadow:"0 12px 30px rgba(0,0,0,0.55)",
+                backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+              }}>
+                {!isPaid && (
+                  <MenuItem onClick={() => { setOpenMenuId(null); doMarkPaid(); }}>
+                    Mark paid — this week
+                  </MenuItem>
+                )}
+                {isPaid && (
+                  <MenuItem onClick={() => { setOpenMenuId(null); doReset(); }}>
+                    Reset payment
+                  </MenuItem>
+                )}
+                {owes > 0 && (
+                  <MenuItem danger onClick={() => { setOpenMenuId(null); startWaive(); }}>
+                    Waive debt
+                  </MenuItem>
+                )}
+                <MenuItem onClick={() => { setOpenMenuId(null); toggle(); }}>
+                  {open ? "Hide ledger" : "Open ledger"}
+                </MenuItem>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -172,14 +297,13 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
                   <span style={{ fontSize:11, fontWeight:600, color:"var(--t1)", minWidth:28, textAlign:"right" }}>
                     £{Number(entry.amount || 0).toFixed(0)}
                   </span>
-                  {/* FIX 2 — inline Reset on paid game_fee rows only */}
                   {entry.status === 'paid' && entry.type === 'game_fee' && (
                     <button onClick={async (e) => {
                       e.stopPropagation();
                       await handleResetPayment(adminToken, player.id, entry.matchId || null).catch(console.error);
                       setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:false, selfPaid:false, paidBy:null } : p));
-                      adminGetPlayerLedger(adminToken, player.id, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
-                    }} style={{ marginLeft:8, padding:"3px 8px", borderRadius:6,
+                      refreshLedger();
+                    }} style={{ marginLeft:8, padding:"3px 8px", borderRadius:"var(--rs)",
                       background:"var(--s3)", color:"var(--t2)", fontSize:11, fontWeight:400,
                       border:"none", cursor:"pointer", fontFamily:"var(--font-body)" }}>
                       Reset
@@ -190,34 +314,10 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
             );
           })}
 
-          {/* Action row — Reset moved inline to ledger rows (FIX 2) */}
-          <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
-            {!isPaid && (
-              <button onClick={async () => {
-                await handleMarkPaid(adminToken, player.id, schedule.activeMatchId || null).catch(console.error);
-                setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true } : p));
-                adminGetPlayerLedger(adminToken, player.id, 20).then(rows => setLedger(rows)).catch(() => setLedger([]));
-              }} style={{ padding:"6px 14px", borderRadius:"var(--r-pill)", border:"none",
-                background:"var(--gold)", color:"#000", fontSize:11, fontWeight:600,
-                cursor:"pointer", fontFamily:"var(--font-body)" }}>
-                Mark Paid — This Week
-              </button>
-            )}
-            {owes > 0 && !waiverOpen && (
-              <button onClick={() => { setWaiverAmount(owes); setWaiverOpen(true); }}
-                style={{ padding:"6px 14px", borderRadius:"var(--r-pill)",
-                  border:"0.5px solid var(--redb)", background:"transparent",
-                  color:"var(--red)", fontSize:11, cursor:"pointer",
-                  fontFamily:"var(--font-body)" }}>
-                Waive Debt
-              </button>
-            )}
-          </div>
-
           {/* Inline waiver form */}
           {waiverOpen && (
             <div style={{ marginTop:10, padding:"10px 12px", background:"var(--s2)",
-              borderRadius:8, border:"0.5px solid var(--redb)" }}>
+              borderRadius:"var(--rs)", border:"0.5px solid var(--redb)" }}>
               <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300, marginBottom:8,
                 letterSpacing:"0.06em", textTransform:"uppercase" }}>Waive debt</div>
               <div style={{ display:"flex", gap:8, marginBottom:8, flexWrap:"wrap" }}>
@@ -228,7 +328,7 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
                     value={waiverAmount}
                     onChange={e => setWaiverAmount(Number(e.target.value))}
                     style={{ width:64, background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
-                      borderRadius:6, padding:"5px 8px", fontSize:12, color:"var(--t1)",
+                      borderRadius:"var(--rs)", padding:"5px 8px", fontSize:12, color:"var(--t1)",
                       fontFamily:"var(--font-body)", outline:"none" }}
                   />
                 </div>
@@ -238,7 +338,7 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
                   value={waiverNote}
                   onChange={e => setWaiverNote(e.target.value)}
                   style={{ flex:1, minWidth:120, background:"var(--s3)",
-                    border:"0.5px solid var(--border-subtle)", borderRadius:6,
+                    border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
                     padding:"5px 8px", fontSize:12, color:"var(--t1)",
                     fontFamily:"var(--font-body)", outline:"none" }}
                 />
@@ -250,7 +350,7 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
                   setWaiverOpen(false);
                   setLedger(null);
                 }} style={{ padding:"5px 14px", borderRadius:"var(--r-pill)", border:"none",
-                  background:"var(--red)", color:"#fff", fontSize:11, fontWeight:600,
+                  background:"var(--red)", color:"var(--white)", fontSize:11, fontWeight:600,
                   cursor:"pointer", fontFamily:"var(--font-body)" }}>
                   Confirm Waiver
                 </button>
@@ -270,23 +370,52 @@ function PlayerRow({ player, adminToken, teamId, schedule, setSquad, isGuest = f
   );
 }
 
-// ── SectionLabel — FIX 8: color prop added ───────────────────────────────────
+// ── MenuItem helper ───────────────────────────────────────────────────────────
 
-function SectionLabel({ children, color = "var(--t2)" }) {
+function MenuItem({ children, onClick, danger = false }) {
   return (
-    <div style={{ padding:"0 16px 6px", fontFamily:"var(--font-display)",
-      fontSize:13, letterSpacing:"0.1em", color }}>
+    <button onClick={onClick}
+      style={{
+        display:"block", width:"100%", textAlign:"left",
+        padding:"8px 10px", borderRadius:"var(--rs)",
+        background:"transparent", border:"none",
+        fontFamily:"var(--font-body)", fontSize:12,
+        color: danger ? "var(--red)" : "var(--t1)",
+        cursor:"pointer", WebkitTapHighlightColor:"transparent",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = "var(--s2)"}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ── SectionLabel ──────────────────────────────────────────────────────────────
+
+function SectionLabel({ children, color = "var(--t2)", glow = null }) {
+  return (
+    <div style={{
+      padding:"0 16px 6px", fontFamily:"var(--font-display)",
+      fontSize:13, letterSpacing:"0.1em", color,
+      textShadow: glow || "none",
+    }}>
       {children}
     </div>
   );
 }
 
-// ── PlayerCard wrapper ────────────────────────────────────────────────────────
+// ── PlayerCard ────────────────────────────────────────────────────────────────
 
-function PlayerCard({ children }) {
+function PlayerCard({ children, accent = null }) {
   return (
-    <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
-      borderRadius:"var(--r)", overflow:"hidden", margin:"0 16px 12px" }}>
+    <div style={{
+      background:"rgba(255,255,255,0.03)",
+      backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+      border:`0.5px solid ${accent || "var(--border-subtle)"}`,
+      borderRadius:"var(--r)", overflow:"hidden", margin:"0 16px 12px",
+      boxShadow: accent ? `0 0 24px ${accent}` : "none",
+    }}>
       {children}
     </div>
   );
@@ -296,13 +425,11 @@ function PlayerCard({ children }) {
 
 export default function PaymentsScreen({ squad, setSquad, schedule, teamId, adminToken = null, coverPool = [], onBack }) {
   const [showNotPlaying, setShowNotPlaying] = useState(false);
-
-  const price = schedule.pricePerPlayer || 0;
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   const activePlayers = squad.filter(p => !p.disabled && !p.isGuest);
   const guestPlayers  = squad.filter(p => p.isGuest && !p.disabled);
 
-  // FIX 8 — 4 mutually exclusive sections, priority: owes → unpaid-in → paid → notPlaying
   const byName = (a, b) => (a.nickname || a.name).localeCompare(b.nickname || b.name);
 
   const owesSection = activePlayers
@@ -322,8 +449,9 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
     .sort(byName);
 
   const totalOwed = activePlayers.reduce((s, p) => s + (p.owes || 0), 0);
-  // FIX 3 — count all paid this week across all sections
   const paidCount = activePlayers.filter(p => p.paid || p.selfPaid).length;
+
+  const rowProps = { adminToken, schedule, setSquad, openMenuId, setOpenMenuId };
 
   return (
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
@@ -337,21 +465,26 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
             <ArrowLeft size={20} weight="thin" />
           </button>
           <div style={{ fontFamily:"var(--font-display)", fontSize:28,
-            letterSpacing:"0.06em", color:"var(--gold)" }}>
+            letterSpacing:"0.06em", color:"var(--gold)",
+            textShadow:"0 0 18px rgba(232,160,32,0.22)" }}>
             PAYMENTS
           </div>
         </div>
 
-        {/* Summary chips — FIX 3: "{paidCount} PLAYERS PAID" */}
+        {/* Summary chips — glass */}
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
           <div style={{ padding:"6px 14px", borderRadius:"var(--r-pill)",
-            background:"var(--red2)", border:"0.5px solid var(--redb)",
+            background:"rgba(255,64,64,0.10)", backdropFilter:"blur(10px)",
+            WebkitBackdropFilter:"blur(10px)",
+            border:"0.5px solid var(--redb)",
             fontFamily:"var(--font-display)", fontSize:14, fontWeight:600, letterSpacing:"0.08em",
             color:"var(--t1)" }}>
             £{totalOwed} OUTSTANDING
           </div>
           <div style={{ padding:"6px 14px", borderRadius:"var(--r-pill)",
-            background:"var(--green2)", border:"0.5px solid var(--greenb)",
+            background:"rgba(61,220,106,0.10)", backdropFilter:"blur(10px)",
+            WebkitBackdropFilter:"blur(10px)",
+            border:"0.5px solid var(--greenb)",
             fontFamily:"var(--font-display)", fontSize:14, fontWeight:600, letterSpacing:"0.08em",
             color:"var(--t1)" }}>
             {paidCount === 1 ? "1 PLAYER PAID" : `${paidCount} PLAYERS PAID`}
@@ -359,46 +492,55 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
         </div>
       </div>
 
-      {/* FIX 8 — Section 1: OWES MONEY (hidden when empty) */}
+      {/* Section 1: OWES MONEY — red glow */}
       {owesSection.length > 0 && (
         <>
-          <SectionLabel color="var(--red)">OWES MONEY · {owesSection.length}</SectionLabel>
-          <PlayerCard>
-            {owesSection.map(p => (
-              <PlayerRow key={p.id} player={p} adminToken={adminToken} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+          <SectionLabel color="var(--red)" glow="0 0 14px rgba(255,64,64,0.30)">
+            OWES MONEY · {owesSection.length}
+          </SectionLabel>
+          <PlayerCard accent="rgba(255,64,64,0.12)">
+            {owesSection.map((p, i) => (
+              <PlayerRow key={p.id} player={p} idx={i} {...rowProps} />
             ))}
           </PlayerCard>
         </>
       )}
 
-      {/* FIX 8 — Section 2: IN — NOT YET PAID (hidden when empty) */}
+      {/* Section 2: IN — NOT YET PAID — amber glow */}
       {unpaidIn.length > 0 && (
         <>
-          <SectionLabel color="var(--amber)">IN — NOT YET PAID · {unpaidIn.length}</SectionLabel>
-          <PlayerCard>
-            {unpaidIn.map(p => (
-              <PlayerRow key={p.id} player={p} adminToken={adminToken} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+          <SectionLabel color="var(--amber)" glow="0 0 14px rgba(255,176,32,0.28)">
+            IN — NOT YET PAID · {unpaidIn.length}
+          </SectionLabel>
+          <PlayerCard accent="rgba(255,176,32,0.10)">
+            {unpaidIn.map((p, i) => (
+              <PlayerRow key={p.id} player={p} idx={i} {...rowProps} />
             ))}
           </PlayerCard>
         </>
       )}
 
-      {/* FIX 8 — Section 3: PAID UP (hidden when empty) */}
+      {/* Section 3: PAID UP — green glow */}
       {paidUp.length > 0 && (
         <>
-          <SectionLabel color="var(--green)">PAID UP · {paidUp.length}</SectionLabel>
-          <PlayerCard>
-            {paidUp.map(p => (
-              <PlayerRow key={p.id} player={p} adminToken={adminToken} teamId={teamId} schedule={schedule} setSquad={setSquad} />
+          <SectionLabel color="var(--green)" glow="0 0 14px rgba(61,220,106,0.28)">
+            PAID UP · {paidUp.length}
+          </SectionLabel>
+          <PlayerCard accent="rgba(61,220,106,0.10)">
+            {paidUp.map((p, i) => (
+              <PlayerRow key={p.id} player={p} idx={i} {...rowProps} />
             ))}
           </PlayerCard>
         </>
       )}
 
-      {/* FIX 8 — Section 4: NOT PLAYING — always shown, collapsed by default */}
+      {/* Section 4: NOT PLAYING — always shown, collapsed by default */}
       <SectionLabel>NOT PLAYING · {notPlaying.length}</SectionLabel>
       <div style={{ margin:"0 16px 12px" }}>
-        <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+        <div style={{
+          background:"rgba(255,255,255,0.03)",
+          backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+          border:"0.5px solid var(--border-subtle)",
           borderRadius:"var(--r)", overflow:"hidden" }}>
           <div onClick={() => setShowNotPlaying(o => !o)}
             style={{ padding:"12px 16px", display:"flex", alignItems:"center",
@@ -440,18 +582,18 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
         </div>
       </div>
 
-      {/* FIX 6 — Guests: always shown, empty state if no guests */}
+      {/* Guests */}
       <SectionLabel>GUESTS</SectionLabel>
       <PlayerCard>
         {guestPlayers.length === 0 ? (
           <div style={{ padding:"12px 16px", fontSize:13, color:"var(--t2)", fontWeight:300 }}>
             No guests this week
           </div>
-        ) : guestPlayers.map(p => {
+        ) : guestPlayers.map((p, i) => {
           const host = squad.find(h => h.id === p.guestOf);
           return (
-            <PlayerRow key={p.id} player={p} adminToken={adminToken} teamId={teamId} schedule={schedule}
-              setSquad={setSquad} isGuest hostName={host?.nickname || host?.name || null} />
+            <PlayerRow key={p.id} player={p} idx={i} {...rowProps}
+              isGuest hostName={host?.nickname || host?.name || null} />
           );
         })}
       </PlayerCard>
