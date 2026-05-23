@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: May 23 2026 (session 31)*
+*Last updated: May 23 2026 (session 32)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -61,6 +61,8 @@ Read this before building new features to avoid re-litigating settled questions.
 - **Reopen-after-cancel creates a fresh match.** Cancelled match stays in history with `cancelled=true`. New `admin_reopen_week` RPC handles the full transaction (clear is_cancelled, insert new matches row, point active_match_id at it). Keeps the audit trail honest and avoids un-cancelling payment ledger refunds (session 31).
 - **Admin-configured `schedule.dayOfWeek` is authoritative over the `gameDateTime`-derived weekday** in player-facing copy. The demo schedule had drift between the two (day_of_week='Wednesday' but timestamp on a Tuesday); when they disagree, the configured day wins. Session 31.
 - **Status confirmation banners are one-shot, not persistent.** "🔒 Locked in", "👍 No worries", "🤞 Got it" etc. flash up for 5s after a setStatus tap, then slide-fade. They do NOT resurrect on page refresh. `hideConfirmation` initial state is `true` (session 31).
+- **IO deeper-intel is computed client-side, not via RPC.** `packages/core/engine/deeperIntel.js` derives mostPlayedWith, mostFacedOpponent, nemesis, bestPartnership, impact, reliabilityRanking from `matches[]` + `squad[]` already in state. No new RPC, no schema change, no extra round-trip. Chosen over extending `get_team_state_by_player_token` because the source data is already loaded on every route and the computation is cheap. Phase 0B (Casual/Competitive split) will pre-filter `matches[]` before this engine sees them, so the cards inherit the filter for free (session 32).
+- **MyIOView.jsx is exempt from the hex-literal hygiene check.** Documented in `skills/scripts/check-hygiene.sh` header. Rationale: CLAUDE.md itself mandates hex literals inside SVG fill/stroke (CSS vars don't work there) and this file is overwhelmingly SVG badge crests and gradient overlays. Same exemption pattern as `constants/colors.js`. If extending: keep new colours in the INSIGHTS array, not scattered through the file (session 32).
 - **Smart Teams adoption analytics: rich `team_confirmed` event as the anchor.** Carries `manual_moves_before`, `manual_moves_after`, `regenerate_count`, `was_ai_picked_as_is`, `is_recommit`, plus prediction fields and team sizes. Secondary events (`team_drafted_auto`, `team_player_moved`, `team_regenerated`, `team_cleared`) fire alongside but the confirm event is what the dashboard queries. Session 31.
 
 ## SCHEDULING & CRON

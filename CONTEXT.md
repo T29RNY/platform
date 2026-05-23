@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 21 2026 (session 29)*
+*Last updated: May 23 2026 (session 32)*
 
 This file contains infrastructure, key tokens, demo environment, conventions,
 and a compressed session history. For everything else, see the split files:
@@ -426,6 +426,8 @@ Critical non-obvious behaviours that don't live in the code or schema.
 **Session 27 (May 20):** Join flow bug fixed — addPlayerToTeam was receiving wrong arg order in join context. Replaced with dedicated player_join_team RPC (SECURITY DEFINER, authenticated only). JoinTeam.jsx full rebuild. AddPlayers removed from onboarding (players join via squad link only). SetupLoadingScreen + SquadReady built. price_per_player → numeric(10,2). Zero direct table writes in onboarding.
 
 **Sessions 28–29 (May 21):** Dead code sweep — supabase.js dead functions removed, App.jsx dead imports cleared, IsThisYou.jsx deleted. BibsScreen RLS fix (ScoreScreen workaround). B1 resolved: 10 SECURITY DEFINER RPCs referencing dropped `players.is_vice_captain` (all Manage Squad buttons + player attendance + payments broken since migration 026); fixed via apply_migration. player_get_teams stale column fixed. find_player_by_email RPC dropped (PUBLIC grant security issue). player_join_team fixed (token generation, SET search_path, PUBLIC grant revoked). PWAWelcome email lookup section removed. Skills/ directory created — full AUDIT→EXECUTE→VERIFY→COMMIT→POST-DEPLOY cycle with 5 scripts and 11 skill files.
+
+**Session 32 (May 23):** IO Intelligence deeper-intel rewire. B7 resolved: Most Played With (6+), Team Impact (7+), Nemesis (8+), Best Partnership (8+) were dead UI — `useIOIntelligence.js` hard-coded all four keys to null and no upstream path computed them. New pure engine `packages/core/engine/deeperIntel.js` computes all six metrics (incl. new mostFacedOpponent, reliabilityRanking) from `matches[]` + `squad[]` client-side. Wired into `computeStatsFromHistory` (admin/demo) and both player-token state fetches (App.jsx). Two new Insight cards shipped: Most Faced Opponent (amber, 4+), Reliability Ranking (cyan, 5+, min 3 squad games to be ranked). Hygiene script exempted MyIOView.jsx from the hex-literal check (separate commit) — file is overwhelmingly SVG badge rendering, where CLAUDE.md mandates hex literals. Commits: `08db0b7` (hygiene), `04877de` (feature), `5d1112e` (docs).
 
 
 
