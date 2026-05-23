@@ -3,6 +3,7 @@ import {
   ArrowLeft, Shuffle, FloppyDisk, CheckCircle, Trash,
   CaretUp, CaretDown, Plus, X as XIcon,
 } from "@phosphor-icons/react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   saveTeamsDraft, confirmTeams,
   generateBalancedTeams,
@@ -77,8 +78,9 @@ function predictionChipText(winner, absDelta) {
 function LiveBoard({
   teamAPlayers, teamBPlayers,
   selectedPlayerId, onChipTap, onColumnTap,
+  shuffleNonce = 0,
 }) {
-  const renderChip = (p, color, avBg, avBorder) => {
+  const renderChip = (p, color, avBg, avBorder, index) => {
     const isSelected = selectedPlayerId === p.id;
     const isDimmed   = selectedPlayerId && !isSelected;
     const parts = ((p.nickname || p.name) || "").trim().split(/\s+/);
@@ -86,8 +88,16 @@ function LiveBoard({
       ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
       : ((p.nickname || p.name) || "?").slice(0, 2).toUpperCase();
     return (
-      <div
-        key={p.id}
+      <motion.div
+        key={`${shuffleNonce}-${p.id}`}
+        layout
+        initial={{ opacity: 0, scale: 0.6, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.6, y: -8, transition: { duration: 0.15 } }}
+        transition={{
+          type: "spring", stiffness: 380, damping: 28,
+          delay: index * 0.05,
+        }}
         onClick={(e) => { e.stopPropagation(); onChipTap(p.id); }}
         style={{
           display: "flex", alignItems: "center", gap: 8,
@@ -95,7 +105,6 @@ function LiveBoard({
           background: isSelected ? "var(--gold2)" : "transparent",
           opacity: isDimmed ? 0.5 : 1,
           cursor: "pointer",
-          transition: "opacity 0.1s, background 0.1s",
         }}
       >
         <div style={{
@@ -115,7 +124,7 @@ function LiveBoard({
         }}>
           {p.nickname || p.name}
         </span>
-      </div>
+      </motion.div>
     );
   };
 
@@ -170,9 +179,11 @@ function LiveBoard({
             cursor: selectedPlayerId ? "pointer" : "default",
           }}
         >
-          {teamAPlayers.map(p =>
-            renderChip(p, "#60A0FF", "rgba(96,160,255,0.15)", "rgba(96,160,255,0.4)")
-          )}
+          <AnimatePresence mode="popLayout">
+            {teamAPlayers.map((p, i) =>
+              renderChip(p, "#60A0FF", "rgba(96,160,255,0.15)", "rgba(96,160,255,0.4)", i)
+            )}
+          </AnimatePresence>
           {teamAPlayers.length === 0 && (
             <div style={{
               padding: "16px 14px", fontSize: 11, color: "var(--t2)",
@@ -189,9 +200,11 @@ function LiveBoard({
             cursor: selectedPlayerId ? "pointer" : "default",
           }}
         >
-          {teamBPlayers.map(p =>
-            renderChip(p, "#FF6060", "rgba(255,96,96,0.15)", "rgba(255,96,96,0.4)")
-          )}
+          <AnimatePresence mode="popLayout">
+            {teamBPlayers.map((p, i) =>
+              renderChip(p, "#FF6060", "rgba(255,96,96,0.15)", "rgba(255,96,96,0.4)", i)
+            )}
+          </AnimatePresence>
           {teamBPlayers.length === 0 && (
             <div style={{
               padding: "16px 14px", fontSize: 11, color: "var(--t2)",
@@ -416,6 +429,13 @@ export default function TeamsScreen({
   const [showClearGroupsConfirm, setShowClearGroupsConfirm] = useState(false);
   const [prediction,           setPrediction]           = useState(null);
   const [manuallyAdjusted,     setManuallyAdjusted]     = useState(false);
+  // Bumps on every algorithm run. Keys the LiveBoard chips so a re-shuffle
+  // forces fresh exit/enter animations (instead of layout-morphing the
+  // same chips that happened to land in the same column).
+  const [shuffleNonce,         setShuffleNonce]         = useState(0);
+  // Brief true window during/after runAlgorithm. Spins the Shuffle icon
+  // on SMART + BUILD TEAMS while the chips deal in.
+  const [isShuffling,          setIsShuffling]          = useState(false);
   // Groups that should be rendered as panels. Populated from three sources:
   // (1) Squad mount — every groupNumber currently assigned starts the
   //     session as a visible panel.
@@ -812,6 +832,9 @@ export default function TeamsScreen({
   const runAlgorithm = useCallback(({ silent = false } = {}) => {
     clearError();
     setManuallyAdjusted(false);
+    setShuffleNonce(n => n + 1);
+    setIsShuffling(true);
+    setTimeout(() => setIsShuffling(false), 900);
 
     const playersWithGroups = inPlayersForGroups.map(p => ({
       ...p,
@@ -1137,7 +1160,13 @@ export default function TeamsScreen({
             cursor: "pointer",
           }}
         >
-          <Shuffle size={16} weight="thin" />
+          <motion.div
+            animate={{ rotate: isShuffling ? 360 : 0 }}
+            transition={{ duration: 0.7, ease: "easeInOut" }}
+            style={{ display: "flex" }}
+          >
+            <Shuffle size={16} weight="thin" />
+          </motion.div>
           <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, lineHeight: 1 }}>
             SMART
           </span>
@@ -1324,23 +1353,37 @@ export default function TeamsScreen({
         selectedPlayerId={selectedPlayerId}
         onChipTap={handleLiveBoardChipTap}
         onColumnTap={handleColumnTap}
+        shuffleNonce={shuffleNonce}
       />
 
 
       {/* IO Prediction — small chip below the LiveBoard. Always live:
           recomputes on every manual move so it tracks the current split.
           Hidden when one side is empty (winner === null) — that lineup
-          isn't a valid prediction target. */}
-      {prediction && prediction.winner && (
-        <div style={{
-          fontSize: 12, color: "var(--t2)",
-          fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
-          textAlign: "center",
-          padding: "6px 0", marginBottom: 12,
-        }}>
-          🎯 {predictionChipText(prediction.winner, prediction.confidence)}
-        </div>
-      )}
+          isn't a valid prediction target. Pops in on shuffle / re-keys
+          on winner change so it always feels like a fresh verdict. */}
+      <AnimatePresence mode="wait">
+        {prediction && prediction.winner && (
+          <motion.div
+            key={`pred-${shuffleNonce}-${prediction.winner}`}
+            initial={{ opacity: 0, scale: 0.6, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.12 } }}
+            transition={{
+              type: "spring", stiffness: 260, damping: 14,
+              delay: isShuffling ? 0.7 : 0,
+            }}
+            style={{
+              fontSize: 12, color: "var(--t2)",
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
+              textAlign: "center",
+              padding: "6px 0", marginBottom: 12,
+            }}
+          >
+            🎯 {predictionChipText(prediction.winner, prediction.confidence)}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* SMART TEAMS section — open by default, toggleable via SMART or
           the chevron. */}
@@ -1508,7 +1551,13 @@ export default function TeamsScreen({
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           }}
         >
-          <Shuffle size={16} weight="thin" />
+          <motion.div
+            animate={{ rotate: isShuffling ? 360 : 0 }}
+            transition={{ duration: 0.7, ease: "easeInOut" }}
+            style={{ display: "flex" }}
+          >
+            <Shuffle size={16} weight="thin" />
+          </motion.div>
           BUILD TEAMS
         </button>
       )}
