@@ -2,11 +2,16 @@ import { useState, useEffect } from "react";
 import {
   ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
   SignOut, Trash, X as XIcon,
+  PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid,
 } from "@phosphor-icons/react";
 import {
   getMyPaymentHistory, getMyInjuries,
   leaveSquad, deleteMyAccount,
+  setPlayerNickname, resetPlayerToken,
+  insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
+  deletePlayer,
 } from "@platform/supabase";
+import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -225,7 +230,12 @@ function exitToHome() {
   window.location.href = "/";
 }
 
-export default function PlayerProfile({ me, settings, onBack }) {
+export default function PlayerProfile({
+  me, settings, onBack,
+  // Admin-mode props (ignored in player mode)
+  isAdminView = false, adminToken = null, setSquad = null,
+  viewer = null, isViceCaptain = false,
+}) {
   const [payHist,        setPayHist]        = useState(null);
   const [payHistLoading, setPayHistLoading] = useState(false);
   const [payHistError,   setPayHistError]   = useState(false);
@@ -245,18 +255,37 @@ export default function PlayerProfile({ me, settings, onBack }) {
   const [deleting,      setDeleting]      = useState(false);
   const [deleteError,   setDeleteError]   = useState(null);
 
-  // Reset Leave's two-tap confirm after 4s if not actioned
+  // Admin-mode state
+  const [editingNick, setEditingNick] = useState(false);
+  const [nickname,    setNickname]    = useState(me?.nickname || "");
+  const [nickError,   setNickError]   = useState(null);
+  const [nickSaving,  setNickSaving]  = useState(false);
+  const [newToken,    setNewToken]    = useState(null);
+  const [linkCopied,  setLinkCopied]  = useState(false);
+  const [removeConfirming, setRemoveConfirming] = useState(false);
+  const [removing,    setRemoving]    = useState(false);
+  const [adminError,  setAdminError]  = useState(null);
+
+  // Reset Leave / Remove two-tap confirm after 4s if not actioned
   useEffect(() => {
     if (!leaveConfirming) return;
     const t = setTimeout(() => setLeaveConfirming(false), 4000);
     return () => clearTimeout(t);
   }, [leaveConfirming]);
 
+  useEffect(() => {
+    if (!removeConfirming) return;
+    const t = setTimeout(() => setRemoveConfirming(false), 4000);
+    return () => clearTimeout(t);
+  }, [removeConfirming]);
+
   const loadPayHistory = async () => {
-    if (!me?.token) return;
+    if (!me?.id && !me?.token) return;
     setPayHistLoading(true); setPayHistError(false);
     try {
-      const rows = await getMyPaymentHistory(me.token, 50);
+      const rows = isAdminView
+        ? await adminGetPlayerLedger(adminToken, me.id, 50)
+        : await getMyPaymentHistory(me.token, 50);
       setPayHist(rows || []);
     } catch (e) {
       console.error("Failed to load payment history:", e);
@@ -267,16 +296,107 @@ export default function PlayerProfile({ me, settings, onBack }) {
   };
 
   const loadInjuries = async () => {
-    if (!me?.token) return;
+    if (!me?.id && !me?.token) return;
     setInjuriesLoading(true); setInjuriesError(false);
     try {
-      const rows = await getMyInjuries(me.token);
+      const rows = isAdminView
+        ? await getPlayerInjuries(me.id)
+        : await getMyInjuries(me.token);
       setInjuries(rows || []);
     } catch (e) {
       console.error("Failed to load injuries:", e);
       setInjuriesError(true);
     } finally {
       setInjuriesLoading(false);
+    }
+  };
+
+  // ── Admin-mode handlers ────────────────────────────────────────────────
+  const saveNick = async () => {
+    setNickSaving(true); setNickError(null);
+    try {
+      await setPlayerNickname(adminToken, me.id, nickname);
+      const trimmed = nickname.trim() || null;
+      setSquad?.(sq => sq.map(s => s.id === me.id ? { ...s, nickname: trimmed } : s));
+      setEditingNick(false);
+    } catch (e) {
+      setNickError(e?.code === "nickname_taken" ? "Already taken on this squad" : "Failed to save");
+    } finally {
+      setNickSaving(false);
+    }
+  };
+
+  const handleResetLink = async () => {
+    setAdminError(null);
+    try {
+      const tok = await resetPlayerToken(adminToken, me.id);
+      setNewToken(tok);
+    } catch (e) {
+      console.error(e);
+      setAdminError("Couldn't reset link — try again.");
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const url = `${window.location.origin}/p/${newToken || me?.token}`;
+    try { await navigator.clipboard.writeText(url); } catch {}
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleAdminMarkInjured = async () => {
+    setAdminError(null);
+    try {
+      await insertPlayerInjury(adminToken, me.id);
+      setSquad?.(sq => sq.map(s => s.id === me.id
+        ? { ...s, injured: true, injuredSince: new Date().toISOString(), status: "out" } : s));
+    } catch (e) {
+      console.error(e);
+      setAdminError("Couldn't mark injured — try again.");
+    }
+  };
+
+  const handleAdminClearInjury = async () => {
+    setAdminError(null);
+    try {
+      await clearPlayerInjury(adminToken, me.id);
+      setSquad?.(sq => sq.map(s => s.id === me.id
+        ? { ...s, injured: false, injuredSince: null } : s));
+    } catch (e) {
+      console.error(e);
+      setAdminError("Couldn't clear injury — try again.");
+    }
+  };
+
+  const handleAdminRemove = async () => {
+    if (!removeConfirming) { setRemoveConfirming(true); setAdminError(null); return; }
+    setRemoving(true); setAdminError(null);
+    try {
+      await deletePlayer(adminToken, me.id);
+      setSquad?.(sq => sq.filter(s => s.id !== me.id));
+      onBack();
+    } catch (e) {
+      console.error(e);
+      const msg = e?.message || "";
+      if (msg.includes("has_history")) {
+        setAdminError("Player has match history — Disable instead from Manage Squad.");
+      } else {
+        setAdminError("Couldn't remove — try again.");
+      }
+      setRemoveConfirming(false);
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const handleToggleVC = async () => {
+    const newVal = !me?.isViceCaptain;
+    setSquad?.(sq => sq.map(s => s.id === me.id ? { ...s, isViceCaptain: newVal } : s));
+    try {
+      await toggleViceCaptain(adminToken, me.id, newVal);
+    } catch (e) {
+      console.error(e);
+      setSquad?.(sq => sq.map(s => s.id === me.id ? { ...s, isViceCaptain: !newVal } : s));
     }
   };
 
@@ -347,7 +467,15 @@ export default function PlayerProfile({ me, settings, onBack }) {
         }}>
           {displayName}
         </div>
-        {me?.injured && (
+        {isAdminView && (
+          <span style={{
+            fontSize:10, fontWeight:400, letterSpacing:"0.12em",
+            color:"var(--gold)", background:"var(--gold2)",
+            border:"0.5px solid var(--goldb)", borderRadius:"var(--r-pill)",
+            padding:"2px 8px", marginLeft:"auto", textTransform:"uppercase",
+          }}>Admin view</span>
+        )}
+        {!isAdminView && me?.injured && (
           <span style={{
             fontSize:11, color:"var(--red)", background:"var(--red2)",
             border:"0.5px solid var(--redb)", borderRadius:"var(--r-pill)",
@@ -427,68 +555,245 @@ export default function PlayerProfile({ me, settings, onBack }) {
           />
         </Section>
 
-        {/* Destructive zone */}
-        <div style={{ marginTop:32 }}>
-          <div style={{
-            fontSize:10, fontWeight:400, letterSpacing:"0.14em",
-            textTransform:"uppercase", color:"var(--t2)",
-            margin:"0 4px 10px",
-          }}>
-            Account
-          </div>
+        {/* Admin Actions (admin mode only) */}
+        {isAdminView && (
+          <>
+            {/* ROLES — VC toggle (mirrors session-34 behaviour) */}
+            {!me?.isGuest && !isViceCaptain && (
+              <div className="pp-section" style={{
+                background:"rgba(255,255,255,0.03)",
+                backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+                border:"0.5px solid var(--border-subtle)",
+                borderRadius:"var(--r)", overflow:"hidden", marginBottom:10,
+                padding:"14px 16px",
+                display:"flex", alignItems:"center", justifyContent:"space-between",
+              }}>
+                <div style={{ flex:1, paddingRight:16 }}>
+                  <div style={{ fontSize:14, color:"var(--t1)" }}>Vice Captain</div>
+                  <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
+                    Can access admin view and manage the team
+                  </div>
+                </div>
+                {me?.id === viewer?.id ? (
+                  <span style={{ fontSize:13, color:"var(--gold)", flexShrink:0 }}>
+                    You're the Admin
+                  </span>
+                ) : (
+                  <div onClick={handleToggleVC} style={{
+                    width:44, height:24, borderRadius:12, flexShrink:0,
+                    background: me?.isViceCaptain ? "var(--gold)" : "var(--s3)",
+                    cursor:"pointer", position:"relative",
+                  }}>
+                    <div style={{
+                      position:"absolute", top:2, left: me?.isViceCaptain ? 22 : 2,
+                      width:20, height:20, borderRadius:"50%", background:"var(--t1)",
+                    }}/>
+                  </div>
+                )}
+              </div>
+            )}
 
-          <button
-            onClick={handleLeave}
-            disabled={leaving}
-            style={{
-              width:"100%", padding:"14px 16px",
-              borderRadius:"var(--r)",
-              background: leaveConfirming ? "var(--amber2)" : "transparent",
-              border:`0.5px solid var(--amberb)`,
-              color:"var(--amber)",
-              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-              display:"flex", alignItems:"center", gap:10,
-              cursor: leaving ? "not-allowed" : "pointer",
-              opacity: leaving ? 0.6 : 1,
-              marginBottom: leaveError ? 6 : 8,
-              WebkitTapHighlightColor:"transparent",
-              transition:"background 0.2s",
-            }}
-          >
-            <SignOut size={16} weight="thin"/>
-            {leaving
-              ? "Leaving…"
-              : leaveConfirming
-                ? "Tap again to confirm — you can rejoin via invite link"
-                : "Leave this squad"}
-          </button>
-          {leaveError && (
+            {/* Admin Actions section */}
             <div style={{
-              fontSize:11, color:"var(--red)", fontWeight:300,
-              padding:"0 4px 8px",
+              fontSize:10, fontWeight:400, letterSpacing:"0.14em",
+              textTransform:"uppercase", color:"var(--t2)",
+              margin:"24px 4px 10px",
             }}>
-              {leaveError}
+              Admin Actions
             </div>
-          )}
+            <div className="pp-section" style={{
+              background:"rgba(255,255,255,0.03)",
+              backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+              border:"0.5px solid var(--border-subtle)",
+              borderRadius:"var(--r)", overflow:"hidden", marginBottom:10,
+            }}>
+              {/* Rename */}
+              {editingNick ? (
+                <div style={{ padding:"12px 16px", borderBottom:"0.5px solid var(--b2)" }}>
+                  <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                    <input value={nickname} autoFocus
+                      onChange={e => { setNickname(e.target.value); setNickError(null); }}
+                      onKeyDown={e => e.key === "Enter" && saveNick()}
+                      placeholder="Nickname"
+                      style={{ flex:1, background:"var(--s3)",
+                        border:`0.5px solid ${nickError ? "var(--red)" : "var(--border-subtle)"}`,
+                        borderRadius:"var(--rs)", padding:"6px 10px", fontSize:13,
+                        color:"var(--t1)", fontFamily:"var(--font-body)", outline:"none" }}/>
+                    <button onClick={saveNick} disabled={nickSaving}
+                      style={{ background:"var(--gold)", color:"var(--black)",
+                        border:"none", borderRadius:"var(--rs)", padding:"6px 12px",
+                        fontSize:12, fontWeight:600, cursor: nickSaving ? "not-allowed" : "pointer",
+                        fontFamily:"var(--font-body)", opacity: nickSaving ? 0.6 : 1 }}>
+                      {nickSaving ? "…" : "Save"}
+                    </button>
+                    <button onClick={() => { setEditingNick(false); setNickError(null); }}
+                      style={{ background:"transparent", border:"0.5px solid var(--border-subtle)",
+                        borderRadius:"var(--rs)", padding:"6px 10px", fontSize:12, color:"var(--t2)",
+                        cursor:"pointer", fontFamily:"var(--font-body)" }}>✕</button>
+                  </div>
+                  {nickError && (
+                    <div style={{ fontSize:11, color:"var(--red)", marginTop:6, fontWeight:300 }}>{nickError}</div>
+                  )}
+                </div>
+              ) : (
+                <button onClick={() => { setNickname(me?.nickname || ""); setEditingNick(true); }}
+                  style={{ width:"100%", padding:"14px 16px", textAlign:"left",
+                    background:"transparent", border:"none", cursor:"pointer",
+                    fontFamily:"var(--font-body)", fontSize:13, color:"var(--t1)",
+                    display:"flex", alignItems:"center", gap:10,
+                    borderBottom:"0.5px solid var(--b2)",
+                    WebkitTapHighlightColor:"transparent" }}>
+                  <PencilSimple size={16} weight="thin" color="var(--t2)"/>
+                  Rename
+                  <span style={{ marginLeft:"auto", fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                    {me?.nickname ? `"${me.nickname}"` : "Add nickname"}
+                  </span>
+                </button>
+              )}
 
-          <button
-            onClick={() => { setDeleteText(""); setDeleteError(null); setShowDelete(true); }}
-            style={{
-              width:"100%", padding:"14px 16px",
-              borderRadius:"var(--r)",
-              background:"transparent",
-              border:`0.5px solid var(--redb)`,
-              color:"var(--red)",
-              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
-              display:"flex", alignItems:"center", gap:10,
-              cursor:"pointer",
-              WebkitTapHighlightColor:"transparent",
-            }}
-          >
-            <Trash size={16} weight="thin"/>
-            Delete my account
-          </button>
-        </div>
+              {/* Copy / Reset link (regulars only) */}
+              {!me?.isGuest && (me?.token || newToken) && (
+                <button onClick={handleCopyLink}
+                  style={{ width:"100%", padding:"14px 16px", textAlign:"left",
+                    background:"transparent", border:"none", cursor:"pointer",
+                    fontFamily:"var(--font-body)", fontSize:13, color:"var(--t1)",
+                    display:"flex", alignItems:"center", gap:10,
+                    borderBottom:"0.5px solid var(--b2)",
+                    WebkitTapHighlightColor:"transparent" }}>
+                  <LinkIcon size={16} weight="thin"
+                    color={linkCopied ? "var(--green)" : "var(--t2)"}/>
+                  {linkCopied ? "Link copied" : "Copy personal link"}
+                </button>
+              )}
+              {!me?.isGuest && (
+                <button onClick={handleResetLink}
+                  style={{ width:"100%", padding:"14px 16px", textAlign:"left",
+                    background:"transparent", border:"none", cursor:"pointer",
+                    fontFamily:"var(--font-body)", fontSize:13,
+                    color: newToken ? "var(--green)" : "var(--t1)",
+                    display:"flex", alignItems:"center", gap:10,
+                    borderBottom:"0.5px solid var(--b2)",
+                    WebkitTapHighlightColor:"transparent" }}>
+                  <ArrowsClockwise size={16} weight="thin"
+                    color={newToken ? "var(--green)" : "var(--t2)"}/>
+                  {newToken ? "Link reset — copy above" : "Reset personal link"}
+                </button>
+              )}
+
+              {/* Mark Injured / Clear Injury */}
+              <button onClick={me?.injured ? handleAdminClearInjury : handleAdminMarkInjured}
+                style={{ width:"100%", padding:"14px 16px", textAlign:"left",
+                  background:"transparent", border:"none", cursor:"pointer",
+                  fontFamily:"var(--font-body)", fontSize:13,
+                  color: me?.injured ? "var(--green)" : "var(--amber)",
+                  display:"flex", alignItems:"center", gap:10,
+                  WebkitTapHighlightColor:"transparent" }}>
+                <FirstAid size={16} weight="thin"
+                  color={me?.injured ? "var(--green)" : "var(--amber)"}/>
+                {me?.injured ? "Clear injury" : "Mark as injured"}
+              </button>
+            </div>
+
+            {adminError && (
+              <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, padding:"0 4px 8px" }}>
+                {adminError}
+              </div>
+            )}
+
+            {/* Remove from squad (admin destructive) */}
+            <div style={{ marginTop:24 }}>
+              <button
+                onClick={handleAdminRemove}
+                disabled={removing}
+                style={{
+                  width:"100%", padding:"14px 16px",
+                  borderRadius:"var(--r)",
+                  background: removeConfirming ? "var(--red2)" : "transparent",
+                  border:`0.5px solid var(--redb)`,
+                  color:"var(--red)",
+                  fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+                  display:"flex", alignItems:"center", gap:10,
+                  cursor: removing ? "not-allowed" : "pointer",
+                  opacity: removing ? 0.6 : 1,
+                  WebkitTapHighlightColor:"transparent",
+                  transition:"background 0.2s",
+                }}
+              >
+                <Trash size={16} weight="thin"/>
+                {removing
+                  ? "Removing…"
+                  : removeConfirming
+                    ? "Tap again to confirm — removes from squad"
+                    : "Remove from squad"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Destructive zone — player mode only */}
+        {!isAdminView && (
+          <div style={{ marginTop:32 }}>
+            <div style={{
+              fontSize:10, fontWeight:400, letterSpacing:"0.14em",
+              textTransform:"uppercase", color:"var(--t2)",
+              margin:"0 4px 10px",
+            }}>
+              Account
+            </div>
+
+            <button
+              onClick={handleLeave}
+              disabled={leaving}
+              style={{
+                width:"100%", padding:"14px 16px",
+                borderRadius:"var(--r)",
+                background: leaveConfirming ? "var(--amber2)" : "transparent",
+                border:`0.5px solid var(--amberb)`,
+                color:"var(--amber)",
+                fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+                display:"flex", alignItems:"center", gap:10,
+                cursor: leaving ? "not-allowed" : "pointer",
+                opacity: leaving ? 0.6 : 1,
+                marginBottom: leaveError ? 6 : 8,
+                WebkitTapHighlightColor:"transparent",
+                transition:"background 0.2s",
+              }}
+            >
+              <SignOut size={16} weight="thin"/>
+              {leaving
+                ? "Leaving…"
+                : leaveConfirming
+                  ? "Tap again to confirm — you can rejoin via invite link"
+                  : "Leave this squad"}
+            </button>
+            {leaveError && (
+              <div style={{
+                fontSize:11, color:"var(--red)", fontWeight:300,
+                padding:"0 4px 8px",
+              }}>
+                {leaveError}
+              </div>
+            )}
+
+            <button
+              onClick={() => { setDeleteText(""); setDeleteError(null); setShowDelete(true); }}
+              style={{
+                width:"100%", padding:"14px 16px",
+                borderRadius:"var(--r)",
+                background:"transparent",
+                border:`0.5px solid var(--redb)`,
+                color:"var(--red)",
+                fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+                display:"flex", alignItems:"center", gap:10,
+                cursor:"pointer",
+                WebkitTapHighlightColor:"transparent",
+              }}
+            >
+              <Trash size={16} weight="thin"/>
+              Delete my account
+            </button>
+          </div>
+        )}
 
       </div>
 

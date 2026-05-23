@@ -25,7 +25,7 @@ import ScheduleScreen   from "./ScheduleScreen.jsx";
 import RemindersScreen  from "./RemindersScreen.jsx";
 import PaymentsScreen   from "./PaymentsScreen.jsx";
 import POTMTiebreakModal from "./POTMTiebreakModal.jsx";
-import PlayerProfile    from "./PlayerProfile.jsx";
+import PlayerProfile    from "../PlayerProfile.jsx";
 import AnnounceModal    from "./AnnounceModal.jsx";
 
 // ── inject animation ──────────────────────────────────────────────────────────
@@ -303,13 +303,23 @@ export default function AdminView({
   if (screen === "reminders") return <RemindersScreen schedule={schedule} setSchedule={setSchedule} onBack={() => setScreen("main")} teamId={teamId} adminToken={adminToken}/>;
   if (screen === "payments")  return <PaymentsScreen squad={squad} setSquad={setSquad} schedule={schedule} teamId={teamId} adminToken={adminToken} coverPool={coverPool} onBack={() => setScreen("main")}/> ;
 
-  if (selectedPlayer) return (
-    <PlayerProfile
-      player={selectedPlayer} squad={squad} schedule={schedule}
-      teamId={teamId} adminToken={adminToken} setSquad={setSquad} onBack={() => setSelectedPlayer(null)}
-      me={me} isViceCaptain={isViceCaptain}
-    />
-  );
+  if (selectedPlayer) {
+    // Re-resolve from squad so admin actions (rename, injury, VC) reflect
+    // the latest optimistic updates without a navigation round-trip.
+    const fresh = squad.find(s => s.id === selectedPlayer.id) || selectedPlayer;
+    return (
+      <PlayerProfile
+        me={fresh}
+        settings={settings}
+        onBack={() => setSelectedPlayer(null)}
+        isAdminView
+        adminToken={adminToken}
+        setSquad={setSquad}
+        viewer={me}
+        isViceCaptain={isViceCaptain}
+      />
+    );
+  }
 
   // ── helpers ───────────────────────────────────────────────────────────────
   const toggleSection = (key) => setOpenSections(s => ({ ...s, [key]: !s[key] }));
