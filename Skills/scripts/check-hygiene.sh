@@ -27,6 +27,12 @@
 #   sole team_id during development. Exempt via grep -v in check 5.
 #   Tagged in code with the comment `hygiene-exempt: /admin/local dev`.
 #
+# apps/inorout/src/views/MyIOView.jsx — IO Intelligence badge renderer.
+#   Pure SVG badge crests, gradient overlays, dynamic per-card colour.
+#   Per CLAUDE.md: "CSS vars cannot be used in SVG fill/stroke — use
+#   hex literals". This file is overwhelmingly SVG; hex usage is
+#   structural, not stylistic. Exempt via grep -v in check 2.
+#
 # rls_migrations/ — SQL files, not JS. Not in scan paths.
 #   Contains raw table references by design.
 #
@@ -76,6 +82,7 @@ RESULT=$(grep -rn "[=:][[:space:]]*[\"']\?#[0-9A-Fa-f]\{3,6\}\b" \
   | grep -v "60A0FF" \
   | grep -v "FF6060" \
   | grep -v "constants/colors\.js" \
+  | grep -v "views/MyIOView\.jsx" \
   | grep -v "^\s*//" \
   | grep -v "//.*#[0-9A-Fa-f]" \
   || true)
