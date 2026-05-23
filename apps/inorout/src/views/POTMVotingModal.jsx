@@ -47,7 +47,7 @@ export default function POTMVotingModal({
   // Auto-dismiss after locked state
   useEffect(() => {
     if (phase === "locked") {
-      const t = setTimeout(onClose, 3000);
+      const t = setTimeout(onClose, 4500);
       return () => clearTimeout(t);
     }
   }, [phase, onClose]);
@@ -200,7 +200,7 @@ export default function POTMVotingModal({
                 transition={{
                   scale: { type: "spring", stiffness: 220, damping: 12 },
                   rotate: { type: "spring", stiffness: 220, damping: 12 },
-                  y: { duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
+                  y: { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.6 },
                 }}
                 style={{ display: "inline-block" }}
               >
@@ -209,7 +209,7 @@ export default function POTMVotingModal({
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.3 }}
+                transition={{ delay: 0.35, duration: 0.35 }}
                 style={{
                   fontFamily: "var(--font-display)", fontSize: 20,
                   color: "var(--gold)", marginTop: 6, letterSpacing: "0.05em",
@@ -220,7 +220,7 @@ export default function POTMVotingModal({
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.4, duration: 0.3 }}
+                transition={{ delay: 0.6, duration: 0.35 }}
                 style={{ fontSize: 13, color: "var(--t2)", marginTop: 4, fontWeight: 300 }}
               >
                 You voted for{" "}
