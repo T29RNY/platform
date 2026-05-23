@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 23 2026 (session 32 — IO deeper-intel rewire + Most Faced Opponent + Reliability Ranking)*
+*Last updated: May 23 2026 (session 34 — Manage Squad redesign + admin manual status with lock/cap/injury gates)*
 
 ---
 
@@ -43,6 +43,9 @@
 | POTM voting RLS fix | ✅ | submit_potm_vote + get_potm_voting_state RPCs — session 25 |
 | Join/login redesign | ✅ | Full JoinTeam.jsx rebuild — session 27 |
 | Dead code cleanup | ✅ | Pre-RLS direct writes removed — session 28 |
+| Manage Squad redesign | ✅ | Modern card-row, status-ring avatars, inline rename, per-row icon toggles, overflow ⋯ menu, filter chips, stagger fades — session 34 |
+| Guest-only add bar | ✅ | Regulars self-onboard via invite link; admin add bar is now single-line guest-only — session 34 |
+| Admin manual status (in/out/maybe/reserve) | ✅ | Status pills inside ⋯ menu; sets admin_locked_in so player can self-decline but not self-restore IN; server-side squad-cap gate on both admin and player paths; injury-override confirm modal. Migration 038. — session 34 |
 
 ---
 

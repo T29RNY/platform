@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 23 2026 (session 33 — Gaffer AI agent backend live; awaiting key confirm + UI wire-up)*
+*Last updated: May 23 2026 (session 34 — Manage Squad full redesign + admin manual status with lock/cap/injury gates)*
 
 This file contains infrastructure, key tokens, demo environment, conventions,
 and a compressed session history. For everything else, see the split files:
@@ -428,6 +428,55 @@ Critical non-obvious behaviours that don't live in the code or schema.
 **Sessions 28–29 (May 21):** Dead code sweep — supabase.js dead functions removed, App.jsx dead imports cleared, IsThisYou.jsx deleted. BibsScreen RLS fix (ScoreScreen workaround). B1 resolved: 10 SECURITY DEFINER RPCs referencing dropped `players.is_vice_captain` (all Manage Squad buttons + player attendance + payments broken since migration 026); fixed via apply_migration. player_get_teams stale column fixed. find_player_by_email RPC dropped (PUBLIC grant security issue). player_join_team fixed (token generation, SET search_path, PUBLIC grant revoked). PWAWelcome email lookup section removed. Skills/ directory created — full AUDIT→EXECUTE→VERIFY→COMMIT→POST-DEPLOY cycle with 5 scripts and 11 skill files.
 
 **Session 32 (May 23):** IO Intelligence deeper-intel rewire. B7 resolved: Most Played With (6+), Team Impact (7+), Nemesis (8+), Best Partnership (8+) were dead UI — `useIOIntelligence.js` hard-coded all four keys to null and no upstream path computed them. New pure engine `packages/core/engine/deeperIntel.js` computes all six metrics (incl. new mostFacedOpponent, reliabilityRanking) from `matches[]` + `squad[]` client-side. Wired into `computeStatsFromHistory` (admin/demo) and both player-token state fetches (App.jsx). Two new Insight cards shipped: Most Faced Opponent (amber, 4+), Reliability Ranking (cyan, 5+, min 3 squad games to be ranked). Hygiene script exempted MyIOView.jsx from the hex-literal check (separate commit) — file is overwhelmingly SVG badge rendering, where CLAUDE.md mandates hex literals. Commits: `08db0b7` (hygiene), `04877de` (feature), `5d1112e` (docs).
+
+**Session 34 (May 23):** Manage Squad full redesign + admin manual status feature.
+**Manage Squad redesign** (`eab8dd5`): replaced the 582-line SquadScreen with a
+modern card-row layout. Single-tap actions throughout — inline rename (pencil),
+status-ring avatars with state-coloured glow (green/red/gold/blue), per-row icon
+toggles for Priority/VC/Injured, overflow ⋯ menu housing rename, copy/reset
+personal link, disable/enable, and remove. Pulled three actions out of
+PlayerProfile (rename, reset link, remove with attended-history guard). Live
+filter chips (All/Regulars/Guests/Priority/Injured) and auto-revealing search
+bar at squad ≥ 6. Stagger fade-in on rows, pop-flash on just-added, glass chip
+on the live count, gold-glow on the title, status-coloured pulse on active
+toggles. Backend unchanged — reused existing wrappers.
+**Stacking-context bug** (`fd82cc5`): three-dot overflow menu opened invisibly
+behind the next row. Root cause: row entrance keyframe ended with
+`transform: translateY(0)` and `animation-fill-mode: both`, persisting a
+transform after the animation finished. A persistent transform creates a CSS
+stacking context, so the dropdown's `z-index:20` was trapped inside its own
+row. Fix: end keyframe with `transform: none` + lift the row's z-index to 30
+while its menu is open.
+**Guest-only add bar** (`12ab417`): admin-adding a regular player created a
+shell record with no email/auth and risked duplicating the player when they
+later joined via invite link. Stripped the REGULAR/GUEST toggle and options
+pane; the add bar is now a single line prefixed "+ GUEST" calling
+`addPlayerToTeam(..., 'guest', false)`. Invite link card promoted above the
+add bar as the primary path; add bar gold to signal secondary action.
+**Admin manual status with lock + cap + injury** (`8b2bb83`, migration 038
+applied live via MCP): status row IN/OUT/MAY/RES at the top of the ⋯ menu.
+New `players.admin_locked_in` boolean. `admin_set_player_status` writes the
+flag alongside status (true on IN, false on out/maybe/reserve/none), refuses
+'in' if active schedule's `squad_size` cap is met. `set_player_status`
+(player-side) refuses 'in' if `admin_locked_in=true` (raises `admin_locked_in`)
+or if cap met (raises `squad_full`, defense-in-depth). Race window on cap
+accepted as documented risk — appropriate for amateur-team scale.
+`get_team_state_by_admin_token` extended to include `admin_locked_in` in the
+squad jsonb so SquadScreen can render the lock chip without an extra fetch.
+Client: new `adminSetPlayerStatus` wrapper, `dbToPlayer` carries
+`adminLockedIn`, barrel export. Squad screen renders a LOCKED IN chip on the
+row when locked, fades the IN pill when cap met, raises a "Player is injured.
+Set status anyway?" confirm modal when admin sets active status on an injured
+player. Smoke tested via MCP against `team_74DvCSH--M0`: admin IN → locked;
+player self-OUT → succeeds, lock stays; player self-IN → rejected; cap of 1
+with 1 already in → second IN refused; admin NONE → lock cleared.
+**Audit (no code shipped):** comprehensive AdminView review at
+`/Users/tarny/.claude/plans/ok-thanks-i-want-staged-liskov.md`. Headline
+findings: `index.jsx` is 1,544 LOC carrying three big nested components
+(`PlayerProfile` 374 lines, `POTMTiebreakModal` 102 lines, `AnnounceModal`
+86 lines) that should live in their own files; PaymentsScreen needs the
+SquadScreen card+⋯ treatment for a one-tap "mark paid"; ScheduleScreen and
+TeamsScreen pre-date the redesign language. No bugs found.
 
 **Session 33 (May 23):** Ask the Gaffer repositioned from chatbot to platform AI agent layer. Spec consolidated into new `GAFFER.md` (sourcing DECISIONS.md + venue_league_hq_SCOPE.md Phase 7). Provider locked in: Vercel-hosted edge function `/api/gaffer` → Anthropic `claude-sonnet-4-5` direct (same env var as previous chatbot scaffold). Data-access pattern locked in: per-surface `gaffer_get_context_*` RPCs (SECURITY DEFINER, derive team from `p_admin_token`, return jsonb) + `ai_briefings` audit table storing every output with its `context_snapshot` for factual auditability. Built: 5 migrations (033 ai_briefings table, 034–037 four Phase 1 context RPCs), edge function rewrite with multi-surface routing/cache/cost tracking, five surface system prompts under `views/Gaffer/prompts/`, `<GafferCard>` reusable inline component, new admin Q&A panel (old player-facing chatbot archived as `_archived_chatbot.jsx`), JS wrappers `getGafferBriefing` + `askGafferQuestion` in supabase.js. Migrations applied via Supabase MCP and smoke-tested end-to-end against `team_demo` — all four RPCs return real data (Dave 4g top scorer 30d; Hassan 7g + Dave 6g in-form; risk_level=high; live recent form). One in-flight bug caught and fixed in smoke test: original SQL used non-existent `row_to_jsonb` — patched to `to_jsonb` via MCP and migration files synced. **Frontend untouched** — no UI wire-up yet. Awaiting: (1) confirm `ANTHROPIC_API_KEY` is still on Vercel (was set for previous chatbot), (2) canary UI wire-up onto one team. Cross-browser PWA install breadcrumb gap also logged as BUGS.md #5 (cross-browser/in-app-webview install loses token bridge — fix is server-side signed cookie, not urgent). Commits: `3899a95` (repositioning docs), `f58ce86` (scaffold), `50131c2` (to_jsonb fix), `a55089b` (BUGS B5).
 

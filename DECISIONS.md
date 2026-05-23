@@ -22,6 +22,33 @@ Read this before building new features to avoid re-litigating settled questions.
 - **Admin RPCs derive team_id from p_admin_token server-side.** Never pass team_id as a trust signal from the client.
 - **Demo team is not a valid test target for auth or RLS flows.** team_demo has seeded created_at dates and no team_admins row. Always verify against team_finbars or a fresh team.
 
+## ADMIN STATUS LOCK (session 34, migration 038)
+
+- **Admin-set IN is asymmetric.** When admin sets a player to `in` via
+  `admin_set_player_status`, `players.admin_locked_in` flips true. The player
+  can still self-decline to out/maybe/reserve from `/p/TOKEN`, but cannot
+  self-restore to IN — server returns `admin_locked_in` and rejects the write.
+  Only admin can re-confirm them as IN. Any admin status change to
+  out/maybe/reserve/none clears the lock. Rationale: an admin's IN reflects
+  intent ("you're playing this week"), not a player declaration; a player
+  flipping out shouldn't be able to silently re-promote themselves back into a
+  squad the admin has now closed.
+- **Squad-cap is enforced server-side on both paths.** Both
+  `admin_set_player_status` and `set_player_status` refuse `in` if the active
+  schedule's `squad_size` is met (raise `squad_full`). Client gates the IN
+  button on top. Race window between count check and update is accepted —
+  amateur-team scale, row-level locking would be disproportionate.
+- **Injury override is a confirm, not a refuse.** Admin can set an injured
+  player to IN/MAYBE/RESERVE but must confirm via modal. The injury flag is
+  preserved; admin can clear it separately. Rationale: edge cases exist
+  (player insists they're fine; admin updating retrospective status) and
+  silent auto-clear would lose audit signal.
+- **`admin_locked_in` is included in the admin-side state read only.**
+  `get_team_state_by_admin_token` returns it; player-side reads do not. Player
+  UI does not show a lock badge — server rejects with a clear error if they
+  try, surfaced via the existing error-toast pipe. Minimal scope; revisit if
+  the rejection error proves confusing in practice.
+
 ## PAYMENTS
 
 - **Payment model:** cash only for Stage 1/2. Stripe slots in later.
