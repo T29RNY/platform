@@ -79,6 +79,7 @@ function LiveBoard({
   teamAPlayers, teamBPlayers,
   selectedPlayerId, onChipTap, onColumnTap,
   shuffleNonce = 0,
+  revealing = false,
 }) {
   const renderChip = (p, color, avBg, avBorder, index) => {
     const isSelected = selectedPlayerId === p.id;
@@ -90,13 +91,12 @@ function LiveBoard({
     return (
       <motion.div
         key={`${shuffleNonce}-${p.id}`}
-        layout
         initial={{ opacity: 0, scale: 0.6, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.6, y: -8, transition: { duration: 0.15 } }}
         transition={{
           type: "spring", stiffness: 380, damping: 28,
-          delay: index * 0.05,
+          delay: revealing ? index * 0.05 : 0,
         }}
         onClick={(e) => { e.stopPropagation(); onChipTap(p.id); }}
         style={{
@@ -433,8 +433,15 @@ export default function TeamsScreen({
   // forces fresh exit/enter animations (instead of layout-morphing the
   // same chips that happened to land in the same column).
   const [shuffleNonce,         setShuffleNonce]         = useState(0);
-  // Brief true window during/after runAlgorithm. Spins the Shuffle icon
-  // on SMART + BUILD TEAMS while the chips deal in.
+  // True for ~700ms after ANY algorithm run (incl. silent auto-Smart on
+  // mount). Gates the staggered chip deal-in. Manual swaps run with
+  // revealing=false so a moved chip lands instantly at its new column —
+  // no per-index delay (which would otherwise hide it for 500ms+ if it
+  // landed at index 10 of a full team).
+  const [revealing,            setRevealing]            = useState(false);
+  // True for ~900ms only when the admin tapped BUILD TEAMS. Spins the
+  // SMART + BUILD TEAMS shuffle icons. Excluded from the auto-Smart mount
+  // run so the icons don't spin on every screen entry.
   const [isShuffling,          setIsShuffling]          = useState(false);
   // Groups that should be rendered as panels. Populated from three sources:
   // (1) Squad mount — every groupNumber currently assigned starts the
@@ -833,8 +840,12 @@ export default function TeamsScreen({
     clearError();
     setManuallyAdjusted(false);
     setShuffleNonce(n => n + 1);
-    setIsShuffling(true);
-    setTimeout(() => setIsShuffling(false), 900);
+    setRevealing(true);
+    setTimeout(() => setRevealing(false), 700);
+    if (!silent) {
+      setIsShuffling(true);
+      setTimeout(() => setIsShuffling(false), 900);
+    }
 
     const playersWithGroups = inPlayersForGroups.map(p => ({
       ...p,
@@ -1354,6 +1365,7 @@ export default function TeamsScreen({
         onChipTap={handleLiveBoardChipTap}
         onColumnTap={handleColumnTap}
         shuffleNonce={shuffleNonce}
+        revealing={revealing}
       />
 
 
@@ -1371,7 +1383,7 @@ export default function TeamsScreen({
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.12 } }}
             transition={{
               type: "spring", stiffness: 260, damping: 14,
-              delay: isShuffling ? 0.7 : 0,
+              delay: revealing ? 0.7 : 0,
             }}
             style={{
               fontSize: 12, color: "var(--t2)",
