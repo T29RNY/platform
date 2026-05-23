@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 23 2026 (session 31 — Smart Teams redesign + admin home polish + player tile rework)*
+*Last updated: May 23 2026 (session 32 — IO deeper-intel rewire + Most Faced Opponent + Reliability Ranking)*
 
 ---
 
@@ -61,8 +61,9 @@
 |---|---|---|
 | **Bug fixes (Pre-UAT)** | ✅ All cleared session 28 | No Pre-UAT blockers remaining |
 | **Mid-game team switches** | ✅ Done session 28 | ScoreScreen new stage, team_switches jsonb, final team → W/L/D. See DECISIONS.md for spec. |
-| **Most Faced Opponent card** | 🔲 Not built | Unlocks at 4+ games. Fills unlock grid gap. |
-| **Reliability Ranking card** | 🔲 Not built | Unlocks at 5+ games. Fills unlock grid gap. |
+| **Most Faced Opponent card** | ✅ Done session 32 | Unlocks at 4+ games. Amber badge, computed client-side via `computeDeeperIntel`. |
+| **Reliability Ranking card** | ✅ Done session 32 | Unlocks at 5+ games. Cyan badge, shows top reliable + your rank, min 3 squad games to be ranked. |
+| **IO deeper-intel cards rewired** | ✅ Done session 32 | Most Played With, Team Impact, Nemesis, Best Partnership were dead UI (hook nulled keys, no upstream computation). Now powered by `packages/core/engine/deeperIntel.js`. See BUGS.md B7. |
 | **Monday Footy onboarding** | 🔲 Pending | Stage 2 addition — if Stage 1 week 1 clean |
 | owes double-increment guard | ✅ Done session 26 | carryForwardDebts removed; updatePlayerRecords is sole path |
 | Multi-team player switcher | ✅ Done session 26 | MySquads.jsx |
@@ -146,8 +147,8 @@ Sequencing: Phase 1 lands after Group Balancer (Group Balancer's
 | 1+ | Goals, POTM, W/L/D, Attendance ring, Reliability, Form strip |
 | 2+ | Win Rate card ✅ built |
 | 3+ | Current Run card ✅ built |
-| 4+ | Most Faced Opponent 🔲 NOT built |
-| 5+ | Reliability Ranking 🔲 NOT built |
+| 4+ | Most Faced Opponent ✅ built |
+| 5+ | Reliability Ranking ✅ built |
 | 6+ | Most Played With card ✅ built |
 | 7+ | Team Impact card ✅ built |
 | 8+ | Nemesis, Best Partnership, Advanced Chemistry cards ✅ built |

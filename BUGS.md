@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 23 2026 (session 31 — multiple QA fixes resolved)*
+*Last updated: May 23 2026 (session 32 — IO deeper-intel rewire + 2 new cards)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -37,7 +37,24 @@ null/zero. Table exists but provides no value until Phase 2 career sync is built
 
 ---
 
-## RESOLVED THIS SESSION (May 22 2026 — session 31)
+## RESOLVED THIS SESSION (May 23 2026 — session 32)
+
+- **B7: IO Intelligence deeper-intel cards were dead UI** — Most Played With (6+),
+  Team Impact (7+), Nemesis (8+), Best Partnership (8+) all rendered the
+  "Not enough data yet" placeholder in production, despite FEATURES.md
+  marking them ✅ built. Root cause: `useIOIntelligence.js` hard-coded
+  `mostPlayedWith`, `impact`, `nemesis`, `bestPartnership` to `null` and
+  no upstream path computed them (RPC `get_team_state_by_player_token`
+  returns only `match_stats`, `win_rate`, `reliability`;
+  `computeStatsFromHistory` matched). Fixed by adding a pure client-side
+  engine `packages/core/engine/deeperIntel.js` that computes all six
+  deeper-intel metrics from `matches[]` + `squad[]` (already in state on
+  every route). Wired into `computeStatsFromHistory` and both
+  player-token state fetches in App.jsx. Hook stops nulling the keys.
+  Shipped alongside two new cards (Most Faced Opponent 4+, Reliability
+  Ranking 5+). Commit: `04877de`.
+
+## RESOLVED (May 22 2026 — session 31)
 
 - **B6: Status confirmation banners persisted on page refresh** — "🔒 Locked in",
   "👍 No worries we'll find cover" etc. all rendered on mount and only
