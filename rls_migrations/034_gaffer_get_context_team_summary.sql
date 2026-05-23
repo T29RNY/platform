@@ -87,7 +87,7 @@ BEGIN
     AND COALESCE(p.injured, false) = false;
 
   -- Recent form: last 5 completed matches
-  SELECT COALESCE(jsonb_agg(row_to_jsonb(m_row) ORDER BY m_row.match_date DESC), '[]'::jsonb)
+  SELECT COALESCE(jsonb_agg(to_jsonb(m_row) ORDER BY m_row.match_date DESC), '[]'::jsonb)
     INTO v_recent
   FROM (
     SELECT m.match_date, m.winner, m.score_a, m.score_b

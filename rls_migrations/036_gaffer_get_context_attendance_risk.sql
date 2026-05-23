@@ -63,7 +63,7 @@ BEGIN
 
   -- Declining regulars: ≥3 games in last 8 weeks AND last 4 weeks rate dropped
   --   ≥ 25% vs prior 4 weeks
-  SELECT COALESCE(jsonb_agg(row_to_jsonb(r) ORDER BY r.delta ASC), '[]'::jsonb)
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.delta ASC), '[]'::jsonb)
     INTO v_declining
   FROM (
     SELECT

@@ -100,7 +100,7 @@ BEGIN
     INTO v_bib;
 
   -- In-form players: goals + wins in last 4 matches
-  SELECT COALESCE(jsonb_agg(row_to_jsonb(r) ORDER BY r.goals_last_4 DESC), '[]'::jsonb)
+  SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.goals_last_4 DESC), '[]'::jsonb)
     INTO v_in_form
   FROM (
     SELECT

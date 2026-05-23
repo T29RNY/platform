@@ -60,7 +60,7 @@ BEGIN
 
   -- Top 5 owers by total outstanding
   SELECT COALESCE(
-    jsonb_agg(row_to_jsonb(t) ORDER BY t.total_pence DESC),
+    jsonb_agg(to_jsonb(t) ORDER BY t.total_pence DESC),
     '[]'::jsonb
   )
     INTO v_top_owers
