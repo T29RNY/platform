@@ -1,6 +1,6 @@
 # Ask the Gaffer — AI Agent Layer
 
-*Last updated: May 23 2026 (session 33 — Phase 1 scaffold complete; awaiting SQL apply + Anthropic key confirm)*
+*Last updated: May 23 2026 (session 33 — migrations 033–037 applied + smoke-tested; awaiting Anthropic key confirm + UI wire-up)*
 
 This file is the operating spec for Ask the Gaffer. It consolidates the
 positioning from `DECISIONS.md` and the architecture from
@@ -357,21 +357,29 @@ live in `apps/inorout/src/views/Gaffer/prompts/`.
   player-facing chatbot scaffold, kept as `_archived_chatbot.jsx`).
 - ✅ Docs — SCHEMA, RPCS, FEATURES, CLAUDE, CONTEXT updated.
 
-**Blocked on the user (signup steps):**
-1. **Apply migrations 033–037** in Supabase SQL editor (in order).
-   These are *not* applied yet — Claude Code cannot run SQL per
-   CLAUDE.md hard rule #1. After applying:
-   `SELECT pg_notify('pgrst', 'reload schema');`
-2. **Confirm `ANTHROPIC_API_KEY` is set on Vercel.** The previous
-   chatbot scaffold used this same env var. If it was removed when the
-   chatbot was disabled, re-add it from console.anthropic.com.
-3. **Optional — set `GAFFER_ENABLED_TEAMS` env var** to a
-   comma-separated team_id allowlist (e.g. `team_finbars`) for the
-   Phase 1 canary. If empty, the edge function does not gate (UI's
-   `ENABLE_GAFFER` flag in App.jsx is the only on/off).
-4. **Flip `ENABLE_GAFFER` to `true`** in `apps/inorout/src/App.jsx`
-   and add the Gaffer tab + GafferCards to AdminView (wire-up step,
-   one cycle after canary surface chosen).
+**Applied to live DB (session 33, via Supabase MCP):**
+- ✅ Migration 033 — `ai_briefings` table + RLS.
+- ✅ Migrations 034–037 — all four context RPCs.
+- ✅ Schema cache reloaded (`pg_notify('pgrst','reload schema')`).
+- ✅ Smoke-tested against `team_demo` — all four RPCs return
+  well-shaped jsonb with real data (schedule, recent form, top
+  scorer last 30d = Dave 4g; in-form: Hassan 7g, Dave 6g; payment
+  ledger; attendance risk classification).
+- ⚠️ One in-flight fix: original migration files used
+  `row_to_jsonb` (non-existent function) — caught in smoke test,
+  patched to `to_jsonb` via MCP, migration files synced to match
+  (commit `50131c2`).
+
+**Still blocked on the user (last two steps before live):**
+1. **Confirm `ANTHROPIC_API_KEY` is set on Vercel.** The previous
+   chatbot scaffold used this same env var. If it was removed when
+   the chatbot was disabled, re-add it from console.anthropic.com.
+2. **Wire the canary surface into AdminView.** One cycle:
+   flip `ENABLE_GAFFER` to `true`, drop
+   `<GafferCard surface="team_summary" adminToken={...} />` onto the
+   admin home, ship to one team (set `GAFFER_ENABLED_TEAMS` env to
+   gate). Audit `ai_briefings.content` vs `context_snapshot` for a
+   week before rolling out the next surface.
 
 **Canary plan (per surface, per team):**
 - 1 week of team_finbars use of one surface
