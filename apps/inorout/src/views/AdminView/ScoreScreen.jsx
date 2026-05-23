@@ -1,18 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft, ArrowsLeftRight } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import { newMatch, updatePlayerRecords, resolveMotm } from "@platform/core";
 import { saveMatchResult } from "@platform/supabase";
 
-if (typeof document !== "undefined" && !document.getElementById("ss-styles")) {
-  const el = document.createElement("style");
-  el.id = "ss-styles";
-  el.textContent = `@keyframes ss-fade-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`;
-  document.head.appendChild(el);
-}
-
 // ── Module-level constants ────────────────────────────────────────────────────
 
-const ANIM = { animation: "ss-fade-up 0.28s ease" };
+// Spring used for every stage card entrance — confident landing without bounce.
+const STAGE_SPRING = { type: "spring", stiffness: 280, damping: 26 };
 
 const MODES = [
   {
@@ -42,13 +37,19 @@ const DECLARE_OPTS = [
 
 function StageCard({ children, refProp, style }) {
   return (
-    <div ref={refProp} style={{
-      background: "var(--s1)", borderRadius: 12,
-      border: "0.5px solid var(--s3)", padding: 16,
-      marginBottom: 12, ...ANIM, ...style,
-    }}>
+    <motion.div
+      ref={refProp}
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={STAGE_SPRING}
+      style={{
+        background: "var(--s1)", borderRadius: 12,
+        border: "0.5px solid var(--s3)", padding: 16,
+        marginBottom: 12, ...style,
+      }}
+    >
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -341,7 +342,7 @@ export default function ScoreScreen({
         </div>
         <button onClick={onBack} style={{
           width: "100%", padding: "16px 0", borderRadius: 12, border: "none",
-          background: "var(--gold)", color: "#0A0A08",
+          background: "var(--gold)", color: "var(--bg)",
           fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em",
           cursor: "pointer", marginTop: 32,
         }}>
@@ -470,7 +471,7 @@ export default function ScoreScreen({
                   width: "100%", height: 48, borderRadius: 10, marginTop: 12, border: "none",
                   background: scoreConfirmed ? "var(--s3)" : "var(--green)",
                   cursor: scoreConfirmed ? "default" : "pointer",
-                  color: scoreConfirmed ? "var(--t2)" : "#0A0A08",
+                  color: scoreConfirmed ? "var(--t2)" : "var(--bg)",
                   fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "0.08em",
                 }}
               >
@@ -671,7 +672,11 @@ export default function ScoreScreen({
           </div>
 
           {lastGoalChoice === "yes" && (
-            <div style={ANIM}>
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
               {eligible.map(p => (
                 <div key={p.id} onClick={() => setLastGoalPlayerId(p.id)} style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -688,10 +693,10 @@ export default function ScoreScreen({
                       </span>
                     )}
                   </div>
-                  {lastGoalPlayerId === p.id && <Check size={16} weight="bold" color="var(--green)" />}
+                  {lastGoalPlayerId === p.id && <Check size={16} weight="thin" color="var(--green)" />}
                 </div>
               ))}
-            </div>
+            </motion.div>
           )}
         </StageCard>
       )}
@@ -747,7 +752,7 @@ export default function ScoreScreen({
             <StageCard refProp={s6Ref} style={{ background: "var(--gold2)", border: "1px solid var(--goldb)" }}>
               <StageLbl>PLAYER OF THE MATCH 🏆</StageLbl>
               <div style={{ textAlign: "center" }}>
-                <Trophy size={32} weight="fill" color="var(--gold)" />
+                <Trophy size={32} weight="thin" color="var(--gold)" />
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "var(--gold)", marginTop: 8, letterSpacing: "0.04em" }}>
                   {resolveMotm(potmMatch.motm, squad)}
                 </div>
@@ -776,7 +781,13 @@ export default function ScoreScreen({
 
       {/* ── STAGE 7 — SAVE ──────────────────────────────────────────────────── */}
       {canSave && !saved && (
-        <div ref={saveRef} style={{ ...ANIM, marginTop: 4 }}>
+        <motion.div
+          ref={saveRef}
+          initial={{ opacity: 0, scale: 0.92, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 220, damping: 18 }}
+          style={{ marginTop: 4 }}
+        >
           {saveError && (
             <div style={{ fontSize: 12, color: "var(--red)", textAlign: "center", marginBottom: 10, fontWeight: 300 }}>
               {saveError}
@@ -788,7 +799,7 @@ export default function ScoreScreen({
             style={{
               width: "100%", height: 56, borderRadius: 12, border: "none",
               background: isSaving ? "var(--s3)" : "var(--green)",
-              color: isSaving ? "var(--t2)" : "#0A0A08",
+              color: isSaving ? "var(--t2)" : "var(--bg)",
               fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.08em",
               cursor: isSaving ? "not-allowed" : "pointer",
               boxShadow: isSaving ? "none" : "0 0 20px rgba(61,220,106,0.3)",
@@ -796,7 +807,7 @@ export default function ScoreScreen({
           >
             {isSaving ? "SAVING..." : "SAVE RESULT 💾"}
           </button>
-        </div>
+        </motion.div>
       )}
 
       {/* ── SWITCH CONFIRM MODAL ────────────────────────────────────────────── */}
