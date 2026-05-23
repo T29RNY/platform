@@ -277,7 +277,7 @@ export default function SquadScreen({
 
       {/* Inline keyframes */}
       <style>{`
-        @keyframes ms-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes ms-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
         @keyframes ms-pop     { 0% { transform: scale(0.94); opacity: 0; } 60% { transform: scale(1.02); opacity: 1; } 100% { transform: scale(1); } }
         @keyframes ms-gold-pulse { 0%,100% { box-shadow: 0 0 0px rgba(232,160,32,0.0); } 50% { box-shadow: 0 0 14px rgba(232,160,32,0.45); } }
         @keyframes ms-amber-glow { 0%,100% { box-shadow: 0 0 0px rgba(255,176,32,0.0); } 50% { box-shadow: 0 0 12px rgba(255,176,32,0.35); } }
@@ -578,6 +578,7 @@ export default function SquadScreen({
                 padding: "12px 12px 10px",
                 opacity: p.disabled ? 0.45 : 1,
                 position: "relative",
+                zIndex: isMenuOpen ? 30 : "auto",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
