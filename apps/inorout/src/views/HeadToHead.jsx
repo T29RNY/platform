@@ -1,6 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, UploadSimple, SoccerBall, TShirt, UsersThree, Lightning, Trophy, Star, User } from "@phosphor-icons/react";
+import { motion, AnimatePresence, animate } from "framer-motion";
 import { getHeadToHead, getPlayerLeagueTable } from "@platform/core";
+
+// Number that ramps from 0 → value over duration. Writes textContent directly
+// to dodge per-frame React re-renders. Suffix is appended raw (e.g. "%").
+function Counter({ value, duration = 0.7, suffix = "", decimals = 0 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const controls = animate(0, value || 0, {
+      duration, ease: "easeOut",
+      onUpdate: (v) => {
+        node.textContent = decimals > 0 ? v.toFixed(decimals) : String(Math.round(v));
+      },
+    });
+    return () => controls.stop();
+  }, [value, duration, decimals]);
+  return <><span ref={ref}>0</span>{suffix}</>;
+}
+
+// Section wrapper — every numbered stat section uses the same entry rhythm
+// so the five chapters read as a unified scroll story.
+const sectionMotion = (index = 0) => ({
+  initial: { opacity: 0, y: 18 },
+  animate: { opacity: 1, y: 0 },
+  transition: { type: "spring", stiffness: 260, damping: 26, delay: 0.15 + index * 0.08 },
+});
 
 function initials(name) {
   const parts = (name || "").trim().split(/\s+/);
@@ -60,22 +87,33 @@ const PERIODS = [
   { key: "all",    label: "ALL TIME" },
 ];
 
-function PlayerColumn({ player }) {
+function PlayerColumn({ player, side = "left" }) {
   const borderColor = STATUS_BORDER[player?.status] || "var(--s3)";
   const sc = STATUS_COLOR[player?.status];
   const name = player?.nickname || player?.name || "—";
+  const fromX = side === "left" ? -40 : 40;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}>
-      <div style={{
-        width: 72, height: 72, borderRadius: "50%",
-        background: "var(--s3)",
-        border: `3px solid ${borderColor}`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "var(--font-display)", fontSize: 28, color: "var(--t1)",
-      }}>
+    <motion.div
+      initial={{ opacity: 0, x: fromX }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ type: "spring", stiffness: 240, damping: 24, delay: 0.35 }}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: 1 }}
+    >
+      <motion.div
+        initial={{ scale: 0.5, rotate: side === "left" ? -8 : 8 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: "spring", stiffness: 220, damping: 16, delay: 0.4 }}
+        style={{
+          width: 72, height: 72, borderRadius: "50%",
+          background: "var(--s3)",
+          border: `3px solid ${borderColor}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "var(--font-display)", fontSize: 28, color: "var(--t1)",
+        }}
+      >
         {initials(name)}
-      </div>
+      </motion.div>
       <span style={{
         fontFamily: "var(--font-display)", fontSize: 18,
         color: "var(--t1)", letterSpacing: "0.03em",
@@ -85,15 +123,20 @@ function PlayerColumn({ player }) {
         {name}
       </span>
       {sc && (
-        <span style={{
-          fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.08em",
-          background: sc.bg, border: `0.5px solid ${sc.border}`, color: sc.color,
-          borderRadius: 20, padding: "3px 10px",
-        }}>
+        <motion.span
+          initial={{ opacity: 0, scale: 0.7 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 280, damping: 18, delay: 0.6 }}
+          style={{
+            fontFamily: "var(--font-display)", fontSize: 10, letterSpacing: "0.08em",
+            background: sc.bg, border: `0.5px solid ${sc.border}`, color: sc.color,
+            borderRadius: 20, padding: "3px 10px",
+          }}
+        >
           {STATUS_LABEL[player.status]}
-        </span>
+        </motion.span>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -149,11 +192,16 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
   const isEmpty     = !loading && (!h2hData || h2hData.totalSharedGames === 0);
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 300,
-      background: "var(--bg)",
-      overflowY: "auto", WebkitOverflowScrolling: "touch",
-    }}>
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 260, damping: 30 }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 300,
+        background: "var(--bg)",
+        overflowY: "auto", WebkitOverflowScrolling: "touch",
+      }}
+    >
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 16px 100px" }}>
 
         {/* Top bar */}
@@ -183,49 +231,87 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
           </button>
         </div>
 
-        {/* Hero title */}
+        {/* Hero title — the two HEADs literally clash at TO */}
         <div style={{ marginTop: 8 }}>
           <div style={{
             fontFamily: "var(--font-display)", fontSize: 42,
             fontStyle: "italic", letterSpacing: "0.04em", lineHeight: 1,
           }}>
-            <span style={{
-              color: "var(--green)",
-              textShadow: "0 0 18px rgba(61,220,106,0.45)",
-            }}>HEAD </span>
-            <span style={{ color: "var(--t1)" }}>TO </span>
-            <span style={{
-              color: "var(--red)",
-              textShadow: "0 0 18px rgba(255,64,64,0.45)",
-            }}>HEAD</span>
+            <motion.span
+              initial={{ opacity: 0, x: -28 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ type: "spring", stiffness: 240, damping: 22, delay: 0.05 }}
+              style={{
+                display: "inline-block",
+                color: "var(--green)",
+                textShadow: "0 0 18px rgba(61,220,106,0.45)",
+              }}
+            >HEAD </motion.span>
+            <motion.span
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.22 }}
+              style={{ display: "inline-block", color: "var(--t1)" }}
+            >TO </motion.span>
+            <motion.span
+              initial={{ opacity: 0, x: 28 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ type: "spring", stiffness: 240, damping: 22, delay: 0.05 }}
+              style={{
+                display: "inline-block",
+                color: "var(--red)",
+                textShadow: "0 0 18px rgba(255,64,64,0.45)",
+              }}
+            >HEAD</motion.span>
           </div>
-          <div style={{
-            fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
-            color: "var(--t2)", marginTop: 4,
-          }}>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.3 }}
+            style={{
+              fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 300,
+              color: "var(--t2)", marginTop: 4,
+            }}
+          >
             Compare two players together and against each other.
-          </div>
+          </motion.div>
         </div>
 
-        {/* Period selector */}
+        {/* Period selector — active pill morphs across via shared layoutId */}
         <div style={{
           background: "var(--s2)", borderRadius: 24, padding: 3,
-          display: "flex", marginTop: 16,
+          display: "flex", marginTop: 16, position: "relative",
         }}>
-          {PERIODS.map(({ key, label }) => (
-            <button key={key} onClick={() => setPeriod(key)} style={{
-              flex: 1, padding: "8px 0", textAlign: "center", cursor: "pointer",
-              fontFamily: "var(--font-display)", fontSize: 14,
-              letterSpacing: "0.05em", borderRadius: 20,
-              background: period === key ? "var(--gold2)"             : "transparent",
-              border:     period === key ? "0.5px solid var(--goldb)" : "0.5px solid transparent",
-              color:      period === key ? "var(--gold)"              : "var(--t2)",
-              transition: "all 0.15s",
-              WebkitTapHighlightColor: "transparent",
-            }}>
-              {label}
-            </button>
-          ))}
+          {PERIODS.map(({ key, label }) => {
+            const active = period === key;
+            return (
+              <button key={key} onClick={() => setPeriod(key)} style={{
+                flex: 1, padding: "8px 0", textAlign: "center", cursor: "pointer",
+                fontFamily: "var(--font-display)", fontSize: 14,
+                letterSpacing: "0.05em", borderRadius: 20,
+                background: "transparent",
+                border: "0.5px solid transparent",
+                color: active ? "var(--gold)" : "var(--t2)",
+                position: "relative", zIndex: 1,
+                WebkitTapHighlightColor: "transparent",
+                transition: "color 0.18s",
+              }}>
+                {active && (
+                  <motion.div
+                    layoutId="period-pill"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    style={{
+                      position: "absolute", inset: 0,
+                      background: "var(--gold2)",
+                      border: "0.5px solid var(--goldb)",
+                      borderRadius: 20, zIndex: -1,
+                    }}
+                  />
+                )}
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {/* VS card */}
@@ -248,25 +334,37 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
             <PlayerColumn player={them} />
           </div>
 
-          {/* Verdict pill — only shown when data exists */}
+          {/* Verdict pill — the emotional verdict, springs in after the
+              avatars have landed */}
           {hasData && (
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-              <div style={{
-                background: "rgba(255,255,255,0.08)",
-                backdropFilter: "blur(8px)",
-                border: `0.5px solid ${vs.border}`,
-                borderRadius: 20, padding: "6px 16px",
-                fontFamily: "var(--font-display)", fontSize: 12,
-                letterSpacing: "0.08em", color: vs.color,
-              }}>
+              <motion.div
+                key={`verdict-${verdict}-${period}`}
+                initial={{ opacity: 0, scale: 0.6, y: 6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.85 }}
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(8px)",
+                  border: `0.5px solid ${vs.border}`,
+                  borderRadius: 20, padding: "6px 16px",
+                  fontFamily: "var(--font-display)", fontSize: 12,
+                  letterSpacing: "0.08em", color: vs.color,
+                }}
+              >
                 {VERDICT_LABEL[verdict]}
-              </div>
-              <div style={{
-                fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300,
-                color: "var(--t2)", textAlign: "center",
-              }}>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.05, duration: 0.3 }}
+                style={{
+                  fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300,
+                  color: "var(--t2)", textAlign: "center",
+                }}
+              >
                 {VERDICT_SUB[verdict]}
-              </div>
+              </motion.div>
             </div>
           )}
         </div>
@@ -301,7 +399,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
 
           // ── Section 1 — WHEN YOU PLAY TOGETHER ──────────────────────────
           const sec1 = (
-            <div key="s1" style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+            <motion.div key={`s1-${period}`} {...sectionMotion(0)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--green)", marginBottom: 12 }}>
                 1. WHEN YOU PLAY TOGETHER
               </div>
@@ -317,7 +415,9 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     {/* Games together */}
                     <div style={{ flex: 1, minWidth: 0, background: "var(--s3)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>{t.games}</div>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>
+                        <Counter value={t.games} />
+                      </div>
                       <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Games together</div>
                     </div>
                     {/* W/D/L */}
@@ -333,7 +433,9 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
                     </div>
                     {/* Win rate */}
                     <div style={{ flex: 1, minWidth: 0, background: "var(--s3)", borderRadius: 8, padding: "10px 8px", textAlign: "center" }}>
-                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>{t.winRate}%</div>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--t1)", lineHeight: 1 }}>
+                        <Counter value={t.winRate} suffix="%" />
+                      </div>
                       <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)", marginTop: 2 }}>Win rate together</div>
                     </div>
                     {/* Together ratio */}
@@ -411,7 +513,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
                   </div>
                 </>
               )}
-            </div>
+            </motion.div>
           );
 
           // ── Section 2 — WHEN YOU FACE EACH OTHER ────────────────────────
@@ -432,7 +534,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
           })();
 
           const sec2 = (
-            <div key="s2" style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+            <motion.div key={`s2-${period}`} {...sectionMotion(1)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--red)", marginBottom: 12 }}>
                 2. WHEN YOU FACE EACH OTHER
               </div>
@@ -516,7 +618,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
                   )}
                 </>
               )}
-            </div>
+            </motion.div>
           );
 
           // ── Section 3 — YOU MAKE THEM BETTER ────────────────────────────
@@ -538,7 +640,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
           const chemSt = CHEM_STYLE[chemV] || CHEM_STYLE.no_effect;
 
           const sec3 = h2hData.totalSharedGames >= 3 ? (
-            <div key="s3" style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+            <motion.div key={`s3-${period}`} {...sectionMotion(2)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--purple)", marginBottom: 12 }}>
                 3. YOU MAKE THEM BETTER
               </div>
@@ -637,20 +739,26 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
                 </div>
               </div>
 
-              {/* Chemistry verdict pill */}
+              {/* Chemistry verdict pill — same spring as the main verdict */}
               <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-                <div style={{
-                  background: "rgba(255,255,255,0.08)",
-                  backdropFilter: "blur(8px)",
-                  border: `0.5px solid ${chemSt.border}`,
-                  borderRadius: 20, padding: "6px 16px",
-                  fontFamily: "var(--font-display)", fontSize: 12,
-                  letterSpacing: "0.08em", color: chemSt.color,
-                }}>
+                <motion.div
+                  key={`chem-${chemV}-${period}`}
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.5 }}
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    backdropFilter: "blur(8px)",
+                    border: `0.5px solid ${chemSt.border}`,
+                    borderRadius: 20, padding: "6px 16px",
+                    fontFamily: "var(--font-display)", fontSize: 12,
+                    letterSpacing: "0.08em", color: chemSt.color,
+                  }}
+                >
                   {CHEM_LABEL[chemV]}
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           ) : null;
 
           return <>{sec1}{sec2}{sec3}</>;
@@ -681,7 +789,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
           ];
 
           return (
-            <div style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+            <motion.div key={`s4-${period}`} {...sectionMotion(3)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--gold)", marginBottom: 16 }}>
                 4. OVERALL COMPARISON
               </div>
@@ -689,23 +797,40 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
                 {rows.map((row, i) => {
                   const lPct = barPct(row.leftNum, row.rightNum);
                   const rPct = 100 - lPct;
+                  // Bars fill in sequence — each row delayed 180ms after the
+                  // previous so dominance reveals itself like an awards tally.
+                  const barDelay = 0.45 + i * 0.18;
                   return (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       {/* Left value */}
                       <div style={{ width: 50, textAlign: "right", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, color: "var(--t1)", flexShrink: 0 }}>
                         {row.leftVal}
                       </div>
-                      {/* Left bar */}
-                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
-                        {!row.noBar && <div style={{ width: `${lPct}%`, height: "100%", background: "var(--green)", borderRadius: 4, marginLeft: "auto" }} />}
+                      {/* Left bar — fills right-to-left toward centre */}
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden", display: "flex", justifyContent: "flex-end" }}>
+                        {!row.noBar && (
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${lPct}%` }}
+                            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: barDelay }}
+                            style={{ height: "100%", background: "var(--green)", borderRadius: 4 }}
+                          />
+                        )}
                       </div>
                       {/* Centre label */}
                       <div style={{ width: 100, flexShrink: 0, textAlign: "center", fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300, color: "var(--t2)" }}>
                         {row.label}
                       </div>
-                      {/* Right bar */}
+                      {/* Right bar — fills left-to-right outward */}
                       <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
-                        {!row.noBar && <div style={{ width: `${rPct}%`, height: "100%", background: "var(--red)", borderRadius: 4 }} />}
+                        {!row.noBar && (
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${rPct}%` }}
+                            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: barDelay }}
+                            style={{ height: "100%", background: "var(--red)", borderRadius: 4 }}
+                          />
+                        )}
                       </div>
                       {/* Right value */}
                       <div style={{ width: 50, textAlign: "left", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, color: "var(--t1)", flexShrink: 0 }}>
@@ -715,7 +840,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
           );
         })()}
 
@@ -729,13 +854,19 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
           const RESULT_COLOR = { w: "var(--green)", d: "var(--amber)", l: "var(--red)" };
 
           return (
-            <div style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+            <motion.div key={`s5-${period}`} {...sectionMotion(4)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--gold)", marginBottom: 12 }}>
                 5. RECENT SHARED MATCHES
               </div>
               <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
                 {h2hData.recentShared.map((r, i) => (
-                  <div key={i} style={{ width: 120, flexShrink: 0, background: "var(--s3)", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: 20, scale: 0.9 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.55 + i * 0.07 }}
+                    style={{ width: 120, flexShrink: 0, background: "var(--s3)", borderRadius: 8, padding: 10, textAlign: "center" }}
+                  >
                     <div style={{ fontFamily: "var(--font-body)", fontSize: 9, fontWeight: 300, color: "var(--t2)" }}>
                       {fmtDate(r.matchDate)}
                     </div>
@@ -750,19 +881,19 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
                         width: 18, height: 18, borderRadius: "50%",
                         background: RESULT_COLOR[r.myResult] || "var(--s3)",
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontFamily: "var(--font-display)", fontSize: 10, color: "#fff",
+                        fontFamily: "var(--font-display)", fontSize: 10, color: "var(--bg)",
                       }}>
                         {(r.myResult || "").toUpperCase()}
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           );
         })()}
 
       </div>
-    </div>
+    </motion.div>
   );
 }
