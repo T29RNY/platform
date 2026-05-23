@@ -73,10 +73,19 @@ const LABEL = {
 };
 
 const BASE_INPUT = {
-  width:"100%", padding:"12px 14px", borderRadius:10,
-  background:"var(--s2)", color:"var(--t1)",
+  width:"100%", padding:"12px 14px", borderRadius:"var(--rs)",
+  background:"rgba(255,255,255,0.03)",
+  backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)",
+  color:"var(--t1)",
   fontFamily:"var(--font-body)", fontWeight:300, fontSize:15,
   outline:"none", boxSizing:"border-box",
+};
+
+const GLASS_CARD = {
+  background:"rgba(255,255,255,0.03)",
+  backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+  border:"0.5px solid var(--border-subtle)",
+  borderRadius:"var(--r)",
 };
 
 // ── Field components ──────────────────────────────────────────────────────────
@@ -196,7 +205,7 @@ function VenueField({ venue, setVenue, city, setCity }) {
           <div style={{
             position:"absolute", top:"100%", left:0, right:0, zIndex:100,
             background:"var(--s2)", border:"1px solid var(--goldb)",
-            borderRadius:10, overflow:"hidden", marginTop:4,
+            borderRadius:"var(--rs)", overflow:"hidden", marginTop:4,
           }}>
             {suggestions.map((sug, i) => (
               <div key={i} onMouseDown={() => handleSelect(sug)} style={{
@@ -216,7 +225,7 @@ function VenueField({ venue, setVenue, city, setCity }) {
           <span style={{
             fontSize:12, color:"var(--gold)", fontWeight:300,
             background:"var(--gold2)", border:"1px solid var(--goldb)",
-            borderRadius:20, padding:"4px 12px",
+            borderRadius:"var(--r-pill)", padding:"4px 12px",
           }}>
             📍 {cityAuto}
           </span>
@@ -344,7 +353,8 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
           <ArrowLeft size={20} weight="thin"/>
         </div>
         <div style={{ fontFamily:"var(--font-display)", fontSize:28, color:"var(--gold)",
-          letterSpacing:"0.06em" }}>
+          letterSpacing:"0.06em",
+          textShadow:"0 0 18px rgba(232,160,32,0.22)" }}>
           MATCHDAY SETTINGS
         </div>
       </div>
@@ -355,7 +365,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
             <div style={{ marginBottom:16 }}>
               <div style={LABEL}>NEXT MATCHDAY</div>
               <div style={{
-                background:"var(--s2)", borderRadius:10, padding:14,
+                ...GLASS_CARD, padding:14,
                 color: matchdayDisplay ? "var(--t1)" : "var(--t2)",
                 fontFamily:"var(--font-body)", fontWeight:300, fontSize:15,
                 fontStyle: matchdayDisplay ? "normal" : "italic",
@@ -365,8 +375,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
             </div>
 
             {/* One-off date override */}
-            <div style={{ background:"var(--s2)", borderRadius:10, padding:14,
-              border:"1px solid var(--s3)", marginBottom:24 }}>
+            <div style={{ ...GLASS_CARD, padding:14, marginBottom:24 }}>
               <div style={LABEL}>ONE-OFF DATE CHANGE</div>
               <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300,
                 marginBottom:12, lineHeight:1.5 }}>
@@ -378,7 +387,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
                   value={dateOverride}
                   onChange={e => setDateOverride(e.target.value)}
                   style={{
-                    flex:1, padding:"12px 14px", borderRadius:10,
+                    flex:1, padding:"12px 14px", borderRadius:"var(--rs)",
                     background:"var(--bg)", color:"var(--t1)",
                     border:"1px solid var(--s3)",
                     fontFamily:"var(--font-body)", fontWeight:300, fontSize:15,
@@ -389,7 +398,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
                   onClick={applyDateOverride}
                   disabled={!dateOverride || dateOverrideSaved}
                   style={{
-                    padding:"12px 16px", borderRadius:8, cursor: dateOverride ? "pointer" : "not-allowed",
+                    padding:"12px 16px", borderRadius:"var(--rs)", cursor: dateOverride ? "pointer" : "not-allowed",
                     background:"transparent",
                     border: `1px solid ${dateOverrideSaved ? "var(--green)" : (!dateOverride ? "var(--s3)" : "var(--gold)")}`,
                     color: dateOverrideSaved ? "var(--green)" : (!dateOverride ? "var(--t2)" : "var(--gold)"),
@@ -480,7 +489,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
                   <button key={String(val)}
                     onClick={() => setSched(s => ({ ...s, bibsEnabled: val }))}
                     style={{
-                      flex:1, padding:"12px 0", borderRadius:10, border:"none", cursor:"pointer",
+                      flex:1, padding:"12px 0", borderRadius:"var(--rs)", border:"none", cursor:"pointer",
                       background: (sched.bibsEnabled ?? true) === val ? "var(--gold)" : "var(--s3)",
                       color:      (sched.bibsEnabled ?? true) === val ? "#000" : "var(--t2)",
                       fontFamily:"var(--font-display)", fontSize:14, letterSpacing:"0.06em",
@@ -545,9 +554,9 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
 
             {/* Game is live toggle */}
             <div style={{
+              ...GLASS_CARD,
               display:"flex", alignItems:"center", justifyContent:"space-between",
-              padding:14, background:"var(--s2)", borderRadius:10,
-              border:"1px solid var(--s3)", marginBottom:24,
+              padding:14, marginBottom:24,
             }}>
               {sched.gameIsLive ? (
                 <>
@@ -594,7 +603,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
         {/* ── SAVE ── */}
         {saveStatus === "error" && (
           <div style={{
-            padding:"10px 14px", borderRadius:10, marginBottom:12,
+            padding:"10px 14px", borderRadius:"var(--rs)", marginBottom:12,
             background:"rgba(255,64,64,0.08)", border:"1px solid rgba(255,64,64,0.3)",
             fontSize:12, color:"var(--red)", fontWeight:300,
           }}>
@@ -605,7 +614,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
           onClick={save}
           disabled={saving}
           style={{
-            width:"100%", padding:16, borderRadius:12, border:"none",
+            width:"100%", padding:16, borderRadius:"var(--r-button)", border:"none",
             background: saveStatus === "ok" ? "var(--green)" : "var(--gold)",
             color: "var(--black)",
             fontFamily:"var(--font-display)", fontSize:18, letterSpacing:"0.06em",

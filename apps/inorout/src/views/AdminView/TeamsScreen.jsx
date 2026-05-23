@@ -214,7 +214,7 @@ function PlayerChip({ player, selected, dimmed, isNew, onTap }) {
       onClick={(e) => { e.stopPropagation(); onTap(player.id); }}
       style={{
         display: "flex", alignItems: "center", gap: 6,
-        padding: "5px 8px", borderRadius: 8,
+        padding: "5px 8px", borderRadius: "var(--rs)",
         background: selected ? "var(--gold2)" : "var(--s2)",
         border: selected
           ? "0.5px solid var(--gold)"
@@ -278,7 +278,7 @@ function GroupPanel({
         boxShadow: isReceiving && selectedPlayerId
           ? "0 0 0 1px " + style.border
           : "none",
-        borderRadius: 10,
+        borderRadius: "var(--rs)",
         padding: "8px 10px",
         marginBottom: 8,
         cursor: isReceiving ? "pointer" : "default",
@@ -333,7 +333,7 @@ function GroupPanel({
           <span style={{
             fontSize: 10, padding: "1px 6px",
             background: "rgba(255,255,255,0.08)",
-            borderRadius: 10, color: "var(--t2)",
+            borderRadius: "var(--rs)", color: "var(--t2)",
           }}>
             {players.length}
           </span>
@@ -1114,7 +1114,9 @@ export default function TeamsScreen({
       {/* Heading */}
       <div style={{
         fontFamily: "'Bebas Neue', sans-serif", fontSize: 32,
-        color: "var(--t1)", marginBottom: 16,
+        color: "var(--gold)", marginBottom: 16,
+        letterSpacing: "0.04em",
+        textShadow: "0 0 18px rgba(232,160,32,0.22)",
       }}>
         TEAM SELECTION
       </div>
@@ -1128,7 +1130,7 @@ export default function TeamsScreen({
         <button
           onClick={handleSmartTap}
           style={{
-            flex: 1, height: 40, borderRadius: 8, border: "0.5px solid var(--purpleb)",
+            flex: 1, height: 40, borderRadius: "var(--rs)", border: "0.5px solid var(--purpleb)",
             background: "var(--purple2)", color: "var(--purple)",
             display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: 1,
@@ -1143,7 +1145,7 @@ export default function TeamsScreen({
 
         {/* Save Draft */}
         <button onClick={handleSaveDraft} style={{
-          flex: 1, height: 40, borderRadius: 8,
+          flex: 1, height: 40, borderRadius: "var(--rs)",
           background: "transparent", border: "0.5px solid var(--gold)",
           color: "var(--gold)",
           display: "flex", flexDirection: "column",
@@ -1160,7 +1162,7 @@ export default function TeamsScreen({
 
         {/* Confirm Teams */}
         <button onClick={handleConfirm} style={{
-          flex: 1, height: 40, borderRadius: 8, border: "0.5px solid var(--greenb)",
+          flex: 1, height: 40, borderRadius: "var(--rs)", border: "0.5px solid var(--greenb)",
           background: "var(--green2)", color: "var(--green)",
           display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center", gap: 1,
@@ -1204,7 +1206,7 @@ export default function TeamsScreen({
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           background: "var(--green2)", border: "0.5px solid var(--greenb)",
-          borderRadius: 8, padding: 12, marginTop: 8,
+          borderRadius: "var(--rs)", padding: 12, marginTop: 8,
         }}>
           <CheckCircle size={16} weight="thin" color="var(--green)" style={{ flexShrink: 0 }} />
           <span style={{
@@ -1226,7 +1228,7 @@ export default function TeamsScreen({
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
               <button onClick={handleClearConfirm} style={{
-                height: 36, padding: "0 20px", borderRadius: 8,
+                height: 36, padding: "0 20px", borderRadius: "var(--rs)",
                 background: "transparent", border: "0.5px solid var(--red)",
                 color: "var(--red)", cursor: "pointer",
                 fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
@@ -1234,7 +1236,7 @@ export default function TeamsScreen({
                 CONFIRM
               </button>
               <button onClick={handleClearCancel} style={{
-                height: 36, padding: "0 20px", borderRadius: 8,
+                height: 36, padding: "0 20px", borderRadius: "var(--rs)",
                 background: "var(--s3)", border: "none",
                 color: "var(--t2)", cursor: "pointer",
                 fontFamily: "'Bebas Neue', sans-serif", fontSize: 14,
@@ -1245,7 +1247,7 @@ export default function TeamsScreen({
           </div>
         ) : (
           <button onClick={handleClear} style={{
-            width: "100%", height: 40, borderRadius: 8,
+            width: "100%", height: 40, borderRadius: "var(--rs)",
             background: "var(--red2)", border: "0.5px solid var(--redb)",
             color: "var(--red)", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
@@ -1475,7 +1477,7 @@ export default function TeamsScreen({
                     width: "100%", padding: "8px", marginTop: 4,
                     background: "none",
                     border: "0.5px dashed rgba(255,255,255,0.15)",
-                    borderRadius: 10, color: "var(--t2)", fontSize: 12,
+                    borderRadius: "var(--rs)", color: "var(--t2)", fontSize: 12,
                     fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.08em",
                     cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
@@ -1497,7 +1499,7 @@ export default function TeamsScreen({
         <button
           onClick={handleGenerate}
           style={{
-            width: "100%", height: 48, borderRadius: 8,
+            width: "100%", height: 48, borderRadius: "var(--rs)",
             background: "var(--gold)", color: "var(--bg)",
             border: "none", cursor: "pointer",
             fontFamily: "'Bebas Neue', sans-serif",
@@ -1519,7 +1521,7 @@ export default function TeamsScreen({
           onClick={handleConfirm}
           disabled={!allAssigned || isConfirming}
           style={{
-            width: "100%", height: 52, borderRadius: 8,
+            width: "100%", height: 52, borderRadius: "var(--rs)",
             background: allAssigned ? "var(--green)" : "var(--s2)",
             border: allAssigned ? "none" : "0.5px solid var(--greenb)",
             color: allAssigned ? "var(--bg)" : "var(--green)",
