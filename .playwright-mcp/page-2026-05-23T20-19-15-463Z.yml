@@ -1,0 +1,25 @@
+- generic [ref=e187]:
+  - generic [ref=e188]:
+    - generic [ref=e189]:
+      - button [ref=e190] [cursor=pointer]:
+        - img [ref=e191]
+      - generic [ref=e193]: PAYMENTS
+    - generic [ref=e194]:
+      - generic [ref=e195]: £15 OUTSTANDING
+      - generic [ref=e196]: 0 PLAYERS PAID
+  - generic [ref=e197]: OWES MONEY · 1
+  - generic [ref=e200] [cursor=pointer]:
+    - generic [ref=e201]: CH
+    - generic [ref=e202]:
+      - generic [ref=e203]: Chris
+      - generic [ref=e204]: NO RESPONSE
+    - generic [ref=e205]:
+      - generic [ref=e206]: £15
+      - button "More actions" [ref=e208]:
+        - img [ref=e209]
+  - generic [ref=e211]: NOT PLAYING · 34
+  - generic [ref=e214] [cursor=pointer]:
+    - generic [ref=e215]: Show 34 players
+    - img [ref=e216]
+  - generic [ref=e218]: GUESTS
+  - generic [ref=e220]: No guests this week

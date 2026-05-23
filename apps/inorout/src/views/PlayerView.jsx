@@ -22,6 +22,7 @@ import HistoryView  from "./HistoryView.jsx";
 import MyIOView     from "./MyIOView.jsx";
 import MySquads     from "./MySquads";
 import PlayerProfile from "./PlayerProfile.jsx";
+import { AnimatePresence } from "framer-motion";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -362,19 +363,17 @@ export default function PlayerView({
 
   // ── render ────────────────────────────────────────────────────────────────
 
-  // Player profile takes over the whole screen when open.
-  if (showProfile) {
-    return (
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+    {showProfile ? (
       <PlayerProfile
+        key="profile"
         me={me}
         settings={settings}
         onBack={() => setShowProfile(false)}
       />
-    );
-  }
-
-  return (
-    <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+    ) : (
+    <div key="main" style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
 
       {/* POTM voting modal */}
       {showPOTMModal && (
@@ -1287,5 +1286,7 @@ export default function PlayerView({
       {/* 4 ── NAVBAR */}
       <NavBar activeTab={activeTab} onTabChange={setActiveTab} onAdminClick={isAdmin ? onGoAdmin : undefined} />
     </div>
+    )}
+    </AnimatePresence>
   );
 }

@@ -1,4 +1,5 @@
 import { CalendarCheck, MapPinLine, Clock } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import GaugeArc from "./GaugeArc.jsx";
 
 // Inject blink animation + DM Sans font once
@@ -27,67 +28,63 @@ export default function PageHeader({
 
   return (
     <div style={{
-      position:"relative",
-      padding:"8px 16px 10px",
-      display:"flex", justifyContent:"space-between",
-      alignItems:"stretch", gap:10,
+      padding:"10px 16px 12px",
+      display:"flex", gap:12, alignItems:"center",
     }}>
 
-      {/* Avatar overlay — top-left, doesn't push layout */}
-      {showAvatar && (
-        <div
-          onClick={onAvatarTap}
-          role="button"
-          aria-label="Open profile"
-          style={{
-            position:"absolute", top:8, left:16, zIndex:5,
-            width:40, height:40, borderRadius:"50%",
-            background:"rgba(255,255,255,0.06)",
-            border:"1px solid rgba(255,255,255,0.18)",
-            boxShadow:"0 0 12px rgba(0,0,0,0.45)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            cursor:"pointer", WebkitTapHighlightColor:"transparent",
-            fontFamily:"'Bebas Neue', sans-serif", fontSize:14,
-            letterSpacing:"0.04em", color:"var(--t1)",
-            backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)",
-          }}
-        >
-          {initials(me?.nickname || me?.name)}
-        </div>
-      )}
-
-      {/* Left column — content shifted right to clear the avatar */}
+      {/* Left column — inline avatar+teamName, then logo, then meta */}
       <div style={{
         flex:1, minWidth:0,
-        paddingLeft: showAvatar ? 52 : 0,
-        display:"flex", flexDirection:"column",
-        justifyContent:"space-between", gap:5,
+        display:"flex", flexDirection:"column", gap:6,
       }}>
 
-        {/* Team name */}
-        <div style={{
-          fontSize:11, fontWeight:300,
-          letterSpacing:"0.22em", textTransform:"uppercase",
-          color:"var(--t2)",
-        }}>
-          {teamName}
+        {/* Row 1 — avatar + team name */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
+          {showAvatar && (
+            <motion.div
+              layoutId="me-avatar"
+              onClick={onAvatarTap}
+              role="button"
+              aria-label="Open profile"
+              whileTap={{ scale: 0.94 }}
+              transition={{ type:"spring", stiffness:380, damping:30 }}
+              style={{
+                width:36, height:36, borderRadius:"50%",
+                background:"rgba(255,255,255,0.06)",
+                border:"1px solid rgba(255,255,255,0.18)",
+                boxShadow:"0 0 12px rgba(0,0,0,0.45)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                cursor:"pointer", WebkitTapHighlightColor:"transparent",
+                fontFamily:"'Bebas Neue', sans-serif", fontSize:13,
+                letterSpacing:"0.04em", color:"var(--t1)",
+                backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)",
+                flexShrink:0,
+              }}
+            >
+              {initials(me?.nickname || me?.name)}
+            </motion.div>
+          )}
+          <div style={{
+            fontSize:11, fontWeight:300,
+            letterSpacing:"0.22em", textTransform:"uppercase",
+            color:"var(--t2)",
+            overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+          }}>
+            {teamName}
+          </div>
         </div>
 
-        {/* Logo — centred across the header */}
+        {/* Row 2 — big IN OR OUT logo, left-aligned to flow under avatar */}
         <div style={{
-          fontFamily:"var(--font-display)", fontSize:52,
+          fontFamily:"var(--font-display)", fontSize:48,
           lineHeight:0.88, letterSpacing:"0.02em", fontStyle:"italic",
-          textAlign:"center",
-          // Pull back the avatar offset so logo is centred on the
-          // full header, not just the right-of-avatar column.
-          marginLeft: showAvatar ? -52 : 0,
         }}>
           <span style={{ color:"var(--green)" }}>IN</span>
           <span style={{ color:"var(--t1)" }}> OR </span>
           <span style={{ color:"var(--red)" }}>OUT</span>
         </div>
 
-        {/* Game meta */}
+        {/* Row 3 — game meta */}
         <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
           {dayOfWeek && (
             <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:"var(--t1)", fontWeight:300 }}>
@@ -107,30 +104,28 @@ export default function PageHeader({
               {kickoff}
             </div>
           )}
+          {gameIsLive && (
+            <div style={{
+              display:"inline-flex", alignItems:"center", gap:5,
+              fontSize:10, fontWeight:400,
+              letterSpacing:"0.12em", textTransform:"uppercase",
+              color:"var(--green)",
+            }}>
+              <span style={{
+                display:"inline-block",
+                width:5, height:5, borderRadius:"50%",
+                background:"var(--green)",
+                boxShadow:"0 0 6px var(--green)",
+                animation:"ioo-blink 2s infinite",
+                flexShrink:0,
+              }} />
+              Game Open
+            </div>
+          )}
         </div>
-
-        {/* Live badge */}
-        {gameIsLive && (
-          <div style={{
-            display:"inline-flex", alignItems:"center", gap:5,
-            fontSize:10, fontWeight:400,
-            letterSpacing:"0.12em", textTransform:"uppercase",
-            color:"var(--green)",
-          }}>
-            <span style={{
-              display:"inline-block",
-              width:5, height:5, borderRadius:"50%",
-              background:"var(--green)",
-              boxShadow:"0 0 6px var(--green)",
-              animation:"ioo-blink 2s infinite",
-              flexShrink:0,
-            }} />
-            Game Open
-          </div>
-        )}
       </div>
 
-      {/* Right: squad gauge */}
+      {/* Right: squad gauge — unchanged */}
       <GaugeArc inCount={inCount} squadSize={squadSize} />
     </div>
   );

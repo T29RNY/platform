@@ -4,6 +4,7 @@ import {
   SignOut, Trash, X as XIcon,
   PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid,
 } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import {
   getMyPaymentHistory, getMyInjuries,
   leaveSquad, deleteMyAccount,
@@ -491,18 +492,22 @@ export default function PlayerProfile({
           display:"flex", flexDirection:"column", alignItems:"center",
           marginBottom:24,
         }}>
-          <div style={{
-            width:84, height:84, borderRadius:"50%",
-            background:"rgba(255,255,255,0.05)",
-            border:"1px solid rgba(255,255,255,0.20)",
-            boxShadow:"0 0 24px rgba(232,160,32,0.10)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            fontFamily:"'Bebas Neue', sans-serif", fontSize:30,
-            letterSpacing:"0.04em", color:"var(--t1)",
-            marginBottom:10,
-          }}>
+          <motion.div
+            layoutId="me-avatar"
+            transition={{ type:"spring", stiffness:380, damping:32 }}
+            style={{
+              width:84, height:84, borderRadius:"50%",
+              background:"rgba(255,255,255,0.05)",
+              border:"1px solid rgba(255,255,255,0.20)",
+              boxShadow:"0 0 24px rgba(232,160,32,0.10)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontFamily:"'Bebas Neue', sans-serif", fontSize:30,
+              letterSpacing:"0.04em", color:"var(--t1)",
+              marginBottom:10,
+            }}
+          >
             {initials(me?.name)}
-          </div>
+          </motion.div>
           <div style={{
             fontFamily:"var(--font-display)", fontSize:30,
             letterSpacing:"0.03em", color:"var(--t1)", lineHeight:1,

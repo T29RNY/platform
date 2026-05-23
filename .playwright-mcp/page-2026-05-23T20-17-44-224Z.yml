@@ -1,0 +1,107 @@
+- generic [ref=e3]:
+  - generic [ref=e6]:
+    - generic [ref=e7]: ⚽
+    - generic [ref=e8]:
+      - generic [ref=e9]: Add to Home Screen
+      - generic [ref=e10]: Install for quick access — works like a native app
+    - button "Install" [ref=e11] [cursor=pointer]
+    - button "×" [ref=e12] [cursor=pointer]
+  - generic [ref=e218]:
+    - generic [ref=e220]:
+      - button "Open profile" [ref=e221] [cursor=pointer]: HA
+      - generic [ref=e222]:
+        - generic [ref=e223]: Test Tuesday FC
+        - generic [ref=e224]: IN OR OUT
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - img [ref=e227]
+            - text: Wednesday
+          - generic [ref=e229]:
+            - img [ref=e230]
+            - text: Saint Finbars
+          - generic [ref=e232]:
+            - img [ref=e233]
+            - text: 20:00
+        - generic [ref=e235]: Game Open
+      - generic [ref=e237]:
+        - generic [ref=e238]:
+          - img [ref=e239]
+          - generic [ref=e243]: "0"
+        - generic [ref=e244]:
+          - generic [ref=e245]: of 10
+          - generic [ref=e246]: confirmed
+        - generic [ref=e247]: 10 spots left
+    - generic [ref=e248]:
+      - generic [ref=e252]:
+        - generic [ref=e253]:
+          - generic [ref=e254]: This Week
+          - generic [ref=e255]: Wednesday Night
+          - generic [ref=e256]: Football
+          - generic [ref=e257]: £5 per player
+        - generic [ref=e258]:
+          - generic [ref=e259]: Admins
+          - generic [ref=e260]: Dave
+          - generic [ref=e261]: Finbar
+      - generic [ref=e262]:
+        - generic [ref=e263]:
+          - generic [ref=e264]:
+            - generic [ref=e265]: Are you in this Wednesday? Tap below ↓
+            - generic [ref=e266]: Nothing owed 👊
+          - generic [ref=e267]:
+            - generic [ref=e268]: Hassan
+            - img [ref=e269] [cursor=pointer]
+        - generic [ref=e271]:
+          - button "In" [ref=e272] [cursor=pointer]:
+            - img [ref=e273]
+            - text: In
+          - button "Out" [ref=e275] [cursor=pointer]:
+            - img [ref=e276]
+            - text: Out
+          - button "Maybe" [ref=e278] [cursor=pointer]:
+            - img [ref=e279]
+            - text: Maybe
+          - button "Reserve" [ref=e281] [cursor=pointer]:
+            - img [ref=e282]
+            - text: Reserve
+        - generic [ref=e285] [cursor=pointer]:
+          - generic [ref=e286]:
+            - img [ref=e287]
+            - text: Add a note
+          - generic [ref=e289]: e.g. "Might be 5 mins late"
+      - generic [ref=e290]:
+        - button "Plus One Bring a guest" [ref=e291] [cursor=pointer]:
+          - img [ref=e292]
+          - generic [ref=e294]:
+            - generic [ref=e295]: Plus One
+            - generic [ref=e296]: Bring a guest
+        - button "Injured? Mark yourself out" [ref=e297] [cursor=pointer]:
+          - img [ref=e298]
+          - generic [ref=e300]:
+            - generic [ref=e301]: Injured?
+            - generic [ref=e302]: Mark yourself out
+      - generic [ref=e304]: Live Board
+      - generic [ref=e308]:
+        - generic [ref=e309]: ✅
+        - generic [ref=e310]: In
+        - generic [ref=e311]: "0"
+      - generic [ref=e313] [cursor=pointer]:
+        - generic [ref=e314]:
+          - img [ref=e315]
+          - text: No response · 35
+        - generic [ref=e317]: Tap to view ↓
+      - generic [ref=e319] [cursor=pointer]:
+        - generic [ref=e320]: MY SQUADS
+        - img [ref=e321]
+    - navigation [ref=e323]:
+      - generic [ref=e324] [cursor=pointer]:
+        - img [ref=e325]
+        - generic [ref=e327]: My View
+      - generic [ref=e329] [cursor=pointer]:
+        - img [ref=e330]
+        - generic [ref=e332]: Stats
+      - generic [ref=e333] [cursor=pointer]:
+        - img [ref=e334]
+        - generic [ref=e336]: Results
+      - generic [ref=e337] [cursor=pointer]:
+        - img [ref=e338]
+        - generic [ref=e340]: MY IO

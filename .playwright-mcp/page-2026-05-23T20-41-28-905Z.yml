@@ -1,0 +1,60 @@
+- generic [ref=e1184]:
+  - generic [ref=e1185]:
+    - img [ref=e1187] [cursor=pointer]
+    - generic [ref=e1189]: Dave
+    - generic [ref=e1190]: Admin view
+  - generic [ref=e1191]:
+    - generic [ref=e1192]:
+      - generic [ref=e1193]: DA
+      - generic [ref=e1194]: Dave
+      - generic [ref=e1195]: Test Tuesday FC
+    - generic [ref=e1196]:
+      - generic [ref=e1197] [cursor=pointer]:
+        - generic [ref=e1198]:
+          - img [ref=e1199]
+          - generic [ref=e1201]: STATS
+        - img [ref=e1202]
+      - generic [ref=e1205]:
+        - generic [ref=e1206]:
+          - generic [ref=e1207]: "19"
+          - generic [ref=e1208]: Played
+        - generic [ref=e1209]:
+          - generic [ref=e1210]: "8"
+          - generic [ref=e1211]: Goals
+        - generic [ref=e1212]:
+          - generic [ref=e1213]: "9"
+          - generic [ref=e1214]: POTM
+        - generic [ref=e1215]:
+          - generic [ref=e1216]: "3"
+          - generic [ref=e1217]: Bibs
+        - generic [ref=e1218]:
+          - generic [ref=e1219]: "2"
+          - generic [ref=e1220]: Late
+    - generic [ref=e1222] [cursor=pointer]:
+      - generic [ref=e1223]:
+        - img [ref=e1224]
+        - generic [ref=e1226]: PAYMENT HISTORY
+      - img [ref=e1227]
+    - generic [ref=e1230] [cursor=pointer]:
+      - generic [ref=e1231]:
+        - img [ref=e1232]
+        - generic [ref=e1234]: INJURIES
+      - img [ref=e1235]
+    - generic [ref=e1238]:
+      - generic [ref=e1239]: Vice Captain
+      - generic [ref=e1240]: Can access admin view and manage the team
+    - generic [ref=e1243]: Admin Actions
+    - generic [ref=e1244]:
+      - button "Rename Add nickname" [ref=e1245] [cursor=pointer]:
+        - img [ref=e1246]
+        - text: Rename
+        - generic [ref=e1248]: Add nickname
+      - button "Reset personal link" [ref=e1249] [cursor=pointer]:
+        - img [ref=e1250]
+        - text: Reset personal link
+      - button "Mark as injured" [ref=e1252] [cursor=pointer]:
+        - img [ref=e1253]
+        - text: Mark as injured
+    - button "Tap again to confirm — removes from squad" [active] [ref=e1259] [cursor=pointer]:
+      - img [ref=e1257]
+      - text: Tap again to confirm — removes from squad

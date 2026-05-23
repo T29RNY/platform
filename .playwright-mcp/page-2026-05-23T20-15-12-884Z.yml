@@ -1,0 +1,77 @@
+- generic [ref=e3]:
+  - generic [ref=e6]:
+    - generic [ref=e7]: ⚽
+    - generic [ref=e8]:
+      - generic [ref=e9]: Add to Home Screen
+      - generic [ref=e10]: Install for quick access — works like a native app
+    - button "Install" [ref=e11] [cursor=pointer]
+    - button "×" [ref=e12] [cursor=pointer]
+  - generic [ref=e136]:
+    - generic [ref=e137]:
+      - img [ref=e139] [cursor=pointer]
+      - generic [ref=e141]: Hassan
+    - generic [ref=e142]:
+      - generic [ref=e143]:
+        - generic [ref=e144]: HA
+        - generic [ref=e145]: Hassan
+        - generic [ref=e146]: Test Tuesday FC
+      - generic [ref=e147]:
+        - generic [ref=e148] [cursor=pointer]:
+          - generic [ref=e149]:
+            - img [ref=e150]
+            - generic [ref=e152]: STATS
+          - img [ref=e153]
+        - generic [ref=e156]:
+          - generic [ref=e157]:
+            - generic [ref=e158]: "20"
+            - generic [ref=e159]: Played
+          - generic [ref=e160]:
+            - generic [ref=e161]: "18"
+            - generic [ref=e162]: Goals
+          - generic [ref=e163]:
+            - generic [ref=e164]: "6"
+            - generic [ref=e165]: POTM
+          - generic [ref=e166]:
+            - generic [ref=e167]: "2"
+            - generic [ref=e168]: Bibs
+          - generic [ref=e169]:
+            - generic [ref=e170]: "1"
+            - generic [ref=e171]: Late
+      - generic [ref=e172]:
+        - generic [ref=e173] [cursor=pointer]:
+          - generic [ref=e174]:
+            - img [ref=e175]
+            - generic [ref=e177]: PAYMENT HISTORY
+          - img [ref=e178]
+        - generic [ref=e198]:
+          - generic [ref=e199]:
+            - generic [ref=e200]:
+              - generic [ref=e201]: Match cancelled
+              - generic [ref=e202]: 22 May 2026
+            - generic [ref=e203]:
+              - generic [ref=e204]: CANCELLED
+              - generic [ref=e205]: £0
+          - generic [ref=e206]:
+            - generic [ref=e207]:
+              - generic [ref=e208]: Game fee
+              - generic [ref=e209]:
+                - text: 19 May 2026
+                - generic [ref=e210]: · cash
+            - generic [ref=e211]:
+              - generic [ref=e212]: PAID
+              - generic [ref=e213]: £6
+      - generic [ref=e181] [cursor=pointer]:
+        - generic [ref=e182]:
+          - img [ref=e183]
+          - generic [ref=e185]: INJURIES
+        - img [ref=e186]
+      - generic [ref=e188]:
+        - generic [ref=e189]: Account
+        - button "Leave this squad Coming soon" [disabled] [ref=e190]:
+          - img [ref=e191]
+          - text: Leave this squad
+          - generic [ref=e193]: Coming soon
+        - button "Delete my account Coming soon" [disabled] [ref=e194]:
+          - img [ref=e195]
+          - text: Delete my account
+          - generic [ref=e197]: Coming soon

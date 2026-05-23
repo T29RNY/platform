@@ -1,0 +1,37 @@
+[    1737ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://platform-clubmanager-git-main-tarny-s-projects.vercel.app/p/p_demotoken_01:0
+[    2632ms] [ERROR] Loading the font 'https://k2mkucxia43oc7fa.public.blob.vercel-storage.com/front/fonts/space-mono/space-mono-v11-latin-regular.woff2' violates the following Content Security Policy directive: "font-src 'self' *.vercel.com *.gstatic.com vercel.live". The action has been blocked. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:125
+[    2844ms] [LOG] %c
+▲
+
+ _____ _              _                    _   _             __
+|_   _| |__   ___    / \   __ _  ___ _ __ | |_(_) ___       / /
+  | | | '_ \ / _ \  / _ \ / _` |/ _ \ '_ \| __| |/ __|     / /
+  | | | | | |  __/ / ___ \ (_| |  __/ | | | |_| | (__     /_/
+  |_| |_| |_|\___|/_/   \_\__, |\___|_| |_|\__|_|\___|    (_)
+                           |___/
+ ___        __               _                   _                 _
+|_ _|_ __  / _|_ __ __ _ ___| |_ _ __ _   _  ___| |_ _   _ _ __ ___
+ | || '_ \| |_| '__/ _` / __| __| '__| | | |/ __| __| | | | '__/ _ \
+ | || | | |  _| | | (_| \__ \ |_| |  | |_| | (__| |_| |_| | | |  __/
+|___|_| |_|_| |_|  \__,_|___/\__|_|   \__,_|\___|\__|\__,_|_|  \___|
+  
+
+Hello!
+
+- Open Source https://vercel.com/oss
+- Careers https://vercel.com/careers
+- Status https://vercel-status.com
+
+ font-family: "Geist Mono", monospace; white-space: pre; line-height: 1; @ https://vercel.com/_next/static/chunks/1lqhfr_v8dbhg.js?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642:78
+[    3461ms] [WARNING] [GSI_LOGGER]: Your client application uses one of the Google One Tap prompt UI status methods that may stop functioning when FedCM becomes mandatory. Refer to the migration guide to update your code accordingly and opt-in to FedCM to test your changes. Learn more: https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#display_moment and https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#skipped_moment @ https://accounts.google.com/gsi/client:84
+[    3473ms] [ERROR] Not signed in with the identity provider. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0
+[    3540ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://vercel.com/api/jwt:0
+[    3931ms] [WARNING] Deprecated API for given entry type. @ https://vercel.com/_next/static/chunks/2h_unza8lnix5.js?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642:18
+[    7131ms] [WARNING] The resource https://vercel.com/_next/static/media/ebay-light.3ft_ki8203ov0.svg?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0
+[    7131ms] [WARNING] The resource https://vercel.com/_next/static/media/ebay-dark.34mho2a18qqlt.svg?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0
+[    7131ms] [WARNING] The resource https://vercel.com/_next/static/chunks/3zh4ff4r2p8nj.css?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0
+[    7131ms] [WARNING] The resource https://vercel.com/_next/static/chunks/0aw3ic5idiiqw.css?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0
+[    7131ms] [WARNING] The resource https://vercel.com/_next/static/media/stripe-light.2l_1jctpe6k_4.svg?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0
+[    7131ms] [WARNING] The resource https://vercel.com/_next/static/media/adobe-light.406_7oryl71va.svg?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0
+[    7132ms] [WARNING] The resource https://vercel.com/_next/static/chunks/3yhhigzsi2k6d.css?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0
+[    7132ms] [WARNING] The resource https://vercel.com/_next/static/media/stripe-dark.16ozjth2vgb_3.svg?dpl=dpl_46KDL2g7jAkELWho8sqa6LbGy642 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://vercel.com/login?next=%2Fsso-api%3Furl%3Dhttps%253A%252F%252Fplatform-clubmanager-git-main-tarny-s-projects.vercel.app%252Fp%252Fp_demotoken_01%26nonce%3D0c6592f8789a75fbcff253bf43471c75278ea793ca478974560d59c61c68a513:0

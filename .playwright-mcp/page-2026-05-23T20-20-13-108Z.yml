@@ -1,0 +1,30 @@
+- generic [ref=e187]:
+  - button "Back to Admin" [ref=e188] [cursor=pointer]:
+    - img [ref=e189]
+    - text: Back to Admin
+  - generic [ref=e191]: TEAM SELECTION
+  - generic [ref=e192]:
+    - button "SMART" [ref=e193] [cursor=pointer]:
+      - img [ref=e194]
+      - generic [ref=e196]: SMART
+    - button "SAVE DRAFT" [ref=e197] [cursor=pointer]:
+      - img [ref=e198]
+      - generic [ref=e200]: SAVE DRAFT
+    - button "CONFIRM" [ref=e201] [cursor=pointer]:
+      - img [ref=e202]
+      - generic [ref=e204]: CONFIRM
+  - button "CLEAR TEAMS" [ref=e206] [cursor=pointer]:
+    - img [ref=e207]
+    - generic [ref=e209]: CLEAR TEAMS
+  - generic [ref=e211]: Live Board
+  - generic [ref=e213]: Teams drafted by IO Smart Teams. Tap to move players.
+  - generic [ref=e214]:
+    - generic [ref=e215]:
+      - generic [ref=e216]: Team A · 0
+      - generic [ref=e218]: Team B · 0
+    - generic [ref=e220]:
+      - generic [ref=e222]: tap here to add
+      - generic [ref=e224]: tap here to add
+  - button "CONFIRM TEAMS" [disabled] [ref=e226]:
+    - img [ref=e227]
+    - text: CONFIRM TEAMS

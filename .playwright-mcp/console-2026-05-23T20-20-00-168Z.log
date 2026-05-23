@@ -1,0 +1,1 @@
+[     430ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://ktvpzpnqbwhooiaqrigm.supabase.co/rest/v1/matches?select=id%2Cmatch_date%2Cscore_type&team_id=eq.team_demo&cancelled=neq.true:0

@@ -1,4 +1,31 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/MyIOView.jsx)",
+      "Bash(bash skills/scripts/check-hygiene.sh packages/core/engine/deeperIntel.js)",
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/App.jsx)",
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/Gaffer/GafferCard.jsx)",
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/Gaffer/index.jsx)",
+      "Bash(awk 'NR>=539 && /^\\\\$\\\\$;/ {print NR; exit}' /Users/tarny/platform/rls_migrations/010_rpcs_token_reads.sql)",
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/index.jsx)",
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/PlayerProfile.jsx)",
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/POTMTiebreakModal.jsx)",
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/AnnounceModal.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/index.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/PlayerProfile.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/POTMTiebreakModal.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/AnnounceModal.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/ScheduleScreen.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/views/AdminView/TeamsScreen.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/views/PlayerProfile.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/views/PlayerView.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh apps/inorout/src/components/ui/PageHeader.jsx)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-hygiene.sh packages/core/storage/supabase.js)",
+      "mcp__plugin_vercel_vercel__list_projects",
+      "mcp__plugin_vercel_vercel__list_teams",
+      "mcp__plugin_vercel_vercel__list_deployments"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
