@@ -180,7 +180,7 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, tableD
     if (!teamId) return;
     let cancelled = false;
     (async () => {
-      const { players } = await getPlayerLeagueTable(teamId, period);
+      const { players } = await getPlayerLeagueTable(teamId, period, adminToken);
       if (!cancelled) setModalTableData(players);
     })();
     return () => { cancelled = true; };

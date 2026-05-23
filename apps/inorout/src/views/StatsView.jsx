@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { /* biggestWins, */ payRate } from "@platform/core";
+import { /* biggestWins, */ payRate, getPlayerLeagueTable } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
 } from "@phosphor-icons/react";
@@ -334,6 +334,31 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
     setTableData(rows);
     setTableLoading(false);
   }, [matchHistory, squad, period]);
+
+  // Augment tableData with form + reliability sourced from the proper
+  // RPC-backed function (which derives both from player_match rows the
+  // local matchHistory→squad reconstruction can't produce). Runs after
+  // each period change. Quietly no-ops if the fetch fails — local table
+  // continues to render with form/reliability as null/[].
+  useEffect(() => {
+    if (!teamId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { players } = await getPlayerLeagueTable(teamId, period, adminToken);
+        if (cancelled || !players?.length) return;
+        const byId = Object.fromEntries(players.map(p => [p.playerId, p]));
+        setTableData(prev => prev.map(r => {
+          const src = byId[r.playerId];
+          if (!src) return r;
+          return { ...r, reliability: src.reliability, form: src.form || [] };
+        }));
+      } catch (e) {
+        console.error("StatsView form/reliability fetch failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [teamId, period, adminToken]);
 
   // const [tab, setTab] = useState("overview"); // restore when Records tab is re-enabled
 

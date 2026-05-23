@@ -1504,70 +1504,96 @@ export async function adminSetPlayerStatus(adminToken, playerId, status) {
 // ─── League table ─────────────────────────────────────────────────────────────
 // period: 'all' | 'month' | 'season'
 // Returns players sorted: ranked (played>=3) by points/goals/winRate/potm, then unranked by name.
-export async function getPlayerLeagueTable(teamId, period = 'all') {
+export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = null) {
   try {
-    // Step 1 — Date cutoff
-    const cutoff = periodCutoff(period);
+    // Data source — admin-token path routes via SECURITY DEFINER RPC so
+    // /demoadmin and any anon admin route can read past RLS. Same pattern
+    // as getHeadToHead (migration 041 / 042).
+    let matches, pmRows, allTimeData, allTeamMatchDates, playerMap;
+    if (adminToken) {
+      const { data: raw, error: rpcErr } = await supabase.rpc(
+        'get_player_league_table_raw_by_admin_token',
+        { p_admin_token: adminToken, p_period: period }
+      );
+      if (rpcErr) throw rpcErr;
+      matches = raw?.period_matches || [];
+      if (!matches.length) return { players: [], totalGamesInPeriod: 0 };
 
-    // Step 2 — Matches within period (for stats)
-    let matchQuery = supabase
-      .from('matches')
-      .select('id, match_date, score_type')
-      .eq('team_id', teamId)
-      .neq('cancelled', true);
-    if (cutoff) matchQuery = matchQuery.gte('match_date', cutoff);
-    const { data: matchData, error: matchErr } = await matchQuery;
-    if (matchErr) throw matchErr;
-    const matches = matchData || [];
-    if (!matches.length) return { players: [], totalGamesInPeriod: 0 };
+      pmRows = raw?.player_match_rows || [];
+      if (!pmRows.length) return { players: [], totalGamesInPeriod: matches.length };
 
-    const matchMap = {};
-    for (const m of matches) matchMap[m.id] = { matchDate: m.match_date, scoreType: m.score_type };
-    const matchIds = Object.keys(matchMap);
+      // playedAllTime built from the pre-aggregated array
+      allTimeData = [];
+      for (const row of (raw?.all_time_attended || [])) {
+        for (let i = 0; i < row.n; i++) allTimeData.push({ player_id: row.player_id });
+      }
 
-    // Step 3 — player_match rows for those match IDs
-    const { data: pmData, error: pmErr } = await supabase
-      .from('player_match')
-      .select('player_id, match_id, attended, result, goals, was_motm, had_bibs, late_cancel, team_assignment')
-      .eq('team_id', teamId)
-      .in('match_id', matchIds);
-    if (pmErr) throw pmErr;
-    const pmRows = pmData || [];
-    if (!pmRows.length) return { players: [], totalGamesInPeriod: matches.length };
+      allTeamMatchDates = (raw?.all_team_match_dates || []).map(d => d.match_date);
 
-    // Step 3b — All-time attended counts per player for reliability numerator
-    const { data: allTimeData } = await supabase
-      .from('player_match')
-      .select('player_id')
-      .eq('team_id', teamId)
-      .eq('attended', true);
-    const playedAllTime = {};
-    for (const r of (allTimeData || [])) {
-      playedAllTime[r.player_id] = (playedAllTime[r.player_id] || 0) + 1;
-    }
-
-    // Step 4 — All uncancelled match dates for reliability denominator (not period-filtered)
-    let allTeamMatchDates;
-    if (!cutoff) {
-      allTeamMatchDates = matches.map(m => m.match_date);
+      playerMap = {};
+      for (const p of (raw?.players || [])) playerMap[p.id] = p;
     } else {
-      const { data: allMatchData } = await supabase
+      // Direct-read path — authenticated players in team_players
+      const cutoff = periodCutoff(period);
+      let matchQuery = supabase
         .from('matches')
-        .select('match_date')
+        .select('id, match_date, score_type')
         .eq('team_id', teamId)
         .neq('cancelled', true);
-      allTeamMatchDates = (allMatchData || []).map(m => m.match_date);
+      if (cutoff) matchQuery = matchQuery.gte('match_date', cutoff);
+      const { data: matchData, error: matchErr } = await matchQuery;
+      if (matchErr) throw matchErr;
+      matches = matchData || [];
+      if (!matches.length) return { players: [], totalGamesInPeriod: 0 };
+
+      const matchIds = matches.map(m => m.id);
+
+      const { data: pmData, error: pmErr } = await supabase
+        .from('player_match')
+        .select('player_id, match_id, attended, result, goals, was_motm, had_bibs, late_cancel, team_assignment')
+        .eq('team_id', teamId)
+        .in('match_id', matchIds);
+      if (pmErr) throw pmErr;
+      pmRows = pmData || [];
+      if (!pmRows.length) return { players: [], totalGamesInPeriod: matches.length };
+
+      const { data: allTimeDataRaw } = await supabase
+        .from('player_match')
+        .select('player_id')
+        .eq('team_id', teamId)
+        .eq('attended', true);
+      allTimeData = allTimeDataRaw || [];
+
+      if (!cutoff) {
+        allTeamMatchDates = matches.map(m => m.match_date);
+      } else {
+        const { data: allMatchData } = await supabase
+          .from('matches')
+          .select('match_date')
+          .eq('team_id', teamId)
+          .neq('cancelled', true);
+        allTeamMatchDates = (allMatchData || []).map(m => m.match_date);
+      }
+
+      const allPlayerIds = [...new Set(pmRows.map(r => r.player_id))];
+      const { data: playerData, error: playerErr } = await supabase
+        .from('players')
+        .select('id, name, nickname, injured, disabled, is_guest, created_at')
+        .in('id', allPlayerIds);
+      if (playerErr) throw playerErr;
+      playerMap = {};
+      for (const p of (playerData || [])) playerMap[p.id] = p;
     }
 
-    // Step 5 — Player details (created_at used as join date for reliability)
-    const allPlayerIds = [...new Set(pmRows.map(r => r.player_id))];
-    const { data: playerData, error: playerErr } = await supabase
-      .from('players')
-      .select('id, name, nickname, injured, disabled, is_guest, created_at')
-      .in('id', allPlayerIds);
-    if (playerErr) throw playerErr;
-    const playerMap = {};
-    for (const p of (playerData || [])) playerMap[p.id] = p;
+    // Common downstream computation — reads `matches`, `pmRows`,
+    // `allTimeData`, `allTeamMatchDates`, `playerMap` regardless of source.
+    const matchMap = {};
+    for (const m of matches) matchMap[m.id] = { matchDate: m.match_date, scoreType: m.score_type };
+
+    const playedAllTime = {};
+    for (const r of allTimeData) {
+      playedAllTime[r.player_id] = (playedAllTime[r.player_id] || 0) + 1;
+    }
 
     // Step 6 — Compute per player
     const exactMatchIds = new Set(
