@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 23 2026 (session 32 — IO deeper-intel rewire + 2 new cards)*
+*Last updated: May 23 2026 (session 32 — IO deeper-intel rewire + 2 new cards; +B5 cross-browser install breadcrumb follow-up)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -32,6 +32,28 @@ null/zero. Table exists but provides no value until Phase 2 career sync is built
 **Detail:** File hosts `periodCutoff` (a non-scoring helper) alongside `hasGoalData` +
 `resolveDominantType`. Low priority until file grows further.
 **Fix:** Rename to `stats-helpers.js` when adding more helpers.
+
+### 5. Cross-browser / in-app-webview install loses token breadcrumb
+**Files:** `apps/inorout/src/App.jsx` (getRoute), `apps/inorout/src/views/JoinSuccess.jsx`,
+`apps/inorout/src/views/SquadReady.jsx`
+**Detail:** Token persistence relies on `localStorage` (`ioo_last_visited` / `ioo_redirect_to`).
+localStorage is scoped per-browser-per-origin, so the breadcrumb is lost when the user
+crosses browser contexts between joining and installing:
+- User opens invite link in an in-app webview (Gmail, WhatsApp, Facebook, Slack), then
+  taps "open in Chrome" or installs from a different browser → fresh storage, no entry.
+- User joins in Chrome but installs the PWA from Samsung Internet / Firefox Android.
+- Same flow on iOS in-app webviews (still hits the redirect bridge, but only if the
+  install actually happens inside Safari).
+Result: installed PWA opens at `/` with no breadcrumb → falls through to landing /
+PWA welcome and the player has to re-paste their invite link or `/p/TOKEN` URL.
+**Mitigation in place:** the user only needs to hit `/p/TOKEN` once inside the same
+browser that owns the PWA install for the breadcrumb to land correctly. Most users
+who tap Install in Chrome after joining are fine.
+**Fix (not yet built):** server-side breadcrumb — set a signed httpOnly cookie on
+`/p/TOKEN` and `/join/CODE` GET requests, and have the root `/` route check it before
+falling through. Or: include the token in the PWA `start_url` per-install (requires
+a server-rendered manifest). Either approach moves persistence off the client and
+survives browser handoffs.
 
 ---
 
