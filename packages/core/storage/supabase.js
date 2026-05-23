@@ -631,6 +631,25 @@ export async function getPlayerInjuries(playerId) {
   return data || [];
 }
 
+// Player-token-authed read of own injury history (PlayerProfile player mode).
+export async function getMyInjuries(token) {
+  const { data, error } = await supabase.rpc('get_my_injuries', {
+    p_token: token,
+  });
+  if (error) throw error;
+  return data || [];
+}
+
+// Player-token-authed read of own payment ledger (PlayerProfile player mode).
+export async function getMyPaymentHistory(token, limit = 50) {
+  const { data, error } = await supabase.rpc('get_my_payment_history', {
+    p_token: token,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return (data || []).map(dbToLedger);
+}
+
 // ─── Demo data helpers ────────────────────────────────────────────────────────
 const DEMO_BASELINE = [
   { id:"p_demo_01", goals:18, motm:6, attended:20, w:13, l:5, d:2, bib_count:2, pay_count:20, late_dropouts:1, owes:0, injured:false },

@@ -1,0 +1,416 @@
+import { useState, useEffect } from "react";
+import {
+  ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
+  SignOut, Trash,
+} from "@phosphor-icons/react";
+import { getMyPaymentHistory, getMyInjuries } from "@platform/supabase";
+
+// ── helpers ─────────────────────────────────────────────────────────────────
+
+function initials(name) {
+  const parts = (name || "").trim().split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : (name || "?").slice(0, 2).toUpperCase();
+}
+
+const fmtDate = iso => iso
+  ? new Date(iso).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })
+  : "—";
+
+const TYPE_LABEL = {
+  game_fee: "Game fee", guest_fee: "Guest fee",
+  debt_payment: "Debt payment", waiver: "Waived", refund: "Refund",
+  cancelled: "Match cancelled",
+};
+
+const STATUS_STYLE = {
+  paid:      { bg:"var(--green2)",         border:"var(--greenb)",         color:"var(--green)"  },
+  unpaid:    { bg:"var(--amber2)",         border:"var(--amberb)",         color:"var(--amber)"  },
+  waived:    { bg:"var(--purple2)",        border:"var(--purpleb)",        color:"var(--purple)" },
+  refunded:  { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF"       },
+  disputed:  { bg:"var(--red2)",           border:"var(--redb)",           color:"var(--red)"    },
+  cancelled: { bg:"var(--s3)",             border:"var(--t2)",             color:"var(--t2)"     },
+};
+
+// ── inline keyframes ────────────────────────────────────────────────────────
+if (typeof document !== "undefined" && !document.getElementById("pp-styles")) {
+  const el = document.createElement("style");
+  el.id = "pp-styles";
+  el.textContent = `
+    @keyframes pp-fade-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    .pp-section { animation: pp-fade-in 280ms ease both; }
+  `;
+  document.head.appendChild(el);
+}
+
+// ── Section wrapper ─────────────────────────────────────────────────────────
+
+function Section({ icon, label, count, defaultOpen = false, onExpand, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const firstOpenRef = useState({ done: defaultOpen });
+
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (next && !firstOpenRef[0].done) {
+      firstOpenRef[0].done = true;
+      await onExpand?.();
+    }
+  };
+
+  return (
+    <div className="pp-section" style={{
+      background:"rgba(255,255,255,0.03)",
+      backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+      border:"0.5px solid var(--border-subtle)",
+      borderRadius:"var(--r)", overflow:"hidden", marginBottom:10,
+    }}>
+      <div onClick={toggle} style={{
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"14px 16px", cursor:"pointer",
+        WebkitTapHighlightColor:"transparent",
+      }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          {icon}
+          <span style={{
+            fontFamily:"var(--font-display)", fontSize:13,
+            letterSpacing:"0.1em", color:"var(--t1)",
+          }}>{label}</span>
+          {count != null && (
+            <span style={{
+              fontSize:11, color:"var(--t2)", fontWeight:300,
+              padding:"1px 8px", borderRadius:"var(--r-pill)",
+              background:"rgba(255,255,255,0.06)",
+            }}>{count}</span>
+          )}
+        </div>
+        <CaretRight size={16} weight="thin" color="var(--t2)"
+          style={{ transform: open ? "rotate(90deg)" : "none", transition:"transform 0.2s" }}/>
+      </div>
+      {open && (
+        <div style={{ borderTop:"0.5px solid var(--b2)" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Stats body (always uses props — no async) ───────────────────────────────
+
+function StatsBody({ me }) {
+  const cells = [
+    { label:"Played", val: me?.attended    || 0 },
+    { label:"Goals",  val: me?.goals       || 0 },
+    { label:"POTM",   val: me?.motm        || 0 },
+    { label:"Bibs",   val: me?.bibCount    || 0 },
+    { label:"Late",   val: me?.lateDropouts|| 0 },
+  ];
+  return (
+    <div style={{ display:"flex" }}>
+      {cells.map(({ label, val }, i) => (
+        <div key={label} style={{
+          flex:1, textAlign:"center", padding:"14px 0",
+          borderRight: i < cells.length - 1 ? "0.5px solid var(--b2)" : "none",
+        }}>
+          <div style={{
+            fontFamily:"var(--font-display)", fontSize:26,
+            lineHeight:1, color:"var(--t1)",
+          }}>{val}</div>
+          <div style={{
+            fontSize:9, color:"var(--t2)", fontWeight:300,
+            letterSpacing:"0.06em", textTransform:"uppercase", marginTop:3,
+          }}>{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Payment history body ────────────────────────────────────────────────────
+
+function PaymentHistoryBody({ entries, loading, error }) {
+  if (loading) {
+    return <div style={{ padding:"14px 16px", fontSize:12, color:"var(--t2)", fontWeight:300 }}>Loading…</div>;
+  }
+  if (error) {
+    return <div style={{ padding:"14px 16px", fontSize:12, color:"var(--red)", fontWeight:300 }}>Couldn't load payment history</div>;
+  }
+  if (!entries?.length) {
+    return <div style={{ padding:"14px 16px", fontSize:12, color:"var(--t2)", fontWeight:300 }}>No payment history yet</div>;
+  }
+  return entries.map((entry, i) => {
+    const ss = STATUS_STYLE[entry.status] || STATUS_STYLE.unpaid;
+    return (
+      <div key={entry.id || i} style={{
+        padding:"10px 16px", display:"flex", alignItems:"center",
+        justifyContent:"space-between", gap:8,
+        borderTop: i === 0 ? "none" : "0.5px solid var(--b2)",
+      }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:2, minWidth:0 }}>
+          <div style={{ fontSize:12, color:"var(--t1)", fontWeight:400 }}>
+            {TYPE_LABEL[entry.type] || entry.type}
+          </div>
+          <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300 }}>
+            {fmtDate(entry.createdAt)}
+            {entry.method && <span style={{ opacity:0.6 }}> · {entry.method}</span>}
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+          <span style={{
+            fontSize:10, fontWeight:600, padding:"2px 7px",
+            borderRadius:"var(--r-pill)",
+            border:`0.5px solid ${ss.border}`,
+            background:ss.bg, color:ss.color, letterSpacing:"0.04em",
+          }}>
+            {(entry.status || "").toUpperCase()}
+          </span>
+          <span style={{ fontSize:12, fontWeight:600, color:"var(--t1)", minWidth:30, textAlign:"right" }}>
+            £{Number(entry.amount || 0).toFixed(0)}
+          </span>
+        </div>
+      </div>
+    );
+  });
+}
+
+// ── Injuries body ───────────────────────────────────────────────────────────
+
+function InjuriesBody({ injuries, loading, error, currentlyInjured }) {
+  if (loading) {
+    return <div style={{ padding:"14px 16px", fontSize:12, color:"var(--t2)", fontWeight:300 }}>Loading…</div>;
+  }
+  if (error) {
+    return <div style={{ padding:"14px 16px", fontSize:12, color:"var(--red)", fontWeight:300 }}>Couldn't load injury history</div>;
+  }
+  if (!injuries?.length) {
+    return (
+      <div style={{ padding:"14px 16px", fontSize:12, color:"var(--t2)", fontWeight:300 }}>
+        {currentlyInjured ? "Currently marked injured — no history yet" : "No injuries recorded"}
+      </div>
+    );
+  }
+  return injuries.map(inj => {
+    const from = new Date(inj.injured_at);
+    const to   = inj.cleared_at ? new Date(inj.cleared_at) : new Date();
+    const days = Math.max(0, Math.round((to - from) / 86400000));
+    return (
+      <div key={inj.id} style={{ padding:"10px 16px", borderTop:"0.5px solid var(--b2)" }}>
+        <div style={{ fontSize:12, color:"var(--t1)" }}>
+          {fmtDate(inj.injured_at)}
+          {inj.cleared_at
+            ? ` → ${new Date(inj.cleared_at).toLocaleDateString("en-GB", { day:"numeric", month:"short" })}`
+            : " → ongoing"}
+        </div>
+        <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
+          {days} day{days !== 1 ? "s" : ""}
+          {inj.marked_by ? ` · marked by ${inj.marked_by}` : ""}
+        </div>
+      </div>
+    );
+  });
+}
+
+// ── main ────────────────────────────────────────────────────────────────────
+
+export default function PlayerProfile({ me, settings, onBack }) {
+  const [payHist,        setPayHist]        = useState(null);
+  const [payHistLoading, setPayHistLoading] = useState(false);
+  const [payHistError,   setPayHistError]   = useState(false);
+
+  const [injuries,        setInjuries]        = useState(null);
+  const [injuriesLoading, setInjuriesLoading] = useState(false);
+  const [injuriesError,   setInjuriesError]   = useState(false);
+
+  const loadPayHistory = async () => {
+    if (!me?.token) return;
+    setPayHistLoading(true); setPayHistError(false);
+    try {
+      const rows = await getMyPaymentHistory(me.token, 50);
+      setPayHist(rows || []);
+    } catch (e) {
+      console.error("Failed to load payment history:", e);
+      setPayHistError(true);
+    } finally {
+      setPayHistLoading(false);
+    }
+  };
+
+  const loadInjuries = async () => {
+    if (!me?.token) return;
+    setInjuriesLoading(true); setInjuriesError(false);
+    try {
+      const rows = await getMyInjuries(me.token);
+      setInjuries(rows || []);
+    } catch (e) {
+      console.error("Failed to load injuries:", e);
+      setInjuriesError(true);
+    } finally {
+      setInjuriesLoading(false);
+    }
+  };
+
+  const displayName = me?.nickname || me?.name || "Player";
+
+  return (
+    <div style={{
+      minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
+      fontFamily:"var(--font-body)", paddingBottom:120,
+    }}>
+
+      {/* Sticky back header */}
+      <div style={{
+        position:"sticky", top:0, zIndex:50, background:"var(--bg)",
+        borderBottom:"0.5px solid var(--b2)", padding:"12px 16px",
+        display:"flex", alignItems:"center", gap:12,
+      }}>
+        <div onClick={onBack} style={{
+          display:"flex", alignItems:"center",
+          cursor:"pointer", color:"var(--gold)",
+          WebkitTapHighlightColor:"transparent",
+        }}>
+          <ArrowLeft size={20} weight="thin"/>
+        </div>
+        <div style={{
+          fontFamily:"var(--font-display)", fontSize:22,
+          letterSpacing:"0.04em", color:"var(--t1)", lineHeight:1,
+        }}>
+          {displayName}
+        </div>
+        {me?.injured && (
+          <span style={{
+            fontSize:11, color:"var(--red)", background:"var(--red2)",
+            border:"0.5px solid var(--redb)", borderRadius:"var(--r-pill)",
+            padding:"2px 8px", marginLeft:"auto",
+          }}>Injured</span>
+        )}
+      </div>
+
+      <div style={{ padding:"20px 16px 0" }}>
+
+        {/* Identity block — big avatar + name */}
+        <div style={{
+          display:"flex", flexDirection:"column", alignItems:"center",
+          marginBottom:24,
+        }}>
+          <div style={{
+            width:84, height:84, borderRadius:"50%",
+            background:"rgba(255,255,255,0.05)",
+            border:"1px solid rgba(255,255,255,0.20)",
+            boxShadow:"0 0 24px rgba(232,160,32,0.10)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontFamily:"'Bebas Neue', sans-serif", fontSize:30,
+            letterSpacing:"0.04em", color:"var(--t1)",
+            marginBottom:10,
+          }}>
+            {initials(me?.name)}
+          </div>
+          <div style={{
+            fontFamily:"var(--font-display)", fontSize:30,
+            letterSpacing:"0.03em", color:"var(--t1)", lineHeight:1,
+            textShadow:"0 0 18px rgba(232,160,32,0.12)",
+          }}>
+            {displayName}
+          </div>
+          {settings?.groupName && (
+            <div style={{
+              fontSize:11, color:"var(--t2)", fontWeight:300,
+              letterSpacing:"0.14em", textTransform:"uppercase",
+              marginTop:6,
+            }}>
+              {settings.groupName}
+            </div>
+          )}
+        </div>
+
+        {/* Sections */}
+        <Section
+          icon={<ChartLineUp size={16} weight="thin" color="var(--gold)"/>}
+          label="STATS"
+          defaultOpen
+        >
+          <StatsBody me={me}/>
+        </Section>
+
+        <Section
+          icon={<Receipt size={16} weight="thin" color="var(--green)"/>}
+          label="PAYMENT HISTORY"
+          onExpand={loadPayHistory}
+        >
+          <PaymentHistoryBody
+            entries={payHist}
+            loading={payHistLoading}
+            error={payHistError}
+          />
+        </Section>
+
+        <Section
+          icon={<Bandaids size={16} weight="thin" color={me?.injured ? "var(--red)" : "var(--t2)"}/>}
+          label="INJURIES"
+          onExpand={loadInjuries}
+        >
+          <InjuriesBody
+            injuries={injuries}
+            loading={injuriesLoading}
+            error={injuriesError}
+            currentlyInjured={me?.injured}
+          />
+        </Section>
+
+        {/* Destructive zone — placeholders until Session B */}
+        <div style={{ marginTop:32 }}>
+          <div style={{
+            fontSize:10, fontWeight:400, letterSpacing:"0.14em",
+            textTransform:"uppercase", color:"var(--t2)",
+            margin:"0 4px 10px",
+          }}>
+            Account
+          </div>
+
+          <button
+            disabled
+            style={{
+              width:"100%", padding:"14px 16px",
+              borderRadius:"var(--r)",
+              background:"transparent",
+              border:"0.5px solid var(--amberb)",
+              color:"var(--amber)",
+              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+              display:"flex", alignItems:"center", gap:10,
+              cursor:"not-allowed", opacity:0.5,
+              marginBottom:8,
+            }}
+          >
+            <SignOut size={16} weight="thin"/>
+            Leave this squad
+            <span style={{ marginLeft:"auto", fontSize:10, color:"var(--t2)", fontWeight:300 }}>
+              Coming soon
+            </span>
+          </button>
+
+          <button
+            disabled
+            style={{
+              width:"100%", padding:"14px 16px",
+              borderRadius:"var(--r)",
+              background:"transparent",
+              border:"0.5px solid var(--redb)",
+              color:"var(--red)",
+              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+              display:"flex", alignItems:"center", gap:10,
+              cursor:"not-allowed", opacity:0.5,
+            }}
+          >
+            <Trash size={16} weight="thin"/>
+            Delete my account
+            <span style={{ marginLeft:"auto", fontSize:10, color:"var(--t2)", fontWeight:300 }}>
+              Coming soon
+            </span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
