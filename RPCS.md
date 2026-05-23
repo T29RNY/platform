@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 23 2026 (session 31 — admin_reopen_week)*
+*Last updated: May 23 2026 (session 33 — Gaffer Phase 1 context RPCs)*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -99,6 +99,28 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 
 ---
 
+## ASK THE GAFFER RPCs (context builders — Phase 1)
+
+Spec: `GAFFER.md`. Called only by `apps/inorout/api/gaffer.js` (Vercel edge function).
+Each returns a jsonb context block consumed by the surface-matching system prompt.
+Auth via `p_admin_token`; anon grant is fine because the token is the auth signal
+(same pattern as other admin RPCs).
+
+| SQL function | JS wrapper | Surface | Notes |
+|---|---|---|---|
+| `gaffer_get_context_team_summary` | (none — edge function calls directly) | team_summary | Squad/status counts, recent form, top scorer/reliable 30d, last POTM, schedule. Migration 034. |
+| `gaffer_get_context_payment_summary` | (none — edge function calls directly) | payment_summary | Outstanding total + count, oldest debt, top 5 owers, last-week collected vs owed, always-paid list. Migration 035. |
+| `gaffer_get_context_attendance_risk` | (none — edge function calls directly) | attendance_risk | Squad shortfall, hours to kickoff, declining regulars (4-week vs prior 4-week rate drop), not-responded list, cover pool depth, risk_level enum. Migration 036. |
+| `gaffer_get_context_matchday_briefing` | (none — edge function calls directly) | matchday_briefing | Confirmed squad (with VC + group), predicted teams (Smart Teams), bib rotation, in-form players, last POTM. Migration 037. |
+
+**Edge function wrappers** (NOT supabase.rpc — they POST to /api/gaffer):
+| JS wrapper | Notes |
+|---|---|
+| `getGafferBriefing(adminToken, surface, opts?)` | All structured surfaces. Returns `{content, briefingId, cached, surface, model, tokensIn, tokensOut, costPence}` or `{error}`. |
+| `askGafferQuestion(adminToken, question, opts?)` | Q&A surface — concatenates all four structured contexts and lets Claude answer freeform under grounding rules. |
+
+---
+
 ## MIGRATION FILE MAP
 
 | Migration | Contents |
@@ -122,6 +144,11 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | 030 | drop create_team int variant |
 | 031 | Group Balancer: team_players.group_number, settings.group_labels, matches.predicted_winner / predicted_confidence / balance_score; new RPCs admin_set_player_group + admin_clear_all_groups; admin_save_teams + admin_upsert_settings extended (old signatures dropped) |
 | 032 | admin_reopen_week — fixes the cancel-then-relive toggle gap (admin_upsert_schedule writes neither is_cancelled nor active_match_id). Single RPC owns the clear-cancelled + fresh-matches-row + active_match_id update + audit_events insert. |
+| 033 | ai_briefings table — Gaffer AI agent audit log; jsonb context_snapshot per row makes every LLM claim traceable. RLS: admins read own team admin rows, players read own player rows, writes via service role only. |
+| 034 | gaffer_get_context_team_summary — Phase 1 surface RPC. |
+| 035 | gaffer_get_context_payment_summary — Phase 1 surface RPC. |
+| 036 | gaffer_get_context_attendance_risk — Phase 1 surface RPC. |
+| 037 | gaffer_get_context_matchday_briefing — Phase 1 surface RPC. |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.

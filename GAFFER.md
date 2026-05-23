@@ -1,6 +1,6 @@
 # Ask the Gaffer — AI Agent Layer
 
-*Last updated: May 23 2026 (session 33 — repositioned from chatbot to AI agent layer)*
+*Last updated: May 23 2026 (session 33 — Phase 1 scaffold complete; awaiting SQL apply + Anthropic key confirm)*
 
 This file is the operating spec for Ask the Gaffer. It consolidates the
 positioning from `DECISIONS.md` and the architecture from
@@ -337,24 +337,61 @@ live in `apps/inorout/src/views/Gaffer/prompts/`.
 
 ---
 
-## IMPLEMENTATION ORDER (when signup unblocks)
+## IMPLEMENTATION STATUS
 
-1. **Vercel AI Gateway setup** — add Anthropic key OR add credits.
-   Single env var: `AI_GATEWAY_API_KEY`. No code change to the app.
-2. **Migration 033** — `ai_briefings` table + RLS policies.
-3. **Migration 034** — `gaffer_get_context_team_summary` RPC.
-4. **Edge function** — `apps/inorout/api/gaffer.js`, single endpoint,
-   `surface=team_summary` only.
-5. **AdminView wire-up** — replace existing Gaffer chatbot scaffold
-   with team-summary card. Set `ENABLE_GAFFER=true` for one team
-   first (team_finbars) via feature flag.
-6. **Production canary** — 1 week of team_finbars use, audit
-   `ai_briefings.content` rows against `context_snapshot` for
-   factual fidelity.
-7. **Roll out remaining Phase 1 surfaces** one at a time, same
-   canary pattern.
+**Built and committed (session 33):**
+- ✅ Migration 033 — `ai_briefings` table + RLS policies.
+- ✅ Migrations 034–037 — all four Phase 1 context RPCs
+  (`gaffer_get_context_team_summary`, `_payment_summary`,
+  `_attendance_risk`, `_matchday_briefing`).
+- ✅ Edge function — `apps/inorout/api/gaffer.js`, multi-surface routing,
+  cache check, Anthropic call, `ai_briefings` insert, cost tracking.
+- ✅ Surface system prompts — `apps/inorout/src/views/Gaffer/prompts/`
+  for all five surfaces (team_summary, payment_summary, attendance_risk,
+  matchday_briefing, qa).
+- ✅ JS wrappers — `getGafferBriefing(adminToken, surface, opts?)` and
+  `askGafferQuestion(adminToken, question, opts?)` in supabase.js +
+  barrel export.
+- ✅ UI components — `<GafferCard surface=... adminToken=... />` reusable
+  inline card; new `Gaffer/index.jsx` admin Q&A panel (replaces archived
+  player-facing chatbot scaffold, kept as `_archived_chatbot.jsx`).
+- ✅ Docs — SCHEMA, RPCS, FEATURES, CLAUDE, CONTEXT updated.
 
-No mass enable. Per-surface, per-team graduation.
+**Blocked on the user (signup steps):**
+1. **Apply migrations 033–037** in Supabase SQL editor (in order).
+   These are *not* applied yet — Claude Code cannot run SQL per
+   CLAUDE.md hard rule #1. After applying:
+   `SELECT pg_notify('pgrst', 'reload schema');`
+2. **Confirm `ANTHROPIC_API_KEY` is set on Vercel.** The previous
+   chatbot scaffold used this same env var. If it was removed when the
+   chatbot was disabled, re-add it from console.anthropic.com.
+3. **Optional — set `GAFFER_ENABLED_TEAMS` env var** to a
+   comma-separated team_id allowlist (e.g. `team_finbars`) for the
+   Phase 1 canary. If empty, the edge function does not gate (UI's
+   `ENABLE_GAFFER` flag in App.jsx is the only on/off).
+4. **Flip `ENABLE_GAFFER` to `true`** in `apps/inorout/src/App.jsx`
+   and add the Gaffer tab + GafferCards to AdminView (wire-up step,
+   one cycle after canary surface chosen).
+
+**Canary plan (per surface, per team):**
+- 1 week of team_finbars use of one surface
+- Audit `ai_briefings.content` rows against `context_snapshot` for
+  factual fidelity (the snapshot is the ground truth)
+- If clean → enable for second team, then roll out next surface
+- No mass enable. Per-surface, per-team graduation.
+
+## FUTURE — VERCEL AI GATEWAY MIGRATION
+
+Current edge function calls Anthropic API directly (`api.anthropic.com/v1/messages`)
+matching the existing pattern. Migrating to Vercel AI Gateway is a one-file change
+(edge function only) once any of the following triggers:
+- Cost visibility: AI Gateway dashboard surfaces per-route token spend.
+- Failover: AI Gateway can route non-critical surfaces (opposition_intel,
+  team_summary) to a cheaper fallback if Anthropic is degraded.
+- Multi-provider: if we want to test Haiku for cheaper surfaces or compare
+  with OpenAI's GPT-4o-mini, Gateway swaps the provider without API rewrites.
+
+No urgency at current scale.
 
 ---
 

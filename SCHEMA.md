@@ -1,5 +1,5 @@
 # In or Out — Database Schema
-*Last updated: May 22 2026 (session 30 — Group Balancer columns)*
+*Last updated: May 23 2026 (session 33 — ai_briefings table for Gaffer AI agent layer)*
 
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
@@ -327,6 +327,36 @@ payload jsonb,
 created_at timestamptz DEFAULT now()
 ```
 Written by SECURITY DEFINER RPCs for all admin mutations.
+
+### ai_briefings
+```
+id uuid PK DEFAULT gen_random_uuid(),
+team_id text NOT NULL → teams.id,
+audience text CHECK (admin/player/hq),
+surface text CHECK (
+  team_summary | payment_summary | attendance_risk
+  | matchday_briefing | post_match_summary
+  | opposition_intel | hq_weekly_digest | qa
+),
+match_id text → matches.id NULL,
+player_id text → players.id NULL,
+content text NOT NULL,
+context_snapshot jsonb NOT NULL,     ← every claim traceable to this
+prompt_key text NOT NULL,            ← e.g. 'team_summary.v1'
+model text NOT NULL,                 ← e.g. 'claude-sonnet-4-5'
+tokens_in int, tokens_out int,
+cost_pence numeric(10,4),
+question text,                       ← only populated when surface='qa'
+generated_at timestamptz DEFAULT now()
+
+INDEX ai_briefings_team_surface_idx (team_id, surface, generated_at DESC)
+INDEX ai_briefings_team_match_idx   (team_id, match_id) WHERE match_id IS NOT NULL
+```
+**Source of truth for Ask the Gaffer outputs.** Every row links its
+generated `content` to the exact `context_snapshot` the LLM was given —
+factual audits are SELECT against this column. Writes via service role
+only (edge function). RLS: admins read their team's `audience='admin'`
+rows; players read their own `audience='player'` rows. Migration 033.
 
 ---
 

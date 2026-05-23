@@ -1866,3 +1866,49 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all') {
     return null;
   }
 }
+
+// ─── Ask the Gaffer — AI agent layer ─────────────────────────────────────────
+// Edge function lives at /api/gaffer (apps/inorout/api/gaffer.js).
+// These wrappers POST to that endpoint and return the JSON shape:
+//   { content, briefingId, cached, surface, model, tokensIn, tokensOut, costPence, generatedAt }
+// On error returns: { error: 'string_code', message?: '...' }
+// Spec: GAFFER.md
+
+const GAFFER_ENDPOINT = "/api/gaffer";
+
+async function callGafferEdge(body) {
+  try {
+    const res = await fetch(GAFFER_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { error: json?.error || `http_${res.status}`, message: json?.message };
+    }
+    return json;
+  } catch (e) {
+    console.error("[gaffer] edge call failed:", e?.message);
+    return { error: "network_error", message: e?.message };
+  }
+}
+
+export async function getGafferBriefing(adminToken, surface, opts = {}) {
+  if (!adminToken || !surface) return { error: "missing_args" };
+  return callGafferEdge({
+    adminToken,
+    surface,
+    forceRefresh: !!opts.forceRefresh,
+  });
+}
+
+export async function askGafferQuestion(adminToken, question, opts = {}) {
+  if (!adminToken || !question) return { error: "missing_args" };
+  return callGafferEdge({
+    adminToken,
+    surface: "qa",
+    question,
+    forceRefresh: !!opts.forceRefresh,
+  });
+}
