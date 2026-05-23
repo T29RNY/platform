@@ -1666,33 +1666,60 @@ export async function getPlayerLeagueTable(teamId, period = 'all') {
   }
 }
 
-export async function getHeadToHead(meId, themId, teamId, period = 'all') {
+export async function getHeadToHead(meId, themId, teamId, period = 'all', adminToken = null) {
   try {
     const cutoff = periodCutoff(period);
 
-    // Query 1a — all-time matches for dominantType (team-wide style, not period-scoped)
-    const { data: allTimeMatchData, error: allTimeErr } = await supabase
-      .from('matches')
-      .select('id, match_date, score_a, score_b, winner, score_type, cancelled')
-      .eq('team_id', teamId)
-      .neq('cancelled', true);
-    if (allTimeErr) throw allTimeErr;
+    // Data source — when an adminToken is provided, route the three reads
+    // through a SECURITY DEFINER RPC. This fixes /demoadmin and any other
+    // anon-context admin route, where direct .from() reads are RLS-blocked
+    // and silently return zero rows.
+    let allTimeMatchData, matchData, pmData;
+    if (adminToken) {
+      const { data: raw, error: rpcErr } = await supabase.rpc(
+        'get_head_to_head_raw_by_admin_token',
+        { p_admin_token: adminToken, p_me_id: meId, p_them_id: themId, p_period: period }
+      );
+      if (rpcErr) throw rpcErr;
+      allTimeMatchData = raw?.all_time_matches  || [];
+      matchData        = raw?.period_matches    || [];
+      pmData           = raw?.player_match_rows || [];
+    } else {
+      // Direct-read path — used for authenticated player sessions where the
+      // caller is in team_players and RLS allows the reads.
+      const { data: allTimeMatchDataRaw, error: allTimeErr } = await supabase
+        .from('matches')
+        .select('id, match_date, score_a, score_b, winner, score_type, cancelled')
+        .eq('team_id', teamId)
+        .neq('cancelled', true);
+      if (allTimeErr) throw allTimeErr;
+      allTimeMatchData = allTimeMatchDataRaw || [];
+
+      let matchQuery = supabase
+        .from('matches')
+        .select('id, match_date, score_a, score_b, winner, score_type, cancelled')
+        .eq('team_id', teamId)
+        .neq('cancelled', true);
+      if (cutoff) matchQuery = matchQuery.gte('match_date', cutoff);
+      const { data: matchDataRaw, error: matchErr } = await matchQuery;
+      if (matchErr) throw matchErr;
+      matchData = matchDataRaw || [];
+
+      const { data: pmDataRaw, error: pmErr } = await supabase
+        .from('player_match')
+        .select('player_id, match_id, team_assignment, result, goals, was_motm, had_bibs')
+        .eq('team_id', teamId)
+        .in('player_id', [meId, themId])
+        .eq('attended', true);
+      if (pmErr) throw pmErr;
+      pmData = pmDataRaw || [];
+    }
 
     // Detect dominant scoring style from all-time data
     const dominantType = resolveDominantType(allTimeMatchData);
 
-    // Query 1b — period-filtered matches for all stats
-    let matchQuery = supabase
-      .from('matches')
-      .select('id, match_date, score_a, score_b, winner, score_type, cancelled')
-      .eq('team_id', teamId)
-      .neq('cancelled', true);
-    if (cutoff) matchQuery = matchQuery.gte('match_date', cutoff);
-    const { data: matchData, error: matchErr } = await matchQuery;
-    if (matchErr) throw matchErr;
-
     const matchMap = {};
-    for (const m of (matchData || [])) {
+    for (const m of matchData) {
       matchMap[m.id] = {
         matchDate: m.match_date,
         scoreA:    m.score_a,
@@ -1701,15 +1728,6 @@ export async function getHeadToHead(meId, themId, teamId, period = 'all') {
         scoreType: m.score_type,
       };
     }
-
-    // Query 2 — all attended rows for both players
-    const { data: pmData, error: pmErr } = await supabase
-      .from('player_match')
-      .select('player_id, match_id, team_assignment, result, goals, was_motm, had_bibs')
-      .eq('team_id', teamId)
-      .in('player_id', [meId, themId])
-      .eq('attended', true);
-    if (pmErr) throw pmErr;
 
     let meRows   = (pmData || []).filter(r => r.player_id === meId);
     let themRows = (pmData || []).filter(r => r.player_id === themId);

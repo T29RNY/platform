@@ -68,7 +68,7 @@ function StatusBadge({ status }) {
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function PlayerView({
-  squad, setSquad, myId, teamId, schedule, settings,
+  squad, setSquad, myId, teamId, adminToken = null, schedule, settings,
   setSchedule, setSettings, onMidFlowChange,
   bibHistory = [], matchHistory = [],
   isAdmin = false, onGoAdmin,
@@ -1270,7 +1270,7 @@ export default function PlayerView({
 
       {/* STATS tab */}
       {activeTab === "stats" && (
-        <StatsView teamId={teamId} squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule} myId={myId} stats={stats} />
+        <StatsView teamId={teamId} squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule} myId={myId} stats={stats} adminToken={adminToken} />
       )}
 
       {/* HISTORY tab */}

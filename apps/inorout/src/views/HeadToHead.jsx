@@ -156,7 +156,7 @@ function SkeletonBars() {
   );
 }
 
-export default function HeadToHead({ me, them, teamId, tableData, onClose, initialPeriod = 'season' }) {
+export default function HeadToHead({ me, them, teamId, adminToken = null, tableData, onClose, initialPeriod = 'season' }) {
   const [period,         setPeriod]         = useState(initialPeriod);
   const [h2hData,        setH2hData]        = useState(null);
   const [loading,        setLoading]        = useState(true);
@@ -167,7 +167,7 @@ export default function HeadToHead({ me, them, teamId, tableData, onClose, initi
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const result = await getHeadToHead(me.id, them.id, teamId, period);
+      const result = await getHeadToHead(me.id, them.id, teamId, period, adminToken);
       if (!cancelled) {
         setH2hData(result);
         setLoading(false);

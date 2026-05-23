@@ -895,7 +895,7 @@ export default function App() {
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
       {view==="player"  && (
-        <PlayerView  {...sharedProps} myId={myId} teamId={teamId}
+        <PlayerView  {...sharedProps} myId={myId} teamId={teamId} adminToken={isAdmin ? (route.token || "admin_demo") : null}
           onMidFlowChange={setIsActionBlocked}
           isAdmin={isAdmin || isViceCaptain} onGoAdmin={() => setView("admin")}
           matchHistory={matchHistory} bibHistory={bibHistory}
@@ -910,7 +910,8 @@ export default function App() {
         settings={settings}
         schedule={schedule}
         myId={myId}
-        stats={statsRaw}/>}
+        stats={statsRaw}
+        adminToken={isAdmin ? (route.token || "admin_demo") : null}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule}/>}
       {view==="admin"   && (isAdmin || isViceCaptain) && (
         <AdminView
