@@ -25,6 +25,8 @@ if (typeof document !== "undefined" && !document.getElementById("io-intel-styles
 const UNLOCK_STEPS = [
   { at:2,  name:"Win Rate"                  },
   { at:3,  name:"Current Run"               },
+  { at:4,  name:"Most Faced Opponent"       },
+  { at:5,  name:"Reliability Ranking"       },
   { at:6,  name:"Most Played With"          },
   { at:7,  name:"Team Impact"               },
   { at:8,  name:"Nemesis + Best Partnership"},
@@ -32,9 +34,11 @@ const UNLOCK_STEPS = [
 ];
 
 const INSIGHTS = [
-  { id:"winRate",         label:"Win Rate",           rgb:"232,160,32",  hex:"#E8A020", unlockAt:2,  dataKey:"winRate",         gradFrom:"rgba(232,160,32,0.18)",  gradTo:"rgba(232,160,32,0.06)"  },
-  { id:"currentRun",      label:"Current Run",        rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:3,  dataKey:"currentRun",      gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
-  { id:"mostPlayedWith",  label:"Most Played With",   rgb:"96,160,255",  hex:"#60A0FF", unlockAt:6,  dataKey:"mostPlayedWith",  gradFrom:"rgba(96,160,255,0.18)",  gradTo:"rgba(96,160,255,0.06)"  },
+  { id:"winRate",            label:"Win Rate",            rgb:"232,160,32",  hex:"#E8A020", unlockAt:2,  dataKey:"winRate",            gradFrom:"rgba(232,160,32,0.18)",  gradTo:"rgba(232,160,32,0.06)"  },
+  { id:"currentRun",         label:"Current Run",         rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:3,  dataKey:"currentRun",         gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
+  { id:"mostFacedOpponent",  label:"Most Faced Opponent", rgb:"255,176,32",  hex:"#FFB020", unlockAt:4,  dataKey:"mostFacedOpponent",  gradFrom:"rgba(255,176,32,0.18)",  gradTo:"rgba(255,176,32,0.06)"  },
+  { id:"reliabilityRanking", label:"Reliability Ranking", rgb:"96,200,255",  hex:"#60C8FF", unlockAt:5,  dataKey:"reliabilityRanking", gradFrom:"rgba(96,200,255,0.18)",  gradTo:"rgba(96,200,255,0.06)"  },
+  { id:"mostPlayedWith",     label:"Most Played With",    rgb:"96,160,255",  hex:"#60A0FF", unlockAt:6,  dataKey:"mostPlayedWith",     gradFrom:"rgba(96,160,255,0.18)",  gradTo:"rgba(96,160,255,0.06)"  },
   { id:"impact",          label:"Team Impact",        rgb:"176,96,240",  hex:"#B060F0", unlockAt:7,  dataKey:"impact",          gradFrom:"rgba(176,96,240,0.18)",  gradTo:"rgba(176,96,240,0.06)"  },
   { id:"nemesis",         label:"Nemesis",            rgb:"255,64,64",   hex:"#FF4040", unlockAt:8,  dataKey:"nemesis",         gradFrom:"rgba(255,64,64,0.18)",   gradTo:"rgba(255,64,64,0.06)"   },
   { id:"bestPartnership", label:"Best Partnership",   rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:8,  dataKey:"bestPartnership", gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
@@ -287,7 +291,7 @@ function StatsRow({ player, stats }) {
 }
 
 // ── Insight card (unlocked) ───────────────────────────────────────────────────
-function InsightCard({ insight, data, gamesPlayed }) {
+function InsightCard({ insight, data, gamesPlayed, playerId }) {
   let { id, label, rgb, hex, gradFrom, gradTo, unlockAt } = insight;
 
   // Current Run uses dynamic colour based on run type
@@ -370,6 +374,38 @@ function InsightCard({ insight, data, gamesPlayed }) {
     body = data.diff !== null
       ? <><em>{data.withRate}%</em> with you vs <em>{data.withoutRate}%</em> without</>
       : "More data needed";
+  } else if (id === "mostFacedOpponent" && data) {
+    const top = Array.isArray(data) ? data[0] : null;
+    badgeContent = top ? (
+      <>
+        <text x="27" y="30" textAnchor="middle" fontSize="11" fontWeight="700" fill="white" fontFamily="Bebas Neue,sans-serif">{top.games}</text>
+        <text x="27" y="42" textAnchor="middle" fontSize="5.5" fill={`${hex}cc`} fontFamily="DM Sans,sans-serif" letterSpacing="0.5">FACED</text>
+      </>
+    ) : (
+      <text x="27" y="36" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.5)" fontFamily="DM Sans,sans-serif">—</text>
+    );
+    title = top ? `${top.nickname || top.name}` : "Most Faced Opponent";
+    body = top ? <>Lined up against <em>{top.games} times</em></> : "Not enough data yet";
+    avatars = data;
+  } else if (id === "reliabilityRanking" && data) {
+    const list = Array.isArray(data) ? data : [];
+    const yourRank = list.findIndex(r => r.playerId === playerId) + 1;
+    const top = list[0] || null;
+    badgeContent = top ? (
+      <>
+        <text x="27" y="30" textAnchor="middle" fontSize="11" fontWeight="700" fill="white" fontFamily="Bebas Neue,sans-serif">{top.reliability}%</text>
+        <text x="27" y="42" textAnchor="middle" fontSize="5.5" fill={`${hex}cc`} fontFamily="DM Sans,sans-serif" letterSpacing="0.5">TOP</text>
+      </>
+    ) : (
+      <text x="27" y="36" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.5)" fontFamily="DM Sans,sans-serif">—</text>
+    );
+    title = top ? `${top.nickname || top.name}` : "Reliability Ranking";
+    body = top
+      ? (yourRank > 0
+          ? <>Most reliable in squad · you're <em>#{yourRank}</em></>
+          : <>Most reliable in squad ({top.reliability}%)</>)
+      : "Not enough data yet";
+    avatars = list.slice(0, 3);
   } else if (id === "mostPlayedWith" && data) {
     const top = Array.isArray(data) ? data[0] : null;
     badgeContent = top ? (
@@ -477,6 +513,7 @@ function InsightsGrid({ stats, gamesPlayed, playerId }) {
             insight={ins}
             data={stats?.[ins.dataKey]}
             gamesPlayed={gamesPlayed}
+            playerId={playerId}
           />
         ))}
       </div>

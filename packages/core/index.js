@@ -10,6 +10,7 @@ export * from "./engine/payments.js";
 export * from "./engine/squad.js";
 export * from "./engine/scoring.js";
 export * from "./engine/groupBalancer.js";
+export * from "./engine/deeperIntel.js";
 export { storage } from "./storage/localStorage.js";
 export {
   resolveBibHolder,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { colors as C } from "@platform/core";
+import { colors as C, computeDeeperIntel } from "@platform/core";
 import { supabase } from "@platform/supabase";
 import {
   getPlayers,
@@ -205,6 +205,8 @@ function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
     ([pid, form]) => ({ player_id: pid, form: [...form].reverse() })
   );
 
+  const intel = computeDeeperIntel(playerId, squad, matches);
+
   return {
     matchStats:  { games: attended, goals, motm: potm, wins, losses, draws, attended, bibs: 0 },
     winRate:     { played: attended, wins, draws, losses, winRate },
@@ -213,6 +215,7 @@ function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
     leagueRaw:   [],
     lastMatchMeta,
     playerForm,
+    ...intel,
   };
 }
 
@@ -427,7 +430,10 @@ export default function App() {
           setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
           setSettingsRaw(state.settings || DEFAULT_SETTINGS);
           setCoverPoolRaw(state.coverPool);
-          setStatsRaw(state.stats || null);
+          {
+            const intel = computeDeeperIntel(player.id, [player, ...state.squad], state.matches);
+            setStatsRaw({ ...(state.stats || {}), ...intel });
+          }
           setLoading(false);
           return;
         }
@@ -532,7 +538,8 @@ export default function App() {
               const state = await getTeamStateByPlayerToken(route.token);
               if (state && state.player) {
                 setSquadRaw([state.player, ...state.squad]);
-                setStatsRaw(state.stats || null);
+                const intel = computeDeeperIntel(state.player.id, [state.player, ...state.squad], state.matches || []);
+                setStatsRaw({ ...(state.stats || {}), ...intel });
               }
             } else if (route?.type === "admin" || route?.type === "demoadmin") {
               const adminTok = route.type === "demoadmin" ? "admin_demo" : route.token;
