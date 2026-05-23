@@ -1514,17 +1514,19 @@ export default function TeamsScreen({
         </div>
       )}
 
-      {/* BUILD TEAMS — contextual gold CTA. Appears only when admin has
-          edited groups since the last algorithm run and the SMART panel is
-          open. Tapping runs the algorithm against the current groups and
-          the live board updates. Auto-dismisses on success. */}
-      {smartTeamsRevealed && groupsDirty && inPlayersForGroups.length >= 4 && (
+      {/* BUILD TEAMS / REGENERATE — always visible when SMART panel is
+          open with enough players. Gold prominent CTA when groups are
+          dirty (changes to apply); secondary outlined "regenerate" when
+          groups are clean and admin just wants a fresh random shuffle. */}
+      {smartTeamsRevealed && inPlayersForGroups.length >= 4 && (
         <button
           onClick={handleGenerate}
           style={{
             width: "100%", height: 48, borderRadius: "var(--rs)",
-            background: "var(--gold)", color: "var(--bg)",
-            border: "none", cursor: "pointer",
+            background: groupsDirty ? "var(--gold)" : "transparent",
+            color: groupsDirty ? "var(--bg)" : "var(--gold)",
+            border: groupsDirty ? "none" : "0.5px solid var(--goldb)",
+            cursor: "pointer",
             fontFamily: "'Bebas Neue', sans-serif",
             fontSize: 16, letterSpacing: "0.08em",
             marginTop: 4, marginBottom: 16,
@@ -1538,7 +1540,7 @@ export default function TeamsScreen({
           >
             <Shuffle size={16} weight="thin" />
           </motion.div>
-          BUILD TEAMS
+          {groupsDirty ? "BUILD TEAMS" : "REGENERATE TEAMS"}
         </button>
       )}
 
