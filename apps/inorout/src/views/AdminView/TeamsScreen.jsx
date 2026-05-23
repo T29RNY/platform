@@ -507,6 +507,12 @@ export default function TeamsScreen({
       setAssignments(built);
       setTeamsConfirmed(true);
       teamsConfirmedRef.current = true;
+      // Block auto-Smart from clobbering the hydrated confirmed lineup.
+      // Otherwise auto-Smart reads stale empty `assignments` from its
+      // closure on the same commit cycle, decides "nothing assigned",
+      // runs the algorithm, and silently flips teamsConfirmed back to
+      // false on next mount.
+      hasAutoFiredRef.current = true;
     }
     hasHydrated.current = true;
   }, [matchId]); // eslint-disable-line react-hooks/exhaustive-deps
