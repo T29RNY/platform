@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 23 2026 (session 33 — Gaffer Phase 1 context RPCs)*
+*Last updated: May 23 2026 (session 35 — player self-profile reads + self-destructive RPCs)*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -28,6 +28,10 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | `set_player_injured` | `insertPlayerInjury(token, injured)` | anon | Writes player_injuries row |
 | `add_guest_player` | `addGuestPlayer(hostToken, guestName)` | anon | Creates guest player row |
 | `save_push_subscription` | `savePushSubscription(token, sub)` | anon | Upserts push_subscriptions |
+| `get_my_payment_history` | `getMyPaymentHistory(token, limit?)` | anon | Player-side read of own payment_ledger. Mirrors `admin_get_player_ledger` shape; client uses `dbToLedger` for camelCase. Migration 039. |
+| `get_my_injuries` | `getMyInjuries(token)` | anon | Player-side read of own player_injuries on the team the token belongs to. Migration 039. |
+| `leave_squad` | `leaveSquad(token)` | anon | Soft remove from this team. Detaches team_players + push_subscriptions; player row + history preserved. Refuses with `debt_owed:<amount>` if owes > 0. Audit + notify_team_change. Migration 040. |
+| `delete_my_account` | `deleteMyAccount(token)` (calls `/api/delete-account`) | anon | Anonymises players row (name → "Deleted player", token/user_id/nickname cleared, disabled+reason set) — preserves FKs from player_match / payment_ledger / player_injuries / potm_votes. Detaches all team_players. Deletes push_subscriptions + player_career. Revokes admin grants. Returns `auth_user_id`; edge function (`apps/inorout/api/delete-account.js`) calls `supabase.auth.admin.deleteUser` to finish. Refuses with `last_admin:<csv of team_ids>` if the user is the only non-revoked admin of any team. Audit per team. Migration 040. |
 
 ---
 
@@ -151,6 +155,8 @@ Auth via `p_admin_token`; anon grant is fine because the token is the auth signa
 | 036 | gaffer_get_context_attendance_risk — Phase 1 surface RPC. |
 | 037 | gaffer_get_context_matchday_briefing — Phase 1 surface RPC. |
 | 038 | players.admin_locked_in column + REPLACES admin_set_player_status (lock + cap), set_player_status (lock + cap), get_team_state_by_admin_token (includes admin_locked_in in squad rows). |
+| 039 | `get_my_payment_history(p_token, p_limit)` + `get_my_injuries(p_token)` — Player-token-authed reads for the new player-facing PlayerProfile screen. Both SECURITY DEFINER; derive (player_id, team_id) from players.token via team_players join. GRANT to anon+authenticated. |
+| 040 | `leave_squad(p_token)` + `delete_my_account(p_token)` — Player-token-authed destructive RPCs (self-leave + self-delete). leave_squad detaches team_players + push_subscriptions only; refuses with debt_owed. delete_my_account anonymises players row + detaches all teams; refuses with last_admin guard; returns auth_user_id for edge function follow-up. |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.

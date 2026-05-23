@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 23 2026 (session 34 — Manage Squad redesign + admin manual status with lock/cap/injury gates)*
+*Last updated: May 23 2026 (session 35 — AdminView polish wave + unified PlayerProfile + self-leave/delete)*
 
 ---
 
@@ -46,6 +46,13 @@
 | Manage Squad redesign | ✅ | Modern card-row, status-ring avatars, inline rename, per-row icon toggles, overflow ⋯ menu, filter chips, stagger fades — session 34 |
 | Guest-only add bar | ✅ | Regulars self-onboard via invite link; admin add bar is now single-line guest-only — session 34 |
 | Admin manual status (in/out/maybe/reserve) | ✅ | Status pills inside ⋯ menu; sets admin_locked_in so player can self-decline but not self-restore IN; server-side squad-cap gate on both admin and player paths; injury-override confirm modal. Migration 038. — session 34 |
+| AdminView/index.jsx extraction | ✅ | PlayerProfile, POTMTiebreakModal, AnnounceModal split into own files; 1,544 → 976 LOC. Latent pendingTiebreak ReferenceError fixed in flight. — session 35 |
+| PaymentsScreen redesign | ✅ | Inline £X PAY pill (1-tap mark paid), ⋯ overflow menu (Reset/Waive/Open Ledger), status-ring avatars, section glow, glass cards, pop-flash on just-paid, stagger fade-in. Backend untouched. — session 35 |
+| ScheduleScreen + TeamsScreen polish | ✅ | Glass form sections, gold-glow titles, hardcoded radii (8/10/12/20) replaced with token vars. No interaction change. — session 35 |
+| Player self-profile screen | ✅ | New unified PlayerProfile.jsx. Avatar overlay top-left on PageHeader (also recentred IN OR OUT logo). Three lazy-load sections: Stats / Payment History / Injuries. Migration 039 (get_my_payment_history + get_my_injuries). — session 35 (PROFILE_SCOPE A) |
+| Leave squad (self) | ✅ | Two-tap confirm. Refuses with `debt_owed:<amount>` if owes > 0. Detaches team_players + push_subscriptions; preserves player row + history. Migration 040 (leave_squad RPC). — session 35 (PROFILE_SCOPE B) |
+| Delete account (self) | ✅ | Typed-DELETE modal. Anonymises players row (name → "Deleted player") preserving FKs; detaches all teams; deletes push_subscriptions + player_career; revokes admin grants; calls auth.admin.deleteUser via /api/delete-account edge function. Refuses with `last_admin:<csv>` if user is sole admin of any team. Migration 040 (delete_my_account RPC). — session 35 (PROFILE_SCOPE B) |
+| PlayerProfile admin mode merge | ✅ | Single file serves both modes behind isAdminView prop. Admin mode adds "Admin view" pill, branched RPCs (admin paths), ROLES with VC toggle, Admin Actions card (Rename/Copy/Reset link/Mark injury), Remove from squad with has_history guard surfaced. AdminView/PlayerProfile.jsx (374 LOC) deleted. — session 35 (PROFILE_SCOPE C) |
 
 ---
 

@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 23 2026 (session 32 — IO deeper-intel rewire + 2 new cards; +B5 cross-browser install breadcrumb follow-up)*
+*Last updated: May 23 2026 (session 35 — +B6 PlayerView direct matches read 401)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -54,6 +54,19 @@ who tap Install in Chrome after joining are fine.
 falling through. Or: include the token in the PWA `start_url` per-install (requires
 a server-rendered manifest). Either approach moves persistence off the client and
 survives browser handoffs.
+
+### 6. PlayerView direct `matches` table read 401s on every page load
+**File:** `apps/inorout/src/views/PlayerView.jsx`
+**Detail:** Every page load logs
+`Failed to load resource: 401 @ /rest/v1/matches?select=id,match_date,score_type&team_id=eq.team_demo&cancelled=neq.true`.
+A leftover direct `supabase.from('matches')` read from before the post-session-24
+RLS lockdown. Reads should go through an RPC. No user-visible impact —
+the rest of the view loads fine — but every load wastes a request and
+clutters the console (false-positive noise for real errors).
+**Found:** session 35 verify pass via Playwright console logs.
+**Fix:** Either extend `get_team_state_by_player_token` to include the
+matches data PlayerView needs, or stand up a small read RPC mirroring the
+query shape and replace the direct `from()` call.
 
 ---
 

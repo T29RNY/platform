@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: May 23 2026 (session 32)*
+*Last updated: May 23 2026 (session 35 — player self-profile + leave/delete semantics)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -48,6 +48,63 @@ Read this before building new features to avoid re-litigating settled questions.
   UI does not show a lock badge — server rejects with a clear error if they
   try, surfaced via the existing error-toast pipe. Minimal scope; revisit if
   the rejection error proves confusing in practice.
+
+## PLAYER PROFILE & SELF-SERVICE ACCOUNT ACTIONS (session 35, migrations 039–040)
+
+- **One PlayerProfile file serves both contexts.** `isAdminView` prop switches
+  mode. Player mode is the default; admin mode is a graft (extra sections +
+  branched RPC paths, destructive zone swap). Rationale: the screen scaffold
+  (sticky header, identity, Stats/Payment/Injuries sections) is identical
+  across both — two files diverged on accident, not on purpose, and any
+  future improvement had to be made twice.
+- **Player-facing profile entry is a top-left avatar overlay on PageHeader.**
+  Universal pattern (Instagram, WhatsApp, Discord). Doesn't push other
+  content down — overlays absolute-positioned, IN OR OUT logo recentred via
+  negative `marginLeft` to compensate. Avatar only renders when both `me`
+  and `onAvatarTap` are passed, so the admin's PageHeader is unaffected.
+- **Payment History accordion moved out of MY VIEW into Profile.** MY VIEW
+  keeps current-week live payment state (Pay buttons, debt clear) in the
+  response card. Historical ledger is reference data and belongs in Profile.
+  Same UI pattern, just relocated; ~80 lines off PlayerView.
+- **Leave squad ≠ Delete account.** Two distinct affordances:
+  - **Leave squad** = soft remove from this team only. Player row + history
+    (player_match, payment_ledger, player_injuries, potm_votes) preserved.
+    Player can rejoin via invite link. Auth account untouched. UI: two-tap
+    confirm with 4s reset window.
+  - **Delete account** = hard nuke of the auth account, but FK-preserving on
+    historical data. Players row is anonymised (name → "Deleted player",
+    token/user_id/nickname cleared, disabled=true, disable_reason set), then
+    detached from all teams. push_subscriptions + player_career deleted.
+    Admin grants revoked. Edge function (`/api/delete-account`) calls
+    `supabase.auth.admin.deleteUser` after the RPC. UI: glass modal with
+    typed-DELETE guard.
+- **Anonymise rather than delete on hard-delete.** Historical FKs (POTM
+  votes, goal scorers, attended counts on past matches) stay intact so team
+  records aren't corrupted, but identifiers are scrubbed for the GDPR-style
+  "right to be forgotten" intent. Players row remains because deleting it
+  would cascade-break per-match attendance, scorer lists, and POTM history
+  that other team members still need to see.
+- **Leave squad is debt-blocked, not attendance-blocked.** Refuses with
+  `debt_owed:<amount>` if `owes > 0`. Anyone can leave once they've settled
+  — even with attendance history. Different from admin's `admin_delete_player`
+  which has the stricter `has_history` guard (forces admin to use Disable
+  instead). The asymmetry is deliberate: admins shouldn't lose someone's
+  history accidentally; players asking to leave have made an explicit
+  decision and shouldn't be trapped.
+- **Last-admin guard on delete_my_account.** Refuses with `last_admin:<csv>`
+  (list of blocking team_ids) if the user is the only non-revoked admin of
+  any team. Forces handover first to avoid orphaning a team. Same pattern
+  Discord/Slack use for server ownership.
+- **Token resolution for player RPCs goes through team_players join.** All
+  four new RPCs (`get_my_payment_history`, `get_my_injuries`, `leave_squad`,
+  `delete_my_account`) resolve `(player_id, team_id)` from `players.token`
+  via team_players, mirroring the established `set_player_injured` pattern.
+  Grants: `anon` + `authenticated` because `/p/TOKEN` runs unauthenticated.
+- **VC toggle stays inside PlayerProfile (admin mode only).** Considered
+  moving to a Roles section in Match Settings, but kept here because it's
+  a per-player decision admins reach via the squad row → profile drilldown
+  flow they already know. Standalone Roles area is a Phase 2+ consideration
+  if multi-VC patterns emerge.
 
 ## PAYMENTS
 
