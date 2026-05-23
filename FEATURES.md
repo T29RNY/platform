@@ -87,7 +87,7 @@
 | **Admin home polish** | ✅ Session 31 — cancel-then-relive bug fixed via new `admin_reopen_week` RPC (creates fresh match, cancelled stays in history). Game-live toggle: "Make this week's game live" when off; collapses to a "LIVE" badge when on (no toggle, admin uses Cancel This Week). This Week tiles moved up to immediately after the toggle. Notifications block removed from Match Settings (duplicate of Notifications tab, demo confusion). |
 | **Player status tile rework** | ✅ Session 31 — weekday now derives from admin-configured `dayOfWeek` first (was deriving wrong day from drifted `gameDateTime`). Locked-in banner slide-fades after 5s. Pre-response prompt nudges with "Tap below ↓"; collapses to date+kickoff after response. Status row pulses gold while unresponded; flashes status-matched colour on tap (in→green, out→red, maybe→amber, reserve→purple). Haptic tap-tick (Android only — iOS Safari no-ops). Banners suppressed on page refresh. |
 | **Smart Teams** (internal: Group Balancer) | ✅ Built + live session 30 (May 22). Schema + 2 new RPCs (`admin_set_player_group`, `admin_clear_all_groups`) + 3 modified RPCs applied via migration `031_group_balancer_stage_1b`. Pure algorithm `packages/core/engine/groupBalancer.js` (sample-200 for big groups, lower-headcount odd-extra rule, win-rate-nudged splits within 5% noise floor). UI: tap-to-move panels, inline labels, IO Prediction card, Needs Group amber banner, ADD/× empty panels (panel persists once populated — × dismisses only when empty). HistoryView prediction chip (null-safe, forward-only). Replaces Fisher-Yates; no feature flag — always on. PostHog `posthog.group('team', teamId)` identification added (enables per-team analytics + future flag targeting). Deferred to Phase 2: `teams_draft` group snapshot (predicted_winner is already saved at confirm so the accuracy stat works without it). |
-| **Ask the Gaffer — Phase 1** | Read-only AI assistant: team summary, payment summary, attendance risk, suggested next actions, matchday briefing. See "Ask the Gaffer" section below. |
+| **Ask the Gaffer — Phase 1 (AI agent layer)** | First production phase of the platform's AI agent layer — not a chatbot. Grounded football-operations agent (every output backed by a Supabase query, never invents facts). Phase 1 surfaces: team summary, payment summary, attendance risk, matchday briefing, Q&A panel. Provider locked in (Vercel AI Gateway → Anthropic `claude-sonnet-4-6`); data-access pattern locked in (`gaffer_get_context_*` RPCs + `ai_briefings` audit table); awaiting AI Gateway credits / Anthropic key signup before live build. Full spec: `GAFFER.md`. |
 | **Marketing landing page** | Conditional render at root (Option A) for beta — unauth + no token → landing, else app shell. See DECISIONS.md. |
 
 ---
@@ -122,21 +122,31 @@ See full spec in `CONTEXT.md` (League Mode section) and `DECISIONS.md`.
 
 ---
 
-## ASK THE GAFFER — AI football-operations agent
+## ASK THE GAFFER — AI AGENT LAYER
 
-Repurposes the disabled Gaffer tab in AdminView as a football-operations agent
-grounded in the team's actual data. **Not a generic chatbot.** Four-phase
-trust-graduated rollout. See DECISIONS.md for the rationale.
+**This is the platform's AI agent layer, not a chatbot.** Grounded
+football-operations agent. Every output backed by a Supabase query
+(`context_snapshot` jsonb on every `ai_briefings` row). LLM narrates and
+patterns — it never invents facts. Four-phase trust-graduated rollout.
+Full spec lives in `GAFFER.md` — read that before any Gaffer work.
+
+**Provider + data-access pattern (locked in):**
+- LLM: Vercel AI Gateway → Anthropic `claude-sonnet-4-6`
+- Context: per-surface `gaffer_get_context_*` RPCs (SECURITY DEFINER)
+- Runtime: Vercel edge function `apps/inorout/api/gaffer.js`
+- Audit: `ai_briefings` table — every output row links to its context snapshot
+- Cost: ~£0.004 per briefing, £20/month covers ~5000 briefings
+
+**Sequencing:** Phase 1 lands after Group Balancer (done s30). Group
+Balancer's `generateBalancedTeams` becomes a building block for Phase 2
+fair-team suggestions.
 
 | Phase | Capability | Status |
 |---|---|---|
-| 1 — Read-only assistant | Ask the Gaffer Q&A, team summary, payment summary, attendance risk, suggested next actions, matchday briefing | 🔲 Not built (Phase 2 backlog) |
-| 2 — Recommendations | Fair team suggestions (calls `generateBalancedTeams`), reserve recs, payment chase drafts, weekly match summary, player insight explanations | 🔲 Not built (Phase 3) |
-| 3 — Confirmed actions | "Send chase", "Notify reserves", "Use these teams", "Post match summary", "Confirm payment reminders" — admin one-tap approve | 🔲 Not built (Phase 3) |
-| 4 — Semi-autonomous | Auto-detect short squads, auto-draft notifications, auto-suggest reserve pings, auto-produce weekly admin report. Player-visible actions still require approval. | 🔲 Not built (Phase 3) |
-
-Sequencing: Phase 1 lands after Group Balancer (Group Balancer's
-`generateBalancedTeams` becomes a building block for Gaffer Phase 2).
+| 1 — Read-only assistant | Q&A panel, team summary, payment summary, attendance risk, matchday briefing | 🔲 Spec locked, build blocked on AI Gateway credits / Anthropic key signup |
+| 2 — Recommendations | Fair team suggestions, reserve recs, payment chase drafts, weekly match summary, player insight explanations | 🔲 Not built |
+| 3 — Confirmed actions | "Send chase", "Notify reserves", "Use these teams", "Post match summary", "Confirm payment reminders" — admin one-tap approve, all via existing SECURITY DEFINER RPCs | 🔲 Not built |
+| 4 — Semi-autonomous | Auto-detect short squads, auto-draft notifications, auto-suggest reserve pings, auto-produce weekly admin report. Player-visible actions still require approval (hard rule). | 🔲 Not built |
 
 ---
 

@@ -72,7 +72,7 @@ platform/
           PlayerLeagueTable.jsx ← period selector, ranked/unranked, form chips
           HistoryView.jsx    ← Results screen; score_type + last_goal_scorer display
           Gaffer/
-            index.jsx        ← Ask the Gaffer chatbot (disabled — ENABLE_GAFFER=false)
+            index.jsx        ← Ask the Gaffer AI agent layer scaffold (disabled — ENABLE_GAFFER=false; full spec in GAFFER.md)
             systemPrompt.js
           POTMVotingModal.jsx
           HeadToHead.jsx     ← 5 sections; period selector; chemistry 5-verdict system

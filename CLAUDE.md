@@ -6,7 +6,8 @@ for this codebase. Do not violate without explicit instruction.
 
 For schema see `SCHEMA.md`, RPCs see `RPCS.md`, bugs see `BUGS.md`,
 decisions see `DECISIONS.md`, features see `FEATURES.md`,
-IO spec see `IO_INTELLIGENCE.md`, session history see `CONTEXT.md`.
+IO spec see `IO_INTELLIGENCE.md`, Ask the Gaffer / AI agent layer see
+`GAFFER.md`, session history see `CONTEXT.md`.
 For methodology rationale see `CODING_SKILL.md`.
 This file is the operating contract.
 
@@ -423,6 +424,11 @@ Apply SQL before writing any JS wrapper.
 **IO Intelligence work only:**
 - `IO_INTELLIGENCE.md` — full IO spec, hook structure, edge cases, H2H detail
 
+**Ask the Gaffer / AI agent layer work only:**
+- `GAFFER.md` — positioning, architecture, provider (Vercel AI Gateway → Anthropic Sonnet 4.6),
+  data-access pattern (`gaffer_get_context_*` RPCs + `ai_briefings` audit table),
+  four-phase rollout, surface specs, shared system prompt
+
 **Historical reference (session archive):**
 - `CONTEXT.md` — infrastructure, key tokens, demo env, session notes 1–28
 
@@ -436,6 +442,7 @@ Apply SQL before writing any JS wrapper.
 - `DECISIONS.md` — key decisions log.
 - `FEATURES.md` — phase tracker and IO unlock grid.
 - `IO_INTELLIGENCE.md` — IO spec. Read only for IO work.
+- `GAFFER.md` — AI agent layer spec. Read only for Gaffer work.
 - `CONTEXT.md` — infrastructure, tokens, session history.
 - `CODING_SKILL.md` — full methodology rationale and examples
 - `packages/core/storage/supabase.js` — every Supabase call.
