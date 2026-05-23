@@ -9,7 +9,7 @@ import {
 import {
   UsersThree, Star, Shield, LinkSimple, Copy, Plus, Check,
   MagnifyingGlass, DotsThreeVertical, PencilSimple, X,
-  ArrowsClockwise, Trash, FirstAid, CaretDown, ShieldCheck,
+  ArrowsClockwise, Trash, FirstAid, ShieldCheck,
 } from "@phosphor-icons/react";
 
 /* ---------- helpers ---------- */
@@ -35,12 +35,9 @@ export default function SquadScreen({
   squad, setSquad, teamId, adminToken = null,
   isViceCaptain = false, onBack, me = null, onPlayerTap,
 }) {
-  /* ---- add form ---- */
-  const [name,       setName]       = useState("");
-  const [type,       setType]       = useState("regular");
-  const [priority,   setPriority]   = useState(false);
-  const [optsOpen,   setOptsOpen]   = useState(false);
-  const [addLoading, setAddLoading] = useState(false);
+  /* ---- add form (guest-only; regulars self-onboard via invite link) ---- */
+  const [name,        setName]        = useState("");
+  const [addLoading,  setAddLoading]  = useState(false);
   const [justAddedId, setJustAddedId] = useState(null);
 
   /* ---- filtering ---- */
@@ -96,18 +93,15 @@ export default function SquadScreen({
     const trimmed = name.trim();
     if (!trimmed || addLoading) return;
     setAddLoading(true);
-    setName(""); setOptsOpen(false);
-    const snapType = type;
-    const snapPri  = priority;
-    setType("regular"); setPriority(false);
+    setName("");
     try {
-      const player = await addPlayerToTeam(adminToken, trimmed, snapType, snapPri);
+      const player = await addPlayerToTeam(adminToken, trimmed, "guest", false);
       setSquad(prev => [...prev, player]);
       setJustAddedId(player.id);
       nameInputRef.current?.focus();
     } catch {
-      setErrorToast("Could not add player");
-      setName(trimmed); setType(snapType); setPriority(snapPri);
+      setErrorToast("Could not add guest");
+      setName(trimmed);
     } finally {
       setAddLoading(false);
     }
@@ -315,7 +309,7 @@ export default function SquadScreen({
             fontFamily: "'DM Sans', sans-serif", fontWeight: 400, fontSize: 12,
             color: "var(--t2)", margin: "6px 0 0",
           }}>
-            One tap to add, rename, or update any player.
+            Regulars join via the link below. Add one-off guests inline.
           </p>
         </div>
         <div style={{
@@ -336,137 +330,86 @@ export default function SquadScreen({
         </div>
       </div>
 
-      {/* Add bar */}
-      <div style={{
-        background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
-        borderRadius: "var(--r)", padding: 12, marginBottom: 10,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
-            ref={nameInputRef}
-            className="ms-input"
-            type="text"
-            placeholder="Add a player…"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
-            style={{
-              flex: 1, background: "transparent", border: "none",
-              fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: "var(--t1)",
-              padding: "8px 4px",
-            }}
-          />
-          {!optsOpen && (
-            <button
-              onClick={() => setOptsOpen(true)}
-              className="ms-iconbtn"
-              aria-label="More options"
-              style={{
-                background: "transparent", border: "none", cursor: "pointer",
-                color: "var(--t2)", display: "flex", alignItems: "center", padding: 6,
-              }}
-            >
-              <CaretDown size={16} weight="thin" />
-            </button>
-          )}
-          <button
-            onClick={handleAdd}
-            disabled={!name.trim() || addLoading}
-            className="ms-iconbtn"
-            aria-label="Add player"
-            style={{
-              width: 36, height: 36, borderRadius: 10,
-              border: name.trim() ? "0.5px solid var(--greenb)" : "0.5px solid var(--s3)",
-              background: name.trim() ? "var(--green2)" : "var(--s3)",
-              color: name.trim() ? "var(--green)" : "var(--t2)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: name.trim() && !addLoading ? "pointer" : "default",
-              boxShadow: name.trim() ? "0 0 12px rgba(61,220,106,0.20)" : "none",
-            }}
-          >
-            <Plus size={16} weight="thin" />
-          </button>
-        </div>
-
-        {optsOpen && (
-          <div className="ms-opts" style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            {[{ id: "regular", label: "REGULAR" }, { id: "guest", label: "GUEST" }].map(opt => {
-              const active = type === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => setType(opt.id)}
-                  className="ms-chip"
-                  style={{
-                    background: active ? "var(--gold2)" : "transparent",
-                    border: `0.5px solid ${active ? "var(--goldb)" : "var(--s3)"}`,
-                    color: active ? "var(--gold)" : "var(--t2)",
-                    borderRadius: 999, padding: "4px 12px",
-                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
-                    letterSpacing: "0.08em", cursor: "pointer",
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-            <button
-              onClick={() => setPriority(p => !p)}
-              className="ms-chip ms-iconbtn"
-              aria-label="Priority"
-              style={{
-                background: priority ? "var(--gold2)" : "transparent",
-                border: `0.5px solid ${priority ? "var(--goldb)" : "var(--s3)"}`,
-                borderRadius: 999, padding: "4px 8px",
-                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4,
-                color: priority ? "var(--gold)" : "var(--t2)",
-                fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.08em",
-              }}
-            >
-              <Star size={12} weight="thin" />
-              PRIORITY
-            </button>
-            <div style={{ flex: 1 }} />
-            <button
-              onClick={() => setOptsOpen(false)}
-              style={{
-                background: "transparent", border: "none", color: "var(--t2)",
-                cursor: "pointer", padding: 4, display: "flex", alignItems: "center",
-              }}
-              aria-label="Close options"
-            >
-              <X size={14} weight="thin" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Invite link */}
+      {/* Invite link — primary path for regulars to join themselves */}
       {teamId && (
         <div
           onClick={handleCopyJoin}
           style={{
             cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
             background: copied ? "var(--green2)" : "var(--s2)",
-            border: `0.5px solid ${copied ? "var(--greenb)" : "var(--border-subtle)"}`,
-            borderRadius: "var(--r)", padding: "10px 12px", marginBottom: 14,
-            boxShadow: copied ? "0 0 18px rgba(61,220,106,0.28)" : "none",
+            border: `0.5px solid ${copied ? "var(--greenb)" : "var(--greenb)"}`,
+            borderRadius: "var(--r)", padding: "12px 14px", marginBottom: 10,
+            boxShadow: copied ? "0 0 22px rgba(61,220,106,0.32)" : "0 0 14px rgba(61,220,106,0.10)",
             transition: "all 0.25s ease",
           }}
         >
-          <LinkSimple size={14} color={copied ? "var(--green)" : "var(--t2)"} weight="thin" />
-          <span style={{
-            flex: 1, fontFamily: "'DM Sans', sans-serif", fontSize: 12,
-            color: copied ? "var(--green)" : "var(--t2)",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>
-            {copied ? "Invite link copied" : `in-or-out.com/join/${teamId}`}
-          </span>
+          <LinkSimple size={16} color="var(--green)" weight="thin" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.1em",
+              color: "var(--green)", marginBottom: 1,
+            }}>
+              PLAYER INVITE LINK
+            </div>
+            <div style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: 12,
+              color: copied ? "var(--green)" : "var(--t2)",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              {copied ? "Copied to clipboard" : `in-or-out.com/join/${teamId}`}
+            </div>
+          </div>
           {copied
-            ? <Check size={14} color="var(--green)" weight="thin" />
-            : <Copy  size={14} color="var(--t2)"     weight="thin" />}
+            ? <Check size={16} color="var(--green)" weight="thin" />
+            : <Copy  size={16} color="var(--green)" weight="thin" />}
         </div>
       )}
+
+      {/* Add guest — secondary path for one-off players */}
+      <div style={{
+        background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
+        borderRadius: "var(--r)", padding: "10px 12px", marginBottom: 14,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 10, letterSpacing: "0.12em",
+            color: "var(--t2)", whiteSpace: "nowrap",
+          }}>
+            + GUEST
+          </span>
+          <input
+            ref={nameInputRef}
+            className="ms-input"
+            type="text"
+            placeholder="One-off player name…"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
+            style={{
+              flex: 1, background: "transparent", border: "none",
+              fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "var(--t1)",
+              padding: "6px 4px",
+            }}
+          />
+          <button
+            onClick={handleAdd}
+            disabled={!name.trim() || addLoading}
+            className="ms-iconbtn"
+            aria-label="Add guest"
+            style={{
+              width: 32, height: 32, borderRadius: 10,
+              border: name.trim() ? "0.5px solid var(--goldb)" : "0.5px solid var(--s3)",
+              background: name.trim() ? "var(--gold2)" : "var(--s3)",
+              color: name.trim() ? "var(--gold)" : "var(--t2)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: name.trim() && !addLoading ? "pointer" : "default",
+              boxShadow: name.trim() ? "0 0 10px rgba(232,160,32,0.20)" : "none",
+            }}
+          >
+            <Plus size={16} weight="thin" />
+          </button>
+        </div>
+      </div>
 
       {/* Filter chips */}
       <div style={{ display: "flex", gap: 6, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
