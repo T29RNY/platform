@@ -39,5 +39,6 @@ export {
   reopenWeek,
   getGafferBriefing,
   askGafferQuestion,
+  adminSetPlayerStatus,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

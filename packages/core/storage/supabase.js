@@ -212,6 +212,7 @@ function dbToPlayer(r) {
     nickname: r.nickname || null,
     userId: r.user_id || null,
     groupNumber: r.group_number ?? null,
+    adminLockedIn: r.admin_locked_in || false,
   };
 }
 
@@ -1428,6 +1429,19 @@ export async function adminSetPlayerPriority(adminToken, playerId, priority) {
     p_priority:    priority,
   });
   if (error) throw error;
+}
+
+// Admin sets a player's status (in/out/maybe/reserve/none). Setting 'in'
+// also flips admin_locked_in=true so the player can't self-restore IN until
+// admin sets them away from 'in'. RPC enforces squad-cap on 'in'.
+export async function adminSetPlayerStatus(adminToken, playerId, status) {
+  const { data, error } = await supabase.rpc('admin_set_player_status', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_status:      status,
+  });
+  if (error) throw error;
+  return data;
 }
 
 // ─── League table ─────────────────────────────────────────────────────────────

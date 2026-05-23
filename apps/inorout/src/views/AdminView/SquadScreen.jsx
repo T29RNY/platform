@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { addPlayerToTeam, toggleViceCaptain, disablePlayer } from "@platform/core";
+import { addPlayerToTeam, toggleViceCaptain, disablePlayer, adminSetPlayerStatus } from "@platform/core";
 import {
   insertPlayerInjury, clearPlayerInjury,
   deletePlayer as removePlayerFromDb,
@@ -9,7 +9,7 @@ import {
 import {
   UsersThree, Star, Shield, LinkSimple, Copy, Plus, Check,
   MagnifyingGlass, DotsThreeVertical, PencilSimple, X,
-  ArrowsClockwise, Trash, FirstAid, ShieldCheck,
+  ArrowsClockwise, Trash, FirstAid, ShieldCheck, Lock,
 } from "@phosphor-icons/react";
 
 /* ---------- helpers ---------- */
@@ -34,6 +34,7 @@ const FILTERS = [
 export default function SquadScreen({
   squad, setSquad, teamId, adminToken = null,
   isViceCaptain = false, onBack, me = null, onPlayerTap,
+  squadSize = 14,
 }) {
   /* ---- add form (guest-only; regulars self-onboard via invite link) ---- */
   const [name,        setName]        = useState("");
@@ -58,6 +59,7 @@ export default function SquadScreen({
   const [resetToken,    setResetToken]    = useState(null);  // { playerId, url }
   const [removeConfirm, setRemoveConfirm] = useState(null);  // { id, name }
   const [guestPrompt,   setGuestPrompt]   = useState(null);
+  const [injuryConfirm, setInjuryConfirm] = useState(null);  // { player, nextStatus }
 
   const nameInputRef = useRef(null);
   const editInputRef = useRef(null);
@@ -65,6 +67,7 @@ export default function SquadScreen({
 
   const joinUrl     = teamId ? `https://www.in-or-out.com/join/${teamId}` : "";
   const activeCount = squad.filter(p => !p.disabled).length;
+  const inCount     = squad.filter(p => p.status === "in" && !p.disabled).length;
   const showSearch  = squad.length >= 6;
 
   /* ---- toast timers ---- */
@@ -174,6 +177,48 @@ export default function SquadScreen({
       console.error(e);
       setSquad(prev => prev.map(x => x.id === p.id ? { ...x, disabled: p.disabled } : x));
       setErrorToast("Couldn't update player");
+    }
+  }
+
+  // ── Admin status setter (in/out/maybe/reserve) ────────────────
+  // Gates: cap on 'in', injury confirm on in/maybe/reserve.
+  async function handleSetStatus(p, nextStatus, { skipInjuryGuard = false } = {}) {
+    if (p.status === nextStatus) { setOpenMenuId(null); return; }
+
+    // Squad-cap gate (client; server also enforces)
+    if (nextStatus === "in" && p.status !== "in" && inCount >= squadSize) {
+      setErrorToast("Squad is full — remove someone first");
+      return;
+    }
+
+    // Injury gate: if player is injured and admin tries to set an active
+    // status, raise a confirm modal first.
+    if (
+      !skipInjuryGuard &&
+      p.injured &&
+      ["in", "maybe", "reserve"].includes(nextStatus)
+    ) {
+      setOpenMenuId(null);
+      setInjuryConfirm({ player: p, nextStatus });
+      return;
+    }
+
+    setOpenMenuId(null);
+    const prevStatus = p.status;
+    const prevLocked = p.adminLockedIn;
+    setSquad(prev => prev.map(x => x.id === p.id
+      ? { ...x, status: nextStatus, adminLockedIn: nextStatus === "in" }
+      : x));
+    try {
+      await adminSetPlayerStatus(adminToken, p.id, nextStatus);
+    } catch (e) {
+      console.error(e);
+      setSquad(prev => prev.map(x => x.id === p.id
+        ? { ...x, status: prevStatus, adminLockedIn: prevLocked }
+        : x));
+      const msg = String(e?.message || "");
+      if (msg.includes("squad_full")) setErrorToast("Squad is full — remove someone first");
+      else                            setErrorToast("Couldn't update status");
     }
   }
 
@@ -613,6 +658,7 @@ export default function SquadScreen({
                     )}
                     {isVC      && <Pill icon={<ShieldCheck size={9} weight="thin" color="#60A0FF" />} color="#60A0FF" border="rgba(96,160,255,0.4)" bg="rgba(96,160,255,0.12)">VC</Pill>}
                     {isPriority && <Pill icon={<Star size={9} weight="thin" color="var(--gold)" />} color="var(--gold)" border="var(--goldb)" bg="var(--gold2)">PRIORITY</Pill>}
+                    {p.adminLockedIn && <Pill icon={<Lock size={9} weight="thin" color="var(--green)" />} color="var(--green)" border="var(--greenb)" bg="var(--green2)">LOCKED IN</Pill>}
                     {p.disabled && <Pill color="var(--t2)" border="var(--s3)" bg="var(--s3)">DISABLED</Pill>}
                   </div>
                 </div>
@@ -678,8 +724,47 @@ export default function SquadScreen({
                           borderRadius: 12, padding: 6, minWidth: 180,
                           boxShadow: "0 12px 30px rgba(0,0,0,0.55)",
                           backdropFilter: "blur(12px)",
+                          minWidth: 220,
                         }}
                       >
+                        {/* Status row — admin override */}
+                        <div style={{
+                          display: "flex", gap: 4, padding: "4px 4px 6px",
+                          borderBottom: "0.5px solid var(--border-subtle)",
+                          marginBottom: 4,
+                        }}>
+                          {[
+                            { id: "in",      label: "IN",  color: "var(--green)",  border: "var(--greenb)",  bg: "var(--green2)"  },
+                            { id: "out",     label: "OUT", color: "var(--red)",    border: "var(--redb)",    bg: "var(--red2)"    },
+                            { id: "maybe",   label: "MAY", color: "var(--amber)",  border: "var(--amberb)",  bg: "var(--amber2)"  },
+                            { id: "reserve", label: "RES", color: "var(--purple)", border: "var(--purpleb)", bg: "var(--purple2)" },
+                          ].map(s => {
+                            const isCurrent = p.status === s.id;
+                            const capBlocked = s.id === "in" && !isCurrent && inCount >= squadSize;
+                            return (
+                              <button
+                                key={s.id}
+                                onClick={() => !capBlocked && handleSetStatus(p, s.id)}
+                                disabled={capBlocked}
+                                title={capBlocked ? "Squad full" : undefined}
+                                className="ms-iconbtn"
+                                style={{
+                                  flex: 1, padding: "6px 0", borderRadius: 8,
+                                  border: `0.5px solid ${isCurrent ? s.border : "var(--s3)"}`,
+                                  background: isCurrent ? s.bg : "transparent",
+                                  color: isCurrent ? s.color : "var(--t2)",
+                                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 11,
+                                  letterSpacing: "0.08em",
+                                  cursor: capBlocked ? "default" : "pointer",
+                                  opacity: capBlocked ? 0.3 : 1,
+                                  boxShadow: isCurrent ? `0 0 8px ${s.border}` : "none",
+                                }}
+                              >
+                                {s.label}
+                              </button>
+                            );
+                          })}
+                        </div>
                         <MenuItem icon={<PencilSimple size={14} weight="thin" />} onClick={() => startEdit(p)}>
                           Rename
                         </MenuItem>
@@ -763,6 +848,28 @@ export default function SquadScreen({
           <div style={{ display: "flex", gap: 8 }}>
             <ModalBtn variant="neutral" onClick={() => setRemoveConfirm(null)}>CANCEL</ModalBtn>
             <ModalBtn variant="red" onClick={confirmRemove}>REMOVE</ModalBtn>
+          </div>
+        </Modal>
+      )}
+
+      {/* Injury override confirm — admin setting active status on injured player */}
+      {injuryConfirm && (
+        <Modal accent="var(--amberb)" onClose={() => setInjuryConfirm(null)} title="PLAYER IS INJURED">
+          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "var(--t1)", margin: "0 0 16px" }}>
+            <strong style={{ color: "var(--t1)" }}>{injuryConfirm.player.nickname || injuryConfirm.player.name}</strong> is flagged injured. Set status to <strong style={{ color: "var(--amber)" }}>{injuryConfirm.nextStatus.toUpperCase()}</strong> anyway?
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <ModalBtn variant="neutral" onClick={() => setInjuryConfirm(null)}>KEEP INJURED</ModalBtn>
+            <ModalBtn
+              variant="green"
+              onClick={() => {
+                const { player, nextStatus } = injuryConfirm;
+                setInjuryConfirm(null);
+                handleSetStatus(player, nextStatus, { skipInjuryGuard: true });
+              }}
+            >
+              SET ANYWAY
+            </ModalBtn>
           </div>
         </Modal>
       )}

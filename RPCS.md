@@ -23,7 +23,7 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 
 | SQL function | JS wrapper | Grant | Notes |
 |---|---|---|---|
-| `set_player_status` | `setPlayerStatus(token, status)` | anon | Sets status on players row |
+| `set_player_status` | `setPlayerStatus(token, status)` | anon | Sets status on players row. Refuses 'in' if `admin_locked_in=true` (raises `admin_locked_in`). Refuses 'in' if squad_size cap met (raises `squad_full`). Updated in migration 038. |
 | `set_player_paid` | `handleCashPayment(token)` | anon | Sets self_paid; clears owes atomically if owes > 0 |
 | `set_player_injured` | `insertPlayerInjury(token, injured)` | anon | Writes player_injuries row |
 | `add_guest_player` | `addGuestPlayer(hostToken, guestName)` | anon | Creates guest player row |
@@ -43,6 +43,7 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | `admin_set_player_group` | `setPlayerGroup(adminToken, playerId, groupNumber)` | Group Balancer; writes team_players.group_number (1–5 or NULL); audit_events |
 | `admin_clear_all_groups` | `clearAllGroups(adminToken)` | Group Balancer; sets every group_number to NULL for the team; returns cleared_count |
 | `admin_set_player_priority` | `setPlayerPriority(adminToken, playerId, priority)` | |
+| `admin_set_player_status` | `adminSetPlayerStatus(adminToken, playerId, status)` | Sets status. Setting 'in' also flips `admin_locked_in=true`; setting out/maybe/reserve/none clears it. Refuses 'in' if cap met (raises `squad_full`). Audits before/after + locked_after. Updated in migration 038. |
 | `admin_disable_player` | `disablePlayer(adminToken, playerId, disabled)` | |
 | `admin_confirm_payment` | `handleMarkPaid(adminToken, playerId, matchId)` (payments.js) / `confirmPayment(adminToken, playerId, matchId)` (supabase.js) | Sets paid=true; ledger cross-path promotion |
 | `admin_reset_payment` | `handleResetPayment(adminToken, playerId, matchId)` | Resets all payment flags + ledger |
@@ -149,6 +150,7 @@ Auth via `p_admin_token`; anon grant is fine because the token is the auth signa
 | 035 | gaffer_get_context_payment_summary — Phase 1 surface RPC. |
 | 036 | gaffer_get_context_attendance_risk — Phase 1 surface RPC. |
 | 037 | gaffer_get_context_matchday_briefing — Phase 1 surface RPC. |
+| 038 | players.admin_locked_in column + REPLACES admin_set_player_status (lock + cap), set_player_status (lock + cap), get_team_state_by_admin_token (includes admin_locked_in in squad rows). |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.

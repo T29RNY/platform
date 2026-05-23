@@ -63,6 +63,7 @@ injured_since timestamptz,
 nickname text,
 role_scope jsonb DEFAULT NULL,       ← dormant; future T2 RBAC
 disable_reason text DEFAULT NULL,   ← dormant; future audit log
+admin_locked_in bool DEFAULT false, ← true once admin sets status='in'. Player cannot self-restore IN while true; cleared by any admin status change to out/maybe/reserve/none. (migration 038)
 created_at timestamptz
 ```
 **Note:** Flat stat columns (goals, motm, bib_count, w, l, d, attended) are
