@@ -217,8 +217,21 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
 
   useEffect(() => {
     navigator.vibrate?.(200);
-    if (adminPlayerToken) {
-      localStorage.setItem('ioo_last_visited', `/p/${adminPlayerToken}`);
+    // Always write the admin breadcrumb on this screen — the user just
+    // created a team, so the right surface from their home screen is the
+    // admin panel. adminToken is always present here. Writing this is what
+    // makes PWA installs from this screen open at /admin/TOKEN instead of
+    // falling through to PWAWelcome ("paste your player link").
+    const path = `/admin/${adminToken}`;
+    localStorage.setItem('ioo_last_visited', path);
+
+    // iOS Safari needs the extra timestamped "redirect bridge" payload
+    // mirrored by getRoute() in App.jsx — same shape, same key.
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true
+      || window.matchMedia('(display-mode: standalone)').matches;
+    if (isIOS && !isStandalone) {
+      localStorage.setItem('ioo_redirect_to', JSON.stringify({ path, ts: Date.now() }));
     }
   }, []);
 
