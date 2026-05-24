@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 24 2026 (session 36 — H2H/Stats RLS RPC sweep + pre-launch motion overhaul)*
+*Last updated: May 24 2026 (session 37 — beta P0 fixes: PWA install, auth loop, delete account)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -34,27 +34,25 @@ the admin_token SECURITY DEFINER path.
 `resolveDominantType`. Low priority until file grows further.
 **Fix:** Rename to `stats-helpers.js` when adding more helpers.
 
-### 5. Cross-browser / in-app-webview install loses token breadcrumb
-**Files:** `apps/inorout/src/App.jsx` (getRoute), `apps/inorout/src/views/JoinSuccess.jsx`,
-`apps/inorout/src/views/SquadReady.jsx`
-**Detail:** Token persistence relies on `localStorage` (`ioo_last_visited` / `ioo_redirect_to`).
-localStorage is scoped per-browser-per-origin, so the breadcrumb is lost when the user
-crosses browser contexts between joining and installing:
-- User opens invite link in an in-app webview (Gmail, WhatsApp, Facebook, Slack), then
-  taps "open in Chrome" or installs from a different browser → fresh storage, no entry.
-- User joins in Chrome but installs the PWA from Samsung Internet / Firefox Android.
-- Same flow on iOS in-app webviews (still hits the redirect bridge, but only if the
-  install actually happens inside Safari).
-Result: installed PWA opens at `/` with no breadcrumb → falls through to landing /
-PWA welcome and the player has to re-paste their invite link or `/p/TOKEN` URL.
-**Mitigation in place:** the user only needs to hit `/p/TOKEN` once inside the same
-browser that owns the PWA install for the breadcrumb to land correctly. Most users
-who tap Install in Chrome after joining are fine.
-**Fix (not yet built):** server-side breadcrumb — set a signed httpOnly cookie on
-`/p/TOKEN` and `/join/CODE` GET requests, and have the root `/` route check it before
-falling through. Or: include the token in the PWA `start_url` per-install (requires
-a server-rendered manifest). Either approach moves persistence off the client and
-survives browser handoffs.
+### 5. Cross-browser / in-app-webview install loses token breadcrumb ✅ MOSTLY RESOLVED (session 37)
+**Original detail:** localStorage breadcrumbs (`ioo_last_visited` / `ioo_redirect_to`) didn't
+survive cross-browser handoffs OR (more critically) the Safari → installed-PWA
+storage boundary on iOS. Installed PWAs opened at `/` with no breadcrumb → PWAWelcome.
+**Resolution (session 37):** session 37 shipped the **per-install dynamic manifest**
+pattern (Option E from the original "fix not yet built" list). `/api/manifest?admin=<token>`
+and `/api/manifest?player=<token>` emit a manifest whose `start_url` is `/admin/<token>`
+or `/p/<token>`. An inline `<script>` in `index.html` injects the right
+`<link rel="manifest">` at HTML parse time (iOS reads the manifest at parse, ignoring
+later JS mutations — that's why the previous React-effect swap silently failed).
+Post-create and post-join flows hard-redirect to `/admin/<token>?just_created=1` and
+`/p/<token>?just_joined=1` so the URL path matches what the inline script needs to
+inject the personalised manifest. Verified end-to-end on real iOS device for both
+admin and player installs. **Still potentially affected:** cross-context cases where
+the user installs from a different browser than they joined in (in-app webview →
+Chrome install). For those, the localStorage breadcrumb + the new PWAWelcome
+polymorphic paste box (accepts p_/admin_/join links) act as escape hatches.
+Server-side cookie fix (originally proposed as Option B) is no longer required for
+the core flow.
 
 ### 6. PlayerView direct `matches` table read 401s on every page load ✅ RESOLVED (session 36)
 The 401s on the `from('matches')` reads were from `getHeadToHead` and
@@ -67,7 +65,79 @@ direct-read fallback path. Console clean post-fix.
 
 ---
 
-## RESOLVED THIS SESSION (May 24 2026 — session 36)
+## RESOLVED THIS SESSION (May 24 2026 — session 37 — beta P0 cascade)
+
+Beta launched. First real customer hit a chain of bugs in the first hour.
+Session 37 was a long bug-fix cascade — fixes in order of discovery:
+
+- **OAuth loop on `/join/CODE`** — JoinTeam rendered "Continue with Google" on
+  first paint with `authUser=null` because App.jsx hadn't resolved the initial
+  session yet. User tapped Google, completed OAuth, came back, saw the same
+  sign-in screen. Fix: JoinTeam self-checks via `supabase.auth.getSession()` on
+  mount (renders a neutral loading state until probe resolves) + App.jsx gains
+  an `authReady` flag that holds every route until the top-level session check
+  has resolved. Commit: `2cd33c9`. Plus regression fix in `5c2cae2` (load()
+  needed `session` restored after the refactor) and `/create` hardening (dual
+  sessionStorage + localStorage write from useEffect).
+- **JoinTeam wordmark rendered "INOROUT"** — `.join-brand` was `display: flex`
+  which collapses whitespace between flex items. Swapped to `display: block`.
+  Commit: `a5cf076`.
+- **PWA installed from SquadReady opened to "Paste your link"** — biggest bug
+  of the session. Initial fix (write `ioo_last_visited` to localStorage in
+  SquadReady) FAILED because iOS Safari partitions PWA localStorage from
+  Safari's. Next attempt (swap `<link rel="manifest">` via React useEffect)
+  FAILED because iOS reads the manifest at HTML parse time and ignores
+  subsequent mutations. **Actual fix** (commits `11614ee`, `2d12db3`,
+  `b7236ca`): new `/api/manifest` Vercel serverless function emits a
+  personalised manifest with `start_url=/admin/<token>` based on a `?admin=`
+  query param (regex-validated); inline `<script>` in `index.html` runs
+  during HTML parse and injects the right `<link rel="manifest">` URL
+  before iOS can fetch a manifest; useOnboarding hard-redirects to
+  `/admin/<token>?just_created=1` after create succeeds, so the URL path
+  matches what the inline script needs. App.jsx top-level renders SquadReady
+  as a session-storage-backed overlay on `?just_created=1`. Verified live on
+  iPhone — home-screen icon opens directly to admin panel.
+- **PWA installed from JoinSuccess opened to "Paste your link"** — same root
+  cause as admin install, same architectural fix mirrored. `/api/manifest`
+  extended to accept `?player=<p_token>`. Inline script in `index.html`
+  also matches `/p/<token>` paths. handleJoin hard-redirects to
+  `/p/<token>?just_joined=1` after `playerJoinTeam` succeeds. App.jsx
+  renders JoinSuccess as overlay on `?just_joined=1`. Commits: `f62cc7c`
+  (endpoint + inline script + App.jsx player swap), `90bba41` (handleJoin
+  redirect + overlay). Verified live on iPhone.
+- **Player invite link in admin panel used team_id instead of join_code** —
+  `SquadScreen.jsx:404` rendered `in-or-out.com/join/${teamId}`. Bug was
+  masked because `get_team_by_join_code` has a fallback that matches against
+  team_id, but the share traces were leaking team_ids and the displayed URL
+  was the wrong identifier. Fixed: SquadScreen now fetches the team via
+  `getTeamByAdminToken` on mount and uses `team.join_code`. Commit: `a8b803e`.
+- **OAuth "User not found" loop on /join after delete-account** — separate
+  diagnostic finding. A previous `delete_my_account` for tarnysingh@gmail.com
+  had succeeded at the SQL layer but failed silently at `auth.admin.deleteUser`
+  (Stage 2). Returned `ok:true,authDeleted:false`. The auth.users row +
+  auth.identities row stayed forever, blocking that email from ever signing in
+  again — Google verified the identity, Supabase looked up the missing
+  user_id → 404 "User not found" → silent OAuth loop. Root cause: the 040
+  RPC version anonymised the player row and *revoked* (not deleted)
+  team_admins rows, and never touched user_profiles. Postgres refused to
+  delete auth.users because those FKs (NO ACTION) still pointed at it.
+  Fix: migration 047 rewrites the RPC to DELETE team_admins rows (not just
+  revoke), NULL out granted_by/revoked_by references, NULL platform_admins
+  granted_by, and DELETE the user_profiles row. After 047, `auth.admin.deleteUser`
+  succeeds and auth.identities cascades naturally. Verified by calling the
+  real `/api/delete-account` endpoint and confirming `authDeleted:true` plus
+  zero rows remaining in auth.users / auth.identities / user_profiles.
+  Migration: 047. Edge function comment: `155f0ee` documents the gotcha
+  and the manual cleanup SQL for any future stuck account.
+- **JoinTeam wordmark CSS hex fixes, SignIn pre-existing hex tokens,
+  Google brand hex allowlist** — incidental hygiene fixes forced by the
+  post-edit hook on touched files. Commits: `12d0ceb`, `b041f38`.
+
+**Bundle commits (in order):** `12d0ceb` → `2cd33c9` → `692d84a` → `a5cf076`
+→ `5c2cae2` → `b041f38` → `11614ee` → `2d12db3` → `9673934` → `b7236ca`
+→ `7c36dc7` → `a8b803e` → `155f0ee` → `f62cc7c` → `42c54e8` → `90bba41`.
+
+## RESOLVED (May 24 2026 — session 36)
 
 - **H2H on /demoadmin showed "you haven't played in the same game yet"** —
   `getHeadToHead` did three direct `.from()` reads on `matches` +

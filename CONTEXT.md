@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 24 2026 (session 36 — pre-launch framer-motion overhaul + H2H/Stats RLS-RPC sweep)*
+*Last updated: May 24 2026 (session 37 — beta P0 cascade: PWA install + OAuth loop + delete-account)*
 
 This file contains infrastructure, key tokens, demo environment, conventions,
 and a compressed session history. For everything else, see the split files:
@@ -640,6 +640,61 @@ Commits in order: `db8485d`, `0ea2850`, `1d0bffa`, `9ef5a6a`, `25c8dc7`,
 
 **Outstanding from this session (not done):**
 - #5 from the original motion list: MyIOView insight unlock springs (replace existing CSS keyframe with framer spring). Deferred mid-session when the H2H/Stats bug triage took priority. Whole motion overhaul list is done bar this one.
+
+---
+
+**Session 37 (May 24):** Beta launched at start of session. First real customer hit a chain of bugs in the first hour; session was a long P0 bug-fix cascade.
+
+**Bugs surfaced + resolved (in order of discovery):**
+
+1. **OAuth loop on `/join/CODE`** — JoinTeam rendered "Continue with Google" on first paint with `authUser=null` because App.jsx hadn't resolved the initial session yet. User tapped, completed OAuth, saw the same screen. Fix: JoinTeam self-checks via `supabase.auth.getSession()` on mount + App.jsx `authReady` flag that gates every route until first session check resolves. Plus regression fix (load() needed `session` restored after the refactor) and `/create` hardening (dual sessionStorage + localStorage write). Commits `2cd33c9`, `5c2cae2`, `b041f38`.
+
+2. **JoinTeam wordmark "INOROUT"** — `.join-brand` was `display: flex` which collapses whitespace between flex items. Swapped to `display: block`. Commit `a5cf076`.
+
+3. **PWA installed from SquadReady opened to "Paste your link"** — biggest bug of the session. Two failed attempts before the actual fix:
+   - **Attempt 1:** write `ioo_last_visited` to localStorage in SquadReady (commit `692d84a`). FAILED. **Why:** iOS Safari partitions installed PWA localStorage from Safari proper.
+   - **Attempt 2:** React-side `<link rel="manifest">` swap via useEffect + dynamic `/api/manifest` endpoint (commits `11614ee`, `2d12db3`, `7c36dc7`). FAILED. **Why:** iOS reads the manifest URL at HTML parse time and ignores subsequent JS mutations. Visible proof: the "Add to Home Screen" iOS dialog showed bare hostname (start_url=/), not the swapped URL.
+   - **Actual fix** (commit `b7236ca`): replaced the static `<link rel="manifest" href="/manifest.json">` in `index.html` with an inline `<script>` that runs synchronously during HTML parse, reads `window.location.pathname`, and injects `/api/manifest?admin=<token>` if on an `/admin/<token>` URL (otherwise `/manifest.json`). Combined with hard-redirecting from `/create` → `/admin/<token>?just_created=1` after `create_team` succeeds (so the URL path matches what the inline script needs at parse time), and an App.jsx-level overlay that renders SquadReady on `?just_created=1` regardless of the default view. Verified live on iPhone: home-screen icon now opens directly to admin panel.
+
+4. **PWA installed from JoinSuccess (player flow)** — same root cause, same architectural mirror. `/api/manifest` extended to accept `?player=<p_token>` (commit `f62cc7c`). Inline script in `index.html` also matches `/p/<token>`. `handleJoin` hard-redirects to `/p/<token>?just_joined=1` after `playerJoinTeam` succeeds (commit `90bba41`). App.jsx renders JoinSuccess as overlay on `?just_joined=1`. Verified live.
+
+5. **Player invite link in admin panel rendered `/join/<team_id>` instead of `/join/<join_code>`** — `SquadScreen.jsx:404` used `teamId` where it should have used `joinCode`. Bug was masked because `get_team_by_join_code` has a fallback that matches against `team_id`. Fixed: SquadScreen fetches via `getTeamByAdminToken` on mount, uses `team.join_code`. Commit `a8b803e`.
+
+6. **OAuth "User not found" loop AFTER account deletion** — diagnostic finding. Previous `delete_my_account` for tarnysingh@gmail.com succeeded at SQL layer but failed silently at `auth.admin.deleteUser` (Stage 2 returned `ok:true,authDeleted:false`). The auth.users row + auth.identities row stayed forever, blocking that email from re-signing in (Google verifies identity → Supabase finds it → looks up missing user_id → 404 "User not found" → silent OAuth loop). Root cause: 040 version of `delete_my_account` anonymised the player row and *revoked* (not deleted) team_admins rows, never touched `user_profiles`. Postgres refused the auth.users delete (NO ACTION FKs still live). **Fix (migration 047):** DELETE team_admins for v_user_id (not just revoke), NULL out `granted_by` / `revoked_by` refs from other admins this user touched, NULL `platform_admins.granted_by`, DELETE user_profiles row. Verified end-to-end: called real `/api/delete-account` endpoint → returned `authDeleted:true` → auth.users + auth.identities + user_profiles all zero rows.
+
+**Architectural decisions formalised in DECISIONS.md:**
+- **PWA install via dynamic manifest** — `/api/manifest` endpoint emits per-install `start_url`; inline `<script>` in `index.html` injects the right `<link rel="manifest">` at HTML parse time; post-create + post-join URL redirects ensure the URL path matches what the inline script needs.
+- **Account deletion FK purge rule** — any new public table that references `auth.users.id` with NO ACTION must be added to the cleanup block in `delete_my_account`. CASCADE FKs fine as-is.
+
+**Future-proofing artefacts shipped:**
+- `manifest.json` `_comment` field warning against changing `start_url`
+- Block-comment sentinels in `index.html`, `SquadReady.jsx`, `App.jsx`, `api/manifest.js` covering the iOS parse-time gotcha and the rules that MUST be preserved
+- Migration 047 comment block explaining the FK purge requirement
+- Edge function comment with manual cleanup SQL for stuck accounts
+
+**Files touched this session:**
+- NEW `apps/inorout/api/manifest.js` — dynamic manifest endpoint (admin + player)
+- `apps/inorout/vercel.json` — `no-store` headers for `/manifest.json`
+- `apps/inorout/public/manifest.json` — `_comment` sentinel
+- `apps/inorout/index.html` — inline manifest injection script
+- `apps/inorout/src/App.jsx` — authReady gate + manifest swap effect + just_created/just_joined overlays + handleJoin redirect
+- `apps/inorout/src/onboarding/hooks/useOnboarding.js` — post-create redirect + createTeam wrapper migration
+- `apps/inorout/src/onboarding/steps/SquadReady.jsx` — manifest swap useEffect (defense in depth) + sentinel
+- `apps/inorout/src/views/JoinTeam.jsx` — session self-probe + `.join-brand` CSS
+- `apps/inorout/src/views/SignIn.jsx` — `/create` returnTo prop + hex token cleanup
+- `apps/inorout/src/views/PWAWelcome.jsx` — polymorphic paste box (p_/admin_/join)
+- `apps/inorout/src/views/AdminView/SquadScreen.jsx` — fetch join_code via adminToken
+- `apps/inorout/src/views/AdminView/index.jsx` — removed dead overlay (moved to App)
+- `apps/inorout/api/delete-account.js` — gotcha comment
+- `packages/core/storage/supabase.js` — createTeam wrapper added
+- `packages/core/index.js` — createTeam barrel export
+- `Skills/scripts/check-hygiene.sh` — Google brand hex allowlist
+- NEW `rls_migrations/047_delete_account_cleans_fk_refs.sql`
+- `BUGS.md`, `DECISIONS.md`, `CONTEXT.md` — this documentation pass
+
+**Commits in order:** `12d0ceb`, `2cd33c9`, `692d84a`, `a5cf076`, `5c2cae2`, `b041f38`, `11614ee`, `2d12db3`, `9673934`, `b7236ca`, `7c36dc7`, `a8b803e`, `155f0ee`, `f62cc7c`, `42c54e8`, `90bba41` — sixteen commits.
+
+**Verified live on iPhone:** admin install opens at `/admin/<token>` ✓ — player install opens at `/p/<token>` ✓ — join flow with second email works ✓ — delete account returns `authDeleted:true` ✓.
 
 ---
 

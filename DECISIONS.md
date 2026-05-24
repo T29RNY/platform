@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: May 24 2026 (session 36 — framer-motion pre-launch overhaul + direct-reads-via-RPC rule)*
+*Last updated: May 24 2026 (session 37 — PWA install via dynamic manifest, post-create/post-join URL redirect, delete-account FK purge)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -31,6 +31,89 @@ Read this before building new features to avoid re-litigating settled questions.
   player sessions. See migrations 041 + 042 for the canonical pattern.
 - **Admin RPCs derive team_id from p_admin_token server-side.** Never pass team_id as a trust signal from the client.
 - **Demo team is not a valid test target for auth or RLS flows.** team_demo has seeded created_at dates and (until session 36) no team_admins row. Always verify against team_finbars or a fresh team.
+
+## PWA INSTALL ARCHITECTURE (session 37)
+
+iOS Safari **partitions installed PWA localStorage from the Safari context** that
+hosted the install, AND **reads `<link rel="manifest">` at HTML parse time**
+(ignoring later JS mutations). The combination means that JS-side breadcrumbs
+written before install are invisible to the launched PWA, AND React-side manifest
+swaps after page load are too late. The only reliable path is to bake the right
+`start_url` into the manifest at HTML parse time.
+
+**The install architecture:**
+
+- **`apps/inorout/api/manifest.js`** — Vercel serverless function. Accepts
+  `?admin=<admin_xxx>` OR `?player=<p_xxx>`, regex-validates the token format
+  only (no DB lookup — keep it minimal, public, fast). Emits a personalised
+  manifest with `start_url=/admin/<token>` or `start_url=/p/<token>`. Headers:
+  `Cache-Control: no-store, max-age=0` + `CDN-Cache-Control: no-store`.
+  **Never** does a DB lookup, never logs the token, never redirects.
+- **`apps/inorout/index.html`** — inline `<script>` runs synchronously during
+  HTML parse. Reads `window.location.pathname`, matches `/admin/<token>` or
+  `/p/<token>`, and injects the right `<link rel="manifest">` URL. Falls back
+  to the static `/manifest.json` for every other path. **The static link tag
+  MUST NOT be restored** — iOS will use whatever's in the HTML at parse time
+  and our personalised injection only works if there's no competing static
+  link. Sentinel comment in HTML reinforces this.
+- **`apps/inorout/vercel.json`** — adds `Cache-Control: no-store` to the static
+  `/manifest.json` too, so an eager iOS pre-fetch can't pollute later installs.
+- **Post-create flow** (`useOnboarding.submitTeam`) — after the `create_team`
+  RPC succeeds, hard-redirects via `window.location.replace` to
+  `/admin/<token>?just_created=1`. Without the redirect, the install would
+  happen at `/create` where the inline script has no admin token to inject.
+- **Post-join flow** (`App.handleJoin`) — same pattern. After `playerJoinTeam`
+  succeeds, hard-redirects to `/p/<token>?just_joined=1`.
+- **App.jsx overlays** — reads `?just_created=1` / `?just_joined=1` from URL
+  + `sessionStorage` props, renders `SquadReady` / `JoinSuccess` as top-level
+  overlays BEFORE any view-routing happens. (Was originally in AdminView but
+  AdminView only mounts when user taps the admin tab — moved to App level so
+  it shows immediately.)
+- **App.jsx root manifest effect** — for returning admins/players hitting
+  `/admin/<token>` or `/p/<token>` directly, swaps `<link rel="manifest">` href
+  via useEffect. Defense in depth — covers SPA route transitions where the
+  inline script already ran for a different URL.
+
+**Future-proofing artefacts** (regression tripwires):
+
+- `apps/inorout/public/manifest.json` carries a `_comment` field warning future
+  contributors NOT to change `start_url` (the dynamic endpoint owns
+  personalisation).
+- `index.html`, `SquadReady.jsx`, `App.jsx`, `api/manifest.js` all carry
+  block-comment sentinels above the critical sections, with rules
+  ("deps MUST include adminToken", "NO cleanup function", "NO DB lookup",
+  etc.) and pointers to this DECISIONS.md section.
+
+**Known scope decisions:**
+- The dynamic manifest is for **install personalisation only**. Cross-context
+  install (in-app webview → Chrome) still requires the localStorage breadcrumb
+  path + PWAWelcome polymorphic paste box.
+- `name` / `short_name` are NOT yet team-personalised — every install shows
+  "In or Out" on the home screen. Could be extended to include team name.
+
+## ACCOUNT DELETION FK PURGE (session 37, migration 047)
+
+`delete_my_account` MUST purge every public-schema FK that references the
+user's `auth.users.id` before the edge function calls
+`auth.admin.deleteUser()`. The 040 version anonymised the player row but
+revoked (instead of deleting) team_admins rows and never touched
+user_profiles — so Postgres refused the auth.users delete (NO ACTION FKs),
+the edge function returned `ok:true,authDeleted:false`, and the auth row +
+identity stayed forever. That orphan blocked the email from ever signing in
+again with the same OAuth provider (Supabase finds the identity, looks up
+the missing user_id → 404 "User not found" → silent OAuth loop).
+
+**Rule:** any new public table that references `auth.users.id` with NO
+ACTION MUST be added to the cleanup block in `delete_my_account`. CASCADE
+FKs are fine as-is.
+
+**Currently cleaned:** user_profiles (DELETE), team_admins.user_id (DELETE
+own rows), team_admins.granted_by / revoked_by (NULL), platform_admins.granted_by (NULL).
+**Auto-cascaded:** platform_admins.user_id (CASCADE), auth.identities (cascades when
+auth.users is deleted by admin API).
+
+Edge function carries a comment with the manual cleanup SQL for stuck accounts
+if this ever surfaces again.
 
 ## ADMIN STATUS LOCK (session 34, migration 038)
 
