@@ -1,4 +1,5 @@
 {
+  "_comment": "CRITICAL: start_url MUST stay '/'. The dynamic /api/manifest endpoint personalises it per install (see apps/inorout/api/manifest.js + apps/inorout/src/onboarding/steps/SquadReady.jsx). Changing start_url here breaks the iOS PWA install flow for admins. See plan: /Users/tarny/.claude/plans/rippling-meandering-dahl.md",
   "name": "In or Out",
   "short_name": "In or Out",
   "description": "The fastest way to organise your weekly football game",
