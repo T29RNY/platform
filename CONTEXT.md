@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 24 2026 (session 37 — beta P0 cascade: PWA install + OAuth loop + delete-account)*
+*Last updated: May 24 2026 (session 38 — first-time-use tooltips primitive + 12 hints across admin + player views)*
 
 This file contains infrastructure, key tokens, demo environment, conventions,
 and a compressed session history. For everything else, see the split files:
@@ -700,8 +700,21 @@ Commits in order: `db8485d`, `0ea2850`, `1d0bffa`, `9ef5a6a`, `25c8dc7`,
 
 **Session 33 (May 23):** Ask the Gaffer repositioned from chatbot to platform AI agent layer. Spec consolidated into new `GAFFER.md` (sourcing DECISIONS.md + venue_league_hq_SCOPE.md Phase 7). Provider locked in: Vercel-hosted edge function `/api/gaffer` → Anthropic `claude-sonnet-4-5` direct (same env var as previous chatbot scaffold). Data-access pattern locked in: per-surface `gaffer_get_context_*` RPCs (SECURITY DEFINER, derive team from `p_admin_token`, return jsonb) + `ai_briefings` audit table storing every output with its `context_snapshot` for factual auditability. Built: 5 migrations (033 ai_briefings table, 034–037 four Phase 1 context RPCs), edge function rewrite with multi-surface routing/cache/cost tracking, five surface system prompts under `views/Gaffer/prompts/`, `<GafferCard>` reusable inline component, new admin Q&A panel (old player-facing chatbot archived as `_archived_chatbot.jsx`), JS wrappers `getGafferBriefing` + `askGafferQuestion` in supabase.js. Migrations applied via Supabase MCP and smoke-tested end-to-end against `team_demo` — all four RPCs return real data (Dave 4g top scorer 30d; Hassan 7g + Dave 6g in-form; risk_level=high; live recent form). One in-flight bug caught and fixed in smoke test: original SQL used non-existent `row_to_jsonb` — patched to `to_jsonb` via MCP and migration files synced. **Frontend untouched** — no UI wire-up yet. Awaiting: (1) confirm `ANTHROPIC_API_KEY` is still on Vercel (was set for previous chatbot), (2) canary UI wire-up onto one team. Cross-browser PWA install breadcrumb gap also logged as BUGS.md #5 (cross-browser/in-app-webview install loses token bridge — fix is server-side signed cookie, not urgent). Commits: `3899a95` (repositioning docs), `f58ce86` (scaffold), `50131c2` (to_jsonb fix), `a55089b` (BUGS B5).
 
+---
 
+**Session 38 (May 24):** First-time-use tooltips. New `FirstTimeHint` primitive at `apps/inorout/src/components/FirstTimeHint.jsx` — framer-motion entrance/exit (opacity + scale, 150ms), localStorage dismissal (per-device), optional `prerequisite` storageKey for chained reveals, custom `ioo-hint-dismissed` event so duplicate instances of the same key dismiss in sync. Reused the existing gold-card visual language (`var(--gold2)`/`--goldb`/`--gold` accent, `--font-display` heading, Phosphor `X` `weight="thin"` dismiss).
 
+**12 hints wired:**
+- Global live-game on `AdminView/index.jsx` (replaces the bespoke gold card at the old 648–682 block; storage key `ioo_game_live_hint_dismissed` **preserved** for continuity with already-dismissed users).
+- Admin: Squad invite link, three chained Teams hints (player tiles → SMART button → CONFIRM TEAMS via `prerequisite`), Payments unpaid section, Bibs holder card.
+- Player: PlayerView status grid, StatsView league table (calling out the hidden H2H gesture), HistoryView first match card, PlayerProfile leave-squad button.
 
+**Audit-first methodology proven:** ran an explicit 10-point pre-execute audit before any edits (no SQL/RPC/auth/realtime/env/deps/data-writes), all PASS. Hygiene hook caught a pre-existing hardcoded `#0A0A08` in `BibsScreen.jsx:156` — fixed in flight to `var(--bg)`. Build + hygiene clean across all 10 changed files.
+
+**Deliberately not wired:** ScoreScreen, ScheduleScreen (live-toggle covered by global hint), RemindersScreen, MyIOView, MySquads — either self-explanatory in context or low-value.
+
+**Lives on /demoadmin too** — pure client JSX, no auth gating, so every fresh visitor to the demo gets the onboarding hints automatically. localStorage is per-origin so personal dismissals carry across `/admin/<token>` and `/demoadmin`.
+
+Commit: `0a1e759` (single commit).
 
 

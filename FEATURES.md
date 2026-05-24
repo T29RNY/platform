@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 23 2026 (session 35 — AdminView polish wave + unified PlayerProfile + self-leave/delete)*
+*Last updated: May 24 2026 (session 38 — first-time-use tooltips primitive + 12 hints)*
 
 ---
 
@@ -53,6 +53,7 @@
 | Leave squad (self) | ✅ | Two-tap confirm. Refuses with `debt_owed:<amount>` if owes > 0. Detaches team_players + push_subscriptions; preserves player row + history. Migration 040 (leave_squad RPC). — session 35 (PROFILE_SCOPE B) |
 | Delete account (self) | ✅ | Typed-DELETE modal. Anonymises players row (name → "Deleted player") preserving FKs; detaches all teams; deletes push_subscriptions + player_career; revokes admin grants; calls auth.admin.deleteUser via /api/delete-account edge function. Refuses with `last_admin:<csv>` if user is sole admin of any team. Migration 040 (delete_my_account RPC). — session 35 (PROFILE_SCOPE B) |
 | PlayerProfile admin mode merge | ✅ | Single file serves both modes behind isAdminView prop. Admin mode adds "Admin view" pill, branched RPCs (admin paths), ROLES with VC toggle, Admin Actions card (Rename/Copy/Reset link/Mark injury), Remove from squad with has_history guard surfaced. AdminView/PlayerProfile.jsx (374 LOC) deleted. — session 35 (PROFILE_SCOPE C) |
+| First-time-use tooltips | ✅ | New `FirstTimeHint` primitive (framer-motion + localStorage, chained via `prerequisite` key, `ioo-hint-dismissed` event syncs duplicate mounts). 12 hints across AdminView (live-toggle global, key preserved), Squad invite link, Teams (tiles → SMART → CONFIRM chained), Payments unpaid section, Bibs holder, PlayerView status grid, StatsView league table (H2H discovery), HistoryView first match, PlayerProfile leave button. Pre-execute audit confirmed zero DB/RPC/auth/env touched. — session 38 |
 
 ---
 
