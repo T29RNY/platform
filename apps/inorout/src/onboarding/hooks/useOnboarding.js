@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { ONBOARDING_CONFIG as CFG } from "../config.js";
-import { supabase } from "@platform/core/storage/supabase.js";
+import { createTeam } from "@platform/core/storage/supabase.js";
 
 
 export function useOnboarding({ onComplete, authUser }) {
@@ -33,24 +33,18 @@ export function useOnboarding({ onComplete, authUser }) {
     setLoading(true); setError(null);
 
     try {
-      const namesToSend = [];
-
-      const { data, error } = await supabase.rpc('create_team', {
-        p_admin_email:        adminEmail || null,
-        p_team_name:          groupName.trim(),
-        p_day_of_week:        dayOfWeek,
-        p_kickoff:            kickoff,
-        p_squad_size:         squadSize,
-        p_venue:              venue || null,
-        p_city:               city || null,
-        p_price:              pricePerPlayer || 0,
-        p_bibs_enabled:       bibsEnabled ?? true,
-        p_player_names:       namesToSend,
-        p_opens_day:          null,
-        p_opens_time:         null,
-        p_priority_lead_mins: null,
+      const data = await createTeam({
+        adminEmail:    adminEmail || null,
+        teamName:      groupName.trim(),
+        dayOfWeek,
+        kickoff,
+        squadSize,
+        venue:         venue || null,
+        city:          city || null,
+        price:         pricePerPlayer || 0,
+        bibsEnabled:   bibsEnabled ?? true,
+        playerNames:   [],
       });
-      if (error) throw error;
 
       setTeamId(data.team_id);
       setAdminToken(data.admin_token);
@@ -65,7 +59,22 @@ export function useOnboarding({ onComplete, authUser }) {
         await new Promise(r => setTimeout(r, remaining));
       }
 
-      setStep(2);
+      // CRITICAL — iOS PWA install requires the URL to be /admin/<token> at
+      // HTML parse time so the inline manifest script in index.html injects
+      // the personalised manifest. Cannot install from /create because the
+      // inline script runs before adminToken exists. Stash the SquadReady
+      // props in sessionStorage and hard-redirect to /admin/<token>; AdminView
+      // detects ?just_created=1 and renders SquadReady as a first-time overlay.
+      try {
+        sessionStorage.setItem('ioo_just_created', JSON.stringify({
+          groupName: groupName.trim(),
+          joinCode: data.join_code ?? null,
+          adminPlayerToken: data.admin_player_token ?? null,
+          ts: Date.now(),
+        }));
+      } catch (e) {}
+      window.location.replace(`/admin/${data.admin_token}?just_created=1`);
+      return;
     } catch (e) {
       setError(e.message || "Something went wrong. Please try again.");
     } finally {

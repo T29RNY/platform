@@ -40,6 +40,7 @@ export {
   getGafferBriefing,
   askGafferQuestion,
   adminSetPlayerStatus,
+  createTeam,
   superadminWhoami,
   superadminListTeams,
   superadminTeamDetail,

@@ -413,6 +413,26 @@ export async function getTeamStateByAdminToken(token) {
   };
 }
 
+export async function createTeam(params) {
+  const { data, error } = await supabase.rpc('create_team', {
+    p_admin_email:        params.adminEmail ?? null,
+    p_team_name:          params.teamName,
+    p_day_of_week:        params.dayOfWeek,
+    p_kickoff:            params.kickoff,
+    p_squad_size:         params.squadSize,
+    p_venue:              params.venue ?? null,
+    p_city:               params.city ?? null,
+    p_price:              params.price ?? 0,
+    p_bibs_enabled:       params.bibsEnabled ?? true,
+    p_player_names:       params.playerNames ?? [],
+    p_opens_day:          params.opensDay ?? null,
+    p_opens_time:         params.opensTime ?? null,
+    p_priority_lead_mins: params.priorityLeadMins ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function addPlayerToTeam(adminToken, name, type = 'regular', priority = false) {
   const { data, error } = await supabase.rpc('admin_add_player', {
     p_admin_token: adminToken,
