@@ -62,6 +62,19 @@ module.exports = async function handler(req, res) {
         console.error('[delete-account] auth deletion failed:', authErr.message);
         return res.status(200).json({ ok: true, authDeleted: false });
       }
+
+      // KNOWN GOTCHA: in older Supabase versions, deleting a user via
+      // admin.deleteUser did not cascade-delete auth.identities rows. If
+      // an orphan identity remains, the email is forever blocked from
+      // signing in with that provider — Google confirms the identity,
+      // Supabase finds the identity row, looks up the user_id → 404
+      // "User not found" → silent OAuth-loop error.
+      //
+      // Modern Supabase cascades correctly, so we don't add a follow-up
+      // cleanup here. If a stuck account ever reappears, run this in
+      // SQL editor (admin-only):
+      //   DELETE FROM auth.identities i
+      //   WHERE NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = i.user_id);
     }
 
     return res.status(200).json({ ok: true, authDeleted: !!authUserId });
