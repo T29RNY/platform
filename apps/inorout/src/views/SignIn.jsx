@@ -57,7 +57,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
       display:"flex", flexDirection:"column" }}>
 
       {/* Header */}
-      <div style={{ padding:"24px 24px 20px", background:"#0f0f0f",
+      <div style={{ padding:"24px 24px 20px", background:C.bg,
         borderBottom:`1px solid ${C.border}` }}>
         <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
           color:C.amber, letterSpacing:3 }}>IN OR OUT</div>
@@ -141,7 +141,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
                   autoFocus
                   style={{ width:"100%", padding:"13px 14px", borderRadius:6,
                     border:`1.5px solid ${email?C.amber:C.border}`,
-                    background:"#0a0a0a", color:C.text,
+                    background:C.bg, color:C.text,
                     fontFamily:"Inter,sans-serif", fontSize:14,
                     outline:"none", boxSizing:"border-box", marginBottom:10 }}
                 />
@@ -155,7 +155,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
                   disabled={loading || !email.trim()} style={{
                   width:"100%", padding:"13px 0", borderRadius:6, border:"none",
                   background: loading || !email.trim() ? "#2a2a2a" : C.amber,
-                  color: loading || !email.trim() ? C.muted : "#000",
+                  color: loading || !email.trim() ? C.muted : C.black,
                   fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:800,
                   cursor: loading || !email.trim() ? "not-allowed" : "pointer" }}>
                   {loading ? "Sending..." : "Send Magic Link →"}
