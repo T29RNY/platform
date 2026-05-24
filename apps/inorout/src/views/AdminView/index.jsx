@@ -17,7 +17,6 @@ import {
   Bell, TShirt, Users, Link as LinkIcon, Money,
 } from "@phosphor-icons/react";
 import NavBar      from "../../components/ui/NavBar.jsx";
-import SquadReady  from "../../onboarding/steps/SquadReady.jsx";
 import TeamsScreen    from "./TeamsScreen.jsx";
 import ScoreScreen    from "./ScoreScreen.jsx";
 import BibsScreen     from "./BibsScreen.jsx";
@@ -85,26 +84,9 @@ export default function AdminView({
     () => !!localStorage.getItem('ioo_game_live_hint_dismissed')
   );
 
-  // Just-created overlay. After useOnboarding's create_team RPC succeeds it
-  // hard-redirects here with ?just_created=1 and stashes the SquadReady
-  // props in sessionStorage. We pop SquadReady (with share link + install
-  // carousel + "Go to my team" button) over the admin panel on first render.
-  // The redirect is required: iOS Safari reads <link rel="manifest"> at HTML
-  // parse time, and only on /admin/<token> can the inline script in
-  // index.html inject the per-install /api/manifest URL. Installing from
-  // /create cannot work because the inline script has no admin token yet.
-  const [justCreatedData] = useState(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('just_created') !== '1') return null;
-      const raw = sessionStorage.getItem('ioo_just_created');
-      if (!raw) return null;
-      sessionStorage.removeItem('ioo_just_created');
-      return JSON.parse(raw);
-    } catch (e) {
-      return null;
-    }
-  });
+  // (Just-created overlay is now handled at App.jsx level so it shows
+  // immediately on /admin/<token>?just_created=1, regardless of which
+  // default view the user lands on.)
   // Win-rate data for the Group Balancer prediction. Fetched here (rather
   // than in TeamsScreen) so the admin shell holds it once and survives
   // screen switches. StatsView still owns its own fetch — dedup is a
@@ -511,23 +493,6 @@ export default function AdminView({
   );
 
   // ── render ────────────────────────────────────────────────────────────────
-  // First-render after team creation: replay the SquadReady screen here
-  // (share link + install carousel + "Go to my team"). The user is now on
-  // /admin/<token> so an "Add to Home Screen" install will bake the right
-  // start_url via the inline manifest script. The "Go to my team" button
-  // navigates to /admin/<token> (without the query param), dropping back
-  // into the normal admin panel below.
-  if (justCreatedData) {
-    return (
-      <SquadReady
-        groupName={justCreatedData.groupName || settings?.groupName || ""}
-        joinCode={justCreatedData.joinCode}
-        adminToken={adminToken}
-        adminPlayerToken={justCreatedData.adminPlayerToken}
-      />
-    );
-  }
-
   return (
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)",
       fontFamily:"var(--font-body)", paddingBottom:110 }}>

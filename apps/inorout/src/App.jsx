@@ -29,6 +29,7 @@ import SignIn        from "./views/SignIn.jsx";
 import Legal         from "./views/Legal.jsx";
 import PWAWelcome   from "./views/PWAWelcome.jsx";
 import Gaffer        from "./views/Gaffer/index.jsx";
+import SquadReady    from "./onboarding/steps/SquadReady.jsx";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
 
@@ -260,6 +261,28 @@ export default function App() {
   // Auth state
   const [authUser,     setAuthUser]    = useState(null);
   const [authReady,    setAuthReady]   = useState(false);
+
+  // Just-created overlay state. After useOnboarding finishes create_team it
+  // hard-redirects to /admin/<token>?just_created=1 (so the inline manifest
+  // script in index.html can inject /api/manifest?admin=<token> at HTML
+  // parse time — required for iOS PWA install). On the resulting page load,
+  // pull the stashed SquadReady props out of sessionStorage and render
+  // SquadReady as a top-level overlay BEFORE any view-routing happens.
+  // Done at App.jsx level (not AdminView) because the default view on
+  // /admin/<token> is "player", and AdminView never mounts until the user
+  // taps the admin tab — which is why the overlay wasn't appearing.
+  const [justCreatedData, setJustCreatedData] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('just_created') !== '1') return null;
+      const raw = sessionStorage.getItem('ioo_just_created');
+      if (!raw) return null;
+      sessionStorage.removeItem('ioo_just_created');
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  });
 
   // Email capture overlay (visit 3+ for unlinked token players)
   const [showEmailCapture, setShowEmailCapture] = useState(false);
@@ -766,6 +789,23 @@ export default function App() {
       <div style={{ fontSize:48 }}>⚽</div>
     </div>
   );
+
+  // Render the post-create SquadReady overlay BEFORE any other route
+  // handling. Only fires once per session (sessionStorage was consumed in
+  // the useState initializer above). Tapping "Go to my team" inside
+  // SquadReady navigates via window.location.href to /admin/<token>
+  // (without the ?just_created=1 param), which reloads this whole tree
+  // and drops back into the normal admin flow.
+  if (justCreatedData && route.type === "admin" && route.token) {
+    return (
+      <SquadReady
+        groupName={justCreatedData.groupName || ""}
+        joinCode={justCreatedData.joinCode}
+        adminToken={route.token}
+        adminPlayerToken={justCreatedData.adminPlayerToken}
+      />
+    );
+  }
 
   if (route.type === "pwa_welcome")  return <PWAWelcome/>;
   if (route.type === "create") {
