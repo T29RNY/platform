@@ -5,6 +5,7 @@ import {
   deletePlayer as removePlayerFromDb,
   adminSetPlayerPriority,
   setPlayerNickname, resetPlayerToken,
+  getTeamByAdminToken,
 } from "@platform/core/storage/supabase.js";
 import {
   UsersThree, Star, Shield, LinkSimple, Copy, Plus, Check,
@@ -65,7 +66,21 @@ export default function SquadScreen({
   const editInputRef = useRef(null);
   const menuRef      = useRef(null);
 
-  const joinUrl     = teamId ? `https://www.in-or-out.com/join/${teamId}` : "";
+  // Fetch the team's join_code from the admin token. The invite link MUST
+  // use the join_code, not the team_id. The get_team_by_join_code RPC has
+  // a team_id fallback that masked this bug — pasting /join/<teamId> still
+  // "worked" but is the wrong URL and pollutes share traces with team ids.
+  const [joinCode, setJoinCode] = useState(null);
+  useEffect(() => {
+    if (!adminToken) return;
+    let cancelled = false;
+    getTeamByAdminToken(adminToken).then(team => {
+      if (!cancelled && team?.join_code) setJoinCode(team.join_code);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [adminToken]);
+
+  const joinUrl     = joinCode ? `https://www.in-or-out.com/join/${joinCode}` : "";
   const activeCount = squad.filter(p => !p.disabled).length;
   const inCount     = squad.filter(p => p.status === "in" && !p.disabled).length;
   const showSearch  = squad.length >= 6;
@@ -376,7 +391,7 @@ export default function SquadScreen({
       </div>
 
       {/* Invite link — primary path for regulars to join themselves */}
-      {teamId && (
+      {joinCode && (
         <div
           onClick={handleCopyJoin}
           style={{
@@ -401,7 +416,7 @@ export default function SquadScreen({
               color: copied ? "var(--green)" : "var(--t2)",
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>
-              {copied ? "Copied to clipboard" : `in-or-out.com/join/${teamId}`}
+              {copied ? "Copied to clipboard" : `in-or-out.com/join/${joinCode}`}
             </div>
           </div>
           {copied
