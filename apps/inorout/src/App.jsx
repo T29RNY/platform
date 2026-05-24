@@ -284,6 +284,25 @@ export default function App() {
     }
   });
 
+  // Same pattern, post-join overlay. handleJoin redirects to
+  // /p/<player_token>?just_joined=1 (so the inline manifest script in
+  // index.html can inject /api/manifest?player=<token> for iOS PWA install).
+  // Read sessionStorage on mount and render JoinSuccess as a top-level
+  // overlay. Without this, the install carousel would show at /join/<code>
+  // where iOS bakes start_url=/ instead of start_url=/p/<token>.
+  const [justJoinedData] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('just_joined') !== '1') return null;
+      const raw = sessionStorage.getItem('ioo_just_joined');
+      if (!raw) return null;
+      sessionStorage.removeItem('ioo_just_joined');
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  });
+
   // Email capture overlay (visit 3+ for unlinked token players)
   const [showEmailCapture, setShowEmailCapture] = useState(false);
   const [linkConflict,     setLinkConflict]     = useState(null);
@@ -726,7 +745,20 @@ export default function App() {
     setJoinLoading(true); setJoinError(null);
     try {
       const player = await playerJoinTeam(joinTeam.id, name);
-      setJoinedPlayer(player);
+      // CRITICAL — iOS PWA install requires URL = /p/<token> at HTML parse
+      // time so the inline manifest script in index.html injects
+      // /api/manifest?player=<token>. Cannot install from /join/<code>
+      // because the inline script has no player token to bake. Same
+      // pattern as create_team → /admin/<token>?just_created=1. Stash the
+      // JoinSuccess props in sessionStorage and hard-redirect.
+      try {
+        sessionStorage.setItem('ioo_just_joined', JSON.stringify({
+          player,
+          team: joinTeam,
+          ts: Date.now(),
+        }));
+      } catch (e) {}
+      window.location.replace(`/p/${player.token}?just_joined=1`);
     } catch(e) {
       setJoinError(e.message || "Something went wrong.");
     } finally {
@@ -805,6 +837,15 @@ export default function App() {
         joinCode={justCreatedData.joinCode}
         adminToken={route.token}
         adminPlayerToken={justCreatedData.adminPlayerToken}
+      />
+    );
+  }
+
+  if (justJoinedData && route.type === "player" && route.token) {
+    return (
+      <JoinSuccess
+        player={justJoinedData.player}
+        team={justJoinedData.team}
       />
     );
   }
