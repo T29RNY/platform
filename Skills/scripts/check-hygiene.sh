@@ -73,7 +73,9 @@ echo ""
 
 # CHECK 2: hardcoded hex colours
 # Matches hex values in JSX/JS attribute and value positions only.
-# Excludes: #60A0FF (Team A), #FF6060 (Team B), comments (//)
+# Excludes: #60A0FF (Team A), #FF6060 (Team B), Google brand SVG
+# (#4285F4 #34A853 #FBBC05 #EA4335 — unavoidable on the "Continue
+# with Google" button), comments (//).
 # Targets: lines with = or : before the hex (assignment/value context)
 # to reduce false positives from prose mentions in strings.
 echo "[2] Hardcoded hex colours (only #60A0FF and #FF6060 allowed):"
@@ -81,6 +83,10 @@ RESULT=$(grep -rn "[=:][[:space:]]*[\"']\?#[0-9A-Fa-f]\{3,6\}\b" \
   $SCAN_PATH 2>/dev/null \
   | grep -v "60A0FF" \
   | grep -v "FF6060" \
+  | grep -v "4285F4" \
+  | grep -v "34A853" \
+  | grep -v "FBBC05" \
+  | grep -v "EA4335" \
   | grep -v "constants/colors\.js" \
   | grep -v "views/MyIOView\.jsx" \
   | grep -v "^\s*//" \
