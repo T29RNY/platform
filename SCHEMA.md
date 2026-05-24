@@ -27,6 +27,8 @@ admin_token text UNIQUE,
 join_code text,
 onboarding_complete bool DEFAULT false,
 admin_email text,
+team_type text NOT NULL DEFAULT 'casual',  ← casual | competitive — Phase 0C (migration 052)
+                                              sport-agnostic; sport lives on league_config.sport
 created_at timestamptz
 ```
 

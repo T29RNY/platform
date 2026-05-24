@@ -428,6 +428,7 @@ export async function createTeam(params) {
     p_opens_day:          params.opensDay ?? null,
     p_opens_time:         params.opensTime ?? null,
     p_priority_lead_mins: params.priorityLeadMins ?? null,
+    p_team_type:          params.teamType ?? 'casual',
   });
   if (error) throw error;
   return data;
