@@ -259,6 +259,7 @@ export default function App() {
 
   // Auth state
   const [authUser,     setAuthUser]    = useState(null);
+  const [authReady,    setAuthReady]   = useState(false);
 
   // Email capture overlay (visit 3+ for unlinked token players)
   const [showEmailCapture, setShowEmailCapture] = useState(false);
@@ -268,6 +269,27 @@ export default function App() {
     const el = document.createElement("link");
     el.rel = "stylesheet"; el.href = FONT_LINK;
     document.head.appendChild(el);
+  }, []);
+
+  // Resolve the initial auth session before painting any route-specific UI.
+  // Without this, /join/CODE renders with authUser=null on the first paint
+  // after /auth/callback redirects back, showing the sign-in button to a user
+  // who is in fact already signed in — and a second OAuth round trip is what
+  // creates the visible "redirect loop" bug.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await getSession();
+        if (cancelled) return;
+        if (session?.user) setAuthUser(session.user);
+      } catch (e) {
+        console.error("initial session check failed:", e);
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -292,10 +314,8 @@ export default function App() {
 
     async function load() {
       try {
-        // Check auth session
-        const session = await getSession();
-        if (session?.user) setAuthUser(session.user);
-
+        // Auth session is resolved by the top-level authReady effect; nothing
+        // to do here other than gate behaviour on the eventual authUser state.
         let resolvedTeamId = null;
 
         if (route.type === "demoadmin") {
@@ -690,9 +710,21 @@ export default function App() {
 
   // ── Special routes ────────────────────────────────────────────────────────
   if (route.type === "redirecting")  return null;
-  if (route.type === "pwa_welcome")  return <PWAWelcome/>;
   if (route.type === "auth_callback") return <AuthCallback/>;
   if (route.type === "legal") return <Legal/>;
+
+  // Hold every other route until the initial auth check has resolved.
+  // Prevents the brief paint where authUser is still null before
+  // getSession() returns and downstream views (JoinTeam, /create gate,
+  // PlayerView) mis-decide on a transient null.
+  if (!authReady) return (
+    <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+      alignItems:"center", justifyContent:"center" }}>
+      <div style={{ fontSize:48 }}>⚽</div>
+    </div>
+  );
+
+  if (route.type === "pwa_welcome")  return <PWAWelcome/>;
   if (route.type === "create") {
     if (loading) return (
       <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",

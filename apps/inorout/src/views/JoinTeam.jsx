@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { EnvelopeSimple, PaperPlaneTilt, User } from "@phosphor-icons/react";
 
@@ -577,6 +577,28 @@ export default function JoinTeam({
   team, authUser, onNameSubmit, loading,
   error, prefillName, checking
 }) {
+  // Local session probe — independent of the parent App.jsx authUser prop.
+  // Defense-in-depth against the OAuth redirect-loop bug: after /auth/callback
+  // bounces back here, supabase has a valid session in storage but the parent
+  // may not have populated authUser yet on first paint. If we render the
+  // "Continue with Google" button to a user who is in fact signed in, they
+  // tap it, OAuth runs again, and they appear to loop. Holding the sign-in
+  // view behind this probe stops that. Once either authUser (from parent)
+  // OR localSessionUser (from this probe) is set, we proceed.
+  const [localSessionUser, setLocalSessionUser] = useState(null);
+  const [sessionProbed, setSessionProbed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      if (data?.session?.user) setLocalSessionUser(data.session.user);
+      setSessionProbed(true);
+    }).catch(() => {
+      if (!cancelled) setSessionProbed(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const handleGoogleSignIn = async () => {
     const returnTo = encodeURIComponent(window.location.href);
     await supabase.auth.signInWithOAuth({
@@ -587,7 +609,19 @@ export default function JoinTeam({
     });
   };
 
-  if (!authUser) return (
+  const effectiveAuthUser = authUser || localSessionUser;
+
+  // Until the local probe resolves, do not paint the sign-in screen — that
+  // false-negative is what creates the visible "tap, redirect, land on
+  // sign-in again, tap, loop" bug.
+  if (!effectiveAuthUser && !sessionProbed) return (
+    <>
+      <JoinStyles />
+      <CheckingState />
+    </>
+  );
+
+  if (!effectiveAuthUser) return (
     <>
       <JoinStyles />
       <SignInStep team={team} onGoogle={handleGoogleSignIn} />
