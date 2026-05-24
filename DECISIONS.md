@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: May 24 2026 (session 37 — PWA install via dynamic manifest, post-create/post-join URL redirect, delete-account FK purge)*
+*Last updated: May 24 2026 (session 39 — super-admin dashboard + push-notification URL rule + workspace-deps rule)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -90,6 +90,85 @@ swaps after page load are too late. The only reliable path is to bake the right
   path + PWAWelcome polymorphic paste box.
 - `name` / `short_name` are NOT yet team-personalised — every install shows
   "In or Out" on the home screen. Could be extended to include team name.
+
+## SUPER-ADMIN DASHBOARD (session 39, migrations 045 + 046)
+
+A separate app at `apps/superadmin`, deployed as a separate Vercel project
+(`platform-superadmin`), behind Vercel team SSO protection. Not part of
+`apps/inorout` — the player-facing PWA stays small, mobile-first, and free
+of admin-only dependencies.
+
+- **Authorisation:** new `platform_admins` table (global, cross-team), parallel
+  to per-team `team_admins`. Helper `is_platform_admin()` gates every
+  `superadmin_*` RPC. **Membership is granted by hand via SQL only** — there
+  is intentionally no UI to add platform admins, so the role can never be
+  accidentally escalated. Defence in depth on top of the Vercel SSO wall.
+- **Read RPCs (Phase 1+2 shipped):** `superadmin_whoami`,
+  `superadmin_list_teams`, `superadmin_team_detail(team_id)`,
+  `superadmin_recent_activity(limit, since)`. All SECURITY DEFINER + STABLE,
+  all return jsonb, all start with `IF NOT is_platform_admin() THEN RAISE
+  EXCEPTION 'forbidden';`.
+- **Write RPCs (Phase 3+4 deferred):** token rescue (reset admin token,
+  regenerate player token, add self as team admin) + data fix (override
+  match result, mark/refund payments, clear injury, force-confirm teams).
+  Every write will insert an `audit_events` row with `actor_type='super_admin'`
+  and `actor_user_id=auth.uid()` for a clean intervention trail (the
+  `audit_events.actor_type` CHECK constraint already permits this value).
+- **UI:** Vite + React 18, plain dark admin styling, no framer-motion, no
+  PWA, no PostHog. Three tabs: Activity (audit_events tail), Teams
+  (sortable list), Team Detail (drilldown). Read-only in v1.
+
+## PUSH NOTIFICATION URL RULE (session 39)
+
+**All server-to-self HTTP calls must use the canonical
+`https://www.in-or-out.com`, never the apex `https://in-or-out.com`.**
+
+Why: the apex 307-redirects to www. All sane HTTP clients (browsers,
+curl with `-L`, `pg_net`, server-side fetch) **strip the `Authorization`
+header when following a cross-host redirect** as a security measure. So
+calling `https://in-or-out.com/api/notify` with a bearer token results in
+the bearer being dropped at the redirect → the function sees no auth → 401.
+
+Surfaced as a 73.7% Vercel error rate on Beta launch day. All six pg_cron
+notification jobs were using the apex URL — bug latent since cron setup,
+masked for weeks by parallel VAPID empty-string crashes. Once the VAPID
+500s were fixed, the auth-strip 401s appeared.
+
+Applied to:
+- `cron.job` rows 1–6 — rewritten via `cron.alter_job` (apex → www)
+- Any future internal HTTP call (edge functions, webhooks) must follow
+  the same rule. Comment in migration 049 documents the gotcha.
+
+## WORKSPACE DEPS MUST BE REAL PACKAGES (session 39)
+
+**Every `@platform/*` listed as a dep in any `apps/*/package.json` or
+`packages/*/package.json` must resolve to a real workspace package** —
+i.e. there must be a corresponding `packages/<name>/package.json` with the
+matching `name` field. Vite aliases (in `vite.config.js`) are configured
+separately and must NOT appear as deps.
+
+Why: Vite aliases work at build time, inside the bundler — npm has no idea
+they exist. Local builds happily resolve them, but Vercel's `npm install` in
+a fresh container goes to the npm registry for `@platform/*`, gets a 404,
+and **aborts the entire workspace install** — breaking every other app in
+the monorepo at the same time. Discovered the hard way when the superadmin
+scaffold's first commit listed `@platform/supabase` (which was only ever a
+Vite alias) as a real dep, taking down platform-clubmanager's CI.
+`www.in-or-out.com` was protected only because Vercel "only promotes on
+success" — but the deploy pipeline was blocked until the fix landed.
+
+Enforced by `Skills/scripts/check-workspace-deps.sh` — a pre-commit hook
+that fails fast if any `@platform/*` dep can't be resolved to a real
+workspace package. Sub-second jq check, called from `check-build.sh` before
+the build itself runs. Negative-tested by re-adding fake deps; the hook
+blocks the commit with actionable error text pointing at the file and the
+offending dep.
+
+Bonus correction landed at the same time: the `@platform/core` Vite alias
+target changed from `packages/core/index.js` (a specific file, so subpath
+imports like `@platform/core/storage/supabase.js` were broken) to
+`packages/core` (the directory, so Node + Vite resolve via the package's
+`exports` map).
 
 ## ACCOUNT DELETION FK PURGE (session 37, migration 047)
 

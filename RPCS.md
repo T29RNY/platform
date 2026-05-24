@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 24 2026 (session 36 — H2H + PlayerLeagueTable RPCs + admin_save_teams writes players.team)*
+*Last updated: May 24 2026 (session 39 — superadmin RPCs 045/046 + admin_save_teams scoping 048 + notify whitelist 049 + player_join_team token 044)*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -53,7 +53,7 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | `admin_reset_payment` | `handleResetPayment(adminToken, playerId, matchId)` | Resets all payment flags + ledger |
 | `admin_waive_debt` | `handleWaiveDebt(adminToken, playerId, note)` | Zeros owes; writes waiver ledger entry; notify |
 | `admin_save_match_result` | `saveMatchResult(matchId, teamId, adminToken, match)` | Writes result fields only; never touches motm/voting |
-| `admin_save_teams` | `confirmTeams(adminToken, matchId, teamA, teamB, predictedWinner?, predictedConfidence?, balanceScore?)` | Sets matches.team_a/team_b on confirm + writes denormalised players.team (clears for all team_players, then sets 'A'/'B' on the confirmed ids) so PlayerView Live Board renders the team sheet. 3 trailing prediction params (Group Balancer, migration 031) write to matches.predicted_winner/confidence/balance_score. Migration 043 added players.team write; migration 031 added prediction params. Old 5-arg signature dropped. |
+| `admin_save_teams` | `confirmTeams(adminToken, matchId, teamA, teamB, predictedWinner?, predictedConfidence?, balanceScore?)` | Sets matches.team_a/team_b on confirm + writes denormalised players.team (clears for all team_players, then sets 'A'/'B' on the confirmed ids) so PlayerView Live Board renders the team sheet. 3 trailing prediction params (Group Balancer, migration 031) write to matches.predicted_winner/confidence/balance_score. Migration 043 added players.team write; **migration 048 scoped the two SET statements via team_players join to close a cross-team write surface** (a legit admin for team X could previously pass team Y player_ids in p_team_a/p_team_b and flip their team value — foreign IDs now silently filtered). Migration 031 added prediction params. Old 5-arg signature dropped. |
 | `admin_save_bib_holder` | `saveBibHolder(adminToken, matchId, playerId, name)` | 4-step atomic: match bib_holder, player bib_count++, bib_history upsert, had_bibs flag |
 | `admin_cancel_match` | `adminCancelMatch(adminToken, reason)` | Atomic cancel — replaces 7-step cancelWeek() |
 | `admin_reopen_week` | `reopenWeek(adminToken)` | Reopens a cancelled week: clears schedule.is_cancelled / cancel_reason, sets game_is_live=true, inserts a fresh matches row, points active_match_id at it. Previously cancelled match stays in history (cancelled=true). Migration 031 sibling. |
@@ -79,7 +79,7 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | SQL function | JS wrapper | Auth | Notes |
 |---|---|---|---|
 | `link_player_to_user` | `linkPlayerToUser(token)` | authenticated only | Links player token to auth.uid(); guards double-link |
-| `player_join_team` | `playerJoinTeam(teamId, name)` | authenticated only | Handles new + returning players; upserts team_players |
+| `player_join_team` | `playerJoinTeam(teamId, name)` | authenticated only | Handles new + returning players; upserts team_players. **Migration 044 fixed pre-Beta launch blocker:** new-player INSERT branch now generates a player token via `generate_url_safe_token('p_', 14)` (the same helper `create_team` uses). Pre-fix, first-time joiners landed with `player.token=NULL` → JoinSuccess.jsx fell back to `/` → stranded on landing page. |
 | `player_get_teams` | `getPlayerTeams()` | authenticated only | Returns all squads for auth.uid(); anon revoked |
 
 ---
@@ -103,6 +103,29 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | `find_player_by_email` | `findPlayerByEmail(email)` | Returns [{token, player_id, player_name, team_id, team_name}] |
 | `get_head_to_head_raw_by_admin_token` | called via `getHeadToHead(meId, themId, teamId, period, adminToken)` | Migration 041. Returns 3 jsonb arrays (all_time_matches, period_matches, player_match_rows for both players). JS function branches on adminToken — RPC for admin-token routes (unblocks anon /demoadmin), direct reads for authenticated player sessions. Server-side period cutoff mirrors `scoring.js#periodCutoff`. |
 | `get_player_league_table_raw_by_admin_token` | called via `getPlayerLeagueTable(teamId, period, adminToken)` | Migration 042. Returns 5 jsonb arrays (period_matches, player_match_rows, all_time_attended summaries, all_team_match_dates, players). Same branch-on-adminToken pattern as 041. Used by StatsView (to populate form + reliability columns) and HeadToHead (Section 4 Overall Comparison bars). |
+
+---
+
+## SUPER-ADMIN RPCs (migrations 045, 046)
+
+The `apps/superadmin` dashboard at `https://platform-superadmin-*.vercel.app`
+calls these four RPCs. All gated by `is_platform_admin()` (a global, cross-team
+authorisation helper that checks the caller's `auth.uid()` against the
+`platform_admins` table — see SCHEMA.md). New entries to `platform_admins` are
+inserted by hand via SQL only; there is intentionally no UI to grant this role.
+
+| SQL function | JS wrapper | Notes |
+|---|---|---|
+| `is_platform_admin` | (internal helper, no JS wrapper) | SQL boolean. Used as a precondition in every superadmin_* RPC. Returns true iff `auth.uid()` exists in `platform_admins`. |
+| `superadmin_whoami` | `superadminWhoami()` | Returns `{signed_in, user_id, email, is_platform_admin}`. App-level gate after Supabase Google OAuth — if `is_platform_admin=false`, the UI shows an "Access denied" card with the signed-in email. |
+| `superadmin_list_teams` | `superadminListTeams()` | Returns jsonb array of every team with: team_id, name, admin_email, join_code, onboarding_complete, created_at, player_count, admin_count, last_match_date, outstanding_total (sum of players.owes>0), admin_emails[]. Powers the Teams tab. |
+| `superadmin_team_detail` | `superadminTeamDetail(teamId)` | Returns jsonb `{team, schedule, squad[], matches[], payments, admins[], recent_events[]}`. Squad includes player tokens (for /p/TOKEN deep-link inspection) and `owes`. Matches limited to last 10. Events limited to last 20. Powers the Team Detail tab. |
+| `superadmin_recent_activity` | `superadminRecentActivity({limit, sinceHours})` | Returns jsonb array of audit_events joined with team name + actor email. Default limit 100, default 24h window. Powers the Activity tab. |
+
+**Foundation:** `platform_admins` table (migration 045) is the global authorisation
+layer parallel to `team_admins` (per-team). The `audit_events.actor_type` CHECK
+constraint already allows `'super_admin'` — write surfaces (Phase 3/4, not yet
+shipped) will use that actor_type and `auth.uid()` as actor_user_id for traceability.
 
 ---
 
@@ -162,6 +185,12 @@ Auth via `p_admin_token`; anon grant is fine because the token is the auth signa
 | 041 | `get_head_to_head_raw_by_admin_token(p_admin_token, p_me_id, p_them_id, p_period)` — SECURITY DEFINER raw-data RPC for H2H. Returns all-time matches, period-filtered matches, player_match rows for both players. Fixes anon /demoadmin direct-read RLS block. Anon grant (admin_token is the auth signal). |
 | 042 | `get_player_league_table_raw_by_admin_token(p_admin_token, p_period)` — SECURITY DEFINER raw-data RPC for PlayerLeagueTable. Returns period matches, player_match rows, all-time attended summaries, all match dates (reliability denominator), player details. Same pattern as 041 — fixes anon /demoadmin StatsView (form + reliability columns) and H2H Section 4 (comparison bars). |
 | 043 | admin_save_teams REPLACE — now also writes `players.team` ('A'/'B'/NULL scoped to team) when p_confirm=true so PlayerView Live Board renders the per-player team sheet. Previously only matches.team_a/team_b was written, leaving p.team stale. |
+| 044 | `player_join_team` REPLACE — generates a player token on the new-player INSERT branch (was missing → first-time joiners landed with NULL token → JoinSuccess.jsx fell back to `/`). Pre-Beta launch blocker fixed before the invite link went out. |
+| 045 | `platform_admins` table (global cross-team authorisation, separate from per-team team_admins) + `is_platform_admin()` helper + `superadmin_whoami()` RPC. Seeded with developer's auth uid. Foundation for the new apps/superadmin dashboard. |
+| 046 | Superadmin read RPCs: `superadmin_list_teams()`, `superadmin_team_detail(p_team_id)`, `superadmin_recent_activity(p_limit, p_since)`. All gated by is_platform_admin(), all SECURITY DEFINER + STABLE, all return jsonb. Power the Activity / Teams / Team Detail tabs of the superadmin dashboard. |
+| 047 | `delete_my_account(p_token)` REPLACE — purges FK refs to auth.users from team_admins, platform_admins.granted_by, user_profiles so auth.admin.deleteUser() succeeds. Pre-fix: SQL succeeded but auth row remained, blocking re-sign-in with the same email. Session 37. |
+| 048 | `admin_save_teams` REPLACE — adds team_players scope to the two `UPDATE players SET team='A'/'B'` statements (the CLEAR was already scoped). Closes the cross-team write surface flagged in the pre-Beta audit. Foreign player_ids silently update 0 rows. Verified with adversarial + happy-path tests against live DB inside rolled-back transactions. |
+| 049 | `notify_team_change` REPLACE — adds `player_account_deleted` to v_known_reasons whitelist (migration 047 passed this reason; warning was log-only, broadcast worked). Bonus diagnostic comment block in the file documenting the apex→www cron URL gotcha. |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.

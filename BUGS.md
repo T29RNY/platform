@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 24 2026 (session 37 — beta P0 fixes: PWA install, auth loop, delete account)*
+*Last updated: May 24 2026 (session 39 — push notifications fix + admin_save_teams scoping + notify whitelist)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -62,6 +62,100 @@ Same pattern applies to authenticated player sessions which hit the
 direct-read fallback path. Console clean post-fix.
 
 ---
+
+---
+
+## RESOLVED THIS SESSION (May 24 2026 — session 39 — push fix + admin_save_teams scoping + notify whitelist + superadmin Phase 1+2 + workspace-deps guard)
+
+Triggered by a 73.7% Vercel dashboard error rate. Investigation cascaded
+into one latent production bug and three smaller fixes.
+
+- **Push notifications silently dead since deploy of platform-clubmanager**
+  — three-layer bug, all three layers fixed:
+  1. All four VAPID env vars on Vercel platform-clubmanager production
+     were stored as empty strings (set 13 days ago but with no value;
+     dashboard masked this as "Encrypted" so we couldn't see). Generated
+     a fresh keypair, set via `vercel env add --value`, redeployed.
+  2. All six `pg_cron` notification jobs called `https://in-or-out.com`
+     (apex) which 307-redirects to `www`. `pg_net` (like all sane HTTP
+     clients) STRIPS the `Authorization` header when following a
+     cross-host redirect. So the cron's bearer never reached the
+     function → 401 → never delivered. Latent since cron setup, masked
+     by parallel VAPID 500s until those were fixed. Rewrote all 6 jobs
+     via `cron.alter_job` to use canonical www URL.
+  3. `pg_cron` job 5 (`notif-bibs-24hr`) had `Liverp00l123?!!*` pasted
+     mid-body, causing a `syntax error at or near ":="` ERROR every
+     hour on the hour. Fixed via `cron.alter_job` with clean body.
+  Verified end-to-end at the 19:45 UTC cron tick: 4× HTTP 200 vs
+  4× HTTP 401 at 19:30 (apex/auth-strip baseline). `push_subscriptions`
+  still 0 — Beta hasn't yet exercised the in-app subscribe flow, so the
+  proof-on-device test is deferred.
+
+- **admin_save_teams cross-team write surface (migration 048)**
+  — defense-in-depth fix flagged in the pre-Beta audit. The CLEAR
+  statement in 043 correctly scoped `UPDATE players SET team=NULL` via
+  `team_players` join, but the two subsequent SET statements
+  (`team='A'`/`team='B'`) trusted the client-supplied arrays against
+  the global `players.id` namespace. A legit admin for team X could
+  pass foreign player_ids from team Y in `p_team_a`/`p_team_b` and
+  flip their team column. Verified live: team_demo admin successfully
+  wrote `team='A'` to a Finbars player (rolled back). Migration 048
+  adds the same `team_players` scope to both SET statements. Foreign
+  IDs now silently update 0 rows. Adversarial test re-run post-fix
+  confirmed leak blocked; happy-path test confirmed legit calls still
+  work. Commit `156dc84`.
+
+- **notify_team_change whitelist missing `player_account_deleted`
+  (migration 049)** — session 37's migration 047 (`delete_my_account`
+  FK purge) passes this reason to `notify_team_change`. The function
+  has a hard whitelist for log-warning purposes only — broadcast still
+  worked, but every account deletion logged
+  `notify_team_change: unknown reason "player_account_deleted"`.
+  Added the reason to the whitelist. Commit `5a1a0e3`.
+
+- **Pre-Beta launch blocker: `player_join_team` never generated a
+  player token (migration 044)** — found during the pre-Beta audit
+  and fixed before the invite link went out. The new-player INSERT
+  branch omitted the `token` column, so first-time joiners landed
+  with `player.token=NULL`, `JoinSuccess.jsx` fell back to `/`,
+  stranded them on the landing page. Now generates a token using
+  the same helper `create_team` uses. Commit `cec9975`.
+
+- **Super-admin dashboard Phase 1 + 2 shipped (migrations 045, 046)** —
+  separate Vercel-SSO-protected app at `apps/superadmin`, deployed at
+  `https://platform-superadmin-djj9b1w8x-tarny-s-projects.vercel.app`.
+  New `platform_admins` table + `is_platform_admin()` helper + four
+  read RPCs (`superadmin_whoami`, `superadmin_list_teams`,
+  `superadmin_team_detail`, `superadmin_recent_activity`). Three UI
+  tabs: live audit_events tail, teams overview, per-team drilldown.
+  Read-only — write tools (token rescue + data fix) deferred to a
+  future Phase 3/4. Commits `9b7bda8` (initial), `a6fe2a8` (workspace
+  dep recovery).
+
+- **Workspace-deps guard hook + alias cleanup (commit `7547d49`)** —
+  the superadmin scaffold's first commit listed `@platform/supabase`
+  as a real npm workspace dep, but it was only a Vite alias. Local
+  builds passed (Vite resolves at build time), Vercel CI failed
+  workspace-wide because npm couldn't resolve it from the registry.
+  This cascaded to break platform-clubmanager's deploy pipeline too
+  (`www.in-or-out.com` kept serving the prior good build because
+  Vercel only promotes on success). Fix: removed the fake dep,
+  eliminated the alias entirely (22 source files migrated to import
+  from `@platform/core/storage/supabase.js`), added
+  `Skills/scripts/check-workspace-deps.sh` wired into the pre-commit
+  build gate to make this bug class structurally impossible going
+  forward. The check verifies every `@platform/*` dep maps to a real
+  workspace package; sub-second, jq-based. Negative-tested by
+  re-adding fake deps and confirming the check blocks the commit.
+
+- **One 401 on direct `matches` read** — investigated, **not a code
+  bug.** Query signature matched `getHeadToHead`'s direct-read
+  fallback (intentional code for authenticated player sessions),
+  called with a team_id (`team_54awfyl7TQY`) that has never existed
+  in this database. Source: stale PWA install / localStorage
+  breadcrumb / pre-DB-wipe artefact. RLS correctly rejected. User
+  sees empty H2H section, no crash. Decided to skip — revisit if
+  real Beta users report empty H2H.
 
 ---
 

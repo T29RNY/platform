@@ -1,5 +1,5 @@
 # In or Out — Database Schema
-*Last updated: May 23 2026 (session 33 — ai_briefings table for Gaffer AI agent layer)*
+*Last updated: May 24 2026 (session 39 — platform_admins table for super-admin dashboard)*
 
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
@@ -317,6 +317,22 @@ PRIMARY KEY (team_id, user_id)
 ```
 Written by `create_team` RPC during onboarding. Seeded for `team_demo` via migration 020.
 **Note:** `team_demo` is missing a row here — Tarny's switcher won't show it. See BUGS.md #8.
+
+### platform_admins
+```
+user_id uuid PK → auth.users(id) ON DELETE CASCADE,
+granted_at timestamptz DEFAULT now(),
+granted_by uuid → auth.users(id),
+note text
+
+RLS ENABLED; no client policies. Reads/writes only via SECURITY DEFINER RPCs.
+REVOKE ALL FROM anon, authenticated.
+```
+**Global cross-team authorisation layer**, parallel to per-team `team_admins`.
+Membership grants access to the `superadmin_*` RPCs (migrations 045, 046) and the
+`apps/superadmin` dashboard. Helper function `is_platform_admin()` returns true iff
+`auth.uid()` exists in this table; every superadmin RPC opens with that gate.
+Migration 045. Seeded by hand only — no UI to grant this role.
 
 ### audit_events
 ```

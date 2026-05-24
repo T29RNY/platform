@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 24 2026 (session 38 — first-time-use tooltips primitive + 12 hints across admin + player views)*
+*Last updated: May 24 2026 (session 39 — push notifications fix + admin_save_teams scoping + super-admin dashboard Phase 1+2 + workspace-deps guard)*
 
 This file contains infrastructure, key tokens, demo environment, conventions,
 and a compressed session history. For everything else, see the split files:
@@ -717,4 +717,75 @@ Commits in order: `db8485d`, `0ea2850`, `1d0bffa`, `9ef5a6a`, `25c8dc7`,
 
 Commit: `0a1e759` (single commit).
 
+---
+
+**Session 39 (May 24):** Pre-Beta audit + Beta P0 push-fix cascade + defense-in-depth migrations + new super-admin dashboard. Long session spanning two phases (pre-launch fix + post-launch sweep) triggered by an alarming 73.7% Vercel error rate after Beta went live.
+
+**Phase A — Pre-Beta launch blocker fix:**
+- Pre-launch audit (3 parallel Explore agents) caught one real launch blocker the moment the real team was about to send the invite link: `player_join_team` (migration 028) omitted the `token` column from the new-player INSERT branch, so first-time joiners landed with `player.token=NULL`. JoinSuccess.jsx falls back to `/` in that case, stranding the joiner. Migration 044 generates the token using the same helper `create_team` uses. Applied via MCP, verified with a rolled-back transaction smoke test, committed `cec9975`. Pre-Beta SQL-layer smoke test only — UI-layer test on real device deferred.
+
+**Phase B — Super-admin dashboard (Phase 1 + 2):**
+- New `apps/superadmin` app — Vite + React 18, plain dark admin UI (no framer-motion, no PWA, no PostHog), port 5175 in dev. Three tabs: Activity (audit_events tail with team-name + actor-email joins, 1h/6h/24h/7d windows), Teams (sortable list with player count, admin count, outstanding debt, last-match-date, join code), Team Detail (drilldown — squad, schedule, payments summary, admins list, recent matches, recent audit events).
+- Migration 045: `platform_admins` table (global authorisation, separate from per-team `team_admins`) + `is_platform_admin()` helper + `superadmin_whoami()` RPC. Seeded with `tarny@desicity.com` auth uid.
+- Migration 046: three read RPCs (`superadmin_list_teams`, `superadmin_team_detail`, `superadmin_recent_activity`) all gated by `is_platform_admin()`, all SECURITY DEFINER, all returning jsonb.
+- Deployed at `https://platform-superadmin-djj9b1w8x-tarny-s-projects.vercel.app` — Vercel SSO-gated (team protection on by default). Three deploy commands documented in plan file because GitHub git-integration not yet wired (manual `vercel build --prod && vercel deploy --prebuilt --prod --yes` ritual for now).
+- Phase 3 (token-rescue write tools) + Phase 4 (data-fix write tools) deferred to a future session.
+
+**Phase C — Production incident + structural fix:**
+- First superadmin commit (`9b7bda8`) listed `@platform/supabase` as a real npm dep, but it was only a Vite alias to `packages/core/storage/supabase.js`. Local builds passed (Vite resolves at build time, never touches node_modules), Vercel CI failed workspace-wide because npm couldn't resolve `@platform/supabase` from the registry. **This cascaded to break platform-clubmanager's deploy pipeline too** (npm install fails workspace-wide if any member has a missing dep). `www.in-or-out.com` kept serving the prior good build (`cec9975`) because Vercel only promotes on success — live site never affected. Fixed in `a6fe2a8` by dropping the fake dep.
+- Followed up with `7547d49`: eliminated the `@platform/supabase` alias entirely. 22 source files migrated via sed to import from `@platform/core/storage/supabase.js` (the real path exposed by packages/core's `exports` map). New `Skills/scripts/check-workspace-deps.sh` validates every `@platform/*` dep in every `apps/*/package.json` + `packages/*/package.json` maps to a real workspace package — wired into the pre-commit build gate (called from `check-build.sh`). Sub-second jq-based check. Negative-tested by re-adding `@platform/supabase` + a synthetic `@platform/imaginary` and confirming the gate blocks the commit with actionable error text.
+- Plus the `@platform/core` alias target changed from `packages/core/index.js` (a specific file) to `packages/core` (the directory) so subpath imports resolve via the package's `exports` map.
+
+**Phase D — 73.7% error rate investigation → push notifications root cause:**
+
+Vercel dashboard showed 73.7% Error Rate over 6h on platform-clubmanager. Investigation via parallel runtime-log + Supabase log + cron.job dumps uncovered a three-layer bug, all latent since the original platform-clubmanager deploy 13 days prior:
+
+1. **VAPID env vars stored as empty strings.** All four set 13 days ago via the Vercel dashboard but with no value. Encrypted/"sensitive" Vercel envs are masked as empty in `vercel env pull`, so visual inspection was impossible. Confirmed empty by runtime crash: `webpush.setVapidDetails(...)` threw `Vapid public key must be set` at module-load on every cold start. Fixed by generating a fresh keypair (`npx web-push generate-vapid-keys`), removing the empty entries, and re-setting via `vercel env add --value` (the `printf | vercel env add` pattern that worked for the superadmin URL/key doesn't work here — required the explicit `--value` flag).
+
+2. **Pg_cron jobs called apex URL not www.** All six notification jobs used `https://in-or-out.com/api/notify`. Apex 307-redirects to `https://www.in-or-out.com`. `pg_net` (like all sane HTTP clients) strips the `Authorization` header when following a cross-host redirect → bearer never reached the function → 401 → never delivered. Masked by the parallel VAPID 500s until those were fixed; only became visible at the 19:15 + 19:30 cron ticks after the redeploy. Confirmed by running `net.http_post` from MCP directly against apex (returned 401) vs www (returned 200). Fixed all 6 jobs via `cron.alter_job` to use canonical www URL.
+
+3. **Pg_cron job 5 syntax error.** `notif-bibs-24hr` had `Liverp00l123?!!*` pasted in the middle of its command body, producing `syntax error at or near ":="` ERROR every hour on the hour in postgres logs. Fixed via `cron.alter_job` with clean body.
+
+Verified end-to-end at the 19:45 UTC cron tick: **4× HTTP 200** vs **4× HTTP 401 at 19:30** (apex/auth-strip baseline). First-ever successful cron-driven push pipeline run on this Supabase project. `push_subscriptions` table still 0 — Beta hasn't exercised the in-app subscribe flow yet, so the proof-on-device test is deferred. Once a real subscriber exists, the same pg_cron tick that returns 200 will actually deliver a push.
+
+**Phase E — Closing security loops:**
+- **Migration 048** (commit `156dc84`) — `admin_save_teams` cross-team write surface flagged in the pre-Beta audit (originally tracked as "migration 045"; renumbered after 045+046 went to the superadmin dashboard). The 043 body correctly scoped the CLEAR via `team_players` join but the two SET statements (`team='A'`/`team='B'`) trusted the client-supplied arrays against global `players.id`. Verified the bug live: team_demo admin successfully wrote `team='A'` to a Finbars player (rolled back). Migration 048 adds `team_players` scope to both SET statements. Adversarial test re-run post-fix confirmed leak blocked (`before=NULL, after=NULL`); happy-path test confirmed legit calls still work (`before=NULL, after=A`).
+- **Migration 049** (commit `5a1a0e3`) — added `player_account_deleted` to `notify_team_change` whitelist (session 37's migration 047 passed this reason but it wasn't in the whitelist, producing a WARNING per account-deletion). Plus documented the apex→www cron URL fix in the migration file's comment block as an architectural note.
+
+**Skipped (with explicit decision):**
+- Phase 2 of the original sweep plan — investigating a single 401 on a direct `from('matches')` read. The query signature matched `getHeadToHead`'s direct-read fallback (intentional code), and the team_id (`team_54awfyl7TQY`) has never existed in this database. Stale PWA install / localStorage artefact on one iPhone session, not a code bug. Defer to "fix if real Beta users report empty H2H."
+
+**Architectural decisions formalised in DECISIONS.md:**
+- **Push notification URL rule:** all server-to-self HTTP calls (pg_cron → /api/notify, edge function → /api/anything) must use the canonical `https://www.in-or-out.com`, never the apex `https://in-or-out.com`. Apex 307s to www; pg_net + browsers + curl all strip Authorization on cross-host redirects.
+- **Workspace deps:** every `@platform/*` in any `package.json` must resolve to a real `packages/<name>/` workspace. Vite aliases are configured in `vite.config.js` only — they must NOT appear as deps. Enforced by `check-workspace-deps.sh` pre-commit hook.
+- **Super-admin authorisation layer:** new `platform_admins` table (global, cross-team) sits parallel to `team_admins` (per-team). All `superadmin_*` RPCs gate on `is_platform_admin()`. New entries to `platform_admins` are added by hand via SQL only — intentionally no UI to grant this role.
+
+**Files touched this session:**
+- NEW `apps/superadmin/` — full new app (package.json, vite.config.js, vercel.json, index.html, src/{main,App,styles,views/Activity,views/Teams,views/TeamDetail})
+- `packages/core/storage/supabase.js` — added 4 superadmin wrappers; all `@platform/supabase` import paths in tree migrated to `@platform/core/storage/supabase.js`
+- `packages/core/index.js` — barrel exports for the 4 superadmin wrappers
+- `apps/inorout/vite.config.js` + `apps/superadmin/vite.config.js` — dropped `@platform/supabase` alias; `@platform/core` target changed to directory not file
+- 22 source files under `apps/inorout/src/` — sed-migrated import paths
+- NEW `Skills/scripts/check-workspace-deps.sh` + `Skills/scripts/check-build.sh` (added the workspace-deps gate as a precondition)
+- NEW `rls_migrations/044_player_join_team_generates_token.sql`
+- NEW `rls_migrations/045_platform_admins_and_whoami.sql`
+- NEW `rls_migrations/046_superadmin_read_rpcs.sql`
+- NEW `rls_migrations/048_admin_save_teams_scope_team_set.sql`
+- NEW `rls_migrations/049_notify_team_change_whitelist_player_account_deleted.sql`
+- Vercel platform-clubmanager production env — 4 VAPID vars set with real values
+- Supabase `cron.job` rows 1–6 — URLs changed apex → www, plus job 5 syntax fix
+- Supabase `platform_admins` table seeded with `b5d8c647-f08e-4309-836c-5b77724d2960` (tarny@desicity.com)
+
+**Commits in order:** `cec9975`, `9b7bda8`, `a6fe2a8`, `7547d49`, `156dc84`, `5a1a0e3` — six commits. (User shipped `0a1e759` + `69951d4` mid-session — session 38's first-time-use tooltips.)
+
+**Verified live (server-side only):**
+- `/api/notify` returns 200 from curl, from pg_net (www URL), and from the 19:45 pg_cron tick (4× 200).
+- Migration 048 adversarial test: team_demo admin attempted cross-team write to Finbars player → blocked (`team` value untouched). Happy-path test: same admin writing legit team_demo player → `team='A'` as expected.
+- Live `www.in-or-out.com` on commit `5a1a0e3`, healthy.
+
+**Deferred to next session:**
+- Subscribe a real device to push notifications (in-app flow not yet located/exercised), then fire a test push via `/api/notify` direct-mode and confirm receipt on lock screen.
+- Locate the "Allow notifications" affordance in the app (might be missing or buried).
+- Superadmin Phase 3 (token-rescue write tools) + Phase 4 (data-fix write tools).
+- Wire GitHub git-integration on `platform-superadmin` Vercel project so it auto-deploys on push.
 
