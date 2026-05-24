@@ -62,9 +62,8 @@ function JoinStyles() {
       }
 
       .join-brand {
-        display: flex;
-        justify-content: center;
-        align-items: baseline;
+        display: block;
+        text-align: center;
         font-family: "Bebas Neue", sans-serif;
         font-size: clamp(64px, 17vw, 92px);
         line-height: 0.9;
