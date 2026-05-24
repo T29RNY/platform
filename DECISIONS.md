@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: May 23 2026 (session 35 — player self-profile + leave/delete semantics)*
+*Last updated: May 24 2026 (session 36 — framer-motion pre-launch overhaul + direct-reads-via-RPC rule)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -19,8 +19,18 @@ Read this before building new features to avoid re-litigating settled questions.
 ## RLS & WRITES
 
 - **No direct table writes from the client. Ever.** All writes via SECURITY DEFINER RPCs.
+- **No direct table READS from customer-facing client paths either.** Session 36
+  established this as a hard architectural rule after the H2H + StatsView
+  bugs surfaced. Direct `.from()` reads are an RLS-blind spot — they may work
+  for some auth contexts (player-token sessions where the user is in
+  team_players) and silently fail for others (anon callers on /demoadmin,
+  admin sessions where the auth user has no team_admins row). Wrap reads in
+  a SECURITY DEFINER RPC that takes `p_admin_token` (or `p_token`) and
+  derives team_id server-side. Existing direct reads are accepted only
+  inside the admin-token JS function as a fallback path for authenticated
+  player sessions. See migrations 041 + 042 for the canonical pattern.
 - **Admin RPCs derive team_id from p_admin_token server-side.** Never pass team_id as a trust signal from the client.
-- **Demo team is not a valid test target for auth or RLS flows.** team_demo has seeded created_at dates and no team_admins row. Always verify against team_finbars or a fresh team.
+- **Demo team is not a valid test target for auth or RLS flows.** team_demo has seeded created_at dates and (until session 36) no team_admins row. Always verify against team_finbars or a fresh team.
 
 ## ADMIN STATUS LOCK (session 34, migration 038)
 
@@ -276,3 +286,36 @@ Full spec: `GROUP_BALANCER.md`.
 - **Unlock thresholds are per-player per-team.** Progressive reveal based on `gamesPlayed`.
 - **`useIOIntelligence.js` is a pure passthrough** — takes `stats` prop from state RPC, makes no direct Supabase calls. Rewritten session 25.
 - Full IO spec in `IO_INTELLIGENCE.md`.
+
+---
+
+## MOTION & ANIMATION (session 36 — pre-launch polish)
+
+- **framer-motion@12 is the standard motion primitive.** Installed in
+  `apps/inorout` for the pre-launch UX overhaul. CSS keyframes are no
+  longer used for component-scoped motion; they remain valid only for
+  global utility animations (e.g. the `ioo-blink` live-game dot).
+- **Motion must do real work.** Every animation maps to a moment that
+  benefits from kinetic feedback — state change, reveal, reward, spatial
+  continuity. No decorative fades. No hover effects on mobile-first
+  surfaces. No animations that delay critical info (scores, fixtures,
+  availability).
+- **Shared-element pattern via `layoutId`** is the right tool for
+  spatial continuity (e.g. PageHeader avatar → PlayerProfile big avatar
+  morph, period-selector pill morph between tabs).
+- **AnimatePresence + `popLayout` mode** for staggered enter/exit on
+  lists where the items might be re-keyed (e.g. TeamsScreen shuffle —
+  chips fade-shrink out and deal in with stagger keyed by shuffleNonce).
+- **Springs over easings for arrival moments.** Use `type:"spring"` with
+  damping 14–32 (lower = more bounce, reserve <16 for celebratory
+  moments like POTM lock-in trophy). Use `easeOut`/`easeInOut` cubics
+  for measurable durations (e.g. comparison bars filling — `[0.22, 1, 0.36, 1]`
+  for a confident decelerating fill).
+- **Counters use motion-value pattern, not React re-renders.** `animate(0, value, { onUpdate: v => node.textContent = ... })` writes DOM
+  directly; avoids per-frame React reconciliation for ramping numbers.
+- **Dwell time matters as much as entry time.** When an animation
+  celebrates state (e.g. POTM "VOTE LOCKED IN"), extend the auto-close
+  long enough for the user to register the reward — first-pass 3s was
+  too tight (1.6 float cycles, read as twitch); 4.5s gives ~2.7 cycles
+  which reads as intentional celebration. The cache-window math from
+  ScheduleWakeup is irrelevant here — only the user-perception math is.

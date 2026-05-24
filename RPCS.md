@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 23 2026 (session 35 — player self-profile reads + self-destructive RPCs)*
+*Last updated: May 24 2026 (session 36 — H2H + PlayerLeagueTable RPCs + admin_save_teams writes players.team)*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -53,7 +53,7 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | `admin_reset_payment` | `handleResetPayment(adminToken, playerId, matchId)` | Resets all payment flags + ledger |
 | `admin_waive_debt` | `handleWaiveDebt(adminToken, playerId, note)` | Zeros owes; writes waiver ledger entry; notify |
 | `admin_save_match_result` | `saveMatchResult(matchId, teamId, adminToken, match)` | Writes result fields only; never touches motm/voting |
-| `admin_save_teams` | `confirmTeams(adminToken, matchId, teamA, teamB, predictedWinner?, predictedConfidence?, balanceScore?)` | Sets team_a/team_b on confirm; 3 trailing prediction params (Group Balancer, migration 031) write to matches.predicted_winner/confidence/balance_score. Old 5-arg signature dropped. |
+| `admin_save_teams` | `confirmTeams(adminToken, matchId, teamA, teamB, predictedWinner?, predictedConfidence?, balanceScore?)` | Sets matches.team_a/team_b on confirm + writes denormalised players.team (clears for all team_players, then sets 'A'/'B' on the confirmed ids) so PlayerView Live Board renders the team sheet. 3 trailing prediction params (Group Balancer, migration 031) write to matches.predicted_winner/confidence/balance_score. Migration 043 added players.team write; migration 031 added prediction params. Old 5-arg signature dropped. |
 | `admin_save_bib_holder` | `saveBibHolder(adminToken, matchId, playerId, name)` | 4-step atomic: match bib_holder, player bib_count++, bib_history upsert, had_bibs flag |
 | `admin_cancel_match` | `adminCancelMatch(adminToken, reason)` | Atomic cancel — replaces 7-step cancelWeek() |
 | `admin_reopen_week` | `reopenWeek(adminToken)` | Reopens a cancelled week: clears schedule.is_cancelled / cancel_reason, sets game_is_live=true, inserts a fresh matches row, points active_match_id at it. Previously cancelled match stays in history (cancelled=true). Migration 031 sibling. |
@@ -101,6 +101,8 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 | `submit_potm_vote` | `submitPOTMVote(matchId, teamId, voterToken, nomineeId)` | SECURITY DEFINER; UNIQUE violation returns {error:"already_voted"} |
 | `get_potm_voting_state` | `getPOTMVotingState(matchId, teamId, voterToken)` | Returns eligible players + existing vote |
 | `find_player_by_email` | `findPlayerByEmail(email)` | Returns [{token, player_id, player_name, team_id, team_name}] |
+| `get_head_to_head_raw_by_admin_token` | called via `getHeadToHead(meId, themId, teamId, period, adminToken)` | Migration 041. Returns 3 jsonb arrays (all_time_matches, period_matches, player_match_rows for both players). JS function branches on adminToken — RPC for admin-token routes (unblocks anon /demoadmin), direct reads for authenticated player sessions. Server-side period cutoff mirrors `scoring.js#periodCutoff`. |
+| `get_player_league_table_raw_by_admin_token` | called via `getPlayerLeagueTable(teamId, period, adminToken)` | Migration 042. Returns 5 jsonb arrays (period_matches, player_match_rows, all_time_attended summaries, all_team_match_dates, players). Same branch-on-adminToken pattern as 041. Used by StatsView (to populate form + reliability columns) and HeadToHead (Section 4 Overall Comparison bars). |
 
 ---
 
@@ -157,6 +159,9 @@ Auth via `p_admin_token`; anon grant is fine because the token is the auth signa
 | 038 | players.admin_locked_in column + REPLACES admin_set_player_status (lock + cap), set_player_status (lock + cap), get_team_state_by_admin_token (includes admin_locked_in in squad rows). |
 | 039 | `get_my_payment_history(p_token, p_limit)` + `get_my_injuries(p_token)` — Player-token-authed reads for the new player-facing PlayerProfile screen. Both SECURITY DEFINER; derive (player_id, team_id) from players.token via team_players join. GRANT to anon+authenticated. |
 | 040 | `leave_squad(p_token)` + `delete_my_account(p_token)` — Player-token-authed destructive RPCs (self-leave + self-delete). leave_squad detaches team_players + push_subscriptions only; refuses with debt_owed. delete_my_account anonymises players row + detaches all teams; refuses with last_admin guard; returns auth_user_id for edge function follow-up. |
+| 041 | `get_head_to_head_raw_by_admin_token(p_admin_token, p_me_id, p_them_id, p_period)` — SECURITY DEFINER raw-data RPC for H2H. Returns all-time matches, period-filtered matches, player_match rows for both players. Fixes anon /demoadmin direct-read RLS block. Anon grant (admin_token is the auth signal). |
+| 042 | `get_player_league_table_raw_by_admin_token(p_admin_token, p_period)` — SECURITY DEFINER raw-data RPC for PlayerLeagueTable. Returns period matches, player_match rows, all-time attended summaries, all match dates (reliability denominator), player details. Same pattern as 041 — fixes anon /demoadmin StatsView (form + reliability columns) and H2H Section 4 (comparison bars). |
+| 043 | admin_save_teams REPLACE — now also writes `players.team` ('A'/'B'/NULL scoped to team) when p_confirm=true so PlayerView Live Board renders the per-player team sheet. Previously only matches.team_a/team_b was written, leaving p.team stale. |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.

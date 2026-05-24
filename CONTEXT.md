@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 23 2026 (session 35 — AdminView polish wave + unified PlayerProfile with self-leave/delete)*
+*Last updated: May 24 2026 (session 36 — pre-launch framer-motion overhaul + H2H/Stats RLS-RPC sweep)*
 
 This file contains infrastructure, key tokens, demo environment, conventions,
 and a compressed session history. For everything else, see the split files:
@@ -589,6 +589,57 @@ Files touched this session:
 
 Commits in order: `db8485d`, `0ea2850`, `1d0bffa`, `9ef5a6a`, `25c8dc7`,
 `b2ae73d` (six in one sitting).
+
+---
+
+**Session 36 (May 23–24):** Pre-launch UX overhaul — framer-motion@12 adopted as the standard motion primitive across five showcase surfaces, plus an architectural sweep that closed the H2H + Stats RLS-blind-spot bugs the motion overhaul exposed.
+
+**Motion pass (5 surfaces, in shipped order):**
+- `82bc502` PlayerView header — fixed the dead-space layout problem by inlining the avatar beside the team name (was absolute-positioned floating in a corner over a centred logo). Added `layoutId="me-avatar"` so the avatar morphs into the big PlayerProfile avatar instead of fullscreen teleporting. Wrapped the showProfile branch in `<AnimatePresence mode="wait" initial={false}>`. Spring 380/32.
+- `349aefa` + `bb079d0` POTM voting modal — celebratory motion on the VOTE LOCKED IN + RESULT moments. Trophy springs in with rotation correction then enters a 1.6s float loop while the auto-close timer runs (extended 3s → 4.5s for proper dwell). Three-beat reveal on RESULT: trophy 360° rotation, winner name fade-up at 350ms, caption at 550ms. Hygiene fix swept up: Trophy weight=fill → weight=thin.
+- `a637568` + `de3a057` TeamsScreen Fisher-Yates shuffle reveal — chips wrapped in motion.div + AnimatePresence(popLayout), scale 0.6 → 1 + spring 380/28, 50ms stagger per chip. shuffleNonce keys each chip so re-shuffle forces clean exit/enter. SMART + BUILD TEAMS shuffle icons spin 360° for 700ms during compute. Prediction chip re-keyed on shuffleNonce+winner with spring 260/14. Audit follow-up split `revealing` (gates stagger, fires on every algorithm run incl. silent mount auto-Smart) from `isShuffling` (gates icon spin, user-initiated only), fixing a 500ms invisible-chip regression on manual swaps where the moved chip landed at index N with `delay = N × 50ms`. Dropped the dead `layout` prop.
+- `d819d77` ScoreScreen 6-stage progressive flow — StageCard converted to motion.div with spring 280/26 entrance (replaces CSS keyframe). Last-goal-yes eligible list fades in via motion.div. SAVE RESULT button wrapper springs in with overshoot (220/18) when canSave flips true — climactic moment of the entire flow now feels earned, not silent. Cleaned 3 hex literals (#0A0A08 → var(--bg)) and 2 phosphor weights (fill/bold → thin) flagged by hygiene hook.
+- `1ba94e7` HeadToHead — the prime view. 231 insertions, comprehensive choreography: modal slide-in spring (260/30), the two HEAD halves clash at TO with directional springs, PlayerColumns slide in from opposite sides with avatar scaling + counter-rotation correction, status pills springs last per side, verdict pill spring 260/14 at 850ms (the emotional payoff), period selector uses `layoutId="period-pill"` for shared-element morph between MONTH/SEASON/ALL TIME (native-app polish), all 5 sections stagger 80ms apart via shared `sectionMotion()` helper, counters in Section 1 ramp via custom Counter component (writes DOM textContent directly to dodge React re-renders), Section 4 comparison bars fill row-by-row with cubic-bezier `[0.22, 1, 0.36, 1]` 180ms stagger (dominance reveals like an awards tally), Section 5 recent matches stagger left-to-right. All sections re-key on `period` so MONTH/SEASON/ALL TIME tab switch replays the entire animation — each period feels like a fresh dossier. One hygiene fix: #fff → var(--bg) on the result badge.
+
+**RLS-blind-spot sweep (triggered by H2H showing empty on /demoadmin):**
+- Discovered: `getHeadToHead` did 3 direct `.from()` reads. Under post-session-24 RLS those returned zero rows for anon callers; H2H rendered the empty-state copy. `getPlayerLeagueTable` had the same pattern, affecting StatsView form + reliability columns AND H2H Section 4 Overall Comparison bars.
+- `a95e074` migration 041 `get_head_to_head_raw_by_admin_token` — SECURITY DEFINER, derives team from p_admin_token, returns 3 jsonb arrays. JS `getHeadToHead` branches on adminToken; direct reads remain as fallback for authenticated player sessions. Threaded adminToken through App.jsx → PlayerView/StatsView → HeadToHead → getHeadToHead.
+- `ed92e2f` migration 042 `get_player_league_table_raw_by_admin_token` — same pattern, returns 5 raw arrays. StatsView now augments local tableData with form + reliability via post-build effect. HeadToHead modalTableData call passes adminToken too.
+- `9c17d4d` deleted 298 lines of dead IO Intelligence query code in supabase.js (10 functions: `getPlayerMatchStats`, `getWinRate`, `getCurrentRun`, `getReliabilityScore`, `getMostPlayedWith`, `getOpponentStats`, `getNemesis`, `getBestPartnership`, `getPlayerImpact`, `getPOTMVoteStats`) — all pre-session-32 leftovers with zero callers and zero exports. Each used direct `.from()` reads; removing closes latent RLS-blind-spot risk.
+
+**TeamsScreen UX bugs caught during testing:**
+- `a7e3e96` removed duplicate top CONFIRM button + small green toast; remaining bottom button is now state-aware (`ASSIGN ALL PLAYERS FIRST` / `CONFIRM TEAMS` / `CONFIRMING…` / `✓ TEAMS CONFIRMED`). User had reported "confirm buttons do nothing" — they did, but feedback was invisible.
+- `b257ae3` BUILD TEAMS gating changed from `groupsDirty` to always-on when SMART is open. Adaptive label: "BUILD TEAMS" (solid gold) when groups dirty, "REGENERATE TEAMS" (outlined) for fresh shuffle. Admin can re-roll without first editing groups.
+- `a14590b` two real bugs found and fixed together:
+  - **Live Board team sheet missing after confirm** — `admin_save_teams` only wrote `matches.team_a/team_b` but PlayerView.jsx:203 reads `p.team`. Migration 043 extended the RPC to clear+set `players.team` on confirm, scoped via team_players join.
+  - **CONFIRM TEAMS reverts to "CONFIRM" on return** — race condition between matchId hydration (sets teamsConfirmed=true from loaded match) and auto-Smart effect (reads empty `assignments` from stale closure, fires runAlgorithm which sets teamsConfirmed=false). Hydration now sets `hasAutoFiredRef.current=true` when it detects an already-confirmed lineup so auto-Smart bails.
+
+**Demo environment cleanups (not bugs in live code):**
+- Cleared orphan `user_id` on Priya (`p_demo_16`) that was blocking bulk seed UPDATE due to FK violation (referenced a deleted auth.users row).
+- Added a `team_admins` row for `tarny@desicity.com` (uid `b5d8c647-…`) on `team_demo` — closes BUGS.md #3. The RPC fix above means demoadmin works for anon visitors too now, so this is belt + braces.
+- Reseeded `team_demo` squad to **10 IN / 5 RESERVE / 4 OUT / 4 MAYBE** (with Callum un-injured to make the 23 count). Tarny + Hassan + Dave + Mike + Steve + Jordan + Liam + Chris + Robbie + Finbar as IN. Lets the team selection + motion choreography test against realistic data.
+- `dd14c6e` `/demoadmin` "me" now hardcoded to Hassan (`p_demo_01`) instead of session-uid lookup. Public showcase route shouldn't be identity-bound; Hassan has the richest seeded history.
+
+**Files touched this session:**
+- `apps/inorout/package.json` — framer-motion@12.40.0 dep added
+- `apps/inorout/src/components/ui/PageHeader.jsx` — inline avatar restructure + layoutId
+- `apps/inorout/src/views/PlayerProfile.jsx` — matching layoutId on big avatar
+- `apps/inorout/src/views/PlayerView.jsx` — AnimatePresence wrap + adminToken thread
+- `apps/inorout/src/views/POTMVotingModal.jsx` — celebratory motion
+- `apps/inorout/src/views/AdminView/TeamsScreen.jsx` — shuffle reveal + button consolidation + REGENERATE + race-condition fix
+- `apps/inorout/src/views/AdminView/ScoreScreen.jsx` — stage springs
+- `apps/inorout/src/views/HeadToHead.jsx` — full motion overhaul + adminToken thread
+- `apps/inorout/src/views/StatsView.jsx` — adminToken thread + form/reliability augmentation effect
+- `apps/inorout/src/App.jsx` — demoadmin "me" → Hassan + adminToken plumbing
+- `packages/core/storage/supabase.js` — getHeadToHead + getPlayerLeagueTable branched on adminToken; dead IO Intel block deleted
+- `rls_migrations/041_rpcs_h2h.sql` — NEW
+- `rls_migrations/042_rpcs_player_league_table.sql` — NEW
+- `rls_migrations/043_admin_save_teams_writes_player_team.sql` — NEW
+
+**Commits in order (this session):** `82bc502`, `349aefa`, `bb079d0`, `a637568`, `de3a057`, `d819d77`, `1ba94e7`, `dd14c6e`, `a95e074`, `a7e3e96`, `b257ae3`, `ed92e2f`, `9c17d4d`, `a14590b` — fourteen commits.
+
+**Outstanding from this session (not done):**
+- #5 from the original motion list: MyIOView insight unlock springs (replace existing CSS keyframe with framer spring). Deferred mid-session when the H2H/Stats bug triage took priority. Whole motion overhaul list is done bar this one.
 
 ---
 

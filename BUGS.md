@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 23 2026 (session 35 — +B6 PlayerView direct matches read 401)*
+*Last updated: May 24 2026 (session 36 — H2H/Stats RLS RPC sweep + pre-launch motion overhaul)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -22,10 +22,11 @@ BibsScreen assignment is non-functional post-RLS.
 `career_win_rate`, `career_reliability`, `career_impact`, `best_team_id`) are permanently
 null/zero. Table exists but provides no value until Phase 2 career sync is built.
 
-### 3. `team_demo` has no `team_admins` row
-**Detail:** Demo team predates the `team_admins` table. Multi-team switcher won't show
-`team_demo` for Tarny's account until backfilled. No impact on real teams.
-**Fix:** `INSERT INTO team_admins (team_id, user_id) VALUES ('team_demo', '<tarny_user_id>');`
+### 3. `team_demo` has no `team_admins` row ✅ RESOLVED (session 36)
+~~Demo team predates the `team_admins` table.~~ Backfilled session 36 — added row
+for `tarny@desicity.com` auth uid. Now mostly moot: the H2H + StatsView RPC
+fixes (041, 042) mean `/demoadmin` works for unauthenticated visitors too via
+the admin_token SECURITY DEFINER path.
 
 ### 4. `scoring.js` filename mismatch
 **File:** `packages/core/engine/scoring.js`
@@ -55,24 +56,82 @@ falling through. Or: include the token in the PWA `start_url` per-install (requi
 a server-rendered manifest). Either approach moves persistence off the client and
 survives browser handoffs.
 
-### 6. PlayerView direct `matches` table read 401s on every page load
-**File:** `apps/inorout/src/views/PlayerView.jsx`
-**Detail:** Every page load logs
-`Failed to load resource: 401 @ /rest/v1/matches?select=id,match_date,score_type&team_id=eq.team_demo&cancelled=neq.true`.
-A leftover direct `supabase.from('matches')` read from before the post-session-24
-RLS lockdown. Reads should go through an RPC. No user-visible impact —
-the rest of the view loads fine — but every load wastes a request and
-clutters the console (false-positive noise for real errors).
-**Found:** session 35 verify pass via Playwright console logs.
-**Fix:** Either extend `get_team_state_by_player_token` to include the
-matches data PlayerView needs, or stand up a small read RPC mirroring the
-query shape and replace the direct `from()` call.
+### 6. PlayerView direct `matches` table read 401s on every page load ✅ RESOLVED (session 36)
+The 401s on the `from('matches')` reads were from `getHeadToHead` and
+`getPlayerLeagueTable`, not PlayerView itself — both were wrapped in
+SECURITY DEFINER RPCs (migrations 041 + 042) with adminToken threading.
+Same pattern applies to authenticated player sessions which hit the
+direct-read fallback path. Console clean post-fix.
 
 ---
 
 ---
 
-## RESOLVED THIS SESSION (May 23 2026 — session 32)
+## RESOLVED THIS SESSION (May 24 2026 — session 36)
+
+- **H2H on /demoadmin showed "you haven't played in the same game yet"** —
+  `getHeadToHead` did three direct `.from()` reads on `matches` +
+  `player_match`. Under post-session-24 RLS those returned zero rows for
+  anon callers; the modal silently rendered empty. Migration 041 added
+  `get_head_to_head_raw_by_admin_token` (SECURITY DEFINER, derives team
+  from admin_token, returns three jsonb arrays). JS branches on
+  adminToken; existing computation untouched. Threaded adminToken
+  through App.jsx → PlayerView/StatsView → HeadToHead. Commit: `a95e074`.
+- **StatsView form chips + reliability column always blank** — same root
+  cause. `getPlayerLeagueTable` did direct `.from()` reads → RLS-blocked
+  on anon. StatsView's local tableData hard-coded `reliability:null` +
+  `form:[]` because `matchHistory + squad` props can't derive either
+  (need ordered player_match rows + all-time attended counts). Migration
+  042 added `get_player_league_table_raw_by_admin_token`; StatsView now
+  augments local tableData with form + reliability from the RPC. Also
+  fixed HeadToHead Section 4 Overall Comparison bars on demoadmin via
+  same threading. Commit: `ed92e2f`.
+- **TeamsScreen — buttons "do nothing", duplicate CONFIRMs, no
+  REGENERATE option** — three related UX gaps. The confirm RPC was
+  firing fine but visual feedback was a tiny green toast easy to miss;
+  button text never changed; admin couldn't tell anything happened.
+  Plus two confirm buttons (top + bottom) doing the same thing. Plus
+  BUILD TEAMS gated on `groupsDirty` so admin couldn't re-shuffle
+  without first editing groups. Combined fix: dropped the duplicate
+  top button + the toast; bottom button is now state-aware (assign
+  first / confirm / confirming / ✓ confirmed). BUILD TEAMS always
+  visible when SMART is open, with adaptive label (BUILD TEAMS when
+  groups dirty, REGENERATE TEAMS otherwise). Commits: `a7e3e96`, `b257ae3`.
+- **PlayerView Live Board team sheet empty after confirm** —
+  `admin_save_teams` only wrote `matches.team_a/team_b` (the persistent
+  match row), never `players.team` (the denormalised column PlayerView's
+  Live Board reads at line 203). Migration 043 extends the RPC to clear
+  + set p.team on every confirm, scoped to team via team_players join.
+  Commit: `a14590b`.
+- **TeamsScreen CONFIRM TEAMS button reverted to "CONFIRM" on return** —
+  race condition between matchId hydration effect (which set
+  teamsConfirmed=true from the loaded match) and the auto-Smart effect
+  (which read empty `assignments` from its stale closure, decided
+  "nothing assigned", ran the algorithm, called setTeamsConfirmed(false)).
+  Whichever setState committed last won. Fix: hydration now sets
+  `hasAutoFiredRef.current=true` when it detects an already-confirmed
+  lineup, so auto-Smart bails before running. Commit: `a14590b`.
+- **/demoadmin "me" defaulted to a leftover Test Player row** —
+  the squad lookup matched `userId === session.user.id` for the auth
+  user. For accounts with an orphan p_* row pointing at their uid,
+  this surfaced a meaningless test player as the header avatar and
+  broke every player-centric surface. demoadmin is a public showcase
+  route, not identity-bound — hard-coded "me" to Hassan (`p_demo_01`),
+  the demo protagonist with the richest seeded history. Commit: `dd14c6e`.
+- **Dead IO Intelligence query block** — 10 supabase.js functions
+  (`getPlayerMatchStats`, `getWinRate`, `getCurrentRun`,
+  `getReliabilityScore`, `getMostPlayedWith`, `getOpponentStats`,
+  `getNemesis`, `getBestPartnership`, `getPlayerImpact`,
+  `getPOTMVoteStats`) with zero callers. Pre-session-32 leftovers; the
+  proper IO deeper-intel lives in `packages/core/engine/deeperIntel.js`
+  now. Removing ~298 lines closes a latent RLS-blind-spot risk
+  (every one used direct `.from()` reads). Commit: `9c17d4d`.
+
+**Sweep verified clean:** post-fix, every direct `.from()` call left in
+client code is either dead, demo-scoped, or hygiene-exempt. No more
+RLS-blind-spot pathology in live customer read paths.
+
+## RESOLVED (May 23 2026 — session 32)
 
 - **B7: IO Intelligence deeper-intel cards were dead UI** — Most Played With (6+),
   Team Impact (7+), Nemesis (8+), Best Partnership (8+) all rendered the
