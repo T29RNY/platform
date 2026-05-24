@@ -217,16 +217,11 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
 
   useEffect(() => {
     navigator.vibrate?.(200);
-    // Always write the admin breadcrumb on this screen — the user just
-    // created a team, so the right surface from their home screen is the
-    // admin panel. adminToken is always present here. Writing this is what
-    // makes PWA installs from this screen open at /admin/TOKEN instead of
-    // falling through to PWAWelcome ("paste your player link").
+    // Belt-and-braces breadcrumb. Survives if iOS PWA shares localStorage
+    // with Safari on this version (it usually doesn't — see manifest swap
+    // below for the actual fix).
     const path = `/admin/${adminToken}`;
     localStorage.setItem('ioo_last_visited', path);
-
-    // iOS Safari needs the extra timestamped "redirect bridge" payload
-    // mirrored by getRoute() in App.jsx — same shape, same key.
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isStandalone = window.navigator.standalone === true
       || window.matchMedia('(display-mode: standalone)').matches;
@@ -234,6 +229,31 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
       localStorage.setItem('ioo_redirect_to', JSON.stringify({ path, ts: Date.now() }));
     }
   }, []);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // CRITICAL — iOS PWA install path. Do NOT remove or refactor without
+  // reading apps/inorout/api/manifest.js + apps/inorout/vercel.json headers
+  // config FIRST.
+  //
+  // Swaps the linked manifest to /api/manifest?admin=<token> so iOS bakes
+  // /admin/<token> as the home-screen launch URL at install time.
+  // localStorage breadcrumbs above are belt-and-braces — iOS partitions PWA
+  // storage from Safari storage on most versions, so the manifest swap is
+  // the only reliable path.
+  //
+  // Rules:
+  // - useEffect deps MUST include adminToken (NOT empty array). adminToken
+  //   may be undefined on first render under StrictMode or render races.
+  // - early-return guard MUST check adminToken before swapping.
+  // - NO cleanup function. App.jsx's root-level effect owns restoration on
+  //   route change. Restoring here would thrash under StrictMode.
+  // ──────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!adminToken) return;
+    const link = document.querySelector('link[rel="manifest"]');
+    if (!link) return;
+    link.setAttribute('href', `/api/manifest?admin=${encodeURIComponent(adminToken)}`);
+  }, [adminToken]);
 
   return (
     <>

@@ -271,6 +271,33 @@ export default function App() {
     document.head.appendChild(el);
   }, []);
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // CRITICAL — iOS PWA install path. Do NOT remove or refactor without
+  // reading apps/inorout/api/manifest.js + apps/inorout/vercel.json headers
+  // config + apps/inorout/src/onboarding/steps/SquadReady.jsx FIRST.
+  //
+  // Owns the <link rel="manifest"> href across route transitions. On admin
+  // routes, points at /api/manifest?admin=<token> so iOS bakes /admin/<token>
+  // into the home-screen icon at install time. On every other route,
+  // restores the default /manifest.json. SquadReady's local effect handles
+  // the create-flow case where the user installs without ever visiting an
+  // /admin/<token> URL.
+  //
+  // Rules:
+  // - guard MUST validate route.token against the admin regex BEFORE swap
+  //   (avoids ?admin=undefined writes during route transitions)
+  // - swap key MUST be both route.type AND route.token (not just type)
+  // ──────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const link = document.querySelector('link[rel="manifest"]');
+    if (!link) return;
+    if (route.type === "admin" && route.token && /^admin_[A-Za-z0-9_-]+$/.test(route.token)) {
+      link.setAttribute('href', `/api/manifest?admin=${encodeURIComponent(route.token)}`);
+    } else {
+      link.setAttribute('href', '/manifest.json');
+    }
+  }, [route.type, route.token]);
+
   // On /create when unauthed, persist the intended destination BEFORE the
   // user taps Google OAuth, in both sessionStorage AND localStorage. Safari
   // can drop sessionStorage on cross-origin OAuth roundtrips, so the
