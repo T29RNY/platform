@@ -115,6 +115,8 @@ predicted_winner text,       ← "A" | "B" | "draw" | NULL (Group Balancer; migr
 predicted_confidence numeric(4,2),  ← 0.00–1.00; raw win-rate delta — admin-only, never shown
 balance_score numeric(4,2),         ← duplicate of predicted_confidence at confirm time
                                        (separate column so semantics stay distinct in future)
+match_type text NOT NULL DEFAULT 'casual',  ← casual | competitive — Phase 0B (migration 051)
+                                       sport-agnostic; sport identity lives on league_config.sport
 created_at timestamptz
 ```
 **Group Balancer fields:** `predicted_winner`/`predicted_confidence`/`balance_score`
