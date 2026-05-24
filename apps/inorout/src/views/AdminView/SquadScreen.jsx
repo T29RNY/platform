@@ -5,7 +5,7 @@ import {
   deletePlayer as removePlayerFromDb,
   adminSetPlayerPriority,
   setPlayerNickname, resetPlayerToken,
-} from "@platform/supabase";
+} from "@platform/core/storage/supabase.js";
 import {
   UsersThree, Star, Shield, LinkSimple, Copy, Plus, Check,
   MagnifyingGlass, DotsThreeVertical, PencilSimple, X,

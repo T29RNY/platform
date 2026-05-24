@@ -8,6 +8,19 @@ echo "--- BUILD CHECK ---"
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
 
+# Gate: workspace dep declarations must be sane before we even try to build.
+# Catches the bug class "package.json lists a Vite alias as a real dep,"
+# which breaks Vercel's npm install in a clean container even though the
+# local build passes (Vite resolves aliases at build time).
+bash skills/scripts/check-workspace-deps.sh
+DEP_EXIT=$?
+if [ $DEP_EXIT -ne 0 ]; then
+  echo ""
+  echo "RESULT: FAIL — invalid workspace deps, build not attempted."
+  exit 1
+fi
+echo ""
+
 OUTPUT=$(cd apps/inorout && npm run build 2>&1)
 EXIT_CODE=$?
 

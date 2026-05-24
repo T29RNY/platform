@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { askGafferQuestion } from "@platform/supabase";
+import { askGafferQuestion } from "@platform/core/storage/supabase.js";
 
 // Ask the Gaffer — admin Q&A panel.
 // Replaces the previous player-facing app-help chatbot (archived as _archived_chatbot.jsx).

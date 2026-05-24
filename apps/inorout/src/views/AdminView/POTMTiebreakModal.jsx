@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { closePOTMVoting } from "@platform/supabase";
+import { closePOTMVoting } from "@platform/core/storage/supabase.js";
 
 export default function POTMTiebreakModal({ match, squad, teamId, adminToken, onDecide }) {
   const [selected,   setSelected]   = useState(null);

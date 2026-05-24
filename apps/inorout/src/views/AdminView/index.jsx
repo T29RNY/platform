@@ -10,7 +10,7 @@ import {
   clearPlayerInjury,
   upsertSchedule, adminCancelMatch, addPlayerToTeam,
   getRecentNotification,
-} from "@platform/supabase";
+} from "@platform/core/storage/supabase.js";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
   UsersThree, FlagCheckered, UserList, CalendarBlank,

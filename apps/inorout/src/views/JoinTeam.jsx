@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { supabase } from "@platform/supabase";
+import { supabase } from "@platform/core/storage/supabase.js";
 import { EnvelopeSimple, PaperPlaneTilt, User } from "@phosphor-icons/react";
 
 const BASE_URL = typeof window !== "undefined"

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { superadminRecentActivity } from "@platform/supabase";
+import { superadminRecentActivity } from "@platform/core/storage/supabase.js";
 
 const WINDOWS = [
   { label: "1h",  hours: 1 },

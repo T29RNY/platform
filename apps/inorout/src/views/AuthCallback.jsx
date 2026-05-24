@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { colors as C } from "@platform/core";
-import { supabase, updateUserProfile } from "@platform/supabase";
+import { supabase, updateUserProfile } from "@platform/core/storage/supabase.js";
 
 export default function AuthCallback() {
   const [status, setStatus] = useState("processing");

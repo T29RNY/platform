@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { handleMarkPaid, handleResetPayment, handleWaiveDebt } from "@platform/core";
-import { adminGetPlayerLedger } from "@platform/supabase";
+import { adminGetPlayerLedger } from "@platform/core/storage/supabase.js";
 import { ArrowLeft, CaretDown, CaretUp, DotsThreeVertical } from "@phosphor-icons/react";
 
 // ── constants ─────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { NumberSquareOne, TrendUp, Flag, Trophy, Check, ArrowLeft, ArrowsLeftRight } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import { newMatch, updatePlayerRecords, resolveMotm } from "@platform/core";
-import { saveMatchResult } from "@platform/supabase";
+import { saveMatchResult } from "@platform/core/storage/supabase.js";
 
 // ── Module-level constants ────────────────────────────────────────────────────
 

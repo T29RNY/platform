@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { colors as C, computeDeeperIntel } from "@platform/core";
-import { supabase } from "@platform/supabase";
+import { supabase } from "@platform/core/storage/supabase.js";
 import {
   getPlayers,
   getMatches,
@@ -13,7 +13,7 @@ import {
   getSession, getPlayerTeams,
   linkPlayerToUser, updateUserProfile,
   resetDemoData, updateDemoInteraction,
-} from "@platform/supabase";
+} from "@platform/core/storage/supabase.js";
 import { SEED_COVER } from "./seeds.js";
 import PlayerView    from "./views/PlayerView.jsx";
 import StatsView     from "./views/StatsView.jsx";

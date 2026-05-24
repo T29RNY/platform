@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { getGafferBriefing } from "@platform/supabase";
+import { getGafferBriefing } from "@platform/core/storage/supabase.js";
 
 const TITLES = {
   team_summary:      "Team summary",

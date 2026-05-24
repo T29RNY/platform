@@ -5,7 +5,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   resolveMotm } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, removeGuestPlayer, setPlayerStatus, setPlayerInjured, deletePlayer,
   getPOTMVotingState, setPlayerNickname,
-  resolveBibHolder } from "@platform/supabase";
+  resolveBibHolder } from "@platform/core/storage/supabase.js";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,

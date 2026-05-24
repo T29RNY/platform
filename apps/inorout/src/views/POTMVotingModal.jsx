@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Trophy } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
-import { submitPOTMVote } from "@platform/supabase";
+import { submitPOTMVote } from "@platform/core/storage/supabase.js";
 import { resolveMotm } from "@platform/core";
 
 if (typeof document !== "undefined" && !document.getElementById("potm-styles")) {

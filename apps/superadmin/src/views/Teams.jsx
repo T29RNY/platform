@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { superadminListTeams } from "@platform/supabase";
+import { superadminListTeams } from "@platform/core/storage/supabase.js";
 
 function fmtDate(d) {
   if (!d) return "—";

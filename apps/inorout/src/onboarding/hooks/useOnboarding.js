@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { ONBOARDING_CONFIG as CFG } from "../config.js";
-import { supabase } from "@platform/supabase";
+import { supabase } from "@platform/core/storage/supabase.js";
 
 
 export function useOnboarding({ onComplete, authUser }) {

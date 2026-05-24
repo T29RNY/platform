@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { ArrowLeft, MapPin } from "@phosphor-icons/react";
 import { Toggle } from "@platform/ui";
-import { upsertSchedule, upsertSettings } from "@platform/supabase";
+import { upsertSchedule, upsertSettings } from "@platform/core/storage/supabase.js";
 import { reopenWeek } from "@platform/core";
 
 // ── Constants ─────────────────────────────────────────────────────────────────

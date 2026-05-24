@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { colors as C } from "@platform/core";
-import { supabase } from "@platform/supabase";
+import { supabase } from "@platform/core/storage/supabase.js";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`

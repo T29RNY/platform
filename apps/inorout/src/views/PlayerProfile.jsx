@@ -11,7 +11,7 @@ import {
   setPlayerNickname, resetPlayerToken,
   insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
   deletePlayer,
-} from "@platform/supabase";
+} from "@platform/core/storage/supabase.js";
 import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
 
 // ── helpers ─────────────────────────────────────────────────────────────────

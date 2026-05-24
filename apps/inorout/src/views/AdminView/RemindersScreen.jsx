@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft } from "@phosphor-icons/react";
 import { Toggle } from "@platform/ui";
-import { upsertSchedule } from "@platform/supabase";
+import { upsertSchedule } from "@platform/core/storage/supabase.js";
 
 const DEFAULT_REMINDERS = {
   quietStart: "22:00",
