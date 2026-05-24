@@ -40,5 +40,9 @@ export {
   getGafferBriefing,
   askGafferQuestion,
   adminSetPlayerStatus,
+  superadminWhoami,
+  superadminListTeams,
+  superadminTeamDetail,
+  superadminRecentActivity,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";

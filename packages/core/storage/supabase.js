@@ -1729,3 +1729,47 @@ export async function askGafferQuestion(adminToken, question, opts = {}) {
     forceRefresh: !!opts.forceRefresh,
   });
 }
+
+// ─── Superadmin (apps/superadmin) ────────────────────────────────────────────
+// All four wrappers call SECURITY DEFINER RPCs gated by is_platform_admin().
+// Caller must be in the platform_admins table (migration 045).
+
+export async function superadminWhoami() {
+  const { data, error } = await supabase.rpc("superadmin_whoami");
+  if (error) {
+    console.error("[superadmin] whoami failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function superadminListTeams() {
+  const { data, error } = await supabase.rpc("superadmin_list_teams");
+  if (error) {
+    console.error("[superadmin] list_teams failed", error);
+    throw error;
+  }
+  return data || [];
+}
+
+export async function superadminTeamDetail(teamId) {
+  const { data, error } = await supabase.rpc("superadmin_team_detail", { p_team_id: teamId });
+  if (error) {
+    console.error("[superadmin] team_detail failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function superadminRecentActivity({ limit = 100, sinceHours = 24 } = {}) {
+  const since = new Date(Date.now() - sinceHours * 3600 * 1000).toISOString();
+  const { data, error } = await supabase.rpc("superadmin_recent_activity", {
+    p_limit: limit,
+    p_since: since,
+  });
+  if (error) {
+    console.error("[superadmin] recent_activity failed", error);
+    throw error;
+  }
+  return data || [];
+}
