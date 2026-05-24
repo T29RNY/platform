@@ -5,6 +5,7 @@ import {
 } from "@phosphor-icons/react";
 import PlayerLeagueTable from "./PlayerLeagueTable.jsx";
 import HeadToHead        from "./HeadToHead.jsx";
+import FirstTimeHint     from "../components/FirstTimeHint.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -512,19 +513,26 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
         {totalGames > 0 && (
           <>
             {/* 0. Player League Table */}
-            <PlayerLeagueTable
-              data={tableData}
-              loading={tableLoading}
-              period={period}
-              onPeriodChange={setPeriod}
-              squad={squad}
-              bibHistory={bibHistory}
-              myId={myId}
-              onPlayerTap={(p) => {
-                const them = squad.find(s => s.id === p.playerId);
-                if (them) setH2hPlayer(them);
-              }}
-            />
+            <FirstTimeHint
+              storageKey="ioo_hint_stats_h2h"
+              placement="bottom"
+              title="HEAD-TO-HEAD HIDDEN HERE"
+              body="Tap any player's name to see how you stack up — goals, wins and POTM against them."
+            >
+              <PlayerLeagueTable
+                data={tableData}
+                loading={tableLoading}
+                period={period}
+                onPeriodChange={setPeriod}
+                squad={squad}
+                bibHistory={bibHistory}
+                myId={myId}
+                onPlayerTap={(p) => {
+                  const them = squad.find(s => s.id === p.playerId);
+                  if (them) setH2hPlayer(them);
+                }}
+              />
+            </FirstTimeHint>
 
             {/* 1. Player Form (accordion) */}
             <button onClick={() => setShowPlayerForm(v => !v)} style={{

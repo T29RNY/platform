@@ -17,6 +17,7 @@ import {
   Bell, TShirt, Users, Link as LinkIcon, Money,
 } from "@phosphor-icons/react";
 import NavBar      from "../../components/ui/NavBar.jsx";
+import FirstTimeHint from "../../components/FirstTimeHint.jsx";
 import TeamsScreen    from "./TeamsScreen.jsx";
 import ScoreScreen    from "./ScoreScreen.jsx";
 import BibsScreen     from "./BibsScreen.jsx";
@@ -80,9 +81,6 @@ export default function AdminView({
   const [chaseToast,       setChaseToast]       = useState(false);
   const [chaseRecentMsg,   setChaseRecentMsg]   = useState(null);
   const [tiebreakDismissed, setTiebreakDismissed] = useState(false);
-  const [gameLiveHintDismissed, setGameLiveHintDismissed] = useState(
-    () => !!localStorage.getItem('ioo_game_live_hint_dismissed')
-  );
 
   // (Just-created overlay is now handled at App.jsx level so it shows
   // immediately on /admin/<token>?just_created=1, regardless of which
@@ -644,43 +642,6 @@ export default function AdminView({
           </>
         )}
 
-        {/* Make game live hint — shown until dismissed or game goes live */}
-        {!schedule.gameIsLive && !gameLiveHintDismissed && (
-          <div style={{
-            background:"var(--gold2)", border:"0.5px solid var(--goldb)",
-            borderLeft:"3px solid var(--gold)",
-            borderRadius:"var(--r)", padding:"12px 14px", marginBottom:8,
-            display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10,
-          }}>
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:"var(--font-display)", fontSize:14,
-                letterSpacing:"0.08em", color:"var(--gold)", marginBottom:4 }}>
-                ⚽ MAKE YOUR GAME LIVE
-              </div>
-              <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300, marginBottom:10, lineHeight:1.5 }}>
-                Players can only confirm their spot once the game is open. Flip the switch below or in Match Settings.
-              </div>
-              <button onClick={() => setScreen("schedule")} style={{
-                padding:"6px 14px", borderRadius:"var(--r-pill)",
-                border:"0.5px solid var(--goldb)", background:"transparent",
-                color:"var(--gold)", fontFamily:"var(--font-body)",
-                fontSize:12, fontWeight:500, cursor:"pointer",
-              }}>
-                Go to Match Settings
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                localStorage.setItem('ioo_game_live_hint_dismissed', '1');
-                setGameLiveHintDismissed(true);
-              }}
-              style={{ background:"none", border:"none", color:"var(--t3)",
-                fontSize:18, cursor:"pointer", padding:0, lineHeight:1, flexShrink:0 }}
-              aria-label="Dismiss"
-            >×</button>
-          </div>
-        )}
-
         {/* Game live state.
             When NOT live: full toggle row with clear "Make this week's
             game live" label.
@@ -702,27 +663,34 @@ export default function AdminView({
             </div>
           </div>
         ) : (
-          <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
-            borderRadius:"var(--r)", padding:"14px 16px",
-            display:"flex", alignItems:"center", justifyContent:"space-between",
-            marginBottom:10,
-            opacity: gameOpenLoading ? 0.6 : 1,
-            pointerEvents: gameOpenLoading ? "none" : "auto" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <div style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
-                background:"var(--t2)" }}/>
-              <div style={{ fontSize:15, fontWeight:400, color:"var(--t1)" }}>
-                Make this week's game live
+          <FirstTimeHint
+            storageKey="ioo_game_live_hint_dismissed"
+            placement="bottom"
+            title="MAKE YOUR GAME LIVE"
+            body="Flip this on so players can confirm In or Out. After the first game, future weeks open automatically."
+          >
+            <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+              borderRadius:"var(--r)", padding:"14px 16px",
+              display:"flex", alignItems:"center", justifyContent:"space-between",
+              marginBottom:10,
+              opacity: gameOpenLoading ? 0.6 : 1,
+              pointerEvents: gameOpenLoading ? "none" : "auto" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ width:10, height:10, borderRadius:"50%", flexShrink:0,
+                  background:"var(--t2)" }}/>
+                <div style={{ fontSize:15, fontWeight:400, color:"var(--t1)" }}>
+                  Make this week's game live
+                </div>
+              </div>
+              <div onClick={toggleGameLive} style={{ width:44, height:26, borderRadius:13,
+                background:"var(--s3)", position:"relative", flexShrink:0,
+                cursor:"pointer", transition:"all 0.2s" }}>
+                <div style={{ width:20, height:20, background:"var(--white)", borderRadius:"50%",
+                  position:"absolute", top:3, left:3, transition:"all 0.2s",
+                  boxShadow:"0 1px 4px rgba(0,0,0,0.3)" }}/>
               </div>
             </div>
-            <div onClick={toggleGameLive} style={{ width:44, height:26, borderRadius:13,
-              background:"var(--s3)", position:"relative", flexShrink:0,
-              cursor:"pointer", transition:"all 0.2s" }}>
-              <div style={{ width:20, height:20, background:"var(--white)", borderRadius:"50%",
-                position:"absolute", top:3, left:3, transition:"all 0.2s",
-                boxShadow:"0 1px 4px rgba(0,0,0,0.3)" }}/>
-            </div>
-          </div>
+          </FirstTimeHint>
         )}
 
         {/* This Week tiles — Make Teams + Input Result.

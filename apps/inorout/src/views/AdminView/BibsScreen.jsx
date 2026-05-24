@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { TShirt, CaretDown, CaretUp } from "@phosphor-icons/react";
 import { BackBtn } from "@platform/ui";
+import FirstTimeHint from "../../components/FirstTimeHint.jsx";
 
 function daysSince(matchDate) {
   if (!matchDate) return "";
@@ -83,6 +84,12 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
       </div>
 
       {/* ── Current holder card ─────────────────────────────────── */}
+      <FirstTimeHint
+        storageKey="ioo_hint_bibs_holder"
+        placement="bottom"
+        title="BIBS TRACKER"
+        body="This shows who took the bibs home last. Assign next week's holder when you input the match result."
+      >
       {currentHolder ? (
         <div style={{
           background: "linear-gradient(135deg, var(--amber2), transparent) var(--s2)",
@@ -120,6 +127,7 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
           </div>
         </div>
       )}
+      </FirstTimeHint>
 
       {/* ── Hidden dropdown — WHO HAS THEM TONIGHT ──────────────── */}
       <div style={{ display: "none" }}>
@@ -152,7 +160,7 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
         ) : (
           <button onClick={onBack} style={{
             width: "100%", padding: "16px 0", borderRadius: 12, border: "none",
-            background: "var(--gold)", color: "#0A0A08",
+            background: "var(--gold)", color: "var(--bg)",
             fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em",
             cursor: "pointer",
           }}>

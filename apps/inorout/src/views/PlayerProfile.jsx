@@ -13,6 +13,7 @@ import {
   deletePlayer,
 } from "@platform/core/storage/supabase.js";
 import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
+import FirstTimeHint from "../components/FirstTimeHint.jsx";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -746,6 +747,12 @@ export default function PlayerProfile({
               Account
             </div>
 
+            <FirstTimeHint
+              storageKey="ioo_hint_profile_leave"
+              placement="top"
+              title="LEAVE IS TWO TAPS"
+              body="The first tap is a warning. You get a 4-second window to confirm — accidental taps won't remove you."
+            >
             <button
               onClick={handleLeave}
               disabled={leaving}
@@ -771,6 +778,7 @@ export default function PlayerProfile({
                   ? "Tap again to confirm — you can rejoin via invite link"
                   : "Leave this squad"}
             </button>
+            </FirstTimeHint>
             {leaveError && (
               <div style={{
                 fontSize:11, color:"var(--red)", fontWeight:300,

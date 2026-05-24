@@ -4,6 +4,7 @@ import {
   CaretUp, CaretDown, Plus, X as XIcon,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
+import FirstTimeHint from "../../components/FirstTimeHint.jsx";
 import {
   saveTeamsDraft, confirmTeams,
   generateBalancedTeams,
@@ -1167,6 +1168,14 @@ export default function TeamsScreen({
         {/* SMART — toggles the grouping panel. Algorithm runs via BUILD
             TEAMS (contextual gold button when groups are dirty) or the
             auto-Smart effect on screen entry. */}
+        <FirstTimeHint
+          storageKey="ioo_hint_teams_smart"
+          prerequisite="ioo_hint_teams_tiles"
+          placement="bottom"
+          title="OR LET SMART TEAMS DO IT"
+          body="Sort players into groups by ability, then tap Build Teams to generate balanced sides."
+          style={{ flex: 1, display: "flex" }}
+        >
         <button
           onClick={handleSmartTap}
           style={{
@@ -1188,6 +1197,7 @@ export default function TeamsScreen({
             SMART
           </span>
         </button>
+        </FirstTimeHint>
 
         {/* Save Draft */}
         <button onClick={handleSaveDraft} style={{
@@ -1332,15 +1342,22 @@ export default function TeamsScreen({
 
       {/* The board itself. Tap a player chip to select; tap a chip on the
           other team (or empty space in the other column) to move them. */}
-      <LiveBoard
-        teamAPlayers={teamAPlayers}
-        teamBPlayers={teamBPlayers}
-        selectedPlayerId={selectedPlayerId}
-        onChipTap={handleLiveBoardChipTap}
-        onColumnTap={handleColumnTap}
-        shuffleNonce={shuffleNonce}
-        revealing={revealing}
-      />
+      <FirstTimeHint
+        storageKey="ioo_hint_teams_tiles"
+        placement="bottom"
+        title="MAKE YOUR OWN TEAMS"
+        body="Tap players to assign them to Team A or B, then save your draft."
+      >
+        <LiveBoard
+          teamAPlayers={teamAPlayers}
+          teamBPlayers={teamBPlayers}
+          selectedPlayerId={selectedPlayerId}
+          onChipTap={handleLiveBoardChipTap}
+          onColumnTap={handleColumnTap}
+          shuffleNonce={shuffleNonce}
+          revealing={revealing}
+        />
+      </FirstTimeHint>
 
 
       {/* IO Prediction — small chip below the LiveBoard. Always live:
@@ -1553,6 +1570,13 @@ export default function TeamsScreen({
       {/* Confirm Teams — single primary action. State-aware label so the
           admin always sees what the button means right now. */}
       <div style={{ marginTop: 24, marginBottom: 16 }}>
+        <FirstTimeHint
+          storageKey="ioo_hint_teams_confirm"
+          prerequisite="ioo_hint_teams_smart"
+          placement="top"
+          title="CONFIRM TEAMS"
+          body="Confirming notifies all IN players which side they're on."
+        >
         <button
           onClick={handleConfirm}
           disabled={!allAssigned || isConfirming || teamsConfirmed}
@@ -1584,6 +1608,7 @@ export default function TeamsScreen({
                 ? "CONFIRM TEAMS"
                 : "ASSIGN ALL PLAYERS FIRST"}
         </button>
+        </FirstTimeHint>
       </div>
 
     </div>

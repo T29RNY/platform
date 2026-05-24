@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ShareNetwork, CaretRight, ArrowsLeftRight } from "@phosphor-icons/react";
 import { resolveMotm, resolveBibHolder } from "@platform/core";
+import FirstTimeHint from "../components/FirstTimeHint.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -463,17 +464,30 @@ function MonthSection({ monthKey, label, matches, isOpen, onToggle, players, sch
       </div>
       {isOpen && (
         <div style={{ padding: "8px 16px 4px" }}>
-          {matches.map(m => (
-            <MatchCard
-              key={m.id}
-              m={m}
-              players={players}
-              schedule={schedule}
-              groupName={groupName}
-              expanded={expandedCards.has(m.id)}
-              onToggle={() => onCardToggle(m.id)}
-            />
-          ))}
+          {matches.map((m, i) => {
+            const card = (
+              <MatchCard
+                key={m.id}
+                m={m}
+                players={players}
+                schedule={schedule}
+                groupName={groupName}
+                expanded={expandedCards.has(m.id)}
+                onToggle={() => onCardToggle(m.id)}
+              />
+            );
+            return i === 0 ? (
+              <FirstTimeHint
+                key={`hint-${m.id}`}
+                storageKey="ioo_hint_history_card"
+                placement="bottom"
+                title="TAP TO EXPAND"
+                body="Tap any match to see full lineups, scorers and POTM."
+              >
+                {card}
+              </FirstTimeHint>
+            ) : card;
+          })}
         </div>
       )}
     </div>

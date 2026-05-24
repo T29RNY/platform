@@ -12,6 +12,7 @@ import {
   MagnifyingGlass, DotsThreeVertical, PencilSimple, X,
   ArrowsClockwise, Trash, FirstAid, ShieldCheck, Lock,
 } from "@phosphor-icons/react";
+import FirstTimeHint from "../../components/FirstTimeHint.jsx";
 
 /* ---------- helpers ---------- */
 
@@ -392,6 +393,12 @@ export default function SquadScreen({
 
       {/* Invite link — primary path for regulars to join themselves */}
       {joinCode && (
+      <FirstTimeHint
+        storageKey="ioo_hint_squad_invite"
+        placement="bottom"
+        title="SHARE WITH PLAYERS"
+        body="Share this link with your players — one link covers the whole team."
+      >
         <div
           onClick={handleCopyJoin}
           style={{
@@ -423,6 +430,7 @@ export default function SquadScreen({
             ? <Check size={16} color="var(--green)" weight="thin" />
             : <Copy  size={16} color="var(--green)" weight="thin" />}
         </div>
+      </FirstTimeHint>
       )}
 
       {/* Add guest — secondary path for one-off players */}

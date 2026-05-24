@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { handleMarkPaid, handleResetPayment, handleWaiveDebt } from "@platform/core";
 import { adminGetPlayerLedger } from "@platform/core/storage/supabase.js";
 import { ArrowLeft, CaretDown, CaretUp, DotsThreeVertical } from "@phosphor-icons/react";
+import FirstTimeHint from "../../components/FirstTimeHint.jsx";
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
@@ -512,11 +513,18 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
           <SectionLabel color="var(--amber)" glow="0 0 14px rgba(255,176,32,0.28)">
             IN — NOT YET PAID · {unpaidIn.length}
           </SectionLabel>
-          <PlayerCard accent="rgba(255,176,32,0.10)">
-            {unpaidIn.map((p, i) => (
-              <PlayerRow key={p.id} player={p} idx={i} {...rowProps} />
-            ))}
-          </PlayerCard>
+          <FirstTimeHint
+            storageKey="ioo_hint_payments_pay"
+            placement="bottom"
+            title="MARK AS PAID"
+            body="Tap the gold £X PAY button to mark a player as paid. Anything still owing carries over as debt."
+          >
+            <PlayerCard accent="rgba(255,176,32,0.10)">
+              {unpaidIn.map((p, i) => (
+                <PlayerRow key={p.id} player={p} idx={i} {...rowProps} />
+              ))}
+            </PlayerCard>
+          </FirstTimeHint>
         </>
       )}
 

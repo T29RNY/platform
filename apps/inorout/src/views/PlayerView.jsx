@@ -14,6 +14,7 @@ import {
 import PageHeader  from "../components/ui/PageHeader.jsx";
 import HeroCard    from "../components/ui/HeroCard.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
+import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import Tile        from "../components/ui/Tile.jsx";
 import Avatar      from "../components/ui/Avatar.jsx";
 import NavBar      from "../components/ui/NavBar.jsx";
@@ -729,6 +730,12 @@ export default function PlayerView({
                     100% { box-shadow: 0 0 0 0   var(--flash-color, rgba(61,220,106,0)); }
                   }
                 `}</style>
+                <FirstTimeHint
+                  storageKey="ioo_hint_player_status"
+                  placement="top"
+                  title="TAP YOUR STATUS"
+                  body="It's live instantly. If the squad fills, your In becomes Reserve automatically."
+                >
                 <div data-gaffer-target="status-buttons"
                   style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
                     gap:8, padding:"10px 12px",
@@ -774,6 +781,7 @@ export default function PlayerView({
                     disabled={!!me?.injured}
                   />
                 </div>
+                </FirstTimeHint>
                 </>
               )}
 
