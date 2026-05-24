@@ -271,6 +271,19 @@ export default function App() {
     document.head.appendChild(el);
   }, []);
 
+  // On /create when unauthed, persist the intended destination BEFORE the
+  // user taps Google OAuth, in both sessionStorage AND localStorage. Safari
+  // can drop sessionStorage on cross-origin OAuth roundtrips, so the
+  // localStorage backup is the actual safety net. Both are read by
+  // AuthCallback (sessionStorage.ioo_pending_route first, then
+  // localStorage.auth_return_to as fallback).
+  useEffect(() => {
+    if (route.type !== "create") return;
+    if (authUser) return;
+    try { sessionStorage.setItem("ioo_pending_route", "/create"); } catch(e) {}
+    try { localStorage.setItem("auth_return_to", "/create"); } catch(e) {}
+  }, [route.type, authUser]);
+
   // Resolve the initial auth session before painting any route-specific UI.
   // Without this, /join/CODE renders with authUser=null on the first paint
   // after /auth/callback redirects back, showing the sign-in button to a user
@@ -314,8 +327,11 @@ export default function App() {
 
     async function load() {
       try {
-        // Auth session is resolved by the top-level authReady effect; nothing
-        // to do here other than gate behaviour on the eventual authUser state.
+        // Auth session is also resolved by the top-level authReady effect for
+        // gating the UI. We still read it locally here because the load body
+        // below uses `session` directly (admin/player auto-link to the auth
+        // user). Cheap — supabase caches.
+        const session = await getSession();
         let resolvedTeamId = null;
 
         if (route.type === "demoadmin") {
@@ -732,10 +748,7 @@ export default function App() {
         <div style={{ fontSize:48 }}>⚽</div>
       </div>
     );
-    if (!authUser) {
-      sessionStorage.setItem('ioo_pending_route', '/create');
-      return <SignIn />;
-    }
+    if (!authUser) return <SignIn returnTo="/create" />;
     return <Onboarding authUser={authUser} />;
   }
 
