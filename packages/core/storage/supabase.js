@@ -1793,3 +1793,12 @@ export async function superadminRecentActivity({ limit = 100, sinceHours = 24 } 
   }
   return data || [];
 }
+
+export async function getLeagueConfig(leagueId = null) {
+  const { data, error } = await supabase.rpc("get_league_config", { p_league_id: leagueId });
+  if (error) {
+    console.error("[league_config] get_league_config failed", error);
+    throw error;
+  }
+  return data;
+}

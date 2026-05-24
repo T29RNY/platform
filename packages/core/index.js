@@ -45,5 +45,7 @@ export {
   superadminListTeams,
   superadminTeamDetail,
   superadminRecentActivity,
+  getLeagueConfig,
 } from "./storage/supabase.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";
+export { useLeagueConfig } from "./hooks/useLeagueConfig.js";

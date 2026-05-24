@@ -1,10 +1,49 @@
 # In or Out — Key Decisions Log
-*Last updated: May 24 2026 (session 39 — super-admin dashboard + push-notification URL rule + workspace-deps rule)*
+*Last updated: May 25 2026 (session 40 — Phase 0A league_config + multi-sport posture)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## MULTI-SPORT POSTURE (session 40, migration 050)
+
+The platform is designed to host non-football sports (cricket, basketball,
+netball, hockey, walking football, futsal etc.) without rewriting the existing
+football flows. The chosen posture:
+
+- **Hard rule: zero renames of existing tables, columns, or fields.** Every
+  existing football-named identifier (`matches.score_a`, `matches.motm`,
+  `matches.scorers`, `player_match.goals`, `player_match.clean_sheet`,
+  `player_match.yellow_cards`, `player_match.red_cards`, `players.bib_count`,
+  etc.) stays exactly as it is. Renaming any of them is hundreds of files of
+  churn for theoretical future value — rejected.
+- **All NEW identifiers from Phase 0 onward MUST be sport-agnostic.** No
+  "goal", "motm", "potm", "bib", "cleanSheet", "cards" in any new column,
+  table, RPC, or JS identifier name unless the thing genuinely only ever
+  applies to football and will never need a non-football equivalent. When in
+  doubt, pick the generic word.
+- **Source of truth: `league_config.sport`.** Single column, one row per
+  league, default `'football'`. Phase 1 will add the same column to `venues`
+  and `companies`.
+- **`league_config.format` is open text** (no CHECK). Accepts football
+  '5-a-side'/'7-a-side'/'11-a-side', cricket 'T20'/'ODI', basketball '5v5',
+  netball '7v7', hockey '11v11', custom strings — no migration needed to add
+  a new format.
+- **`league_config.card_types text[]`** is already sport-flexible (cricket =
+  empty, hockey = `{green,yellow,red}`, basketball = `{foul}`).
+- **Labels (`game_label`, `squad_label`, `fixture_label`, `potg_label`, etc.)**
+  are generic by name. Default values can be football-flavoured; the column
+  names cannot.
+- **Pattern for sport-specific stats when sport #2 lands:** add a
+  `sport_stats jsonb` column to `player_match` and `matches`. Football
+  continues to read/write the existing flat columns. New sports store their
+  per-row shape inside the jsonb. New screens read from jsonb when the row's
+  match_type sport ≠ football. Same pattern Stripe uses for payment method
+  details. Zero refactor cost to existing football flows.
+
+Full rationale: `/Users/tarny/.claude/plans/did-the-venue-league-velvety-token.md`
+(section "Multi-sport posture") and `venue_league_hq_SCOPE.md`.
 
 ## AUTH & IDENTITY
 
