@@ -1,10 +1,31 @@
 import { useState } from "react";
 import { colors as C } from "@platform/core";
 
-function saveAndGo(token) {
-  const path = `/p/${token}`;
-  localStorage.setItem("ioo_last_visited", path);
-  window.location.replace(path);
+// Accept three link shapes: player tokens (p_*), admin tokens (admin_*),
+// and join codes (/join/<code>). Each routes to its correct surface.
+// Routes are written to ioo_last_visited as a breadcrumb in case the user
+// re-installs later — same key the App.jsx redirect bridge reads.
+function parseAndRoute(input) {
+  const v = input.trim();
+  if (!v) return { ok: false };
+
+  // /join/<code> — from full URL or bare path
+  const joinMatch = v.match(/\/join\/([a-zA-Z0-9_-]+)/);
+  if (joinMatch) return { ok: true, path: `/join/${joinMatch[1]}` };
+
+  // /admin/<token> from full URL
+  const adminUrlMatch = v.match(/\/admin\/(admin_[a-zA-Z0-9_-]+)/);
+  if (adminUrlMatch) return { ok: true, path: `/admin/${adminUrlMatch[1]}` };
+
+  // /p/<token> from full URL
+  const playerUrlMatch = v.match(/\/p\/(p_[a-zA-Z0-9]+)/);
+  if (playerUrlMatch) return { ok: true, path: `/p/${playerUrlMatch[1]}` };
+
+  // Bare token paste
+  if (/^admin_[a-zA-Z0-9_-]+$/.test(v)) return { ok: true, path: `/admin/${v}` };
+  if (/^p_[a-zA-Z0-9]+$/.test(v))       return { ok: true, path: `/p/${v}` };
+
+  return { ok: false };
 }
 
 export default function PWAWelcome() {
@@ -12,15 +33,13 @@ export default function PWAWelcome() {
   const [linkError, setLinkError] = useState(null);
 
   const handleLinkSubmit = () => {
-    const val = link.trim();
-    if (!val) return;
-    const match = val.match(/\/p\/(p_[a-zA-Z0-9]+)/);
-    const token = match ? match[1] : val;
-    if (!token.startsWith("p_")) {
-      setLinkError("That doesn't look right — check your link");
+    const parsed = parseAndRoute(link);
+    if (!parsed.ok) {
+      setLinkError("That doesn't look right — try your player link, your admin link, or your team invite link.");
       return;
     }
-    saveAndGo(token);
+    localStorage.setItem("ioo_last_visited", parsed.path);
+    window.location.replace(parsed.path);
   };
 
   return (
@@ -62,7 +81,7 @@ export default function PWAWelcome() {
           placeholder="https://in-or-out.com/p/p_..."
           style={{ width:"100%", padding:"13px 14px", borderRadius:6,
             border:`1.5px solid ${link ? C.amber : C.border}`,
-            background:"#0a0a0a", color:C.text,
+            background:C.bg, color:C.text,
             fontFamily:"Inter,sans-serif", fontSize:14,
             outline:"none", boxSizing:"border-box", marginBottom:8,
             transition:"border-color 0.15s" }}
@@ -78,8 +97,8 @@ export default function PWAWelcome() {
           onClick={handleLinkSubmit}
           disabled={!link.trim()}
           style={{ width:"100%", padding:"13px 0", borderRadius:6, border:"none",
-            background: link.trim() ? C.amber : "#2a2a2a",
-            color: link.trim() ? "#000" : C.muted,
+            background: link.trim() ? C.amber : C.border,
+            color: link.trim() ? C.black : C.muted,
             fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:800,
             cursor: link.trim() ? "pointer" : "not-allowed" }}>
           Go →
