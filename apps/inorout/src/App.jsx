@@ -316,6 +316,8 @@ export default function App() {
     if (!link) return;
     if (route.type === "admin" && route.token && /^admin_[A-Za-z0-9_-]+$/.test(route.token)) {
       link.setAttribute('href', `/api/manifest?admin=${encodeURIComponent(route.token)}`);
+    } else if (route.type === "player" && route.token && /^p_[A-Za-z0-9_-]+$/.test(route.token)) {
+      link.setAttribute('href', `/api/manifest?player=${encodeURIComponent(route.token)}`);
     } else {
       link.setAttribute('href', '/manifest.json');
     }

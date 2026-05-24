@@ -22,10 +22,15 @@
     <script>
       (function () {
         try {
-          var m = window.location.pathname.match(/^\/admin\/(admin_[A-Za-z0-9_-]+)\/?$/);
-          var href = m
-            ? '/api/manifest?admin=' + encodeURIComponent(m[1])
-            : '/manifest.json';
+          var path = window.location.pathname;
+          var href = '/manifest.json';
+          var adminMatch  = path.match(/^\/admin\/(admin_[A-Za-z0-9_-]+)\/?$/);
+          var playerMatch = path.match(/^\/p\/(p_[A-Za-z0-9_-]+)\/?$/);
+          if (adminMatch) {
+            href = '/api/manifest?admin=' + encodeURIComponent(adminMatch[1]);
+          } else if (playerMatch) {
+            href = '/api/manifest?player=' + encodeURIComponent(playerMatch[1]);
+          }
           var link = document.createElement('link');
           link.rel = 'manifest';
           link.href = href;

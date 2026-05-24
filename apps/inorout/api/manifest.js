@@ -19,14 +19,22 @@
 // don't survive the Safari→PWA storage boundary on iOS, so this manifest
 // swap is the only reliable path.
 
-const ADMIN_TOKEN_RE = /^admin_[A-Za-z0-9_-]+$/;
+const ADMIN_TOKEN_RE  = /^admin_[A-Za-z0-9_-]+$/;
+const PLAYER_TOKEN_RE = /^p_[A-Za-z0-9_-]+$/;
 const BASE_URL = "https://www.in-or-out.com";
 
 module.exports = function handler(req, res) {
-  const adminParam = typeof req.query?.admin === "string" ? req.query.admin : null;
-  const valid = adminParam && ADMIN_TOKEN_RE.test(adminParam);
+  const adminParam  = typeof req.query?.admin  === "string" ? req.query.admin  : null;
+  const playerParam = typeof req.query?.player === "string" ? req.query.player : null;
 
-  const startUrl = valid ? `/admin/${adminParam}` : "/";
+  // Admin takes precedence over player if (somehow) both are passed.
+  // Invalid / missing → safe default of "/".
+  let startUrl = "/";
+  if (adminParam && ADMIN_TOKEN_RE.test(adminParam)) {
+    startUrl = `/admin/${adminParam}`;
+  } else if (playerParam && PLAYER_TOKEN_RE.test(playerParam)) {
+    startUrl = `/p/${playerParam}`;
+  }
 
   const manifest = {
     name: "In or Out",
