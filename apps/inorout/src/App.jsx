@@ -491,12 +491,12 @@ export default function App() {
             setSettingsRaw(state.settings || DEFAULT_SETTINGS);
             setCoverPoolRaw(state.coverPool);
             setLiveChannelKey(state.liveChannelKey || null);
-            // Resolve the admin's own player row. The squad payload from
-            // get_team_state_by_admin_token now exposes p.token only on the
-            // row matching auth.uid() (migration 061). One row with a token
-            // === the admin's own player. Falls through to null if auth is
-            // missing or the admin isn't a player on this team.
-            const adminPlayer = state.squad.find(p => p.token);
+            // Resolve the admin's own player row. Migration 070 marks the
+            // admin's row with is_self=true (auth.uid() match) and exposes
+            // every row's token so the admin can share /p/<token> links.
+            // Falls through to null if auth is missing or the admin isn't
+            // a player on this team.
+            const adminPlayer = state.squad.find(p => p.is_self);
             if (adminPlayer) {
               setMyPlayer(adminPlayer);
               setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches, state.bibHistory));
