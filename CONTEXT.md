@@ -1,5 +1,88 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 25 2026 (session 42 — multi-team player model + admin/VC share links)*
+*Last updated: May 25 2026 (session 43 — token-IS-identity + in-PWA email-OTP sign-in)*
+
+## SESSION 43 (May 25 2026) — token-IS-identity + in-PWA email-OTP sign-in
+
+Triggered by session-42 `audit_events.app_boot` telemetry showing
+**zero** standalone PWA boots in 7 days had a server-side JWT
+despite confirmed sign-ups. iOS deliberately partitions Safari
+storage from installed-PWA storage; Safari OAuth never reaches the
+home-screen app. Session 41's `refreshSession()` mitigation helped
+nobody because there's no refresh token to refresh.
+
+**Three user-visible bugs traced to this:** MySquads showed "Sign
+in to see all your squads" forever (auth-only RPC); admin tapping
+own in/out on /admin/<token> silently no-op'd (session-41 mig 061
+needed auth.uid() match); join/link/delete actions silently failed
+in the home-screen app.
+
+**Posture chosen:** stop fighting Apple's partition. The token in
+the URL IS the identity for day-to-day use. Sign-in is requested
+only when an action genuinely cannot be done without an auth user.
+Sign-in happens INSIDE the PWA via an email-OTP modal — JWT lands
+in PWA-scope localStorage and persists indefinitely (iOS only
+evicts after 7 days of zero use, irrelevant for weekly app).
+
+**What shipped:**
+- Migration **072** — new `player_get_teams_by_token(p_token)`
+  RPC. Resolves user_id from the URL token instead of auth.uid().
+  MySquads switched to it. Original `player_get_teams()` retained
+  for App.jsx post-OAuth flows.
+- `apps/inorout/src/components/AuthGateModal.jsx` — email + 6-to-10
+  digit OTP modal (no Google to dodge iOS-PWA webview blocking).
+  OTP code length is project-configurable in Supabase; this
+  project sends 8.
+- `apps/inorout/src/hooks/useRequireAuth.js` — hook that gates
+  any action behind an authed session; runs immediately if authed,
+  otherwise opens the modal and retries on `onAuthed`.
+- Supabase dashboard email template updated to surface
+  `{{ .Token }}` prominently with the magic link as secondary.
+- `dbToPlayer` mapper in supabase.js now passes `is_self` through
+  as `isSelf` (latent session-42 bug surfaced this — see below).
+- PlayerView: new `needsSelfAuth = isAdmin && !me?.isSelf` flag
+  gates all 6 self-write entry points (status, push subscribe,
+  +1 guest, injury toggle, clear-debt, cash-paid). On modal verify,
+  page reloads; mig 070's CASE clause finds auth.uid() → flips
+  isSelf on the right row → me resolves to the auth user.
+- App.jsx `handleJoin` refactored to gate via `useRequireAuth`
+  before `doJoin` (avoids React-state staleness loop).
+- PlayerProfile delete-account button gated likewise. Link-account
+  was already auth-gated by being inside a post-OAuth branch.
+
+**Latent session-42 bug surfaced + fixed:** mig 070 added an
+`is_self` flag to admin-state RPCs, but `dbToPlayer` never mapped
+it. App.jsx's `state.squad.find(p => p.is_self)` always returned
+undefined → admin-resolver fell through to `squad[0]` → admins on
+/admin/ routes were rendered AS the first squad member for ~12
+days. Wasn't noticed because the same row was still tappable in
+StatusScreen, just wrote to the wrong player.
+
+**Verified live on real iPhone:** Tarny (VC of Footy Tuesdays)
+installed the Vercel preview as home-screen app. Header initially
+showed "rockybram" (the fallback). Tapped IN → modal popped →
+entered email → 8-digit code from inbox → verified. Page reloaded.
+Header switched to "Tarny". Subsequent taps committed to Tarny's
+row. Close + reopen — still signed in, no re-prompt. MySquads
+showed Footy Tuesdays without the placeholder.
+
+**Settled invariants:**
+- **CLAUDE.md hard rule #12** added: any new RPC return field
+  used by JS must be added to the corresponding mapper in the
+  same commit. Grep the field name to confirm.
+- **CLAUDE.md hard rule #13** added: PWA-affecting changes must
+  be tested on a real iPhone home-screen install before commit.
+- **DECISIONS.md** got a top-of-file "TOKEN IS THE PWA's IDENTITY"
+  principle codifying the posture, the rules for new features,
+  and the planned end-of-beta Capacitor migration path.
+- **BUGS.md** moved the session-41 "PWA auth session fragility"
+  entry from PARTIALLY MITIGATED to RESOLVED for the user-visible
+  paths.
+
+**Commits:** `cdba41d` (initial), `b1935e5` (isSelf gate fix),
+`ba7bc8d` (OTP length fix), merged via `5e747f7`, docs `13adc40`,
+methodology `pending`. Held admin-badge work from sessions 41/42
+(SquadScreen.jsx + MySquads.jsx + PlayerProfile.jsx + 058
+migration source) stays uncommitted — still a separate cycle.
 
 ## SESSION 42 (May 25 2026) — multi-team player model + admin/VC share links
 

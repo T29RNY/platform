@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 25 2026 (session 40 — venue/league/HQ Phases 0 + 1 schema spine shipped)*
+*Last updated: May 25 2026 (session 43 — token-IS-identity + in-PWA email-OTP sign-in)*
 
 ---
 

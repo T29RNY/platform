@@ -504,6 +504,30 @@ Apply SQL before writing any JS wrapper.
     DB apply. Don't let live DB and source code drift. If applied
     via mcp__supabase__apply_migration, write the .sql file (and
     matching _down.sql) before moving on to the next change.
+12. RPC return-shape additions require a same-commit mapper update.
+    When a new field is added to a SECURITY DEFINER RPC's return
+    shape and any JS consumer reads it, the corresponding mapper in
+    `packages/core/storage/supabase.js` (`dbToPlayer`, `dbToTeam`,
+    inline shapes in `getTeamStateBy*`) must add the field in the
+    same commit. Grep the new field name to confirm it appears in
+    BOTH the RPC body AND the mapper. Established session 43 after
+    the migration-070 `is_self` latent bug — the flag was added to
+    the RPC but `dbToPlayer` never picked it up, so App.jsx's
+    `squad.find(p => p.is_self)` always returned undefined and the
+    admin-resolver fell through to `squad[0]`. Admins on /admin/
+    routes were rendered AS the first squad member for ~12 days
+    before anyone noticed.
+13. PWA-affecting changes MUST be tested on a real iPhone home-
+    screen install before commit. Files in scope: App.jsx
+    (routing/auth/realtime/manifest), PlayerView, MySquads,
+    AuthGateModal, useRequireAuth, supabase.js client config,
+    api/manifest.js, index.html inline script. The build hook,
+    type-check, and grep cannot see "tap does nothing"-class bugs.
+    Use a Vercel preview branch → install via Safari → Add to Home
+    Screen → force-quit Safari → open from icon. Established
+    session 43 after three behaviour-only bugs surfaced only via
+    real-device test (wrong-row gate logic, OTP code length cap,
+    and the latent mig-070 bug above).
 
 ---
 
