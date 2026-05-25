@@ -50,7 +50,7 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
 
   const verifyCode = async () => {
     const token = code.trim();
-    if (token.length !== 6) return;
+    if (token.length < 6) return;
     setLoading(true); setError(null);
     try {
       const { error } = await supabase.auth.verifyOtp({
@@ -151,24 +151,24 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
         {stage === "code" && (
           <>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
-              We sent a 6-digit code to <strong style={{ color: C.text }}>{email}</strong>.
-              It might take a few seconds.
+              We sent a code to <strong style={{ color: C.text }}>{email}</strong>.
+              Check your inbox — might take a few seconds.
             </div>
             <input
               ref={codeInputRef}
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
-              placeholder="000000"
+              maxLength={10}
+              placeholder="••••••"
               value={code}
-              onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
               onKeyDown={e => e.key === "Enter" && verifyCode()}
               style={{
                 width: "100%", padding: "13px 14px", borderRadius: 8,
-                border: `1.5px solid ${code.length === 6 ? C.amber : C.border}`,
+                border: `1.5px solid ${code.length >= 6 ? C.amber : C.border}`,
                 background: C.surface, color: C.text,
-                fontFamily: "monospace", fontSize: 22, letterSpacing: 8,
+                fontFamily: "monospace", fontSize: 22, letterSpacing: 6,
                 textAlign: "center",
                 outline: "none", boxSizing: "border-box", marginBottom: 10,
               }}
@@ -182,13 +182,13 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
             )}
             <button
               onClick={verifyCode}
-              disabled={loading || code.length !== 6}
+              disabled={loading || code.length < 6}
               style={{
                 width: "100%", padding: "13px 0", borderRadius: 8, border: "none",
-                background: loading || code.length !== 6 ? "#2a2a2a" : C.amber,
-                color: loading || code.length !== 6 ? C.muted : C.black,
+                background: loading || code.length < 6 ? "#2a2a2a" : C.amber,
+                color: loading || code.length < 6 ? C.muted : C.black,
                 fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 700,
-                cursor: loading || code.length !== 6 ? "not-allowed" : "pointer",
+                cursor: loading || code.length < 6 ? "not-allowed" : "pointer",
                 marginBottom: 8,
               }}
             >
