@@ -117,6 +117,11 @@ moving to the JS wrapper:
 - [ ] Returns jsonb
 - [ ] No stale column references (check against SCHEMA.md)
 - [ ] Overload count is 1 (DROP old signature if changing types)
+- [ ] If the return shape adds a field that JS reads, update the
+      mapper in `packages/core/storage/supabase.js` (`dbToPlayer`,
+      `dbToTeam`, inline shapes in `getTeamStateBy*`) in the SAME
+      commit. Grep the new field name — must appear in BOTH the
+      RPC body AND the mapper. CLAUDE.md hard rule #12.
 
 ---
 
