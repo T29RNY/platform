@@ -16,11 +16,15 @@ BibsScreen assignment is non-functional post-RLS.
 **Fix:** Thread `adminToken` + `matchId` into BibsScreen; replace `insertBib` with
 `admin_save_bib_holder` RPC call.
 
-### 2. `player_career` mostly empty
-**Detail:** Only `total_bib_count` is ever written. 11 other career fields (`total_games`,
-`total_wins`, `total_losses`, `total_draws`, `total_goals`, `total_motm`,
-`career_win_rate`, `career_reliability`, `career_impact`, `best_team_id`) are permanently
-null/zero. Table exists but provides no value until Phase 2 career sync is built.
+### 2. `player_career` mostly empty (schema ready — Phase 0D)
+**Detail:** Pre-0D the table had 0 rows entirely (even `total_bib_count` wasn't
+being written). Phase 0D (migration 053) landed the schema for casual/competitive
+split + `sync_player_career(p_player_id)` RPC. Schema is now ready but **no
+backfill has run** — table still has only `p_demo_20` (the 0D smoke test row).
+Phase 2 will: (a) call `sync_player_career` for every player, (b) wire it to a
+trigger on `player_match` insert/update so it stays in sync automatically,
+(c) populate the still-empty `career_win_rate`, `career_reliability`,
+`career_impact`, `best_team_id` fields.
 
 ### 3. `team_demo` has no `team_admins` row ✅ RESOLVED (session 36)
 ~~Demo team predates the `team_admins` table.~~ Backfilled session 36 — added row

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { colors as C } from "@platform/core";
-import { supabase, updateUserProfile } from "@platform/core/storage/supabase.js";
+import { supabase, updateUserProfile, getCompanyByDomain } from "@platform/core/storage/supabase.js";
 
 export default function AuthCallback() {
   const [status, setStatus] = useState("processing");
@@ -18,6 +18,21 @@ export default function AuthCallback() {
             user.user_metadata?.name ||
             user.email;
           try { await updateUserProfile(user.id, { display_name }); } catch(e) {}
+
+          // Phase 0F — resolve email domain to a company for HQ admin
+          // routing. No-op for everyone today (table is empty until HQ
+          // domains are seeded in Phase 6). Defensive: any error here
+          // MUST NOT break sign-in.
+          try {
+            const email = user.email || "";
+            const domain = email.split("@")[1];
+            if (domain) {
+              const company = await getCompanyByDomain(domain);
+              if (company?.company_id) {
+                sessionStorage.setItem("ioo_company_id", company.company_id);
+              }
+            }
+          } catch(e) {}
         }
 
         let returnTo = null;

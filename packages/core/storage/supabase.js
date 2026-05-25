@@ -1803,3 +1803,13 @@ export async function getLeagueConfig(leagueId = null) {
   }
   return data;
 }
+
+export async function getCompanyByDomain(domain) {
+  if (!domain) return null;
+  const { data, error } = await supabase.rpc("get_company_by_domain", { p_domain: domain });
+  if (error) {
+    console.error("[company_domains] get_company_by_domain failed", error);
+    throw error;
+  }
+  return data;
+}
