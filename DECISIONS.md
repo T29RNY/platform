@@ -1,10 +1,75 @@
 # In or Out — Key Decisions Log
-*Last updated: May 25 2026 (session 41 — auth-decoupling posture + observability methodology)*
+*Last updated: May 25 2026 (session 42 — multi-team player model + share-link visibility)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## ONE PLAYER ROW PER TEAM-MEMBERSHIP (session 42, migrations 065–069)
+
+**Invariant:** every (auth user, team) pair has its own `players` row,
+with its own `token`. The auth `user_id` is the cross-team link
+already (and powers `player_get_teams`); the `players` row is the
+per-team identity. Tokens uniquely identify a team-membership.
+
+**Why:** the previous model — "look up player by user_id, reuse it
+for additional team joins" — broke routing. `/p/<token>` resolves
+deterministically to the earliest `team_players.created_at`, so once
+a user joined a second team they had no way to reach it. MySquads
+also collapsed into a single non-clickable row because both squads
+shared a token.
+
+**Implications:**
+- Stats (`player_match`, `player_career`) are per-team automatically:
+  a player's history at team A doesn't follow them when they join
+  team B. This is correct — stats are about a team's roster.
+- `link_player_to_user` no longer refuses when the auth user already
+  owns another player row. It only refuses if the *target row* is
+  already linked to a different user.
+- `delete_my_account` iterates every player row owned by the auth
+  user — leaving no orphan per-team rows behind.
+- Existing tokens remain valid: the data-split migration 069 keeps
+  the earliest `team_players` row pointing at the original players
+  row, so PWA installs and bookmarks don't break.
+
+**What to do when adding new join paths or account-scoped writes:**
+- Look up players via `user_id` *and* `team_id` together — never by
+  `user_id` alone.
+- A new join path must mint a fresh `players` row + token when the
+  caller is not yet on the target team, even if they're already a
+  player elsewhere.
+
+## SHARE-LINK TOKEN VISIBILITY (session 42, migrations 070–071)
+
+**Rule:** an admin or vice-captain of a team sees every squad row's
+`token` field in the squad payload they read. Regular players see
+their own token only (it's already in their URL); other rows have
+`token = null`.
+
+**Why:** the "Copy personal link" admin UX needs `/p/<that player's
+token>` — that's the whole point of being able to onboard squad
+members onto their own PWA. Exposing the token to admins/VCs is a
+wash on access: admins already have stronger powers via admin RPCs
+that attribute correctly (set status, mark paid, kick, schedule).
+The token only adds player-self attribution surface (self-pay, POTM
+vote), which is a UX issue not a security one.
+
+**Implementation:**
+- `get_team_state_by_admin_token` (migration 070): unconditional
+  `'token': p.token` + explicit `'is_self': (p.user_id = auth.uid())`
+  flag for identifying the caller's own row. App.jsx resolves the
+  admin's player via `is_self`, not via token-truthiness.
+- `get_team_state_by_player_token` (migration 071): derives
+  `v_privileged` (VC on this team OR active `team_admins` for the
+  caller's user_id) and exposes `'token'` on squad rows only when
+  privileged. Regular players continue to see null tokens.
+
+**What to do when adding new state-read RPCs that include a squad:**
+- Decide whether the caller is privileged for this team.
+- If yes, expose `p.token` on every row.
+- Never assume "only the caller has a token" — use an explicit
+  `is_self` flag if you need to identify the caller's row.
 
 ## AUTH-DECOUPLING POSTURE (session 41)
 

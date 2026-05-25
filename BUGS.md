@@ -1,7 +1,66 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 25 2026 (session 41 — admin-route self-writes + realtime live view + auth-fragility diagnosis)*
+*Last updated: May 25 2026 (session 42 — multi-team player model + admin/VC share links)*
 
 **Read this at the start of every session before touching any code.**
+
+---
+
+## RESOLVED 2026-05-25 (session 42)
+
+### Second team-membership unreachable for returning users
+**Surfaced by:** gbains2010 (auth user `31f12159…`). Created his own team
+**Finbars Tuesdays** on 2026-05-24, then joined **Footy Tuesdays** via
+rockybram's join link the next morning. Could sign in but every app-open
+landed in Finbars; no URL or My Squads click could reach Footy Tuesdays.
+**Root cause:** `player_join_team` (044) and `join_team_as_returning_player`
+(015) both reused a single `players` row across multiple teams for the
+same auth user. One `player.token` → two `team_players` rows. The
+deterministic `ORDER BY tp.created_at ASC LIMIT 1` resolver in
+`get_team_state_by_player_token` always picked the earliest team. The
+MySquads accordion also collapsed both squads into one (key collision,
+both rows rendered as "CURRENT", neither clickable).
+**Fix:** Migrations 065+066 rewrite both join RPCs to mint a fresh
+`players` row + token per team-membership. 067 relaxes
+`link_player_to_user` (one user can now own multiple players, the
+inverse guard kept). 068 makes `delete_my_account` iterate every player
+row owned by the auth user. 069 backfilled the only currently-affected
+user: gbains' Finbars row kept its original token, Footy Tuesdays got
+a freshly-minted player + token (`p_30834a6b` / `p_XFGglFrN5xVSo2FJx8I`).
+Verified live: token resolves to its own team, `player_get_teams`
+returns two distinct clickable squads, status taps audit to the
+correct per-team player row.
+**Commits:** `1e7da1f`.
+
+### "Copy personal link" emitted /p/<player_id> not /p/<token>
+**Surfaced by:** Tarny copying gbains' link from Admin → Squad in the
+Footy Tuesdays PWA. Got `https://www.in-or-out.com/p/p_30834a6b` —
+that's the player **id**, not the token. URL doesn't resolve.
+**Root cause:** SquadScreen.jsx:138 falls back to `p.id` when `p.token`
+is null (`${p.token || p.id}`). Migration 061 deliberately stripped
+`p.token` from every squad row in `get_team_state_by_admin_token`
+**except** the admin's own. The fallback silently shipped player_ids
+for everyone else. Pre-existing bug since session 41 ship — not seen
+because gbains was the first multi-team case.
+**Fix:** Migration 070 exposes `p.token` on every squad row and adds an
+explicit `is_self` boolean for the admin's own row. App.jsx:499
+switched from `find(p => p.token)` (which would now grab the first
+squad row) to `find(p => p.is_self)`. Token leak to admins is a wash —
+they already have stronger powers via admin RPCs; sharing /p/<token>
+is the whole point of the feature.
+**Commits:** `010b5d4`.
+
+### Same link bug from VC route (different RPC, same fallback)
+**Surfaced by:** Tarny still getting `/p/p_30834a6b` after the 070 ship.
+**Root cause:** 070 only fixed `get_team_state_by_admin_token`. VCs
+enter admin view via their own `/p/<token>` route, which fetches via
+`get_team_state_by_player_token` — a *different* RPC that historically
+returned **no** squad-row tokens at all.
+**Fix:** Migration 071 mirrors the 070 fix on the player-token resolver:
+derives `v_privileged` (caller is VC of this team OR has an active
+`team_admins` row tied to the caller's `user_id`), and exposes
+`p.token` on squad rows only when privileged. Regular players still
+see null tokens.
+**Commits:** `34cfd23`.
 
 ---
 

@@ -1,5 +1,55 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 25 2026 (session 41 — admin-route self-writes fix + realtime live-view fix + PWA auth-fragility diagnosis)*
+*Last updated: May 25 2026 (session 42 — multi-team player model + admin/VC share links)*
+
+## SESSION 42 (May 25 2026) — multi-team player model + admin/VC share links
+
+Triggered by gbains2010 reporting he couldn't reach "Tuesday Football"
+(Footy Tuesdays). Sign-in worked, the join had recorded, yet every
+app-open landed him in his own team (Finbars Tuesdays).
+
+**Diagnosis:** `player_join_team` (044) and `join_team_as_returning_player`
+(015) reused a single `players` row across multiple teams for the same
+auth user. One token → two `team_players` rows. `get_team_state_by_player_token`
+picks the earliest membership deterministically, so Footy Tuesdays was
+unreachable. MySquads accordion also collapsed both squads into one
+non-clickable "CURRENT" row.
+
+**Fix (migrations 065–069, commit `1e7da1f`):**
+- 065/066 rewrite both join RPCs to mint a fresh player row + token
+  per team-membership.
+- 067 relaxes `link_player_to_user` (keeps the inverse guard).
+- 068 rewrites `delete_my_account` to iterate every player row owned
+  by the auth user.
+- 069 backfilled gbains: Finbars kept its original token, Footy got a
+  new player + token (`p_30834a6b` / `p_XFGglFrN5xVSo2FJx8I`).
+
+**Follow-on: "Copy personal link" was broken too.** SquadScreen fell
+back to `p.id` when `p.token` was null. Migration 061 had stripped
+tokens from every squad row except the admin's own → fallback shipped
+player_ids to the clipboard. Pre-existing bug, never observed before
+session 42 because gbains was the first multi-team test case.
+
+**Fix (migrations 070–071, commits `010b5d4` + `34cfd23`):**
+- 070 exposes `p.token` on every row in `get_team_state_by_admin_token`
+  and adds an explicit `is_self` flag for the admin's own row.
+  App.jsx:499 switched from `find(p => p.token)` to `find(p => p.is_self)`
+  so the admin's own player is uniquely identifiable now that every
+  row carries a token.
+- 071 mirrors the fix on `get_team_state_by_player_token` (the RPC VCs
+  hit) — derives `v_privileged` (VC of this team OR active team_admins
+  row for the caller's user_id) and only exposes squad tokens when
+  privileged. Regular players still see null tokens.
+
+**Verified live:** Tarny tapped out, then in, on his own My View →
+two audit events on `p_b24c5bf8` (his Footy player) — self-writes
+attribute to the correct per-team player row. Tarny copying gbains'
+personal link from Admin → Squad now returns the real
+`/p/p_XFGglFrN5xVSo2FJx8I`.
+
+**Settled invariants** (see DECISIONS.md):
+- One `players` row per (auth user, team).
+- Admin/VC squad reads include every row's `token`; regular players
+  see null tokens for others.
 
 ## SESSION 41 (May 25 2026) — admin-route + realtime + auth telemetry
 
