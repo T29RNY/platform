@@ -571,8 +571,8 @@ export default function PlayerProfile({
         {/* Admin Actions (admin mode only) */}
         {isAdminView && (
           <>
-            {/* ROLES — VC toggle (mirrors session-34 behaviour) */}
-            {!me?.isGuest && !isViceCaptain && (
+            {/* ROLES — VC toggle */}
+            {!me?.isGuest && (
               <div className="pp-section" style={{
                 background:"rgba(255,255,255,0.03)",
                 backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",

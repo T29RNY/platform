@@ -157,7 +157,7 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
                     {displayName}
                   </div>
                 </div>
-                {squad.is_vice_captain && (
+                {(squad.is_vice_captain || squad.is_team_admin) && (
                   <span style={{
                     fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
                     color: "var(--t2)", background: "var(--s3)",
