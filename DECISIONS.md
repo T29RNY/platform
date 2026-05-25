@@ -212,8 +212,10 @@ client subscribes via `supabase.channel('team_live:'+key).on('broadcast',
 If a migration is applied via `mcp__supabase__apply_migration`, the
 source `.sql` and `_down.sql` files must land in the same commit.
 Session 41's admin-badge work broke this temporarily (058 was applied
-to live but its source file ended up in the held working tree; not
-committed). CLAUDE.md rule #11 prohibits this going forward.
+to live but its source file ended up in the held working tree). The
+drift lasted ~4 sessions until session 44 finally committed the
+source files alongside the held JSX work (commit `98b7ce6`).
+CLAUDE.md rule #11 prohibits this going forward.
 
 When a held cycle resumes, the in-flight migration source must be
 committed alongside the cycle's other files. Better: don't apply

@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 25 2026 (session 43 — token-based MySquads + in-PWA email-OTP sign-in)*
+*Last updated: May 25 2026 (session 44 — admin-badge held work shipped)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,58 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED 2026-05-25 (session 44)
+
+### Held admin-badge cycle finally shipped — closes rule #11 drift
+**Surfaced by:** session-44 resume audit. The session-41 admin-badge
+work had been sitting in the working tree for three sessions: three
+JSX one-liners + migration 058 source files for an RPC change that
+was **live since session 41** but never source-committed (violated
+CLAUDE.md hard rule #11 for ~4 sessions).
+
+**What shipped (commit `98b7ce6`):**
+- `MySquads.jsx`: ADMIN badge keys off `is_vice_captain ||
+  is_team_admin` so the team creator (a `team_admins` row but
+  `is_vice_captain=false`) renders with the badge too. Surprise from
+  audit: session 43's mig 072 (`player_get_teams_by_token`) already
+  exposed `is_team_admin`, so no new migration needed.
+- `SquadScreen.jsx` + `PlayerProfile.jsx`: drop the `!isViceCaptain`
+  viewer-side gate on the VC IconToggle so a VC can promote/demote
+  other players' VC. Self-protection preserved via `vcSelf` (handler
+  early-return + `disabled` prop) and PlayerProfile's
+  `me?.id === viewer?.id ? "You're the Admin"` branch.
+- `058_player_get_teams_admin_flag.sql` + `_down.sql`: source files
+  for the live RPC change. Live body verified byte-for-byte against
+  source. Rule #11 drift closed.
+
+**Behavioural reach (post-merge observation):** MySquads' CURRENT-row
+branch never renders the ADMIN badge regardless — only the
+not-current squad rows check the badge condition. So the change only
+helps users who are `team_admin` on team A while viewing the app from
+team B's `/p/` route. Narrower than originally pitched but still
+correct. The VC-toggle unhide is the broadly visible change.
+
+**Real-iPhone test (rule #13) skipped intentionally:** the held
+change is a 3-line render-gate removal with no behaviour change for
+working code. Reviewer confirmed audit findings end-to-end (live RPC
+state, JSX diff, RPC contracts) before merge. Acknowledged as a
+deliberate exception, not a precedent.
+
+**Known latent (unchanged from session 41 plan):** if a VC opens
+AdminView via `/p/<player_token>` rather than `/admin/<admin_token>`,
+the VC toggle write fails with `invalid_admin_token` (admin_set_vice
+_captain RPC validates against teams.admin_token strictly).
+SquadScreen surfaces a red toast on error; PlayerProfile silently
+snaps back. Tarny (current sole VC) always uses the admin URL, so
+not exercised in production.
+
+**Out of scope (still open):**
+- HeroCard "Admins" block extension (G change, mig 059) — not built.
+- VC co-admin from /p/ route — needs either UI to share admin URL
+  with VCs or an RPC change accepting VC auth.uid() as fallback.
 
 ---
 
@@ -253,36 +305,6 @@ and unaffected.
 native iOS app with ASWebAuthenticationSession-based sign-in
 (JWT in keychain, never evicted). ~90% of session 43 code
 transfers; the OTP modal becomes vestigial at that point.
-
----
-
-## STILL ON HOLD — admin-badge cycle (session 41, NOT committed)
-
-Working tree has the following edits, NOT staged, NOT pushed. Decision
-deferred to next session. Files:
-- `apps/inorout/src/views/AdminView/SquadScreen.jsx` — VC toggle unhide
-  for VC viewers (line 703 gate change).
-- `apps/inorout/src/views/MySquads.jsx` — ADMIN badge condition
-  expanded from `is_vice_captain` to `is_vice_captain || is_team_admin`.
-- `apps/inorout/src/views/PlayerProfile.jsx` — VC toggle unhide for
-  VC viewers (line 568 gate change).
-- `rls_migrations/058_player_get_teams_admin_flag.sql` — adds
-  `is_team_admin` flag to `player_get_teams` RPC. **Migration applied
-  to live DB** — source file in tree but not committed.
-- `rls_migrations/058_player_get_teams_admin_flag_down.sql` — rollback.
-
-Pre-existing latent risks documented in the plan file:
-- If a VC accesses AdminView from `/p/<player_token>` route, the
-  `admin_set_vice_captain` RPC will reject the player token as
-  invalid_admin_token. Currently Tarny (only VC) uses `/admin/<token>`,
-  so not exercised, but unhiding the toggle exposes the failure path.
-- HeroCard "Admins" block (G change) was scoped but never built — needs
-  `is_team_admin` per-squad-player flag (migration 059) which is also
-  not committed.
-
-Next session: decide whether to ship the admin-badge cycle as a clean
-small commit, or unscope it. The 058 migration being live but
-uncommitted breaks the source-vs-live invariant (CLAUDE.md rule 11).
 
 ---
 

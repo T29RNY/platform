@@ -1,5 +1,76 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 25 2026 (session 43 — token-IS-identity + in-PWA email-OTP sign-in)*
+*Last updated: May 25 2026 (session 44 — admin-badge held work shipped)*
+
+## SESSION 44 (May 25 2026) — admin-badge cycle shipped, rule #11 drift closed
+
+Resumed after session 43 with the same three JSX + two migration
+source files in the working tree that had been there since session
+41. Original session-41 plan
+(`.claude/plans/the-live-game-for-wobbly-yeti.md`) had scoped a
+6-file admin-badge cycle; only the three UI tweaks and migration 058
+ever got authored, and the migration was applied live without its
+source being committed — a CLAUDE.md rule #11 violation outstanding
+for ~4 sessions.
+
+**Telemetry check before touching held work:** queried `audit_events`
+for session-43 adoption. 24 standalone PWA opens in 48h, 2 with a
+server-side JWT (both Tarny's own verified-live test). No silent
+failures on the 6 `needsSelfAuth`-gated handlers. Session 43 fix is
+working but adoption is too thin to call a success or failure yet —
+wait another 48h before any further action there.
+
+**Re-audit found the held work was even safer than originally scoped:**
+- Worried mig 058's `is_team_admin` flag wouldn't surface in MySquads
+  because session 43 had switched MySquads to the new
+  `player_get_teams_by_token` RPC (mig 072). Verified live RPC body —
+  mig 072 already included `is_team_admin` in its return shape. So
+  the held MySquads change works as-is with no follow-up migration.
+- Behavioural reach is narrower than the original pitch though: the
+  ADMIN badge condition only fires on non-current rows in the
+  MySquads accordion. Rockybram only belongs to Footy Tuesdays, so
+  he sees it as "CURRENT" and the badge logic never runs. The change
+  only helps users who admin team A while viewing from team B's
+  `/p/` route.
+
+**What shipped (commit `98b7ce6`, merged via `c55006b`):**
+- `MySquads.jsx`: badge = `is_vice_captain || is_team_admin`.
+- `SquadScreen.jsx` + `PlayerProfile.jsx`: VC toggle visible to any
+  admin-mode viewer, not just team_admin. Self-protection preserved
+  via existing `vcSelf` and viewer-identity branches.
+- `058_player_get_teams_admin_flag.sql` + `_down.sql`: source for
+  the live RPC. Live body matches source byte-for-byte. Rule #11
+  drift closed.
+
+**Bundled in the merge (separate concern):** commit `052d7b0` —
+operator-facing `GO_LIVE_ISSUES.md` pre-onboarding pre-flight log,
+authored separately. Landed on the same feature branch in another
+context. User chose to ship both together rather than split.
+
+**Real-iPhone test (rule #13) intentionally skipped.** The held
+change is a 3-line render-gate removal with no behaviour change for
+working code (unlike session 43's behaviour-only bugs that triggered
+the rule). Audit covered live RPC state, JSX diff, RPC contracts,
+and self-protection guards. Acknowledged as a deliberate exception.
+Not a new precedent — rule #13 still applies to all PWA-affecting
+behaviour changes.
+
+**Open follow-ups carried forward:**
+- HeroCard "Admins" block extension (G change, mig 059) still not
+  built. Low-priority cosmetic gap.
+- VC co-admin from `/p/<token>` route (if VCs don't always use the
+  admin URL) — needs either a UI to surface the admin URL to VCs or
+  an RPC change. Not yet a real problem (Tarny uses the admin URL).
+- Continue watching session-43 telemetry — another 48h before
+  declaring the in-PWA OTP sign-in adoption-healthy.
+
+**Commits this session:**
+- `98b7ce6` — feat(admin-badge): VC co-admin toggle parity +
+  team-creator ADMIN badge.
+- `052d7b0` — docs: GO_LIVE_ISSUES.md (authored in parallel context,
+  bundled into the merge).
+- `c55006b` — merge commit on main.
+
+---
 
 ## SESSION 43 (May 25 2026) — token-IS-identity + in-PWA email-OTP sign-in
 
@@ -174,13 +245,15 @@ on his admin PWA never reached the DB.
 - Rule 10 new: server-side publishers must have client subscribers.
 - Rule 11 new: migration source + apply in same commit.
 
-**Held — NOT committed:**
+**Held at end of session 41, shipped session 44:**
 - MySquads `ADMIN` badge condition (VC OR team_admin).
 - PlayerProfile + SquadScreen VC-toggle unhide for VC viewers.
-- HeroCard "Admins" block extension (G change, never built).
-- `058_player_get_teams_admin_flag.sql` migration source — applied
-  live but source uncommitted. Breaks rule 11 temporarily.
-- `059_team_state_player_admin_flag.sql` — not built.
+- `058_player_get_teams_admin_flag.sql` migration source — committed
+  session 44, rule #11 drift closed.
+
+**Still held (not built):**
+- HeroCard "Admins" block extension (G change).
+- `059_team_state_player_admin_flag.sql`.
 
 **Definitively diagnosed (not yet fixed):**
 - iOS PWA storage partition is real. Telemetry confirms Tarny's PWA
@@ -209,7 +282,7 @@ on his admin PWA never reached the DB.
 - Telemetry: live and capturing rows.
 
 **Open follow-ups carried into next session:**
-- Decide fate of admin-badge held work (commit clean or unscope).
+- ~~Decide fate of admin-badge held work~~ — shipped session 44.
 - Plan and ship a permanent fix for PWA auth (Layer 2 of permanent fix
   scope in plan file `.claude/plans/the-live-game-for-wobbly-yeti.md`).
 - Step 3 auth-expired prompt may now be partially redundant given
