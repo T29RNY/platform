@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 24 2026 (session 39 — push notifications fix + admin_save_teams scoping + super-admin dashboard Phase 1+2 + workspace-deps guard)*
+*Last updated: May 25 2026 (session 40 — Phase 0 + Phase 1 of venue/league/HQ scope shipped end-to-end; MyView double-count hotfix)*
 
 This file contains infrastructure, key tokens, demo environment, conventions,
 and a compressed session history. For everything else, see the split files:
@@ -789,3 +789,120 @@ Verified end-to-end at the 19:45 UTC cron tick: **4× HTTP 200** vs **4× HTTP 4
 - Superadmin Phase 3 (token-rescue write tools) + Phase 4 (data-fix write tools).
 - Wire GitHub git-integration on `platform-superadmin` Vercel project so it auto-deploys on push.
 
+
+---
+
+## SESSION 40 — 2026-05-25 — Phase 0 + Phase 1 of venue/league/HQ scope
+
+Two major phases of `venue_league_hq_SCOPE.md` shipped end-to-end in one
+session. The platform now has the full schema spine for evolving from
+single-team app into Company HQ → Venue → League → Season → Fixtures.
+Zero customer-visible change — every migration additive, every default
+flows transparently.
+
+**Key decision: multi-sport posture (recorded in DECISIONS.md).**
+- Zero renames of existing tables/columns/fields (anything with "goal" /
+  "motm" / "card" / "bib" / "cleanSheet" / "yellow_cards" / "red_cards"
+  in its name stays exactly as it is)
+- All NEW identifiers from Phase 0 onward generic by name
+- `sport text DEFAULT 'football'` on `league_config`, `companies`,
+  `venues`, `leagues` — single source of truth at every level
+- Multi-sport-specific stats will land in a future `sport_stats jsonb`
+  column on `player_match` + `matches` when sport #2 actually arrives
+
+**Phase 0 — Foundation (6 migrations 050–054 + JS):**
+- 050 `league_config` table + `get_league_config` RPC + `useLeagueConfig`
+  hook in `packages/core/hooks/`
+- 051 `matches.match_type` column (casual/competitive, defaults casual)
+- 052 `teams.team_type` column + `create_team` RPC resigned with optional
+  `p_team_type` (old 13-arg signature DROPed first)
+- 053 `player_match.match_type` column + BEFORE INSERT trigger that
+  auto-derives `match_type` from parent match; `player_career` gains 12
+  casual/competitive split columns; new `sync_player_career(p_player_id)`
+  RPC (service-role only)
+- 054 `company_domains` table + `get_company_by_domain` RPC + defensive
+  hook in `AuthCallback.jsx` (try/catch — login never breaks)
+- `packages/core/notifications/notify.js` — multi-channel dispatch
+  abstraction with kill switch, dry-run mode, per-recipient rate limit,
+  template whitelist; sport-neutral template names. Phase 9 will plug
+  Twilio providers.
+
+**Phase 1 — Core data model (3 migrations 055–057):**
+- 055 — 20 new tables: companies, company_admins, billing_events,
+  clubs, venues, venue_admins, playing_areas (was `pitches`),
+  match_officials (was `referees`), leagues, seasons, competitions,
+  club_teams, competition_teams, team_name_history, cup_rounds,
+  fixtures, match_events, player_registrations, incidents,
+  hq_preview_tokens. All RLS-enabled, no public policies. `event_type`
+  + `period` on `match_events` open text (no CHECK) so each sport
+  defines its own vocabulary.
+- 056 — 13 new columns on existing tables (teams: club_id /
+  primary_colour / secondary_colour; matches: fixture_id /
+  opponent_team_id / opponent_name; players: shirt_number /
+  date_of_birth / phone / notification_channel; player_match:
+  minutes_played / was_substitute / shirt_number). All additive, all
+  metadata-only ALTERs (PostgreSQL ≥11). Backfilled via DEFAULT.
+- 057 — Phase-0 FK completions: `league_config.league_id` →
+  `leagues(id)`, `company_domains.company_id` → `companies(id)`. RPC
+  `get_company_by_domain` extended to JOIN companies for `company_name`.
+
+**MyView double-count hotfix (during the session, separate cycle):**
+User noticed Tarny's My View on "Footy Tuesdays" showed "£5 + £5 = £10"
+while Payments correctly showed £5. Root cause: `PlayerView.jsx:459-461`
+added `effectiveDebt + price` whenever an unpaid ledger entry existed
+AND status='in', assuming ledger = past carry-over. Breaks when the
+ledger entry IS this week's fee (created with match_id=NULL because
+lineup-lock hasn't happened yet). Fix: trust ledger as single source of
+truth; never add `price` to `effectiveDebt`. Stale £5 ledger row
+deleted via execute_sql. Commits `a8dd46d` + `ab6484f`.
+
+**End-to-end Phase 0 smoke (verified live):**
+User created a real team "Smoke Test" via `/create` with Google auth
+(tarny@desicity.com). Verified: `team_type='casual'` written via new
+14-arg `create_team`, team_admins linked, OAuth callback completed.
+Then tested the `player_match` match_type propagation trigger with a
+transactional UPDATE→INSERT→ROLLBACK — trigger auto-set
+`match_type='competitive'` from the parent match. All three smoke
+tests passed. Smoke Test team + 6 dependent rows deleted cleanly,
+auth.users row preserved.
+
+**Files touched live (Supabase main project):**
+- NEW migrations 050, 051, 052, 053, 054, 055, 056, 057
+- NEW table rows: 1 seed in `league_config` (platform-default,
+  league_id IS NULL)
+- ALTERed in-place: teams (3 cols), matches (1 col + 1 col Phase 0B),
+  players (4 cols), player_match (1 col Phase 0D + 3 cols Phase 1)
+- NEW RPCs: get_league_config, get_company_by_domain (later extended),
+  sync_player_career; create_team RESIGNED (old signature dropped)
+- NEW trigger: player_match_propagate_match_type_trg
+
+**Commits in order:**
+`ad939bb` 0A · `5cb2ecb` 0B · `bf21e1a` 0C · `7a0cb95` 0D ·
+`3c30e9b` 0E · `b7f754a` 0F · `a8dd46d` MyView hotfix · `ab6484f` BUGS.md ·
+`0821682` 055 · `d7733a3` 056 · `650e536` 057 · `ff83be8` SCHEMA.md
+
+**Post-Phase-1 advisor scan:**
+- 0 new ERROR-level (3 pre-existing on public views: teams_public,
+  matches_public, players_public — unchanged)
+- 20 INFO advisors for "RLS enabled, no policies" on Phase 1 tables —
+  intentional, matches `ai_briefings` pattern. Phase 2 SECURITY DEFINER
+  RPCs are the access path.
+
+**Customer-visible impact this session: zero.** No UI reads from any of
+the new tables yet. Phase 2 will be the first phase that builds
+customer-facing surfaces on top of this spine.
+
+**Deferred to next session:**
+- Phase 2 — Venue + League admin (estimated 6 days). Builds `/venue/TOKEN`
+  route, season setup flow, fixture generation, ref/pitch management,
+  team self-registration. ~14 new SECURITY DEFINER RPCs (venue_*, league_*).
+  First phase that creates real customer-visible surfaces on top of the
+  Phase 1 spine.
+- Independent track: Gaffer Phase 1 AdminView wire-up (Anthropic key
+  confirmed live on Vercel `inor-out` project; just needs the
+  `GafferCard` mounting + canary on one team). Doesn't depend on any
+  Phase 2 work.
+- `player_career` Phase 2 backfill: call `sync_player_career` for every
+  player + wire to insert/update trigger on `player_match`. Phase 0D
+  shipped only the schema + RPC; the backfill itself is Phase 2
+  housekeeping (BUGS.md #2 has the detail).

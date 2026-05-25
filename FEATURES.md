@@ -1,5 +1,44 @@
 # In or Out — Feature Tracker
-*Last updated: May 24 2026 (session 39 — super-admin dashboard + push notifications operational + workspace-deps guard)*
+*Last updated: May 25 2026 (session 40 — venue/league/HQ Phases 0 + 1 schema spine shipped)*
+
+---
+
+## VENUE / LEAGUE / HQ PROGRAMME — PHASES 0 + 1 SHIPPED (session 40, 2026-05-25)
+
+Two phases of `venue_league_hq_SCOPE.md` landed end-to-end:
+
+**Phase 0 — Foundation (migrations 050–054):**
+- `league_config` table + `useLeagueConfig` hook + multi-sport posture
+- `matches.match_type`, `teams.team_type`, `player_match.match_type` columns
+- `notify.js` channel abstraction (dry-run by default; Phase 9 plugs Twilio)
+- `company_domains` table + AuthCallback hook
+- `create_team` RPC extended with `p_team_type` (default 'casual')
+- `player_career` split into casual_*/competitive_*/total_* + `sync_player_career` RPC
+
+**Phase 1 — Core data model (migrations 055–057):**
+- 20 new tables: companies, company_admins, billing_events, clubs, venues,
+  venue_admins, `playing_areas` (multi-sport rename of `pitches`),
+  `match_officials` (multi-sport rename of `referees`), leagues, seasons,
+  competitions, club_teams, competition_teams, team_name_history,
+  cup_rounds, fixtures, match_events, player_registrations, incidents,
+  hq_preview_tokens
+- 13 new columns on existing tables (teams, matches, players, player_match)
+- Phase-0 FK constraints retroactively added; `get_company_by_domain`
+  extended to JOIN companies
+
+**Multi-sport posture recorded in DECISIONS.md (session 40).** Zero
+renames of existing identifiers; all new identifiers generic; future
+sport-specific stats go into a `sport_stats jsonb` column when sport #2
+lands.
+
+**Customer-visible impact: zero.** Spine in place; Phase 2 will be the
+first phase that builds customer-facing surfaces on top.
+
+**Also this session:** MyView double-count hotfix (PlayerView.jsx — was
+adding ledger balance + this-week's price for a phantom £10 instead of
+the real £5). Commits `a8dd46d` + `ab6484f`.
+
+---
 
 ---
 
