@@ -218,6 +218,8 @@ id uuid PK DEFAULT gen_random_uuid(),
 team_id text,
 match_id text,             ← text, NOT uuid — app generates IDs
 player_id text,
+match_type text NOT NULL DEFAULT 'casual',  ← casual | competitive — Phase 0D (migration 053)
+                                              auto-propagates from matches.match_type via BEFORE INSERT trigger
 team_assignment text CHECK (A/B),
 result text CHECK (w/l/d),
 attended boolean DEFAULT false,
@@ -249,6 +251,18 @@ total_losses int,
 total_draws int,
 total_goals int,
 total_motm int,
+casual_games int NOT NULL DEFAULT 0,         ← Phase 0D (migration 053)
+casual_goals int NOT NULL DEFAULT 0,
+casual_wins int NOT NULL DEFAULT 0,
+casual_losses int NOT NULL DEFAULT 0,
+casual_draws int NOT NULL DEFAULT 0,
+casual_motm int NOT NULL DEFAULT 0,
+competitive_games int NOT NULL DEFAULT 0,    ← Phase 0D (migration 053)
+competitive_goals int NOT NULL DEFAULT 0,
+competitive_wins int NOT NULL DEFAULT 0,
+competitive_losses int NOT NULL DEFAULT 0,
+competitive_draws int NOT NULL DEFAULT 0,
+competitive_motm int NOT NULL DEFAULT 0,
 career_win_rate numeric(5,2) DEFAULT NULL,
 career_reliability numeric(5,2) DEFAULT NULL,
 career_impact numeric(5,2) DEFAULT NULL,
@@ -256,7 +270,7 @@ best_team_id text,
 created_at timestamptz,
 updated_at timestamptz
 ```
-**Status:** Only `total_bib_count` is ever written. All other fields empty until Phase 2.
+**Status:** Recompute via `sync_player_career(p_player_id)` RPC (Phase 0D — migration 053). Service-role only for now; admin-triggered sync wrapper lands Phase 2. `total_*` = `casual_*` + `competitive_*`. Reliability / impact / win-rate / best_team_id still empty until Phase 2.
 
 ### player_injuries
 ```
