@@ -33,6 +33,7 @@ export {
   getHeadToHead,
   getPOTMVotingState,
   getPlayerTeams,
+  getPlayerTeamsByToken,
   setPlayerGroup,
   clearAllGroups,
   saveGroupLabels,

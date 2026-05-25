@@ -11,6 +11,8 @@ import {
   Check, X, Question, ArrowDown,
   PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
 } from "@phosphor-icons/react";
+import AuthGateModal from "../components/AuthGateModal.jsx";
+import useRequireAuth from "../hooks/useRequireAuth.js";
 import PageHeader  from "../components/ui/PageHeader.jsx";
 import HeroCard    from "../components/ui/HeroCard.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
@@ -77,6 +79,18 @@ export default function PlayerView({
   stats = null,
 }) {
   const me = squad.find(p => p.id === myId);
+
+  // ── auth gate for self-writes ──────────────────────────────────────────────
+  // On the admin route in the home-screen app, the admin's own player row
+  // arrives without a `token` because mig 061's CASE clause needs auth.uid().
+  // Without me.token, every self-write (status, pay, injured, +1, push)
+  // short-circuits silently. Detect the missing token, pop the sign-in modal
+  // (email + 6-digit code), and reload on success so the team-state refetch
+  // picks up me.token via the now-attached JWT.
+  const { requireAuth, gateProps } = useRequireAuth();
+  const promptSignIn = () => requireAuth(() => window.location.reload(), {
+    reason: "Sign in once on this device to manage your own status. You won't be asked again.",
+  });
 
   // ── existing state ── (unchanged)
   const [note,          setNote]         = useState(me?.note || "");
@@ -213,6 +227,7 @@ export default function PlayerView({
   // ── existing handlers ── (all unchanged)
 
   const handleSubscribe = async () => {
+    if (!me?.token) { promptSignIn(); return; }
     setNotifState("asking");
     try {
       const perm = await Notification.requestPermission();
@@ -236,6 +251,7 @@ export default function PlayerView({
   };
 
   const setStatus = (s) => {
+    if (!me?.token) { promptSignIn(); return; }
     setCashPending(false);
     setGuestCashPending(false);
     setClearDebtExpanded(false);
@@ -313,6 +329,7 @@ export default function PlayerView({
 
   const submitGuest = async () => {
     if (!guestName.trim() || addingGuest) return;
+    if (!me?.token) { promptSignIn(); return; }
     setAddingGuest(true);
     try {
       const guest = await addGuestPlayer(me?.token, guestName.trim());
@@ -352,6 +369,7 @@ export default function PlayerView({
   };
 
   const toggleInjury = () => {
+    if (!me?.token) { promptSignIn(); return; }
     const newInjured = !me?.injured;
     const needsStatusReset = newInjured && ["in", "reserve", "maybe"].includes(me?.status);
     setSquad(squad.map(p => p.id === myId
@@ -503,7 +521,7 @@ export default function PlayerView({
                 } else if (paymentState === 'debt') {
                   if (!clearDebtExpanded) {
                     btns.push(
-                      <button key="clear" onClick={() => setClearDebtExpanded(true)}
+                      <button key="clear" onClick={() => { if (!me?.token) { promptSignIn(); return; } setClearDebtExpanded(true); }}
                         style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
                         Clear Debt — £{effectiveDebt || (status === 'in' ? price : 0)}
                       </button>
@@ -550,7 +568,7 @@ export default function PlayerView({
                       </button>
                     );
                     if (paymentMode !== 'stripe_only') btns.push(
-                      <button key="cash" onClick={() => setCashPending(true)}
+                      <button key="cash" onClick={() => { if (!me?.token) { promptSignIn(); return; } setCashPending(true); }}
                         style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
                         Paid Cash
                       </button>
@@ -1295,6 +1313,7 @@ export default function PlayerView({
 
       {/* 4 ── NAVBAR */}
       <NavBar activeTab={activeTab} onTabChange={setActiveTab} onAdminClick={isAdmin ? onGoAdmin : undefined} />
+      <AuthGateModal {...gateProps} />
     </div>
     )}
     </AnimatePresence>

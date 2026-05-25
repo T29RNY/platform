@@ -318,6 +318,16 @@ export async function getPlayerTeams() {
   return data || [];
 }
 
+// Token-based variant for PWA users whose auth session does not survive the
+// iOS Safari→home-screen-app storage partition. Resolves the user_id from
+// the supplied player token server-side. Same return shape as getPlayerTeams.
+export async function getPlayerTeamsByToken(token) {
+  if (!token) return [];
+  const { data, error } = await supabase.rpc("player_get_teams_by_token", { p_token: token });
+  if (error) throw error;
+  return data || [];
+}
+
 // ─── Join team by join code ───────────────────────────────────────────────────
 export async function getTeamByJoinCode(code) {
   const { data, error } = await supabase.rpc('get_team_by_join_code', { p_code: code });

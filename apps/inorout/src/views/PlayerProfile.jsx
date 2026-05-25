@@ -14,6 +14,8 @@ import {
 } from "@platform/core/storage/supabase.js";
 import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
+import AuthGateModal from "../components/AuthGateModal.jsx";
+import useRequireAuth from "../hooks/useRequireAuth.js";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -256,6 +258,11 @@ export default function PlayerProfile({
   const [deleteText,    setDeleteText]    = useState("");
   const [deleting,      setDeleting]      = useState(false);
   const [deleteError,   setDeleteError]   = useState(null);
+
+  // Auth gate — delete account requires a real auth session (server-side
+  // RPC uses auth.uid()). In the home-screen app the user is almost always
+  // unauthed; pop the email-OTP modal first, then open the typed-DELETE flow.
+  const { requireAuth, gateProps } = useRequireAuth();
 
   // Admin-mode state
   const [editingNick, setEditingNick] = useState(false);
@@ -789,7 +796,10 @@ export default function PlayerProfile({
             )}
 
             <button
-              onClick={() => { setDeleteText(""); setDeleteError(null); setShowDelete(true); }}
+              onClick={() => requireAuth(
+                () => { setDeleteText(""); setDeleteError(null); setShowDelete(true); },
+                { reason: "Deleting your account permanently removes your sign-in. Confirm it's you with a 6-digit code." }
+              )}
               style={{
                 width:"100%", padding:"14px 16px",
                 borderRadius:"var(--r)",
@@ -919,6 +929,8 @@ export default function PlayerProfile({
           </div>
         </div>
       )}
+
+      <AuthGateModal {...gateProps} />
     </div>
   );
 }

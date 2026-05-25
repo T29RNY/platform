@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getPlayerTeams } from "@platform/core";
+import { getPlayerTeamsByToken } from "@platform/core";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 
 export default function MySquads({ currentTeamId, currentToken, userId }) {
@@ -9,13 +9,13 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
   const [hoveredToken, setHoveredToken] = useState(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!currentToken) return;
     setLoading(true);
-    getPlayerTeams()
+    getPlayerTeamsByToken(currentToken)
       .then(data => setSquads(data || []))
       .catch(e => { console.error(e); setSquads([]); })
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [currentToken]);
 
   return (
     <div style={{ marginTop: 24, paddingBottom: 40 }}>
@@ -54,16 +54,7 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
           overflow: "hidden",
         }}>
 
-          {!userId ? (
-            <div style={{
-              padding: "16px", textAlign: "center",
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 300,
-              fontSize: 13, color: "var(--t2)",
-            }}>
-              Sign in to see all your squads
-            </div>
-
-          ) : loading ? (
+          {loading ? (
             <div style={{
               height: 44, background: "var(--s2)",
               borderRadius: 8, margin: "12px 16px", opacity: 0.5,
