@@ -5,6 +5,7 @@ It encodes the methodology, conventions, and hard rules
 for this codebase. Do not violate without explicit instruction.
 
 For schema see `SCHEMA.md`, RPCs see `RPCS.md`, bugs see `BUGS.md`,
+go-live pre-flight see `GO_LIVE_ISSUES.md`,
 decisions see `DECISIONS.md`, features see `FEATURES.md`,
 IO spec see `IO_INTELLIGENCE.md`, Ask the Gaffer / AI agent layer see
 `GAFFER.md`, session history see `CONTEXT.md`.
@@ -437,6 +438,10 @@ Apply SQL before writing any JS wrapper.
 ## KEY FILES
 
 - `BUGS.md` — active bugs and tech debt. Read at session start.
+- `GO_LIVE_ISSUES.md` — operator-facing pre-onboarding pre-flight log.
+  Every production issue ever hit, with a device-level check per item.
+  Read (and extend) before opening the app to a new squad. Any new
+  production bug must be appended here in the same commit as the fix.
 - `SCHEMA.md` — database schema. Read before any Supabase work.
 - `RPCS.md` — RPC inventory. Read before any write path work.
 - `DECISIONS.md` — key decisions log.

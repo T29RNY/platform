@@ -3,6 +3,11 @@
 
 **Read this at the start of every session before touching any code.**
 
+> For the operator-facing pre-onboarding pre-flight (every production
+> issue grouped by failure domain with a device-level check for each),
+> see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
+> in the same commit as the fix.
+
 ---
 
 ## RESOLVED 2026-05-25 (session 43)
