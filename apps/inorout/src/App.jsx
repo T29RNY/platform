@@ -503,7 +503,7 @@ export default function App() {
             // every row's token so the admin can share /p/<token> links.
             // Falls through to null if auth is missing or the admin isn't
             // a player on this team.
-            const adminPlayer = state.squad.find(p => p.is_self);
+            const adminPlayer = state.squad.find(p => p.isSelf);
             if (adminPlayer) {
               setMyPlayer(adminPlayer);
               setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches, state.bibHistory));

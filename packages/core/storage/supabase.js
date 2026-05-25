@@ -213,6 +213,7 @@ function dbToPlayer(r) {
     userId: r.user_id || null,
     groupNumber: r.group_number ?? null,
     adminLockedIn: r.admin_locked_in || false,
+    isSelf: r.is_self ?? false,
   };
 }
 

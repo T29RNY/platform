@@ -81,13 +81,19 @@ export default function PlayerView({
   const me = squad.find(p => p.id === myId);
 
   // ── auth gate for self-writes ──────────────────────────────────────────────
-  // On the admin route in the home-screen app, the admin's own player row
-  // arrives without a `token` because mig 061's CASE clause needs auth.uid().
-  // Without me.token, every self-write (status, pay, injured, +1, push)
-  // short-circuits silently. Detect the missing token, pop the sign-in modal
-  // (email + 6-digit code), and reload on success so the team-state refetch
-  // picks up me.token via the now-attached JWT.
+  // On the admin route in the home-screen app, no row has isSelf=true
+  // (mig 070's flag requires auth.uid()). App.jsx then falls back to
+  // squad[0] for myId — so `me` is the first squad member, not the actual
+  // viewer. Acting as that wrong user is the bug. The gate: on admin
+  // routes, if `me.isSelf` is false (fallback in play, or unauthed PWA),
+  // pop the email-OTP modal. After verify, reload so the team-state
+  // refetch sees auth.uid() and isSelf flips true on the right row.
+  //
+  // Player route (/p/<token>): me.token comes from the URL → isSelf isn't
+  // set but the token IS the identity. needsSelfAuth stays false because
+  // isAdmin is false on that route.
   const { requireAuth, gateProps } = useRequireAuth();
+  const needsSelfAuth = isAdmin && !me?.isSelf;
   const promptSignIn = () => requireAuth(() => window.location.reload(), {
     reason: "Sign in once on this device to manage your own status. You won't be asked again.",
   });
@@ -227,7 +233,7 @@ export default function PlayerView({
   // ── existing handlers ── (all unchanged)
 
   const handleSubscribe = async () => {
-    if (!me?.token) { promptSignIn(); return; }
+    if (needsSelfAuth) { promptSignIn(); return; }
     setNotifState("asking");
     try {
       const perm = await Notification.requestPermission();
@@ -251,7 +257,7 @@ export default function PlayerView({
   };
 
   const setStatus = (s) => {
-    if (!me?.token) { promptSignIn(); return; }
+    if (needsSelfAuth) { promptSignIn(); return; }
     setCashPending(false);
     setGuestCashPending(false);
     setClearDebtExpanded(false);
@@ -329,7 +335,7 @@ export default function PlayerView({
 
   const submitGuest = async () => {
     if (!guestName.trim() || addingGuest) return;
-    if (!me?.token) { promptSignIn(); return; }
+    if (needsSelfAuth) { promptSignIn(); return; }
     setAddingGuest(true);
     try {
       const guest = await addGuestPlayer(me?.token, guestName.trim());
@@ -369,7 +375,7 @@ export default function PlayerView({
   };
 
   const toggleInjury = () => {
-    if (!me?.token) { promptSignIn(); return; }
+    if (needsSelfAuth) { promptSignIn(); return; }
     const newInjured = !me?.injured;
     const needsStatusReset = newInjured && ["in", "reserve", "maybe"].includes(me?.status);
     setSquad(squad.map(p => p.id === myId
@@ -521,7 +527,7 @@ export default function PlayerView({
                 } else if (paymentState === 'debt') {
                   if (!clearDebtExpanded) {
                     btns.push(
-                      <button key="clear" onClick={() => { if (!me?.token) { promptSignIn(); return; } setClearDebtExpanded(true); }}
+                      <button key="clear" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setClearDebtExpanded(true); }}
                         style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
                         Clear Debt — £{effectiveDebt || (status === 'in' ? price : 0)}
                       </button>
@@ -568,7 +574,7 @@ export default function PlayerView({
                       </button>
                     );
                     if (paymentMode !== 'stripe_only') btns.push(
-                      <button key="cash" onClick={() => { if (!me?.token) { promptSignIn(); return; } setCashPending(true); }}
+                      <button key="cash" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setCashPending(true); }}
                         style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
                         Paid Cash
                       </button>
