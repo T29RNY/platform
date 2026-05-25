@@ -395,6 +395,88 @@ rows; players read their own `audience='player'` rows. Migration 033.
 
 ---
 
+## PHASE 0 + PHASE 1: VENUE / LEAGUE / HQ TABLES (migrations 050–057)
+
+20 new tables landed in Phase 1 (migration 055). All RLS-enabled with NO
+public policies — reads and writes happen via SECURITY DEFINER RPCs that
+arrive in Phase 2+. All currently empty.
+
+**Multi-sport posture (DECISIONS.md session 40):**
+- `companies.sport`, `venues.sport`, `leagues.sport` text DEFAULT 'football'
+- `leagues.format` open text DEFAULT '5-a-side' (no CHECK)
+- `match_events.event_type` + `match_events.period` open text (no CHECK) so
+  each sport defines its own vocabulary in code
+- `playing_areas` (was `pitches` in spec — covers football pitches,
+  basketball courts, hockey rinks, tennis courts, boxing rings)
+- `match_officials` (was `referees` in spec — covers referees, umpires,
+  judges)
+
+### Phase 0 tables (migrations 050, 054)
+
+- `league_config` — labels + match config + sport per league. Platform-default
+  row exists (league_id IS NULL). `league_id` FK to `leagues(id)` added in 057.
+- `company_domains` — email-domain → company mapping for HQ admin auto-routing.
+  `company_id` FK to `companies(id)` added in 057.
+
+### Phase 1 — HQ layer
+
+- `companies` — text PK. Stripe customer/subscription columns. sport DEFAULT 'football'.
+- `company_admins` — user_id (auth.users) ↔ company_id. Roles: super_admin / regional_admin / analyst.
+- `billing_events` — polymorphic via entity_type ('venue'|'company') + entity_id. Stripe event audit trail.
+
+### Phase 1 — Club layer
+
+- `clubs` — text PK. name, short_name, founded_year.
+
+### Phase 1 — Venue layer
+
+- `venues` — text PK. company_id (nullable — independent venues allowed). venue_admin_token. display_pin. Stripe columns. sport DEFAULT 'football'.
+- `venue_admins` — user_id ↔ venue_id. Roles: admin / staff.
+- `playing_areas` — venue_id, name, surface, capacity. (Multi-sport rename of `pitches`.)
+- `match_officials` — venue_id, name, contact channels, preferred_channel. (Multi-sport rename of `referees`.)
+
+### Phase 1 — League / Season / Competition layer
+
+- `leagues` — text PK. venue_id. sport, format (both flexible). default_playing_area_id → playing_areas. league_admin_token, display_token.
+- `seasons` — league_id, start/end dates, num_weeks, status (setup/active/completed/archived).
+- `competitions` — season_id, type (league/cup/playoff), format (round_robin/single_elimination/double_elimination/group_stage), status.
+- `club_teams` — junction: club_id ↔ team_id. UNIQUE(team_id) — a team belongs to one club.
+- `competition_teams` — junction: competition_id ↔ team_id. status (active/withdrawn/expelled).
+- `team_name_history` — team_id, name, effective_from_season_id / effective_to_season_id. Audit of team renames across seasons.
+- `cup_rounds` — competition_id, round_number, round_name, num_teams, status.
+
+### Phase 1 — Fixture / event layer
+
+- `fixtures` — competition_id, home_team_id, away_team_id (nullable = bye), week_number, scheduled_date, kickoff_time, playing_area_id, official_id, ref_token (per-fixture, unique). status (scheduled/allocated/in_progress/completed/postponed/void/walkover). home_score/away_score.
+- `match_events` — fixture_id, team_id, player_id, event_type (open text), minute, period (open text), sub_player_on_id, sub_player_off_id, recorded_by_token + recorded_by_type, synced_at (NULL = recorded offline), local_timestamp.
+- `player_registrations` — player_id, competition_id, team_id, registration_number, status (active/suspended/ineligible), suspension_until/reason. UNIQUE(player_id, competition_id).
+
+### Phase 1 — Operations layer
+
+- `incidents` — venue_id, fixture_id (nullable), reported_by (auth.users), description, severity (info/warning/critical), resolved_at/by/note.
+- `hq_preview_tokens` — company_id, token (per-token unique), generated_by, expires_at, accessed_at.
+
+### Phase 1 — Additions to existing tables (migration 056)
+
+| Table | New columns |
+|---|---|
+| `teams` | `club_id text NULL FK → clubs`, `primary_colour text NULL`, `secondary_colour text NULL` |
+| `matches` | `fixture_id uuid NULL FK → fixtures`, `opponent_team_id text NULL`, `opponent_name text NULL` |
+| `players` | `shirt_number int NULL`, `date_of_birth date NULL`, `phone text NULL`, `notification_channel text NOT NULL DEFAULT 'push' CHECK ('push'/'whatsapp'/'sms'/'email')` |
+| `player_match` | `minutes_played int NULL`, `was_substitute bool NOT NULL DEFAULT false`, `shirt_number int NULL` |
+
+All additive, all backfilled via DEFAULT, all metadata-only ALTERs.
+
+### RLS posture on new tables
+
+Every Phase 0 + Phase 1 table: RLS enabled, NO public policies. All access
+via SECURITY DEFINER RPCs that arrive in Phase 2+. REVOKE ALL FROM anon,
+authenticated. The only exception: `get_league_config` and
+`get_company_by_domain` RPCs are GRANTed to anon + authenticated (must
+work pre-auth for OAuth callback and landing pages).
+
+---
+
 ## KEY TYPE NOTES
 
 | Field | Type | Notes |
