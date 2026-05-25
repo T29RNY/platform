@@ -700,7 +700,7 @@ export default function SquadScreen({
                     <Star size={14} weight="thin" color={isPriority ? "var(--gold)" : "var(--t2)"} />
                   </IconToggle>
 
-                  {!isGuest && !isViceCaptain && (
+                  {!isGuest && (
                     <IconToggle
                       active={isVC}
                       disabled={vcSelf}
