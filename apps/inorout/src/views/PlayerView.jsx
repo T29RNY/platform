@@ -453,13 +453,15 @@ export default function PlayerView({
                 const status       = me?.status;
                 const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
 
+                // Ledger is the single source of truth for current outstanding
+                // balance — same number Payments shows. Don't add `price` to it:
+                // any unpaid pre-match ledger entry (match_id NULL) IS this
+                // week's fee, so adding `price` would double-count.
                 let amountText, amountColor = "var(--t2)";
                 if (paymentState === 'paid') {
                   amountText = "Nothing owed 👊"; amountColor = "var(--green)";
                 } else if (effectiveDebt > 0) {
-                  amountText = status === 'in'
-                    ? `£${effectiveDebt} + £${price} = £${effectiveDebt + price}`
-                    : `£${effectiveDebt} outstanding`;
+                  amountText = `£${effectiveDebt} owed`;
                 } else if (status === 'in') {
                   amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
                   if (!price) amountColor = "var(--green)";
@@ -503,14 +505,14 @@ export default function PlayerView({
                     btns.push(
                       <button key="clear" onClick={() => setClearDebtExpanded(true)}
                         style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
-                        Clear Debt — £{owes + (status === 'in' ? price : 0)}
+                        Clear Debt — £{effectiveDebt || (status === 'in' ? price : 0)}
                       </button>
                     );
                   } else if (!cashPending) {
                     if (paymentMode !== 'cash_only') btns.push(
                       <button key="stripe" disabled
                         style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
-                        Transfer £{owes + (status === 'in' ? price : 0)}
+                        Transfer £{effectiveDebt || (status === 'in' ? price : 0)}
                       </button>
                     );
                     if (paymentMode !== 'stripe_only') btns.push(
