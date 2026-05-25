@@ -1,7 +1,75 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 25 2026 (session 42 — multi-team player model + admin/VC share links)*
+*Last updated: May 25 2026 (session 43 — token-based MySquads + in-PWA email-OTP sign-in)*
 
 **Read this at the start of every session before touching any code.**
+
+---
+
+## RESOLVED 2026-05-25 (session 43)
+
+### PWA features that depend on sign-in silently failed on home-screen app
+**Surfaced by:** session 42 telemetry (`audit_events.app_boot`) —
+ZERO standalone PWA boots in 7 days carried a server-side JWT
+despite confirmed sign-ups. iOS deliberately partitions Safari
+storage from installed-PWA storage; sign-in done in Safari never
+reaches the home-screen app. session 41's `refreshSession()`
+mitigation helped nobody because there's no refresh token to
+refresh.
+**Three user-visible breakages:**
+1. **My Squads** showed "Sign in to see all your squads" forever
+   because `player_get_teams()` is auth.uid()-only.
+2. **Admin tapping own in/out on /admin/<token>** silently no-op'd
+   because session 41's mig 061 fix relied on auth.uid() matching
+   to expose the admin's own player token.
+3. **Joining a new team / linking account / deleting account**
+   silently failed when tapped in the home-screen app.
+
+**Latent bug surfaced during execute:** mig 070 added an `is_self`
+flag to admin-state RPCs (session 42) but `dbToPlayer` in
+supabase.js never mapped it. So App.jsx's admin resolver
+(`squad.find(p => p.is_self)`) always returned undefined and fell
+through to `squad[0]` — meaning admins on /admin/ routes saw
+themselves AS the first squad member (e.g. Tarny on
+/admin/<footy> rendered AS "rockybram"). Bug had been live since
+session 42 ship, hidden because the same fallback row was always
+clickable in StatusScreen, so nobody noticed.
+
+**Fix (session 43):**
+- **Migration 072** — new `player_get_teams_by_token(p_token)`
+  RPC that resolves user_id from the URL token instead of
+  auth.uid(). MySquads switched to the token-based variant. Old
+  RPC kept for App.jsx post-OAuth flows. Verified live: gbains'
+  two teams both return from a single token call with correct
+  admin/VC flags.
+- **AuthGateModal.jsx + useRequireAuth hook** — email + 6-to-10
+  digit OTP modal (no Google to dodge iOS-PWA webview blocking).
+  Code length is flexible because Supabase OTP length is a
+  project setting (this project sends 8).
+- **Email template** updated in Supabase dashboard to surface
+  `{{ .Token }}` prominently; magic link kept as secondary path.
+- **`dbToPlayer` mapper** now passes through `is_self` → `isSelf`.
+- **PlayerView** introduces `needsSelfAuth = isAdmin && !me?.isSelf`
+  flag that gates all 6 self-write entry points (status, push
+  subscribe, +1 guest, injury toggle, clear-debt, cash-paid).
+- **App.jsx** `handleJoin` refactored to gate via `useRequireAuth`
+  before running `doJoin` (avoids React-state staleness loop where
+  the SIGNED_IN listener hasn't yet updated `authUser` when the
+  pending action retries).
+- **PlayerProfile** delete-account button gated likewise.
+- **Link-account** path was already auth-gated by being inside a
+  post-OAuth branch; no change needed.
+
+**Verified live on real iPhone:**
+- Tarny (VC on Footy Tuesdays) opened the preview's
+  `/admin/<token>` from home-screen icon. Header initially showed
+  "rockybram" (fallback). Tapped IN → modal popped, entered email,
+  typed 8-digit code, verified. Page reloaded. Header switched to
+  "Tarny". Subsequent taps committed to Tarny's row. Modal didn't
+  re-appear on close+reopen. My Squads showed Footy Tuesdays
+  without sign-in placeholder.
+
+**Commits:** `cdba41d` (initial), `b1935e5` (isSelf gate fix),
+`ba7bc8d` (OTP length fix). Merged via `5e747f7`.
 
 ---
 
@@ -130,7 +198,7 @@ attached" mismatches.
 
 ---
 
-## PARTIALLY MITIGATED — needs deeper fix (session 41)
+## RESOLVED for user-visible paths in session 43 (originally session 41)
 
 ### PWA auth session fragility — iOS storage partition
 **Surfaced by:** audit data showing player taps with `actor_user_id=NULL`
@@ -151,18 +219,35 @@ nothing to refresh — the refresh token literally isn't in PWA storage.
 - Live-view decoupled from auth via public broadcast (migration 062).
 - Admin-route self-writes decoupled via player-token exposure
   (migration 061).
-**Full fix deferred:** requires establishing auth INSIDE the PWA
-storage scope, OR a server-set cookie bridging mechanism, OR continued
-decoupling of features from auth.uid(). Options scoped in plan file.
-**Affects (still latent until full fix):**
-- MySquads accordion (`getPlayerTeams` is auth.uid()-only — returns
-  empty for anon PWA users).
-- POTM voting reads (`getPOTMVotingState` etc. — RLS-gated).
-- Push notification delivery (subscriber writes work via token, but
-  some downstream paths may use auth).
-- Admin-route self-writes from PWA without auth (migration 061
-  exposes token only when auth.uid() matches — falls back to
-  no-token-no-action otherwise).
+**Session 43 resolution:** chose the "establish auth INSIDE the PWA
+storage scope" path. Added an in-PWA email-OTP modal
+(AuthGateModal.jsx + useRequireAuth hook) that runs the entire
+OAuth-equivalent flow inside the PWA's own webview. JWT lands in
+PWA localStorage and persists across reopens (subject to iOS 7-day
+inactivity eviction, which doesn't bite for a weekly footy app).
+The modal pops only on the 4 actions that genuinely need auth:
+joining a new team, deleting account, linking account, and admin/VC
+tapping their own status on /admin/ routes. Day-to-day token-based
+flows (player status, payments, POTM votes etc.) remain unauthed
+and unaffected.
+
+**Resolution per affected feature:**
+- MySquads accordion: switched to new
+  `player_get_teams_by_token(p_token)` RPC (mig 072). Works
+  without auth.
+- Admin-route self-writes: pop email-OTP modal on first tap, sign
+  in once inside PWA, reload → mig 061's CASE clause fires →
+  me.token populated → subsequent taps commit. One-time prompt
+  per device.
+- Push notification delivery: covered by the same admin/VC fix
+  (`savePushSubscription` is one of the gated self-writes).
+- POTM voting reads: `getPOTMVotingState(token, …)` already
+  token-based, works without sign-in. No change needed.
+
+**Long-term plan:** wrap in Capacitor at end of 3-4 week beta for
+native iOS app with ASWebAuthenticationSession-based sign-in
+(JWT in keychain, never evicted). ~90% of session 43 code
+transfers; the OTP modal becomes vestigial at that point.
 
 ---
 

@@ -1,8 +1,64 @@
 # In or Out — Key Decisions Log
-*Last updated: May 25 2026 (session 42 — multi-team player model + share-link visibility)*
+*Last updated: May 25 2026 (session 43 — token-IS-identity + in-PWA email-OTP)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## TOKEN IS THE PWA's IDENTITY; SIGN-IN ONLY FOR ACCOUNT ACTIONS (session 43)
+
+**The mental shift:** stop trying to make sign-in survive the iOS
+Safari→home-screen-app storage partition. The token in the URL
+(`/p/<token>` or `/admin/<token>`) IS the identity for day-to-day
+use. Sign-in is only requested when an action genuinely cannot be
+done without an auth user — joining a new team, linking an existing
+player to an account, deleting an account, and (for admins/VCs only)
+tapping their own player-self actions on `/admin/<token>` routes.
+
+**Why:** session 41+42 telemetry proved Apple's storage partition
+makes sign-in fragile by design. Sessions established via Safari
+OAuth never reach the installed PWA. The choice was either:
+- (a) fight Apple's partition with clever bridges — unreliable, and
+  blocked outright by Google's webview detection for OAuth.
+- (b) accept the partition; sign in INSIDE the PWA when needed; use
+  tokens for everything else.
+
+We chose (b). The email-OTP modal (`AuthGateModal.jsx`,
+`useRequireAuth.js`) runs entirely inside the PWA's webview, so the
+JWT lands in PWA-scope localStorage and persists across reopens
+(iOS only evicts after 7 days of zero use — irrelevant for a weekly
+app).
+
+**Concrete rules for new features:**
+- A read that's keyed by player → take the token, not auth.uid().
+  Use the `player_get_teams_by_token(token)` pattern (migration 072).
+- A write that targets a player row → take the token. Identity is
+  proven by token + RLS (SECURITY DEFINER on the RPC).
+- A write that creates or destroys an auth user / linkage (join,
+  link, delete account) → gate with `useRequireAuth`. Render the
+  AuthGateModal inline; on `onAuthed` re-run the action.
+- An admin/VC self-write on `/admin/<token>` → gate with
+  `needsSelfAuth = isAdmin && !me?.isSelf`. The isSelf flag (from
+  mig 070, surfaced via the `dbToPlayer` mapper since session 43)
+  is true only when the row matches `auth.uid()`. Without a match
+  we fall back to `squad[0]` and acting as that user is the bug.
+- Magic links are NOT a substitute for email OTP. The link opens
+  in Mail.app → Safari, which is the wrong storage partition.
+  Always offer the 6-to-10 digit code as the primary path.
+- Google sign-in is NOT in the PWA modal — Google sometimes blocks
+  "webview" sign-ins for security, and PWAs sit in the grey zone.
+  Email-OTP avoids the risk entirely.
+
+**Browser users (not the home-screen app) are unaffected** — they
+continue to see today's `SignIn.jsx` (Google + magic link) at `/`.
+
+**End-of-beta migration:** Capacitor wrap will use native
+ASWebAuthenticationSession for sign-in. JWT lives in iOS keychain,
+never evicted. ~90% of this session's code (the modal, hook,
+explicit Supabase config, OTP wiring) transfers. The 10% that
+retires (the in-PWA "you need to sign in" surface for admin self-
+tap) is trivial to remove.
 
 ---
 
