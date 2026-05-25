@@ -1,7 +1,139 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 25 2026 (session 40 — Phase 0 venue/league HQ foundations + MyView double-count hotfix)*
+*Last updated: May 25 2026 (session 41 — admin-route self-writes + realtime live view + auth-fragility diagnosis)*
 
 **Read this at the start of every session before touching any code.**
+
+---
+
+## RESOLVED 2026-05-25 (session 41)
+
+### Admin-route player self-writes silently no-op'd
+**Surfaced by:** rockybram (team_admin on `team_KPaoX8oJYMQ` Footy Tuesdays).
+On his admin PWA he tapped "out" on My View; UI flipped optimistically;
+DB never updated; Tarny's screen showed him as `none`.
+**Root cause:** `get_team_state_by_admin_token` stripped credentials
+(token, user_id) from squad rows. App.jsx:465 tried to match the admin's
+own player by `user_id === session.user.id`, but the field wasn't in the
+payload. Result: `myPlayer=null`, `me.token=undefined`, every player-self
+write in PlayerView short-circuited at `if (me?.token)`. Affected: status
+taps, self-pay, +1 add/remove, mark injured, POTM vote, push subscribe,
+leave squad, delete account, payment/injury history reads.
+**Fix:** Migration `061_admin_self_token_in_squad.sql` exposes the
+admin's own token in the squad payload, gated by `auth.uid()` match.
+App.jsx admin resolver rewired to `squad.find(p => p.token)`. Verified
+live with role-impersonation: rockybram's row returns his token, every
+other row returns null.
+**Commits:** `77b4bb5`.
+
+### Realtime live view dead for anonymous clients
+**Surfaced by:** user noticed Karan joined + tapped out, but the live
+update did not appear on his /p/ PWA without manual reload.
+**Root cause (two-part):** notify_team_change publishes to
+`team_live:<channel_key>` via `realtime.send`, but with `private=true`
+default. RLS on `realtime.messages` is enabled with zero policies →
+default deny. AND, App.jsx never subscribed to that broadcast channel at
+all — only to `postgres_changes` on players/schedule/matches, which
+themselves are RLS-gated on auth.uid(). Anon clients failed both gates.
+**Fix:** Migration `062_notify_team_change_public_broadcast.sql` flips
+the 4th arg to `false` so broadcasts are public (channel UUID is the
+secret). App.jsx now subscribes to `team_live:<key>` via new useEffect
+keyed on [teamId, liveChannelKey, route]; refetches team state on every
+broadcast. Old postgres_changes pipe retained as fallback for authed
+sessions. Verified end-to-end: Bidz tapped injured → Tarny's screen
+updated without reload.
+**Commits:** `4061a88`.
+
+### Server-side observability gap — silent fire-and-forget failures
+**Surfaced by:** triage of rockybram's "out" tap — no way to tell from
+the server whether the RPC ever ran.
+**Root cause:** Player self-write RPCs (`set_player_status`,
+`set_player_paid`, `set_player_injured`, `add_guest_player`,
+`remove_guest_player`, `register_push_subscription`,
+`unregister_push_subscription`, `submit_potm_vote`,
+`link_player_to_user`) wrote no `audit_events` rows. `console.error`
+on the client was the only failure surface.
+**Fix:** Migrations `060_audit_player_self_writes.sql` (status, paid),
+`063_audit_player_self_writes_phase2.sql` (the other 7). Pattern:
+INSERT into audit_events with `actor_type='player'`, `actor_user_id=auth.uid()`,
+`actor_identifier='player_token:'||md5(p_token)`. Encoded as a new
+hard rule (#9) in CLAUDE.md.
+**Commits:** `77b4bb5` (060), `284a44e` (063).
+
+### App-boot telemetry — PWA opens previously invisible
+**Surfaced by:** auto-refresh fix shipped but couldn't tell from the
+data whether it was helping.
+**Fix:** Migration `064_app_boot_audit.sql` adds `log_app_boot` RPC.
+App.jsx fires it on every boot capturing route_type, display_mode
+(standalone vs browser), session_present_client. Comparison with
+server-side actor_user_id surfaces "client thinks authed but JWT not
+attached" mismatches.
+**Commits:** `f9788ca`.
+
+---
+
+## PARTIALLY MITIGATED — needs deeper fix (session 41)
+
+### PWA auth session fragility — iOS storage partition
+**Surfaced by:** audit data showing player taps with `actor_user_id=NULL`
+even for confirmed signed-up users hours after sign-in. Confirmed via
+session 41 telemetry: Tarny's app_boot rows show
+`display_mode=standalone`, `session_present_client=false`,
+`server_authed=false` despite having signed in via OAuth yesterday.
+**Diagnosed cause:** **iOS PWA storage partition.** Signing in via
+Safari (where OAuth callback lands) writes JWT to Safari's localStorage.
+The PWA launched from home screen reads from a SEPARATE localStorage
+partition that has never seen the sign-in. `refreshSession()` returns
+nothing to refresh — the refresh token literally isn't in PWA storage.
+**Mitigation shipped (session 41):**
+- `supabase.auth.refreshSession()` on every app boot + on
+  visibilitychange (throttled 5 min). Helps for the "stale token but
+  refresh token present" case. **Does not help** for the storage
+  partition case (no refresh token to use).
+- Live-view decoupled from auth via public broadcast (migration 062).
+- Admin-route self-writes decoupled via player-token exposure
+  (migration 061).
+**Full fix deferred:** requires establishing auth INSIDE the PWA
+storage scope, OR a server-set cookie bridging mechanism, OR continued
+decoupling of features from auth.uid(). Options scoped in plan file.
+**Affects (still latent until full fix):**
+- MySquads accordion (`getPlayerTeams` is auth.uid()-only — returns
+  empty for anon PWA users).
+- POTM voting reads (`getPOTMVotingState` etc. — RLS-gated).
+- Push notification delivery (subscriber writes work via token, but
+  some downstream paths may use auth).
+- Admin-route self-writes from PWA without auth (migration 061
+  exposes token only when auth.uid() matches — falls back to
+  no-token-no-action otherwise).
+
+---
+
+## STILL ON HOLD — admin-badge cycle (session 41, NOT committed)
+
+Working tree has the following edits, NOT staged, NOT pushed. Decision
+deferred to next session. Files:
+- `apps/inorout/src/views/AdminView/SquadScreen.jsx` — VC toggle unhide
+  for VC viewers (line 703 gate change).
+- `apps/inorout/src/views/MySquads.jsx` — ADMIN badge condition
+  expanded from `is_vice_captain` to `is_vice_captain || is_team_admin`.
+- `apps/inorout/src/views/PlayerProfile.jsx` — VC toggle unhide for
+  VC viewers (line 568 gate change).
+- `rls_migrations/058_player_get_teams_admin_flag.sql` — adds
+  `is_team_admin` flag to `player_get_teams` RPC. **Migration applied
+  to live DB** — source file in tree but not committed.
+- `rls_migrations/058_player_get_teams_admin_flag_down.sql` — rollback.
+
+Pre-existing latent risks documented in the plan file:
+- If a VC accesses AdminView from `/p/<player_token>` route, the
+  `admin_set_vice_captain` RPC will reject the player token as
+  invalid_admin_token. Currently Tarny (only VC) uses `/admin/<token>`,
+  so not exercised, but unhiding the toggle exposes the failure path.
+- HeroCard "Admins" block (G change) was scoped but never built — needs
+  `is_team_admin` per-squad-player flag (migration 059) which is also
+  not committed.
+
+Next session: decide whether to ship the admin-badge cycle as a clean
+small commit, or unscope it. The 058 migration being live but
+uncommitted breaks the source-vs-live invariant (CLAUDE.md rule 11).
 
 ---
 

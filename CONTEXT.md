@@ -1,5 +1,90 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 25 2026 (session 40 — Phase 0 + Phase 1 of venue/league/HQ scope shipped end-to-end; MyView double-count hotfix)*
+*Last updated: May 25 2026 (session 41 — admin-route self-writes fix + realtime live-view fix + PWA auth-fragility diagnosis)*
+
+## SESSION 41 (May 25 2026) — admin-route + realtime + auth telemetry
+
+Triggered by user noticing on the live `team_KPaoX8oJYMQ` ("Footy
+Tuesdays") that (a) MyView showed only Tarny as ADMIN when rockybram
+created the team, (b) Tarny as VC couldn't promote others, (c) live
+updates weren't propagating to his /p/ PWA, (d) rockybram's "out" tap
+on his admin PWA never reached the DB.
+
+**Migrations shipped to live + source committed:**
+- `060_audit_player_self_writes.sql` — audit_events INSERT on
+  set_player_status + set_player_paid. Provided the diagnostic
+  visibility that unlocked everything else this session.
+- `061_admin_self_token_in_squad.sql` — admin's own player token
+  exposed in the squad payload (gated by `auth.uid()` match). Fixed
+  silent admin-route self-write failures.
+- `062_notify_team_change_public_broadcast.sql` — flipped broadcast
+  publishing from `private=true` (default) to `private=false`. Fixed
+  realtime live-view for unauthed clients.
+- `063_audit_player_self_writes_phase2.sql` — extended 060 pattern to
+  7 more player self-write RPCs (injured, guest add/remove, push
+  sub/unsub, POTM, account link).
+- `064_app_boot_audit.sql` — `log_app_boot` RPC. One audit row per
+  app open, capturing display_mode + session_present_client.
+
+**App.jsx changes:**
+- Admin player resolver: `state.squad.find(p => p.token)` (was
+  `userId` match that never succeeded).
+- New broadcast subscriber `useEffect` on `team_live:<liveChannelKey>`.
+- `supabase.auth.refreshSession()` on boot AND on `visibilitychange`
+  (throttled 5 min).
+- `logAppBoot(...)` fire-and-forget on every boot.
+- `liveChannelKey` state added; set from all three load paths.
+
+**CLAUDE.md updates:**
+- Rule 6 strengthened (real-team-from-fresh-signin only).
+- Rule 7 extended (RPC return-shape changes also need grep).
+- Rule 9 new: every fire-and-forget RPC must INSERT into audit_events.
+- Rule 10 new: server-side publishers must have client subscribers.
+- Rule 11 new: migration source + apply in same commit.
+
+**Held — NOT committed:**
+- MySquads `ADMIN` badge condition (VC OR team_admin).
+- PlayerProfile + SquadScreen VC-toggle unhide for VC viewers.
+- HeroCard "Admins" block extension (G change, never built).
+- `058_player_get_teams_admin_flag.sql` migration source — applied
+  live but source uncommitted. Breaks rule 11 temporarily.
+- `059_team_state_player_admin_flag.sql` — not built.
+
+**Definitively diagnosed (not yet fixed):**
+- iOS PWA storage partition is real. Telemetry confirms Tarny's PWA
+  opens with `session_present_client=false` despite confirmed OAuth
+  sign-in via Safari. Auto-refresh fix shipped but cannot help when
+  there is no refresh token in the PWA's storage scope. Full fix
+  requires establishing auth inside the PWA scope (sign-in launched
+  from within the PWA, JWT-bearing magic link, or similar).
+
+**Commits this session (chronological):**
+- `77b4bb5` — admin-route self-write fix (060 + 061 + App.jsx resolver).
+- `4061a88` — realtime live view fix (062 + App.jsx broadcast subscriber).
+- `284a44e` — audit hook expansion (063) + auto-refresh on boot +
+  visibilitychange + CLAUDE.md hard rules 9/10/11 + rule 6/7
+  extensions.
+- `f9788ca` — log_app_boot telemetry (064 + supabase.js wrapper +
+  App.jsx boot call).
+
+**Verification status at end of session:**
+- Admin-route fix: ready for rockybram to test (he hasn't yet
+  at end-of-session).
+- Live view: confirmed working — Bidz tapped injured, Tarny saw it
+  live without reload.
+- Auto-refresh: confirmed NOT sufficient for PWA-launched-from-home
+  case (storage partition is the dominant failure mode).
+- Telemetry: live and capturing rows.
+
+**Open follow-ups carried into next session:**
+- Decide fate of admin-badge held work (commit clean or unscope).
+- Plan and ship a permanent fix for PWA auth (Layer 2 of permanent fix
+  scope in plan file `.claude/plans/the-live-game-for-wobbly-yeti.md`).
+- Step 3 auth-expired prompt may now be partially redundant given
+  auto-refresh + decoupling posture.
+- Audit other auth.uid()-dependent paths (MySquads, POTM reads, etc.)
+  per the auth-decoupling posture documented in DECISIONS.md.
+
+---
 
 This file contains infrastructure, key tokens, demo environment, conventions,
 and a compressed session history. For everything else, see the split files:

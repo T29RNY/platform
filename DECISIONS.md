@@ -1,8 +1,102 @@
 # In or Out — Key Decisions Log
-*Last updated: May 25 2026 (session 40 — Phase 0A league_config + multi-sport posture)*
+*Last updated: May 25 2026 (session 41 — auth-decoupling posture + observability methodology)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## AUTH-DECOUPLING POSTURE (session 41)
+
+PWA auth is fragile. iOS partitions PWA localStorage from Safari
+localStorage; sign-in via Safari leaves the PWA's storage scope
+empty. Confirmed via session 41 telemetry (migration 064): Tarny's PWA
+app_boot rows show `session_present_client=false` despite confirmed
+sign-up + recent OAuth callback.
+
+**Posture going forward:** features that need to work for all squad
+members must NOT depend on `auth.uid()` at request time. The default
+becomes: bearer-token (player_token, admin_token) for identity, with
+auth.uid() used only for identity-narrowing within an already-trusted
+context (e.g. exposing the admin's own player token in the squad
+payload — migration 061 — uses auth.uid() to pick which row to
+populate the token field on; the admin_token already gates the RPC).
+
+**Concrete principles:**
+- **Live updates: broadcast channels, public flag.** Migration 062
+  set `notify_team_change` to publish with `private=false` because the
+  channel UUID is itself the secret (only delivered via team-state
+  RPCs which require admin/player token). Postgres_changes pipe is
+  RLS-gated and silently drops events for unauthed clients — it stays
+  as a fallback but should not be relied on alone.
+- **Writes: token, not auth.uid().** Set_player_status, set_player_paid,
+  set_player_injured, add/remove_guest, register_push_subscription,
+  submit_potm_vote all take a player token. Cannot rely on auth at
+  call time.
+- **Reads: same.** get_team_state_by_player_token, get_my_injuries,
+  get_my_payment_history take tokens.
+- **Identity narrowing: auth.uid() when present, gracefully no-op when
+  not.** Migration 061's `CASE WHEN p.user_id = auth.uid() THEN
+  p.token ELSE NULL END` pattern: if auth attached, the admin gets
+  their player token; if not, nothing leaks and the admin just can't
+  act as a player from /admin/ route in that session.
+- **Auth.uid()-only paths are second-class.** MySquads accordion,
+  league reads, account-link flow all use auth.uid(). They will fail
+  for PWA users whose storage doesn't have a session. Acceptable for
+  now; needs UX surface (auth-expired prompt) in a future cycle.
+
+This posture does NOT preclude fixing the underlying iOS partition
+issue. But it should mean that even if/when that fix lands, the
+features that work today via tokens continue to work without depending
+on the fix.
+
+---
+
+## OBSERVABILITY METHODOLOGY (session 41)
+
+Every fire-and-forget RPC must INSERT into `audit_events`. Codified as
+CLAUDE.md hard rule #9. Pattern from migration 060 extended to all
+known player self-writes in 063. Every new player/self-write RPC must
+follow.
+
+Comparison of `metadata.session_present_client` (client says) vs
+`actor_user_id IS NOT NULL` (server saw JWT) inside audit rows is the
+canonical diagnostic for auth-attachment problems. Migration 064
+adds `app_boot` action that captures this on every page load.
+
+The methodology was the unlock that made session 41's diagnoses
+possible — without it we'd have been guessing for hours about what was
+actually broken.
+
+---
+
+## REALTIME PUBLISHER/SUBSCRIBER PAIRING (session 41)
+
+Server-side `notify_team_change` was firing broadcasts to
+`team_live:<key>` with nobody subscribed on the client. This sat in
+the codebase for an unknown period — a write-only firehose. CLAUDE.md
+rule #10 now requires: any RPC that publishes (notify_team_change,
+realtime.send) must have a matching client subscriber, verified at
+audit step. Topic, event name, and `private` flag must all match
+byte-for-byte.
+
+The 062 migration established the canonical pattern (public broadcast,
+client subscribes via `supabase.channel('team_live:'+key).on('broadcast',
+{ event: 'broadcast' }, ...)`). New realtime additions should follow.
+
+---
+
+## MIGRATION SOURCE-VS-LIVE INVARIANT (session 41)
+
+If a migration is applied via `mcp__supabase__apply_migration`, the
+source `.sql` and `_down.sql` files must land in the same commit.
+Session 41's admin-badge work broke this temporarily (058 was applied
+to live but its source file ended up in the held working tree; not
+committed). CLAUDE.md rule #11 prohibits this going forward.
+
+When a held cycle resumes, the in-flight migration source must be
+committed alongside the cycle's other files. Better: don't apply
+migrations during a held cycle if commit is uncertain.
 
 ---
 
