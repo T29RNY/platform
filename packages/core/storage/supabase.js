@@ -609,6 +609,21 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
+// Telemetry — one row per app boot in audit_events. Fire-and-forget,
+// never throws (server-side swallows; this wrapper double-protects).
+export async function logAppBoot(token, routeType, displayMode, sessionPresent) {
+  try {
+    await supabase.rpc('log_app_boot', {
+      p_token:           token || null,
+      p_route_type:      routeType || 'unknown',
+      p_display_mode:    displayMode || 'unknown',
+      p_session_present: !!sessionPresent
+    });
+  } catch (e) {
+    // Telemetry must never break boot. Swallow.
+  }
+}
+
 // Link an existing player record to an auth user
 export async function linkPlayerToUser(token) {
   const { error } = await supabase.rpc('link_player_to_user', { p_token: token });

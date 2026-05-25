@@ -10,7 +10,7 @@ import {
   getTeamByJoinCode, playerJoinTeam,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool,
-  getSession, getPlayerTeams,
+  getSession, getPlayerTeams, logAppBoot,
   linkPlayerToUser, updateUserProfile,
   resetDemoData, updateDemoInteraction,
 } from "@platform/core/storage/supabase.js";
@@ -416,6 +416,20 @@ export default function App() {
         // below uses `session` directly (admin/player auto-link to the auth
         // user). Cheap — supabase caches.
         const session = await getSession();
+
+        // Telemetry — one audit_events row per app boot. Captures route,
+        // display mode (PWA vs browser), and whether the client thinks
+        // it's authed. The server-side actor_user_id captures whether the
+        // JWT actually attached. Comparison surfaces auth-attachment bugs.
+        // Fire-and-forget; cannot break boot.
+        {
+          const isStandalone = window.navigator.standalone === true
+            || (typeof window.matchMedia === 'function'
+                && window.matchMedia('(display-mode: standalone)').matches);
+          const displayMode = isStandalone ? 'standalone' : 'browser';
+          logAppBoot(route.token || null, route.type || 'unknown', displayMode, !!session?.user)
+            .catch(() => { /* telemetry only */ });
+        }
         let resolvedTeamId = null;
 
         if (route.type === "demoadmin") {
