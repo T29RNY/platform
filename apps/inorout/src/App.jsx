@@ -237,6 +237,11 @@ export default function App() {
   const [playerTeams,  setPlayerTeams] = useState([]);
   const [selectedTeam, setSelectedTeam]= useState(null);
   const [isAdmin,      setIsAdmin]     = useState(false);
+  // live_channel_key from the team-state RPC. Used by the broadcast
+  // realtime subscriber below — server publishes via notify_team_change to
+  // `team_live:<key>`. Broadcast channels are NOT gated by RLS, so this
+  // delivers live updates to anon clients too.
+  const [liveChannelKey, setLiveChannelKey] = useState(null);
 
   // Track which PlayerView tab to open on next mount
   const playerStartTabRef = useRef(null);
@@ -416,6 +421,7 @@ export default function App() {
           setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
           setSettingsRaw(state.settings || DEFAULT_SETTINGS);
           setCoverPoolRaw(state.coverPool);
+          setLiveChannelKey(state.liveChannelKey || null);
           // /demoadmin always plays as Hassan — the demo protagonist with the
           // richest shared-game history. Auth session is ignored on this public
           // showcase route.
@@ -462,6 +468,7 @@ export default function App() {
             setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
             setSettingsRaw(state.settings || DEFAULT_SETTINGS);
             setCoverPoolRaw(state.coverPool);
+            setLiveChannelKey(state.liveChannelKey || null);
             // Resolve the admin's own player row. The squad payload from
             // get_team_state_by_admin_token now exposes p.token only on the
             // row matching auth.uid() (migration 061). One row with a token
@@ -541,6 +548,7 @@ export default function App() {
           setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
           setSettingsRaw(state.settings || DEFAULT_SETTINGS);
           setCoverPoolRaw(state.coverPool);
+          setLiveChannelKey(state.liveChannelKey || null);
           {
             const intel = computeDeeperIntel(player.id, [player, ...state.squad], state.matches);
             setStatsRaw({ ...(state.stats || {}), ...intel });
@@ -714,6 +722,50 @@ export default function App() {
       supabase.removeChannel(matchSub);
     };
   }, [teamId]);
+
+  // Broadcast-channel realtime — works for anon AND authed clients alike.
+  // The server (notify_team_change RPC) publishes to `team_live:<key>` on
+  // every mutating action. The postgres_changes subscribers above are
+  // RLS-gated and silently drop events for anon callers; this broadcast
+  // pipe is not. Both pipes run in parallel — the refresh handler is
+  // idempotent, so a double-fire is harmless.
+  useEffect(() => {
+    if (!teamId || !liveChannelKey) return;
+    const channel = supabase.channel(`team_live:${liveChannelKey}`);
+    // notify_team_change publishes with event name 'broadcast' via
+    // realtime.send(payload, 'broadcast', topic). Match exactly — wildcard
+    // event filters are NOT supported for broadcast type in the JS client.
+    channel.on('broadcast', { event: 'broadcast' }, async () => {
+      try {
+        if (route?.type === "player" && route?.token) {
+          const state = await getTeamStateByPlayerToken(route.token);
+          if (state && state.player) {
+            setSquadRaw([state.player, ...state.squad]);
+            setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+            setMatchHistRaw(state.matches);
+            setBibHistRaw(state.bibHistory);
+            setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+            setCoverPoolRaw(state.coverPool);
+          }
+        } else if (route?.type === "admin" || route?.type === "demoadmin") {
+          const tok = route.type === "demoadmin" ? "admin_demo" : route.token;
+          const state = await getTeamStateByAdminToken(tok);
+          if (state) {
+            setSquadRaw(state.squad);
+            setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+            setMatchHistRaw(state.matches);
+            setBibHistRaw(state.bibHistory);
+            setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+            setCoverPoolRaw(state.coverPool);
+          }
+        }
+      } catch (e) {
+        console.error("team_live broadcast refresh error:", e);
+      }
+    });
+    channel.subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [teamId, liveChannelKey, route?.type, route?.token]);
 
   // ── Setters ──────────────────────────────────────────────────────────────────
   const setSquad = (updater) => {
