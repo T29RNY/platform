@@ -462,9 +462,12 @@ export default function App() {
             setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
             setSettingsRaw(state.settings || DEFAULT_SETTINGS);
             setCoverPoolRaw(state.coverPool);
-            const adminPlayer = state.squad.find(
-              p => p.userId && session?.user && p.userId === session.user.id
-            );
+            // Resolve the admin's own player row. The squad payload from
+            // get_team_state_by_admin_token now exposes p.token only on the
+            // row matching auth.uid() (migration 061). One row with a token
+            // === the admin's own player. Falls through to null if auth is
+            // missing or the admin isn't a player on this team.
+            const adminPlayer = state.squad.find(p => p.token);
             if (adminPlayer) {
               setMyPlayer(adminPlayer);
               setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches, state.bibHistory));
