@@ -1,7 +1,42 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 24 2026 (session 39 — push notifications fix + admin_save_teams scoping + notify whitelist)*
+*Last updated: May 25 2026 (session 40 — Phase 0 venue/league HQ foundations + MyView double-count hotfix)*
 
 **Read this at the start of every session before touching any code.**
+
+---
+
+## RESOLVED 2026-05-25 (session 40)
+
+### MyView double-counted ledger debt + this-week's price
+**Surfaced by:** user, on Footy Tuesdays after squad setup. Tarny's My View
+header showed "£5 + £5 = £10" while Payments correctly showed £5.
+**Root cause (UI):** `PlayerView.jsx:459-461` rendered
+`£{effectiveDebt} + £{price} = £{sum}` whenever an unpaid ledger entry
+existed AND status='in'. The display assumed `effectiveDebt` = past
+carry-over and `price` = fresh this-week fee. The assumption breaks
+when the ledger entry IS this week's fee (created with `match_id=NULL`
+because lineup-lock hasn't assigned a match_id yet) — the same £5 gets
+shown twice.
+**Trigger condition (live):** admin tapped PAY → Reset on a player in
+PaymentsScreen during squad setup, before any match row existed. The
+reset flow leaves an unpaid ledger row with `match_id=NULL`. Any team
+in this state would show the bug.
+**Fix:** Trust the ledger as the single source of truth for outstanding
+balance. New display contract:
+- paid → "Nothing owed 👊"
+- `effectiveDebt > 0` → `£{effectiveDebt} owed`
+- `status === 'in'` + `price > 0` → `£{price} this week`
+- else → "Nothing owed 👊"
+Also fixed Clear Debt / Transfer button labels (same broken arithmetic).
+**Latent issue not fixed:** the schema can't distinguish "NULL match_id =
+current upcoming match" from "NULL match_id = legitimate carry-over debt".
+This is fine while admin marks paid AFTER the match (the normal path) —
+but if pre-match payments become common, the lifecycle deserves
+tightening. Logged for future consideration; current fix is correct
+under both interpretations.
+**Cleanup:** stale £5 ledger row on Tarny (Footy Tuesdays, the artifact
+of the tap-then-reset) deleted via execute_sql.
+**Commit:** `a8dd46d`.
 
 ---
 
