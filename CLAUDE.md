@@ -478,10 +478,32 @@ Apply SQL before writing any JS wrapper.
 4. No hardcoded colours except #60A0FF and #FF6060.
 5. App.jsx state wrappers are pure setters. No DB calls inside.
 6. Demo team is not a valid test target for auth or RLS flows.
+   Real teams created by a freshly-signed-in user are the only valid
+   test bed for any auth.uid()-dependent path.
 7. After any RPC signature change, grep every call site before
-   declaring done.
+   declaring done. Extends to RPC return-shape changes: when adding
+   or removing fields from a returned JSON object, grep every consumer
+   of that field in JS and SQL.
 8. BUGS.md, FEATURES.md, and DECISIONS.md must be updated when
    bugs are resolved, features ship, or architecture decisions are made.
+9. Every fire-and-forget RPC MUST INSERT into audit_events on the
+   server side. Silent client-side failures must leave a server-side
+   trace. Pattern established in migration 060
+   (set_player_status, set_player_paid) and extended in 063
+   (set_player_injured, add_guest_player, remove_guest_player,
+   register_push_subscription, unregister_push_subscription,
+   submit_potm_vote, link_player_to_user). Any new player-self
+   write RPC must follow this pattern.
+10. Server-side realtime publishers MUST have matching client
+    subscribers. When a new RPC calls notify_team_change or
+    realtime.send, verify the corresponding supabase.channel()
+    subscriber in App.jsx matches: topic, event name, and private
+    flag. Verified in this commit by migrations 062 + App.jsx
+    broadcast subscriber.
+11. Migration source files MUST land in the same commit as the live
+    DB apply. Don't let live DB and source code drift. If applied
+    via mcp__supabase__apply_migration, write the .sql file (and
+    matching _down.sql) before moving on to the next change.
 
 ---
 

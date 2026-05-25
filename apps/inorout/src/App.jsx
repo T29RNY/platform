@@ -403,6 +403,14 @@ export default function App() {
 
     async function load() {
       try {
+        // Force a session refresh on every boot. PWAs (especially iOS) lose
+        // their access-token between launches even when the refresh token
+        // is still valid. Calling refreshSession here gets us a fresh JWT
+        // so subsequent RPCs go out authed. If there's no refresh token
+        // (anon visitor) or the refresh fails for any reason, we swallow
+        // the error and proceed exactly as we would have today.
+        try { await supabase.auth.refreshSession(); } catch (e) { /* anon or expired — fall through */ }
+
         // Auth session is also resolved by the top-level authReady effect for
         // gating the UI. We still read it locally here because the load body
         // below uses `session` directly (admin/player auto-link to the auth
@@ -577,6 +585,24 @@ export default function App() {
       }
     );
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Refresh the access token when the PWA returns from the background.
+  // iOS suspends the PWA and the access token can go stale silently. Calling
+  // refreshSession on visibilitychange picks up a fresh JWT so RPCs go out
+  // authed when the user starts tapping. Throttled to once per 5 minutes
+  // so rapid foreground/background cycles don't spam.
+  useEffect(() => {
+    let lastRefresh = 0;
+    const onVisibility = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefresh < 5 * 60 * 1000) return;
+      lastRefresh = now;
+      try { await supabase.auth.refreshSession(); } catch (e) { /* expected for anon — silent */ }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
   // Part A — returning user recognition on /join
