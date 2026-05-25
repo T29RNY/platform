@@ -213,6 +213,7 @@ function dbToPlayer(r) {
     userId: r.user_id || null,
     groupNumber: r.group_number ?? null,
     adminLockedIn: r.admin_locked_in || false,
+    isSelf: r.is_self ?? false,
   };
 }
 
@@ -314,6 +315,16 @@ function dbToSchedule(r) {
 // Returns all squads the authenticated player belongs to via player_get_teams RPC.
 export async function getPlayerTeams() {
   const { data, error } = await supabase.rpc("player_get_teams");
+  if (error) throw error;
+  return data || [];
+}
+
+// Token-based variant for PWA users whose auth session does not survive the
+// iOS Safari→home-screen-app storage partition. Resolves the user_id from
+// the supplied player token server-side. Same return shape as getPlayerTeams.
+export async function getPlayerTeamsByToken(token) {
+  if (!token) return [];
+  const { data, error } = await supabase.rpc("player_get_teams_by_token", { p_token: token });
   if (error) throw error;
   return data || [];
 }

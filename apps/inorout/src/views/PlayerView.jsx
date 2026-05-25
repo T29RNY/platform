@@ -11,6 +11,8 @@ import {
   Check, X, Question, ArrowDown,
   PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
 } from "@phosphor-icons/react";
+import AuthGateModal from "../components/AuthGateModal.jsx";
+import useRequireAuth from "../hooks/useRequireAuth.js";
 import PageHeader  from "../components/ui/PageHeader.jsx";
 import HeroCard    from "../components/ui/HeroCard.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
@@ -77,6 +79,24 @@ export default function PlayerView({
   stats = null,
 }) {
   const me = squad.find(p => p.id === myId);
+
+  // ── auth gate for self-writes ──────────────────────────────────────────────
+  // On the admin route in the home-screen app, no row has isSelf=true
+  // (mig 070's flag requires auth.uid()). App.jsx then falls back to
+  // squad[0] for myId — so `me` is the first squad member, not the actual
+  // viewer. Acting as that wrong user is the bug. The gate: on admin
+  // routes, if `me.isSelf` is false (fallback in play, or unauthed PWA),
+  // pop the email-OTP modal. After verify, reload so the team-state
+  // refetch sees auth.uid() and isSelf flips true on the right row.
+  //
+  // Player route (/p/<token>): me.token comes from the URL → isSelf isn't
+  // set but the token IS the identity. needsSelfAuth stays false because
+  // isAdmin is false on that route.
+  const { requireAuth, gateProps } = useRequireAuth();
+  const needsSelfAuth = isAdmin && !me?.isSelf;
+  const promptSignIn = () => requireAuth(() => window.location.reload(), {
+    reason: "Sign in once on this device to manage your own status. You won't be asked again.",
+  });
 
   // ── existing state ── (unchanged)
   const [note,          setNote]         = useState(me?.note || "");
@@ -213,6 +233,7 @@ export default function PlayerView({
   // ── existing handlers ── (all unchanged)
 
   const handleSubscribe = async () => {
+    if (needsSelfAuth) { promptSignIn(); return; }
     setNotifState("asking");
     try {
       const perm = await Notification.requestPermission();
@@ -236,6 +257,7 @@ export default function PlayerView({
   };
 
   const setStatus = (s) => {
+    if (needsSelfAuth) { promptSignIn(); return; }
     setCashPending(false);
     setGuestCashPending(false);
     setClearDebtExpanded(false);
@@ -313,6 +335,7 @@ export default function PlayerView({
 
   const submitGuest = async () => {
     if (!guestName.trim() || addingGuest) return;
+    if (needsSelfAuth) { promptSignIn(); return; }
     setAddingGuest(true);
     try {
       const guest = await addGuestPlayer(me?.token, guestName.trim());
@@ -352,6 +375,7 @@ export default function PlayerView({
   };
 
   const toggleInjury = () => {
+    if (needsSelfAuth) { promptSignIn(); return; }
     const newInjured = !me?.injured;
     const needsStatusReset = newInjured && ["in", "reserve", "maybe"].includes(me?.status);
     setSquad(squad.map(p => p.id === myId
@@ -503,7 +527,7 @@ export default function PlayerView({
                 } else if (paymentState === 'debt') {
                   if (!clearDebtExpanded) {
                     btns.push(
-                      <button key="clear" onClick={() => setClearDebtExpanded(true)}
+                      <button key="clear" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setClearDebtExpanded(true); }}
                         style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
                         Clear Debt — £{effectiveDebt || (status === 'in' ? price : 0)}
                       </button>
@@ -550,7 +574,7 @@ export default function PlayerView({
                       </button>
                     );
                     if (paymentMode !== 'stripe_only') btns.push(
-                      <button key="cash" onClick={() => setCashPending(true)}
+                      <button key="cash" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setCashPending(true); }}
                         style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
                         Paid Cash
                       </button>
@@ -1295,6 +1319,7 @@ export default function PlayerView({
 
       {/* 4 ── NAVBAR */}
       <NavBar activeTab={activeTab} onTabChange={setActiveTab} onAdminClick={isAdmin ? onGoAdmin : undefined} />
+      <AuthGateModal {...gateProps} />
     </div>
     )}
     </AnimatePresence>

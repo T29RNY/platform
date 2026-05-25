@@ -26,6 +26,8 @@ import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
 import SignIn        from "./views/SignIn.jsx";
+import AuthGateModal from "./components/AuthGateModal.jsx";
+import useRequireAuth from "./hooks/useRequireAuth.js";
 import Legal         from "./views/Legal.jsx";
 import PWAWelcome   from "./views/PWAWelcome.jsx";
 import Gaffer        from "./views/Gaffer/index.jsx";
@@ -242,6 +244,11 @@ export default function App() {
   // `team_live:<key>`. Broadcast channels are NOT gated by RLS, so this
   // delivers live updates to anon clients too.
   const [liveChannelKey, setLiveChannelKey] = useState(null);
+
+  // Auth gate hook — used by handleJoin to prompt sign-in when an unauthed
+  // PWA user taps "Join". After sign-in, the original join action retries
+  // automatically (carries the name from JoinTeam's NameStep through).
+  const joinAuthGate = useRequireAuth();
 
   // Track which PlayerView tab to open on next mount
   const playerStartTabRef = useRef(null);
@@ -496,7 +503,7 @@ export default function App() {
             // every row's token so the admin can share /p/<token> links.
             // Falls through to null if auth is missing or the admin isn't
             // a player on this team.
-            const adminPlayer = state.squad.find(p => p.is_self);
+            const adminPlayer = state.squad.find(p => p.isSelf);
             if (adminPlayer) {
               setMyPlayer(adminPlayer);
               setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches, state.bibHistory));
@@ -835,8 +842,17 @@ export default function App() {
   }, [view]);
 
   // ── Join handler — auth first, name only after signed in ─────────────────
-  const handleJoin = async (name) => {
-    if (!authUser) return;
+  // handleJoin is the public entry. It gates on auth via useRequireAuth —
+  // if no session, opens the email-OTP modal and re-runs the internal
+  // join after verification. The hook checks the live Supabase session
+  // (not React state) to avoid staleness loops.
+  const handleJoin = (name) => {
+    joinAuthGate.requireAuth(() => doJoin(name), {
+      reason: `Sign in to join ${joinTeam?.name || "this team"}. You'll only need to do this once.`,
+    });
+  };
+
+  const doJoin = async (name) => {
     setJoinLoading(true); setJoinError(null);
     try {
       const player = await playerJoinTeam(joinTeam.id, name);
@@ -1202,6 +1218,7 @@ export default function App() {
       {showEmailCapture && (
         <EmailCaptureOverlay conflictMessage={linkConflict}/>
       )}
+      <AuthGateModal {...joinAuthGate.gateProps} />
     </div>
   );
 }
