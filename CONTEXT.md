@@ -1,5 +1,72 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 45 — VC=admin parity + post-sweep data residue cleanup)*
+*Last updated: May 26 2026 (session 46 — brand-new-squad first-go-live fix + group RPC anon-grant fix)*
+
+## SESSION 46 (May 26 2026) — first-go-live + group balancer grants
+
+Two production bugs hit rockybram's brand-new squad "Footy
+Tuesdays" (team_id `team_KPaoX8oJYMQ`) on the day of their first
+match. Both surfaced because no real brand-new squad had been
+exercised end-to-end before — every prior test team had either
+seeded fixtures or had cycled through Cancel→Relive.
+
+**Bug 1 — first-time go-live never created the initial matches row
+(mig 077 `admin_go_live`).** `admin_upsert_schedule` (mig 013)
+sets `game_is_live=true` but never inserts a `matches` row or
+populates `schedule.active_match_id`. Only `admin_reopen_week`
+(mig 032) did that, and only on the cancel→relive branch. Brand-
+new squad → flip live → Admin → Make Teams → "No active match"
+empty state. Players' surfaces correctly showed live because they
+read `game_is_live`, but anything keyed off the match ID (Make
+Teams, POTM voting, payment confirmation, save-teams) was silently
+broken. Latent since mig 032 (May 22). Fix: new sibling RPC
+`admin_go_live` (mirrors `admin_reopen_week` minus cancel-clear,
+idempotent on re-tap). Client routes `AdminView/index.jsx`
+openNextWeek non-cancelled branch and `ScheduleScreen.jsx` save
+path both call `goLive` on the live flip. rockybram unblocked
+live by calling `admin_reopen_week` directly via MCP before the
+code fix shipped (generated match `m_ua2IxB14ch8` for the 20:00
+game). Commit `5752c84`.
+
+**Bug 2 — group balancer fails for anon-admin / VC callers
+(mig 078 grant fix).** Immediately after Bug 1 was fixed,
+rockybram tried to use the Group Balancer in Make Teams. Every
+tap reverted with "Failed to save group — try again". Root cause:
+`admin_set_player_group` and `admin_clear_all_groups` were the
+only two `admin_*` RPCs granted to `authenticated` only (mig 031
+default at Group Balancer launch). The session-45 VC parity sweep
+(mig 075) rewrote function bodies via `resolve_admin_caller` but
+explicitly does not touch grants — the anon revoke was inherited
+unchanged. rockybram's session was anon (token-only admin) →
+PostgREST rejected at the grant layer before the body ran.
+Direct postgres-role call returned `{ok: true}` and wrote an
+audit row, confirming body + data were healthy. VCs on the same
+team had the same problem, a strict regression against the
+session-45 parity rule. Fix: two-line GRANT migration to anon
+on both RPCs. No client changes. Commit `abdae30`.
+
+**Decisions added (`DECISIONS.md`):**
+- All `admin_*` RPCs must grant both `anon` and `authenticated`.
+  Body owns access control via `resolve_admin_caller`; the grant
+  layer is not the place to lock down. New `admin_*` RPCs default
+  to granting both; sweeping migrations must explicitly enumerate
+  and assert grants too.
+
+**Files touched:**
+- NEW migrations: 077_admin_go_live (+ down), 078_group_rpcs_anon_grant (+ down)
+- NEW JS wrapper: `goLive(adminToken)` in `packages/core/storage/supabase.js`
+- NEW barrel export: `goLive` in `packages/core/index.js`
+- Updated client call sites: `AdminView/index.jsx` openNextWeek, `ScheduleScreen.jsx` save path
+- Updated docs: BUGS.md (two resolved entries), GO_LIVE_ISSUES.md
+  (new pre-flight checks 5.3 and 5.4 under Admin Writes),
+  DECISIONS.md (admin_* grant rule)
+
+**Lesson — for the file:** regex-driven blanket sweeps over
+`pg_proc` can rewrite function bodies but cannot safely rewrite
+GRANT statements (those live separately and have stricter
+parsing). Any future "all admin_* RPCs now …" change must
+separately enumerate and audit grants. Memory entry added.
+
+---
 
 ## SESSION 45 (May 26 2026) — VC = admin parity sweep, plus post-sweep residue cleanup
 

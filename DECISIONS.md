@@ -1,8 +1,60 @@
 # In or Out — Key Decisions Log
-*Last updated: May 26 2026 (session 45 — VC = admin parity + parity-test policy)*
+*Last updated: May 26 2026 (session 46 — admin_* grants must include anon + authenticated)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## ALL admin_* RPCs MUST GRANT BOTH anon AND authenticated (session 46, mig 078)
+
+**The rule:** every `admin_*` SECURITY DEFINER RPC must
+`GRANT EXECUTE` to BOTH `anon` and `authenticated`. The function
+body owns access control via `resolve_admin_caller(p_admin_token)`
+(see mig 074) — it already accepts admin_token OR VC player_token
+and raises `invalid_admin_token` for anything else. There is no
+remaining reason to restrict at the PostgREST grant layer; doing
+so blocks two legitimate caller shapes:
+
+1. **anon-admin flow** — admin opens `/admin/<token>` URL in a
+   session without a JWT (PostgREST role = `anon`). The token
+   itself is the credential.
+2. **VC flow** — vice captains authenticate via `player_token`,
+   never via `auth.uid()`, so they always come through `anon`.
+
+**Why this exists as a separate rule:** the session-45 "blanket
+VC = owner parity" sweep (mig 075) rewrites function bodies but
+deliberately doesn't touch GRANTs. Two RPCs
+(`admin_set_player_group` and `admin_clear_all_groups`) had been
+authenticated-only since mig 031 (Group Balancer launch) and
+inherited that grant through the sweep unchanged. Result:
+rockybram's brand-new squad hit "Failed to save group — try
+again" on every group balancer tap. Body and data were healthy;
+only the grant blocked PostgREST callers. Fixed in mig 078.
+
+**How to apply:**
+- New `admin_*` RPCs: default grant block is
+  ```sql
+  REVOKE ALL ON FUNCTION fn_name(args) FROM public;
+  GRANT EXECUTE ON FUNCTION fn_name(args) TO anon, authenticated;
+  ```
+- Sweeping migrations that claim "every admin_* RPC now …" must
+  explicitly enumerate grants via `pg_proc.proacl` and assert
+  every match contains both roles.
+- Before merging any new admin_* RPC, run:
+  ```sql
+  SELECT proname, proacl::text
+  FROM pg_proc
+  WHERE proname LIKE 'admin\_%' ESCAPE '\\'
+    AND pronamespace = 'public'::regnamespace
+    AND NOT (proacl::text LIKE '%anon=X%' AND proacl::text LIKE '%authenticated=X%');
+  ```
+  Any row in the output is a regression — investigate or fix
+  before commit.
+
+**Exceptions:** none currently. If a future admin_* RPC needs
+tighter control, document why HERE and skip that function name
+in the assertion above.
 
 ---
 
