@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 49 — admin_delete_player cancelled-ledger hotfix, mig 113)*
+*Last updated: May 26 2026 (session 49 — admin_delete_player VC-token + cancelled-ledger hotfixes, migs 113/114 + AdminView orphan-banner error toast)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,64 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — admin_delete_player rejects Vice Captains (session 49, mig 114 + AdminView/index.jsx)
+
+**Symptom:** Tarny (VC on Footy Tuesdays) tapped "Remove Pav" on the
+host-dropped-out orphan banner. Nothing happened — the banner stayed
+on screen with no error toast. Same flow for removing Ranza from
+SquadScreen showed "Couldn't remove player" but did not detail why.
+
+**Root cause (two stacked bugs):**
+
+1. **RPC rejected VC tokens.** Per commit 767b499 ("pass route.token
+   to AdminView for VCs too"), the AdminView component receives the
+   VC's player token as `adminToken` when the route is /p/<vc_token>.
+   `admin_delete_player`'s first guard does
+   `SELECT id FROM teams WHERE admin_token = p_admin_token` — but a
+   VC's 21-char player token is NOT a team's 28-char admin_token, so
+   the lookup missed every time and the RPC raised
+   `invalid_admin_token` (confirmed in Postgres logs: 4× over 30 min).
+   Mig 073 added a similar VC fallback to `admin_set_vice_captain`
+   but only for the `p_admin_token IS NULL` case — useless here
+   because the client DOES pass a token, just the wrong kind.
+
+2. **Client swallowed the error.** `AdminView/index.jsx`'s
+   `removeGuest` handler had `catch(e) { console.error(e); }` with no
+   user-visible feedback. Combined with the optimistic state pattern
+   (which here was absent), the orphan banner just sat there. No toast,
+   no banner colour change, nothing.
+
+**Fix (mig 114):** `admin_delete_player` now accepts EITHER a team
+admin_token OR a VC's player token. Resolution order:
+  1. Try `teams.admin_token = p_admin_token` (original path).
+  2. If miss, try `players.token = p_admin_token` where the caller is
+     a VC (`team_players.is_vice_captain = true`) on the SAME team as
+     the target player. Audit row captures `actor_type = 'vice_captain'`
+     with `actor_identifier = 'vc_token:<md5>'`.
+  3. If both miss, raise `invalid_admin_token` as before.
+
+**Fix (client):** `removeGuest` now sets a per-guest `orphanErrors[id]`
+state on catch, with friendly messages mapped from RPC error codes
+(`has_history`, `invalid_admin_token`, `not_found`, generic fallback).
+Banner renders the error in red beneath the action buttons.
+
+**Verified:** dry-call against the live DB confirms Tarny's token +
+Pav target resolves to `team_KPaoX8oJYMQ` via the new VC path. RPC
+security sweep PASS, build clean, BUGS.md + GO_LIVE_ISSUES.md
+considerations: this is a runtime-only bug; no schema migration
+follow-up needed beyond the two .sql files committed.
+
+**Class-of-bug follow-up (still open):** any other admin_* RPC that
+does `SELECT id FROM teams WHERE admin_token = p_admin_token` without
+a VC fallback path will fail the same way for Vice Captains using
+the AdminView via /p/<vc_token>. Worth a sweep before the next
+release. Likely candidates: `admin_add_player`, `admin_update_player_name`,
+`admin_save_teams`, `admin_cancel_match`, `admin_set_player_status`,
+`admin_record_payment`, anything touching matches or settings.
+The fix pattern is mechanical — copy the dual-lookup from mig 114.
 
 ---
 

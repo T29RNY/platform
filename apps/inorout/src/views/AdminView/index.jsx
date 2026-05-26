@@ -73,6 +73,7 @@ export default function AdminView({
   const cancelWeekRef = useRef(null);
   const [dragId,           setDragId]           = useState(null);
   const [dismissedOrphans, setDismissedOrphans] = useState(new Set());
+  const [orphanErrors,     setOrphanErrors]     = useState({});
   const [selectedPlayer,   setSelectedPlayer]   = useState(null);
   const [openSections,     setOpenSections]     = useState(
     { in:true, reserve:true, maybe:true, out:false, injured:false, noResp:false }
@@ -144,8 +145,21 @@ export default function AdminView({
   const dismissOrphan = (id) => setDismissedOrphans(prev => new Set([...prev, id]));
   const reserveGuest  = (id) => { setSquad(squad.map(p => p.id===id ? { ...p, status:"reserve" } : p)); dismissOrphan(id); };
   const removeGuest   = async (id) => {
-    try { await deletePlayer(adminToken, id); setSquad(squad.filter(p => p.id !== id)); dismissOrphan(id); }
-    catch(e) { console.error(e); }
+    setOrphanErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+    try {
+      await deletePlayer(adminToken, id);
+      setSquad(squad.filter(p => p.id !== id));
+      dismissOrphan(id);
+    } catch(e) {
+      console.error(e);
+      const msg = String(e?.message || "").toLowerCase();
+      const friendly =
+        msg.includes("has_history")          ? "Can't remove — they have match history. Try disabling instead."
+      : msg.includes("invalid_admin_token")  ? "Couldn't remove — your admin link may be out of date. Pull to refresh."
+      : msg.includes("not_found")            ? "Already removed — refreshing."
+      :                                        "Couldn't remove. Tap again or try later.";
+      setOrphanErrors(prev => ({ ...prev, [id]: friendly }));
+    }
   };
 
   const moveReserve = (fromId, toId) => {
@@ -607,6 +621,11 @@ export default function AdminView({
                   </button>
                 ))}
               </div>
+              {orphanErrors[guest.id] && (
+                <div style={{ marginTop:8, fontSize:11, color:"var(--red)", fontWeight:400 }}>
+                  {orphanErrors[guest.id]}
+                </div>
+              )}
             </div>
           );
         })}
