@@ -1,5 +1,66 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.6 — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade, refs+pitches CRUD)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7a — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade, refs+pitches CRUD, demo venue seed)*
+
+## SESSION 48 — Cycle 2.7a — demo venue seed (May 26 2026)
+
+End-to-end demo seed (`demo_venue` / `demo_league` / 4 teams / 6
+fixtures / mixed past results) via the live Phase 2 RPCs.
+Migrations 110–112.
+
+Cycle 2.7 was originally scoped as frontend + email dispatcher +
+demo seed in one block; split into 2.7a–2.7d after audit. This
+ships the demo seed alone (half day, pure SQL, no frontend
+dependency).
+
+**Demo identifiers** (under the `demo_` namespace for clean teardown):
+  - `venues.id`             = `demo_venue`
+  - `venues.venue_admin_token` = `demo_venue_token_DO_NOT_USE_IN_PROD`
+  - `leagues.id`            = `demo_league`
+  - `leagues.league_code`   = `DEMO0001`
+  - team ids                = `team_demo_{alpha,bravo,charlie,delta}`
+  - player token (Alpha)    = `tok_demo_player`
+
+**Data shape**: 2 pitches (Main + Side, Side carries a future MW),
+3 refs (whatsapp/sms/email × in_house/freelance), 1 season "Summer
+2026" + 1 round-robin competition, 4 active competition_teams,
+6 fixtures (3 completed, 1 walkover, 2 allocated upcoming).
+Dates are CURRENT_DATE-relative (–13 / –6 / +8 days) so the
+dashboard's recent/this_week/upcoming buckets are always meaningful.
+Standings render cleanly: Alpha 6pts / Bravo 3 / Delta 1 / Charlie 1.
+
+**Latent bug caught + fixed (mig 111).**
+`venue_get_state.fixtures.upcoming` and the same bucket on
+`league_get_state` filtered `status IN ('scheduled','postponed')` —
+meaning once an operator assigned a pitch (scheduled → allocated
+via mig 094), the fixture silently vanished from the upcoming list.
+Mig 111 expands both filters to include `'allocated'`. Latent
+because no UI had consumed the field yet; surfaced as soon as the
+seed populated allocated fixtures and the bucket came back empty.
+
+**Migrations:**
+  - **mig 110** — idempotent DO-block seed. Bails early if
+    `demo_venue` already exists. Calls `venue_add_pitch` ×2,
+    `venue_add_ref` ×3, `venue_create_season`, `venue_generate_fixtures`,
+    then mutates fixtures into past-result states (completed scores +
+    one walkover). Plus one demo player on Alpha for the
+    standings-via-player-token path.
+  - **mig 111** — venue_get_state + league_get_state upcoming filter
+    fix.
+  - **mig 112** — date reshuffle to CURRENT_DATE-relative (mig 110
+    source updated to match; mig 112 only exists because 110 was
+    already applied with hardcoded dates).
+
+**Verification:**
+  - venue_get_state → `{leagues:1, pitches:2, refs:3, tonight:0,
+    this_week:0, upcoming:2, recent:4}` ✓
+  - get_league_standings_for_player(`tok_demo_player`) → 4 teams,
+    Alpha 6pts top, Charlie/Delta tied on 1 with correct GD ordering ✓
+
+**Phase 2 status entering Cycle 2.7b:** Backend complete + demo
+data live. Remaining: 2.7b (email dispatcher), 2.7c/d (venue
+dashboard frontend), 2.8 (wizard UI).
+
+---
 
 ## SESSION 48 — Cycle 2.6 — refs + pitches CRUD (May 26 2026)
 
