@@ -1,5 +1,50 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 25 2026 (session 44 — admin-badge held work shipped)*
+*Last updated: May 26 2026 (session 45 — VC=admin parity + post-sweep data residue cleanup)*
+
+## SESSION 45 (May 26 2026) — VC = admin parity sweep, plus post-sweep residue cleanup
+
+Two distinct pieces of work landed today:
+
+1. **VC parity** (commits `0ef3913`, `767b499`, `60d40a9`,
+   migrations 074 + 075). Every `admin_*` RPC now resolves the
+   caller via `resolve_admin_caller`, so a Vice Captain's
+   `player_token` is accepted everywhere the owner's `admin_token`
+   was. Audit trail distinguishes the two but business logic is
+   identical. See BUGS.md (RESOLVED 2026-05-26 session 45) and
+   DECISIONS.md (VICE CAPTAINS HOLD FULL OWNER-GRADE AUTHORITY).
+
+2. **Post-sweep data residue** (no commit — manual cleanup via MCP).
+   The parity verification was executed against real production
+   rows on Footy Tuesdays (`team_KPaoX8oJYMQ`). Two issues leaked
+   into production state:
+
+   - **Bally** (`p_f4fcf4eb`) — a 17-event transaction at
+     `09:21:32` left `status='in'`, `admin_locked_in=true`, and
+     `nickname='TempNick'`. The toggle sweep missed a revert step
+     for status and nickname. Fixed: direct UPDATE to clear both,
+     then a no-op pass through `admin_update_player_name` +
+     `admin_set_player_status` so audit_events records a clean
+     team_admin trail for the fix itself.
+   - **Bidz** (`p_4ef07e08`) — promoted to VC legitimately at
+     `08:52:51`. The parity sweep at `09:57:08` toggled
+     `is_vice_captain` true/false/true/false in one transaction
+     and ended at `false`, undoing the real promotion. User
+     declined automated fix and will manage manually.
+
+   New policy captured in DECISIONS.md ("ADMIN_* RPC PARITY /
+   SMOKE TESTS NEVER RUN AGAINST PRODUCTION ROWS") and tech-debt
+   item filed in BUGS.md ("LOW #0 — No ephemeral fixture for
+   admin_* RPC parity smoke tests"). Lessons in BUGS.md
+   post-sweep section.
+
+   **Investigation note worth keeping:** when checking "did the
+   user really do X?", first look for timestamp clustering in
+   `audit_events`. Postgres `now()` resolves once per transaction,
+   so N events sharing one microsecond means one transaction —
+   almost always a script/sweep, not human taps. The
+   `actor_identifier` field is md5(token), so cross-reference with
+   `md5(token)` against `players.token` / `teams.admin_token` to
+   resolve who actually triggered a write.
 
 ## SESSION 44 (May 25 2026) — admin-badge cycle shipped, rule #11 drift closed
 

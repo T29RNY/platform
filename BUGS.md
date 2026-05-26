@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 45 — VC = admin parity sweep)*
+*Last updated: May 26 2026 (session 45 — VC = admin parity sweep + post-sweep audit cleanup)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,81 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED 2026-05-26 (session 45, post-sweep) — Production data residue from the VC-parity verification
+
+**Surfaced by:** tarny noticing on Footy Tuesdays (team_KPaoX8oJYMQ)
+that Bally's row showed `nickname='TempNick'` and `status='in'`
+without him having touched the app, and that an earlier intentional
+VC promotion of Bidz had silently disappeared.
+
+**Root cause:** The VC-parity verification described in commit
+`60d40a9` was executed **directly against production data**, using
+two real players (Bally, Bidz) as guinea pigs:
+
+- A 17-event transaction at `2026-05-26 09:21:32.549098+00` toggled
+  every admin_* RPC against Bally (disable/enable, status, priority,
+  injured, group, nickname, note). The status toggle ended at
+  `in/locked_after:true` instead of returning to `out`, and the
+  nickname-set step was not paired with a nickname-clear step —
+  leaving Bally permanently locked-in with nickname "TempNick".
+- A 4-event transaction at `2026-05-26 09:57:08.115233+00` toggled
+  `admin_set_vice_captain` true/false twice against Bidz to prove
+  VC-route and admin-route parity. Bidz had been promoted to VC
+  legitimately at `08:52:51`. The parity sweep's toggle ended in
+  `false`, silently reverting the promotion.
+
+**Recovery (this session):**
+
+- Bally's `nickname` reset to NULL and `status='out',
+  admin_locked_in=false` via direct UPDATE, then a second pass via
+  `admin_update_player_name` and `admin_set_player_status` so the
+  fix itself leaves a proper `audit_events` row under
+  `actor_type='team_admin'`.
+- Bidz's accidental VC-demotion left unfixed at user's request
+  (user will sort manually).
+
+**Lessons (lock these in, don't relearn them):**
+
+1. **Never run parity / smoke tests against live production rows.**
+   Even a self-cancelling toggle sweep can leave residue if any
+   step's revert is missed, and it overwrites legitimate state
+   from real users in the same window. Use a throwaway team
+   (created fresh, or seeded) for any admin_* RPC verification.
+   `team_demo` is acceptable for non-RLS-dependent dry-runs but
+   not for VC-parity which depends on real `team_admins` /
+   `team_players.is_vice_captain` rows.
+2. **A "toggle on then off" smoke test must read the starting
+   state first and revert to *that*, not blindly to false.**
+   Bidz's VC sweep ended in `false` because the test treated
+   `false` as the universal safe end state — but his starting
+   state was `true`. Either snapshot-and-restore around each
+   toggle, or always run sweeps on rows known to start in a
+   pristine default.
+3. **`admin_set_player_status` writes an audit row even when
+   `before == after`.** This is by design (records the action,
+   not just the delta) but it means audit logs can show no-op
+   writes. Acceptable but worth knowing when reading audit
+   trails — count distinct *outcomes*, not row counts.
+4. **Direct table UPDATEs from the MCP bypass audit_events.**
+   Any operator cleanup that should leave a trail must go
+   through the admin_* RPC path. Pattern: do the cleanup via
+   RPC even if it produces a no-op write — the audit row is
+   the point.
+5. **Identical microsecond timestamps across many distinct
+   actions are a signal**, not noise. Postgres `now()` resolves
+   per-transaction, so 17 rows sharing one timestamp = one
+   transaction. When auditing "did the user do this?", first
+   check timestamp clustering — a clustered set is almost
+   always a script/sweep, not human taps.
+
+**Forward fix (open tech debt, low priority):**
+A `verify_admin_parity` smoke skill / SQL script should be added
+that operates against an ephemeral row it creates and tears down
+in the same transaction, so future parity work cannot residue
+into production. Filed below under Tech Debt.
 
 ---
 
@@ -377,6 +452,20 @@ of the tap-then-reset) deleted via execute_sql.
 ---
 
 ## LOW — Known workarounds exist
+
+### 0. No ephemeral fixture for admin_* RPC parity smoke tests
+**Detail:** Today's session-45 VC-parity verification was run against
+real production rows on Footy Tuesdays (team_KPaoX8oJYMQ), which
+left Bally with locked-in `status='in'` + `nickname='TempNick'` and
+silently demoted Bidz from VC. See "RESOLVED 2026-05-26 (session 45,
+post-sweep)" above for full incident + lessons.
+**Fix:** Add `skills/scripts/verify-admin-parity.sh` (or a
+`verify_admin_parity()` SQL function) that creates a throwaway team
++ two throwaway players inside a transaction, runs the toggle sweep
+against them, asserts every admin_* RPC accepts both admin_token
+and VC player_token, then rolls back. Never let parity work touch
+a row a real user can see.
+**Priority:** Low (fix is shipped, the gap is preventative).
 
 ### 1. BibsScreen standalone write broken under RLS
 **File:** `apps/inorout/src/views/AdminView/BibsScreen.jsx`

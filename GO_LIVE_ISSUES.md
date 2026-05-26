@@ -458,6 +458,33 @@ audit_events. Commits `77b4bb5`, `284a44e`.
 go-to triage table whenever the new squad reports "tap did
 nothing" — there should always be a row, even on failure.
 
+### 10.3 Parity / smoke tests against production rows (session 45 incident)
+**Symptom:** a real player's row shows state the player never set
+(locked-in status, placeholder nickname, silently-revoked VC flag).
+**Root cause:** an admin_* RPC verification sweep was executed
+against live production rows (team_KPaoX8oJYMQ / Footy Tuesdays),
+using two real players as guinea pigs. Two issues leaked:
+- Bally was left at `status='in', admin_locked_in=true,
+  nickname='TempNick'` because the toggle sequence missed the
+  matching revert steps.
+- Bidz had been legitimately promoted to VC an hour earlier; the
+  parity test ended its toggle at `is_vice_captain=false`
+  regardless of the starting state, silently undoing the
+  promotion.
+**Fix (this incident):** direct cleanup via MCP, then a no-op
+pass through `admin_update_player_name` / `admin_set_player_status`
+so audit_events recorded the fix under `actor_type='team_admin'`.
+**Forward fix (open):** see BUGS.md "LOW #0 — No ephemeral fixture
+for admin_* RPC parity smoke tests" + DECISIONS.md "ADMIN_* RPC
+PARITY / SMOKE TESTS NEVER RUN AGAINST PRODUCTION ROWS". Until
+that fixture exists, parity work runs against `team_demo` or a
+freshly created throwaway team only.
+**Pre-flight check:** before onboarding a new squad, confirm no
+admin_* RPC verification has been run against their team's rows.
+Query `audit_events` for timestamp clusters (≥3 rows sharing
+exact `created_at`) on `team_id=<new_squad>`. Any such cluster
+is a sweep, not human activity — investigate before go-live.
+
 ### 10.2 App-boot telemetry — PWA opens previously invisible
 **Symptom:** can't tell from data whether auto-refresh mitigations
 are helping anyone.

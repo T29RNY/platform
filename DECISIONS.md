@@ -1,8 +1,54 @@
 # In or Out — Key Decisions Log
-*Last updated: May 26 2026 (session 45 — VC = admin parity)*
+*Last updated: May 26 2026 (session 45 — VC = admin parity + parity-test policy)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## ADMIN_* RPC PARITY / SMOKE TESTS NEVER RUN AGAINST PRODUCTION ROWS (session 45, post-incident)
+
+**The rule:** any verification sweep that exercises admin_* RPCs
+(toggle on/off, before/after asserts, parity between admin_token
+and VC player_token routes) MUST operate against an ephemeral
+team + players created inside the test transaction and torn down
+on completion. Real production rows are not valid test subjects,
+even when "we'll revert it after."
+
+**Why:** session 45's VC-parity verification ran against
+team_KPaoX8oJYMQ (Footy Tuesdays) using Bally and Bidz as guinea
+pigs. Two residues surfaced after the fact:
+
+- Bally's status was toggled `out → in` and back to `out`, but
+  the sweep ended on the `in/locked_after:true` step and the
+  matching revert was missed. Nickname `TempNick` was set but
+  never cleared. Bally appeared locked-in with a placeholder
+  nickname for ~50 minutes before the user noticed.
+- Bidz had been legitimately promoted to Vice Captain at
+  08:52:51. The parity sweep at 09:57:08 toggled his VC flag
+  true/false/true/false in one transaction to prove both auth
+  routes work. The sweep ended in `false` regardless of his
+  start state — silently undoing the real promotion.
+
+A "toggle on then off" test that doesn't snapshot the starting
+state will always corrupt rows that started in the non-default
+state. The only safe pattern is: create row → toggle → assert →
+drop row.
+
+**How it's enforced going forward:** a future
+`verify_admin_parity` skill / SQL function (filed in BUGS.md
+under "LOW — Known workarounds exist #0") will own this. Until
+that's built, any admin_* RPC change must be verified manually
+against `team_demo` (acceptable for non-RLS paths) or a freshly
+created throwaway team, not against any team a real user can see.
+
+**Corollary — direct UPDATEs from MCP bypass audit_events.**
+When an operator must clean up residue from a botched sweep, the
+cleanup pass should be repeated through the admin_* RPC path
+afterwards so the audit trail records who/when did the fix —
+even though the row state is already correct and the RPC writes
+a no-op `before == after` audit row. The audit row is the point,
+not the state change.
 
 ---
 
