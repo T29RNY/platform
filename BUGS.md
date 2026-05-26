@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 46 — brand-new-squad first-go-live fix, mig 077 admin_go_live)*
+*Last updated: May 26 2026 (session 46 — first-go-live fix mig 077, group RPC anon-grant fix mig 078)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,45 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — Group Balancer "Failed to save group" for anon/VC callers (session 46)
+
+**Symptom:** rockybram opened Admin → Make Teams immediately after
+the mig 077 fix and tried to assign players to groups. Every tap
+(player → group panel) reverted instantly with the red error
+"Failed to save group — try again". Every other admin action on
+his squad (live toggle, status edits, schedule edits) worked.
+
+**Root cause:** `admin_set_player_group` and `admin_clear_all_groups`
+were the only two `admin_*` RPCs whose grants excluded `anon`. Mig
+031 set them up as authenticated-only at the dawn of the Group
+Balancer feature. The session-45 "blanket VC = owner parity" sweep
+(mig 075) rewrote function bodies via `resolve_admin_caller` so
+they'd accept either an admin_token or a VC's player_token — but
+that sweep explicitly did not touch grants. The anon revoke from
+mig 031 was inherited unchanged. Rockybram's session was anon
+(token-only admin, no JWT) → PostgREST rejected the call at the
+grant layer before the RPC body ran → client showed the generic
+error.
+
+Direct MCP call (role `postgres`, bypasses grants) returned
+`{ok: true}` and wrote an `audit_events` row, confirming the body
+and data were healthy. Only the grant blocked PostgREST callers.
+VCs on the same team (e.g. Gurnam) had the same problem — a strict
+regression against the session-45 parity rule.
+
+**Fix (mig 078):**
+```sql
+GRANT EXECUTE ON FUNCTION admin_set_player_group(text,text,int) TO anon;
+GRANT EXECUTE ON FUNCTION admin_clear_all_groups(text)          TO anon;
+```
+Two-line grants-only migration. No client changes, no body changes.
+
+**Lesson:** the session-45 sweep regex updated function definitions
+but didn't touch GRANT statements. Any future parity sweep needs
+to enumerate and audit grants too, not just function bodies.
 
 ---
 

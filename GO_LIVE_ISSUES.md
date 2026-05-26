@@ -248,7 +248,27 @@ screen, run BUILD TEAMS, then CONFIRM. Open `/p/<any_token>` for
 that team in a second tab. Live Board must show both team A and
 team B with the correct players listed.
 
-### 5.3 Brand-new squad first go-live leaves Make Teams broken
+### 5.3 Group Balancer fails for anon-admin / VC callers
+**Symptom:** admin or VC opens Make Teams and taps a player then a
+group panel. The chip reverts to "Needs Group" and a red error
+"Failed to save group — try again" appears. Every other admin
+action on the same squad works.
+**Root cause:** `admin_set_player_group` and `admin_clear_all_groups`
+were the only admin_* RPCs granted to `authenticated` only (mig
+031). The session-45 VC parity sweep (mig 075) rewrote function
+bodies but didn't touch grants. Anon admins (token-only, no JWT)
+and VCs (always anon, authenticate via player_token) were blocked
+at the PostgREST permission gate before the body ran.
+**Fix:** migration 078 — grants anon execute on both RPCs.
+**Pre-flight check:** as a brand-new squad admin who is NOT signed
+into Supabase Auth, open `/admin/<your_token>` directly in a
+private/incognito window. Make Teams → tap any player in Needs
+Group → tap group 1. Chip must land in group 1 and stay there. No
+error toast. Then repeat as a VC (with their player_token route).
+Both must succeed and produce audit_events rows with the correct
+actor_type (`team_admin` vs `vice_captain`).
+
+### 5.4 Brand-new squad first go-live leaves Make Teams broken
 **Symptom:** rockybram (new squad "Footy Tuesdays", first-ever match
 on 2026-05-26) flipped the live toggle. Players saw the game as
 live, but Admin → Make Teams showed "No active match — go live
@@ -275,7 +295,7 @@ NOT the "No active match" empty state. Verify in DB:
 `SELECT active_match_id FROM schedule WHERE team_id=<id> AND active`
 returns a non-null token starting `m_`.
 
-### 5.4 TeamsScreen CONFIRM button reverted on return
+### 5.5 TeamsScreen CONFIRM button reverted on return
 **Symptom:** admin confirms teams, navigates away, returns to Teams
 screen — button has reverted to "CONFIRM", state lost.
 **Root cause:** race between matchId hydration effect (which set
