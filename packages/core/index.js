@@ -38,6 +38,7 @@ export {
   clearAllGroups,
   saveGroupLabels,
   reopenWeek,
+  goLive,
   getGafferBriefing,
   askGafferQuestion,
   adminSetPlayerStatus,

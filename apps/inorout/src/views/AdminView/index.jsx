@@ -4,6 +4,7 @@ import {
   handleMarkPaid,
   getPlayerLeagueTable,
   reopenWeek,
+  goLive,
 } from "@platform/core";
 import {
   deletePlayer,
@@ -234,8 +235,18 @@ export default function AdminView({
           activeMatchId: result?.match_id ?? s.activeMatchId,
         }));
       } else {
-        await upsertSchedule(adminToken, { ...schedule, gameIsLive:true, isDraft:false });
-        setSchedule(s => ({ ...s, gameIsLive:true, isDraft:false }));
+        // First-time / normal go-live. admin_upsert_schedule alone
+        // doesn't create a matches row or set active_match_id, which
+        // breaks Make Teams / POTM / payments for brand-new squads
+        // (mig 077). Route through admin_go_live which owns the full
+        // transaction. Idempotent on re-tap.
+        const result = await goLive(adminToken);
+        setSchedule(s => ({
+          ...s,
+          gameIsLive:    true,
+          isDraft:       false,
+          activeMatchId: result?.match_id ?? s.activeMatchId,
+        }));
       }
       sendTemplate(notificationTemplates.gameOpen, schedule.dayOfWeek);
       const ids = squad.filter(p => !p.disabled && !p.injured).map(p => p.id);

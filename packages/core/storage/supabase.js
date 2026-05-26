@@ -1220,6 +1220,20 @@ export async function reopenWeek(adminToken) {
   return data; // { ok, match_id, prev_match_id }
 }
 
+// First-time go-live (non-cancelled path). Inserts the initial matches
+// row and points schedule.active_match_id at it. Idempotent: re-calling
+// reuses the existing non-cancelled match. Without this, brand-new
+// squads hit "No Active Match" in Make Teams on first go-live because
+// admin_upsert_schedule only sets game_is_live and never creates the
+// match row.
+export async function goLive(adminToken) {
+  const { data, error } = await supabase.rpc('admin_go_live', {
+    p_admin_token: adminToken,
+  });
+  if (error) throw error;
+  return data; // { ok, match_id, reused_existing }
+}
+
 export async function adminCancelMatch(adminToken, cancelReason) {
   const { error } = await supabase.rpc('admin_cancel_match', {
     p_admin_token:   adminToken,

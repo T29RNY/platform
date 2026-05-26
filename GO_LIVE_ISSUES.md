@@ -248,7 +248,34 @@ screen, run BUILD TEAMS, then CONFIRM. Open `/p/<any_token>` for
 that team in a second tab. Live Board must show both team A and
 team B with the correct players listed.
 
-### 5.3 TeamsScreen CONFIRM button reverted on return
+### 5.3 Brand-new squad first go-live leaves Make Teams broken
+**Symptom:** rockybram (new squad "Footy Tuesdays", first-ever match
+on 2026-05-26) flipped the live toggle. Players saw the game as
+live, but Admin → Make Teams showed "No active match — go live
+first before picking teams". POTM voting / payment confirmation /
+save-teams all silently broken for the same reason.
+**Root cause:** `admin_upsert_schedule` sets `game_is_live=true` but
+never creates a `matches` row or sets `schedule.active_match_id`.
+Only `admin_reopen_week` (mig 032) did that, and only on the
+cancel→relive path. Brand-new squads going Create → Live (without
+ever cancelling) ended up with `active_match_id=NULL` forever.
+Latent since mig 032; demo + cancel-cycled teams masked it.
+**Fix:** migration 077 — new `admin_go_live` RPC (sibling of
+`admin_reopen_week` minus the cancel-clear). Inserts the initial
+`matches` row and sets `active_match_id`. Idempotent on re-tap.
+Client routes: `AdminView/index.jsx openNextWeek` non-cancelled
+branch + `ScheduleScreen.jsx` save path both call `goLive` on the
+live flip.
+**Pre-flight check:** sign up a fresh-Gmail brand-new squad with
+no prior matches. Flip the live toggle from ScheduleScreen
+(both routes: the toggle row AND the "Save" with gameIsLive flipped
+on). Open Admin → Make Teams immediately. The team-builder UI
+must render (groups / squad list / SMART + BUILD TEAMS buttons),
+NOT the "No active match" empty state. Verify in DB:
+`SELECT active_match_id FROM schedule WHERE team_id=<id> AND active`
+returns a non-null token starting `m_`.
+
+### 5.4 TeamsScreen CONFIRM button reverted on return
 **Symptom:** admin confirms teams, navigates away, returns to Teams
 screen — button has reverted to "CONFIRM", state lost.
 **Root cause:** race between matchId hydration effect (which set

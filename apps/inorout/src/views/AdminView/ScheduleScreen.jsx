@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { ArrowLeft, MapPin } from "@phosphor-icons/react";
 import { Toggle } from "@platform/ui";
 import { upsertSchedule, upsertSettings } from "@platform/core/storage/supabase.js";
-import { reopenWeek } from "@platform/core";
+import { reopenWeek, goLive } from "@platform/core";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -314,15 +314,20 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
     setSaving(true);
     try {
       if (adminToken) {
-        // Cancel-then-relive needs the reopen RPC because upsertSchedule
-        // doesn't touch is_cancelled / active_match_id. Detect the flip
-        // and call reopenWeek first; the rest of the schedule still
-        // saves via upsertSchedule for venue/kickoff/etc.
+        // upsertSchedule doesn't touch is_cancelled / active_match_id,
+        // so a save that flips gameIsLive on needs a dedicated RPC first
+        // to own the matches row + active_match_id transition.
+        //   - cancel-then-relive → admin_reopen_week (also clears is_cancelled)
+        //   - brand-new / normal go-live → admin_go_live (mig 077)
         if (schedule.isCancelled && sched.gameIsLive) {
           const result = await reopenWeek(adminToken);
           finalSched.isCancelled   = false;
           finalSched.cancelReason  = null;
           finalSched.activeMatchId = result?.match_id ?? finalSched.activeMatchId;
+        } else if (!schedule.gameIsLive && sched.gameIsLive) {
+          const result = await goLive(adminToken);
+          finalSched.activeMatchId = result?.match_id ?? finalSched.activeMatchId;
+          finalSched.isDraft       = false;
         }
         await upsertSchedule(adminToken, finalSched);
         await upsertSettings(adminToken, groupName);

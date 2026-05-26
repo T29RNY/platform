@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 45 — VC = admin parity sweep + post-sweep audit cleanup + open superadmin env-var thread)*
+*Last updated: May 26 2026 (session 46 — brand-new-squad first-go-live fix, mig 077 admin_go_live)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,45 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — Brand-new squad first go-live silently breaks Make Teams (session 46)
+
+**Symptom:** rockybram signed up a brand-new squad "Footy Tuesdays"
+for tonight's match (2026-05-26 20:00), flipped the live toggle, and
+Admin → Make Teams showed "No active match — go live first before
+picking teams". Players' surfaces correctly showed the game as live
+(they read `schedule.game_is_live`), but anything keyed off the match
+ID (Make Teams, POTM voting, payment confirmation, save-teams) was
+broken because `schedule.active_match_id` was NULL and no `matches`
+row existed.
+
+**Root cause:** `admin_upsert_schedule` (mig 013) sets `game_is_live=
+true` but never inserts a matches row or sets `active_match_id`. Only
+`admin_reopen_week` (mig 032) did that, and only on the cancel→relive
+path. For a brand-new squad's first-ever go-live, `active_match_id`
+stayed NULL forever. Latent since mig 032 landed; every prior team
+escaped because they had seeded fixtures (demo) or had cycled through
+Cancel→Relive at some point.
+
+**Fix (mig 077 — `admin_go_live` RPC):** dedicated sibling of
+`admin_reopen_week` minus the cancel-clearing semantics. Inserts a
+fresh `matches` row when `active_match_id` is NULL or stale, sets
+`game_is_live=true`, `is_draft=false`, `active_match_id`. Idempotent
+(returns `reused_existing=true` on re-tap). Audits as `week_opened`.
+Routes:
+- `AdminView/index.jsx openNextWeek` non-cancelled branch now calls
+  `goLive` instead of `upsertSchedule` for the live flip.
+- `ScheduleScreen.jsx` save path detects `gameIsLive` flipping false→
+  true on a non-cancelled schedule and calls `goLive` before
+  `upsertSchedule`.
+
+**rockybram unblocked manually 2026-05-26** by calling
+`admin_reopen_week('admin_0OcDVOpcoGnujleetMhGYw')` — generated match
+`m_ua2IxB14ch8` for today's game. Confirmed idempotency of the new
+RPC by calling `admin_go_live` against the same team afterwards:
+returned `reused_existing=true`, same `match_id`, no duplicate row.
 
 ---
 
