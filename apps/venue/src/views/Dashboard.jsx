@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import FixtureCard from "./FixtureCard.jsx";
 import Sidebar from "./Sidebar.jsx";
+import RegistrationActions from "./RegistrationActions.jsx";
 
-export default function Dashboard({ state, onRefresh, refreshing }) {
+export default function Dashboard({ state, venueToken, onRefresh, refreshing }) {
   const venue = state.venue ?? {};
   const leagues = state.leagues ?? [];
   const fixtures = state.fixtures ?? {};
@@ -12,9 +13,7 @@ export default function Dashboard({ state, onRefresh, refreshing }) {
   const recent = fixtures.recent ?? [];
   const pending = state.pending_registrations ?? [];
   const incidents = state.open_incidents ?? [];
-  const teamsById = buildTeamIndex(state);
 
-  // de-dupe tonight from this_week (tonight is a subset of this_week)
   const tonightIds = new Set(tonight.map((f) => f.id));
   const restOfWeek = thisWeek.filter((f) => !tonightIds.has(f.id));
 
@@ -43,7 +42,7 @@ export default function Dashboard({ state, onRefresh, refreshing }) {
           ) : (
             <div className="fixture-list">
               {tonight.map((f) => (
-                <FixtureCard key={f.id} fx={f} teamsById={teamsById} state={state} prominent />
+                <FixtureCard key={f.id} fx={f} state={state} venueToken={venueToken} onDone={onRefresh} prominent withActions />
               ))}
             </div>
           )}
@@ -52,11 +51,11 @@ export default function Dashboard({ state, onRefresh, refreshing }) {
         <section className="panel panel-this-week">
           <h2>This Week</h2>
           {restOfWeek.length === 0 ? (
-            <p className="muted">No fixtures in the next 7 days.</p>
+            <p className="muted">No other fixtures in the next 7 days.</p>
           ) : (
             <div className="fixture-list">
               {restOfWeek.map((f) => (
-                <FixtureCard key={f.id} fx={f} teamsById={teamsById} state={state} />
+                <FixtureCard key={f.id} fx={f} state={state} venueToken={venueToken} onDone={onRefresh} withActions />
               ))}
             </div>
           )}
@@ -72,7 +71,7 @@ export default function Dashboard({ state, onRefresh, refreshing }) {
                 <div className="issue-row" key={`reg-${p.id}`}>
                   <span className="issue-tag">REGISTRATION</span>
                   <span className="issue-title">{p.team_name || p.team_id}</span>
-                  <span className="muted">awaiting approval</span>
+                  <RegistrationActions venueToken={venueToken} registration={p} onDone={onRefresh} />
                 </div>
               ))}
               {incidents.map((i) => (
@@ -92,7 +91,7 @@ export default function Dashboard({ state, onRefresh, refreshing }) {
           ) : (
             <div className="fixture-list">
               {recent.slice(0, 10).map((f) => (
-                <FixtureCard key={f.id} fx={f} teamsById={teamsById} state={state} compact />
+                <FixtureCard key={f.id} fx={f} state={state} venueToken={venueToken} onDone={onRefresh} compact withActions />
               ))}
             </div>
           )}
@@ -105,7 +104,7 @@ export default function Dashboard({ state, onRefresh, refreshing }) {
           ) : (
             <div className="fixture-list">
               {upcoming.slice(0, 10).map((f) => (
-                <FixtureCard key={f.id} fx={f} teamsById={teamsById} state={state} compact />
+                <FixtureCard key={f.id} fx={f} state={state} venueToken={venueToken} onDone={onRefresh} compact withActions />
               ))}
             </div>
           )}
@@ -115,28 +114,11 @@ export default function Dashboard({ state, onRefresh, refreshing }) {
           <Sidebar
             pitches={state.pitches ?? []}
             refs={state.refs ?? []}
+            venueToken={venueToken}
+            onDone={onRefresh}
           />
         </aside>
       </main>
     </div>
   );
-}
-
-function buildTeamIndex(state) {
-  // venue_get_state doesn't directly include a `teams` array. Fixture
-  // rows carry home_team_id / away_team_id but not names. For 2.7c
-  // we just show team ids fallback; 2.7d will widen the read RPC or
-  // add a teams_directory key.
-  const idx = new Map();
-  const rows = [
-    ...(state.fixtures?.tonight ?? []),
-    ...(state.fixtures?.this_week ?? []),
-    ...(state.fixtures?.upcoming ?? []),
-    ...(state.fixtures?.recent ?? []),
-  ];
-  for (const f of rows) {
-    if (f.home_team_id) idx.set(f.home_team_id, idx.get(f.home_team_id) || f.home_team_id);
-    if (f.away_team_id) idx.set(f.away_team_id, idx.get(f.away_team_id) || f.away_team_id);
-  }
-  return idx;
 }

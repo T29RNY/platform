@@ -13,10 +13,10 @@ DELETE FROM team_players WHERE player_id = 'p_demo_alpha1';
 DELETE FROM players WHERE id = 'p_demo_alpha1';
 
 DELETE FROM competition_teams
-  WHERE team_id IN ('team_demo_alpha','team_demo_bravo','team_demo_charlie','team_demo_delta');
+  WHERE team_id IN ('team_demo_alpha','team_demo_bravo','team_demo_charlie','team_demo_delta','team_demo_echo');
 
 DELETE FROM teams
-  WHERE id IN ('team_demo_alpha','team_demo_bravo','team_demo_charlie','team_demo_delta');
+  WHERE id IN ('team_demo_alpha','team_demo_bravo','team_demo_charlie','team_demo_delta','team_demo_echo');
 
 -- Venue cascade handles: leagues, seasons, competitions, fixtures,
 -- playing_areas, match_officials, venue_admins (none seeded).

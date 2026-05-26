@@ -1,5 +1,83 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7c — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade, refs+pitches CRUD, demo venue seed, venue dashboard read-only)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7d — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade, refs+pitches CRUD, demo venue seed, venue dashboard read-only, venue dashboard write surfaces)*
+
+## SESSION 48 — Cycle 2.7d — venue dashboard write surfaces (May 26 2026)
+
+End-to-end venue operations now clickable. Five write surfaces wired
+to the existing RPCs from Cycles 2.4–2.6. One read-RPC shape
+extension (mig 113) so fixture cards can render team names.
+
+**Files added** (5 in apps/venue/src/views/):
+  - `Modal.jsx` — generic dialog: backdrop blur, Esc-to-close,
+    click-outside-to-close, header/body/footer slots.
+  - `RegistrationActions.jsx` — Approve/Reject buttons on pending
+    registration rows. Reject opens a modal demanding a reason
+    before submitting.
+  - `FixtureActions.jsx` — Pitch/Ref/Status buttons on mutable
+    fixture rows. Three sub-modals for each. Pitch modal
+    pre-disables options that overlap the fixture's date with a
+    maintenance window (client-side hint; server still authoritative).
+    Status modal branches required fields on choice
+    (postpone/void → reason; walkover → winner; forfeit → both).
+  - `PitchForm.jsx` — add/edit modal with dynamic maintenance
+    window rows. Active checkbox surfaces only when editing (the
+    soft-delete pattern).
+  - `RefForm.jsx` — add/edit modal mirroring pitches.
+
+**Updated files:**
+  - `Dashboard.jsx` — threads `venueToken` + `onRefresh` down to
+    every action surface.
+  - `FixtureCard.jsx` — uses the new `state.teams` directory to
+    render real team names instead of raw IDs.
+  - `Sidebar.jsx` — `+ Add` buttons next to "Pitches" + "Officials"
+    headers; `Edit` button on each row.
+  - `App.jsx` — passes `venueToken` to Dashboard.
+  - `styles.css` — Modal, form fields, row-action buttons
+    (`.btn-accent` / `.btn-good` / `.btn-bad` / `.btn-link`).
+
+**Migration:**
+  - **mig 113** — `venue_get_state` adds top-level `teams` object
+    keyed by team_id with `{ id, name, primary_colour,
+    secondary_colour }`. Built from `competition_teams` join across
+    the venue's competitions. Frontend renders `state.teams[id]?.name`.
+
+**Pattern decisions** (per the design brief sent to the user for an
+external mockup pass):
+  - Modals for all write surfaces (no drawers, no inline editors).
+  - Soft-delete via `active=false` checkboxes (never DELETE buttons —
+    fixture FKs use ON DELETE SET NULL).
+  - All actions: open modal → submit → set busy → success closes
+    modal + calls `onRefresh()` to reload state. No optimistic UI.
+  - Error surfaces inline in the modal body with the `.error` class.
+
+**Verified end-to-end via Playwright:**
+  - Dashboard loads with real team names (Alpha United, Bravo
+    Athletic, etc.) — mig 113's teams directory works.
+  - Pitch / Ref / Status buttons appear on every mutable fixture
+    row; Status-only on completed fixtures (forfeit branch).
+  - Seeded a pending Echo Wanderers registration into the demo.
+    Clicked Approve in the UI → DB `competition_teams.status`
+    flipped pending→active AND audit_events row written
+    (`team_approved`) AND dashboard refreshed with the row gone.
+  - Demo state reset to pending after the test so the operator
+    always sees a clickable example. Echo team also added to
+    mig 110 source for future re-seeds.
+
+**Out of scope deliberately:**
+  - Framer Motion animations (waiting on external design mockup).
+  - Optimistic UI / toast notifications (waiting on external
+    design mockup — design tool may pick a different pattern).
+  - Realtime subscriber (works fine via Refresh button; realtime
+    can land alongside the design polish pass).
+  - Accessibility deep-pass (focus traps, ARIA, kbd nav for modals).
+
+**Phase 2 status entering Cycle 2.7b/2.8:** All operator-facing
+surfaces (read + write) are functional. Remaining: 2.7b (email
+dispatcher), 2.8 (wizard UI for season setup). Polish pass will
+come from an external design tool brief (sent to user as a paste-
+able artifact this session).
+
+---
 
 ## SESSION 48 — Cycle 2.7c — venue dashboard scaffold (May 26 2026)
 

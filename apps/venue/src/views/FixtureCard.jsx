@@ -1,8 +1,10 @@
 import React from "react";
+import FixtureActions from "./FixtureActions.jsx";
 
-export default function FixtureCard({ fx, teamsById, state, prominent, compact }) {
-  const home = teamsById?.get(fx.home_team_id) || fx.home_team_id;
-  const away = fx.away_team_id ? (teamsById?.get(fx.away_team_id) || fx.away_team_id) : "(bye)";
+export default function FixtureCard({ fx, state, venueToken, onDone, prominent, compact, withActions }) {
+  const teams = state.teams || {};
+  const home = teams[fx.home_team_id]?.name || fx.home_team_id;
+  const away = fx.away_team_id ? (teams[fx.away_team_id]?.name || fx.away_team_id) : "(bye)";
   const pitch = lookupPitch(state, fx.playing_area_id);
   const ref = lookupRef(state, fx.official_id);
   const dateStr = fx.scheduled_date ? formatDate(fx.scheduled_date) : "—";
@@ -29,6 +31,9 @@ export default function FixtureCard({ fx, teamsById, state, prominent, compact }
         <span className="fx-status-pill">{labelStatus(fx)}</span>
         {pitch && <span className="fx-pitch">{pitch.name}</span>}
         {ref && <span className="fx-ref">{ref.name}</span>}
+        {withActions && (
+          <FixtureActions venueToken={venueToken} fixture={fx} state={state} onDone={onDone} />
+        )}
       </div>
     </div>
   );
@@ -71,19 +76,14 @@ function lookupRef(state, id) {
   if (!id) return null;
   return (state.refs || []).find((r) => r.id === id) || null;
 }
-
 function formatDate(iso) {
-  // iso = "2026-05-13" → "Wed 13 May"
   try {
     const d = new Date(iso + "T00:00:00");
     return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  } catch {
-    return iso;
-  }
+  } catch { return iso; }
 }
 function formatTime(t) {
   if (!t) return "";
   const m = String(t).match(/^(\d{2}):(\d{2})/);
-  if (!m) return String(t);
-  return `${m[1]}:${m[2]}`;
+  return m ? `${m[1]}:${m[2]}` : String(t);
 }

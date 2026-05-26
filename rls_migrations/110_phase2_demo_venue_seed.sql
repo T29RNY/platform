@@ -127,7 +127,10 @@ BEGIN
     ('team_demo_alpha',   'Alpha United',   'demo_team_alpha_token',   'competitive', '#60A0FF', '#FFFFFF', true),
     ('team_demo_bravo',   'Bravo Athletic', 'demo_team_bravo_token',   'competitive', '#FF6060', '#FFFFFF', true),
     ('team_demo_charlie', 'Charlie City',   'demo_team_charlie_token', 'competitive', '#60D060', '#000000', true),
-    ('team_demo_delta',   'Delta FC',       'demo_team_delta_token',   'competitive', '#F0B040', '#000000', true);
+    ('team_demo_delta',   'Delta FC',       'demo_team_delta_token',   'competitive', '#F0B040', '#000000', true),
+    -- Echo joins later and sits pending, so the dashboard Open Issues
+    -- panel always has at least one approval to action.
+    ('team_demo_echo',    'Echo Wanderers', 'demo_team_echo_token',    'competitive', '#A060FF', '#FFFFFF', true);
 
   ------------------------------------------------------------------
   -- Season + competition via venue_create_season
@@ -146,12 +149,14 @@ BEGIN
   v_comp_id   := ((v_result->'competitions')->0->>'id')::uuid;
 
   -- Approve all 4 teams into the competition (would normally come
-  -- via join_register_team + venue_approve_team_registration)
+  -- via join_register_team + venue_approve_team_registration).
+  -- Echo lands pending so the dashboard always has an Open Issues row.
   INSERT INTO competition_teams (competition_id, team_id, status) VALUES
     (v_comp_id, 'team_demo_alpha',   'active'),
     (v_comp_id, 'team_demo_bravo',   'active'),
     (v_comp_id, 'team_demo_charlie', 'active'),
-    (v_comp_id, 'team_demo_delta',   'active');
+    (v_comp_id, 'team_demo_delta',   'active'),
+    (v_comp_id, 'team_demo_echo',    'pending');
 
   -- Bump season + competition to active so standings RPC counts them
   UPDATE seasons     SET status='active' WHERE id = v_season_id;

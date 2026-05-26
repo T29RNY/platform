@@ -74,6 +74,7 @@ export default function App() {
   return (
     <Dashboard
       state={state}
+      venueToken={token}
       onRefresh={() => load(token)}
       refreshing={loading}
     />

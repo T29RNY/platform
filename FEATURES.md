@@ -1,5 +1,43 @@
 # In or Out — Feature Tracker
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7c — foundations, reads, engines, season setup, fixture management, team registration, mid-season failures, refs+pitches CRUD, demo venue seed, venue dashboard read-only)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7d — foundations, reads, engines, season setup, fixture management, team registration, mid-season failures, refs+pitches CRUD, demo venue seed, venue dashboard read + write)*
+
+---
+
+## LEAGUE MODE — PHASE 2 CYCLE 2.7d SHIPPED (session 48, 2026-05-26)
+
+Venue dashboard write surfaces. Five action paths from UI through
+to live RPCs.
+
+- **Modal pattern** (`Modal.jsx`) — generic dialog reused across
+  every write surface. Backdrop blur, Esc-to-close, header/body/foot.
+- **Approve/Reject team registration** — Open Issues panel.
+  Approve = 1-click. Reject = modal with required reason.
+- **Assign pitch** — fixture row → modal → dropdown with
+  maintenance-window blocked options pre-disabled.
+- **Assign ref** — fixture row → modal → ref dropdown with
+  channel + rating shown inline.
+- **Change fixture status** — fixture row → modal with status
+  picker that branches required fields (postpone/void → reason;
+  walkover → winner; forfeit → both).
+- **Add/Edit pitch** — sidebar "+ Add" + per-row "Edit" → modal
+  with dynamic maintenance-window editor + active/is_available
+  toggles.
+- **Add/Edit ref** — same pattern; channel + employment_type
+  dropdowns; rating numeric.
+
+**mig 113** — `venue_get_state` adds top-level `teams` directory
+keyed by team_id (closes the team-name-as-raw-id shortcut from 2.7c).
+
+End-to-end verified via Playwright against the live demo venue:
+clicked Approve on a seeded pending registration → DB state flipped
++ audit row written + dashboard refreshed with the row gone.
+
+**Polish deferred to an external design-tool pass** (Framer Motion
+animations, optimistic UI, toast notifications) — brief sent to
+user this session, written in Vite+React+vanilla-CSS constraints.
+
+**Phase 2 remaining:** Cycles 2.7b (email dispatcher), 2.8 (wizard
+UI for season setup).
 
 ---
 
@@ -60,8 +98,8 @@ End-to-end demo venue seed driving every Phase 2 RPC (migs 110–112).
 Cycle 2.7 originally scoped as frontend + email + demo together;
 split into sub-cycles 2.7a–2.7d. This is a.
 
-**Phase 2 remaining (post Cycle 2.7c):** Cycles 2.7d (write
-surfaces), 2.7b (email dispatcher), 2.8 (wizard UI).
+**Phase 2 remaining (post Cycle 2.7c):** Cycle 2.7d shipped — see
+above. Remaining: 2.7b (email dispatcher), 2.8 (wizard UI).
 
 ---
 
