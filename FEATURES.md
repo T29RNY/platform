@@ -1,5 +1,41 @@
 # In or Out — Feature Tracker
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7a — foundations, reads, engines, season setup, fixture management, team registration, mid-season failures, refs+pitches CRUD, demo venue seed)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7c — foundations, reads, engines, season setup, fixture management, team registration, mid-season failures, refs+pitches CRUD, demo venue seed, venue dashboard read-only)*
+
+---
+
+## LEAGUE MODE — PHASE 2 CYCLE 2.7c SHIPPED (session 48, 2026-05-26)
+
+First clickable Phase 2 surface. New `apps/venue/` React app
+(10 files: package.json, vite config, vercel config, index.html,
+main.jsx, styles.css, App.jsx, Dashboard.jsx, FixtureCard.jsx,
+Sidebar.jsx).
+
+- Token-from-URL auth (`?token=` query param or `/venue/TOKEN` path).
+- Six-panel responsive layout: Tonight / This Week / Open Issues
+  / Recent / Upcoming / Sidebar (pitches + refs).
+- Powered entirely by `venue_get_state` (1 round trip per load).
+- Score branching covers completed / walkover / forfeit. Status
+  pill labels: "Needs pitch" / "Needs ref" / "All set" / "Result"
+  / "Walkover" / "Forfeit" / "Postponed" / "Void".
+- Maintenance windows surface as a count badge in the sidebar
+  pitch list.
+- Read-only — no buttons mutate state yet.
+
+Verified end-to-end via Playwright against the live demo venue
+(`demo_venue_token_DO_NOT_USE_IN_PROD`). All panels render with
+real data; zero console errors apart from missing favicon.
+
+**Known shortcut**: fixture team names render as raw IDs because
+venue_get_state doesn't include a team-name directory. Cycle 2.7d
+will fix.
+
+**To deploy**: add `apps/venue/` as a new Vercel project + set
+`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` env vars
+(operator action).
+
+**Phase 2 remaining:** Cycle 2.7d (write surfaces — approve/reject
+buttons, fixture mgmt modals, pitch/ref CRUD forms), 2.7b (email
+dispatcher), 2.8 (wizard UI).
 
 ---
 
@@ -24,8 +60,8 @@ End-to-end demo venue seed driving every Phase 2 RPC (migs 110–112).
 Cycle 2.7 originally scoped as frontend + email + demo together;
 split into sub-cycles 2.7a–2.7d. This is a.
 
-**Phase 2 remaining:** Cycles 2.7b (email dispatcher), 2.7c/d (venue
-dashboard frontend), 2.8 (wizard UI).
+**Phase 2 remaining (post Cycle 2.7c):** Cycles 2.7d (write
+surfaces), 2.7b (email dispatcher), 2.8 (wizard UI).
 
 ---
 

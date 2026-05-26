@@ -1,5 +1,61 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7a — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade, refs+pitches CRUD, demo venue seed)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7c — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade, refs+pitches CRUD, demo venue seed, venue dashboard read-only)*
+
+## SESSION 48 — Cycle 2.7c — venue dashboard scaffold (May 26 2026)
+
+First clickable Phase 2 surface. New `apps/venue/` Vite+React app
+mirroring the `apps/superadmin/` shape. Token-from-URL auth, four
++ two panel dashboard powered entirely by `venue_get_state`.
+
+**Files created** (10):
+  - `apps/venue/package.json`, `vite.config.js`, `vercel.json`,
+    `index.html`, `src/main.jsx`, `src/styles.css`
+  - `src/App.jsx` — token parse from `?token=` query OR `/venue/TOKEN`
+    path, fetches venue_get_state, renders Dashboard. TokenForm
+    fallback when URL has no token.
+  - `src/views/Dashboard.jsx` — 6-panel grid: Tonight / This Week /
+    Open Issues / Recent Results / Upcoming / Sidebar (pitches+refs).
+    Responsive: 3-col → 2-col @ 1100px → 1-col @ 700px.
+  - `src/views/FixtureCard.jsx` — single fixture render with score
+    branching (completed/walkover/forfeit each show 3-0 default
+    correctly), status pill, pitch + ref names looked up from the
+    same state payload.
+  - `src/views/Sidebar.jsx` — pitch + officials lists, surfaces
+    maintenance-window count on pitches and rating/channel on refs.
+
+**Auth model**: pure token-in-URL. The dashboard works for anyone
+holding the venue_admin_token — no Google sign-in step. Same
+posture as the existing player route (`/p/TOKEN`).
+
+**Known shortcut**: `venue_get_state` doesn't include a team-name
+directory, so fixture rows render `team_demo_alpha` (raw id) for
+both sides. Function works but is visually ugly. Cycle 2.7d will
+either widen the read RPC to include a `teams_directory` key OR
+build a JS lookup keyed on team_id.
+
+**Tested via Playwright** against the demo venue:
+  - Page loads, 0 console errors (one missing favicon — harmless)
+  - All panels populate from live demo data: 4 recent results, 2
+    upcoming, 2 pitches, 3 refs, side pitch shows "1 maintenance
+    window" badge
+  - Walkover row correctly renders 3-0 with WALKOVER pill
+  - Upcoming rows show "Needs ref" pill (pitch allocated, ref
+    unassigned — that state combination is real in the seed)
+  - Tonight / This Week / Open Issues all show empty-state copy
+
+**To deploy**: this app needs a new Vercel project pointed at
+`apps/venue/`. Env vars to set: `VITE_SUPABASE_URL` +
+`VITE_SUPABASE_ANON_KEY` (same as inorout). Local dev: `cd
+apps/venue && npm run dev` → http://localhost:5176/?token=demo_venue_token_DO_NOT_USE_IN_PROD.
+The `.env.local` is gitignored at repo root (the existing pattern).
+
+**Phase 2 status entering Cycle 2.7d:** Backend complete + demo
+data live + read-only operator dashboard live. Remaining: 2.7d
+(write surfaces — approve/reject, fixture mgmt, pitch/ref CRUD
+modals), 2.7b (email dispatcher, can ship in parallel with 2.7d),
+2.8 (wizard UI).
+
+---
 
 ## SESSION 48 — Cycle 2.7a — demo venue seed (May 26 2026)
 
