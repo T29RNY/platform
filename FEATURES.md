@@ -1,5 +1,71 @@
 # In or Out — Feature Tracker
-*Last updated: May 25 2026 (session 43 — token-IS-identity + in-PWA email-OTP sign-in)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.3 — foundations, reads, engines, season setup)*
+
+---
+
+## LEAGUE MODE — PHASE 2 CYCLES 2.1–2.3 SHIPPED (session 48, 2026-05-26)
+
+The first half of Phase 2 (League Mode customer-visible surfaces) is
+live as DB + JS modules. Cycles 2.1, 2.2, 2.3 shipped end-to-end with
+matching `_down.sql` files and proactive in-flight CHECK-constraint
+hotfixes.
+
+**Cycle 2.1 — Foundation + operator-led onboarding (commit `03bd4be`):**
+- Migs 083–085: `venues.live_channel_key`, `leagues.league_code` (8-char
+  alphanumeric) + `live_channel_key` + `squad_mode` + `squad_mode_locked_at`
+  + `standings_visibility`, `match_officials.employment_type` +
+  `overall_rating`, `playing_areas.is_available` + `maintenance_windows`,
+  `competition_teams.status` DEFAULT flipped to `'pending'`.
+- Resolver helpers: `resolve_venue_caller`, `resolve_league_caller`.
+- Realtime publishers: `notify_venue_change` (25 reasons),
+  `notify_league_change` (11 reasons) — separate
+  `venue_live:`/`league_live:` channels from `team_live:`.
+- **Primary onboarding tool**: `superadmin_create_venue` RPC +
+  `/superadmin/venues/new` form on `apps/superadmin`. Self-serve
+  signup (original Phase 8) deferred to year 2 per DECISIONS.md.
+
+**Cycle 2.2 — Read RPCs (commit `f940c32`):**
+- `venue_get_state` — full venue dashboard payload with fixtures
+  bucketed tonight / this_week / upcoming / recent.
+- `league_get_state` — narrower deep-link, falls back to league-pick
+  prompt when caller is a venue admin.
+- `join_get_league_by_code` — public `/join/CODE` landing.
+- `get_league_standings_for_player` — W/D/L/GF/GA/GD/Pts across every
+  competition the player is in; walkovers default to 3-0; top scorers
+  stubbed until Phase 3 `match_events`.
+
+**Cycle 2.3 — Engines + season setup (commit `71b8aab`):**
+- `packages/core/engine/roundRobin.js` — circle method with home/away
+  balance, pitch×slot allocation, doubleRound mirror, excludeWeeks.
+- `packages/core/engine/cupBracket.js` — single elim (byes to top
+  seeds + bracket placeholders) + group stage (snake-seeded).
+- `venue_create_season` RPC — creates season + competitions, validates
+  league ownership + date order + types.
+- `venue_generate_fixtures` RPC — bulk-persists engine output, validates
+  everything (competition ownership, no existing fixtures, every team
+  active, every date in season, every pitch in venue), **one audit
+  row** per generation.
+
+**In-flight CHECK-constraint hotfixes** (migs 088/089/092 — full
+detail in BUGS.md): `competition_teams.status` enum, RPC body
+references to non-existent `incidents.status` + invalid
+`'registration_open'`, `audit_events.actor_type` whitelist. Pattern
+captured in DECISIONS.md "SCHEMA-SYNC MUST SWEEP `pg_constraint`".
+
+**Customer-visible impact: zero (Phase 2 frontend lives in Cycle 2.7).**
+Backend ready for the wizard UI; superadmin onboarding form ships
+but pending the `apps/superadmin` env-var fix in BUGS.md.
+
+**Decisions captured in DECISIONS.md (session 48):**
+- Operator-led onboarding for year 1, Phase 8 deferred.
+- `/league/TOKEN` merges into `/venue/TOKEN`.
+- Existing casual teams stay venueless forever.
+- Squad mode per-league, locked at first fixture.
+- Bulk-RPCs audit one row, not N.
+
+**Phase 2 remaining:** Cycles 2.4 (fixture mgmt), 2.5a (team
+registration), 2.5b (mid-season failures), 2.6 (refs+pitches CRUD),
+2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~4–5 days.
 
 ---
 

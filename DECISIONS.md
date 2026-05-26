@@ -1,8 +1,162 @@
 # In or Out — Key Decisions Log
-*Last updated: May 26 2026 (session 47 — cloud-session source-control + read-RPC privilege parity + state.player/squad-row dedupe + bulk-reset must clear admin_locked_in)*
+*Last updated: May 26 2026 (session 48 — League Mode operator-led onboarding + schema-sync CHECK sweep mandate + bulk-RPC audit rule + Phase 8 self-serve deferred to year 2)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## LEAGUE MODE — OPERATOR-LED ONBOARDING FOR YEAR 1 (session 48)
+
+**The rule:** every new venue is created by a platform admin (Tarny)
+through `superadmin_create_venue` and the `/superadmin/venues/new`
+form. **No self-serve venue signup ships before year 2.** Billing is
+manual for year 1 — Stripe Invoicing, GoCardless, or Wise transfer
+per venue. Phase 8 of `LEAGUE_MODE_SCOPE.md` (Stripe Connect
+self-serve) is deferred.
+
+**Why:** at £199/mo × 12 = £2,388 LTV per venue, a 30-min onboarding
+call has obvious ROI when supply is constrained. Upmarket customers
+(Goals, Powerleague) will not self-serve a subscription — they need
+a named contact, procurement process, and contract. League Mode is
+still being debugged in flight; manual onboarding catches 10× more
+edge cases than a self-serve form that errors silently. The 5 days
+that would have built Phase 8 are reallocated to product features
+that close more high-leverage deals.
+
+**How to apply:** when building any "venue create" or "venue signup"
+surface, route it through `superadmin_create_venue` (platform-admin
+gated). If a future cycle proposes a public venue signup, the answer
+is "year 2" unless the operator explicitly says otherwise. The
+`/superadmin/venues/new` UI is the primary creation surface and
+should evolve with onboarding learnings (more fields, defaults,
+contract checkboxes) rather than being replaced by a self-serve
+twin.
+
+---
+
+## LEAGUE MODE — `/league/TOKEN` MERGES INTO `/venue/TOKEN` (session 48)
+
+**The rule:** League admin UI is the venue admin dashboard
+pre-filtered to one league. `/league/TOKEN` resolves via
+`resolve_league_caller`, which surfaces a league-pick prompt when the
+caller arrives via `venue_admin_token`. The data model keeps
+`leagues` separate (Phase 1 already shipped `leagues.league_admin_token`)
+so splitting later is cheap.
+
+**Why:** with operator-led onboarding (above), Tarny is doing both
+venue and league setup in one session anyway — the distinction is
+academic for year 1's modal customer. Independent leagues hired at a
+venue (Model B in the session 48 design Q&A) become a future cheap
+add when a real customer surfaces. Building two surfaces now is
+premature.
+
+**How to apply:** don't build a separate `LeagueView` component
+tree. League-specific surfaces live in `VenueView` with a "pick a
+league" picker or a deep-link pre-filter.
+
+---
+
+## LEAGUE MODE — EXISTING CASUAL TEAMS STAY VENUELESS FOREVER (session 48)
+
+**The rule:** `teams.venue_id` is never set for any team that
+predates the team's competitive-league registration. Existing casual
+teams (Footy Tuesdays, rockybram, etc.) keep `venue_id IS NULL`
+forever. Venues only see teams that registered via `/join/CODE` into
+one of their competitions.
+
+**Why:** no migration risk, no claim-collision risk, cleanest data
+model. If a casual team later wants a venue association, they
+register a competition entry — that's the only path. The "venue claims
+existing teams" and "team admin proposes a venue" patterns considered
+during design were both rejected for collision risk + complexity.
+
+**How to apply:** never write a migration or RPC that retroactively
+populates `teams.venue_id` for existing rows. Phase 2 RPCs scope
+"venue's teams" exclusively via `competition_teams` ↔ `competitions` ↔
+`seasons` ↔ `leagues` ↔ `venues`.
+
+---
+
+## LEAGUE MODE — SQUAD MODE IS PER-LEAGUE CONFIG, LOCKED AT FIRST FIXTURE (session 48)
+
+**The rule:** `leagues.squad_mode` is one of
+`'registered' | 'open' | 'mid_rigid'`. Wizard step 2 asks. Once the
+first fixture of any season under that league is played
+(`squad_mode_locked_at` set), the value is immutable. Mid-season
+changes require a platform admin override.
+
+  - `registered` — fixed squad of N players. Per-fixture lineup
+    submitted from that squad. Loan players require admin approval.
+  - `open` — like casual today. Whoever clicks IN plays. No formal
+    teamsheet.
+  - `mid_rigid` — squad registered but lineup defaults to all-available;
+    no per-fixture submission.
+
+**Why:** different competitive cultures need different rigour, and
+mid-season changes break standings and audit trails.
+
+**How to apply:** Phase 2 wizard sets the value once at season setup.
+Phase 5 (player competitive features) reads `squad_mode` to decide
+whether a teamsheet submission RPC is exposed. Never allow a client
+to change `squad_mode` after `squad_mode_locked_at` is non-NULL.
+
+---
+
+## BULK-INSERT RPCs AUDIT ONE ROW, NOT N (session 48, mig 091)
+
+**The rule:** an RPC that inserts many rows in one call (e.g.
+`venue_generate_fixtures` writing 50+ fixtures) writes a SINGLE
+`audit_events` row with `metadata.<count>_field`. Do NOT write one
+audit row per inserted row.
+
+**Why:** audit_events should capture user-meaningful events, not
+disk I/O. "Generated 50 fixtures for competition X" is one decision.
+50 individual rows clutters the log and degrades read performance on
+`audit_events` queries. The `notify_*_change` broadcast is also one
+event ("fixtures_generated"), not 50.
+
+**How to apply:** for every Phase 2+ bulk-write RPC, the audit insert
+is one row with metadata fields counting/summarising the batch.
+Pattern established in `venue_generate_fixtures` (mig 091) — copy that
+shape.
+
+---
+
+## SCHEMA-SYNC MUST SWEEP `pg_constraint`, NOT JUST COLUMNS (session 48)
+
+**The rule:** before adding any column DEFAULT change, ALTER COLUMN,
+or INSERT in an RPC that targets a Phase 1 table (or any pre-existing
+table), query `pg_constraint` for that table and verify the values
+you plan to use are in the existing CHECK enum. Add this query to
+every cycle audit alongside the existing column-existence sweep.
+
+**Why:** session 48 caught FOUR latent CHECK constraint bugs across
+Cycles 2.1–2.3:
+  - `competition_teams.status` allowed only
+    `('active','withdrawn','expelled')` — mig 083's DEFAULT flip to
+    `'pending'` would have failed every new INSERT.
+  - `audit_events.actor_type` allowed only the original 7 personas —
+    every Phase 2 mutating RPC's audit insert would have failed
+    (`venue_admin`/`league_admin`/`platform_admin` missing).
+  - `seasons.status` allowed only `('setup','active','completed','archived')`
+    — RPC filtered on `'registration_open'` (no-op but wrong).
+  - `incidents` has no `status` column at all; "open" is derived from
+    `resolved_at IS NULL` (RPC referenced a non-existent column).
+
+The pattern: mig 055 / mig 003 are narrower than scope-file
+assumptions. Reactively fixing each one cost one round-trip per
+cycle. Proactive sweep at audit-time prevents it.
+
+**How to apply:** run
+  ```sql
+  SELECT conname, pg_get_constraintdef(oid)
+  FROM pg_constraint
+  WHERE conrelid = 'public.<table>'::regclass;
+  ```
+  for every table the cycle will touch, alongside the column existence
+check from `skills/scripts/check-db-schema.sh`. Cross-reference every
+status / enum value the RPC will use against the live constraint.
 
 ---
 

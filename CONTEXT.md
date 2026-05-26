@@ -1,5 +1,150 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 47 — VC parity for player-token state RPC + Live Board dedupe + OTP UX bundle + hook hardening + mig 082 cancel-clears-admin-lock)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.3 — venue onboarding, read RPCs, fixture engines + season setup)*
+
+## SESSION 48 (May 26 2026) — League Mode rename + Phase 2 Cycles 2.1–2.3
+
+The venue/league/HQ programme was renamed to **League Mode** and Phase 2
+foundations + read RPCs + season-setup engines+RPCs shipped — three
+cycles of execute work covering migrations 083–092 plus four new
+JS modules (`venue/`, two engines, four RPC wrappers).
+
+**Programme rename (commit `ea06425`).** "Venue/league/HQ" was a
+mouthful that never landed. Adopted "League Mode" as the umbrella
+label. Discovery surfaced that FEATURES.md L174 + DECISIONS.md L884
+already had a parked `PHASE 4 — LEAGUE MODE` entry describing the
+same vision with the same four tables (`venues`, `leagues`, `fixtures`,
+`referees`) — superseded as part of the same commit. Docs-only sweep:
+`venue_league_hq_SCOPE.md` → `LEAGUE_MODE_SCOPE.md` (via `git mv`),
+five doc files updated, zero SQL identifiers touched (the words
+`venue` and `league` survive everywhere they refer to domain objects).
+
+**5 rounds of design Q&A.** Before code, the wizard's product
+shape was nailed down across persona, season structure, refs, teams,
+notifications, visibility, demo strategy, mid-season failure modes,
+league-code scope, squad-mode locking, casual↔competitive relationship,
+and existing-team migration. All captured in
+`/Users/tarny/.claude/plans/what-work-is-required-crystalline-meerkat.md`.
+Key decisions (full list in DECISIONS.md):
+  - **Operator-led onboarding** for year 1. Self-serve Phase 8
+    deferred to year 2. Manual Stripe Invoicing / GoCardless / Wise.
+  - **`/league/TOKEN` merges into `/venue/TOKEN`** for UI; data model
+    stays separate so independent-league customers are a future cheap add.
+  - **Persona: venue manager / owner.** 35–55, desktop-first laptop
+    UI, not phone-first like AdminView. Four-panel dashboard
+    (Tonight / This Week / Open Issues / Registrations & Billing).
+  - **Squad mode per-league** (`registered`/`open`/`mid_rigid`).
+    Locks once first fixture played.
+  - **Existing casual teams stay venueless forever.** Footy Tuesdays
+    et al never get `teams.venue_id` set. Venues only see teams that
+    registered via `/join/CODE`.
+  - **Casual + competitive coexist** as separate `competition_teams`
+    rows. Players unified across both via team_players.
+  - **Push + Email channels** for v1 (Twilio SMS/WhatsApp deferred).
+  - **Demo venue + one real alpha** in parallel before going wider.
+  - **Three mid-season failures designed:** team withdraw (cascade
+    walkover/void), pitch close (maintenance windows), ref no-show
+    (basic admin reassign; live escalation is Phase 3).
+
+**Cycle 2.1 — Foundation + onboarding (commit `03bd4be`).**
+  - Migs 083+084+085 (renumbered to 083–085 in source; live as
+    independent migrations).
+  - **mig 083 foundation columns** (additive only — Phase 1 tables
+    empty in prod): `venues.live_channel_key`, `leagues.league_code`
+    (8-char alphanumeric, no ambiguous chars), `leagues.live_channel_key`,
+    `leagues.squad_mode`+`squad_mode_locked_at`+`standings_visibility`,
+    `match_officials.employment_type`+`overall_rating`,
+    `playing_areas.is_available`+`maintenance_windows`. Plus new
+    `generate_league_code()` function. `competition_teams.status`
+    DEFAULT flipped `'active'` → `'pending'` for the manual approval
+    flow.
+  - **mig 084 helpers**: `resolve_venue_caller`, `resolve_league_caller`
+    (mirrors mig 074 `resolve_admin_caller`), `notify_venue_change`
+    (25-reason whitelist), `notify_league_change` (11-reason whitelist).
+    Separate `venue_live:`/`league_live:` realtime topology from
+    `team_live:` — existing AdminView/PlayerView subscribers untouched.
+  - **mig 085 `superadmin_create_venue(p_name, p_operator_email,
+    p_sport, p_first_league jsonb)`** — primary onboarding tool, gated
+    by `is_platform_admin()`. Creates venue + admin_token + live_channel_key,
+    optionally creates first league + league_code. Returns the
+    `/venue/TOKEN` URL ready to share.
+  - **UI:** `/superadmin/venues/new` form on `apps/superadmin` with
+    optional first-league fields. Success view shows copy-able
+    venue + /join/CODE URLs.
+  - **NB:** the superadmin app has BUGS.md's open blank-screen entry
+    (missing `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` env vars).
+    Form ships but won't render until env vars added in Vercel UI.
+
+**Cycle 2.2 — Read RPCs (commit `f940c32`).**
+  - **mig 086** `venue_get_state`, `league_get_state`,
+    `join_get_league_by_code`. Full venue dashboard payload, league
+    deep-link (with venue-admin → league-pick fallback), public
+    /join landing.
+  - **mig 087** `get_league_standings_for_player` — W/D/L/GF/GA/GD/Pts
+    across every competition the player's teams are active in.
+    Walkovers default to 3-0 for walkover_winner_id. Top scorers
+    stubbed `[]` until Phase 3 `match_events`. `standings_visibility`
+    private respected (Round 4 forward-compat gate).
+  - **mig 088 hotfix**: `competition_teams.status` CHECK constraint
+    (mig 055) only allowed `('active','withdrawn','expelled')`. Cycle
+    2.1's DEFAULT flip to `'pending'` would have caused every new
+    INSERT without explicit status to fail the constraint. Expanded
+    to full Phase 2 enum.
+  - **mig 089 hotfix**: `venue_get_state.open_incidents` referenced
+    `incidents.status` (column doesn't exist; open derived from
+    `resolved_at IS NULL`); `join_get_league_by_code` filtered on
+    `status='registration_open'` (not in seasons/competitions CHECK).
+    Both fixed; 086 source updated to match live.
+  - 4 JS wrappers + barrel export.
+
+**Cycle 2.3 — Engines + season setup (commit `71b8aab`).**
+  - **`packages/core/engine/roundRobin.js`** — classic circle method.
+    Even/odd teams (odd → phantom bye), home/away balance via top-pair
+    alternation, pitch×slot allocation with capacity guard,
+    excludeWeeks support, doubleRound mirror.
+  - **`packages/core/engine/cupBracket.js`** — single elim (byes to
+    top seeds, round 1 fixtures + bracket placeholders for Phase 3
+    ref view to populate) + group stage (snake-seeded round-robin
+    per group).
+  - **mig 090 `venue_create_season(p_venue_token, p_season jsonb)`** —
+    creates season + competitions, validates league ownership +
+    date order + competition types.
+  - **mig 091 `venue_generate_fixtures(p_venue_token,
+    p_competition_id, p_fixtures jsonb)`** — bulk-persists engine
+    output. Full validation: competition ownership, no existing
+    fixtures (idempotency guard), every team active in competition,
+    every date within season window, every pitch belongs to venue.
+    **One audit row per generation** with `metadata.fixture_count`
+    (bulk-write rule).
+  - **mig 092 hotfix**: `audit_events.actor_type` CHECK (mig 003)
+    didn't include `venue_admin`/`league_admin`/`platform_admin`.
+    Every Phase 2 mutating RPC's audit insert would have failed.
+    Expanded additively.
+  - Engines smoke-tested via node across 7 scenarios.
+  - End-to-end probe: 4 teams → create season → engine → 6 fixtures
+    persisted with correct dates, times, pitches.
+
+**Pattern emerged: schema-sync should sweep CHECK constraints, not
+just columns.** Four constraint gotchas across three cycles, all
+from mig 055 / mig 003 being narrower than the scope file assumed.
+Every cycle henceforth opens with a `pg_constraint` query on every
+table about to be touched. DECISIONS.md captures this as a
+methodology addendum.
+
+**Phase 2 status entering Cycle 2.4:** Foundations + onboarding +
+reads + engines + season setup all live. ~6 days of estimated work
+shipped. Remaining: Cycle 2.4 (fixture mgmt), 2.5a (team
+registration), 2.5b (mid-season failures), 2.6 (refs+pitches CRUD),
+2.7 (frontend + email + demo venue), 2.8 (wizard UI). Estimated
+~4–5 more days.
+
+**Out-of-band note**: the superadmin app blank-screen bug (BUGS.md)
+needs env vars set on the platform-superadmin Vercel project before
+the Cycle 2.1 onboarding UI loads. Operator action, not code.
+
+**Commits this session (in order):**
+`ea06425` League Mode rename · `03bd4be` Cycle 2.1 · `f940c32` Cycle 2.2 · `71b8aab` Cycle 2.3
+
+---
 
 ## SESSION 47 (May 26 2026) — read-RPC parity for VCs, Live Board dedupe, OTP UX, hook gates, cancel-clears-admin-lock
 

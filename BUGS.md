@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 47 — VC parity sweep on player-token state RPC + Live Board dedupe + OTP UX bundle + mig 082 cancel-clears-admin-lock)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.3 + 4 latent CHECK-constraint hotfixes from mig 055/003)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,62 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — Four latent CHECK constraint bugs in mig 055/003 (session 48, migs 088/089/092)
+
+**Symptom:** Three of the four would have caused every Phase 2 mutating
+RPC to fail in production once any client code shipped. Caught
+in-flight during Cycle 2.1 / 2.2 / 2.3 smoke tests; never reached
+live customer paths.
+
+**Bug 1 — `competition_teams.status` CHECK constraint (mig 055):**
+allowed only `('active','withdrawn','expelled')`. Cycle 2.1's
+`mig 083` flipped the DEFAULT from `'active'` to `'pending'` for the
+manual approval flow — but DIDN'T expand the CHECK. Any INSERT
+without explicit status would have raised `competition_teams_status_check`
+violation. Fixed by **mig 088** which expanded to the full Phase 2
+enum: `('pending','active','rejected','withdrawn','expelled')`.
+
+**Bug 2 — `audit_events.actor_type` CHECK constraint (mig 003):**
+allowed only the original 7 personas
+(`team_admin`/`vice_captain`/`club_admin`/`super_admin`/`player`/
+`service_role`/`system`). Phase 2 RPCs resolve callers to
+`venue_admin`/`league_admin`/`platform_admin` via `resolve_venue_caller`
+and `resolve_league_caller` — none of which were in the whitelist.
+Every Phase 2 mutating RPC's audit insert would have failed. Fixed by
+**mig 092** which expanded additively to include all three new personas.
+
+**Bug 3 — `venue_get_state.open_incidents` (mig 086):** referenced
+a non-existent `incidents.status` column. The `incidents` table
+derives "open" from `resolved_at IS NULL` and has a direct `venue_id`
+column (no need to join through fixtures). Fixed by **mig 089** which
+swapped the WHERE clause to use `incidents.venue_id = v_venue_id AND
+resolved_at IS NULL`.
+
+**Bug 4 — `join_get_league_by_code.competitions_open` (mig 086):**
+filtered competitions on `status='registration_open'` which is not in
+`seasons_status_check` or `competitions_status_check`. The constraints
+allow only `('setup','active','completed','archived')` for seasons and
+`('setup','active','completed')` for competitions. The filter was a
+silent no-op (couldn't match a non-existent value) but cosmetically
+wrong. Fixed by **mig 089** which tightened to `('setup','active')` —
+the actual states that accept registrations.
+
+**Root cause across all four:** mig 055 (Phase 1 schema) and mig 003
+(audit_events) shipped CHECK constraints that were narrower than the
+`LEAGUE_MODE_SCOPE.md` design assumed. Schema-sync at Cycle audit time
+checked column existence but never queried `pg_constraint`. Each bug
+took one MCP round-trip to catch and one to fix.
+
+**Lesson:** DECISIONS.md now mandates a `pg_constraint` sweep on every
+table any future cycle touches, alongside the existing column-existence
+check. See: "SCHEMA-SYNC MUST SWEEP `pg_constraint`, NOT JUST COLUMNS".
+
+**Impact: zero.** All four caught before any Phase 2 client code
+shipped to live customers. The fix migrations are paired with
+matching `_down.sql` files per hard rule #11.
 
 ---
 
