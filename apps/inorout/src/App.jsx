@@ -1187,7 +1187,7 @@ export default function App() {
           coverPool={coverPool}       setCoverPool={setCoverPoolRaw}
           teamId={teamId}
           me={_me}
-          adminToken={isAdmin ? (route.token || "admin_demo") : null}
+          adminToken={(isAdmin || isViceCaptain) ? (route.token || "admin_demo") : null}
           isViceCaptain={isViceCaptain}
           screen={adminScreen}        setScreen={setAdminScreen}
           onGoPlayer={() => { playerStartTabRef.current = null; setView("player"); }}
