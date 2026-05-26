@@ -1856,3 +1856,26 @@ export async function getCompanyByDomain(domain) {
   }
   return data;
 }
+
+// ─── League Mode — Phase 2 superadmin onboarding ─────────────────────────────
+// superadmin_create_venue is the operator-led venue onboarding RPC. Gated by
+// is_platform_admin() server-side. Self-serve signup is deferred to year 2.
+
+export async function superadminCreateVenue({
+  name,
+  operatorEmail,
+  sport = "football",
+  firstLeague = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("superadmin_create_venue", {
+    p_name: name,
+    p_operator_email: operatorEmail,
+    p_sport: sport,
+    p_first_league: firstLeague,
+  });
+  if (error) {
+    console.error("[superadmin] create_venue failed", error);
+    throw error;
+  }
+  return data;
+}

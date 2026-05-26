@@ -200,3 +200,33 @@ table.data td.num { font-family: var(--font-mono); text-align: right; }
 }
 .kv dt { color: var(--text-muted); }
 .kv dd { color: var(--text); }
+
+/* Form fields (Venues view) */
+.field { display: grid; gap: 4px; }
+.field > span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  background: #0f0f12;
+  border: 1px solid #2a2a30;
+  border-radius: 6px;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #5a8dff;
+}
+.muted { color: var(--text-muted); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }

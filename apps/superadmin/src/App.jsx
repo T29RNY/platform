@@ -6,6 +6,7 @@ import { superadminWhoami } from "@platform/core/storage/supabase.js";
 import Activity from "./views/Activity.jsx";
 import Teams from "./views/Teams.jsx";
 import TeamDetail from "./views/TeamDetail.jsx";
+import Venues from "./views/Venues.jsx";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -110,6 +111,12 @@ export default function App() {
           >
             Teams
           </button>
+          <button
+            className={tab === "venues" ? "active" : ""}
+            onClick={() => { setTab("venues"); setSelectedTeamId(null); }}
+          >
+            Venues
+          </button>
           {selectedTeamId && (
             <button
               className={tab === "team_detail" ? "active" : ""}
@@ -128,6 +135,7 @@ export default function App() {
       <main className="content">
         {tab === "activity" && <Activity onOpenTeam={openTeam} />}
         {tab === "teams" && <Teams onOpenTeam={openTeam} />}
+        {tab === "venues" && <Venues />}
         {tab === "team_detail" && selectedTeamId && (
           <TeamDetail teamId={selectedTeamId} />
         )}
