@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 45 — VC = admin parity sweep + post-sweep audit cleanup)*
+*Last updated: May 26 2026 (session 45 — VC = admin parity sweep + post-sweep audit cleanup + open superadmin env-var thread)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,58 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## OPEN — Superadmin dashboard returns blank screen (session 45 close)
+
+**Symptom:** opening
+`https://platform-superadmin-djj9b1w8x-tarny-s-projects.vercel.app`
+(after clearing the Vercel SSO gate) shows a blank white page. No
+visible error. React never mounts.
+
+**Root cause:** the `platform-superadmin` Vercel project has no
+`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` env vars set. The
+last production deploy (`dpl_GARou7F38HemDuLgB18k8NESjkg1`,
+commit `7547d49`) was a prebuilt push from a local directory whose
+`.env.production.local` was also missing those vars. Result:
+`packages/core/storage/supabase.js:4-5` reads `undefined` →
+`createClient(undefined, undefined)` throws at module init →
+React root fails to mount → blank document.
+
+**Compounding issue:** `apps/superadmin/.vercel/project.json` is
+locally linked to the `platform-clubmanager` project (the main
+inorout app), not `platform-superadmin`. Any `vercel deploy` from
+that directory currently targets the wrong project. This is part
+of why the envs never made it to the right place — every
+`vercel env pull` was pulling from `platform-clubmanager`'s envs
+into a directory whose deploy target was also `platform-clubmanager`.
+
+**Resume here next session:**
+
+1. Vercel UI → `platform-superadmin` → Settings → Environment
+   Variables → add `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_ANON_KEY` for Production + Preview + Development.
+   Copy values from `platform-clubmanager`'s same vars.
+2. `cd apps/superadmin && vercel link --project platform-superadmin`
+   (overwrites the wrong linkage).
+3. `vercel env pull .env.production.local --environment production`
+   — confirm the two VITE vars now appear in the file.
+4. `npm run build` from `apps/superadmin/`.
+5. `vercel deploy --prebuilt --prod --yes`.
+6. Reload the URL. Should land on the Supabase auth sign-in. Sign
+   in with `tarnysingh@gmail.com` (granted via migration 076) or
+   `tarny@desicity.com` (original seed).
+7. Activity tab should show today's session-45 audit rows —
+   `actor_type='vice_captain'` from tarny's parity verification
+   sitting alongside the usual `team_admin` rows. That's the
+   confirmation the dashboard is live and the audit-trail
+   differentiation from the VC=admin sweep is observable.
+
+**Why this didn't block beta:** the dashboard is operator-only
+(gated by `is_platform_admin()`). End-users have never needed it.
+The blank screen is invisible to them; it's only an operator
+inconvenience.
 
 ---
 

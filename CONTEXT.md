@@ -46,6 +46,41 @@ Two distinct pieces of work landed today:
    `md5(token)` against `players.token` / `teams.admin_token` to
    resolve who actually triggered a write.
 
+### Also touched in session 45 (housekeeping)
+
+- **`platform_admins` Gmail grant** (migration 076 source file
+  landed; live since `2026-05-26 10:16`). `tarnysingh@gmail.com`
+  is now a platform admin alongside `tarny@desicity.com`. Same
+  human operator; Gmail is the day-to-day PWA account so it's the
+  convenient identity for opening the superadmin dashboard.
+
+- **Superadmin dashboard blank-page bug (OPEN — work paused
+  here).** Production URL is
+  `https://platform-superadmin-djj9b1w8x-tarny-s-projects.vercel.app`.
+  It loads blank. Root cause: the `platform-superadmin` Vercel
+  project is missing `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY`, so the bundled JS calls
+  `createClient(undefined, undefined)` and React never mounts.
+  Next session resumes from these steps:
+  1. In Vercel → `platform-superadmin` → Settings → Environment
+     Variables, add both `VITE_SUPABASE_URL` and
+     `VITE_SUPABASE_ANON_KEY` (copy values from
+     `platform-clubmanager`'s same env vars). Tick Production +
+     Preview + Development.
+  2. Relink the local directory:
+     `cd apps/superadmin && vercel link --project
+     platform-superadmin`. (Currently linked to the wrong project,
+     `platform-clubmanager`.)
+  3. Pull envs: `vercel env pull .env.production.local
+     --environment production`.
+  4. Build + deploy:
+     `npm run build && vercel deploy --prebuilt --prod --yes`.
+  5. Reload the URL — should land on the auth sign-in. Sign in
+     with either `tarnysingh@gmail.com` (via mig 076) or
+     `tarny@desicity.com`. Activity tab will show
+     `actor_type='vice_captain'` rows from session 45's parity
+     verification alongside the usual `team_admin` ones.
+
 ## SESSION 44 (May 25 2026) — admin-badge cycle shipped, rule #11 drift closed
 
 Resumed after session 43 with the same three JSX + two migration
