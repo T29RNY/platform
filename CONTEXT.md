@@ -1,5 +1,133 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 46 — brand-new-squad first-go-live fix + group RPC anon-grant fix)*
+*Last updated: May 26 2026 (session 47 — VC parity for player-token state RPC + Live Board dedupe + OTP UX bundle + hook hardening)*
+
+## SESSION 47 (May 26 2026) — read-RPC parity for VCs, Live Board dedupe, OTP UX, hook gates
+
+Game day for Footy Tuesdays (`team_KPaoX8oJYMQ`). Cascade of
+display bugs surfaced because the session-45 VC parity sweep
+(mig 075) widened *writes* for VCs but not *reads*. Five fixes
+shipped end-to-end, all driven by Tarny operating the squad as VC.
+
+**Migrations (3):**
+- **Mig 079 `restore_group_fields_in_state_rpc`** — source-of-truth
+  recovery for an out-of-band hotfix applied to live DB at 12:38
+  UTC from a mobile Claude session (without filesystem access).
+  Restores `group_number` per squad row + `group_labels` in
+  settings on `get_team_state_by_admin_token` — both silently
+  dropped when mig 070 rewrote the function. Source-only commit;
+  no DB change (already deployed). Hard rule #11 reconciliation.
+- **Mig 080 `player_token_state_admin_parity`** — when
+  `v_privileged` (VC or team admin) is true, `get_team_state_by_player_token`
+  now returns the full admin-shape squad including the caller's
+  own row with `is_self=true`, all payment/stats/lock fields,
+  `group_number`, and `token`. Ordinary players keep the existing
+  limited shape (no privacy regression). Adds `group_labels` to
+  settings for all callers. `getTeamStateByPlayerToken` wrapper
+  updated to read `group_labels`. Commit `500ec6e`.
+- **Mig 081 `rpc_sweep_cleanup`** — three targeted fixes:
+  1. `submit_potm_vote` now calls `notify_team_change('potm_vote_cast')`
+     so anon /p/ clients see the running tally tick in real time
+     (was a silent regression against rule #10);
+  2. dropped the stale 13-arg `admin_upsert_schedule` overload —
+     14-arg version is the only one JS calls; overload trap closed;
+  3. dropped four genuinely-dead RPCs (zero callers in apps/ or
+     packages/): `player_create_cash_payment_entry`,
+     `unregister_push_subscription`, `admin_set_player_note`,
+     `join_team_as_returning_player`. All restored verbatim in the
+     down-migration. Commit `4481103`.
+
+**Client fix — Live Board duplicate caller (no migration):**
+Tarny reported he appeared TWICE on his own MyView Live Board.
+Other teammates saw him once. Root cause: mig 080 added the
+caller to `state.squad` for VCs/admins, and `App.jsx` (five sites)
+still unconditionally prepended `state.player` — privileged callers
+ended up with two same-id rows in the client squad. New
+`buildPlayerSquad(player, squad)` helper at module scope merges
+squad-row fields onto `state.player` (gaining `group_number` +
+`is_self`, preserving `user_id`) then filters the dupe. Applied at
+all five prepend sites in App.jsx. No-op for ordinary players.
+Commit `8f30b67`.
+
+**Client fix — AuthGateModal OTP UX bundle (no migration):**
+Tarny was prompted to sign back in, got "token has expired or
+invalid" twice. Supabase auth logs (pulled in parallel session)
+pinned the cause: attempt 1 had 63 min between `/otp` and
+`/verify` (default TTL ~60 min so genuinely expired); attempt 2
+had 13s between re-request and verify (typed the OLD code before
+the new email arrived). Bundle:
+- `sentAt` captured on every `/otp` success; code stage shows
+  "Sent at HH:MM · expires within an hour"
+- `sendCode` clears the code input on every send (kills stale-
+  code-typed-on-top failure)
+- 20s resend cooldown; in-place "Resend code" button with
+  "Resend in Ns" countdown
+- Structured verify errors with "→ Tap Resend code below to get
+  a fresh one" affordance
+- HTTP 429 / rate-limit surfaces specific copy instead of generic
+Commit `fe26596`.
+
+**Hook hardening — session-start primer + pre-commit gates:**
+- `session-start.sh` now appends the full skills/ inventory and
+  the skills/scripts/ inventory to the per-session primer (no
+  more "I didn't know those existed" excuse).
+- `pre-commit-build.sh` gains a new gate ahead of the build check:
+  every newly-staged `rls_migrations/NNN_*.sql` must have a
+  matching `_down.sql` either staged in the same commit or already
+  in the repo. Catches the mig-079 hotfix-without-source-file
+  class deterministically. Commit `222321f`.
+
+**Decisions added (`DECISIONS.md`):**
+- Cloud/mobile Claude sessions must hand off a pending source-
+  file commit to the next desktop session. Read-only cloud work
+  is fine; writes-without-files is always a rule #11 violation.
+- Read RPCs must match the privilege profile of writes the caller
+  can already make. When a write surface is broadened (e.g. VCs
+  via mig 075), audit the read RPCs powering the matching display
+  surfaces and widen them in the same sweep, or explicitly document
+  the asymmetry.
+- `state.player` and `state.squad` can overlap for privileged
+  callers — every consumer that prepends or merges them must
+  dedupe by id. Use the new `buildPlayerSquad` helper.
+
+**Audit summary findings (logged for future reference):**
+End-to-end audit of write/display/realtime across all three actor
+types (player / VC / admin) confirmed every write RPC fires
+`notify_team_change` after mig 081, every postgres_changes
+subscriber has a matching write target, and every consumed read
+field is returned by both state RPCs. Two limitations stand:
+- `postgres_changes` on `players` and `matches` is RLS-gated to
+  `authenticated` only. Anon /p/ clients get NO postgres_changes
+  events for these tables — they depend entirely on the
+  `team_live:<key>` broadcast channel (the publisher/subscriber
+  pair from rule #10). This is intentional and the broadcast
+  channel covers all known write paths post-mig-081.
+- Explore-agent dead-RPC scans must always be cross-verified by
+  grepping call sites for the camelCase wrapper name. This
+  session's audit initially flagged 9 dead RPCs; 5 were false
+  positives (wired via engine/* helpers and modal components
+  the agent didn't fully traverse). Real dead list: 4 (all
+  dropped in mig 081).
+
+**Files touched:**
+- NEW migrations: 079_restore_group_fields_in_state_rpc (+ down),
+  080_player_token_state_admin_parity (+ down),
+  081_rpc_sweep_cleanup (+ down)
+- App.jsx: `buildPlayerSquad` helper + 5 call-site updates
+- AuthGateModal.jsx: sentAt/cooldown state, ticker effect,
+  sendCode/verifyCode behaviour changes, code-stage UI additions
+- packages/core/storage/supabase.js: 1-line settings mapper
+  update to read `group_labels`
+- .claude/hooks/session-start.sh: appends skill + script inventory
+- .claude/hooks/pre-commit-build.sh: down-file gate ahead of build
+- Docs: BUGS.md (4 new RESOLVED entries), DECISIONS.md (3 new
+  rules), CONTEXT.md (this entry)
+
+**Lesson for the file:** game day surfaces every gap between
+"writes succeed server-side" and "the operator can actually use
+the app". Future write-surface sweeps must explicitly verify the
+matching read surfaces in the same session.
+
+---
 
 ## SESSION 46 (May 26 2026) — first-go-live + group balancer grants
 

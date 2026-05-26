@@ -1,8 +1,114 @@
 # In or Out — Key Decisions Log
-*Last updated: May 26 2026 (session 46 — admin_* grants must include anon + authenticated)*
+*Last updated: May 26 2026 (session 47 — cloud-session source-control + read-RPC privilege parity + state.player/squad-row dedupe)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## CLOUD/MOBILE CLAUDE SESSIONS MUST HAND OFF A PENDING SOURCE-FILE COMMIT (session 47)
+
+**The rule:** any Claude session that applies a change to the live
+DB (or any other shared state) without filesystem access to the
+repo MUST end by stating, verbatim, the source artefact(s) the next
+desktop session needs to commit. The desktop session that picks up
+the work treats reconciling the repo with live as priority zero,
+ahead of any new task.
+
+**Why:** during this session a hotfix to `get_team_state_by_admin_token`
+(restoring `group_number` + `group_labels` dropped in mig 070) was
+applied to the live DB at 12:38 UTC from a mobile Claude session.
+The session couldn't write files, so the migration source never
+landed in `rls_migrations/`. The live DB ran ahead of source for
+~3 hours before this session noticed. Violates hard rule #11
+("migration source files MUST land in the same commit as the live
+DB apply"). Discovered only because BUGS.md / live behaviour
+diverged from what the rls_migrations/ folder claimed.
+
+**How to apply:**
+- A cloud session that calls `mcp__supabase__apply_migration`
+  (or directly runs DDL via `execute_sql`) must end its final
+  message with: "**Next desktop session: write
+  `rls_migrations/NNN_<slug>.sql` matching the SQL applied here,
+  before doing anything else.**"
+- The desktop session's first action on resume is to confirm the
+  forward + down source files exist in the repo. The new pre-commit
+  hook gate (this session) blocks any commit that introduces a
+  forward migration without a matching `_down.sql`, which catches
+  the simpler half of the failure.
+- Read-only cloud/mobile work (queries, log fetches, plans) is
+  unaffected — only writes need the hand-off.
+
+**Exceptions:** none. A live change without a source file is
+*always* a hard rule #11 violation, even if behaviourally correct.
+
+---
+
+## READ RPCs MUST MATCH THE PRIVILEGE PROFILE OF WHATEVER WRITES THE CALLER CAN ALREADY MAKE (session 47, mig 080)
+
+**The rule:** when a write surface is broadened (e.g. VCs can now
+call admin_* writes via player_token per session-45 mig 075), the
+read RPC that powers the matching display surface must be broadened
+in the same sweep. Otherwise saves succeed silently on the server
+and silently fail on the client display, which is the worst possible
+debugging surface.
+
+**Why:** session 45 made VCs writers across every admin_* RPC. The
+read RPC `get_team_state_by_player_token` (mig 071) was not
+touched — it kept its deliberately-minimal "ordinary player" squad
+shape with no payment/stats/locks fields and no caller-self row.
+For 12 days, VCs running AdminView via /p/<token> saw their Make
+Teams, Group Balancer, Payments, POTM tally, and stats columns
+silently break on reload while every write succeeded server-side.
+Surfaced only when Tarny noticed groups resetting on game day.
+
+**How to apply:**
+- After any write-RPC grant change that broadens the caller pool,
+  audit the read RPCs that power the same surface (`get_team_state_*`
+  and any `get_*` that feeds the writing surface) and either:
+  - widen the read RPC to match (the mig 080 pattern: branch on
+    `v_privileged` to return the full admin shape for VCs/admins
+    while keeping the limited shape for ordinary players), OR
+  - explicitly document why the asymmetry is intentional.
+- Before merging any write-parity sweep, grep every read RPC
+  consumed by the affected surface for the missing fields and
+  confirm coverage matches the new write capability.
+
+**Exceptions:** privacy-driven asymmetry (e.g. ordinary players
+must not see who paid whom) is fine — document it in the read RPC
+header.
+
+---
+
+## state.player AND state.squad CAN OVERLAP — CALLERS MUST DEDUPE BY id (session 47)
+
+**The rule:** any code path that prepends `state.player` to
+`state.squad` (or merges them in any way) MUST filter the squad by
+`p.id !== state.player.id`. The two collections can contain the
+same player id when the caller is privileged.
+
+**Why:** mig 080's privileged branch of `get_team_state_by_player_token`
+returns the caller's own row inside `v_squad` with `is_self=true`.
+The caller's record is also returned separately as `v_player` from
+`to_jsonb(p.*)`. Both shapes serve different needs (`v_player` has
+`user_id` for the auth-linking flow; the squad row has `group_number`
+and `is_self`). Naïve prepend `[state.player, ...state.squad]`
+double-renders the caller for VCs/admins (the Live Board bug Tarny
+hit). The two-shape problem is structural — neither shape is wrong,
+the consumer is.
+
+**How to apply:**
+- Use the `buildPlayerSquad(player, squad)` helper in
+  `apps/inorout/src/App.jsx` (added this session) for all player-
+  route squad assembly. It merges squad-row fields onto `state.player`
+  and filters the duplicate. Don't reinvent at every call site.
+- For any new collection where the RPC return shape may include the
+  caller, apply the same merge-then-filter pattern. State explicitly
+  in the consumer comment that the dedupe is required and why.
+
+**Exceptions:** ordinary-player /p/ route — the server still excludes
+the caller from `state.squad`, so the helper's `.find` returns
+undefined and the `.filter` is a no-op. Safe to use unconditionally.
 
 ---
 

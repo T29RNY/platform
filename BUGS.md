@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 46 — first-go-live fix mig 077, group RPC anon-grant fix mig 078)*
+*Last updated: May 26 2026 (session 47 — VC parity sweep on player-token state RPC + Live Board dedupe + OTP UX bundle)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,166 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — Live Board: privileged caller (VC/admin) appears twice on their own MyView (session 47)
+
+**Symptom:** Tarny (VC of Footy Tuesdays) reported he appeared twice
+on his own MyView Live Board on game day. Screenshots from other
+teammates correctly showed Tarny once. Two side-by-side cards for
+him on his team column.
+
+**Root cause:** Migration 080 (this session) changed
+`get_team_state_by_player_token` so privileged callers (VCs and
+team admins) get the caller's own row included in `state.squad` with
+`is_self=true` — needed so AdminView features read all rows
+uniformly. App.jsx (five sites) still unconditionally prepended
+`state.player` on top of `state.squad`, written before mig 080 when
+the caller was always excluded. Result for privileged callers: the
+client squad contained two entries with the same `id`, the Live
+Board render had no dedupe by id, both passed `status='in'` + team
+filters, both rendered. Confirmed via live DB: only 1 `team_players`
+row for Tarny on this team; the duplicate was purely client-side.
+
+**Fix:** new `buildPlayerSquad(player, squad)` helper in App.jsx —
+finds the caller's row in `state.squad`, merges its fields onto
+`state.player` (gaining `group_number` + `is_self`, preserving
+`user_id` which the squad-row jsonb_build_object lacks), then
+filters the duplicate from the squad. No-op for ordinary players
+(server still excludes them). Applied at all five prepend sites:
+initial load, postgres_changes refresh, broadcast refresh, and
+both `computeDeeperIntel` calls. Commit `8f30b67`.
+
+**Lesson:** any RPC change that adds the caller's row to a list it
+was previously excluded from creates a duplicate-on-client trap for
+every site that prepends the caller. Cross-check call sites of any
+collection the RPC return-shape now includes.
+
+---
+
+## RESOLVED — Player-token state RPC missed payments / locks / stats / groups for VCs and admins (session 47)
+
+**Symptom:** Tarny (VC) on his /p/ route couldn't see groups persist
+on reopen (the morning's primary complaint) and downstream — payment
+badges blank, locked-in shields missing, stats columns zero, POTM
+tally counts missing on the squad leaderboard. Other admins running
+AdminView via their /p/ link would have hit the same. Server data
+was correct; client display was hobbled.
+
+**Root cause:** `get_team_state_by_player_token` (mig 071, "no
+financial/stats") was deliberately limited for ordinary-player
+privacy. The mig 075 VC parity sweep made VCs/admins able to *write*
+admin_* RPCs via their player_token, but didn't broaden the
+*read* RPC. So VCs running AdminView via /p/ saw saves succeed
+server-side and silently fail to display on reload.
+
+**Fix (mig 080 — `get_team_state_by_player_token` VC parity):**
+when `v_privileged` (VC or team admin) is true, return the full
+admin-shape squad including `group_number`, `paid`/`owes`/
+`self_paid`/`paid_by`/`pay_count`, `goals`/`motm`/`attended`/
+`total`/`w`/`l`/`d`, `late_dropouts`/`injured_since`,
+`admin_locked_in`, `token`, plus the caller's own row with
+`is_self=true`. Ordinary players keep the existing limited shape
+(no privacy regression). Also adds `group_labels` to settings
+unconditionally. JS wrapper `getTeamStateByPlayerToken` updated to
+read `group_labels`. Commit `500ec6e`.
+
+**Companion (mig 079 source-of-truth):** an out-of-band hotfix was
+applied to the live DB at 12:38 UTC from a mobile/cloud Claude
+session — it restored `group_number` + `group_labels` to
+`get_team_state_by_admin_token` (silently dropped in mig 070). The
+cloud session couldn't write the migration file. Same commit
+(`500ec6e`) captures the source verbatim so the repo matches deploy
+per rule #11.
+
+**Lesson:** see new DECISIONS.md entries on (a) cloud-session source
+control and (b) read-RPC return shape must match the privilege
+profile of writes that have already been granted.
+
+---
+
+## RESOLVED — submit_potm_vote silent for anon clients; admin_upsert_schedule overload trap (session 47)
+
+**Symptom (vote):** anon-token admins (and players on /p/) would
+not see live POTM tally updates after a player voted. Authenticated
+clients picked it up via the `matches` postgres_changes subscriber,
+but anon clients depend on the `team_live` broadcast channel which
+`submit_potm_vote` never fired.
+
+**Symptom (schedule overload):** none yet — latent trap. Any future
+caller that omits `p_game_is_live` would have silently routed to the
+stale 13-arg overload that doesn't update the live flag.
+
+**Root cause (vote):** `submit_potm_vote` writes `potm_votes` +
+audits but lacked the `PERFORM notify_team_change(...)` call that
+every other write RPC has. Regression against rule #10 (realtime
+publisher/subscriber pairing).
+
+**Root cause (schedule):** `admin_upsert_schedule` had two
+overloads in pg_proc — original 13-arg + a 14-arg version added
+when `p_game_is_live` was introduced. Two overloads also fails the
+`rpc-security-sweep` (overload_count must be 1).
+
+**Fix (mig 081 — RPC sweep cleanup):** added
+`notify_team_change(p_team_id, 'potm_vote_cast')` to
+`submit_potm_vote`. Dropped the 13-arg `admin_upsert_schedule`
+overload. Same migration also dropped four genuinely-dead RPCs
+confirmed zero-callers in the repo:
+`player_create_cash_payment_entry`, `unregister_push_subscription`,
+`admin_set_player_note`, `join_team_as_returning_player`. Down-
+migration restores all four verbatim. Commit `4481103`.
+
+**Audit note:** the Explore agent initially flagged 9 RPCs as
+"dead". Cross-checking against actual call sites cut the list to 4 —
+`set_player_paid`, `set_player_injured`, `set_guest_payment`, and
+`closePOTMVoting` were all wired and called (engine/payments.js,
+POTMTiebreakModal.jsx). Lesson: agent dead-RPC findings are a
+starting point, not a verdict. Always grep call sites yourself before
+dropping anything.
+
+---
+
+## RESOLVED — Sign-in OTP "expired or invalid" UX trap (session 47)
+
+**Symptom:** Tarny was prompted to sign back into the PWA, requested
+a code, typed it, got "token has expired or invalid". Tried again,
+same error.
+
+**Root cause (per Supabase auth logs, parallel investigation):** two
+distinct failures.
+1. **Attempt 1** — 63 min elapsed between `/otp` (200) and `/verify`
+   (403). Supabase default OTP TTL is ~60 min, so the code had
+   genuinely expired.
+2. **Attempt 2** — only 13 seconds between re-requesting and re-
+   verifying. The new email hadn't arrived; Tarny typed the OLD
+   code (from screen/memory) into the input the modal failed to
+   clear.
+
+Not a code bug — both are UX gaps. Other users in the same window
+(psnagra, aaronmanak) verified in 13–30s and succeeded cleanly.
+
+**Fix:** AuthGateModal.jsx bundle of best-practice OTP UX —
+- `sentAt` captured on every successful `/otp`; code stage shows
+  "Sent at HH:MM · expires within an hour".
+- `sendCode` clears the code input on every send (kills the
+  stale-code-typed-on-top failure).
+- 20s resend cooldown; new in-place "Resend code" button on the
+  code stage shows "Resend in Ns" then enables. Removes the
+  back-out-via-Use-a-different-email detour.
+- Verify failures set a structured error that the UI renders
+  with "→ Tap Resend code below to get a fresh one." pointing
+  to the recovery path.
+- Rate-limit (HTTP 429 / rate-limit message) surfaces a specific
+  "Too many requests — wait a minute" instead of generic copy.
+
+State machine and Supabase API call shape unchanged. Commit
+`fe26596`.
+
+**Out of scope (not done):** Supabase email-template tweak to drop
+the magic-link half of the "Magic link or OTP" template (would
+close a separate attack surface: link-prefetchers consuming the
+token before user types code). Dashboard change, not code.
 
 ---
 
