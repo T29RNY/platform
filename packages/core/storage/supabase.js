@@ -346,7 +346,10 @@ export async function getTeamStateByPlayerToken(token) {
     schedule:       data.schedule ? dbToSchedule(data.schedule) : null,
     matches:        (data.matches || []).map(dbToMatch),
     bibHistory:     (data.bib_history || []).map(b => ({ name: b.name, playerId: b.player_id, matchDate: b.match_date, returned: b.returned })),
-    settings:       data.settings ? { groupName: data.settings.group_name } : null,
+    settings:       data.settings ? {
+      groupName:   data.settings.group_name,
+      groupLabels: data.settings.group_labels ?? {},
+    } : null,
     coverPool:      data.cover_pool || [],
     liveChannelKey: data.live_channel_key,
     stats: data.stats ? {
