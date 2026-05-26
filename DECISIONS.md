@@ -1,8 +1,33 @@
 # In or Out — Key Decisions Log
-*Last updated: May 26 2026 (session 47 — cloud-session source-control + read-RPC privilege parity + state.player/squad-row dedupe)*
+*Last updated: May 26 2026 (session 47 — cloud-session source-control + read-RPC privilege parity + state.player/squad-row dedupe + bulk-reset must clear admin_locked_in)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## ANY BULK-RESET OF `players.status` MUST ALSO CLEAR `admin_locked_in` (session 47, mig 082)
+
+**The rule:** any RPC that bulk-resets `players.status` to `'none'` across
+a team (cancel match, weekly rollover, season reset, restore-from-disabled,
+etc.) MUST include `admin_locked_in = false` in the same UPDATE. Treat it
+as an inseparable part of "reset the player to a clean slate" alongside
+`paid`, `self_paid`, `paid_by`.
+
+**Why:** `admin_locked_in` is set true by `admin_set_player_status` (mig 038)
+and gates `set_player_status` (the player's self-toggle RPC) — a stale `true`
+silently blocks the player from setting their own in/out next week, with no
+visible error in normal admin flows. Cancellation (and any other bulk reset)
+must invalidate the lock because it belongs to the previous game, not the
+next one.
+
+**How to apply:** when writing or reviewing any new RPC that does
+`UPDATE players SET status='none' ... FROM team_players` (or similar
+team-scoped reset), check the SET list includes `admin_locked_in = false`.
+Established by mig 082 after the 2026-05-26 Footy Tuesdays cancellation left
+Ranza stranded — see BUGS.md RESOLVED entry. Currently only the cancel path
+is fixed; `open_next_week`/`advance_game_date` weekly rollover is flagged
+for a follow-up audit.
 
 ---
 

@@ -1,7 +1,20 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 47 — VC parity for player-token state RPC + Live Board dedupe + OTP UX bundle + hook hardening)*
+*Last updated: May 26 2026 (session 47 — VC parity for player-token state RPC + Live Board dedupe + OTP UX bundle + hook hardening + mig 082 cancel-clears-admin-lock)*
 
-## SESSION 47 (May 26 2026) — read-RPC parity for VCs, Live Board dedupe, OTP UX, hook gates
+## SESSION 47 (May 26 2026) — read-RPC parity for VCs, Live Board dedupe, OTP UX, hook gates, cancel-clears-admin-lock
+
+**Addendum (post-cancel, 2026-05-26 evening):** Tarny cancelled the
+Footy Tuesdays game ("Not enough players in 32 degrees heat…"). DB
+verification showed a clean cancel across schedule/match/ledger and
+17 of 18 players — but Ranza (`p_UG2K3Dwp`) was left with
+`admin_locked_in=true`. **Mig 082** adds `admin_locked_in=false` to
+`admin_cancel_match`'s Step 5 bulk reset (also codifies the live
+body's `resolve_admin_caller` upgrade per rule 11). One-off SQL
+cleared Ranza's stale flag. New DECISIONS.md rule: any bulk-reset of
+`players.status` MUST also clear `admin_locked_in`. Weekly rollover
+path is flagged as still-unclean and held for a follow-up audit.
+
+
 
 Game day for Footy Tuesdays (`team_KPaoX8oJYMQ`). Cascade of
 display bugs surfaced because the session-45 VC parity sweep

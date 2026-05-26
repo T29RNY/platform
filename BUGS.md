@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 47 — VC parity sweep on player-token state RPC + Live Board dedupe + OTP UX bundle)*
+*Last updated: May 26 2026 (session 47 — VC parity sweep on player-token state RPC + Live Board dedupe + OTP UX bundle + mig 082 cancel-clears-admin-lock)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,42 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — Cancelled match leaves admin-locked players unable to self-toggle next week (session 47, mig 082)
+
+**Symptom:** After Tarny (VC, Footy Tuesdays) cancelled the 2026-05-26
+game, post-cancel verification found Ranza (`p_UG2K3Dwp`) still had
+`players.admin_locked_in=true`. Every other field on his row reset
+correctly (status='none', paid/self_paid=false, team=null). The other
+17 squad members were fully clean. Latent UX impact: Ranza would have
+been unable to self-toggle in/out next week — `set_player_status`
+(mig 038) refuses any self-write while `admin_locked_in=true`, with
+silent client-side failure.
+
+**Root cause:** `admin_cancel_match`'s Step 5 bulk reset cleared
+`status`, `paid`, `self_paid`, `paid_by` — but not `admin_locked_in`.
+The flag is only set true by `admin_set_player_status` (mig 038) and
+was previously only cleared by account-deletion paths (migs 040, 047,
+068). Cancelling a match was simply overlooked.
+
+**Fix:** Migration 082 — adds `admin_locked_in = false` to the Step 5
+SET list. Also codifies the live RPC body (which had drifted from mig
+013 to use `resolve_admin_caller` for VC/admin parity) into a source
+file, per rule 11. One-off `UPDATE players SET admin_locked_in=false
+WHERE id='p_UG2K3Dwp'` applied to clean up the existing stranded row.
+No JS changes — wrapper `adminCancelMatch` and the AdminView call
+site (`cancelWeek` in `apps/inorout/src/views/AdminView/index.jsx:165`)
+stay as-is. Verified: zero rows with `admin_locked_in=true` post-fix,
+live RPC body now contains the new column, SECDEF + search_path +
+grants intact.
+
+**Still open (flagged, not in this commit):** the weekly rollover
+(`open_next_week`/`advance_game_date`) doesn't clear `admin_locked_in`
+either. With this fix a cancelled-then-reopened week is safe, but a
+NON-cancelled week that rolls over with stale admin locks is still a
+latent concern. Worth a separate audit.
 
 ---
 
