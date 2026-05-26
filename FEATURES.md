@@ -1,5 +1,27 @@
 # In or Out — Feature Tracker
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.5b — foundations, reads, engines, season setup, fixture management, team registration, mid-season failures)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.6 — foundations, reads, engines, season setup, fixture management, team registration, mid-season failures, refs+pitches CRUD)*
+
+---
+
+## LEAGUE MODE — PHASE 2 CYCLE 2.6 SHIPPED (session 48, 2026-05-26)
+
+Refs + pitches CRUD plus the maintenance-window enforcement deferred
+from Cycle 2.4 (migrations 105–109). Backend half of Phase 2 complete.
+
+- **mig 105** — `venue_add_pitch` — create row with optional
+  surface, capacity, sort_order, is_available, maintenance_windows.
+- **mig 106** — `venue_update_pitch` — partial update via jsonb;
+  soft-delete via active=false; broadcast switches to `pitch_closed`
+  on the true→false flip.
+- **mig 107** — `venue_add_ref` — create row; preferred_channel +
+  employment_type defaulted; table CHECKs enforce enum values.
+- **mig 108** — `venue_update_ref` — partial update mirror.
+- **mig 109** — `venue_assign_pitch` rewrite — enforces
+  `maintenance_windows` overlap against fixture's `scheduled_date`,
+  rejects with `pitch_in_maintenance`. Skips check when no date set.
+
+**Phase 2 remaining:** Cycles 2.7 (frontend + email dispatcher + demo
+venue seed), 2.8 (wizard UI). All backend RPCs now live.
 
 ---
 
@@ -24,8 +46,8 @@ Mid-season team-exit flows + standings cascade for forfeit
 Pitch close (maintenance windows) → Cycle 2.6. Ref no-show already
 supported via Cycle 2.4's assign_ref(NULL)+reassign.
 
-**Phase 2 remaining (post Cycle 2.5b):** Cycles 2.6 (refs+pitches
-CRUD), 2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~2.5 days.
+**Phase 2 remaining (post Cycle 2.6):** Cycles 2.7 (frontend + email
++ demo venue seed), 2.8 (wizard UI). All backend RPCs now live.
 
 ---
 
@@ -49,8 +71,8 @@ AdminView SquadScreen post-approval. Notification delivery to team
 admin (push/email) deferred to Cycle 2.7 — RPCs emit audit + broadcast
 hooks so the dispatcher can subscribe.
 
-**Phase 2 remaining (post Cycle 2.5b):** Cycles 2.6 (refs+pitches
-CRUD), 2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~2.5 days.
+**Phase 2 remaining (post Cycle 2.6):** Cycles 2.7 (frontend + email
++ demo venue seed), 2.8 (wizard UI). All backend RPCs now live.
 
 ---
 
@@ -141,8 +163,8 @@ but pending the `apps/superadmin` env-var fix in BUGS.md.
 - Squad mode per-league, locked at first fixture.
 - Bulk-RPCs audit one row, not N.
 
-**Phase 2 remaining (post Cycle 2.5b):** Cycles 2.6 (refs+pitches
-CRUD), 2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~2.5 days.
+**Phase 2 remaining (post Cycle 2.6):** Cycles 2.7 (frontend + email
++ demo venue seed), 2.8 (wizard UI). All backend RPCs now live.
 
 ---
 

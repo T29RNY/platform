@@ -2066,3 +2066,55 @@ export async function venueExpelTeam(venueToken, competitionTeamId, reason) {
   }
   return data;
 }
+
+// ─── League Mode — Phase 2 Cycle 2.6 refs + pitches CRUD ─────────────────────
+
+export async function venueAddPitch(venueToken, pitch) {
+  const { data, error } = await supabase.rpc("venue_add_pitch", {
+    p_venue_token: venueToken,
+    p_pitch: pitch,
+  });
+  if (error) {
+    console.error("[venue] add_pitch failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueUpdatePitch(venueToken, pitchId, updates) {
+  const { data, error } = await supabase.rpc("venue_update_pitch", {
+    p_venue_token: venueToken,
+    p_pitch_id: pitchId,
+    p_updates: updates,
+  });
+  if (error) {
+    console.error("[venue] update_pitch failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueAddRef(venueToken, ref) {
+  const { data, error } = await supabase.rpc("venue_add_ref", {
+    p_venue_token: venueToken,
+    p_ref: ref,
+  });
+  if (error) {
+    console.error("[venue] add_ref failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueUpdateRef(venueToken, refId, updates) {
+  const { data, error } = await supabase.rpc("venue_update_ref", {
+    p_venue_token: venueToken,
+    p_ref_id: refId,
+    p_updates: updates,
+  });
+  if (error) {
+    console.error("[venue] update_ref failed", error);
+    throw error;
+  }
+  return data;
+}

@@ -62,6 +62,10 @@ export {
   venueRejectTeamRegistration,
   venueWithdrawTeam,
   venueExpelTeam,
+  venueAddPitch,
+  venueUpdatePitch,
+  venueAddRef,
+  venueUpdateRef,
   getLeagueConfig,
   getCompanyByDomain,
 } from "./storage/supabase.js";

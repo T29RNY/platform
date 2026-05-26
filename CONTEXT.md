@@ -1,5 +1,65 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.5b — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.6 — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade, refs+pitches CRUD)*
+
+## SESSION 48 — Cycle 2.6 — refs + pitches CRUD (May 26 2026)
+
+Operator-facing CRUD for pitches (playing_areas) and refs (match_officials)
+plus the maintenance-window enforcement deferred from Cycle 2.4. Five
+migrations (105–109).
+
+  - **mig 105 — `venue_add_pitch(venue_token, pitch jsonb)`.** Required:
+    name. Optional: surface, capacity (positive int), sort_order,
+    is_available, maintenance_windows (jsonb array of
+    `{start_date, end_date, reason?}`). Validates window dates
+    (required, start ≤ end). Audit + venue broadcast `pitch_added`.
+  - **mig 106 — `venue_update_pitch(venue_token, pitch_id, updates jsonb)`.**
+    Partial update — only keys present in `updates` get applied.
+    Soft-delete via `{"active": false}` (FK is ON DELETE SET NULL —
+    hard-delete would orphan historical fixtures). Broadcast reason
+    flips to `pitch_closed` when active true→false.
+  - **mig 107 — `venue_add_ref(venue_token, ref jsonb)`.** Required:
+    name. Optional: phone, email, whatsapp_number, preferred_channel
+    (default `push`), employment_type (default `freelance`),
+    overall_rating. Table CHECK constraints enforce the enum values.
+  - **mig 108 — `venue_update_ref(venue_token, ref_id, updates jsonb)`.**
+    Same partial-update pattern as pitches. Soft-delete via active=false.
+  - **mig 109 — `venue_assign_pitch` rewrite.** Honours
+    `playing_areas.maintenance_windows`: rejects when fixture's
+    `scheduled_date` falls within any window for that pitch (`BETWEEN`
+    inclusive). Error `pitch_in_maintenance` with DETAIL =
+    `start..end`. Skip the check if fixture has no scheduled_date —
+    enforces on whichever leg comes second.
+
+**Bug caught in-flight — `text[] || 'literal'` is array-literal-cast.**
+The first cut of migs 106/108 used `v_changed := v_changed || 'name';`
+which Postgres interprets as text[] || text-array-literal — raised
+`malformed array literal: "name"`. Fixed by `array_append(v_changed,
+'name')`. Caught by the very first smoke test (zero customer impact).
+Worth flagging because the project has no other text[] columns
+operated on this way; future RPCs accumulating "changed keys" should
+use `array_append` from the start.
+
+**Smoke tests (single transaction, all 5 RPCs + maintenance enforcement):**
+  - add_pitch with one MW → returns pitch_id ✓
+  - add_ref with phone/channel/rating → returns ref_id ✓
+  - update_pitch rename+capacity+replace MW → changed_keys
+    `[name, capacity, maintenance_windows]`, pitch_closed=false ✓
+  - update_ref phone+rating → changed_keys `[phone, overall_rating]` ✓
+  - assign_pitch on fixture INSIDE MW (2026-06-02) →
+    `pitch_in_maintenance` ✓
+  - assign_pitch on fixture OUTSIDE MW (2026-06-10) → OK ✓
+  - update_pitch active=false → pitch_closed=true (broadcast
+    `pitch_closed`, not `pitch_updated`) ✓
+  - add_pitch with empty payload → `pitch_name_required` ✓
+  - add_ref with bad venue token → `invalid_venue_token` ✓
+  - inverted MW dates → `maintenance_window_dates_inverted` ✓
+
+**Phase 2 status entering Cycle 2.7:** All backend foundations +
+read RPCs + mutation RPCs across venue/league/team/fixture/pitch/ref
+are live. Remaining: 2.7 (frontend + email dispatcher + demo venue
+seed), 2.8 (wizard UI). The backend half of Phase 2 is complete.
+
+---
 
 ## SESSION 48 — Cycle 2.5b — mid-season failures + standings cascade (May 26 2026)
 
