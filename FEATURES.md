@@ -1,5 +1,96 @@
 # In or Out — Feature Tracker
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7d — foundations, reads, engines, season setup, fixture management, team registration, mid-season failures, refs+pitches CRUD, demo venue seed, venue dashboard read + write)*
+*Last updated: May 27 2026 (session 48 — PHASE 2 COMPLETE — 8 cycles, 14 migrations 083–114, 1 new app, demo venue exercises full operator loop end-to-end)*
+
+---
+
+## LEAGUE MODE — PHASE 2 COMPLETE (session 48, 2026-05-27)
+
+All 8 cycles shipped. The venue admin can now, from a single
+browser window: onboard the venue, define one or more leagues,
+create a season, generate fixtures across multiple competitions,
+approve incoming team registrations, assign pitches + refs to
+fixtures, change fixture statuses (postpone / void / walkover /
+forfeit), withdraw or expel mid-season teams (with cascade), and
+maintain pitches + officials. Demo venue (`demo_venue_token_DO_NOT_USE_IN_PROD`,
+league code `DEMO0001`) exercises every surface end-to-end.
+
+**Cycles** (in shipped order):
+- **2.1** Foundation + operator-led onboarding — migs 083–085 + 088 hotfix
+- **2.2** Read RPCs — `venue_get_state`, `league_get_state`,
+  `join_get_league_by_code`, `get_league_standings_for_player` —
+  migs 086–087 + 089 hotfix
+- **2.3** Engines (round-robin + cup) + `venue_create_season` +
+  `venue_generate_fixtures` — migs 090–091 + 092 hotfix
+- **2.4** Fixture management RPCs (`venue_assign_pitch`,
+  `venue_assign_ref`, `venue_update_fixture_status`) + forfeit
+  columns — migs 093–096
+- **2.5a** Team registration via `/join/CODE` —
+  `join_register_team`, `venue_approve_team_registration`,
+  `venue_reject_team_registration` — migs 097–100
+- **2.5b** Mid-season failures (`venue_withdraw_team`,
+  `venue_expel_team`) + standings cascade incl. forfeit — migs 101–104
+- **2.6** Refs + pitches CRUD + maintenance-window enforcement —
+  migs 105–109
+- **2.7a** Demo venue seed + upcoming-filter hotfix + date
+  relativisation — migs 110–112
+- **2.7c** Venue dashboard scaffold — new `apps/venue/` Vite+React app
+- **2.7d** Dashboard write surfaces + teams directory — mig 113
+- **2.8** Season-setup wizard (5-step modal-over-dashboard) —
+  mig 114
+
+**Phase 2 leftovers** (carved out deliberately during the cycles —
+each small enough to be a single sub-cycle when picked up):
+- 2.7b email dispatcher
+- 2.9 visual overhaul (drawers + numbered panels + toasts + Framer
+  Motion, per the design-tool mockups)
+- 2.10 dedicated sub-routes (Fixtures detail / Results / Teams /
+  Players / Officials / Pitches / Incidents / Registrations /
+  Reports / Settings)
+- 2.11 Google OAuth for venue admin
+- 2.12 fixture detail page + per-fixture notes
+
+**Remaining phases** (per LEAGUE_MODE_SCOPE.md):
+- Phase 3 — Ref view (5 days, "most complex single feature")
+- Phase 4 — Reception display (3 days)
+- Phase 5 — Player + team-admin competitive (5 days)
+- Phase 6 — HQ dashboard (6 days)
+- Phase 7 — AI layer / Ask the Gaffer evolved (8 days, largest)
+- Phase 8 — Billing + self-serve (5 days, deferred to year 2)
+- Phase 9 — Notifications + comms (3 days)
+- Phase 10 — Public league pages (2 days, smallest / highest leverage)
+- Phase 11 — Cups + knockouts polish (4 days)
+
+Total remaining nominal estimate: ~41 days, plus the ~5 days of
+carved-out Phase 2 leftovers.
+
+---
+
+## LEAGUE MODE — PHASE 2 CYCLE 2.8 SHIPPED (session 48, 2026-05-27)
+
+Season-setup wizard. The operator's path from "I want to run a new
+season" to "fixtures are persisted and live on the dashboard" is now
+a single 5-step flow.
+
+- **mig 114** — `venue_list_active_teams(p_venue_token)` — venue-scoped
+  team directory (wider than `venue_get_state.teams` which is
+  competition-scoped). Returns every competitive team registered
+  into any competition under the caller's venue.
+- **`SeasonWizard.jsx`** — single-file multi-step wizard with 5
+  inline step components: Basics / Competitions / Teams / Preview /
+  Confirm. Modal-over-dashboard, launched from a "Set up new season"
+  topbar button.
+- Reuses existing engines (`generateRoundRobin`,
+  `generateCupBracket`) for client-side fixture preview, and
+  existing RPCs (`venueCreateSeason`, `venueGenerateFixtures`) for
+  persistence.
+- Engine `pitch_index` → `playing_area_id` translation in the submit
+  handler, mapping through `season.pitches[index]`.
+- Modal extended with a `wide` prop (880px max-width) for the
+  wizard layout.
+
+Visual mockups from external design tool reviewed this session but
+deliberately NOT adopted — user direction was "build first,
+redesign later." Mockup adoption tracked as Cycle 2.9 leftover.
 
 ---
 

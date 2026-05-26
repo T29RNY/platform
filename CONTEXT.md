@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 49 — admin_delete_player VC-token + cancelled-ledger hotfixes, migs 115/116 + AdminView orphan-banner error toast)*
+*Last updated: May 27 2026 (session 48 — PHASE 2 COMPLETE — cycle 2.8 season-setup wizard shipped, capstone for the 8-cycle League Mode build. Session 49 hotfixes also live.)*
 
 ## SESSION 49 — admin_delete_player hotfixes (May 26 2026)
 
@@ -58,6 +58,80 @@ candidates: `admin_add_player`, `admin_update_player_name`,
 `d5c4763` (mig 116 SQL+files + client fix, originally as 114),
 `ed8661e` (parallel session-48 venue dashboard write surfaces —
 caused the mig-113 collision).
+
+---
+
+## SESSION 48 — Cycle 2.8 — season setup wizard + PHASE 2 COMPLETE (May 27 2026)
+
+Phase 2 closer. End-to-end operator wizard for creating a new season
++ competitions + fixtures from a single multi-step UI flow. Mig 114
+adds `venue_list_active_teams(p_venue_token)` — venue-scoped team
+directory (wider than `venue_get_state.teams` which is
+competition-scoped). Wizard lives in
+`apps/venue/src/views/SeasonWizard.jsx`, single file with 5 inline
+step components (Basics / Competitions / Teams / Preview / Confirm).
+Modal-over-dashboard launched from a topbar "Set up new season"
+button.
+
+Reuses the existing `generateRoundRobin` and `generateCupBracket`
+engines for client-side fixture preview, then calls the existing
+`venueCreateSeason` + `venueGenerateFixtures` RPCs for persistence.
+Critical engine-↔-persistence translation: engines return
+`pitch_index` (integer into the operator's pitches array); submit
+handler maps it to `playing_area_id` via `season.pitches[index]`
+before calling `venue_generate_fixtures`.
+
+Verified: build clean, mig 114 returns 5 active teams from demo
+venue. Wizard wired through 5-step flow; no Playwright deep-test
+due to budget but happy path validated locally before commit.
+Commit `3112a9e`.
+
+**Design-tool mockups** (Framer Motion + drawer styling) were
+reviewed this session but deliberately NOT adopted. User direction:
+"build first, redesign based on what we've built, later." Mockup
+adoption deferred to a future "visual overhaul" cycle.
+
+**Phase 2 capstone — 8 cycles, 14 migrations (083–114), 1 new app**:
+
+  - 2.1 foundation columns + venue onboarding (migs 083–085, +088 hotfix)
+  - 2.2 read RPCs (mig 086, +087 standings, +089 hotfix)
+  - 2.3 engines + season setup (migs 090–091, +092 hotfix)
+  - 2.4 fixture management (migs 093–096) — postpone / void /
+    walkover / forfeit + pitch + ref assignment
+  - 2.5a team registration (migs 097–100)
+  - 2.5b mid-season failures + standings cascade (migs 101–104)
+  - 2.6 refs + pitches CRUD + maintenance-window enforcement
+    (migs 105–109)
+  - 2.7a demo venue seed (mig 110) + read RPC hotfixes (migs 111–112)
+  - 2.7c venue dashboard scaffold (`apps/venue/` new Vite+React app)
+  - 2.7d dashboard write surfaces + teams directory (mig 113)
+  - 2.8 season-setup wizard (mig 114) — THIS CYCLE
+
+**Carved-out Phase 2 leftovers** (intentionally deferred, all small
+enough to be single sub-cycles when picked up):
+  - 2.7b email dispatcher (audit events already broadcasting; needs
+    a subscriber that turns them into emails)
+  - 2.9 visual overhaul (drawers, numbered panels, toasts, Framer
+    Motion — mockup adoption)
+  - 2.10 dedicated sub-routes (Fixtures detail / Results / Teams /
+    Players / Officials / Pitches / Incidents / Registrations /
+    Reports / Settings)
+  - 2.11 Google OAuth for venue admin (currently token-only)
+  - 2.12 fixture detail page + per-fixture notes
+
+**Remaining phases** (per LEAGUE_MODE_SCOPE.md, by estimate):
+  - Phase 3 — Ref view, 5 days ("most complex single feature")
+  - Phase 4 — Reception display, 3 days
+  - Phase 5 — Player + team-admin competitive features, 5 days
+  - Phase 6 — HQ dashboard, 6 days
+  - Phase 7 — AI layer (Ask the Gaffer evolved), 8 days (largest)
+  - Phase 8 — Billing + self-serve, 5 days (deferred to year 2)
+  - Phase 9 — Notifications, 3 days
+  - Phase 10 — Public league pages, 2 days
+  - Phase 11 — Cups + knockouts polish, 4 days
+
+Phase 2 was the most structurally important — every remaining phase
+consumes what it built. Take Phase 2 out and nothing else stands.
 
 ---
 
