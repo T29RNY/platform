@@ -52,9 +52,13 @@ export {
   leagueGetState,
   joinGetLeagueByCode,
   getLeagueStandingsForPlayer,
+  venueCreateSeason,
+  venueGenerateFixtures,
   getLeagueConfig,
   getCompanyByDomain,
 } from "./storage/supabase.js";
+export { generateRoundRobin } from "./engine/roundRobin.js";
+export { generateCupBracket } from "./engine/cupBracket.js";
 export { usePersistedState } from "./hooks/usePersistedState.js";
 export { useLeagueConfig } from "./hooks/useLeagueConfig.js";
 export {

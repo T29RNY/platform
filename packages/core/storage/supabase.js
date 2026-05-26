@@ -1929,3 +1929,30 @@ export async function getLeagueStandingsForPlayer(playerToken) {
   }
   return data;
 }
+
+// ─── League Mode — Phase 2 Cycle 2.3 season setup ────────────────────────────
+
+export async function venueCreateSeason(venueToken, season) {
+  const { data, error } = await supabase.rpc("venue_create_season", {
+    p_venue_token: venueToken,
+    p_season: season,
+  });
+  if (error) {
+    console.error("[venue] create_season failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueGenerateFixtures(venueToken, competitionId, fixtures) {
+  const { data, error } = await supabase.rpc("venue_generate_fixtures", {
+    p_venue_token: venueToken,
+    p_competition_id: competitionId,
+    p_fixtures: fixtures,
+  });
+  if (error) {
+    console.error("[venue] generate_fixtures failed", error);
+    throw error;
+  }
+  return data;
+}
