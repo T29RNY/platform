@@ -487,6 +487,31 @@ event. Commits `5061508`, `e2f67ea`.
 game. PlayerView for any player must render the active match view,
 not the cancelled state.
 
+### 9.7 Cancel This Week left admin-locked players unable to self-toggle next week
+**Symptom:** After a cancel, any player who had been admin-locked
+to 'in' (`players.admin_locked_in=true`) stayed locked. Their next
+self-tap on IN/OUT failed silently — `set_player_status` (mig 038)
+raises `admin_locked_in` from inside SECDEF and the client surfaces
+nothing useful. Caught on the 2026-05-26 Footy Tuesdays cancel:
+17 of 18 players reset cleanly; Ranza (admin-locked at cancel time)
+was stranded.
+**Fix:** migration 082 adds `admin_locked_in = false` to the bulk
+Step 5 reset inside `admin_cancel_match`. Also codifies the live
+RPC body (which had drifted to use `resolve_admin_caller`) per
+rule 11. New DECISIONS.md rule: any bulk-reset of `players.status`
+MUST also clear `admin_locked_in`. Commit `a722354`.
+**Pre-flight check:** as admin, lock a test player to IN via the
+admin status toggle (sets `admin_locked_in=true`). Cancel the week.
+Then have that player self-toggle (via their `/p/<token>` route).
+The toggle must succeed and the new status must persist on reload.
+DB check: `SELECT COUNT(*) FROM players WHERE admin_locked_in=true`
+should be 0 after cancel for the team.
+**Still open:** weekly rollover (`open_next_week` /
+`advance_game_date`) doesn't clear `admin_locked_in` either. With
+9.7 in place a cancelled-then-reopened week is safe, but a non-
+cancelled rollover with stale locks is a latent concern. Flagged
+for a follow-up audit.
+
 ---
 
 ## 10. OBSERVABILITY
