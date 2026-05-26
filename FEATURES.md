@@ -1,5 +1,32 @@
 # In or Out — Feature Tracker
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.3 — foundations, reads, engines, season setup)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.4 — foundations, reads, engines, season setup, fixture management)*
+
+---
+
+## LEAGUE MODE — PHASE 2 CYCLE 2.4 SHIPPED (session 48, 2026-05-26)
+
+Fixture management RPCs for the operator dashboard. Three single-row
+mutating RPCs + a forfeit-storage schema addition (migrations 093–096).
+
+- **mig 093** — `fixtures.forfeit_winner_id` (text FK → teams ON
+  DELETE SET NULL) + `fixtures.forfeit_reason`. `fixtures_status_check`
+  expanded additively to include `'forfeit'`. Caught proactively by
+  the new `pg_constraint` sweep mandate.
+- **mig 094 — `venue_assign_pitch`** — sets/clears
+  `fixtures.playing_area_id`. Auto-bumps scheduled↔allocated. Validates
+  pitch is active + is_available + in caller's venue.
+- **mig 095 — `venue_assign_ref`** — sets/clears `fixtures.official_id`.
+  Audit/broadcast distinguishes assigned / changed / cleared.
+- **mig 096 — `venue_update_fixture_status`** — drives the four
+  operator-initiated terminal transitions (postpone, void, walkover,
+  forfeit) with per-status validation + winner/reason metadata.
+
+Standings update for forfeit (and the team-withdrawal cascade)
+deferred to Cycle 2.5b, per the deferral already documented in mig 087.
+
+**Phase 2 remaining:** Cycles 2.5a (team registration), 2.5b
+(mid-season failures + standings cascade), 2.6 (refs+pitches CRUD),
+2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~3–4 days.
 
 ---
 
@@ -63,9 +90,10 @@ but pending the `apps/superadmin` env-var fix in BUGS.md.
 - Squad mode per-league, locked at first fixture.
 - Bulk-RPCs audit one row, not N.
 
-**Phase 2 remaining:** Cycles 2.4 (fixture mgmt), 2.5a (team
-registration), 2.5b (mid-season failures), 2.6 (refs+pitches CRUD),
-2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~4–5 days.
+**Phase 2 remaining (post Cycle 2.4):** Cycles 2.5a (team
+registration), 2.5b (mid-season failures + standings cascade), 2.6
+(refs+pitches CRUD), 2.7 (frontend + email + demo venue), 2.8
+(wizard UI). ~3–4 days.
 
 ---
 

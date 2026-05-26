@@ -54,6 +54,9 @@ export {
   getLeagueStandingsForPlayer,
   venueCreateSeason,
   venueGenerateFixtures,
+  venueAssignPitch,
+  venueAssignRef,
+  venueUpdateFixtureStatus,
   getLeagueConfig,
   getCompanyByDomain,
 } from "./storage/supabase.js";

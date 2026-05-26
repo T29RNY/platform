@@ -1,5 +1,81 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.3 — venue onboarding, read RPCs, fixture engines + season setup)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.4 — venue onboarding, read RPCs, fixture engines + season setup, fixture management)*
+
+## SESSION 48 — Cycle 2.4 — fixture management (May 26 2026)
+
+Three operator-facing fixture-management RPCs + a forfeit-storage
+schema addition shipped (migrations 093–096). The pg_constraint sweep
+mandate (DECISIONS.md L126, landed end of Cycle 2.3) immediately paid
+off — caught a missing `'forfeit'` value in `fixtures_status_check`
+at audit time, preventing the same failure-mode that bit migs 088 / 092.
+
+  - **mig 093 — fixture forfeit support (schema foundation).** Two new
+    columns on `fixtures`: `forfeit_winner_id text → teams(id)` (ON
+    DELETE SET NULL) and `forfeit_reason text`. Stored separately from
+    `walkover_winner_id` because walkover (pre-match no-show) and
+    forfeit (post-result reversal for eligibility/misconduct) are
+    semantically distinct events. Also expanded `fixtures_status_check`
+    additively to include `'forfeit'` alongside the existing seven
+    values.
+  - **mig 094 — `venue_assign_pitch(p_venue_token, p_fixture_id,
+    p_playing_area_id)`.** Sets `fixtures.playing_area_id`; pass NULL
+    to clear. Validates: caller resolves to venue; fixture's
+    competition→season→league belongs to caller venue; pitch belongs
+    to same venue + active + is_available; fixture.status IN
+    (scheduled, allocated). Status auto-bumps scheduled→allocated on
+    assign, reverts allocated→scheduled on clear. Audit + venue +
+    league broadcasts (`pitch_assigned`, `fixture_status_changed`).
+    Maintenance-window enforcement deferred to Cycle 2.6 (pitch CRUD).
+  - **mig 095 — `venue_assign_ref(p_venue_token, p_fixture_id,
+    p_official_id)`.** Sets `fixtures.official_id`; pass NULL to clear
+    (ref no-show reassign workflow). Validates: caller→venue, fixture
+    in venue, official active + in venue, fixture in scheduled or
+    allocated. Status NOT auto-bumped (ref is metadata, not allocation
+    trigger). Audit action distinguishes assigned / changed / cleared;
+    venue broadcast (`ref_assigned` first time, `ref_changed`
+    thereafter).
+  - **mig 096 — `venue_update_fixture_status(p_venue_token,
+    p_fixture_id, p_new_status, p_metadata jsonb)`.** Drives the four
+    operator-initiated terminal transitions: postpone / void /
+    walkover / forfeit. Per-status transitions allowed:
+      - postpone: from {scheduled,allocated}, requires `postpone_reason`
+      - void:     from {scheduled,allocated,postponed}, requires `void_reason`
+      - walkover: from {scheduled,allocated}, requires `winner_team_id`
+                  (must equal home or away)
+      - forfeit:  from {scheduled,allocated,completed}, requires
+                  `winner_team_id` + `forfeit_reason`. Stored into
+                  `forfeit_winner_id` / `forfeit_reason` (NOT
+                  `walkover_winner_id` — they're distinct columns now).
+    Audit + venue broadcast (`fixture_postponed`/`fixture_voided`/
+    `fixture_walkover`/`fixture_forfeit`) + league broadcast
+    (`fixture_status_changed`).
+  - **Standings impact deferred to Cycle 2.5b.** `mig 087`'s header
+    already says "Postponed / voided / forfeit fixtures are excluded
+    from standings until the cascade rules land (Cycle 2.5b)" —
+    honoured here. Cycle 2.4 stores the data; 2.5b will extend the
+    standings query for the team-withdrawal cascade + forfeit
+    awards in one sweep.
+  - **Smoke test.** End-to-end ephemeral fixture: assign_pitch
+    (scheduled→allocated) → assign_ref → clear_ref → clear_pitch
+    (allocated→scheduled) → postpone → void → walkover → forfeit.
+    All 8 mutations succeeded. Separately verified 5 validation
+    guards fire: bad token, foreign winner, postpone-without-reason,
+    unsupported status, locked-status pitch reassign.
+
+**Schema-sync win.** Proactive `pg_constraint` query on `fixtures` /
+`playing_areas` / `match_officials` at audit time surfaced the
+missing `'forfeit'` CHECK value before any execute work began. New
+hotfix migration shipped in the same cycle as the RPCs that needed
+it — no round-trip cost. Pattern is now load-bearing for every
+remaining Phase 2 cycle.
+
+**Phase 2 status entering Cycle 2.5a:** Foundations + onboarding +
+reads + engines + season setup + fixture management all live.
+Remaining: 2.5a (team registration), 2.5b (mid-season failures +
+standings cascade), 2.6 (refs+pitches CRUD), 2.7 (frontend + email
++ demo venue), 2.8 (wizard UI). Estimated ~3–4 more days.
+
+---
 
 ## SESSION 48 (May 26 2026) — League Mode rename + Phase 2 Cycles 2.1–2.3
 

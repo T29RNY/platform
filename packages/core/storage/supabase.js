@@ -1956,3 +1956,45 @@ export async function venueGenerateFixtures(venueToken, competitionId, fixtures)
   }
   return data;
 }
+
+// ─── League Mode — Phase 2 Cycle 2.4 fixture management ──────────────────────
+
+export async function venueAssignPitch(venueToken, fixtureId, playingAreaId) {
+  const { data, error } = await supabase.rpc("venue_assign_pitch", {
+    p_venue_token: venueToken,
+    p_fixture_id: fixtureId,
+    p_playing_area_id: playingAreaId,
+  });
+  if (error) {
+    console.error("[venue] assign_pitch failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueAssignRef(venueToken, fixtureId, officialId) {
+  const { data, error } = await supabase.rpc("venue_assign_ref", {
+    p_venue_token: venueToken,
+    p_fixture_id: fixtureId,
+    p_official_id: officialId,
+  });
+  if (error) {
+    console.error("[venue] assign_ref failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueUpdateFixtureStatus(venueToken, fixtureId, newStatus, metadata) {
+  const { data, error } = await supabase.rpc("venue_update_fixture_status", {
+    p_venue_token: venueToken,
+    p_fixture_id: fixtureId,
+    p_new_status: newStatus,
+    p_metadata: metadata ?? {},
+  });
+  if (error) {
+    console.error("[venue] update_fixture_status failed", error);
+    throw error;
+  }
+  return data;
+}
