@@ -1,5 +1,31 @@
 # In or Out — Feature Tracker
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.5a — foundations, reads, engines, season setup, fixture management, team registration)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.5b — foundations, reads, engines, season setup, fixture management, team registration, mid-season failures)*
+
+---
+
+## LEAGUE MODE — PHASE 2 CYCLE 2.5b SHIPPED (session 48, 2026-05-26)
+
+Mid-season team-exit flows + standings cascade for forfeit
+(migrations 101–104).
+
+- **mig 101** — `competition_teams.expulsion_reason` + extends
+  `notify_venue_change` / `notify_league_change` whitelists with
+  `team_expelled` and `fixtures_cascaded`.
+- **mig 102 — `venue_withdraw_team`** — pending/active → withdrawn,
+  cascade remaining fixtures (walkover to opposing team; void on
+  phantom byes). Idempotent.
+- **mig 103 — `venue_expel_team`** — active → expelled, same cascade.
+  Distinguishable from withdrawal via `void_reason` / status.
+- **mig 104 — `get_league_standings_for_player`** rewritten — now
+  counts forfeit fixtures (3-0 to forfeit_winner_id, mirror of the
+  existing walkover branch). Withdrawn/expelled teams stay in
+  standings with accumulated pre-exit points.
+
+Pitch close (maintenance windows) → Cycle 2.6. Ref no-show already
+supported via Cycle 2.4's assign_ref(NULL)+reassign.
+
+**Phase 2 remaining (post Cycle 2.5b):** Cycles 2.6 (refs+pitches
+CRUD), 2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~2.5 days.
 
 ---
 
@@ -23,9 +49,8 @@ AdminView SquadScreen post-approval. Notification delivery to team
 admin (push/email) deferred to Cycle 2.7 — RPCs emit audit + broadcast
 hooks so the dispatcher can subscribe.
 
-**Phase 2 remaining (post Cycle 2.5a):** Cycles 2.5b (mid-season
-failures + standings cascade incl. forfeit), 2.6 (refs+pitches CRUD),
-2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~3 days.
+**Phase 2 remaining (post Cycle 2.5b):** Cycles 2.6 (refs+pitches
+CRUD), 2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~2.5 days.
 
 ---
 
@@ -116,9 +141,8 @@ but pending the `apps/superadmin` env-var fix in BUGS.md.
 - Squad mode per-league, locked at first fixture.
 - Bulk-RPCs audit one row, not N.
 
-**Phase 2 remaining (post Cycle 2.5a):** Cycles 2.5b (mid-season
-failures + standings cascade incl. forfeit), 2.6 (refs+pitches CRUD),
-2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~3 days.
+**Phase 2 remaining (post Cycle 2.5b):** Cycles 2.6 (refs+pitches
+CRUD), 2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~2.5 days.
 
 ---
 

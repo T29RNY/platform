@@ -2038,3 +2038,31 @@ export async function venueRejectTeamRegistration(venueToken, competitionTeamId,
   }
   return data;
 }
+
+// ─── League Mode — Phase 2 Cycle 2.5b mid-season team exits ──────────────────
+
+export async function venueWithdrawTeam(venueToken, competitionTeamId, reason) {
+  const { data, error } = await supabase.rpc("venue_withdraw_team", {
+    p_venue_token: venueToken,
+    p_competition_team_id: competitionTeamId,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("[venue] withdraw_team failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueExpelTeam(venueToken, competitionTeamId, reason) {
+  const { data, error } = await supabase.rpc("venue_expel_team", {
+    p_venue_token: venueToken,
+    p_competition_team_id: competitionTeamId,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("[venue] expel_team failed", error);
+    throw error;
+  }
+  return data;
+}

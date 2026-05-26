@@ -1,5 +1,66 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.5a — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.5b — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade)*
+
+## SESSION 48 — Cycle 2.5b — mid-season failures + standings cascade (May 26 2026)
+
+Mid-season team-exit flows (withdraw + expel) with automatic fixture
+cascade, plus the standings RPC update for forfeit. Four migrations
+(101–104).
+
+Real-world cascade rule (decided during audit): unplayed fixtures
+involving the exiting team → walkover to the opposing team; phantom
+byes → void. Past results untouched. Standard amateur-league
+convention.
+
+  - **mig 101 — foundation.** Adds `competition_teams.expulsion_reason`
+    (sibling of withdrawal_reason / rejection_reason). Extends
+    `notify_venue_change` / `notify_league_change` whitelists with
+    `team_expelled` and `fixtures_cascaded`.
+  - **mig 102 — `venue_withdraw_team(venue_token, competition_team_id,
+    reason)`.** Flips pending/active → withdrawn + cascades remaining
+    fixtures. Idempotent (re-call returns `noop:true`).
+  - **mig 103 — `venue_expel_team(venue_token, competition_team_id,
+    reason)`.** Active → expelled + same cascade. Cascaded fixtures'
+    `void_reason` distinguishes 'team_withdrew' vs 'team_expelled'.
+  - **mig 104 — `get_league_standings_for_player` rewrite.** Extends
+    walkover handling to also cover forfeit (3-0 default to
+    forfeit_winner_id). Withdrawn/expelled teams stay in standings
+    with accumulated pre-exit points; UI can branch on ct_status.
+
+**Audit shape** (per Phase 2 bulk-RPC rule): each withdraw/expel
+call emits one team-level audit row (`team_withdrew` / `team_expelled`)
+PLUS one bulk audit row (`fixtures_cascaded`) only if any fixtures
+actually cascaded. Mirrors mig 091's pattern.
+
+**Out of scope** (deferred deliberately):
+  - Pitch close (maintenance_windows enforcement) → Cycle 2.6 pitch
+    CRUD where the validator naturally belongs.
+  - Ref no-show → already supported via Cycle 2.4
+    `venue_assign_ref(..., NULL)` then reassign. No new RPC.
+  - Withdrawn-/expelled-status undo → admin would have to manually
+    flip status back; not v1.
+
+**Smoke tests.** Full 3-team competition with 5 fixtures (1
+completed, 1 forfeit, 1 unrelated scheduled, 2 cascade-targets —
+scheduled + postponed). Withdraw Beta:
+  - Beta scheduled vs Gamma → walkover to Gamma ✓
+  - Beta postponed vs Alpha → walkover to Alpha ✓
+  - Past completed A 4-1 B → untouched ✓
+  - Past forfeit C 3-0 B → untouched ✓
+  - A vs C (Beta not involved) → untouched ✓
+  - `cascaded_fixture_count: 2`, `walkover_count: 2`, `void_count: 0`
+  - Re-withdraw → `noop: true`
+Standings via the rewritten RPC against the same data:
+  - Alpha: 2W 1D 0L, GD +6, 7 pts
+  - Gamma: 1W 1D 0L, GD +3, 4 pts (incl. forfeit win)
+  - Beta:  0W 0D 3L, GD -9, 0 pts (forfeit loss + walkover loss + completed loss)
+
+**Phase 2 status entering Cycle 2.6:** Foundations + onboarding +
+reads + engines + season setup + fixture mgmt + team registration
++ mid-season failures all live. Remaining: 2.6 (refs+pitches CRUD),
+2.7 (frontend + email dispatcher + demo venue), 2.8 (wizard UI).
+
+---
 
 ## SESSION 48 — Cycle 2.5a — team registration (May 26 2026)
 
