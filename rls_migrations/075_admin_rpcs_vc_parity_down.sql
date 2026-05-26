@@ -1,0 +1,38 @@
+-- 075_admin_rpcs_vc_parity_down.sql
+--
+-- Revert the migration-075 sweep. Each admin_* RPC (except
+-- admin_set_vice_captain) is rebuilt from its prior migration
+-- source. Because the sweep was an in-place CREATE OR REPLACE of
+-- every admin function, the cleanest revert is to re-run each
+-- function's original-source migration file in chronological order.
+--
+-- Original sources (apply in this order to revert fully):
+--   010_rpcs_token_reads.sql           — read-side admin RPCs
+--   011_rpcs_token_writes.sql          — bulk of admin write RPCs
+--   012_rpcs_admin_players.sql         — player-shape admin RPCs
+--   013_rpcs_admin_payments.sql        — payment RPCs (clear, waive, etc.)
+--   plus any later migrations that touched specific RPCs:
+--     021_admin_set_player_status_audit.sql
+--     026_admin_priority_v2.sql
+--     036_admin_save_match_result_team_switches.sql
+--     038_admin_upsert_schedule_oneoff.sql
+--     042_admin_close_potm_voting_admin_decided.sql
+--     050_admin_upsert_schedule_game_is_live.sql
+--     058_player_get_teams_admin_flag.sql (not admin RPC; ignore)
+--     060_audit_player_self_writes.sql (not admin RPC; ignore)
+--     ...etc — check rls_migrations/ history for any admin_* RPC.
+--
+-- Reverting any single RPC: re-apply its most recent pre-075 source.
+-- Reverting the helper: see 074_resolve_admin_caller_down.sql.
+--
+-- Because no signatures changed, reverting is non-destructive — the
+-- live wrappers in supabase.js will keep working against whichever
+-- version is in place.
+
+-- Placeholder: this file is intentionally a comment-only stub. A
+-- mechanical full revert would re-paste each RPC's prior body, which
+-- duplicates ~2,000 lines of SQL already living in earlier migration
+-- files. Use git history to identify the most recent prior source
+-- for any RPC you need to roll back.
+
+SELECT 'See comment block above for revert procedure' AS notice;

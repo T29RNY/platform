@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 25 2026 (session 44 — admin-badge held work shipped)*
+*Last updated: May 26 2026 (session 45 — VC = admin parity sweep)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,39 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED 2026-05-26 (session 45)
+
+### Vice Captains now hold full admin authority across every admin_* RPC
+**Surfaced by:** tarny reporting "i (a VC) cannot mark gbains as VC" on
+PWA after the earlier session-44 UI-only fix. Investigation found the
+admin_set_vice_captain RPC was the only one of 24 admin_* RPCs that
+had been taught to accept a VC's player_token. The other 23 still
+single-resolved `WHERE admin_token = p_admin_token`, rejecting VCs
+silently. Symptom: VCs could see admin actions in AdminView but every
+tap surfaced "Couldn't update vice captain" or equivalent.
+
+**What shipped today (three commits + one sweep):**
+- `0ef3913` — `admin_set_vice_captain` extended with a player_token
+  VC stage-2 path (server-side only, no client changes).
+- `767b499` — App.jsx:1190 changed to `(isAdmin || isViceCaptain) ?
+  route.token : null` so the VC's player_token actually reaches every
+  admin RPC (the cloud-Claude commit `724a1c6` had nulled it for VCs).
+- `074_resolve_admin_caller.sql` — new SECURITY DEFINER helper
+  returning `(team_id, actor_type, actor_ident)` from either token
+  shape.
+- `075_admin_rpcs_vc_parity.sql` — meta-SQL sweep: every admin_* RPC
+  (except admin_set_vice_captain) now resolves the caller via the
+  helper. Audit_events captures the true caller — `team_admin` for
+  the owner, `vice_captain` for VCs. Verified by dry-runs of 9 RPCs
+  + a negative test + an owner regression on team_KPaoX8oJYMQ.
+
+**Hard rule of record (also in DECISIONS.md):**
+A Vice Captain holds the same authority as the team owner.
+Owner-grade = VC-grade across every admin_* RPC. The only difference
+that survives is the audit trail.
 
 ---
 

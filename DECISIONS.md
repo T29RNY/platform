@@ -1,8 +1,43 @@
 # In or Out — Key Decisions Log
-*Last updated: May 25 2026 (session 43 — token-IS-identity + in-PWA email-OTP)*
+*Last updated: May 26 2026 (session 45 — VC = admin parity)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## VICE CAPTAINS HOLD FULL OWNER-GRADE AUTHORITY (session 45)
+
+**The rule:** a Vice Captain (`team_players.is_vice_captain = true`)
+can perform every admin action the team owner can. The only thing
+that distinguishes the owner is who created the team and who holds
+the secret admin_token. Day-to-day permissions are identical.
+
+**How it's enforced:** every admin_* RPC resolves its caller via
+`resolve_admin_caller(p_token text)` (migration 074). The helper
+accepts either the team's admin_token or a VC's player_token and
+returns the team_id plus audit identification fields. The admin
+surface has no per-RPC permission special cases.
+
+**What survives the change:** the audit trail. Owner-driven calls
+are stamped `actor_type='team_admin'` /
+`actor_identifier='admin_token:<md5>'`; VC-driven calls are stamped
+`actor_type='vice_captain'` / `actor_identifier='player_token:<md5>'`.
+
+**What does NOT change:** RPC signatures, return shapes, error codes,
+guest guards, business logic. No client wrapper or React component
+was touched in the sweep — `App.jsx:1190` already routes the VC's
+player_token through after commit `767b499`.
+
+**Why this matters going forward:** when adding any new admin_* RPC,
+use the helper. Do not write a fresh `SELECT id INTO v_team_id FROM
+teams WHERE admin_token = p_admin_token` — that pattern is the bug
+the sweep eliminated and reintroducing it silently breaks VC parity.
+
+**`team_admins` table is a separate concept.** It exists for future
+multi-owner / co-owner semantics and is intentionally not consulted
+by `resolve_admin_caller`. If we later want non-VC co-admins, that's
+its own migration and its own rule entry.
 
 ---
 
