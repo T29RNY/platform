@@ -1879,3 +1879,53 @@ export async function superadminCreateVenue({
   }
   return data;
 }
+
+// ─── League Mode — Phase 2 Cycle 2.2 read RPCs ───────────────────────────────
+
+export async function venueGetState(venueToken) {
+  if (!venueToken) return null;
+  const { data, error } = await supabase.rpc("venue_get_state", {
+    p_venue_token: venueToken,
+  });
+  if (error) {
+    console.error("[venue] get_state failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function leagueGetState(leagueToken) {
+  if (!leagueToken) return null;
+  const { data, error } = await supabase.rpc("league_get_state", {
+    p_league_token: leagueToken,
+  });
+  if (error) {
+    console.error("[league] get_state failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function joinGetLeagueByCode(leagueCode) {
+  if (!leagueCode) return null;
+  const { data, error } = await supabase.rpc("join_get_league_by_code", {
+    p_league_code: leagueCode,
+  });
+  if (error) {
+    console.error("[join] get_league_by_code failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function getLeagueStandingsForPlayer(playerToken) {
+  if (!playerToken) return null;
+  const { data, error } = await supabase.rpc("get_league_standings_for_player", {
+    p_token: playerToken,
+  });
+  if (error) {
+    console.error("[league_standings] get_for_player failed", error);
+    throw error;
+  }
+  return data;
+}
