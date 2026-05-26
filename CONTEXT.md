@@ -1,5 +1,84 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.4 — venue onboarding, read RPCs, fixture engines + season setup, fixture management)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.5a — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration)*
+
+## SESSION 48 — Cycle 2.5a — team registration (May 26 2026)
+
+The self-serve team-join surface (`/join/CODE`) backend shipped:
+three RPCs covering the captain's registration submission and the
+venue admin's approve / reject responses (migrations 097–100). Squad
+collection is intentionally deferred — the team admin uses the
+existing AdminView SquadScreen post-approval (decision recorded
+during audit).
+
+  - **mig 097 — `competition_teams.rejection_reason`** (additive
+    text column). Mirrors the existing `withdrawal_reason`. No
+    CHECK changes.
+  - **mig 098 — `join_register_team(p_league_code, p_competition_id,
+    p_team jsonb)`.** Authenticated caller only (`auth.uid()` not
+    null). Two paths:
+      - new team: validates name, generates team_id +
+        admin_token + join_code, inserts `teams(team_type=
+        'competitive', onboarding_complete=true)`, inserts
+        `team_admins(role='team_admin')` claiming caller as captain.
+      - existing team: caller must already be `team_admin` or
+        `vice_captain` (revoked_at IS NULL). Auto-promotes
+        `casual → competitive` if the team isn't already
+        competitive.
+    Then inserts `competition_teams(status='pending')`. Guards:
+    league_code resolves to active league; competition belongs to
+    that league + status IN setup/active; no existing pending OR
+    active `competition_teams` row for same (competition_id,
+    team_id). Audit (`team_registration_submitted`) + venue +
+    league broadcasts (`team_registration_pending`).
+    **Granted to authenticated only** (not anon — Google OAuth
+    must complete in the wizard before submit).
+  - **mig 099 — `venue_approve_team_registration(p_venue_token,
+    p_competition_team_id)`.** Flips `pending → active`. Idempotent
+    on already-active (returns `noop:true`). Clears
+    `rejection_reason` defensively. Audit + venue + league broadcast
+    `team_approved`.
+  - **mig 100 — `venue_reject_team_registration(p_venue_token,
+    p_competition_team_id, p_reason)`.** Reason required. Strictly
+    `pending` only — won't touch already-active or terminal rows.
+    Sets `rejection_reason` + status='rejected'. Audit + venue +
+    league broadcast `team_rejected`.
+
+**Notification delivery deferred to Cycle 2.7.** All RPCs leave a
+`team_admin` audit row + `team_*` broadcasts. Email/push to the
+team admin is wired in the operator-notifications dispatcher when
+that lands.
+
+**Smoke tests.** End-to-end with spoofed `auth.uid()` via
+`request.jwt.claim.sub` + `SET LOCAL ROLE authenticated`:
+  - Register (new team path) → 1 team competitive + 1 team_admin
+    row + 1 competition_teams pending + 1 audit row.
+  - Register (existing-team path) → casual→competitive promotion
+    visible; dup-register raises `team_already_registered`; non-
+    admin caller raises `not_team_admin`.
+  - Bad league code raises `league_not_found`; missing name raises
+    `team_name_required`.
+  - Approve flips pending→active; idempotent re-approve returns
+    `noop:true`.
+  - Reject with reason flips pending→rejected; empty reason raises
+    `rejection_reason_required`; rejecting already-active raises
+    `only_pending_can_be_rejected`.
+  - Bad venue token raises `invalid_venue_token` for both
+    approve + reject.
+
+**Notable design choice — one user, multiple teams in same competition
+is ALLOWED.** The dup guard only fires on same `team_id` re-register,
+not same caller. A captain who manages two teams (e.g. ACME 1st XI +
+ACME 2nd XI) can legitimately register both into the same league.
+Accidental double-submit by the wizard UI is handled at the UI layer
+(double-fire guard on the submit button) — server is permissive.
+
+**Phase 2 status entering Cycle 2.5b:** Foundations + onboarding +
+reads + engines + season setup + fixture mgmt + team registration
+all live. Remaining: 2.5b (mid-season failures + standings cascade
+incl. forfeit), 2.6 (refs+pitches CRUD), 2.7 (frontend + email
+dispatcher + demo venue), 2.8 (wizard UI). Estimated ~3 more days.
+
+---
 
 ## SESSION 48 — Cycle 2.4 — fixture management (May 26 2026)
 

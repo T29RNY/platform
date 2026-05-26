@@ -1998,3 +1998,43 @@ export async function venueUpdateFixtureStatus(venueToken, fixtureId, newStatus,
   }
   return data;
 }
+
+// ─── League Mode — Phase 2 Cycle 2.5a team registration ──────────────────────
+
+export async function joinRegisterTeam(leagueCode, competitionId, team) {
+  const { data, error } = await supabase.rpc("join_register_team", {
+    p_league_code: leagueCode,
+    p_competition_id: competitionId,
+    p_team: team,
+  });
+  if (error) {
+    console.error("[join] register_team failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueApproveTeamRegistration(venueToken, competitionTeamId) {
+  const { data, error } = await supabase.rpc("venue_approve_team_registration", {
+    p_venue_token: venueToken,
+    p_competition_team_id: competitionTeamId,
+  });
+  if (error) {
+    console.error("[venue] approve_team_registration failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueRejectTeamRegistration(venueToken, competitionTeamId, reason) {
+  const { data, error } = await supabase.rpc("venue_reject_team_registration", {
+    p_venue_token: venueToken,
+    p_competition_team_id: competitionTeamId,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("[venue] reject_team_registration failed", error);
+    throw error;
+  }
+  return data;
+}

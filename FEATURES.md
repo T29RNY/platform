@@ -1,5 +1,31 @@
 # In or Out — Feature Tracker
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.4 — foundations, reads, engines, season setup, fixture management)*
+*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.5a — foundations, reads, engines, season setup, fixture management, team registration)*
+
+---
+
+## LEAGUE MODE — PHASE 2 CYCLE 2.5a SHIPPED (session 48, 2026-05-26)
+
+Self-serve team registration backend for `/join/CODE` — three RPCs +
+one schema add (migrations 097–100).
+
+- **mig 097** — `competition_teams.rejection_reason text` (additive).
+- **mig 098 — `join_register_team`** — authenticated-only public RPC.
+  Creates a competitive team OR promotes an existing casual one,
+  claims caller as `team_admin`, inserts `competition_teams(status=
+  'pending')`. Guards duplicate registration on same team_id.
+- **mig 099 — `venue_approve_team_registration`** — pending→active,
+  idempotent on already-active.
+- **mig 100 — `venue_reject_team_registration`** — pending→rejected
+  with required reason captured in `rejection_reason`.
+
+Squad collection deferred: the team admin uses the existing
+AdminView SquadScreen post-approval. Notification delivery to team
+admin (push/email) deferred to Cycle 2.7 — RPCs emit audit + broadcast
+hooks so the dispatcher can subscribe.
+
+**Phase 2 remaining (post Cycle 2.5a):** Cycles 2.5b (mid-season
+failures + standings cascade incl. forfeit), 2.6 (refs+pitches CRUD),
+2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~3 days.
 
 ---
 
@@ -90,10 +116,9 @@ but pending the `apps/superadmin` env-var fix in BUGS.md.
 - Squad mode per-league, locked at first fixture.
 - Bulk-RPCs audit one row, not N.
 
-**Phase 2 remaining (post Cycle 2.4):** Cycles 2.5a (team
-registration), 2.5b (mid-season failures + standings cascade), 2.6
-(refs+pitches CRUD), 2.7 (frontend + email + demo venue), 2.8
-(wizard UI). ~3–4 days.
+**Phase 2 remaining (post Cycle 2.5a):** Cycles 2.5b (mid-season
+failures + standings cascade incl. forfeit), 2.6 (refs+pitches CRUD),
+2.7 (frontend + email + demo venue), 2.8 (wizard UI). ~3 days.
 
 ---
 
