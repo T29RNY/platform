@@ -1,10 +1,12 @@
 #!/bin/bash
-# PreToolUse hook for Bash. If the command being run is `git commit`,
-# run skills/scripts/check-build.sh and block on failure.
+# PreToolUse hook for Bash. If the command being run is `git commit`:
+#   1. Block if any staged rls_migrations/NNN_*.sql lacks a matching
+#      _down.sql (catches the mig 079 hotfix-without-source incident).
+#   2. Block if the build fails.
 #
 # Exit codes:
-#   0 — not a commit, OR build passed
-#   2 — build failed; commit is blocked
+#   0 — not a commit, OR all gates passed
+#   2 — a gate failed; commit is blocked
 
 ROOT="/Users/tarny/platform"
 
@@ -25,7 +27,42 @@ if ! echo "$CMD" | grep -Eq '[[:space:]]commit([[:space:]]|$)'; then
   exit 0
 fi
 
-OUTPUT=$(cd "$ROOT" && bash skills/scripts/check-build.sh 2>&1)
+cd "$ROOT" || exit 0
+
+# ── Gate 1: every staged forward migration must have a matching _down.sql ──
+#
+# Catches the "hotfix applied to live DB but down-file never written" class
+# of failures. The forward .sql alone is not enough — without a paired
+# _down.sql we cannot revert, and the discipline gap usually means the
+# author also skipped writing the forward source file at apply time.
+STAGED_MIGS=$(git diff --cached --name-only --diff-filter=A 2>/dev/null \
+  | grep -E '^rls_migrations/[0-9]+_[^/]+\.sql$' \
+  | grep -v '_down\.sql$')
+
+MISSING_DOWN=""
+for MIG in $STAGED_MIGS; do
+  DOWN="${MIG%.sql}_down.sql"
+  # Down file must exist either staged in this commit or already in the
+  # repo (a stub from a prior commit is fine).
+  if ! git ls-files --error-unmatch "$DOWN" >/dev/null 2>&1 \
+    && ! git diff --cached --name-only --diff-filter=A 2>/dev/null | grep -qx "$DOWN"; then
+    MISSING_DOWN="$MISSING_DOWN  $DOWN\n"
+  fi
+done
+
+if [ -n "$MISSING_DOWN" ]; then
+  echo "Migration gate failed — commit blocked." >&2
+  echo "" >&2
+  echo "Each new rls_migrations/NNN_*.sql must ship with its _down.sql in the same commit." >&2
+  echo "Missing down-migration file(s):" >&2
+  printf "%b" "$MISSING_DOWN" >&2
+  echo "" >&2
+  echo "Write the down-migration that reverts the change, stage it, and recommit." >&2
+  exit 2
+fi
+
+# ── Gate 2: build must pass ──
+OUTPUT=$(bash skills/scripts/check-build.sh 2>&1)
 EXIT=$?
 
 if [ $EXIT -eq 0 ]; then
