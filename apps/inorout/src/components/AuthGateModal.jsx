@@ -11,22 +11,33 @@ import { X } from "@phosphor-icons/react";
 // must surface `{{ .Token }}` (the 6-digit code) prominently. Default
 // template only shows the link.
 export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
-  const [email, setEmail]     = useState("");
-  const [stage, setStage]     = useState("email"); // "email" | "code"
-  const [code, setCode]       = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState(null);
+  const [email, setEmail]       = useState("");
+  const [stage, setStage]       = useState("email"); // "email" | "code"
+  const [code, setCode]         = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);     // string | { msg, needsResend }
+  const [sentAt, setSentAt]     = useState(null);     // ms epoch of last successful /otp
+  const [cooldown, setCooldown] = useState(0);        // seconds remaining on resend lockout
   const codeInputRef = useRef(null);
 
   useEffect(() => {
     if (!open) {
       setEmail(""); setStage("email"); setCode(""); setLoading(false); setError(null);
+      setSentAt(null); setCooldown(0);
     }
   }, [open]);
 
   useEffect(() => {
     if (stage === "code" && codeInputRef.current) codeInputRef.current.focus();
   }, [stage]);
+
+  // Resend cooldown ticker — 20s lockout after each /otp keeps users from
+  // re-tapping before the new email arrives (the original failure mode).
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
 
   if (!open) return null;
 
@@ -40,9 +51,15 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
         options: { shouldCreateUser: true },
       });
       if (error) throw error;
+      setSentAt(Date.now());
+      setCooldown(20);
+      setCode(""); // wipe any stale code so the user can't submit the old one
       setStage("code");
     } catch (err) {
-      setError(err.message || "Couldn't send code. Try again.");
+      const isRateLimit = err.status === 429 || /rate|too many/i.test(err.message || "");
+      setError(isRateLimit
+        ? "Too many requests — wait a minute, then try again."
+        : (err.message || "Couldn't send code. Try again."));
     } finally {
       setLoading(false);
     }
@@ -61,7 +78,10 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
       if (error) throw error;
       onAuthed?.();
     } catch (err) {
-      setError(err.message || "That code didn't work. Try again.");
+      // Almost every verify failure means the code is expired, already used, or
+      // mistyped — the recovery path is identical: send a fresh one. Surface a
+      // structured error so the UI can point the user at the Resend button.
+      setError({ msg: err.message || "That code didn't work.", needsResend: true });
       setLoading(false);
     }
   };
@@ -130,7 +150,7 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
                 padding: "8px 12px", borderRadius: 6,
                 background: C.red + "18", color: C.red,
                 fontSize: 12, marginBottom: 10,
-              }}>{error}</div>
+              }}>{typeof error === "string" ? error : error.msg}</div>
             )}
             <button
               onClick={sendCode}
@@ -150,9 +170,11 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
 
         {stage === "code" && (
           <>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, lineHeight: 1.5 }}>
               We sent a code to <strong style={{ color: C.text }}>{email}</strong>.
-              Check your inbox — might take a few seconds.
+              {sentAt && (
+                <> Sent at {new Date(sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · expires within an hour.</>
+              )}
             </div>
             <input
               ref={codeInputRef}
@@ -177,8 +199,15 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
               <div style={{
                 padding: "8px 12px", borderRadius: 6,
                 background: C.red + "18", color: C.red,
-                fontSize: 12, marginBottom: 10,
-              }}>{error}</div>
+                fontSize: 12, marginBottom: 10, lineHeight: 1.5,
+              }}>
+                {typeof error === "string" ? error : error.msg}
+                {typeof error === "object" && error.needsResend && (
+                  <div style={{ marginTop: 4 }}>
+                    → Tap <strong>Resend code</strong> below to get a fresh one.
+                  </div>
+                )}
+              </div>
             )}
             <button
               onClick={verifyCode}
@@ -195,7 +224,21 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
               {loading ? "Verifying..." : "Verify"}
             </button>
             <button
-              onClick={() => { setStage("email"); setCode(""); setError(null); }}
+              onClick={sendCode}
+              disabled={loading || cooldown > 0}
+              style={{
+                width: "100%", padding: "10px 0", borderRadius: 8,
+                border: `1px solid ${C.border}`, background: "transparent",
+                color: (loading || cooldown > 0) ? C.muted : C.text,
+                fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 500,
+                cursor: (loading || cooldown > 0) ? "not-allowed" : "pointer",
+                marginBottom: 8,
+              }}
+            >
+              {cooldown > 0 ? `Resend in ${cooldown}s` : (loading ? "Sending..." : "Resend code")}
+            </button>
+            <button
+              onClick={() => { setStage("email"); setCode(""); setError(null); setSentAt(null); setCooldown(0); }}
               style={{
                 width: "100%", padding: "10px 0", background: "transparent",
                 border: "none", color: C.muted, fontSize: 12, cursor: "pointer",
