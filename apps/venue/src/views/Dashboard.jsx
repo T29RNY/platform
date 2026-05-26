@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import FixtureCard from "./FixtureCard.jsx";
 import Sidebar from "./Sidebar.jsx";
 import RegistrationActions from "./RegistrationActions.jsx";
+import SeasonWizard from "./SeasonWizard.jsx";
 
 export default function Dashboard({ state, venueToken, onRefresh, refreshing }) {
+  const [wizardOpen, setWizardOpen] = useState(false);
   const venue = state.venue ?? {};
   const leagues = state.leagues ?? [];
   const fixtures = state.fixtures ?? {};
@@ -28,11 +30,21 @@ export default function Dashboard({ state, venueToken, onRefresh, refreshing }) 
           </span>
         </div>
         <div className="user">
+          <button className="btn-accent" onClick={() => setWizardOpen(true)}>Set up new season</button>
           <button onClick={onRefresh} disabled={refreshing}>
             {refreshing ? "Refreshing…" : "Refresh"}
           </button>
         </div>
       </header>
+
+      {wizardOpen && (
+        <SeasonWizard
+          state={state}
+          venueToken={venueToken}
+          onClose={() => setWizardOpen(false)}
+          onDone={onRefresh}
+        />
+      )}
 
       <main className="content dash-grid">
         <section className="panel panel-tonight">

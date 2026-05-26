@@ -2106,6 +2106,17 @@ export async function venueAddRef(venueToken, ref) {
   return data;
 }
 
+export async function venueListActiveTeams(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_active_teams", {
+    p_venue_token: venueToken,
+  });
+  if (error) {
+    console.error("[venue] list_active_teams failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function venueUpdateRef(venueToken, refId, updates) {
   const { data, error } = await supabase.rpc("venue_update_ref", {
     p_venue_token: venueToken,

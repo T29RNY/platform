@@ -404,3 +404,61 @@ input[type="text"] {
   border: 1px solid rgba(255, 96, 96, 0.25);
   border-radius: 6px;
 }
+
+/* ── Season wizard ── */
+.modal-wide { max-width: 880px; }
+.wiz-foot { display: flex; gap: 8px; justify-content: flex-end; width: 100%; }
+.wiz-steps {
+  display: flex; gap: 4px; margin: -8px 0 20px 0;
+}
+.wiz-step {
+  flex: 1;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.wiz-step.active { border-color: var(--accent); color: var(--text); }
+.wiz-step.done { border-color: rgba(96, 208, 96, 0.4); color: var(--good); }
+.wiz-step-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-family: "Bebas Neue", system-ui, sans-serif;
+  font-size: 14px;
+}
+.wiz-step.active .wiz-step-n { background: var(--accent); color: #0c0e12; border-color: var(--accent); }
+.wiz-step.done .wiz-step-n { background: var(--good); color: #0c0e12; border-color: var(--good); }
+
+.preview-table {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.preview-row {
+  display: grid;
+  grid-template-columns: 40px 90px 50px 1fr 24px 1fr 100px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.confirm-list { list-style: none; padding: 0; margin: 0 0 14px 0; }
+.confirm-list li { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.confirm-list li:last-child { border-bottom: none; }
+.warn-block {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(240, 176, 64, 0.08);
+  border: 1px solid rgba(240, 176, 64, 0.35);
+  border-radius: 6px;
+  color: var(--warn);
+  font-size: 13px;
+}

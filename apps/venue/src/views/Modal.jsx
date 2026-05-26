@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 
-export default function Modal({ open, onClose, title, children, footer }) {
+export default function Modal({ open, onClose, title, children, footer, wide }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -11,7 +11,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
   if (!open) return null;
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={"modal" + (wide ? " modal-wide" : "")} onClick={(e) => e.stopPropagation()}>
         <header className="modal-head">
           <h2>{title}</h2>
           <button className="modal-x" onClick={onClose} aria-label="Close">×</button>

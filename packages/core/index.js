@@ -66,6 +66,7 @@ export {
   venueUpdatePitch,
   venueAddRef,
   venueUpdateRef,
+  venueListActiveTeams,
   getLeagueConfig,
   getCompanyByDomain,
 } from "./storage/supabase.js";
