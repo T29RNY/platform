@@ -395,7 +395,7 @@ rows; players read their own `audience='player'` rows. Migration 033.
 
 ---
 
-## PHASE 0 + PHASE 1: VENUE / LEAGUE / HQ TABLES (migrations 050–057)
+## PHASE 0 + PHASE 1: LEAGUE MODE TABLES (migrations 050–057)
 
 20 new tables landed in Phase 1 (migration 055). All RLS-enabled with NO
 public policies — reads and writes happen via SECURITY DEFINER RPCs that

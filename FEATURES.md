@@ -3,9 +3,9 @@
 
 ---
 
-## VENUE / LEAGUE / HQ PROGRAMME — PHASES 0 + 1 SHIPPED (session 40, 2026-05-25)
+## LEAGUE MODE — PHASES 0 + 1 SHIPPED (session 40, 2026-05-25)
 
-Two phases of `venue_league_hq_SCOPE.md` landed end-to-end:
+Two phases of `LEAGUE_MODE_SCOPE.md` landed end-to-end:
 
 **Phase 0 — Foundation (migrations 050–054):**
 - `league_config` table + `useLeagueConfig` hook + multi-sport posture
@@ -171,9 +171,9 @@ the real £5). Commits `a8dd46d` + `ab6484f`.
 
 ---
 
-## PHASE 4 — LEAGUE MODE (parked)
+## PHASE 4 — LEAGUE MODE (superseded — now active)
 
-See full spec in `CONTEXT.md` (League Mode section) and `DECISIONS.md`.
+Previously parked as a future sales pitch ("run your league free for one season"). Superseded by the active **League Mode** programme — Phases 0 + 1 already shipped (see top of file). Phase 2 onwards in `LEAGUE_MODE_SCOPE.md`.
 
 ---
 

@@ -4,7 +4,7 @@
 
 This file is the operating spec for Ask the Gaffer. It consolidates the
 positioning from `DECISIONS.md` and the architecture from
-`venue_league_hq_SCOPE.md` Phase 7 into one source of truth. Read this
+`LEAGUE_MODE_SCOPE.md` Phase 7 into one source of truth. Read this
 file in full before any Gaffer work.
 
 ---
@@ -419,7 +419,7 @@ No urgency at current scale.
 ## REFERENCES
 
 - `DECISIONS.md` — original positioning decision (kept verbatim).
-- `venue_league_hq_SCOPE.md` Phase 7 — full Venue/HQ AI layer spec.
+- `LEAGUE_MODE_SCOPE.md` Phase 7 — full League Mode AI layer spec.
 - `FEATURES.md` — phase tracker (Gaffer rows).
 - `packages/core/engine/groupBalancer.js` — `generateBalancedTeams`
   function reused by Phase 2 fair-team suggestions.

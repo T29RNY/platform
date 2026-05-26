@@ -524,7 +524,7 @@ football flows. The chosen posture:
   details. Zero refactor cost to existing football flows.
 
 Full rationale: `/Users/tarny/.claude/plans/did-the-venue-league-velvety-token.md`
-(section "Multi-sport posture") and `venue_league_hq_SCOPE.md`.
+(section "Multi-sport posture") and `LEAGUE_MODE_SCOPE.md`.
 
 ## AUTH & IDENTITY
 
@@ -881,15 +881,20 @@ if this ever surfaces again.
 
 ---
 
-## PHASE 4 — LEAGUE MODE (parked)
+## PHASE 4 — LEAGUE MODE (superseded — now active programme)
 
-Full spec in `CONTEXT.md`. Do not build pre-launch. Sales pitch: "I have N of your players
-already using the team app — want to run your league free for one season?"
+The parked vision is no longer parked. Migrations 050–057 (session 40) shipped
+the full schema spine — `venues`, `leagues`, `fixtures`, `match_officials` (was
+`referees`) and 17 sibling tables all exist. Full active spec in
+`LEAGUE_MODE_SCOPE.md`; Phase 2 (customer-visible surfaces) is the next cycle.
 
-Schema decisions to keep in mind (don't implement yet, just don't paint into corners):
+**Open schema questions inherited from the original Phase 4 vision (still latent):**
 - `player_match.team_assignment`: may need to reference team_id not just 'A'/'B'
-- `matches.motm`: may need to allow array (one POTM per side)
-- Future tables: venues, leagues, fixtures, referees
+  once cross-team competitive fixtures land.
+- `matches.motm`: may need to allow array (one POTM per side) for inter-team
+  fixtures.
+
+Decide both when Phase 2 RPC design touches `fixtures` ↔ `matches` ↔ `player_match`.
 
 ---
 
