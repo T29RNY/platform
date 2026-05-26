@@ -1,9 +1,10 @@
--- 114_admin_delete_player_accept_vc_token_down.sql
+-- 115_admin_delete_player_ignore_cancelled_ledger_down.sql
+-- (Originally numbered 113; renumbered after a session-48 collision.)
 --
--- Reverts mig 114. Restores the post-mig-113 body (admin_token-only
--- caller, no VC path). After this runs, Vice Captains will once again
--- fail with invalid_admin_token when removing players via the
--- AdminView orphan banner or Squad screen.
+-- Reverts mig 115 — restores the pre-115 admin_delete_player body
+-- (from mig 012). The guard once again treats ANY payment_ledger
+-- row as blocking history, and the delete block no longer cleans
+-- cancelled rows.
 
 CREATE OR REPLACE FUNCTION admin_delete_player(
   p_admin_token text,
@@ -35,11 +36,7 @@ BEGIN
   IF (
     COALESCE((SELECT attended FROM players WHERE id = p_player_id), 0) > 0
     OR EXISTS (SELECT 1 FROM player_match WHERE player_id = p_player_id)
-    OR EXISTS (
-      SELECT 1 FROM payment_ledger
-      WHERE player_id = p_player_id
-        AND status <> 'cancelled'
-    )
+    OR EXISTS (SELECT 1 FROM payment_ledger WHERE player_id = p_player_id)
     OR EXISTS (
       SELECT 1 FROM potm_votes
       WHERE voter_id = p_player_id OR nominee_id = p_player_id
@@ -71,10 +68,6 @@ BEGIN
   WHERE  player_id = p_player_id;
 
   DELETE FROM player_career WHERE player_id = p_player_id;
-
-  DELETE FROM payment_ledger
-  WHERE  player_id = p_player_id
-    AND  status    = 'cancelled';
 
   DELETE FROM players WHERE id = p_player_id;
 

@@ -1,5 +1,65 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.7d — venue onboarding, read RPCs, fixture engines + season setup, fixture management, team registration, mid-season failures + standings cascade, refs+pitches CRUD, demo venue seed, venue dashboard read-only, venue dashboard write surfaces)*
+*Last updated: May 26 2026 (session 49 — admin_delete_player VC-token + cancelled-ledger hotfixes, migs 115/116 + AdminView orphan-banner error toast)*
+
+## SESSION 49 — admin_delete_player hotfixes (May 26 2026)
+
+Two stacked production bugs blocking Vice Captains from removing
+players via the AdminView. Both surfaced in a Footy Tuesdays admin
+session (Tarny, VC) trying to remove a guest (Pav) from the
+host-dropped-out banner and a regular player (Ranza) from
+SquadScreen — both clicks silently failed.
+
+**Root causes (in order of dependency):**
+1. **`admin_delete_player` rejected VC tokens** — per commit 767b499
+   the AdminView receives the VC's 21-char player token as
+   `adminToken`. The RPC's first guard does `SELECT id FROM teams
+   WHERE admin_token = p_admin_token` and a VC's player token never
+   matches a 28-char team admin_token. Postgres logs caught 4×
+   `invalid_admin_token` errors over 30 min.
+2. **`removeGuest` in AdminView/index.jsx silently swallowed errors**
+   — bare `catch(e) { console.error(e); }` left the orphan banner
+   on screen with no visible feedback. The user couldn't tell the
+   click had even registered.
+3. **`admin_delete_player`'s has_history guard treated cancelled
+   ledger rows as blocking history** — separate latent bug. Mig 082's
+   `admin_cancel_match` inserts `status='cancelled', amount=0.00`
+   ledger rows for every player every time a match is cancelled.
+   After the first cancellation, every player on that squad became
+   permanently undeletable. Surfaced while diagnosing bug #1.
+
+**Fixes (in commit order):**
+
+- **mig 115** (originally numbered 113 — renumbered after a parallel
+  session-48 commit `ed8661e` claimed mig 113 for `venue_get_state`)
+  — tightens `admin_delete_player`'s has_history guard to ignore
+  `status='cancelled'` ledger rows AND cascade-cleans them in the
+  delete block so no orphan ledger rows are left.
+- **mig 116** (originally 114, renumbered for consistency) —
+  `admin_delete_player` now resolves `p_admin_token` against
+  `teams.admin_token` FIRST, then falls back to `players.token` where
+  the caller is a VC on the same team as the target. Audit row
+  captures `actor_type='vice_captain'` with `actor_identifier='vc_token:<md5>'`.
+  Mig 116 supersedes mig 115's body in the live DB.
+- **`apps/inorout/src/views/AdminView/index.jsx`** — `removeGuest`
+  now sets a per-guest `orphanErrors[id]` state on catch, mapping
+  RPC error codes to friendly text (`has_history`, `invalid_admin_token`,
+  `not_found`, generic fallback). Banner renders the error in red
+  beneath the action buttons.
+
+**Class-of-bug follow-up (open):** any other `admin_*` RPC that does
+`SELECT id FROM teams WHERE admin_token = p_admin_token` without a
+VC fallback will fail the same way. Mechanical sweep needed before
+the next release — copy the dual-lookup pattern from mig 116. Likely
+candidates: `admin_add_player`, `admin_update_player_name`,
+`admin_save_teams`, `admin_cancel_match`, `admin_set_player_status`,
+`admin_record_payment`. Tracked in BUGS.md and GO_LIVE_ISSUES.md 5.6.
+
+**Commits:** `af7dcf0` (mig 115 SQL+files, originally as 113),
+`d5c4763` (mig 116 SQL+files + client fix, originally as 114),
+`ed8661e` (parallel session-48 venue dashboard write surfaces —
+caused the mig-113 collision).
+
+---
 
 ## SESSION 48 — Cycle 2.7d — venue dashboard write surfaces (May 26 2026)
 

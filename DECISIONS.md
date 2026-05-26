@@ -1,8 +1,57 @@
 # In or Out — Key Decisions Log
-*Last updated: May 26 2026 (session 48 — League Mode operator-led onboarding + schema-sync CHECK sweep mandate + bulk-RPC audit rule + Phase 8 self-serve deferred to year 2)*
+*Last updated: May 26 2026 (session 49 — admin_* RPCs must accept VC tokens via dual lookup)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## admin_* RPCs MUST accept VC player tokens via dual lookup (session 49)
+
+**The rule:** every SECURITY DEFINER RPC that authorises a caller
+against `teams.admin_token` must ALSO accept a Vice Captain's player
+token as a valid caller token. Resolution order is fixed:
+
+  1. `SELECT id FROM teams WHERE admin_token = p_admin_token`. If a
+     row is returned, actor_type = `'team_admin'`, ident =
+     `'admin_token:' || md5(p_admin_token)`.
+  2. Else, `SELECT tp.team_id FROM players p JOIN team_players tp
+     ON tp.player_id = p.id WHERE p.token = p_admin_token AND
+     tp.is_vice_captain = true` — scoped to the target entity's
+     team where applicable. If a row is returned, actor_type =
+     `'vice_captain'`, ident = `'vc_token:' || md5(p_admin_token)`.
+  3. Else, raise `invalid_admin_token`.
+
+Audit inserts MUST record the resolved actor_type so post-incident
+forensics can distinguish admin actions from VC actions. Mig 116
+(`admin_delete_player`) is the reference implementation.
+
+**Why:** since commit 767b499 ("pass route.token to AdminView for
+VCs too"), Vice Captains opening AdminView via /p/<vc_token> have
+their player token passed as `adminToken` to every admin RPC call
+site. Mig 073's partial VC fallback only handled the `p_admin_token
+IS NULL` case — useless because the client DOES pass a token, just
+the wrong kind. Result: any admin_* RPC without a VC fallback
+silently fails for every VC, every time. The team_admin path
+continues to work, masking the issue from team-owner test accounts.
+Session 49 caught this on `admin_delete_player`; mechanical sweep
+of the remaining admin_* RPCs is outstanding.
+
+**Applies to:** every existing and future `admin_*` RPC that takes
+a `p_admin_token text` parameter. Specifically known to need
+auditing: `admin_add_player`, `admin_update_player_name`,
+`admin_save_teams`, `admin_cancel_match`, `admin_set_player_status`,
+`admin_record_payment`, and any other write surface exposed to the
+AdminView. Read RPCs that already accept a player token (e.g.
+`get_team_state_by_player_token` post-mig 070) are out of scope —
+they have a separate token-resolution pattern.
+
+**How to apply:** when adding a new admin_* RPC, copy the dual-
+lookup block from mig 116 verbatim. When auditing existing
+admin_* RPCs, treat anything that raises `invalid_admin_token`
+without going through the dual lookup as a bug — fix it in the
+same commit. The `skills/rpc-security-sweep.md` gate should be
+extended to flag admin_* RPCs missing the VC path.
 
 ---
 

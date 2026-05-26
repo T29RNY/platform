@@ -308,6 +308,35 @@ already-confirmed, so auto-Smart bails. Commit `a14590b`.
 back to Teams. Button must still read "✓ CONFIRMED" / equivalent
 locked state.
 
+### 5.6 admin_delete_player rejects Vice Captains (silent failure)
+**Symptom:** a VC opens AdminView via their /p/<token> route, taps
+"Remove" on a player (orphan-guest banner or SquadScreen) — nothing
+visible happens. Banner stays on screen. No toast. Postgres logs
+show `invalid_admin_token` errors against `/rpc/admin_delete_player`.
+**Root cause (two layers):** (1) per commit `767b499` the AdminView
+receives the VC's 21-char player token as `adminToken`, but
+`admin_delete_player`'s first guard looks up `teams.admin_token`
+(28 chars) — never matches; (2) `removeGuest` in AdminView/index.jsx
+swallowed errors with a bare `console.error`, so no UI feedback.
+**Fix:** migration 116 — `admin_delete_player` now resolves the
+token as `teams.admin_token` first, then falls back to
+`players.token WHERE is_vice_captain = true` on the same team as
+the target; audit row records `actor_type='vice_captain'`.
+AdminView/index.jsx surfaces a red error message under the banner
+on RPC failure. Migration 115 (cancelled-ledger guard) shipped in
+the same window as a secondary latent fix. Commits `af7dcf0`,
+`d5c4763`.
+**Pre-flight check:** sign in as a VC on a real team (NOT demo —
+demo's lack of team_admins row breaks the VC path). Open AdminView
+via the /p/<vc_token> route. Add then remove a temporary guest from
+the Squad screen. Removal must commit to the DB (refresh confirms
+guest is gone) AND no error message appears in the banner. Second
+check: cancel a match for that team first, then try removing any
+squad member — the cancelled ledger row must NOT block deletion.
+**Class follow-up:** any other `admin_*` RPC with the same
+admin_token-only lookup pattern will fail for VCs identically.
+Sweep before next release (see BUGS.md session-49 follow-up).
+
 ---
 
 ## 6. PUSH NOTIFICATIONS

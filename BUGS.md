@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 49 — admin_delete_player VC-token + cancelled-ledger hotfixes, migs 113/114 + AdminView orphan-banner error toast)*
+*Last updated: May 26 2026 (session 49 — admin_delete_player VC-token + cancelled-ledger hotfixes, migs 115/116 + AdminView orphan-banner error toast)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -10,7 +10,7 @@
 
 ---
 
-## RESOLVED — admin_delete_player rejects Vice Captains (session 49, mig 114 + AdminView/index.jsx)
+## RESOLVED — admin_delete_player rejects Vice Captains (session 49, mig 116 + AdminView/index.jsx)
 
 **Symptom:** Tarny (VC on Footy Tuesdays) tapped "Remove Pav" on the
 host-dropped-out orphan banner. Nothing happened — the banner stayed
@@ -37,7 +37,7 @@ SquadScreen showed "Couldn't remove player" but did not detail why.
    (which here was absent), the orphan banner just sat there. No toast,
    no banner colour change, nothing.
 
-**Fix (mig 114):** `admin_delete_player` now accepts EITHER a team
+**Fix (mig 116):** `admin_delete_player` now accepts EITHER a team
 admin_token OR a VC's player token. Resolution order:
   1. Try `teams.admin_token = p_admin_token` (original path).
   2. If miss, try `players.token = p_admin_token` where the caller is
@@ -64,11 +64,11 @@ the AdminView via /p/<vc_token>. Worth a sweep before the next
 release. Likely candidates: `admin_add_player`, `admin_update_player_name`,
 `admin_save_teams`, `admin_cancel_match`, `admin_set_player_status`,
 `admin_record_payment`, anything touching matches or settings.
-The fix pattern is mechanical — copy the dual-lookup from mig 114.
+The fix pattern is mechanical — copy the dual-lookup from mig 116.
 
 ---
 
-## RESOLVED — admin_delete_player blocked by cancelled-match ledger rows (session 49, mig 113)
+## RESOLVED — admin_delete_player blocked by cancelled-match ledger rows (session 49, mig 115)
 
 **Symptom:** Admin tried to remove player "Ranza" (p_UG2K3Dwp) from
 Footy Tuesdays squad — UI surfaced "Couldn't remove player". Ranza
@@ -82,7 +82,7 @@ cancelled. As soon as one match is cancelled, every player on that
 squad becomes undeletable for the lifetime of the team — a silent
 ticking bomb behind every cancelled match.
 
-**Fix (mig 113):**
+**Fix (mig 115):**
 1. Guard now ignores `status='cancelled'` rows when computing history.
    Real payments (paid/owed/refunded/etc) still block deletion.
 2. Delete block cascade-cleans cancelled ledger rows before deleting

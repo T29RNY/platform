@@ -1,4 +1,4 @@
--- 114_admin_delete_player_accept_vc_token.sql
+-- 116_admin_delete_player_accept_vc_token.sql (orig. 114, renumbered after a session-48 collision)
 --
 -- Bug: admin_delete_player rejects calls from Vice Captains.
 --
@@ -33,7 +33,7 @@
 --
 -- All other guards (not_found, has_history excluding cancelled, audit
 -- insert, cascade-delete order including cancelled-ledger cleanup
--- from mig 113) are preserved exactly. Signature unchanged. No client
+-- from mig 115) are preserved exactly. Signature unchanged. No client
 -- code change needed for this RPC — VCs were already passing their
 -- token; the RPC just learns to recognise it.
 
@@ -86,7 +86,7 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'not_found';
   END IF;
 
-  -- has_history guard (mig 113: cancelled ledger rows do not count).
+  -- has_history guard (mig 115: cancelled ledger rows do not count).
   IF (
     COALESCE((SELECT attended FROM players WHERE id = p_player_id), 0) > 0
     OR EXISTS (SELECT 1 FROM player_match WHERE player_id = p_player_id)

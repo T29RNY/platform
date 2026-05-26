@@ -1,4 +1,11 @@
--- 113_admin_delete_player_ignore_cancelled_ledger.sql
+-- 115_admin_delete_player_ignore_cancelled_ledger.sql
+--
+-- Numbering note: originally landed as 113_* in commit af7dcf0. A
+-- parallel session-48 commit (ed8661e) was integrated into main
+-- afterwards and ALSO claimed mig 113 for venue_get_state's teams
+-- directory. Renumbered to 115; SQL body unchanged. Mig 116
+-- (admin_delete_player VC-token fallback) supersedes this body in
+-- the live DB — both files preserved for source-history clarity.
 --
 -- Bug: admin_delete_player blocks deletion if a player has ANY
 -- payment_ledger row. Mig 082's admin_cancel_match inserts a
