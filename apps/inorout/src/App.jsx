@@ -116,6 +116,18 @@ function getRoute() {
   return { type:"landing" };
 }
 
+// Player-token RPC (mig 080) returns the caller in state.squad with
+// is_self=true for VCs and team admins; for ordinary players the caller is
+// excluded. The caller record is also returned separately as state.player
+// (sourced from to_jsonb(p.*), so it carries user_id but lacks group_number
+// and is_self). Merge the squad-row's fields onto state.player and drop the
+// duplicate row from the squad. No-op when the caller is excluded server-side.
+function buildPlayerSquad(player, squad) {
+  const selfFromSquad = squad.find(p => p.id === player.id);
+  const me = selfFromSquad ? { ...player, ...selfFromSquad } : player;
+  return [me, ...squad.filter(p => p.id !== player.id)];
+}
+
 // ─── Client-side stats derivation from match history ─────────────────────────
 // Used by admin routes where the RPC doesn't include a stats block.
 function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
@@ -572,14 +584,14 @@ export default function App() {
           const resolvedId = state.teamId || state.player?.team || null;
           if (!resolvedId) { setError("Could not find your team."); setLoading(false); return; }
           setTeamId(resolvedId);             setSelectedTeam(resolvedId);
-          setSquadRaw([player, ...state.squad]);
+          setSquadRaw(buildPlayerSquad(player, state.squad));
           setMatchHistRaw(state.matches);    setBibHistRaw(state.bibHistory);
           setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
           setSettingsRaw(state.settings || DEFAULT_SETTINGS);
           setCoverPoolRaw(state.coverPool);
           setLiveChannelKey(state.liveChannelKey || null);
           {
-            const intel = computeDeeperIntel(player.id, [player, ...state.squad], state.matches);
+            const intel = computeDeeperIntel(player.id, buildPlayerSquad(player, state.squad), state.matches);
             setStatsRaw({ ...(state.stats || {}), ...intel });
           }
           setLoading(false);
@@ -703,8 +715,8 @@ export default function App() {
             if (route?.type === "player" && route?.token) {
               const state = await getTeamStateByPlayerToken(route.token);
               if (state && state.player) {
-                setSquadRaw([state.player, ...state.squad]);
-                const intel = computeDeeperIntel(state.player.id, [state.player, ...state.squad], state.matches || []);
+                setSquadRaw(buildPlayerSquad(state.player, state.squad));
+                const intel = computeDeeperIntel(state.player.id, buildPlayerSquad(state.player, state.squad), state.matches || []);
                 setStatsRaw({ ...(state.stats || {}), ...intel });
               }
             } else if (route?.type === "admin" || route?.type === "demoadmin") {
@@ -787,7 +799,7 @@ export default function App() {
         if (route?.type === "player" && route?.token) {
           const state = await getTeamStateByPlayerToken(route.token);
           if (state && state.player) {
-            setSquadRaw([state.player, ...state.squad]);
+            setSquadRaw(buildPlayerSquad(state.player, state.squad));
             setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
             setMatchHistRaw(state.matches);
             setBibHistRaw(state.bibHistory);
