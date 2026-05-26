@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 48 — League Mode rename + Phase 2 Cycles 2.1–2.3 + 4 latent CHECK-constraint hotfixes from mig 055/003)*
+*Last updated: May 26 2026 (session 49 — admin_delete_player cancelled-ledger hotfix, mig 113)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,38 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — admin_delete_player blocked by cancelled-match ledger rows (session 49, mig 113)
+
+**Symptom:** Admin tried to remove player "Ranza" (p_UG2K3Dwp) from
+Footy Tuesdays squad — UI surfaced "Couldn't remove player". Ranza
+had attended=0, no player_match rows, no POTM votes, no injuries.
+
+**Root cause:** `admin_delete_player`'s `has_history` guard (mig 012)
+treats ANY `payment_ledger` row as blocking financial history. Mig
+082's `admin_cancel_match` inserts a `status='cancelled', amount=0.00`
+ledger row for every player on the squad each time a match is
+cancelled. As soon as one match is cancelled, every player on that
+squad becomes undeletable for the lifetime of the team — a silent
+ticking bomb behind every cancelled match.
+
+**Fix (mig 113):**
+1. Guard now ignores `status='cancelled'` rows when computing history.
+   Real payments (paid/owed/refunded/etc) still block deletion.
+2. Delete block cascade-cleans cancelled ledger rows before deleting
+   the player, so no orphan rows are left pointing at a vanished
+   `player_id` (no FK exists on `payment_ledger.player_id`).
+
+**Verified:** RPC security sweep PASS (SECDEF + search_path + grants
++ single signature); guard predicates dry-checked against Ranza's row
+— all five evaluate `false` post-fix. Build clean.
+
+**Future-proofing:** the pattern of "auto-generated zero-impact
+audit row blocks future deletion" is worth watching in `potm_votes`,
+`player_injuries`, and any new Phase 2 audit-style inserts — same
+trap, different table.
 
 ---
 
