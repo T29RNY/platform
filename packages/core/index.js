@@ -65,6 +65,7 @@ export {
   venueAssignPitch,
   venueAssignRef,
   venueUpdateFixtureStatus,
+  venueUpdateFixtureResult,
   joinRegisterTeam,
   venueApproveTeamRegistration,
   venueRejectTeamRegistration,

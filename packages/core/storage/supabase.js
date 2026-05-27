@@ -2105,6 +2105,26 @@ export async function venueUpdateFixtureStatus(venueToken, fixtureId, newStatus,
   return data;
 }
 
+// ─── League Mode — Phase 3 Cycle 3.6 venue admin result override (mig 127) ──
+// Only path for correcting a ref-confirmed score. Fixture must be in this
+// venue and in status='completed'. Audit-logged with previous + new scores
+// + the operator-supplied reason. Broadcasts to both teams + venue + league.
+
+export async function venueUpdateFixtureResult(venueToken, { fixtureId, homeScore, awayScore, reason }) {
+  const { data, error } = await supabase.rpc("venue_update_fixture_result", {
+    p_venue_token: venueToken,
+    p_fixture_id:  fixtureId,
+    p_home_score:  homeScore,
+    p_away_score:  awayScore,
+    p_reason:      reason,
+  });
+  if (error) {
+    console.error("[venue] update_fixture_result failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.5a team registration ──────────────────────
 
 export async function joinRegisterTeam(leagueCode, competitionId, team) {

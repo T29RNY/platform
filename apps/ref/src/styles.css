@@ -624,3 +624,78 @@ input[type="text"]:focus {
   cursor: pointer;
 }
 .live-offline-retry:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─────────────────────────────────────────────────────────────
+   Post-match — Cycle 3.6
+   Read-only summary: final score, scorers, cards, subs, share.
+   ─────────────────────────────────────────────────────────── */
+
+.post-score {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  padding: 18px 16px;
+  margin: 8px 0 18px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+}
+.post-score-side { display: flex; align-items: center; gap: 14px; }
+.post-score-swatch {
+  width: 14px; height: 14px; border-radius: 4px;
+  border: 1px solid var(--stroke-2);
+  flex: 0 0 auto;
+}
+.post-score-team {
+  font-size: 13px; color: var(--ink-soft);
+  font-family: var(--f-mono); letter-spacing: 0.02em;
+}
+.post-score-num {
+  font-size: 44px; font-weight: 700; letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.post-score-sep {
+  font-size: 28px; color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.post-section {
+  margin: 18px 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+}
+.post-section h3 {
+  margin-bottom: 10px;
+}
+
+.post-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.post-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px;
+}
+.post-row-icon { font-size: 16px; }
+.post-row-name { flex: 1; }
+.post-row-tag {
+  font-size: 10px; font-family: var(--f-mono);
+  padding: 2px 6px; border-radius: 6px;
+  color: var(--warn); border: 1px solid rgba(255, 180, 84, 0.32);
+}
+.post-row-meta {
+  color: var(--ink-mute);
+  font-family: var(--f-mono); font-size: 12px;
+}
+
+.post-share {
+  width: 100%;
+  min-height: var(--tap);
+  margin: 8px 0 14px;
+}
+.post-correction-note {
+  text-align: center;
+  font-size: 13px;
+}

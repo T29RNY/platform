@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { getFixtureStateByRefToken } from "@platform/core/storage/supabase.js";
 import PreMatch from "./views/PreMatch.jsx";
 import LiveMatch from "./views/LiveMatch.jsx";
+import PostMatch from "./views/PostMatch.jsx";
 
 function readTokenFromUrl() {
   if (typeof window === "undefined") return null;
@@ -75,9 +76,12 @@ export default function App() {
 
   if (!state) return null;
 
-  // Match in progress → live screen. Anything else (scheduled / allocated
-  // / completed / void / postponed / walkover / forfeit) → pre-match,
-  // which handles terminal banners itself.
+  // Route on fixture status:
+  //   in_progress → LiveMatch (running clock + event capture)
+  //   completed   → PostMatch (read-only summary + share)
+  //   anything else (scheduled / allocated / void / postponed /
+  //                  walkover / forfeit) → PreMatch (which handles
+  //                  the non-completed terminal banners itself)
   const status = state.fixture?.status;
   if (status === "in_progress") {
     return (
@@ -87,6 +91,10 @@ export default function App() {
         onRefresh={() => load(token)}
       />
     );
+  }
+
+  if (status === "completed") {
+    return <PostMatch state={state} />;
   }
 
   return (
