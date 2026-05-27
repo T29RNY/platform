@@ -388,7 +388,75 @@ confirm the team's `schedule.game_is_live` flips to true and a push
 notification arrives on a real iPhone with the PWA installed. If
 either fails, escalate — the cron is broken again.
 
-### 6.3 `notify_team_change` unknown-reason warnings
+### 6.3 Service worker never registered — every push silently dead
+**Symptom:** zero `push_subscriptions` rows globally despite players
+being on the PWA with iOS notifications enabled. Tapping the in-app
+"Enable" button does nothing — no error, no API call, no state change.
+**Root cause:** `apps/inorout/index.html` contained a body-tag script
+that called `serviceWorker.getRegistrations().then(r => r.unregister())`
+on every page load (commit `4515460`, May 10 — intended as a one-time
+cleanup for an old buggy SW that caused iOS blank screens). The
+matching `register('/sw.js')` was never added. For 17 days every
+visitor's SW was actively destroyed and never replaced. `handleSubscribe`
+awaited `navigator.serviceWorker.ready` which hangs forever when no
+SW is registered → silent stall.
+**Fix:** deleted the destructive block. Added
+`navigator.serviceWorker.register('/sw.js')` on `window.load` in
+`apps/inorout/src/main.jsx`. Safe because the current sw.js has no
+fetch handler — cannot recreate the May-10 bug.
+**Pre-flight check:** on a real iPhone with the PWA installed (or in
+desktop Chrome): `navigator.serviceWorker.controller` must be truthy
+after one refresh. Then tap "Enable" inside the app (visible only
+when game is live AND status is set). In Supabase SQL editor confirm
+`SELECT count(*) FROM push_subscriptions WHERE player_id='<that
+player>'` returns 1. If 0, the registration is broken — escalate.
+
+### 6.4 `register_push_subscription` masked three schema drifts
+**Symptom:** Enable tap returned 400 with
+`{code: 'P0001', message: 'internal_error'}`. No subscription row
+written.
+**Root cause:** the RPC body had drifted from the live
+`push_subscriptions` schema: (1) inserted text `'sub_' || ...` into
+a uuid `id` column; (2) inserted into a `player_token` column that
+doesn't exist; (3) used `ON CONFLICT (player_id)` without a UNIQUE
+constraint on that column. All three errors were rewritten to a
+generic `internal_error` by the function's `WHEN OTHERS THEN` catch.
+**Fix (mig 122):** added `UNIQUE (player_id)` to push_subscriptions
+and rewrote the RPC to let `DEFAULT gen_random_uuid()` fill `id` and
+drop the phantom `player_token` insert. Audit insert preserved.
+**Pre-flight check:** with a fresh signed-in player and the SW
+registered (§6.3), tap "Enable". The network tab should show
+`POST /rest/v1/rpc/register_push_subscription` returning 200, and
+`SELECT count(*) FROM push_subscriptions` should increment by 1. If
+it returns 400, an underlying constraint or column is again out of
+sync — the RPC's catch-all hides which, so check
+`pg_get_functiondef(oid)` of the RPC against the actual table
+columns.
+
+### 6.5 `notification_log` schema drift caused duplicate-push storm
+**Symptom:** push notifications arrived correctly but **every 15
+minutes** for as long as the game was live. Surfaced live as 4×
+duplicate notifications to one player over an hour.
+**Root cause:** `notify.js` inserted into `notification_log` with
+`id: 'notif_<ts>_<rand>'` (text, but the column is uuid) and into
+`queued_for` / `queued_payload` columns that didn't exist. Every
+INSERT silently failed. `alreadySent()` always returned `false`
+because no rows ever landed → every cron tick re-fired the autoOpen
+path.
+**Fix (mig 123 + notify.js patch):** added
+`queued_for timestamptz` and `queued_payload jsonb` to
+`notification_log`. Dropped the text `id` from both INSERTs in
+`notify.js` (let `gen_random_uuid()` fire). Removed the now-dead
+`makeId()` helper. Surface non-410 webpush errors via
+`console.error` so future failures don't silently swallow.
+**Pre-flight check:** after the first autoOpen fires for a new
+squad, `SELECT count(*) FROM notification_log WHERE
+team_id='<team>' AND type='autoOpen' AND game_date='<date>'` must
+return exactly 1. The next cron tick (15 min later) must NOT
+re-fire — same query still returns 1, and the player must not
+receive a second push within the hour.
+
+### 6.6 `notify_team_change` unknown-reason warnings
 **Symptom:** every account deletion logs
 `notify_team_change: unknown reason "player_account_deleted"` —
 broadcast still works, but log noise pollutes triage.

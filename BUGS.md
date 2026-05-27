@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 27 2026 (session 50 — /api/cron was orphaned, weekly auto-rollover never fired; migs 117/118)*
+*Last updated: May 27 2026 (session 50 — full push-notification rescue: cron orphan, realtime broadcast gaps, service worker never registered, two RPC/table schema drifts; migs 117 / 118 / 122 / 123 + notify.js + cron.js + index.html + main.jsx)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,99 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — Push notification chain was broken at five separate hops (session 50)
+
+**Symptom:** zero push notifications had ever been delivered for any
+team. Discovered while testing the auto-rollover fix below — Footy
+Tuesdays' game went live, but no PWA push fired.
+
+**Root cause(s):** Five independent bugs stacked on the same flow.
+
+1. **Internal `/api/notify` calls 401-ed.** `apps/inorout/api/cron.js`
+   built its base URL from `process.env.VERCEL_URL`, which on Vercel
+   resolves to the per-deployment hostname (e.g.
+   `inorout-xxx.vercel.app`). That hostname is behind Vercel
+   Deployment Protection and 401s every POST. Same failure family as
+   GO_LIVE_ISSUES.md §6.1's `pg_net` cross-host redirect.
+   **Fix:** hardcoded `base = 'https://www.in-or-out.com'` in cron.js.
+
+2. **No realtime broadcast after cron writes.** `autoOpenGameJob` did
+   a raw `UPDATE schedule SET game_is_live=true` — but never called
+   `notify_team_change`. Open browser tabs / PWAs only saw the flip
+   on hard refresh. Violated CLAUDE.md hard rule #10.
+   **Fix:** added `notify_team_change` after every cron write in
+   `autoOpenGameJob` (`game_live_toggled`), `advanceGameDateJob`
+   (`schedule_updated`), `lineupLockJob` (`schedule_updated`),
+   `potmVotingOpenJob` (`potm_voting_opened`), and all three
+   `potmTallyJob` branches (`potm_result_announced`).
+
+3. **No service worker ever registered.** Commit `4515460` (May 10,
+   "fix iOS blank screen — unregister service worker") cut sw.js to
+   the current 36-line minimal handler AND added a body-tag script
+   that called `serviceWorker.getRegistrations().then(r =>
+   r.unregister())` on every page load. The matching `register(...)`
+   call was never added. For 17 days the app actively destroyed any
+   SW that any user might have had, and added none. `push_subscriptions`
+   had 0 rows globally as a consequence. `handleSubscribe` awaited
+   `navigator.serviceWorker.ready` which hangs forever when no SW is
+   registered — silent failure, no console error, no API call.
+   **Fix:** removed the destructive block from `apps/inorout/index.html`
+   and added `navigator.serviceWorker.register('/sw.js')` on
+   `window.load` in `apps/inorout/src/main.jsx`. Safe because the
+   current sw.js has no fetch handler — the blank-screen class of bug
+   cannot recur.
+
+4. **`register_push_subscription` RPC had three schema drifts.**
+   - Inserted `'sub_' || ...` text into the `id` uuid column.
+   - Inserted into a `player_token` column that does not exist.
+   - Used `ON CONFLICT (player_id)` without a UNIQUE constraint on
+     that column.
+   All three failures were masked by the function's
+   `WHEN OTHERS THEN ... 'internal_error'` catch-all, so every Enable
+   tap silently no-op'd.
+   **Fix (mig 122):** added `UNIQUE (player_id)` to push_subscriptions
+   and rewrote the RPC body to let `DEFAULT gen_random_uuid()` fill
+   `id`, drop the phantom `player_token` insert, and preserve the
+   existing audit row.
+
+5. **`notification_log` had matching schema drift.** `notify.js`
+   inserted with `id: makeId()` (text) into a uuid column, and into
+   non-existent `queued_for` / `queued_payload` columns. Every INSERT
+   failed silently. Because `alreadySent()` read the empty table,
+   every cron tick re-fired the autoOpen push for every team with a
+   live game. Caught live as 4× duplicate notifications on the test.
+   **Fix (mig 123 + notify.js patch):** added `queued_for timestamptz`
+   and `queued_payload jsonb` columns; dropped the `id: makeId()`
+   literal so the uuid default fires; removed the now-dead `makeId`
+   helper; fixed pushToSubs / direct-queue path to read the player
+   token via PostgREST embed (`select=..., players(token)`) since
+   push_subscriptions has no token column.
+
+**Verification (live):** as of 14:35 UTC 2026-05-27, Tarny
+(`p_b24c5bf8`, Footy Tuesdays) received exactly one autoOpen push on
+the next cron tick after the fix deployed. Confirmed:
+`notification_log` shows one row for `team_KPaoX8oJYMQ` /
+`autoOpen` / `2026-06-02`; subsequent cron ticks short-circuit
+via `alreadySent`.
+
+**End-to-end chain now proven:** pg_cron → /api/cron → autoOpenGameJob
+schedule UPDATE + notify_team_change broadcast → callNotify('autoOpen')
+→ /api/notify → web-push → FCM/APNs → device.
+
+---
+
+## TECH DEBT — `unregister_push_subscription` RPC missing in production
+
+Migration 063 (`063_audit_player_self_writes_phase2.sql`) declares
+this function via `CREATE OR REPLACE`, but it is not present in
+`pg_proc` on the live DB. Either the migration partially failed or
+the function was dropped later. Not blocking the rescue work above
+(unsubscribe is a rare path), but should be diagnosed and restored
+in a future cycle. The PlayerView "disable notifications" path will
+silently fail when used.
 
 ---
 
