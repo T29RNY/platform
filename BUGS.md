@@ -380,15 +380,36 @@ schedule UPDATE + notify_team_change broadcast → callNotify('autoOpen')
 
 ---
 
-## TECH DEBT — `unregister_push_subscription` RPC missing in production
+## WON'T FIX — `unregister_push_subscription` RPC missing in production (session 51, closed)
 
-Migration 063 (`063_audit_player_self_writes_phase2.sql`) declares
-this function via `CREATE OR REPLACE`, but it is not present in
-`pg_proc` on the live DB. Either the migration partially failed or
-the function was dropped later. Not blocking the rescue work above
-(unsubscribe is a rare path), but should be diagnosed and restored
-in a future cycle. The PlayerView "disable notifications" path will
-silently fail when used.
+**Original framing (kept for the audit trail):** mig 063 declares
+this function via `CREATE OR REPLACE`, but pg_proc on the live DB
+doesn't have it. The entry suggested diagnosing the partial-apply
+and restoring.
+
+**Re-audit verdict (session 51):** drop was deliberate, no fix
+needed.
+
+**Why dropped:** mig 081 (`rpc_sweep_cleanup`) explicitly DROPs
+`unregister_push_subscription` with the in-source comment
+*"mig 011 — never wired"*. Confirmed zero callers via grep across
+`apps/` and `packages/`. Mig 081 ran after mig 063, so the CREATE
+OR REPLACE happened then the DROP swept it.
+
+**Why we don't need to restore it:**
+- There is no client UI to "Disable notifications" in PlayerView
+  (line 876 only renders an Enable button when
+  `notifState === "idle"`).
+- Players who turn notifications off via iOS/Android settings
+  trigger HTTP 410 on the next push attempt; `notify.js:74-75`
+  auto-deletes the orphaned `push_subscriptions` row. The natural
+  failure mode is fully self-healing.
+- Account-deletion cleanup is handled separately by
+  `delete_my_account` (mig 068).
+
+**Decision:** leave the function dropped. Re-creating it would
+add a function nothing calls — exactly the dead code mig 081 was
+sweeping out. Closed without code change.
 
 ---
 
