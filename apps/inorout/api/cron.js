@@ -164,6 +164,10 @@ async function lineupLockJob(base, results) {
       lineup_locked: true,
       active_match_id: matchId,
     }).eq("id", sched.id);
+    await supabase.rpc("notify_team_change", {
+      p_team_id: sched.team_id,
+      p_reason:  "schedule_updated",
+    });
 
     results.push(`lineupLock: ${sched.team_id} locked (${rows.length} players, match ${matchId})`);
   }
@@ -210,6 +214,10 @@ async function potmVotingOpenJob(base, results) {
     await supabase.from("schedule").update({
       voting_open: true, voting_closes_at: closesAt,
     }).eq("id", sched.id);
+    await supabase.rpc("notify_team_change", {
+      p_team_id: sched.team_id,
+      p_reason:  "potm_voting_opened",
+    });
 
     // Send push notification
     const playerIds = pm.map(r => r.player_id);
@@ -265,6 +273,10 @@ async function potmTallyJob(base, results) {
         tied_candidates: eligibleIds.length ? eligibleIds : null,
       }).eq("id", match.id);
       await supabase.from("schedule").update({ voting_open: false }).eq("team_id", match.team_id);
+      await supabase.rpc("notify_team_change", {
+        p_team_id: match.team_id,
+        p_reason:  "potm_result_announced",
+      });
       results.push(`potmTally: ${match.id} no votes, admin pending (${eligibleIds.length} eligible)`);
       continue;
     }
@@ -279,6 +291,10 @@ async function potmTallyJob(base, results) {
         voting_open: false, admin_decision_pending: true, tied_candidates: tied,
       }).eq("id", match.id);
       await supabase.from("schedule").update({ voting_open: false }).eq("team_id", match.team_id);
+      await supabase.rpc("notify_team_change", {
+        p_team_id: match.team_id,
+        p_reason:  "potm_result_announced",
+      });
 
       // Notify admin
       const { data: team } = await supabase.from("teams").select("admin_token").eq("id", match.team_id).single();
@@ -314,6 +330,10 @@ async function potmTallyJob(base, results) {
         .eq("id", winnerId);
 
       await supabase.from("schedule").update({ voting_open: false }).eq("team_id", match.team_id);
+      await supabase.rpc("notify_team_change", {
+        p_team_id: match.team_id,
+        p_reason:  "potm_result_announced",
+      });
       const { data: attended } = await supabase.from("player_match")
         .select("player_id").eq("match_id", match.id).eq("attended", true).eq("is_guest", false);
       const playerIds = (attended || []).map(r => r.player_id);
@@ -360,6 +380,10 @@ async function autoOpenGameJob(results) {
     await supabase.from("schedule")
       .update({ game_is_live: true, auto_open_pending: false })
       .eq("id", sched.id);
+    await supabase.rpc("notify_team_change", {
+      p_team_id: sched.team_id,
+      p_reason:  "game_live_toggled",
+    });
     results.push(`autoOpenGame: ${sched.team_id} opened`);
   }
 }
@@ -400,6 +424,10 @@ async function advanceGameDateJob(results) {
       voting_closes_at:  null,
       auto_open_pending: true,
     }).eq("id", sched.id);
+    await supabase.rpc("notify_team_change", {
+      p_team_id: sched.team_id,
+      p_reason:  "schedule_updated",
+    });
 
     results.push(`advanceGameDate: ${sched.team_id} → ${nextDt}`);
   }
