@@ -10,7 +10,6 @@ import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,
   PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
-  WhatsappLogo,
 } from "@phosphor-icons/react";
 import AuthGateModal from "../components/AuthGateModal.jsx";
 import useRequireAuth from "../hooks/useRequireAuth.js";
@@ -553,6 +552,12 @@ export default function PlayerView({
             gameIsLive={schedule.gameIsLive}
             me={me}
             onAvatarTap={() => setShowProfile(true)}
+            shareUrl={schedule ? `https://wa.me/?text=${encodeURIComponent(buildTeamSheetText({
+              teamName: settings?.groupName,
+              schedule,
+              squad,
+              lastMatchMeta,
+            }))}` : null}
           />
         </div>
       )}
@@ -563,38 +568,6 @@ export default function PlayerView({
 
           {/* a — Hero card */}
           <HeroCard dayOfWeek={schedule.dayOfWeek} pricePerPlayer={schedule.pricePerPlayer} squad={squad} />
-
-          {/* a2 — Share team sheet to WhatsApp */}
-          {schedule && (
-            <a
-              href={`https://wa.me/?text=${encodeURIComponent(buildTeamSheetText({
-                teamName: settings?.groupName,
-                schedule,
-                squad,
-                lastMatchMeta,
-              }))}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                background: "var(--green)",
-                color: "white",
-                fontFamily: "'DM Sans', sans-serif",
-                fontWeight: 400,
-                fontSize: 13,
-                textDecoration: "none",
-                padding: "10px 14px",
-                borderRadius: "var(--r)",
-                marginBottom: 8,
-              }}
-            >
-              <WhatsappLogo size={18} weight="thin" />
-              Share team sheet
-            </a>
-          )}
 
           {/* b — Response card */}
           <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",

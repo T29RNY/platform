@@ -1,4 +1,4 @@
-import { CalendarCheck, MapPinLine, Clock } from "@phosphor-icons/react";
+import { CalendarCheck, MapPinLine, Clock, WhatsappLogo } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import GaugeArc from "./GaugeArc.jsx";
 
@@ -23,6 +23,7 @@ export default function PageHeader({
   teamName, dayOfWeek, venue, kickoff,
   inCount, squadSize, gameIsLive,
   me = null, onAvatarTap = null,
+  shareUrl = null,
 }) {
   const showAvatar = !!(me && onAvatarTap);
 
@@ -121,6 +122,21 @@ export default function PageHeader({
               }} />
               Game Open
             </div>
+          )}
+          {shareUrl && (
+            <a
+              href={shareUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Share team sheet to WhatsApp"
+              style={{
+                display:"inline-flex", alignItems:"center", justifyContent:"center",
+                color:"var(--green)",
+                WebkitTapHighlightColor:"transparent",
+              }}
+            >
+              <WhatsappLogo size={20} weight="thin" />
+            </a>
           )}
         </div>
       </div>
