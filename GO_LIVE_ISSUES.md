@@ -217,6 +217,33 @@ app must open directly on the admin panel, not the welcome screen.
 Repeat for a player: complete join → install → force-quit → tap
 icon → must land on PlayerView.
 
+### 4.2 Admin rendered as another player on PWA cold-start
+**Symptom:** team admin opens their installed PWA from the home
+screen and sees a different player's PlayerView (name, stats,
+in/out status all belong to someone else). Only the admin route
+(/admin/<token>) is affected — /p/<token> player and VC routes
+render correctly.
+**Root cause:** iOS PWA cold-start can race auth-session
+attachment. `supabase.auth.refreshSession()` fires in App.jsx but
+the team-state RPC can run before `auth.uid()` is populated.
+Server-side, that meant `is_self=false` on every squad row.
+Pre-mig-125, the client fell back to `squad[0]?.id` to pick the
+admin's identity, and the squad agg had no `ORDER BY` — so the
+"first" player was whoever postgres returned that millisecond.
+Pre-mig-125 the dice could land on any squad member.
+**Fix:** mig 125 added deterministic `ORDER BY tp.created_at, p.id`
+to `get_team_state_by_admin_token` and
+`get_team_state_by_player_token`, so `squad[0]` is now always the
+team creator. The non-impersonation JS guard sits on branch
+`fix/admin-impersonation-guard` (kills the squad[0] fallback +
+adds an "ADMIN VIEW ONLY" placeholder); held until iPhone PWA test.
+Commit `a1c13d0`.
+**Pre-flight check:** on a real iPhone in fresh Safari (private
+mode), open the new admin's link → DO NOT sign in → Add to Home
+Screen → force-quit → tap icon. The name shown in PlayerView must
+be the team creator's name. If any other player's name shows: stop
+and escalate (auth-attachment race + identity fallback regressed).
+
 ---
 
 ## 5. ADMIN WRITES
@@ -336,6 +363,45 @@ squad member — the cancelled ledger row must NOT block deletion.
 **Class follow-up:** any other `admin_*` RPC with the same
 admin_token-only lookup pattern will fail for VCs identically.
 Sweep before next release (see BUGS.md session-49 follow-up).
+
+### 5.3 Cron-driven auto-open leaves schedule with no active match
+**Symptom:** admin taps Make Teams from /admin/. TeamsScreen
+renders "No active match — go live first before picking teams"
+even though players have been marking in/out all day. Schedule's
+`game_is_live=true` but `active_match_id` is null and no
+non-cancelled matches row exists for the team.
+**Root cause:** `autoOpenGameJob` in `api/cron.js` flipped
+`game_is_live=true` via a raw `supabase.from("schedule").update(...)`
+at opens_day/opens_time, but did NOT create a matches row or set
+`active_match_id`. Mig 077 had added `admin_go_live(p_admin_token)`
+for the admin UI path; the cron has team_id, not an admin token,
+so it bypassed the RPC entirely and left a half-open state from
+opens_time until lineupLockJob backfilled the match 60 min before
+kickoff.
+**Fix:** mig 126 added `admin_go_live_for_team(p_team_id)` — a
+team_id-keyed sibling of admin_go_live with the same idempotence
+and matches-row ownership, plus `auto_open_pending=false`
+(cron-specific). Service-role-only grant. Audit row uses
+`actor_type='system'` / `actor_identifier='cron:auto_open_game'`.
+cron.js change: replace the raw update + notify with a single
+`supabase.rpc('admin_go_live_for_team', { p_team_id })` call.
+Commit `c29b20d`.
+**Pre-flight check:** the morning after the new team's first
+`opens_day/opens_time` window passes, query the schedule. SELECT
+`active_match_id, game_is_live` FROM schedule WHERE team_id=...
+`active_match_id` MUST be non-null and point to a row in `matches`
+with `cancelled=false`. SELECT FROM audit_events WHERE team_id=...
+AND action='week_opened' must include a row with
+`actor_type='system'` AND
+`actor_identifier='cron:auto_open_game'`. If either fails: cron
+either didn't fire (check Vercel cron logs) or skipped the new
+RPC (check mig 126 applied) — stop and escalate.
+**Class follow-up:** every cron job in `api/cron.js` that mutates
+schedule/matches/player state shared with an admin UI flow MUST
+route through the same RPC the admin UI uses (or a service-role
+sibling). Sweep `api/cron.js` before next release for any other
+raw `supabase.from(...).update(...)` calls — they are now banned
+by DECISIONS.md session-51 rule.
 
 ---
 

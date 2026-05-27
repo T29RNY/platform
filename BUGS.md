@@ -1,5 +1,91 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 27 2026 (session 50 follow-up — player-self note persistence (mig 124); set_player_note RPC + supabase.js wrapper + PlayerView saveNote)*
+*Last updated: May 27 2026 (session 51 — admin impersonation guard (mig 125) + cron auto-open match row (mig 126))*
+
+---
+
+## RESOLVED — Admin rendered as another player on PWA cold-start (session 51)
+
+**Symptom:** rockybram (team creator + admin of "Footy Tuesdays")
+opened his iOS PWA today and was rendered as Pritpal — a regular
+squad member. Affected every team creator whose access token had
+expired client-side at PWA cold-start. Player and VC routes
+unaffected (different code path).
+
+**Root cause — twin latent bugs:**
+1. `get_team_state_by_admin_token` (mig 070) and
+   `get_team_state_by_player_token` (mig 080) built their squad
+   via `jsonb_agg(jsonb_build_object(...))` with no `ORDER BY`.
+   Squad order was non-deterministic — every call could return
+   players in a different order.
+2. App.jsx:1168 had a "best-guess" fallback when `myPlayer` was
+   null: `myId = myPlayer?.id || (isAdmin ? squad[0]?.id : null)`.
+   Combined with (1), unauthed admins on /admin/<token> were rendered
+   as whoever squad[0] happened to be that millisecond.
+
+iOS PWA cold-start was the trigger: refresh_token works but the
+session attaches asynchronously, so `auth.uid()` was null when
+the team-state RPC fired → `is_self=false` on every row → fallback
+fired → Pritpal won the dice roll.
+
+**Fix (mig 125, commit a1c13d0):** added `ORDER BY tp.created_at, p.id`
+to all three squad `jsonb_agg` calls (admin RPC + privileged and
+ordinary branches of the player RPC). Team creator is always first
+now. Belt-and-braces JS-side guard exists on branch
+`fix/admin-impersonation-guard` (kills the `squad[0]` fallback +
+adds an "ADMIN VIEW ONLY" placeholder) — held until iPhone PWA test.
+
+**Verification target:** open any admin link on a fresh iPhone Safari
+in private mode → don't sign in → Add to Home Screen → open from
+icon. Should see your own admin's PlayerView, not another player.
+audit_events should show `app_boot` with `actor_user_id=null` AND
+the rendered identity matching the team creator (squad[0] from
+deterministic order).
+
+---
+
+## RESOLVED — "No active match" on admin Make Teams after cron auto-open (session 51)
+
+**Symptom:** rockybram tapped Make Teams from /admin/. TeamsScreen
+rendered "No active match — go live first before picking teams".
+`schedule.game_is_live` was true (players had been marking in/out
+all day) but `schedule.active_match_id` was null and no
+non-cancelled matches row existed.
+
+**Root cause:** `autoOpenGameJob` in api/cron.js (15-min cron that
+opens the week at opens_day/opens_time) flipped `game_is_live=true`
+via a raw `supabase.from("schedule").update(...)` but did NOT create
+a matches row or set `active_match_id`. Mig 077 had fixed this for
+the admin-UI go-live path by adding `admin_go_live(p_admin_token)`,
+but the cron has team_id not an admin token, so it bypassed
+admin_go_live entirely.
+
+Latent since mig 077 shipped (the cron path was never updated to
+match). Every team whose week is opened by cron (rather than by an
+admin manually tapping Go Live in the UI) is in the broken state
+from opens_time until lineupLockJob backfills the match 60 min
+before kickoff.
+
+**Fix (mig 126, commit c29b20d):** added `admin_go_live_for_team(p_team_id)`
+RPC — team_id-keyed sibling of admin_go_live with the same
+idempotence and matches-row ownership, plus `auto_open_pending=false`
+(cron-specific). Service-role-only grant (anon + authenticated
+REVOKED). Audit row uses `actor_type='system'` /
+`actor_identifier='cron:auto_open_game'` to distinguish cron-driven
+opens from admin-driven opens. cron.js change: replace the raw
+update + notify with a single
+`supabase.rpc('admin_go_live_for_team', { p_team_id })` call.
+
+**Verification target:** wait for next Wednesday 14:34 (Footy
+Tuesdays' opens_time). Confirm `audit_events` shows a `week_opened`
+row with `actor_type='system'`,
+`actor_identifier='cron:auto_open_game'`, and that the schedule has
+`active_match_id` set to a non-cancelled match. Admin Make Teams
+should be usable immediately, not blocked until 19:00.
+
+**Recovery for rockybram (in-session):** called
+`admin_go_live(admin_0OcDVOpcoGnujleetMhGYw)` manually via MCP to
+backfill match `m_WXZHG_SM9Zc`. No data loss; no UI restart
+required (realtime broadcast updated his client).
 
 ---
 

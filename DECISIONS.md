@@ -1,8 +1,74 @@
 # In or Out — Key Decisions Log
-*Last updated: May 26 2026 (session 49 — admin_* RPCs must accept VC tokens via dual lookup)*
+*Last updated: May 27 2026 (session 51 — admin identity must never come from positional luck; cron writes go through RPCs)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Admin views must never impersonate a player (session 51)
+
+**Decision:** when an admin's self-row cannot be resolved (auth
+missing, admin not linked to a player on this team, RPC returned
+`is_self=false` everywhere), the admin must land on AdminView
+directly. Falling back to "use squad[0] as the admin's identity"
+is banned in any code path. Server-side: all squad aggregators
+MUST use deterministic `ORDER BY` (`tp.created_at, p.id` is the
+canonical order). Client-side: `myId` fallbacks must not use
+positional indexing into the squad.
+
+**Rationale:** mig 125 + 2026-05-27 incident. rockybram was
+rendered as Pritpal on his own admin PWA because `is_self`
+resolved to false (auth missing on PWA cold-start) and the client
+fell back to a non-deterministically-ordered `squad[0]`. Identity
+in the app must never come from positional luck.
+
+**Applies to:**
+- Every `jsonb_agg` over `team_players` JOIN `players` —
+  must have `ORDER BY tp.created_at, p.id`
+- `App.jsx` `myId` / `myPlayer` fallbacks — must never use `squad[N]`
+- Any new state derivation that asks "which player is the user?" —
+  must use `is_self` / explicit token match, never order
+
+**Reference:** mig 125 (commit a1c13d0), App.jsx:1168 (the
+removed fallback — currently held on branch
+`fix/admin-impersonation-guard` pending iPhone test).
+
+---
+
+## Cron writes that change visible state MUST go through RPCs (session 51)
+
+**Decision:** when a cron job (api/cron.js or any scheduled
+function) needs to mutate `schedule` / `matches` / player state in
+a way that's also done by an admin UI flow, it MUST call the same
+RPC the admin UI calls (or a service-role-scoped sibling that
+shares the same body). Raw `supabase.from(...).update(...)` from
+cron is banned for any state shared with an admin path.
+
+**Rationale:** mig 126 + 2026-05-27 incident. cron.js's
+`autoOpenGameJob` flipped `game_is_live` via raw update, bypassing
+the `admin_go_live` RPC (mig 077) that owned the full week-open
+transition. The cron-set state was a strict subset of what
+admin_go_live did — missing matches row, missing
+`active_match_id`. Players could vote, but admins couldn't pick
+teams. The drift was invisible until an admin tried Make Teams.
+
+**Pattern:** if the admin RPC takes an admin token but cron has
+team_id, add a service-role-scoped sibling (e.g.
+`admin_go_live_for_team(p_team_id)`) that:
+- Shares the same body as the admin RPC (matches creation,
+  schedule transition, idempotence)
+- Adds any cron-specific concerns (e.g. clearing `auto_open_pending`)
+- Writes audit with `actor_type='system'`,
+  `actor_identifier='cron:<job_name>'`
+- `REVOKE ALL` from anon, authenticated; `GRANT EXECUTE` to
+  service_role only
+
+**Applies to:** every job in api/cron.js, every Vercel scheduled
+function, every pg_cron callback.
+
+**Reference:** mig 126 (commit c29b20d), api/cron.js
+`autoOpenGameJob` (the changed callsite).
 
 ---
 
