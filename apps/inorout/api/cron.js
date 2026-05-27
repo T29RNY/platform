@@ -15,9 +15,12 @@ module.exports = async function handler(req, res) {
   }
 
   const results = [];
-  const base    = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
+  // Hardcoded to the canonical apex-www host. process.env.VERCEL_URL
+  // resolves to the per-deployment URL (e.g. inorout-xxx.vercel.app),
+  // which is gated by Vercel Deployment Protection and 401s every
+  // internal fetch — same family as the pg_cron host-redirect bug
+  // fixed in GO_LIVE_ISSUES.md 6.1.
+  const base = "https://www.in-or-out.com";
 
   const callNotify = async (cronType) => {
     try {
