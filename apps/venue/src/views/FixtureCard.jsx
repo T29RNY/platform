@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import FixtureActions from "./FixtureActions.jsx";
 
-export default function FixtureCard({ fx, state, venueToken, onDone, prominent, compact, withActions }) {
+export default function FixtureCard({ fx, state, venueToken, onDone, prominent, compact, withActions, animateScore }) {
   const teams = state.teams || {};
   const home = teams[fx.home_team_id]?.name || fx.home_team_id;
   const away = fx.away_team_id ? (teams[fx.away_team_id]?.name || fx.away_team_id) : "(bye)";
@@ -18,13 +18,14 @@ export default function FixtureCard({ fx, state, venueToken, onDone, prominent, 
 
   return (
     <div className={cls}>
+      <div className="fx-hover-sweep" aria-hidden="true" />
       <div className="fx-when">
         <div className="fx-date">{dateStr}</div>
         {timeStr && <div className="fx-time">{timeStr}</div>}
       </div>
       <div className="fx-teams">
         <div className="fx-team fx-home">{home}</div>
-        {renderScore(fx)}
+        {renderScore(fx, animateScore)}
         <div className="fx-team fx-away">{away}</div>
       </div>
       <div className="fx-meta">
@@ -39,9 +40,13 @@ export default function FixtureCard({ fx, state, venueToken, onDone, prominent, 
   );
 }
 
-function renderScore(fx) {
+function renderScore(fx, animate) {
   if (fx.status === "completed" && fx.home_score != null && fx.away_score != null) {
-    return <div className="fx-score">{fx.home_score} – {fx.away_score}</div>;
+    return (
+      <div className="fx-score">
+        <CountUp value={fx.home_score} enabled={!!animate} /> – <CountUp value={fx.away_score} enabled={!!animate} />
+      </div>
+    );
   }
   if (fx.status === "walkover" && fx.walkover_winner_id) {
     const wantHome = fx.walkover_winner_id === fx.home_team_id;
@@ -52,6 +57,28 @@ function renderScore(fx) {
     return <div className="fx-score fx-score-forfeit">{wantHome ? "3 – 0" : "0 – 3"}</div>;
   }
   return <div className="fx-score-vs">vs</div>;
+}
+
+function CountUp({ value, enabled }) {
+  const [n, setN] = useState(enabled ? 0 : value);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!enabled) { setN(value); return; }
+    const duration = 700;
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setN(Math.round(value * eased));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value, enabled]);
+
+  return <span ref={ref} className="fx-score-num">{n}</span>;
 }
 
 function labelStatus(fx) {
