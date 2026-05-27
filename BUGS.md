@@ -89,6 +89,45 @@ required (realtime broadcast updated his client).
 
 ---
 
+## RESOLVED — `reserveGuest` admin handler never persisted to DB (session 51)
+
+**Symptom (latent, niche):** when a player who brought a "+1"
+guest changes their own status away from "in", the guest becomes
+an orphan and appears in the admin home screen's orphan panel.
+The panel offers two buttons: "Remove" (worked) and "Move to
+reserve" (didn't). Tapping "Move to reserve" visually moved the
+guest out of the orphan list but the status flip lived only in
+local React state — no RPC call. Within seconds the next realtime
+broadcast (any teammate's status change, cron tick, anything)
+re-fetched the squad from the DB, the guest reverted, and the
+orphan re-appeared. Groundhog Day for the admin.
+
+**Root cause:** [AdminView/index.jsx:146]
+(apps/inorout/src/views/AdminView/index.jsx#L146) `reserveGuest`
+was a one-liner: `setSquad(squad.map(...status:"reserve"));
+dismissOrphan(id);` — exactly the same shape as today's earlier
+`saveNote` bug. Pure local state, zero persistence. The wrapper
+`adminSetPlayerStatus(adminToken, playerId, status)` existed at
+supabase.js:1265 but was never imported into this file.
+
+**Fix:** import `adminSetPlayerStatus`, make `reserveGuest` async,
+optimistic local update first, RPC call, rollback `setSquad(prev)`
+on error. Audit + broadcast are handled inside the RPC.
+
+**Verification target:** as admin, with a +1 currently in the
+squad whose host has dropped to "out"/"maybe", tap "Move to
+reserve" on the orphan panel. Within seconds the guest's
+`players.status` in DB should be "reserve", an `audit_events` row
+should appear with `action='admin_set_player_status'`, and the
+admin's view should NOT re-show the orphan on the next broadcast.
+
+**Audit context:** found via the methodical re-audit (Category 1
+silent-persistence sweep). Same class as the player-note bug
+fixed earlier today; that suggests pure-state handlers were a
+mini-pattern in admin orphan-handling code, not a one-off.
+
+---
+
 ## RESOLVED — `link_player_to_user` missing realtime broadcast (session 51)
 
 **Symptom (latent, niche, surfaced via re-audit):** user has

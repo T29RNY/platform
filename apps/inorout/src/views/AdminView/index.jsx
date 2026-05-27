@@ -11,6 +11,7 @@ import {
   clearPlayerInjury,
   upsertSchedule, adminCancelMatch, addPlayerToTeam,
   getRecentNotification,
+  adminSetPlayerStatus,
 } from "@platform/core/storage/supabase.js";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
@@ -143,7 +144,17 @@ export default function AdminView({
 
   // ── functions (all preserved from original) ───────────────────────────────
   const dismissOrphan = (id) => setDismissedOrphans(prev => new Set([...prev, id]));
-  const reserveGuest  = (id) => { setSquad(squad.map(p => p.id===id ? { ...p, status:"reserve" } : p)); dismissOrphan(id); };
+  const reserveGuest  = async (id) => {
+    const prev = squad;
+    setSquad(squad.map(p => p.id===id ? { ...p, status:"reserve" } : p));
+    dismissOrphan(id);
+    try {
+      await adminSetPlayerStatus(adminToken, id, "reserve");
+    } catch (e) {
+      console.error(e);
+      setSquad(prev);
+    }
+  };
   const removeGuest   = async (id) => {
     setOrphanErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
     try {
