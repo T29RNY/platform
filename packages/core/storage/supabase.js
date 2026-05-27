@@ -1944,6 +1944,93 @@ export async function getFixtureStateByRefToken(refToken) {
   return data;
 }
 
+// ─── League Mode — Phase 3 Cycle 3.2 ref live-match writes (mig 120) ─────────
+// All RPCs are SECURITY DEFINER + token-gated. Every successful write triggers
+// notify_team_change broadcasts for both teams (home + away) so each side's
+// admin tab updates in real time via App.jsx's team_live:* subscriber.
+// clientEventId is a UUID generated per tap — duplicates are idempotent (the
+// server upserts on conflict) so offline replay is safe.
+
+export async function refStartMatch(refToken, clientEventId, localTimestamp) {
+  const { data, error } = await supabase.rpc("ref_start_match", {
+    p_ref_token:       refToken,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] start_match failed", error); throw error; }
+  return data;
+}
+
+export async function refRecordGoal(refToken, { playerId, minute, period, clientEventId, ownGoal = false, localTimestamp }) {
+  const { data, error } = await supabase.rpc("ref_record_goal", {
+    p_ref_token:       refToken,
+    p_player_id:       playerId,
+    p_minute:          minute,
+    p_period:          period,
+    p_client_event_id: clientEventId,
+    p_own_goal:        ownGoal,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] record_goal failed", error); throw error; }
+  return data;
+}
+
+export async function refRecordCard(refToken, { playerId, minute, period, colour, clientEventId, localTimestamp }) {
+  const { data, error } = await supabase.rpc("ref_record_card", {
+    p_ref_token:       refToken,
+    p_player_id:       playerId,
+    p_minute:          minute,
+    p_period:          period,
+    p_colour:          colour,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] record_card failed", error); throw error; }
+  return data;
+}
+
+export async function refRecordSubstitution(refToken, { onPlayerId, offPlayerId, minute, period, clientEventId, localTimestamp }) {
+  const { data, error } = await supabase.rpc("ref_record_substitution", {
+    p_ref_token:       refToken,
+    p_on_player_id:    onPlayerId,
+    p_off_player_id:   offPlayerId,
+    p_minute:          minute,
+    p_period:          period,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] record_substitution failed", error); throw error; }
+  return data;
+}
+
+export async function refSetPeriod(refToken, period, clientEventId, localTimestamp) {
+  const { data, error } = await supabase.rpc("ref_set_period", {
+    p_ref_token:       refToken,
+    p_period:          period,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] set_period failed", error); throw error; }
+  return data;
+}
+
+export async function refUndoEvent(refToken, clientEventId) {
+  const { data, error } = await supabase.rpc("ref_undo_event", {
+    p_ref_token:       refToken,
+    p_client_event_id: clientEventId,
+  });
+  if (error) { console.error("[ref] undo_event failed", error); throw error; }
+  return data;
+}
+
+export async function refConfirmFullTime(refToken) {
+  const { data, error } = await supabase.rpc("ref_confirm_full_time", {
+    p_ref_token: refToken,
+  });
+  if (error) { console.error("[ref] confirm_full_time failed", error); throw error; }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.3 season setup ────────────────────────────
 
 export async function venueCreateSeason(venueToken, season) {

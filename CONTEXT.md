@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 27 2026 (session 50 — PHASE 3 STARTED — cycle 3.1 shipped: ref pre-match read RPC, new `apps/ref` Vite app, PreMatch screen with 15-min kickoff gate + 3-sec hold override; mig 119. Detail in FEATURES.md.)*
+*Last updated: May 27 2026 (session 50 — PHASE 3 CYCLES 3.1 + 3.2 SHIPPED — pre-match read + ref live-match write surface: 7 SECURITY DEFINER RPCs, idempotent offline-replay shape on match_events, dual-team realtime broadcasts via existing notify_team_change; migs 119 + 120. Detail in FEATURES.md.)*
 
 ## SESSION 49 — admin_delete_player hotfixes (May 26 2026)
 

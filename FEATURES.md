@@ -1,5 +1,126 @@
 # In or Out — Feature Tracker
-*Last updated: May 27 2026 (session 50 — Phase 3 Cycle 3.1 shipped — ref pre-match read RPC + new `apps/ref` Vite app + PreMatch screen with 15-min kickoff gate + 3-sec hold override; mig 119)*
+*Last updated: May 27 2026 (session 50 — Phase 3 Cycles 3.1 + 3.2 shipped — ref pre-match read + `apps/ref` (3.1); 7 SECURITY DEFINER ref write RPCs + idempotent offline-replay shape + dual-team realtime broadcast wiring (3.2); migs 119 + 120; whitelist extended with `match_started` + `match_event_recorded`)*
+
+---
+
+## LEAGUE MODE — PHASE 3 CYCLE 3.2 SHIPPED (session 50, 2026-05-27)
+
+**Cycle 3.2 — Server side of the live match (RPCs only, no UI)** —
+medium risk; second of six Phase 3 cycles per plan
+`~/.claude/plans/plain-english-please-jazzy-spring.md`.
+
+Built the entire ref-side write surface in one migration. UI ships in
+Cycle 3.3.
+
+**Shipped:**
+
+- **Migration 120** (`120_phase3_ref_match_writes.sql`):
+  - Schema additions:
+    - `match_events.client_event_id uuid UNIQUE` — every ref tap
+      generates a client UUID; `ON CONFLICT DO NOTHING` on insert
+      makes offline replay strictly idempotent (no double-counted
+      goals).
+    - `fixtures.actual_kickoff_at timestamptz` — server-recorded
+      kickoff moment, lets the ref tab compute a live MM:SS timer
+      that survives reloads + offline gaps.
+    - `audit_events.actor_type` CHECK extended to include `'referee'`.
+  - `notify_team_change` whitelist extended with two new reasons:
+    `match_started` and `match_event_recorded` (same-commit-as-callers
+    discipline per §6.3 lesson — mig 049 retro-fix taught us this).
+  - Private helper `_ref_resolve_fixture(p_ref_token)` — token →
+    fixture lookup, raises `invalid_ref_token` on miss. Explicitly
+    revoked from anon + authenticated (Supabase auto-grants every
+    public-schema function; `REVOKE FROM PUBLIC` alone doesn't catch
+    those roles — a hidden gotcha we'd never hit before).
+  - Updated `get_fixture_state_by_ref_token` to return
+    `actual_kickoff_at` (additive, no consumer breakage).
+  - **Seven SECURITY DEFINER ref RPCs**, all token-gated via the
+    helper, all writing an `audit_events` row per hard-rule #9, all
+    firing `notify_team_change` for home + away after every successful
+    insert per hard-rule #10:
+    - `ref_start_match(ref_token, client_event_id, local_timestamp)` →
+      flips `status='allocated'/'scheduled' → 'in_progress'`, records
+      `actual_kickoff_at`, inserts a `period_change` event with
+      `period='1H'`. Broadcasts `match_started`.
+    - `ref_record_goal(ref_token, player_id, minute, period,
+      client_event_id, own_goal, local_timestamp)` — resolves scorer's
+      team via `player_registrations`. `own_goal=true` stores
+      `event_type='own_goal'` with `team_id = scorer's own team`
+      (counts for the OTHER team in score materialisation).
+    - `ref_record_card(ref_token, player_id, minute, period, colour,
+      client_event_id, local_timestamp)` — `colour ∈ {yellow,red}`.
+    - `ref_record_substitution(ref_token, on_player_id, off_player_id,
+      minute, period, client_event_id, local_timestamp)` — both
+      players must be on the same team's roster.
+    - `ref_set_period(ref_token, period, client_event_id,
+      local_timestamp)` — `period ∈ {HT,2H,ET1,ET2,PEN}`; inserts a
+      `period_change` event.
+    - `ref_undo_event(ref_token, client_event_id)` — DELETE by
+      `client_event_id`; idempotent (treats missing row as no-op).
+      Server enforces only that the fixture is still `in_progress`;
+      the 30-second undo window is a client-side decision.
+    - `ref_confirm_full_time(ref_token)` — materialises scores from
+      `match_events`:
+        - `home_score = goals(home_team) + own_goals(away_team)`
+        - `away_score = mirror`
+      Transitions `status='in_progress' → 'completed'`. Broadcasts
+      `match_result_saved` (already on whitelist). Standings are
+      derived on-read by `get_league_standings_for_player`; no
+      separate cascade needed.
+  - **Demo seed**: 5 players per demo team registered into the demo
+    competition with shirt numbers 1–5 backfilled. Idempotent
+    (`ON CONFLICT (player_id, competition_id) DO NOTHING`). Without
+    this Cycle 3.1's PreMatch + 3.2's event RPCs both ran against
+    empty squads — squads now populated for end-to-end smoke testing.
+
+- **JS wrappers** added to `packages/core/storage/supabase.js`
+  exported via the barrel: `refStartMatch`, `refRecordGoal`,
+  `refRecordCard`, `refRecordSubstitution`, `refSetPeriod`,
+  `refUndoEvent`, `refConfirmFullTime`. Each raw snake_case RPC name
+  appears in exactly one `supabase.rpc()` call (hard-rule #7
+  satisfied).
+
+**Realtime wiring (the bit the user flagged risk on):**
+
+The audit found `notify_team_change` already exists (mig 062 +
+049 + 117), already publishes to `team_live:<live_channel_key>`,
+already public-channel-not-private, and `apps/inorout/src/App.jsx`
+lines 786–827 already subscribe + re-fetch on broadcast. **Zero new
+realtime infrastructure required** — every ref event simply fans
+out two `notify_team_change` calls (home + away), and both team
+admin tabs update without any client-side change.
+
+Whitelist hygiene: the two new reasons (`match_started`,
+`match_event_recorded`) were added to the function body in the
+SAME migration as the calling RPCs, avoiding the §6.3 drift bug
+(mig 049 had to retro-fix `player_account_deleted` after the fact).
+
+**Smoke-tested end-to-end** against the demo fixture
+`Alpha United vs Delta FC`:
+- Start match (status → in_progress), 3 regular goals, 1 own-goal,
+  1 yellow card, 1 substitution, HT, 2H, 1 goal-then-undo, full
+  time confirm.
+- Final score: 2–2 (math checks: 2 home goals + 0 own_goals from
+  away = 2; 1 away goal + 1 own_goal from home = 2).
+- 12 audit rows by `referee`, 9 surviving match_events (undone
+  event correctly deleted), idempotent retry of a goal RPC with
+  the same `client_event_id` was a clean no-op.
+- Zero `unknown reason` warnings in postgres log during the run —
+  whitelist extension worked.
+- Fixture reset back to `allocated` so Cycle 3.3 has a fresh slate.
+
+**RPC security sweep**: all 7 RPCs pass — SECURITY DEFINER, search
+path locked to `public, pg_temp`, `EXECUTE` granted to `anon` +
+`authenticated`, no overloads, helper properly private.
+
+**Files touched:**
+- `rls_migrations/120_phase3_ref_match_writes.sql` (+ `_down.sql`)
+- `packages/core/storage/supabase.js` (+7 wrappers, +read-RPC update)
+- `packages/core/index.js` (+7 exports)
+
+**What's next:** Cycle 3.3 — the live match UI in `apps/ref/`
+(LiveMatch.jsx) wiring the buttons to the 7 RPCs. Online-only first;
+the offline queue is the standalone Cycle 3.4.
 
 ---
 

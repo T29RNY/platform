@@ -162,11 +162,29 @@ ref OAuth without re-grant.
 
 | SQL function | JS wrapper | Notes |
 |---|---|---|
-| `get_fixture_state_by_ref_token` | `getFixtureStateByRefToken(refToken)` | Migration 119. Single-fixture read for the ref pre-match + resume path. Returns `{fixture, competition, league, venue, pitch, official, home_team, away_team, home_squad, away_squad, events, caller}`. Squads derived from `player_registrations` joined to `players` filtered to `status='active'`, ordered by `shirt_number NULLS LAST`. Events ordered by `(minute, created_at)` for offline-resume. Raises `invalid_ref_token` on null/empty/unknown. |
+| `get_fixture_state_by_ref_token` | `getFixtureStateByRefToken(refToken)` | Migration 119. Single-fixture read for the ref pre-match + resume path. Returns `{fixture, competition, league, venue, pitch, official, home_team, away_team, home_squad, away_squad, events, caller}`. Migration 120 added `fixture.actual_kickoff_at` for the live-timer source. Squads derived from `player_registrations` joined to `players` filtered to `status='active'`. Events ordered by `(minute, created_at)` for offline-resume. Raises `invalid_ref_token`. |
+| `ref_start_match` | `refStartMatch(refToken, clientEventId, localTimestamp?)` | Migration 120. `status: scheduled\|allocated → in_progress`. Records `actual_kickoff_at` and inserts a `period_change` 1H event. Broadcasts `match_started` to both teams. |
+| `ref_record_goal` | `refRecordGoal(refToken, {playerId, minute, period, clientEventId, ownGoal?, localTimestamp?})` | Migration 120. Resolves scorer's team via `player_registrations`. `ownGoal=true` stores `event_type='own_goal'` with `team_id = scorer's own team` (counts for opposite in materialisation). Idempotent on `clientEventId` — replay is a no-op. |
+| `ref_record_card` | `refRecordCard(refToken, {playerId, minute, period, colour, clientEventId, localTimestamp?})` | Migration 120. `colour ∈ {yellow,red}` → `event_type ∈ {yellow_card,red_card}`. Idempotent. |
+| `ref_record_substitution` | `refRecordSubstitution(refToken, {onPlayerId, offPlayerId, minute, period, clientEventId, localTimestamp?})` | Migration 120. Both players must register to the same team in this competition. Idempotent. |
+| `ref_set_period` | `refSetPeriod(refToken, period, clientEventId, localTimestamp?)` | Migration 120. `period ∈ {HT,2H,ET1,ET2,PEN}`. Inserts a `period_change` event. Idempotent. |
+| `ref_undo_event` | `refUndoEvent(refToken, clientEventId)` | Migration 120. DELETEs the `match_events` row by `client_event_id`. Idempotent (missing row treated as no-op). Server requires `status='in_progress'`; the 30-sec undo window is client-enforced. |
+| `ref_confirm_full_time` | `refConfirmFullTime(refToken)` | Migration 120. Materialises `home_score`/`away_score` from match_events (goals(home)+own_goals(away), mirror). Transitions `status → completed`. Broadcasts `match_result_saved`. Standings recompute on-read via `get_league_standings_for_player` — no separate cascade RPC. |
 
-Forthcoming (Cycle 3.2 and on): `ref_record_goal`, `ref_record_card`,
-`ref_record_substitution`, `ref_set_period`, `ref_confirm_full_time`,
-`ref_undo_event`, `ref_replay_unsynced`, `venue_update_fixture_result`.
+**All seven `ref_*` write RPCs**: SECURITY DEFINER, search_path locked,
+EXECUTE granted to `anon + authenticated`. Token-gated via private
+helper `_ref_resolve_fixture` (anon/authenticated explicitly revoked —
+Supabase auto-grants every public function so a plain `REVOKE FROM
+PUBLIC` doesn't catch those roles). Every successful write inserts an
+`audit_events` row (`actor_type='referee'`, `actor_identifier=ref_token`)
+and fires `notify_team_change` for BOTH teams (home + away) so
+`apps/inorout`'s existing `team_live:<live_channel_key>` subscriber
+re-fetches without any client-side change. Whitelist extended in the
+same migration with `match_started` + `match_event_recorded` to avoid
+the §6.3 drift bug.
+
+Forthcoming (Cycle 3.4 onwards): `ref_replay_unsynced` (offline batch
+flush), `venue_update_fixture_result` (admin override).
 
 ---
 
