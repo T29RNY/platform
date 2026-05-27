@@ -3,7 +3,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
   resolveMotm } from "@platform/core";
-import { savePushSubscription, addGuestPlayer, removeGuestPlayer, setPlayerStatus, setPlayerInjured, deletePlayer,
+import { savePushSubscription, addGuestPlayer, removeGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
   getPOTMVotingState, setPlayerNickname,
   resolveBibHolder } from "@platform/core/storage/supabase.js";
 import POTMVotingModal from "./POTMVotingModal.jsx";
@@ -320,6 +320,7 @@ export default function PlayerView({
   const saveNote = () => {
     setSquad(squad.map(p => p.id === myId ? { ...p, note } : p));
     setShowNote(false);
+    if (me?.token) setPlayerNote(me.token, note).catch(console.error);
   };
 
   const handleGuestNameChange = (val) => {

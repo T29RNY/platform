@@ -47,6 +47,11 @@ export async function setPlayerInjured(token, injured) {
   if (error) throw error;
 }
 
+export async function setPlayerNote(token, note) {
+  const { error } = await supabase.rpc('set_player_note', { p_token: token, p_note: note ?? null });
+  if (error) throw error;
+}
+
 export async function deletePlayer(adminToken, id) {
   const { error } = await supabase.rpc('admin_delete_player', { p_admin_token: adminToken, p_player_id: id });
   if (error) throw error;

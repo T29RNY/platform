@@ -1,5 +1,47 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 27 2026 (session 50 follow-up — cron.js UTC→Europe/London fix; cron.js)*
+*Last updated: May 27 2026 (session 50 follow-up — player-self note persistence (mig 124); set_player_note RPC + supabase.js wrapper + PlayerView saveNote)*
+
+---
+
+## RESOLVED — Player note never persisted to the database (session 50 follow-up)
+
+**Symptom:** player marks themselves "out" via PlayerView, types a
+note explaining why ("away this week"), taps Save Note. Note shows
+in the UI. Minutes later — after any realtime broadcast, route
+change, or page reload — the note vanishes. Affects every team,
+every player; has been broken since the note feature shipped.
+
+**Root cause:** `saveNote()` in [PlayerView.jsx:320-323]
+(apps/inorout/src/views/PlayerView.jsx#L320-L323) was a pure React
+state setter with zero database persistence — no RPC, no Supabase
+write. The note lived only in browser memory. `setStatus()` also
+folded `note` into local state at line 283 but the downstream RPC
+call (`set_player_status` at line 286) writes only the status
+column. The note column on the players table was never touched by
+any player-self path. The only note-writing RPC in the codebase
+was `admin_set_player_note` (mig 012, requires admin token).
+Latent since the feature shipped; surfaced now because session 50's
+realtime broadcast fixes made local-state clobbering by re-fetches
+visible within seconds rather than only on full reload.
+
+**Fix (mig 124 + supabase.js + PlayerView):**
+- New RPC `set_player_note(p_token, p_note)` — mirrors
+  `admin_set_player_note` but token-authed. Max 200 chars,
+  NULL/empty/whitespace clears, SECURITY DEFINER, audit via
+  `player_note_updated_self` (mig 063 pattern), broadcasts
+  `notify_team_change(..., 'player_note_updated')` — reason
+  already whitelisted in mig 049.
+- `setPlayerNote(token, note)` wrapper in `supabase.js`.
+- `saveNote` in PlayerView now fires the wrapper after closing
+  the modal. `setStatus` left as-is (status-only path; note
+  persistence is via Save Note).
+
+**Verification target:** mark yourself out with a note via
+PlayerView, force-quit the PWA, reopen — note must still be
+present. Confirm `audit_events` has a row with
+`action='player_note_updated_self'` for your write.
+
+---
 
 **Read this at the start of every session before touching any code.**
 

@@ -466,6 +466,27 @@ extend the function's hard whitelist.
 **Pre-flight check:** no per-squad check; verify deploy is ≥ commit
 `5a1a0e3` if log review is part of go-live monitoring.
 
+### 6.8 Player-self note never persisted (silently dropped)
+**Symptom:** any player marking themselves "out" with a note (e.g.
+"away this week — wedding") sees the note appear in UI, then
+vanish within seconds-to-minutes once a realtime broadcast or
+reload reconciled with the database. Latent since feature shipped;
+visibility forced by session 50's realtime broadcast fixes.
+**Root cause:** `saveNote()` in PlayerView was a pure React state
+setter with no RPC call. There was no `set_player_note` RPC at
+all — only the admin variant. Player-self path to the `note`
+column did not exist.
+**Fix:** migration 124 adds `set_player_note(p_token, p_note)`.
+Wrapper added to supabase.js; `saveNote()` now calls it. Audit via
+`player_note_updated_self`. Broadcast reason already whitelisted
+(mig 049).
+**Pre-flight check:** before onboarding a new squad, on a real
+device, mark a test player out with a note, force-quit the PWA,
+reopen — note must persist. Also confirm in Supabase
+`audit_events WHERE action='player_note_updated_self'` has a row.
+If empty after a known-good test write, the RPC isn't grant-ed
+or the wrapper isn't reaching it.
+
 ### 6.7 cron.js read UTC for `opens_time` / midnight, not UK time
 **Symptom:** auto-open fired one hour late during BST. Operator set
 "12:30" in admin UI; game went live at 13:30 BST on 2026-05-27.
