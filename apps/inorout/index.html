@@ -69,13 +69,5 @@
       });
     </script>
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-      // Unregister any old service workers
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(regs => {
-          regs.forEach(r => r.unregister());
-        });
-      }
-    </script>
   </body>
 </html>
