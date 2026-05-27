@@ -89,6 +89,51 @@ required (realtime broadcast updated his client).
 
 ---
 
+## RESOLVED — `player_join_team` left no audit trail and no realtime broadcast (session 51)
+
+**Symptom (latent):** a new user clicking the join link successfully
+created their player + team_players rows, but (1) no row landed in
+`audit_events`, so any silent join failure left zero server-side
+trace — particularly painful given the join flow has historically
+been the most fragile path (sessions 42/43 multi-team bugs); and
+(2) no realtime broadcast fired, so existing admin and player
+browsers stayed stale on the squad until an unrelated event
+(someone toggled status, cron tick, etc.) re-fetched.
+
+**Root cause:** the function had been through five rewrites
+(migs 028, 044, 065, 081, …) tracking other concerns (per-team
+membership, multi-row split, token regeneration) but never picked
+up the audit + broadcast pattern that migs 060/063 established for
+player-self writes and mig 049 established for broadcast reasons.
+Violated HARD RULE 9 (every fire-and-forget RPC INSERTs into
+`audit_events`) and HARD RULE 10 (server-side writers broadcast).
+Surfaced during the targeted re-audit, not by any user report.
+
+**Fix (mig 128):** body preserved byte-for-byte; two new statements
+inserted between the team_players INSERT and the final SELECT:
+- `INSERT INTO audit_events (...)` with `actor_type='player'`,
+  `actor_identifier='player_token:'||md5(v_ptoken)`,
+  `action='player_joined_team_self'` (mig 063 player-self pattern).
+- `PERFORM notify_team_change(p_team_id, 'player_added')` — reuses
+  existing whitelisted reason (semantically identical to
+  admin_add_player's broadcast).
+- `search_path` tightened from `public` to `public, pg_temp`
+  (matches migs 063/124).
+
+**Verification target:** trigger a fresh join on a real device.
+Query `audit_events WHERE action='player_joined_team_self'` — must
+show one row with the new player_id in `entity_id`. On a second
+browser already viewing the team as admin, the new joiner must
+appear in the squad without manual refresh.
+
+**Defense-in-depth note (separate):** `player_join_team` has a
+legacy `PUBLIC` EXECUTE grant. Anon callers are blocked by the
+internal `auth.uid()` check, so it's not exploitable — but the
+grant should be REVOKEd from PUBLIC in a follow-up grants-cleanup
+sweep, alongside any sibling RPCs in the same boat.
+
+---
+
 ## RESOLVED — Player note never persisted to the database (session 50 follow-up)
 
 **Symptom:** player marks themselves "out" via PlayerView, types a

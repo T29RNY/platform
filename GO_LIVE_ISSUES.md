@@ -189,6 +189,31 @@ and copy the player invite link. The URL path segment after `/join/`
 must look like a short alphanumeric code, not a `team_` prefixed
 ID.
 
+### 3.3 `player_join_team` left no audit trail and no realtime broadcast
+**Symptom (latent — surfaced via audit, not user report):** new
+player completes join, lands successfully, but other browsers
+already viewing the team don't see them appear in realtime — only
+on the next unrelated broadcast does the squad re-fetch. And if
+the join ever goes wrong silently, there's zero server-side trail
+in `audit_events` to debug it (which has bitten us in sessions
+42/43 join-flow bugs).
+**Root cause:** five rewrites of `player_join_team` over time, none
+added the audit + broadcast pattern that other player-self writes
+adopted in migs 060/063. Violated HARD RULE 9 and HARD RULE 10.
+**Fix (mig 128):** body preserved byte-for-byte; added
+`INSERT INTO audit_events` (`action='player_joined_team_self'`)
+and `PERFORM notify_team_change(p_team_id, 'player_added')`.
+Reuses existing whitelisted broadcast reason.
+**Pre-flight check:** during onboarding, have a brand-new player
+click the join link and sign in. (a) On a second device already
+viewing the team as admin, the new joiner must appear in the squad
+within ~2 seconds with no manual refresh. (b) In Supabase SQL
+editor, run `SELECT * FROM audit_events WHERE
+action='player_joined_team_self' AND team_id='<new_team>'` — must
+return one row with the new player's id in `entity_id` and the
+joiner's name in `metadata->>'name'`. If (a) fails the broadcast
+regressed; if (b) is empty the audit hook regressed.
+
 ---
 
 ## 4. PWA INSTALL
