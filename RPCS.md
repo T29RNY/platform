@@ -213,9 +213,40 @@ migration as the calling RPCs (avoiding the §6.3 drift bug):
   `match_event_recorded` (mig 120).
 - `notify_venue_change` was introduced in mig 121 with whitelist
   `match_started`, `match_event_recorded`, `match_result_saved`.
+  **Important**: mig 121 silently shrunk the whitelist from mig
+  101's 26 reasons to 3 (Phase 2 reasons started logging WARNINGs).
+  Mig 127 restored the full Phase 2 list + added `result_corrected`.
+  See BUGS.md "notify_venue_change regressed in mig 121".
 
-Forthcoming (Cycle 3.4 onwards): `ref_replay_unsynced` (offline batch
-flush), `venue_update_fixture_result` (admin override).
+### Venue overrides (mig 127, session 51)
+
+| SQL function | JS wrapper | Notes |
+|---|---|---|
+| `venue_update_fixture_result` | `venueUpdateFixtureResult(venueToken, {fixtureId, homeScore, awayScore, reason})` | Migration 127. The ONLY path for correcting a result after `ref_confirm_full_time`. Token-gated via `resolve_venue_caller`. Requires fixture in `status='completed'` + non-empty reason + non-negative scores. Audit-logged with previous + new scores + reason. Broadcasts `result_corrected` (team) + `result_corrected` (venue) + `fixture_result_corrected` (league). Verified end-to-end via Supabase MCP (8 assertions, no leak). **Consumers**: Phase 5+ venue dashboard "edit result" UI (planned, not yet built — RPC is callable via MCP/SQL today). |
+
+### Cycle 3.4 offline queue — NOT shipped as an RPC
+
+The parent Phase 3 plan flagged a `ref_replay_unsynced` batch RPC
+for offline reconnect. Cycle 3.4 chose instead to drain the
+IndexedDB queue client-side, calling the existing 7 ref_* RPCs one
+at a time. Idempotency on `client_event_id` makes this safe; for
+the ~30 events in a typical match, the round-trip cost is fine.
+A batch RPC can be added later if real-world usage shows it's
+needed.
+
+### Phase 5 RPCs (planned, not yet built)
+
+Tracked in `/Users/tarny/.claude/plans/continuing-phase-3-of-steady-falcon.md`.
+Migration numbers will be assigned at cycle time.
+
+- `get_competitive_context_for_squad(p_token)` — Cycle 5.1
+- (none — reuses existing `get_league_standings_for_player`) — Cycle 5.2
+- `get_player_competition_fixtures(p_token, p_filter)` — Cycle 5.3
+- `get_player_fixture_detail(p_token, p_fixture_id)` — Cycle 5.4
+- `get_fixture_opposition_intel(p_token, p_fixture_id)` — Cycle 5.4
+- `player_set_fixture_availability(p_token, p_fixture_id, p_status)` — Cycle 5.5 (+ new `player_availability` table)
+- `team_admin_submit_lineup(p_admin_token, p_fixture_id, p_lineup)` — Cycle 5.6 (+ new `fixture_lineups` table + update to `get_fixture_state_by_ref_token`)
+- `team_admin_check_eligibility(p_admin_token, p_fixture_id, p_player_ids)` — Cycle 5.7
 
 ---
 

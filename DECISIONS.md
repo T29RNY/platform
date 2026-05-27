@@ -1,8 +1,97 @@
 # In or Out — Key Decisions Log
-*Last updated: May 27 2026 (session 51 — admin identity must never come from positional luck; cron writes go through RPCs)*
+*Last updated: May 27 2026 (session 51 — Phase 5 architectural decisions locked: per-squad context, collapsibles-not-tabs, teamsheet-as-source-of-truth, Competition-not-League naming)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Phase 5 competitive features are SQUAD-scoped, not player-scoped (session 51)
+
+**Decision:** the trigger for showing League Mode surfaces inside
+`apps/inorout` is per-SQUAD, not per-player. A player belongs to
+multiple squads (existing MySquads accordion); some of those squads
+may be casual, some may be competitively registered. League surfaces
+appear only when the player has a competitive squad selected as
+their active context. A player on multiple casual squads + one
+competitive squad sees zero league surfaces when on the casual
+squads.
+
+**Why:** matches the existing mental model (MySquads is the
+squad-switcher). Means casual-only members of a competitive squad
+see league info (which is correct — they're part of that team
+whether or not they've been individually registered yet). Player-
+level eligibility still gets enforced at teamsheet submission via
+`player_registrations`.
+
+**How to apply:** Phase 5 Cycle 5.1 adds a `LEAGUE` pill to MySquads
+rows when the squad has an active `competition_teams` row. All
+downstream competitive surfaces (standings, fixtures, opposition
+intel) render-gate on the active-squad's `is_competitive` flag.
+
+---
+
+## Phase 5 surfaces sit as collapsibles inside existing tabs (session 51)
+
+**Decision:** no new top-level NavBar tab for league content. New
+competitive surfaces live as render-gated collapsible cards inside
+the existing `my-view` tab of PlayerView, following the same
+accordion primitive that MySquads already uses.
+
+**Why:** casual flow is sacred. Adding a new tab visible to casual
+users (or even a Casual/Competitive/All toggle in the header) would
+risk regressing the experience for the much larger casual user
+base. Render-gating inside existing tabs means a casual-only player
+sees zero new DOM and runs zero new conditional branches.
+
+**How to apply:** every Phase 5 competitive component lives under
+`apps/inorout/src/views/competitive/` (new directory) and is
+imported only inside a `is_competitive ? <Component /> : null`
+guard. The mandatory `Skills/casual-regression.md` check enforces
+that no casual-only player ever sees a visible change.
+
+---
+
+## Teamsheet IS the source of truth for ref pre-match (session 51)
+
+**Decision:** when a team admin submits a teamsheet for a
+competitive fixture (Phase 5 Cycle 5.6), the ref's pre-match screen
+shows that submitted lineup (starting XI + bench) rather than the
+full registered squad. Required: new `fixture_lineups` table +
+`team_admin_submit_lineup` RPC + backward-compatible update to
+`get_fixture_state_by_ref_token` (mig 120) — fall back to full
+registered squad if no lineup submitted.
+
+**Why:** matches how real leagues operate. Refs check the
+submitted teamsheet at kickoff to verify only eligible players take
+the field. Without this, the ref view's "squad" is informational
+only and the actual eligibility check happens off-platform.
+
+**How to apply:** Cycle 5.6 is the highest-risk cycle in Phase 5
+(new schema + RPC + ref-view change in one commit). Backward
+compatibility test is the load-bearing verification: an existing
+fixture WITHOUT a lineup must still show the full squad in ref view
+exactly as today.
+
+---
+
+## Phase 5 uses "Competition" not "League" in new component names (session 51)
+
+**Decision:** all new Phase 5 components use the word "Competition"
+rather than "League" in their names and visible headings. So
+`CompetitionStandingsCard.jsx` not `LeagueStandingsCard.jsx`;
+"Competition Standings" not "League Standings" in UI text.
+
+**Why:** the existing `PlayerLeagueTable` component (StatsView)
+ranks PLAYERS within a SQUAD — it is the casual squad's internal
+ranking. The competitive standings rank TEAMS within a LEAGUE.
+Using the same "League" word for both creates real user confusion
+when they sit close to each other in the UI.
+
+**How to apply:** every new Phase 5 file/component/header uses
+"Competition" or "Comp". The pre-existing `PlayerLeagueTable`
+stays unchanged (renaming it would churn the casual code we promised
+not to touch).
 
 ---
 

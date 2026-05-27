@@ -1,5 +1,39 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 27 2026 (session 51 — reserve drag-to-reorder feature wired end-to-end, migs 130/131/132)*
+*Last updated: May 27 2026 (session 51 — PHASE 3 COMPLETE + Phase 5 plan approved + skills framework hardened + notify_venue_change regression silently fixed in mig 127)*
+
+---
+
+## RESOLVED — notify_venue_change regressed in mig 121, fixed in mig 127 (session 51)
+
+**Symptom (latent — server logs):** every Phase 2 RPC that calls
+`notify_venue_change` (e.g. `venue_update_fixture_status` posting
+`fixture_postponed`, `fixture_voided`, `fixture_walkover`,
+`fixture_forfeit`) has been logging WARNING `unknown reason "X"`
+since mig 121 landed a week ago. Realtime broadcasts still fired
+(the warning is non-blocking), but every Phase 2 venue write was
+spamming the Postgres log.
+
+**Root cause:** mig 121 introduced the `notify_venue_change`
+broadcast helper for Phase 3 ref events and inadvertently
+overwrote the existing mig 101 body. Mig 101 had a 26-reason
+whitelist (Phase 2 venue/league/fixture/ref/pitch/team events).
+Mig 121's `CREATE OR REPLACE` shrunk the list to 3 reasons
+(`match_started`, `match_event_recorded`, `match_result_saved`).
+Every pre-existing reason started hitting the WARNING branch.
+
+**Fix (mig 127, session 51):** since cycle 3.6 was rewriting
+`notify_venue_change` anyway to add `'result_corrected'`, restored
+the full Phase 2 list + added Phase 3 reasons in one body. Down
+migration deliberately re-introduces the regression (a down must be
+a strict revert of its up; the regression-fix is a side-effect of
+127 that should go away if 127 is rolled back). Documented in mig
+127 header. Commit: `563201b`.
+
+**Audit reveals:** the same failure class could affect other
+`notify_*` helpers if a future Phase rewrites them. Mitigation:
+the existing `check-rpc-columns.sh` doesn't catch whitelist
+shrinkage. Worth a future deterministic check (`check-notify-whitelist.sh`?)
+but not in scope for any active cycle.
 
 ---
 

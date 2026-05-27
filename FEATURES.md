@@ -1,5 +1,133 @@
 # In or Out — Feature Tracker
-*Last updated: May 27 2026 (session 50 — Phase 3 Cycles 3.1 + 3.2 + 3.2a shipped — ref pre-match read + `apps/ref` (3.1); 7 SECURITY DEFINER ref write RPCs + idempotent offline-replay shape (3.2); venue-level realtime broadcasts + `apps/venue` live-update subscriber (3.2a); migs 119 + 120 + 121)*
+*Last updated: May 27 2026 (session 51 — **PHASE 3 COMPLETE** — Cycles 3.3 + 3.4 + 3.5 + 3.6 shipped, apps/ref deployed to platform-ref.vercel.app, Phase 5 plan approved + skills framework hardened (casual-regression + ephemeral-verify))*
+
+---
+
+## LEAGUE MODE — PHASE 3 COMPLETE (session 51, 2026-05-27)
+
+All six Phase 3 cycles shipped + Vercel deployment. The ref view is
+now feature-complete and live: a referee can open the link on their
+phone at the pitch, see both squads, hold Start, log goals / cards /
+subs / period changes, work offline if signal drops, confirm full
+time, and see a read-only post-match summary. Venue admins can
+override results via the venue dashboard's RPC (UI to follow).
+
+**What shipped in session 51 (this session):**
+- **Cycle 3.3 — LiveMatch screen (commit `da89740`)**. Sticky clock+score
+  bar, two-team player rows with ⚽/🟨/🟥/↕️ tap targets, long-press
+  goal → own goal, second yellow auto-prompts red, sub picker modal,
+  half-time / start-2H / full-time period actions, 30s undo toast
+  wired to `ref_undo_event`, full-time confirm dialog. Optimistic UI
+  with revert-on-error throughout.
+- **Cycle 3.4 — Offline event queue (commit `7ce2bac`)**. Every event
+  tap persisted to IndexedDB BEFORE the RPC call. Drain loop replays
+  pending rows on mount / `online` event / manual Retry. Idempotent
+  by client_event_id (mig 120 ON CONFLICT DO NOTHING) so duplicate
+  replays are server-side no-ops. Sticky amber "Offline · N queued"
+  / green "Syncing · N pending" banner. beforeunload guard on
+  pending-count > 0. No service worker (deliberate — avoids the
+  session-50 SW failure family entirely).
+- **Cycle 3.5 — Score materialisation + standings cascade (verified, no commit)**.
+  End-to-end ephemeral fixture via Supabase MCP: ran ref_start →
+  9 events → ref_confirm_full_time → asserted score 3-1 / completed
+  / standings W=1 GF=3 GA=1 PTS=3 / undone-goal correctly excluded /
+  own-goal correctly credited to opposite team. Discovered: no
+  cascade trigger exists — standings are computed on-read by
+  `get_league_standings_for_player` (mig 087/104), so the cycle
+  shipped nothing because no code needed adding. Verified clean.
+- **Cycle 3.6 — Post-match summary + venue result override (commit `563201b`)**.
+  - New mig 127: `venue_update_fixture_result(venue_token, fixture_id, home, away, reason)` —
+    SECURITY DEFINER, token-gated via `resolve_venue_caller`, requires
+    fixtures in `status='completed'`, non-empty reason, audit-logs
+    previous + new scores + reason, broadcasts `result_corrected` to
+    both teams + venue + league.
+  - **Side-effect fix in mig 127**: `notify_venue_change` had silently
+    regressed in mig 121 (whitelist shrank 26 reasons → 3, every
+    Phase 2 RPC calling it has been logging WARNINGs for the past
+    week). Restored full Phase 2 list + added new Phase 3 reasons
+    while rewriting the function body. Plus `notify_league_change`
+    gained `fixture_result_corrected`.
+  - New `apps/ref/src/views/PostMatch.jsx`: read-only summary with
+    scorers, cards, subs, "Share result" button (copies plain-text
+    summary to clipboard). Footnote: "Need a correction? Ask the
+    venue admin." App.jsx routes status='completed' → PostMatch.
+  - Verified end-to-end against ephemeral fixture: bad inputs
+    rejected with correct error codes, 1-1 → 2-3 override worked,
+    standings reflect override, second override (0-0) worked, audit
+    rows + metadata correct. Zero leak.
+
+**Vercel deployment for apps/ref**:
+- New Vercel project `platform-ref` (id `prj_akoL30MbOSlO7DSrT7f1OYagWbE0`)
+  linked to this monorepo's main branch, root directory `apps/ref`.
+- Env vars set: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+  (production + development; preview skipped due to a CLI bug with
+  `--yes` for "all preview branches" — can add later when needed).
+- Live at `https://platform-ref.vercel.app` and the auto-generated
+  branch aliases. First production build: 11.5s, clean.
+- GitHub auto-deploy connected — future `main` pushes auto-deploy.
+- Custom domain `ref.in-or-out.com` NOT yet set up (separate task;
+  needs DNS record at the user's registrar).
+- Side-finding: discovered the `platform-clubmanager` Vercel project
+  is in fact the `apps/inorout` production deployment serving
+  `in-or-out.com` — name is a leftover that should be renamed
+  `platform-inorout` (housekeeping, separate cycle).
+
+**Phase 5 plan approved**:
+- Roadmap saved at `/Users/tarny/.claude/plans/continuing-phase-3-of-steady-falcon.md`.
+- Locked architectural decisions:
+  1. Trigger: per-SQUAD (not per-player). League surfaces only show
+     when the player has a competitively-registered squad selected
+     as their active context.
+  2. UI placement: collapsible cards inside existing tabs (no new
+     NavBar tabs). MySquads gets a `LEAGUE` pill on competitive
+     squads.
+  3. Teamsheet IS source of truth for ref pre-match — Cycle 5.6
+     adds `fixture_lineups` table + RPC + backward-compatible update
+     to `get_fixture_state_by_ref_token`.
+  4. Naming discipline: new components use "Competition" not
+     "League" to avoid collision with existing intra-squad
+     `PlayerLeagueTable`.
+- 7 landable cycles (5.1–5.7), one cycle per session, each with its
+  own plan-mode pass.
+
+**Skills framework hardened (commit `cc9e711`)**:
+- `Skills/casual-regression.md` — mandatory for any Phase 5+ cycle
+  touching `apps/inorout/src/` or `packages/core/`. Codifies the
+  "casual is sacred" constraint as a procedure: 20-surface
+  inventory, two-token smoke test, console diff, screenshot diff,
+  real-device test.
+- `Skills/ephemeral-verify.md` — mandatory for any new write RPC.
+  Reusable DO-block-with-RAISE-EXCEPTION-rollback template +
+  leak-check query. Codifies the pattern we hand-wrote in Cycles
+  3.5, 3.6, mig 127.
+- CLAUDE.md: hard-rule #14 added (forward-consumer tracking in
+  RPCS.md). Skills directory + situation-specific triggers updated.
+  Two new "never commit without…" gates added.
+- RPCS.md: new "Consumers — forward dependency tracking" section.
+- Skills/audit.md + Skills/post-incident.md extended.
+- SessionStart hook lists both new skills so they auto-load every
+  new chat.
+
+**Tomorrow's safe-deploy plan**:
+- Everything that needed to deploy this session has deployed
+  (cycles 3.3/3.4/3.6 committed to main → auto-deployed to
+  platform-ref.vercel.app; mig 127 applied via MCP).
+- Tomorrow's real-world test: open
+  `https://platform-ref.vercel.app/ref/<demo-token>` on a real
+  iPhone, walk through a Start → events → full time flow,
+  observe.
+- Next coding session: Cycle 5.1 (smallest, lowest risk — RPC for
+  competitive context detection + LEAGUE pill on MySquads).
+
+**Latent items flagged**:
+- `Skills/` vs `skills/` directory case mismatch (macOS-only
+  passable, breaks on Linux).
+- `platform-clubmanager` Vercel project → should rename to
+  `platform-inorout`.
+- The dead `inor-out` Vercel project (linked to a separate old
+  GitHub repo) should be deleted.
+- Vercel preview env vars not set for platform-ref (only production
+  + development) — CLI bug workaround needed.
 
 ---
 

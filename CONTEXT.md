@@ -1,5 +1,54 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 27 2026 (session 50 — PHASE 3 CYCLES 3.1 + 3.2 + 3.2a SHIPPED — pre-match read + ref live-match write surface + venue-level realtime broadcasts + apps/venue live-update subscriber; migs 119 + 120 + 121. Detail in FEATURES.md.)*
+*Last updated: May 27 2026 (session 51 — **PHASE 3 COMPLETE** + apps/ref live at platform-ref.vercel.app + Phase 5 plan approved + skills framework hardened. Detail in FEATURES.md.)*
+
+## SESSION 51 — Phase 3 complete + Phase 5 prep (May 27 2026)
+
+**Two threads ran in this session:**
+
+**Thread A — earlier (commits a1c13d0 → 7ee7138):**
+- mig 125 deterministic squad ordering
+- mig 126 cron autoOpenGameJob fix (creates matches row + active_match_id)
+- post-incident docs for admin impersonation + cron auto-open
+- mig 128 player_join_team audit + broadcast
+- mig 129 link_player_to_user broadcast
+- reserveGuest persistence fix
+- mig 130/131/132 reserve drag-to-reorder feature wired end-to-end
+
+**Thread B — Phase 3 wrap + Phase 5 prep (commits da89740 → cc9e711):**
+- Cycle 3.3 LiveMatch screen (commit `da89740`)
+- Cycle 3.4 offline event queue via IndexedDB (commit `7ce2bac`)
+- Cycle 3.5 score materialisation + standings cascade — verified
+  clean via Supabase MCP, no code shipped
+- Cycle 3.6 PostMatch summary + `venue_update_fixture_result` RPC
+  (mig 127) + side-fix for mig 121's `notify_venue_change`
+  whitelist regression (commit `563201b`)
+- **Vercel deployment**: new `platform-ref` project linked to this
+  monorepo's main branch, root `apps/ref`. Live at
+  `https://platform-ref.vercel.app`. Custom domain
+  `ref.in-or-out.com` not yet wired (separate DNS task).
+- **Phase 5 roadmap approved**: 7 landable cycles, locked
+  architectural decisions (per-squad context, collapsibles-not-tabs,
+  teamsheet-as-source-of-truth, Competition-not-League naming).
+  Plan at `/Users/tarny/.claude/plans/continuing-phase-3-of-steady-falcon.md`.
+- **Skills framework hardened** (commit `cc9e711`):
+  `Skills/casual-regression.md` + `Skills/ephemeral-verify.md`
+  added as mandatory gates. CLAUDE.md hard-rule #14 added for
+  forward-consumer tracking. SessionStart hook auto-loads both.
+
+**State at session end (safe to close):**
+- `main` branch up to date, working tree clean (except untracked
+  .playwright-mcp logs and screenshots — gitignored).
+- All migrations applied to live DB are committed as source.
+- `platform-ref.vercel.app` serving the ref view (Phase 3 complete).
+- `in-or-out.com` unchanged (`platform-clubmanager` project, last
+  deployed at the Cycle 3.6 commit but that commit only touched
+  `apps/ref` files — no behavioural change for inorout users).
+- Phase 5 Cycle 5.1 ready to start in a fresh session.
+
+**Tomorrow's first step**: real-device test against
+`https://platform-ref.vercel.app/ref/e1e09eda-c2a1-41c9-aa17-c42de0f7e976`
+(Alpha vs Delta demo fixture). Then decide whether to wire
+`ref.in-or-out.com` DNS or proceed straight to Cycle 5.1.
 
 ## SESSION 49 — admin_delete_player hotfixes (May 26 2026)
 
