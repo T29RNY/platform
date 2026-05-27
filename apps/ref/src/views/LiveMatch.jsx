@@ -7,9 +7,28 @@ import {
   refUndoEvent,
   refConfirmFullTime,
 } from "@platform/core/storage/supabase.js";
+import {
+  enqueue as queueEnqueue,
+  deletePending as queueDelete,
+  listPending as queueList,
+  isPending as queueIsPending,
+} from "../lib/offlineQueue.js";
 
 const LONG_PRESS_MS = 600;     // hold ⚽ this long → own goal
 const UNDO_WINDOW_MS = 30000;  // toast visible for 30s after each event
+
+// Replay a queued row by calling the matching wrapper. Kind/args
+// mirror the wrapper signatures so the drain loop stays trivial.
+async function fireQueued(refToken, row) {
+  const a = row.args;
+  switch (row.kind) {
+    case "goal":   return refRecordGoal(refToken, a);
+    case "card":   return refRecordCard(refToken, a);
+    case "sub":    return refRecordSubstitution(refToken, a);
+    case "period": return refSetPeriod(refToken, a.period, a.clientEventId, a.localTimestamp);
+    default: throw new Error(`unknown queue kind: ${row.kind}`);
+  }
+}
 
 // Derive the current period from the events array (most recent
 // period_change wins; default to 1H before any have happened).
@@ -93,36 +112,129 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
     return () => clearTimeout(id);
   }, [toast]);
 
-  const inFlightRef = useRef(0);
+  // ── Offline queue + connection state ─────────────────────────────
+  // Every event tap writes a row to IndexedDB BEFORE the RPC call.
+  // On success we delete the row. On failure (offline, transient
+  // network) we leave it queued; the drain loop replays on reconnect
+  // or next page load. Every ref_* RPC is idempotent on
+  // client_event_id, so duplicate replays are server-side no-ops.
+  const [pendingCount, setPendingCount] = useState(0);
+  const [online, setOnline] = useState(() =>
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+  const [drainError, setDrainError] = useState(null);
+  const drainingRef = useRef(false);
+
+  const refreshPendingCount = useCallback(async () => {
+    try {
+      const rows = await queueList(fixture.id);
+      setPendingCount(rows.length);
+    } catch (err) {
+      console.error("[ref] queue list failed", err);
+    }
+  }, [fixture.id]);
+
+  const drain = useCallback(async () => {
+    if (drainingRef.current) return;
+    if (!fixture.id) return;
+    drainingRef.current = true;
+    try {
+      const rows = await queueList(fixture.id);
+      for (const row of rows) {
+        try {
+          await fireQueued(refToken, row);
+          await queueDelete(row.client_event_id);
+        } catch (err) {
+          console.error("[ref] drain row failed", err);
+          setDrainError(err?.message || String(err));
+          // Stop on first failure — assume transient. The next online
+          // event or manual retry will pick up where we left off.
+          return;
+        }
+      }
+      setDrainError(null);
+      await refreshPendingCount();
+      await onRefresh();
+    } finally {
+      drainingRef.current = false;
+    }
+  }, [fixture.id, refToken, refreshPendingCount, onRefresh]);
+
+  // Resume on mount: count pending rows + try draining immediately.
+  // Covers the page-crash recovery case — open the link again, any
+  // unsynced rows from the prior session drain straight away.
+  useEffect(() => {
+    refreshPendingCount();
+    if (typeof navigator === "undefined" || navigator.onLine) drain();
+  }, [refreshPendingCount, drain]);
+
+  // Browser online/offline events. The 'online' transition fires a
+  // drain attempt automatically.
+  useEffect(() => {
+    function goOnline()  { setOnline(true); drain(); }
+    function goOffline() { setOnline(false); }
+    window.addEventListener("online",  goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online",  goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, [drain]);
+
+  // Beforeunload guard: warn if anything is still queued. The queue
+  // survives a reload (it's in IDB), but a ref accidentally closing
+  // the tab mid-match should get a confirm prompt.
   useEffect(() => {
     function beforeUnload(e) {
-      if (inFlightRef.current > 0) {
+      if (pendingCount > 0) {
         e.preventDefault();
         e.returnValue = "";
       }
     }
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, []);
+  }, [pendingCount]);
 
-  // ── Generic event sender (optimistic write, revert on error) ─────
-  const sendEvent = useCallback(async ({ optimistic, fire, toastLabel }) => {
+  // ── Generic event sender (optimistic + enqueue + try RPC) ────────
+  // Always succeeds locally. Network failure leaves the row queued —
+  // no error toast on offline, because that's expected.
+  const sendEvent = useCallback(async ({ optimistic, kind, args, toastLabel }) => {
     const clientEventId = optimistic.client_event_id;
+
     setLocalEvents((xs) => [...xs, optimistic]);
     setToast({ clientEventId, label: toastLabel, expiresAt: Date.now() + UNDO_WINDOW_MS });
-    inFlightRef.current++;
+
     try {
-      await fire();
-      await onRefresh();
+      await queueEnqueue({
+        client_event_id: clientEventId,
+        fixture_id:      fixture.id,
+        kind,
+        args,
+        created_at:      new Date().toISOString(),
+      });
     } catch (err) {
-      console.error("[ref] event failed", err);
+      // IDB failure is rare (private-mode Safari, quota exceeded).
+      // Surface it — without IDB we can't guarantee durability.
+      console.error("[ref] queue enqueue failed", err);
+      alert(`Could not save locally: ${err?.message || String(err)}`);
       setLocalEvents((xs) => xs.filter((e) => e.client_event_id !== clientEventId));
       setToast(null);
-      alert(`Could not save: ${err?.message || String(err)}`);
-    } finally {
-      inFlightRef.current--;
+      return;
     }
-  }, [onRefresh]);
+
+    setPendingCount((c) => c + 1);
+
+    try {
+      await fireQueued(refToken, { kind, args });
+      await queueDelete(clientEventId);
+      setPendingCount((c) => Math.max(0, c - 1));
+      await onRefresh();
+    } catch (err) {
+      console.error("[ref] event RPC failed — will retry from queue", err);
+      // Leave the row in the queue. drainError gets set by the
+      // background drain loop the next time it runs.
+    }
+  }, [fixture.id, refToken, onRefresh]);
 
   // ── Handlers ─────────────────────────────────────────────────────
   function teamIdFor(player) {
@@ -142,11 +254,12 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
         team_id: teamId, player_id: player.id,
         minute: currentMinute, period,
       },
-      fire: () => refRecordGoal(refToken, {
+      kind: "goal",
+      args: {
         playerId: player.id, minute: currentMinute, period,
         clientEventId, ownGoal,
         localTimestamp: new Date().toISOString(),
-      }),
+      },
       toastLabel: `${ownGoal ? "Own goal" : "Goal"} — ${player.name}`,
     });
   }
@@ -163,11 +276,12 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
         team_id: teamId, player_id: player.id,
         minute: currentMinute, period,
       },
-      fire: () => refRecordCard(refToken, {
+      kind: "card",
+      args: {
         playerId: player.id, minute: currentMinute, period, colour,
         clientEventId,
         localTimestamp: new Date().toISOString(),
-      }),
+      },
       toastLabel: `${colour === "red" ? "Red" : "Yellow"} — ${player.name}`,
     });
   }
@@ -203,12 +317,13 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
         sub_player_off_id: offPlayer.id,
         minute: currentMinute, period,
       },
-      fire: () => refRecordSubstitution(refToken, {
+      kind: "sub",
+      args: {
         onPlayerId: onPlayer.id, offPlayerId: offPlayer.id,
         minute: currentMinute, period,
         clientEventId,
         localTimestamp: new Date().toISOString(),
-      }),
+      },
       toastLabel: `Sub — ${onPlayer.name} on for ${offPlayer.name}`,
     });
   }
@@ -222,7 +337,8 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
         team_id: fixture.home_team_id,
         minute: currentMinute, period: nextPeriod,
       },
-      fire: () => refSetPeriod(refToken, nextPeriod, clientEventId, new Date().toISOString()),
+      kind: "period",
+      args: { period: nextPeriod, clientEventId, localTimestamp: new Date().toISOString() },
       toastLabel: periodLabel(nextPeriod),
     });
   }
@@ -249,6 +365,14 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
     setLocalEvents((xs) => xs.filter((e) => e.client_event_id !== cid));
     setToast(null);
     try {
+      // If the event hasn't synced yet, just remove it from the queue
+      // — the server never saw it, no undo RPC needed.
+      const stillQueued = await queueIsPending(cid);
+      if (stillQueued) {
+        await queueDelete(cid);
+        setPendingCount((c) => Math.max(0, c - 1));
+        return;
+      }
       await refUndoEvent(refToken, cid);
       await onRefresh();
     } catch (err) {
@@ -268,6 +392,21 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
         </div>
         <div className={`live-period live-period-${period.toLowerCase()}`}>{period}</div>
       </div>
+
+      {(pendingCount > 0 || !online) && (
+        <div className={`live-offline-banner ${online ? "is-syncing" : "is-offline"}`}>
+          <span className="live-offline-dot" />
+          <span className="live-offline-label">
+            {online
+              ? `Syncing · ${pendingCount} event${pendingCount === 1 ? "" : "s"} pending`
+              : `Offline · ${pendingCount} event${pendingCount === 1 ? "" : "s"} queued`}
+            {drainError ? ` — ${drainError}` : ""}
+          </span>
+          <button className="live-offline-retry" onClick={drain} disabled={drainingRef.current}>
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="live-teams">
         <TeamColumn
