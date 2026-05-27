@@ -7,3 +7,4 @@ dist
 
 # Claude Code local overrides — per-user permissions, not for sharing
 .claude/settings.local.json
+.vercel
