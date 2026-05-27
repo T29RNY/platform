@@ -25,10 +25,6 @@ webpush.setVapidDetails(
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
-function makeId() {
-  return `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function isQuietHours(quietStart, quietEnd) {
   const h  = new Date().getHours();
   const sh = parseInt(quietStart.split(':')[0], 10);
@@ -60,25 +56,25 @@ async function alreadySent(teamId, type, gameDate) {
 async function pushToSubs(subs, payload, type, teamId, gameDate) {
   await Promise.allSettled(
     subs.map(async sub => {
+      const playerToken = sub.players?.token || '';
       const pushPayload = JSON.stringify({
         ...payload,
-        url: `https://in-or-out.com/p/${sub.player_token}`,
+        url: `https://in-or-out.com/p/${playerToken}`,
       });
       try {
         await webpush.sendNotification(sub.subscription, pushPayload);
         await supabase.from('notification_log').insert({
-          id: makeId(),
           team_id: teamId,
           player_id: sub.player_id,
           type,
           game_date: gameDate || null,
           sent_at: new Date().toISOString(),
-          queued_for: null,
-          queued_payload: null,
         });
       } catch (err) {
         if (err.statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+        } else {
+          console.error('webpush.sendNotification failed:', err.statusCode, err.body || err.message);
         }
       }
     })
@@ -86,7 +82,10 @@ async function pushToSubs(subs, payload, type, teamId, gameDate) {
 }
 
 async function getSubsForPlayers(teamId, playerIds) {
-  let q = supabase.from('push_subscriptions').select('*').eq('team_id', teamId);
+  let q = supabase
+    .from('push_subscriptions')
+    .select('id, player_id, team_id, subscription, players(token)')
+    .eq('team_id', teamId);
   if (playerIds?.length) q = q.in('player_id', playerIds);
   const { data } = await q;
   return data || [];
@@ -324,14 +323,13 @@ module.exports = async function handler(req, res) {
   if (quiet) {
     const queuedFor = nextQueueTime(quietEnd);
     const logs = subs.map(s => ({
-      id: makeId(),
       team_id: teamId,
       player_id: s.player_id,
       type,
       game_date: gameDate || null,
       sent_at: null,
       queued_for: queuedFor,
-      queued_payload: { ...payload, url: `https://in-or-out.com/p/${s.player_token}` },
+      queued_payload: { ...payload, url: `https://in-or-out.com/p/${s.players?.token || ''}` },
     }));
     await supabase.from('notification_log').insert(logs);
     return res.status(200).json({ queued: subs.length });
