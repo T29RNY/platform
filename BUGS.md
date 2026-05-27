@@ -235,21 +235,6 @@ bodies + handler readers, one commit.
 
 ---
 
-## TECH DEBT — `cron.js` uses server-local time (UTC), not UK time
-
-`apps/inorout/api/cron.js:337-338` calls `new Date().getDay()` /
-`.getHours()` to match against `opens_day` / `opens_time`. Vercel
-functions run in UTC, so `opens_time='10:00'` is interpreted as 10:00
-UTC = 11:00 BST. Same for `advanceGameDateJob`'s midnight gate
-(line 367). Going-forward issue: if the operator entered a UK-local
-time, auto-open fires one hour late through summer (BST). Should
-add a `nowInUkTime()` helper using `Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London' })`
-and use it at both call sites. Tracked here, not blocked on it for
-the orphan fix because the rollover will still happen — just at the
-wrong hour in summer.
-
----
-
 ## RESOLVED — admin_delete_player rejects Vice Captains (session 49, mig 116 + AdminView/index.jsx)
 
 **Symptom:** Tarny (VC on Footy Tuesdays) tapped "Remove Pav" on the
