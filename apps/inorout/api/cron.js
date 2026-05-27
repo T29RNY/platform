@@ -8,6 +8,26 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Vercel Functions run in UTC, but operator-entered opens_time / "midnight"
+// gates mean UK-local. Intl.DateTimeFormat is DST-aware (BST vs GMT).
+function nowInUkParts() {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(
+    fmt.formatToParts(new Date()).map(p => [p.type, p.value])
+  );
+  return {
+    dayName: parts.weekday,
+    hours:   parseInt(parts.hour, 10),
+    minutes: parseInt(parts.minute, 10),
+  };
+}
+
 module.exports = async function handler(req, res) {
   const secret = req.headers["authorization"]?.replace("Bearer ", "");
   if (secret !== process.env.CRON_SECRET) {
@@ -355,10 +375,9 @@ async function potmTallyJob(base, results) {
 
 // ── Auto-open game when opens_day/opens_time reached ─────────────────────────
 async function autoOpenGameJob(results) {
-  const now = new Date();
-  const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  const todayName = DAY_NAMES[now.getDay()];
-  const nowMins   = now.getHours() * 60 + now.getMinutes();
+  const uk = nowInUkParts();
+  const todayName = uk.dayName;
+  const nowMins   = uk.hours * 60 + uk.minutes;
 
   const { data: schedules, error } = await supabase
     .from("schedule")
@@ -391,7 +410,8 @@ async function autoOpenGameJob(results) {
 // ── Advance game date to next week (midnight daily) ──────────────────────────
 async function advanceGameDateJob(results) {
   const now = new Date();
-  if (now.getHours() !== 0 || now.getMinutes() >= 15) {
+  const uk = nowInUkParts();
+  if (uk.hours !== 0 || uk.minutes >= 15) {
     results.push("advanceGameDate: not midnight window");
     return;
   }

@@ -466,6 +466,27 @@ extend the function's hard whitelist.
 **Pre-flight check:** no per-squad check; verify deploy is ≥ commit
 `5a1a0e3` if log review is part of go-live monitoring.
 
+### 6.7 cron.js read UTC for `opens_time` / midnight, not UK time
+**Symptom:** auto-open fired one hour late during BST. Operator set
+"12:30" in admin UI; game went live at 13:30 BST on 2026-05-27.
+Same drift on `advanceGameDateJob`'s midnight gate (rolled over at
+01:00 BST instead of 00:00 BST).
+**Root cause:** Vercel Functions run in UTC. `autoOpenGameJob` and
+`advanceGameDateJob` used `new Date().getDay() / getHours() /
+getMinutes()` and compared those UTC values against admin-entered
+wall-clock strings (`opens_day`, `opens_time`) saved naively. GMT
+half of the year masked the bug.
+**Fix:** added `nowInUkParts()` helper in cron.js using
+`Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", ... })`.
+Both jobs now evaluate "what day / what time" in UK-local. pg_cron
+schedule unchanged — JS gates filter the right tick. DST-safe.
+**Pre-flight check:** set a team's `opens_time` to "now + 20
+minutes" UK-local via admin UI. Within the next 15-min cron window
+**after** that UK-local minute, confirm `schedule.game_is_live`
+flips to true. Do this during BST specifically — GMT will mask
+regressions. If the flip happens an hour late, the fix has
+regressed or `Intl` is being mis-evaluated.
+
 ---
 
 ## 7. REALTIME

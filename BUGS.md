@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 27 2026 (session 50 — full push-notification rescue: cron orphan, realtime broadcast gaps, service worker never registered, two RPC/table schema drifts; migs 117 / 118 / 122 / 123 + notify.js + cron.js + index.html + main.jsx)*
+*Last updated: May 27 2026 (session 50 follow-up — cron.js UTC→Europe/London fix; cron.js)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,42 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — cron.js evaluated `opens_time` / midnight gate in UTC, not UK time (session 50 follow-up)
+
+**Symptom:** Footy Tuesdays' `opens_time` set to "12:30" via admin UI
+fired at 13:30 BST on 2026-05-27. Same one-hour drift would have
+applied to every team's auto-open during BST (Mar–Oct). The midnight
+`advanceGameDateJob` gate had the same flaw — UK-midnight rollover
+fired at 01:00 BST.
+
+**Root cause:** Vercel Functions run in UTC. `autoOpenGameJob` and
+`advanceGameDateJob` used `new Date().getDay() / getHours() /
+getMinutes()` and compared those UTC values against operator-entered
+wall-clock strings (`opens_day`, `opens_time`) saved naively by the
+admin UI with no timezone metadata. GMT half of the year masked the
+bug — the offset is zero, so it "worked" Nov–Mar.
+
+**Fix:** added `nowInUkParts()` helper in cron.js using
+`Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", ... })`.
+Swapped both `autoOpenGameJob` and `advanceGameDateJob` to use the
+helper. pg_cron's UTC firing schedule is unchanged — the JS gates
+filter to the right tick. DST-safe because Intl handles the BST/GMT
+switch.
+
+**Not in scope (still open):** `advanceGameDateJob` does
+`d.setDate(d.getDate() + 7)` to roll to next week, which preserves
+the absolute instant — meaning wall-clock kickoff time shifts by one
+hour for the week containing each DST boundary. Codebase has lived
+with this for years; fix requires DST-aware date math; tracked
+separately.
+
+**Verification target:** next BST tick where an operator-set
+`opens_time` should fire (any team's auto-open, or any midnight
+rollover). Confirm `schedule.game_is_live` flips at the right
+UK-local minute and a push lands on a real iPhone.
 
 ---
 
