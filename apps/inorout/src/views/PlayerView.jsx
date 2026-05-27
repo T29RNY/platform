@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
-  resolveMotm } from "@platform/core";
+  resolveMotm, sortByReservePriority } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, removeGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
   getPOTMVotingState, setPlayerNickname,
   resolveBibHolder } from "@platform/core/storage/supabase.js";
@@ -289,7 +289,7 @@ export default function PlayerView({
     const gameDate = schedule.gameDateTime?.split("T")[0];
 
     if (me?.status === "in" && s !== "in") {
-      const reserves = squad.filter(p => p.status === "reserve" && !p.disabled);
+      const reserves = sortByReservePriority(squad.filter(p => p.status === "reserve" && !p.disabled));
       if (reserves.length) {
         const hoursToKick = schedule.gameDateTime
           ? (new Date(schedule.gameDateTime) - new Date()) / 3600000

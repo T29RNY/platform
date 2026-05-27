@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { colors as C, computeDeeperIntel } from "@platform/core";
+import { colors as C, computeDeeperIntel, sortByReservePriority } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import {
   getPlayers,
@@ -893,7 +893,7 @@ export default function App() {
   const _me          = myPlayer ? squad.find(p => p.id === myPlayer.id) : null;
   const isViceCaptain = _me?.isViceCaptain === true;
   const _inPlayers   = squad.filter(p => p.status === "in"      && !p.disabled && !p.injured);
-  const _reserves    = squad.filter(p => p.status === "reserve" && !p.disabled);
+  const _reserves    = sortByReservePriority(squad.filter(p => p.status === "reserve" && !p.disabled));
   const _reservePos  = _me?.status === "reserve"
     ? _reserves.findIndex(p => p.id === _me.id) + 1 || null
     : null;

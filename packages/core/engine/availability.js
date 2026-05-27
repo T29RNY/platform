@@ -17,13 +17,29 @@ export function isLateDropout(previousStatus, newStatus, gameDateTime) {
   return hoursUntilGame < 24;
 }
 
+// Stable sort by reservePriorityOrder (admin-set bench queue).
+// NULL/undefined orders sort to the back. Reserves with the same priority
+// (shouldn't happen post-trigger, but defensive) keep their input order.
+export function sortByReservePriority(players) {
+  return [...players].sort((a, b) => {
+    const ao = a.reservePriorityOrder;
+    const bo = b.reservePriorityOrder;
+    if (ao == null && bo == null) return 0;
+    if (ao == null) return 1;
+    if (bo == null) return -1;
+    return ao - bo;
+  });
+}
+
 export function groupByStatus(players) {
   return {
     in:      players.filter(p => p.status === STATUS.IN      && !p.disabled),
     maybe:   players.filter(p => p.status === STATUS.MAYBE   && !p.disabled),
     out:     players.filter(p => p.status === STATUS.OUT     && !p.disabled),
     none:    players.filter(p => p.status === STATUS.NONE    && !p.disabled),
-    reserve: players.filter(p => p.status === STATUS.RESERVE && !p.disabled),
+    reserve: sortByReservePriority(
+      players.filter(p => p.status === STATUS.RESERVE && !p.disabled)
+    ),
   };
 }
 

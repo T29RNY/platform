@@ -217,6 +217,7 @@ function dbToPlayer(r) {
     nickname: r.nickname || null,
     userId: r.user_id || null,
     groupNumber: r.group_number ?? null,
+    reservePriorityOrder: r.reserve_priority_order ?? null,
     adminLockedIn: r.admin_locked_in || false,
     isSelf: r.is_self ?? false,
   };
@@ -1267,6 +1268,19 @@ export async function adminSetPlayerStatus(adminToken, playerId, status) {
     p_admin_token: adminToken,
     p_player_id:   playerId,
     p_status:      status,
+  });
+  if (error) throw error;
+  return data;
+}
+
+// Admin reorders reserves. Takes the full ordered list of player IDs that
+// are currently status='reserve' on the admin's team. RPC validates and
+// atomically writes positions 0..N-1, audits, broadcasts. Rejects on
+// duplicates, non-reserves, or stale set (reserve count changed mid-flight).
+export async function adminReorderReserves(adminToken, reserveIds) {
+  const { data, error } = await supabase.rpc('admin_reorder_reserves', {
+    p_admin_token: adminToken,
+    p_reserve_ids: reserveIds,
   });
   if (error) throw error;
   return data;

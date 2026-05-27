@@ -1,5 +1,77 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 27 2026 (session 51 — admin impersonation guard (mig 125) + cron auto-open match row (mig 126))*
+*Last updated: May 27 2026 (session 51 — reserve drag-to-reorder feature wired end-to-end, migs 130/131/132)*
+
+---
+
+## RESOLVED — Reserve drag-to-reorder never persisted (session 51, feature wire-up)
+
+**Symptom (latent — admin UX):** the admin home screen's reserves
+section let admins drag-reorder reserve players. The drag worked
+visually but the order was pure local React state. Refresh, route
+change, or any realtime broadcast wiped it. There was no DB column
+to store the order in at all, only a boolean `priority` flag.
+
+**Verdict (per product decision):** the drag is supposed to persist
+— the order means "who comes off the bench first when a spot opens".
+Wired up as a new feature.
+
+**Fix:**
+- **mig 130:** `ALTER TABLE team_players ADD COLUMN reserve_priority_order int NULL`,
+  plus a trigger `manage_reserve_priority_order_trg` on `players AFTER
+  INSERT OR UPDATE OF status` that auto-maintains the column:
+  - status becomes 'reserve' → append at MAX+1.
+  - status leaves 'reserve' → clear that row's order, compact remaining
+    reserves so there are no gaps.
+  The trigger covers every status-change path because every RPC that
+  changes status runs `UPDATE players SET status=…` (verified across
+  set_player_status, admin_set_player_status). Backfill skipped — zero
+  reserves existed in prod at apply time.
+- **mig 131:** `admin_reorder_reserves(p_admin_token, p_reserve_ids text[])`
+  SECDEF. Validates admin token, no duplicates, full reserve set
+  (concurrency guard), every id is currently a reserve on the admin's
+  team. Atomically writes positions 0..N-1. Audits via
+  `admin_reorder_reserves` action. Broadcasts `player_updated`.
+  Granted to anon + authenticated per parity-sweep pattern (mig 075).
+- **mig 132:** added `reserve_priority_order` to the squad jsonb in
+  `get_team_state_by_admin_token` and both branches (privileged +
+  non-privileged) of `get_team_state_by_player_token`. Also extended
+  `v_player` so the user's own bench position is available without
+  depending on the squad payload (non-priv branch excludes self).
+- **JS:** `dbToPlayer` mapper picks up `reservePriorityOrder` (HARD
+  RULE 12). New wrapper `adminReorderReserves(adminToken, reserveIds)`
+  in supabase.js, exported via the barrel. New helper
+  `sortByReservePriority(players)` in `@platform/core/engine/availability.js`,
+  used inside `groupByStatus` and at the three admin-display /
+  spotOpened sites (App.jsx, PlayerView.jsx, AdminView/index.jsx).
+- **AdminView/index.jsx `moveReserve`:** rewritten — async, optimistic
+  local update (writes new `reservePriorityOrder` onto every affected
+  squad row), calls `adminReorderReserves`, rollback on error. Same
+  shape as today's reserveGuest fix.
+
+**Smoke tests (DB-side, pre-deploy):**
+- Trigger append: 3 demo players flipped to 'reserve' in sequence →
+  trigger assigned 0, 1, 2 ✓
+- Trigger gap-close: promoted middle reserve to 'in' → that row
+  cleared to NULL, third compacted from 2→1 ✓
+- `admin_reorder_reserves` shuffle: reordered [03,01,02] → pg state
+  matched 0,1,2 in that order ✓
+- `get_team_state_by_admin_token` returned `reserve_priority_order`
+  on each squad row ✓
+- Restore: all demo players back to 'none', orders NULL ✓
+
+**Verification target (UI):** on /admin/ with ≥2 reserves, drag one
+reserve above another. Refresh the page — new order persists. On a
+second device viewing the same team, the order matches. Promote the
+top reserve to 'in' — second reserve compacts to position 0.
+
+**Free win:** PlayerView's `spotOpened` notification (when an "in"
+player drops out) sends to `reserves[0]`. With the new sort,
+`reserves[0]` is now the highest-priority reserve per admin's chosen
+order, not whatever happened to be first in the raw squad array.
+
+---
+
+
 
 ---
 

@@ -5,6 +5,7 @@ import {
   getPlayerLeagueTable,
   reopenWeek,
   goLive,
+  sortByReservePriority,
 } from "@platform/core";
 import {
   deletePlayer,
@@ -12,6 +13,7 @@ import {
   upsertSchedule, adminCancelMatch, addPlayerToTeam,
   getRecentNotification,
   adminSetPlayerStatus,
+  adminReorderReserves,
 } from "@platform/core/storage/supabase.js";
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
@@ -113,7 +115,7 @@ export default function AdminView({
 
   // ── derived ──────────────────────────────────────────────────────────────
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
-  const reservePlayers = squad.filter(p => p.status==="reserve" && !p.disabled && !p.injured);
+  const reservePlayers = sortByReservePriority(squad.filter(p => p.status==="reserve" && !p.disabled && !p.injured));
   const maybePlayers   = squad.filter(p => p.status==="maybe"   && !p.disabled && !p.injured);
   const outPlayers     = squad.filter(p => p.status==="out"     && !p.disabled && !p.injured);
   const injuredPlayers = squad.filter(p => p.injured && !p.disabled);
@@ -173,18 +175,30 @@ export default function AdminView({
     }
   };
 
-  const moveReserve = (fromId, toId) => {
+  const moveReserve = async (fromId, toId) => {
     if (fromId === toId) return;
-    const idxs    = squad.map((p, i) => ({ p, i })).filter(({ p }) => p.status==="reserve" && !p.disabled).map(({ i }) => i);
-    const inOrder = idxs.map(i => squad[i]);
-    const from    = inOrder.findIndex(p => p.id === fromId);
-    const to      = inOrder.findIndex(p => p.id === toId);
-    const reord   = [...inOrder];
+    const currentOrder = reservePlayers.map(p => p.id);
+    const from = currentOrder.indexOf(fromId);
+    const to   = currentOrder.indexOf(toId);
+    if (from === -1 || to === -1) return;
+    const reord = [...currentOrder];
     const [moved] = reord.splice(from, 1);
     reord.splice(to, 0, moved);
-    const next = [...squad];
-    idxs.forEach((si, i) => { next[si] = reord[i]; });
-    setSquad(next);
+
+    const prev = squad;
+    const orderMap = new Map(reord.map((id, idx) => [id, idx]));
+    setSquad(squad.map(p =>
+      orderMap.has(p.id)
+        ? { ...p, reservePriorityOrder: orderMap.get(p.id) }
+        : p
+    ));
+
+    try {
+      await adminReorderReserves(adminToken, reord);
+    } catch (e) {
+      console.error(e);
+      setSquad(prev);
+    }
   };
 
   const cancelWeek = async () => {
