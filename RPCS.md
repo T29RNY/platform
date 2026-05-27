@@ -151,6 +151,25 @@ Auth via `p_admin_token`; anon grant is fine because the token is the auth signa
 
 ---
 
+## LEAGUE MODE — PHASE 3 RPCs (ref view, migration 119 onwards)
+
+Spec: `LEAGUE_MODE_SCOPE.md` § Phase 3. Ref opens
+`https://app/ref/<ref_token>` on their phone — token is on
+`fixtures.ref_token` (auto-generated at fixture INSERT, mig 055).
+Token grants access to exactly one fixture. Anon-callable so refs
+don't need an account; also granted to authenticated for future
+ref OAuth without re-grant.
+
+| SQL function | JS wrapper | Notes |
+|---|---|---|
+| `get_fixture_state_by_ref_token` | `getFixtureStateByRefToken(refToken)` | Migration 119. Single-fixture read for the ref pre-match + resume path. Returns `{fixture, competition, league, venue, pitch, official, home_team, away_team, home_squad, away_squad, events, caller}`. Squads derived from `player_registrations` joined to `players` filtered to `status='active'`, ordered by `shirt_number NULLS LAST`. Events ordered by `(minute, created_at)` for offline-resume. Raises `invalid_ref_token` on null/empty/unknown. |
+
+Forthcoming (Cycle 3.2 and on): `ref_record_goal`, `ref_record_card`,
+`ref_record_substitution`, `ref_set_period`, `ref_confirm_full_time`,
+`ref_undo_event`, `ref_replay_unsynced`, `venue_update_fixture_result`.
+
+---
+
 ## MIGRATION FILE MAP
 
 | Migration | Contents |

@@ -1930,6 +1930,20 @@ export async function getLeagueStandingsForPlayer(playerToken) {
   return data;
 }
 
+// ─── League Mode — Phase 3 Cycle 3.1 ref pre-match read ──────────────────────
+
+export async function getFixtureStateByRefToken(refToken) {
+  if (!refToken) return null;
+  const { data, error } = await supabase.rpc("get_fixture_state_by_ref_token", {
+    p_ref_token: refToken,
+  });
+  if (error) {
+    console.error("[ref] get_fixture_state failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.3 season setup ────────────────────────────
 
 export async function venueCreateSeason(venueToken, season) {

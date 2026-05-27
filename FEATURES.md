@@ -1,5 +1,72 @@
 # In or Out — Feature Tracker
-*Last updated: May 27 2026 (session 48 — PHASE 2 COMPLETE — 8 cycles, 14 migrations 083–114, 1 new app, demo venue exercises full operator loop end-to-end)*
+*Last updated: May 27 2026 (session 50 — Phase 3 Cycle 3.1 shipped — ref pre-match read RPC + new `apps/ref` Vite app + PreMatch screen with 15-min kickoff gate + 3-sec hold override; mig 119)*
+
+---
+
+## LEAGUE MODE — PHASE 3 CYCLE 3.1 SHIPPED (session 50, 2026-05-27)
+
+**Cycle 3.1 — Pre-match: ref logs in and sees the squads** (low risk,
+pure read + UI; first of six Phase 3 cycles per the plan
+`~/.claude/plans/plain-english-please-jazzy-spring.md`).
+
+Shipped:
+- **Migration 119** (`119_phase3_ref_get_fixture_state.sql`) — new
+  `get_fixture_state_by_ref_token(p_ref_token)` SECURITY DEFINER RPC.
+  Returns one fixture + competition + venue + league + pitch +
+  official + both teams + both squads (derived from
+  `player_registrations` joined to `players`, ordered by
+  shirt_number) + any existing `match_events` for resume. Single-
+  fixture access only — token grants access to nothing else.
+  Grants: `anon, authenticated`.
+- **JS wrapper** `getFixtureStateByRefToken(refToken)` in
+  `packages/core/storage/supabase.js`, exported from the barrel.
+- **New app `apps/ref/`** (Vite + React, port 5180) — mirrors
+  `apps/venue/` shape: `package.json`, `vite.config.js`,
+  `index.html`, `vercel.json` (catch-all → index.html),
+  `src/main.jsx`, `src/App.jsx`, `src/styles.css`.
+- **Visual baseline**: shares Geist + coral accent with apps/venue
+  but strips glass effects, drifting orbs, and shimmer — refs need
+  outdoor-readable contrast and large tap targets, not flourish.
+  Auto light/dark via `prefers-color-scheme`. Min 56px buttons.
+- **`PreMatch.jsx` view**:
+  - Header eyebrow (venue · competition · week)
+  - Kickoff strip (time + date / pitch + ref)
+  - Two squad cards (team swatch from primary_colour, shirt number
+    + player name + suspension flag if `suspension_until` future)
+  - Empty squad state ("No confirmed squad yet")
+  - Terminal-state banner (`completed` / `void` / `postponed` /
+    `walkover` / `forfeit`) — surfaces final score, replaces Start
+    Match with a Refresh
+  - **Start Match button**: enabled within 15 min of kickoff; outside
+    that window, requires a 3-second pointer hold to override (RAF-
+    driven progress fill on the button, countdown hint underneath)
+  - The actual `ref_start_match` RPC ships in Cycle 3.2 — the tap
+    handler currently surfaces an alert pointing forward.
+- **Smoke-tested** at 390×844 against two real demo fixtures:
+  a completed fixture (4–2 Alpha United vs Bravo Athletic, Wed 13
+  May) shows the terminal-state path; a future allocated fixture
+  (Wed 3 Jun, Alpha United vs Delta FC) shows the gated Start
+  Match with "Unlocks in 7 days" hint.
+
+**RPC security sweep passed**: `security_definer: true`,
+`search_path: public, pg_temp`, EXECUTE granted to both `anon` and
+`authenticated`, no overloads.
+
+**Demo seed gap noted**: `player_registrations` rows aren't seeded
+for the demo teams, so squads render as empty in the current demo.
+Not a blocker for Cycle 3.1 (squad rendering verified empty + non-
+empty paths work); will be addressed when Cycle 3.3 needs live
+squads for event entry, or sooner via a dedicated seed cycle.
+
+**Files touched**:
+- `rls_migrations/119_phase3_ref_get_fixture_state.sql` (+ `_down.sql`)
+- `packages/core/storage/supabase.js` (+wrapper)
+- `packages/core/index.js` (+export)
+- `apps/ref/` (new app)
+
+**What's next**: Cycle 3.2 — server-side event-write RPCs +
+`client_event_id UNIQUE` column on `match_events` + realtime
+broadcasts (so Phase 4 reception display can subscribe later).
 
 ---
 

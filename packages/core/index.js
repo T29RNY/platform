@@ -52,6 +52,7 @@ export {
   leagueGetState,
   joinGetLeagueByCode,
   getLeagueStandingsForPlayer,
+  getFixtureStateByRefToken,
   venueCreateSeason,
   venueGenerateFixtures,
   venueAssignPitch,

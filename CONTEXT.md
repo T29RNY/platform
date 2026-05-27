@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 27 2026 (session 48 — PHASE 2 COMPLETE — cycle 2.8 season-setup wizard shipped, capstone for the 8-cycle League Mode build. Session 49 hotfixes also live.)*
+*Last updated: May 27 2026 (session 50 — PHASE 3 STARTED — cycle 3.1 shipped: ref pre-match read RPC, new `apps/ref` Vite app, PreMatch screen with 15-min kickoff gate + 3-sec hold override; mig 119. Detail in FEATURES.md.)*
 
 ## SESSION 49 — admin_delete_player hotfixes (May 26 2026)
 
