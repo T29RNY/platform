@@ -91,6 +91,19 @@ Anything that could go wrong. Specifically:
 List every file that will need to change in execute.
 Be explicit. If you are uncertain whether a file needs changing, say so.
 
+**9. Casual-flow surfaces touched (Phase 5+ only)**
+If the change touches `apps/inorout/src/` or `packages/core/`, list
+every casual-flow surface from `skills/casual-regression.md` Step 1
+that the change risks affecting. Note which need a post-cycle
+regression check. This is the input to the casual-regression
+gate before commit.
+
+**10. Forward consumers (for new RPCs)**
+If the change adds a new RPC, list every downstream consumer —
+including ones that don't exist yet (Phase 4 reception display,
+Phase 6 HQ dashboard, Phase 7 AI). This list goes into RPCS.md's
+Notes column per hard-rule #14.
+
 ---
 
 ## AUDIT OUTPUT FORMAT

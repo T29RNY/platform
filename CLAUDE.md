@@ -89,6 +89,12 @@ situation matches, without waiting for the developer to ask:
                                  Mandatory. Do not skip.
   skills/rpc-security-sweep.md — run before commit when ANY RPC was added
                                   or modified. Gate between verify and commit.
+  skills/casual-regression.md — MANDATORY for any Phase 5+ cycle that touches
+                                  apps/inorout/src/ or packages/core/. Gates
+                                  the casual flow against unintended changes.
+  skills/ephemeral-verify.md  — MANDATORY for any cycle that adds or modifies
+                                  a write RPC. End-to-end DO-block proof
+                                  against the live DB with auto-rollback.
   skills/post-incident.md     — run after every bug fix is committed.
                                  Proposes BUGS.md, DECISIONS.md, CONTEXT.md updates.
 
@@ -97,6 +103,8 @@ situation matches, without waiting for the developer to ask:
 - Never commit without a passing build
 - Never rename or drop a column without running schema-sync.md first
 - Never commit an RPC change without running rpc-security-sweep.md first
+- Never commit a Phase 5+ cycle touching apps/inorout without running casual-regression.md first
+- Never commit a new write RPC without running ephemeral-verify.md first
 - When audit reveals ambiguity, ask ONE clarifying question
   before execute starts
 - One file or one logical unit per execute part
@@ -470,6 +478,8 @@ Apply SQL before writing any JS wrapper.
 - `skills/feature-plan.md` — pre-audit research for new features.
 - `skills/schema-sync.md` — mandatory before any column change.
 - `skills/rpc-security-sweep.md` — mandatory gate before RPC commits.
+- `skills/casual-regression.md` — mandatory for Phase 5+ cycles touching apps/inorout. Proves casual flow unchanged.
+- `skills/ephemeral-verify.md` — mandatory for any new write RPC. Live-DB end-to-end proof with auto-rollback.
 - `skills/post-incident.md` — documentation after every bug fix.
 
 ---
@@ -533,6 +543,13 @@ Apply SQL before writing any JS wrapper.
     session 43 after three behaviour-only bugs surfaced only via
     real-device test (wrong-row gate logic, OTP code length cap,
     and the latent mig-070 bug above).
+14. New RPCs designed for multiple downstream apps MUST record their
+    consumers in RPCS.md's Notes column. Extends hard-rule #12 forward:
+    if Cycle 5.4's `get_player_fixture_detail` is designed for the
+    Phase 4 reception display + Phase 7 AI briefings, that's recorded
+    NOW so a later return-shape change doesn't silently break Phase 4
+    when it's built. Established Phase 5 plan, applies to any RPC
+    explicitly designed for a yet-unbuilt consumer.
 
 ---
 

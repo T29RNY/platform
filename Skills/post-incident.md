@@ -97,6 +97,20 @@ If no schema or RPC changed: state "No CONTEXT.md update needed."
 
 ---
 
+## STEP 4B — RPCS.MD UPDATE (if any RPC was added or changed)
+
+For every new or modified RPC:
+- Add or update its row in the relevant table in RPCS.md.
+- Fill the **Consumers** field per hard-rule #14 — list every
+  current and planned downstream consumer (not just "the app that
+  shipped this cycle").
+- If the RPC's return shape changed, note the field added/removed
+  + the same-commit mapper update per hard-rule #12.
+
+If no RPC changed: state "No RPCS.md update needed."
+
+---
+
 ## STEP 5 — CONFIRM AND WRITE
 
 Present all proposed changes to the developer before writing.

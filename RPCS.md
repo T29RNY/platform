@@ -19,6 +19,26 @@ editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 
 ---
 
+## CONSUMERS — FORWARD DEPENDENCY TRACKING
+
+When an RPC is consumed by multiple apps (and especially when it's
+designed for FUTURE apps that don't exist yet), record the consumers
+in the Notes column so a later return-shape change doesn't silently
+break a downstream app. Format:
+
+> *Consumers: `apps/inorout` (PlayerView), `apps/ref` (LiveMatch), Phase 4 reception display (planned)*
+
+Hard-rule #12 enforces that adding a field to an RPC requires the
+same-commit mapper update for current consumers. This convention
+extends that discipline FORWARD — when Phase 4 finally builds the
+reception display, this column tells it which RPCs it can reuse
+rather than rebuild.
+
+Phase 5 cycles 5.3 and 5.4 introduce RPCs designed for multiple
+future consumers — track them here as they land.
+
+---
+
 ## PLAYER TOKEN RPCs (migration 011)
 
 | SQL function | JS wrapper | Grant | Notes |
