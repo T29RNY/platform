@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { getFixtureStateByRefToken } from "@platform/core/storage/supabase.js";
 import PreMatch from "./views/PreMatch.jsx";
+import LiveMatch from "./views/LiveMatch.jsx";
 
 function readTokenFromUrl() {
   if (typeof window === "undefined") return null;
@@ -73,6 +74,20 @@ export default function App() {
   }
 
   if (!state) return null;
+
+  // Match in progress → live screen. Anything else (scheduled / allocated
+  // / completed / void / postponed / walkover / forfeit) → pre-match,
+  // which handles terminal banners itself.
+  const status = state.fixture?.status;
+  if (status === "in_progress") {
+    return (
+      <LiveMatch
+        state={state}
+        refToken={token}
+        onRefresh={() => load(token)}
+      />
+    );
+  }
 
   return (
     <PreMatch

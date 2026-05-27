@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { refStartMatch } from "@platform/core/storage/supabase.js";
 
 const HOLD_MS = 3000;           // 3-second hold to override the kickoff gate
 const EARLY_WINDOW_MIN = 15;    // unlock the Start button this many mins before kickoff
@@ -71,13 +72,8 @@ export default function PreMatch({ state, refToken, onRefresh, refreshing }) {
         unlocksInMin={unlocksInMin}
         refreshing={refreshing}
         onRefresh={onRefresh}
-        onStart={() => {
-          // Cycle 3.1 placeholder. The actual ref_start_match RPC lands in 3.2;
-          // this hands the UI flow back to App once the live screen exists.
-          // For now, surface the intent so the audit trail is obvious.
-          console.warn("Start Match tapped — live match screen ships in Cycle 3.3");
-          alert("Live match screen ships in Cycle 3.3 — token will start a real match then.");
-        }}
+        refToken={refToken}
+        onAfterStart={onRefresh}
       />
     </main>
   );
@@ -158,11 +154,31 @@ function SquadCard({ team, squad, side }) {
   );
 }
 
-function StartMatch({ insideWindow, unlocksInMin, refreshing, onRefresh, onStart }) {
+function StartMatch({ insideWindow, unlocksInMin, refreshing, onRefresh, refToken, onAfterStart }) {
   const [holding, setHolding] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState(null);
   const rafRef = useRef(null);
   const startedAtRef = useRef(0);
+  const startingRef = useRef(false);
+
+  async function onStart() {
+    if (startingRef.current) return;
+    startingRef.current = true;
+    setStarting(true);
+    setStartError(null);
+    try {
+      await refStartMatch(refToken, crypto.randomUUID(), new Date().toISOString());
+      await onAfterStart();
+      // App re-renders into LiveMatch on the next state load — nothing else to do here.
+    } catch (err) {
+      console.error("[ref] ref_start_match failed", err);
+      setStartError(err?.message || String(err));
+      setStarting(false);
+      startingRef.current = false;
+    }
+  }
 
   function beginHold() {
     if (holding) return;
@@ -192,10 +208,11 @@ function StartMatch({ insideWindow, unlocksInMin, refreshing, onRefresh, onStart
   if (insideWindow) {
     return (
       <div className="start">
-        <button className="btn-primary start-btn" onClick={onStart}>
-          <span className="start-label">Start Match</span>
+        <button className="btn-primary start-btn" onClick={onStart} disabled={starting}>
+          <span className="start-label">{starting ? "Starting…" : "Start Match"}</span>
         </button>
-        <button className="btn-ghost" onClick={onRefresh} disabled={refreshing}>
+        {startError && <div className="start-hint is-warning">{startError}</div>}
+        <button className="btn-ghost" onClick={onRefresh} disabled={refreshing || starting}>
           {refreshing ? "Refreshing…" : "Refresh squads"}
         </button>
       </div>
@@ -209,6 +226,7 @@ function StartMatch({ insideWindow, unlocksInMin, refreshing, onRefresh, onStart
     <div className="start">
       <button
         className="btn-primary start-btn"
+        disabled={starting}
         onPointerDown={beginHold}
         onPointerUp={cancelHold}
         onPointerLeave={cancelHold}
@@ -216,12 +234,18 @@ function StartMatch({ insideWindow, unlocksInMin, refreshing, onRefresh, onStart
         style={{ "--hold": `${progress}%` }}
       >
         <span className="start-fill" />
-        <span className="start-label">{holding ? "Hold to start early…" : "Start Match"}</span>
+        <span className="start-label">
+          {starting ? "Starting…" : holding ? "Hold to start early…" : "Start Match"}
+        </span>
       </button>
-      <div className={`start-hint ${holding ? "is-warning" : ""}`}>
-        {holding ? `Keep holding · ${Math.ceil((HOLD_MS - (progress / 100) * HOLD_MS) / 1000)}s` : hint}
+      <div className={`start-hint ${holding || startError ? "is-warning" : ""}`}>
+        {startError
+          ? startError
+          : holding
+            ? `Keep holding · ${Math.ceil((HOLD_MS - (progress / 100) * HOLD_MS) / 1000)}s`
+            : hint}
       </div>
-      <button className="btn-ghost" onClick={onRefresh} disabled={refreshing}>
+      <button className="btn-ghost" onClick={onRefresh} disabled={refreshing || starting}>
         {refreshing ? "Refreshing…" : "Refresh squads"}
       </button>
     </div>
