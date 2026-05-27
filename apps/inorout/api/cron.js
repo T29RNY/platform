@@ -396,13 +396,20 @@ async function autoOpenGameJob(results) {
     const opensMins = oh * 60 + om;
     if (nowMins < opensMins || nowMins >= opensMins + 15) continue;
 
-    await supabase.from("schedule")
-      .update({ game_is_live: true, auto_open_pending: false })
-      .eq("id", sched.id);
-    await supabase.rpc("notify_team_change", {
+    // mig 126: route through admin_go_live_for_team so the matches row
+    // and schedule.active_match_id are created atomically with the
+    // game_is_live flip. The raw update we used to do here left the
+    // schedule in a half-open state (game_is_live=true, active_match_id=null)
+    // that blocked admin Make Teams until lineupLockJob backfilled the
+    // match 60 minutes before kickoff. RPC also owns the notify broadcast
+    // and writes an audit_events row with actor_type='system'.
+    const { error: openErr } = await supabase.rpc("admin_go_live_for_team", {
       p_team_id: sched.team_id,
-      p_reason:  "game_live_toggled",
     });
+    if (openErr) {
+      results.push(`autoOpenGame: ${sched.team_id} error — ${openErr.message}`);
+      continue;
+    }
     results.push(`autoOpenGame: ${sched.team_id} opened`);
   }
 }
