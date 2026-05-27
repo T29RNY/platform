@@ -519,6 +519,13 @@ export default function App() {
             if (adminPlayer) {
               setMyPlayer(adminPlayer);
               setStatsRaw(computeStatsFromHistory(adminPlayer.id, state.squad, state.matches, state.bibHistory));
+            } else {
+              // No self-row: client is unauthed (auth.uid() null → is_self
+              // false everywhere), or the admin isn't a player on this team.
+              // Land them on AdminView so they don't see the impersonation-
+              // guard placeholder on first paint. Admin RPCs use route.token,
+              // so admin functions work regardless of auth state.
+              setView("admin");
             }
             // Always compute squad-wide stats (form dots + bibs)
             // regardless of whether admin has a linked player record
@@ -1165,14 +1172,39 @@ export default function App() {
     </div>
   );
 
-  const myId        = myPlayer?.id || (isAdmin ? squad[0]?.id : null);
+  // Impersonation guard (mig 125 + 2026-05-27 incident): never fall through
+  // to squad[0] when the admin's own row can't be resolved. squad[0] is a
+  // real player; using it caused admins on iOS PWA cold-start (auth.uid()
+  // null → is_self=false on every row) to render AS that player. Placeholder
+  // below catches the resulting null and keeps PlayerView from mounting in
+  // an unowned state.
+  const myId        = myPlayer?.id || null;
+  const adminNotLinked = isAdmin && !myPlayer;
   const sharedProps = { squad, setSquad, schedule, setSchedule, settings, setSettings };
 
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
-      {view==="player"  && (
+      {view==="player" && adminNotLinked && (
+        <div style={{ padding:"32px 20px", display:"flex", flexDirection:"column",
+          alignItems:"center", gap:16, textAlign:"center", color:C.text }}>
+          <div style={{ fontFamily:"Bebas Neue", fontSize:32, letterSpacing:1 }}>
+            ADMIN VIEW ONLY
+          </div>
+          <div style={{ fontSize:14, lineHeight:1.5, maxWidth:300, opacity:0.85 }}>
+            You're signed in as an admin but no player profile is linked to your
+            account on this team. Sign in to see your personal view, or use Admin.
+          </div>
+          <button onClick={() => setView("admin")}
+            style={{ background:C.text, color:C.bg, border:"none", borderRadius:8,
+              padding:"12px 24px", fontFamily:"Bebas Neue", fontSize:18,
+              letterSpacing:1, cursor:"pointer" }}>
+            Open Admin
+          </button>
+        </div>
+      )}
+      {view==="player" && !adminNotLinked && (
         <PlayerView  {...sharedProps} myId={myId} teamId={teamId} adminToken={isAdmin ? (route.token || "admin_demo") : null}
           onMidFlowChange={setIsActionBlocked}
           isAdmin={isAdmin || isViceCaptain} onGoAdmin={() => setView("admin")}
