@@ -89,6 +89,47 @@ required (realtime broadcast updated his client).
 
 ---
 
+## RESOLVED — `link_player_to_user` missing realtime broadcast (session 51)
+
+**Symptom (latent, niche, surfaced via re-audit):** user has
+`/p/<token>` open in one tab and `/admin/<token>` open in another
+(or PWA + browser tab). Signs in on the player tab → `user_id`
+gets set in the DB. Admin tab's cached squad payload still has
+`user_id=null` for that row → server-computed `is_self=false` →
+`needsSelfAuth = isAdmin && !me?.isSelf` at PlayerView.jsx:96
+stays true → OTP modal keeps popping on admin tab until manual
+refresh.
+
+**Root cause:** `link_player_to_user` UPDATEs `players.user_id`
+but never broadcasts. Audit is present (good). Violated HARD
+RULE 10 — strict reading. Rare in practice because the function
+is only called once per (player, user) lifetime per
+App.jsx:560's `!player.userId` gate, but real when it triggers.
+
+**Fix (mig 129):** body preserved byte-for-byte; one new
+statement — `PERFORM notify_team_change(v_team_id, 'player_updated')`
+— inside the existing `IF v_team_id IS NOT NULL` block, right
+after the audit INSERT. Reuses whitelisted reason. `search_path`
+tightened from `public` to `public, pg_temp` (matches migs
+063/124/128).
+
+**Verification target:** open the team in two tabs as the same
+user (one /p/, one /admin/). On the player tab, sign in for the
+first time. On the admin tab, `is_self` should refresh and the
+OTP modal should not re-pop on the next admin self-write.
+
+**Auditing process learning:** I initially downgraded this
+finding to "intentional non-broadcast" on a pragmatic argument
+(no obvious other-client UI dependency on `user_id`). The user
+pushed back and asked me to verify further. Greping turned up
+the PlayerView.jsx:96 dependency — `is_self` IS gated on the
+server-computed value, which the broadcast keeps in sync. The
+moral: when the rule is strict, the cost of compliance is
+trivial, and the failure mode is real-but-rare — fix it, don't
+downgrade. Recorded so I don't make the same call next time.
+
+---
+
 ## RESOLVED — `player_join_team` left no audit trail and no realtime broadcast (session 51)
 
 **Symptom (latent):** a new user clicking the join link successfully
