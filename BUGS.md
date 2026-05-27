@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 26 2026 (session 49 — admin_delete_player VC-token + cancelled-ledger hotfixes, migs 115/116 + AdminView orphan-banner error toast)*
+*Last updated: May 27 2026 (session 50 — /api/cron was orphaned, weekly auto-rollover never fired; migs 117/118)*
 
 **Read this at the start of every session before touching any code.**
 
@@ -7,6 +7,75 @@
 > issue grouped by failure domain with a device-level check for each),
 > see **`GO_LIVE_ISSUES.md`**. New production issues must be added there
 > in the same commit as the fix.
+
+---
+
+## RESOLVED — Weekly auto-rollover never fired (session 50, migs 117 + 118)
+
+**Symptom:** Footy Tuesdays played 8pm Tues 2026-05-26. Next week's
+match should have gone live automatically Wed 10am with a PWA push
+to all subscribers. Neither happened. Same silent failure on Finbars
+Tuesdays. Confirmed across all teams — never worked in production.
+
+**Root cause:** `/api/cron` was orphaned. The file
+`apps/inorout/api/cron.js` contains `autoOpenGameJob` (line 334) and
+`advanceGameDateJob` (line 364) — the rollover logic — and its header
+comment claims it "runs every 15 minutes via pg_cron → pg_net or
+Vercel Cron". But neither was wired up. `apps/inorout/vercel.json`
+has no `crons` block, and pg_cron held 6 jobs all targeting
+`/api/notify` — none called `/api/cron`. So the rollover code had
+literally never executed in production. Two affected schedule rows
+were stuck on the 2026-05-26 kickoff date; Footy Tuesdays additionally
+had `opens_day=Monday, opens_time=20:00` configured (intended
+Wednesday 10:00).
+
+**Fix:**
+- **Mig 117** — `cron.schedule('inorout-cron-main', '*/15 * * * *', ...)`
+  pointing pg_net at `https://www.in-or-out.com/api/cron`. Mirrors
+  the existing 6 notify jobs' shape, including hardcoded bearer.
+- **Mig 118** — UPDATE on the two stuck schedule rows: advance
+  `game_date_time + 7 days`, reset rollover flags, set
+  `auto_open_pending=true, is_cancelled=false`. Footy Tuesdays also
+  gets `opens_day='Wednesday', opens_time='10:00'`. Guarded by
+  `AND game_date_time = '2026-05-26 20:00+00'` so the migration is a
+  no-op if rerun after normal rollover.
+
+**Verification:** `SELECT * FROM cron.job WHERE jobname='inorout-cron-main'`
+returns active=true. Both schedule rows now show
+`game_date_time = 2026-06-02 20:00+00, auto_open_pending=true,
+is_cancelled=false, game_is_live=false`.
+
+**End-to-end smoke:** wait until Wed 10:00 UTC and confirm Footy
+Tuesdays' `game_is_live` flips to true and a push notification fires.
+Until that's confirmed by a real device, treat as "applied, not yet
+proven". Operator-facing pre-flight added to GO_LIVE_ISSUES.md.
+
+---
+
+## TECH DEBT — pg_cron bearer secret hardcoded across 7 jobs
+
+`Bearer Liverp00l123?!!*` is hardcoded in all 7 pg_cron job bodies
+including the new `inorout-cron-main`. Should be moved to a vault
+setting (`current_setting('app.cron_secret', true)`) and the
+`/api/cron` + `/api/notify` handlers updated to validate against it
+the same way. Out of scope for the session 50 hotfix to keep blast
+radius small. One coherent follow-up cycle: vault store + all 7 job
+bodies + handler readers, one commit.
+
+---
+
+## TECH DEBT — `cron.js` uses server-local time (UTC), not UK time
+
+`apps/inorout/api/cron.js:337-338` calls `new Date().getDay()` /
+`.getHours()` to match against `opens_day` / `opens_time`. Vercel
+functions run in UTC, so `opens_time='10:00'` is interpreted as 10:00
+UTC = 11:00 BST. Same for `advanceGameDateJob`'s midnight gate
+(line 367). Going-forward issue: if the operator entered a UK-local
+time, auto-open fires one hour late through summer (BST). Should
+add a `nowInUkTime()` helper using `Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London' })`
+and use it at both call sites. Tracked here, not blocked on it for
+the orphan fix because the rollover will still happen — just at the
+wrong hour in summer.
 
 ---
 

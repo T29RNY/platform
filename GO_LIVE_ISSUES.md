@@ -363,7 +363,32 @@ within a few seconds. Also confirm in Supabase dashboard that
 `notification_log` has a row for the delivery. If zero rows, the
 cron is broken — escalate before the squad's first match.
 
-### 6.2 `notify_team_change` unknown-reason warnings
+### 6.2 Weekly auto-rollover never fired — `/api/cron` was orphaned
+**Symptom:** Tuesday night match plays. Wednesday morning the next
+week's match did not auto-open, `auto_open_pending` stays true forever,
+no PWA push ever fires. Affected every team — silent because the
+endpoint that does the rollover was never wired to any scheduler.
+**Root cause:** `apps/inorout/api/cron.js` contains `autoOpenGameJob`
+and `advanceGameDateJob`. The file's header comment says it runs
+every 15 min via pg_cron or Vercel Cron, but neither was ever
+configured. `vercel.json` has no `crons` block; pg_cron held 6 jobs,
+all targeting `/api/notify`. Code shipped, scheduler never installed.
+**Fix:** migration 117 — `cron.schedule('inorout-cron-main', '*/15 * * * *', ...)`
+pointing pg_net at `https://www.in-or-out.com/api/cron`. Migration 118
+unsticks the two teams whose schedule rows were frozen on the
+2026-05-26 kickoff. Same commit also corrects Footy Tuesdays'
+`opens_day/opens_time` from `Monday 20:00` to the intended
+`Wednesday 10:00`.
+**Pre-flight check:** before any new squad's first match week, in
+Supabase SQL editor run
+`SELECT jobname, schedule, active FROM cron.job WHERE jobname='inorout-cron-main'`
+— must return one row, `active=true`, schedule `*/15 * * * *`. After
+the first Tuesday kickoff, on Wednesday at the configured `opens_time`,
+confirm the team's `schedule.game_is_live` flips to true and a push
+notification arrives on a real iPhone with the PWA installed. If
+either fails, escalate — the cron is broken again.
+
+### 6.3 `notify_team_change` unknown-reason warnings
 **Symptom:** every account deletion logs
 `notify_team_change: unknown reason "player_account_deleted"` —
 broadcast still works, but log noise pollutes triage.
