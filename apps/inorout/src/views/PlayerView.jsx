@@ -10,6 +10,7 @@ import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,
   PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
+  WhatsappLogo,
 } from "@phosphor-icons/react";
 import AuthGateModal from "../components/AuthGateModal.jsx";
 import useRequireAuth from "../hooks/useRequireAuth.js";
@@ -66,6 +67,111 @@ function StatusBadge({ status }) {
       {c.label}
     </div>
   );
+}
+
+// ── Share team sheet (WhatsApp) helpers ──────────────────────────────────────
+function formatKickoff(hhmm) {
+  if (!hhmm || typeof hhmm !== "string") return "";
+  const m = hhmm.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return hhmm;
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  const suffix = h >= 12 ? "pm" : "am";
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return min === "00" ? `${h}${suffix}` : `${h}:${min}${suffix}`;
+}
+
+function displayName(p) {
+  return (p?.nickname || p?.name || "?").trim();
+}
+
+// Renders a status section. Returns the section string, or null if empty.
+// Hosts render as bulleted (or numbered) lines; their guests nest beneath
+// with an arrow. Guests whose host is NOT in this section render standalone.
+// Injured players are excluded — they go in their own dedicated section.
+function renderTeamSheetSection(emoji, label, players, opts = {}) {
+  const nonInjured = (players || []).filter(p => !p.injured);
+  if (nonInjured.length === 0) return null;
+
+  const hosts        = nonInjured.filter(p => !p.isGuest);
+  const hostIdsHere  = new Set(hosts.map(p => p.id));
+  const guestsByHost = new Map();
+  const orphanGuests = [];
+  for (const g of nonInjured.filter(p => p.isGuest)) {
+    if (g.guestOf && hostIdsHere.has(g.guestOf)) {
+      if (!guestsByHost.has(g.guestOf)) guestsByHost.set(g.guestOf, []);
+      guestsByHost.get(g.guestOf).push(g);
+    } else {
+      orphanGuests.push(g);
+    }
+  }
+
+  const { numbered = false, withCap = false, cap = null } = opts;
+  const total = nonInjured.length;
+  const countText = withCap && cap ? `(${total}/${cap})` : `(${total})`;
+  const lines = [`${emoji} ${label} ${countText}`];
+
+  hosts.forEach((host, i) => {
+    const prefix = numbered ? `${i + 1}.` : "•";
+    lines.push(`${prefix} ${displayName(host)}`);
+    for (const g of guestsByHost.get(host.id) || []) {
+      lines.push(`  ↳ ${displayName(g)}`);
+    }
+  });
+  for (const g of orphanGuests) {
+    lines.push(`• ${displayName(g)}`);
+  }
+  return lines.join("\n");
+}
+
+function buildTeamSheetText({ teamName, schedule, squad, lastMatchMeta }) {
+  if (!schedule) return "";
+
+  // Date — UK-local via Intl (DST-aware)
+  const dateStr = schedule.gameDateTime
+    ? new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/London",
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+      }).format(new Date(schedule.gameDateTime))
+    : (schedule.dayOfWeek || "");
+
+  const header = `*${teamName || "Team"}*${dateStr ? ` — ${dateStr}` : ""}`;
+
+  if (schedule.isCancelled) {
+    return [header, "❌ MATCH CANCELLED"].join("\n");
+  }
+
+  const banner = [];
+  const kickoff = formatKickoff(schedule.kickoff);
+  if (kickoff)                 banner.push(`🕗 ${kickoff}`);
+  if (schedule.venue)          banner.push(`📍 ${schedule.venue}`);
+  if (schedule.pricePerPlayer) banner.push(`💷 £${schedule.pricePerPlayer}`);
+
+  const groups = groupByStatus(squad || []);
+  const cap = schedule.squadSize || 14;
+
+  const sections = [];
+  sections.push(renderTeamSheetSection("🟢", "IN",      groups.in,      { withCap: true, cap }));
+  sections.push(renderTeamSheetSection("🟣", "RESERVE", groups.reserve, { numbered: true }));
+  sections.push(renderTeamSheetSection("🟡", "MAYBE",   groups.maybe));
+  sections.push(renderTeamSheetSection("🔴", "OUT",     groups.out));
+
+  // Injured — dedicated section, sourced from any-status players with injured=true
+  const injured = (squad || []).filter(p => p.injured && !p.disabled);
+  if (injured.length > 0) {
+    const lines = ["🩹 INJURED"];
+    for (const p of injured) lines.push(`• ${displayName(p)}`);
+    sections.push(lines.join("\n"));
+  }
+
+  // Bibs
+  const bibName = resolveBibHolder(lastMatchMeta?.bibHolder, squad || []);
+  if (bibName) sections.push(`👕 Bibs: ${bibName}`);
+
+  return [header, banner.join("  "), ...sections.filter(Boolean)].filter(Boolean).join("\n\n");
 }
 
 // ── main component ────────────────────────────────────────────────────────────
@@ -458,6 +564,37 @@ export default function PlayerView({
           {/* a — Hero card */}
           <HeroCard dayOfWeek={schedule.dayOfWeek} pricePerPlayer={schedule.pricePerPlayer} squad={squad} />
 
+          {/* a2 — Share team sheet to WhatsApp */}
+          {schedule && (
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(buildTeamSheetText({
+                teamName: settings?.groupName,
+                schedule,
+                squad,
+                lastMatchMeta,
+              }))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                background: "var(--green)",
+                color: "white",
+                fontFamily: "'DM Sans', sans-serif",
+                fontWeight: 400,
+                fontSize: 13,
+                textDecoration: "none",
+                padding: "10px 14px",
+                borderRadius: "var(--r)",
+                marginBottom: 8,
+              }}
+            >
+              <WhatsappLogo size={18} weight="thin" />
+              Share team sheet
+            </a>
+          )}
 
           {/* b — Response card */}
           <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
