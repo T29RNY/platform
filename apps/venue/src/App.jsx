@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { venueGetState } from "@platform/core/storage/supabase.js";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { venueGetState, supabase } from "@platform/core/storage/supabase.js";
 import Dashboard from "./views/Dashboard.jsx";
 
 function readTokenFromUrl() {
@@ -36,6 +36,30 @@ export default function App() {
   useEffect(() => {
     if (token) load(token);
   }, [token, load]);
+
+  // Subscribe to venue-level realtime broadcasts. Every ref RPC publishes
+  // on venue_live:<live_channel_key> (mig 121) so the office dashboard
+  // updates the moment a goal/card/sub/period/full-time happens at any
+  // pitch in this venue. Channel-key UUID is the secret — match the
+  // server-side publisher byte-for-byte (CLAUDE.md hard-rule #10).
+  const venueChannelKey = state?.venue?.live_channel_key ?? null;
+  const reloadRef = useRef(load);
+  reloadRef.current = load;
+  useEffect(() => {
+    if (!venueChannelKey || !token) return;
+    const ch = supabase.channel(`venue_live:${venueChannelKey}`);
+    ch.on("broadcast", { event: "broadcast" }, (payload) => {
+      // Re-fetch the full venue state. We could be smarter (e.g. only
+      // re-fetch fixtures), but venue_get_state is cheap and a single
+      // round-trip is fine for a dashboard.
+      console.info("[venue] live update", payload?.payload?.reason);
+      reloadRef.current(token);
+    });
+    ch.subscribe((status) => {
+      if (status === "SUBSCRIBED") console.info("[venue] subscribed to", `venue_live:${venueChannelKey.slice(0, 8)}…`);
+    });
+    return () => { supabase.removeChannel(ch); };
+  }, [venueChannelKey, token]);
 
   if (!token) {
     return (

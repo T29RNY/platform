@@ -177,11 +177,22 @@ helper `_ref_resolve_fixture` (anon/authenticated explicitly revoked —
 Supabase auto-grants every public function so a plain `REVOKE FROM
 PUBLIC` doesn't catch those roles). Every successful write inserts an
 `audit_events` row (`actor_type='referee'`, `actor_identifier=ref_token`)
-and fires `notify_team_change` for BOTH teams (home + away) so
-`apps/inorout`'s existing `team_live:<live_channel_key>` subscriber
-re-fetches without any client-side change. Whitelist extended in the
-same migration with `match_started` + `match_event_recorded` to avoid
-the §6.3 drift bug.
+and fires THREE realtime broadcasts:
+- `notify_team_change(home_team_id, reason)` →
+  `team_live:<live_channel_key>` (subscriber: `apps/inorout` App.jsx)
+- `notify_team_change(away_team_id, reason)` → same channel pattern
+- `notify_venue_change(venue_id, reason)` →
+  `venue_live:<live_channel_key>` (subscriber: `apps/venue` App.jsx
+  via mig 121) — fires once per event regardless of teams. Helper:
+  `_ref_venue_id_for_fixture(p_fixture)` (private; competition →
+  season → league → venue lookup).
+
+Both broadcast functions' whitelists were extended in the same
+migration as the calling RPCs (avoiding the §6.3 drift bug):
+- `notify_team_change` gained `match_started` +
+  `match_event_recorded` (mig 120).
+- `notify_venue_change` was introduced in mig 121 with whitelist
+  `match_started`, `match_event_recorded`, `match_result_saved`.
 
 Forthcoming (Cycle 3.4 onwards): `ref_replay_unsynced` (offline batch
 flush), `venue_update_fixture_result` (admin override).

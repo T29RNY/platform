@@ -1,5 +1,54 @@
 # In or Out — Feature Tracker
-*Last updated: May 27 2026 (session 50 — Phase 3 Cycles 3.1 + 3.2 shipped — ref pre-match read + `apps/ref` (3.1); 7 SECURITY DEFINER ref write RPCs + idempotent offline-replay shape + dual-team realtime broadcast wiring (3.2); migs 119 + 120; whitelist extended with `match_started` + `match_event_recorded`)*
+*Last updated: May 27 2026 (session 50 — Phase 3 Cycles 3.1 + 3.2 + 3.2a shipped — ref pre-match read + `apps/ref` (3.1); 7 SECURITY DEFINER ref write RPCs + idempotent offline-replay shape (3.2); venue-level realtime broadcasts + `apps/venue` live-update subscriber (3.2a); migs 119 + 120 + 121)*
+
+---
+
+## LEAGUE MODE — PHASE 3 CYCLE 3.2a SHIPPED (session 50, 2026-05-27)
+
+**Small follow-on to 3.2.** The 3.2 ref RPCs broadcast to both teams'
+`team_live:*` channels — fine for inorout team-admin tabs (which
+subscribe), useless for the venue admin watching from the office on
+the venue dashboard (different surface, different token, never
+subscribed). This cycle wires venue-level broadcasts so the
+operator's dashboard updates live too.
+
+Shipped:
+- **Migration 121** adds `notify_venue_change(p_venue_id, p_reason)`
+  helper — mirror of `notify_team_change` but uses
+  `venues.live_channel_key` and publishes on `venue_live:<key>`
+  channel (public, same private=false pattern). Whitelist starts with
+  the 3 Phase-3 reasons (`match_started`, `match_event_recorded`,
+  `match_result_saved`) and can grow.
+- Tiny private helper `_ref_venue_id_for_fixture(p_fixture)` walks
+  competition → season → league → venue. Both helpers explicitly
+  revoked from anon + authenticated (Supabase auto-grant gotcha).
+- All 7 ref RPCs re-created with an extra
+  `PERFORM notify_venue_change(<venue_id>, <reason>)` call right
+  after the home/away team broadcasts. Bodies otherwise byte-identical
+  to mig 120.
+- `apps/venue/src/App.jsx` now imports the `supabase` client and adds
+  a useEffect that opens `venue_live:<live_channel_key>` once the
+  venue state loads. On any broadcast it re-fetches `venueGetState`.
+  Cleanup via `supabase.removeChannel(ch)` on unmount/dep-change.
+  The channel key is delivered to the client via the existing
+  `venue_get_state` response shape — no new RPC needed.
+
+End-to-end verified: opened `/venue/demo_venue_token_DO_NOT_USE_IN_PROD`
+in a browser, fired `ref_start_match` + `ref_record_goal` from the
+SQL editor against a demo fixture; console showed
+`[venue] subscribed to venue_live:demo_ven…` then two
+`[venue] live update` messages (one per RPC), each triggering a
+re-fetch. Smoke fixture reset back to `allocated` after.
+
+What's NOT in this cycle (still deferred):
+- Phase 4 reception display channel (TBD: `venue_live` reuse vs.
+  `display:<display_token>` per the audit's recommendation).
+- Push notifications for any ref event — by design, this stays
+  silent/in-tab only.
+
+Files touched:
+- `rls_migrations/121_phase3_ref_venue_broadcasts.sql` (+ `_down.sql`)
+- `apps/venue/src/App.jsx` (+13 lines for the subscriber)
 
 ---
 

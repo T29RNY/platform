@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 27 2026 (session 50 — PHASE 3 CYCLES 3.1 + 3.2 SHIPPED — pre-match read + ref live-match write surface: 7 SECURITY DEFINER RPCs, idempotent offline-replay shape on match_events, dual-team realtime broadcasts via existing notify_team_change; migs 119 + 120. Detail in FEATURES.md.)*
+*Last updated: May 27 2026 (session 50 — PHASE 3 CYCLES 3.1 + 3.2 + 3.2a SHIPPED — pre-match read + ref live-match write surface + venue-level realtime broadcasts + apps/venue live-update subscriber; migs 119 + 120 + 121. Detail in FEATURES.md.)*
 
 ## SESSION 49 — admin_delete_player hotfixes (May 26 2026)
 
