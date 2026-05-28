@@ -91,14 +91,26 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
                       {displayName}
                     </div>
                   </div>
-                  <span style={{
-                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
-                    color: "var(--gold)", background: "var(--gold2)",
-                    border: "0.5px solid var(--goldb)",
-                    borderRadius: 4, padding: "2px 6px",
-                  }}>
-                    CURRENT
-                  </span>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {squad.is_competitive && (
+                      <span style={{
+                        fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
+                        color: "var(--purple)", background: "var(--purple2)",
+                        border: "0.5px solid var(--purpleb)",
+                        borderRadius: 4, padding: "2px 6px",
+                      }}>
+                        LEAGUE
+                      </span>
+                    )}
+                    <span style={{
+                      fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
+                      color: "var(--gold)", background: "var(--gold2)",
+                      border: "0.5px solid var(--goldb)",
+                      borderRadius: 4, padding: "2px 6px",
+                    }}>
+                      CURRENT
+                    </span>
+                  </div>
                 </div>
               );
             }
@@ -157,15 +169,29 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
                     {displayName}
                   </div>
                 </div>
-                {(squad.is_vice_captain || squad.is_team_admin) && (
-                  <span style={{
-                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
-                    color: "var(--t2)", background: "var(--s3)",
-                    border: "0.5px solid rgba(255,255,255,0.12)",
-                    borderRadius: 4, padding: "2px 6px",
-                  }}>
-                    ADMIN
-                  </span>
+                {(squad.is_competitive || squad.is_vice_captain || squad.is_team_admin) && (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {squad.is_competitive && (
+                      <span style={{
+                        fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
+                        color: "var(--purple)", background: "var(--purple2)",
+                        border: "0.5px solid var(--purpleb)",
+                        borderRadius: 4, padding: "2px 6px",
+                      }}>
+                        LEAGUE
+                      </span>
+                    )}
+                    {(squad.is_vice_captain || squad.is_team_admin) && (
+                      <span style={{
+                        fontFamily: "'Bebas Neue', sans-serif", fontSize: 10,
+                        color: "var(--t2)", background: "var(--s3)",
+                        border: "0.5px solid rgba(255,255,255,0.12)",
+                        borderRadius: 4, padding: "2px 6px",
+                      }}>
+                        ADMIN
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             );

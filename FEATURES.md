@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 28 2026 (session 53 — **PITCH BOOKING** complete: Stages 1–7 + hardening all shipped)*
+*Last updated: May 28 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycle 5.1** shipped)*
 
 ---
 
@@ -39,6 +39,35 @@ rpc-security-sweep). **Booking initiative complete.**
 **Remaining:** deferred push-on-confirm; transactional email (Phase 9). **Payment OFF but
 schema-wired.** **Operator owes** a real-squad + real-device test of the casual + venue flows
 (auth-dependent) incl. the three booking pushes (GO_LIVE §6).
+
+---
+
+## LEAGUE MODE — PHASE 5 CYCLE 5.1 SHIPPED (session 54, 2026-05-28)
+
+First Phase 5 cycle — competitive surfaces *inside* `apps/inorout`, additive +
+render-gated (casual flow untouched). Cycle 5.1 is the foundation: detect which
+squads are competitive + a `LEAGUE` pill on MySquads.
+
+- **mig 153** — `player_get_teams_by_token` (mig 072) extended with an
+  `is_competitive boolean` (squad has an ACTIVE registration in a `league`-type
+  competition). Return-type change → DROP+CREATE; search_path aligned to
+  `public,pg_temp`; grants unchanged (anon+authenticated). No new RPC, no N+1, no
+  wrapper change (field flows through `getPlayerTeamsByToken`).
+- **MySquads.jsx** — `LEAGUE` pill (purple token) on every competitive squad
+  (current + other active rows), beside the existing CURRENT/ADMIN pills via a flex
+  wrapper. Casual squads unchanged.
+- **Verified:** ephemeral rollback proof (competitive→true, casual→false, 0 rows
+  persisted); rpc-security-sweep (secdef/search_path/overload=1/grants); RPC-ref +
+  hygiene clean on changed files; casual-regression in-browser against the real
+  Finbars token (no LEAGUE pill on casual squads; CURRENT/ADMIN intact; no
+  regression). **On-device visual confirm operator-owed** (hard-rule #13, MySquads
+  in PWA scope).
+- **Locked for later cycles (from this session's discussion):** league availability
+  is two-stage (players signal "who's in" → admin confirms the lineup → submitted to
+  the league); players + admin override; reuse the familiar in/out tile look; **no
+  Team A/B split for league** (you play an external opponent — the casual Group
+  Balancer never runs for a league fixture). Governs cycles 5.5/5.6.
+- Decisions/full plan: `~/.claude/plans/continuing-phase-3-of-steady-falcon.md`.
 
 ---
 

@@ -101,6 +101,7 @@ future consumers — track them here as they land.
 | `link_player_to_user` | `linkPlayerToUser(token)` | authenticated only | Links player token to auth.uid(); guards double-link |
 | `player_join_team` | `playerJoinTeam(teamId, name)` | authenticated only | Handles new + returning players; upserts team_players. **Migration 044 fixed pre-Beta launch blocker:** new-player INSERT branch now generates a player token via `generate_url_safe_token('p_', 14)` (the same helper `create_team` uses). Pre-fix, first-time joiners landed with `player.token=NULL` → JoinSuccess.jsx fell back to `/` → stranded on landing page. |
 | `player_get_teams` | `getPlayerTeams()` | authenticated only | Returns all squads for auth.uid(); anon revoked |
+| `player_get_teams_by_token` | `getPlayerTeamsByToken(token)` | anon + authenticated | Token-resolved variant of `player_get_teams` for iOS PWA (storage-partitioned, unauthed at request time) — mig 072. Returns all of the token-owner's squads. **Mig 153 (Cycle 5.1)** added `is_competitive` (squad has an active registration in a league-type competition). Consumer: `MySquads.jsx` LEAGUE pill. |
 
 ---
 
