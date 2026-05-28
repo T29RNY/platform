@@ -1,5 +1,39 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 28 2026 (session 52 — **PITCH BOOKING backend + casual UI** built: migs 133–149, occupancy guard + booking lifecycle + casual Book-a-Pitch modal. Stage 6 venue UI + Stage 7 next. Detail in PITCH_BOOKING_HANDOFF.md.)*
+*Last updated: May 28 2026 (session 54 — booking push-on-confirm + **League Mode Phase 5 Cycles 5.1 + 5.2** shipped + a competitive testbed. Next: Cycle 5.3 fixtures.)*
+
+## SESSION 54 — booking push-on-confirm + League Mode Phase 5 starts (May 28 2026)
+
+Methodology run uber-cautiously throughout (audit→execute→verify→commit; every DB
+change pre-flighted in a rollback transaction before applying live).
+
+**Shipped (all live + pushed to main):**
+- **Booking push-on-confirm** (`bb78e8e`) — `confirmPushJob` in `apps/inorout/api/cron.js`
+  polls `audit_events` for `booking_confirmed` (last 20 min), collapses a block series to
+  one push per (team, series), pushes the team's admins via existing `pushTeamAdmins` +
+  `get_team_admin_player_ids`. No migration/RPC change. (GO_LIVE §11.8; on-device push
+  receipt operator-owed.)
+- **Phase 5 Cycle 5.1** (`d8a33c6`, **mig 153**) — `player_get_teams_by_token` gains
+  `is_competitive`; purple `LEAGUE` tag on MySquads for competitive squads.
+- **Phase 5 Cycle 5.2** (`f5dc34a`) — `CompetitionStandingsCard` in PlayerView my-view:
+  collapsible league table, own team highlighted. Pure client; reuses
+  `get_league_standings_for_player`. Self-gates (casual → renders null).
+
+**Competitive testbed (`dd3fcaf`, mig 154) — for ongoing Phase 5 testing:**
+- **Competitive FC** (`team_dc_fc`) + 3 opponents (`team_dc_{rovers,city,athletic}`) in a
+  **Demo Competitive League** (`league_democomp`) under `demo_venue`.
+- **Tarny is team admin** (real auth user) → genuine auth test of competitive surfaces.
+- Player view: `/p/p_dc_tarny_token`. Admin view: `/admin/democomp_fc_admin_token`.
+- 4 completed + 2 upcoming fixtures; standings populate (Competitive FC top, 6pts).
+- Fully namespaced (`dc`/`p_dc_`/`democomp`). **Remove anytime** via
+  `rls_migrations/154_demo_competitive_seed_down.sql` — rollback-verified to leave real
+  data + the existing demo Summer League untouched.
+
+**Phase 5 sequence:** 5.1 tag ✅ · 5.2 standings ✅ · **5.3 fixtures (next)** · 5.4 fixture
+detail + opposition intel · 5.5 availability · 5.6 teamsheet · 5.7 eligibility. Plan +
+locked decisions (two-stage availability, players+admin override, reuse familiar tile, no
+A/B split for league) in `~/.claude/plans/continuing-phase-3-of-steady-falcon.md`.
+Testing: 1 device + browser is enough now (2 PWAs only for installed-PWA/push or
+multi-player live testing — would need extra player tokens, added when 5.5 lands).
 
 ## SESSION 52 — Pitch booking system, Stages 1–5 + demo (May 28 2026)
 

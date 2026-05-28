@@ -1,5 +1,24 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 28 2026 (session 53 — pitch booking COMPLETE: Stage 6 venue UI + hardening pass + Stage 7 renewal/superseded all shipped; no active bugs.)*
+*Last updated: May 28 2026 (session 54 — booking push-on-confirm + League Mode Phase 5 Cycles 5.1/5.2 shipped; one new low-pri tech-debt item below; no active bugs.)*
+
+---
+
+## TECH DEBT (LOW) — No in-app admin entry from MY SQUADS (session 54)
+
+A signed-in admin has no in-app path from the player view to a team's admin view.
+Admin mode is only reachable by opening the team's `/admin/<admin_token>` URL —
+`isAdmin` is set solely on that route (`apps/inorout/src/App.jsx:496-506`); the
+`/p/<token>` player view always renders as a player. MY SQUADS shows an ADMIN tag
+but tapping a row goes to `/p/<token>`, never `/admin/...`.
+
+**Surfaced:** session 54, setting up the Competitive FC testbed — the operator
+expected to reach admin from the player view.
+**Workaround:** open the team's admin link directly (e.g. Competitive FC =
+`/admin/democomp_fc_admin_token`).
+**Enhancement (own small cycle):** make the ADMIN tag / row in `MySquads.jsx` tap
+through to that team's admin view (resolve the admin_token for teams where
+`is_team_admin`). Low priority; useful for admins juggling multiple teams and for
+competitive admins reaching the teamsheet (cycle 5.6).
 
 ---
 
