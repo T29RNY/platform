@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { ArrowLeft, MapPin, CalendarPlus, X } from "@phosphor-icons/react";
 import { Toggle } from "@platform/ui";
 import { upsertSchedule, upsertSettings, supabase } from "@platform/core/storage/supabase.js";
-import { reopenWeek, goLive, getTeamBookings, cancelBooking, cancelBookingSeries } from "@platform/core";
+import { reopenWeek, goLive, getTeamBookings, cancelBooking, cancelBookingSeries, confirmRenewal } from "@platform/core";
 import BookPitchModal from "./BookPitchModal.jsx";
 import useRequireAuth from "../../hooks/useRequireAuth.js";
 import AuthGateModal from "../../components/AuthGateModal.jsx";
@@ -258,11 +258,15 @@ function VenueField({ venue, setVenue, city, setCity }) {
 
 const BK_STATUS = {
   requested: "Requested", confirmed: "Confirmed", declined: "Declined",
-  cancelled: "Cancelled", superseded: "Bumped", expired: "Expired",
+  cancelled: "Cancelled", superseded: "Bumped", expired: "Expired", hold: "Renewal held",
 };
 
-function BookingRow({ b, onCancel }) {
+function BookingRow({ b, onCancel, onConfirm }) {
   const cancellable = b.status === "requested" || b.status === "confirmed";
+  const isHold = b.is_renewal_hold && b.status === "hold";
+  const deadline = isHold && b.hold_expires_at
+    ? new Date(b.hold_expires_at).toLocaleDateString("en-GB", { day:"numeric", month:"short" })
+    : null;
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
       background:"var(--s2)", border:"1px solid var(--s3)", borderRadius:"var(--rs)" }}>
@@ -272,6 +276,7 @@ function BookingRow({ b, onCancel }) {
         </div>
         <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
           {b.booking_date} · {String(b.kickoff_time).slice(0,5)} · {b.slot_minutes} min{b.kind === "block" ? " · weekly" : ""}
+          {isHold && deadline ? ` · keep by ${deadline}` : ""}
         </div>
       </div>
       <span style={{
@@ -279,8 +284,16 @@ function BookingRow({ b, onCancel }) {
         borderRadius:"var(--r-pill)", fontWeight:400, whiteSpace:"nowrap",
         color: b.status === "confirmed" ? "var(--bg)" : "var(--gold)",
         background: b.status === "confirmed" ? "var(--gold)" : "var(--gold2)",
-        border:"1px solid var(--goldb)", opacity: cancellable ? 1 : 0.5,
+        border:"1px solid var(--goldb)", opacity: (cancellable || isHold) ? 1 : 0.5,
       }}>{BK_STATUS[b.status] || b.status}</span>
+      {isHold && (
+        <button onClick={onConfirm} style={{
+          fontSize:11, fontWeight:400, padding:"6px 12px", cursor:"pointer", whiteSpace:"nowrap",
+          background:"var(--gold)", color:"var(--bg)", border:"none", borderRadius:"var(--rs)",
+          fontFamily:"var(--font-body)", WebkitTapHighlightColor:"transparent" }}>
+          Keep slot
+        </button>
+      )}
       {cancellable && (
         <button onClick={onCancel} title="Cancel booking" style={{
           background:"none", border:"none", color:"var(--t2)", cursor:"pointer", padding:4,
@@ -544,7 +557,21 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
               {bookings.length > 0 && (
                 <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:8 }}>
                   {bookings.map(b => (
-                    <BookingRow key={b.booking_id} b={b} onCancel={async () => {
+                    <BookingRow key={b.booking_id} b={b}
+                      onConfirm={async () => {
+                        if (cancelingRef.current) return;
+                        cancelingRef.current = true;
+                        setCancelError(null);
+                        try {
+                          await confirmRenewal(b.series_id);
+                          await loadBookings();
+                        } catch (_) {
+                          setCancelError("Couldn't confirm the renewal — it may have lapsed. Refresh and try again.");
+                        } finally {
+                          cancelingRef.current = false;
+                        }
+                      }}
+                      onCancel={async () => {
                       if (cancelingRef.current) return;
                       const label = b.series_id ? "this weekly block (all upcoming weeks)" : "this booking";
                       if (!window.confirm(`Cancel ${label}? The venue will be notified.`)) return;
