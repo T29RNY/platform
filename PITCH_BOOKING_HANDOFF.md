@@ -337,3 +337,61 @@ and two refinements:
 `playing_areas.booking_windows` (+ `venue_update_pitch` extension + read-projection
 updates) and the **maintenance→occupancy projection trigger + backfill**. No blockers
 for booking Cycle 1.
+
+## Venue booking UX + realtime (operator-specified, 2026-05-28)
+
+**North star: ease for venue admins.** Most will manage bookings between matches, often
+mid-phone-call. Optimise for "see it, one tap, done" — never make them hunt or refresh.
+
+### Two surfaces (not one), inside the existing venue dashboard
+Bookings have two distinct jobs; one screen serves them badly. Build both, alongside the
+existing Pitches tab / reception display.
+
+1. **Requests inbox** — the approval queue. Badge count ("3 pending"). Each pending
+   request is a card: team, pitch, date/time, length, block-series-×N vs one-off, with
+   inline **Confirm / Decline**. Confirming runs through the occupancy guard — if a
+   fixture took the slot meanwhile it simply can't confirm (no double-book).
+2. **Schedule = resource-timeline calendar** — **pitches as columns, time down the side**
+   (day/week grid; the Skedda / Cal.com / Resy model). Colour-coded so booked-vs-available
+   is instant:
+   - league fixture — solid, **locked** (booking UI can't move it)
+   - confirmed booking — solid colour
+   - pending request — **amber/striped** (actionable here too, not just the inbox)
+   - maintenance — grey hatched
+   - empty = available = **tappable**
+
+### Phone / walk-in bookings
+Staff open the day, see the gap, **tap the empty cell**, pick team + length → **created
+already-confirmed** (operator is the authority, so venue-created bookings skip
+request→approve). The grid physically cannot overlap anything (occupancy guard).
+
+### Mobile (portrait)
+A multi-column grid is unusable on a phone, so flip it:
+- Schedule defaults to a **single-pitch day agenda** — one pitch, vertical timeline,
+  pitch switcher (swipe/dropdown). Full grid only in landscape (optional).
+- Requests = **card list**, big Confirm/Decline buttons.
+- **"+" FAB** for phone bookings → pitch → date → time → length, pre-confirmed.
+
+### v1 scope — SHIP LEAN (operator decision)
+- **In:** inbox + colour-coded day schedule per pitch + **tap-empty-to-book** + mobile
+  agenda. Covers everything above.
+- **Deferred:** drag-to-create, drag-to-resize, week view. Polish, added later — no
+  feature lost, just the diary gloss.
+
+### Realtime — HARD REQUIREMENT (no polling, no refresh)
+Live data is non-negotiable: requests and status changes must appear without a page/app
+refresh. This is the app's existing pattern (Supabase realtime broadcast on the Phase-2
+`venue_live:` channel) — booking must use it, not invent polling.
+- Casual submits request → create-booking RPC **broadcasts** (e.g. `booking_requested`)
+  on the venue channel → venue dashboard subscriber pushes it into the inbox + drops the
+  amber block on the calendar + bumps the badge, **live**.
+- Venue confirm/decline/cancel → **broadcasts** on the team channel → casual app updates
+  instantly.
+- Fixture claims a slot → calendar occupancy updates live, so staff never act on stale
+  availability.
+- **Hard-rule #10 discipline:** every booking write RPC broadcasts an **explicitly
+  whitelisted** reason AND has a **matching client subscriber** in BOTH the venue UI and
+  the casual UI, built up front. Proposed reasons (add to `notify_venue_change` /
+  `notify_team_change` whitelists, don't assume): `booking_requested`, `booking_confirmed`,
+  `booking_declined`, `booking_cancelled`, `booking_superseded`. (Reminder: that whitelist
+  silently regressed once in mig 121 — add reasons explicitly + verify the subscriber.)
