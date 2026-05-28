@@ -25,9 +25,17 @@ export function dowOf(iso) {
   return new Date(iso + "T12:00:00").getDay();
 }
 
+// Day label from a YYYY-MM-DD date string (e.g. the calendar's selected date).
 export function fmtDayLabel(iso) {
   return new Date(iso + "T12:00:00").toLocaleDateString("en-GB", {
     weekday: "short", day: "numeric", month: "short",
+  });
+}
+
+// Day label from a full tstz ISO string (e.g. occupancy.start), venue-local.
+export function fmtDayShort(tstz) {
+  return new Date(tstz).toLocaleDateString("en-GB", {
+    timeZone: TZ, weekday: "short", day: "numeric", month: "short",
   });
 }
 

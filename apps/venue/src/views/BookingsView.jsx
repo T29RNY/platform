@@ -4,6 +4,7 @@ import ScheduleGrid from "./ScheduleGrid.jsx";
 import DayAgenda from "./DayAgenda.jsx";
 import WalkInModal from "./WalkInModal.jsx";
 import BookingSettings from "./BookingSettings.jsx";
+import BookingDetailModal from "./BookingDetailModal.jsx";
 import { todayIso, addDays, fmtDayLabel, isOnDate } from "../bookingUtil.js";
 
 function useIsMobile() {
@@ -55,6 +56,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
   const [mobilePitchId, setMobilePitchId] = useState(null);
   const [walkIn, setWalkIn] = useState(null); // {pitchId, time} | null
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null); // occupancy row | null
 
   useEffect(() => {
     if (!mobilePitchId && pitches.length) setMobilePitchId(pitches[0].id);
@@ -116,6 +118,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
               dayOcc={dayOcc}
               canBook={enabled}
               onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
+              onSelectBooking={setSelectedBooking}
             />
           ) : (
             <ScheduleGrid
@@ -124,6 +127,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
               dayOcc={dayOcc}
               canBook={enabled}
               onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
+              onSelectBooking={setSelectedBooking}
             />
           )}
         </section>
@@ -147,6 +151,14 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
         venue={venue}
         pitches={state.pitches ?? []}
         onSaved={() => { onRefresh?.(); }}
+      />
+
+      <BookingDetailModal
+        open={!!selectedBooking}
+        occ={selectedBooking}
+        venueToken={venueToken}
+        onClose={() => setSelectedBooking(null)}
+        onChanged={() => { setSelectedBooking(null); afterWrite(); }}
       />
     </main>
   );

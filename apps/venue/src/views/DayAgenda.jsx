@@ -4,7 +4,7 @@ import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel } from "../book
 const PXMIN = 0.9;
 const SNAP = 30;
 
-export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOcc, canBook, onTapEmpty }) {
+export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOcc, canBook, onTapEmpty, onSelectBooking }) {
   const pitch = pitches.find((p) => p.id === pitchId) ?? pitches[0];
   const { startMin, endMin } = dayWindow(pitches, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
@@ -55,12 +55,13 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
           {blocks.map((o) => {
             const top = (minsOfDay(o.start) - startMin) * PXMIN;
             const h = Math.max((minsOfDay(o.end) - minsOfDay(o.start)) * PXMIN, 22);
+            const isBooking = o.source_kind === "booking";
             return (
               <div
                 key={o.id}
-                className={"occ " + occClass(o)}
+                className={"occ " + occClass(o) + (isBooking ? " occ-actionable" : "")}
                 style={{ top, height: h }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); if (isBooking) onSelectBooking?.(o); }}
               >
                 <span className="occ-label">{occLabel(o)}</span>
                 <span className="occ-time">{fmtTime(o.start)}–{fmtTime(o.end)}</span>

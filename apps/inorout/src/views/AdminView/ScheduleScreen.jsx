@@ -294,7 +294,7 @@ function BookingRow({ b, onCancel }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack, teamId, adminToken = null }) {
+export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack, teamId, adminToken = null, liveChannelKey = null }) {
   const [sched,     setSched]     = useState(schedule);
   const [groupName, setGroupName] = useState(settings.groupName || "");
   // remindersConfig is no longer editable from this screen (moved to the
@@ -320,6 +320,8 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
   const { requireAuth, gateProps } = useRequireAuth();
   const [showBook,  setShowBook]  = useState(false);
   const [bookings,  setBookings]  = useState([]);
+  const [cancelError, setCancelError] = useState(null);
+  const cancelingRef = useRef(false);
 
   const loadBookings = useCallback(async () => {
     if (!teamId) return;
@@ -333,6 +335,20 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
     } catch (_) { setBookings([]); }
   }, [teamId]);
   useEffect(() => { loadBookings(); }, [loadBookings]);
+
+  // Live booking updates: the venue confirm/decline/cancel RPCs broadcast on the
+  // team's `team_live:<key>` channel (booking_* reasons). App.jsx's subscriber
+  // refreshes team state but not the bookings list, so subscribe here and re-fetch
+  // bookings on any broadcast. Matches the App.jsx pattern (event 'broadcast').
+  useEffect(() => {
+    if (!teamId || !liveChannelKey) return;
+    // Must match the publisher topic exactly (notify_team_change → team_live:<key>).
+    // A second channel instance on the same topic (App.jsx has the other) is supported.
+    const ch = supabase.channel(`team_live:${liveChannelKey}`);
+    ch.on("broadcast", { event: "broadcast" }, () => { loadBookings(); });
+    ch.subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [teamId, liveChannelKey, loadBookings]);
 
   // ── One-off date override ────────────────────────────────────────────────────
   const applyDateOverride = async () => {
@@ -529,13 +545,25 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
                 <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:8 }}>
                   {bookings.map(b => (
                     <BookingRow key={b.booking_id} b={b} onCancel={async () => {
+                      if (cancelingRef.current) return;
+                      const label = b.series_id ? "this weekly block (all upcoming weeks)" : "this booking";
+                      if (!window.confirm(`Cancel ${label}? The venue will be notified.`)) return;
+                      cancelingRef.current = true;
+                      setCancelError(null);
                       try {
                         if (b.series_id) await cancelBookingSeries(b.series_id);
                         else await cancelBooking(b.booking_id);
                         await loadBookings();
-                      } catch (_) { /* surfaced on next load */ }
+                      } catch (_) {
+                        setCancelError("Couldn't cancel that booking — please try again.");
+                      } finally {
+                        cancelingRef.current = false;
+                      }
                     }} />
                   ))}
+                  {cancelError && (
+                    <div style={{ fontSize:12, color:"var(--red, #FF6060)", fontWeight:300 }}>{cancelError}</div>
+                  )}
                 </div>
               )}
             </div>

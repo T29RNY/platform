@@ -1327,6 +1327,16 @@ input:focus, select:focus, textarea:focus {
   transition: transform 220ms var(--spring), box-shadow 220ms var(--ease), filter 220ms var(--ease);
 }
 .occ:hover { filter: brightness(1.06); box-shadow: 0 8px 18px -10px rgba(0,0,0,0.5); }
+.occ-actionable { cursor: pointer; }
+
+/* Booking detail modal */
+.bk-detail { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.bk-detail-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px dashed var(--stroke); }
+.bk-detail-row span { color: var(--ink-mute); font-size: 13px; }
+.bk-detail-row strong { font-size: 14px; }
+.bk-detail-actions { display: flex; gap: 8px; margin-top: 16px; }
+.bk-detail-actions button { flex: 1; padding: 11px; font-size: 14px; font-weight: 500; }
+.bk-detail-series { display: block; margin: 12px auto 0; }
 .occ-label { font-size: 12px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .occ-time { font-family: var(--f-mono); font-size: 10px; color: var(--ink-mute); }
 /* fixture = locked, indigo */

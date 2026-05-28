@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { venueConfirmBooking, venueDeclineBooking, cancelBookingSeries } from "@platform/core/storage/supabase.js";
-import { fmtTime, fmtDayLabel } from "../bookingUtil.js";
+import { fmtTime, fmtDayShort } from "../bookingUtil.js";
 
 function summary(g) {
   const first = g.starts[0];
   const time = first ? fmtTime(first) : "";
   if (g.seriesId) {
-    return `Weekly · ${g.bookingIds.length} week${g.bookingIds.length === 1 ? "" : "s"} · ${first ? fmtDayLabel(first) : ""} · ${time}`;
+    return `Weekly · ${g.bookingIds.length} week${g.bookingIds.length === 1 ? "" : "s"} · ${first ? fmtDayShort(first) : ""} · ${time}`;
   }
-  return `${first ? fmtDayLabel(first) : ""} · ${time}`;
+  return `${first ? fmtDayShort(first) : ""} · ${time}`;
 }
 
 export default function RequestsInbox({ groups, venueToken, onChanged }) {

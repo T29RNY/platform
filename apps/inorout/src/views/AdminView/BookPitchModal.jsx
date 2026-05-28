@@ -10,15 +10,21 @@ import {
 // ── helpers ───────────────────────────────────────────────────────────────────
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
+// YYYY-MM-DD from LOCAL components. Never toISOString — that converts to UTC and
+// in UK BST (UTC+1) returns the previous day during the midnight hour, which would
+// write a booking a day early.
+const isoLocal = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 // Next date (YYYY-MM-DD) on/after today matching a weekday name.
 function nextDateForDay(dayName) {
   const target = DAYS.indexOf(dayName);
   const today = new Date();
-  if (target < 0) return today.toISOString().slice(0, 10);
+  if (target < 0) return isoLocal(today);
   const delta = (target - today.getDay() + 7) % 7; // 0 = today
   const d = new Date(today);
   d.setDate(today.getDate() + delta);
-  return d.toISOString().slice(0, 10);
+  return isoLocal(d);
 }
 
 function localTime(tstz) {
@@ -268,7 +274,7 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
             {mode === "adhoc" ? (
               <>
                 <div style={LABEL}>Date</div>
-                <input type="date" value={date} min={new Date().toISOString().slice(0, 10)}
+                <input type="date" value={date} min={isoLocal(new Date())}
                   onChange={(e) => onDate(e.target.value)} style={{ ...INPUT, marginBottom: 14 }} />
                 {slotPicker}
               </>

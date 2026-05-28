@@ -1198,6 +1198,7 @@ export default function App() {
           matchHistory={matchHistory} setMatchHistory={setMatchHistory}
           coverPool={coverPool}       setCoverPool={setCoverPoolRaw}
           teamId={teamId}
+          liveChannelKey={liveChannelKey}
           me={_me}
           adminToken={(isAdmin || isViceCaptain) ? (route.token || "admin_demo") : null}
           isViceCaptain={isViceCaptain}
