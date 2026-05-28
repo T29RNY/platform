@@ -568,7 +568,10 @@ schema-wired. Occupancy rows are written by the Stage 4 write RPCs, not here.
 `id uuid pk`, `team_id text NOT NULL →teams (CASCADE)`, `venue_id text →venues`,
 `playing_area_id uuid →playing_areas`, `day_of_week smallint (0–6)`,
 `kickoff_time time`, `slot_minutes int (>0 or NULL)`,
-`status text (active|ending|cancelled) default active`, `ends_on date`, `created_at`.
+`status text (active|ending|cancelled) default active`, `ends_on date`, `created_at`,
+`renewal_of_series_id uuid NULL →booking_series` (mig 151 — set on a renewal-hold series,
+points at the origin; origin flips to `ending` when its hold is created),
+`hold_expires_at timestamptz NULL` (mig 151 — renewal grace deadline; NULL once kept/expired).
 
 **pitch_bookings** (concrete one-off / weekly rows):
 
@@ -583,10 +586,11 @@ schema-wired. Occupancy rows are written by the Stage 4 write RPCs, not here.
 | `kickoff_time` | time NOT NULL | |
 | `slot_minutes` | int NULL | per-booking length (COALESCE 60 downstream) |
 | `kind` | text | CHECK `block`/`adhoc` |
-| `status` | text | CHECK `requested`/`confirmed`/`declined`/`cancelled`/`superseded`/`expired`, default `requested` |
+| `status` | text | CHECK `requested`/`confirmed`/`declined`/`cancelled`/`superseded`/`expired`/`hold`, default `requested` (`hold` = renewal hold, mig 151) |
 | `amount_pence` | int NULL | payment off |
 | `payment_status` | text | CHECK `not_required`/`pending`/`paid`/`refunded`, default `not_required` |
 | `series_id` | uuid NULL →booking_series (CASCADE) | block week's parent |
+| `superseded_at` | timestamptz NULL | mig 151 — set by the fixture auto-yield trigger; polled by the superseded push |
 | `created_at` | timestamptz | |
 
 - CHECK `pitch_bookings_booker_present`: `team_id IS NOT NULL OR booked_by_name IS NOT NULL`.
@@ -594,6 +598,13 @@ schema-wired. Occupancy rows are written by the Stage 4 write RPCs, not here.
 
 Read RPCs (`search_bookable_venues`, `get_pitch_free_slots`, `get_pitch_occupancy`)
 in RPCS.md, migrations 140–141.
+
+**Stage 7 renewal (migs 151–152):** a series within 21 days of `ends_on` auto-creates a
+renewal-hold child series (`renewal_of_series_id` set, `hold_expires_at` = +7d clamped) with
+`pitch_bookings.status='hold'` + active occupancy (priority 2); origin → `ending`. Team
+`confirm_renewal` flips holds → `requested` (venue re-approves); `expire_renewal_holds`
+releases lapsed holds (→ `expired`, occupancy off, series `cancelled`). All driven by
+`api/cron.js renewalHoldsJob` (09:00 UK). RPC inventory in RPCS.md.
 
 ---
 

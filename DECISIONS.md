@@ -1,8 +1,34 @@
 # In or Out — Key Decisions Log
-*Last updated: May 28 2026 (session 52 — pitch-booking decisions: occupancy-as-truth, Stage-2-split-around-Stage-3, off-system-venue path)*
+*Last updated: May 28 2026 (session 53 — Stage 7 renewal decisions + the local-date rule)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Pitch booking — renewal is right-of-first-refusal but venue re-approves (session 53)
+
+**Decision:** a weekly block within **21 days** of its end auto-reserves the next block of
+the same slot for that team — a genuine occupancy hold (`pitch_bookings.status='hold'`,
+priority 2) so no one else can take it during a **7-day grace** (clamped to never pass the
+day before the first held week). Hold length **mirrors the original block (no cap)**. The
+team's "Keep slot" (`confirm_renewal`) does **not** auto-confirm — it flips the holds to
+`requested` and the **venue re-approves** through the existing inbox / `venue_confirm_booking`.
+Unconfirmed holds **auto-expire** (no manual "decline"). All driven by a 09:00-UK pass in
+`api/cron.js`. **Rationale:** the slot is the venue's inventory — first-refusal protects the
+incumbent team without removing the venue's final say; reusing the approve path avoids a
+second confirm flow. Push is on (renewal-held/expired + fixture-superseded) targeted at team
+admins via a service-role resolver. **Booking initiative complete (Stages 1–7).**
+
+## Calendar dates must be built from local components, never `toISOString()` (session 53)
+
+**Decision:** any `YYYY-MM-DD` derived from a JS `Date` MUST use local getters
+(`getFullYear/getMonth/getDate`), never `new Date(...).toISOString().slice(0,10)`.
+**Rationale:** `toISOString()` converts to UTC; in UK BST (UTC+1) the midnight hour rolls
+back a day — this bit the venue date-nav and the casual `BookPitchModal` block-start (a
+booking written a day early), same family as the cron UK-time bug (GO_LIVE §6.7). Times are
+fine via `toLocaleTimeString({timeZone:'Europe/London'})`; it's only date-string derivation
+that's banned from `toISOString`. (Fixed `202d16a`; pre-flight GO_LIVE §11.2.)
 
 ---
 
