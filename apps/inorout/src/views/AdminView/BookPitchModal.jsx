@@ -77,7 +77,8 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
   const [date, setDate]       = useState(nextDateForDay(dayOfWeek));
   const [slots, setSlots]     = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [selected, setSelected] = useState(null);    // a slot (adhoc) or {playing_area_id, pitch_name, slot_minutes} (block)
+  const [selected, setSelected] = useState(null);    // the chosen slot row {playing_area_id, pitch_name, slot_minutes, slot_start}
+  const [selectedTime, setSelectedTime] = useState(null); // chosen kickoff time "HH:MM"
   const [weeks, setWeeks]     = useState(6);
 
   const [busy, setBusy]   = useState(false);
@@ -106,34 +107,44 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
 
   const pickVenue = (v) => {
     setVenue(v);
-    setSelected(null);
+    setSelected(null); setSelectedTime(null);
     setStep("plan");
     loadSlots(v.venue_id, mode === "block" ? nextDateForDay(dayOfWeek) : date);
   };
 
   const switchMode = (m) => {
     setMode(m);
-    setSelected(null);
+    setSelected(null); setSelectedTime(null);
     const d = m === "block" ? nextDateForDay(dayOfWeek) : date;
     if (m === "block") setDate(nextDateForDay(dayOfWeek));
     if (venue) loadSlots(venue.venue_id, d);
   };
 
   const onDate = (d) => {
-    setDate(d); setSelected(null);
+    setDate(d); setSelected(null); setSelectedTime(null);
     if (venue) loadSlots(venue.venue_id, d);
   };
 
-  // Block: distinct pitches (+ offered lengths) derived from the day's free slots.
-  const blockPitches = (() => {
+  // Time-first: group the day's free slots by kickoff time. Shared by both modes —
+  // the booker picks a time, then a pitch free at that time.
+  const slotsByTime = (() => {
     const map = new Map();
     for (const s of slots) {
-      const cur = map.get(s.playing_area_id) || { playing_area_id: s.playing_area_id, pitch_name: s.pitch_name, lengths: new Set() };
-      cur.lengths.add(s.slot_minutes);
-      map.set(s.playing_area_id, cur);
+      const t = localTime(s.slot_start);
+      if (!map.has(t)) map.set(t, []);
+      map.get(t).push(s);
     }
-    return [...map.values()].map((p) => ({ ...p, lengths: [...p.lengths].sort((a, b) => a - b) }));
+    return map;
   })();
+  const times = [...slotsByTime.keys()].sort();
+  const pitchesAtTime = selectedTime ? (slotsByTime.get(selectedTime) || []) : [];
+
+  // Block: pre-select the team's weekly kickoff time once slots load, if it's free.
+  useEffect(() => {
+    if (mode !== "block" || selectedTime || slots.length === 0) return;
+    const teamTime = (kickoff || "").slice(0, 5);
+    if (slots.some((s) => localTime(s.slot_start) === teamTime)) setSelectedTime(teamTime);
+  }, [slots, mode, kickoff, selectedTime]);
 
   const confirmBooking = async () => {
     setBusy(true); setError(null);
@@ -141,7 +152,7 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
       if (mode === "adhoc") {
         await bookPitchAdhoc(teamId, selected.playing_area_id, date, localTime(selected.slot_start), selected.slot_minutes);
       } else {
-        await bookPitchSeries(teamId, selected.playing_area_id, kickoff, nextDateForDay(dayOfWeek), Number(weeks), selected.slot_minutes);
+        await bookPitchSeries(teamId, selected.playing_area_id, localTime(selected.slot_start), nextDateForDay(dayOfWeek), Number(weeks), selected.slot_minutes);
       }
       setStep("done");
       onBooked?.();
@@ -151,6 +162,38 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
       setBusy(false);
     }
   };
+
+  // Shared time-first picker: a wrapped grid of kickoff times, then the pitches free
+  // at the chosen time. Used by both one-off and weekly-block modes.
+  const slotPicker = loadingSlots ? (
+    <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300 }}>Loading…</div>
+  ) : times.length === 0 ? (
+    <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300 }}>No free slots that day.</div>
+  ) : (
+    <>
+      <div style={LABEL}>Choose a time</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: selectedTime ? 16 : 0 }}>
+        {times.map((t) => (
+          <button key={t} onClick={() => { setSelectedTime(t); setSelected(null); }}
+            style={{ ...CHIP(t === selectedTime), flex: "0 0 auto", minWidth: 72, textAlign: "center" }}>
+            {t}
+          </button>
+        ))}
+      </div>
+      {selectedTime && (
+        <>
+          <div style={LABEL}>Available pitches</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {pitchesAtTime.map((s, i) => (
+              <button key={i} onClick={() => { setSelected(s); setStep("confirm"); }} style={CHIP(false)}>
+                {s.pitch_name} · {s.slot_minutes} min
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
 
   return (
     <div style={OVERLAY} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -227,47 +270,17 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
                 <div style={LABEL}>Date</div>
                 <input type="date" value={date} min={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => onDate(e.target.value)} style={{ ...INPUT, marginBottom: 14 }} />
-                <div style={LABEL}>Available slots</div>
-                {loadingSlots ? (
-                  <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300 }}>Loading…</div>
-                ) : slots.length === 0 ? (
-                  <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300 }}>No free slots that day.</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {slots.map((s, i) => (
-                      <button key={i} onClick={() => { setSelected(s); setStep("confirm"); }} style={CHIP(false)}>
-                        {localTime(s.slot_start)} · {s.slot_minutes} min · {s.pitch_name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {slotPicker}
               </>
             ) : (
               <>
                 <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, marginBottom: 14 }}>
-                  Your weekly slot: <span style={{ color: "var(--t1)" }}>{dayOfWeek}s at {kickoff}</span>, starting {nextDateForDay(dayOfWeek)}.
+                  A weekly slot on <span style={{ color: "var(--t1)" }}>{dayOfWeek}s</span>, starting {nextDateForDay(dayOfWeek)}.
                 </div>
                 <div style={LABEL}>Number of weeks</div>
                 <input type="number" min={1} max={52} value={weeks}
                   onChange={(e) => setWeeks(e.target.value)} style={{ ...INPUT, marginBottom: 14 }} />
-                <div style={LABEL}>Choose a pitch</div>
-                {loadingSlots ? (
-                  <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300 }}>Loading…</div>
-                ) : blockPitches.length === 0 ? (
-                  <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300 }}>No pitches free that day.</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {blockPitches.map((p) => (
-                      p.lengths.map((len) => (
-                        <button key={`${p.playing_area_id}-${len}`}
-                          onClick={() => { setSelected({ playing_area_id: p.playing_area_id, pitch_name: p.pitch_name, slot_minutes: len }); setStep("confirm"); }}
-                          style={CHIP(false)}>
-                          {p.pitch_name}{p.lengths.length > 1 ? ` · ${len} min` : ""}
-                        </button>
-                      ))
-                    ))}
-                  </div>
-                )}
+                {slotPicker}
               </>
             )}
           </>
@@ -283,7 +296,7 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
               {mode === "adhoc" ? (
                 <div>{date} · {localTime(selected.slot_start)} · {selected.slot_minutes} min</div>
               ) : (
-                <div>{dayOfWeek}s at {kickoff} · {selected.slot_minutes} min · {weeks} week{Number(weeks) === 1 ? "" : "s"}</div>
+                <div>{dayOfWeek}s at {localTime(selected.slot_start)} · {selected.slot_minutes} min · {weeks} week{Number(weeks) === 1 ? "" : "s"}</div>
               )}
             </div>
 
