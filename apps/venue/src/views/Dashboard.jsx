@@ -4,9 +4,24 @@ import Sidebar from "./Sidebar.jsx";
 import RegistrationActions from "./RegistrationActions.jsx";
 import SeasonWizard from "./SeasonWizard.jsx";
 import WeekPulse from "./WeekPulse.jsx";
+import BookingsView from "./BookingsView.jsx";
 
-export default function Dashboard({ state, venueToken, onRefresh, refreshing }) {
+export default function Dashboard({ state, venueToken, occupancy = [], onRefresh, onRefreshOccupancy, refreshing }) {
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [view, setView] = useState("ops"); // ops | bookings
+
+  // Pending booking count for the Bookings tab badge — group a weekly block
+  // (same series_id) into a single pending item.
+  const pendingCount = useMemo(() => {
+    const singles = new Set();
+    const series = new Set();
+    for (const o of occupancy) {
+      if (o.source_kind !== "booking" || o.detail?.status !== "requested") continue;
+      if (o.detail.series_id) series.add(o.detail.series_id);
+      else singles.add(o.source_id);
+    }
+    return singles.size + series.size;
+  }, [occupancy]);
   const venue = state.venue ?? {};
   const leagues = state.leagues ?? [];
   const fixtures = state.fixtures ?? {};
@@ -139,7 +154,11 @@ export default function Dashboard({ state, venueToken, onRefresh, refreshing }) 
         </div>
 
         <div className="topbar-mid">
-          <WeekPulse fixtures={fixtures} today={now} />
+          {view === "ops" ? (
+            <WeekPulse fixtures={fixtures} today={now} />
+          ) : (
+            <span className="brand-line2">Pitch bookings</span>
+          )}
         </div>
 
         <div className="topbar-right">
@@ -170,6 +189,22 @@ export default function Dashboard({ state, venueToken, onRefresh, refreshing }) 
         </div>
       </div>
 
+      <nav className="viewnav" aria-label="Dashboard sections">
+        <button
+          className={"viewnav-tab" + (view === "ops" ? " is-active" : "")}
+          onClick={() => setView("ops")}
+        >
+          Operations
+        </button>
+        <button
+          className={"viewnav-tab" + (view === "bookings" ? " is-active" : "")}
+          onClick={() => setView("bookings")}
+        >
+          Bookings
+          {pendingCount > 0 && <span className="viewnav-badge">{pendingCount}</span>}
+        </button>
+      </nav>
+
       {wizardOpen && (
         <SeasonWizard
           state={state}
@@ -179,6 +214,15 @@ export default function Dashboard({ state, venueToken, onRefresh, refreshing }) 
         />
       )}
 
+      {view === "bookings" ? (
+        <BookingsView
+          state={state}
+          venueToken={venueToken}
+          occupancy={occupancy}
+          onRefresh={onRefresh}
+          onRefreshOccupancy={onRefreshOccupancy}
+        />
+      ) : (
       <main className="content dash-grid">
         <section className="panel panel-tonight" ref={tonightRef}>
           {onAir && (
@@ -280,6 +324,7 @@ export default function Dashboard({ state, venueToken, onRefresh, refreshing }) 
           />
         </aside>
       </main>
+      )}
     </div>
   );
 }

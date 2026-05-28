@@ -1,6 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { venueGetState, supabase } from "@platform/core/storage/supabase.js";
+import { venueGetState, getPitchOccupancy, supabase } from "@platform/core/storage/supabase.js";
 import Dashboard from "./views/Dashboard.jsx";
+import { todayIso, addDays } from "./bookingUtil.js";
+
+const BOOKING_REASONS = new Set([
+  "booking_requested", "booking_confirmed", "booking_declined",
+  "booking_cancelled", "booking_superseded",
+]);
 
 function readTokenFromUrl() {
   if (typeof window === "undefined") return null;
@@ -14,6 +20,7 @@ function readTokenFromUrl() {
 export default function App() {
   const [token, setToken] = useState(() => readTokenFromUrl());
   const [state, setState] = useState(null);
+  const [occupancy, setOccupancy] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -33,9 +40,22 @@ export default function App() {
     }
   }, []);
 
+  // Booking occupancy (fixtures + bookings + maintenance) for the inbox + calendar.
+  // Window: today .. +90d covers all pending requests and the visible calendar.
+  const loadOccupancy = useCallback(async (t) => {
+    if (!t) return;
+    try {
+      const rows = await getPitchOccupancy(t, todayIso(), addDays(todayIso(), 90));
+      setOccupancy(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      console.error("get_pitch_occupancy failed", err);
+      setOccupancy([]);
+    }
+  }, []);
+
   useEffect(() => {
-    if (token) load(token);
-  }, [token, load]);
+    if (token) { load(token); loadOccupancy(token); }
+  }, [token, load, loadOccupancy]);
 
   // Subscribe to venue-level realtime broadcasts. Every ref RPC publishes
   // on venue_live:<live_channel_key> (mig 121) so the office dashboard
@@ -45,15 +65,19 @@ export default function App() {
   const venueChannelKey = state?.venue?.live_channel_key ?? null;
   const reloadRef = useRef(load);
   reloadRef.current = load;
+  const reloadOccRef = useRef(loadOccupancy);
+  reloadOccRef.current = loadOccupancy;
   useEffect(() => {
     if (!venueChannelKey || !token) return;
     const ch = supabase.channel(`venue_live:${venueChannelKey}`);
     ch.on("broadcast", { event: "broadcast" }, (payload) => {
-      // Re-fetch the full venue state. We could be smarter (e.g. only
-      // re-fetch fixtures), but venue_get_state is cheap and a single
-      // round-trip is fine for a dashboard.
-      console.info("[venue] live update", payload?.payload?.reason);
-      reloadRef.current(token);
+      const reason = payload?.payload?.reason;
+      console.info("[venue] live update", reason);
+      // Booking reasons only move occupancy → refetch the calendar/inbox.
+      // Everything else (fixtures, refs, settings) can also shift occupancy,
+      // so refetch both. Keeps the grid from ever showing a stale slot.
+      reloadOccRef.current(token);
+      if (!BOOKING_REASONS.has(reason)) reloadRef.current(token);
     });
     ch.subscribe((status) => {
       if (status === "SUBSCRIBED") console.info("[venue] subscribed to", `venue_live:${venueChannelKey.slice(0, 8)}…`);
@@ -99,7 +123,9 @@ export default function App() {
     <Dashboard
       state={state}
       venueToken={token}
+      occupancy={occupancy}
       onRefresh={() => load(token)}
+      onRefreshOccupancy={() => loadOccupancy(token)}
       refreshing={loading}
     />
   );
