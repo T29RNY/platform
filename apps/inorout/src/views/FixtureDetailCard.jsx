@@ -69,6 +69,31 @@ export default function FixtureDetailCard({ playerToken, fixtureId }) {
   const nameById = {};
   [...(detail.home_squad || []), ...(detail.away_squad || [])].forEach(p => { nameById[p.id] = p.name; });
 
+  const GoalCol = ({ goals, teamId, nameById, align }) => {
+    const mine = goals.filter(g => g.team_id === teamId);
+    return (
+      <div style={{ flex: 1, minWidth: 0, textAlign: align }}>
+        {mine.length === 0 ? (
+          <span style={{ ...meta }}>—</span>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {mine.map(g => (
+              <span key={g.id} style={{
+                fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "var(--t1)",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                {nameById[g.player_id] || g.player_name_override || "Unknown"}{" "}
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--t2)" }}>
+                  {g.minute != null ? `${g.minute}'` : ""}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const SquadCol = ({ teamName, squad, mine }) => (
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{
@@ -146,19 +171,13 @@ export default function FixtureDetailCard({ playerToken, fixtureId }) {
         </div>
       )}
 
-      {/* goal events (completed) */}
+      {/* goal events (completed) — split by team so each side's scorers sit under their own column */}
       {goals.length > 0 && (
         <div style={{ marginBottom: 12 }}>
           <span style={label}>GOALS</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6 }}>
-            {goals.map(g => (
-              <span key={g.id} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "var(--t1)" }}>
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--t2)" }}>
-                  {g.minute != null ? `${g.minute}'` : "—"}
-                </span>{" "}
-                {nameById[g.player_id] || g.player_name_override || "Unknown"}
-              </span>
-            ))}
+          <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
+            <GoalCol goals={goals} teamId={f.home_team_id} nameById={nameById} align="left" />
+            <GoalCol goals={goals} teamId={f.away_team_id} nameById={nameById} align="right" />
           </div>
         </div>
       )}
