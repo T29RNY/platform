@@ -1,8 +1,11 @@
-import { useState, useRef, useCallback } from "react";
-import { ArrowLeft, MapPin } from "@phosphor-icons/react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { ArrowLeft, MapPin, CalendarPlus, X } from "@phosphor-icons/react";
 import { Toggle } from "@platform/ui";
-import { upsertSchedule, upsertSettings } from "@platform/core/storage/supabase.js";
-import { reopenWeek, goLive } from "@platform/core";
+import { upsertSchedule, upsertSettings, supabase } from "@platform/core/storage/supabase.js";
+import { reopenWeek, goLive, getTeamBookings, cancelBooking, cancelBookingSeries } from "@platform/core";
+import BookPitchModal from "./BookPitchModal.jsx";
+import useRequireAuth from "../../hooks/useRequireAuth.js";
+import AuthGateModal from "../../components/AuthGateModal.jsx";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -182,7 +185,7 @@ function VenueField({ venue, setVenue, city, setCity }) {
 
   return (
     <div style={{ marginBottom:16 }}>
-      <div style={LABEL}>VENUE</div>
+      <div style={LABEL}>EXISTING BOOKING INFO</div>
       <div style={{ position:"relative" }}>
         <div style={{ position:"relative" }}>
           <input
@@ -251,6 +254,44 @@ function VenueField({ venue, setVenue, city, setCity }) {
   );
 }
 
+// ── Booking row (status badge + cancel) ───────────────────────────────────────
+
+const BK_STATUS = {
+  requested: "Requested", confirmed: "Confirmed", declined: "Declined",
+  cancelled: "Cancelled", superseded: "Bumped", expired: "Expired",
+};
+
+function BookingRow({ b, onCancel }) {
+  const cancellable = b.status === "requested" || b.status === "confirmed";
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
+      background:"var(--s2)", border:"1px solid var(--s3)", borderRadius:"var(--rs)" }}>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:13, color:"var(--t1)", fontWeight:300 }}>
+          {b.venue_name}{b.pitch_name ? ` · ${b.pitch_name}` : ""}
+        </div>
+        <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:2 }}>
+          {b.booking_date} · {String(b.kickoff_time).slice(0,5)} · {b.slot_minutes} min{b.kind === "block" ? " · weekly" : ""}
+        </div>
+      </div>
+      <span style={{
+        fontSize:10, letterSpacing:"0.06em", textTransform:"uppercase", padding:"3px 8px",
+        borderRadius:"var(--r-pill)", fontWeight:400, whiteSpace:"nowrap",
+        color: b.status === "confirmed" ? "var(--bg)" : "var(--gold)",
+        background: b.status === "confirmed" ? "var(--gold)" : "var(--gold2)",
+        border:"1px solid var(--goldb)", opacity: cancellable ? 1 : 0.5,
+      }}>{BK_STATUS[b.status] || b.status}</span>
+      {cancellable && (
+        <button onClick={onCancel} title="Cancel booking" style={{
+          background:"none", border:"none", color:"var(--t2)", cursor:"pointer", padding:4,
+          WebkitTapHighlightColor:"transparent" }}>
+          <X size={16} weight="thin" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ScheduleScreen({ schedule, setSchedule, settings, setSettings, onBack, teamId, adminToken = null }) {
@@ -274,6 +315,24 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
   const [priceZeroAck, setPriceZeroAck] = useState(false);
   const [priceError,   setPriceError]   = useState(null);
   const [priceFocused, setPriceFocused] = useState(false);
+
+  // ── Pitch booking ─────────────────────────────────────────────────────────
+  const { requireAuth, gateProps } = useRequireAuth();
+  const [showBook,  setShowBook]  = useState(false);
+  const [bookings,  setBookings]  = useState([]);
+
+  const loadBookings = useCallback(async () => {
+    if (!teamId) return;
+    // Bookings are admin-only (auth.uid). Skip the call entirely when there's no
+    // session (e.g. the admin-token demo route) so nothing errors on the casual flow.
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) { setBookings([]); return; }
+      const rows = await getTeamBookings(teamId);
+      setBookings(Array.isArray(rows) ? rows : []);
+    } catch (_) { setBookings([]); }
+  }, [teamId]);
+  useEffect(() => { loadBookings(); }, [loadBookings]);
 
   // ── One-off date override ────────────────────────────────────────────────────
   const applyDateOverride = async () => {
@@ -450,6 +509,48 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
               city={sched.city || ""}
               setCity={v => setSched(s => ({ ...s, city: v }))}
             />
+
+            {/* Book a real pitch (partner venues) */}
+            <div style={{ marginBottom:16 }}>
+              <button
+                onClick={() => requireAuth(() => { setShowBook(true); }, { reason: "Sign in to book a pitch" })}
+                style={{
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+                  width:"100%", padding:"12px", fontSize:14, fontWeight:400, cursor:"pointer",
+                  background:"var(--s2)", color:"var(--gold)", border:"1px solid var(--goldb)",
+                  borderRadius:"var(--rs)", fontFamily:"var(--font-body)",
+                  WebkitTapHighlightColor:"transparent",
+                }}
+              >
+                <CalendarPlus size={18} weight="thin" /> Book a Pitch
+              </button>
+
+              {bookings.length > 0 && (
+                <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:8 }}>
+                  {bookings.map(b => (
+                    <BookingRow key={b.booking_id} b={b} onCancel={async () => {
+                      try {
+                        if (b.series_id) await cancelBookingSeries(b.series_id);
+                        else await cancelBooking(b.booking_id);
+                        await loadBookings();
+                      } catch (_) { /* surfaced on next load */ }
+                    }} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {showBook && (
+              <BookPitchModal
+                teamId={teamId}
+                dayOfWeek={sched.dayOfWeek}
+                kickoff={sched.kickoff}
+                recentVenues={[...new Map(bookings.map(b => [b.venue_id, { venue_id:b.venue_id, name:b.venue_name, city:b.venue_city, cancellation_policy:b.cancellation_policy }])).values()]}
+                onClose={() => setShowBook(false)}
+                onBooked={loadBookings}
+              />
+            )}
+            <AuthGateModal {...gateProps} />
 
             {/* Players needed */}
             <FSelect

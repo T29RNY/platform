@@ -2092,6 +2092,68 @@ export async function venueAssignPitch(venueToken, fixtureId, playingAreaId) {
   return data;
 }
 
+// ─── Pitch Booking (Stages 3–5) ─────────────────────────────────────────────
+
+export async function searchBookableVenues(query) {
+  const { data, error } = await supabase.rpc("search_bookable_venues", { p_query: query ?? "" });
+  if (error) { console.error("[booking] search_bookable_venues failed", error); throw error; }
+  return data;
+}
+
+export async function getPitchFreeSlots(venueId, date, playingAreaId = null, slotLength = null) {
+  const { data, error } = await supabase.rpc("get_pitch_free_slots", {
+    p_venue_id: venueId,
+    p_date: date,
+    p_playing_area_id: playingAreaId,
+    p_slot_length: slotLength,
+  });
+  if (error) { console.error("[booking] get_pitch_free_slots failed", error); throw error; }
+  return data;
+}
+
+export async function getTeamBookings(teamId) {
+  const { data, error } = await supabase.rpc("get_team_bookings", { p_team_id: teamId });
+  if (error) { console.error("[booking] get_team_bookings failed", error); throw error; }
+  return data;
+}
+
+export async function bookPitchAdhoc(teamId, playingAreaId, bookingDate, kickoffTime, slotMinutes = null) {
+  const { data, error } = await supabase.rpc("book_pitch_adhoc", {
+    p_team_id: teamId,
+    p_playing_area_id: playingAreaId,
+    p_booking_date: bookingDate,
+    p_kickoff_time: kickoffTime,
+    p_slot_minutes: slotMinutes,
+  });
+  if (error) { console.error("[booking] book_pitch_adhoc failed", error); throw error; }
+  return data;
+}
+
+export async function bookPitchSeries(teamId, playingAreaId, kickoffTime, startDate, weeks, slotMinutes = null) {
+  const { data, error } = await supabase.rpc("book_pitch_series", {
+    p_team_id: teamId,
+    p_playing_area_id: playingAreaId,
+    p_kickoff_time: kickoffTime,
+    p_start_date: startDate,
+    p_weeks: weeks,
+    p_slot_minutes: slotMinutes,
+  });
+  if (error) { console.error("[booking] book_pitch_series failed", error); throw error; }
+  return data;
+}
+
+export async function cancelBooking(bookingId, venueToken = null) {
+  const { data, error } = await supabase.rpc("cancel_booking", { p_booking_id: bookingId, p_venue_token: venueToken });
+  if (error) { console.error("[booking] cancel_booking failed", error); throw error; }
+  return data;
+}
+
+export async function cancelBookingSeries(seriesId, venueToken = null) {
+  const { data, error } = await supabase.rpc("cancel_booking_series", { p_series_id: seriesId, p_venue_token: venueToken });
+  if (error) { console.error("[booking] cancel_booking_series failed", error); throw error; }
+  return data;
+}
+
 export async function venueAssignRef(venueToken, fixtureId, officialId) {
   const { data, error } = await supabase.rpc("venue_assign_ref", {
     p_venue_token: venueToken,
