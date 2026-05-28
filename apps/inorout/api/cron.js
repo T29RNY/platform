@@ -124,6 +124,20 @@ module.exports = async function handler(req, res) {
     results.push(`advanceGameDate: error — ${e.message}`);
   }
 
+  // ── Booking renewal holds + expiry (09:00 UK daily) ───────────────────────
+  try {
+    await renewalHoldsJob(base, results);
+  } catch (e) {
+    results.push(`renewalHolds: error — ${e.message}`);
+  }
+
+  // ── Superseded-booking displacement push (every tick) ─────────────────────
+  try {
+    await supersededPushJob(base, results);
+  } catch (e) {
+    results.push(`supersededPush: error — ${e.message}`);
+  }
+
   res.json({ ok: true, ts: new Date().toISOString(), results });
 };
 
@@ -458,6 +472,78 @@ async function advanceGameDateJob(results) {
 
     results.push(`advanceGameDate: ${sched.team_id} → ${nextDt}`);
   }
+}
+
+// ── Push to a team's admins (booking events) ─────────────────────────────────
+// Resolves admin player_ids server-side (service-role RPC) so /api/notify targets
+// only the admins, then sends via direct mode (deduped by notification_log).
+async function pushTeamAdmins(base, teamId, type, payload, gameDate) {
+  if (!teamId) return;
+  const { data: ids } = await supabase.rpc("get_team_admin_player_ids", { p_team_id: teamId });
+  const playerIds = Array.isArray(ids) ? ids : [];
+  if (!playerIds.length) return;
+  try {
+    await fetch(`${base}/api/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` },
+      body: JSON.stringify({ type, teamId, playerIds, gameDate, payload }),
+    });
+  } catch (e) { /* surfaced by caller's results push */ }
+}
+
+// ── Booking renewal holds + expiry (09:00 UK daily) ──────────────────────────
+async function renewalHoldsJob(base, results) {
+  const uk = nowInUkParts();
+  if (uk.hours !== 9 || uk.minutes >= 15) { results.push("renewalHolds: not 9am window"); return; }
+
+  const { data: held, error } = await supabase.rpc("create_renewal_holds");
+  if (error) {
+    results.push(`renewalHolds: error — ${error.message}`);
+  } else {
+    for (const h of (held?.holds || [])) {
+      await pushTeamAdmins(base, h.team_id, "booking_renewal_held",
+        { title: "Keep your pitch slot", body: "Your weekly slot is held — confirm to keep it before it reopens." });
+    }
+    results.push(`renewalHolds: ${(held?.holds || []).length} held, ${(held?.skipped || []).length} skipped`);
+  }
+
+  const { data: exp, error: e2 } = await supabase.rpc("expire_renewal_holds");
+  if (e2) {
+    results.push(`renewalExpire: error — ${e2.message}`);
+  } else {
+    for (const x of (exp?.expired || [])) {
+      await pushTeamAdmins(base, x.team_id, "booking_renewal_expired",
+        { title: "Renewal hold lapsed", body: "Your renewal hold lapsed — the slot has reopened." });
+    }
+    results.push(`renewalExpire: ${(exp?.expired || []).length} expired`);
+  }
+}
+
+// ── Superseded-booking displacement push (every tick) ────────────────────────
+// Polls committed superseded rows (superseded_at set by tg_sync_fixture_occupancy).
+// notification_log dedups on (teamId, 'booking_superseded', gameDate); the 20-min
+// window comfortably covers the 15-min cadence.
+async function supersededPushJob(base, results) {
+  const since = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+  const { data: rows, error } = await supabase
+    .from("pitch_bookings")
+    .select("team_id, booking_date")
+    .eq("status", "superseded")
+    .gt("superseded_at", since)
+    .not("team_id", "is", null);
+  if (error) { results.push(`supersededPush: error — ${error.message}`); return; }
+  if (!rows?.length) { results.push("supersededPush: none"); return; }
+
+  const seen = new Set();
+  for (const r of rows) {
+    const key = `${r.team_id}|${r.booking_date}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    await pushTeamAdmins(base, r.team_id, "booking_superseded",
+      { title: "Booking bumped", body: `A league fixture took your pitch slot on ${r.booking_date}.` },
+      r.booking_date);
+  }
+  results.push(`supersededPush: ${seen.size} team(s) notified`);
 }
 
 // ── Demo player reset ─────────────────────────────────────────────────────────
