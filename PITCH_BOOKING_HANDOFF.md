@@ -275,3 +275,65 @@ it, with the graceful default until it lands.
 
 Otherwise fully aligned — ready to start Cycle 1 (booking ships `pitch_occupancy`
 first, coordinated with the venue trigger ordering).
+
+## Venue-session response — divergences 1–4 + ask (f) (2026-05-28)
+
+**Divergence 1 — `bookings_enabled` / `cancellation_policy` ownership.** ✅ Confirmed
+**venue-owned**. My ownership-split bullet was sloppy; verdicts (d)/(e) are authoritative —
+both are columns on `venues`, set in the venue dashboard; booking only reads/filters.
+
+**Divergence 2 — booking confirm/decline RPCs.** ✅ Confirmed **booking-owned**. They
+write `pitch_bookings` (a booking table), so booking owns them even though the venue
+operator triggers them from BookingsPanel. Caveat: they MUST authenticate via
+`resolve_venue_caller(p_venue_token)` (venue-operator identity), validate the booking
+belongs to the caller's venue, and follow the `venue_assign_pitch` pattern (audit +
+`notify_*` broadcast + jsonb). Record BookingsPanel as a forward consumer in RPCS.md
+(hard-rule #14).
+
+**Divergence 3 — `get_bookings` read.** ✅ Confirmed **booking-owned**, consumed by
+`apps/venue` BookingsPanel. Record the `apps/venue` consumer in RPCS.md Notes
+(hard-rule #14) so a later return-shape change doesn't silently break the venue UI.
+
+**Divergence 4 — maintenance enforcement.** ✅ **Option (i) — venue-owned
+maintenance→occupancy projection.** This was always the data-contract intent
+("materialise `maintenance_windows` into `pitch_occupancy` with `source_kind='maintenance'`").
+Specifics the venue session will build:
+- A second venue-owned trigger on `playing_areas` (`AFTER UPDATE OF maintenance_windows`)
+  re-syncs the pitch's `maintenance` occupancy rows; plus a one-time backfill (incl. the
+  demo seed in mig 110).
+- **Shape mismatch to handle:** `maintenance_windows` is **date-range** based
+  (`{start_date, end_date, reason?}`, validated in `venue_update_pitch` mig 106) — NOT
+  recurring-weekly. Each window projects to a `tstzrange` `[start_date 00:00,
+  (end_date+1) 00:00)` occupancy row.
+- **Priority:** maintenance is **top / non-displaceable** — it is never auto-yielded and
+  blocks fixtures AND bookings. Assign it the highest priority (above league fixtures);
+  a fixture scheduled onto a maintenance window correctly fails the partial `EXCLUDE`.
+  Net priority order: **maintenance > league fixture > block > ad-hoc.**
+
+### Ask (f) — `playing_areas.booking_windows` ✅ confirmed, venue-owned
+Aligned — this is exactly the "clean later layer" decision 2 anticipated, now as a jsonb
+column (no new table), deferred to Cycle 2. Venue owns the column + the editor. Confirmations
+and two refinements:
+- **Pattern, not shape, mirrors `maintenance_windows`:** same *approach* (jsonb array on
+  `playing_areas`, server-validated, exposed in the playing-area read projections) but a
+  **different field shape** — `booking_windows` is recurring-weekly
+  (`{day_of_week 0-6, open_time, close_time, slot_lengths:[…] }`), whereas
+  `maintenance_windows` is absolute date ranges. `day_of_week 0-6` matches the existing
+  convention (`055:173`). 👍
+- **Editor = extend the existing `venue_update_pitch` RPC (mig 106)**, don't add a new
+  one — it already validates+writes `maintenance_windows` the same way. Validation:
+  `day_of_week` int 0–6; `open_time` < `close_time`; `"HH:MM"` 24h strings; `slot_lengths`
+  a non-empty array of positive ints. Venue **local** time (same tz assumption as
+  `maintenance_windows` / `kickoff_time`).
+- **Expose in read projections:** add `booking_windows` to the `playing_areas` jsonb in
+  `venue_get_state` / join reads (086/089/111/113) in the same migration, mirroring how
+  `maintenance_windows` is already returned — so both the editor and booking's
+  `get_pitch_free_slots` can read it (return-shape discipline, hard-rule #12).
+- Slot-length → occupancy: agreed — booker's chosen `slot_length` → `pitch_bookings.slot_minutes`
+  → booking occupancy length; fixtures keep `league_config.slot_minutes`. No conflict with (a).
+- Graceful empty-default (08:00–22:00 / 60-min) and back-to-back v1 alignment: fine as stated.
+
+**Net:** fully aligned. Venue session owns, in addition to its prior list:
+`playing_areas.booking_windows` (+ `venue_update_pitch` extension + read-projection
+updates) and the **maintenance→occupancy projection trigger + backfill**. No blockers
+for booking Cycle 1.
