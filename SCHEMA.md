@@ -545,6 +545,42 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
 un-confirmed bookings, the confirmed-clash gate (`confirmed_booking_clash` +
 `p_displace_booking_ids[]`), and the `booking_superseded` broadcast reason.
 
+### Stage 3 — booking storage (migration 139)
+
+Both RLS-enabled, REVOKE anon/authenticated (RPC-only). Payment OFF but
+schema-wired. Occupancy rows are written by the Stage 4 write RPCs, not here.
+
+**booking_series** (recurring block-booking parent):
+`id uuid pk`, `team_id text NOT NULL →teams (CASCADE)`, `venue_id text →venues`,
+`playing_area_id uuid →playing_areas`, `day_of_week smallint (0–6)`,
+`kickoff_time time`, `slot_minutes int (>0 or NULL)`,
+`status text (active|ending|cancelled) default active`, `ends_on date`, `created_at`.
+
+**pitch_bookings** (concrete one-off / weekly rows):
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `team_id` | text NULL →teams (CASCADE) | NULL for walk-ins |
+| `booked_by_name` | text NULL | walk-in display name |
+| `venue_id` | text NOT NULL →venues | |
+| `playing_area_id` | uuid NOT NULL →playing_areas | |
+| `booking_date` | date NOT NULL | |
+| `kickoff_time` | time NOT NULL | |
+| `slot_minutes` | int NULL | per-booking length (COALESCE 60 downstream) |
+| `kind` | text | CHECK `block`/`adhoc` |
+| `status` | text | CHECK `requested`/`confirmed`/`declined`/`cancelled`/`superseded`/`expired`, default `requested` |
+| `amount_pence` | int NULL | payment off |
+| `payment_status` | text | CHECK `not_required`/`pending`/`paid`/`refunded`, default `not_required` |
+| `series_id` | uuid NULL →booking_series (CASCADE) | block week's parent |
+| `created_at` | timestamptz | |
+
+- CHECK `pitch_bookings_booker_present`: `team_id IS NOT NULL OR booked_by_name IS NOT NULL`.
+- Indexes: `(venue_id, booking_date)`; partial on `team_id`; partial on `series_id`.
+
+Read RPCs (`search_bookable_venues`, `get_pitch_free_slots`, `get_pitch_occupancy`)
+in RPCS.md, migrations 140–141.
+
 ---
 
 ## KEY TYPE NOTES
