@@ -318,6 +318,21 @@ casual/venue UI (Stages 5/6).
 | `get_pitch_free_slots(p_venue_id, p_date, p_playing_area_id?, p_slot_length?)` | `getPitchFreeSlots(...)` (Stage 5) | anon, authenticated | Expands `playing_areas.booking_windows` for `p_date`'s weekday → back-to-back slots per offered length → subtracts active `pitch_occupancy`. Graceful default 08:00–22:00/60 when a pitch has no windows. Returns `[{playing_area_id,pitch_name,slot_start,slot_end,slot_minutes}]`. PII-free. *Consumers: `apps/inorout` booking modal (Stage 5).* |
 | `get_pitch_occupancy(p_venue_token, p_from, p_to)` | `getPitchOccupancy(...)` (Stage 6) | anon, authenticated (token is the secret) | Venue calendar grid: one row per active occupancy row joined to fixture/booking/maintenance detail over `[p_from, p_to]`. **Returns PII** (team names, walk-in names) → venue-operator only via `resolve_venue_caller`. *Consumers: `apps/venue` resource-timeline calendar (Stage 6, hard-rule #14).* |
 
+Stage 4 write RPCs (booking-owned). Each: SECURITY DEFINER, holds/frees a
+`pitch_occupancy` row through the partial EXCLUDE (taken slot → `slot_unavailable`),
+audits (Phase 2 shape), broadcasts `notify_venue_change` + `notify_team_change`.
+JS wrappers land with the consuming UI (Stages 5/6).
+
+| SQL function | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `book_pitch_adhoc(p_team_id, p_playing_area_id, p_booking_date, p_kickoff_time, p_slot_minutes?)` | `bookPitchAdhoc(...)` (Stage 5) | **authenticated** | Casual one-off request. Auth via `auth.uid()` → `team_admins` (must administer `p_team_id`). Status `requested`, occupancy priority 3. Fires `booking_requested`. *Consumer: `apps/inorout` booking modal (Stage 5).* |
+| `book_pitch_series(p_team_id, p_playing_area_id, p_kickoff_time, p_start_date, p_weeks, p_slot_minutes?)` | `bookPitchSeries(...)` (Stage 5) | **authenticated** | Casual block request. Creates `booking_series` + N weekly `pitch_bookings` (priority 2) atomically (any clash → `slot_unavailable`). `day_of_week` derived from `p_start_date`. Fires `booking_requested`. *Consumer: `apps/inorout` (Stage 5).* |
+| `venue_create_booking(p_venue_token, p_playing_area_id, p_booking_date, p_kickoff_time, p_slot_minutes?, p_team_id?, p_booked_by_name?)` | `venueCreateBooking(...)` (Stage 6) | anon, authenticated | Walk-in/phone → status `confirmed` directly. Walk-in = `team_id` NULL + `booked_by_name`. Fires `booking_confirmed`. *Consumer: `apps/venue` walk-in (Stage 6).* |
+| `venue_confirm_booking(p_venue_token, p_booking_id)` | `venueConfirmBooking(...)` (Stage 6) | anon, authenticated | `requested` → `confirmed` (refuses if not pending — e.g. superseded by a fixture). Fires `booking_confirmed`. *Consumer: `apps/venue` requests inbox (Stage 6).* |
+| `venue_decline_booking(p_venue_token, p_booking_id)` | `venueDeclineBooking(...)` (Stage 6) | anon, authenticated | `requested` → `declined`, frees the slot. Fires `booking_declined`. *Consumer: `apps/venue` inbox (Stage 6).* |
+| `cancel_booking(p_booking_id, p_venue_token?)` | `cancelBooking(...)` (Stage 5/6) | anon, authenticated | Dual auth: venue token OR team admin (`auth.uid()`). Walk-ins venue-only. `requested`/`confirmed` → `cancelled`, frees slot. Fires `booking_cancelled`. *Consumers: both apps.* |
+| `cancel_booking_series(p_series_id, p_venue_token?)` | `cancelBookingSeries(...)` (Stage 5/6) | anon, authenticated | Dual auth (same as above). Cancels the series + its live weekly bookings, frees their slots. Fires `booking_cancelled`. *Consumers: both apps.* |
+
 ---
 
 ## ADDING A NEW RPC — CHECKLIST
