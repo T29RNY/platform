@@ -144,3 +144,34 @@ see/cancel individual weeks.
   `audit_events` Phase-2 shape, `notify_venue_change` with an explicitly-whitelisted
   reason + matching subscriber, returns jsonb). Forward consumers in RPCS.md Notes.
 - Gates: `casual-regression.md`, `ephemeral-verify.md`, `rpc-security-sweep.md`.
+
+---
+
+## Update — booking lifecycle, priority & notifications (2026-05-28, booking session)
+
+**Lifecycle:** every booking is **requested → confirmed** by the venue (both block and
+ad-hoc); slot **held on request** (occupancy `active`, status `requested`) so no
+double-request. Other statuses: `declined`, `cancelled`, `superseded`, `expired`.
+
+**Priority: league fixtures > block bookings > ad-hoc.** `pitch_occupancy` gains a
+`priority smallint` (1/2/3). A higher-priority claim can **displace** a lower one.
+Block series nearing its end is **held for that team to confirm an extension** (right
+of first refusal) before the slot reopens.
+
+**Notifications:** in-app status (`notify_team_change` new reasons) + **push**
+(`apps/inorout/api/notify.js`) ship now; **email deferred to Phase 9** (no
+transactional sender exists) — RPCs emit the event so email attaches later.
+
+## NEW asks for the venue session (please action / confirm)
+
+| Ask | What | Blocks |
+|---|---|---|
+| **(a)** | Add **`league_config.slot_minutes`** (default **60**) + an easy per-fixture / per-booking override by venue staff. Occupancy length uses this, **not** `match_duration_mins` (Flag 2). | **Cycle 1 trigger** |
+| **(b)** | **Contract change:** the fixture-mirror trigger must **bump** lower-priority booking occupancy (set `active=false`, mark `pitch_bookings.status='superseded'`, notify) when a fixture claims a held slot — not merely be rejected by `EXCLUDE`. Revises "EXCLUDE rejects all overlaps". | **Cycle 1 trigger** |
+| **(c)** | A venue **short code** for code-entry discovery — or confirm we reuse `venues.slug`. | Cycle 2 |
+| **(d)** | **`cancellation_policy`** text on `venues`, shown on the booking confirm screen. | Cycle 3 (graceful fallback exists) |
+| **(e)** | Confirm the **`bookings_enabled`** opt-in flag lives venue-side. | Cycle 2 |
+
+Flags 1–3 from the venue review are folded into the booking plan (status-filtered
+trigger, `slot_minutes`, auth-cycle sizing noted). Asks (a) and (b) are on Cycle 1's
+critical path — booking can't start the occupancy trigger until both are settled.
