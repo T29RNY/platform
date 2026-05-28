@@ -477,6 +477,41 @@ work pre-auth for OAuth callback and landing pages).
 
 ---
 
+## PITCH BOOKING TABLES (migration 133+)
+
+Casual pitch booking + the unified occupancy guard. Booking session owns
+the booking tables; the venue session writes fixtures/maintenance into
+`pitch_occupancy` via its own triggers.
+
+### pitch_occupancy (migration 133) — the single occupancy source of truth
+
+One row = "this pitch is taken for this time-range", from any source.
+RLS-enabled, REVOKE anon/authenticated (RPC-only).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `playing_area_id` | uuid NOT NULL | FK → `playing_areas(id)` ON DELETE CASCADE |
+| `venue_id` | text NOT NULL | FK → `venues(id)` ON DELETE CASCADE (denormalised for calendar reads) |
+| `time_range` | tstzrange NOT NULL | half-open `[)` so back-to-back slots don't collide |
+| `source_kind` | text NOT NULL | CHECK in (`fixture`,`booking`,`maintenance`) |
+| `source_id` | text NOT NULL | `fixtures.id::text` / `pitch_bookings.id::text` / venue maint key |
+| `priority` | smallint NOT NULL | CHECK 0–3. 0=maintenance (top, non-displaceable), 1=fixture, 2=block, 3=ad-hoc |
+| `active` | boolean NOT NULL | DEFAULT true |
+| `created_at` | timestamptz NOT NULL | DEFAULT now() |
+
+- **Partial exclusion guard:** `EXCLUDE USING gist (playing_area_id WITH =,
+  time_range WITH &&) WHERE (active)` — two *active* rows can never overlap
+  on a pitch. Displacement = set the loser `active=false`, then insert/activate
+  the winner in the same transaction (the partial EXCLUDE then can't fire).
+- **Idempotent re-sync:** `UNIQUE (source_kind, source_id)` — upsert key for
+  the venue trigger's `ON CONFLICT`.
+- GiST index `pitch_occupancy_venue_range_idx` on `(venue_id, time_range)
+  WHERE active` for the calendar grid read.
+- Requires the `btree_gist` extension (installed in mig 133).
+
+---
+
 ## KEY TYPE NOTES
 
 | Field | Type | Notes |
