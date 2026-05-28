@@ -909,6 +909,25 @@ booking. Within the next tick, the displaced team's admin gets a "Booking bumped
 `notification_log` has exactly one `booking_superseded` row for that team+date (no duplicate
 on the following tick). The booking shows `superseded` in the team's list (live, in-app).
 
+### 11.8 Booking-confirmed push (session 54, every cron tick)
+**What:** when a venue confirms a casual request (`venue_confirm_booking`), `confirmPushJob`
+(every 15-min tick in `api/cron.js`) pushes the team's admins "Pitch booking confirmed". It
+polls `audit_events` (`action='booking_confirmed'`, last 20 min) — the committed marker, so
+no schema change — joins back to `pitch_bookings` (`team_id IS NOT NULL`), and **collapses a
+block series to one push per (team, series)** so a multi-week confirm isn't N notifications.
+Dedup via `notification_log (team,'booking_confirmed',gameDate=min booking_date)`; in-app the
+team already flips Requested→Confirmed live via the `team_live` subscriber.
+**Pre-verified (session 54, no real device):** the audit-poll join + grouping proven against
+the live DB with an ephemeral insert+rollback (3-week block → 1 group, one-off → 1 group;
+0 rows persisted); `get_team_admin_player_ids` returns admins only (demo: 38-player roster →
+`[]`); 0 duplicate `notification_log` send-groups exist; venue Bookings surface smoke-loaded
+on demo_venue (inbox, calendar, confirmed block paints, tap-block detail/cancel modal).
+**Operator-owed (auth + device, demo not valid):** sign in a real test-squad admin, confirm
+a real request from the venue inbox, and verify the "Pitch booking confirmed" push actually
+lands on the iPhone (the cron proves it *fires and targets correctly*, not that iOS shows the
+banner). Confirm `notification_log` has exactly one `booking_confirmed` row per confirm and no
+duplicate on the following tick.
+
 ---
 
 ## SCOPE OUT

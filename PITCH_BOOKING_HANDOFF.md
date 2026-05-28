@@ -615,12 +615,17 @@ Pre-flight checks added to **GO_LIVE_ISSUES.md §11**.
 - Gates: ephemeral-verify (trigger + 7/7 RPC scenarios) + rpc-security-sweep green.
 - Pre-flight checks → GO_LIVE_ISSUES.md §11.6–11.7.
 
-**Booking initiative complete.** Remaining (deferred): push-on-confirm; transactional email
-(Phase 9); off-system-venue outbound notify. Operator owes the real-squad/real-device pass
-(incl. the three booking pushes). Next free migration = 153.
-- **Deferred:** push-on-confirm (api/notify.js); transactional email (Phase 9); off-system-venue
-  outbound notify (architecture ready — events already emitted; needs a sender + optional
-  magic-link confirm page).
+**Booking initiative complete.** Operator owes the real-squad/real-device pass (incl. the
+booking pushes). Next free migration = 153.
+- **Done (session 54):** push-on-confirm — `confirmPushJob` in `api/cron.js` polls
+  `audit_events` for `booking_confirmed` (last 20 min), collapses a block series to one push
+  per (team, series), pushes the team's admins via the existing `pushTeamAdmins` +
+  `get_team_admin_player_ids`. No migration, no RPC change. Verified: ephemeral audit-poll +
+  grouping proof (rollback-clean), resolver-targets-admins-only, dedup, venue UI smoke. See
+  GO_LIVE_ISSUES.md §11.8 (incl. the operator-owed on-device push leg).
+- **Deferred:** transactional email (Phase 9 — no sender exists; booking RPCs already emit
+  events); off-system-venue outbound notify (architecture ready — events already emitted;
+  needs a sender + optional magic-link confirm page reusing venue_confirm/decline_booking).
 
 ### Operator test still owed (auth-dependent — demo not valid)
 The full casual flow (search → book → venue confirms) needs a **real signed-in team

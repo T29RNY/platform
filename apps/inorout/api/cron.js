@@ -138,6 +138,13 @@ module.exports = async function handler(req, res) {
     results.push(`supersededPush: error — ${e.message}`);
   }
 
+  // ── Booking-confirmed push (every tick) ───────────────────────────────────
+  try {
+    await confirmPushJob(base, results);
+  } catch (e) {
+    results.push(`confirmPush: error — ${e.message}`);
+  }
+
   res.json({ ok: true, ts: new Date().toISOString(), results });
 };
 
@@ -544,6 +551,52 @@ async function supersededPushJob(base, results) {
       r.booking_date);
   }
   results.push(`supersededPush: ${seen.size} team(s) notified`);
+}
+
+// ── Booking-confirmed push (every tick) ──────────────────────────────────────
+// Polls audit_events for venue confirmations in the last 20 min (the committed
+// "it happened" marker, hard-rule #9), joins back to the booking to get the real
+// team, and pushes the team's admins. A block series confirmed as N looped
+// venue_confirm_booking calls collapses to ONE push per (team, series). Dedup on
+// (team_id, 'booking_confirmed', gameDate=min booking_date) via notification_log;
+// the 20-min window comfortably covers the 15-min cadence.
+async function confirmPushJob(base, results) {
+  const since = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+  const { data: events, error } = await supabase
+    .from("audit_events")
+    .select("entity_id")
+    .eq("action", "booking_confirmed")
+    .eq("entity_type", "pitch_booking")
+    .gt("created_at", since);
+  if (error) { results.push(`confirmPush: error — ${error.message}`); return; }
+  const ids = [...new Set((events || []).map(e => e.entity_id).filter(Boolean))];
+  if (!ids.length) { results.push("confirmPush: none"); return; }
+
+  const { data: bookings, error: bErr } = await supabase
+    .from("pitch_bookings")
+    .select("id, team_id, series_id, booking_date")
+    .in("id", ids)
+    .eq("status", "confirmed")
+    .not("team_id", "is", null);
+  if (bErr) { results.push(`confirmPush: error — ${bErr.message}`); return; }
+  if (!bookings?.length) { results.push("confirmPush: none"); return; }
+
+  // Collapse to one push per (team, series-or-booking); track the earliest date.
+  const groups = new Map();
+  for (const b of bookings) {
+    const key = `${b.team_id}|${b.series_id || b.id}`;
+    const g = groups.get(key);
+    if (!g || b.booking_date < g.gameDate) {
+      groups.set(key, { teamId: b.team_id, gameDate: b.booking_date });
+    }
+  }
+
+  for (const g of groups.values()) {
+    await pushTeamAdmins(base, g.teamId, "booking_confirmed",
+      { title: "Pitch booking confirmed", body: "The venue confirmed your pitch slot." },
+      g.gameDate);
+  }
+  results.push(`confirmPush: ${groups.size} booking(s) notified`);
 }
 
 // ── Demo player reset ─────────────────────────────────────────────────────────
