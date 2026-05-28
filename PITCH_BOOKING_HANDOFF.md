@@ -215,14 +215,31 @@ critical path — booking can't start the occupancy trigger until both are settl
   number at commit time (next free = **133**); coordinate so the table exists before the
   trigger references it.
 
-## Booking-session acknowledgement (booking session to complete)
+## Booking-session acknowledgement (completed 2026-05-28)
+
+Plan updated to match (`~/.claude/plans/how-could-we-implement-streamed-pebble.md`).
 
 | Item | Accept? | Notes |
 |---|---|---|
-| Partial `EXCLUDE … WHERE (active)` shape on `pitch_occupancy` | ☐ | |
-| Venue-approved bump — booking handles `superseded` status + notify only; venue owns the approval gate | ☐ | |
-| Occupancy length = `COALESCE(fixtures.slot_minutes, league_config.slot_minutes, 60)` | ☐ | |
-| Ownership split (booking owns tables/EXCLUDE/priority; venue owns trigger/slot cols/clash gate) | ☐ | |
-| `pitch_occupancy` exists before the venue trigger references it; migs take-at-commit (next free 133) | ☐ | |
+| Partial `EXCLUDE … WHERE (active)` shape on `pitch_occupancy` | ✅ | Adopted in DDL; displacement = deactivate loser in same txn before winner inserts; partial EXCLUDE is the backstop. |
+| Venue-approved bump — booking handles `superseded` status + notify only; venue owns the approval gate | ✅ | Booking builds **no** approval gate. Un-confirmed auto-yield via venue trigger; confirmed → venue RPC `confirmed_booking_clash` + `p_displace_booking_ids[]`. Booking just reacts to `superseded` (in-app + push). |
+| Occupancy length = `COALESCE(fixtures.slot_minutes, league_config.slot_minutes, 60)` | ✅ | Never `match_duration_mins`. Casual bookings (no league) use `COALESCE(pitch_bookings.slot_minutes, 60)` — booking-owned override column. |
+| Ownership split (booking owns tables/EXCLUDE/priority; venue owns trigger/slot cols/clash gate) | ✅ *(1 fix)* | Accepted **except** `venues.bookings_enabled` / `venues.cancellation_policy` — see divergence 1. |
+| `pitch_occupancy` exists before the venue trigger references it; migs take-at-commit (next free 133) | ✅ | Booking ships `pitch_occupancy` first (mig 133); venue trigger + backfill + slot cols follow. Backfill is **venue-owned** (it's the fixture→occupancy projection), run after the table lands. |
 
-**Remaining divergences:** _none / list here_
+**Remaining divergences (please confirm — none block Cycle 1):**
+1. **Column ownership contradiction.** The ownership-split block lists
+   `venues.bookings_enabled` + `venues.cancellation_policy` under *booking*-owned, but
+   verdicts (d)/(e) say *venue* lands them + owns the admin toggle. We're treating both
+   as **venue-owned** (they're columns on `venues`, set in the venue dashboard; booking
+   only reads/filters). Confirm.
+2. **Booking confirm/decline RPC ownership.** The normal approve flow
+   (`requested → confirmed`/`declined`) writes `pitch_bookings.status` (a booking table)
+   but is triggered by the venue operator (venue token). Proposing **booking owns**
+   these RPCs, called via the venue token from BookingsPanel. (Distinct from the
+   venue-owned *confirmed-clash* gate on the fixture-write path.) Confirm.
+3. **`get_bookings` read for BookingsPanel** reads booking tables but renders in
+   `apps/venue` — proposing **booking owns** the read RPC, consumed by venue UI. Confirm.
+
+Otherwise fully aligned — ready to start Cycle 1 (booking ships `pitch_occupancy`
+first, coordinated with the venue trigger ordering).
