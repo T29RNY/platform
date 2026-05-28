@@ -587,10 +587,20 @@ backend + the casual UI. Every stage below is **applied to the live DB** with
   to refetch occupancy on the 5 booking reasons. Verified end-to-end on demo_venue incl. a
   live walk-in create (block appeared with no refresh).
 
+### Hardening pass ✅ done (session 53, commit `202d16a`)
+Pre-Stage-7 audit against GO_LIVE_ISSUES.md classes (all roles). Fixed:
+- **Venue cancel-from-grid** — tap a booking block → `BookingDetailModal` (Cancel /
+  Cancel-series for confirmed, Confirm/Decline for pending). Closes the Stage-6 gap.
+- **Casual realtime** — `ScheduleScreen` now subscribes to `team_live:<key>` and re-fetches
+  bookings on the 5 reasons (was stale until remount). `liveChannelKey` threaded down.
+- **Date off-by-one** — `BookPitchModal` date strings now local-components, not `toISOString`
+  (BST midnight wrote block start a day early). New rule in GO_LIVE §11.2.
+- **Casual cancel hardened** — confirm + error surface + double-fire guard.
+- Verify caught a tstz formatted with the date-string helper ("Invalid Date") → `fmtDayShort`.
+Audit confirmed clean: grants, both notify whitelists (all 5 reasons), PII scoping, schema cache.
+Pre-flight checks added to **GO_LIVE_ISSUES.md §11**.
+
 ### Remaining
-- **Stage 6 follow-up (small):** no UI affordance to cancel a *confirmed* booking from the
-  calendar grid yet (blocks are display-only). `cancelBooking` wrapper exists; a tap-block →
-  detail/cancel popover is a fast-follow.
 - **Stage 7 — Priority extras** ([B]+[V]): block renewal-hold job (series `ending` → hold +
   notify → extend/expire); `superseded` displacement push to the displaced team.
 - **Deferred:** push-on-confirm (api/notify.js); transactional email (Phase 9); off-system-venue

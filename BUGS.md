@@ -1,20 +1,35 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 28 2026 (session 52 — pitch booking Stages 1–5 shipped; no new active bugs. One self-caught issue noted below.)*
+*Last updated: May 28 2026 (session 53 — pitch booking Stage 6 venue UI shipped + an audit-driven hardening pass; no active bugs.)*
 
 ---
 
-## Note — pitch booking (session 52): no new active bugs
+## Note — pitch booking Stage 6 + hardening pass (session 53)
 
-Booking Stages 1–5 (migs 133–149) shipped with all gates green. One issue was
-caught and fixed **before commit** during the casual-regression browser check:
-`ScheduleScreen`'s `get_team_bookings` fetch fired without a session on the
-admin-token demo route, logging `permission denied` — now gated behind a
-`supabase.auth.getSession()` check so nothing errors on the casual flow.
-Not a shipped bug; recorded for traceability.
+Stage 6 venue UI shipped (mig 150 + commits `df7764f`/`7503d11`/`6378c40`). A
+pre-Stage-7 audit against GO_LIVE_ISSUES.md classes then found and fixed three
+latent bugs (`202d16a`), none yet user-reported:
+
+1. **Casual bookings list never refreshed on venue broadcasts.** `App.jsx`'s
+   `team_live` subscriber refreshes team state but not the bookings list, and
+   `ScheduleScreen` only loaded bookings on mount — so a team admin saw
+   "Requested" forever after the venue confirmed/declined/cancelled. Fixed by a
+   `team_live` subscriber in ScheduleScreen that re-fetches bookings on broadcast
+   (`liveChannelKey` threaded App → AdminView → ScheduleScreen).
+2. **Date off-by-one (toISOString/UTC).** `BookPitchModal` built date strings via
+   `toISOString().slice(0,10)`; in BST (UTC+1) the midnight hour yields the prior
+   day, writing a weekly-block start a day early. Same class as GO_LIVE §6.7 / §9.5.
+   Fixed with a local-components formatter. (Same bug also fixed venue-side in
+   `bookingUtil.isoDate`.)
+3. **"Invalid Date" in venue booking detail/inbox** — formatted a tstz with the
+   YYYY-MM-DD date-string helper; caught in the verify browser pass, added
+   `fmtDayShort`. Never shipped.
+
+Also added: venue cancel-from-grid (tap booking block → detail modal) and casual
+cancel hardening (confirm + error surface + double-fire guard).
 
 **Known follow-ups (not bugs):** push-on-confirm deferred; transactional email is
-Phase 9; off-system-venue outbound notify needs a sender; Stage 6 venue UI +
-Stage 7 (block renewal-hold + displacement push) still to build.
+Phase 9; off-system-venue outbound notify needs a sender; Stage 7 (block
+renewal-hold + displacement push) still to build.
 
 ---
 

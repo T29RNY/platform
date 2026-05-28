@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 28 2026 (session 52 — **PITCH BOOKING** backend + casual UI shipped (Stages 1–5 + demo, migs 133–149); Stage 6 venue UI + Stage 7 remaining)*
+*Last updated: May 28 2026 (session 53 — **PITCH BOOKING** Stage 6 venue UI shipped + a hardening pass; only Stage 7 remaining)*
 
 ---
 
@@ -20,10 +20,17 @@ and commit hashes in **PITCH_BOOKING_HANDOFF.md**. Built this session:
   badge + cancel.
 - **demo_venue** enabled for testing (reversible).
 
-**Remaining:** Stage 6 venue dashboard UI (requests inbox + calendar + walk-in +
-`venue_live` subscriber; venue-token wrappers TODO), Stage 7 (block renewal-hold job +
-displacement push), deferred push-on-confirm. **Payment OFF but schema-wired.**
-**Operator owes** a real-squad + real-device test of the casual flow (auth-dependent).
+**Stage 6 venue UI — done (session 53, mig 150 + commits `df7764f`/`7503d11`/`6378c40`):**
+venue dashboard Bookings surface — requests inbox (block series grouped), colour-coded
+resource-timeline calendar (desktop) / single-pitch agenda (mobile), tap-empty walk-in,
+tap-block detail with cancel/confirm/decline, settings (bookings toggle + cancellation
+policy + per-pitch booking-windows editor), `venue_live` subscriber refetching occupancy
+on the 5 booking reasons. Hardening pass (`202d16a`): casual bookings list now refreshes
+live on venue broadcasts; BookPitchModal date off-by-one (toISOString/UTC) fixed.
+
+**Remaining:** Stage 7 (block renewal-hold job + `superseded` displacement push), deferred
+push-on-confirm. **Payment OFF but schema-wired.** **Operator owes** a real-squad +
+real-device test of the casual flow (auth-dependent).
 
 ---
 

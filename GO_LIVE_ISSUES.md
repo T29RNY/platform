@@ -827,6 +827,66 @@ players installed the PWA, the inline-manifest path is broken.
 
 ---
 
+## 11. PITCH BOOKING (casual ↔ venue)
+
+*Not yet exercised by a live squad. These checks come from the session-53
+pre-Stage-7 audit + the bugs it fixed (`202d16a`). Run them the first time a real
+team books a real opted-in venue.*
+
+### 11.1 Casual bookings list didn't update live on venue action
+**Symptom:** a team admin requests a pitch, the venue confirms/declines/cancels,
+but the admin's Match Settings bookings list stays on the old status (e.g.
+"Requested") until they leave and re-open the Schedule screen.
+**Root cause:** `App.jsx`'s `team_live` subscriber refreshes team state but not
+the bookings list; `ScheduleScreen` only loaded bookings on mount. The five
+`booking_*` broadcast reasons had no casual subscriber that re-fetched bookings.
+**Fix (`202d16a`):** `ScheduleScreen` subscribes to `team_live:<key>` and calls
+`loadBookings()` on any broadcast; `liveChannelKey` threaded App → AdminView →
+ScheduleScreen.
+**Pre-flight check:** two devices. Device A = team admin on `/admin/<token>` signed
+in, Match Settings open with a pending booking visible. Device B = venue dashboard
+(`apps/venue`) confirms that request from the inbox. Within ~2s Device A's booking
+must flip Requested → Confirmed with no manual refresh. Repeat for venue cancel →
+the row must update to Cancelled live.
+
+### 11.2 Booking date off-by-one in the BST midnight hour
+**Symptom:** a weekly block created late at night (00:00–00:59 BST) is sent to the
+venue starting one day early; the start weekday can mismatch the chosen slot.
+**Root cause:** `BookPitchModal` / venue `bookingUtil` built `YYYY-MM-DD` via
+`new Date(...).toISOString().slice(0,10)` — UTC, so the UK midnight hour rolls
+back a day. Same class as §6.7 (cron UK time) and §9.5.
+**Fix (`202d16a`):** local-components date formatter (`isoLocal` / `bookingUtil.isoDate`)
+everywhere a date string is derived. **Rule:** never use `toISOString()` to derive a
+calendar date — always build from `getFullYear/getMonth/getDate` (venue-local).
+**Pre-flight check:** during BST, just after local midnight, create a one-off and a
+weekly block. The booking date(s) written (check `pitch_bookings.booking_date`) must
+match the date picked in the UI, not the day before.
+
+### 11.3 Venue had no way to cancel a confirmed booking
+**Symptom:** venue staff can approve/decline pending requests but can't cancel a
+*confirmed* booking from the calendar.
+**Fix (`202d16a`):** tap any booking block → `BookingDetailModal` with Cancel /
+Cancel-whole-series (confirmed) or Confirm/Decline (pending), via the venue-token
+wrappers. Frees the slot through the occupancy guard + broadcasts live.
+**Pre-flight check:** on the venue dashboard, create a walk-in (tap an empty slot),
+then tap that block → Cancel this booking. The block must disappear from the grid
+live, and the slot must become tappable/bookable again.
+
+### 11.4 Walk-in / phone booking (venue-created, pre-confirmed)
+**Pre-flight check:** on the venue dashboard, tap an empty calendar cell → pick a
+registered team OR enter a walk-in name → Confirm. The block appears immediately as
+confirmed (no request step). Confirm it lands on the occupancy guard: try to create
+an overlapping booking on the same pitch+time — it must be refused (`slot_unavailable`),
+never double-book.
+
+### 11.5 Bookings toggle / discovery gating
+**Pre-flight check:** in venue Settings, turn bookings OFF. The casual "Book a Pitch"
+venue search must no longer return that venue. Turn ON → it reappears. The off-state
+must show the venue dashboard's read-only banner with the enable toggle, not a blank
+screen.
+
+---
+
 ## SCOPE OUT
 
 These known issues exist but are LOW priority with documented
