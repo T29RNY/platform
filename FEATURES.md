@@ -31,6 +31,9 @@ per-team top scorers, last meeting).
   [L,L]); rpc-security ×2, hygiene, build clean; each raw RPC name once in
   supabase.js. Casual my-view untouched (card self-gates). On-device confirm
   operator-owed.
+- **Post-ship polish** (`7252126`, `47acb28`) — goal events split into per-team
+  columns (home left / away right-half), left-aligned within each column to match
+  the squad layout exactly. Pure display; no RPC/data change.
 
 ---
 
