@@ -250,5 +250,28 @@ Plan updated to match (`~/.claude/plans/how-could-we-implement-streamed-pebble.m
    `maintenance_windows` jsonb server-side (booking-owned). Pick one — affects both
    sessions. (Recommend (i) for consistency with the fixture trigger.)
 
+### NEW ask (f) — venue-configurable booking windows + slot lengths (revises decision 2)
+
+Operator wants venues to control **when** a pitch is bookable and **which slot lengths**
+it offers (40/60/90/120 — unlikely beyond 60, but the option must exist). This scopes
+*back* decision 2 ("no opening-hours table in v1") — but **without a new table**:
+
+- **Add `playing_areas.booking_windows jsonb DEFAULT '[]'`** (mirrors the existing
+  `maintenance_windows` jsonb pattern) — array of
+  `{ day_of_week 0-6, open_time, close_time, slot_lengths:[60] }`. **Venue-owned**
+  (column + admin UI to edit it), like `slot_minutes` / `bookings_enabled`.
+- Booking-owned `get_pitch_free_slots` expands it for the date → enumerates candidate
+  slots **per offered length** → subtracts occupancy + maintenance.
+- **Graceful default:** empty `booking_windows` ⇒ fall back to 08:00–22:00 / 60-min, so
+  enabling bookings before configuring windows isn't a hard block.
+- **Slot alignment (v1):** back-to-back from `open_time` per chosen length (90-min ⇒
+  18:00, 19:30, 21:00…). A fixed 15/30-min grid can come later.
+- Length-agnostic for the guard (`tstzrange`); fixtures unaffected (keep
+  `league_config.slot_minutes`); booker's chosen length → `pitch_bookings.slot_minutes`.
+
+**Venue session: please confirm** you own `playing_areas.booking_windows` (column +
+editor) and the jsonb shape above. **Not on Cycle 1's critical path** — Cycle 2 reads
+it, with the graceful default until it lands.
+
 Otherwise fully aligned — ready to start Cycle 1 (booking ships `pitch_occupancy`
 first, coordinated with the venue trigger ordering).
