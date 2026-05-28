@@ -487,3 +487,66 @@ The reason→channel map is correct.
 
 **Net: fully aligned, no open flags. Booking is clear to start Cycle 1** — audit + the exact
 `pitch_occupancy` DDL for review before anything hits the DB.
+
+---
+
+## STAGED EXECUTION PLAN (handoff-ready, 2026-05-28)
+
+Two sessions: **[B] booking** (`apps/inorout`, booking tables + RPCs) and **[V] venue**
+(`apps/venue`, columns/triggers on fixtures/venues/playing_areas/league_config + venue UI).
+Stages in dependency order. Each session runs its own stages; gates per `CLAUDE.md`.
+Migration numbers taken at commit time (next free **133**).
+
+| Stage | Owner | What lands | Depends on | Gates |
+|---|---|---|---|---|
+| **0. Alignment** | both | this contract doc | — | ✅ done |
+| **1. Occupancy foundation** | **[B]** | `btree_gist` + `pitch_occupancy` table (partial EXCLUDE + `priority` + RLS + indexes). **DDL below.** Lands FIRST. | — | ephemeral-verify |
+| **2. Venue projection layer** | **[V]** | `league_config.slot_minutes` + `fixtures.slot_minutes`; **fixture-mirror trigger** (status filter + auto-yield un-confirmed, `priority=1`); **maintenance→occupancy trigger** on `playing_areas` (`priority=0`) + one-time backfill (fixtures + maintenance); **confirmed-clash gate** in `venue_assign_pitch`/`venue_generate_fixtures` (`confirmed_booking_clash` + `p_displace_booking_ids[]`); `venues.bookings_enabled` + `venues.cancellation_policy`; `playing_areas.booking_windows` jsonb + `venue_update_pitch` extension + read projections (086/089/111/113). | Stage 1 | casual-regression + ephemeral-verify |
+| **3. Booking tables + reads** | **[B]** | `booking_series` + `pitch_bookings` (status enum; `kind`; `slot_minutes`; `team_id` **nullable** + `booked_by_name`); `get_pitch_free_slots` (casual, PII-free); `search_bookable_venues` (filters `bookings_enabled`, returns `slug`+`city`); `get_pitch_occupancy` (venue-token, PII, calendar grid). | Stage 1 (cols from 2; COALESCE defaults until then) | rpc-security-sweep |
+| **4. Booking write RPCs + realtime** | **[B]** | `book_pitch_adhoc`/`book_pitch_series` (casual → `requested`, hold); `venue_create_booking` (venue-token walk-in → `confirmed`); `venue_confirm_booking`/`venue_decline_booking`; `cancel_booking`/`cancel_booking_series`; add 5 reasons to **both** whitelists; each RPC audits + broadcasts both channels. | Stages 1–3 + Stage 2 clash-gate | ephemeral-verify + rpc-security-sweep |
+| **5. Casual UI** | **[B]** | `ScheduleScreen` "Existing booking info" relabel + "Book a Pitch" modal (recent/slug/typeahead, block + ad-hoc, length picker, confirm + cancellation policy, Requested→Confirmed badge); push on confirm. `team_live` subscriber already auto-handles new reasons. | Stages 3–4 | casual-regression + real-device PWA |
+| **6. Venue UI** | **[V]** | Requests inbox (badge + confirm/decline) + resource-timeline calendar (desktop) / single-pitch agenda (mobile), colour-coded, tap-empty-to-book walk-in; **`venue_live` subscriber** (5 reasons → re-fetch `get_pitch_occupancy`); `bookings_enabled` toggle + `booking_windows` editor. | Stages 3–4 | venue-side checks |
+| **7. Priority extras** | **[B]** (+[V] interplay) | Block renewal-hold job (series `ending` → hold + notify → extend/expire); `superseded` displacement notify (push) on displaced team. | Stages 2,4 | ephemeral-verify |
+
+**Order / parallelism:** Stage 1 first (unblocks all). Then **[V] Stage 2 ∥ [B] Stage 3**.
+Then [B] Stage 4. Then UI **[B] Stage 5 ∥ [V] Stage 6**. Then Stage 7. Email = Phase 9 throughout.
+
+### Stage 1 DDL (booking-owned) — REVIEWED, not yet applied
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+CREATE TABLE public.pitch_occupancy (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  playing_area_id uuid NOT NULL REFERENCES public.playing_areas(id) ON DELETE CASCADE,
+  venue_id        text NOT NULL REFERENCES public.venues(id)        ON DELETE CASCADE,
+  time_range      tstzrange NOT NULL,
+  source_kind     text     NOT NULL CHECK (source_kind IN ('fixture','booking','maintenance')),
+  source_id       text     NOT NULL,   -- fixtures.id::text | pitch_bookings.id::text | venue maint key
+  priority        smallint NOT NULL CHECK (priority BETWEEN 0 AND 3),  -- 0=maint,1=fixture,2=block,3=ad-hoc
+  active          boolean  NOT NULL DEFAULT true,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT pitch_occupancy_no_overlap
+    EXCLUDE USING gist (playing_area_id WITH =, time_range WITH &&) WHERE (active),
+  CONSTRAINT pitch_occupancy_source_uniq UNIQUE (source_kind, source_id)
+);
+CREATE INDEX pitch_occupancy_venue_range_idx
+  ON public.pitch_occupancy USING gist (venue_id, time_range) WHERE (active);
+ALTER TABLE public.pitch_occupancy ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.pitch_occupancy FROM anon, authenticated;  -- RPC-only
+```
+Displacement = within one txn set the loser `active=false`, then insert/activate the winner.
+Re-sync upserts on `(source_kind, source_id)`. Half-open `[)` ranges. **[V]'s triggers write
+into this table — it must exist first.**
+
+### Broadcast contract (for [V]'s `venue_live` subscriber — hard-rule #10)
+Reuses existing `notify_team_change` (mig 062) / `notify_venue_change` (mig 127). Exact shape:
+- Topics: `team_live:<teams.live_channel_key>` / `venue_live:<venues.live_channel_key>`.
+- Event name: `'broadcast'` → subscribe `.on('broadcast', { event: 'broadcast' }, …)`. Private flag: `false`.
+- Payload (minimal — no IDs; subscriber re-fetches): `{ type:'team_state_changed'|'venue_state_changed', reason:'<booking_*>', at:<epoch> }`.
+- Reasons (add all five to **both** whitelist bodies): `booking_requested`, `booking_confirmed`,
+  `booking_declined`, `booking_cancelled`, `booking_superseded`. Every reason fires on both channels.
+- [V] subscriber mirrors `apps/inorout/src/App.jsx` ~791-827: on any broadcast, re-fetch
+  `get_pitch_occupancy` (+ pending count).
+
+> **STATUS:** Stage 1 DDL reviewed by the operator; **not yet applied to the DB.** [B] applies
+> it (live DB + `.sql` in `rls_migrations/`, same commit) on explicit go, then [V] starts Stage 2.
