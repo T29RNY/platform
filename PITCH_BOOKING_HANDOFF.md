@@ -120,11 +120,15 @@ see/cancel individual weeks.
 
 ## Answers — LOCKED (confirmed by the venue session)
 
+> **Venue session reviewed 2026-05-28** — all five choices + the data contract match
+> the venue module. Three flags raised in Notes below (rows 1, 2, 3). None block; all
+> are "tighten the contract before the trigger is written."
+
 | # | Decision | Choice | Notes |
 |---|---|---|---|
-| 1 | Conflict model | **A — shared `pitch_occupancy` + DB `EXCLUDE`** | Existing fixtures fed in via a **trigger on the fixtures path** (accepted cost). Regression + ephemeral-verify mandatory. |
-| 2 | Availability primitive | **A — occupancy + maintenance only** | No opening-hours table in v1. `pitch_availability` dropped. |
-| 3 | Venue auth | **Descoped from booking** | Booking ownership rides the casual login (`auth.uid()` → `team_admins`); venue treated as data. Real venue logins (user/pass or email+OTP, desktop+mobile) are wanted but are **separate venue-module work**. |
+| 1 | Conflict model | **A — shared `pitch_occupancy` + DB `EXCLUDE`** | Existing fixtures fed in via a **trigger on the fixtures path** (accepted cost). Regression + ephemeral-verify mandatory. **⚠ VENUE FLAG (status):** mirror trigger must project only pitch-holding statuses (`scheduled`/`allocated`/`in_progress`/`completed`) and EXCLUDE `postponed`/`void`/`walkover`/`forfeit` — those release the pitch, so "every pitched fixture" (contract §2) would wrongly keep blocking a freed slot. Trigger must fire on UPDATE-of-status to delete the occupancy row when a fixture moves to a released status. |
+| 2 | Availability primitive | **A — occupancy + maintenance only** | No opening-hours table in v1. `pitch_availability` dropped. **⚠ VENUE FLAG (window ≠ play time):** `league_config.match_duration_mins` default **40** is *play* time; `league_config` has **no slot/half-time/changeover/buffer field** (verified). A pitch is tied up longer than 40 min, so `kickoff + 40` would expose the real changeover gap between back-to-back fixtures as bookable. Decide fixture occupancy length before the trigger — a per-league slot/buffer column or kickoff-to-next-kickoff — not raw `match_duration_mins`. |
+| 3 | Venue auth | **Descoped from booking** | Booking ownership rides the casual login (`auth.uid()` → `team_admins`); venue treated as data. ✅ Confirmed venue-session scope, decoupled from booking. **⚠ VENUE FLAG (size):** decision-3 body frames it as a "one-function patch (`venue_admins` resolution stage + token fallback)" — that's the resolver half only. Operator wants **username/password OR email-OTP, desktop + mobile**: account creation, password reset, OTP delivery, sessions, login UI = a full auth-UX cycle. Booking unaffected; flagging so the venue side isn't under-scoped. |
 | 4 | Migration numbering | **Next free = 133** | 128–132 taken; not zero-padded; take-at-commit. |
 | 5 | Block-booking | **Series parent + concrete weekly rows** | Mirrors `venue_generate_fixtures`. |
 
