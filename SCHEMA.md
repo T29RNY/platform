@@ -541,9 +541,23 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   violation into `pitch_double_booked`.
 - `venue_get_state` exposes `booking_windows` in its `pitches` projection.
 
-**Deferred to Stage 2b (needs `pitch_bookings`):** fixture-trigger auto-yield of
-un-confirmed bookings, the confirmed-clash gate (`confirmed_booking_clash` +
-`p_displace_booking_ids[]`), and the `booking_superseded` broadcast reason.
+### Stage 2b — priority displacement (migrations 142–143)
+
+- **Fixture-trigger auto-yield (mig 142):** when a fixture claims a slot, the
+  trigger releases overlapping **un-confirmed** (`requested`) lower-priority
+  bookings — `pitch_occupancy.active=false`, `pitch_bookings.status='superseded'`,
+  notify both channels. Confirmed bookings are never auto-yielded.
+- **booking_* reasons (mig 142):** all five (`booking_requested`, `_confirmed`,
+  `_declined`, `_cancelled`, `_superseded`) added to both `notify_venue_change`
+  and `notify_team_change` whitelists. `booking_superseded` fires now; the rest
+  fire from the Stage 4 write RPCs.
+- **Confirmed-clash gate (mig 143):** `venue_assign_pitch` /
+  `venue_generate_fixtures` gain a defaulted `p_displace_booking_ids uuid[]` param
+  (old 3-arg signatures dropped; named-arg JS calls resolve via the default). They
+  detect an overlapping **confirmed** booking and refuse with
+  `confirmed_booking_clash` (DETAIL = csv of booking ids) unless those ids are
+  passed in `p_displace_booking_ids`, in which case they're displaced
+  (`superseded` + notify) in the same txn before the fixture write.
 
 ### Stage 3 — booking storage (migration 139)
 
