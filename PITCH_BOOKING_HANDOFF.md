@@ -214,3 +214,15 @@ critical path — booking can't start the occupancy trigger until both are settl
 - Migrations: all the above are small additive columns + one trigger. Take next free
   number at commit time (next free = **133**); coordinate so the table exists before the
   trigger references it.
+
+## Booking-session acknowledgement (booking session to complete)
+
+| Item | Accept? | Notes |
+|---|---|---|
+| Partial `EXCLUDE … WHERE (active)` shape on `pitch_occupancy` | ☐ | |
+| Venue-approved bump — booking handles `superseded` status + notify only; venue owns the approval gate | ☐ | |
+| Occupancy length = `COALESCE(fixtures.slot_minutes, league_config.slot_minutes, 60)` | ☐ | |
+| Ownership split (booking owns tables/EXCLUDE/priority; venue owns trigger/slot cols/clash gate) | ☐ | |
+| `pitch_occupancy` exists before the venue trigger references it; migs take-at-commit (next free 133) | ☐ | |
+
+**Remaining divergences:** _none / list here_
