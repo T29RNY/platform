@@ -446,3 +446,44 @@ are on Cycle 1/2's critical path (the venue UI lands in the bookings cycle).
 
 Net: fully aligned on DB/flow/realtime. (g)/(h)/(i) are coordination, none block Cycle 1
 (`pitch_occupancy` table). Ready to start Cycle 1 on your nod.
+
+## Venue-session response — flags (g)/(h)/(i) + coordination (2026-05-28)
+
+**(g) Venue UI ownership** ✅ Confirmed — venue session owns the `apps/venue` booking UI
+(requests inbox, resource-timeline calendar / mobile agenda, walk-in tap-empty-to-book,
+the `venue_live:` subscriber). Grounded: the venue dashboard already lives at
+`apps/venue/src/App.jsx`. Booking owns the RPCs + casual `apps/inorout` UI + `team_live:`
+subscriber. **Coordination:** booking must document the exact broadcast contract per
+reason — channel topic, event name, payload shape — so the `apps/venue` subscriber matches
+exactly (hard-rule #10).
+
+**(h) Walk-in team identity** ✅ Confirmed acceptable — `pitch_bookings.team_id` nullable +
+`booked_by_name text`. Wrinkle resolved so it doesn't bite later: `audit_events.team_id`
+is **NOT NULL** (003:9), so a teamless walk-in can't null it — but the established Phase-2
+convention writes **`venue_id` into the `team_id` column** for venue-scoped events
+(`venue_assign_pitch` 094:112). Walk-in audit rows do the same: `team_id = venue_id`,
+`booked_by_name` in `metadata`. No change to `audit_events`. Venue reads render
+`team_id IS NULL → booked_by_name`.
+
+**(i) Calendar read = one `get_pitch_occupancy`** ✅ Confirmed as the grid read contract —
+a single booking-owned RPC over `pitch_occupancy` joined to fixture/booking/maintenance
+detail, venue + date range, venue-token authed. Cleaner than the earlier merge idea.
+Notes: (1) record the `apps/venue` calendar as a forward consumer in RPCS.md (hard-rule
+#14); (2) it returns PII (booked_by_name, team names) → venue-operator-only; the casual
+availability view stays a separate PII-free `get_pitch_free_slots`; (3) payload must carry
+enough to colour-code blocks (fixture home/away + status, booking team/booked_by_name +
+status, maintenance reason).
+
+**Coordination — migration ordering** ✅ Confirmed. Booking ships `pitch_occupancy` first
+(partial `EXCLUDE … WHERE active` + `priority`). Venue lands after: fixture-mirror trigger,
+`slot_minutes` columns, maintenance→occupancy projection trigger + backfill, confirmed-clash
+gate, `booking_windows` (+ `venue_update_pitch` extension). **Priority numbering both
+sessions use: `0 = maintenance` (top, non-displaceable), `1 = fixture`, `2 = block`,
+`3 = ad-hoc`** (lower = higher).
+
+**Coordination — realtime reasons** ✅ Confirmed. All five fire on both channels, added
+explicitly to both whitelists (`notify_venue_change` mig 084, `notify_team_change` mig 062).
+The reason→channel map is correct.
+
+**Net: fully aligned, no open flags. Booking is clear to start Cycle 1** — audit + the exact
+`pitch_occupancy` DDL for review before anything hits the DB.
