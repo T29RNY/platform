@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 28 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycle 5.1** shipped)*
+*Last updated: May 28 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycles 5.1 + 5.2** shipped + competitive testbed)*
 
 ---
 
@@ -39,6 +39,27 @@ rpc-security-sweep). **Booking initiative complete.**
 **Remaining:** deferred push-on-confirm; transactional email (Phase 9). **Payment OFF but
 schema-wired.** **Operator owes** a real-squad + real-device test of the casual + venue flows
 (auth-dependent) incl. the three booking pushes (GO_LIVE §6).
+
+---
+
+## LEAGUE MODE — PHASE 5 CYCLE 5.2 SHIPPED (session 54, 2026-05-28)
+
+Competition standings on the player screen. New `CompetitionStandingsCard.jsx`
+rendered in PlayerView's my-view (below MySquads): a collapsible league table
+(Pos/Team/P/W/D/L/GF/GA/GD/Pts) with the player's own team highlighted gold.
+
+- **Pure client UI** — reuses the existing `get_league_standings_for_player` RPC +
+  `getLeagueStandingsForPlayer` wrapper (migs 087/104). No server/migration/wrapper change.
+- **Self-gating**: a casual token returns no competitions → card renders `null`, so the
+  casual flow is untouched (no `is_competitive` prop needed). Form column omitted (not in
+  the RPC shape — later enhancement, would need a server change).
+- **Verified in-browser** against the live competitive testbed: Competitive FC top on 6pts,
+  own row highlighted, columns correct, clears the fixed nav; casual token shows no card
+  (DOM-checked). Build + hygiene clean. Naming `Competition*` to avoid the StatsView
+  `PlayerLeagueTable` clash. On-device confirm operator-owed (hard-rule #13).
+- Demo competitive testbed (mig 154): **Competitive FC** (Tarny team admin) + 3 opponents
+  in a Demo Competitive League; admin link `/admin/democomp_fc_admin_token`; remove via
+  `154_..._down.sql` (rollback-verified safe).
 
 ---
 
