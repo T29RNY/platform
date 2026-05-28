@@ -69,10 +69,10 @@ export default function FixtureDetailCard({ playerToken, fixtureId }) {
   const nameById = {};
   [...(detail.home_squad || []), ...(detail.away_squad || [])].forEach(p => { nameById[p.id] = p.name; });
 
-  const GoalCol = ({ goals, teamId, nameById, align }) => {
+  const GoalCol = ({ goals, teamId, nameById }) => {
     const mine = goals.filter(g => g.team_id === teamId);
     return (
-      <div style={{ flex: 1, minWidth: 0, textAlign: align }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         {mine.length === 0 ? (
           <span style={{ ...meta }}>—</span>
         ) : (
@@ -176,8 +176,8 @@ export default function FixtureDetailCard({ playerToken, fixtureId }) {
         <div style={{ marginBottom: 12 }}>
           <span style={label}>GOALS</span>
           <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
-            <GoalCol goals={goals} teamId={f.home_team_id} nameById={nameById} align="left" />
-            <GoalCol goals={goals} teamId={f.away_team_id} nameById={nameById} align="right" />
+            <GoalCol goals={goals} teamId={f.home_team_id} nameById={nameById} />
+            <GoalCol goals={goals} teamId={f.away_team_id} nameById={nameById} />
           </div>
         </div>
       )}
