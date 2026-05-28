@@ -2154,6 +2154,33 @@ export async function cancelBookingSeries(seriesId, venueToken = null) {
   return data;
 }
 
+// Venue-operator booking writes (venue-token authed; consumed by apps/venue BookingsPanel).
+export async function venueCreateBooking(venueToken, playingAreaId, bookingDate, kickoffTime, slotMinutes = null, teamId = null, bookedByName = null) {
+  const { data, error } = await supabase.rpc("venue_create_booking", {
+    p_venue_token: venueToken,
+    p_playing_area_id: playingAreaId,
+    p_booking_date: bookingDate,
+    p_kickoff_time: kickoffTime,
+    p_slot_minutes: slotMinutes,
+    p_team_id: teamId,
+    p_booked_by_name: bookedByName,
+  });
+  if (error) { console.error("[booking] venue_create_booking failed", error); throw error; }
+  return data;
+}
+
+export async function venueConfirmBooking(venueToken, bookingId) {
+  const { data, error } = await supabase.rpc("venue_confirm_booking", { p_venue_token: venueToken, p_booking_id: bookingId });
+  if (error) { console.error("[booking] venue_confirm_booking failed", error); throw error; }
+  return data;
+}
+
+export async function venueDeclineBooking(venueToken, bookingId) {
+  const { data, error } = await supabase.rpc("venue_decline_booking", { p_venue_token: venueToken, p_booking_id: bookingId });
+  if (error) { console.error("[booking] venue_decline_booking failed", error); throw error; }
+  return data;
+}
+
 export async function venueAssignRef(venueToken, fixtureId, officialId) {
   const { data, error } = await supabase.rpc("venue_assign_ref", {
     p_venue_token: venueToken,
