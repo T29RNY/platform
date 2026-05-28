@@ -2181,6 +2181,20 @@ export async function venueDeclineBooking(venueToken, bookingId) {
   return data;
 }
 
+// Venue calendar/inbox read (active occupancy + fixture/booking/maintenance detail) over a date range.
+export async function getPitchOccupancy(venueToken, from, to) {
+  const { data, error } = await supabase.rpc("get_pitch_occupancy", { p_venue_token: venueToken, p_from: from, p_to: to });
+  if (error) { console.error("[booking] get_pitch_occupancy failed", error); throw error; }
+  return data;
+}
+
+// Venue booking settings: bookings_enabled toggle + cancellation_policy text.
+export async function venueUpdateBookingSettings(venueToken, updates) {
+  const { data, error } = await supabase.rpc("venue_update_booking_settings", { p_venue_token: venueToken, p_updates: updates });
+  if (error) { console.error("[booking] venue_update_booking_settings failed", error); throw error; }
+  return data;
+}
+
 export async function venueAssignRef(venueToken, fixtureId, officialId) {
   const { data, error } = await supabase.rpc("venue_assign_ref", {
     p_venue_token: venueToken,

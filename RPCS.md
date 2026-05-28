@@ -333,6 +333,7 @@ JS wrappers land with the consuming UI (Stages 5/6).
 | `venue_decline_booking(p_venue_token, p_booking_id)` | `venueDeclineBooking(...)` (Stage 6) | anon, authenticated | `requested` → `declined`, frees the slot. Fires `booking_declined`. *Consumer: `apps/venue` inbox (Stage 6).* |
 | `cancel_booking(p_booking_id, p_venue_token?)` | `cancelBooking(...)` (Stage 5/6) | anon, authenticated | Dual auth: venue token OR team admin (`auth.uid()`). Walk-ins venue-only. `requested`/`confirmed` → `cancelled`, frees slot. Fires `booking_cancelled`. *Consumers: both apps.* |
 | `cancel_booking_series(p_series_id, p_venue_token?)` | `cancelBookingSeries(...)` (Stage 5/6) | anon, authenticated | Dual auth (same as above). Cancels the series + its live weekly bookings, frees their slots. Fires `booking_cancelled`. *Consumers: both apps.* |
+| `venue_update_booking_settings(p_venue_token, p_updates)` | `venueUpdateBookingSettings(...)` (Stage 6) | anon, authenticated | Venue settings write (mig 150). Keys: `bookings_enabled` (bool), `cancellation_policy` (text, blank→NULL). Auth via `resolve_venue_caller`. Audit + `notify_venue_change('venue_updated')`. mig 150 also exposes both columns in `venue_get_state` + `series_id` in `get_pitch_occupancy.detail`. *Consumer: `apps/venue` BookingSettings (Stage 6).* |
 
 ---
 
