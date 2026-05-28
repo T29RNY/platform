@@ -570,14 +570,27 @@ backend + the casual UI. Every stage below is **applied to the live DB** with
 | **demo enablement** | ✅ done | 147 (demo_venue bookings on + windows + 2 walk-in demo bookings, reversible) | `ced0e5b` |
 | **5. Casual UI** | ✅ done | 148 `get_team_bookings` · 149 `search_bookable_venues`+cancellation_policy · `BookPitchModal` + ScheduleScreen | `19c18ea` |
 
-**Next free migration = 150.**
+**Next free migration = 151.**
+
+### Stage 6 — Venue UI ✅ done (session 53, commits `df7764f` · `7503d11` · `6378c40`)
+- Venue write wrappers (`venueCreateBooking`/`venueConfirmBooking`/`venueDeclineBooking`;
+  `cancelBooking`/`cancelBookingSeries` already venue-token-aware) — `df7764f`.
+- **mig 150** (applied live): `bookings_enabled` + `cancellation_policy` exposed in
+  `venue_get_state`; `series_id` exposed in `get_pitch_occupancy.detail`; new
+  `venue_update_booking_settings` RPC. Wrappers `getPitchOccupancy` +
+  `venueUpdateBookingSettings`. Gates: ephemeral-verify 9/9 + rpc-security-sweep pass — `7503d11`.
+- **apps/venue UI** — `6378c40`: topbar segmented control (Operations | Bookings + live
+  pending badge); Requests inbox (block series grouped to one card, inline Confirm/Decline);
+  resource-timeline calendar (desktop) / single-pitch day agenda + FAB (mobile), colour-coded
+  by type/status; tap-empty walk-in via `venue_create_booking`; settings modal (toggle +
+  cancellation policy + per-pitch `booking_windows` editor). `venue_live` subscriber extended
+  to refetch occupancy on the 5 booking reasons. Verified end-to-end on demo_venue incl. a
+  live walk-in create (block appeared with no refresh).
 
 ### Remaining
-- **Stage 6 — Venue UI** ([V]): requests inbox (badge + confirm/decline), resource-timeline
-  calendar (desktop) / single-pitch agenda (mobile) reading `get_pitch_occupancy`,
-  tap-empty walk-in via `venue_create_booking`, **`venue_live` subscriber** (re-fetch on the
-  5 booking reasons). Venue wrappers (`venueCreateBooking`, `venueConfirmBooking`,
-  `venueDeclineBooking`, `cancelBooking`/`cancelBookingSeries` via venue token) still TODO.
+- **Stage 6 follow-up (small):** no UI affordance to cancel a *confirmed* booking from the
+  calendar grid yet (blocks are display-only). `cancelBooking` wrapper exists; a tap-block →
+  detail/cancel popover is a fast-follow.
 - **Stage 7 — Priority extras** ([B]+[V]): block renewal-hold job (series `ending` → hold +
   notify → extend/expire); `superseded` displacement push to the displaced team.
 - **Deferred:** push-on-confirm (api/notify.js); transactional email (Phase 9); off-system-venue
