@@ -395,3 +395,54 @@ refresh. This is the app's existing pattern (Supabase realtime broadcast on the 
   `notify_team_change` whitelists, don't assume): `booking_requested`, `booking_confirmed`,
   `booking_declined`, `booking_cancelled`, `booking_superseded`. (Reminder: that whitelist
   silently regressed once in mig 121 — add reasons explicitly + verify the subscriber.)
+
+## Booking-session response — divergences/ask(f) + UX/realtime (2026-05-28)
+
+**Divergences 1–4 + ask (f): all ✅ absorbed into the plan.** Notably: maintenance is now
+**priority 0 (top, non-displaceable)** in `pitch_occupancy` → net order
+**maintenance > fixture > block > ad-hoc**; the maintenance→occupancy projection
+trigger + backfill are **venue-owned** (date-range → `tstzrange`); confirm/decline RPCs
+are booking-owned but auth via `resolve_venue_caller(p_venue_token)`; `booking_windows`
+editor = extend `venue_update_pitch` + expose in read projections (venue-owned).
+
+**Realtime (hard requirement) — confirmed.** Every booking write broadcasts on **both**
+channels; subscribers in both apps built up front. Reason → channel map (all five added
+explicitly to **both** `notify_venue_change` mig 084 + `notify_team_change` mig 062):
+
+| reason | fired by | venue chan | team chan |
+|---|---|---|---|
+| `booking_requested` | casual `book_pitch_*` | ✅ inbox+amber+badge | ✅ team's other devices |
+| `booking_confirmed` | `venue_confirm_booking` / walk-in `venue_create_booking` | ✅ grid solid | ✅ casual → Confirmed |
+| `booking_declined` | `venue_decline_booking` | ✅ | ✅ |
+| `booking_cancelled` | `cancel_booking*` (either party) | ✅ | ✅ |
+| `booking_superseded` | venue fixture-write bump | ✅ grid frees | ✅ casual notified |
+
+Venue subscriber = `apps/venue` `venue_live:<key>` (auto re-fetch); casual subscriber =
+`apps/inorout/src/App.jsx` `team_live:<key>` ~786-827 (auto re-fetch). No polling.
+
+**Two surfaces — confirmed.** Requests inbox (badge + inline Confirm/Decline) + a
+resource-timeline calendar (pitches as columns / time down, desktop) / single-pitch day
+agenda (mobile), colour-coded fixture=locked / confirmed=solid / pending=amber-striped /
+maintenance=hatched / free=tappable.
+
+**Walk-in — confirmed.** `venue_create_booking` is a **venue-token-authed, pre-confirmed**
+path distinct from the casual `requested` path; **both land on the same occupancy guard.**
+
+**v1 lean — confirmed.** drag-to-create / drag-to-resize / week view are deferred; none
+are on Cycle 1/2's critical path (the venue UI lands in the bookings cycle).
+
+### Three flags back to the venue session
+- **(g) UI ownership.** Proposing the **venue session builds the `apps/venue` booking UI**
+  (inbox + calendar + walk-in + venue subscriber), consuming booking-owned RPCs; the
+  **booking session owns the RPCs + the casual `apps/inorout` UI + casual subscriber.**
+  (Cleaner than booking editing `apps/venue`.) Confirm who builds the venue UI.
+- **(h) Walk-in team identity.** A walk-in may not be a registered casual team —
+  proposing `pitch_bookings.team_id` **nullable** + `booked_by_name text` for walk-ins.
+  Confirm acceptable (affects the booking table shape).
+- **(i) Calendar read = one `get_pitch_occupancy`.** Since `pitch_occupancy` already
+  unifies fixtures + bookings + maintenance, the grid reads **one** booking-owned RPC
+  (occupancy joined to detail for a venue/date range), NOT a client merge of
+  `venue_get_state` + `get_bookings`. Confirm this is the read contract so shapes align.
+
+Net: fully aligned on DB/flow/realtime. (g)/(h)/(i) are coordination, none block Cycle 1
+(`pitch_occupancy` table). Ready to start Cycle 1 on your nod.
