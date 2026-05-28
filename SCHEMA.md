@@ -510,6 +510,41 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   WHERE active` for the calendar grid read.
 - Requires the `btree_gist` extension (installed in mig 133).
 
+### Stage 2a — projection layer (migrations 134–138)
+
+**Additive columns (mig 134):**
+
+| Table | Column | Notes |
+|---|---|---|
+| `league_config` | `slot_minutes int NOT NULL DEFAULT 60` | occupancy length for fixtures (CHECK > 0). NEVER `match_duration_mins`. |
+| `fixtures` | `slot_minutes int NULL` | per-fixture override (CHECK NULL or > 0) |
+| `venues` | `bookings_enabled boolean NOT NULL DEFAULT false` | discovery opt-in |
+| `venues` | `cancellation_policy text NULL` | shown on the booking confirm screen |
+| `playing_areas` | `booking_windows jsonb NOT NULL DEFAULT '[]'` | recurring-weekly `[{day_of_week 0-6, open_time, close_time, slot_lengths:[…]}]` |
+
+**Triggers projecting into `pitch_occupancy`:**
+- `sync_maintenance_occupancy` on `playing_areas` (AFTER INSERT OR UPDATE OF
+  `maintenance_windows`, fn `tg_sync_maintenance_occupancy`): date-range windows →
+  `[start 00:00, (end+1) 00:00)` @ Europe/London, `priority=0`. `range_agg` merges
+  overlapping/adjacent windows. Re-sync = delete this pitch's maintenance rows, re-insert.
+- `sync_fixture_occupancy` on `fixtures` (AFTER INSERT OR UPDATE OF
+  `status, playing_area_id, scheduled_date, kickoff_time, slot_minutes`, fn
+  `tg_sync_fixture_occupancy`): pitch-holding statuses with pitch+date+kickoff →
+  `priority=1`, length `COALESCE(fixtures.slot_minutes, league_config.slot_minutes, 60)`,
+  `(date+kickoff)` @ Europe/London, half-open. Releasing status / cleared pitch →
+  deactivate the row. NO auto-yield of bookings yet (Stage 2b).
+
+**RPC behaviour (migs 135/138):**
+- `venue_update_pitch` edits `booking_windows`; a maintenance window that overlaps an
+  existing occupancy raises `maintenance_window_conflicts_occupancy`.
+- `venue_assign_pitch` / `venue_generate_fixtures` translate the trigger's partial-EXCLUDE
+  violation into `pitch_double_booked`.
+- `venue_get_state` exposes `booking_windows` in its `pitches` projection.
+
+**Deferred to Stage 2b (needs `pitch_bookings`):** fixture-trigger auto-yield of
+un-confirmed bookings, the confirmed-clash gate (`confirmed_booking_clash` +
+`p_displace_booking_ids[]`), and the `booking_superseded` broadcast reason.
+
 ---
 
 ## KEY TYPE NOTES
