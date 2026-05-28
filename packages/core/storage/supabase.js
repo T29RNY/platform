@@ -2117,6 +2117,14 @@ export async function getTeamBookings(teamId) {
   return data;
 }
 
+// Renewal right-of-first-refusal: team "keep my slot" on a held renewal series.
+// Flips the held weeks to 'requested' (venue re-approves via the inbox).
+export async function confirmRenewal(seriesId) {
+  const { data, error } = await supabase.rpc("confirm_renewal", { p_series_id: seriesId });
+  if (error) { console.error("[booking] confirm_renewal failed", error); throw error; }
+  return data;
+}
+
 export async function bookPitchAdhoc(teamId, playingAreaId, bookingDate, kickoffTime, slotMinutes = null) {
   const { data, error } = await supabase.rpc("book_pitch_adhoc", {
     p_team_id: teamId,
