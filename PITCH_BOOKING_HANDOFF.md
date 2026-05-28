@@ -550,3 +550,47 @@ Reuses existing `notify_team_change` (mig 062) / `notify_venue_change` (mig 127)
 
 > **STATUS:** Stage 1 DDL reviewed by the operator; **not yet applied to the DB.** [B] applies
 > it (live DB + `.sql` in `rls_migrations/`, same commit) on explicit go, then [V] starts Stage 2.
+
+---
+
+## BUILD STATUS — session 52 (2026-05-28)
+
+This session collapsed both [B] and [V] roles into one and built the whole
+backend + the casual UI. Every stage below is **applied to the live DB** with
+`.sql` + `_down.sql` in `rls_migrations/` and committed/pushed. All gates
+(ephemeral-verify, rpc-security-sweep, casual-regression, build/hygiene) passed.
+
+| Stage | Status | Migrations | Commit |
+|---|---|---|---|
+| **1. Occupancy foundation** | ✅ done | 133 (`pitch_occupancy` + partial EXCLUDE + btree_gist) | `f956597` |
+| **2a. Venue projection (cols + triggers)** | ✅ done | 134 cols · 135 `venue_update_pitch`/`venue_get_state` booking_windows · 136 maintenance→occupancy trigger · 137 fixture-mirror trigger · 138 `pitch_double_booked` translation | `917911d` |
+| **3. Booking tables + reads** | ✅ done | 139 tables · 140 `search_bookable_venues`+`get_pitch_free_slots` · 141 `get_pitch_occupancy` | `e6a6870` |
+| **2b. Priority displacement** | ✅ done | 142 fixture auto-yield + 5 booking reasons on both whitelists · 143 confirmed-clash gate + `p_displace_booking_ids[]` | `bf045ae` |
+| **4. Booking write RPCs** | ✅ done | 144 `book_pitch_adhoc`/`book_pitch_series` · 145 `venue_create_booking`/`venue_confirm_booking`/`venue_decline_booking` · 146 `cancel_booking`/`cancel_booking_series` | `ad2c3dc` |
+| **demo enablement** | ✅ done | 147 (demo_venue bookings on + windows + 2 walk-in demo bookings, reversible) | `ced0e5b` |
+| **5. Casual UI** | ✅ done | 148 `get_team_bookings` · 149 `search_bookable_venues`+cancellation_policy · `BookPitchModal` + ScheduleScreen | `19c18ea` |
+
+**Next free migration = 150.**
+
+### Remaining
+- **Stage 6 — Venue UI** ([V]): requests inbox (badge + confirm/decline), resource-timeline
+  calendar (desktop) / single-pitch agenda (mobile) reading `get_pitch_occupancy`,
+  tap-empty walk-in via `venue_create_booking`, **`venue_live` subscriber** (re-fetch on the
+  5 booking reasons). Venue wrappers (`venueCreateBooking`, `venueConfirmBooking`,
+  `venueDeclineBooking`, `cancelBooking`/`cancelBookingSeries` via venue token) still TODO.
+- **Stage 7 — Priority extras** ([B]+[V]): block renewal-hold job (series `ending` → hold +
+  notify → extend/expire); `superseded` displacement push to the displaced team.
+- **Deferred:** push-on-confirm (api/notify.js); transactional email (Phase 9); off-system-venue
+  outbound notify (architecture ready — events already emitted; needs a sender + optional
+  magic-link confirm page).
+
+### Operator test still owed (auth-dependent — demo not valid)
+The full casual flow (search → book → venue confirms) needs a **real signed-in team
+admin** (a fresh test squad), ideally from a **real-device home-screen PWA install**
+(hard-rule #13). `demo_venue` is pre-enabled for it. Stage 6 is the matching venue surface.
+
+### Broadcast contract (live)
+All 5 reasons (`booking_requested/confirmed/declined/cancelled/superseded`) are whitelisted
+in BOTH `notify_venue_change` and `notify_team_change`. Topics `venue_live:<key>` /
+`team_live:<key>`, event `'broadcast'`, private=false, payload `{type,reason,at}`. The
+Stage 6 `apps/venue` subscriber must re-fetch `get_pitch_occupancy` on any of them.

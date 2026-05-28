@@ -1,5 +1,29 @@
 # In or Out — Feature Tracker
-*Last updated: May 27 2026 (session 51 — **PHASE 3 COMPLETE** — Cycles 3.3 + 3.4 + 3.5 + 3.6 shipped, apps/ref deployed to platform-ref.vercel.app, Phase 5 plan approved + skills framework hardened (casual-regression + ephemeral-verify))*
+*Last updated: May 28 2026 (session 52 — **PITCH BOOKING** backend + casual UI shipped (Stages 1–5 + demo, migs 133–149); Stage 6 venue UI + Stage 7 remaining)*
+
+---
+
+## PITCH BOOKING — backend + casual UI complete (session 52, 2026-05-28)
+
+B2C casual pitch booking + the unified occupancy guard. Full plan, stage table,
+and commit hashes in **PITCH_BOOKING_HANDOFF.md**. Built this session:
+
+- **Occupancy guard** (`pitch_occupancy`, partial GiST EXCLUDE) — a casual booking
+  and a competitive fixture can never double-book the same pitch+time; maintenance
+  blocks both. Priority: maintenance > fixture > block > ad-hoc.
+- **Fixtures + maintenance** auto-project into occupancy via triggers; the venue
+  fixture-write RPCs auto-yield un-confirmed bookings and gate on confirmed clashes.
+- **Booking lifecycle** — request → confirm/decline, walk-in create, cancel (single +
+  series), all through the guard + audit + realtime on both channels.
+- **Casual UI** — Match Settings "Book a Pitch": venue discovery, one-off + weekly
+  block, length picker, confirm w/ cancellation policy, live Requested→Confirmed
+  badge + cancel.
+- **demo_venue** enabled for testing (reversible).
+
+**Remaining:** Stage 6 venue dashboard UI (requests inbox + calendar + walk-in +
+`venue_live` subscriber; venue-token wrappers TODO), Stage 7 (block renewal-hold job +
+displacement push), deferred push-on-confirm. **Payment OFF but schema-wired.**
+**Operator owes** a real-squad + real-device test of the casual flow (auth-dependent).
 
 ---
 

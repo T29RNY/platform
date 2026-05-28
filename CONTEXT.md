@@ -1,5 +1,42 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 27 2026 (session 51 — **PHASE 3 COMPLETE** + apps/ref live at platform-ref.vercel.app + Phase 5 plan approved + skills framework hardened. Detail in FEATURES.md.)*
+*Last updated: May 28 2026 (session 52 — **PITCH BOOKING backend + casual UI** built: migs 133–149, occupancy guard + booking lifecycle + casual Book-a-Pitch modal. Stage 6 venue UI + Stage 7 next. Detail in PITCH_BOOKING_HANDOFF.md.)*
+
+## SESSION 52 — Pitch booking system, Stages 1–5 + demo (May 28 2026)
+
+Built the whole pitch-booking backend and the casual booking UI in one session
+(both the planned [B] booking and [V] venue roles collapsed into one). Full
+stage table + commit hashes live in **PITCH_BOOKING_HANDOFF.md → BUILD STATUS**.
+
+**What shipped (migs 133–149, all live + committed):**
+- **`pitch_occupancy`** — single source of truth; partial GiST `EXCLUDE … WHERE active`
+  (btree_gist). Priority 0=maintenance, 1=fixture, 2=block, 3=ad-hoc. (mig 133)
+- **Venue projection layer** — `league_config.slot_minutes`/`fixtures.slot_minutes`,
+  `venues.bookings_enabled`/`cancellation_policy`, `playing_areas.booking_windows`;
+  maintenance→occupancy + fixture-mirror triggers; `venue_assign_pitch`/`venue_generate_fixtures`
+  translate the EXCLUDE to `pitch_double_booked`; auto-yield un-confirmed + confirmed-clash gate
+  (`confirmed_booking_clash` + `p_displace_booking_ids[]`). (migs 134–138, 142–143)
+- **Booking tables** `booking_series` + `pitch_bookings` (walk-in `team_id` nullable +
+  `booked_by_name`; payment schema-wired off). (mig 139)
+- **Reads** `search_bookable_venues`, `get_pitch_free_slots`, `get_pitch_occupancy`,
+  `get_team_bookings`. (migs 140–141, 148–149)
+- **Write RPCs** `book_pitch_adhoc`/`book_pitch_series` (casual auth.uid→team_admins, hold),
+  `venue_create_booking` (walk-in confirmed), `venue_confirm_booking`/`venue_decline_booking`,
+  `cancel_booking`/`cancel_booking_series` (dual auth). All audit + broadcast both channels. (migs 144–146)
+- **Casual UI** — ScheduleScreen "Existing booking info" relabel + Book-a-Pitch modal
+  (discovery, ad-hoc + block, length picker, confirm w/ policy, Requested→Confirmed badge +
+  cancel) + 8 JS wrappers. (mig 148 + apps/inorout)
+- **`demo_venue` enabled** for testing (mig 147, reversible) — bookable, windows on both
+  pitches, 2 walk-in demo bookings.
+
+**Verification:** ephemeral-verify (full lifecycle, auth.uid simulated via jwt-claim +
+`auth.users` seed), rpc-security-sweep, casual-regression (browser-checked demo admin Match
+Settings — existing controls intact, console clean), build/hygiene — all green. Pre-UI full
+sweep confirmed: 14 migs source↔live parity, RLS/grants clean, all 7 cron jobs healthy.
+
+**Next:** Stage 6 venue dashboard UI (inbox + calendar + walk-in + `venue_live` subscriber;
+venue-token wrappers still TODO), Stage 7 (block renewal-hold job + displacement push),
+deferred push-on-confirm. **Operator owes:** real-squad + real-device test of the casual
+booking flow (auth-dependent; demo not valid).
 
 ## SESSION 51 — Phase 3 complete + Phase 5 prep (May 27 2026)
 

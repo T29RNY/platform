@@ -1,5 +1,20 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 27 2026 (session 51 — PHASE 3 COMPLETE + Phase 5 plan approved + skills framework hardened + notify_venue_change regression silently fixed in mig 127)*
+*Last updated: May 28 2026 (session 52 — pitch booking Stages 1–5 shipped; no new active bugs. One self-caught issue noted below.)*
+
+---
+
+## Note — pitch booking (session 52): no new active bugs
+
+Booking Stages 1–5 (migs 133–149) shipped with all gates green. One issue was
+caught and fixed **before commit** during the casual-regression browser check:
+`ScheduleScreen`'s `get_team_bookings` fetch fired without a session on the
+admin-token demo route, logging `permission denied` — now gated behind a
+`supabase.auth.getSession()` check so nothing errors on the casual flow.
+Not a shipped bug; recorded for traceability.
+
+**Known follow-ups (not bugs):** push-on-confirm deferred; transactional email is
+Phase 9; off-system-venue outbound notify needs a sender; Stage 6 venue UI +
+Stage 7 (block renewal-hold + displacement push) still to build.
 
 ---
 

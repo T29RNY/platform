@@ -1,10 +1,46 @@
 # In or Out — Key Decisions Log
-*Last updated: May 27 2026 (session 51 — Phase 5 architectural decisions locked: per-squad context, collapsibles-not-tabs, teamsheet-as-source-of-truth, Competition-not-League naming)*
+*Last updated: May 28 2026 (session 52 — pitch-booking decisions: occupancy-as-truth, Stage-2-split-around-Stage-3, off-system-venue path)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## Pitch booking — occupancy is the single source of truth (session 52)
+
+**Decision:** one `pitch_occupancy` table with a **partial GiST `EXCLUDE … WHERE active`**
+governs all double-booking. Fixtures, bookings, and maintenance all project rows in;
+displacement = deactivate the loser in-txn before the winner inserts. Priority order
+**maintenance(0) > fixture(1) > block(2) > ad-hoc(3)**. Confirmed bookings are never
+silently bumped — the venue fixture-write RPCs raise `confirmed_booking_clash` and need
+explicit `p_displace_booking_ids[]`. **Rationale:** a unique-(pitch,slot) key can't express
+variable durations/arbitrary windows; the guard must be DB-enforced regardless of source.
+
+## Pitch booking — Stage 2 split around Stage 3 (session 52)
+
+**Decision:** the venue projection layer (Stage 2) was split: **2a** (columns + maintenance/
+fixture triggers + EXCLUDE→`pitch_double_booked` translation) shipped before Stage 3's
+booking tables; **2b** (fixture auto-yield + confirmed-clash gate) shipped after, because
+both reference `pitch_bookings`. **Rationale:** a trigger/RPC body can't reference a table
+that doesn't exist yet — dependency-correct ordering over the plan's nominal stage numbers.
+
+## Pitch booking — casual flow changes deliberately (not flag-hidden) (session 52)
+
+**Decision:** unlike Phase 5 competitive surfaces (render-gated, invisible to casual), the
+booking entry **deliberately appears** in the casual Admin ▸ Match Settings ("Book a Pitch").
+`casual-regression.md` proves the *existing* controls are unchanged, not that the screen is
+pixel-identical. **Booking writes are authenticated-only** (`auth.uid()` → `team_admins`);
+the demo team is NOT a valid test target — needs a real signed-in squad.
+
+## Pitch booking — off-system venues plumb in via emitted events (session 52)
+
+**Decision:** every booking write emits an `audit_events` row + a realtime broadcast, so
+notifying a venue NOT on our system later = subscribe to `booking_requested` and dispatch
+(email/SMS/webhook) — **no change to the booking RPCs**. Their confirm-back can reuse
+`venue_confirm_booking`/`venue_decline_booking` behind a magic-link token. **Limit:**
+guaranteed no-double-book against a venue's *own* external calendar is impossible without a
+live two-way sync; our hold is best-effort for off-system venues. Prerequisite for any of
+this: a transactional sender (none exists yet — Phase 9).
 
 ## Phase 5 competitive features are SQUAD-scoped, not player-scoped (session 51)
 
