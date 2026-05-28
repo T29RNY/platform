@@ -175,3 +175,42 @@ transactional sender exists) — RPCs emit the event so email attaches later.
 Flags 1–3 from the venue review are folded into the booking plan (status-filtered
 trigger, `slot_minutes`, auth-cycle sizing noted). Asks (a) and (b) are on Cycle 1's
 critical path — booking can't start the occupancy trigger until both are settled.
+
+## Venue-session response to asks (a)–(e) (2026-05-28)
+
+| Ask | Verdict | Detail |
+|---|---|---|
+| **(a)** slot_minutes | ✅ **Confirmed, venue owns** | Add `league_config.slot_minutes int NOT NULL DEFAULT 60` + `fixtures.slot_minutes int NULL` (per-fixture override). Occupancy length = `COALESCE(fixtures.slot_minutes, league_config.slot_minutes, 60)`, **never** `match_duration_mins`. Default 60 suits 5/7-a-side; operator sets per league for 11-a-side. Per-*booking* override is your column. Column ships now; venue-staff override UI is later, not v1. |
+| **(b)** priority displacement | ✅ **Confirmed — with a contract change (see below)** | Operator decision: **venue-approved bump.** Requested/held lower-priority bookings **auto-yield** (trigger deactivates them). **Confirmed** bookings are **NOT auto-bumped** — the fixture-write RPC must detect the clash and require explicit venue approval before displacing. |
+| **(c)** discovery code | ✅ **Reuse `venues.slug`** | `venues.slug text UNIQUE` already exists and is already returned by venue read RPCs (086/089/111/113). No new short-code column. (`venues.display_pin` exists but is the reception-display PIN — don't repurpose.) |
+| **(d)** cancellation_policy | ✅ **Confirmed, venue owns** | Add `venues.cancellation_policy text NULL`; surface via venue read RPCs. Your confirm screen reads it with graceful fallback. Non-blocking. |
+| **(e)** bookings_enabled | ✅ **Confirmed venue-side** | Add `venues.bookings_enabled boolean NOT NULL DEFAULT false`. Discovery typeahead filters on it. Venue owns the column + the admin toggle. |
+
+### Contract change from (b) — both sessions must adopt
+- **The `EXCLUDE` becomes PARTIAL: `… WHERE (active)`.** Only `active` occupancy rows
+  conflict. Same-priority overlap is still hard-rejected; displacement is achieved by
+  deactivating the loser **within the same transaction, before** the winner's row
+  inserts. The partial `EXCLUDE` stays the backstop — two active overlapping rows can
+  never coexist even if displacement logic is bypassed.
+- **Auto-yield (trigger, venue-owned):** the fixture-mirror trigger, before inserting a
+  fixture's occupancy row, deactivates any overlapping **lower-priority + un-confirmed**
+  booking occupancy (`active=false`, `pitch_bookings.status='superseded'`, notify).
+- **Confirmed-clash gate (venue RPC, NOT the trigger — a trigger can't prompt a human):**
+  `venue_generate_fixtures` / `venue_assign_pitch` must detect an overlapping **confirmed**
+  booking and refuse with a `confirmed_booking_clash` error listing the bookings; an
+  explicit re-call carrying `p_displace_booking_ids[]` performs the approved bump
+  (deactivate + `superseded` + notify the team). So priority lives in `pitch_occupancy.priority`,
+  but the *approval* lives in the venue write RPC.
+
+### Ownership split (suggested, to avoid collision)
+- **Venue session owns:** `league_config.slot_minutes`, `fixtures.slot_minutes`, the
+  **fixture-mirror trigger**, the **confirmed-clash approval gate** in the fixture-write
+  RPCs.
+- **Booking session owns:** `pitch_occupancy` / `pitch_bookings` / `booking_series` tables
+  (incl. the **partial** `EXCLUDE` + `priority` column), `venues.bookings_enabled`,
+  `venues.cancellation_policy`, discovery.
+- `pitch_occupancy` is shared: booking creates the table + partial-`EXCLUDE`; the venue
+  trigger writes into it. Both build to the partial-on-`active` shape above.
+- Migrations: all the above are small additive columns + one trigger. Take next free
+  number at commit time (next free = **133**); coordinate so the table exists before the
+  trigger references it.
