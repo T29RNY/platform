@@ -23,8 +23,18 @@ change pre-flighted in a rollback transaction before applying live).
   walkover/forfeit reported truthfully (no phantom 3-0 — standings owns that). Designed for
   P4 reception + P6 HQ too (RPCS.md, hard-rule #14). Self-gates (casual → []). Pre-flighted
   in rollback txn (Tarny 2W+1 upcoming, casual []); applied live + schema reload; rpc-security
-  + hygiene + build clean. Rows not yet tappable — 5.4 wires fixture detail. On-device confirm
-  operator-owed.
+  + hygiene + build clean.
+- **Phase 5 Cycle 5.4** (**mig 156**) — two RPCs `get_player_fixture_detail` +
+  `get_fixture_opposition_intel` + `FixtureDetailCard` (tap a fixture row to expand inline)
+  + nested tap-to-load `OppositionIntel`. Detail mirrors the mig-119 ref shape + perspective
+  fields; both squads shown LIVE from `player_registrations` (confirmed XI is 5.6). Intel =
+  H2H (all-time + season) + both teams' last-5 form + per-team top scorers (from
+  `match_events`, **no goals table**) + last meeting. **Gate stricter than ref**: player can
+  only open a fixture their own team plays in (`fixture_not_visible` otherwise). Designed for
+  P4 reception + P7 AI (RPCS.md, hard-rule #14). Detail leaves room for 5.5 availability
+  (hard-rule #12). Pre-flighted in rollback txn incl. refusal assertions (casual + fake
+  fixture both raise); applied live; rpc-security ×2 + hygiene + build clean. On-device
+  confirm operator-owed.
 
 **Competitive testbed (`dd3fcaf`, mig 154) — for ongoing Phase 5 testing:**
 - **Competitive FC** (`team_dc_fc`) + 3 opponents (`team_dc_{rovers,city,athletic}`) in a
@@ -36,8 +46,9 @@ change pre-flighted in a rollback transaction before applying live).
   `rls_migrations/154_demo_competitive_seed_down.sql` — rollback-verified to leave real
   data + the existing demo Summer League untouched.
 
-**Phase 5 sequence:** 5.1 tag ✅ · 5.2 standings ✅ · 5.3 fixtures ✅ · **5.4 fixture
-detail + opposition intel (next)** · 5.5 availability · 5.6 teamsheet · 5.7 eligibility. Plan +
+**Phase 5 sequence:** 5.1 tag ✅ · 5.2 standings ✅ · 5.3 fixtures ✅ · 5.4 fixture
+detail + opposition intel ✅ · **5.5 availability (next — first write path)** · 5.6 teamsheet
+· 5.7 eligibility. Plan +
 locked decisions (two-stage availability, players+admin override, reuse familiar tile, no
 A/B split for league) in `~/.claude/plans/continuing-phase-3-of-steady-falcon.md`.
 Testing: 1 device + browser is enough now (2 PWAs only for installed-PWA/push or

@@ -1,5 +1,36 @@
 # In or Out — Feature Tracker
-*Last updated: May 28 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycles 5.1 + 5.2 + 5.3** shipped + competitive testbed)*
+*Last updated: May 29 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycles 5.1 + 5.2 + 5.3 + 5.4** shipped + competitive testbed)*
+
+---
+
+## LEAGUE MODE — PHASE 5 CYCLE 5.4 SHIPPED (session 54, 2026-05-29)
+
+Fixture detail + opposition intel. A fixture row in `CompetitionFixturesCard`
+now taps to expand an inline `FixtureDetailCard` (one open at a time), which
+shows the matchup/scoreline, kickoff countdown (upcoming), goal events
+(completed), both teams' LIVE registered squads, and a nested tap-to-load
+`OppositionIntel` block (H2H all-time + this-season, both teams' last-5 form,
+per-team top scorers, last meeting).
+
+- **Two new RPCs (mig 156)** — `get_player_fixture_detail(p_token, p_fixture_id)`
+  + `get_fixture_opposition_intel(p_token, p_fixture_id)`. Both SECURITY DEFINER,
+  search_path locked, anon+authenticated. **Stricter than the ref RPC**: a player
+  may only open a fixture in one of their OWN active competitions that one of their
+  OWN teams plays in — any other fixture id raises `fixture_not_visible`.
+- **No `goals` table** — scorers derive from `match_events` (event_type='goal').
+  Form/H2H from fixture scores. Walkover/forfeit → W/L only (no phantom 3-0).
+- **Squads are the LIVE registered roster** (read fresh each expand) — a team may
+  confirm late; the per-fixture confirmed XI arrives in 5.6 (`fixture_lineups`).
+  Detail RPC return shape leaves room for 5.5 availability fields (added then with
+  a same-commit mapper update, hard-rule #12).
+- **Designed-for consumers (hard-rule #14)**: detail → Phase 4 reception + Phase 7
+  AI briefings; intel → Phase 7 AI Gaffer. Recorded in RPCS.md.
+- **Verified**: rollback pre-flight of both RPCs incl. refusal assertions (casual
+  token + fake fixture both raise); applied live + schema reload; live re-check
+  (detail opp=Demo Rovers, Tarny 3 goals; H2H P1/W1 3-1, FC form [W,W], Rovers
+  [L,L]); rpc-security ×2, hygiene, build clean; each raw RPC name once in
+  supabase.js. Casual my-view untouched (card self-gates). On-device confirm
+  operator-owed.
 
 ---
 

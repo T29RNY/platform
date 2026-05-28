@@ -54,6 +54,8 @@ export {
   joinGetLeagueByCode,
   getLeagueStandingsForPlayer,
   getPlayerCompetitionFixtures,
+  getPlayerFixtureDetail,
+  getFixtureOppositionIntel,
   getFixtureStateByRefToken,
   refStartMatch,
   refRecordGoal,

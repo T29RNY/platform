@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import { getPlayerCompetitionFixtures } from "@platform/core";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
+import FixtureDetailCard from "./FixtureDetailCard";
 
 // League Mode Phase 5 Cycle 5.3 — read-only competition fixtures on my-view.
 // Self-gating: a casual player's token returns no fixtures, so the whole card
 // renders null and the casual flow is untouched. Sits directly below
-// CompetitionStandingsCard. Rows are not yet tappable — Cycle 5.4 wires the
-// inline fixture detail expansion.
+// CompetitionStandingsCard. Cycle 5.4: a row taps to expand an inline
+// FixtureDetailCard (one open at a time).
 export default function CompetitionFixturesCard({ playerToken, currentTeamId }) {
   const [fixtures, setFixtures] = useState([]);
   const [open, setOpen] = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     if (!playerToken) return;
@@ -61,11 +63,16 @@ export default function CompetitionFixturesCard({ playerToken, currentTeamId }) 
   const Row = ({ f }) => {
     const isPast = PAST_STATUSES.includes(f.status);
     const time = fmtTime(f.kickoff_time);
+    const isExpanded = expandedId === f.fixture_id;
     return (
-      <div style={{
+      <>
+      <div
+        onClick={() => setExpandedId(id => id === f.fixture_id ? null : f.fixture_id)}
+        style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        gap: 10, padding: "10px 16px",
+        gap: 10, padding: "10px 16px", cursor: "pointer",
         borderTop: "0.5px solid rgba(255,255,255,0.06)",
+        background: isExpanded ? "var(--s2)" : "transparent",
       }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{
@@ -111,8 +118,15 @@ export default function CompetitionFixturesCard({ playerToken, currentTeamId }) 
               Upcoming
             </span>
           )}
+          {isExpanded
+            ? <CaretUp   weight="thin" size={14} color="var(--t2)" />
+            : <CaretDown weight="thin" size={14} color="var(--t2)" />}
         </div>
       </div>
+      {isExpanded && (
+        <FixtureDetailCard playerToken={playerToken} fixtureId={f.fixture_id} />
+      )}
+      </>
     );
   };
 

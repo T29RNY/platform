@@ -1964,6 +1964,34 @@ export async function getPlayerCompetitionFixtures(playerToken, filter = "all") 
   return data;
 }
 
+// League Mode Phase 5 Cycle 5.4 — fixture detail + opposition intel.
+// Token-gated to the player's own competitions; a foreign fixture id throws.
+export async function getPlayerFixtureDetail(playerToken, fixtureId) {
+  if (!playerToken || !fixtureId) return null;
+  const { data, error } = await supabase.rpc("get_player_fixture_detail", {
+    p_token: playerToken,
+    p_fixture_id: fixtureId,
+  });
+  if (error) {
+    console.error("[fixture_detail] get_for_player failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function getFixtureOppositionIntel(playerToken, fixtureId) {
+  if (!playerToken || !fixtureId) return null;
+  const { data, error } = await supabase.rpc("get_fixture_opposition_intel", {
+    p_token: playerToken,
+    p_fixture_id: fixtureId,
+  });
+  if (error) {
+    console.error("[opposition_intel] get_for_player failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 3 Cycle 3.1 ref pre-match read ──────────────────────
 
 export async function getFixtureStateByRefToken(refToken) {

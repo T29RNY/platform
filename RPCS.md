@@ -42,6 +42,8 @@ future consumers — track them here as they land.
 | SQL function | JS wrapper | Grant | Notes |
 |---|---|---|---|
 | `get_player_competition_fixtures(p_token, p_filter)` | `getPlayerCompetitionFixtures(playerToken, filter='all')` | anon + authenticated | Migration 155 (Cycle 5.3). SECURITY DEFINER, search_path locked. Token → player → active competitions → that team's fixtures. `p_filter` ∈ `upcoming`/`past`/`all` (unknown → `all`). Per-row player perspective: `is_home`, `opponent_name`, `my_score`, `opponent_score`, `result` (`W`/`D`/`L` for completed; `W`/`L` for walkover+forfeit; null otherwise — reports status truthfully, no phantom 3-0; standings (mig 087) owns the 3-0 rule). Self-gating: casual token → `fixtures: []`. **Consumers (hard-rule #14)**: Cycle 5.3 player my-view `CompetitionFixturesCard` (built); Phase 4 reception "upcoming fixtures" panel (future); Phase 6 HQ "tonight's fixtures" feed (future). Return-shape additions for those won't break 5.3. |
+| `get_player_fixture_detail(p_token, p_fixture_id)` | `getPlayerFixtureDetail(playerToken, fixtureId)` | anon + authenticated | Migration 156 (Cycle 5.4). SECURITY DEFINER, search_path locked. **Stricter gate than ref RPC**: fixture must be in one of the player's OWN active competitions AND involve one of the player's teams, else `fixture_not_visible`. Mirrors the mig-119 ref shape (fixture/competition/league/venue/pitch/both teams/both registered squads/events) PLUS perspective fields (`is_home`, `my_team_id`, `opponent_name`, `my_score`, `result`). Squads = LIVE active `player_registrations` (confirmed XI arrives 5.6). **Availability fields (`availability_counts`, `my_availability`) intentionally ABSENT — Cycle 5.5 adds them with same-commit mapper update (hard-rule #12).** **Consumers (hard-rule #14)**: 5.4 `FixtureDetailCard` (built); Phase 4 reception display; Phase 7 AI briefings. |
+| `get_fixture_opposition_intel(p_token, p_fixture_id)` | `getFixtureOppositionIntel(playerToken, fixtureId)` | anon + authenticated | Migration 156 (Cycle 5.4). SECURITY DEFINER, search_path locked. Same visibility gate as detail. Returns `{ h2h:{all_time,this_season}, my_form, opponent_form, my_top_scorers, opponent_top_scorers, last_meeting }`. H2H/form from `fixtures` scores; top scorers from `match_events` (event_type='goal' — **no goals table**); walkover/forfeit → W/L only. **Consumers (hard-rule #14)**: 5.4 `OppositionIntel` (built); Phase 7 AI Gaffer narrative briefings. |
 
 ---
 
@@ -249,8 +251,8 @@ Migration numbers will be assigned at cycle time.
 - `get_competitive_context_for_squad(p_token)` — Cycle 5.1
 - (none — reuses existing `get_league_standings_for_player`) — Cycle 5.2
 - ~~`get_player_competition_fixtures(p_token, p_filter)` — Cycle 5.3~~ **SHIPPED (mig 155)** — see Phase 5 RPCs (shipped) above
-- `get_player_fixture_detail(p_token, p_fixture_id)` — Cycle 5.4
-- `get_fixture_opposition_intel(p_token, p_fixture_id)` — Cycle 5.4
+- ~~`get_player_fixture_detail(p_token, p_fixture_id)` — Cycle 5.4~~ **SHIPPED (mig 156)** — see Phase 5 RPCs (shipped) above
+- ~~`get_fixture_opposition_intel(p_token, p_fixture_id)` — Cycle 5.4~~ **SHIPPED (mig 156)** — see Phase 5 RPCs (shipped) above
 - `player_set_fixture_availability(p_token, p_fixture_id, p_status)` — Cycle 5.5 (+ new `player_availability` table)
 - `team_admin_submit_lineup(p_admin_token, p_fixture_id, p_lineup)` — Cycle 5.6 (+ new `fixture_lineups` table + update to `get_fixture_state_by_ref_token`)
 - `team_admin_check_eligibility(p_admin_token, p_fixture_id, p_player_ids)` — Cycle 5.7
@@ -298,6 +300,7 @@ Migration numbers will be assigned at cycle time.
 | 048 | `admin_save_teams` REPLACE — adds team_players scope to the two `UPDATE players SET team='A'/'B'` statements (the CLEAR was already scoped). Closes the cross-team write surface flagged in the pre-Beta audit. Foreign player_ids silently update 0 rows. Verified with adversarial + happy-path tests against live DB inside rolled-back transactions. |
 | 049 | `notify_team_change` REPLACE — adds `player_account_deleted` to v_known_reasons whitelist (migration 047 passed this reason; warning was log-only, broadcast worked). Bonus diagnostic comment block in the file documenting the apex→www cron URL gotcha. |
 | 155 | `get_player_competition_fixtures(p_token, p_filter)` — League Mode Phase 5 Cycle 5.3. Read-only player-facing competition fixtures (upcoming/past/all). See Phase 5 RPCs (shipped) table above. |
+| 156 | `get_player_fixture_detail(p_token, p_fixture_id)` + `get_fixture_opposition_intel(p_token, p_fixture_id)` — League Mode Phase 5 Cycle 5.4. Read-only player-facing fixture detail + opposition intel, gated to the player's own competitions. See Phase 5 RPCs (shipped) table above. |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.
