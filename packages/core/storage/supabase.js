@@ -1949,6 +1949,21 @@ export async function getLeagueStandingsForPlayer(playerToken) {
   return data;
 }
 
+// League Mode Phase 5 Cycle 5.3 — player-facing competition fixtures.
+// filter: 'upcoming' | 'past' | 'all'. Casual tokens return { fixtures: [] }.
+export async function getPlayerCompetitionFixtures(playerToken, filter = "all") {
+  if (!playerToken) return null;
+  const { data, error } = await supabase.rpc("get_player_competition_fixtures", {
+    p_token: playerToken,
+    p_filter: filter,
+  });
+  if (error) {
+    console.error("[competition_fixtures] get_for_player failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 3 Cycle 3.1 ref pre-match read ──────────────────────
 
 export async function getFixtureStateByRefToken(refToken) {

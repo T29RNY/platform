@@ -17,6 +17,14 @@ change pre-flighted in a rollback transaction before applying live).
 - **Phase 5 Cycle 5.2** (`f5dc34a`) — `CompetitionStandingsCard` in PlayerView my-view:
   collapsible league table, own team highlighted. Pure client; reuses
   `get_league_standings_for_player`. Self-gates (casual → renders null).
+- **Phase 5 Cycle 5.3** (**mig 155**) — `get_player_competition_fixtures(p_token, p_filter)`
+  RPC + `CompetitionFixturesCard` below the standings card: collapsible UPCOMING/RESULTS
+  list, opponent + date + score + W/D/L chip (player's perspective). Token-gated, anon+auth,
+  walkover/forfeit reported truthfully (no phantom 3-0 — standings owns that). Designed for
+  P4 reception + P6 HQ too (RPCS.md, hard-rule #14). Self-gates (casual → []). Pre-flighted
+  in rollback txn (Tarny 2W+1 upcoming, casual []); applied live + schema reload; rpc-security
+  + hygiene + build clean. Rows not yet tappable — 5.4 wires fixture detail. On-device confirm
+  operator-owed.
 
 **Competitive testbed (`dd3fcaf`, mig 154) — for ongoing Phase 5 testing:**
 - **Competitive FC** (`team_dc_fc`) + 3 opponents (`team_dc_{rovers,city,athletic}`) in a
@@ -28,8 +36,8 @@ change pre-flighted in a rollback transaction before applying live).
   `rls_migrations/154_demo_competitive_seed_down.sql` — rollback-verified to leave real
   data + the existing demo Summer League untouched.
 
-**Phase 5 sequence:** 5.1 tag ✅ · 5.2 standings ✅ · **5.3 fixtures (next)** · 5.4 fixture
-detail + opposition intel · 5.5 availability · 5.6 teamsheet · 5.7 eligibility. Plan +
+**Phase 5 sequence:** 5.1 tag ✅ · 5.2 standings ✅ · 5.3 fixtures ✅ · **5.4 fixture
+detail + opposition intel (next)** · 5.5 availability · 5.6 teamsheet · 5.7 eligibility. Plan +
 locked decisions (two-stage availability, players+admin override, reuse familiar tile, no
 A/B split for league) in `~/.claude/plans/continuing-phase-3-of-steady-falcon.md`.
 Testing: 1 device + browser is enough now (2 PWAs only for installed-PWA/push or

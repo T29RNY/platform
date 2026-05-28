@@ -53,6 +53,7 @@ export {
   leagueGetState,
   joinGetLeagueByCode,
   getLeagueStandingsForPlayer,
+  getPlayerCompetitionFixtures,
   getFixtureStateByRefToken,
   refStartMatch,
   refRecordGoal,

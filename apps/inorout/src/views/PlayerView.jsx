@@ -25,6 +25,7 @@ import HistoryView  from "./HistoryView.jsx";
 import MyIOView     from "./MyIOView.jsx";
 import MySquads     from "./MySquads";
 import CompetitionStandingsCard from "./CompetitionStandingsCard";
+import CompetitionFixturesCard from "./CompetitionFixturesCard";
 import PlayerProfile from "./PlayerProfile.jsx";
 import { AnimatePresence } from "framer-motion";
 
@@ -1412,6 +1413,11 @@ export default function PlayerView({
           />
 
           <CompetitionStandingsCard
+            playerToken={myId && squad.find(p => p.id === myId)?.token}
+            currentTeamId={teamId}
+          />
+
+          <CompetitionFixturesCard
             playerToken={myId && squad.find(p => p.id === myId)?.token}
             currentTeamId={teamId}
           />

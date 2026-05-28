@@ -1,5 +1,27 @@
 # In or Out — Feature Tracker
-*Last updated: May 28 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycles 5.1 + 5.2** shipped + competitive testbed)*
+*Last updated: May 28 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycles 5.1 + 5.2 + 5.3** shipped + competitive testbed)*
+
+---
+
+## LEAGUE MODE — PHASE 5 CYCLE 5.3 SHIPPED (session 54, 2026-05-28)
+
+Competition fixtures on the player screen. New `CompetitionFixturesCard.jsx`
+rendered in PlayerView's my-view directly below the standings card: a collapsible
+list grouped UPCOMING (scheduled) then RESULTS (most-recent-first), each row showing
+opponent (`vs`/`@`), week/round + date (+ kickoff for upcoming), score, and a
+W/D/L result chip (green/grey/red) from the player's team perspective.
+
+- **New RPC `get_player_competition_fixtures(p_token, p_filter)`** (mig 155) —
+  SECURITY DEFINER, search_path locked, anon+authenticated. Token → player → active
+  competitions → that team's fixtures. `p_filter` ∈ upcoming/past/all (forgiving
+  fallback to all). Per-row player perspective (is_home, opponent_name, my_score,
+  result). Walkover/forfeit reported as status truthfully (no phantom 3-0 — standings
+  owns that). Designed once for: this card + Phase 4 reception + Phase 6 HQ (RPCS.md).
+- **Self-gating**: casual token → `fixtures: []` → card renders `null`; casual flow
+  untouched. Rows not yet tappable — Cycle 5.4 wires inline fixture detail.
+- **Verified**: rollback-transaction pre-flight (Tarny 2W+1 upcoming, casual []),
+  applied live + schema reload, live re-check (Tarny 3 / casual 0), rpc-security ✓,
+  hygiene ✓, build ✓, raw RPC name once in supabase.js. On-device confirm operator-owed.
 
 ---
 

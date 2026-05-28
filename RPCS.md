@@ -37,6 +37,12 @@ rather than rebuild.
 Phase 5 cycles 5.3 and 5.4 introduce RPCs designed for multiple
 future consumers — track them here as they land.
 
+### Phase 5 RPCs (shipped)
+
+| SQL function | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `get_player_competition_fixtures(p_token, p_filter)` | `getPlayerCompetitionFixtures(playerToken, filter='all')` | anon + authenticated | Migration 155 (Cycle 5.3). SECURITY DEFINER, search_path locked. Token → player → active competitions → that team's fixtures. `p_filter` ∈ `upcoming`/`past`/`all` (unknown → `all`). Per-row player perspective: `is_home`, `opponent_name`, `my_score`, `opponent_score`, `result` (`W`/`D`/`L` for completed; `W`/`L` for walkover+forfeit; null otherwise — reports status truthfully, no phantom 3-0; standings (mig 087) owns the 3-0 rule). Self-gating: casual token → `fixtures: []`. **Consumers (hard-rule #14)**: Cycle 5.3 player my-view `CompetitionFixturesCard` (built); Phase 4 reception "upcoming fixtures" panel (future); Phase 6 HQ "tonight's fixtures" feed (future). Return-shape additions for those won't break 5.3. |
+
 ---
 
 ## PLAYER TOKEN RPCs (migration 011)
@@ -242,7 +248,7 @@ Migration numbers will be assigned at cycle time.
 
 - `get_competitive_context_for_squad(p_token)` — Cycle 5.1
 - (none — reuses existing `get_league_standings_for_player`) — Cycle 5.2
-- `get_player_competition_fixtures(p_token, p_filter)` — Cycle 5.3
+- ~~`get_player_competition_fixtures(p_token, p_filter)` — Cycle 5.3~~ **SHIPPED (mig 155)** — see Phase 5 RPCs (shipped) above
 - `get_player_fixture_detail(p_token, p_fixture_id)` — Cycle 5.4
 - `get_fixture_opposition_intel(p_token, p_fixture_id)` — Cycle 5.4
 - `player_set_fixture_availability(p_token, p_fixture_id, p_status)` — Cycle 5.5 (+ new `player_availability` table)
@@ -291,6 +297,7 @@ Migration numbers will be assigned at cycle time.
 | 047 | `delete_my_account(p_token)` REPLACE — purges FK refs to auth.users from team_admins, platform_admins.granted_by, user_profiles so auth.admin.deleteUser() succeeds. Pre-fix: SQL succeeded but auth row remained, blocking re-sign-in with the same email. Session 37. |
 | 048 | `admin_save_teams` REPLACE — adds team_players scope to the two `UPDATE players SET team='A'/'B'` statements (the CLEAR was already scoped). Closes the cross-team write surface flagged in the pre-Beta audit. Foreign player_ids silently update 0 rows. Verified with adversarial + happy-path tests against live DB inside rolled-back transactions. |
 | 049 | `notify_team_change` REPLACE — adds `player_account_deleted` to v_known_reasons whitelist (migration 047 passed this reason; warning was log-only, broadcast worked). Bonus diagnostic comment block in the file documenting the apex→www cron URL gotcha. |
+| 155 | `get_player_competition_fixtures(p_token, p_filter)` — League Mode Phase 5 Cycle 5.3. Read-only player-facing competition fixtures (upcoming/past/all). See Phase 5 RPCs (shipped) table above. |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.
