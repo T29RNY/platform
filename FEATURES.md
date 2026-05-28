@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: May 28 2026 (session 53 — **PITCH BOOKING** Stage 6 venue UI shipped + a hardening pass; only Stage 7 remaining)*
+*Last updated: May 28 2026 (session 53 — **PITCH BOOKING** complete: Stages 1–7 + hardening all shipped)*
 
 ---
 
@@ -28,9 +28,17 @@ policy + per-pitch booking-windows editor), `venue_live` subscriber refetching o
 on the 5 booking reasons. Hardening pass (`202d16a`): casual bookings list now refreshes
 live on venue broadcasts; BookPitchModal date off-by-one (toISOString/UTC) fixed.
 
-**Remaining:** Stage 7 (block renewal-hold job + `superseded` displacement push), deferred
-push-on-confirm. **Payment OFF but schema-wired.** **Operator owes** a real-squad +
-real-device test of the casual flow (auth-dependent).
+**Stage 7 — done (session 53, migs 151–152 + commits `b398b05`/`9dd953e`/`ca4a174`/`aca0cd4`):**
+renewal right-of-first-refusal (a series ending ≤21d auto-holds the next block for the team
+via `create_renewal_holds` cron at 09:00 UK; team "Keep slot" → `confirm_renewal` flips
+holds→requested for venue re-approval; unconfirmed holds auto-expire via `expire_renewal_holds`
+after a 7-day grace) + push to team admins for renewal-held/expired and for fixture-superseded
+bookings (`supersededPushJob`, polls `superseded_at`). All gated (ephemeral-verify +
+rpc-security-sweep). **Booking initiative complete.**
+
+**Remaining:** deferred push-on-confirm; transactional email (Phase 9). **Payment OFF but
+schema-wired.** **Operator owes** a real-squad + real-device test of the casual + venue flows
+(auth-dependent) incl. the three booking pushes (GO_LIVE §6).
 
 ---
 

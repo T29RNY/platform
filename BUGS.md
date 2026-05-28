@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 28 2026 (session 53 — pitch booking Stage 6 venue UI shipped + an audit-driven hardening pass; no active bugs.)*
+*Last updated: May 28 2026 (session 53 — pitch booking COMPLETE: Stage 6 venue UI + hardening pass + Stage 7 renewal/superseded all shipped; no active bugs.)*
 
 ---
 
@@ -27,9 +27,14 @@ latent bugs (`202d16a`), none yet user-reported:
 Also added: venue cancel-from-grid (tap booking block → detail modal) and casual
 cancel hardening (confirm + error surface + double-fire guard).
 
+**Stage 7 (session 53, migs 151–152):** renewal right-of-first-refusal holds
+(`create_renewal_holds`/`confirm_renewal`/`expire_renewal_holds`, 09:00-UK cron) +
+push to admins for renewal-held/expired + fixture-superseded (`superseded_at` poll).
+ephemeral-verify 7/7 + trigger verify + rpc-security-sweep all green. **Booking complete.**
+
 **Known follow-ups (not bugs):** push-on-confirm deferred; transactional email is
-Phase 9; off-system-venue outbound notify needs a sender; Stage 7 (block
-renewal-hold + displacement push) still to build.
+Phase 9; off-system-venue outbound notify needs a sender. **Operator owes** the
+real-squad + real-device pass incl. the three booking pushes (GO_LIVE §6 + §11).
 
 ---
 

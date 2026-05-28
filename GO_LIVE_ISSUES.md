@@ -885,6 +885,30 @@ venue search must no longer return that venue. Turn ON → it reappears. The off
 must show the venue dashboard's read-only banner with the enable toggle, not a blank
 screen.
 
+### 11.6 Renewal right-of-first-refusal (Stage 7, cron at 09:00 UK)
+**What:** a weekly block within 21 days of its last week auto-holds the next block for the
+team (`create_renewal_holds`); the team taps "Keep slot" (`confirm_renewal` → holds become
+`requested`, venue re-approves via the inbox); unconfirmed holds auto-release after a 7-day
+grace (`expire_renewal_holds`). Both run inside `renewalHoldsJob` in `api/cron.js`, gated to
+the 09:00 UK window via `nowInUkParts()` (DST-safe; same class as §6.7).
+**Pre-flight check:** seed a confirmed block whose `ends_on` is ≤21 days away. After the next
+09:00-UK cron tick: (a) the team's ScheduleScreen shows a "Renewal held · keep by <date>" row
+with a **Keep slot** button, and a push arrives on the admin's device; (b) `SELECT status FROM
+booking_series` shows the origin `ending` + a child renewal `active` with `hold` bookings +
+active priority-2 occupancy. Tap **Keep slot** → the row flips to **Requested** and the venue
+inbox shows the pending series to confirm. Separately, let a hold pass its `hold_expires_at`
+→ next 09:00 tick must flip it to `expired`, free the occupancy, and push "renewal lapsed".
+If the cron didn't fire, check `cron.job` (§6.2) and that the 09:00 gate matched UK time.
+
+### 11.7 Superseded displacement push (Stage 7, every cron tick)
+**What:** when a league fixture bumps an un-confirmed booking, `tg_sync_fixture_occupancy`
+stamps `pitch_bookings.superseded_at`; `supersededPushJob` (every 15-min tick) pushes the
+displaced team's admins. Dedup via `notification_log (team,'booking_superseded',gameDate)`.
+**Pre-flight check:** schedule a fixture onto a pitch+time that overlaps a `requested` casual
+booking. Within the next tick, the displaced team's admin gets a "Booking bumped" push, and
+`notification_log` has exactly one `booking_superseded` row for that team+date (no duplicate
+on the following tick). The booking shows `superseded` in the team's list (live, in-app).
+
 ---
 
 ## SCOPE OUT

@@ -600,9 +600,24 @@ Pre-Stage-7 audit against GO_LIVE_ISSUES.md classes (all roles). Fixed:
 Audit confirmed clean: grants, both notify whitelists (all 5 reasons), PII scoping, schema cache.
 Pre-flight checks added to **GO_LIVE_ISSUES.md §11**.
 
-### Remaining
-- **Stage 7 — Priority extras** ([B]+[V]): block renewal-hold job (series `ending` → hold +
-  notify → extend/expire); `superseded` displacement push to the displaced team.
+### Stage 7 ✅ done (session 53, migs 151–152, commits `b398b05`·`9dd953e`·`ca4a174`·`aca0cd4`)
+- **Schema (mig 151):** `pitch_bookings` +`hold` status +`superseded_at`; `booking_series`
+  +`renewal_of_series_id` +`hold_expires_at`; trigger stamps `superseded_at`; +2 whitelist reasons.
+- **RPCs (mig 152):** `create_renewal_holds` (cron, mirror-length hold, origin→ending),
+  `confirm_renewal` (casual; **hold→requested**, venue re-approves via existing inbox),
+  `expire_renewal_holds` (cron, 7-day grace), `get_team_admin_player_ids` (push targeting).
+  `get_team_bookings` extended (series_status/ends_on/is_renewal_hold/hold_expires_at).
+- **Cron (cron.js):** `renewalHoldsJob` (09:00 UK) creates+expires holds and pushes admins;
+  `supersededPushJob` (every tick) pushes the displaced team. No new pg_cron entry.
+- **Casual UI:** ScheduleScreen renewal "Keep slot" + expired states.
+- **Decisions:** venue re-approves renewals; mirror original length (no cap); 7-day grace
+  (clamped); auto-expire only; push on. Lead time 21 days.
+- Gates: ephemeral-verify (trigger + 7/7 RPC scenarios) + rpc-security-sweep green.
+- Pre-flight checks → GO_LIVE_ISSUES.md §11.6–11.7.
+
+**Booking initiative complete.** Remaining (deferred): push-on-confirm; transactional email
+(Phase 9); off-system-venue outbound notify. Operator owes the real-squad/real-device pass
+(incl. the three booking pushes). Next free migration = 153.
 - **Deferred:** push-on-confirm (api/notify.js); transactional email (Phase 9); off-system-venue
   outbound notify (architecture ready — events already emitted; needs a sender + optional
   magic-link confirm page).
