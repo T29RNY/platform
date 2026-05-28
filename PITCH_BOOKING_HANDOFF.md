@@ -240,6 +240,15 @@ Plan updated to match (`~/.claude/plans/how-could-we-implement-streamed-pebble.m
    venue-owned *confirmed-clash* gate on the fixture-write path.) Confirm.
 3. **`get_bookings` read for BookingsPanel** reads booking tables but renders in
    `apps/venue` — proposing **booking owns** the read RPC, consumed by venue UI. Confirm.
+4. **Maintenance enforcement (DB-correctness).** `source_type='maintenance'` is in the
+   occupancy enum, but `maintenance_windows` lives as jsonb on `playing_areas` (venue).
+   The partial EXCLUDE only blocks what's *in* `pitch_occupancy` — so unless maintenance
+   is projected into occupancy, a `book_pitch_*` call could land inside a maintenance
+   window (the free-slot *display* hides it, but the *write* guard wouldn't). Two ways:
+   **(i)** venue-owned trigger projects `maintenance_windows` → `pitch_occupancy`
+   (uniform EXCLUDE enforcement, preferred), or **(ii)** each booking RPC validates the
+   `maintenance_windows` jsonb server-side (booking-owned). Pick one — affects both
+   sessions. (Recommend (i) for consistency with the fixture trigger.)
 
 Otherwise fully aligned — ready to start Cycle 1 (booking ships `pitch_occupancy`
 first, coordinated with the venue trigger ordering).
