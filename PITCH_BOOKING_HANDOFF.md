@@ -118,12 +118,25 @@ see/cancel individual weeks.
 
 ---
 
-## Answers (fill in from the venue session)
+## Answers — LOCKED (confirmed by the venue session)
 
 | # | Decision | Choice | Notes |
 |---|---|---|---|
-| 1 | Conflict model | _A / B_ | |
-| 2 | Availability primitive | _A / B_ | |
-| 3 | Venue auth migration acknowledged | _yes / no_ | |
-| 4 | Migration numbering convention agreed | _yes / no_ | |
-| 5 | Block-booking = materialised series | _yes / no_ | |
+| 1 | Conflict model | **A — shared `pitch_occupancy` + DB `EXCLUDE`** | Existing fixtures fed in via a **trigger on the fixtures path** (accepted cost). Regression + ephemeral-verify mandatory. |
+| 2 | Availability primitive | **A — occupancy + maintenance only** | No opening-hours table in v1. `pitch_availability` dropped. |
+| 3 | Venue auth | **Descoped from booking** | Booking ownership rides the casual login (`auth.uid()` → `team_admins`); venue treated as data. Real venue logins (user/pass or email+OTP, desktop+mobile) are wanted but are **separate venue-module work**. |
+| 4 | Migration numbering | **Next free = 133** | 128–132 taken; not zero-padded; take-at-commit. |
+| 5 | Block-booking | **Series parent + concrete weekly rows** | Mirrors `venue_generate_fixtures`. |
+
+## Locked data contract (both sessions build to this)
+- Tables: **`pitch_occupancy`** (the single source of truth; GiST `EXCLUDE` on
+  `playing_area_id` + `time_range` overlap), **`pitch_bookings`**, **`booking_series`**.
+  No `pitch_availability`.
+- **Fixture-mirror trigger** on `fixtures` projects every pitched fixture into
+  `pitch_occupancy`. Fixtures **store start-only**; end-time computed from
+  `league_config.match_duration_mins`. Use half-open `[)` ranges.
+- Booking auth: casual `auth.uid()` → `team_admins`; never trust a client-passed id.
+- Every booking write follows the `venue_assign_pitch` pattern (SECURITY DEFINER,
+  `audit_events` Phase-2 shape, `notify_venue_change` with an explicitly-whitelisted
+  reason + matching subscriber, returns jsonb). Forward consumers in RPCS.md Notes.
+- Gates: `casual-regression.md`, `ephemeral-verify.md`, `rpc-security-sweep.md`.
