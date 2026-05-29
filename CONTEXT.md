@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 55 — closed the global-status dual-context must-fix: a league team is always a separate squad, mig 158. Next: Cycle 5.6 teamsheet.)*
+*Last updated: May 29 2026 (session 55 — squad separation (mig 158) + Cycle 5.6 teamsheet shipped in 3 staged commits, migs 159–160. Next: Cycle 5.7 eligibility.)*
 
 ## SESSION 55 — league/casual squad separation (May 29 2026)
 
@@ -31,7 +31,19 @@ dual-context must-fix flagged at the end of session 54.
   `/join/<code>`, reusing the existing join flow (no new RPC; single-file MySquads.jsx
   edit). Hygiene + build + Playwright interaction proof clean. Real-iPhone test
   (hard-rule #13) operator-owed on live.
-- **Parked:** Cycle 5.6 teamsheet submission (next — being scoped now).
+- **Cycle 5.6 teamsheet shipped (staged):** manager submits a line-up (starting XI +
+  bench) for the next league fixture; ref pre-match shows it instead of the full squad.
+  Stage A mig 159 (`eab2d4c`): `fixture_lineups` + `team_admin_submit_lineup` (submitting
+  auto-registers picked players) + `get_team_next_fixture_lineup`. Stage B mig 160
+  (`68d9480`): `get_fixture_state_by_ref_token` made lineup-aware + backward compatible
+  (additive `lineup_role`; helper `_fixture_squad_json`) + apps/ref PreMatch split. Stage C
+  (`743bc9b`): AdminView Teamsheet card + `TeamsheetScreen`. Selection mechanic: pick from
+  the IN list (5.5 board), dedicated screen (no casual A/B split). Each stage
+  rpc-security-swept + ephemeral-verified (Stage B load-bearing backward-compat); live
+  end-to-end on Competitive FC; casual regression clean. Real-iPhone test (hard-rule #13)
+  operator-owed.
+- **Next:** Cycle 5.7 — eligibility (hard suspension blocks, double-registration
+  resolution, min/max squad size).
 
 ## SESSION 54 — booking push-on-confirm + League Mode Phase 5 starts (May 28 2026)
 

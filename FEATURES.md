@@ -1,5 +1,41 @@
 # In or Out — Feature Tracker
-*Last updated: May 29 2026 (session 55 — league/casual squad separation (mig 158) + "Join another team" in MY SQUADS)*
+*Last updated: May 29 2026 (session 55 — League Mode Cycle 5.6 teamsheet shipped (migs 159–160) + squad separation (mig 158) + "Join another team")*
+
+---
+
+## LEAGUE MODE — PHASE 5 CYCLE 5.6 SHIPPED (session 55, 2026-05-29)
+
+Team-admin teamsheet: the manager submits a confirmed line-up (starting XI + bench) for
+the next league fixture, and the ref pre-match screen shows that line-up instead of the
+full registered squad. Built in **three independently-verified, independently-committed
+stages** (the highest-risk cycle: new table + RPCs + a change to the live ref RPC).
+
+- **Selection mechanic** (locked with operator): players tap IN on the 5.5 board; the
+  manager opens a **dedicated Teamsheet screen** (NOT casual Make Teams — no A/B split in
+  league) whose pool is the IN players, and assigns each to Starting/Bench. Maybe/no-
+  response shown lower so one can be pulled in. **Pick-from-squad; submit registers** —
+  submitting auto-upserts `player_registrations(active)` for picked players, so the ref
+  view + fixture detail finally show real players for real teams.
+- **Stage A — server foundation (mig 159, `eab2d4c`)**: `fixture_lineups` table
+  (UNIQUE fixture_id+team_id, RLS no-policy); `team_admin_submit_lineup` (validates squad
+  membership, auto-registers, soft squad size, non-blocking suspended/other-team warnings,
+  audits); `get_team_next_fixture_lineup` (read). Nothing live read it yet → zero impact.
+- **Stage B — ref RPC lineup-aware (mig 160, `68d9480`)**: recreated
+  `get_fixture_state_by_ref_token` to return starting+bench (tagged `lineup_role`, lineup
+  shirt overriding `players.shirt_number`) when a lineup exists, else the full
+  `player_registrations` squad **exactly as before** + `lineup_role:null` (additive,
+  hard-rule #12). Squad logic in an internal helper `_fixture_squad_json` (granted to
+  nobody) so home/away can't diverge. apps/ref PreMatch shows a Starting/Bench split.
+- **Stage C — admin Teamsheet UI (`743bc9b`)**: `TeamsheetScreen.jsx` + a gated
+  "Teamsheet" card in AdminView (competitive teams only). `submitTeamLineup` /
+  `getTeamNextFixtureLineup` wrappers.
+- **Verified**: each stage rpc-security-swept + ephemeral-verified (Stage B's LOAD-BEARING
+  backward-compat: no-lineup → full squad unchanged). Live end-to-end on the testbed
+  (Competitive FC): UI submit → ref RPC returns Tarny(starting)/Marcus(bench), then
+  reverted to full 8-player squad after cleanup. Casual regression: casual admin shows NO
+  Teamsheet card; casual flow byte-identical. Real-iPhone test (hard-rule #13) operator-owed.
+- **Deferred to 5.7**: hard suspension blocks, double-registration resolution, min/max
+  squad size. Player `FixtureDetailCard` unchanged (picked players appear once registered).
 
 ---
 

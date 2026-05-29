@@ -6,6 +6,27 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Teamsheet: pick from the squad, and submitting registers the players (session 55, Cycle 5.6)
+
+**Decision:** the manager builds a league line-up on a **dedicated Teamsheet screen** —
+NOT the casual Make Teams screen (league fields one team v an external opponent, so the
+casual A/B split never applies). The pick-list is the players who marked **IN** on the
+casual board (5.5), with maybe/no-response shown lower so one can still be pulled in;
+each is assigned Starting or Bench. **Submitting the teamsheet auto-registers the picked
+players into the competition** (`player_registrations` status active) — there is no
+separate "register players" step.
+
+**Rationale:** nothing else populated `player_registrations` for real teams, yet the ref
+view and fixture detail read each squad from it — so a real team would have shown the ref
+an empty squad. Making submission the registration moment closes that gap with zero extra
+admin friction, and mirrors the existing auto-register-on-event precedent (mig 120). The
+ref RPC change is **backward compatible** (full squad until a lineup exists) — the
+load-bearing constraint for the highest-risk cycle. Squad-size limits, hard suspension
+blocks, and double-registration resolution are deferred to Cycle 5.7 (5.6 only *warns*).
+Shipped in three staged commits (migs 159–160). See FEATURES.md + RPCS.md.
+
+---
+
 ## A league team is ALWAYS a separate squad; casual teams are never promoted in place (session 55, mig 158)
 
 **Decision:** casual and competitive are *distinct squads*. A casual group that wants
