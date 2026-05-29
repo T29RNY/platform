@@ -1,12 +1,18 @@
-import { useState } from "react";
-import { CaretLeft, Check, Warning } from "@phosphor-icons/react";
-import { submitTeamLineup } from "@platform/core";
+import { useState, useEffect } from "react";
+import { CaretLeft, Check, Warning, Prohibit } from "@phosphor-icons/react";
+import { submitTeamLineup, checkTeamLineupEligibility } from "@platform/core";
 
 // League Mode Cycle 5.6 — the manager builds the line-up for the next fixture from the
 // players who marked themselves IN (the 5.5 board). Players not marked in are shown lower
 // down so one can still be pulled in. Submitting writes the line-up (and registers the
 // picked players into the competition server-side). League teams field one team v an
 // external opponent — there is no casual A/B split here.
+//
+// Cycle 5.7 — eligibility. A read-only check (team_admin_check_eligibility) badges each
+// player and surfaces the league's squad-size bounds; submit is gated client-side and
+// enforced authoritatively server-side. Suspended players block submit until the admin
+// explicitly overrides each one; double-registered players are a hard block the league
+// resolves; squad size must satisfy min starters / max subs.
 
 function fmtDate(d) {
   if (!d) return null;
@@ -15,6 +21,15 @@ function fmtDate(d) {
       weekday: "short", day: "numeric", month: "short",
     });
   } catch { return d; }
+}
+
+function submitErrorMessage(e) {
+  const m = e?.message || e?.details || "";
+  if (m.includes("too_few_starters"))         return "Not enough starters for this league's minimum. Add more to the starting XI.";
+  if (m.includes("too_many_subs"))            return "Too many subs on the bench for this league. Remove some from the bench.";
+  if (m.includes("player_double_registered")) return "A selected player is registered to another team in this competition. Remove them — the league will resolve the clash.";
+  if (m.includes("player_ineligible"))        return "A suspended player is selected. Acknowledge the override on their row to proceed.";
+  return "Couldn't save the team sheet. Tap to try again.";
 }
 
 export default function TeamsheetScreen({ fixture, existingLineup, squad, adminToken, onBack, onSubmitted }) {
@@ -35,15 +50,55 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
   const [error, setError]     = useState(null);
   const [result, setResult]   = useState(null);
 
+  // Cycle 5.7 — eligibility: { byId: {playerId: {suspended, double_registered, in_squad, …}},
+  // min_starting, max_subs } and the admin's per-player override acknowledgements.
+  const [elig, setElig]           = useState(null);
+  const [overrides, setOverrides] = useState({});
+
   const eligible = squad.filter(p => !p.disabled && !p.isGuest);
   const inPlayers = eligible.filter(p => p.status === "in");
   const others    = eligible.filter(p => p.status !== "in");
 
+  // Per-player eligibility is a property of (player, fixture) — independent of who's
+  // currently assigned — so one check over the whole candidate pool covers everything.
+  useEffect(() => {
+    if (!adminToken || !fixture?.id) return;
+    let cancelled = false;
+    const ids = eligible.map(p => p.id);
+    checkTeamLineupEligibility(adminToken, fixture.id, ids)
+      .then(data => {
+        if (cancelled || !data) return;
+        const byId = {};
+        (data.players || []).forEach(p => { byId[p.player_id] = p; });
+        setElig({ byId, min_starting: data.min_starting, max_subs: data.max_subs });
+      })
+      .catch(e => console.error("[teamsheet] eligibility check failed", e));
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminToken, fixture?.id, squad]);
+
   const startingIds = Object.keys(assign).filter(id => assign[id] === "start");
   const benchIds    = Object.keys(assign).filter(id => assign[id] === "bench");
+  const assignedIds = [...startingIds, ...benchIds];
+
+  const flagOf = (id) => elig?.byId?.[id] || null;
+  const blockingDouble   = assignedIds.filter(id => flagOf(id)?.double_registered);
+  const assignedSuspended = assignedIds.filter(id => flagOf(id)?.suspended);
+  const unackSuspended    = assignedSuspended.filter(id => !overrides[id]);
+
+  const minStart = elig?.min_starting ?? null;
+  const maxSubs  = elig?.max_subs ?? null;
+  const tooFew  = minStart != null && startingIds.length < minStart;
+  const tooMany = maxSubs  != null && benchIds.length    > maxSubs;
+
+  const canSubmit = startingIds.length > 0 && !saving
+    && blockingDouble.length === 0 && unackSuspended.length === 0
+    && !tooFew && !tooMany;
 
   const setRole = (id, role) =>
     setAssign(prev => ({ ...prev, [id]: prev[id] === role ? undefined : role }));
+  const toggleOverride = (id) =>
+    setOverrides(prev => ({ ...prev, [id]: !prev[id] }));
 
   const opponent = fixture?.opponent_name || "TBC";
   const oppLabel = `${fixture?.is_home ? "vs" : "@"} ${opponent}`;
@@ -51,7 +106,7 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
                      fixture?.playing_area].filter(Boolean).join(" · ");
 
   const submit = async () => {
-    if (!startingIds.length || saving) return;
+    if (!canSubmit) return;
     setSaving(true); setError(null); setResult(null);
     const shirtNums = {};
     [...startingIds, ...benchIds].forEach(id => {
@@ -61,12 +116,12 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
     try {
       const data = await submitTeamLineup(adminToken, fixture.id, {
         starting: startingIds, bench: benchIds, shirt_numbers: shirtNums,
-      });
+      }, assignedSuspended.filter(id => overrides[id]));
       setResult(data);
       onSubmitted?.();
     } catch (e) {
       console.error("[teamsheet] submit failed", e);
-      setError("Couldn't save the team sheet. Tap to try again.");
+      setError(submitErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -80,16 +135,42 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
     background: active ? color : "transparent",
     color: active ? "var(--bg)" : "var(--t2)",
   });
+  const pill = (color, bg) => ({
+    fontFamily: "'DM Sans', sans-serif", fontSize: 10, fontWeight: 500,
+    padding: "2px 7px", borderRadius: 6, color, background: bg, whiteSpace: "nowrap",
+    display: "inline-flex", alignItems: "center", gap: 3, cursor: "default",
+  });
 
   const Row = (p) => {
     const role = assign[p.id];
+    const f = flagOf(p.id);
+    const isAssigned = role === "start" || role === "bench";
+    const double = f?.double_registered;
+    const susp   = f?.suspended;
     return (
       <div key={p.id} style={{
         display: "flex", alignItems: "center", gap: 8, padding: "10px 14px",
         borderBottom: "0.5px solid rgba(255,255,255,0.06)",
       }}>
-        <span style={{ flex: 1, minWidth: 0, fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "var(--t1)" }}>
+        <span style={{ flex: 1, minWidth: 0, fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "var(--t1)",
+          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {p.nickname || p.name}
+          {double && (
+            <span style={pill("var(--red)", "var(--red2)")}>
+              <Prohibit weight="thin" size={12} color="var(--red)" /> AT ANOTHER TEAM
+            </span>
+          )}
+          {susp && !double && (
+            isAssigned && overrides[p.id]
+              ? <span onClick={() => toggleOverride(p.id)} style={{ ...pill("var(--amber)", "var(--amber2)"), cursor: "pointer" }}>
+                  <Check weight="thin" size={12} color="var(--amber)" /> OVERRIDDEN
+                </span>
+              : <span onClick={() => isAssigned && toggleOverride(p.id)}
+                  style={{ ...pill("var(--amber)", "var(--amber2)"), cursor: isAssigned ? "pointer" : "default" }}>
+                  <Warning weight="thin" size={12} color="var(--amber)" />
+                  {isAssigned ? "SUSPENDED — TAP TO OVERRIDE" : "SUSPENDED"}
+                </span>
+          )}
         </span>
         {role && (
           <input
@@ -109,6 +190,10 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
       </div>
     );
   };
+
+  // Squad-size hint text, e.g. "STARTING 5 (need ≥5)" / "BENCH 2 (max 3)"
+  const startHint = minStart != null ? ` (need ≥${minStart})` : "";
+  const benchHint = maxSubs  != null ? ` (max ${maxSubs})`     : "";
 
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingBottom: 120 }}>
@@ -133,8 +218,8 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
 
       {/* Count bar */}
       <div style={{ display: "flex", gap: 16, padding: "0 16px 12px", ...label }}>
-        <span>STARTING {startingIds.length}</span>
-        <span>BENCH {benchIds.length}</span>
+        <span style={{ color: tooFew ? "var(--red)" : "var(--t2)" }}>STARTING {startingIds.length}{startHint}</span>
+        <span style={{ color: tooMany ? "var(--red)" : "var(--t2)" }}>BENCH {benchIds.length}{benchHint}</span>
       </div>
 
       {/* IN players */}
@@ -161,13 +246,17 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
         </div>
       )}
 
-      {/* Warnings */}
-      {result?.warnings?.length > 0 && (
-        <div style={{ margin: "16px", padding: "12px 14px", background: "var(--amber2)",
-          border: "0.5px solid var(--amberb)", borderRadius: 10, display: "flex", gap: 8 }}>
-          <Warning weight="thin" size={18} color="var(--amber)" />
+      {/* Blocking explainer (double-reg / size) */}
+      {(blockingDouble.length > 0 || tooFew || tooMany) && (
+        <div style={{ margin: "16px", padding: "12px 14px", background: "var(--red2)",
+          border: "0.5px solid var(--redb)", borderRadius: 10, display: "flex", gap: 8 }}>
+          <Prohibit weight="thin" size={18} color="var(--red)" />
           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "var(--t1)" }}>
-            {result.warnings.length} player{result.warnings.length === 1 ? "" : "s"} flagged (suspended or registered to another team). Submitted anyway — review before kickoff.
+            {blockingDouble.length > 0
+              ? "A selected player is registered to another team in this competition — the league must resolve it before they can play."
+              : tooFew
+                ? `You need at least ${minStart} starters for this league.`
+                : `This league allows at most ${maxSubs} on the bench.`}
           </span>
         </div>
       )}
@@ -189,13 +278,13 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
         )}
         <button
           onClick={submit}
-          disabled={saving || startingIds.length === 0}
+          disabled={!canSubmit}
           style={{
             width: "100%", padding: "15px 0", borderRadius: 12, border: "none",
             fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.05em",
-            cursor: saving || startingIds.length === 0 ? "not-allowed" : "pointer",
-            background: startingIds.length === 0 ? "var(--s3)" : "var(--purple)",
-            color: startingIds.length === 0 ? "var(--t2)" : "var(--bg)",
+            cursor: !canSubmit ? "not-allowed" : "pointer",
+            background: !canSubmit ? "var(--s3)" : "var(--purple)",
+            color: !canSubmit ? "var(--t2)" : "var(--bg)",
           }}
         >
           {saving ? "SAVING…" : existingLineup ? "UPDATE TEAM SHEET" : "SUBMIT TEAM SHEET"}
