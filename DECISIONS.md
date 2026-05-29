@@ -6,6 +6,21 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Prime-time is venue-configurable, not a hardcoded band (session 61, HQ-I Phase 1 Cycle 1)
+
+HQ utilisation splits prime-time vs off-peak per venue. There is no notion of "peak hours" in the
+schema, so a choice was forced: ship overall-only first, hardcode a band (e.g. weekday 18:00–22:00),
+or let venues define their own. **Decision: venue-configurable** — new
+`playing_areas.prime_time_windows jsonb` (`[{day_of_week 0-6, start_time, end_time}]`, mirrors the
+`booking_windows` pattern), edited per-pitch in the apps/venue Booking-settings modal. Empty `[]` =
+"no peak defined" → the pitch counts as off-peak all day, and HQ says *not configured* rather than
+guessing. Chosen because a hardcoded band is wrong for many venues (5-a-side leagues peak at
+different times than weekend academies) and an "intelligence" product must not present a guessed band
+as fact. Cost: one schema column + a small editor before any prime-time metric appears (HQ-I Cycle 2
+consumes it). See [[project_hq_intelligence]] and FEATURES.md HQ-I roadmap.
+
+---
+
 ## Venue payments = one unified cash/online ledger; online is staged link→Connect (session 60, scoped)
 
 Venue-side money (owed to the venue for pitch hire + league/cup fixtures) — full plan in

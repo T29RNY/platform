@@ -9,12 +9,18 @@ function blankWindow() {
   return { day_of_week: 1, open_time: "18:00", close_time: "22:00", slot_lengths: [60] };
 }
 
+function blankPrimeWindow() {
+  return { day_of_week: 1, start_time: "18:00", end_time: "22:00" };
+}
+
 export default function BookingSettings({ open, onClose, venueToken, venue, pitches, onSaved }) {
   const [enabled, setEnabled] = useState(false);
   const [policy, setPolicy] = useState("");
   const [windows, setWindows] = useState({});     // pitchId -> [window]
+  const [prime, setPrime] = useState({});         // pitchId -> [prime window]
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingPitch, setSavingPitch] = useState(null);
+  const [savingPrime, setSavingPrime] = useState(null);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
 
@@ -23,8 +29,13 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
     setEnabled(!!venue.bookings_enabled);
     setPolicy(venue.cancellation_policy || "");
     const w = {};
-    for (const p of pitches) w[p.id] = JSON.parse(JSON.stringify(p.booking_windows ?? []));
+    const pw = {};
+    for (const p of pitches) {
+      w[p.id] = JSON.parse(JSON.stringify(p.booking_windows ?? []));
+      pw[p.id] = JSON.parse(JSON.stringify(p.prime_time_windows ?? []));
+    }
     setWindows(w);
+    setPrime(pw);
     setError(null);
     setSaved(false);
   }, [open, venue, pitches]);
@@ -57,6 +68,23 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
         : "Couldn't save pitch hours — try again.");
     } finally {
       setSavingPitch(null);
+    }
+  };
+
+  const setPitchPrime = (pitchId, next) => setPrime((p) => ({ ...p, [pitchId]: next }));
+
+  const savePrime = async (pitchId) => {
+    setSavingPrime(pitchId);
+    setError(null);
+    try {
+      await venueUpdatePitch(venueToken, pitchId, { prime_time_windows: prime[pitchId] ?? [] });
+      onSaved?.();
+    } catch (e) {
+      setError(e?.message?.startsWith("prime_time_window")
+        ? "Check the peak hours: start must be before end."
+        : "Couldn't save peak hours — try again.");
+    } finally {
+      setSavingPrime(null);
     }
   };
 
@@ -138,6 +166,45 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
             <div className="bk-set-save">
               <button disabled={savingPitch === p.id} onClick={() => savePitch(p.id)}>
                 {savingPitch === p.id ? "Saving…" : "Save " + p.name}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="bk-set-divider" />
+
+      <h3 className="bk-set-h3">Prime-time hours</h3>
+      <p className="bk-modal-note">Per pitch, mark the peak weekday hours. HQ uses these to split prime-time vs off-peak utilisation. Leave empty if a pitch has no defined peak.</p>
+
+      {pitches.map((p) => {
+        const rows = prime[p.id] ?? [];
+        return (
+          <div className="bk-set-pitch" key={p.id}>
+            <div className="bk-set-pitch-head">
+              <span className="bk-set-pitch-name">{p.name}</span>
+              <button className="btn-link" onClick={() => setPitchPrime(p.id, [...rows, blankPrimeWindow()])}>+ Add peak window</button>
+            </div>
+            {rows.length === 0 && <p className="muted bk-set-empty">No peak hours set — this pitch counts as off-peak all day.</p>}
+            {rows.map((w, i) => (
+              <div className="bk-win" key={i}>
+                <select value={w.day_of_week} onChange={(e) => {
+                  const next = rows.slice(); next[i] = { ...w, day_of_week: Number(e.target.value) }; setPitchPrime(p.id, next);
+                }}>
+                  {DAYS.map((d, di) => <option key={di} value={di}>{d}</option>)}
+                </select>
+                <input type="time" value={w.start_time} onChange={(e) => {
+                  const next = rows.slice(); next[i] = { ...w, start_time: e.target.value }; setPitchPrime(p.id, next);
+                }} />
+                <input type="time" value={w.end_time} onChange={(e) => {
+                  const next = rows.slice(); next[i] = { ...w, end_time: e.target.value }; setPitchPrime(p.id, next);
+                }} />
+                <button className="btn-bad bk-win-x" onClick={() => setPitchPrime(p.id, rows.filter((_, j) => j !== i))} aria-label="Remove peak window">×</button>
+              </div>
+            ))}
+            <div className="bk-set-save">
+              <button disabled={savingPrime === p.id} onClick={() => savePrime(p.id)}>
+                {savingPrime === p.id ? "Saving…" : "Save " + p.name}
               </button>
             </div>
           </div>

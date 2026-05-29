@@ -85,6 +85,25 @@ cluster analysis, individual player intelligence, full financial forecasting, ad
 *Shape: 0 built → 1 (now) → 2 → 3 → 4 → 5 (someday). Phases 2–5 are a direction, not a commitment —
 scope locks phase-by-phase. Revenue is 1 of 6 dimensions, not the spine.*
 
+### HQ-I PHASE 1 CYCLE 1 SHIPPED — prime-time windows (session 61, 2026-05-30)
+
+The peak-hours foundation for utilisation. Venues now mark per-pitch prime-time bands so HQ
+(Cycle 2) can split prime vs off-peak.
+
+- **mig 176** — `playing_areas.prime_time_windows jsonb DEFAULT '[]'` (additive, metadata-only add);
+  `venue_update_pitch` gains a `prime_time_windows` validate+write block (`[{day_of_week 0-6,
+  start_time, end_time}]`, no slot_lengths — it's a band); `venue_get_state` exposes the new key in
+  the pitches projection. Both functions rebuilt on their **LIVE bodies** (135 / 168) — all existing
+  keys preserved (display_token/display_config/bookings_enabled/cancellation_policy verified intact).
+- **apps/venue** — BookingSettings modal gains a "Prime-time hours" section per pitch (day + start +
+  end rows), saved via the existing `venueUpdatePitch` (no new wrapper, no barrel change).
+- **Verified:** rpc-security-sweep (both SECDEF/search_path/1-overload/anon+authenticated, no PUBLIC) ·
+  ephemeral-verify rolled back (valid persist · booking_windows untouched · inverted+bad-day rejected ·
+  zero leak) · post-apply regression read (all mig-168 fields intact + new key) · hygiene 7/7 ·
+  apps/venue build clean. Decision: prime-time venue-configurable (DECISIONS session 61).
+- **Operator owes:** real venue-dashboard test — open Booking settings, add a peak window, save,
+  reload, confirm it persists (hard-rule #13; apps/venue is not in PWA scope but UI-save is untested).
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)
