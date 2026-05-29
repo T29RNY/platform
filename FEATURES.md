@@ -1,14 +1,47 @@
 # In or Out — Feature Tracker
-*Last updated: May 29 2026 (session 56 — League Mode Cycle 5.7 eligibility shipped (migs 161–162); PHASE 5 COMPLETE)*
+*Last updated: May 29 2026 (session 56 — Phase 9 Cycle 9.1: transactional email (Resend) + onboarding emails, mig 163)*
 
 ---
 
 ## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55, updated 56)
 
-**PHASE 5 COMPLETE (Cycle 5.7).** **Next**, per `LEAGUE_MODE_SCOPE.md`
-(not strictly in number order — Phase 5 was built before Phase 4):
-Phase 4 reception display · Phase 6 HQ dashboard · Phase 7 AI layer · Phase 9
-notifications · Phase 10 public pages · Phase 11 cups. Phase 8 billing is deferred to year 2.
+**Phase 5 COMPLETE.** **Phase 9 STARTED** (Cycle 9.1 — email transport + onboarding/ops loop).
+Remaining, per `LEAGUE_MODE_SCOPE.md` (not strictly in number order):
+**Phase 9 next cycles** (SMS/WhatsApp via Twilio · fixture-reminder/availability crons · HQ weekly digest) ·
+**Phase 7 AI layer** (next major — operator's stated priority after 9) · Phase 4 reception display ·
+Phase 6 HQ dashboard · Phase 10 public pages · Phase 11 cups. Phase 8 billing deferred to year 2.
+
+---
+
+## LEAGUE MODE — PHASE 9 CYCLE 9.1 SHIPPED (session 56, 2026-05-29)
+
+Transactional **email** (Resend) — the sender several features were blocked on (booking
+confirms to off-system venues, registration outcomes, ref assignments). Email-only this
+cycle; the web-push chain is untouched. SMS/WhatsApp (Twilio) is a later 9.x cycle.
+
+- **Decisions (operator):** channel = **email + existing push** (push→email fallback model;
+  SMS/WhatsApp deferred); provider = **Resend** (new dedicated account, root `in-or-out.com`
+  verified, DNS at GoDaddy); first wave = **onboarding/ops loop**.
+- **What ships (mig 163 + `6d73345`):**
+  - `notification_log` gains `channel`/`entity_id`/`recipient` (additive) + a partial
+    email-dedup index.
+  - `api/_mailer.js` — Resend transport + a `TEMPLATES` registry (the reusable core a later
+    SMS/WhatsApp router shares). No-ops safely until `RESEND_API_KEY` is set.
+  - `onboardingEmailJob` in the existing 15-min cron dispatcher: polls `audit_events` and
+    emails the right persona — **team_registration_submitted → venue admin**,
+    **team_approved / team_rejected → team admin**, **fixture_ref_assigned → referee**.
+    Recipients resolved server-side (auth.users via team/venue_admins; `match_officials.email`
+    for refs) — no player-preference plumbing needed. Deduped via `notification_log`.
+- **No new RPC, no UI, no `apps/inorout/src` change** (casual flow byte-identical).
+- **Verified:** schema-sync clean · module load/template smoke (resend resolves + constructs;
+  no-key path returns `skipped`) · resolver SQL proven on the testbed (`team_dc_fc` →
+  tarnysingh@gmail.com; demo venue has an official w/ email) · dedup DO-block PASS + leak 0 ·
+  build clean.
+- **Operator-owed:** set `RESEND_API_KEY` + `EMAIL_FROM` (+ optional `REF_APP_URL` /
+  `VENUE_APP_URL`) in the inorout Vercel project → redeploy → live test send. `team_registration_pending`
+  needs a **real** venue (the demo venue has no linked `venue_admins` row, so it has no email recipient).
+- **Deferred to later 9.x:** SMS/WhatsApp; player notification-preference UI + contact setters;
+  fixture-reminder/availability crons; HQ weekly digest; the AI `pre_match_briefing` (overlaps Phase 7).
 
 **Carried into Phase 4/6 from 5.7:** the double-registration *resolution* surface. 5.7
 hard-blocks a double-reg at submit and writes a `lineup_double_registration_blocked`

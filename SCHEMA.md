@@ -201,16 +201,21 @@ UNIQUE on player_id
 
 ### notification_log
 ```
-id text PK,
+id uuid PK DEFAULT gen_random_uuid(),
 team_id text,
 player_id text,
-type text,
-game_date text,
-sent_at timestamptz,
+type text,                          -- push cronType OR (mig 163) the audit action for email
+game_date date,
+sent_at timestamptz DEFAULT now(),  -- NULL = queued (quiet hours); set when sent
 queued_for timestamptz,
 queued_payload jsonb,
-created_at timestamptz DEFAULT now()
+channel text,                       -- mig 163: 'email' for Resend sends; NULL on legacy push rows
+entity_id text,                     -- mig 163: audit entity the email is about (competition_team_id / fixture_id)
+recipient text                      -- mig 163: email address the message went to
 ```
+Email dedup (Phase 9 Cycle 9.1) = `(type, entity_id, recipient) WHERE channel='email' AND sent_at IS NOT NULL`
+(partial index `notification_log_email_dedup_idx`). Push path keys on `(team_id, type, game_date)` and is
+unaffected (its rows have `channel IS NULL`).
 
 ### player_match
 ```

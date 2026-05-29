@@ -36,6 +36,36 @@ this file.
 
 ---
 
+## 0. EMAIL / TRANSACTIONAL (Resend) — Phase 9 Cycle 9.1
+
+**Issue class:** transactional email silently doesn't send. Phase 9.1 added a Resend-backed
+sender (`apps/inorout/api/_mailer.js`) driven by `onboardingEmailJob` in `api/cron.js`. The
+code **no-ops by design** when `RESEND_API_KEY` is unset — so a missing/incorrect env var or
+unverified domain means zero emails with no error surfaced to the user.
+
+**Required env vars (inorout Vercel project, Production + Preview):**
+- `RESEND_API_KEY` — sending-scoped key from the In or Out Resend account.
+- `EMAIL_FROM` — e.g. `In or Out <notifications@in-or-out.com>` (must be on the **verified** domain).
+- `REF_APP_URL` / `VENUE_APP_URL` *(optional)* — base URLs so ref/venue links appear in emails;
+  omitted gracefully if unset.
+
+**Pre-flight checks (before relying on any email):**
+1. Resend dashboard → `in-or-out.com` shows **Verified** (SPF + DKIM green). DNS is at **GoDaddy**
+   (`domaincontrol.com` nameservers) — records added under Manage DNS for in-or-out.com.
+2. Env vars set in Vercel **and a redeploy has happened** (serverless functions read env at deploy).
+3. Live send: approve a real (non-demo) team registration → the team admin receives the
+   "You're in" email within ~15 min (cron cadence); confirm a `notification_log` row with
+   `channel='email'`, `recipient=<that email>`, `sent_at` set.
+4. **Demo caveat:** `team_registration_pending` won't email on the demo venue — `demo_venue`
+   has no `venue_admins` row, so there's no recipient. Use a real venue created via
+   `superadmin_create_venue` to exercise the venue-admin path.
+5. Free-tier limit is **shared across the Resend account** (3k/mo, 100/day). Watch volume if the
+   account hosts other projects.
+
+**Status:** code shipped (mig 163, commit `6d73345`); env/DNS + live test **operator-owed**.
+
+---
+
 ## 1. SIGN-IN / AUTH
 
 ### 1.1 PWA storage partition — JWT never reaches the home-screen app

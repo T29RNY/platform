@@ -1,5 +1,25 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 56 — Cycle 5.7 eligibility shipped (migs 161–162). PHASE 5 COMPLETE.)*
+*Last updated: May 29 2026 (session 56 — Cycle 5.7 (Phase 5 complete) + Phase 9 Cycle 9.1 transactional email started.)*
+
+## SESSION 56 (cont.) — Phase 9 Cycle 9.1: transactional email (Resend) (May 29 2026)
+
+Started Phase 9 (notifications). Added the missing transactional **email** sender and wired
+the onboarding/ops loop. Email-only; web-push untouched. Decisions: email + push (SMS/WhatsApp
+later), **Resend** (new account, root `in-or-out.com` verified, DNS at **GoDaddy** —
+`domaincontrol.com` nameservers), first wave = onboarding/ops.
+
+- **Stage A (mig 163 + `6d73345`):** `notification_log` +channel/entity_id/recipient + dedup
+  index; `api/_mailer.js` (Resend + templates, no-op without key); `onboardingEmailJob` in the
+  15-min cron polling `audit_events` (team_registration_submitted→venue admin,
+  team_approved/rejected→team admin, fixture_ref_assigned→ref). Recipients resolved server-side
+  (auth.users + match_officials.email). Verified: resolver SQL on testbed, dedup DO-block + leak 0,
+  build, module/template smoke. No `apps/inorout/src`/`packages/core` change.
+- **Stage B:** docs (FEATURES/RPCS/SCHEMA/CONTEXT + GO_LIVE_ISSUES prerequisite entry).
+
+**Operator-owed (blocks the send half):** set `RESEND_API_KEY` + `EMAIL_FROM`
+(`In or Out <notifications@in-or-out.com>`) — optional `REF_APP_URL`/`VENUE_APP_URL` for links —
+in the inorout Vercel project, redeploy, then a live test send. Demo venue can't test
+`team_registration_pending` (no `venue_admins` row). **Next:** Phase 7 (AI layer).
 
 ## SESSION 56 — League Mode Cycle 5.7 eligibility — PHASE 5 COMPLETE (May 29 2026)
 
