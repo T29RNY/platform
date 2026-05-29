@@ -1962,6 +1962,26 @@ export async function hqGetActivity(companyId) {
   return data;
 }
 
+export async function hqGeneratePreviewToken(companyId) {
+  const { data, error } = await supabase.rpc("hq_generate_preview_token", { p_company_id: companyId });
+  if (error) {
+    console.error("[hq] generate_preview_token failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// Anon-callable (the token is the secret) — no session required.
+export async function getHqPreviewState(token) {
+  if (!token) return null;
+  const { data, error } = await supabase.rpc("get_hq_preview_state", { p_token: token });
+  if (error) {
+    console.error("[hq] get_hq_preview_state failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 2 superadmin onboarding ─────────────────────────────
 // superadmin_create_venue is the operator-led venue onboarding RPC. Gated by
 // is_platform_admin() server-side. Self-serve signup is deferred to year 2.

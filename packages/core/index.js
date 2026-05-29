@@ -56,6 +56,8 @@ export {
   hqGetAnalytics,
   hqSetDashboardConfig,
   hqGetActivity,
+  hqGeneratePreviewToken,
+  getHqPreviewState,
   venueGetState,
   leagueGetState,
   joinGetLeagueByCode,
