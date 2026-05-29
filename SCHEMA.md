@@ -1,5 +1,5 @@
 # In or Out — Database Schema
-*Last updated: May 29 2026 (session 57 — League Mode Phase 4 reception display: venues.display_token + display_config, migs 164–168)*
+*Last updated: May 29 2026 (session 60 — League Mode Phase 6.1 HQ: venues.region + audit_events.actor_type+=company_admin + demo company seed, migs 169–171)*
 
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
@@ -8,6 +8,17 @@ SECURITY DEFINER RPCs — no direct client writes permitted.
 > existing `fixtures`, `team_players`, `players` (`status`/`phone`/`notification_channel` from
 > mig 056) and `notification_log` tables. New push `type` values
 > (`leagueAvailability48h`/`leagueFixtureReminder2h`) are free-text — no column added.
+>
+> **Session 60 (Phase 6.1 HQ dashboard) — schema changes (migs 169–171):**
+> - `venues.region text NULL` (mig 169) — regional_admin scoping; `hq_*` RPCs filter venues to
+>   `company_admins.region` when role='regional_admin'.
+> - `audit_events.actor_type` CHECK gains `'company_admin'` (mig 171) — was absent (mig-088/092
+>   bug class). NOTE: `audit_events.team_id` is **NOT NULL with no FK to teams** — venue/league/HQ
+>   events store the **venue_id** there (it's a scoping key, not a team reference).
+> - Demo seed (mig 170): `companies` row `company_demo` + `venues.company_id` link + a 2nd venue +
+>   `company_admins` (tarny super_admin) + `incidents`. Reversible via `170_down`.
+> - No new tables — the HQ spine (`companies`, `company_admins`, `company_domains`,
+>   `billing_events`, `hq_preview_tokens`, `incidents`, `venues.company_id`) already existed (mig 055/057).
 
 ---
 

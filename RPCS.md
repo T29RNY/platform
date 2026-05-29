@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 29 2026 (session 57 — League Mode Phase 4 reception display: get_display_state, check_display_pin, venue_update_display_config + venue_get_state display fields, migs 164–168)*
+*Last updated: May 29 2026 (session 60 — League Mode Phase 6 Cycle 6.1 HQ dashboard: resolve_company_caller, company_admin_whoami, hq_get_company_state, hq_get_venue_detail, hq_resolve_incident, mig 171)*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -300,6 +300,26 @@ Migration numbers will be assigned at cycle time.
 
 ---
 
+## LEAGUE MODE — PHASE 6 RPCs (HQ dashboard, mig 171)
+
+HQ is authenticated-only (Google OAuth, **no token** — scope 6A). The caller is resolved
+from `auth.uid()` against `company_admins`; a `platform_admin` (mig 045) is a super_admin
+override over any company. Role scoping: super_admin = all company venues; regional_admin =
+own region only (`venues.region`, mig 169); analyst = read-only.
+
+| RPC (SQL) | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `resolve_company_caller(p_company_id)` | _(internal — used by the hq_* RPCs)_ | authenticated | Mig 171. SECDEF, search_path. `TABLE(company_id, actor_type, role, region)`. auth.uid()→company_admins; platform_admin override → super_admin/no-region. Returns empty (no row) when unauthorized; callers raise `not_authorized`. |
+| `company_admin_whoami()` | `companyAdminWhoami()` | authenticated | Mig 171. The HQ app's gate (mirrors `superadmin_whoami`). `{signed_in,user_id,email,is_platform_admin,companies:[{company_id,name,role,region}]}`. Platform admins with no company_admins row see all active companies. **Consumers:** apps/hq App.jsx. |
+| `hq_get_company_state(p_company_id)` | `hqGetCompanyState(companyId)` | authenticated | Mig 171. SECDEF. `{company, venues:[{health 🟢🟡🔴 + tonight/incident/pitch/ref counts}], summary, caller}`. regional_admin scoped to region. **Consumers:** apps/hq VenueHealthGrid + AlertsActions. `summary` shape also feeds Phase 6.3 analytics Overview + the deferred Phase 9 HQ digest (hard-rule #14). |
+| `hq_get_venue_detail(p_company_id, p_venue_id)` | `hqGetVenueDetail(companyId, venueId)` | authenticated | Mig 171. SECDEF. Single-venue drill-down: leagues, open_incidents, fixtures tonight/this-week/recent, pending_registrations, refs. Validates venue∈company + region. **Consumers:** apps/hq VenueDetail. |
+| `hq_resolve_incident(p_company_id, p_incident_id, p_resolution_note)` | `hqResolveIncident(companyId, incidentId, note)` | authenticated | Mig 171. **WRITE** (ephemeral-verify gated). analyst rejected (`read_only_role`); region enforced. Sets `resolved_at/by/note`; audits `incident_resolved` (actor_type `company_admin`, team_id=venue_id); `notify_venue_change('incident_resolved')`. **Consumers:** apps/hq VenueDetail resolve button. |
+
+Also mig 171: `audit_events.actor_type` CHECK += `'company_admin'`; `notify_venue_change`
+whitelist += `'incident_resolved'`.
+
+---
+
 ## MIGRATION FILE MAP
 
 | Migration | Contents |
@@ -353,6 +373,9 @@ Migration numbers will be assigned at cycle time.
 | 166 | `check_display_pin(p_display_token, p_pin)` — read-only PIN check (PIN stays server-side; client owns lockout). |
 | 167 | `venue_update_display_config(p_venue_token, p_config, p_display_pin)` — operator write for display panel config + PIN. ephemeral-verify PASS. |
 | 168 | `venue_get_state` REPLACE — venue object additively gains `display_token` + `display_config` for the apps/venue settings editor. |
+| 169 | `venues.region text NULL` — regional_admin scoping for the HQ dashboard (Phase 6.1). Additive. |
+| 170 | Demo company seed `company_demo` (Demo Sports Group) — links demo_venue (North) + venue_demo_south (South), tarny super_admin, 2 open incidents. Namespaced + reversible (`170_down`). |
+| 171 | Phase 6 HQ RPCs — `resolve_company_caller`, `company_admin_whoami`, `hq_get_company_state`, `hq_get_venue_detail`, `hq_resolve_incident` (write). + `audit_events.actor_type`+='company_admin' + `notify_venue_change` whitelist+='incident_resolved'. rpc-security-sweep + ephemeral-verify PASS. |
 | 163 | `notification_log` + `channel`/`entity_id`/`recipient` (nullable) + partial email-dedup index — League Mode **Phase 9 Cycle 9.1**. Lets transactional email (Resend) be logged/deduped alongside web-push. No RPC change — the email layer (`api/_mailer.js` + `onboardingEmailJob` in `api/cron.js`) is a read-only consumer of existing audit actions (`team_registration_submitted`/`team_approved`/`team_rejected`/`fixture_ref_assigned`). |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.

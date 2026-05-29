@@ -1,5 +1,41 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons.)*
+*Last updated: May 29 2026 (session 60 — Phase 6.1: HQ dashboard foundation + drill-down + incident resolve.)*
+
+## SESSION 60 — Phase 6 Cycle 6.1: HQ dashboard (May 29 2026)
+
+First net-new operator surface — a company-level, cross-venue HQ at `/hq`. Built as a
+"fuller" cycle (foundation + venue drill-down + incident resolve) with the full role model.
+Five parts, each committed after its own verify:
+
+1. **migs 169–170** (da73f18) — `venues.region` + demo company `company_demo` (Demo Sports
+   Group: demo_venue North + venue_demo_south South, tarny super_admin, 2 open incidents on
+   demo_venue). Live DB had 0 companies → `/hq` was unloadable.
+2. **mig 171** (f4329d7) — 5 RPCs: `resolve_company_caller`, `company_admin_whoami`,
+   `hq_get_company_state` (venue health grid + summary), `hq_get_venue_detail` (drill-down),
+   `hq_resolve_incident` (write). + `audit_events.actor_type`+='company_admin' +
+   `notify_venue_change` whitelist+='incident_resolved'. rpc-security-sweep 6/6 +
+   ephemeral-verify (super_admin read, health states, drill-down, resolve+audit, analyst
+   rejection, regional South scoping, cross-region + stranger denial) — all PASS, rolled back.
+3. **packages/core wrappers** (f2d5694) — companyAdminWhoami/hqGetCompanyState/hqGetVenueDetail/
+   hqResolveIncident + barrel; additive-only (casual-regression: 54 insertions, 0 mods).
+4. **apps/hq** (6749a98) — new React+Vite app (OAuth gate mirroring superadmin): Venue Health
+   Grid + Venue Detail drill-down (inline incident resolve) + Alerts/Actions rail. Builds clean;
+   sign-in screen renders (preview smoke).
+
+**Operator decisions (settled at start):** new apps/hq (not the clubmanager stub — name
+collides with the misnamed `platform-clubmanager` Vercel project serving inorout); OAuth +
+company_admins (no token); regional_admin built now (added venues.region); fuller cycle.
+(Full rationale in DECISIONS — "Phase 6 HQ Dashboard — Cycle 6.1 scoping".)
+
+**Bug caught pre-commit (ephemeral-verify):** `audit_events.team_id` is NOT NULL with no FK —
+venue-scoped events store venue_id there. Also `actor_type` CHECK lacked `company_admin`
+(mig-088/092 bug class). Both fixed in mig 171.
+
+**Operator owes:** live signed-in `/hq` load as super_admin (real Google OAuth) · apps/hq
+Vercel deploy + `VITE_SUPABASE_*` env · casual two-token browser smoke. **Next cycles:** 6.3
+analytics tabs · 6.4 live activity feed · 6.5 HQ preview token · 6.x HQ weekly digest.
+
+## SESSION 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons (May 29 2026)
 
 ## SESSION 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons (May 29 2026)
 

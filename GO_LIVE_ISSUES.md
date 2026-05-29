@@ -88,6 +88,35 @@ recipients; players can't receive SMS until a contact-capture UI populates `play
 
 ---
 
+## 0c. HQ DASHBOARD (apps/hq) — Phase 6.1 — session 60
+
+**Issue class:** new authenticated app at `/hq`; nothing renders past a blank/sign-in screen
+without its Supabase env, and the dashboard is empty without a company + company_admins row.
+
+**Required env vars (new `apps/hq` Vercel project, Production + Preview):**
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — same values as the other apps (the Supabase
+  client throws `supabaseUrl is required` and the app is blank without them). Locally: an
+  `apps/hq/.env.local` (gitignored) holding both.
+
+**Pre-flight (operator-owed, real device/account):**
+1. Deploy `apps/hq` as its own Vercel project (SPA rewrite is in `apps/hq/vercel.json`); set the
+   two env vars above; the OAuth redirect URL (Supabase Auth → URL config) must include the
+   deployed origin.
+2. Sign in at `/hq` with **tarnysingh@gmail.com** (seeded as `company_demo` super_admin via mig
+   170). Expect: company picker hidden (one company), header "Demo Sports Group · super_admin",
+   Venue Health Grid showing **demo_venue 🔴** (critical incident) + **Demo Arena South 🟢**.
+3. Tap demo_venue → drill-down shows 2 open incidents + its fixtures/leagues. Tap **Resolve** on
+   one (add a note) → it disappears, grid incident count drops, an `incident_resolved`
+   `audit_events` row lands, and the venue app (`/venue/<token>`) refreshes its open-issues panel
+   (the `notify_venue_change('incident_resolved')` broadcast).
+4. **Role checks** (need a 2nd Google account added to `company_admins`): an `analyst` sees the
+   dashboard but Resolve is hidden / `read_only_role`; a `regional_admin` with `region='South'`
+   sees only Demo Arena South.
+5. **Demo caveat:** the seed is namespaced (`company_demo` / `venue_demo_south`) and fully
+   removable via `170_demo_company_seed_down.sql` — pull it before onboarding a real company.
+
+---
+
 ## 6.x LEAGUE AVAILABILITY / FIXTURE-REMINDER PUSH — Phase 9 (session 59)
 
 **Issue class:** the two new competitive crons (`availabilityRequestJob` 48h-out;

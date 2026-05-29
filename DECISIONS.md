@@ -6,6 +6,39 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Phase 6 HQ Dashboard — Cycle 6.1 scoping (session 60)
+
+Four operator calls settled before the audit, plus one schema discovery:
+
+**1. HQ lives in a NEW `apps/hq` app, not the `clubmanager` stub.** The reserved
+`apps/clubmanager` stub directory name collides with the (historically misnamed)
+`platform-clubmanager` Vercel project that actually deploys `apps/inorout` to
+www.in-or-out.com. A clean `apps/hq` matches the `/hq` route and avoids that muddle. It
+mirrors the superadmin scaffold (Vite alias, vercel.json SPA rewrite, OAuth gate).
+
+**2. HQ auth = OAuth + company_admins (auth.uid(), NO token).** Per scope 6A — unlike the
+venue app's token model. `resolve_company_caller(p_company_id)` resolves auth.uid() →
+company_admins (role+region); a platform_admin (mig 045) is a super_admin override over any
+company. The 6.5 preview route is the only token-based HQ surface. `company_admin_whoami`
+gates the app (mirrors `superadmin_whoami`).
+
+**3. regional_admin is built NOW (added `venues.region`).** company_admins.region (mig 055)
+had nothing to match against. Added `venues.region` (mig 169); HQ RPCs filter venues to the
+caller's region when role='regional_admin'. super_admin = all company venues; analyst =
+read-only (hq_resolve_incident rejects with `read_only_role`).
+
+**4. Cycle 6.1 was a "fuller" slice** — foundation + venue drill-down + incident resolve
+(6.1+6.2 folded). Later cycles: 6.3 analytics, 6.4 live activity feed, 6.5 preview token,
+6.x HQ weekly digest (the deferred Phase 9 cycle).
+
+**Schema discovery (mig-088/092 + audit_events.team_id):** `audit_events.actor_type` CHECK
+lacked `'company_admin'` (would have failed every HQ audit INSERT — the recurring whitelist
+bug class); added it (mig 171). And `audit_events.team_id` is **NOT NULL with no FK** — the
+venue/league convention stores the **venue_id** there for non-team events, so
+`hq_resolve_incident` does the same. Both caught by ephemeral-verify before commit.
+
+---
+
 ## Phase 9 SMS/WhatsApp + league reminder crons — scoping (session 59)
 
 Continuing Phase 9 (build order 9→6→11), four operator calls settled before the audit:

@@ -5,7 +5,7 @@
 
 ## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55, updated 56)
 
-**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 IN PROGRESS** (Cycle 9.1 email transport + onboarding/ops loop SHIPPED; session 59 added SMS/WhatsApp transport core + league availability/reminder crons).
+**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 IN PROGRESS** (Cycle 9.1 email + session-59 SMS/WhatsApp transport core + league reminder crons). **Phase 6 IN PROGRESS** (Cycle 6.1 HQ foundation + venue drill-down + incident resolve — session 60).
 
 **NEXT BUILD ORDER (operator, session 58): 9 → 6 → 11** (methodical, not number order):
 1. **Phase 9 (finish)** — ✅ email (9.1) · ✅ SMS/WhatsApp Twilio transport core (session 59,
@@ -15,7 +15,10 @@
    push→email→SMS fallback needs contact-capture UI). **The Phase 9 "HQ weekly digest" cycle is
    deferred to ride with Phase 6** (it needs HQ aggregation).
 2. **Phase 6 (HQ dashboard)** — company-level cross-venue surface; data already flows
-   up but nothing reads it. Fold the Phase 9 HQ digest in here.
+   up but nothing reads it. ✅ Cycle 6.1 (session 60): apps/hq app + auth/caller-resolution
+   + company-state/drill-down/incident-resolve RPCs + Venue Health Grid + Alerts. **Remaining
+   cycles:** 6.3 analytics tabs · 6.4 live activity feed (centre column) · 6.5 HQ preview token ·
+   6.x HQ weekly digest (the deferred Phase 9 cycle, rides here). Fold the Phase 9 HQ digest in here.
 3. **Phase 11 (cups & knockouts)** — most cross-cutting (fixtures/standings→brackets/
    ref/display/player); last, when other surfaces are stable. `cup_rounds` +
    `generateCupBracket` already exist as groundwork.
@@ -79,6 +82,37 @@ existing `venue_live` broadcast. Built in four committed stages.
 - **Testbed:** demo_venue `display_token='demo_venue_display_token'`, `display_pin='1234'`.
 
 ---
+
+## LEAGUE MODE — PHASE 6 CYCLE 6.1: HQ dashboard foundation + drill-down + incident resolve (session 60, 2026-05-29)
+
+The first net-new operator surface — a company-level, cross-venue HQ at `/hq`. "Data flows
+up but the operator's screens didn't"; this reads it. Built as a "fuller" cycle (6.1 + 6.2
+folded) with the full role model.
+
+- **Decisions (operator, session 60):** new **apps/hq** app (not the clubmanager stub — that
+  name collides with the misnamed `platform-clubmanager` Vercel project that serves inorout);
+  **OAuth + company_admins** (auth.uid(), no token — scope 6A), with **regional_admin built now**
+  (added `venues.region`); **fuller cycle** (foundation + venue drill-down + incident resolve);
+  demo company seeded (live DB had 0 companies). Display redesign slots after.
+- **What ships:**
+  - **migs 169–171** — `venues.region`; demo company `company_demo` (Demo Sports Group: demo_venue
+    North + venue_demo_south South, tarny super_admin, 2 open incidents); 5 RPCs
+    (`resolve_company_caller`, `company_admin_whoami`, `hq_get_company_state`,
+    `hq_get_venue_detail`, `hq_resolve_incident`) + `audit_events.actor_type`+='company_admin' +
+    `notify_venue_change` whitelist+='incident_resolved'. Role scoping: super_admin all /
+    regional_admin own region / analyst read-only (resolve rejected).
+  - **packages/core** wrappers `companyAdminWhoami`/`hqGetCompanyState`/`hqGetVenueDetail`/`hqResolveIncident`.
+  - **apps/hq** (React+Vite, OAuth gate mirroring superadmin): Venue Health Grid (🟢🟡🔴 + counts),
+    Venue Detail drill-down (incidents w/ inline resolve, fixtures, leagues), Alerts/Actions rail.
+- **Verified:** rpc-security-sweep 6/6 (SECDEF, single overload, search_path, anon denied) ·
+  **ephemeral-verify** (rolled back): super_admin read + health states + drill-down + resolve
+  (ok+audit, team_id=venue) + analyst rejection + regional South scoping + cross-region denial +
+  stranger not_authorized — all PASS · bug caught pre-commit (audit_events.team_id NOT NULL →
+  store venue_id) · apps/hq builds + sign-in screen renders clean (preview smoke).
+- **Operator owes:** live signed-in `/hq` load as super_admin (real Google OAuth) · apps/hq Vercel
+  deploy + `VITE_SUPABASE_*` env · the casual two-token browser smoke.
+- **Deferred to 6.x:** analytics tabs (6.3) · live activity feed centre column (6.4) · HQ preview
+  token (6.5) · HQ weekly digest (rides 6.x). regional_admin region-filtering UI polish.
 
 ## LEAGUE MODE — PHASE 9 (cont.): SMS/WhatsApp transport core + league reminder crons (session 59, 2026-05-29)
 
