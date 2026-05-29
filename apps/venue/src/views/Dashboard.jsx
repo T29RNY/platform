@@ -5,9 +5,11 @@ import RegistrationActions from "./RegistrationActions.jsx";
 import SeasonWizard from "./SeasonWizard.jsx";
 import WeekPulse from "./WeekPulse.jsx";
 import BookingsView from "./BookingsView.jsx";
+import DisplaySettings from "./DisplaySettings.jsx";
 
 export default function Dashboard({ state, venueToken, occupancy = [], onRefresh, onRefreshOccupancy, refreshing }) {
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [displayOpen, setDisplayOpen] = useState(false);
   const [view, setView] = useState("ops"); // ops | bookings
 
   // Pending booking count for the Bookings tab badge — group a weekly block
@@ -174,6 +176,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
               <span className="btn-accent-shine" />
               Set up new season
             </button>
+            <button onClick={() => setDisplayOpen(true)}>Reception display</button>
             <button onClick={onRefresh} disabled={refreshing}>
               {refreshing ? "Refreshing…" : "Refresh"}
             </button>
@@ -204,6 +207,14 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
           {pendingCount > 0 && <span className="viewnav-badge">{pendingCount}</span>}
         </button>
       </nav>
+
+      <DisplaySettings
+        open={displayOpen}
+        onClose={() => setDisplayOpen(false)}
+        venueToken={venueToken}
+        venue={venue}
+        onSaved={onRefresh}
+      />
 
       {wizardOpen && (
         <SeasonWizard
