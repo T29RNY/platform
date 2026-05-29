@@ -1,0 +1,347 @@
+/* ============================================================
+   IN OR OUT — RECEPTION DISPLAY  ·  "BROADCAST" theme
+   Dark-stadium LED scoreboard. Bebas Neue scoreboard numerals,
+   Sora UI, floodlight vignette + grain, team-colour accents.
+   Tuned for a 1920×1080 TV read from across a room.
+   ============================================================ */
+
+:root {
+  /* Fluid root: ~19px @1920w, scales down on tablets. Everything below is rem. */
+  font-size: clamp(12px, 0.99vw, 22px);
+
+  --font-display: "Bebas Neue", "Arial Narrow", sans-serif;
+  --font-ui: "Sora", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Stadium palette */
+  --bg-0: #04060b;
+  --bg-1: #070b14;
+  --panel: rgba(255, 255, 255, 0.045);
+  --panel-strong: rgba(255, 255, 255, 0.07);
+  --panel-border: rgba(255, 255, 255, 0.10);
+  --panel-border-bright: rgba(255, 255, 255, 0.18);
+
+  --ink: #f4f7ff;
+  --ink-dim: rgba(244, 247, 255, 0.62);
+  --ink-faint: rgba(244, 247, 255, 0.34);
+
+  --live: #ff2e4d;       /* live red */
+  --live-glow: rgba(255, 46, 77, 0.55);
+  --gold: #ffcb45;       /* top scorer / golden boot */
+  --amber: #ff9d2e;      /* provisional standings */
+  --pitch: #1f8f57;      /* floodlit pitch green */
+  --pitch-deep: #0c3b26;
+
+  /* Brand accent — overridden per-venue at runtime via --accent / --accent-2 */
+  --accent: #36e3a0;
+  --accent-2: #2f6bff;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; width: 100%; }
+
+body {
+  font-family: var(--font-ui);
+  color: var(--ink);
+  background: var(--bg-0);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- Ambient stadium backdrop ---------- */
+.stage {
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+}
+.stage::before {
+  /* floodlight pools + colour wash */
+  content: "";
+  position: absolute; inset: 0; z-index: -2;
+  background:
+    radial-gradient(120% 80% at 18% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%),
+    radial-gradient(120% 90% at 92% 8%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 55%),
+    radial-gradient(90% 120% at 50% 120%, var(--pitch-deep), transparent 60%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0));
+}
+.stage::after {
+  /* grain */
+  content: "";
+  position: absolute; inset: 0; z-index: -1; opacity: 0.05; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.floodsweep {
+  position: absolute; inset: -20% -10%; z-index: -1; pointer-events: none;
+  background: linear-gradient(75deg, transparent 40%, rgba(255,255,255,0.04) 50%, transparent 60%);
+  animation: sweep 14s linear infinite;
+}
+@keyframes sweep { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+
+/* ---------- Header ---------- */
+.hdr {
+  display: flex; align-items: center; gap: 1.1rem;
+  padding: 1.1rem 1.6rem 0.9rem;
+}
+.hdr-logo {
+  height: 3.1rem; width: 3.1rem; border-radius: 0.7rem; object-fit: cover;
+  background: var(--panel-strong); border: 1px solid var(--panel-border);
+  display: grid; place-items: center;
+}
+.hdr-monogram {
+  font-family: var(--font-display); font-size: 2.1rem; line-height: 1;
+  color: var(--bg-0); background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.hdr-titles { display: flex; flex-direction: column; }
+.hdr-venue {
+  font-family: var(--font-display); font-size: 2.4rem; line-height: 0.92;
+  letter-spacing: 0.02em; color: var(--ink);
+}
+.hdr-sub { font-size: 0.74rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+.hdr-spacer { flex: 1; }
+.hdr-clock {
+  font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; color: var(--ink);
+  letter-spacing: 0.02em;
+}
+.hdr-date { font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); text-align: right; font-weight: 600; }
+
+.livepill {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.4rem 0.8rem; border-radius: 999px;
+  background: color-mix(in srgb, var(--live) 18%, transparent);
+  border: 1px solid var(--live-glow);
+  font-weight: 800; font-size: 0.78rem; letter-spacing: 0.18em; text-transform: uppercase; color: #fff;
+}
+.livedot {
+  height: 0.6rem; width: 0.6rem; border-radius: 50%; background: var(--live);
+  box-shadow: 0 0 0.5rem var(--live-glow); animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.78); } }
+
+.pausepill {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.4rem 0.8rem; border-radius: 999px;
+  background: rgba(255,157,46,0.14); border: 1px solid rgba(255,157,46,0.4);
+  font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber);
+}
+
+/* ---------- Main grid (Live-led split) ---------- */
+.grid {
+  flex: 1; display: grid;
+  grid-template-columns: 1.78fr 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 1.1rem;
+  padding: 0.5rem 1.6rem 0.6rem;
+  min-height: 0;
+}
+.col-left { grid-row: 1 / 2; display: flex; flex-direction: column; gap: 1.1rem; min-height: 0; }
+.col-right { grid-row: 1 / 2; min-height: 0; display: flex; flex-direction: column; }
+
+.zone {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 1.1rem;
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  min-height: 0;
+  display: flex; flex-direction: column;
+}
+.zone-head {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.85rem 1.1rem 0.55rem;
+}
+.zone-title {
+  font-family: var(--font-display); font-size: 1.55rem; letter-spacing: 0.04em; color: var(--ink);
+}
+.zone-tag {
+  font-size: 0.64rem; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
+  color: var(--bg-0); background: var(--accent); padding: 0.2rem 0.5rem; border-radius: 0.35rem;
+}
+.zone-tag.gold { background: var(--gold); }
+.zone-tag.amber { background: var(--amber); }
+.zone-body { flex: 1; min-height: 0; overflow: hidden; padding: 0 1.1rem 0.9rem; }
+
+/* ---------- Live fixture cards ---------- */
+.live-grid { display: grid; gap: 0.9rem; height: 100%; align-content: stretch; grid-auto-rows: minmax(0, 1fr); }
+.live-grid[data-n="1"] { grid-template-columns: 1fr; }
+.live-grid[data-n="2"], .live-grid[data-n="4"] { grid-template-columns: 1fr 1fr; }
+.live-grid[data-n="3"], .live-grid[data-n="5"], .live-grid[data-n="6"] { grid-template-columns: 1fr 1fr; }
+
+.fixcard {
+  position: relative; border-radius: 0.95rem; overflow: hidden; min-height: 0;
+  background: linear-gradient(160deg, var(--panel-strong), rgba(0,0,0,0.25));
+  border: 1px solid var(--panel-border-bright);
+  padding: 1.1rem 1.3rem;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 0.7rem;
+}
+/* a lone (or pair of) live match becomes a true hero — bigger numerals */
+.live-grid[data-n="1"] .score { font-size: 5.4rem; min-width: 3.4rem; }
+.live-grid[data-n="1"] .team-name { font-size: 2.9rem; }
+.live-grid[data-n="1"] .team-bar { height: 4rem; width: 0.55rem; }
+.live-grid[data-n="2"] .score { font-size: 4.4rem; }
+.live-grid[data-n="2"] .team-name { font-size: 2.4rem; }
+.fixcard-top { display: flex; align-items: center; justify-content: space-between; }
+.fixcard-badges { display: flex; gap: 0.45rem; align-items: center; }
+.badge {
+  font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+  color: var(--ink-dim); background: rgba(255,255,255,0.06);
+  border: 1px solid var(--panel-border); padding: 0.22rem 0.5rem; border-radius: 0.4rem;
+}
+.clockbug {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-family: var(--font-mono); font-weight: 700; font-size: 1.05rem; color: #fff;
+}
+.scoreline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.7rem; }
+.team { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+.team.away { flex-direction: row-reverse; text-align: right; }
+.team-bar { width: 0.4rem; height: 2.7rem; border-radius: 999px; flex: none; box-shadow: 0 0 0.6rem currentColor; }
+.team-name {
+  font-family: var(--font-display); font-size: 1.95rem; line-height: 0.95; letter-spacing: 0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.score {
+  font-family: var(--font-display); font-size: 3.5rem; line-height: 0.8; letter-spacing: 0.01em;
+  min-width: 2.4rem; text-align: center; font-variant-numeric: tabular-nums;
+}
+.score-sep { font-family: var(--font-display); font-size: 2rem; color: var(--ink-faint); }
+.evrow { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; min-height: 1.4rem; }
+.evchip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.72rem; font-weight: 600; color: var(--ink-dim);
+  background: rgba(0,0,0,0.28); border: 1px solid var(--panel-border); border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+}
+.evchip .min { font-family: var(--font-mono); color: var(--ink-faint); font-size: 0.66rem; }
+
+/* ---------- Standings ---------- */
+.tbl { width: 100%; height: 100%; display: flex; flex-direction: column; }
+.tbl-head, .tbl-row {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr repeat(6, 1.5rem) 1.9rem;
+  align-items: center; gap: 0.3rem;
+}
+.tbl-head {
+  font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint);
+  font-weight: 700; padding: 0.2rem 0.55rem 0.45rem;
+}
+.tbl-head .l, .tbl-row .l { text-align: left; }
+.tbl-head .n, .tbl-row .n { text-align: center; }
+.tbl-rows { flex: 1; display: flex; flex-direction: column; gap: 0.28rem; min-height: 0; }
+.tbl-row {
+  position: relative; padding: 0.42rem 0.55rem; border-radius: 0.55rem;
+  background: rgba(255,255,255,0.035); border: 1px solid transparent;
+  font-size: 0.92rem;
+}
+.tbl-row.provisional {
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 40%, transparent);
+}
+.tbl-row .pos {
+  font-family: var(--font-display); font-size: 1.25rem; color: var(--ink-dim); text-align: center;
+}
+.tbl-row.top3 .pos { color: var(--gold); }
+.tbl-team { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.tbl-chip { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex: none; box-shadow: 0 0 0.4rem currentColor; }
+.tbl-team-name {
+  font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tbl-row .n { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink-dim); text-align: center; }
+.tbl-row .pts { font-family: var(--font-display); font-size: 1.35rem; color: var(--ink); text-align: center; }
+.delta { font-size: 0.7rem; margin-left: 0.2rem; }
+.delta.up { color: var(--accent); }
+.delta.down { color: var(--live); }
+
+/* ---------- Top scorers ---------- */
+.scorer-row {
+  display: grid; grid-template-columns: 1.5rem 1fr auto; align-items: center; gap: 0.55rem;
+  padding: 0.36rem 0.2rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.scorer-row:last-child { border-bottom: none; }
+.scorer-rank { font-family: var(--font-display); font-size: 1.2rem; color: var(--ink-faint); text-align: center; }
+.scorer-row.boot .scorer-rank { color: var(--gold); }
+.scorer-id { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.scorer-name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scorer-team { font-size: 0.7rem; color: var(--ink-faint); }
+.scorer-goals { font-family: var(--font-display); font-size: 1.5rem; color: var(--ink); display: flex; align-items: baseline; gap: 0.25rem; }
+.scorer-goals small { font-size: 0.6rem; color: var(--ink-faint); letter-spacing: 0.12em; }
+
+/* ---------- Upcoming / Recent (idle state) ---------- */
+.list-fix {
+  display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.2rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.list-fix:last-child { border-bottom: none; }
+.list-time { font-family: var(--font-mono); font-weight: 700; font-size: 0.92rem; color: var(--accent); width: 3.4rem; }
+.list-teams { flex: 1; display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-weight: 600; }
+.list-teams .vs { color: var(--ink-faint); font-size: 0.78rem; }
+.list-score { font-family: var(--font-display); font-size: 1.4rem; }
+.list-meta { font-size: 0.66rem; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* ---------- Goals ticker ---------- */
+.ticker {
+  grid-column: 1 / -1; grid-row: 2 / 3;
+  height: 3rem; border-radius: 0.8rem; overflow: hidden;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, var(--bg-1)), var(--bg-1));
+  border: 1px solid var(--panel-border-bright);
+  display: flex; align-items: center;
+}
+.ticker-label {
+  flex: none; height: 100%; display: flex; align-items: center; gap: 0.4rem;
+  padding: 0 1.1rem; background: var(--accent); color: var(--bg-0);
+  font-family: var(--font-display); font-size: 1.35rem; letter-spacing: 0.06em;
+}
+.ticker-track { display: flex; align-items: center; white-space: nowrap; animation: marquee 38s linear infinite; }
+.ticker-track:hover { animation-play-state: paused; }
+@keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.ticker-item { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0 1.6rem; font-weight: 600; font-size: 1rem; }
+.ticker-item .min { font-family: var(--font-mono); color: var(--ink-faint); font-size: 0.78rem; }
+.ticker-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; box-shadow: 0 0 0.4rem currentColor; }
+
+/* ---------- Powered by ---------- */
+.poweredby {
+  position: absolute; right: 1.7rem; bottom: 0.45rem; z-index: 5;
+  font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint);
+  display: flex; align-items: center; gap: 0.4rem; font-weight: 600;
+}
+.poweredby b { color: var(--ink-dim); font-weight: 800; letter-spacing: 0.12em; }
+
+/* ---------- Empty / status ---------- */
+.empty { height: 100%; display: grid; place-items: center; text-align: center; color: var(--ink-faint); }
+.empty .big { font-family: var(--font-display); font-size: 2.4rem; color: var(--ink-dim); }
+
+/* ---------- PIN gate ---------- */
+.gate { height: 100vh; width: 100vw; display: grid; place-items: center; position: relative; overflow: hidden; }
+.gate-card {
+  position: relative; z-index: 2; width: min(34rem, 86vw); text-align: center;
+  background: var(--panel-strong); border: 1px solid var(--panel-border-bright);
+  border-radius: 1.4rem; padding: 2.4rem 2.2rem; backdrop-filter: blur(14px);
+}
+.gate-kicker { font-size: 0.74rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+.gate-title { font-family: var(--font-display); font-size: 3rem; letter-spacing: 0.02em; margin: 0.4rem 0 1.4rem; }
+.pin-dots { display: flex; justify-content: center; gap: 0.8rem; margin-bottom: 1.6rem; }
+.pin-dot {
+  width: 1.05rem; height: 1.05rem; border-radius: 50%;
+  border: 2px solid var(--panel-border-bright); transition: all 0.18s ease;
+}
+.pin-dot.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0.8rem color-mix(in srgb, var(--accent) 70%, transparent); }
+.pin-dot.err { background: var(--live); border-color: var(--live); }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+.key {
+  font-family: var(--font-display); font-size: 2.1rem; padding: 0.7rem 0; border-radius: 0.8rem;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: var(--ink);
+  cursor: pointer; user-select: none; transition: transform 0.08s ease, background 0.15s ease;
+}
+.key:active { transform: scale(0.94); background: rgba(255,255,255,0.12); }
+.key.ghost { background: transparent; border-color: transparent; cursor: default; }
+.gate-msg { margin-top: 1.2rem; font-size: 0.92rem; color: var(--ink-dim); min-height: 1.2rem; }
+.gate-msg.err { color: var(--live); }
+.gate-shake { animation: shake 0.4s ease; }
+@keyframes shake { 0%,100%{transform:translateX(0);} 20%,60%{transform:translateX(-0.6rem);} 40%,80%{transform:translateX(0.6rem);} }
+
+.loader { height: 100vh; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-display); font-size: 2rem; letter-spacing: 0.1em; }
