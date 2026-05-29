@@ -3,6 +3,25 @@
 
 ---
 
+## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55)
+
+**Next:** Cycle 5.7 — eligibility (closes Phase 5). Then, per `LEAGUE_MODE_SCOPE.md`
+(not strictly in number order — Phase 5 was built before Phase 4):
+Phase 4 reception display · Phase 6 HQ dashboard · Phase 7 AI layer · Phase 9
+notifications · Phase 10 public pages · Phase 11 cups. Phase 8 billing is deferred to year 2.
+
+**Data flows up; the venue operator's *screens* don't yet — by design.** Everything built
+(registrations, fixtures, ref results, teamsheets) writes to the shared schema the venue/HQ
+layer reads. Cycle 5.6 also started populating `player_registrations` for real teams
+(previously empty — only seeded). But `apps/venue` does NOT yet surface:
+(a) **registered players per competition**, (b) **submitted teamsheets** (`fixture_lineups`
+— the *ref* sees them; the operator can't), (c) **live standings / results / top scorers**.
+These are the convergence points scheduled for **Phase 4 (reception)** and **Phase 6 (HQ)** —
+tracked forward via hard-rule #14 consumer notes in RPCS.md. Nothing is dead-ended; the
+operator-facing view is simply unbuilt until those phases.
+
+---
+
 ## LEAGUE MODE — PHASE 5 CYCLE 5.6 SHIPPED (session 55, 2026-05-29)
 
 Team-admin teamsheet: the manager submits a confirmed line-up (starting XI + bench) for
