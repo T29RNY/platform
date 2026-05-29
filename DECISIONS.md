@@ -6,6 +6,30 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Venue payments = one unified cash/online ledger; online is staged link→Connect (session 60, scoped)
+
+Venue-side money (owed to the venue for pitch hire + league/cup fixtures) — full plan in
+`VENUE_PAYMENTS_SCOPE.md`. Key settled calls:
+
+- **Unified ledger** (`venue_charges` + `venue_payments` instalment log), not per-surface tables —
+  chosen for reporting (one query for collection rate / outstanding / revenue, sliceable by
+  venue/team/competition/period; no UNIONs). Bookings = one payer; fixtures = per team.
+- **Instalment log** (each payment a row) + **default fee + per-charge override** (fees on
+  `league_config` / `playing_areas`). **Fixture payer** = `league_config.fixture_fee_payer`
+  (`both`|`home`) + per-fixture add/void toggle.
+- **Cancellation ≠ payment status** — cancellation stays on booking/fixture status.
+- **Online shares the ledger** — an online/transfer payment is just a `venue_payments` row with a
+  non-cash `method` + `external_ref`; only capture differs (admin marks vs webhook). So cash now,
+  online later, no redesign.
+- **Online staged**: hosted `venues.payment_link` (interim, any provider) → **Stripe Connect +
+  Apple/Google Pay** (V5, full rails — per-venue connected account + KYC + Apple-Pay domain
+  verification). Apple/Google Pay are NOT a toggle; "directly to the venue" requires Connect.
+- **Distinct from Phase 8** (venue/company → In-or-Out SaaS billing) and from player match-subs
+  (`payment_ledger`, player → team admin — the PlayerView "Transfer" button is a disabled
+  placeholder there, unrelated).
+
+---
+
 ## HQ analytics is composable (card registry), and the AI composes over it — not raw SQL (session 60, Cycle 6.3)
 
 The operator asked whether HQ could be customisable — pick from preset outputs, or select

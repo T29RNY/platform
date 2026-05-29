@@ -34,6 +34,11 @@ league pages). **Phase 8 (billing/self-serve) deferred to year 2.** Also outstan
 `apps/display` layout redesign + Phase 4 operator device-test/deploy.
 *(This supersedes the earlier "Phase 7 is the next major" pointer — see DECISIONS session 58.)*
 
+**Backlog — Venue Payments Ledger (scoped session 60, NOT built):** venue-side money owed/collected
+for pitch bookings + league/cup fixtures (per team) — unified ledger, cash + manual transfer now,
+online staged (hosted `venues.payment_link` → Stripe Connect + Apple/Google Pay in V5). Full plan +
+data model + cycles V1–V5 in **`VENUE_PAYMENTS_SCOPE.md`**. Separate from Phase 8 SaaS billing.
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)
