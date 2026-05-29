@@ -41,6 +41,52 @@ data model + cycles V1–V5 in **`VENUE_PAYMENTS_SCOPE.md`**. Separate from Phas
 
 ---
 
+## HQ INTELLIGENCE — TRACK ROADMAP (scoped session 61, 2026-05-30)
+
+Positioning: **"Venue Intelligence, not venue reporting."** HQ answers *which venues are healthy,
+what needs action, what HQ should do next* across six dimensions. This is the **evolution of Phase 6**
+(the HQ foundation shipped in 6.1–6.5), layered as new 6.x cycles + the existing Payments V-track, not
+a new app. Recorded here so the phase numbering stays reconciled (no competing schemes).
+
+**HQ-I Phase 0 — Foundation** ✅ *shipped (Phase 6.1–6.5, session 60).* apps/hq, OAuth + `company_admins`,
+role/region scoping, Venue Health Grid (🟢🟡🔴), venue drill-down, Alerts/Actions rail, composable
+analytics (6-card registry + saved layouts), live activity feed, preview token. The canvas — not rebuilt.
+
+**HQ-I Phase 1 — Venue Judgment** ◀ *scoping/building now (new cycles 6.6–6.7).* The first true
+"intelligence not reporting" layer, on data that exists today:
+- **Health Score /100** — upgrade the red/amber/green dot to a transparent scored model + "top reason"
+  line, built only from existing inputs (utilisation, fixture completion, incidents); explicitly states
+  what it can't yet weigh (revenue, churn). Consumes the utilisation RPC → builds *after* it.
+- **Utilisation Intelligence** — new read RPC over the booking tables (`pitch_bookings`,
+  `pitch_occupancy`, `playing_areas`): overall / prime-time / off-peak %, empty prime-time hours,
+  best/worst days & slots; new panel + columns into the existing comparison surfaces.
+- **Parallel foundation track:** Venue Payments Ledger **V1–V3** (schema + recording UI) — quietly
+  starts money data accumulating so revenue can join later without a cold start. NOT the focus.
+- *Deferred within Phase 1:* Weekly Brief, revenue UI.
+
+**HQ-I Phase 2 — Revenue & Leakage** *(= Payments Ledger V4, lights up once V1–V3 data accrues).*
+Revenue + collection columns into `hq_get_analytics`/comparison/overview; Revenue Leakage Radar
+(unpaid balances, failed payments, empty prime-time → £, unfilled league spaces, at-risk team value);
+feeds revenue back in as a Health Score input. **No faked revenue in production — demo-flag only.**
+
+**HQ-I Phase 3 — Competition & Team Risk** *(new 6.x).* Active/new/withdrawn teams, teams at risk,
+league fill rate, fixture completion by league, blowout% vs close-game%, early renewal-probability
+(only once season-over-season data exists).
+
+**HQ-I Phase 4 — The Analyst (Weekly HQ Brief)** *(the deferred "HQ weekly digest" cycle + Phase 7 AI).*
+Generated weekly brief (group performance, best/weakest venue, leakage, opportunities, risks, actions),
+built on the **Gaffer AI layer** (`GAFFER.md`) over `hq_get_analytics` — not a parallel template engine.
+In-app first, then scheduled email digest (cron + Resend). Approach (AI vs template) **decided later.**
+
+**HQ-I Phase 5 — The Moat** *(out for the foreseeable; = the original "exclude" list).* Player migration
+map, cannibalisation detection, venue twins, dynamic pricing, referee performance impact, full player
+cluster analysis, individual player intelligence, full financial forecasting, advanced AI recommender.
+
+*Shape: 0 built → 1 (now) → 2 → 3 → 4 → 5 (someday). Phases 2–5 are a direction, not a commitment —
+scope locks phase-by-phase. Revenue is 1 of 6 dimensions, not the spine.*
+
+---
+
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)
 
 > ⚠️ **LAYOUT REDESIGN PENDING (operator, session 57).** The functional system
