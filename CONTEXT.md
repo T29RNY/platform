@@ -65,6 +65,14 @@ generator on open" deferred (no company-admin channel; accessed_at is the signal
 deferred Phase 9 cycle — email over the 6.3 analytics) · Phase 7 AI layer composes over the 6.3
 registry. Per 9→6→11, **Phase 11 (cups) is next**.
 
+**Also scoped this session (NOT built):** **Venue Payments Ledger** — venue-side money owed/collected
+for pitch bookings + league/cup fixtures (per team). Unified ledger (`venue_charges` + `venue_payments`
+instalment log), cash + manual transfer now, online staged (hosted `venues.payment_link` → Stripe
+Connect + Apple/Google Pay in V5). Full plan + cycles V1–V5 in **`VENUE_PAYMENTS_SCOPE.md`**; DECISIONS
+entry + FEATURES backlog pointer added. Distinct from Phase 8 SaaS billing and from player match-subs.
+Investigated this session: the PlayerView "Transfer" button is a **disabled placeholder** (no handler/
+processor) in the player→team-admin subs flow — unrelated to venue payments.
+
 ## SESSION 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons (May 29 2026)
 
 ## SESSION 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons (May 29 2026)
