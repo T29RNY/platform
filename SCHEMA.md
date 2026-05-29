@@ -4,6 +4,11 @@
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
 
+> **Session 59 (Phase 9 cont.) — no schema change.** The league reminder crons reuse the
+> existing `fixtures`, `team_players`, `players` (`status`/`phone`/`notification_channel` from
+> mig 056) and `notification_log` tables. New push `type` values
+> (`leagueAvailability48h`/`leagueFixtureReminder2h`) are free-text — no column added.
+
 ---
 
 ## RLS ARCHITECTURE

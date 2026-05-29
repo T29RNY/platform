@@ -5,14 +5,15 @@
 
 ## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55, updated 56)
 
-**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 STARTED** (Cycle 9.1 — email transport + onboarding/ops loop).
+**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 IN PROGRESS** (Cycle 9.1 email transport + onboarding/ops loop SHIPPED; session 59 added SMS/WhatsApp transport core + league availability/reminder crons).
 
 **NEXT BUILD ORDER (operator, session 58): 9 → 6 → 11** (methodical, not number order):
-1. **Phase 9 (finish)** — SMS/WhatsApp via Twilio + the **fixture-reminder / 48h
-   availability crons** (these close the loop Phase 5 left open: competitive
-   availability exists but nothing reminds the squad). Warm codebase (Cycle 9.1
-   `_mailer.js` + cron dispatcher). **The Phase 9 "HQ weekly digest" cycle is deferred
-   to ride with Phase 6** (it needs HQ aggregation).
+1. **Phase 9 (finish)** — ✅ email (9.1) · ✅ SMS/WhatsApp Twilio transport core (session 59,
+   unwired) · ✅ fixture-reminder / 48h availability crons (session 59 — close the loop Phase 5
+   left open: competitive availability exists but nothing reminded the squad). **Remaining:**
+   wire `_sms.js` into a send path (refs via `match_officials.preferred_channel`; player
+   push→email→SMS fallback needs contact-capture UI). **The Phase 9 "HQ weekly digest" cycle is
+   deferred to ride with Phase 6** (it needs HQ aggregation).
 2. **Phase 6 (HQ dashboard)** — company-level cross-venue surface; data already flows
    up but nothing reads it. Fold the Phase 9 HQ digest in here.
 3. **Phase 11 (cups & knockouts)** — most cross-cutting (fixtures/standings→brackets/
@@ -78,6 +79,47 @@ existing `venue_live` broadcast. Built in four committed stages.
 - **Testbed:** demo_venue `display_token='demo_venue_display_token'`, `display_pin='1234'`.
 
 ---
+
+## LEAGUE MODE — PHASE 9 (cont.): SMS/WhatsApp transport core + league reminder crons (session 59, 2026-05-29)
+
+Continues Phase 9 per the session-58 build order (9→6→11). Two independent pieces,
+**no DB migration, no `apps/inorout/src` or `packages/core` change** (casual flow
+byte-identical; casual-regression not triggered — both files live in `apps/inorout/api/`).
+
+- **Decisions (operator, session 59):** provider = **Twilio** (one API does SMS + WhatsApp).
+  SMS/WhatsApp scope this cycle = **transport core only, wired to nothing** — the per-player
+  push→email→SMS fallback model + contact-capture/preference UI are deferred (players have
+  `phone`/`notification_channel` columns from mig 056 but nothing captures a phone yet, so
+  player SMS can't deliver). Reminder crons = **48h availability + ~2h near-kickoff reminder,
+  competitive only**. Quiet hours = **default 22:00–08:00 UK, queue + flush** (inherited from
+  the existing push path). The Phase 9 **HQ weekly digest** stays deferred to ride with Phase 6.
+- **What ships:**
+  - `api/_sms.js` — Twilio transport, no-op-safe until `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`
+    set (mirrors `_mailer.js`). `sendSms` / `sendWhatsApp` (one client; WhatsApp uses the
+    `whatsapp:` address prefix), a `TEMPLATES` registry keyed by the same type names as later
+    consumers, `sendTemplated(type, channel, to, ctx)`, and a `pickChannel(preferred, contacts)`
+    helper stub for the future fallback router. **Not imported anywhere yet.** `twilio` added to
+    `apps/inorout/package.json`.
+  - `api/cron.js` — two new jobs on the existing 15-min dispatcher (no new pg_cron job):
+    **`availabilityRequestJob`** (UK 9am window; selects scheduled/allocated `fixtures` where
+    `scheduled_date = today+2`; pushes both squads' active players to mark availability) and
+    **`fixtureReminderJob`** (fires ~2h before kickoff via the `(105,135]`-min band; nudges only
+    still-unmarked `status='none'` players). Both close the loop Phase 5 left open: competitive
+    availability reuses the casual board (Cycle 5.5) but nothing pushed the squad. Delivery via
+    `/api/notify` direct mode (PUSH only this cycle), deduped on `notification_log`
+    (`team_id`,`type`,`game_date`) via a new `alreadyLogged()` guard. New helpers `nowInUkFull()`
+    + `addDaysIso()` + `fmtUkDate()` keep all timing UK-wall-clock to UK-wall-clock (DST-safe).
+    New push types: `leagueAvailability48h`, `leagueFixtureReminder2h`.
+- **Verified (no device):** build clean · no src/core diff · live-DB dry-run — at simulated
+  today=06-02 the 48h job selects exactly the two 06-04 democomp fixtures, both sides resolve to
+  real squads (FC 8 active/7 unmarked, Rovers/City/Athletic 5/5), dedup table empty (0 rows), and
+  the 2h band fires at 18:00 (120 min) but not 17:00/19:00.
+- **Operator owes (hard-rule #13):** real-device **push** delivery test for both reminders —
+  needs a real device subscribed on a competitive squad (`dc_subs=0` today) AND a fixture 48h/2h
+  out. No SMS delivery to test (transport unwired; `TWILIO_*` env unset → `_sms.js` no-ops).
+- **Deferred to later 9.x:** wiring `_sms.js` (refs via `match_officials.preferred_channel`;
+  player fallback + contact-capture UI); HQ weekly digest (rides Phase 6); AI `pre_match_briefing`
+  (overlaps Phase 7).
 
 ## LEAGUE MODE — PHASE 9 CYCLE 9.1 SHIPPED (session 56, 2026-05-29)
 

@@ -1,8 +1,49 @@
 # In or Out — Key Decisions Log
-*Last updated: May 29 2026 (session 56 — teamsheet eligibility: override suspension, squad-size config, block double-reg now)*
+*Last updated: May 29 2026 (session 59 — Phase 9: Twilio transport core unwired; league reminder crons are competitive-only, loop the fixtures table)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Phase 9 SMS/WhatsApp + league reminder crons — scoping (session 59)
+
+Continuing Phase 9 (build order 9→6→11), four operator calls settled before the audit:
+
+**1. Twilio is the SMS + WhatsApp provider; transport core only this cycle (unwired).**
+One Twilio client does both (WhatsApp via the `whatsapp:` address prefix). `api/_sms.js`
+is built as the no-op-safe transport core (mirrors `_mailer.js`) — `sendSms`/`sendWhatsApp`,
+a `TEMPLATES` registry, `sendTemplated`, and a `pickChannel(preferred, contacts)` stub — but
+is **imported nowhere**. **Why unwired:** the only recipients reachable today are refs
+(`match_officials` carries phone/whatsapp_number/preferred_channel); players have
+`phone`/`notification_channel` columns (mig 056) but **no UI captures a phone**, so the
+push→email→SMS player fallback can't deliver. Building the router + contact-capture/preference
+UI is its own later 9.x cycle. Refusing to wire a channel that can't deliver keeps the cycle
+honest. See "Competitive availability REUSES the casual in/out board" (session 54, Cycle 5.5).
+
+**2. The reminder/availability crons are COMPETITIVE-ONLY and loop the `fixtures` table.**
+Casual teams already have autoOpen + gameDay9am + oneHrBefore via the `schedule`-based path
+(notify.js); adding the new crons to casual would double-remind. League fixtures have **no
+`schedule` row** (Cycle 5.5 reuses `players.status` for availability but timing lives in
+`fixtures`), so the new jobs read `fixtures` directly. Two jobs: `availabilityRequestJob`
+(48h out, UK 9am window, asks the full active squad of both teams to mark in/out) and
+`fixtureReminderJob` (~2h before kickoff, nudges only still-unmarked `status='none'` players).
+
+**3. Quiet hours = default 22:00–08:00 UK, queue + flush — inherited, not rebuilt.**
+Delivery goes through `/api/notify` direct mode, which already queues during quiet hours and
+flushes via `flushQueue`. League teams have `reminders_config={}`, so the default window
+applies automatically. Both crons fire in daytime windows (9am / ~2h before an evening
+kickoff) so quiet-hours is N/A in practice; the queue is a backstop. New timing helpers
+(`nowInUkFull`/`addDaysIso`) compare UK wall-clock to UK wall-clock (fixtures store UK
+wall-clock) so the new path is DST-correct without touching the shared (UTC-evaluated)
+`isQuietHours` — fixing that globally would touch the casual push path and is left as
+pre-existing tech debt.
+
+**4. No migration / no new RPC this cycle.** The crons read `fixtures`/`team_players`/
+`players` with the service role (the established cron.js convention — lineupLockJob etc.) and
+write only `notification_log` push rows (free-text `type`, existing columns). So no
+ephemeral-verify, no rpc-security-sweep, no schema change. Dedup is a `notification_log`
+guard (`alreadyLogged`) because direct mode does not dedup itself.
 
 ---
 

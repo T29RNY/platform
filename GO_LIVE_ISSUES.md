@@ -69,6 +69,48 @@ still-unexercised `team_registration_pending` (real-venue) path.
 
 ---
 
+## 0b. SMS / WHATSAPP (Twilio) — Phase 9 (transport core, UNWIRED) — session 59
+
+**Issue class:** none active yet — `apps/inorout/api/_sms.js` (Twilio) is the transport core
+and is **imported nowhere**. It no-ops (`skipped:'no_credentials'`) until `TWILIO_*` env is set,
+exactly like `_mailer.js` without `RESEND_API_KEY`. Nothing sends SMS/WhatsApp in production.
+
+**When it gets wired (later 9.x cycle), required env (inorout Vercel, Prod + Preview):**
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` — from the In or Out Twilio account.
+- `TWILIO_SMS_FROM` — an SMS-capable E.164 number (e.g. `+447700900123`).
+- `TWILIO_WHATSAPP_FROM` — a WhatsApp-enabled sender number.
+
+**Pre-flight (before relying on SMS/WhatsApp):** WhatsApp business-initiated messages outside
+the 24h customer window require **pre-approved templates** — a real Twilio/Meta onboarding step,
+not just env vars. SMS is simpler but needs a verified sender and (for UK) sender-ID rules.
+Refs (`match_officials.phone`/`whatsapp_number`/`preferred_channel`) are the first deliverable
+recipients; players can't receive SMS until a contact-capture UI populates `players.phone`.
+
+---
+
+## 6.x LEAGUE AVAILABILITY / FIXTURE-REMINDER PUSH — Phase 9 (session 59)
+
+**Issue class:** the two new competitive crons (`availabilityRequestJob` 48h-out;
+`fixtureReminderJob` ~2h-before) push via the existing web-push chain. Same silent-failure class
+as §6.2 — if no device is subscribed on a competitive squad, nothing delivers and no error
+surfaces. **Logic dry-run-verified against the live DB (session 59)** but **real-device delivery
+is unverified** (hard-rule #13).
+
+**Operator pre-flight (real-device, owed):**
+1. On a real phone, open a competitive squad's `/p/<token>` (e.g. a Competitive FC player),
+   install to home screen, and tap **Enable notifications** — confirm a `push_subscriptions`
+   row appears (today `dc_subs=0`, so nothing can deliver until this is done).
+2. Ensure a competitive `fixtures` row is **48h out** (for the 9am availability push) and/or
+   **~2h out** (for the kickoff reminder). The seeded democomp fixtures roll; temporarily set
+   `scheduled_date`/`kickoff_time` on a `dc…` fixture if testing off-cycle (revert after).
+3. At the UK 9am tick on (fixture_date − 2), confirm the device receives "Are you in?" and a
+   `notification_log` row lands with `type='leagueAvailability48h'`, `team_id`, the fixture date.
+4. ~2h before kickoff, with the player still `status='none'`, confirm the "Last call" push and a
+   `type='leagueFixtureReminder2h'` log row. Marking in/out beforehand should suppress it.
+5. Dedup: a second 15-min tick in the same window must NOT re-push (guarded by `alreadyLogged`).
+
+---
+
 ## 1. SIGN-IN / AUTH
 
 ### 1.1 PWA storage partition — JWT never reaches the home-screen app

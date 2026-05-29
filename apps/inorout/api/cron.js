@@ -29,6 +29,40 @@ function nowInUkParts() {
   };
 }
 
+// Full UK-local now: calendar date string + minutes-of-day. Used by the league
+// reminder crons (availabilityRequestJob / fixtureReminderJob) so timing compares
+// UK wall-clock to UK wall-clock — fixtures.scheduled_date + kickoff_time are stored
+// as UK wall-clock, so no UTC conversion is needed and the math is DST-safe.
+function nowInUkFull() {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+  const p = Object.fromEntries(
+    fmt.formatToParts(new Date()).map(x => [x.type, x.value])
+  );
+  const hours   = parseInt(p.hour, 10);
+  const minutes = parseInt(p.minute, 10);
+  return { date: `${p.year}-${p.month}-${p.day}`, hours, minutes, minsOfDay: hours * 60 + minutes };
+}
+
+// Pure calendar-date arithmetic on a YYYY-MM-DD string (UTC anchor → DST-immune).
+function addDaysIso(dateStr, n) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Friendly UK date label, e.g. "Thu 4 Jun". Noon anchor avoids any midnight DST edge.
+function fmtUkDate(dateStr) {
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short",
+    }).format(new Date(dateStr + "T12:00:00Z"));
+  } catch (e) { return dateStr; }
+}
+
 module.exports = async function handler(req, res) {
   const secret = req.headers["authorization"]?.replace("Bearer ", "");
   if (secret !== process.env.CRON_SECRET) {
@@ -151,6 +185,20 @@ module.exports = async function handler(req, res) {
     await onboardingEmailJob(results);
   } catch (e) {
     results.push(`onboardingEmail: error — ${e.message}`);
+  }
+
+  // ── League availability request (48h before a competitive fixture, 9am UK) ─
+  try {
+    await availabilityRequestJob(base, results);
+  } catch (e) {
+    results.push(`availabilityRequest: error — ${e.message}`);
+  }
+
+  // ── League fixture reminder (~2h before a competitive kickoff) ────────────
+  try {
+    await fixtureReminderJob(base, results);
+  } catch (e) {
+    results.push(`fixtureReminder: error — ${e.message}`);
   }
 
   res.json({ ok: true, ts: new Date().toISOString(), results });
@@ -750,6 +798,140 @@ async function onboardingEmailJob(results) {
       if (!ok) return;
     }
   }
+}
+
+// ── League availability + fixture reminders (Phase 9, competitive only) ──────
+// Close the loop Phase 5 left open: competitive availability reuses the casual IN/OUT
+// board (players.status, Cycle 5.5) but nothing pushed the squad to respond. These two
+// crons loop the `fixtures` table (not `schedule` — league fixtures have no schedule
+// row) and push both squads. PUSH ONLY this cycle (the existing channel); SMS/WhatsApp
+// transport (_sms.js) is built but unwired, and players have no phone captured yet.
+//
+// Delivery goes through /api/notify DIRECT mode (same bridge potmVotingOpenJob uses),
+// which inherits the quiet-hours queue/flush backstop (league teams have
+// reminders_config={}, so the default 22:00–08:00 window applies). Both crons fire in
+// daytime windows (9am UK / ~2h before an evening kickoff) so quiet-hours is N/A in
+// practice. Direct mode does NOT dedup, so each job guards on notification_log first
+// (alreadyLogged) exactly like notify.js's cron triggers.
+
+// notification_log dedup guard — true if this (team, type, gameDate) push already sent.
+async function alreadyLogged(teamId, type, gameDate) {
+  const { data } = await supabase
+    .from("notification_log").select("id")
+    .eq("team_id", teamId).eq("type", type).eq("game_date", gameDate)
+    .not("sent_at", "is", null).limit(1);
+  return !!(data && data.length);
+}
+
+// Active (not injured / not disabled) squad rows for a team — two-query pattern
+// (players has no team_id column). Returns rows incl. status so callers can filter.
+async function squadPlayers(teamId) {
+  const { data: tps } = await supabase
+    .from("team_players").select("player_id").eq("team_id", teamId);
+  const ids = (tps || []).map(t => t.player_id);
+  if (!ids.length) return [];
+  const { data: players } = await supabase
+    .from("players").select("id, status, injured, disabled").in("id", ids);
+  return (players || []).filter(p => !p.injured && !p.disabled);
+}
+
+// POST /api/notify in direct mode (handles quiet-hours queueing + injured filter + push).
+async function callNotifyDirect(base, body) {
+  try {
+    await fetch(`${base}/api/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` },
+      body: JSON.stringify(body),
+    });
+  } catch (e) { /* best-effort; the job's results line records the attempt count */ }
+}
+
+const FIXTURE_REMINDER_STATES = ["scheduled", "allocated"];
+
+// availabilityRequestJob — 48h out, 9am UK window. Asks the full active squad of both
+// teams to mark availability (players.status) for the upcoming league fixture.
+async function availabilityRequestJob(base, results) {
+  const uk = nowInUkFull();
+  if (uk.hours !== 9 || uk.minutes >= 15) { results.push("availabilityRequest: not 9am window"); return; }
+  const targetDate = addDaysIso(uk.date, 2);
+
+  const { data: fixtures, error } = await supabase
+    .from("fixtures")
+    .select("id, home_team_id, away_team_id, scheduled_date")
+    .in("status", FIXTURE_REMINDER_STATES)
+    .eq("scheduled_date", targetDate);
+  if (error) { results.push(`availabilityRequest: error — ${error.message}`); return; }
+  if (!fixtures?.length) { results.push(`availabilityRequest: no fixtures on ${targetDate}`); return; }
+
+  let pushed = 0;
+  for (const fx of fixtures) {
+    const sides = [
+      { teamId: fx.home_team_id, oppId: fx.away_team_id },
+      { teamId: fx.away_team_id, oppId: fx.home_team_id },
+    ];
+    for (const side of sides) {
+      if (!side.teamId) continue; // bye (away_team_id NULL)
+      if (await alreadyLogged(side.teamId, "leagueAvailability48h", fx.scheduled_date)) continue;
+      const playerIds = (await squadPlayers(side.teamId)).map(p => p.id);
+      if (!playerIds.length) continue;
+      const opponent = (await teamNameOf(side.oppId)) || "your opponent";
+      await callNotifyDirect(base, {
+        type: "leagueAvailability48h", teamId: side.teamId, playerIds,
+        gameDate: fx.scheduled_date,
+        payload: {
+          title: "Are you in? ⚽",
+          body: `League fixture vs ${opponent} on ${fmtUkDate(fx.scheduled_date)} — mark in or out.`,
+          icon: "/icons/icon-192.png",
+        },
+      });
+      pushed++;
+    }
+  }
+  results.push(`availabilityRequest: ${pushed} squad(s) pushed (${targetDate})`);
+}
+
+// fixtureReminderJob — ~2h before kickoff. Nudges only still-unmarked players
+// (status='none') on each team of a competitive fixture playing today.
+async function fixtureReminderJob(base, results) {
+  const uk = nowInUkFull();
+  const { data: fixtures, error } = await supabase
+    .from("fixtures")
+    .select("id, home_team_id, away_team_id, scheduled_date, kickoff_time")
+    .in("status", FIXTURE_REMINDER_STATES)
+    .eq("scheduled_date", uk.date)
+    .not("kickoff_time", "is", null);
+  if (error) { results.push(`fixtureReminder: error — ${error.message}`); return; }
+  if (!fixtures?.length) { results.push("fixtureReminder: no fixtures today"); return; }
+
+  let pushed = 0;
+  for (const fx of fixtures) {
+    const [kh, km] = String(fx.kickoff_time).split(":").map(Number);
+    const minsToKick = (kh * 60 + km) - uk.minsOfDay;
+    if (minsToKick <= 105 || minsToKick > 135) continue; // ~2h ± the 15-min cadence
+
+    const sides = [
+      { teamId: fx.home_team_id, oppId: fx.away_team_id },
+      { teamId: fx.away_team_id, oppId: fx.home_team_id },
+    ];
+    for (const side of sides) {
+      if (!side.teamId) continue;
+      if (await alreadyLogged(side.teamId, "leagueFixtureReminder2h", fx.scheduled_date)) continue;
+      const unmarked = (await squadPlayers(side.teamId)).filter(p => p.status === "none").map(p => p.id);
+      if (!unmarked.length) continue;
+      const opponent = (await teamNameOf(side.oppId)) || "your opponent";
+      await callNotifyDirect(base, {
+        type: "leagueFixtureReminder2h", teamId: side.teamId, playerIds: unmarked,
+        gameDate: fx.scheduled_date,
+        payload: {
+          title: "Last call ⚽",
+          body: `Kickoff vs ${opponent} in 2 hours — are you in? Mark in or out now.`,
+          icon: "/icons/icon-192.png",
+        },
+      });
+      pushed++;
+    }
+  }
+  results.push(`fixtureReminder: ${pushed} squad(s) reminded`);
 }
 
 // ── Demo player reset ─────────────────────────────────────────────────────────

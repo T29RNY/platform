@@ -1,5 +1,37 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 58 — build-order reprioritised: next phases 9→6→11.)*
+*Last updated: May 29 2026 (session 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons.)*
+
+## SESSION 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons (May 29 2026)
+
+Continued Phase 9 per the 9→6→11 build order. Two pieces, **no migration, no
+`apps/inorout/src` or `packages/core` change** (casual flow byte-identical):
+
+1. **`apps/inorout/api/_sms.js`** — Twilio SMS+WhatsApp transport core, no-op-safe without
+   `TWILIO_*` env (mirrors `_mailer.js`). `sendSms`/`sendWhatsApp` (one client; WhatsApp via the
+   `whatsapp:` address prefix), a `TEMPLATES` registry, `sendTemplated`, and a `pickChannel()`
+   fallback-router stub. **Imported nowhere** — wiring (refs via `match_officials.preferred_channel`;
+   player push→email→SMS fallback + contact-capture UI) is a later 9.x cycle. `twilio` added to
+   `apps/inorout/package.json`.
+2. **`apps/inorout/api/cron.js`** — two competitive-only jobs on the existing 15-min dispatcher
+   (no new pg_cron job): `availabilityRequestJob` (48h-out, UK 9am window, both squads mark
+   availability) + `fixtureReminderJob` (~2h-before, nudges still-unmarked `status='none'`
+   players). They loop the `fixtures` table (league fixtures have no `schedule` row) and close the
+   loop Phase 5 left open. Push only via `/api/notify` direct mode; deduped on `notification_log`
+   (new `alreadyLogged` guard + new types `leagueAvailability48h`/`leagueFixtureReminder2h`). New
+   helpers `nowInUkFull`/`addDaysIso`/`fmtUkDate` keep timing UK-wall-clock to UK-wall-clock (DST-safe).
+
+**Operator decisions:** Twilio; transport core only (unwired); reminders competitive-only at
+48h + ~2h; quiet hours = inherited default 22:00–08:00 UK queue/flush; apps/display redesign
+slots **after** Phase 9. (Full rationale in DECISIONS — "Phase 9 SMS/WhatsApp + league reminder
+crons — scoping".)
+
+**Verified (no device):** build clean · no src/core diff · live-DB dry-run (sim today=06-02 →
+48h job selects the two 06-04 democomp fixtures, both squads resolve, dedup table empty, 2h band
+fires at 18:00 not 17:00/19:00). **Operator owes** the real-device push delivery test (GO_LIVE
+§6.x — `dc_subs=0` and no fixture 48h out today) + `TWILIO_*` env when `_sms.js` is wired.
+
+**Still outstanding from Phase 4:** `apps/display` layout redesign (mockup-driven, after Phase 9)
++ operator real-TV test / Vercel deploy / `VITE_DISPLAY_APP_URL`.
 
 ## SESSION 58 — Build-order reprioritisation (docs-only, May 29 2026)
 

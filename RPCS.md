@@ -4,6 +4,13 @@
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
 
+> **Session 59 (Phase 9 cont.) — no RPC change.** The new league reminder crons
+> (`availabilityRequestJob`/`fixtureReminderJob` in `api/cron.js`) read
+> `fixtures`/`team_players`/`players` with the **service role** (the cron.js convention,
+> like `lineupLockJob`) and write only `notification_log` push rows via `/api/notify` direct
+> mode — no new RPC, no migration. `api/_sms.js` (Twilio transport core) is unwired. See
+> FEATURES "PHASE 9 (cont.)".
+
 **Rule:** If an RPC doesn't exist for a write you need, create it in Supabase SQL
 editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 
