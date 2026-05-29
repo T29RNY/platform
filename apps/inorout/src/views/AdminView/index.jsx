@@ -6,6 +6,7 @@ import {
   reopenWeek,
   goLive,
   sortByReservePriority,
+  getTeamNextFixtureLineup,
 } from "@platform/core";
 import {
   deletePlayer,
@@ -18,7 +19,7 @@ import {
 import {
   CaretRight, Megaphone, XCircle, PaperPlaneTilt,
   UsersThree, FlagCheckered, UserList, CalendarBlank,
-  Bell, TShirt, Users, Link as LinkIcon, Money,
+  Bell, TShirt, Users, Link as LinkIcon, Money, ClipboardText,
 } from "@phosphor-icons/react";
 import NavBar      from "../../components/ui/NavBar.jsx";
 import FirstTimeHint from "../../components/FirstTimeHint.jsx";
@@ -29,6 +30,7 @@ import SquadScreen    from "./SquadScreen.jsx";
 import ScheduleScreen   from "./ScheduleScreen.jsx";
 import RemindersScreen  from "./RemindersScreen.jsx";
 import PaymentsScreen   from "./PaymentsScreen.jsx";
+import TeamsheetScreen   from "./TeamsheetScreen.jsx";
 import POTMTiebreakModal from "./POTMTiebreakModal.jsx";
 import PlayerProfile    from "../PlayerProfile.jsx";
 import AnnounceModal    from "./AnnounceModal.jsx";
@@ -113,6 +115,19 @@ export default function AdminView({
     })();
     return () => { cancelled = true; };
   }, [teamId]);
+
+  // League Mode Cycle 5.6 — competitive teams only. Resolves the next league
+  // fixture + any submitted line-up so we can show the Teamsheet card + screen.
+  // Returns { fixture: null } for casual teams → card stays hidden.
+  const [lineupCtx, setLineupCtx] = useState(null);
+  const loadLineupCtx = () => {
+    if (!adminToken) return;
+    getTeamNextFixtureLineup(adminToken)
+      .then(data => setLineupCtx(data || null))
+      .catch(err => console.error('AdminView lineupCtx fetch error:', err));
+  };
+  useEffect(() => { loadLineupCtx(); }, [adminToken]);
+  const nextFixture = lineupCtx?.fixture || null;
 
   // ── derived ──────────────────────────────────────────────────────────────
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
@@ -355,6 +370,7 @@ export default function AdminView({
   if (screen === "schedule") return <ScheduleScreen schedule={schedule} setSchedule={setSchedule} settings={settings} setSettings={setSettings} onBack={() => setScreen("main")} teamId={teamId} adminToken={adminToken} liveChannelKey={liveChannelKey}/>;
   if (screen === "reminders") return <RemindersScreen schedule={schedule} setSchedule={setSchedule} onBack={() => setScreen("main")} teamId={teamId} adminToken={adminToken}/>;
   if (screen === "payments")  return <PaymentsScreen squad={squad} setSquad={setSquad} schedule={schedule} teamId={teamId} adminToken={adminToken} coverPool={coverPool} onBack={() => setScreen("main")}/> ;
+  if (screen === "teamsheet") return <TeamsheetScreen fixture={nextFixture} existingLineup={lineupCtx?.lineup || null} squad={squad} adminToken={adminToken} onBack={() => setScreen("main")} onSubmitted={loadLineupCtx}/>;
 
   if (selectedPlayer) {
     // Re-resolve from squad so admin actions (rename, injury, VC) reflect
@@ -899,6 +915,18 @@ export default function AdminView({
 
         {/* Manage tiles */}
         <SectionLabel>Manage</SectionLabel>
+        {nextFixture && (
+          <div style={{ marginBottom:8 }}>
+            {tile({
+              icon: ClipboardText, iconColor:"var(--purple)",
+              bg:"linear-gradient(135deg, var(--purple2), transparent)",
+              border:"var(--purpleb)",
+              title:"Teamsheet",
+              sub:`${nextFixture.is_home ? "vs" : "@"} ${nextFixture.opponent_name || "TBC"}${lineupCtx?.lineup ? " · submitted" : ""}`,
+              badge:0, onClick:() => setScreen("teamsheet"),
+            })}
+          </div>
+        )}
         <div style={{ marginBottom:8 }}>
           {tile({
             icon: Money, iconColor:"var(--green)",

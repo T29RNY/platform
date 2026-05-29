@@ -73,6 +73,8 @@ export {
   joinRegisterTeam,
   venueApproveTeamRegistration,
   venueRejectTeamRegistration,
+  getTeamNextFixtureLineup,
+  submitTeamLineup,
   venueWithdrawTeam,
   venueExpelTeam,
   venueAddPitch,

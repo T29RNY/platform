@@ -2333,6 +2333,33 @@ export async function venueRejectTeamRegistration(venueToken, competitionTeamId,
   return data;
 }
 
+// ─── League Mode — Phase 5 Cycle 5.6 teamsheet (line-up) ─────────────────────
+
+export async function getTeamNextFixtureLineup(adminToken) {
+  if (!adminToken) return null;
+  const { data, error } = await supabase.rpc("get_team_next_fixture_lineup", {
+    p_admin_token: adminToken,
+  });
+  if (error) {
+    console.error("[league] get_team_next_fixture_lineup failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function submitTeamLineup(adminToken, fixtureId, lineup) {
+  const { data, error } = await supabase.rpc("team_admin_submit_lineup", {
+    p_admin_token: adminToken,
+    p_fixture_id: fixtureId,
+    p_lineup: lineup,
+  });
+  if (error) {
+    console.error("[league] submit_team_lineup failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.5b mid-season team exits ──────────────────
 
 export async function venueWithdrawTeam(venueToken, competitionTeamId, reason) {
