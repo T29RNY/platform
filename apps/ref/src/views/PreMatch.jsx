@@ -122,7 +122,28 @@ function Squads({ homeTeam, awayTeam, homeSquad, awaySquad }) {
   );
 }
 
+function SquadRow({ p }) {
+  const suspended = p.suspension_until && new Date(p.suspension_until) > new Date();
+  return (
+    <li className="squad-row">
+      {p.shirt_number != null
+        ? <span className="squad-shirt">{p.shirt_number}</span>
+        : <span className="squad-shirt-blank">—</span>}
+      <span className="squad-name">{p.name}</span>
+      {suspended && <span className="squad-flag">Susp</span>}
+    </li>
+  );
+}
+
 function SquadCard({ team, squad, side }) {
+  // A submitted teamsheet tags each player with lineup_role ('starting'|'bench').
+  // When present, show a Starting / Bench split; otherwise the flat registered squad
+  // exactly as before (backward compatible — Cycle 5.6).
+  const hasLineup = squad.some((p) => p.lineup_role);
+  const starting = hasLineup ? squad.filter((p) => p.lineup_role === "starting") : [];
+  const bench    = hasLineup ? squad.filter((p) => p.lineup_role === "bench") : [];
+  const subhead = { fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase",
+                    opacity: 0.6, margin: "10px 0 4px" };
   return (
     <section className="squad">
       <div className="squad-head">
@@ -130,24 +151,28 @@ function SquadCard({ team, squad, side }) {
           <span className="squad-swatch" style={{ background: team?.primary_colour || "var(--surface-2)" }} />
           {team?.name || (side === "away" ? "(bye)" : "Home")}
         </div>
-        <div className="squad-count">{squad.length} player{squad.length === 1 ? "" : "s"}</div>
+        <div className="squad-count">
+          {hasLineup
+            ? `${starting.length} starting · ${bench.length} sub${bench.length === 1 ? "" : "s"}`
+            : `${squad.length} player${squad.length === 1 ? "" : "s"}`}
+        </div>
       </div>
       {squad.length === 0 ? (
         <div className="squad-empty">No confirmed squad yet</div>
+      ) : hasLineup ? (
+        <>
+          <div style={subhead}>Starting</div>
+          <ul className="squad-list">{starting.map((p) => <SquadRow key={p.id} p={p} />)}</ul>
+          {bench.length > 0 && (
+            <>
+              <div style={subhead}>Bench</div>
+              <ul className="squad-list">{bench.map((p) => <SquadRow key={p.id} p={p} />)}</ul>
+            </>
+          )}
+        </>
       ) : (
         <ul className="squad-list">
-          {squad.map((p) => {
-            const suspended = p.suspension_until && new Date(p.suspension_until) > new Date();
-            return (
-              <li key={p.id} className="squad-row">
-                {p.shirt_number != null
-                  ? <span className="squad-shirt">{p.shirt_number}</span>
-                  : <span className="squad-shirt-blank">—</span>}
-                <span className="squad-name">{p.name}</span>
-                {suspended && <span className="squad-flag">Susp</span>}
-              </li>
-            );
-          })}
+          {squad.map((p) => <SquadRow key={p.id} p={p} />)}
         </ul>
       )}
     </section>
