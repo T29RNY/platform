@@ -2,6 +2,7 @@
 // Requires env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET, VERCEL_URL
 
 const { createClient } = require("@supabase/supabase-js");
+const { sendTemplated } = require("./_mailer");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -143,6 +144,13 @@ module.exports = async function handler(req, res) {
     await confirmPushJob(base, results);
   } catch (e) {
     results.push(`confirmPush: error — ${e.message}`);
+  }
+
+  // ── Onboarding & ops emails (Phase 9 Cycle 9.1, every tick) ───────────────
+  try {
+    await onboardingEmailJob(results);
+  } catch (e) {
+    results.push(`onboardingEmail: error — ${e.message}`);
   }
 
   res.json({ ok: true, ts: new Date().toISOString(), results });
@@ -597,6 +605,151 @@ async function confirmPushJob(base, results) {
       g.gameDate);
   }
   results.push(`confirmPush: ${groups.size} booking(s) notified`);
+}
+
+// ── Onboarding & ops emails (Phase 9 Cycle 9.1) ──────────────────────────────
+// Polls audit_events for four onboarding actions in the last 20 min and emails the
+// relevant persona via Resend (_mailer.js). Mirrors confirmPushJob. EMAIL ONLY — the
+// web-push chain in notify.js is untouched. Recipients are resolved server-side with
+// the service role (auth.users for team/venue admins, match_officials for refs), so no
+// player-preference plumbing is needed. Dedup per (type, entity_id, recipient) where
+// channel='email' via notification_log; the 20-min window covers the 15-min cadence.
+// No-ops cleanly when RESEND_API_KEY is unset.
+const ONBOARDING_ACTIONS = [
+  "team_registration_submitted", // → venue admin
+  "team_approved",               // → team admin
+  "team_rejected",               // → team admin
+  "fixture_ref_assigned",        // → referee
+];
+
+async function authEmailsForUserIds(userIds) {
+  const emails = [];
+  for (const uid of userIds) {
+    if (!uid) continue;
+    try {
+      const { data, error } = await supabase.auth.admin.getUserById(uid);
+      if (!error && data?.user?.email) emails.push(data.user.email);
+    } catch (e) { /* skip this admin */ }
+  }
+  return [...new Set(emails)];
+}
+
+async function teamAdminEmails(teamId) {
+  if (!teamId) return [];
+  const { data: admins } = await supabase
+    .from("team_admins").select("user_id")
+    .eq("team_id", teamId).is("revoked_at", null);
+  const emails = await authEmailsForUserIds((admins || []).map(a => a.user_id));
+  const { data: team } = await supabase.from("teams").select("admin_email").eq("id", teamId).single();
+  if (team?.admin_email) emails.push(team.admin_email);
+  return [...new Set(emails)];
+}
+
+async function venueAdminEmails(venueId) {
+  if (!venueId) return [];
+  const { data: admins } = await supabase
+    .from("venue_admins").select("user_id").eq("venue_id", venueId);
+  return authEmailsForUserIds((admins || []).map(a => a.user_id));
+}
+
+async function competitionName(id) {
+  if (!id) return "the competition";
+  const { data } = await supabase.from("competitions").select("name").eq("id", id).single();
+  return data?.name || "the competition";
+}
+
+async function teamNameOf(id) {
+  if (!id) return null;
+  const { data } = await supabase.from("teams").select("name").eq("id", id).single();
+  return data?.name || null;
+}
+
+async function refFixtureCtx(fixtureId) {
+  const { data: f } = await supabase.from("fixtures")
+    .select("home_team_id, away_team_id, scheduled_date, kickoff_time, ref_token")
+    .eq("id", fixtureId).single();
+  if (!f) return { matchLabel: "your match" };
+  const [h, a] = await Promise.all([teamNameOf(f.home_team_id), teamNameOf(f.away_team_id)]);
+  const matchLabel = `${h || "Home"} v ${a || "Away"}`;
+  const dateLabel = [f.scheduled_date, f.kickoff_time ? String(f.kickoff_time).slice(0, 5) : null]
+    .filter(Boolean).join(" ");
+  const link = process.env.REF_APP_URL && f.ref_token
+    ? `${process.env.REF_APP_URL}/ref/${f.ref_token}` : null;
+  return { matchLabel, dateLabel, link };
+}
+
+async function alreadyEmailed(type, entityId, recipient) {
+  const { data } = await supabase
+    .from("notification_log").select("id")
+    .eq("type", type).eq("entity_id", entityId).eq("recipient", recipient)
+    .eq("channel", "email").not("sent_at", "is", null).limit(1);
+  return !!(data && data.length);
+}
+
+// Returns false if the whole job should stop (no API key); true otherwise.
+async function dispatchEmail(type, entityId, recipients, ctx, teamId, results) {
+  let sent = 0;
+  for (const to of recipients) {
+    if (!to) continue;
+    if (await alreadyEmailed(type, entityId, to)) continue;
+    const r = await sendTemplated(type, to, ctx);
+    if (r?.skipped === "no_api_key") { results.push("onboardingEmail: skipped (RESEND_API_KEY unset)"); return false; }
+    if (r?.id) {
+      await supabase.from("notification_log").insert({
+        type, entity_id: entityId, recipient: to, channel: "email", team_id: teamId || null,
+      });
+      sent++;
+    } else if (r?.error) {
+      results.push(`onboardingEmail: ${type} send failed (${to}) — ${r.error}`);
+    }
+  }
+  if (sent) results.push(`onboardingEmail: ${type} → ${sent} email(s)`);
+  return true;
+}
+
+async function onboardingEmailJob(results) {
+  const since = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+  const { data: events, error } = await supabase
+    .from("audit_events")
+    .select("action, entity_id, metadata, created_at")
+    .in("action", ONBOARDING_ACTIONS)
+    .gt("created_at", since);
+  if (error) { results.push(`onboardingEmail: error — ${error.message}`); return; }
+  if (!events?.length) { results.push("onboardingEmail: none"); return; }
+
+  for (const ev of events) {
+    const m = ev.metadata || {};
+    if (ev.action === "team_registration_submitted") {
+      const venueId = m.venue_id;
+      const recipients = await venueAdminEmails(venueId);
+      const { data: venue } = venueId
+        ? await supabase.from("venues").select("venue_admin_token").eq("id", venueId).single()
+        : { data: null };
+      const link = process.env.VENUE_APP_URL && venue?.venue_admin_token
+        ? `${process.env.VENUE_APP_URL}/venue/${venue.venue_admin_token}` : null;
+      const ok = await dispatchEmail("team_registration_pending", ev.entity_id, recipients,
+        { teamName: m.team_name || "A team", competitionName: await competitionName(m.competition_id), link },
+        null, results);
+      if (!ok) return;
+    } else if (ev.action === "team_approved" || ev.action === "team_rejected") {
+      const teamId = m.team_id;
+      const recipients = await teamAdminEmails(teamId);
+      const ok = await dispatchEmail(ev.action, ev.entity_id, recipients,
+        { teamName: await teamNameOf(teamId) || "Your team",
+          competitionName: await competitionName(m.competition_id),
+          reason: m.reason || null },
+        teamId, results);
+      if (!ok) return;
+    } else if (ev.action === "fixture_ref_assigned") {
+      const officialId = m.official_id;
+      if (!officialId) continue;
+      const { data: off } = await supabase.from("match_officials").select("email").eq("id", officialId).single();
+      if (!off?.email) continue;
+      const ok = await dispatchEmail("ref_assigned", ev.entity_id, [off.email],
+        await refFixtureCtx(ev.entity_id), null, results);
+      if (!ok) return;
+    }
+  }
 }
 
 // ── Demo player reset ─────────────────────────────────────────────────────────
