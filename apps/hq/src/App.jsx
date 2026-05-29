@@ -12,6 +12,7 @@ import VenueHealthGrid from "./views/VenueHealthGrid.jsx";
 import VenueDetail from "./views/VenueDetail.jsx";
 import AlertsActions from "./views/AlertsActions.jsx";
 import AnalyticsView from "./views/AnalyticsView.jsx";
+import ActivityFeed from "./views/ActivityFeed.jsx";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -176,13 +177,22 @@ export default function App() {
             />
           </div>
           <div className="col">
-            <VenueDetail
-              detail={detail}
-              loading={detailLoading}
-              hasSelection={!!selectedVenueId}
-              role={state?.caller?.role}
-              onResolve={onResolve}
-            />
+            {selectedVenueId ? (
+              <>
+                <button className="small" style={{ marginBottom: 12 }} onClick={() => setSelectedVenueId(null)}>
+                  ← Back to live feed
+                </button>
+                <VenueDetail
+                  detail={detail}
+                  loading={detailLoading}
+                  hasSelection={true}
+                  role={state?.caller?.role}
+                  onResolve={onResolve}
+                />
+              </>
+            ) : (
+              <ActivityFeed companyId={companyId} />
+            )}
           </div>
           <div className="col">
             <AlertsActions

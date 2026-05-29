@@ -55,6 +55,7 @@ export {
   hqResolveIncident,
   hqGetAnalytics,
   hqSetDashboardConfig,
+  hqGetActivity,
   venueGetState,
   leagueGetState,
   joinGetLeagueByCode,
