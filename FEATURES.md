@@ -16,8 +16,10 @@
    deferred to ride with Phase 6** (it needs HQ aggregation).
 2. **Phase 6 (HQ dashboard)** — company-level cross-venue surface; data already flows
    up but nothing reads it. ✅ Cycle 6.1 (session 60): apps/hq app + auth/caller-resolution
-   + company-state/drill-down/incident-resolve RPCs + Venue Health Grid + Alerts. **Remaining
-   cycles:** 6.3 analytics tabs · 6.4 live activity feed (centre column) · 6.5 HQ preview token ·
+   + company-state/drill-down/incident-resolve RPCs + Venue Health Grid + Alerts. ✅ Cycle 6.3
+   (session 60): **composable analytics** — `hq_get_analytics` + per-admin saved layouts +
+   6-card registry + presets + edit mode (Layer A; the AI composes over this in Phase 7).
+   **Remaining cycles:** 6.4 live activity feed (centre column) · 6.5 HQ preview token ·
    6.x HQ weekly digest (the deferred Phase 9 cycle, rides here). Fold the Phase 9 HQ digest in here.
 3. **Phase 11 (cups & knockouts)** — most cross-cutting (fixtures/standings→brackets/
    ref/display/player); last, when other surfaces are stable. `cup_rounds` +
@@ -82,6 +84,35 @@ existing `venue_live` broadcast. Built in four committed stages.
 - **Testbed:** demo_venue `display_token='demo_venue_display_token'`, `display_pin='1234'`.
 
 ---
+
+## LEAGUE MODE — PHASE 6 CYCLE 6.3: composable analytics dashboard (session 60, 2026-05-29)
+
+Layer A of the operator's customisable-dashboard idea — HQ picks from a registry of cards
+(or applies a preset) and the layout is saved per-admin. Deterministic; the Phase 7 AI layer
+will later compose over the *same* registry (grounded, never raw SQL).
+
+- **Decision:** HQ analytics is **composable, not fixed tabs** (supersedes the scope-6C fixed
+  Overview/Comparison/Engagement/Season tabs). A card registry + saved layout (mirrors Phase 4's
+  `display_config` pattern); presets are named starting layouts. The **AI-composition layer (Layer
+  B) is deferred to Phase 7** — built only after the registry exists, so the AI selects from safe
+  cards rather than improvising against the schema. Cards use **only confirmed data sources** —
+  "% opened app" / standings deferred (no clean source; not faked).
+- **What ships:**
+  - **mig 172** — `company_admins.dashboard_config jsonb` (per-admin layout; NULL = default preset).
+  - **mig 173** — `hq_get_analytics(company, from?, to?)` (one read: 6 datasets + caller's layout +
+    meta; role/region scoped; optional date filter) + `hq_set_dashboard_config(company, config)`
+    (write; filters cards to the known 6 keys; persists the caller's own row).
+  - **packages/core** wrappers `hqGetAnalytics`/`hqSetDashboardConfig`.
+  - **apps/hq** — Dashboard|Analytics tab + AnalyticsView: 6 cards (Overview KPIs, Venue
+    comparison, Top scorers [match_events goals], Discipline [cards], Open incidents, Billing),
+    edit mode (preset / toggle / reorder / Save), presets Operations·Commercial·Performance.
+- **Verified:** rpc-security-sweep (both SECDEF/single-overload/search_path/anon-denied) ·
+  ephemeral-verify (rolled back): read=6 datasets/venues=2/goals=35 · config write filters bogus
+  key→3 cards + keeps preset + persists + round-trips · bad_config rejected · regional-South
+  scoping venues=1 · stranger denied — all PASS · apps/hq builds clean.
+- **Operator owes:** live signed-in Analytics render (behind OAuth, with the 6.1 pass).
+- **Deferred:** 6.4 live activity feed · 6.5 preview token · Phase 7 AI composition (Layer B) ·
+  more cards as data sources firm up (player engagement, standings).
 
 ## LEAGUE MODE — PHASE 6 CYCLE 6.1: HQ dashboard foundation + drill-down + incident resolve (session 60, 2026-05-29)
 

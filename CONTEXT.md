@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 60 — Phase 6.1: HQ dashboard foundation + drill-down + incident resolve.)*
+*Last updated: May 29 2026 (session 60 — Phase 6: HQ dashboard foundation (6.1) + composable analytics (6.3).)*
 
 ## SESSION 60 — Phase 6 Cycle 6.1: HQ dashboard (May 29 2026)
 
@@ -32,8 +32,19 @@ venue-scoped events store venue_id there. Also `actor_type` CHECK lacked `compan
 (mig-088/092 bug class). Both fixed in mig 171.
 
 **Operator owes:** live signed-in `/hq` load as super_admin (real Google OAuth) · apps/hq
-Vercel deploy + `VITE_SUPABASE_*` env · casual two-token browser smoke. **Next cycles:** 6.3
-analytics tabs · 6.4 live activity feed · 6.5 HQ preview token · 6.x HQ weekly digest.
+Vercel deploy + `VITE_SUPABASE_*` env · casual two-token browser smoke.
+
+**Cycle 6.3 — composable analytics (same session, migs 172–173, commits b6fb5c5/c9f0260/
+6e81d16/ce16b93):** the operator asked whether HQ could be customisable (presets, or AI-combined
+datasets). Settled: **composable card registry, not fixed tabs** (Layer A); the **AI composition
+rides Phase 7** over the same registry (grounded, no raw SQL). Built: `company_admins.dashboard_config`
+(mig 172) · `hq_get_analytics` (6 card datasets + caller layout) + `hq_set_dashboard_config` (mig
+173) · packages/core wrappers · apps/hq Dashboard|Analytics tab + AnalyticsView (6 cards, presets
+Operations/Commercial/Performance, edit mode). Cards use only confirmed sources (match_events goals/
+cards, fixtures scores, incidents, venues) — engagement/standings deferred (no clean source).
+ephemeral-verify PASS (read 6 datasets, config write filter/persist/round-trip, bad_config reject,
+regional scoping, stranger denial). See DECISIONS "HQ analytics is composable…". **Next cycles:**
+6.4 live activity feed · 6.5 HQ preview token · 6.x HQ weekly digest · Phase 7 AI layer.
 
 ## SESSION 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons (May 29 2026)
 

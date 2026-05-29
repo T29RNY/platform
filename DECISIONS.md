@@ -6,6 +6,30 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## HQ analytics is composable (card registry), and the AI composes over it — not raw SQL (session 60, Cycle 6.3)
+
+The operator asked whether HQ could be customisable — pick from preset outputs, or select
+datasets an AI combines into a dynamic dashboard. Settled:
+
+**Composable, not fixed tabs.** This supersedes scope 6C's fixed four-tab analytics. HQ has a
+**card registry** (overview, venue_comparison, top_scorers, discipline, incidents, billing — each
+backed by one known query in `hq_get_analytics`) and a **per-admin saved layout**
+(`company_admins.dashboard_config`, mig 172 — mirrors Phase 4's `venues.display_config`). "Presets"
+are named starting layouts. This is **Layer A** — deterministic and safe.
+
+**The AI layer (Layer B) is deferred to Phase 7 and composes over Layer A's registry — it never
+writes raw SQL.** Per GAFFER.md's "grounded, not generative": the AI selects + arranges cards from
+the registry and narrates, every number backed by a real query. Building B before A would mean the
+model improvising against the schema (RLS-bypass / hallucination risk) — so A is the prerequisite,
+not optional. Timing: after the registry, with Phase 7's AI-Gateway wiring (operator chose this
+over pulling a standalone HQ-AI cycle forward).
+
+**Only confirmed data sources become cards.** `match_events` (goals/cards) and `fixtures` scores
++ `incidents`/`venues` are real; "% of players who opened the app" and league standings have no
+clean source today, so those cards are deferred, not faked.
+
+---
+
 ## Phase 6 HQ Dashboard — Cycle 6.1 scoping (session 60)
 
 Four operator calls settled before the audit, plus one schema discovery:

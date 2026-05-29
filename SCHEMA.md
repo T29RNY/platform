@@ -1,5 +1,5 @@
 # In or Out — Database Schema
-*Last updated: May 29 2026 (session 60 — League Mode Phase 6.1 HQ: venues.region + audit_events.actor_type+=company_admin + demo company seed, migs 169–171)*
+*Last updated: May 29 2026 (session 60 — League Mode Phase 6 HQ: venues.region + audit_events.actor_type+=company_admin + demo company seed + company_admins.dashboard_config, migs 169–173)*
 
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
@@ -19,6 +19,9 @@ SECURITY DEFINER RPCs — no direct client writes permitted.
 >   `company_admins` (tarny super_admin) + `incidents`. Reversible via `170_down`.
 > - No new tables — the HQ spine (`companies`, `company_admins`, `company_domains`,
 >   `billing_events`, `hq_preview_tokens`, `incidents`, `venues.company_id`) already existed (mig 055/057).
+> - `company_admins.dashboard_config jsonb NULL` (mig 172, Cycle 6.3) — per-admin composable HQ
+>   dashboard layout `{preset, cards[]}`; NULL = default preset. Card keys map to
+>   `hq_get_analytics` datasets. Additive.
 
 ---
 

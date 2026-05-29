@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 29 2026 (session 60 — League Mode Phase 6 Cycle 6.1 HQ dashboard: resolve_company_caller, company_admin_whoami, hq_get_company_state, hq_get_venue_detail, hq_resolve_incident, mig 171)*
+*Last updated: May 29 2026 (session 60 — League Mode Phase 6 HQ dashboard: Cycle 6.1 (mig 171) + Cycle 6.3 composable analytics hq_get_analytics/hq_set_dashboard_config (migs 172–173))*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -318,6 +318,15 @@ own region only (`venues.region`, mig 169); analyst = read-only.
 Also mig 171: `audit_events.actor_type` CHECK += `'company_admin'`; `notify_venue_change`
 whitelist += `'incident_resolved'`.
 
+**Cycle 6.3 — composable analytics (mig 172–173):**
+
+| RPC (SQL) | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `hq_get_analytics(p_company_id, p_date_from DEFAULT NULL, p_date_to DEFAULT NULL)` | `hqGetAnalytics(companyId, from?, to?)` | authenticated | Mig 173. SECDEF. One read returning all 6 card datasets (`overview`, `venue_comparison`, `top_scorers` [match_events goals], `discipline` [cards], `incidents`, `billing`) + the caller's saved layout (`config`) + `caller`/`range` meta. Role/region scoped like hq_get_company_state; optional date filter on fixtures + match_events. **Consumers:** apps/hq AnalyticsView; the card registry is the Phase 7 AI composition vocabulary. |
+| `hq_set_dashboard_config(p_company_id, p_config)` | `hqSetDashboardConfig(companyId, config)` | authenticated | Mig 173. **WRITE** (ephemeral-verify gated). Validates shape, filters `cards` to the known 6 keys (order preserved), writes the caller's own `company_admins.dashboard_config`. Personal UI pref (not company data) → no audit. Returns `{ok, persisted, config}` (persisted=false for a platform_admin with no membership row). **Consumers:** apps/hq AnalyticsView edit mode. |
+
+mig 172: `company_admins.dashboard_config jsonb NULL` (per-admin saved layout; NULL = default preset).
+
 ---
 
 ## MIGRATION FILE MAP
@@ -376,6 +385,8 @@ whitelist += `'incident_resolved'`.
 | 169 | `venues.region text NULL` — regional_admin scoping for the HQ dashboard (Phase 6.1). Additive. |
 | 170 | Demo company seed `company_demo` (Demo Sports Group) — links demo_venue (North) + venue_demo_south (South), tarny super_admin, 2 open incidents. Namespaced + reversible (`170_down`). |
 | 171 | Phase 6 HQ RPCs — `resolve_company_caller`, `company_admin_whoami`, `hq_get_company_state`, `hq_get_venue_detail`, `hq_resolve_incident` (write). + `audit_events.actor_type`+='company_admin' + `notify_venue_change` whitelist+='incident_resolved'. rpc-security-sweep + ephemeral-verify PASS. |
+| 172 | `company_admins.dashboard_config jsonb NULL` — per-admin HQ dashboard layout (Phase 6.3). |
+| 173 | Phase 6.3 composable analytics — `hq_get_analytics` (read, 6 card datasets + caller layout) + `hq_set_dashboard_config` (write). rpc-security-sweep + ephemeral-verify PASS. |
 | 163 | `notification_log` + `channel`/`entity_id`/`recipient` (nullable) + partial email-dedup index — League Mode **Phase 9 Cycle 9.1**. Lets transactional email (Resend) be logged/deduped alongside web-push. No RPC change — the email layer (`api/_mailer.js` + `onboardingEmailJob` in `api/cron.js`) is a read-only consumer of existing audit actions (`team_registration_submitted`/`team_approved`/`team_rejected`/`fixture_ref_assigned`). |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
