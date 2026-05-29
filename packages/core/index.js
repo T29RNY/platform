@@ -53,6 +53,8 @@ export {
   hqGetCompanyState,
   hqGetVenueDetail,
   hqResolveIncident,
+  hqGetAnalytics,
+  hqSetDashboardConfig,
   venueGetState,
   leagueGetState,
   joinGetLeagueByCode,
