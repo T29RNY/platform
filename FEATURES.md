@@ -37,9 +37,14 @@ cycle; the web-push chain is untouched. SMS/WhatsApp (Twilio) is a later 9.x cyc
   no-key path returns `skipped`) · resolver SQL proven on the testbed (`team_dc_fc` →
   tarnysingh@gmail.com; demo venue has an official w/ email) · dedup DO-block PASS + leak 0 ·
   build clean.
-- **Operator-owed:** set `RESEND_API_KEY` + `EMAIL_FROM` (+ optional `REF_APP_URL` /
-  `VENUE_APP_URL`) in the inorout Vercel project → redeploy → live test send. `team_registration_pending`
-  needs a **real** venue (the demo venue has no linked `venue_admins` row, so it has no email recipient).
+- **LIVE — verified end-to-end (2026-05-29).** `RESEND_API_KEY` + `EMAIL_FROM`
+  (`In or Out <notifications@in-or-out.com>`, root `in-or-out.com` verified) + `REF_APP_URL`
+  (`https://platform-ref.vercel.app`) set in the inor-out Vercel project; redeployed. Live test:
+  a `team_approved` event resolved to the Competitive FC admin, Resend sent, `notification_log`
+  logged `channel='email'`, and the email **landed in the inbox**. Dedup confirmed (second tick
+  no resend); test rows cleaned up. `VENUE_APP_URL` left unset (venue app not yet deployed →
+  registration-pending email omits the link). `team_registration_pending` still needs a **real**
+  venue to exercise (demo venue has no linked `venue_admins` row).
 - **Deferred to later 9.x:** SMS/WhatsApp; player notification-preference UI + contact setters;
   fixture-reminder/availability crons; HQ weekly digest; the AI `pre_match_briefing` (overlaps Phase 7).
 

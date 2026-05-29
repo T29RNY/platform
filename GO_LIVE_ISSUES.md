@@ -62,7 +62,10 @@ unverified domain means zero emails with no error surfaced to the user.
 5. Free-tier limit is **shared across the Resend account** (3k/mo, 100/day). Watch volume if the
    account hosts other projects.
 
-**Status:** code shipped (mig 163, commit `6d73345`); env/DNS + live test **operator-owed**.
+**Status:** code shipped (mig 163, commit `6d73345`); env/DNS set + **live-verified 2026-05-29**
+(team_approved → Resend → inbox; `notification_log` channel='email'; dedup confirmed). The
+pre-flight checks above remain the re-run procedure for each new venue/squad and for the
+still-unexercised `team_registration_pending` (real-venue) path.
 
 ---
 

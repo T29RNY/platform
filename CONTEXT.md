@@ -16,10 +16,12 @@ later), **Resend** (new account, root `in-or-out.com` verified, DNS at **GoDaddy
   build, module/template smoke. No `apps/inorout/src`/`packages/core` change.
 - **Stage B:** docs (FEATURES/RPCS/SCHEMA/CONTEXT + GO_LIVE_ISSUES prerequisite entry).
 
-**Operator-owed (blocks the send half):** set `RESEND_API_KEY` + `EMAIL_FROM`
-(`In or Out <notifications@in-or-out.com>`) — optional `REF_APP_URL`/`VENUE_APP_URL` for links —
-in the inorout Vercel project, redeploy, then a live test send. Demo venue can't test
-`team_registration_pending` (no `venue_admins` row). **Next:** Phase 7 (AI layer).
+**LIVE (2026-05-29):** env set in inor-out Vercel (`RESEND_API_KEY`, `EMAIL_FROM` =
+`In or Out <notifications@in-or-out.com>`, `REF_APP_URL` = `https://platform-ref.vercel.app`;
+`VENUE_APP_URL` unset — venue app not deployed). Redeployed + live-tested end-to-end: a
+`team_approved` event → Resend send → `notification_log` (channel='email') → **email received
+in inbox**; dedup confirmed; test rows cleaned (0 residue). Demo venue can't test
+`team_registration_pending` (no `venue_admins` row — needs a real venue). **Next:** Phase 7 (AI layer).
 
 ## SESSION 56 — League Mode Cycle 5.7 eligibility — PHASE 5 COMPLETE (May 29 2026)
 
