@@ -441,6 +441,50 @@ league" picker or a deep-link pre-filter.
 
 ---
 
+## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY (session 57)
+
+**Venue-scoped on a new `venues.display_token`, NOT per-league.** The reception
+TV shows every active competition at the venue (scope §4D), so it keys on a
+per-venue token. We added `venues.display_token` (parallel to the pre-existing
+`leagues.display_token`) rather than reuse `venue_admin_token` — the admin token
+is the operator's read-write secret and must never appear on a public TV URL. A
+multi-league venue (demo_venue has two) is handled by one display rotating
+through its competitions, not by multiple per-league screens.
+
+**Composite multi-zone layout supersedes the scope's single-panel auto-cycle.**
+The operator's call: the screen shows several datasets at once (live scores +
+table + top scorers + ticker), default "Live-led split" (live scores the hero,
+table rail, scorers under, ticker along the bottom; flips to Upcoming/Recent when
+idle). The scope's fixed/cycle/smart "panels" still exist as `display_config`
+(`zones`, `mode`, `interval_secs`, `custom_message`), but cycling is for overflow
+within the composite, not a one-panel-at-a-time carousel.
+
+**Client-side PIN lockout; PIN never leaves the server.** `check_display_pin`
+answers ok/required without returning the PIN; `get_display_state` omits it. The
+3-strike / 30-min lockout lives in `apps/display` localStorage. This keeps the
+whole display read-only (no write RPC for the gate) — only
+`venue_update_display_config` writes, and only from the operator.
+
+**Identity = capability URL, consistent with the platform.** No login/email for
+the display (or any venue/ref surface today; `venue_admins`/`company_admins`
+remain unused scaffolding). `display_token` + an optional PIN locks a screen to
+one venue. Layout changes are made only on the operator's `venue_admin_token` link
+(apps/venue ▸ Reception display) — the TV link is read-only. Token rotation
+("regenerate display link") is a deliberate future add, not in Phase 4.
+
+**Standings engine is lifted, not reinvented.** `get_display_state` reuses
+`get_league_standings_for_player`'s scoring byte-for-byte (walkover/forfeit → 3/0,
+W/D/L from effective score, `standings_visibility` gate) in a confirmed pass, and
+adds a parallel LIVE pass folding in-progress `match_events` scores for the §4D
+amber "provisional" table. Form column deferred (no RPC computes it yet).
+
+**New `apps/display` app, not a route in apps/venue.** Standalone Vite SPA, own
+Vercel project (mirrors apps/ref/apps/venue). Keeps the public TV surface
+decoupled from the operator dashboard's deploy; read-only, so it never touches
+`apps/inorout/src` or `packages/core` write paths.
+
+---
+
 ## LEAGUE MODE — EXISTING CASUAL TEAMS STAY VENUELESS FOREVER (session 48)
 
 **The rule:** `teams.venue_id` is never set for any team that

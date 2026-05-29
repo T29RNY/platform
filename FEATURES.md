@@ -1,15 +1,59 @@
 # In or Out — Feature Tracker
-*Last updated: May 29 2026 (session 56 — Phase 9 Cycle 9.1: transactional email (Resend) + onboarding emails, mig 163)*
+*Last updated: May 29 2026 (session 57 — League Mode Phase 4 reception display shipped: apps/display + migs 164–168)*
 
 ---
 
 ## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55, updated 56)
 
-**Phase 5 COMPLETE.** **Phase 9 STARTED** (Cycle 9.1 — email transport + onboarding/ops loop).
+**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 STARTED** (Cycle 9.1 — email transport + onboarding/ops loop).
 Remaining, per `LEAGUE_MODE_SCOPE.md` (not strictly in number order):
 **Phase 9 next cycles** (SMS/WhatsApp via Twilio · fixture-reminder/availability crons · HQ weekly digest) ·
-**Phase 7 AI layer** (next major — operator's stated priority after 9) · Phase 4 reception display ·
+**Phase 7 AI layer** (next major — operator's stated priority after 9) ·
 Phase 6 HQ dashboard · Phase 10 public pages · Phase 11 cups. Phase 8 billing deferred to year 2.
+
+---
+
+## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)
+
+The venue big-screen (`/display/TOKEN`) — a TV-targeted, PIN-gated, white-labelled
+live scoreboard for **all** competitions at a venue, updating in real time off the
+existing `venue_live` broadcast. Built in four committed stages.
+
+- **Product decisions (operator):** new `apps/display` app (not a venue route);
+  **venue-scoped** on a new `venues.display_token` (never the admin token);
+  **client-side** PIN lockout (PIN never leaves the server); **confirmed + live
+  provisional** standings both shipped; venues **configure panels now**; default
+  **composite "Live-led split"** layout (multi-zone, supersedes single-panel cycle).
+  See DECISIONS.md (session 57).
+- **Stage A — server (migs 164–167, `4c0f08b`):** `venues.display_token` +
+  `display_config` + read indexes; `get_display_state` (lifts the proven standings
+  engine + a live pass folding in-progress scores; top scorers; live fixtures;
+  today's upcoming/recent; goals ticker; returns `live_channel_key`, never the PIN);
+  `check_display_pin` (read-only); `venue_update_display_config` (operator write).
+  rpc-security-sweep + ephemeral-verify + casual-regression all PASS.
+- **Stage B — `apps/display` (`c3087e8`):** standalone Vite SPA. Client PIN gate
+  (3 wrong → 30-min localStorage lockout); `get_display_state` + `venue_live`
+  realtime (verified: a ref goal flipped the score live with no reload) +
+  auto-reconnect + 60s fallback + screen wake-lock. **Broadcast-grade UI** (Sky
+  Sports / UCL bar): Bebas Neue scoreboard numerals, floodlight vignette + grain,
+  team-colour accents, Framer Motion (score-flip, standings reorder physics, live
+  card enter/exit, goals marquee). Live-led split layout; confirmed↔amber
+  provisional standings w/ position deltas; golden-boot scorers; white-label;
+  non-removable "Powered by In or Out".
+- **Stage C — `apps/venue` settings (`2e1a9c4`, mig 168):** Dashboard ▸ "Reception
+  display" modal — copyable display link, PIN set/clear, panel enable+reorder,
+  Smart/Cycle/Fixed mode + interval, custom message. `venue_get_state` additively
+  exposes `display_token`/`display_config`. UI save verified end-to-end.
+- **Operator owes (hard-rule #13):** the **real-device test on an actual 1920×1080
+  TV / large tablet** — wake-lock holds (screen doesn't sleep), auto-reconnect after
+  a Wi-Fi drop, PIN flow + lockout, white-label colours. Browser smoke at 1920×1080
+  passed (PIN, live broadcast score-flip, provisional standings); the physical-TV
+  pass is the gate the static/browser checks can't cover.
+- **Deferred:** Form column in standings (no RPC yet); display-token rotation
+  (kill-switch); enterprise white-label removal of the "Powered by" mark; deploying
+  `apps/display` to its own Vercel project + setting `VITE_DISPLAY_APP_URL` in
+  apps/venue so the copied link is fully-qualified.
+- **Testbed:** demo_venue `display_token='demo_venue_display_token'`, `display_pin='1234'`.
 
 ---
 
@@ -529,8 +573,9 @@ SQL editor against a demo fixture; console showed
 re-fetch. Smoke fixture reset back to `allocated` after.
 
 What's NOT in this cycle (still deferred):
-- Phase 4 reception display channel (TBD: `venue_live` reuse vs.
-  `display:<display_token>` per the audit's recommendation).
+- Phase 4 reception display channel — **RESOLVED (session 57)**: reuses
+  `venue_live:<live_channel_key>` (every ref RPC already broadcasts there);
+  `apps/display` subscribes. No separate `display:<token>` channel needed.
 - Push notifications for any ref event — by design, this stays
   silent/in-tab only.
 

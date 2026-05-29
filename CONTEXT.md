@@ -1,5 +1,39 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 56 — Cycle 5.7 (Phase 5 complete) + Phase 9 Cycle 9.1 transactional email started.)*
+*Last updated: May 29 2026 (session 57 — League Mode Phase 4 reception display shipped.)*
+
+## SESSION 57 — League Mode Phase 4: Reception Display (May 29 2026)
+
+Built the venue reception big-screen (`/display/TOKEN`) — a TV-targeted, PIN-gated,
+white-labelled live scoreboard for all competitions at a venue, real-time off the
+existing `venue_live` broadcast. Four committed stages; FEATURES/DECISIONS/RPCS/
+SCHEMA updated.
+
+- **Stage A — server (migs 164–167, `4c0f08b`):** `venues.display_token` (per-venue
+  read-only public token; NOT the admin token) + `display_config` jsonb + read
+  indexes; `get_display_state` (venue-scoped; lifts `get_league_standings_for_player`
+  scoring + a live pass folding in-progress `match_events`; top scorers; live
+  fixtures; today's upcoming/recent; goals ticker; returns `live_channel_key`, never
+  the PIN); `check_display_pin` (read-only); `venue_update_display_config` (operator
+  write). rpc-security-sweep (3) + ephemeral-verify (write, 7 reject paths) +
+  casual-regression (core additive-only) all PASS.
+- **Stage B — `apps/display` (`c3087e8`):** new standalone Vite SPA (own Vercel
+  project). Client PIN gate (3→30-min localStorage lockout), realtime `venue_live`
+  subscribe + auto-reconnect + 60s fallback + wake-lock. Broadcast-grade UI (Bebas
+  Neue, floodlight/grain, team-colour accents, Framer Motion score-flip + standings
+  reorder + marquee). Live-led split; confirmed↔amber provisional standings; golden
+  boot; white-label; non-removable Powered by. **Verified live**: a ref goal flipped
+  the score on-screen with no reload.
+- **Stage C — `apps/venue` (`2e1a9c4`, mig 168):** Dashboard ▸ Reception display modal
+  (copy link, PIN set/clear, panel enable+reorder, mode/interval, custom message).
+  `venue_get_state` additively exposes display_token/config. UI save verified.
+- **Decisions:** venue-scoped token (not per-league); composite multi-zone layout
+  (supersedes single-panel cycle); client-side PIN; capability-URL identity;
+  standings engine lifted not reinvented. See DECISIONS.md (session 57).
+- **Operator owes (hard-rule #13):** real-device test on an actual 1920×1080 TV
+  (wake-lock, Wi-Fi-drop reconnect). Also unshipped: deploy `apps/display` to Vercel
+  + set `VITE_DISPLAY_APP_URL` in apps/venue (so the copied link is fully-qualified).
+- **Testbed:** demo_venue `display_token='demo_venue_display_token'`, pin `1234`.
+  **Next:** Phase 7 (AI layer) per operator priority.
 
 ## SESSION 56 (cont.) — Phase 9 Cycle 9.1: transactional email (Resend) (May 29 2026)
 

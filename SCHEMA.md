@@ -1,5 +1,5 @@
 # In or Out — Database Schema
-*Last updated: May 29 2026 (session 56 — league_config.min_starting/max_subs, mig 161)*
+*Last updated: May 29 2026 (session 57 — League Mode Phase 4 reception display: venues.display_token + display_config, migs 164–168)*
 
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
@@ -438,7 +438,7 @@ arrive in Phase 2+. All currently empty.
 
 ### Phase 1 — Venue layer
 
-- `venues` — text PK. company_id (nullable — independent venues allowed). venue_admin_token. display_pin. Stripe columns. sport DEFAULT 'football'.
+- `venues` — text PK. company_id (nullable — independent venues allowed). venue_admin_token. display_pin. Stripe columns. sport DEFAULT 'football'. **Phase 4 (mig 164):** `display_token text NOT NULL DEFAULT gen_random_uuid()::text` (UNIQUE — per-venue READ-ONLY public token for the reception big-screen `/display/TOKEN`; NOT the venue_admin_token) + `display_config jsonb` (panel/layout config: `{zones[],mode,interval_secs,custom_message}`; NULL = app default). White-label `logo_url`/`primary_colour`/`secondary_colour` already existed.
 - `venue_admins` — user_id ↔ venue_id. Roles: admin / staff.
 - `playing_areas` — venue_id, name, surface, capacity. (Multi-sport rename of `pitches`.)
 - `match_officials` — venue_id, name, contact channels, preferred_channel. (Multi-sport rename of `referees`.)

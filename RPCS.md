@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 29 2026 (session 56 — Cycle 5.7 eligibility: team_admin_check_eligibility + submit rewrite + league_config squad-size, migs 161–162; Phase 5 complete)*
+*Last updated: May 29 2026 (session 57 — League Mode Phase 4 reception display: get_display_state, check_display_pin, venue_update_display_config + venue_get_state display fields, migs 164–168)*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -247,6 +247,26 @@ migration as the calling RPCs (avoiding the §6.3 drift bug):
 |---|---|---|
 | `venue_update_fixture_result` | `venueUpdateFixtureResult(venueToken, {fixtureId, homeScore, awayScore, reason})` | Migration 127. The ONLY path for correcting a result after `ref_confirm_full_time`. Token-gated via `resolve_venue_caller`. Requires fixture in `status='completed'` + non-empty reason + non-negative scores. Audit-logged with previous + new scores + reason. Broadcasts `result_corrected` (team) + `result_corrected` (venue) + `fixture_result_corrected` (league). Verified end-to-end via Supabase MCP (8 assertions, no leak). **Consumers**: Phase 5+ venue dashboard "edit result" UI (planned, not yet built — RPC is callable via MCP/SQL today). |
 
+## LEAGUE MODE — PHASE 4 RPCs (reception display, migrations 164–168)
+
+Spec: `LEAGUE_MODE_SCOPE.md` § Phase 4. The reception big-screen runs at
+`https://<display-app>/display/<display_token>` on a venue TV. **Venue-scoped**
+on `venues.display_token` (a per-venue READ-ONLY public token, distinct from the
+operator's `venue_admin_token`). Consumer app: `apps/display` (new standalone Vite
+SPA, own Vercel project). The display subscribes to the existing
+`venue_live:<venues.live_channel_key>` broadcast — every `ref_*` write already
+publishes there, so live scores update with no polling.
+
+| SQL function | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `get_display_state(p_display_token)` | `getDisplayState(displayToken)` | anon + authenticated | Migration 165. **Read-only** (STABLE, SECDEF, search_path locked). Resolves the venue from `display_token`; returns one jsonb: `venue` (incl. `live_channel_key` + `display_config`; **never `display_pin`**), `competitions[]` (all `status='active'` comps across the venue's leagues — each with `standings_confirmed` + `standings_live` + `top_scorers`), `live_fixtures[]` (in-progress, live-computed scores + last 6 events), `upcoming_fixtures[]`/`recent_results[]` (today, Europe/London), `goals_ticker[]` (today), `server_time`. Standings **lift the proven `get_league_standings_for_player` scoring byte-for-byte** (walkover/forfeit → 3/0; W/D/L from effective score; gated on `leagues.standings_visibility='public'`); the LIVE pass also folds in-progress `match_events` scores (goals(home)+own_goals(away), mirrors `ref_confirm_full_time`). Raises `invalid_display_token`. **Consumers (hard-rule #14)**: `apps/display` (reception); Phase 6 HQ (future). |
+| `check_display_pin(p_display_token, p_pin)` | `checkDisplayPin(displayToken, pin)` | anon + authenticated | Migration 166. **Read-only** (STABLE, SECDEF, search_path locked). Returns `{pin_required, ok}` — keeps the PIN server-side (never in the state payload). `pin_required=false` when `venues.display_pin IS NULL`. The 3-strike / 30-min lockout is **client-side** (localStorage) in `apps/display`. Raises `invalid_display_token`. **Consumers**: `apps/display` PinGate. |
+| `venue_update_display_config(p_venue_token, p_config, p_display_pin DEFAULT NULL)` | `venueUpdateDisplayConfig(venueToken, config, displayPin=null)` | anon + authenticated | Migration 167. **Write** (the only Phase 4 write → ephemeral-verify gated). Operator-only via `resolve_venue_caller` (the `venue_admin_token`). Writes `venues.display_config` (validated: `mode∈fixed/cycle/smart`, `interval_secs 10–60`, `zones` ∈ known keys) and optionally `display_pin` (NULL = leave, '' = clear, else 4–8 digits → `pin_invalid`). Audit `display_config_updated` (actor_type `venue_admin`) + `notify_venue_change('venue_updated')`. **Consumers**: `apps/venue` DisplaySettings (Dashboard ▸ Reception display). |
+
+`venue_get_state` (mig 168) additively gained `display_token` + `display_config`
+in its `venue` object (so the operator UI can show the link + prefill config);
+`display_pin` was already returned. No consumer break.
+
 ### Cycle 3.4 offline queue — NOT shipped as an RPC
 
 The parent Phase 3 plan flagged a `ref_replay_unsynced` batch RPC
@@ -321,6 +341,11 @@ Migration numbers will be assigned at cycle time.
 | 160 | `get_fixture_state_by_ref_token` REPLACE (lineup-aware) + internal helper `_fixture_squad_json` — League Mode Phase 5 Cycle 5.6 Stage B. Ref pre-match shows the submitted XI+bench when present (additive `lineup_role`), else the full registered squad unchanged. Backward compatible. See Phase 5 RPCs (shipped) table above. |
 | 161 | `league_config.min_starting` + `max_subs` (nullable int, NULL = unbounded; CHECK >0 / >=0) — League Mode Phase 5 Cycle 5.7 Stage A part 1. Per-league matchday squad-size bounds for teamsheet enforcement. Additive (no backfill); flows through `get_league_config` via `to_jsonb(*)`. |
 | 162 | `team_admin_check_eligibility` (read) + `team_admin_submit_lineup` DROP/REPLACE (authoritative eligibility gate: squad-size, double-reg block + audit, suspended override) + `get_team_next_fixture_lineup` REPLACE (VC dual-lookup) — League Mode Phase 5 Cycle 5.7 Stage A part 2. **Phase 5 complete.** See Phase 5 RPCs (shipped) table above. |
+| 164 | `venues.display_token` (UNIQUE, auto-gen default) + `venues.display_config` jsonb + 8 companion read indexes — League Mode **Phase 4** reception display schema. Additive. |
+| 165 | `get_display_state(p_display_token)` — venue-scoped read for the reception big-screen (confirmed + live standings, top scorers, live fixtures, upcoming/recent, goals ticker). See Phase 4 RPCs above. |
+| 166 | `check_display_pin(p_display_token, p_pin)` — read-only PIN check (PIN stays server-side; client owns lockout). |
+| 167 | `venue_update_display_config(p_venue_token, p_config, p_display_pin)` — operator write for display panel config + PIN. ephemeral-verify PASS. |
+| 168 | `venue_get_state` REPLACE — venue object additively gains `display_token` + `display_config` for the apps/venue settings editor. |
 | 163 | `notification_log` + `channel`/`entity_id`/`recipient` (nullable) + partial email-dedup index — League Mode **Phase 9 Cycle 9.1**. Lets transactional email (Resend) be logged/deduped alongside web-push. No RPC change — the email layer (`api/_mailer.js` + `onboardingEmailJob` in `api/cron.js`) is a read-only consumer of existing audit actions (`team_registration_submitted`/`team_approved`/`team_rejected`/`fixture_ref_assigned`). |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
