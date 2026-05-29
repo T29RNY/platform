@@ -2347,14 +2347,32 @@ export async function getTeamNextFixtureLineup(adminToken) {
   return data;
 }
 
-export async function submitTeamLineup(adminToken, fixtureId, lineup) {
+export async function submitTeamLineup(adminToken, fixtureId, lineup, overridePlayerIds = []) {
   const { data, error } = await supabase.rpc("team_admin_submit_lineup", {
     p_admin_token: adminToken,
     p_fixture_id: fixtureId,
     p_lineup: lineup,
+    p_override_player_ids: overridePlayerIds,
   });
   if (error) {
     console.error("[league] submit_team_lineup failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// Cycle 5.7 — read-only pre-submit eligibility check. Returns per-player flags
+// (in_squad / double_registered / suspended / registration_status / suspension_until)
+// plus the league's min_starting / max_subs bounds, so the Teamsheet screen can badge
+// players and gate the submit before the authoritative server check in submitTeamLineup.
+export async function checkTeamLineupEligibility(adminToken, fixtureId, playerIds) {
+  const { data, error } = await supabase.rpc("team_admin_check_eligibility", {
+    p_admin_token: adminToken,
+    p_fixture_id: fixtureId,
+    p_player_ids: playerIds,
+  });
+  if (error) {
+    console.error("[league] check_eligibility failed", error);
     throw error;
   }
   return data;

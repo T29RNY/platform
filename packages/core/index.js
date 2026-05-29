@@ -75,6 +75,7 @@ export {
   venueRejectTeamRegistration,
   getTeamNextFixtureLineup,
   submitTeamLineup,
+  checkTeamLineupEligibility,
   venueWithdrawTeam,
   venueExpelTeam,
   venueAddPitch,
