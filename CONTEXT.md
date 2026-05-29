@@ -1,5 +1,15 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 57 — League Mode Phase 4 reception display shipped.)*
+*Last updated: May 29 2026 (session 58 — build-order reprioritised: next phases 9→6→11.)*
+
+## SESSION 58 — Build-order reprioritisation (docs-only, May 29 2026)
+
+Operator set the next build order to **9 (finish notifications) → 6 (HQ dashboard) →
+11 (cups)**, methodically sequenced. Phase 7 (AI) + Phase 10 (public pages) move
+after; Phase 8 (billing) stays deferred. The Phase 9 **HQ weekly digest** cycle is
+held back to ride with Phase 6 (needs HQ aggregation). Recorded in FEATURES (roadmap)
++ DECISIONS ("BUILD ORDER AFTER PHASE 4"). Supersedes the earlier "Phase 7 next"
+pointer. No code/schema change. Still outstanding from Phase 4: `apps/display` layout
+redesign + operator real-TV test / Vercel deploy.
 
 ## SESSION 57 — League Mode Phase 4: Reception Display (May 29 2026)
 
@@ -40,7 +50,7 @@ SCHEMA updated.
   (wake-lock, Wi-Fi-drop reconnect). Also unshipped: deploy `apps/display` to Vercel
   + set `VITE_DISPLAY_APP_URL` in apps/venue (so the copied link is fully-qualified).
 - **Testbed:** demo_venue `display_token='demo_venue_display_token'`, pin `1234`.
-  **Next:** Phase 7 (AI layer) per operator priority.
+  **Next (revised session 58):** 9 (finish notifications) → 6 (HQ) → 11 (cups); AI layer (7) after.
 
 ## SESSION 56 (cont.) — Phase 9 Cycle 9.1: transactional email (Resend) (May 29 2026)
 

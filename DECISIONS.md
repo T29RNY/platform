@@ -494,6 +494,37 @@ decoupled from the operator dashboard's deploy; read-only, so it never touches
 
 ---
 
+## LEAGUE MODE — BUILD ORDER AFTER PHASE 4 (session 58)
+
+**The rule:** the next three phases to build are **9 (finish notifications) → 6 (HQ
+dashboard) → 11 (cups)**, in that order. Phase 7 (AI layer) and Phase 10 (public
+pages) come *after*. Phase 8 (billing) stays deferred to year 2. **This supersedes
+the earlier "Phase 7 is the next major / operator's stated priority after 9" pointer**
+(sessions 56–57) — the operator reprioritised in session 58.
+
+**Why this order (methodical, operator delegated the sequencing):**
+- **9 first** — the Cycle 9.1 codebase is warm (`api/_mailer.js` + the 15-min cron
+  dispatcher just shipped), so the remaining cycles (SMS/WhatsApp via Twilio; the
+  fixture-reminder + 48h availability crons) are low-risk extensions. Critically, the
+  reminder/availability crons **close a loop Phase 5 left open**: competitive
+  availability reuses the casual in/out board (Cycle 5.5) but nothing yet pushes the
+  squad to respond. Finishing existing work before opening new surfaces.
+- **6 next** — "data flows up; the operator's screens don't yet" (the standing
+  Phase 4/6 convergence note). HQ is the larger net-new surface and unblocks the one
+  Phase 9 cycle deliberately held back.
+- **11 last** — cups are the most cross-cutting feature (fixtures, standings→brackets,
+  ref view, reception display, player view all change), so they're safest once every
+  other surface is stable. Groundwork already exists (`cup_rounds` table mig 055,
+  `generateCupBracket` engine in `packages/core`).
+
+**How to apply:** **the Phase 9 "HQ weekly digest" cycle does NOT ship with the rest
+of Phase 9 — it rides with Phase 6**, because the digest is just a scheduled email
+over HQ aggregation queries that don't exist until Phase 6 is built. When picking up
+Phase 9, build SMS/WhatsApp + the reminder/availability crons; leave the digest for
+the Phase 6 cycle.
+
+---
+
 ## LEAGUE MODE — EXISTING CASUAL TEAMS STAY VENUELESS FOREVER (session 48)
 
 **The rule:** `teams.venue_id` is never set for any team that

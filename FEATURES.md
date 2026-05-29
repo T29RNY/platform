@@ -1,15 +1,28 @@
 # In or Out — Feature Tracker
-*Last updated: May 29 2026 (session 57 — League Mode Phase 4 reception display shipped: apps/display + migs 164–168)*
+*Last updated: May 29 2026 (session 58 — build-order reprioritised: next phases 9→6→11)*
 
 ---
 
 ## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55, updated 56)
 
 **Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 STARTED** (Cycle 9.1 — email transport + onboarding/ops loop).
-Remaining, per `LEAGUE_MODE_SCOPE.md` (not strictly in number order):
-**Phase 9 next cycles** (SMS/WhatsApp via Twilio · fixture-reminder/availability crons · HQ weekly digest) ·
-**Phase 7 AI layer** (next major — operator's stated priority after 9) ·
-Phase 6 HQ dashboard · Phase 10 public pages · Phase 11 cups. Phase 8 billing deferred to year 2.
+
+**NEXT BUILD ORDER (operator, session 58): 9 → 6 → 11** (methodical, not number order):
+1. **Phase 9 (finish)** — SMS/WhatsApp via Twilio + the **fixture-reminder / 48h
+   availability crons** (these close the loop Phase 5 left open: competitive
+   availability exists but nothing reminds the squad). Warm codebase (Cycle 9.1
+   `_mailer.js` + cron dispatcher). **The Phase 9 "HQ weekly digest" cycle is deferred
+   to ride with Phase 6** (it needs HQ aggregation).
+2. **Phase 6 (HQ dashboard)** — company-level cross-venue surface; data already flows
+   up but nothing reads it. Fold the Phase 9 HQ digest in here.
+3. **Phase 11 (cups & knockouts)** — most cross-cutting (fixtures/standings→brackets/
+   ref/display/player); last, when other surfaces are stable. `cup_rounds` +
+   `generateCupBracket` already exist as groundwork.
+
+**After these three:** Phase 7 (AI layer — Ask the Gaffer evolved) · Phase 10 (public
+league pages). **Phase 8 (billing/self-serve) deferred to year 2.** Also outstanding:
+`apps/display` layout redesign + Phase 4 operator device-test/deploy.
+*(This supersedes the earlier "Phase 7 is the next major" pointer — see DECISIONS session 58.)*
 
 ---
 
