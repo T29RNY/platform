@@ -1,5 +1,34 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 28 2026 (session 54 — booking push-on-confirm + League Mode Phase 5 Cycles 5.1/5.2 shipped; one new low-pri tech-debt item below; no active bugs.)*
+*Last updated: May 29 2026 (session 54 — League Mode Phase 5 Cycles 5.1–5.5 shipped; one must-fix tech-debt item added below for the global-status dual-context edge.)*
+
+---
+
+## TECH DEBT (MUST FIX before any team is both casual + competitive) — global players.status reset (session 54, Cycle 5.5)
+
+Cycle 5.5 made competitive availability reuse the casual IN/OUT board, and added a
+trigger (`reset_team_status_on_fixture_played`, mig 157) that clears both teams'
+`players.status` to `'none'` when a league fixture is played.
+
+**The edge:** `players.status` is a single GLOBAL value per player (not scoped per
+team). So if one person is on BOTH a casual team and a competitive team, completing
+their league fixture would also wipe their CASUAL in/out answer (and vice-versa, the
+shared status already cross-talks between any two teams a player is in).
+
+**Why it's safe right now:** no real dual-context team exists — the Phase 5 testbed
+(Competitive FC) is competitive-only, and live casual teams aren't in a competition.
+So the trigger only ever touches competitive-only players today.
+
+**MUST FIX before** the casual→competitive cutover for a real existing team (e.g.
+Footy Tuesdays enters a league), otherwise that team's casual flow will be corrupted.
+**Fix direction:** scope availability per (player, team) — either move status to
+`team_players.status`, or key competitive availability to (player, fixture/competition)
+— so a reset/availability change can't leak across a player's other teams. This
+re-opens the "separate availability vs reuse" decision (see DECISIONS.md, Cycle 5.5)
+specifically for the dual-context case. Touches the casual status read/write paths +
+the mig-157 trigger.
+
+**Surfaced:** session 54, Cycle 5.5 plan — accepted as a known edge to ship the
+testbed, flagged here as must-fix before real cutover.
 
 ---
 

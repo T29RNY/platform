@@ -22,7 +22,9 @@ completion — chosen over editing each completion RPC (ref/venue/walkover) so o
 all paths. **Known edge (accepted, unsolved):** `players.status` is global per player, so a
 player on BOTH a casual and competitive team would have casual availability reset when a
 league game completes. No such dual-context team exists yet (testbed is competitive-only);
-revisit at the casual→competitive cutover for real existing teams.
+revisit at the casual→competitive cutover for real existing teams. **Tracked as MUST-FIX
+tech debt in BUGS.md** (scope status per (player, team) before any real team is both casual
+and competitive).
 
 ---
 
