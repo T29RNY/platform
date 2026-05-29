@@ -1,14 +1,21 @@
 # In or Out — Feature Tracker
-*Last updated: May 29 2026 (session 55 — League Mode Cycle 5.6 teamsheet shipped (migs 159–160) + squad separation (mig 158) + "Join another team")*
+*Last updated: May 29 2026 (session 56 — League Mode Cycle 5.7 eligibility shipped (migs 161–162); PHASE 5 COMPLETE)*
 
 ---
 
-## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55)
+## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55, updated 56)
 
-**Next:** Cycle 5.7 — eligibility (closes Phase 5). Then, per `LEAGUE_MODE_SCOPE.md`
+**PHASE 5 COMPLETE (Cycle 5.7).** **Next**, per `LEAGUE_MODE_SCOPE.md`
 (not strictly in number order — Phase 5 was built before Phase 4):
 Phase 4 reception display · Phase 6 HQ dashboard · Phase 7 AI layer · Phase 9
 notifications · Phase 10 public pages · Phase 11 cups. Phase 8 billing is deferred to year 2.
+
+**Carried into Phase 4/6 from 5.7:** the double-registration *resolution* surface. 5.7
+hard-blocks a double-reg at submit and writes a `lineup_double_registration_blocked`
+audit row; the two-sided league-admin confirm UI (scope §1148) + any ref-kickoff gate
+land when apps/venue gains a per-player view. Also unbuilt: a discipline surface that
+*sets* `player_registrations.status='suspended'` — 5.7 enforces suspension but nothing
+writes it yet (arrives seeded/manual until that phase).
 
 **Data flows up; the venue operator's *screens* don't yet — by design.** Everything built
 (registrations, fixtures, ref results, teamsheets) writes to the shared schema the venue/HQ
@@ -19,6 +26,41 @@ layer reads. Cycle 5.6 also started populating `player_registrations` for real t
 These are the convergence points scheduled for **Phase 4 (reception)** and **Phase 6 (HQ)** —
 tracked forward via hard-rule #14 consumer notes in RPCS.md. Nothing is dead-ended; the
 operator-facing view is simply unbuilt until those phases.
+
+---
+
+## LEAGUE MODE — PHASE 5 CYCLE 5.7 SHIPPED (session 56, 2026-05-29) — PHASE 5 COMPLETE
+
+Eligibility enforcement. Turns the 5.6 non-blocking teamsheet warnings into real gates,
+both server-authoritative and surfaced in the UI. Built in two independently-verified,
+independently-committed stages + docs.
+
+- **Product decisions (operator, session 56):**
+  - **Suspended/ineligible** → **override-with-confirmation**: submit blocks by default; the
+    admin proceeds only by explicitly acknowledging each suspended player; the override is
+    audited (`metadata.override_player_ids`). (scope §1147)
+  - **Squad size** → new nullable `league_config.min_starting` / `max_subs`, set per-league
+    by the venue/league (5 starters for 5-a-side, 7 for 7-a-side; bench cap 3, or 15…).
+    Govern the **matchday sheet**; **hard block** outside bounds; `NULL = unbounded`.
+  - **Double-registration** → **hard block now + audit**; picked player registered to another
+    team in the comp can't be submitted. Two-sided league-admin confirm UI deferred to
+    Phase 4/6 (apps/venue has no per-player view yet).
+- **Stage A — server (migs 161–162, `b0b1aa0`)**: `league_config.min_starting`/`max_subs`
+  (NULL-safe, no backfill); `team_admin_check_eligibility` (read — per-player
+  suspended/double-reg/in-squad flags + bounds); `team_admin_submit_lineup` rewritten as the
+  authoritative gate (all checks before any write). Also fixed a **latent 5.6 VC bug** — submit
+  and `get_team_next_fixture_lineup` resolved via plain `teams.admin_token`, so a Vice Captain
+  on `/p/<vc_token>` got `invalid_admin_token`; both now use `resolve_admin_caller` (session-49
+  dual-lookup).
+- **Stage B — UI (`bbf8f31`)**: `TeamsheetScreen` badges players ('AT ANOTHER TEAM' red hard
+  block; 'SUSPENDED — TAP TO OVERRIDE' → 'OVERRIDDEN' amber), shows squad-size hints in the
+  count bar (red when out of bounds), gates submit, and maps the new RPC error codes.
+- **Verified**: schema-sync clean · rpc-security-sweep PASS (SECDEF, search_path pinned, 1
+  overload each, anon+authenticated, no PUBLIC) · **ephemeral-verify 9/9 PASS** (eligible ·
+  check-clean · check-flags · too_few_starters · too_many_subs · double_registered ·
+  suspended-block · suspended-override · vc-path) + leak-check clean · hygiene 7/7 · build
+  clean · casual-regression PASS (static — competitive-only screen, RPC can't fire on a casual
+  token). Real-iPhone walk (hard-rule #13) on Competitive FC operator-owed.
 
 ---
 

@@ -1,5 +1,5 @@
 # In or Out — Database Schema
-*Last updated: May 24 2026 (session 39 — platform_admins table for super-admin dashboard)*
+*Last updated: May 29 2026 (session 56 — league_config.min_starting/max_subs, mig 161)*
 
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
@@ -415,6 +415,9 @@ arrive in Phase 2+. All currently empty.
 
 - `league_config` — labels + match config + sport per league. Platform-default
   row exists (league_id IS NULL). `league_id` FK to `leagues(id)` added in 057.
+  Mig 161 (Cycle 5.7) added `min_starting int NULL` (CHECK >0) and `max_subs int
+  NULL` (CHECK >=0) — per-league matchday teamsheet bounds (NULL = unbounded),
+  enforced by `team_admin_submit_lineup`.
 - `company_domains` — email-domain → company mapping for HQ admin auto-routing.
   `company_id` FK to `companies(id)` added in 057.
 

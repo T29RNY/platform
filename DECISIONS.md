@@ -1,8 +1,50 @@
 # In or Out — Key Decisions Log
-*Last updated: May 29 2026 (session 55 — a league team is always a separate squad)*
+*Last updated: May 29 2026 (session 56 — teamsheet eligibility: override suspension, squad-size config, block double-reg now)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Teamsheet eligibility: suspension is overridable, squad-size is league config, double-reg blocks now (session 56, Cycle 5.7)
+
+**Decision (closes Phase 5):** `team_admin_submit_lineup` is the **authoritative** eligibility
+gate — every check runs server-side before any write — and `team_admin_check_eligibility`
+(read-only) powers the pre-submit UI. Three product calls, locked with the operator:
+
+1. **Suspended / ineligible → override-with-confirmation.** Submit blocks by default if a picked
+   player's own registration is `status IN ('suspended','ineligible')` or `suspension_until >
+   today`. The team admin may proceed **only** by passing that player_id in
+   `p_override_player_ids`; the override is recorded in the `lineup_submitted` audit row
+   (`metadata.override_player_ids`). The UI requires a per-player tap ("SUSPENDED — TAP TO
+   OVERRIDE" → "OVERRIDDEN") before submit enables. (scope §1147)
+2. **Squad size → per-league config on the matchday sheet.** New nullable
+   `league_config.min_starting` and `max_subs` (mig 161). `min_starting` = the on-pitch team
+   size the sheet must name (5 for 5-a-side, 7 for 7-a-side, 11…); `max_subs` = the bench cap
+   (could be 3, could be 15). Enforced as `starting_count >= min_starting` and `bench_count <=
+   max_subs`, **hard block**. `NULL = unbounded` per column → existing leagues unaffected (no
+   backfill). The venue/league sets these; `get_league_config` returns them via `to_jsonb(*)`
+   (additive, no mapper change).
+3. **Double-registration → hard block now, league resolves later.** A picked player with a
+   registration to a **different** team in the same competition cannot be submitted; the RPC
+   raises `player_double_registered` and writes a `lineup_double_registration_blocked` audit row
+   for the league admin to act on. The full two-sided confirm flow (scope §1148: flag to team
+   admin AND league admin, both confirm) is **deferred to Phase 4/6**, when `apps/venue` gains a
+   per-player view. Rationale: ship a real integrity gate now without a net-new multi-app
+   surface; the middle path keeps 5.7 = "closes Phase 5".
+
+**Corollary — `team_admin_*` RPCs use `resolve_admin_caller` too.** The session-49 dual-lookup
+rule (admin_token OR VC player_token) was written for `admin_*` RPCs, but the same VC-via-
+`/p/<vc_token>` access path applies to the teamsheet RPCs. `team_admin_submit_lineup`,
+`team_admin_check_eligibility`, and `get_team_next_fixture_lineup` all resolve the caller via
+`resolve_admin_caller` (it RETURNS empty, doesn't raise, so each call is followed by an explicit
+`invalid_admin_token` guard). This fixed a latent 5.6 bug where VCs got `invalid_admin_token` on
+the teamsheet. **Apply going forward:** any new `team_admin_*` RPC keyed on an admin token must
+use `resolve_admin_caller`, not a bare `teams.admin_token` lookup.
+
+**Known gap (accepted):** nothing in the DB yet *writes* `player_registrations.status =
+'suspended'` — 5.7 *enforces* suspension but a discipline surface that *sets* it (from cards /
+league admin) is a later phase. Until then suspension state is seeded/manual.
 
 ---
 

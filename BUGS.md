@@ -1,5 +1,27 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 29 2026 (session 55 — the global-status dual-context must-fix is RESOLVED via mig 158: a league team is always a separate squad.)*
+*Last updated: May 29 2026 (session 56 — Cycle 5.7 eligibility; latent VC teamsheet bug RESOLVED via mig 162.)*
+
+---
+
+## RESOLVED (session 56, mig 162) — Vice Captains got `invalid_admin_token` on the Teamsheet
+
+**Symptom (latent, never user-reported):** a Vice Captain opening the 5.6 Teamsheet via
+`/p/<vc_token>` would have hit `invalid_admin_token` — both the card read
+(`get_team_next_fixture_lineup`) and the submit (`team_admin_submit_lineup`) resolved the
+caller with a bare `SELECT id FROM teams WHERE admin_token = p_admin_token`. A VC's 21-char
+player token is not a 28-char admin_token, so the lookup missed every time. Same class as the
+mig-116 `admin_delete_player` bug; violated the session-49 dual-lookup DECISION. Masked because
+the testbed used the team owner's admin_token, never a VC's.
+
+**Fix (mig 162, Cycle 5.7):** both RPCs (and the new `team_admin_check_eligibility`) now resolve
+the caller via `resolve_admin_caller(p_token)` — admin_token OR VC player_token. The helper
+RETURNS empty (doesn't raise) on a bad/NULL token, so each call is followed by an explicit
+`IF v_team_id IS NULL THEN RAISE 'invalid_admin_token'`. Audit rows on submit now carry the
+resolved `actor_type` (`team_admin` / `vice_captain`) instead of a hardcoded `team_admin`.
+
+**Verification:** ephemeral-verify `vc-path` assertion PASS — submit via a VC player token
+resolves and writes the lineup. **Rule extended:** any new `team_admin_*` RPC keyed on an admin
+token must use `resolve_admin_caller` (see DECISIONS.md session 56).
 
 ---
 

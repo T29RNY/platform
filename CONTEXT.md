@@ -1,5 +1,32 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 55 — squad separation (mig 158) + Cycle 5.6 teamsheet shipped in 3 staged commits, migs 159–160. Next: Cycle 5.7 eligibility.)*
+*Last updated: May 29 2026 (session 56 — Cycle 5.7 eligibility shipped (migs 161–162). PHASE 5 COMPLETE.)*
+
+## SESSION 56 — League Mode Cycle 5.7 eligibility — PHASE 5 COMPLETE (May 29 2026)
+
+Closed Phase 5. Turned the 5.6 non-blocking teamsheet warnings into real eligibility
+enforcement, server-authoritative and surfaced in the UI. Two staged commits + docs.
+
+**Product decisions (operator):** (1) suspended/ineligible → **override-with-confirmation**
+(block by default, per-player audited override); (2) squad size → new nullable
+`league_config.min_starting`/`max_subs` on the **matchday sheet** (5/7 starters, bench cap
+3…15; NULL = unbounded), **hard block**; (3) double-registration → **hard block now + audit**,
+two-sided league-admin confirm UI deferred to Phase 4/6 (apps/venue has no per-player view).
+
+- **Stage A (migs 161–162, `b0b1aa0`)** — `league_config.min_starting`/`max_subs`;
+  `team_admin_check_eligibility` (read); `team_admin_submit_lineup` rewritten as the
+  authoritative gate (DROP/REPLACE for the new override param; all checks before any write).
+  Also fixed a **latent 5.6 VC bug** — submit + `get_team_next_fixture_lineup` resolved via
+  bare `teams.admin_token`, so VCs on `/p/<vc_token>` got `invalid_admin_token`; both now use
+  `resolve_admin_caller` (session-49 dual-lookup). rpc-security-sweep PASS · ephemeral-verify
+  **9/9** + leak clean.
+- **Stage B (`bbf8f31`)** — `TeamsheetScreen` eligibility UI: per-player badges (AT ANOTHER
+  TEAM / SUSPENDED→OVERRIDDEN), squad-size hints, submit gating, error-code mapping.
+  casual-regression PASS (static — competitive-only screen; RPC can't fire on a casual token).
+- **Stage C** — FEATURES / DECISIONS / RPCS / SCHEMA / BUGS / CONTEXT.
+
+**Operator-owed:** real-iPhone (hard-rule #13) casual + competitive walk on Competitive FC
+(`democomp_fc_admin_token`). **Carried forward:** double-reg league-admin confirm surface +
+a discipline surface that *sets* suspension (5.7 enforces it but nothing writes it yet).
 
 ## SESSION 55 — league/casual squad separation (May 29 2026)
 
