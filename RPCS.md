@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 24 2026 (session 39 — superadmin RPCs 045/046 + admin_save_teams scoping 048 + notify whitelist 049 + player_join_team token 044)*
+*Last updated: May 29 2026 (session 55 — catalogued the Phase 2 team-registration trio 098–100; join_register_team behaviour changed in mig 158)*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -36,6 +36,16 @@ rather than rebuild.
 
 Phase 5 cycles 5.3 and 5.4 introduce RPCs designed for multiple
 future consumers — track them here as they land.
+
+### Phase 2 RPCs — Team registration (venue/league)
+
+*The Phase 2 venue/league RPC layer is otherwise uncatalogued here (dashboard, fixture generation, standings, etc.). These three are the team-registration trio (migs 098–100), added session 55. Not exhaustive.*
+
+| SQL function | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `join_register_team(p_league_code, p_competition_id, p_team)` | `joinRegisterTeam(leagueCode, competitionId, team)` | authenticated only | Migration 098 (Cycle 2.5a); **behaviour changed in mig 158**. SECURITY DEFINER, search_path locked. Requires `auth.uid()`. Self-serve registration into a league competition. `p_team` is either `{name, short_name?, primary_colour?, secondary_colour?, admin_email?}` → creates a NEW competitive team + claims caller as team_admin; OR `{existing_team_id}`. **Mig 158 — a league team is ALWAYS a separate squad:** `existing_team_id` is accepted ONLY if that team is already `team_type='competitive'` (e.g. a league team also entering a cup, Phase 11); a casual team is rejected with `casual_team_cannot_register` (no in-place casual→competitive promotion). Inserts `competition_teams` row status `pending`; audit `team_registration_submitted`; broadcasts `team_registration_pending` to venue + league. Mig 158 also revoked a stale anon EXECUTE grant (Supabase default-privileges leftover) → authenticated only. **Consumers (hard-rule #14)**: `/join/LEAGUE_CODE` self-serve registration wizard (LEAGUE_MODE_SCOPE Phase 2G — NOT yet built in apps/inorout; RPC + wrapper only); venue approval dashboard (downstream of the pending row). |
+| `venue_approve_team_registration(p_venue_token, p_competition_team_id)` | `venueApproveTeamRegistration(venueToken, competitionTeamId)` | anon + authenticated | Migration 099 (Cycle 2.5a). SECURITY DEFINER, search_path locked. Venue admin flips a `competition_teams` row `pending → active`. Caller resolved via `resolve_venue_caller`; the registration's competition→season→league must belong to the caller's venue (`registration_not_in_venue`). **Idempotent**: re-approving an already-active row is a no-op success (`noop:true`) so a double-click doesn't 500. Clears `rejection_reason`. Audit `team_approved`; broadcasts `team_approved` to venue + league. (Team-admin email/push delivery is owned by Cycle 2.7.) **Consumers**: apps/venue operator dashboard pending-registrations screen. |
+| `venue_reject_team_registration(p_venue_token, p_competition_team_id, p_reason)` | `venueRejectTeamRegistration(venueToken, competitionTeamId, reason)` | anon + authenticated | Migration 100 (Cycle 2.5a). SECURITY DEFINER, search_path locked. Venue admin flips a `pending` `competition_teams` row → `rejected`. `p_reason` required, non-empty (`rejection_reason_required`), stored in `competition_teams.rejection_reason` (col added mig 097). Only `pending` is rejectable (`only_pending_can_be_rejected`); same venue-ownership gate as approve. Audit `team_rejected` (reason in metadata); broadcasts `team_rejected` to venue + league. **Consumers**: apps/venue operator dashboard pending-registrations screen. |
 
 ### Phase 5 RPCs (shipped)
 
