@@ -1,12 +1,27 @@
 import { useState, useEffect } from "react";
 import { getPlayerTeamsByToken } from "@platform/core";
-import { CaretDown, CaretUp } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, Plus } from "@phosphor-icons/react";
+
+// Pull a join code out of a pasted invite link (or accept a bare code).
+// Invite links look like https://www.in-or-out.com/join/<joinCode>.
+function parseJoinCode(raw) {
+  if (!raw) return null;
+  const m = raw.match(/\/join\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  const bare = raw.trim();
+  return /^[a-zA-Z0-9_-]{4,}$/.test(bare) ? bare : null;
+}
 
 export default function MySquads({ currentTeamId, currentToken, userId }) {
   const [squads,       setSquads]       = useState([]);
   const [open,         setOpen]         = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [hoveredToken, setHoveredToken] = useState(null);
+  const [showJoin,     setShowJoin]     = useState(false);
+  const [joinInput,    setJoinInput]    = useState("");
+
+  const joinCode = parseJoinCode(joinInput);
+  const goJoin = () => { if (joinCode) window.location.href = `/join/${joinCode}`; };
 
   useEffect(() => {
     if (!currentToken) return;
@@ -196,6 +211,68 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
               </div>
             );
           })}
+
+          {/* Join another team — extracts a join code from a pasted invite
+              link and hands off to the existing /join/<code> flow (which
+              already gates auth, dedupes existing members, and runs the
+              name step). No new join logic here. */}
+          {!loading && (
+            !showJoin ? (
+              <div
+                onClick={() => setShowJoin(true)}
+                onMouseEnter={() => setHoveredToken("__join__")}
+                onMouseLeave={() => setHoveredToken(null)}
+                style={{
+                  background: hoveredToken === "__join__" ? "var(--s2)" : "transparent",
+                  transition: "background 150ms",
+                  padding: "12px 16px",
+                  display: "flex", alignItems: "center", gap: 8,
+                  cursor: "pointer",
+                }}
+              >
+                <Plus weight="thin" size={16} color="var(--t2)" />
+                <span style={{
+                  fontFamily: "'DM Sans', sans-serif", fontWeight: 500,
+                  fontSize: 14, color: "var(--t2)",
+                }}>
+                  Join another team
+                </span>
+              </div>
+            ) : (
+              <div style={{ padding: "12px 16px", display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  autoFocus
+                  value={joinInput}
+                  onChange={e => setJoinInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") goJoin(); }}
+                  placeholder="Paste a team invite link"
+                  style={{
+                    flex: 1, minWidth: 0,
+                    padding: "10px 12px", borderRadius: 8,
+                    border: `0.5px solid ${joinCode ? "var(--goldb)" : "rgba(255,255,255,0.12)"}`,
+                    background: "var(--s2)", color: "var(--t1)",
+                    fontFamily: "'DM Sans', sans-serif", fontWeight: 300, fontSize: 13,
+                    outline: "none", boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  onClick={goJoin}
+                  disabled={!joinCode}
+                  style={{
+                    flexShrink: 0,
+                    padding: "10px 14px", borderRadius: 8,
+                    border: `0.5px solid ${joinCode ? "var(--goldb)" : "rgba(255,255,255,0.12)"}`,
+                    background: joinCode ? "var(--gold2)" : "var(--s3)",
+                    color: joinCode ? "var(--gold)" : "var(--t2)",
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.06em",
+                    cursor: joinCode ? "pointer" : "not-allowed",
+                  }}
+                >
+                  JOIN →
+                </button>
+              </div>
+            )
+          )}
 
         </div>
       )}
