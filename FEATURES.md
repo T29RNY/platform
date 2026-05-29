@@ -1,5 +1,43 @@
 # In or Out — Feature Tracker
-*Last updated: May 29 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycles 5.1 + 5.2 + 5.3 + 5.4** shipped + competitive testbed)*
+*Last updated: May 29 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycles 5.1–5.5** shipped + competitive testbed)*
+
+---
+
+## LEAGUE MODE — PHASE 5 CYCLE 5.5 SHIPPED (session 54, 2026-05-29)
+
+Per-fixture availability — **by reusing the casual IN/OUT board**, not a new system.
+Decision (with operator): a competitive team's player marks in/out for their next
+league fixture using the *same* board casual players use. This means the admin
+make-teams / manage-squad / who's-in screens need **zero change** (they already read
+`players.status`). A separate availability table would have forced them to change.
+
+- **No new table, no new write RPC.** Availability stays `players.status`, written by
+  the existing `set_player_status` (mig 011). The board header is driven by the next
+  upcoming fixture (opponent + date + venue + time); buttons are live whenever an
+  upcoming fixture exists; the board auto-rolls to the next fixture as completed ones
+  leave the upcoming set.
+- **"Start fresh each game" (mig 157)** — a trigger on `fixtures`
+  (`reset_team_status_on_fixture_played`, SECURITY DEFINER, search_path locked):
+  when a fixture goes `scheduled → completed/walkover/forfeit/void`, both teams'
+  players reset to `status='none'` + `notify_team_change(...,'schedule_updated')` so
+  open apps refetch. One trigger captures every completion path (ref/venue/walkover)
+  without editing those shipped RPCs.
+- **Client**: `PlayerView` lifts the fixtures fetch, derives the next fixture, and
+  overlays an *effective schedule* (gameIsLive=true + fixture date/venue/time) only
+  when a fixture exists; `PageHeader` gains an optional `opponentLabel`;
+  `CompetitionFixturesCard` accepts `fixtures` as a prop (shared fetch).
+- **Casual untouched**: all competitive behaviour gates on "an upcoming fixture
+  exists" — casual teams have none, so `schedule` is the unmodified prop and the
+  board is byte-identical. Trigger never fires for casual (no fixtures).
+- **Edge (documented, not solved)**: `players.status` is global per player; a player
+  on BOTH a casual and competitive team would have casual availability reset when a
+  league game completes. No real dual-context team exists yet (testbed is
+  competitive-only); revisit at the casual→competitive cutover.
+- **Verified**: trigger ephemeral-verified in rollback txn (FC + opponent players
+  reset to none on completion; Rovers/casual untouched; broadcast reason whitelisted);
+  applied live; trigger SECURITY DEFINER + search_path confirmed; hygiene + build
+  clean. PWA on-device test (board shows "vs Demo Athletic", tap IN persists, rollover
+  clears) operator-owed (hard-rule #13).
 
 ---
 

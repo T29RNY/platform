@@ -46,9 +46,22 @@ change pre-flighted in a rollback transaction before applying live).
   `rls_migrations/154_demo_competitive_seed_down.sql` — rollback-verified to leave real
   data + the existing demo Summer League untouched.
 
+- **Phase 5 Cycle 5.5** (**mig 157**) — competitive availability **reuses the casual
+  IN/OUT board** (operator decision): no new table, no new write RPC. `players.status`
+  via existing `set_player_status` is the availability. `PlayerView` overlays an
+  effective schedule from the next upcoming fixture (board live + opponent/date/venue/
+  time) only when a fixture exists; `PageHeader` gains optional `opponentLabel`;
+  `CompetitionFixturesCard` takes `fixtures` as a prop. "Start fresh each game": trigger
+  `reset_team_status_on_fixture_played` on `fixtures` resets both teams' players to
+  'none' on completion (+ schedule_updated broadcast). Casual byte-identical (gates on
+  fixture existence; trigger never fires casual). Edge: global players.status → a
+  dual casual+competitive player's casual availability would reset on a league
+  completion (no such team exists yet). Ephemeral-verified in rollback; applied live;
+  hygiene+build clean. On-device confirm operator-owed.
+
 **Phase 5 sequence:** 5.1 tag ✅ · 5.2 standings ✅ · 5.3 fixtures ✅ · 5.4 fixture
-detail + opposition intel ✅ · **5.5 availability (next — first write path)** · 5.6 teamsheet
-· 5.7 eligibility. Plan +
+detail + opposition intel ✅ · 5.5 availability ✅ · **5.6 teamsheet (next — admin
+lineup → ref)** · 5.7 eligibility. Plan +
 locked decisions (two-stage availability, players+admin override, reuse familiar tile, no
 A/B split for league) in `~/.claude/plans/continuing-phase-3-of-steady-falcon.md`.
 Testing: 1 device + browser is enough now (2 PWAs only for installed-PWA/push or

@@ -301,6 +301,7 @@ Migration numbers will be assigned at cycle time.
 | 049 | `notify_team_change` REPLACE — adds `player_account_deleted` to v_known_reasons whitelist (migration 047 passed this reason; warning was log-only, broadcast worked). Bonus diagnostic comment block in the file documenting the apex→www cron URL gotcha. |
 | 155 | `get_player_competition_fixtures(p_token, p_filter)` — League Mode Phase 5 Cycle 5.3. Read-only player-facing competition fixtures (upcoming/past/all). See Phase 5 RPCs (shipped) table above. |
 | 156 | `get_player_fixture_detail(p_token, p_fixture_id)` + `get_fixture_opposition_intel(p_token, p_fixture_id)` — League Mode Phase 5 Cycle 5.4. Read-only player-facing fixture detail + opposition intel, gated to the player's own competitions. See Phase 5 RPCs (shipped) table above. |
+| 157 | `reset_team_status_on_fixture_played()` trigger fn + `trg_reset_status_on_fixture_played` AFTER UPDATE ON `fixtures` — League Mode Phase 5 Cycle 5.5. NOT an RPC. On `scheduled → completed/walkover/forfeit/void`, resets both teams' `players.status` to 'none' (+ `notify_team_change(...,'schedule_updated')`) so competitive availability (reusing the casual in/out board) starts fresh each game. SECURITY DEFINER, search_path locked. No new availability table/RPC — `set_player_status` (mig 011) is reused. |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.
 All were deployed in Phase C via Supabase SQL editor.

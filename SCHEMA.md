@@ -559,6 +559,15 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   passed in `p_displace_booking_ids`, in which case they're displaced
   (`superseded` + notify) in the same txn before the fixture write.
 
+### League Mode — fixture-completion status reset (migration 157)
+
+- **`trg_reset_status_on_fixture_played`** (AFTER UPDATE ON `fixtures`, fn
+  `reset_team_status_on_fixture_played`, SECURITY DEFINER): when a fixture goes
+  `scheduled → completed/walkover/forfeit/void`, resets both teams' `players.status`
+  to `'none'` and fires `notify_team_change(...,'schedule_updated')` for each team.
+  Backs Cycle 5.5 "competitive availability reuses the casual in/out board" — so each
+  league fixture starts with a clean in/out slate. No new column; no availability table.
+
 ### Stage 3 — booking storage (migration 139)
 
 Both RLS-enabled, REVOKE anon/authenticated (RPC-only). Payment OFF but

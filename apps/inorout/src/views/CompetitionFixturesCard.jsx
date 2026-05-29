@@ -8,17 +8,22 @@ import FixtureDetailCard from "./FixtureDetailCard";
 // renders null and the casual flow is untouched. Sits directly below
 // CompetitionStandingsCard. Cycle 5.4: a row taps to expand an inline
 // FixtureDetailCard (one open at a time).
-export default function CompetitionFixturesCard({ playerToken, currentTeamId }) {
-  const [fixtures, setFixtures] = useState([]);
+export default function CompetitionFixturesCard({ playerToken, currentTeamId, fixtures: fixturesProp }) {
+  const [fetched, setFetched] = useState([]);
   const [open, setOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
 
+  // PlayerView lifts the fetch and passes `fixtures` so the board header and this
+  // card share one request. Fall back to self-fetch if used standalone.
+  const usingProp = Array.isArray(fixturesProp);
+  const fixtures = usingProp ? fixturesProp : fetched;
+
   useEffect(() => {
-    if (!playerToken) return;
+    if (usingProp || !playerToken) return;
     getPlayerCompetitionFixtures(playerToken, "all")
-      .then(data => setFixtures(data?.fixtures || []))
-      .catch(e => { console.error(e); setFixtures([]); });
-  }, [playerToken]);
+      .then(data => setFetched(data?.fixtures || []))
+      .catch(e => { console.error(e); setFetched([]); });
+  }, [playerToken, usingProp]);
 
   if (!fixtures.length) return null;
 

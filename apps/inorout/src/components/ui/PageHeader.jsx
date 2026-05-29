@@ -24,6 +24,7 @@ export default function PageHeader({
   inCount, squadSize, gameIsLive,
   me = null, onAvatarTap = null,
   shareUrl = null,
+  opponentLabel = null,
 }) {
   const showAvatar = !!(me && onAvatarTap);
 
@@ -87,6 +88,14 @@ export default function PageHeader({
 
         {/* Row 3 — game meta */}
         <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          {opponentLabel && (
+            <div style={{
+              fontSize:13, fontWeight:500, color:"var(--t1)",
+              maxWidth:"100%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+            }}>
+              {opponentLabel}
+            </div>
+          )}
           {dayOfWeek && (
             <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:"var(--t1)", fontWeight:300 }}>
               <CalendarCheck size={14} weight="thin" color="var(--t2)" />

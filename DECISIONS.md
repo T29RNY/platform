@@ -1,8 +1,28 @@
 # In or Out — Key Decisions Log
-*Last updated: May 28 2026 (session 53 — Stage 7 renewal decisions + the local-date rule)*
+*Last updated: May 29 2026 (session 54 — competitive availability reuses the casual board)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Competitive availability REUSES the casual in/out board, not a new system (session 54, Cycle 5.5)
+
+**Decision:** a competitive league team's per-fixture availability is the *same* casual
+IN/OUT board (`players.status` via `set_player_status`), not a new `player_availability`
+table or new write RPC. A competitive team plays one fixture at a time, so the casual
+single-current-game model fits. `PlayerView` overlays an "effective schedule" derived from
+the next upcoming fixture (board live + opponent/date/venue/time) only when a fixture exists;
+casual teams have no fixtures so they are byte-identical. **Rationale:** the admin
+make-teams / manage-squad / who's-in screens already read `players.status` — reusing it means
+they need **zero change**, whereas a separate availability table would have *forced* them to
+read two sources. "Start fresh each game" is a trigger on `fixtures`
+(`reset_team_status_on_fixture_played`, mig 157) that resets both teams' statuses on
+completion — chosen over editing each completion RPC (ref/venue/walkover) so one hook covers
+all paths. **Known edge (accepted, unsolved):** `players.status` is global per player, so a
+player on BOTH a casual and competitive team would have casual availability reset when a
+league game completes. No such dual-context team exists yet (testbed is competitive-only);
+revisit at the casual→competitive cutover for real existing teams.
 
 ---
 

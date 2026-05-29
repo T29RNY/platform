@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
   resolveMotm, sortByReservePriority } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, removeGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
   getPOTMVotingState, setPlayerNickname,
-  resolveBibHolder } from "@platform/core/storage/supabase.js";
+  resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
   Check, X, Question, ArrowDown,
@@ -178,7 +178,7 @@ function buildTeamSheetText({ teamName, schedule, squad, lastMatchMeta }) {
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function PlayerView({
-  squad, setSquad, myId, teamId, adminToken = null, schedule, settings,
+  squad, setSquad, myId, teamId, adminToken = null, schedule: scheduleProp, settings,
   setSchedule, setSettings, onMidFlowChange,
   bibHistory = [], matchHistory = [],
   isAdmin = false, onGoAdmin,
@@ -186,6 +186,46 @@ export default function PlayerView({
   stats = null,
 }) {
   const me = squad.find(p => p.id === myId);
+
+  // ── League Mode 5.5 — competitive availability reuses the casual board ──────
+  // For a competitive team we overlay the casual schedule with the next league
+  // fixture: the board goes live, its header shows the real opponent/date/venue/
+  // time, and players mark in/out exactly as casual (writes players.status). The
+  // board auto-rolls to the next fixture as completed ones leave the upcoming set.
+  // Casual teams have no fixtures → `schedule` is the unmodified prop (zero change).
+  const playerToken = me?.token || null;
+  const [compFixtures, setCompFixtures] = useState([]);
+  useEffect(() => {
+    if (!playerToken) { setCompFixtures([]); return; }
+    getPlayerCompetitionFixtures(playerToken, "all")
+      .then(d => setCompFixtures(d?.fixtures || []))
+      .catch(e => { console.error(e); setCompFixtures([]); });
+  }, [playerToken]);
+
+  const nextFixture = useMemo(() => {
+    // RPC returns fixtures ordered scheduled_date ASC — first scheduled is next.
+    return compFixtures.find(f => f.status === "scheduled") || null;
+  }, [compFixtures]);
+
+  const schedule = useMemo(() => {
+    if (!nextFixture) return scheduleProp;
+    const dateLabel = nextFixture.scheduled_date
+      ? new Date(`${nextFixture.scheduled_date}T00:00:00`)
+          .toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+      : (scheduleProp?.dayOfWeek || "");
+    return {
+      ...scheduleProp,
+      gameIsLive: true,
+      isCancelled: false,
+      dayOfWeek: dateLabel,
+      venue: nextFixture.venue_name || scheduleProp?.venue,
+      kickoff: nextFixture.kickoff_time ? nextFixture.kickoff_time.slice(0, 5) : scheduleProp?.kickoff,
+    };
+  }, [nextFixture, scheduleProp]);
+
+  const opponentLabel = nextFixture
+    ? `${nextFixture.is_home ? "vs" : "@"} ${nextFixture.opponent_name || "TBC"}`
+    : null;
 
   // ── auth gate for self-writes ──────────────────────────────────────────────
   // On the admin route in the home-screen app, no row has isSelf=true
@@ -546,6 +586,7 @@ export default function PlayerView({
         <div style={{ position:"sticky", top:0, zIndex:50, background:"var(--bg)" }}>
           <PageHeader
             teamName={settings?.groupName}
+            opponentLabel={opponentLabel}
             dayOfWeek={schedule.dayOfWeek}
             venue={schedule.venue}
             kickoff={schedule.kickoff}
@@ -1418,8 +1459,9 @@ export default function PlayerView({
           />
 
           <CompetitionFixturesCard
-            playerToken={myId && squad.find(p => p.id === myId)?.token}
+            playerToken={playerToken}
             currentTeamId={teamId}
+            fixtures={compFixtures}
           />
 
         </div>
