@@ -15,6 +15,15 @@ Phase 6 HQ dashboard · Phase 10 public pages · Phase 11 cups. Phase 8 billing 
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)
 
+> ⚠️ **LAYOUT REDESIGN PENDING (operator, session 57).** The functional system
+> below is shipped and verified, but the operator judged the `apps/display` **visual
+> layout too plain** — a full broadcast-grade redesign of the display front-end is
+> scheduled for a follow-up session. **Scope of the redesign = `apps/display/src`
+> only (styles + zone components + layout).** The data/RPC/realtime layer (migs
+> 164–168, `get_display_state` shape, `venue_live` subscription, the venue config
+> editor) is **stable and NOT changing** — the redesign re-skins/re-lays-out the same
+> payload. Do not treat the current layout as final.
+
 The venue big-screen (`/display/TOKEN`) — a TV-targeted, PIN-gated, white-labelled
 live scoreboard for **all** competitions at a venue, updating in real time off the
 existing `venue_live` broadcast. Built in four committed stages.

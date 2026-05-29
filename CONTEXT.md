@@ -8,6 +8,13 @@ white-labelled live scoreboard for all competitions at a venue, real-time off th
 existing `venue_live` broadcast. Four committed stages; FEATURES/DECISIONS/RPCS/
 SCHEMA updated.
 
+> ⚠️ **LAYOUT REDESIGN PENDING (next session).** Functionally complete + verified,
+> but the operator wants the `apps/display` visual layout redesigned (current one
+> judged too plain). **Only `apps/display/src` (styles + components + layout) is in
+> scope** — the data/RPC/realtime layer (migs 164–168, `get_display_state`,
+> `venue_live`, the venue config editor) is stable and reused as-is. A
+> ChatGPT-generated mockup is the intended starting reference.
+
 - **Stage A — server (migs 164–167, `4c0f08b`):** `venues.display_token` (per-venue
   read-only public token; NOT the admin token) + `display_config` jsonb + read
   indexes; `get_display_state` (venue-scoped; lifts `get_league_standings_for_player`

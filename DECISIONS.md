@@ -459,6 +459,15 @@ idle). The scope's fixed/cycle/smart "panels" still exist as `display_config`
 (`zones`, `mode`, `interval_secs`, `custom_message`), but cycling is for overflow
 within the composite, not a one-panel-at-a-time carousel.
 
+> ⚠️ **The session-57 visual execution is NOT final.** The operator judged the first
+> layout too plain and a broadcast-grade redesign is scheduled (a ChatGPT-generated
+> mockup is the starting reference). The *decisions* above hold (venue-scoped,
+> composite multi-zone, default Live-led split, configurable zones); only the visual
+> design / component layout in `apps/display/src` changes. The `display_config`
+> contract and `get_display_state` payload are the fixed substrate the redesign
+> builds on — if the redesign needs a new zone key or field, that's an additive
+> schema/RPC change, not a rewrite.
+
 **Client-side PIN lockout; PIN never leaves the server.** `check_display_pin`
 answers ok/required without returning the PIN; `get_display_state` omits it. The
 3-strike / 30-min lockout lives in `apps/display` localStorage. This keeps the
