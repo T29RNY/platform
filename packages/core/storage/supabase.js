@@ -2246,6 +2246,30 @@ export async function venueUpdateBookingSettings(venueToken, updates) {
   return data;
 }
 
+// League Mode Phase 4 — Reception Display (mig 164–167).
+// Display token is the auth signal (read-only, on the TV); never the venue_admin_token.
+export async function getDisplayState(displayToken) {
+  if (!displayToken) return null;
+  const { data, error } = await supabase.rpc("get_display_state", { p_display_token: displayToken });
+  if (error) { console.error("[display] get_display_state failed", error); throw error; }
+  return data;
+}
+
+export async function checkDisplayPin(displayToken, pin) {
+  const { data, error } = await supabase.rpc("check_display_pin", { p_display_token: displayToken, p_pin: pin ?? null });
+  if (error) { console.error("[display] check_display_pin failed", error); throw error; }
+  return data;
+}
+
+// Operator-only (venue_admin_token). p_display_pin: null = leave PIN, '' = clear, else 4–8 digits.
+export async function venueUpdateDisplayConfig(venueToken, config, displayPin = null) {
+  const { data, error } = await supabase.rpc("venue_update_display_config", {
+    p_venue_token: venueToken, p_config: config, p_display_pin: displayPin,
+  });
+  if (error) { console.error("[display] venue_update_display_config failed", error); throw error; }
+  return data;
+}
+
 export async function venueAssignRef(venueToken, fixtureId, officialId) {
   const { data, error } = await supabase.rpc("venue_assign_ref", {
     p_venue_token: venueToken,
