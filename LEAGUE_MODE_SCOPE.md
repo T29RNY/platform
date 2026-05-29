@@ -785,7 +785,10 @@ Flow:
 1. Team admin opens link
 2. Authenticates (Google OAuth)
 3. Sees league name and venue
-4. Creates new team OR selects existing team they manage
+4. Creates a NEW league squad (a league team is always a separate squad — a casual
+   team is never promoted in place; see DECISIONS.md session 55 + mig 158). An
+   already-competitive team the admin manages may re-register (e.g. cup, Phase 11),
+   but a casual team cannot — the RPC rejects it with `casual_team_cannot_register`.
 5. Enters squad: names (minimum required number)
 6. Accepts league terms
 7. Registration submitted → venue admin notified for approval

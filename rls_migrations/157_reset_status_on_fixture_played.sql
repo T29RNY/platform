@@ -24,6 +24,13 @@
 -- reset when their league game completes. Phase 5 testbed teams are
 -- competitive-only; the casual→competitive cutover for existing teams is already
 -- an operator task in the Phase 5 plan. Revisit if a real dual-context team lands.
+--
+-- RESOLVED (mig 158): a league team is now ALWAYS a separate squad — a casual
+-- team_id is never promoted to competitive in place (join_register_team rejects
+-- a casual existing_team_id). So a casual team_id can never be in a competition,
+-- and this trigger can only ever touch competitive squads — never a casual board.
+-- The dual-context edge above is therefore structurally impossible. This trigger
+-- is unchanged; only this note is added. See BUGS.md + DECISIONS.md.
 
 CREATE OR REPLACE FUNCTION public.reset_team_status_on_fixture_played()
 RETURNS trigger

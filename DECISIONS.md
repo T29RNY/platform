@@ -1,8 +1,41 @@
 # In or Out — Key Decisions Log
-*Last updated: May 29 2026 (session 54 — competitive availability reuses the casual board)*
+*Last updated: May 29 2026 (session 55 — a league team is always a separate squad)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## A league team is ALWAYS a separate squad; casual teams are never promoted in place (session 55, mig 158)
+
+**Decision:** casual and competitive are *distinct squads*. A casual group that wants
+league football registers a NEW squad (its own `team_id`, marked with the LEAGUE pill,
+appearing as a second MY SQUADS entry) and switches to it in the app — so a person has
+two squads, one casual and one league, each with its own in/out board. A casual
+`team_id` is NEVER promoted to competitive in place.
+
+**What changed:** `join_register_team` (mig 098) previously offered two paths — create a
+new competitive team, OR reuse an existing team the caller admins, promoting it
+casual→competitive via `UPDATE teams SET team_type='competitive'`. Mig 158 removes the
+in-place promotion: a casual `existing_team_id` is rejected with
+`casual_team_cannot_register`; an `existing_team_id` is accepted ONLY when the team is
+already competitive (the legitimate forward case of a league team also entering a cup,
+Phase 11). The new-team path is unchanged.
+
+**Rationale:** this reverses the permissive mig-098 design and supersedes the Cycle 5.5
+"revisit separate-availability-vs-reuse for the dual-context case" note below. It closes
+the global-`players.status` dual-context must-fix (BUGS.md) *structurally* rather than by
+managing it: because a casual `team_id` can never be in a competition, the mig-157
+completion trigger can only ever touch competitive squads — a casual board is never
+reset by a league fixture. Keeps `players.status` and the casual read/write paths
+unchanged (no parallel availability system, no ripple to the admin make-teams /
+manage-squad / who's-in screens), consistent with "reuse over new systems."
+
+**Process for a casual group to join a league:** venue shares the league code →
+member opens `/join/CODE` → signs in → creates a NEW league squad → venue admin approves
+(`venue_approve_team_registration`, mig 099) → squad goes active with the LEAGUE pill.
+(No league-registration wizard UI exists in apps/inorout yet — RPC + wrapper only; when
+built it must offer "create a new league squad" only. The RPC enforces the rule regardless.)
 
 ---
 

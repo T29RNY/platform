@@ -1,5 +1,29 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 28 2026 (session 54 — booking push-on-confirm + **League Mode Phase 5 Cycles 5.1 + 5.2** shipped + a competitive testbed. Next: Cycle 5.3 fixtures.)*
+*Last updated: May 29 2026 (session 55 — closed the global-status dual-context must-fix: a league team is always a separate squad, mig 158. Next: Cycle 5.6 teamsheet.)*
+
+## SESSION 55 — league/casual squad separation (May 29 2026)
+
+Picked up League Mode after Phase 5 Cycles 5.1–5.5. Addressed the global-`players.status`
+dual-context must-fix flagged at the end of session 54.
+
+- **Diagnosis correction:** the recorded "cross-talks between any two teams a player is
+  in" framing was wrong — one `players` row per (user,team) already scopes status per
+  team. The only real edge was a single `team_id` being both casual and competitive,
+  possible only because `join_register_team` (mig 098) promoted a casual team in place.
+- **Decision (operator):** a league team is ALWAYS a separate squad. A casual group
+  joining a league creates a NEW squad (LEAGUE pill, second MY SQUADS entry); casual
+  teams are never promoted in place.
+- **Mig 158:** `join_register_team` rejects a casual `existing_team_id`
+  (`casual_team_cannot_register`); accepts an `existing_team_id` only if already
+  competitive (cup reuse, Phase 11). New-team path unchanged. Also hardened the anon
+  grant (Supabase default-privileges leftover). mig-157 trigger unchanged (now provably
+  safe) — only a clarifying comment added.
+- **Verified:** data safety check (no real casual team was ever promoted — all
+  competitive teams are testbed/demo); ephemeral-verify 3 paths PASS + leak-check clean;
+  rpc-security-sweep PASS; build clean. No JS changed (server-side SQL only), so the
+  casual flow is byte-identical and casual-regression's trigger condition wasn't met.
+- **Parked (separate cycles):** "Join another team" paste-a-link button in MY SQUADS
+  (small, reuses `getTeamByJoinCode`+`playerJoinTeam`); Cycle 5.6 teamsheet submission.
 
 ## SESSION 54 — booking push-on-confirm + League Mode Phase 5 starts (May 28 2026)
 

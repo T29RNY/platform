@@ -1,34 +1,33 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 29 2026 (session 54 — League Mode Phase 5 Cycles 5.1–5.5 shipped; one must-fix tech-debt item added below for the global-status dual-context edge.)*
+*Last updated: May 29 2026 (session 55 — the global-status dual-context must-fix is RESOLVED via mig 158: a league team is always a separate squad.)*
 
 ---
 
-## TECH DEBT (MUST FIX before any team is both casual + competitive) — global players.status reset (session 54, Cycle 5.5)
+## RESOLVED (session 55, mig 158) — global players.status dual-context edge
 
-Cycle 5.5 made competitive availability reuse the casual IN/OUT board, and added a
-trigger (`reset_team_status_on_fixture_played`, mig 157) that clears both teams'
-`players.status` to `'none'` when a league fixture is played.
+**Original concern (session 54, Cycle 5.5):** Cycle 5.5 made competitive availability
+reuse the casual IN/OUT board, with a trigger (`reset_team_status_on_fixture_played`,
+mig 157) that clears a team's `players.status` to `'none'` when a league fixture is
+played. The flagged risk was that one `team_id` being both casual AND competitive would
+have its casual in/out answers wiped on fixture completion.
 
-**The edge:** `players.status` is a single GLOBAL value per player (not scoped per
-team). So if one person is on BOTH a casual team and a competitive team, completing
-their league fixture would also wipe their CASUAL in/out answer (and vice-versa, the
-shared status already cross-talks between any two teams a player is in).
+**Correction to the original diagnosis:** the original framing ("the shared status
+cross-talks between any two teams a player is in") was inaccurate. There is ONE
+`players` row per (user, team) pair (migs 065–069), each with its own token, so
+`players.status` is already scoped per (player, team). A person on a casual team AND a
+separate competitive team has two distinct rows — they cannot collide. The ONLY real
+edge was a *single* `team_id` being both casual and competitive, which could happen only
+because `join_register_team` (mig 098) promoted an existing casual team in place
+(`UPDATE teams SET team_type='competitive'`).
 
-**Why it's safe right now:** no real dual-context team exists — the Phase 5 testbed
-(Competitive FC) is competitive-only, and live casual teams aren't in a competition.
-So the trigger only ever touches competitive-only players today.
-
-**MUST FIX before** the casual→competitive cutover for a real existing team (e.g.
-Footy Tuesdays enters a league), otherwise that team's casual flow will be corrupted.
-**Fix direction:** scope availability per (player, team) — either move status to
-`team_players.status`, or key competitive availability to (player, fixture/competition)
-— so a reset/availability change can't leak across a player's other teams. This
-re-opens the "separate availability vs reuse" decision (see DECISIONS.md, Cycle 5.5)
-specifically for the dual-context case. Touches the casual status read/write paths +
-the mig-157 trigger.
-
-**Surfaced:** session 54, Cycle 5.5 plan — accepted as a known edge to ship the
-testbed, flagged here as must-fix before real cutover.
+**Resolution (mig 158):** a league team is ALWAYS a separate squad. `join_register_team`
+no longer promotes a casual team — a casual `existing_team_id` is rejected
+(`casual_team_cannot_register`); only an already-competitive team may re-register (cup
+reuse, Phase 11). A casual group joining a league creates a NEW squad (own team_id,
+LEAGUE pill, second MY SQUADS entry). A casual `team_id` therefore can never be in a
+competition, so the mig-157 trigger can only ever touch competitive squads — the
+dual-context edge is structurally impossible. `players.status` and the casual read/write
+paths are unchanged. See DECISIONS.md (session 55) for the decision rationale.
 
 ---
 

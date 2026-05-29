@@ -29,10 +29,13 @@ make-teams / manage-squad / who's-in screens need **zero change** (they already 
 - **Casual untouched**: all competitive behaviour gates on "an upcoming fixture
   exists" — casual teams have none, so `schedule` is the unmodified prop and the
   board is byte-identical. Trigger never fires for casual (no fixtures).
-- **Edge (documented, not solved)**: `players.status` is global per player; a player
-  on BOTH a casual and competitive team would have casual availability reset when a
-  league game completes. No real dual-context team exists yet (testbed is
-  competitive-only); revisit at the casual→competitive cutover.
+- **Edge — RESOLVED (session 55, mig 158)**: the dual-context worry is closed
+  structurally. A league team is now ALWAYS a separate squad — `join_register_team`
+  rejects a casual `existing_team_id` (no in-place casual→competitive promotion), so a
+  casual `team_id` can never be in a competition and the mig-157 trigger can only ever
+  touch competitive squads. (The original "global per player / cross-team" framing was
+  also inaccurate — one `players` row per (user,team) already scopes status per team.)
+  See BUGS.md (RESOLVED) + DECISIONS.md (session 55).
 - **Verified**: trigger ephemeral-verified in rollback txn (FC + opponent players
   reset to none on completion; Rovers/casual untouched; broadcast reason whitelisted);
   applied live; trigger SECURITY DEFINER + search_path confirmed; hygiene + build
