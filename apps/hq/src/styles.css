@@ -64,6 +64,26 @@ input, select, textarea {
 }
 .topbar .user { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 10px; }
 .topbar select { font-size: 13px; }
+.topbar nav { display: flex; gap: 4px; }
+.topbar nav button { background: transparent; border-color: transparent; padding: 6px 14px; }
+.topbar nav button.active { background: var(--bg-row); border-color: var(--border); color: var(--accent); }
+
+/* analytics view */
+.analytics { padding: 18px; max-width: 1100px; margin: 0 auto; }
+.edit-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.edit-bar .spacer { flex: 1; }
+.acard {
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin-bottom: 16px;
+}
+.acard h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 12px; }
+.acard .card-ctl { float: right; display: flex; gap: 4px; }
+.atable { width: 100%; border-collapse: collapse; }
+.atable th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.atable td { padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.atable td.num { font-family: var(--font-mono); text-align: right; }
+.atable tr:last-child td { border-bottom: none; }
+.rank { color: var(--text-muted); font-family: var(--font-mono); width: 28px; }
 
 /* three-column dashboard */
 .content { flex: 1; overflow: hidden; }

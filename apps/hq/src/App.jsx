@@ -11,6 +11,7 @@ import {
 import VenueHealthGrid from "./views/VenueHealthGrid.jsx";
 import VenueDetail from "./views/VenueDetail.jsx";
 import AlertsActions from "./views/AlertsActions.jsx";
+import AnalyticsView from "./views/AnalyticsView.jsx";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -24,6 +25,7 @@ export default function App() {
   const [selectedVenueId, setSelectedVenueId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [view, setView] = useState("dashboard"); // "dashboard" | "analytics"
 
   // ── auth session ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -139,6 +141,10 @@ export default function App() {
           {state?.company?.name && <span className="muted">{state.company.name}</span>}
           {activeCompany?.role && <span className="badge">{activeCompany.role}</span>}
         </div>
+        <nav>
+          <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
+          <button className={view === "analytics" ? "active" : ""} onClick={() => setView("analytics")}>Analytics</button>
+        </nav>
         <div className="user">
           {companies.length > 1 && (
             <select
@@ -157,6 +163,9 @@ export default function App() {
 
       <main className="content">
         {stateErr && <div style={{ padding: 16 }}><div className="error">{stateErr}</div></div>}
+        {view === "analytics" ? (
+          <AnalyticsView companyId={companyId} />
+        ) : (
         <div className="cols">
           <div className="col">
             <VenueHealthGrid
@@ -183,6 +192,7 @@ export default function App() {
             />
           </div>
         </div>
+        )}
       </main>
     </div>
   );
