@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 29 2026 (session 60 — League Mode Phase 6 HQ dashboard: Cycle 6.1 (mig 171) + Cycle 6.3 composable analytics hq_get_analytics/hq_set_dashboard_config (migs 172–173))*
+*Last updated: May 29 2026 (session 60 — League Mode Phase 6 HQ dashboard: Cycle 6.1 (mig 171) + 6.3 composable analytics (172–173) + 6.4 live activity feed hq_get_activity (mig 174))*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -327,6 +327,12 @@ whitelist += `'incident_resolved'`.
 
 mig 172: `company_admins.dashboard_config jsonb NULL` (per-admin saved layout; NULL = default preset).
 
+**Cycle 6.4 — live activity feed (mig 174):**
+
+| RPC (SQL) | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `hq_get_activity(p_company_id)` | `hqGetActivity(companyId)` | authenticated | Mig 174. SECDEF, read-only. `{live:[tonight's fixtures + scores/status], upcoming:[soonest when none today], goals:[recent match_events goals], channels:[per-venue live_channel_key]}`. Role/region scoped. **Consumers:** apps/hq ActivityFeed (centre column) — subscribes to each `venue_live:<key>` channel + 30s poll. |
+
 ---
 
 ## MIGRATION FILE MAP
@@ -387,6 +393,7 @@ mig 172: `company_admins.dashboard_config jsonb NULL` (per-admin saved layout; N
 | 171 | Phase 6 HQ RPCs — `resolve_company_caller`, `company_admin_whoami`, `hq_get_company_state`, `hq_get_venue_detail`, `hq_resolve_incident` (write). + `audit_events.actor_type`+='company_admin' + `notify_venue_change` whitelist+='incident_resolved'. rpc-security-sweep + ephemeral-verify PASS. |
 | 172 | `company_admins.dashboard_config jsonb NULL` — per-admin HQ dashboard layout (Phase 6.3). |
 | 173 | Phase 6.3 composable analytics — `hq_get_analytics` (read, 6 card datasets + caller layout) + `hq_set_dashboard_config` (write). rpc-security-sweep + ephemeral-verify PASS. |
+| 174 | Phase 6.4 live activity feed — `hq_get_activity` (read; tonight/upcoming fixtures + goals ticker + venue channel keys). rpc-security-sweep PASS. |
 | 163 | `notification_log` + `channel`/`entity_id`/`recipient` (nullable) + partial email-dedup index — League Mode **Phase 9 Cycle 9.1**. Lets transactional email (Resend) be logged/deduped alongside web-push. No RPC change — the email layer (`api/_mailer.js` + `onboardingEmailJob` in `api/cron.js`) is a read-only consumer of existing audit actions (`team_registration_submitted`/`team_approved`/`team_rejected`/`fixture_ref_assigned`). |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.

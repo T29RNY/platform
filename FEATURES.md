@@ -19,8 +19,10 @@
    + company-state/drill-down/incident-resolve RPCs + Venue Health Grid + Alerts. ✅ Cycle 6.3
    (session 60): **composable analytics** — `hq_get_analytics` + per-admin saved layouts +
    6-card registry + presets + edit mode (Layer A; the AI composes over this in Phase 7).
-   **Remaining cycles:** 6.4 live activity feed (centre column) · 6.5 HQ preview token ·
-   6.x HQ weekly digest (the deferred Phase 9 cycle, rides here). Fold the Phase 9 HQ digest in here.
+   ✅ Cycle 6.4 (session 60): **live activity feed** (centre column) — cross-venue tonight's
+   fixtures + live scores + goals ticker + per-venue realtime subscriptions.
+   **Remaining cycles:** 6.5 HQ preview token · 6.x HQ weekly digest (the deferred Phase 9
+   cycle, rides here). Fold the Phase 9 HQ digest in here.
 3. **Phase 11 (cups & knockouts)** — most cross-cutting (fixtures/standings→brackets/
    ref/display/player); last, when other surfaces are stable. `cup_rounds` +
    `generateCupBracket` already exist as groundwork.
@@ -84,6 +86,22 @@ existing `venue_live` broadcast. Built in four committed stages.
 - **Testbed:** demo_venue `display_token='demo_venue_display_token'`, `display_pin='1234'`.
 
 ---
+
+## LEAGUE MODE — PHASE 6 CYCLE 6.4: live activity feed (session 60, 2026-05-29)
+
+The scope-6B centre column — a cross-venue live feed.
+
+- **What ships:** `hq_get_activity(company)` (mig 174, read) — tonight's fixtures with live
+  scores + status, soonest upcoming when none today, a recent-goals ticker (match_events), and
+  per-venue `live_channel_key`s. `hqGetActivity` wrapper. apps/hq **ActivityFeed** (centre column
+  by default; selecting a venue swaps in the VenueDetail drill-down + a back button).
+- **Realtime:** one subscription per venue channel (`venue_live:<key>`, mirroring apps/venue /
+  mig 121) → debounced refetch on any goal/card/result broadcast, **+ a 30s poll fallback** so the
+  board stays fresh even if a broadcast is missed. (Decision: subscribe-per-venue + poll backstop,
+  vs. a single firehose — keeps it simple and self-healing.)
+- **Verified:** rpc-security-sweep PASS (read-only → no ephemeral-verify); functional read
+  (live=0 today, upcoming=3, goals=13, channels=2); apps/hq builds clean.
+- **Operator owes:** live render + realtime correctness during an actual in-progress fixture.
 
 ## LEAGUE MODE — PHASE 6 CYCLE 6.3: composable analytics dashboard (session 60, 2026-05-29)
 

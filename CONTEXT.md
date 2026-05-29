@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 60 — Phase 6: HQ dashboard foundation (6.1) + composable analytics (6.3).)*
+*Last updated: May 29 2026 (session 60 — Phase 6 HQ: foundation (6.1) + composable analytics (6.3) + live activity feed (6.4).)*
 
 ## SESSION 60 — Phase 6 Cycle 6.1: HQ dashboard (May 29 2026)
 
@@ -43,8 +43,17 @@ rides Phase 7** over the same registry (grounded, no raw SQL). Built: `company_a
 Operations/Commercial/Performance, edit mode). Cards use only confirmed sources (match_events goals/
 cards, fixtures scores, incidents, venues) — engagement/standings deferred (no clean source).
 ephemeral-verify PASS (read 6 datasets, config write filter/persist/round-trip, bad_config reject,
-regional scoping, stranger denial). See DECISIONS "HQ analytics is composable…". **Next cycles:**
-6.4 live activity feed · 6.5 HQ preview token · 6.x HQ weekly digest · Phase 7 AI layer.
+regional scoping, stranger denial). See DECISIONS "HQ analytics is composable…".
+
+**Cycle 6.4 — live activity feed (same session, mig 174, commits 137657a/06ae252):** the
+scope-6B centre column. `hq_get_activity` (read: tonight's fixtures + scores/status, soonest
+upcoming when none today, recent-goals ticker, per-venue channel keys) + `hqGetActivity` wrapper
++ apps/hq ActivityFeed (centre column by default; venue selection swaps in VenueDetail + back
+button). Realtime = one subscription per `venue_live:<key>` (mirrors apps/venue) + 30s poll
+fallback. Verified: sweep PASS (read-only), functional read live=0/upcoming=3/goals=13/channels=2,
+build clean. Live render + realtime correctness operator-owed (needs an in-progress fixture).
+**Next cycles:** 6.5 HQ preview token · 6.x HQ weekly digest · Phase 7 AI layer (composes over
+the 6.3 card registry).
 
 ## SESSION 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons (May 29 2026)
 
