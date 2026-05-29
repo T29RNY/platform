@@ -1876,6 +1876,56 @@ export async function getCompanyByDomain(domain) {
   return data;
 }
 
+// ─── League Mode — Phase 6 HQ dashboard (apps/hq) ────────────────────────────
+// Authenticated-only (OAuth, no token); RPCs resolve the caller via auth.uid() →
+// company_admins (mig 171). companyAdminWhoami gates the app; the three hq_* wrappers
+// read/write company state. Consumers: apps/hq (VenueHealthGrid, VenueDetail, AlertsActions).
+
+export async function companyAdminWhoami() {
+  const { data, error } = await supabase.rpc("company_admin_whoami");
+  if (error) {
+    console.error("[hq] company_admin_whoami failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function hqGetCompanyState(companyId) {
+  if (!companyId) return null;
+  const { data, error } = await supabase.rpc("hq_get_company_state", { p_company_id: companyId });
+  if (error) {
+    console.error("[hq] get_company_state failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function hqGetVenueDetail(companyId, venueId) {
+  if (!companyId || !venueId) return null;
+  const { data, error } = await supabase.rpc("hq_get_venue_detail", {
+    p_company_id: companyId,
+    p_venue_id: venueId,
+  });
+  if (error) {
+    console.error("[hq] get_venue_detail failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function hqResolveIncident(companyId, incidentId, resolutionNote = null) {
+  const { data, error } = await supabase.rpc("hq_resolve_incident", {
+    p_company_id: companyId,
+    p_incident_id: incidentId,
+    p_resolution_note: resolutionNote,
+  });
+  if (error) {
+    console.error("[hq] resolve_incident failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 2 superadmin onboarding ─────────────────────────────
 // superadmin_create_venue is the operator-led venue onboarding RPC. Gated by
 // is_platform_admin() server-side. Self-serve signup is deferred to year 2.
