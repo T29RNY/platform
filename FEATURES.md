@@ -1,5 +1,44 @@
 # In or Out — Feature Tracker
-*Last updated: May 29 2026 (session 54 — booking push-on-confirm + **LEAGUE MODE Phase 5 Cycles 5.1–5.5** shipped + competitive testbed)*
+*Last updated: May 29 2026 (session 55 — league/casual squad separation (mig 158) + "Join another team" in MY SQUADS)*
+
+---
+
+## INOROUT — "Join another team" in MY SQUADS (session 55, 2026-05-29)
+
+A signed-in player can now add a team from inside the app. A **"+ Join another team"**
+row at the bottom of the MY SQUADS accordion reveals a paste box; on Enter/JOIN it
+extracts the join code from a pasted invite link (`/join/<code>`, or a bare code) and
+navigates to `/join/<code>`, handing off to the **existing** join flow — which already
+gates auth, dedupes existing members (`App.jsx:641-660`), and runs the name step.
+
+- **Single-file UI addition** (`apps/inorout/src/views/MySquads.jsx`). No new RPC,
+  wrapper, App.jsx, or barrel change. Styled with `tokens.css` vars (DM Sans / Bebas
+  Neue / Phosphor `weight="thin"`) to match the accordion.
+- **Reuse over new plumbing**: mirrors the landing-page paste pattern (`App.jsx:1054`)
+  and the in-file navigation idiom (`MySquads.jsx:152`).
+- **Verified**: hygiene 7/7, build clean, Playwright proof (tap → paste invite link →
+  navigates to `/join/demo` → existing join screen renders), zero new console errors on
+  a casual token. Commit `249dc12`. Real-iPhone home-screen test (hard-rule #13)
+  operator-owed on live.
+
+---
+
+## LEAGUE MODE — A LEAGUE TEAM IS ALWAYS A SEPARATE SQUAD (session 55, mig 158)
+
+Closed the global-`players.status` dual-context must-fix **structurally**.
+`join_register_team` (mig 098) previously promoted a casual team in place
+(`UPDATE teams SET team_type='competitive'`); mig 158 removes that — a casual
+`existing_team_id` is rejected (`casual_team_cannot_register`), and an `existing_team_id`
+is accepted only when already competitive (cup reuse, Phase 11). A casual group joining
+a league creates a NEW squad (own `team_id`, LEAGUE pill, second MY SQUADS entry), so a
+casual `team_id` can never enter a competition and the mig-157 trigger can only touch
+competitive squads.
+
+- **Verified**: data safety check (no real casual team was ever promoted — all
+  competitive teams are testbed/demo); ephemeral-verify 3 paths PASS + leak-check clean;
+  rpc-security-sweep PASS (also stripped a stale anon EXECUTE grant); build clean; no JS
+  changed (casual flow byte-identical). Commit `7103267`. RPCS.md now catalogues the
+  Phase 2 registration trio (`72f47ea`). See BUGS.md (RESOLVED) + DECISIONS.md (session 55).
 
 ---
 

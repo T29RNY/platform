@@ -22,8 +22,16 @@ dual-context must-fix flagged at the end of session 54.
   competitive teams are testbed/demo); ephemeral-verify 3 paths PASS + leak-check clean;
   rpc-security-sweep PASS; build clean. No JS changed (server-side SQL only), so the
   casual flow is byte-identical and casual-regression's trigger condition wasn't met.
-- **Parked (separate cycles):** "Join another team" paste-a-link button in MY SQUADS
-  (small, reuses `getTeamByJoinCode`+`playerJoinTeam`); Cycle 5.6 teamsheet submission.
+  Commit `7103267`.
+- **RPCS.md catalogue (`72f47ea`):** added the Phase 2 team-registration trio
+  (`join_register_team` 098, `venue_approve_team_registration` 099,
+  `venue_reject_team_registration` 100) to the inventory — they were never recorded.
+- **"Join another team" shipped (`249dc12`):** a "+ Join another team" row at the bottom
+  of MY SQUADS — paste an invite link → extracts the join code → navigates to
+  `/join/<code>`, reusing the existing join flow (no new RPC; single-file MySquads.jsx
+  edit). Hygiene + build + Playwright interaction proof clean. Real-iPhone test
+  (hard-rule #13) operator-owed on live.
+- **Parked:** Cycle 5.6 teamsheet submission (next — being scoped now).
 
 ## SESSION 54 — booking push-on-confirm + League Mode Phase 5 starts (May 28 2026)
 
