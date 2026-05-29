@@ -1,5 +1,5 @@
 # In or Out — RPC Inventory
-*Last updated: May 29 2026 (session 60 — League Mode Phase 6 HQ dashboard: Cycle 6.1 (mig 171) + 6.3 composable analytics (172–173) + 6.4 live activity feed hq_get_activity (mig 174))*
+*Last updated: May 29 2026 (session 60 — League Mode Phase 6 HQ dashboard: 6.1 (171) + 6.3 analytics (172–173) + 6.4 activity feed (174) + 6.5 preview token hq_generate_preview_token/get_hq_preview_state (175))*
 
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
@@ -333,6 +333,13 @@ mig 172: `company_admins.dashboard_config jsonb NULL` (per-admin saved layout; N
 |---|---|---|---|
 | `hq_get_activity(p_company_id)` | `hqGetActivity(companyId)` | authenticated | Mig 174. SECDEF, read-only. `{live:[tonight's fixtures + scores/status], upcoming:[soonest when none today], goals:[recent match_events goals], channels:[per-venue live_channel_key]}`. Role/region scoped. **Consumers:** apps/hq ActivityFeed (centre column) — subscribes to each `venue_live:<key>` channel + 30s poll. |
 
+**Cycle 6.5 — HQ preview token (mig 175):**
+
+| RPC (SQL) | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `hq_generate_preview_token(p_company_id)` | `hqGeneratePreviewToken(companyId)` | authenticated | Mig 175. **WRITE** (ephemeral-verify gated). **super_admin only** (regional_admin/analyst → `forbidden_role`). Inserts a 7-day `hq_preview_tokens` row; audits `hq_preview_token_generated`. Returns `{ok, token, expires_at}`. **Consumers:** apps/hq Share-preview button. |
+| `get_hq_preview_state(p_token)` | `getHqPreviewState(token)` | **anon** + authenticated | Mig 175. SECDEF read (token is the secret). Validates + expiry (`expired_or_invalid`), stamps `accessed_at` on first open, returns a watermarked read-only company snapshot (company + venue health grid + summary; no drill-down/incidents/tokens). Whole-company (not role-scoped). **Consumers:** apps/hq PreviewView (`/hq/preview/TOKEN`). |
+
 ---
 
 ## MIGRATION FILE MAP
@@ -394,6 +401,7 @@ mig 172: `company_admins.dashboard_config jsonb NULL` (per-admin saved layout; N
 | 172 | `company_admins.dashboard_config jsonb NULL` — per-admin HQ dashboard layout (Phase 6.3). |
 | 173 | Phase 6.3 composable analytics — `hq_get_analytics` (read, 6 card datasets + caller layout) + `hq_set_dashboard_config` (write). rpc-security-sweep + ephemeral-verify PASS. |
 | 174 | Phase 6.4 live activity feed — `hq_get_activity` (read; tonight/upcoming fixtures + goals ticker + venue channel keys). rpc-security-sweep PASS. |
+| 175 | Phase 6.5 HQ preview token — `hq_generate_preview_token` (write, super_admin) + `get_hq_preview_state` (anon read, watermarked snapshot + accessed_at stamp). rpc-security-sweep + ephemeral-verify PASS. |
 | 163 | `notification_log` + `channel`/`entity_id`/`recipient` (nullable) + partial email-dedup index — League Mode **Phase 9 Cycle 9.1**. Lets transactional email (Resend) be logged/deduped alongside web-push. No RPC change — the email layer (`api/_mailer.js` + `onboardingEmailJob` in `api/cron.js`) is a read-only consumer of existing audit actions (`team_registration_submitted`/`team_approved`/`team_rejected`/`fixture_ref_assigned`). |
 
 **Note:** Migrations 013–016 headers say "DO NOT EXECUTE" — stale from Phase B design phase.

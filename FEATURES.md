@@ -21,8 +21,10 @@
    6-card registry + presets + edit mode (Layer A; the AI composes over this in Phase 7).
    ✅ Cycle 6.4 (session 60): **live activity feed** (centre column) — cross-venue tonight's
    fixtures + live scores + goals ticker + per-venue realtime subscriptions.
-   **Remaining cycles:** 6.5 HQ preview token · 6.x HQ weekly digest (the deferred Phase 9
-   cycle, rides here). Fold the Phase 9 HQ digest in here.
+   ✅ Cycle 6.5 (session 60): **HQ preview token** — 7-day no-login watermarked read-only link
+   (`/hq/preview/TOKEN`) + super_admin Share-preview button. **Remaining:** 6.x HQ weekly digest
+   (the deferred Phase 9 cycle, rides here — needs an email over the 6.3 analytics). **Phase 6 is
+   otherwise functionally complete** (6A–6E shipped). Fold the Phase 9 HQ digest in here.
 3. **Phase 11 (cups & knockouts)** — most cross-cutting (fixtures/standings→brackets/
    ref/display/player); last, when other surfaces are stable. `cup_rounds` +
    `generateCupBracket` already exist as groundwork.
@@ -86,6 +88,25 @@ existing `venue_live` broadcast. Built in four committed stages.
 - **Testbed:** demo_venue `display_token='demo_venue_display_token'`, `display_pin='1234'`.
 
 ---
+
+## LEAGUE MODE — PHASE 6 CYCLE 6.5: HQ preview token (session 60, 2026-05-29)
+
+Scope 6D — the commercial hook ("show your HQ what's possible → they buy the tier").
+
+- **What ships:** `hq_generate_preview_token(company)` (mig 175, write; **super_admin only**) +
+  `get_hq_preview_state(token)` (read, **anon** — token is the secret; validates + 7-day expiry +
+  stamps `accessed_at` on first open). `hqGeneratePreviewToken`/`getHqPreviewState` wrappers.
+  apps/hq **PreviewView** at `/hq/preview/TOKEN` (or `/preview/TOKEN`) — no login, watermarked,
+  read-only company snapshot (summary + venue health grid; no drill-down/incidents/tokens) +
+  a header **Share preview** button (super_admin) that generates + shows the copyable link.
+- **Decision:** generating is super_admin-only (sharing company data externally is privileged);
+  "notify the generator on open" is **deferred** (no company-admin push/email channel yet) —
+  `accessed_at` is the visible signal until then.
+- **Verified:** rpc-security-sweep (generator anon-denied; preview anon-allowed — intended) ·
+  ephemeral-verify (rolled back): generate · public read+snapshot+accessed_at · invalid+expired
+  rejected · analyst/regional/stranger denied — all PASS · **end-to-end UI smoke against live DB**
+  (anon, no OAuth): `/preview/<token>` rendered the watermarked snapshot; accessed_at stamped.
+- **Operator owes:** authed Share-preview button render (behind OAuth, with the /hq pass).
 
 ## LEAGUE MODE — PHASE 6 CYCLE 6.4: live activity feed (session 60, 2026-05-29)
 

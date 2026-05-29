@@ -114,6 +114,11 @@ without its Supabase env, and the dashboard is empty without a company + company
    sees only Demo Arena South.
 5. **Demo caveat:** the seed is namespaced (`company_demo` / `venue_demo_south`) and fully
    removable via `170_demo_company_seed_down.sql` — pull it before onboarding a real company.
+6. **Preview link (6.5):** as super_admin, tap **Share preview** → copy the `/hq/preview/<token>`
+   link → open it in a private window (no login) → confirm the watermarked read-only snapshot
+   renders and `hq_preview_tokens.accessed_at` stamps. The deployed origin must serve the SPA
+   fallback for `/preview/*` (vercel.json rewrite handles this). Links expire after 7 days.
+   "Notify on open" is not wired — `accessed_at` is the only signal for now.
 
 ---
 

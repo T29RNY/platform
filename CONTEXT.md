@@ -1,5 +1,5 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 60 — Phase 6 HQ: foundation (6.1) + composable analytics (6.3) + live activity feed (6.4).)*
+*Last updated: May 29 2026 (session 60 — Phase 6 HQ complete: foundation (6.1) + analytics (6.3) + activity feed (6.4) + preview token (6.5).)*
 
 ## SESSION 60 — Phase 6 Cycle 6.1: HQ dashboard (May 29 2026)
 
@@ -52,8 +52,18 @@ upcoming when none today, recent-goals ticker, per-venue channel keys) + `hqGetA
 button). Realtime = one subscription per `venue_live:<key>` (mirrors apps/venue) + 30s poll
 fallback. Verified: sweep PASS (read-only), functional read live=0/upcoming=3/goals=13/channels=2,
 build clean. Live render + realtime correctness operator-owed (needs an in-progress fixture).
-**Next cycles:** 6.5 HQ preview token · 6.x HQ weekly digest · Phase 7 AI layer (composes over
-the 6.3 card registry).
+
+**Cycle 6.5 — HQ preview token (same session, mig 175, commits 2f24a1d/7a31812/855fb7b):** scope-6D
+commercial hook. `hq_generate_preview_token` (write, super_admin-only) + `get_hq_preview_state`
+(anon read, watermarked snapshot + accessed_at stamp, 7-day expiry) + wrappers + apps/hq PreviewView
+(`/hq/preview/TOKEN`, no login) + super_admin Share-preview button. ephemeral-verify PASS (generate,
+public read, invalid/expired/role/stranger denials) + **end-to-end UI smoke against live DB** (anon
+`/preview/<token>` rendered the snapshot, accessed_at stamped, smoke token cleaned up). "Notify
+generator on open" deferred (no company-admin channel; accessed_at is the signal).
+
+**Phase 6 is functionally complete (6A–6E shipped).** Remaining: 6.x HQ weekly digest (rides the
+deferred Phase 9 cycle — email over the 6.3 analytics) · Phase 7 AI layer composes over the 6.3
+registry. Per 9→6→11, **Phase 11 (cups) is next**.
 
 ## SESSION 59 — Phase 9 cont.: SMS/WhatsApp transport core + league reminder crons (May 29 2026)
 
