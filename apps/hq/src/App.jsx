@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
@@ -7,12 +7,14 @@ import {
   hqGetCompanyState,
   hqGetVenueDetail,
   hqResolveIncident,
+  hqGeneratePreviewToken,
 } from "@platform/core/storage/supabase.js";
 import VenueHealthGrid from "./views/VenueHealthGrid.jsx";
 import VenueDetail from "./views/VenueDetail.jsx";
 import AlertsActions from "./views/AlertsActions.jsx";
 import AnalyticsView from "./views/AnalyticsView.jsx";
 import ActivityFeed from "./views/ActivityFeed.jsx";
+import PreviewView from "./views/PreviewView.jsx";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -27,6 +29,15 @@ export default function App() {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [view, setView] = useState("dashboard"); // "dashboard" | "analytics"
+  const [previewLink, setPreviewLink] = useState(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
+
+  // Public preview route (/hq/preview/TOKEN or /preview/TOKEN) — no auth.
+  const previewToken = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const m = window.location.pathname.match(/\/preview\/([^/]+)/);
+    return m ? m[1] : null;
+  }, []);
 
   // ── auth session ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -93,7 +104,24 @@ export default function App() {
     await Promise.all([loadState(), loadDetail(selectedVenueId)]);
   }, [companyId, loadState, loadDetail, selectedVenueId]);
 
+  const generatePreview = useCallback(async () => {
+    if (!companyId) return;
+    setPreviewBusy(true);
+    try {
+      const r = await hqGeneratePreviewToken(companyId);
+      if (r?.token) setPreviewLink(`${window.location.origin}/preview/${r.token}`);
+    } catch (e) {
+      setPreviewLink(null);
+      console.error("generate preview failed", e);
+    } finally {
+      setPreviewBusy(false);
+    }
+  }, [companyId]);
+
   // ── render gates ────────────────────────────────────────────────────────────
+  // Public preview link takes precedence over auth — no login required.
+  if (previewToken) return <PreviewView token={previewToken} />;
+
   if (loading) return <div className="center"><div className="muted">Loading…</div></div>;
 
   if (!session) {
@@ -157,12 +185,27 @@ export default function App() {
               ))}
             </select>
           )}
+          {activeCompany?.role === "super_admin" && (
+            <button className="small" onClick={generatePreview} disabled={previewBusy}>
+              {previewBusy ? "…" : "Share preview"}
+            </button>
+          )}
           <span>{whoami?.email}</span>
           <button onClick={() => supabase.auth.signOut()}>Sign out</button>
         </div>
       </header>
 
       <main className="content">
+        {previewLink && (
+          <div style={{ padding: "12px 16px 0" }}>
+            <div className="preview-share">
+              <span className="muted">7-day preview link:</span>
+              <input readOnly value={previewLink} onFocus={(e) => e.target.select()} />
+              <button className="small" onClick={() => navigator.clipboard?.writeText(previewLink)}>Copy</button>
+              <button className="small" onClick={() => setPreviewLink(null)}>Dismiss</button>
+            </div>
+          </div>
+        )}
         {stateErr && <div style={{ padding: 16 }}><div className="error">{stateErr}</div></div>}
         {view === "analytics" ? (
           <AnalyticsView companyId={companyId} />

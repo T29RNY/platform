@@ -85,6 +85,18 @@ input, select, textarea {
 .atable tr:last-child td { border-bottom: none; }
 .rank { color: var(--text-muted); font-family: var(--font-mono); width: 28px; }
 
+/* preview (public, watermarked) */
+.watermark {
+  background: var(--accent-dim); color: var(--accent); text-align: center;
+  padding: 8px 12px; font-size: 12px; letter-spacing: 0.04em;
+}
+.preview-wrap { max-width: 760px; margin: 0 auto; padding: 22px; }
+.preview-share {
+  display: flex; align-items: center; gap: 8px; font-size: 12px;
+  background: var(--bg-row); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+}
+.preview-share input { flex: 1; min-width: 200px; font-size: 12px; }
+
 /* three-column dashboard */
 .content { flex: 1; overflow: hidden; }
 .cols {
