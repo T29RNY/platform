@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>In or Out for Venues — Fill every pitch. Run every league.</title>
+<meta name="description" content="The operating system for football venues. Fill empty slots, run leagues, and see your whole estate from one intelligence view." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0A0A08; --surface:#141412; --surface-2:#1C1C19; --surface-3:#222220;
+  --text:#F2F0EA; --text-2:#D0CCC2; --text-3:#8A867C;
+  --accent:#E8A020; --accent-press:#D89015; --accent-dim:rgba(232,160,32,0.14);
+  --info:#B060F0; --info-dim:rgba(176,96,240,.14);
+  --positive:#3DDC6A; --negative:#FF4040; --warning:#FFB020;
+  --border:rgba(255,255,255,0.08); --border-2:rgba(255,255,255,0.12); --hairline:rgba(255,255,255,0.06);
+  --font-display:'Bebas Neue',Impact,sans-serif;
+  --font-body:'DM Sans',-apple-system,system-ui,sans-serif;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:16px; --radius-xl:24px; --radius-full:9999px;
+  --shadow-md:0 4px 12px rgba(0,0,0,.5); --shadow-lg:0 12px 32px rgba(0,0,0,.6);
+  --shadow-accent:0 4px 20px rgba(232,160,32,.25);
+  --ease-out:cubic-bezier(.16,1,.3,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --maxw:1180px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:400;letter-spacing:.02em;line-height:.92}
+.eyebrow{font-family:var(--font-body);font-weight:600;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.eyebrow.blue{color:var(--info)}
+.muted{color:var(--text-2)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.accent{color:var(--accent)} .blue{color:var(--info)}
+
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:15px;border-radius:var(--radius-full);padding:14px 26px;cursor:pointer;border:1px solid transparent;transition:transform .2s var(--ease-spring),background .2s,box-shadow .2s}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--accent);color:#0A0A08;box-shadow:var(--shadow-accent)}
+.btn-primary:hover{background:var(--accent-press);box-shadow:0 6px 28px rgba(232,160,32,.4);transform:translateY(-2px)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--surface-2);border-color:var(--text-3)}
+.btn-sm{padding:10px 18px;font-size:14px}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
+nav.scrolled{background:rgba(10,10,11,.72);backdrop-filter:blur(18px) saturate(140%);border-bottom:1px solid var(--hairline)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:68px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:24px;letter-spacing:.04em}
+.logo .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+.logo .sub{font-size:11px;font-family:var(--font-body);font-weight:600;letter-spacing:.14em;color:var(--info);border:1px solid var(--info);border-radius:var(--radius-full);padding:3px 9px;margin-left:4px}
+.nav-links{display:flex;gap:34px;align-items:center}
+.nav-links a{font-size:14px;color:var(--text-2);font-weight:500;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{display:flex;gap:12px;align-items:center}
+@media(max-width:880px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
+
+/* HERO */
+.hero{position:relative;padding:160px 0 90px;overflow:hidden}
+.hero-glow{position:absolute;top:-200px;right:-100px;width:820px;height:620px;border-radius:50%;pointer-events:none;background:radial-gradient(closest-side,rgba(176,96,240,.16),rgba(176,96,240,.03) 55%,transparent 72%);filter:blur(20px)}
+.hero-glow2{position:absolute;bottom:-220px;left:-120px;width:680px;height:560px;border-radius:50%;pointer-events:none;background:radial-gradient(closest-side,rgba(232,160,32,.12),transparent 70%);filter:blur(20px)}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;position:relative;z-index:2}
+.hero h1{font-size:clamp(58px,8.4vw,128px);margin:18px 0 0;text-transform:uppercase}
+.hero h1 .stroke{-webkit-text-stroke:2px var(--info);color:transparent}
+.hero-sub{font-size:19px;color:var(--text-2);max-width:480px;margin:24px 0 32px;line-height:1.55}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hero-meta{display:flex;gap:26px;margin-top:36px;flex-wrap:wrap}
+.hero-meta .m-num{font-family:var(--font-display);font-size:38px;line-height:1}
+.hero-meta .m-lab{font-size:12px;color:var(--text-3);letter-spacing:.04em;margin-top:4px}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:48px}.hero{padding:128px 0 60px}}
+
+/* DASHBOARD MOCK */
+.dash{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);overflow:hidden}
+.dash-top{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--hairline)}
+.dash-top .t{font-family:var(--font-display);font-size:22px;letter-spacing:.03em}
+.dash-dots{display:flex;gap:6px}
+.dash-dots i{width:9px;height:9px;border-radius:50%;display:block;background:var(--surface-3)}
+.dash-body{padding:20px}
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px}
+.kpi .v{font-family:var(--font-display);font-size:30px;line-height:1}
+.kpi .l{font-size:10px;color:var(--text-3);letter-spacing:.06em;margin-top:4px}
+.kpi.up .v{color:var(--positive)} .kpi.blue .v{color:var(--info)} .kpi.acc .v{color:var(--accent)}
+/* bar chart */
+.chart{display:flex;align-items:flex-end;gap:9px;height:130px;padding:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md)}
+.bar{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--info),rgba(176,96,240,.25));position:relative;transition:height .8s var(--ease-out)}
+.bar.hot{background:linear-gradient(180deg,var(--accent),rgba(232,160,32,.25))}
+.chart-x{display:flex;gap:9px;padding:6px 14px 0;font-size:9px;color:var(--text-3)}
+.chart-x span{flex:1;text-align:center}
+
+/* GRID MOCK - pitch slots */
+.slotgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:14px}
+.slot{aspect-ratio:1;border-radius:var(--radius-sm);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--text-3)}
+.slot.full{background:var(--accent);color:#0A0A08;border-color:transparent}
+.slot.part{background:var(--info-dim);color:var(--info);border-color:rgba(176,96,240,.3)}
+.slot.empty{background:var(--surface-2)}
+
+/* SECTIONS */
+.sec{padding:110px 0}
+.sec-head{max-width:700px;margin-bottom:64px}
+.sec-head h2{font-size:clamp(40px,6vw,82px);text-transform:uppercase;margin:14px 0 0}
+.sec-head p{font-size:18px;color:var(--text-2);margin-top:18px;line-height:1.55}
+
+/* TWO PRODUCTS */
+.products{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.prod{border-radius:var(--radius-xl);padding:40px;border:1px solid var(--border);background:var(--surface);position:relative;overflow:hidden;transition:transform .3s var(--ease-out),border-color .3s}
+.prod:hover{transform:translateY(-6px)}
+.prod.venue{border-color:rgba(232,160,32,.2)}
+.prod.venue:hover{border-color:rgba(232,160,32,.4)}
+.prod.hq{border-color:rgba(176,96,240,.2)}
+.prod.hq:hover{border-color:rgba(176,96,240,.45)}
+.prod .badge{font-family:var(--font-body);font-weight:600;font-size:11px;letter-spacing:.16em;text-transform:uppercase;padding:6px 12px;border-radius:var(--radius-full);display:inline-block;margin-bottom:22px}
+.prod.venue .badge{color:var(--accent);background:var(--accent-dim)}
+.prod.hq .badge{color:var(--info);background:var(--info-dim)}
+.prod h3{font-size:42px;text-transform:uppercase;margin-bottom:14px}
+.prod p{font-size:16px;color:var(--text-2);line-height:1.6;margin-bottom:24px}
+.prod ul{list-style:none}
+.prod li{display:flex;gap:11px;align-items:center;padding:9px 0;font-size:15px;border-bottom:1px solid var(--hairline)}
+.prod li:last-child{border:none}
+.prod li .d{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.prod.venue li .d{background:var(--accent)} .prod.hq li .d{background:var(--info)}
+@media(max-width:820px){.products{grid-template-columns:1fr}}
+
+/* FEATURE ROWS */
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;padding:80px 0}
+.feat:nth-child(even) .feat-media{order:2}
+.feat-num{font-family:var(--font-display);font-size:18px;letter-spacing:.1em}
+.feat h3{font-size:clamp(34px,4.6vw,58px);text-transform:uppercase;margin:12px 0 18px}
+.feat p{font-size:17px;color:var(--text-2);line-height:1.6;max-width:450px}
+.feat-list{margin-top:24px;display:flex;flex-direction:column;gap:13px}
+.feat-list .fl{display:flex;gap:12px;align-items:flex-start;font-size:15px}
+.feat-list .fl .ico{flex-shrink:0;margin-top:2px}
+.feat-media{display:flex;justify-content:center}
+@media(max-width:860px){.feat{grid-template-columns:1fr;gap:40px;padding:48px 0}.feat:nth-child(even) .feat-media{order:0}}
+
+/* STAT BAND */
+.statband{background:var(--surface);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+.statband .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding:64px 24px}
+.sb{text-align:center}
+.sb b{font-family:var(--font-display);font-size:clamp(48px,7vw,84px);display:block;line-height:1}
+.sb span{font-size:13px;color:var(--text-3);letter-spacing:.06em}
+@media(max-width:720px){.statband .wrap{grid-template-columns:1fr 1fr;gap:40px 24px}}
+
+/* HQ DIMENSIONS - bento */
+.dims{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.dim{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:30px;transition:transform .3s var(--ease-out),border-color .3s}
+.dim:hover{transform:translateY(-5px);border-color:rgba(176,96,240,.4)}
+.dim .n{font-family:var(--font-display);font-size:18px;color:var(--info);letter-spacing:.08em}
+.dim h4{font-size:26px;text-transform:uppercase;margin:8px 0 10px}
+.dim p{font-size:14px;color:var(--text-2);line-height:1.55}
+@media(max-width:820px){.dims{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.dims{grid-template-columns:1fr}}
+
+/* VENUE JUDGMENT score card */
+.judge{display:flex;flex-direction:column;gap:12px;width:360px;max-width:100%}
+.jrow{display:flex;align-items:center;gap:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 16px}
+.jrow .jl{font-size:13px;flex:0 0 110px;color:var(--text-2)}
+.jbar{flex:1;height:8px;border-radius:var(--radius-full);background:var(--surface-3);overflow:hidden}
+.jbar i{display:block;height:100%;border-radius:var(--radius-full);background:linear-gradient(90deg,var(--info),var(--accent))}
+.jrow .jv{font-family:var(--font-display);font-size:20px;flex:0 0 44px;text-align:right}
+.judge-top{display:flex;align-items:center;justify-content:space-between;padding:18px;background:linear-gradient(135deg,rgba(176,96,240,.12),rgba(232,160,32,.06));border:1px solid var(--border-2);border-radius:var(--radius-lg)}
+.judge-top .grade{font-family:var(--font-display);font-size:64px;line-height:1;color:var(--accent)}
+
+/* CTA */
+.cta{padding:130px 0;text-align:center;position:relative;overflow:hidden}
+.cta-glow{position:absolute;inset:0;background:radial-gradient(ellipse 60% 70% at 50% 100%,rgba(176,96,240,.16),transparent 70%);pointer-events:none}
+.cta h2{font-size:clamp(50px,9vw,140px);text-transform:uppercase;position:relative;z-index:2}
+.cta p{font-size:19px;color:var(--text-2);margin:18px auto 36px;max-width:480px;position:relative;z-index:2}
+.cta .hero-cta{justify-content:center;position:relative;z-index:2}
+
+/* FOOTER */
+footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
+.foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px;margin-bottom:48px}
+.foot-grid h5{font-family:var(--font-body);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:18px}
+.foot-grid a{display:block;color:var(--text-2);font-size:14px;padding:6px 0;transition:color .2s}
+.foot-grid a:hover{color:var(--info)}
+.foot-blurb{font-size:14px;color:var(--text-2);max-width:280px;margin-top:14px;line-height:1.6}
+.foot-bot{display:flex;justify-content:space-between;align-items:center;padding-top:28px;border-top:1px solid var(--hairline);font-size:13px;color:var(--text-3)}
+@media(max-width:720px){.foot-grid{grid-template-columns:1fr 1fr}.foot-bot{flex-direction:column;gap:18px}}
+
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+.reveal.in{opacity:1;transform:none}
+
+/* =====================================================
+   MOTION & WOW LAYER
+   ===================================================== */
+.scroll-progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:300;
+  background:linear-gradient(90deg,var(--accent),var(--info));
+  box-shadow:0 0 14px rgba(232,160,32,.6);will-change:width}
+.dash,.btn-primary{will-change:transform}
+
+/* staggered reveal children */
+.stagger>*{opacity:0;transform:translateY(24px);
+  transition:opacity .65s var(--ease-out),transform .65s var(--ease-out)}
+.stagger.in>*{opacity:1;transform:none}
+
+/* dashboard boot: bars grow, slots fill, judgment charges */
+.bar{transition:height .9s var(--ease-out)}
+.slot{transition:opacity .5s var(--ease-out),transform .5s var(--ease-spring)}
+.jbar i{transition:width 1.1s var(--ease-out)}
+
+@media(prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;transition:none}
+  .stagger>*{opacity:1;transform:none}
+  .bar,.slot,.jbar i{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="scroll-progress"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="wrap nav-inner">
+    <a href="index.html" class="logo"><span class="dot"></span>IN OR OUT<span class="sub">VENUES</span></a>
+    <div class="nav-links">
+      <a href="#products">Platform</a>
+      <a href="#fill">Fill pitches</a>
+      <a href="#leagues">Leagues</a>
+      <a href="#hq">HQ Intelligence</a>
+    </div>
+    <div class="nav-cta">
+      <a href="index.html" class="btn btn-ghost btn-sm">For players</a>
+      <a href="#cta" class="btn btn-primary btn-sm">Book a demo</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+  <div class="wrap hero-grid">
+    <div class="reveal in">
+      <span class="eyebrow blue">The operating system for football venues</span>
+      <h1>Fill every<br/><span class="stroke">pitch</span>.</h1>
+      <p class="hero-sub">In or Out brings the players. The venue platform fills your empty slots, runs your leagues, and shows your whole estate from one intelligence view.</p>
+      <div class="hero-cta">
+        <a href="#cta" class="btn btn-primary">Book a demo</a>
+        <a href="#products" class="btn btn-ghost">See the platform</a>
+      </div>
+      <div class="hero-meta">
+        <div><div class="m-num accent">+31%</div><div class="m-lab">PITCH UTILISATION</div></div>
+        <div><div class="m-num blue">1</div><div class="m-lab">VIEW, EVERY VENUE</div></div>
+        <div><div class="m-num">£0</div><div class="m-lab">SETUP COST</div></div>
+      </div>
+    </div>
+    <div class="reveal in">
+      <!-- DASHBOARD MOCK -->
+      <div class="dash">
+        <div class="dash-top">
+          <span class="t">VENUE · TONIGHT</span>
+          <span class="dash-dots"><i></i><i></i><i></i></span>
+        </div>
+        <div class="dash-body">
+          <div class="kpi-row">
+            <div class="kpi acc"><div class="v">87%</div><div class="l">UTILISATION</div></div>
+            <div class="kpi up"><div class="v">£1.4k</div><div class="l">TONIGHT'S TAKE</div></div>
+            <div class="kpi blue"><div class="v">3</div><div class="l">SLOTS LEFT</div></div>
+          </div>
+          <div class="chart">
+            <div class="bar" style="height:42%"></div>
+            <div class="bar" style="height:58%"></div>
+            <div class="bar" style="height:70%"></div>
+            <div class="bar" style="height:54%"></div>
+            <div class="bar hot" style="height:92%"></div>
+            <div class="bar hot" style="height:100%"></div>
+            <div class="bar" style="height:46%"></div>
+          </div>
+          <div class="chart-x"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+          <div class="slotgrid">
+            <div class="slot full">6PM</div><div class="slot full">7PM</div><div class="slot part">8PM</div><div class="slot empty">9PM</div>
+            <div class="slot full">P2·6</div><div class="slot full">P2·7</div><div class="slot full">P2·8</div><div class="slot part">P2·9</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- STAT BAND -->
+<div class="statband">
+  <div class="wrap reveal">
+    <div class="sb"><b class="accent">+31%</b><span>AVG UTILISATION LIFT</span></div>
+    <div class="sb"><b>12k</b><span>PLAYERS IN NETWORK</span></div>
+    <div class="sb"><b class="blue">6</b><span>JUDGMENT DIMENSIONS</span></div>
+    <div class="sb"><b>1</b><span>SCREEN, WHOLE ESTATE</span></div>
+  </div>
+</div>
+
+<!-- TWO PRODUCTS -->
+<section class="sec" id="products">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow blue">Two products, one platform</span>
+      <h2>The pitch.<br/>And the boardroom.</h2>
+      <p>The Venue app runs the day-to-day. HQ Intelligence runs the estate. Together they turn a venue from a booking diary into a business you can read at a glance.</p>
+    </div>
+    <div class="products reveal">
+      <div class="prod venue">
+        <span class="badge">Venue App</span>
+        <h3>Run the floor</h3>
+        <p>Everything front-of-house: bookings, leagues, fill alerts and the casual groups already playing at your pitches.</p>
+        <ul>
+          <li><span class="d"></span>Live pitch &amp; slot management</li>
+          <li><span class="d"></span>Fill empty slots from the In or Out network</li>
+          <li><span class="d"></span>Run &amp; score in-house leagues</li>
+          <li><span class="d"></span>Booking ledger &amp; takings, per night</li>
+        </ul>
+      </div>
+      <div class="prod hq">
+        <span class="badge">HQ Intelligence</span>
+        <h3>Read the estate</h3>
+        <p>One operator-grade view across every venue. Venue Judgment scores each site on six dimensions — not just revenue.</p>
+        <ul>
+          <li><span class="d"></span>Cross-venue utilisation &amp; revenue</li>
+          <li><span class="d"></span>Venue Judgment — a 6-dimension score</li>
+          <li><span class="d"></span>Demand heatmaps &amp; trend lines</li>
+          <li><span class="d"></span>Spot the weak night before it costs you</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FILL PITCHES -->
+<section class="sec" id="fill" style="padding-top:30px">
+  <div class="wrap">
+    <div class="feat reveal">
+      <div>
+        <span class="feat-num accent">01 — DEMAND</span>
+        <h3>Empty slot?<br/>We've got the<br/>players.</h3>
+        <p>Thousands of casual sides already organise their matches on In or Out. When you've a gap in the diary, we surface it to the groups playing near you — and fill it.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico accent">●</span> Push open slots to nearby casual groups</div>
+          <div class="fl"><span class="ico accent">●</span> Last-minute drop-out? Re-fill automatically</div>
+          <div class="fl"><span class="ico accent">●</span> No cold marketing — demand is already there</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div class="dash" style="width:360px;max-width:100%">
+          <div class="dash-top"><span class="t">FILL ALERTS</span><span class="dash-dots"><i></i><i></i><i></i></span></div>
+          <div class="dash-body">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--accent-dim);border:1px solid rgba(232,160,32,.3);border-radius:var(--radius-md);margin-bottom:10px">
+              <div style="font-family:var(--font-display);font-size:24px;color:var(--accent)">9PM</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:600">Pitch 1 · Thu open</div><div style="font-size:11px;color:var(--text-2)">3 groups nearby want this slot</div></div>
+              <div style="font-size:11px;font-weight:600;color:#0A0A08;background:var(--accent);padding:6px 10px;border-radius:var(--radius-full)">FILL</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px">
+              <div style="font-family:var(--font-display);font-size:24px;color:var(--info)">8PM</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:600">Pitch 2 · Wed</div><div style="font-size:11px;color:var(--text-2)">Wednesday Casuals — re-booked</div></div>
+              <div style="font-size:11px;font-weight:600;color:var(--positive)">FILLED</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md)">
+              <div style="font-family:var(--font-display);font-size:24px;color:var(--info)">7PM</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:600">Pitch 1 · Fri</div><div style="font-size:11px;color:var(--text-2)">The Office XI — regular</div></div>
+              <div style="font-size:11px;font-weight:600;color:var(--positive)">FILLED</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEAGUES -->
+    <div class="feat reveal" id="leagues">
+      <div>
+        <span class="feat-num blue">02 — COMPETE</span>
+        <h3>Run leagues<br/>without the<br/>clipboard</h3>
+        <p>Spin up a league, drop in the teams, and let results, tables and fixtures keep themselves. Players get live standings on the same app they already use to say they're in.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico blue">●</span> Auto-generated fixtures &amp; tables</div>
+          <div class="fl"><span class="ico blue">●</span> Results flow straight from match day</div>
+          <div class="fl"><span class="ico blue">●</span> Standings players actually check</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div class="dash" style="width:360px;max-width:100%">
+          <div class="dash-top"><span class="t">MON 6-A-SIDE · TABLE</span><span class="dash-dots"><i></i><i></i><i></i></span></div>
+          <div class="dash-body" style="padding:8px 16px 16px">
+            <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--hairline);font-size:13px"><span><b class="accent" style="font-family:var(--font-display);font-size:18px">1</b> &nbsp;Real Ale Madrid</span><b style="font-family:var(--font-display);font-size:18px">21</b></div>
+            <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--hairline);font-size:13px"><span><b style="font-family:var(--font-display);font-size:18px">2</b> &nbsp;Inter Milan Keynes</span><b style="font-family:var(--font-display);font-size:18px">18</b></div>
+            <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--hairline);font-size:13px"><span><b style="font-family:var(--font-display);font-size:18px">3</b> &nbsp;Athletico Madthreed</span><b style="font-family:var(--font-display);font-size:18px">14</b></div>
+            <div style="display:flex;justify-content:space-between;padding:11px 0;font-size:13px;color:var(--text-2)"><span><b style="font-family:var(--font-display);font-size:18px">4</b> &nbsp;Notting Hill Forest</span><b style="font-family:var(--font-display);font-size:18px">9</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HQ INTELLIGENCE -->
+<section class="sec" id="hq" style="background:var(--surface);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow blue">HQ Intelligence</span>
+      <h2>Judge every<br/>venue. Fairly.</h2>
+      <p>Revenue is one signal of six. Venue Judgment scores each site across the dimensions that actually decide whether a venue thrives — so a packed-but-fragile pitch can't hide behind a good month.</p>
+    </div>
+
+    <div class="feat reveal" style="padding-top:10px">
+      <div>
+        <span class="feat-num blue">THE SCORE</span>
+        <h3>Six dimensions.<br/>One grade.</h3>
+        <p>Every venue gets a Judgment grade, refreshed nightly. Drill into any dimension to see what's pulling the score up — or quietly dragging it down.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico blue">●</span> Refreshed every night, no manual reports</div>
+          <div class="fl"><span class="ico blue">●</span> Compare any two venues side by side</div>
+          <div class="fl"><span class="ico blue">●</span> Early-warning flags before a site slips</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div class="judge">
+          <div class="judge-top">
+            <div>
+              <div style="font-family:var(--font-display);font-size:24px;letter-spacing:.03em">SHOREDITCH</div>
+              <div style="font-size:12px;color:var(--text-2)">Top 8% of the estate</div>
+            </div>
+            <div class="grade">A−</div>
+          </div>
+          <div class="jrow"><span class="jl">Utilisation</span><span class="jbar"><i style="width:87%"></i></span><span class="jv">87</span></div>
+          <div class="jrow"><span class="jl">Revenue</span><span class="jbar"><i style="width:74%"></i></span><span class="jv">74</span></div>
+          <div class="jrow"><span class="jl">Retention</span><span class="jbar"><i style="width:91%"></i></span><span class="jv">91</span></div>
+          <div class="jrow"><span class="jl">Demand</span><span class="jbar"><i style="width:82%"></i></span><span class="jv">82</span></div>
+          <div class="jrow"><span class="jl">Reliability</span><span class="jbar"><i style="width:79%"></i></span><span class="jv">79</span></div>
+          <div class="jrow"><span class="jl">Growth</span><span class="jbar"><i style="width:68%"></i></span><span class="jv">68</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dims reveal" style="margin-top:40px">
+      <div class="dim"><div class="n">01</div><h4>Utilisation</h4><p>How full your pitches really run — by slot, by night, by season. The number you can't fake.</p></div>
+      <div class="dim"><div class="n">02</div><h4>Revenue</h4><p>Takings per pitch-hour, trended. One input — never the whole story.</p></div>
+      <div class="dim"><div class="n">03</div><h4>Retention</h4><p>Do the groups come back? Repeat bookings are the truest health signal a venue has.</p></div>
+      <div class="dim"><div class="n">04</div><h4>Demand</h4><p>Unmet appetite nearby — the players who'd book if you had the slot.</p></div>
+      <div class="dim"><div class="n">05</div><h4>Reliability</h4><p>No-shows, late drop-outs and re-fills. Volatility that quietly erodes the diary.</p></div>
+      <div class="dim"><div class="n">06</div><h4>Growth</h4><p>Trajectory, not snapshot. Which way every signal is heading, month over month.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ESTATE VIEW -->
+<section class="sec">
+  <div class="wrap">
+    <div class="feat reveal">
+      <div>
+        <span class="feat-num accent">THE WHOLE ESTATE</span>
+        <h3>Every venue.<br/>One screen.</h3>
+        <p>Stop stitching spreadsheets from five sites. HQ rolls every venue into a single, live picture — and lets you drop into any one of them in a tap.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico accent">●</span> Estate-wide utilisation &amp; revenue at a glance</div>
+          <div class="fl"><span class="ico accent">●</span> Rank venues by Judgment grade</div>
+          <div class="fl"><span class="ico accent">●</span> Drill from estate → venue → pitch → slot</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div class="dash" style="width:380px;max-width:100%">
+          <div class="dash-top"><span class="t">ESTATE · 5 VENUES</span><span class="dash-dots"><i></i><i></i><i></i></span></div>
+          <div class="dash-body">
+            <div class="kpi-row">
+              <div class="kpi acc"><div class="v">81%</div><div class="l">EST. UTIL</div></div>
+              <div class="kpi up"><div class="v">£6.2k</div><div class="l">TONIGHT</div></div>
+              <div class="kpi blue"><div class="v">B+</div><div class="l">EST. GRADE</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:11px 4px;border-bottom:1px solid var(--hairline);font-size:13px"><span>Shoreditch</span><span style="display:flex;gap:10px;align-items:center"><span style="color:var(--text-3);font-size:11px">87%</span><b class="accent" style="font-family:var(--font-display);font-size:18px">A−</b></span></div>
+            <div style="display:flex;justify-content:space-between;padding:11px 4px;border-bottom:1px solid var(--hairline);font-size:13px"><span>Hackney</span><span style="display:flex;gap:10px;align-items:center"><span style="color:var(--text-3);font-size:11px">79%</span><b style="font-family:var(--font-display);font-size:18px;color:var(--info)">B+</b></span></div>
+            <div style="display:flex;justify-content:space-between;padding:11px 4px;border-bottom:1px solid var(--hairline);font-size:13px"><span>Croydon</span><span style="display:flex;gap:10px;align-items:center"><span style="color:var(--text-3);font-size:11px">72%</span><b style="font-family:var(--font-display);font-size:18px;color:var(--info)">B</b></span></div>
+            <div style="display:flex;justify-content:space-between;padding:11px 4px;font-size:13px;color:var(--text-2)"><span>Watford</span><span style="display:flex;gap:10px;align-items:center"><span style="color:var(--text-3);font-size:11px">61%</span><b style="font-family:var(--font-display);font-size:18px;color:var(--warning)">C+</b></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta" id="cta">
+  <div class="cta-glow"></div>
+  <div class="wrap">
+    <h2 class="reveal">See your<br/>whole estate.</h2>
+    <p class="reveal">Book a 20-minute walkthrough. We'll map your venues onto HQ and show you the slots you're leaving on the table.</p>
+    <div class="hero-cta reveal">
+      <a href="#" class="btn btn-primary">Book a demo</a>
+      <a href="index.html" class="btn btn-ghost">← For players</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <div class="logo"><span class="dot"></span>IN OR OUT<span class="sub">VENUES</span></div>
+        <p class="foot-blurb">The operating system for football venues. Fill every pitch, run every league, and read your whole estate from one intelligence view.</p>
+      </div>
+      <div>
+        <h5>Platform</h5>
+        <a href="#fill">Fill pitches</a>
+        <a href="#leagues">Leagues</a>
+        <a href="#hq">HQ Intelligence</a>
+      </div>
+      <div>
+        <h5>For players</h5>
+        <a href="index.html">In or Out app</a>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#organisers">For organisers</a>
+      </div>
+      <div>
+        <h5>Company</h5>
+        <a href="#cta">Book a demo</a>
+        <a href="#">Privacy</a>
+        <a href="#">Contact</a>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 In or Out. The operating system for football venues.</span>
+      <span>Built for operators.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fine = matchMedia('(pointer:fine)').matches;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const ease=t=>1-Math.pow(1-t,3);
+
+/* nav + scroll progress */
+const nav=document.getElementById('nav');
+const prog=document.querySelector('.scroll-progress');
+function onScroll(){
+  nav.classList.toggle('scrolled',scrollY>20);
+  const h=document.documentElement.scrollHeight-innerHeight;
+  if(prog)prog.style.width=(h>0?clamp(scrollY/h,0,1)*100:0)+'%';
+}
+addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+/* reveal + staggered children */
+document.querySelectorAll('.dims,.products,.kpi-row,.feat-list').forEach(e=>e.classList.add('stagger'));
+document.querySelectorAll('.stagger').forEach(s=>{
+  [...s.children].forEach((c,i)=>c.style.transitionDelay=(i*70)+'ms');
+});
+const io=new IntersectionObserver((es)=>es.forEach(e=>{
+  if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}
+}),{threshold:.12});
+document.querySelectorAll('.reveal:not(.in),.stagger').forEach(el=>io.observe(el));
+
+/* count-up numbers */
+function countUp(el){
+  if(el.dataset.done)return;el.dataset.done=1;
+  const raw=el.textContent.trim();
+  const m=raw.match(/[\d.,]+/);
+  if(!m)return;
+  const numStr=m[0].replace(/,/g,'');
+  const target=parseFloat(numStr);
+  if(isNaN(target))return;
+  const dec=(numStr.split('.')[1]||'').length;
+  const pre=raw.slice(0,m.index),suf=raw.slice(m.index+m[0].length);
+  if(RM)return;
+  const dur=1300,t0=performance.now();
+  function step(t){
+    const p=clamp((t-t0)/dur,0,1),v=target*ease(p);
+    el.textContent=pre+v.toLocaleString('en-GB',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;
+    if(p<1)requestAnimationFrame(step);else el.textContent=raw;
+  }
+  requestAnimationFrame(step);
+}
+const cio=new IntersectionObserver((es)=>es.forEach(e=>{
+  if(e.isIntersecting){countUp(e.target);cio.unobserve(e.target);}
+}),{threshold:.55});
+document.querySelectorAll('.m-num,.sb b,.kpi .v,.jv').forEach(el=>cio.observe(el));
+
+/* dashboard boot: bar charts grow from zero, staggered */
+document.querySelectorAll('.chart').forEach(chart=>{
+  [...chart.querySelectorAll('.bar')].forEach(b=>{b.dataset.h=b.style.height;if(!RM)b.style.height='0%';});
+});
+const bio=new IntersectionObserver((es)=>es.forEach(e=>{
+  if(e.isIntersecting){[...e.target.querySelectorAll('.bar')].forEach((b,i)=>
+    setTimeout(()=>b.style.height=b.dataset.h,i*90));bio.unobserve(e.target);}
+}),{threshold:.4});
+if(!RM)document.querySelectorAll('.chart').forEach(c=>bio.observe(c));
+
+/* slot grids fill in sequence */
+document.querySelectorAll('.slotgrid').forEach(g=>{
+  if(!RM)[...g.querySelectorAll('.slot')].forEach(s=>{s.style.opacity='0';s.style.transform='scale(.82)';});
+});
+const sio=new IntersectionObserver((es)=>es.forEach(e=>{
+  if(e.isIntersecting){[...e.target.querySelectorAll('.slot')].forEach((s,i)=>
+    setTimeout(()=>{s.style.opacity='';s.style.transform='';},i*70));sio.unobserve(e.target);}
+}),{threshold:.3});
+if(!RM)document.querySelectorAll('.slotgrid').forEach(g=>sio.observe(g));
+
+/* Venue Judgment bars charge to grade */
+document.querySelectorAll('.judge').forEach(j=>{
+  if(!RM)[...j.querySelectorAll('.jbar i')].forEach(i=>{i.dataset.w=i.style.width;i.style.width='0%';});
+});
+const jio=new IntersectionObserver((es)=>es.forEach(e=>{
+  if(e.isIntersecting){[...e.target.querySelectorAll('.jbar i')].forEach((i,n)=>
+    setTimeout(()=>i.style.width=i.dataset.w,n*120));jio.unobserve(e.target);}
+}),{threshold:.4});
+if(!RM)document.querySelectorAll('.judge').forEach(j=>jio.observe(j));
+
+/* orchestrated hero load */
+if(!RM){
+  [...document.querySelectorAll('.hero-grid > div:first-child > *')].forEach((el,i)=>
+    el.animate([{opacity:0,transform:'translateY(34px)'},{opacity:1,transform:'none'}],
+      {duration:850,delay:120*i,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'}));
+  const d=document.querySelector('.hero .dash');
+  if(d)d.animate([{opacity:0,transform:'translateY(54px) scale(.96)'},{opacity:1,transform:'none'}],
+    {duration:1000,delay:340,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'});
+}
+
+/* hero dashboard — 3D tilt + idle float */
+const dash=document.querySelector('.hero .dash');
+if(dash&&!RM){
+  let mx=0,my=0,tx=0,ty=0,started=false;
+  if(fine){
+    addEventListener('pointermove',e=>{mx=(e.clientX/innerWidth-.5)*2;my=(e.clientY/innerHeight-.5)*2;});
+    setTimeout(()=>started=true,1350);
+  }
+  (function loop(t){
+    if(started){tx+=(mx-tx)*.06;ty+=(my-ty)*.06;}
+    const iy=Math.sin(t/2400)*3, ix=Math.cos(t/2800)*2.2, fl=Math.sin(t/1700)*8;
+    dash.style.transform=`perspective(1000px) rotateY(${iy+tx*11}deg) rotateX(${ix-ty*9}deg) translateY(${fl}px)`;
+    requestAnimationFrame(loop);
+  })(0);
+}
+
+/* magnetic primary CTAs */
+if(!RM&&fine)document.querySelectorAll('.btn-primary').forEach(b=>{
+  b.addEventListener('pointermove',e=>{const r=b.getBoundingClientRect();
+    b.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.25}px,${(e.clientY-r.top-r.height/2)*.4}px)`;});
+  b.addEventListener('pointerleave',()=>b.style.transform='');
+});
+</script>
+</body>
+</html>
