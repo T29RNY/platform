@@ -22,10 +22,9 @@ CREATE OR REPLACE FUNCTION public.venue_update_booking_settings(p_venue_token te
  RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
-  v_caller record;
+  v_caller   record;
   v_venue_id text;
-  v_enabled boolean;
-  v_policy text;
+  v_changed  text[] := ARRAY[]::text[];
   v_pw jsonb;
   v_w jsonb;
 BEGIN
@@ -35,16 +34,24 @@ BEGIN
   END IF;
   v_venue_id := v_caller.venue_id;
 
+  IF p_updates IS NULL OR jsonb_typeof(p_updates) <> 'object' OR p_updates = '{}'::jsonb THEN
+    RAISE EXCEPTION 'updates_required' USING ERRCODE = 'P0001';
+  END IF;
+
   IF p_updates ? 'bookings_enabled' THEN
-    v_enabled := (p_updates->>'bookings_enabled')::boolean;
-    UPDATE venues SET bookings_enabled = v_enabled WHERE id = v_venue_id;
+    IF jsonb_typeof(p_updates->'bookings_enabled') <> 'boolean' THEN
+      RAISE EXCEPTION 'bookings_enabled_invalid' USING ERRCODE = 'P0001';
+    END IF;
+    UPDATE venues SET bookings_enabled = (p_updates->>'bookings_enabled')::boolean WHERE id = v_venue_id;
+    v_changed := array_append(v_changed, 'bookings_enabled');
   END IF;
 
   IF p_updates ? 'cancellation_policy' THEN
-    v_policy := NULLIF(btrim(p_updates->>'cancellation_policy'), '');
-    UPDATE venues SET cancellation_policy = v_policy WHERE id = v_venue_id;
+    UPDATE venues SET cancellation_policy = NULLIF(trim(p_updates->>'cancellation_policy'), '') WHERE id = v_venue_id;
+    v_changed := array_append(v_changed, 'cancellation_policy');
   END IF;
 
+  -- NEW: venue-level default prime-time band (a pitch with no override inherits this)
   IF p_updates ? 'default_prime_time_windows' THEN
     v_pw := p_updates->'default_prime_time_windows';
     IF v_pw IS NULL OR v_pw = 'null'::jsonb THEN v_pw := '[]'::jsonb; END IF;
@@ -64,17 +71,24 @@ BEGIN
       END IF;
     END LOOP;
     UPDATE venues SET default_prime_time_windows = v_pw WHERE id = v_venue_id;
+    v_changed := array_append(v_changed, 'default_prime_time_windows');
+  END IF;
+
+  IF array_length(v_changed, 1) IS NULL THEN
+    RAISE EXCEPTION 'no_recognised_keys' USING ERRCODE = 'P0001';
   END IF;
 
   INSERT INTO audit_events (team_id, actor_user_id, actor_type, actor_identifier,
                             action, entity_type, entity_id, metadata)
-  VALUES (v_venue_id, auth.uid(), v_caller.actor_type, v_caller.actor_ident,
-          'venue_booking_settings_updated', 'venue', v_venue_id,
-          jsonb_build_object('updates', p_updates));
+  VALUES (
+    v_venue_id, auth.uid(), v_caller.actor_type, v_caller.actor_ident,
+    'venue_updated', 'venue', v_venue_id,
+    jsonb_build_object('venue_id', v_venue_id, 'changed_keys', v_changed, 'updates', p_updates)
+  );
 
-  PERFORM public.notify_venue_change(v_venue_id, 'venue_settings_updated');
+  PERFORM public.notify_venue_change(v_venue_id, 'venue_updated');
 
-  RETURN jsonb_build_object('ok', true);
+  RETURN jsonb_build_object('ok', true, 'changed_keys', v_changed);
 END;
 $function$;
 
