@@ -6,6 +6,29 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Utilisation is measured on a clipped 30-min bucket grid (session 62, HQ-I Phase 1 Cycle 2)
+
+`hq_get_utilisation` (mig 178) computes pitch utilisation. Settled rules so the numbers can't
+drift later:
+
+- **Used = fixtures + CONFIRMED bookings only**, from `pitch_occupancy` (`source_kind IN
+  ('fixture','booking')`, `active`). **Maintenance excluded** from used. **Requested (pending)
+  bookings are surfaced separately and NEVER counted** — demand signal, not occupancy.
+- **Usage is clipped to opening hours** via a 30-minute, Europe/London bucket grid → utilisation
+  is always 0–100% and empty-prime always ≥0. A booking outside stated open hours (rare; the
+  booking gate blocks it) is ignored in the %. Chosen over raw uncapped hours because >100% /
+  negative-empty reads as a bug to operators.
+- **Available = each pitch's `booking_windows`**; if none, fall back to **08:00–22:00 every day**,
+  flagged `assumed` (mirrors the booking-discovery default). Never silently treat a gap as fact.
+- **Prime/off-peak resolves per pitch:** `playing_areas.prime_time_windows` →
+  `venues.default_prime_time_windows` → `"not_configured"` (left NULL, never guessed).
+- **Default range = trailing 28 days** (mirrors `hq_get_analytics`); from/to optional.
+- **best/worst day = day-of-week; best/worst slot = hour-of-day** (recurring weekly shape, not
+  noisy calendar points).
+
+Read-only (no audit/broadcast), SECDEF, anon-denied, region-scoped via `resolve_company_caller`.
+Cycle 3 surfaced it in apps/hq (Utilisation tab + a card). See [[project_hq_intelligence]].
+
 ## Prime-time is venue-configurable, not a hardcoded band (session 61, HQ-I Phase 1 Cycle 1)
 
 HQ utilisation splits prime-time vs off-peak per venue. There is no notion of "peak hours" in the
