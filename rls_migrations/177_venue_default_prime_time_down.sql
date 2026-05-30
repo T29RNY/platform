@@ -1,15 +1,14 @@
--- Down for migration 177 — restore pre-177 bodies, drop the column.
--- Restores venue_update_booking_settings (no default_prime_time_windows block) and
--- venue_get_state (mig 176 body, no default_prime_time_windows in venue object),
--- then drops venues.default_prime_time_windows.
+-- Down for migration 177 — restore pre-177 bodies VERBATIM, drop the column.
 
-CREATE OR REPLACE FUNCTION public.venue_update_booking_settings(p_venue_token text, p_settings jsonb)
+-- venue_update_booking_settings — original live body (no default_prime_time_windows block)
+CREATE OR REPLACE FUNCTION public.venue_update_booking_settings(p_venue_token text, p_updates jsonb)
  RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_caller record;
   v_venue_id text;
-  v_changed text[] := ARRAY[]::text[];
+  v_enabled boolean;
+  v_policy text;
 BEGIN
   SELECT * INTO v_caller FROM public.resolve_venue_caller(p_venue_token);
   IF v_caller IS NULL OR v_caller.venue_id IS NULL THEN
@@ -17,34 +16,32 @@ BEGIN
   END IF;
   v_venue_id := v_caller.venue_id;
 
-  IF p_settings ? 'bookings_enabled' THEN
-    UPDATE venues SET bookings_enabled = (p_settings->>'bookings_enabled')::boolean WHERE id = v_venue_id;
-    v_changed := array_append(v_changed, 'bookings_enabled');
-  END IF;
-  IF p_settings ? 'cancellation_policy' THEN
-    UPDATE venues SET cancellation_policy = NULLIF(p_settings->>'cancellation_policy','') WHERE id = v_venue_id;
-    v_changed := array_append(v_changed, 'cancellation_policy');
+  IF p_updates ? 'bookings_enabled' THEN
+    v_enabled := (p_updates->>'bookings_enabled')::boolean;
+    UPDATE venues SET bookings_enabled = v_enabled WHERE id = v_venue_id;
   END IF;
 
-  IF array_length(v_changed,1) IS NULL THEN
-    RAISE EXCEPTION 'no_recognised_keys' USING ERRCODE = 'P0001';
+  IF p_updates ? 'cancellation_policy' THEN
+    v_policy := NULLIF(btrim(p_updates->>'cancellation_policy'), '');
+    UPDATE venues SET cancellation_policy = v_policy WHERE id = v_venue_id;
   END IF;
 
   INSERT INTO audit_events (team_id, actor_user_id, actor_type, actor_identifier,
                             action, entity_type, entity_id, metadata)
   VALUES (v_venue_id, auth.uid(), v_caller.actor_type, v_caller.actor_ident,
-          'booking_settings_updated', 'venue', v_venue_id,
-          jsonb_build_object('changed_keys', v_changed));
+          'venue_booking_settings_updated', 'venue', v_venue_id,
+          jsonb_build_object('updates', p_updates));
 
-  PERFORM public.notify_venue_change(v_venue_id, 'booking_settings_updated');
+  PERFORM public.notify_venue_change(v_venue_id, 'venue_settings_updated');
 
-  RETURN jsonb_build_object('ok', true, 'changed_keys', v_changed);
+  RETURN jsonb_build_object('ok', true);
 END;
 $function$;
 
 REVOKE ALL ON FUNCTION public.venue_update_booking_settings(text, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.venue_update_booking_settings(text, jsonb) TO anon, authenticated;
 
+-- venue_get_state — mig 176 body (no default_prime_time_windows in venue object)
 CREATE OR REPLACE FUNCTION public.venue_get_state(p_venue_token text)
  RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
 AS $function$

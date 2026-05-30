@@ -1,10 +1,12 @@
 -- Migration 177 — Venue-level default prime-time band (HQ Intelligence Phase 1, Cycle 1.1).
 -- Decision (session 61): a pitch with no prime_time_windows INHERITS a venue-level default
--- band. So we add a venue-level default + edit path; the utilisation RPC (Cycle 2) resolves
--- pitch.prime_time_windows if non-empty, else venues.default_prime_time_windows, else off-peak.
+-- band. The utilisation RPC (Cycle 2) resolves pitch.prime_time_windows if non-empty, else
+-- venues.default_prime_time_windows, else off-peak.
 --   1. venues.default_prime_time_windows jsonb (new column, default '[]').
 --   2. venue_update_booking_settings — add a default_prime_time_windows validate+write block.
---      Built on the LIVE body; bookings_enabled/cancellation_policy unchanged.
+--      Built on the LIVE body VERBATIM (param p_updates, v_enabled/v_policy, action
+--      'venue_booking_settings_updated', broadcast 'venue_settings_updated') — only the new
+--      block added.
 --   3. venue_get_state — expose default_prime_time_windows in the venue object.
 --      Built on the LIVE (mig 176) body; ALL existing keys preserved verbatim.
 -- All additive.
@@ -16,13 +18,14 @@ ALTER TABLE venues
 -- venue_update_booking_settings — add default_prime_time_windows key
 --   Shape: [{ day_of_week 0-6, start_time "HH:MM", end_time "HH:MM" }]
 -- ──────────────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.venue_update_booking_settings(p_venue_token text, p_settings jsonb)
+CREATE OR REPLACE FUNCTION public.venue_update_booking_settings(p_venue_token text, p_updates jsonb)
  RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_caller record;
   v_venue_id text;
-  v_changed text[] := ARRAY[]::text[];
+  v_enabled boolean;
+  v_policy text;
   v_pw jsonb;
   v_w jsonb;
 BEGIN
@@ -32,16 +35,18 @@ BEGIN
   END IF;
   v_venue_id := v_caller.venue_id;
 
-  IF p_settings ? 'bookings_enabled' THEN
-    UPDATE venues SET bookings_enabled = (p_settings->>'bookings_enabled')::boolean WHERE id = v_venue_id;
-    v_changed := array_append(v_changed, 'bookings_enabled');
+  IF p_updates ? 'bookings_enabled' THEN
+    v_enabled := (p_updates->>'bookings_enabled')::boolean;
+    UPDATE venues SET bookings_enabled = v_enabled WHERE id = v_venue_id;
   END IF;
-  IF p_settings ? 'cancellation_policy' THEN
-    UPDATE venues SET cancellation_policy = NULLIF(p_settings->>'cancellation_policy','') WHERE id = v_venue_id;
-    v_changed := array_append(v_changed, 'cancellation_policy');
+
+  IF p_updates ? 'cancellation_policy' THEN
+    v_policy := NULLIF(btrim(p_updates->>'cancellation_policy'), '');
+    UPDATE venues SET cancellation_policy = v_policy WHERE id = v_venue_id;
   END IF;
-  IF p_settings ? 'default_prime_time_windows' THEN
-    v_pw := p_settings->'default_prime_time_windows';
+
+  IF p_updates ? 'default_prime_time_windows' THEN
+    v_pw := p_updates->'default_prime_time_windows';
     IF v_pw IS NULL OR v_pw = 'null'::jsonb THEN v_pw := '[]'::jsonb; END IF;
     IF jsonb_typeof(v_pw) <> 'array' THEN
       RAISE EXCEPTION 'default_prime_time_windows_invalid' USING ERRCODE = 'P0001';
@@ -59,22 +64,17 @@ BEGIN
       END IF;
     END LOOP;
     UPDATE venues SET default_prime_time_windows = v_pw WHERE id = v_venue_id;
-    v_changed := array_append(v_changed, 'default_prime_time_windows');
-  END IF;
-
-  IF array_length(v_changed,1) IS NULL THEN
-    RAISE EXCEPTION 'no_recognised_keys' USING ERRCODE = 'P0001';
   END IF;
 
   INSERT INTO audit_events (team_id, actor_user_id, actor_type, actor_identifier,
                             action, entity_type, entity_id, metadata)
   VALUES (v_venue_id, auth.uid(), v_caller.actor_type, v_caller.actor_ident,
-          'booking_settings_updated', 'venue', v_venue_id,
-          jsonb_build_object('changed_keys', v_changed));
+          'venue_booking_settings_updated', 'venue', v_venue_id,
+          jsonb_build_object('updates', p_updates));
 
-  PERFORM public.notify_venue_change(v_venue_id, 'booking_settings_updated');
+  PERFORM public.notify_venue_change(v_venue_id, 'venue_settings_updated');
 
-  RETURN jsonb_build_object('ok', true, 'changed_keys', v_changed);
+  RETURN jsonb_build_object('ok', true);
 END;
 $function$;
 
