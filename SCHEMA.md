@@ -548,6 +548,8 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
 | `venues` | `bookings_enabled boolean NOT NULL DEFAULT false` | discovery opt-in |
 | `venues` | `cancellation_policy text NULL` | shown on the booking confirm screen |
 | `playing_areas` | `booking_windows jsonb NOT NULL DEFAULT '[]'` | recurring-weekly `[{day_of_week 0-6, open_time, close_time, slot_lengths:[…]}]` |
+| `playing_areas` | `prime_time_windows jsonb NOT NULL DEFAULT '[]'` | (mig 176) per-pitch peak band `[{day_of_week 0-6, start_time, end_time}]` (no slot_lengths). Edited via `venue_update_pitch`; in `venue_get_state` pitches projection. |
+| `venues` | `default_prime_time_windows jsonb NOT NULL DEFAULT '[]'` | (mig 177) venue-default prime band (same shape); a pitch with empty `prime_time_windows` inherits it. Edited via `venue_update_booking_settings`. |
 
 **Triggers projecting into `pitch_occupancy`:**
 - `sync_maintenance_occupancy` on `playing_areas` (AFTER INSERT OR UPDATE OF
@@ -567,6 +569,16 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
 - `venue_assign_pitch` / `venue_generate_fixtures` translate the trigger's partial-EXCLUDE
   violation into `pitch_double_booked`.
 - `venue_get_state` exposes `booking_windows` in its `pitches` projection.
+
+**HQ utilisation read (mig 178):**
+- `hq_get_utilisation(p_company_id, p_date_from, p_date_to)` — read-only HQ RPC over
+  `pitch_occupancy` + `playing_areas`. Per-pitch/venue/company used-vs-available %, prime/off-peak
+  split (resolving pitch `prime_time_windows` → venue `default_prime_time_windows` →
+  not_configured), empty-prime hours, best/worst day+slot, fixture/booking source split,
+  requested-pending. Used = fixtures + confirmed bookings (maintenance excluded; requested NOT
+  counted); usage clipped to opening hours on a 30-min Europe/London bucket grid; available =
+  `booking_windows` else assumed 08:00–22:00. SECDEF, anon-denied, region-scoped via
+  `resolve_company_caller`. See DECISIONS.md (session 62).
 
 ### Stage 2b — priority displacement (migrations 142–143)
 
