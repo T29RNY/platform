@@ -1940,6 +1940,20 @@ export async function hqGetAnalytics(companyId, dateFrom = null, dateTo = null) 
   return data;
 }
 
+export async function hqGetUtilisation(companyId, dateFrom = null, dateTo = null) {
+  if (!companyId) return null;
+  const { data, error } = await supabase.rpc("hq_get_utilisation", {
+    p_company_id: companyId,
+    p_date_from: dateFrom,
+    p_date_to: dateTo,
+  });
+  if (error) {
+    console.error("[hq] get_utilisation failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function hqSetDashboardConfig(companyId, config) {
   const { data, error } = await supabase.rpc("hq_set_dashboard_config", {
     p_company_id: companyId,

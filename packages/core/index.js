@@ -54,6 +54,7 @@ export {
   hqGetVenueDetail,
   hqResolveIncident,
   hqGetAnalytics,
+  hqGetUtilisation,
   hqSetDashboardConfig,
   hqGetActivity,
   hqGeneratePreviewToken,

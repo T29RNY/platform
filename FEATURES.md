@@ -115,6 +115,45 @@ off-peak. Verified: rpc-security (both SECDEF/search_path/1-overload/anon+authen
 ephemeral-verify rolled back (default persists · bookings_enabled/cancellation_policy untouched ·
 inverted+bad-day rejected) · regression read · hygiene 7/7 · build clean.
 
+### HQ-I PHASE 1 CYCLE 2 SHIPPED — hq_get_utilisation (session 62, 2026-05-30)
+
+The utilisation intelligence read layer over `pitch_occupancy` + `playing_areas`.
+**mig 178** — `hq_get_utilisation(p_company_id, p_date_from, p_date_to)`:
+SECURITY DEFINER, search_path pinned, STABLE, anon-denied, authenticated-only,
+read-only (no audit/broadcast). Authorisation + region scoping reuse
+`resolve_company_caller` (regional_admin restricted to its own region, mirroring
+hq_get_analytics).
+
+- **Locked metric rules (operator, session 61):** used = fixtures + CONFIRMED
+  bookings from pitch_occupancy (`source_kind IN ('fixture','booking')`, active);
+  **maintenance excluded**; **requested** bookings surfaced separately, never
+  counted. Available = each pitch's `booking_windows`, else 08:00–22:00 all week
+  flagged "assumed". Prime/off-peak per pitch = `prime_time_windows` else
+  `venues.default_prime_time_windows` else "not_configured" (prime/offpeak left
+  NULL — never guessed). Default range = trailing 28 days, optional from/to.
+- **Model decisions (operator, session 62):** usage **clipped to opening hours**
+  via a 30-min bucket grid (utilisation always 0–100%, empty-prime always ≥0);
+  assumed-availability fallback spans all 7 days 08:00–22:00; best/worst **day =
+  day-of-week**, best/worst **slot = hour-of-day**. Local time = Europe/London
+  (occupancy ranges read back AT TIME ZONE to match local-time windows).
+- **Returns** per-pitch + per-venue + company rollup: overall %, prime %,
+  off-peak %, available/used hours, empty prime hours, best/worst day, best/worst
+  slot, fixture/booking source split, requested hours; plus range/caller/assumptions.
+- **Verified (read-RPC, ephemeral-verify not mandated):** rpc-security
+  (SECDEF · search_path · 1 overload · anon-denied · authenticated-granted) ·
+  live functional run vs company_demo (used 4.0h matched raw occupancy; source
+  split 2.0/2.0; available 784.0 = 2 assumed pitches × 14h × 28d; overall 0.5%) ·
+  BEGIN…ROLLBACK probe proving prime path (prime_used 2.0, empty 166.0,
+  off-peak 2.0) **and that a requested booking does NOT inflate used** (stayed
+  4.0); rollback confirmed clean · `hqGetUtilisation` wrapper + barrel export ·
+  apps/hq build clean.
+- **Wrapper:** `hqGetUtilisation(companyId, dateFrom=null, dateTo=null)` in
+  packages/core/storage/supabase.js + barrel. **Downstream consumers (hard-rule
+  14):** Cycle 3 UtilisationPanel.jsx + registry card; Cycle 4 Health Score /100
+  input. A return-shape change must check both before shipping.
+- **Next = Cycle 3:** utilisation frontend (registry card + dedicated
+  UtilisationPanel.jsx). Cycle 4 = Health Score /100 upgrade in hq_get_company_state.
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)
