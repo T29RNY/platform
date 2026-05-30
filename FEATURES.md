@@ -143,10 +143,13 @@ hq_get_analytics).
   (SECDEF · search_path · 1 overload · anon-denied · authenticated-granted) ·
   live functional run vs company_demo (used 4.0h matched raw occupancy; source
   split 2.0/2.0; available 784.0 = 2 assumed pitches × 14h × 28d; overall 0.5%) ·
-  BEGIN…ROLLBACK probe proving prime path (prime_used 2.0, empty 166.0,
-  off-peak 2.0) **and that a requested booking does NOT inflate used** (stayed
-  4.0); rollback confirmed clean · `hqGetUtilisation` wrapper + barrel export ·
-  apps/hq build clean.
+  BEGIN…ROLLBACK probe proving prime path (prime_avail 168.0, prime_used 3.0,
+  empty 165.0, off-peak_used 1.0 — the 20:30–21:30 fixtures correctly straddle
+  the 18:00–21:00 band) **and that a requested booking (1.0h) does NOT inflate
+  used** (stayed 4.0); rollback confirmed clean (0 prime / 0 requested left) ·
+  `hqGetUtilisation` wrapper + barrel export · apps/hq build clean.
+  (Note: commit 48fea84's message cites pre-probe placeholder figures
+  2.0/166.0/2.0; the live-verified values above supersede them.)
 - **Wrapper:** `hqGetUtilisation(companyId, dateFrom=null, dateTo=null)` in
   packages/core/storage/supabase.js + barrel. **Downstream consumers (hard-rule
   14):** Cycle 3 UtilisationPanel.jsx + registry card; Cycle 4 Health Score /100
