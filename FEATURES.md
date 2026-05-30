@@ -157,6 +157,44 @@ hq_get_analytics).
 - **Next = Cycle 3:** utilisation frontend (registry card + dedicated
   UtilisationPanel.jsx). Cycle 4 = Health Score /100 upgrade in hq_get_company_state.
 
+### HQ-I PHASE 1 CYCLE 3 SHIPPED — utilisation frontend (session 62, 2026-05-30)
+
+The two surfaces for `hq_get_utilisation` (Cycle 2). **apps/hq only — no DB, no RPC
+change.** Built to apps/hq's actual visual language (`.analytics` / `.acard` /
+`.chips`+`.chip` / `.atable` + `--font-mono` numerals; tokens `--text-muted`,
+`--warn`, `--good`, `--danger`); the few novel bits (util bar, expand caret, tags)
+use inline styles, so no styles.css change was needed.
+
+- **Dedicated `UtilisationPanel.jsx`** (default export, self-loading on `companyId`
+  like AnalyticsView) — new **"Utilisation" nav button** in App.jsx (third tab,
+  between Dashboard and Analytics; rendered via the existing view ternary, not a
+  registry). Company `.chips` headline (overall/prime/off-peak used %, empty prime
+  hours, used-of-available, busiest/quietest slot, requested-pending) + a per-venue
+  `.atable` with a mini util bar that **expands on row-click to per-pitch detail**
+  (overall/prime/off-peak %, empty prime, used hours, fixture/booking split,
+  assumed-hours tag). Honest about gaps: shows "not set" + a hint when prime isn't
+  configured (never guesses); flags assumed-availability pitches.
+- **Registry card `utilisation`** — added to AnalyticsView's `ALL_CARDS` +
+  `CARD_TITLES` (selectable in the Customise-dashboard editor). AnalyticsView now
+  also self-loads `hqGetUtilisation`; new `UtilCard` (compact `.chips`:
+  overall/prime/off-peak %, empty prime + busiest/quietest line) rendered via the
+  `CardBody` switch, threaded through a new `util` prop.
+- **No styles.css change** — the panel and card lean entirely on existing classes
+  (`.analytics`/`.acard`/`.chips`/`.atable`) plus inline styles for the util bar,
+  caret and tags, so the stylesheet was untouched.
+- **Verified:** apps/hq build clean (84 modules transformed, exit 0); every field the components read (overall_pct,
+  prime_pct, offpeak_pct, empty_prime_hours, used/available_hours, prime_configured,
+  requested_hours, best/worst day+slot, prime_source, assumed_availability,
+  source_split, range) cross-checked against the live Cycle-2 RPC output shape.
+  **Operator owes:** logged-in browser pass (HQ is Google-OAuth gated; visual smoke
+  can't run headless).
+- **Correction note:** an earlier draft of this cycle was written against a
+  hallucinated apps/hq structure (non-existent AnalyticsCard.jsx / `.stat-grid` /
+  VIEWS array); those edits failed to apply and nothing was committed. This entry
+  reflects the actual, built implementation.
+- **Next = Cycle 4:** Health Score /100 + top reason in `hq_get_company_state`,
+  consuming the utilisation RPC + (deferred) `_hq_venue_health_score` helper.
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)

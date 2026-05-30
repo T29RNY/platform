@@ -13,6 +13,7 @@ import VenueHealthGrid from "./views/VenueHealthGrid.jsx";
 import VenueDetail from "./views/VenueDetail.jsx";
 import AlertsActions from "./views/AlertsActions.jsx";
 import AnalyticsView from "./views/AnalyticsView.jsx";
+import UtilisationPanel from "./views/UtilisationPanel.jsx";
 import ActivityFeed from "./views/ActivityFeed.jsx";
 import PreviewView from "./views/PreviewView.jsx";
 
@@ -172,6 +173,7 @@ export default function App() {
         </div>
         <nav>
           <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>Dashboard</button>
+          <button className={view === "utilisation" ? "active" : ""} onClick={() => setView("utilisation")}>Utilisation</button>
           <button className={view === "analytics" ? "active" : ""} onClick={() => setView("analytics")}>Analytics</button>
         </nav>
         <div className="user">
@@ -209,6 +211,8 @@ export default function App() {
         {stateErr && <div style={{ padding: 16 }}><div className="error">{stateErr}</div></div>}
         {view === "analytics" ? (
           <AnalyticsView companyId={companyId} />
+        ) : view === "utilisation" ? (
+          <UtilisationPanel companyId={companyId} />
         ) : (
         <div className="cols">
           <div className="col">

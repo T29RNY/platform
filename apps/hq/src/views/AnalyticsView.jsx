@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { hqGetAnalytics, hqSetDashboardConfig } from "@platform/core/storage/supabase.js";
+import { hqGetAnalytics, hqGetUtilisation, hqSetDashboardConfig } from "@platform/core/storage/supabase.js";
 
-const ALL_CARDS = ["overview", "venue_comparison", "top_scorers", "discipline", "incidents", "billing"];
+const ALL_CARDS = ["overview", "venue_comparison", "top_scorers", "discipline", "incidents", "billing", "utilisation"];
 const CARD_TITLES = {
   overview: "Overview",
   venue_comparison: "Venue comparison",
@@ -9,6 +9,7 @@ const CARD_TITLES = {
   discipline: "Discipline",
   incidents: "Open incidents",
   billing: "Billing",
+  utilisation: "Utilisation",
 };
 const PRESETS = {
   operations: ["overview", "venue_comparison", "incidents"],
@@ -19,6 +20,7 @@ const DEFAULT_PRESET = "operations";
 
 export default function AnalyticsView({ companyId }) {
   const [data, setData] = useState(null);
+  const [util, setUtil] = useState(null);
   const [err, setErr] = useState(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState([]);
@@ -36,6 +38,16 @@ export default function AnalyticsView({ companyId }) {
   }, [companyId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try { const u = await hqGetUtilisation(companyId); if (!cancelled) setUtil(u); }
+      catch (e) { console.error("[hq] utilisation load failed", e); }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
   // resolve the active layout: saved cards → saved preset → default preset
   const layout = useMemo(() => {
@@ -117,21 +129,43 @@ export default function AnalyticsView({ companyId }) {
             </div>
           )}
           <h3>{CARD_TITLES[key] || key}</h3>
-          <CardBody cardKey={key} a={a} />
+          <CardBody cardKey={key} a={a} util={util} />
         </div>
       ))}
     </div>
   );
 }
 
-function CardBody({ cardKey, a }) {
+function CardBody({ cardKey, a, util }) {
   if (cardKey === "overview") return <Overview o={a.overview || {}} />;
   if (cardKey === "venue_comparison") return <VenueComparison rows={a.venue_comparison || []} />;
   if (cardKey === "top_scorers") return <TopScorers rows={a.top_scorers || []} />;
   if (cardKey === "discipline") return <Discipline rows={a.discipline || []} />;
   if (cardKey === "incidents") return <Incidents i={a.incidents || {}} />;
   if (cardKey === "billing") return <Billing b={a.billing || {}} />;
+  if (cardKey === "utilisation") return <UtilCard u={util} />;
   return null;
+}
+
+function UtilCard({ u }) {
+  if (!u) return <div className="empty">Loading utilisation…</div>;
+  const c = u.company || {};
+  const cfg = c.prime_configured;
+  const p = (n) => (n == null ? "—" : n + "%");
+  const peak = (o) => (o && o.pct != null ? `${o.day || o.slot} · ${o.pct}%` : "—");
+  return (
+    <>
+      <div className="chips">
+        {Chip(p(c.overall_pct), "Overall used")}
+        {Chip(cfg ? p(c.prime_pct) : "—", "Prime")}
+        {Chip(cfg ? p(c.offpeak_pct) : "—", "Off-peak")}
+        {Chip(cfg ? (c.empty_prime_hours == null ? "—" : c.empty_prime_hours + "h") : "—", "Empty prime")}
+      </div>
+      <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+        Busiest {peak(c.best_slot)} · Quietest {peak(c.worst_slot)}
+      </div>
+    </>
+  );
 }
 
 const Chip = (n, l) => (
