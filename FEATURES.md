@@ -104,6 +104,17 @@ The peak-hours foundation for utilisation. Venues now mark per-pitch prime-time 
 - **Operator owes:** real venue-dashboard test — open Booking settings, add a peak window, save,
   reload, confirm it persists (hard-rule #13; apps/venue is not in PWA scope but UI-save is untested).
 
+**Cycle 1.1 (same session) — venue-level default prime band.** Decision: a pitch with no
+prime_time_windows INHERITS a venue default (not off-peak, not a hardcoded global). **mig 177** —
+`venues.default_prime_time_windows jsonb`; `venue_update_booking_settings` gains a
+`default_prime_time_windows` validate+write key; `venue_get_state` exposes it in the venue object
+(rebuilt on the live mig-176 body — pitch prime/booking keys + display/bookings fields all verified
+intact). BookingSettings modal gains a "Venue default (all pitches)" editor above the now-optional
+per-pitch overrides. Cycle 2 resolution: pitch.prime_time_windows if set, else venue default, else
+off-peak. Verified: rpc-security (both SECDEF/search_path/1-overload/anon+authenticated) ·
+ephemeral-verify rolled back (default persists · bookings_enabled/cancellation_policy untouched ·
+inverted+bad-day rejected) · regression read · hygiene 7/7 · build clean.
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)

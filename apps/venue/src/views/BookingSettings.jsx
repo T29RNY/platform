@@ -17,10 +17,12 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
   const [enabled, setEnabled] = useState(false);
   const [policy, setPolicy] = useState("");
   const [windows, setWindows] = useState({});     // pitchId -> [window]
-  const [prime, setPrime] = useState({});         // pitchId -> [prime window]
+  const [prime, setPrime] = useState({});         // pitchId -> [prime window] (per-pitch override)
+  const [venuePrime, setVenuePrime] = useState([]); // venue-level default prime band
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingPitch, setSavingPitch] = useState(null);
   const [savingPrime, setSavingPrime] = useState(null);
+  const [savingVenuePrime, setSavingVenuePrime] = useState(false);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
 
@@ -36,6 +38,7 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
     }
     setWindows(w);
     setPrime(pw);
+    setVenuePrime(JSON.parse(JSON.stringify(venue.default_prime_time_windows ?? [])));
     setError(null);
     setSaved(false);
   }, [open, venue, pitches]);
@@ -68,6 +71,21 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
         : "Couldn't save pitch hours — try again.");
     } finally {
       setSavingPitch(null);
+    }
+  };
+
+  const saveVenuePrime = async () => {
+    setSavingVenuePrime(true);
+    setError(null);
+    try {
+      await venueUpdateBookingSettings(venueToken, { default_prime_time_windows: venuePrime });
+      onSaved?.();
+    } catch (e) {
+      setError(e?.message?.startsWith("default_prime_time_window")
+        ? "Check the default peak hours: start must be before end."
+        : "Couldn't save default peak hours — try again.");
+    } finally {
+      setSavingVenuePrime(false);
     }
   };
 
@@ -175,7 +193,38 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
       <div className="bk-set-divider" />
 
       <h3 className="bk-set-h3">Prime-time hours</h3>
-      <p className="bk-modal-note">Per pitch, mark the peak weekday hours. HQ uses these to split prime-time vs off-peak utilisation. Leave empty if a pitch has no defined peak.</p>
+      <p className="bk-modal-note">Mark your peak hours. HQ uses these to split prime-time vs off-peak utilisation. Set a venue default that applies to every pitch, then override individual pitches below only if they differ.</p>
+
+      <div className="bk-set-pitch">
+        <div className="bk-set-pitch-head">
+          <span className="bk-set-pitch-name">Venue default (all pitches)</span>
+          <button className="btn-link" onClick={() => setVenuePrime([...venuePrime, blankPrimeWindow()])}>+ Add peak window</button>
+        </div>
+        {venuePrime.length === 0 && <p className="muted bk-set-empty">No default peak hours — pitches without their own override count as off-peak all day.</p>}
+        {venuePrime.map((w, i) => (
+          <div className="bk-win" key={i}>
+            <select value={w.day_of_week} onChange={(e) => {
+              const next = venuePrime.slice(); next[i] = { ...w, day_of_week: Number(e.target.value) }; setVenuePrime(next);
+            }}>
+              {DAYS.map((d, di) => <option key={di} value={di}>{d}</option>)}
+            </select>
+            <input type="time" value={w.start_time} onChange={(e) => {
+              const next = venuePrime.slice(); next[i] = { ...w, start_time: e.target.value }; setVenuePrime(next);
+            }} />
+            <input type="time" value={w.end_time} onChange={(e) => {
+              const next = venuePrime.slice(); next[i] = { ...w, end_time: e.target.value }; setVenuePrime(next);
+            }} />
+            <button className="btn-bad bk-win-x" onClick={() => setVenuePrime(venuePrime.filter((_, j) => j !== i))} aria-label="Remove peak window">×</button>
+          </div>
+        ))}
+        <div className="bk-set-save">
+          <button disabled={savingVenuePrime} onClick={saveVenuePrime}>
+            {savingVenuePrime ? "Saving…" : "Save venue default"}
+          </button>
+        </div>
+      </div>
+
+      <p className="bk-modal-note">Override per pitch (optional) — only set these if a pitch's peak hours differ from the venue default.</p>
 
       {pitches.map((p) => {
         const rows = prime[p.id] ?? [];
@@ -185,7 +234,7 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
               <span className="bk-set-pitch-name">{p.name}</span>
               <button className="btn-link" onClick={() => setPitchPrime(p.id, [...rows, blankPrimeWindow()])}>+ Add peak window</button>
             </div>
-            {rows.length === 0 && <p className="muted bk-set-empty">No peak hours set — this pitch counts as off-peak all day.</p>}
+            {rows.length === 0 && <p className="muted bk-set-empty">No override — this pitch uses the venue default.</p>}
             {rows.map((w, i) => (
               <div className="bk-win" key={i}>
                 <select value={w.day_of_week} onChange={(e) => {
