@@ -253,6 +253,32 @@ no UI (V3).** **mig 180.**
   (→ ephemeral-verify); V3 = apps/venue Payments screen; V4 = HQ revenue/collection cards
   (= HQ-I Phase 2).
 
+### VENUE PAYMENTS LEDGER V2 SHIPPED — RPCs + charge hooks (session 63, 2026-05-31)
+
+Write layer over the V1 ledger. **Server-only — no JS/UI (wrappers + screen = V3).** **mig 181.**
+
+- **4 RPCs** (SECDEF · search_path pinned · `resolve_venue_caller` · audited · notify):
+  `venue_record_payment` (append instalment + recompute status), `venue_void_payment` (soft-void
+  + recompute), `venue_set_charge_due` (override due + recompute), `venue_get_charges` (read:
+  charges + balances + collection-rate summary). Shared helper `_recompute_charge_status`
+  (non-voided instalments vs due; preserves terminal `refunded`).
+- **3 charge auto-creation hooks** (rebuilt on LIVE bodies): `venue_confirm_booking` → booking
+  charge (booking.amount_pence else `playing_areas.default_fee_pence`; **skip when no fee** —
+  operator decision), `venue_generate_fixtures` → per-team fixture charges per `fixture_fee_payer`
+  (skip when no fee), `venue_update_fixture_status` → on **void**, that fixture's charges set
+  `refunded` (payments kept; postpone/walkover/forfeit untouched — operator decision).
+- `notify_venue_change` whitelist += `payment_recorded`/`payment_voided`/`charge_updated`.
+- **Verified live:** rpc-security (all SECDEF/search_path/1-overload/anon+auth; helper not-secdef)
+  · **ephemeral-verify 8/8** (partial→paid→void→partial→set_due→paid · get_charges 54.4% rate ·
+  bad-token rejected · refunded blocks payment · void refunds 2/2 fixture charges).
+- ⚠️ **Incident (caught + fixed same cycle):** the EV result-capture variant committed instead of
+  rolling back, mutating demo_venue (1 booking charge + 1 fixture + 3 charges). **Fully restored**
+  to the V1 baseline (24 charges paid8/partial8/unpaid8, 16 payments, owed £540/collected £255,
+  0 refunded) and verified. Lesson: an EV that needs to return a verdict must do so via
+  `RAISE EXCEPTION verdict` (rolls back AND surfaces the result) — never a committed temp table.
+- **Next:** V3 = apps/venue Payments screen (+ supabase.js wrappers, the JS binding deferred to
+  here where there's a call site); then V4 = HQ revenue cards (HQ-I Phase 2).
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)

@@ -598,8 +598,20 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   `taken_by`, `taken_at`, `voided_at`. Status/balance derived from non-voided rows vs amount due.
 - Fee config: `league_config.fixture_fee_pence` + `fixture_fee_payer` (both|home, default both),
   `playing_areas.default_fee_pence`, `venues.payment_link` (interim hosted online-pay URL).
-- RLS on both, anon/authenticated revoked (RPC-only). V1 = schema + demo seed; NO RPCs (V2),
-  NO UI (V3). Separate from `payment_ledger` (player match-subs). See VENUE_PAYMENTS_SCOPE.md.
+- RLS on both, anon/authenticated revoked (RPC-only). V1 = schema + demo seed. Separate from
+  `payment_ledger` (player match-subs). See VENUE_PAYMENTS_SCOPE.md.
+- **V2 RPCs (mig 181, SECDEF · `resolve_venue_caller` · audited · `notify_venue_change`):**
+  `venue_record_payment(token,charge_id,amount_pence,method,external_ref?,note?)` (append
+  instalment + recompute status), `venue_void_payment(token,payment_id)` (soft-void + recompute),
+  `venue_set_charge_due(token,charge_id,amount_pence)` (override due + recompute),
+  `venue_get_charges(token,status?,source_type?,limit?)` (read: charges + balances + collection
+  summary). Status recompute via `_recompute_charge_status(charge_id)` (non-voided instalments vs
+  due; preserves terminal `refunded`). **Charge auto-creation hooks** added to
+  `venue_confirm_booking` (booking charge from booking.amount_pence else
+  `playing_areas.default_fee_pence`; skip if no fee), `venue_generate_fixtures` (per-team charges
+  per `fixture_fee_payer` from `league_config.fixture_fee_pence`; skip if no fee),
+  `venue_update_fixture_status` (on `void` → that fixture's charges set `refunded`, payments kept).
+  `notify_venue_change` whitelist gains `payment_recorded`/`payment_voided`/`charge_updated`.
 
 ### Stage 2b — priority displacement (migrations 142–143)
 
