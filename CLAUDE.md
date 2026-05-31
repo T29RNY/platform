@@ -550,6 +550,20 @@ Apply SQL before writing any JS wrapper.
     NOW so a later return-shape change doesn't silently break Phase 4
     when it's built. Established Phase 5 plan, applies to any RPC
     explicitly designed for a yet-unbuilt consumer.
+15. Ephemeral-verify NEVER touches existing rows — not production,
+    not the demo seed (demo_venue, team_demo, company_demo, dc_* etc).
+    It seeds its OWN throwaway fixture with `_e2e_`-prefixed ids + its
+    own admin token, runs the RPC flow against THAT, and ends with
+    `RAISE EXCEPTION 'ROLLBACK_TESTS_PASSED :: ' || v_summary` to roll
+    back AND carry the verdict out in the error message. BANNED, no
+    exceptions: capturing an EV verdict via a committed temp table or
+    committed rows; calling write RPCs against demo/prod ids "just to
+    test"; any EV path that can COMMIT. After every EV run the
+    leak-check (count of `_e2e_%` rows = 0) is mandatory — non-zero
+    means the rollback failed; STOP and restore. Established session 63
+    after an EV result-capture variant committed against demo_venue and
+    mutated the seed (restored same cycle). skills/ephemeral-verify.md
+    holds the ONLY sanctioned template.
 
 ---
 

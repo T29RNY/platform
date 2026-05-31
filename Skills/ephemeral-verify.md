@@ -31,6 +31,42 @@ can confirm.
 
 ---
 
+## ⛔ NEVER — ANTI-PATTERNS (read before writing any EV)
+
+These are not style preferences. Each one has caused a real incident.
+
+1. **NEVER run the RPC flow against existing rows.** Not production,
+   not the demo seed (`demo_venue`, `team_demo`, `company_demo`,
+   `dc_*`, `*_demo_*`). Seed your OWN `_e2e_`-prefixed fixture with
+   its own admin token and call the RPCs against THAT. If a rollback
+   ever fails, the only casualties are `_e2e_` rows the leak-check
+   catches — never shared data. (Session 63: an EV ran against
+   `demo_venue` + its real token and a non-rollback variant corrupted
+   the demo seed.)
+
+2. **NEVER capture the verdict via committed state.** No temp table you
+   `SELECT` after the block, no "results" rows, no `UPDATE` you read
+   back. The ONLY sanctioned way to return a verdict is the message of
+   the top-level `RAISE EXCEPTION 'ROLLBACK_TESTS_PASSED :: ' || v_summary`
+   — it rolls back the whole transaction AND surfaces the summary in
+   the MCP error. A temp-table verdict means the block COMMITTED.
+
+3. **NEVER swallow the rollback exception.** The final `RAISE EXCEPTION`
+   must reach the top level. A `BEGIN…EXCEPTION WHEN OTHERS` that wraps
+   the whole body will catch it and COMMIT. Error-path sub-blocks
+   (STEP 3) are fine — they catch a specific inner PERFORM and continue
+   — but the outer rollback raise is never inside a catch.
+
+4. **NEVER skip the leak-check (STEP 5).** It is the proof the rollback
+   worked. A non-zero `_e2e_%` count = the transaction committed =
+   STOP and restore before doing anything else.
+
+If you find yourself wanting the verdict in a readable table instead of
+an error string: that itch is the trap. Put the verdict in the
+exception message. Parse the string.
+
+---
+
 ## STEP 1 — DESIGN THE FIXTURE
 
 Decide the minimum data the RPC needs:
