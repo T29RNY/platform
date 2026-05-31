@@ -64,7 +64,7 @@ venue / team / competition / period). Cash + manual transfer at first; automated
 |---|---|---|
 | **V1 ✅ SHIPPED** (mig 180, session 63) | schema (2 tables + `method`/`external_ref` + 3 fee columns + `venues.payment_link`) + demo charge seed | no |
 | **V2 ✅ SHIPPED** (mig 181, session 63) | charge auto-creation hooks + payment RPCs (cash + manual bank_transfer share `venue_record_payment`) | yes → ephemeral-verify |
-| **V3** | apps/venue **Payments** screen (record cash/transfer, balances, per-fixture add/void, show `payment_link`) | no |
+| **V3 ✅ SHIPPED** (session 63) | apps/venue **Payments** screen (record cash/transfer, balances, collection rate) on the 4 V2 RPCs. Per-fixture add/void + `payment_link` show/edit deferred to **V3.1** (need new write RPCs + `venue_get_state` to expose `payment_link`). | no |
 | **V4** | HQ revenue / collection-rate / outstanding cards (into the 6.3 registry) | no |
 | **V5** | **online capture (full rails)** — Stripe Connect per-venue connected account, in-app Payment Element, webhook → `venue_payments` row (method `card`, `external_ref` = PaymentIntent), Apple/Google Pay via wallet enablement + Apple-Pay domain verification | yes (webhook) |
 

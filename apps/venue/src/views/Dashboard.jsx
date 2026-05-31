@@ -5,12 +5,13 @@ import RegistrationActions from "./RegistrationActions.jsx";
 import SeasonWizard from "./SeasonWizard.jsx";
 import WeekPulse from "./WeekPulse.jsx";
 import BookingsView from "./BookingsView.jsx";
+import PaymentsView from "./PaymentsView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
 
 export default function Dashboard({ state, venueToken, occupancy = [], onRefresh, onRefreshOccupancy, refreshing }) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
-  const [view, setView] = useState("ops"); // ops | bookings
+  const [view, setView] = useState("ops"); // ops | bookings | payments
 
   // Pending booking count for the Bookings tab badge — group a weekly block
   // (same series_id) into a single pending item.
@@ -206,6 +207,12 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
           Bookings
           {pendingCount > 0 && <span className="viewnav-badge">{pendingCount}</span>}
         </button>
+        <button
+          className={"viewnav-tab" + (view === "payments" ? " is-active" : "")}
+          onClick={() => setView("payments")}
+        >
+          Payments
+        </button>
       </nav>
 
       <DisplaySettings
@@ -233,6 +240,8 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
           onRefresh={onRefresh}
           onRefreshOccupancy={onRefreshOccupancy}
         />
+      ) : view === "payments" ? (
+        <PaymentsView state={state} venueToken={venueToken} />
       ) : (
       <main className="content dash-grid">
         <section className="panel panel-tonight" ref={tonightRef}>

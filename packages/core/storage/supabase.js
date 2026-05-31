@@ -2366,6 +2366,35 @@ export async function venueUpdateBookingSettings(venueToken, updates) {
   return data;
 }
 
+// ── Venue Payments Ledger (migs 180/181) — charges + instalments ─────────────
+export async function venueGetCharges(venueToken, { status = null, sourceType = null, limit = 200 } = {}) {
+  const { data, error } = await supabase.rpc("venue_get_charges", {
+    p_venue_token: venueToken, p_status: status, p_source_type: sourceType, p_limit: limit });
+  if (error) { console.error("[payments] venue_get_charges failed", error); throw error; }
+  return data;
+}
+
+export async function venueRecordPayment(venueToken, chargeId, amountPence, method, { externalRef = null, note = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_record_payment", {
+    p_venue_token: venueToken, p_charge_id: chargeId, p_amount_pence: amountPence,
+    p_method: method, p_external_ref: externalRef, p_note: note });
+  if (error) { console.error("[payments] venue_record_payment failed", error); throw error; }
+  return data;
+}
+
+export async function venueVoidPayment(venueToken, paymentId) {
+  const { data, error } = await supabase.rpc("venue_void_payment", { p_venue_token: venueToken, p_payment_id: paymentId });
+  if (error) { console.error("[payments] venue_void_payment failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetChargeDue(venueToken, chargeId, amountPence) {
+  const { data, error } = await supabase.rpc("venue_set_charge_due", {
+    p_venue_token: venueToken, p_charge_id: chargeId, p_amount_pence: amountPence });
+  if (error) { console.error("[payments] venue_set_charge_due failed", error); throw error; }
+  return data;
+}
+
 // League Mode Phase 4 — Reception Display (mig 164–167).
 // Display token is the auth signal (read-only, on the TV); never the venue_admin_token.
 export async function getDisplayState(displayToken) {

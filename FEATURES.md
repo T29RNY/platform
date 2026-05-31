@@ -279,6 +279,30 @@ Write layer over the V1 ledger. **Server-only — no JS/UI (wrappers + screen = 
 - **Next:** V3 = apps/venue Payments screen (+ supabase.js wrappers, the JS binding deferred to
   here where there's a call site); then V4 = HQ revenue cards (HQ-I Phase 2).
 
+### VENUE PAYMENTS LEDGER V3 SHIPPED — apps/venue Payments screen (session 63, 2026-05-31)
+
+The operator-facing recording surface over the V2 RPCs. **Frontend-only — no DB/RPC change.**
+
+- **4 supabase.js wrappers + barrel:** `venueGetCharges`, `venueRecordPayment`,
+  `venueVoidPayment`, `venueSetChargeDue` (each: raw RPC name appears exactly once in
+  supabase.js; camelCase wrapper + index.js export).
+- **New "Payments" tab** in the venue Dashboard (third `view`, beside Operations/Bookings) →
+  `PaymentsView.jsx`: Money summary (owed / collected / outstanding / collection-rate),
+  status-filterable charge table (source · team · due · paid · balance · status), and a
+  record-payment modal (amount + method cash/transfer/card/other + note) calling
+  `venueRecordPayment`. Self-loads via `venueGetCharges`.
+- **Scope (operator decision):** frontend on the 4 shipped RPCs only. Per-fixture charge
+  add/void + `payment_link` show/edit → **V3.1** (each needs a new write RPC; note
+  `venue_get_state` does NOT yet expose `payment_link`, so the link block in PaymentsView is
+  inert until V3.1 adds it).
+- **Verified:** apps/venue build clean (110 modules, exit 0); wrapper/raw-name/barrel/wiring
+  cross-checked (defs=1, barrel=1, raw=1 each; PaymentsView imported + rendered). No write
+  RPC added → ephemeral-verify N/A. **Operator owes:** logged-in venue-dashboard pass (token
+  `demo_venue_token_DO_NOT_USE_IN_PROD`) — record a payment, see the balance + collection rate
+  move.
+- **Next:** V4 = HQ revenue / collection-rate / outstanding cards into the HQ analytics
+  registry (= HQ-I Phase 2). Optional V3.1 first for per-fixture charge add/void + payment_link.
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)
