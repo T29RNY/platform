@@ -243,9 +243,9 @@ no UI (V3).** **mig 180.**
 - **Fee config:** `league_config.fixture_fee_pence` + `fixture_fee_payer` (both|home),
   `playing_areas.default_fee_pence`, `venues.payment_link` (interim hosted online-pay URL).
 - **RPC-only:** RLS on both tables, anon/authenticated revoked (V2 adds SECDEF RPCs).
-- **Demo seed (demo_venue only, forward-only):** 18 charges (2 booking, 16 fixture) across
-  paid/partial/unpaid + 11 instalments (cash + bank_transfer) so V3/V4 reports are testable;
-  production untouched (non-demo charges = 0).
+- **Demo seed (demo_venue only, forward-only):** 24 charges (2 booking, 22 fixture) across
+  paid:8/partial:8/unpaid:8 + 16 instalments (cash:8, bank_transfer:8); owed £540 / collected
+  £255 so V3/V4 collection-rate reports are testable; production untouched (non-demo charges = 0).
 - **Verified live:** structural (2 tables · COALESCE unique index · 4 fee/link columns · RLS on ·
   anon/auth revoked) + seed sanity (status mix · 2 methods · owed/collected totals). No RPC/JS
   this cycle, so rpc-security/ephemeral-verify/build N/A.
