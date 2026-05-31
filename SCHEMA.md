@@ -579,6 +579,13 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   counted); usage clipped to opening hours on a 30-min Europe/London bucket grid; available =
   `booking_windows` else assumed 08:00–22:00. SECDEF, anon-denied, region-scoped via
   `resolve_company_caller`. See DECISIONS.md (session 62).
+- `hq_get_company_state` (mig 179) — each venue's `health` is now band-derived from a scored
+  model plus additive fields `health_score int|null`, `health_reason text`,
+  `health_axes {operations, utilisation, fixture_completion}`. Score = weighted (ops 0.40 /
+  util 0.30 / completion 0.30, missing axis renormalised) via helper
+  `_hq_health_score(numeric,numeric,numeric)` (IMMUTABLE). Band ≥80 green/≥55 amber/else red;
+  hard-red overrides (critical incident, past_due/cancelled, expired trial). See DECISIONS.md
+  (session 63).
 
 ### Stage 2b — priority displacement (migrations 142–143)
 

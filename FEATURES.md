@@ -195,6 +195,41 @@ use inline styles, so no styles.css change was needed.
 - **Next = Cycle 4:** Health Score /100 + top reason in `hq_get_company_state`,
   consuming the utilisation RPC + (deferred) `_hq_venue_health_score` helper.
 
+### HQ-I PHASE 1 CYCLE 4 SHIPPED — Health Score /100 + top reason (session 63, 2026-05-31)
+
+The last locked Phase-1 cycle. Upgrades the categorical red/amber/green dot in
+`hq_get_company_state` into a transparent **scored model** — completes "Venue Judgment".
+**mig 179.**
+
+- **Model (operator-locked):** three axes, each 0–100 —
+  **operations** = `100 − 40·critical − 10·(open−critical) − 8·unallocated − 5·unassigned_refs`,
+  floored at 0 (always present);
+  **utilisation** = `min(100, overall_pct × 2)` (50% used = full marks), from the Cycle-2
+  RPC, NULL when no measurable utilisation;
+  **fixture_completion** = `round(100·completed/(completed+remaining))`, NULL when no
+  fixtures yet. Weights **ops 0.40 / util 0.30 / completion 0.30**; a **missing axis is
+  dropped and the remaining weights renormalised** (never invents a number) via the new
+  helper `_hq_health_score(ops,util,completion)` (IMMUTABLE, search_path pinned).
+- **Band:** score ≥80 green · ≥55 amber · else red. **Hard-red overrides** (force red + own
+  reason regardless of score, carried over from the old logic): critical incident open,
+  subscription past_due/cancelled, expired trial.
+- **top_reason** = the weakest present axis, phrased for a human (override reason wins).
+  Explicitly **NOT yet weighed: revenue, churn** (no data — stated, not faked).
+- **Return-shape additions (additive, hard-rule #12):** each venue gains
+  `health_score int|null`, `health_reason text`, `health_axes {operations, utilisation,
+  fixture_completion}`. Existing `health` field retained (now band+override-derived). Wrapper
+  `hqGetCompanyState` passes data through raw (no mapper). **Only consumer:** apps/hq
+  `VenueHealthGrid` — now renders the score next to the dot + a reason line.
+- **Verified live (company_demo):** rpc-security (hq_get_company_state SECDEF/search_path/
+  1-overload/anon-denied/auth-granted; helper IMMUTABLE/search_path/not-secdef) · helper unit
+  cases (100,50,80→79 weakest util; 100,NULL,80→91 renormalised weakest completion;
+  60,NULL,NULL→60; NULL×3→null) · functional run (Demo Arena South green 100 "all healthy",
+  axes ops100/util—/comp—; Demo Sports Centre **red 30 "Critical incident open"** hard-red
+  override firing over axes ops19/util1.2/comp73) · apps/hq build clean (84 modules, exit 0).
+  **Operator owes:** logged-in browser pass (HQ OAuth-gated).
+- **Phase 1 (Venue Judgment) COMPLETE** (cycles 1, 1.1, 2, 3, 4). Next track: HQ-I Phase 2
+  (Revenue & Leakage = Payments Ledger V-track) or Phase 3 (Competition & Team Risk).
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)

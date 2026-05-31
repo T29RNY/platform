@@ -6,6 +6,26 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Venue Health Score is a transparent /100 across three axes (session 63, HQ-I Phase 1 Cycle 4)
+
+`hq_get_company_state` (mig 179) replaces the categorical red/amber/green dot with a scored
+model. Settled so the number stays meaningful:
+
+- **Three axes, each 0–100:** operations (`100 − 40·critical − 10·other-open − 8·unallocated
+  − 5·unassigned-refs`, floored), utilisation (`min(100, overall_pct × 2)` — 50% used = full
+  marks, because raw fill % is tiny against an 08–22×7 denominator), fixture_completion
+  (`100·done/(done+remaining)`). **Weights ops 0.40 / util 0.30 / completion 0.30.**
+- **Missing axis → dropped and weights renormalised** (helper `_hq_health_score`); a brand-new
+  venue with no fixtures/utilisation is scored on what exists. Never invent a number.
+- **Band ≥80 green / ≥55 amber / else red.** Hard-red overrides (critical incident, subscription
+  past_due/cancelled, expired trial) force red + their own reason regardless of score — carried
+  over from the categorical logic so a paying-status problem can't hide behind a good score.
+- **top_reason = weakest present axis**, phrased for a human. **Revenue & churn explicitly not
+  weighed yet** (no data) — an intelligence product states the gap rather than faking it.
+
+Additive return-shape: `health_score`, `health_reason`, `health_axes` per venue (existing
+`health` retained). Consumer: apps/hq VenueHealthGrid. See [[project_hq_intelligence]].
+
 ## Utilisation is measured on a clipped 30-min bucket grid (session 62, HQ-I Phase 1 Cycle 2)
 
 `hq_get_utilisation` (mig 178) computes pitch utilisation. Settled rules so the numbers can't
