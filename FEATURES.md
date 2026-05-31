@@ -230,6 +230,29 @@ The last locked Phase-1 cycle. Upgrades the categorical red/amber/green dot in
 - **Phase 1 (Venue Judgment) COMPLETE** (cycles 1, 1.1, 2, 3, 4). Next track: HQ-I Phase 2
   (Revenue & Leakage = Payments Ledger V-track) or Phase 3 (Competition & Team Risk).
 
+### VENUE PAYMENTS LEDGER V1 SHIPPED — schema (session 63, 2026-05-31)
+
+Groundwork for HQ-I Phase 2 (Revenue & Leakage) — starts money data accruing so revenue can
+join HQ later without a cold start. **Schema only per VENUE_PAYMENTS_SCOPE.md — no RPCs (V2),
+no UI (V3).** **mig 180.**
+
+- **Two-table unified ledger:** `venue_charges` (what's owed — one row per booking, per-team per
+  fixture; venue/team/competition/period sliceable) + `venue_payments` (instalment log; each
+  payment/refund a row; soft-void via `voided_at`). Status/balance derived from non-voided
+  instalments vs amount due. Online shares the ledger later (a non-cash row) — no redesign.
+- **Fee config:** `league_config.fixture_fee_pence` + `fixture_fee_payer` (both|home),
+  `playing_areas.default_fee_pence`, `venues.payment_link` (interim hosted online-pay URL).
+- **RPC-only:** RLS on both tables, anon/authenticated revoked (V2 adds SECDEF RPCs).
+- **Demo seed (demo_venue only, forward-only):** 18 charges (2 booking, 16 fixture) across
+  paid/partial/unpaid + 11 instalments (cash + bank_transfer) so V3/V4 reports are testable;
+  production untouched (non-demo charges = 0).
+- **Verified live:** structural (2 tables · COALESCE unique index · 4 fee/link columns · RLS on ·
+  anon/auth revoked) + seed sanity (status mix · 2 methods · owed/collected totals). No RPC/JS
+  this cycle, so rpc-security/ephemeral-verify/build N/A.
+- **Next:** V2 = charge auto-creation hooks + `venue_record_payment`/`venue_void_payment` RPCs
+  (→ ephemeral-verify); V3 = apps/venue Payments screen; V4 = HQ revenue/collection cards
+  (= HQ-I Phase 2).
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)

@@ -62,7 +62,7 @@ venue / team / competition / period). Cash + manual transfer at first; automated
 
 | Cycle | Scope | Write RPC? |
 |---|---|---|
-| **V1** | schema (2 tables + `method`/`external_ref` + 3 fee columns + `venues.payment_link`) + demo charge seed | no |
+| **V1 ✅ SHIPPED** (mig 180, session 63) | schema (2 tables + `method`/`external_ref` + 3 fee columns + `venues.payment_link`) + demo charge seed | no |
 | **V2** | charge auto-creation hooks + payment RPCs (cash + manual bank_transfer share `venue_record_payment`) | yes → ephemeral-verify |
 | **V3** | apps/venue **Payments** screen (record cash/transfer, balances, per-fixture add/void, show `payment_link`) | no |
 | **V4** | HQ revenue / collection-rate / outstanding cards (into the 6.3 registry) | no |

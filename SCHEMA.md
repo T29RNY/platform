@@ -587,6 +587,20 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   hard-red overrides (critical incident, past_due/cancelled, expired trial). See DECISIONS.md
   (session 63).
 
+**Venue Payments Ledger (mig 180 — V1, schema only; money OWED TO the venue):**
+- `venue_charges` — what's owed: `id`, `venue_id`→venues (denormalised), `source_type`
+  (booking|fixture), `source_id` text, `team_id`→teams NULL, `competition_id`→competitions NULL,
+  `amount_due_pence`, `status` (unpaid|partial|paid|refunded), `due_date`, `created_at`.
+  UNIQUE(source_type, source_id, COALESCE(team_id,'')) — one charge per booking, one per team
+  per fixture.
+- `venue_payments` — instalment log: `id`, `charge_id`→venue_charges, `kind` (payment|refund),
+  `amount_pence`, `method` (cash|bank_transfer|card|other), `external_ref` UNIQUE NULL, `note`,
+  `taken_by`, `taken_at`, `voided_at`. Status/balance derived from non-voided rows vs amount due.
+- Fee config: `league_config.fixture_fee_pence` + `fixture_fee_payer` (both|home, default both),
+  `playing_areas.default_fee_pence`, `venues.payment_link` (interim hosted online-pay URL).
+- RLS on both, anon/authenticated revoked (RPC-only). V1 = schema + demo seed; NO RPCs (V2),
+  NO UI (V3). Separate from `payment_ledger` (player match-subs). See VENUE_PAYMENTS_SCOPE.md.
+
 ### Stage 2b — priority displacement (migrations 142–143)
 
 - **Fixture-trigger auto-yield (mig 142):** when a fixture claims a slot, the
