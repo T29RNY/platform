@@ -1552,8 +1552,23 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 6px 16px -8px var(--accent-glow);
 }
 .staff-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.staff-name { font-family: var(--f-display); font-size: 22px; letter-spacing: 0.012em; text-transform: uppercase; color: var(--ink); line-height: 1; }
-.staff-emp { font-size: 12px; color: var(--ink-mute); text-transform: capitalize; }
+.staff-name { font-family: var(--f-display); font-size: 22px; letter-spacing: 0.012em; text-transform: uppercase; color: var(--ink); line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.staff-emp { font-size: 12px; color: var(--ink-mute); text-transform: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Staff sections (officials + venue staff) */
+.staff-section { display: flex; flex-direction: column; gap: 12px; }
+.staff-section + .staff-section { margin-top: 8px; }
+.staff-section-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.staff-section-h {
+  font-family: var(--f-display); font-size: 22px; font-weight: 400;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft);
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.staff-section-h::before {
+  content: ""; width: 4px; height: 0.8em; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  box-shadow: 0 0 10px -1px var(--accent-glow);
+}
 .staff-rating { margin-left: auto; font-family: var(--f-display); font-size: 22px; color: var(--accent); display: inline-flex; align-items: baseline; gap: 2px; }
 .staff-rating i { font-style: normal; font-size: 13px; }
 .staff-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

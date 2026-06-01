@@ -472,6 +472,9 @@ JS wrappers land with the consuming UI (Stages 5/6).
 | `confirm_renewal(p_series_id)` | `confirmRenewal(seriesId)` (Stage 7) | **authenticated** | Team "keep my slot": `auth.uid()`→`team_admins`, flips held weeks `hold`→`requested` (venue re-approves via the inbox), origin→`cancelled`. Rejects `renewal_lapsed`/`not_team_admin`. Fires `booking_requested`. mig 152. *Consumer: `apps/inorout` ScheduleScreen.* |
 | `expire_renewal_holds()` | *(none — cron only)* (Stage 7) | **service_role** | Releases holds past `hold_expires_at` (occupancy off, `hold`→`expired`, series→`cancelled`). Audit `system`/`booking_renewal_expired`; notify both. mig 152. *Consumer: `cron.js renewalHoldsJob`.* |
 | `get_team_admin_player_ids(p_team_id)` | *(none — cron only)* (Stage 7) | **service_role** | Returns the team's active-admin player ids (`team_admins`→`players.user_id`) for push targeting. mig 152. *Consumer: `cron.js` push helpers.* |
+| `venue_list_staff(p_venue_token)` | `venueListStaff(token)` | anon, authenticated | Read. Returns `{ ok, staff: [...] }` from `venue_staff` for the caller's venue (token→`resolve_venue_caller`). mig 195. *Consumer: `apps/venue` StaffView (Venue Staff section).* |
+| `venue_add_staff(p_venue_token, p_staff)` | `venueAddStaff(token, staff)` | anon, authenticated | **WRITE** (mig 195, ephemeral-verify gated). Inserts a `venue_staff` row (role ∈ reception/manager/admin/groundstaff/coach/other). Validates name + role. Audit `staff_added`; `notify_venue_change('staff_added')`. *Consumer: `apps/venue` StaffMemberForm.* |
+| `venue_update_staff(p_venue_token, p_staff_id, p_updates)` | `venueUpdateStaff(token, id, updates)` | anon, authenticated | **WRITE** (mig 195, ephemeral-verify gated). Patches a venue-owned `venue_staff` row (ownership-checked → `staff_not_found`). Audit `staff_updated`; `notify_venue_change('staff_updated')`. *Consumer: `apps/venue` StaffMemberForm.* |
 
 ---
 

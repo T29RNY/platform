@@ -2757,6 +2757,43 @@ export async function venueListActiveTeams(venueToken) {
   return data;
 }
 
+// ── Venue staff (reception / managers / admins / groundstaff) — mig 195 ──
+export async function venueListStaff(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_staff", {
+    p_venue_token: venueToken,
+  });
+  if (error) {
+    console.error("[venue] list_staff failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueAddStaff(venueToken, staff) {
+  const { data, error } = await supabase.rpc("venue_add_staff", {
+    p_venue_token: venueToken,
+    p_staff: staff,
+  });
+  if (error) {
+    console.error("[venue] add_staff failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueUpdateStaff(venueToken, staffId, updates) {
+  const { data, error } = await supabase.rpc("venue_update_staff", {
+    p_venue_token: venueToken,
+    p_staff_id: staffId,
+    p_updates: updates,
+  });
+  if (error) {
+    console.error("[venue] update_staff failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function venueUpdateRef(venueToken, refId, updates) {
   const { data, error } = await supabase.rpc("venue_update_ref", {
     p_venue_token: venueToken,
