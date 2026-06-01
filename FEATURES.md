@@ -30,7 +30,14 @@
    otherwise functionally complete** (6A–6E shipped). Fold the Phase 9 HQ digest in here.
 3. **Phase 11 (cups & knockouts)** — most cross-cutting (fixtures/standings→brackets/
    ref/display/player); last, when other surfaces are stable. `cup_rounds` +
-   `generateCupBracket` already exist as groundwork.
+   `generateCupBracket` were groundwork. **Scope (session 65): single-elimination
+   end-to-end first; ties decided by ref-entered extra-time and/or penalties; bracket
+   shown on venue+player+display.** ✅ **Cycle 11.1 (session 65):** bracket persistence —
+   `cup_ties` tree (mig 184) + `venue_persist_cup_bracket` (mig 185) builds the whole
+   single-elim bracket (canonical seeding, byes, feeder edges, round-1 fixtures+charges)
+   server-side; SeasonWizard single-elim branch wired. **Next: 11.2** advancement +
+   knockout result entry (ref ET/pens → `ko_winner_id`; advance winners into parent ties);
+   **11.3** `get_cup_bracket` + bracket views (venue/player/display).
 
 **After these three:** Phase 7 (AI layer — Ask the Gaffer evolved) · Phase 10 (public
 league pages). **Phase 8 (billing/self-serve) deferred to year 2.** Also outstanding:

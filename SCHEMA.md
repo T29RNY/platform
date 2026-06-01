@@ -470,11 +470,12 @@ arrive in Phase 2+. All currently empty.
 - `club_teams` — junction: club_id ↔ team_id. UNIQUE(team_id) — a team belongs to one club.
 - `competition_teams` — junction: competition_id ↔ team_id. status (active/withdrawn/expelled).
 - `team_name_history` — team_id, name, effective_from_season_id / effective_to_season_id. Audit of team renames across seasons.
-- `cup_rounds` — competition_id, round_number, round_name, num_teams, status.
+- `cup_rounds` — competition_id, round_number, round_name, num_teams, status. (Populated from Phase 11 Cycle 11.1 — was empty groundwork before.)
+- `cup_ties` — **Phase 11 (mig 184).** The persisted single-elim bracket tree: id, competition_id, round_number, slot_index, round_name, fixture_id (NULL for byes/not-yet-created), home_team_id, away_team_id, home_source/away_source ('seed'|'bye'|'winner'), home_feeder_slot/away_feeder_slot (which slots of round−1 feed each side — advancement is a feeder lookup), winner_team_id, status ('pending'|'ready'|'decided'). UNIQUE(competition_id, round_number, slot_index). RLS on, RPC-only. Written by `venue_persist_cup_bracket`; advanced by Cycle 11.2.
 
 ### Phase 1 — Fixture / event layer
 
-- `fixtures` — competition_id, home_team_id, away_team_id (nullable = bye), week_number, scheduled_date, kickoff_time, playing_area_id, official_id, ref_token (per-fixture, unique). status (scheduled/allocated/in_progress/completed/postponed/void/walkover). home_score/away_score.
+- `fixtures` — competition_id, home_team_id, away_team_id (nullable = bye), week_number, scheduled_date, kickoff_time, playing_area_id, official_id, ref_token (per-fixture, unique). status (scheduled/allocated/in_progress/completed/postponed/void/walkover). home_score/away_score. `cup_tie_id` (Phase 11 mig 184) links a cup fixture back to its `cup_ties` bracket slot.
 - `match_events` — fixture_id, team_id, player_id, event_type (open text), minute, period (open text), sub_player_on_id, sub_player_off_id, recorded_by_token + recorded_by_type, synced_at (NULL = recorded offline), local_timestamp.
 - `player_registrations` — player_id, competition_id, team_id, registration_number, status (active/suspended/ineligible), suspension_until/reason. UNIQUE(player_id, competition_id).
 

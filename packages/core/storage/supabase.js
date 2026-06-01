@@ -2240,6 +2240,26 @@ export async function venueGenerateFixtures(venueToken, competitionId, fixtures)
   return data;
 }
 
+// Phase 11 Cycle 11.1 — single-elimination cup: server builds the whole bracket
+// (cup_rounds + cup_ties + round-1 fixtures) from the seeded team order. Used instead
+// of venueGenerateFixtures for single_elimination cups. seedTeamIds is the ordered seed
+// list (top seeds first); unseeded active teams are appended server-side.
+export async function venuePersistCupBracket(venueToken, competitionId, scheduledDate, kickoffTime, playingAreaIds, seedTeamIds) {
+  const { data, error } = await supabase.rpc("venue_persist_cup_bracket", {
+    p_venue_token: venueToken,
+    p_competition_id: competitionId,
+    p_scheduled_date: scheduledDate,
+    p_kickoff_time: kickoffTime,
+    p_playing_area_ids: playingAreaIds || [],
+    p_seed_team_ids: seedTeamIds || null,
+  });
+  if (error) {
+    console.error("[venue] persist_cup_bracket failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.4 fixture management ──────────────────────
 
 export async function venueAssignPitch(venueToken, fixtureId, playingAreaId) {

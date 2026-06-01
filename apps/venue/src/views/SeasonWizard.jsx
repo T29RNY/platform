@@ -3,6 +3,7 @@ import {
   venueListActiveTeams,
   venueCreateSeason,
   venueGenerateFixtures,
+  venuePersistCupBracket,
   generateRoundRobin,
   generateCupBracket,
 } from "@platform/core";
@@ -101,16 +102,26 @@ export default function SeasonWizard({ state, venueToken, onClose, onDone }) {
         const created = createdComps.find((cc) => cc.name === def.name.trim());
         if (!created) throw new Error(`Competition not returned: ${def.name}`);
         const engineOut = previews.byName[def.name];
-        const payload = engineOut.fixtures.map((f) => ({
-          week_number: f.week_number,
-          home_team_id: f.home_team_id,
-          away_team_id: f.away_team_id,
-          scheduled_date: f.scheduled_date,
-          kickoff_time: f.kickoff_time,
-          playing_area_id: season.pitches[f.pitch_index] || null,
-          round_name: f.round_name || null,
-        }));
-        await venueGenerateFixtures(venueToken, created.id, payload);
+        if (def.type === "cup" && def.format === "single_elimination") {
+          // Single-elim: the server builds the whole bracket (rounds + ties + round-1
+          // fixtures) from the seeded team order. The client engine output above was
+          // preview-only. Round 1 plays on the season start date at the default kickoff.
+          await venuePersistCupBracket(
+            venueToken, created.id, season.start_date, season.default_kickoff_time,
+            season.pitches || [], def.team_ids
+          );
+        } else {
+          const payload = engineOut.fixtures.map((f) => ({
+            week_number: f.week_number,
+            home_team_id: f.home_team_id,
+            away_team_id: f.away_team_id,
+            scheduled_date: f.scheduled_date,
+            kickoff_time: f.kickoff_time,
+            playing_area_id: season.pitches[f.pitch_index] || null,
+            round_name: f.round_name || null,
+          }));
+          await venueGenerateFixtures(venueToken, created.id, payload);
+        }
       }
       onDone?.();
       onClose();

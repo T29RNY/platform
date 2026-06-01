@@ -76,6 +76,7 @@ export {
   refConfirmFullTime,
   venueCreateSeason,
   venueGenerateFixtures,
+  venuePersistCupBracket,
   venueAssignPitch,
   venueAssignRef,
   venueUpdateFixtureStatus,
