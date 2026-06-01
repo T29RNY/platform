@@ -288,11 +288,11 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
       ) : view === "players" ? (
         <ComingSoon
           title="Player management"
-          blurb="Every player across your teams — search, contact details, registration status and discipline — in one roster view."
+          blurb="A venue-wide player index — search every player across all your teams in one place, with discipline and registration status."
           points={[
-            "Needs a venue-scoped roster RPC (players are team-owned today).",
-            "Will read each approved team’s squad with consent-aware contact fields.",
-            "Links straight through from the Teams directory.",
+            "Per-team rosters are live now: open the Teams tab and click any team.",
+            "This aggregate view needs a cross-team index RPC (next).",
+            "Will fold in consent-aware contact fields and suspensions.",
           ]}
         />
       ) : view === "table" ? (
