@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import FixtureCard from "./FixtureCard.jsx";
 import Sidebar from "./Sidebar.jsx";
 import RegistrationActions from "./RegistrationActions.jsx";
@@ -14,6 +15,19 @@ const fmtNextDate = (d) => {
   if (!d) return "TBC";
   try { return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }); }
   catch (e) { return d; }
+};
+
+// Stagger the panels in like a broadcast graphics package booting up.
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+const panelVariants = {
+  hidden: { opacity: 0, y: 18, filter: "blur(6px)" },
+  show: {
+    opacity: 1, y: 0, filter: "blur(0px)",
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+  },
 };
 
 export default function Dashboard({ state, venueToken, occupancy = [], onRefresh, onRefreshOccupancy, refreshing }) {
@@ -56,7 +70,13 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
   const tonightRef = useRef(null);
   const ctaRef = useRef(null);
 
-  // Mouse-tracked spotlight on the TONIGHT hero panel.
+  // 3D broadcast-camera tilt on the TONIGHT hero — follows the cursor.
+  const tiltX = useMotionValue(0);
+  const tiltY = useMotionValue(0);
+  const rotX = useSpring(useTransform(tiltY, [-0.5, 0.5], [7, -7]), { stiffness: 140, damping: 18 });
+  const rotY = useSpring(useTransform(tiltX, [-0.5, 0.5], [-9, 9]), { stiffness: 140, damping: 18 });
+
+  // Mouse-tracked spotlight + tilt on the TONIGHT hero panel.
   useEffect(() => {
     const el = tonightRef.current; if (!el) return;
     let raf = 0;
@@ -66,10 +86,12 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
         const r = el.getBoundingClientRect();
         el.style.setProperty("--mx", `${e.clientX - r.left}px`);
         el.style.setProperty("--my", `${e.clientY - r.top}px`);
+        tiltX.set((e.clientX - r.left) / r.width - 0.5);
+        tiltY.set((e.clientY - r.top) / r.height - 0.5);
       });
     };
     const onEnter = () => el.classList.add("is-lit");
-    const onLeave = () => el.classList.remove("is-lit");
+    const onLeave = () => { el.classList.remove("is-lit"); tiltX.set(0); tiltY.set(0); };
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerenter", onEnter);
     el.addEventListener("pointerleave", onLeave);
@@ -79,7 +101,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
       el.removeEventListener("pointerenter", onEnter);
       el.removeEventListener("pointerleave", onLeave);
     };
-  }, []);
+  }, [tiltX, tiltY]);
 
   // Magnetic cursor pull on the primary CTA.
   useEffect(() => {
@@ -158,7 +180,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
           <h1 className="brand-line1" aria-label={venueName}>
             {venueName.split("").map((ch, i) => (
               <span key={i} className="brand-letter" style={{ animationDelay: `${80 + i * 28}ms` }}>
-                {ch === " " ? " " : ch}
+                {ch === " " ? " " : ch}
               </span>
             ))}
           </h1>
@@ -265,8 +287,18 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
       ) : view === "cups" ? (
         <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />
       ) : (
-      <main className="content dash-grid">
-        <section className="panel panel-tonight" ref={tonightRef}>
+      <motion.main
+        className="content dash-grid"
+        variants={gridVariants}
+        initial="hidden"
+        animate="show"
+      >
+        <motion.section
+          className="panel panel-tonight"
+          ref={tonightRef}
+          variants={panelVariants}
+          style={{ rotateX: rotX, rotateY: rotY, transformPerspective: 1200 }}
+        >
           {onAir && (
             <span className="live-badge">
               <span className="live-ring" />
@@ -275,6 +307,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
             </span>
           )}
           <div className="panel-tonight-spotlight" aria-hidden="true" />
+          <div className="hero-sweep" aria-hidden="true" />
           <h2>
             <span className="hero-eyebrow">Tonight</span>
             {tonight.length > 0 && <span className="panel-count">{tonight.length}</span>}
@@ -305,9 +338,9 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
               ))}
             </div>
           )}
-        </section>
+        </motion.section>
 
-        <section className="panel panel-issues">
+        <motion.section className="panel panel-issues" variants={panelVariants}>
           <h2>Open Issues {(pending.length + incidents.length) > 0 && <span className="panel-count">{pending.length + incidents.length}</span>}</h2>
           {pending.length === 0 && incidents.length === 0 ? (
             <p className="muted">Nothing to action. Quiet pit wall.</p>
@@ -328,9 +361,9 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
               ))}
             </div>
           )}
-        </section>
+        </motion.section>
 
-        <section className="panel panel-this-week">
+        <motion.section className="panel panel-this-week" variants={panelVariants}>
           <h2>This Week {restOfWeek.length > 0 && <span className="panel-count">{restOfWeek.length}</span>}</h2>
           {restOfWeek.length === 0 ? (
             <p className="muted">No other fixtures in the next 7 days.</p>
@@ -341,9 +374,9 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
               ))}
             </div>
           )}
-        </section>
+        </motion.section>
 
-        <section className="panel panel-recent">
+        <motion.section className="panel panel-recent" variants={panelVariants}>
           <h2>Recent Results {recent.length > 0 && <span className="panel-count">{recent.length}</span>}</h2>
           {recent.length === 0 ? (
             <p className="muted">No completed fixtures yet.</p>
@@ -354,9 +387,9 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
               ))}
             </div>
           )}
-        </section>
+        </motion.section>
 
-        <section className="panel panel-upcoming">
+        <motion.section className="panel panel-upcoming" variants={panelVariants}>
           <h2>Upcoming {upcoming.length > 0 && <span className="panel-count">{upcoming.length}</span>}</h2>
           {upcoming.length === 0 ? (
             <p className="muted">No fixtures further out.</p>
@@ -367,17 +400,17 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
               ))}
             </div>
           )}
-        </section>
+        </motion.section>
 
-        <aside className="panel panel-sidebar">
+        <motion.aside className="panel panel-sidebar" variants={panelVariants}>
           <Sidebar
             pitches={state.pitches ?? []}
             refs={state.refs ?? []}
             venueToken={venueToken}
             onDone={onRefresh}
           />
-        </aside>
-      </main>
+        </motion.aside>
+      </motion.main>
       )}
     </div>
   );
