@@ -1659,6 +1659,37 @@ input:focus, select:focus, textarea:focus {
 .status-active { color: var(--good); background: rgba(61,220,106,0.10); border-color: rgba(61,220,106,0.32); }
 .status-draft  { color: var(--warn); background: rgba(255,176,32,0.10); border-color: rgba(255,176,32,0.32); }
 
+/* Players (aggregate index) */
+.pv-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pv-filters { display: inline-flex; gap: 3px; padding: 3px; border-radius: 11px; background: var(--surface); border: 1px solid var(--stroke); }
+.pv-filter {
+  padding: 6px 13px; border-radius: 8px; border: 1px solid transparent; background: transparent;
+  font-size: 12px; font-weight: 600; color: var(--ink-mute); text-transform: capitalize;
+}
+.pv-filter:hover { background: transparent; border-color: transparent; transform: none; box-shadow: none; color: var(--ink); }
+.pv-filter.is-active { background: var(--surface-hi); color: var(--ink); }
+.pv-panel { padding: 8px; }
+.pv-list { display: flex; flex-direction: column; gap: 4px; }
+.pv-row {
+  display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 12px; border: 1px solid transparent;
+  transition: background 180ms var(--ease), border-color 180ms var(--ease);
+}
+.pv-row:hover { background: var(--surface); border-color: var(--stroke); }
+.pv-row.is-out { opacity: 0.5; }
+.pv-shirt {
+  flex: none; width: 36px; height: 36px; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--f-display); font-size: 18px; color: var(--accent);
+  background: var(--accent-soft); border: 1px solid rgba(232,160,32,0.30);
+  font-variant-numeric: tabular-nums;
+}
+.pv-id { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pv-name { font-size: 15px; font-weight: 600; color: var(--ink); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pv-nick { font-size: 12px; font-weight: 400; color: var(--ink-mute); }
+.pv-team { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-mute); }
+.pv-tick { flex: none; width: 4px; height: 14px; border-radius: 2px; }
+
 /* League Table (standings) */
 .lt-select { min-width: 200px; }
 .lt-panel { padding: 6px 6px 8px; overflow: hidden; }

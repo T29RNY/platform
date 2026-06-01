@@ -105,6 +105,7 @@ export {
   venueUpdateStaff,
   venueGetTeamRoster,
   venueGetStandings,
+  venueListPlayers,
   getLeagueConfig,
   getCompanyByDomain,
   searchBookableVenues,

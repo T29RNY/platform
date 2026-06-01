@@ -477,6 +477,7 @@ JS wrappers land with the consuming UI (Stages 5/6).
 | `venue_update_staff(p_venue_token, p_staff_id, p_updates)` | `venueUpdateStaff(token, id, updates)` | anon, authenticated | **WRITE** (mig 195, ephemeral-verify gated). Patches a venue-owned `venue_staff` row (ownership-checked → `staff_not_found`). Audit `staff_updated`; `notify_venue_change('staff_updated')`. *Consumer: `apps/venue` StaffMemberForm.* |
 | `venue_get_team_roster(p_venue_token, p_team_id)` | `venueGetTeamRoster(token, teamId)` | anon, authenticated | Read. Returns `{ ok, team, players[], competitions[] }` for a team that plays in one of the caller's competitions (ownership via competition_teams→competitions→seasons→leagues→venue_id → `team_not_in_venue`). Excludes token/user_id/phone. mig 196. *Consumer: `apps/venue` TeamDetail.* |
 | `venue_get_standings(p_venue_token, p_competition_id)` | `venueGetStandings(token, compId)` | anon, authenticated | Read. League table for a round-robin competition, computed from completed/walkover/forfeit fixtures (walkover/forfeit = 3-0). Ranked pts→gd→gf→name. Ownership via competition→season→league→venue_id → `competition_not_in_venue`. mig 197. *Consumer: `apps/venue` LeagueTable.* |
+| `venue_list_players(p_venue_token)` | `venueListPlayers(token)` | anon, authenticated | Read. Every player across all teams in the caller's competitions (one row per player·team), with team name/colour + stats. Excludes token/user_id/phone. mig 198. *Consumer: `apps/venue` PlayersView.* |
 
 ---
 

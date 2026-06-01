@@ -13,7 +13,7 @@ import TeamsView from "./TeamsView.jsx";
 import StaffView from "./StaffView.jsx";
 import LeagueView from "./LeagueView.jsx";
 import LeagueTable from "./LeagueTable.jsx";
-import ComingSoon from "./ComingSoon.jsx";
+import PlayersView from "./PlayersView.jsx";
 
 // "Sat 7 Jun" — short next-fixture date for the empty Tonight hero.
 const fmtNextDate = (d) => {
@@ -287,15 +287,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
       ) : view === "league" ? (
         <LeagueView state={state} onNewSeason={() => setWizardOpen(true)} />
       ) : view === "players" ? (
-        <ComingSoon
-          title="Player management"
-          blurb="A venue-wide player index — search every player across all your teams in one place, with discipline and registration status."
-          points={[
-            "Per-team rosters are live now: open the Teams tab and click any team.",
-            "This aggregate view needs a cross-team index RPC (next).",
-            "Will fold in consent-aware contact fields and suspensions.",
-          ]}
-        />
+        <PlayersView venueToken={venueToken} />
       ) : view === "table" ? (
         <LeagueTable state={state} venueToken={venueToken} />
       ) : (

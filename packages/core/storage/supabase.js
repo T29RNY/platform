@@ -2820,6 +2820,18 @@ export async function venueGetStandings(venueToken, competitionId) {
   return data;
 }
 
+// ── All players across the venue's teams (Players view) — mig 198 ──
+export async function venueListPlayers(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_players", {
+    p_venue_token: venueToken,
+  });
+  if (error) {
+    console.error("[venue] list_players failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function venueUpdateRef(venueToken, refId, updates) {
   const { data, error } = await supabase.rpc("venue_update_ref", {
     p_venue_token: venueToken,
