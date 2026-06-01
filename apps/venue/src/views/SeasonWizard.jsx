@@ -57,12 +57,20 @@ export default function SeasonWizard({ state, venueToken, onClose, onDone }) {
     try {
       const out = {};
       let total = 0;
+      const pitchCount = season.pitches.length || 1;
       for (const c of competitions) {
+        // A venue runs back-to-back kickoffs through the evening, not one game
+        // per pitch. Derive enough staggered slots (default kickoff + 60-min
+        // steps) to fit the busiest round across the chosen pitches, so the
+        // scheduler never reports false "capacity" for a normal league.
+        const fixturesPerRound = Math.floor(c.team_ids.length / 2);
+        const slotsNeeded = Math.max(1, Math.ceil(fixturesPerRound / pitchCount));
+        const slotTimes = makeSlots(season.default_kickoff_time, slotsNeeded, 60);
         const opts = {
           teams: c.team_ids,
           startDate: season.start_date,
-          pitches: season.pitches.length || 1,
-          slotTimes: [season.default_kickoff_time],
+          pitches: pitchCount,
+          slotTimes,
         };
         let r;
         if (c.format === "round_robin") {
@@ -86,7 +94,7 @@ export default function SeasonWizard({ state, venueToken, onClose, onDone }) {
       }
       setPreviews({ byName: out, total });
     } catch (e) {
-      setPreviews({ error: e?.code || e?.message || String(e) });
+      setPreviews({ error: friendlyEngineError(e, season) });
     }
   }
 
@@ -389,6 +397,32 @@ function validBasics(s) {
 function parseExclude(text) {
   if (!text) return [];
   return text.split(",").map((x) => parseInt(x.trim(), 10)).filter((n) => Number.isInteger(n) && n > 0);
+}
+// Build `count` staggered kickoff times from a start time, stepping `stepMin`
+// minutes each, e.g. makeSlots("19:30", 3) → ["19:30","20:30","21:30"].
+function makeSlots(start, count, stepMin = 60) {
+  const m = String(start || "19:30").match(/^(\d{1,2}):(\d{2})/);
+  let base = m ? Number(m[1]) * 60 + Number(m[2]) : 19 * 60 + 30;
+  const slots = [];
+  for (let i = 0; i < Math.max(1, count); i++) {
+    const t = (base + i * stepMin) % (24 * 60);
+    slots.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
+  }
+  return slots;
+}
+// Turn raw engine error codes into something an operator can act on.
+function friendlyEngineError(e, season) {
+  const code = e?.code || e?.message || String(e);
+  const pitches = season?.pitches?.length || 0;
+  if (code === "capacity_insufficient") {
+    return pitches < 1
+      ? "No pitches selected. Go back to Basics and tick at least one pitch."
+      : "Too many teams to fit the evening on the pitches selected. Add another pitch in Basics, or split the teams into a second competition.";
+  }
+  if (code === "weeks_insufficient") return "Not enough weeks for a full round. Increase the week count in Basics.";
+  if (code === "teams_too_few") return "A competition needs at least two teams. Add more on the Teams step.";
+  if (code === "duplicate_teams") return "A team is listed twice in one competition. Remove the duplicate on the Teams step.";
+  return code;
 }
 function addDays(iso, days) {
   const d = new Date(iso + "T00:00:00");

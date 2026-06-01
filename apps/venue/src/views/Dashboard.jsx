@@ -9,6 +9,10 @@ import BookingsView from "./BookingsView.jsx";
 import PaymentsView from "./PaymentsView.jsx";
 import BracketView from "./BracketView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
+import TeamsView from "./TeamsView.jsx";
+import StaffView from "./StaffView.jsx";
+import LeagueView from "./LeagueView.jsx";
+import ComingSoon from "./ComingSoon.jsx";
 
 // "Sat 7 Jun" — short next-fixture date for the empty Tonight hero.
 const fmtNextDate = (d) => {
@@ -191,11 +195,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
         </div>
 
         <div className="topbar-mid">
-          {view === "ops" ? (
-            <WeekPulse fixtures={fixtures} today={now} />
-          ) : (
-            <span className="brand-line2">Pitch bookings</span>
-          )}
+          {view === "ops" && <WeekPulse fixtures={fixtures} today={now} />}
         </div>
 
         <div className="topbar-right">
@@ -228,33 +228,26 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
       </div>
 
       <nav className="viewnav" aria-label="Dashboard sections">
-        <button
-          className={"viewnav-tab" + (view === "ops" ? " is-active" : "")}
-          onClick={() => setView("ops")}
-        >
-          Operations
-        </button>
-        <button
-          className={"viewnav-tab" + (view === "bookings" ? " is-active" : "")}
-          onClick={() => setView("bookings")}
-        >
-          Bookings
-          {pendingCount > 0 && <span className="viewnav-badge">{pendingCount}</span>}
-        </button>
-        <button
-          className={"viewnav-tab" + (view === "payments" ? " is-active" : "")}
-          onClick={() => setView("payments")}
-        >
-          Payments
-        </button>
-        {hasCups && (
+        {[
+          { id: "ops",      label: "Operations" },
+          { id: "bookings", label: "Bookings", badge: pendingCount },
+          { id: "payments", label: "Payments" },
+          { id: "teams",    label: "Teams" },
+          { id: "players",  label: "Players" },
+          { id: "staff",    label: "Staff" },
+          { id: "league",   label: "League" },
+          { id: "table",    label: "Table" },
+          ...(hasCups ? [{ id: "cups", label: "Cups" }] : []),
+        ].map((t) => (
           <button
-            className={"viewnav-tab" + (view === "cups" ? " is-active" : "")}
-            onClick={() => setView("cups")}
+            key={t.id}
+            className={"viewnav-tab" + (view === t.id ? " is-active" : "")}
+            onClick={() => setView(t.id)}
           >
-            Cups
+            {t.label}
+            {t.badge > 0 && <span className="viewnav-badge">{t.badge}</span>}
           </button>
-        )}
+        ))}
       </nav>
 
       <DisplaySettings
@@ -286,6 +279,32 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
         <PaymentsView state={state} venueToken={venueToken} />
       ) : view === "cups" ? (
         <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />
+      ) : view === "teams" ? (
+        <TeamsView venueToken={venueToken} />
+      ) : view === "staff" ? (
+        <StaffView state={state} venueToken={venueToken} onRefresh={onRefresh} />
+      ) : view === "league" ? (
+        <LeagueView state={state} onNewSeason={() => setWizardOpen(true)} />
+      ) : view === "players" ? (
+        <ComingSoon
+          title="Player management"
+          blurb="Every player across your teams — search, contact details, registration status and discipline — in one roster view."
+          points={[
+            "Needs a venue-scoped roster RPC (players are team-owned today).",
+            "Will read each approved team’s squad with consent-aware contact fields.",
+            "Links straight through from the Teams directory.",
+          ]}
+        />
+      ) : view === "table" ? (
+        <ComingSoon
+          title="League table"
+          blurb="Live standings for every round-robin competition — played, won, drawn, lost, goals for/against, goal difference and points, ranked your way."
+          points={[
+            "Needs a venue standings RPC computed from completed fixtures.",
+            "Group-stage cup tables already render under the Cups tab.",
+            "Will honour each league’s public / private standings setting.",
+          ]}
+        />
       ) : (
       <motion.main
         className="content dash-grid"
