@@ -303,6 +303,33 @@ The operator-facing recording surface over the V2 RPCs. **Frontend-only — no D
 - **Next:** V4 = HQ revenue / collection-rate / outstanding cards into the HQ analytics
   registry (= HQ-I Phase 2). Optional V3.1 first for per-fixture charge add/void + payment_link.
 
+### VENUE PAYMENTS LEDGER V3.1 SHIPPED — per-fixture add/void + pay-link (session 64, 2026-06-01)
+
+Finishes the operator's manual control over the ledger. **mig 183** (2 new write RPCs + 2 rebuilt).
+
+- **`venue_add_fixture_charge(token, fixture_id, team_id, amount?)`** — manual per-team fixture
+  charge (the "this team also pays" toggle). Amount = explicit arg or `league_config.fixture_fee_pence`.
+  Validates fixture∈venue + team∈fixture. Idempotent vs `venue_charges_source_uniq`: a refunded
+  charge for the same (fixture, team) is **reactivated** (status cleared off `refunded` then
+  recomputed from kept payments) rather than duplicated.
+- **`venue_void_charge(token, charge_id)`** — status → `refunded` (drops out of owed/collected),
+  payments kept in history; mirrors the V2 fixture-void hook. Idempotent (`already:true` if voided).
+- **`payment_link`** — added to the `venue_update_booking_settings` whitelist (validated `^https?://`,
+  blank clears) and **exposed on `venue_get_state`'s venue object** (was missing — PaymentsView read
+  `venue.payment_link` but it was always null).
+- **apps/venue PaymentsView** — Add-charge modal (fixture + team + optional amount), per-row Void
+  button, inline pay-link editor; fixed `teamName` to read the `state.teams` map (was looking up a
+  non-existent `leagues[].teams`). 2 supabase.js wrappers + barrel. Minimal V3.1 CSS; full polish
+  deferred to the venue design pass.
+- **Verified:** **ephemeral-verify 13/13** against an `_e2e_` fixture (add-default · record-partial ·
+  dup-rejected · void · reactivate→partial · add-away · get_charges owed4000/coll400/rate10 ·
+  pay-link roundtrip · bad-token · team-not-in-fixture · amount-invalid · void-not-found ·
+  bad-link), leak-check 0. **EV caught a real bug:** reactivation left status `refunded` because
+  `_recompute_charge_status` preserves the terminal state — fixed by clearing to `unpaid` first.
+  rpc-security 4/4 PASS (secdef+search_path+1-overload+anon/auth). venue + inorout builds clean;
+  casual-regression PASS (packages/core change additive-only, no apps/inorout/src touched).
+  **Operator owes:** logged-in venue pass (add a charge, void one, set the pay link).
+
 ### VENUE PAYMENTS LEDGER V4 SHIPPED = HQ-I PHASE 2 (Revenue & Leakage) (session 64, 2026-06-01)
 
 Surfaces the V1–V3 ledger into HQ. **mig 182** (3 functions, all read/immutable — no write

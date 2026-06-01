@@ -111,6 +111,8 @@ export {
   venueRecordPayment,
   venueVoidPayment,
   venueSetChargeDue,
+  venueAddFixtureCharge,
+  venueVoidCharge,
   confirmRenewal,
   getDisplayState,
   checkDisplayPin,

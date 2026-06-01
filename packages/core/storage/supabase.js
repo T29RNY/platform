@@ -2395,6 +2395,20 @@ export async function venueSetChargeDue(venueToken, chargeId, amountPence) {
   return data;
 }
 
+// ── Venue Payments Ledger V3.1 (mig 183) — per-fixture charge add/void ────────
+export async function venueAddFixtureCharge(venueToken, fixtureId, teamId, amountPence = null) {
+  const { data, error } = await supabase.rpc("venue_add_fixture_charge", {
+    p_venue_token: venueToken, p_fixture_id: fixtureId, p_team_id: teamId, p_amount_pence: amountPence });
+  if (error) { console.error("[payments] venue_add_fixture_charge failed", error); throw error; }
+  return data;
+}
+
+export async function venueVoidCharge(venueToken, chargeId) {
+  const { data, error } = await supabase.rpc("venue_void_charge", { p_venue_token: venueToken, p_charge_id: chargeId });
+  if (error) { console.error("[payments] venue_void_charge failed", error); throw error; }
+  return data;
+}
+
 // League Mode Phase 4 — Reception Display (mig 164–167).
 // Display token is the auth signal (read-only, on the TV); never the venue_admin_token.
 export async function getDisplayState(displayToken) {
