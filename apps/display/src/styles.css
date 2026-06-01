@@ -353,3 +353,29 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ── Phase 11 Cycle 11.3b — cup bracket zone ────────────────────────────── */
+.bkt-champion {
+  font-family: var(--font-display); font-size: 1.4rem; color: var(--gold);
+  padding: 0.4rem 0.8rem; margin-bottom: 0.8rem; letter-spacing: 0.02em;
+}
+.bkt-rounds { display: flex; gap: 1.4rem; align-items: stretch; overflow-x: auto; height: 100%; }
+.bkt-round { display: flex; flex-direction: column; gap: 0.8rem; justify-content: space-around; min-width: 9rem; }
+.bkt-round-name {
+  font-family: var(--font-ui); font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 0.2rem;
+}
+.bkt-tie {
+  border: 1px solid var(--panel-border); border-radius: 0.5rem; background: var(--panel);
+  overflow: hidden;
+}
+.bkt-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  padding: 0.45rem 0.7rem; font-family: var(--font-ui); font-size: 1rem; color: var(--ink);
+  border-bottom: 1px solid var(--panel-border);
+}
+.bkt-tie .bkt-row:last-child { border-bottom: none; }
+.bkt-row.win { color: var(--gold); font-weight: 700; }
+.bkt-row.bkt-bye { color: var(--ink-faint); font-style: italic; }
+.bkt-team { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bkt-score { font-family: var(--font-mono); font-weight: 700; }

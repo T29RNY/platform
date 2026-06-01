@@ -4,6 +4,7 @@ import PinGate from "./components/PinGate.jsx";
 import DisplayHeader from "./components/DisplayHeader.jsx";
 import LiveScoresZone from "./components/LiveScoresZone.jsx";
 import StandingsZone from "./components/StandingsZone.jsx";
+import BracketZone from "./components/BracketZone.jsx";
 import TopScorersZone from "./components/TopScorersZone.jsx";
 import UpcomingRecentZone from "./components/UpcomingRecentZone.jsx";
 import GoalsTicker from "./components/GoalsTicker.jsx";
@@ -171,7 +172,11 @@ export default function App() {
         </div>
 
         <div className="col-right">
-          {has("standings") && <StandingsZone competition={shownComp} isLive={shownCompIsLive} />}
+          {has("standings") && (
+            shownComp?.type === "cup"
+              ? <BracketZone competition={shownComp} version={state.server_time} />
+              : <StandingsZone competition={shownComp} isLive={shownCompIsLive} />
+          )}
         </div>
 
         {has("goals_ticker") && (

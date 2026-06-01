@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { getPlayerCompetitionFixtures } from "@platform/core";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import FixtureDetailCard from "./FixtureDetailCard";
+import BracketOverlay from "./BracketOverlay";
 
 // League Mode Phase 5 Cycle 5.3 — read-only competition fixtures on my-view.
 // Self-gating: a casual player's token returns no fixtures, so the whole card
@@ -12,6 +13,7 @@ export default function CompetitionFixturesCard({ playerToken, currentTeamId, fi
   const [fetched, setFetched] = useState([]);
   const [open, setOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
+  const [bracketComp, setBracketComp] = useState(null);
 
   // PlayerView lifts the fetch and passes `fixtures` so the board header and this
   // card share one request. Fall back to self-fetch if used standalone.
@@ -30,6 +32,12 @@ export default function CompetitionFixturesCard({ playerToken, currentTeamId, fi
   const PAST_STATUSES = ["completed", "walkover", "forfeit", "void"];
   const upcoming = fixtures.filter(f => f.status === "scheduled");
   const past = fixtures.filter(f => PAST_STATUSES.includes(f.status)).reverse();
+
+  // Distinct cup competitions in the player's fixtures → a "Bracket" entry each.
+  const cups = Array.from(new Map(
+    fixtures.filter(f => f.competition_type === "cup")
+      .map(f => [f.competition_id, { id: f.competition_id, name: f.competition_name }])
+  ).values());
 
   const fmtDate = (iso) => {
     if (!iso) return "Date TBC";
@@ -162,9 +170,24 @@ export default function CompetitionFixturesCard({ playerToken, currentTeamId, fi
         }}>
           FIXTURES
         </span>
-        {open
-          ? <CaretUp   weight="thin" size={16} color="var(--t2)" />
-          : <CaretDown weight="thin" size={16} color="var(--t2)" />}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {cups.map(c => (
+            <button
+              key={c.id}
+              onClick={(e) => { e.stopPropagation(); setBracketComp(c); }}
+              style={{
+                fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 500,
+                color: "var(--t1)", background: "var(--s1)", cursor: "pointer",
+                border: "0.5px solid rgba(255,255,255,0.14)", borderRadius: 6, padding: "4px 9px",
+              }}
+            >
+              {cups.length > 1 ? `${c.name} bracket` : "Bracket"}
+            </button>
+          ))}
+          {open
+            ? <CaretUp   weight="thin" size={16} color="var(--t2)" />
+            : <CaretDown weight="thin" size={16} color="var(--t2)" />}
+        </div>
       </div>
 
       {open && (
@@ -185,6 +208,14 @@ export default function CompetitionFixturesCard({ playerToken, currentTeamId, fi
             </>
           )}
         </div>
+      )}
+
+      {bracketComp && (
+        <BracketOverlay
+          competitionId={bracketComp.id}
+          competitionName={bracketComp.name}
+          onClose={() => setBracketComp(null)}
+        />
       )}
     </div>
   );
