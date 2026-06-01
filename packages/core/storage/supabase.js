@@ -2062,6 +2062,30 @@ export async function leagueGetState(leagueToken) {
   return data;
 }
 
+// League dashboard companions — mig 199 (teams) + mig 200 (standings).
+export async function leagueListTeams(leagueToken) {
+  const { data, error } = await supabase.rpc("league_list_teams", {
+    p_league_token: leagueToken,
+  });
+  if (error) {
+    console.error("[league] list_teams failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function leagueGetStandings(leagueToken, competitionId) {
+  const { data, error } = await supabase.rpc("league_get_standings", {
+    p_league_token: leagueToken,
+    p_competition_id: competitionId,
+  });
+  if (error) {
+    console.error("[league] get_standings failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function joinGetLeagueByCode(leagueCode) {
   if (!leagueCode) return null;
   const { data, error } = await supabase.rpc("join_get_league_by_code", {

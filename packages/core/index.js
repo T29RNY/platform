@@ -61,6 +61,8 @@ export {
   getHqPreviewState,
   venueGetState,
   leagueGetState,
+  leagueListTeams,
+  leagueGetStandings,
   joinGetLeagueByCode,
   getLeagueStandingsForPlayer,
   getPlayerCompetitionFixtures,
