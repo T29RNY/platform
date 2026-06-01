@@ -7,10 +7,12 @@ export default function FixtureCard({ fx, state, venueToken, onDone, prominent, 
   const teams = state.teams || {};
   const home = teams[fx.home_team_id]?.name || fx.home_team_id;
   const away = fx.away_team_id ? (teams[fx.away_team_id]?.name || fx.away_team_id) : "(bye)";
+  const homeCol = teams[fx.home_team_id]?.primary_colour || "var(--accent)";
+  const awayCol = teams[fx.away_team_id]?.primary_colour || "var(--ink-faint)";
   const pitch = lookupPitch(state, fx.playing_area_id);
   const ref = lookupRef(state, fx.official_id);
   const dateStr = fx.scheduled_date ? formatDate(fx.scheduled_date) : "—";
-  const timeStr = fx.kickoff_time ? formatTime(fx.kickoff_time) : "";
+  const timeStr = fx.kickoff_time ? formatTime(fx.kickoff_time) : "TBC";
 
   const cls =
     "fx" +
@@ -26,19 +28,29 @@ export default function FixtureCard({ fx, state, venueToken, onDone, prominent, 
     <div className={cls}>
       <div className="fx-hover-sweep" aria-hidden="true" />
 
-      <div className="fx-main">
-        <div className="fx-when">
-          {timeStr && <div className="fx-time">{timeStr}</div>}
-          <div className="fx-date">{dateStr}</div>
-        </div>
-        <div className="fx-teams">
-          <div className="fx-team fx-home">{home}</div>
-          {renderScore(fx, animateScore)}
-          <div className="fx-team fx-away">{away}</div>
-        </div>
+      {/* Band 1 — kickoff + status, on opposite ends so they never collide */}
+      <div className="fx-top">
+        <span className="fx-kick">
+          <span className="fx-time">{timeStr}</span>
+          <span className="fx-date">{dateStr}</span>
+        </span>
         <span className="fx-status-pill">{labelStatus(fx)}</span>
       </div>
 
+      {/* Band 2 — the matchup, its own full-width row */}
+      <div className="fx-teams">
+        <span className="fx-team fx-home">
+          <span className="fx-tick" style={{ background: homeCol }} />
+          <span className="fx-team-name">{home}</span>
+        </span>
+        {renderScore(fx, animateScore)}
+        <span className="fx-team fx-away">
+          <span className="fx-team-name">{away}</span>
+          <span className="fx-tick" style={{ background: awayCol }} />
+        </span>
+      </div>
+
+      {/* Band 3 — pitch/ref + actions */}
       {showFoot && (
         <div className="fx-foot">
           <div className="fx-tags">
@@ -59,17 +71,17 @@ function renderScore(fx, animate) {
   if (fx.status === "completed" && fx.home_score != null && fx.away_score != null) {
     return (
       <div className="fx-score">
-        <CountUp value={fx.home_score} enabled={!!animate} /> – <CountUp value={fx.away_score} enabled={!!animate} />
+        <CountUp value={fx.home_score} enabled={!!animate} /><span className="fx-score-sep">–</span><CountUp value={fx.away_score} enabled={!!animate} />
       </div>
     );
   }
   if (fx.status === "walkover" && fx.walkover_winner_id) {
     const wantHome = fx.walkover_winner_id === fx.home_team_id;
-    return <div className="fx-score fx-score-walkover">{wantHome ? "3 – 0" : "0 – 3"}</div>;
+    return <div className="fx-score fx-score-walkover">{wantHome ? "3–0" : "0–3"}</div>;
   }
   if (fx.status === "forfeit" && fx.forfeit_winner_id) {
     const wantHome = fx.forfeit_winner_id === fx.home_team_id;
-    return <div className="fx-score fx-score-forfeit">{wantHome ? "3 – 0" : "0 – 3"}</div>;
+    return <div className="fx-score fx-score-forfeit">{wantHome ? "3–0" : "0–3"}</div>;
   }
   return <div className="fx-score-vs">vs</div>;
 }

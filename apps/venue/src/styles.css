@@ -460,10 +460,10 @@ input:focus, select:focus, textarea:focus {
   background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
   opacity: 0.5;
 }
-@container (max-width: 430px) {
-  .fx-main { grid-template-columns: 52px 1fr auto; gap: 10px; }
-  .fx-team { font-size: 18px; }
-  .fx-score { font-size: 28px; min-width: 64px; }
+@container (max-width: 380px) {
+  .fx-teams { gap: 8px; }
+  .fx-team-name { font-size: 17px; }
+  .fx-score { font-size: 26px; }
   .issue-row {
     grid-template-columns: auto 1fr;
     grid-template-areas: "tag title" "act act";
@@ -556,15 +556,14 @@ input:focus, select:focus, textarea:focus {
   100% { box-shadow: 0 0 0 0    rgba(255, 64, 64, 0);    }
 }
 
-/* ── Fixture rows — scoreboard (robust two-line layout) ── */
-.fixture-list {
-  display: flex; flex-direction: column; gap: 8px;
-  margin: 0 -6px;
-}
+/* ── Fixture card — three clean bands: kickoff/status · matchup · meta.
+   Each band owns its own row so long team names, the score, and the status
+   chip never fight for the same horizontal space. ── */
+.fixture-list { display: flex; flex-direction: column; gap: 10px; margin: 0; }
 .fx {
-  display: flex; flex-direction: column; gap: 0;
-  padding: 4px 12px;
-  border-radius: 14px;
+  display: flex; flex-direction: column;
+  padding: 0 16px;
+  border-radius: 16px;
   border: 1px solid var(--stroke);
   background: var(--surface);
   transition: transform 240ms var(--spring), background 240ms var(--ease), border-color 240ms var(--ease), box-shadow 240ms var(--ease);
@@ -578,129 +577,101 @@ input:focus, select:focus, textarea:focus {
   transform: translateY(-1px);
   box-shadow: 0 12px 26px -16px rgba(0,0,0,0.55);
 }
-/* Line 1: time · teams+score · status */
-.fx-main {
+
+/* Band 1 — kickoff (left) · status (right) */
+.fx-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 13px 0 0;
+}
+.fx-kick { display: inline-flex; align-items: baseline; gap: 9px; min-width: 0; }
+.fx-time {
+  font-family: var(--f-display); font-size: 22px; font-weight: 400;
+  color: var(--ink); letter-spacing: 0.02em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.fx-date {
+  font-family: var(--f-mono); font-size: 10px; color: var(--ink-mute);
+  letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
+}
+
+/* Band 2 — the matchup, full width */
+.fx-teams {
   display: grid;
-  grid-template-columns: 64px 1fr auto;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 14px;
-  padding: 12px 2px;
+  padding: 13px 0 15px;
+  min-width: 0;
 }
-/* Line 2: pitch / ref tags · actions */
+.fx-team { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.fx-home { justify-content: flex-end; }
+.fx-away { justify-content: flex-start; }
+.fx-team-name {
+  font-family: var(--f-display); font-weight: 400; font-size: 22px;
+  color: var(--ink); letter-spacing: 0.018em; line-height: 1.0;
+  text-transform: uppercase; overflow-wrap: anywhere;
+}
+.fx-home .fx-team-name { text-align: right; }
+.fx-away .fx-team-name { text-align: left; }
+.fx-tick { flex: none; width: 4px; height: 26px; border-radius: 2px; opacity: 0.9; }
+
+.fx-score, .fx-score-vs {
+  font-family: var(--f-display); font-weight: 400; font-size: 32px;
+  letter-spacing: 0.02em; text-align: center; color: var(--ink);
+  font-variant-numeric: tabular-nums; line-height: 0.9; white-space: nowrap;
+  display: inline-flex; align-items: baseline; justify-content: center;
+}
+.fx-score-sep { color: var(--ink-faint); margin: 0 7px; }
+.fx-score-vs {
+  font-size: 15px; color: var(--ink-faint); letter-spacing: 0.12em;
+}
+.fx-score-walkover, .fx-score-forfeit { color: var(--warn); font-size: 24px; }
+
+/* Band 3 — pitch / ref tags (left) · actions (right) */
 .fx-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   flex-wrap: wrap;
-  padding: 9px 2px 11px;
+  padding: 10px 0 12px;
   border-top: 1px dashed var(--stroke);
 }
 .fx-tags { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-height: 22px; }
 .fx-tag-none { font-size: 12px; color: var(--ink-faint); }
+.fx-pitch, .fx-ref {
+  font-family: var(--f-body); font-size: 12px; color: var(--ink-soft);
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.fx-pitch::before { content: ""; width: 6px; height: 6px; border-radius: 2px; background: var(--accent); }
+.fx-ref::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); }
 
+/* Prominent (Tonight) — the main camera */
 .fx-prominent {
-  padding: 6px 18px;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.04), transparent 30%),
     var(--surface-hi);
   border: 1px solid var(--stroke-2);
-  border-radius: 16px;
   box-shadow:
     0 1px 0 rgba(255,255,255,0.07) inset,
     0 20px 40px -22px rgba(0,0,0,0.7),
     0 0 0 1px var(--accent-soft);
 }
 .fx-prominent::before {
-  content: "";
-  position: absolute; inset: 0;
+  content: ""; position: absolute; inset: 0;
   background: radial-gradient(ellipse 80% 70% at 88% 0%, var(--accent-soft), transparent 58%);
-  pointer-events: none;
-  opacity: 0.9;
+  pointer-events: none; opacity: 0.9;
 }
-.fx-prominent .fx-main { grid-template-columns: 78px 1fr auto; padding: 18px 2px; }
-.fx-prominent .fx-team  { font-size: 28px; }
-.fx-prominent .fx-score, .fx-prominent .fx-score-vs { font-size: 46px; min-width: 96px; }
+.fx-prominent .fx-time { font-size: 26px; }
+.fx-prominent .fx-team-name { font-size: 27px; }
+.fx-prominent .fx-score { font-size: 46px; }
+.fx-prominent .fx-tick { height: 32px; }
 
-.fx-compact .fx-main { grid-template-columns: 56px 1fr auto; padding: 9px 2px; }
-.fx-compact .fx-team { font-size: 18px; }
-.fx-compact .fx-score, .fx-compact .fx-score-vs { font-size: 22px; min-width: 54px; }
-.fx-compact .fx-time { font-size: 21px; }
-
-/* When column */
-.fx-when { display: flex; flex-direction: column; gap: 1px; }
-.fx-date {
-  font-family: var(--f-mono);
-  font-size: 10px;
-  color: var(--ink-mute);
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-.fx-time {
-  font-family: var(--f-display);
-  font-size: 26px;
-  font-weight: 400;
-  color: var(--ink);
-  letter-spacing: 0.02em;
-  line-height: 0.9;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Teams */
-.fx-teams {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.fx-team {
-  font-family: var(--f-display);
-  font-style: normal;
-  font-weight: 400;
-  font-size: 22px;
-  color: var(--ink);
-  letter-spacing: 0.018em;
-  line-height: 0.98;
-  text-transform: uppercase;
-  min-width: 0;
-}
-.fx-home { text-align: right; }
-.fx-away { text-align: left; }
-
-.fx-score, .fx-score-vs {
-  font-family: var(--f-display);
-  font-weight: 400;
-  font-size: 34px;
-  letter-spacing: 0.02em;
-  text-align: center;
-  min-width: 76px;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  line-height: 0.9;
-}
-.fx-score-vs {
-  font-size: 18px;
-  color: var(--ink-faint);
-  letter-spacing: 0.08em;
-}
-.fx-score-walkover, .fx-score-forfeit { color: var(--warn); }
-
-/* Pitch / ref tags */
-.fx-pitch, .fx-ref {
-  font-family: var(--f-body);
-  font-size: 12px;
-  color: var(--ink-soft);
-  letter-spacing: 0;
-  display: inline-flex; align-items: center; gap: 7px;
-}
-.fx-pitch::before {
-  content: "";
-  width: 6px; height: 6px; border-radius: 2px;
-  background: var(--accent);
-}
-.fx-ref::before {
-  content: "";
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--ink-faint);
-}
+/* Compact (Recent / Upcoming) */
+.fx-compact { border-radius: 14px; }
+.fx-compact .fx-top { padding-top: 11px; }
+.fx-compact .fx-time { font-size: 19px; }
+.fx-compact .fx-team-name { font-size: 18px; }
+.fx-compact .fx-score { font-size: 23px; }
+.fx-compact .fx-teams { padding: 10px 0 12px; }
+.fx-compact .fx-tick { height: 20px; }
 
 /* Status chip — broadcast caption */
 .fx-status-pill {
