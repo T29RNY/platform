@@ -2086,6 +2086,22 @@ export async function leagueGetStandings(leagueToken, competitionId) {
   return data;
 }
 
+// League write — correct a completed fixture's score (mig 201).
+export async function leagueUpdateFixtureResult(leagueToken, fixtureId, homeScore, awayScore, reason) {
+  const { data, error } = await supabase.rpc("league_update_fixture_result", {
+    p_league_token: leagueToken,
+    p_fixture_id: fixtureId,
+    p_home_score: homeScore,
+    p_away_score: awayScore,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("[league] update_fixture_result failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function joinGetLeagueByCode(leagueCode) {
   if (!leagueCode) return null;
   const { data, error } = await supabase.rpc("join_get_league_by_code", {

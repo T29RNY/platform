@@ -113,7 +113,7 @@ export default function Dashboard({ state, teams, leagueToken, onRefresh, refres
               <p className="muted">No fixtures scheduled this week.</p>
             ) : (
               <div className="fixture-list">
-                {thisWeek.map((f) => <FixtureCard key={f.id} fx={f} teams={teams} />)}
+                {thisWeek.map((f) => <FixtureCard key={f.id} fx={f} teams={teams} leagueToken={leagueToken} onDone={onRefresh} />)}
               </div>
             )}
           </motion.section>
@@ -124,7 +124,7 @@ export default function Dashboard({ state, teams, leagueToken, onRefresh, refres
               <p className="muted">No completed fixtures yet.</p>
             ) : (
               <div className="fixture-list">
-                {recent.slice(0, 12).map((f) => <FixtureCard key={f.id} fx={f} teams={teams} compact />)}
+                {recent.slice(0, 12).map((f) => <FixtureCard key={f.id} fx={f} teams={teams} compact leagueToken={leagueToken} onDone={onRefresh} />)}
               </div>
             )}
           </motion.section>

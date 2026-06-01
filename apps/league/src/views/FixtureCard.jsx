@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
+import ResultModal from "./ResultModal.jsx";
 
-// Read-only league fixture card — three bands (kickoff/status · matchup · meta).
-// Mirrors the venue card's layout but without venue-admin actions; team names
-// resolve through the `teams` map (league_list_teams).
-export default function FixtureCard({ fx, teams = {}, compact }) {
+// League fixture card — three bands (kickoff/status · matchup · meta). Team
+// names resolve through the `teams` map (league_list_teams). On a completed
+// fixture the league admin can correct the result (leagueToken + onDone).
+export default function FixtureCard({ fx, teams = {}, compact, leagueToken, onDone }) {
+  const [editing, setEditing] = useState(false);
   const home = teams[fx.home_team_id]?.name || fx.home_team_id;
   const away = fx.away_team_id ? (teams[fx.away_team_id]?.name || fx.away_team_id) : "(bye)";
   const homeCol = teams[fx.home_team_id]?.primary_colour || "var(--accent)";
@@ -32,10 +34,26 @@ export default function FixtureCard({ fx, teams = {}, compact }) {
           <span className="fx-tick" style={{ background: awayCol }} />
         </span>
       </div>
-      {fx.round_name && (
+      {(fx.round_name || (leagueToken && fx.status === "completed")) && (
         <div className="fx-foot">
-          <div className="fx-tags"><span className="fx-ref">{fx.round_name}</span></div>
+          <div className="fx-tags">{fx.round_name && <span className="fx-ref">{fx.round_name}</span>}</div>
+          {leagueToken && fx.status === "completed" && (
+            <div className="row-actions">
+              <button onClick={() => setEditing(true)}>Edit result</button>
+            </div>
+          )}
         </div>
+      )}
+
+      {editing && (
+        <ResultModal
+          leagueToken={leagueToken}
+          fixture={fx}
+          homeName={home}
+          awayName={away}
+          onClose={() => setEditing(false)}
+          onDone={onDone}
+        />
       )}
     </div>
   );
