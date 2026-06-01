@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { getCupBracket, getGroupStandings, venueScheduleCupTie } from "@platform/core";
+import { getCupBracket, getGroupStandings, venueScheduleCupTie, venueSeedKnockoutFromGroups } from "@platform/core";
 import Modal from "./Modal.jsx";
 
 // Phase 11 Cycle 11.3 — venue-side cup bracket + scheduling.
@@ -31,6 +31,7 @@ export default function BracketView({ state, venueToken, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [scheduleTie, setScheduleTie] = useState(null);
+  const [buildOpen, setBuildOpen] = useState(false);
 
   const selectedCup = useMemo(() => cups.find((c) => c.id === compId), [cups, compId]);
   const isGroupStage = selectedCup?.format === "group_stage";
@@ -93,10 +94,16 @@ export default function BracketView({ state, venueToken, onRefresh }) {
           <GroupsPanel groups={groups.groups} />
         )}
 
-        {!loading && !error && isGroupStage && rounds.length === 0 && (
-          <p className="muted" style={{ marginTop: 12 }}>
-            Group stage in progress. The knockout bracket appears once every group fixture is played and you build the knockout.
-          </p>
+        {!loading && !error && isGroupStage && !bracket?.knockout_seeded && (
+          <div style={{ margin: "12px 0" }}>
+            {bracket?.all_groups_complete ? (
+              <button className="btn-accent" onClick={() => setBuildOpen(true)}>Build knockout</button>
+            ) : (
+              <p className="muted">
+                Group stage in progress. Once every group fixture is played, “Build knockout” seeds the bracket from the final standings.
+              </p>
+            )}
+          </div>
         )}
 
         {!loading && !error && (
@@ -124,7 +131,56 @@ export default function BracketView({ state, venueToken, onRefresh }) {
           onDone={async () => { setScheduleTie(null); await load(); onRefresh?.(); }}
         />
       )}
+
+      {buildOpen && (
+        <BuildKnockoutModal
+          competitionId={compId}
+          pitches={pitches}
+          venueToken={venueToken}
+          onClose={() => setBuildOpen(false)}
+          onDone={async () => { setBuildOpen(false); await load(); onRefresh?.(); }}
+        />
+      )}
     </main>
+  );
+}
+
+function BuildKnockoutModal({ competitionId, pitches, venueToken, onClose, onDone }) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("19:30");
+  const [pitchId, setPitchId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function save() {
+    if (busy) return;
+    if (!date || !time) { setError("Date and kickoff time are required."); return; }
+    setBusy(true); setError(null);
+    try {
+      await venueSeedKnockoutFromGroups(venueToken, competitionId, date, time, pitchId ? [pitchId] : []);
+      await onDone();
+    } catch (e) { setError(e?.message || String(e)); setBusy(false); }
+  }
+
+  return (
+    <Modal open onClose={() => !busy && onClose()}
+      title="Build knockout from group standings"
+      footer={<>
+        <button onClick={onClose} disabled={busy}>Cancel</button>
+        <button onClick={save} disabled={busy} className="btn-accent">{busy ? "Building…" : "Build knockout"}</button>
+      </>}>
+      <p className="muted">Seeds the knockout bracket from the final group standings — group winners are kept apart. The first knockout round plays on:</p>
+      <div className="form-row">
+        <div><label>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        <div><label>Kickoff</label><input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
+      </div>
+      <label>Pitch</label>
+      <select value={pitchId} onChange={(e) => setPitchId(e.target.value)}>
+        <option value="">Unallocated</option>
+        {pitches.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+      {error && <p className="error">{error}</p>}
+    </Modal>
   );
 }
 

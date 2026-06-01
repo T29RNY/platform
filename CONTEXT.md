@@ -20,9 +20,14 @@ Model: one competition `format='group_stage'` owns both phases; group fixtures f
   `type='cup'`, already routed). rpc-security-sweep PASS (both SECDEF/search_path/anon+auth/1 overload);
   casual-regression PASS (no casual surface touched, packages/core additive); all 3 apps build clean.
 
-**11.4b NEXT:** extract `_cup_build_bracket` from `venue_persist_cup_bracket`, add
-`venue_seed_knockout_from_groups` (manual "Build knockout"), extend `get_cup_bracket` with groups.
-**Operator owes:** real-device check of the player group tables (hard-rule #13).
+**11.4b (same session):** extracted `_cup_build_bracket` (shared builder) so `venue_persist_cup_bracket`
+is a thin caller (behaviour byte-identical, EV-regression-verified); `venue_seed_knockout_from_groups`
+(mig 194 — manual "Build knockout", seeds from final standings cross-group, guards all-groups-complete);
+`get_cup_bracket` extended additively with `groups`/`all_groups_complete`/`knockout_seeded`; "Build knockout"
+button + modal in venue BracketView. EV: 7/7 incl. single-elim regression, leak 0. sweep PASS (incl.
+`_cup_build_bracket` internal-only grant), casual-regression PASS, 3 apps build clean. **Phase 11
+group→knockout COMPLETE.** **Operator owes:** real-device check of the player group tables + a live
+end-to-end group→knockout dry run (hard-rule #13).
 
 ## SESSION 66 — Phase 9 finish: HQ weekly digest (Jun 1 2026)
 

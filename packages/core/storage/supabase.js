@@ -2340,6 +2340,20 @@ export async function getGroupStandings(competitionId) {
   return data;
 }
 
+// Phase 11 Cycle 11.4b — operator "Build knockout": seeds the knockout bracket from final
+// group standings (cross-group). Only valid once every group fixture is completed.
+export async function venueSeedKnockoutFromGroups(venueToken, competitionId, scheduledDate, kickoffTime, playingAreaIds = []) {
+  const { data, error } = await supabase.rpc("venue_seed_knockout_from_groups", {
+    p_venue_token: venueToken,
+    p_competition_id: competitionId,
+    p_scheduled_date: scheduledDate,
+    p_kickoff_time: kickoffTime,
+    p_playing_area_ids: playingAreaIds || [],
+  });
+  if (error) { console.error("[venue] seed_knockout_from_groups failed", error); throw error; }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.4 fixture management ──────────────────────
 
 export async function venueAssignPitch(venueToken, fixtureId, playingAreaId) {
