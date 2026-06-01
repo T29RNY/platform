@@ -5,9 +5,13 @@
 
 ## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55, updated 56)
 
-**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 COMPLETE** (email + SMS/WhatsApp transport + reminder crons + player channel fallback + HQ weekly digest — session 66). **Phase 6 functionally complete** (Cycle 6.1–6.5 — session 60). **Phase 11 cups COMPLETE** (single-elim, session 65).
+**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 COMPLETE** (email + SMS/WhatsApp transport + reminder crons + player channel fallback + HQ weekly digest — session 66). **Phase 6 functionally complete** (Cycle 6.1–6.5 — session 60). **Phase 11 cups COMPLETE** (single-elim session 65; group→knockout session 66).
 
-**NEXT BUILD ORDER (operator, session 58): 9 → 6 → 11** (methodical, not number order):
+**BUILD ORDER 9 → 6 → 11 — ✅ ALL THREE COMPLETE (session 66).** Next candidates (operator's
+call): Phase 7 (AI layer) · `apps/display` redesign + Phase 4 device-test/deploy · Phase 10 (public
+league pages). Detail of the completed 9/6/11 work retained below for reference.
+
+**ORIGINAL BUILD ORDER (operator, session 58): 9 → 6 → 11** (methodical, not number order):
 1. **Phase 9 (finish)** — ✅ email (9.1) · ✅ SMS/WhatsApp Twilio transport core (session 59,
    unwired) · ✅ fixture-reminder / 48h availability crons (session 59 — close the loop Phase 5
    left open: competitive availability exists but nothing reminded the squad) · ✅ **`_sms.js`

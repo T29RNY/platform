@@ -56,8 +56,9 @@ regression gate. Build PASS. **Phase 9 COMPLETE.**
 
 **Operator owes:** real Monday-morning digest delivery once `RESEND_API_KEY` is live (eyeball the
 rendered email) + the two carried-over session-65 items (real SMS/WhatsApp delivery once `TWILIO_*`
-is set; real-device check of the player Bracket button + PlayerProfile NOTIFICATIONS). **Open next:**
-apps/display redesign + Phase 4 device-test/deploy · group-stage→knockout cups · Phase 7 (AI layer).
+is set; real-device check of the player Bracket button + PlayerProfile NOTIFICATIONS). **Open next**
+(after the session-66 work below — group→knockout cups now DONE): apps/display redesign + Phase 4
+device-test/deploy · Phase 7 (AI layer) · Phase 10 (public league pages).
 
 ## SESSION 65 — Phase 9 finish + Phase 11 cups complete (Jun 1 2026)
 
