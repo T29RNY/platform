@@ -1,8 +1,46 @@
 # In or Out — Key Decisions Log
-*Last updated: May 29 2026 (session 59 — Phase 9: Twilio transport core unwired; league reminder crons are competitive-only, loop the fixtures table)*
+*Last updated: Jun 1 2026 (session 65 — Phase 11 cups: server-owned bracket, ref ET/pens decider, operator-schedules-each-round; Phase 9 player channel fallback)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Phase 11 cups — bracket model + flow (session 65)
+
+Single-elimination shipped end-to-end (migs 184–189); group-stage→knockout deferred. Settled:
+
+- **Server is the bracket source of truth.** `venue_persist_cup_bracket` computes the canonical
+  single-elim bracket (textbook mirror seeding, byes as pre-decided ties) and persists `cup_ties`
+  (one row per slot, with `home_feeder_slot`/`away_feeder_slot` edges) + round-1 fixtures. The
+  client `packages/core/engine/cupBracket.js` engine is now a **cosmetic preview only** — it does
+  not define who-plays-whom in round 2+. The DB wins; don't reconcile the engine's pairing with it.
+- **Advancement is a DB trigger, not per-RPC.** `cup_advance_after_result` (AFTER UPDATE on
+  fixtures) runs the idempotent `_cup_advance(competition_id)` sweep on any terminal cup fixture
+  (completed/walkover/forfeit): resolve winner → fill parent slot via feeder edges → mark next tie
+  `ready`. Every completion path advances uniformly, no extra wiring. `_cup_advance` only touches
+  `cup_ties` (no fixtures recursion). Byes propagate on the first round-1 completion.
+- **Tie-break = ref-entered ET and/or penalties** (operator). A level cup tie:
+  `ref_confirm_full_time` returns `{needs_decider:true}` (does NOT complete; league unchanged); the
+  ref then calls `ref_record_knockout_decider` with typed ET and/or pens + winner. Penalties take
+  precedence; winner must match the higher of whichever decider is given. ET is a typed aggregate,
+  NOT event-tracked through extra-time periods.
+- **Operator schedules each round** (operator). Advancement never invents a date — it marks the tie
+  `ready`; `venue_schedule_cup_tie` creates the fixture when the operator picks date/time/pitch.
+  Fits multi-week cups; one-day-tournament auto-schedule was explicitly rejected.
+- **Bracket is public match data.** `get_cup_bracket(competition_id)` is keyed by competition_id
+  (unguessable uuid), anon+authenticated, no token gate — already shown on the no-login display
+  board. One read serves venue + player + display; the renderer is duplicated per app (consistent
+  with StandingsZone/CompetitionStandingsCard being per-app).
+
+## Phase 9 — player notification channel fallback (session 65)
+
+`players.notification_channel` (push/email/sms/whatsapp, default push) + `players.phone` are
+captured via `set_player_contact` (PlayerProfile NOTIFICATIONS section). The 48h/2h reminder crons
+route each player via `pickChannel` (push→email→SMS/WhatsApp): push through `/api/notify`, email via
+`_mailer`, SMS/WhatsApp via `_sms`. **whatsapp + sms both use `players.phone`** (players have no
+separate whatsapp_number — only `match_officials` do); email uses the linked auth email (`user_id`).
+The once-per-(team,type,date) `alreadyLogged` guard is kept, so no per-player dedup is needed.
 
 ---
 

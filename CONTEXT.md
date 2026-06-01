@@ -1,5 +1,35 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: May 29 2026 (session 60 — Phase 6 HQ complete: foundation (6.1) + analytics (6.3) + activity feed (6.4) + preview token (6.5).)*
+*Last updated: Jun 1 2026 (session 65 — Phase 9 finished (refs + player capture + push→email→SMS fallback); Phase 11 cups complete end-to-end (migs 184–189).)*
+
+## SESSION 65 — Phase 9 finish + Phase 11 cups complete (Jun 1 2026)
+
+HEAD `6587452`. Build order 9→6→11: closed out **Phase 9** and built **Phase 11** in full.
+Every cycle ran AUDIT→EXECUTE→VERIFY→COMMIT with the gates (EV + leak-check on every write
+RPC, rpc-security-sweep, casual-regression on packages/core touches, build).
+
+- **Phase 9 — `_sms.js` wired for refs** (`a9f4dbf`): `fixture_ref_assigned` routes through
+  `pickChannel` honouring `match_officials.preferred_channel` (whatsapp→sms→email). cron.js only.
+- **Phase 11.1 — bracket persistence** (`df92393`, migs 184–185): `cup_ties` tree (round/slot/
+  feeder edges/winner) + `venue_persist_cup_bracket` builds the WHOLE single-elim bracket server-
+  side (canonical mirror seeding, byes, round-1 fixtures+charges). Server is the source of truth;
+  `cupBracket.js` engine stays a cosmetic preview. SeasonWizard single-elim branch wired.
+- **Phase 11.2 — advancement + decider** (`61b8bf3`, migs 186–187): `_cup_advance` sweep +
+  `cup_advance_after_result` trigger (decisive score / ref ET-pens / walkover / forfeit → winner
+  into parent slot → next tie `ready`). `ref_record_knockout_decider` + `ref_confirm_full_time`
+  level→`needs_decider`; `venue_schedule_cup_tie` (operator schedules each round). Ref `DeciderModal`.
+- **Phase 11.3 — bracket display** (`1a23eee` + `27c7be0`, mig 188): `get_cup_bracket` read RPC;
+  venue `BracketView` (Cups tab + scheduling), player `BracketOverlay`, display `BracketZone`
+  (replaces standings for cup comps). **Phase 11 complete.**
+- **Phase 9 player contact-capture** (`4cf9aab`, mig 189): `set_player_contact`/`get_my_contact`
+  + PlayerProfile NOTIFICATIONS section (phone + channel).
+- **Phase 9 fallback** (`6587452`): 48h/2h reminder crons route each player via `pickChannel`
+  (push→email→SMS/WhatsApp); league reminder email templates added. **Phase 9 functionally
+  complete** bar the HQ weekly digest (rides Phase 6).
+
+**Operator owes:** real-delivery test once `TWILIO_*` env is set (SMS/WhatsApp no-op until then;
+email + push deliver today); real-device check of the player Bracket button + NOTIFICATIONS
+section (hard-rule #13). **Open next:** HQ weekly digest · apps/display redesign + Phase 4
+device-test/deploy · group-stage→knockout cups. (Decisions in DECISIONS — "Phase 11 cups".)
 
 ## SESSION 60 — Phase 6 Cycle 6.1: HQ dashboard (May 29 2026)
 
