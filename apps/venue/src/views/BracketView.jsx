@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { getCupBracket, venueScheduleCupTie } from "@platform/core";
+import { getCupBracket, getGroupStandings, venueScheduleCupTie } from "@platform/core";
 import Modal from "./Modal.jsx";
 
 // Phase 11 Cycle 11.3 — venue-side cup bracket + scheduling.
@@ -21,29 +21,38 @@ const DECIDER_NOTE = {
 
 export default function BracketView({ state, venueToken, onRefresh }) {
   const cups = useMemo(
-    () => (state.competitions ?? []).filter((c) => c.type === "cup" && c.format === "single_elimination"),
+    () => (state.competitions ?? []).filter((c) => c.type === "cup" && (c.format === "single_elimination" || c.format === "group_stage")),
     [state.competitions]
   );
   const pitches = state.pitches ?? [];
   const [compId, setCompId] = useState(cups[0]?.id ?? null);
   const [bracket, setBracket] = useState(null);
+  const [groups, setGroups] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [scheduleTie, setScheduleTie] = useState(null);
+
+  const selectedCup = useMemo(() => cups.find((c) => c.id === compId), [cups, compId]);
+  const isGroupStage = selectedCup?.format === "group_stage";
 
   useEffect(() => {
     if (!compId && cups[0]) setCompId(cups[0].id);
   }, [cups, compId]);
 
   const load = useCallback(async () => {
-    if (!compId) { setBracket(null); return; }
+    if (!compId) { setBracket(null); setGroups(null); return; }
     setLoading(true); setError(null);
     try {
-      setBracket(await getCupBracket(compId));
+      const [bk, gs] = await Promise.all([
+        getCupBracket(compId),
+        isGroupStage ? getGroupStandings(compId) : Promise.resolve(null),
+      ]);
+      setBracket(bk);
+      setGroups(gs);
     } catch (e) {
       setError(e?.message || String(e));
     } finally { setLoading(false); }
-  }, [compId]);
+  }, [compId, isGroupStage]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -80,6 +89,16 @@ export default function BracketView({ state, venueToken, onRefresh }) {
           <div className="bracket-champion">🏆 Champion: <strong>{champion.name}</strong></div>
         )}
 
+        {!loading && !error && isGroupStage && groups?.groups?.length > 0 && (
+          <GroupsPanel groups={groups.groups} />
+        )}
+
+        {!loading && !error && isGroupStage && rounds.length === 0 && (
+          <p className="muted" style={{ marginTop: 12 }}>
+            Group stage in progress. The knockout bracket appears once every group fixture is played and you build the knockout.
+          </p>
+        )}
+
         {!loading && !error && (
           <div className="bracket-scroll">
             <div className="bracket-rounds">
@@ -106,6 +125,43 @@ export default function BracketView({ state, venueToken, onRefresh }) {
         />
       )}
     </main>
+  );
+}
+
+function GroupsPanel({ groups }) {
+  return (
+    <div className="groups-grid" style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 16 }}>
+      {groups.map((g) => (
+        <div key={g.group_label} className="group-table" style={{ flex: "1 1 280px", minWidth: 260 }}>
+          <h3 style={{ margin: "0 0 6px" }}>Group {g.group_label}</h3>
+          <table className="standings-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ textAlign: "right", color: "var(--text-dim, #888)" }}>
+                <th style={{ textAlign: "left" }}>Team</th>
+                <th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(g.standings ?? []).map((s) => (
+                <tr key={s.team_id} className={s.qualifying ? "is-qualifying" : ""}
+                    style={s.qualifying ? { fontWeight: 600 } : undefined}>
+                  <td style={{ textAlign: "left" }}>
+                    {s.qualifying && <span aria-hidden style={{ color: "#2a2", marginRight: 4 }}>●</span>}
+                    {s.team_name}
+                  </td>
+                  <td style={{ textAlign: "right" }}>{s.played}</td>
+                  <td style={{ textAlign: "right" }}>{s.w}</td>
+                  <td style={{ textAlign: "right" }}>{s.d}</td>
+                  <td style={{ textAlign: "right" }}>{s.l}</td>
+                  <td style={{ textAlign: "right" }}>{s.gd}</td>
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>{s.pts}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
   );
 }
 

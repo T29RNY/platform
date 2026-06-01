@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCupBracket } from "@platform/core";
+import { getCupBracket, getGroupStandings } from "@platform/core";
 import { X, Trophy } from "@phosphor-icons/react";
 
 // League Mode Phase 11 Cycle 11.3b — read-only cup bracket overlay for the player.
@@ -14,13 +14,14 @@ const DECIDER_NOTE = {
 
 export default function BracketOverlay({ competitionId, competitionName, onClose }) {
   const [bracket, setBracket] = useState(null);
+  const [groups, setGroups] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    getCupBracket(competitionId)
-      .then((b) => { if (alive) { setBracket(b); setLoading(false); } })
+    Promise.all([getCupBracket(competitionId), getGroupStandings(competitionId)])
+      .then(([b, gs]) => { if (alive) { setBracket(b); setGroups(gs?.groups ?? []); setLoading(false); } })
       .catch((e) => { if (alive) { console.error("[bracket] load failed", e); setError(e?.message || String(e)); setLoading(false); } });
     return () => { alive = false; };
   }, [competitionId]);
@@ -69,6 +70,8 @@ export default function BracketOverlay({ competitionId, competitionName, onClose
           </div>
         )}
 
+        {groups.length > 0 && groups.map((g) => <GroupTable key={g.group_label} group={g} />)}
+
         {rounds.map((rd) => (
           <div key={rd.round_number} style={{ marginBottom: 18 }}>
             <div style={{
@@ -82,6 +85,44 @@ export default function BracketOverlay({ competitionId, competitionName, onClose
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function GroupTable({ group }) {
+  const th = { fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "var(--t2)", fontWeight: 400, padding: "2px 4px", textAlign: "right" };
+  const td = { fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "var(--t1)", padding: "4px 4px", textAlign: "right" };
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "var(--t2)", letterSpacing: "0.08em", marginBottom: 6 }}>
+        GROUP {group.group_label}
+      </div>
+      <div style={{ background: "var(--s2)", borderRadius: 9, border: "0.5px solid rgba(255,255,255,0.07)", padding: "6px 10px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: "left" }}>Team</th>
+              <th style={th}>P</th><th style={th}>W</th><th style={th}>D</th><th style={th}>L</th><th style={th}>GD</th><th style={th}>Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(group.standings ?? []).map((s) => (
+              <tr key={s.team_id}>
+                <td style={{ ...td, textAlign: "left", fontWeight: s.qualifying ? 700 : 400 }}>
+                  {s.qualifying && <span aria-hidden style={{ opacity: 0.9, marginRight: 5 }}>▸</span>}
+                  {s.team_name}
+                </td>
+                <td style={td}>{s.played}</td>
+                <td style={td}>{s.w}</td>
+                <td style={td}>{s.d}</td>
+                <td style={td}>{s.l}</td>
+                <td style={td}>{s.gd}</td>
+                <td style={{ ...td, fontWeight: 700 }}>{s.pts}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -1,5 +1,28 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 1 2026 (session 66 — HQ weekly digest shipped (mig 190); Phase 9 COMPLETE.)*
+*Last updated: Jun 1 2026 (session 66 — HQ weekly digest (mig 190, Phase 9 COMPLETE); Phase 11.4a group stage (migs 191–193).)*
+
+## SESSION 66 (cont.) — Phase 11.4a: group-stage cups (Jun 1 2026)
+
+The deferred half of Phase 11, sub-cycle 11.4a (group stage; 11.4b knockout-from-groups next).
+Model: one competition `format='group_stage'` owns both phases; group fixtures feed the existing
+`cup_ties` knockout machinery (reused unchanged in 11.4b). Decisions in DECISIONS ("Phase 11.4").
+
+- **mig 191** — additive schema: `competition_teams.group_label`+`seed`, `fixtures.group_label`,
+  `competitions.config jsonb`.
+- **mig 192 `venue_persist_group_stage`** (WRITE) — snake draw (or operator override) + server-side
+  round-robin per group (circle method) + fee charges + config. EV: 6 teams→2 groups×3, 6 fixtures,
+  12 charges, 3 error paths (invalid config / too-small group / re-run) — all PASS, leak-check 0.
+- **mig 193 `get_group_standings`** (READ) — per-group mini-league tables (mirrors
+  `get_league_standings_for_player`) + rank + `qualifying` + `all_groups_complete`. anon-readable.
+- **packages/core** — `venuePersistGroupStage` + `getGroupStandings` wrappers + barrel (additive).
+- **UI** — SeasonWizard group_stage branch (Groups + Qualify/group inputs; server snake-draws);
+  group tables on venue `BracketView`, player `BracketOverlay`, display `BracketZone` (all key on
+  `type='cup'`, already routed). rpc-security-sweep PASS (both SECDEF/search_path/anon+auth/1 overload);
+  casual-regression PASS (no casual surface touched, packages/core additive); all 3 apps build clean.
+
+**11.4b NEXT:** extract `_cup_build_bracket` from `venue_persist_cup_bracket`, add
+`venue_seed_knockout_from_groups` (manual "Build knockout"), extend `get_cup_bracket` with groups.
+**Operator owes:** real-device check of the player group tables (hard-rule #13).
 
 ## SESSION 66 — Phase 9 finish: HQ weekly digest (Jun 1 2026)
 

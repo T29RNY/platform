@@ -4,6 +4,7 @@ import {
   venueCreateSeason,
   venueGenerateFixtures,
   venuePersistCupBracket,
+  venuePersistGroupStage,
   generateRoundRobin,
   generateCupBracket,
 } from "@platform/core";
@@ -30,7 +31,7 @@ export default function SeasonWizard({ state, venueToken, onClose, onDone }) {
   const [step, setStep] = useState(1);
   const [season, setSeason] = useState(() => defaultState(state));
   const [competitions, setCompetitions] = useState([
-    { name: "", type: "league", format: "round_robin", team_ids: [] },
+    { name: "", type: "league", format: "round_robin", team_ids: [], num_groups: 2, qualifiers_per_group: 2 },
   ]);
   const [teams, setTeams] = useState([]);
   const [previews, setPreviews] = useState(null);
@@ -71,6 +72,12 @@ export default function SeasonWizard({ state, venueToken, onClose, onDone }) {
             doubleRound: !!season.double_round,
             excludeWeeks: parseExclude(season.exclude_weeks),
           });
+        } else if (c.format === "group_stage") {
+          r = generateCupBracket({
+            ...opts, format: c.format,
+            groupCount: Number(c.num_groups) || 2,
+            weeks: Number(season.num_weeks),
+          });
         } else {
           r = generateCupBracket({ ...opts, format: c.format });
         }
@@ -109,6 +116,15 @@ export default function SeasonWizard({ state, venueToken, onClose, onDone }) {
           await venuePersistCupBracket(
             venueToken, created.id, season.start_date, season.default_kickoff_time,
             season.pitches || [], def.team_ids
+          );
+        } else if (def.type === "cup" && def.format === "group_stage") {
+          // Group stage: the server draws teams into groups (snake by registration order)
+          // and builds each group's round-robin. The client engine output above was
+          // preview-only. The knockout half is seeded later from group results (11.4b).
+          await venuePersistGroupStage(
+            venueToken, created.id,
+            Number(def.num_groups) || 2, Number(def.qualifiers_per_group) || 2,
+            season.start_date, season.default_kickoff_time, season.pitches || []
           );
         } else {
           const payload = engineOut.fixtures.map((f) => ({
@@ -229,7 +245,7 @@ function StepCompetitions({ competitions, setCompetitions }) {
   }
   function add() {
     if (competitions.length >= 5) return;
-    setCompetitions([...competitions, { name: "", type: "league", format: "round_robin", team_ids: [] }]);
+    setCompetitions([...competitions, { name: "", type: "league", format: "round_robin", team_ids: [], num_groups: 2, qualifiers_per_group: 2 }]);
   }
   function remove(i) {
     setCompetitions(competitions.filter((_, idx) => idx !== i));
@@ -258,6 +274,16 @@ function StepCompetitions({ competitions, setCompetitions }) {
               )}
             </select>
           </div>
+          {c.type === "cup" && c.format === "group_stage" && (
+            <>
+              <div><label>Groups</label>
+                <input type="number" min={2} value={c.num_groups}
+                  onChange={(e) => update(i, { num_groups: e.target.value })} /></div>
+              <div><label>Qualify / group</label>
+                <input type="number" min={1} value={c.qualifiers_per_group}
+                  onChange={(e) => update(i, { qualifiers_per_group: e.target.value })} /></div>
+            </>
+          )}
           {i > 0 && <button onClick={() => remove(i)} className="btn-bad">Remove</button>}
         </div>
       ))}

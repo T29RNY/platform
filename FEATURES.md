@@ -53,7 +53,13 @@
    **player** `BracketOverlay` (modal from the FIXTURES "Bracket" button, self-gating), **display**
    `BracketZone` (replaces standings for cup competitions in the rotation). **Phase 11 (single-elim
    cups) COMPLETE** — create → play → ET/pens decider → advance → schedule → view, end to end.
-   *Group-stage→knockout remains a future cycle; real-device player check owed (hard-rule #13).*
+   ◀ **Cycle 11.4a IN PROGRESS (session 66): group stage** — one competition, `format='group_stage'`
+   owns both phases. `competition_teams.group_label`+`seed` / `fixtures.group_label` / `competitions.config`
+   (mig 191) · `venue_persist_group_stage` (mig 192 — snake draw + server round-robin) · `get_group_standings`
+   (mig 193) · SeasonWizard group_stage branch + group tables on venue/player/display. **Cycle 11.4b NEXT:**
+   knockout-from-groups (`venue_seed_knockout_from_groups` reusing the cup_ties builder + a "Build knockout"
+   button). Settled: single-competition model · auto snake-seed draw (operator-overridable) · manual
+   Build-knockout trigger · two sub-cycles (see DECISIONS). *real-device player check owed (hard-rule #13).*
 
 **After these three:** Phase 7 (AI layer — Ask the Gaffer evolved) · Phase 10 (public
 league pages). **Phase 8 (billing/self-serve) deferred to year 2.** Also outstanding:

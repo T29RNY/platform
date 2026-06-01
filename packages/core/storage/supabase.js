@@ -2313,6 +2313,33 @@ export async function venuePersistCupBracket(venueToken, competitionId, schedule
   return data;
 }
 
+// Phase 11 Cycle 11.4a — group-stage cup: server draws active teams into N groups
+// (snake by registration order, or operator-supplied groupAssignments {team_id: 'A'})
+// and generates a round-robin per group. Used instead of venuePersistCupBracket for
+// the group_stage format. The knockout half is seeded later (11.4b) from group results.
+export async function venuePersistGroupStage(venueToken, competitionId, numGroups, qualifiersPerGroup, scheduledDate, kickoffTime, playingAreaIds, groupAssignments = null) {
+  const { data, error } = await supabase.rpc("venue_persist_group_stage", {
+    p_venue_token: venueToken,
+    p_competition_id: competitionId,
+    p_num_groups: numGroups,
+    p_qualifiers_per_group: qualifiersPerGroup,
+    p_scheduled_date: scheduledDate,
+    p_kickoff_time: kickoffTime,
+    p_playing_area_ids: playingAreaIds || [],
+    p_group_assignments: groupAssignments || null,
+  });
+  if (error) { console.error("[venue] persist_group_stage failed", error); throw error; }
+  return data;
+}
+
+// Phase 11 Cycle 11.4a — per-group mini-league tables for a group_stage cup.
+// Returns { groups:[{group_label, qualifiers_per_group, standings:[...]}], all_groups_complete }.
+export async function getGroupStandings(competitionId) {
+  const { data, error } = await supabase.rpc("get_group_standings", { p_competition_id: competitionId });
+  if (error) { console.error("[cup] get_group_standings failed", error); throw error; }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.4 fixture management ──────────────────────
 
 export async function venueAssignPitch(venueToken, fixtureId, playingAreaId) {

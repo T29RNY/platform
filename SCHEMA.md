@@ -466,9 +466,10 @@ arrive in Phase 2+. All currently empty.
 
 - `leagues` — text PK. venue_id. sport, format (both flexible). default_playing_area_id → playing_areas. league_admin_token, display_token.
 - `seasons` — league_id, start/end dates, num_weeks, status (setup/active/completed/archived).
-- `competitions` — season_id, type (league/cup/playoff), format (round_robin/single_elimination/double_elimination/group_stage), status.
+- `competitions` — season_id, type (league/cup/playoff), format (round_robin/single_elimination/double_elimination/group_stage), status. **`config` jsonb (mig 191, Phase 11.4)** — cup settings `{num_groups, qualifiers_per_group, knockout_seeded}` for group_stage cups; `{}` otherwise.
 - `club_teams` — junction: club_id ↔ team_id. UNIQUE(team_id) — a team belongs to one club.
-- `competition_teams` — junction: competition_id ↔ team_id. status (active/withdrawn/expelled).
+- `competition_teams` — junction: competition_id ↔ team_id. status (active/withdrawn/expelled). **`group_label` + `seed` (mig 191, Phase 11.4)** — group-stage group (A/B/…) + draw seed; NULL for non-group comps.
+- `fixtures.group_label` (mig 191, Phase 11.4) — group-stage fixture's group; NULL for league/knockout fixtures.
 - `team_name_history` — team_id, name, effective_from_season_id / effective_to_season_id. Audit of team renames across seasons.
 - `cup_rounds` — competition_id, round_number, round_name, num_teams, status. (Populated from Phase 11 Cycle 11.1 — was empty groundwork before.)
 - `cup_ties` — **Phase 11 (mig 184).** The persisted single-elim bracket tree: id, competition_id, round_number, slot_index, round_name, fixture_id (NULL for byes/not-yet-created), home_team_id, away_team_id, home_source/away_source ('seed'|'bye'|'winner'), home_feeder_slot/away_feeder_slot (which slots of round−1 feed each side — advancement is a feeder lookup), winner_team_id, status ('pending'|'ready'|'decided'). UNIQUE(competition_id, round_number, slot_index). RLS on, RPC-only. Written by `venue_persist_cup_bracket`; advanced by Cycle 11.2.

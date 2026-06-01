@@ -78,6 +78,8 @@ export {
   venueCreateSeason,
   venueGenerateFixtures,
   venuePersistCupBracket,
+  venuePersistGroupStage,
+  getGroupStandings,
   venueScheduleCupTie,
   getCupBracket,
   venueAssignPitch,

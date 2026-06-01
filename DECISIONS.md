@@ -1,10 +1,36 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 1 2026 (session 66 — HQ weekly digest = template-first, AI rides Phase 7; Phase 9 complete)*
+*Last updated: Jun 1 2026 (session 66 — HQ weekly digest = template-first; Phase 11.4 group→knockout cups: single-competition model, snake draw, manual Build-knockout, two sub-cycles)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## Phase 11.4 group-stage → knockout cups — settled forks (session 66)
+
+The deferred half of Phase 11. Four decisions, all confirmed with the operator before build:
+
+1. **One competition, `format='group_stage'`, owns both phases.** Group round-robin fixtures
+   (tagged `fixtures.group_label`) feed the **existing** `cup_ties` knockout machinery —
+   `_cup_advance` / `tg_cup_advance` / `ref_*` deciders / `get_cup_bracket` are reused unchanged.
+   Only the *seeding* of the bracket is new. Rejected: a season of N "league" comps + 1 "cup" comp
+   (more rows, breaks single-competition display rotation, cross-comp bracket read).
+2. **Auto snake-seed draw, operator-overridable.** `venue_persist_group_stage` snake-distributes
+   active teams across groups in `registered_at` order by default; an optional
+   `p_group_assignments {team_id:'A'}` overrides. Writes `competition_teams.group_label`+`seed`.
+3. **Manual "Build knockout" trigger** (11.4b), not automatic. The operator taps once every group
+   fixture is completed; `venue_seed_knockout_from_groups` seeds the bracket from final standings.
+   Gives a confirmation point + room to handle a tie-break edge before committing. Matches the
+   existing "operator schedules each round" pattern.
+4. **Two sub-cycles.** 11.4a = group stage (schema + persist + standings + group tables on 3
+   surfaces). 11.4b = knockout-from-groups (seed RPC reusing an extracted `_cup_build_bracket` +
+   Build-knockout UI + `get_cup_bracket` groups extension). Each independently EV-gated/shippable.
+
+**v1 scope (out):** head-to-head / best-3rd-place tiebreaks — group rank is deterministic
+pts→gd→gf→seed; a true tie for a qualifying spot is the operator's to resolve before Build knockout.
+Also out: double round-robin groups, mid-group re-seeding on withdrawal, two-legged knockout ties.
+
+## HQ weekly digest — template-first, AI rides Phase 7 (session 66)
 
 ## HQ weekly digest — template-first, AI rides Phase 7 (session 66)
 

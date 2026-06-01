@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getCupBracket } from "@platform/core/storage/supabase.js";
+import { getCupBracket, getGroupStandings } from "@platform/core/storage/supabase.js";
 
 // League Mode Phase 11 Cycle 11.3b — cup bracket on the display board.
 // Shown in place of the standings table when the rotating competition is a cup
@@ -7,13 +7,14 @@ import { getCupBracket } from "@platform/core/storage/supabase.js";
 // the shown competition changes or the board reloads state (version prop).
 export default function BracketZone({ competition, version }) {
   const [bracket, setBracket] = useState(null);
+  const [groups, setGroups] = useState([]);
   const compId = competition?.competition_id;
 
   useEffect(() => {
     if (!compId) return;
     let alive = true;
-    getCupBracket(compId)
-      .then((b) => { if (alive) setBracket(b); })
+    Promise.all([getCupBracket(compId), getGroupStandings(compId)])
+      .then(([b, gs]) => { if (alive) { setBracket(b); setGroups(gs?.groups ?? []); } })
       .catch((e) => console.error("[display] bracket load failed", e));
     return () => { alive = false; };
   }, [compId, version]);
@@ -30,6 +31,11 @@ export default function BracketZone({ competition, version }) {
       </div>
       <div className="zone-body">
         {champion && <div className="bkt-champion">🏆 {champion.name}</div>}
+        {groups.length > 0 && (
+          <div className="bkt-groups" style={{ display: "flex", flexWrap: "wrap", gap: 24, marginBottom: 18 }}>
+            {groups.map((g) => <GroupTable key={g.group_label} group={g} />)}
+          </div>
+        )}
         <div className="bkt-rounds">
           {rounds.map((rd) => (
             <div className="bkt-round" key={rd.round_number}>
@@ -39,6 +45,40 @@ export default function BracketZone({ competition, version }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function GroupTable({ group }) {
+  return (
+    <div className="bkt-group" style={{ flex: "1 1 320px", minWidth: 300 }}>
+      <div className="bkt-round-name">Group {group.group_label}</div>
+      <table className="bkt-group-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ opacity: 0.6 }}>
+            <th style={{ textAlign: "left" }}>Team</th>
+            <th style={{ textAlign: "right" }}>P</th>
+            <th style={{ textAlign: "right" }}>W</th>
+            <th style={{ textAlign: "right" }}>D</th>
+            <th style={{ textAlign: "right" }}>L</th>
+            <th style={{ textAlign: "right" }}>GD</th>
+            <th style={{ textAlign: "right" }}>Pts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(group.standings ?? []).map((s) => (
+            <tr key={s.team_id} className={s.qualifying ? "bkt-q" : ""} style={s.qualifying ? { fontWeight: 700 } : undefined}>
+              <td style={{ textAlign: "left" }}>{s.qualifying ? "▸ " : ""}{s.team_name}</td>
+              <td style={{ textAlign: "right" }}>{s.played}</td>
+              <td style={{ textAlign: "right" }}>{s.w}</td>
+              <td style={{ textAlign: "right" }}>{s.d}</td>
+              <td style={{ textAlign: "right" }}>{s.l}</td>
+              <td style={{ textAlign: "right" }}>{s.gd}</td>
+              <td style={{ textAlign: "right" }}>{s.pts}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
