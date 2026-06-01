@@ -32,8 +32,12 @@ export default function VenueHealthGrid({ summary, venues, selectedVenueId, onSe
             <div className="vc-top">
               <span className={"dot " + (v.health || "green")} />
               <span className="vc-name">{v.name}</span>
+              {v.health_score != null && (
+                <span className={"badge " + healthClass(v.health)}>{v.health_score}</span>
+              )}
               <SubBadge status={v.subscription_status} />
             </div>
+            {v.health_reason && <div className="vc-sub">{v.health_reason}</div>}
             {v.region && <div className="vc-sub">{v.region}</div>}
             <div className="vc-stats">
               <span>Tonight <b>{v.tonight_fixtures}</b></span>
@@ -46,6 +50,12 @@ export default function VenueHealthGrid({ summary, venues, selectedVenueId, onSe
       </div>
     </div>
   );
+}
+
+function healthClass(health) {
+  if (health === "green") return "good";
+  if (health === "amber") return "warn";
+  return "danger";
 }
 
 function SubBadge({ status }) {

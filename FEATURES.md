@@ -303,6 +303,37 @@ The operator-facing recording surface over the V2 RPCs. **Frontend-only — no D
 - **Next:** V4 = HQ revenue / collection-rate / outstanding cards into the HQ analytics
   registry (= HQ-I Phase 2). Optional V3.1 first for per-fixture charge add/void + payment_link.
 
+### VENUE PAYMENTS LEDGER V4 SHIPPED = HQ-I PHASE 2 (Revenue & Leakage) (session 64, 2026-06-01)
+
+Surfaces the V1–V3 ledger into HQ. **mig 182** (3 functions, all read/immutable — no write
+RPC, so ephemeral-verify N/A). Revenue math mirrors `venue_get_charges` exactly so HQ agrees
+with the apps/venue Payments screen.
+
+- **New `revenue` analytics card** — `hq_get_analytics` gains a `revenue` block: company
+  `owed_pence`/`collected_pence`/`outstanding_pence`/`collection_rate` + a `by_venue` breakdown
+  (all scoped venues, region-filtered; optional date filter on charge `created_at`, all-time by
+  default). AnalyticsView adds `"revenue"` to ALL_CARDS/CARD_TITLES, the `commercial` preset, the
+  CardBody switch, and a `Revenue` component (chips + per-venue `.atable`, pence→£ formatter).
+- **Revenue fed into the Health Score** — `_hq_health_score` gains a 4th axis (param-count change
+  → old 3-arg signature DROPped first). Revenue axis = collection-rate %, weight **0.30**,
+  **purely additive**: a venue with no charges (every production venue today) drops the axis and
+  scores exactly as before. `hq_get_company_state` computes per-venue all-time collection rate,
+  feeds it in, exposes `health_axes.revenue` + a top-level `collection_rate`, and a `revenue`
+  `top_reason` ("Collecting X% of fees owed"). Hard-red overrides still take precedence.
+- **Closed a latent gap:** mig-179's commit claimed it wired health_score/reason into
+  VenueHealthGrid but the commit touched only SQL — the score was invisible in the UI. V4 wires
+  the score badge (coloured by band) + reason line into VenueHealthGrid, so the revenue input is
+  actually visible.
+- **Verified live (company_demo, impersonated super_admin):** helper unit cases (additive: no-rev
+  = unchanged 100; zero-rev → weakest=revenue); demo rollup £540 owed / £255 collected / £285
+  outstanding / 47.2% (= V1 baseline); company_state — Arena South revenue axis null/score 100
+  (no charges, additive), Sports Centre revenue 47.2/score 30→34 still red via critical override;
+  analytics revenue block company + per-venue correct. rpc-security all 3 PASS (both RPCs
+  secdef+search_path+1-overload+auth-only; helper not-secdef, old 3-arg cleanly dropped).
+  apps/hq build clean (84 modules, exit 0). **Operator owes:** logged-in HQ browser pass.
+- **Next:** HQ-I Phase 3 (Competition & Team Risk), or V3.1 (per-fixture charge add/void +
+  payment_link), or V5 (Stripe Connect online rails).
+
 ---
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)

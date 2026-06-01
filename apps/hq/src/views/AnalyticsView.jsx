@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { hqGetAnalytics, hqGetUtilisation, hqSetDashboardConfig } from "@platform/core/storage/supabase.js";
 
-const ALL_CARDS = ["overview", "venue_comparison", "top_scorers", "discipline", "incidents", "billing", "utilisation"];
+const ALL_CARDS = ["overview", "venue_comparison", "top_scorers", "discipline", "incidents", "billing", "utilisation", "revenue"];
 const CARD_TITLES = {
   overview: "Overview",
   venue_comparison: "Venue comparison",
@@ -10,10 +10,11 @@ const CARD_TITLES = {
   incidents: "Open incidents",
   billing: "Billing",
   utilisation: "Utilisation",
+  revenue: "Revenue",
 };
 const PRESETS = {
   operations: ["overview", "venue_comparison", "incidents"],
-  commercial: ["overview", "billing", "venue_comparison"],
+  commercial: ["overview", "revenue", "billing", "venue_comparison"],
   performance: ["overview", "top_scorers", "discipline"],
 };
 const DEFAULT_PRESET = "operations";
@@ -144,7 +145,49 @@ function CardBody({ cardKey, a, util }) {
   if (cardKey === "incidents") return <Incidents i={a.incidents || {}} />;
   if (cardKey === "billing") return <Billing b={a.billing || {}} />;
   if (cardKey === "utilisation") return <UtilCard u={util} />;
+  if (cardKey === "revenue") return <Revenue r={a.revenue || {}} />;
   return null;
+}
+
+// pence -> £; whole pounds when exact, else 2dp
+const gbp = (pence) => {
+  if (pence == null) return "—";
+  const p = Number(pence) / 100;
+  return "£" + (Number.isInteger(p) ? p.toLocaleString() : p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+};
+const rate = (n) => (n == null ? "—" : n + "%");
+
+function Revenue({ r }) {
+  const rows = r.by_venue || [];
+  return (
+    <>
+      <div className="chips">
+        {Chip(gbp(r.owed_pence), "Owed")}
+        {Chip(gbp(r.collected_pence), "Collected")}
+        {Chip(gbp(r.outstanding_pence), "Outstanding")}
+        {Chip(rate(r.collection_rate), "Collection rate")}
+      </div>
+      {rows.length === 0 ? (
+        <div className="empty">No charges in range.</div>
+      ) : (
+        <table className="atable">
+          <thead><tr><th>Venue</th><th>Region</th><th>Owed</th><th>Collected</th><th>Outstanding</th><th>Rate</th></tr></thead>
+          <tbody>
+            {rows.map((v) => (
+              <tr key={v.venue}>
+                <td>{v.venue}</td>
+                <td className="muted">{v.region || "—"}</td>
+                <td className="num">{gbp(v.owed_pence)}</td>
+                <td className="num">{gbp(v.collected_pence)}</td>
+                <td className="num">{gbp(v.outstanding_pence)}</td>
+                <td className="num">{rate(v.collection_rate)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
 }
 
 function UtilCard({ u }) {

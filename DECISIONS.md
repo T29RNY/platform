@@ -6,6 +6,30 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Revenue joins the Health Score as a 4th axis = collection-rate, additive (session 64, HQ-I Phase 2 / Payments V4)
+
+The Cycle 4 health score (3 axes) explicitly deferred revenue "until data exists." The Payments
+Ledger (V1–V3) now accrues that data, so `_hq_health_score` (mig 182) gains a **revenue axis**.
+Settled calls:
+
+- **Axis = collection-rate %** (collected / owed, non-refunded charges), NOT revenue volume.
+  Volume isn't comparable across venues and isn't a *health* signal; collection discipline is
+  (it's the "leakage" framing — money owed but not collected). Mirrors `venue_get_charges` so HQ
+  agrees with the apps/venue Payments screen to the penny.
+- **Weight 0.30**, equal to utilisation & completion; **operations stays the single heaviest at
+  0.40**. (Operator chose 0.30 over 0.20/0.40.)
+- **Purely additive.** A venue with no charges (every production venue today) has owed = 0 → the
+  revenue axis is NULL → dropped and the remaining axes renormalise *exactly* as before. No
+  production score moves until real ledger data exists. Honours "never invent a number."
+- **All-time, not range-filtered** for health (matches the app's "reliability is always all-time"
+  convention). The analytics `revenue` card *is* optionally range-filtered (by charge created_at).
+- Hard-red overrides (critical incident, past_due/cancelled, expired trial) still take precedence
+  over the score. A `revenue` top_reason ("Collecting X% of fees owed") fires when it's weakest.
+
+Also closed a latent gap: mig-179's commit claimed it wired health_score/reason into
+VenueHealthGrid but only touched SQL — the score was invisible. V4 actually wires it. See
+[[project_hq_intelligence]] and FEATURES.md.
+
 ## Venue Health Score is a transparent /100 across three axes (session 63, HQ-I Phase 1 Cycle 4)
 
 `hq_get_company_state` (mig 179) replaces the categorical red/amber/green dot with a scored
