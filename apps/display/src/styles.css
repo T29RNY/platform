@@ -345,3 +345,11 @@ body {
 @keyframes shake { 0%,100%{transform:translateX(0);} 20%,60%{transform:translateX(-0.6rem);} 40%,80%{transform:translateX(0.6rem);} }
 
 .loader { height: 100vh; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-display); font-size: 2rem; letter-spacing: 0.1em; }
+
+/* Accessibility pass (session 64) — keyboard focus ring + reduced-motion (CSS).
+   NOTE: framer-motion zone animations also need the useReducedMotion hook;
+   that lands with the display broadcast redesign. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
