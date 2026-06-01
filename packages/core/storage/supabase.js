@@ -52,6 +52,23 @@ export async function setPlayerNote(token, note) {
   if (error) throw error;
 }
 
+// Phase 9 (finish) — player self contact-capture + notification preference.
+// channel ∈ push|email|sms|whatsapp; sms/whatsapp require a phone. Returns {ok, phone, notification_channel}.
+export async function setPlayerContact(token, phone, channel) {
+  const { data, error } = await supabase.rpc('set_player_contact', {
+    p_token: token, p_phone: phone ?? null, p_channel: channel ?? 'push',
+  });
+  if (error) { console.error('[player] set_player_contact failed', error); throw error; }
+  return data;
+}
+
+// Prefill for the notification-preference UI: { phone, notification_channel, has_linked_email }.
+export async function getMyContact(token) {
+  const { data, error } = await supabase.rpc('get_my_contact', { p_token: token });
+  if (error) { console.error('[player] get_my_contact failed', error); throw error; }
+  return data;
+}
+
 export async function deletePlayer(adminToken, id) {
   const { error } = await supabase.rpc('admin_delete_player', { p_admin_token: adminToken, p_player_id: id });
   if (error) throw error;

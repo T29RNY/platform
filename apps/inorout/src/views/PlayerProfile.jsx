@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
   SignOut, Trash, X as XIcon,
-  PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid,
+  PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid, BellSimple,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import {
@@ -10,7 +10,7 @@ import {
   leaveSquad, deleteMyAccount,
   setPlayerNickname, resetPlayerToken,
   insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
-  deletePlayer,
+  deletePlayer, getMyContact, setPlayerContact,
 } from "@platform/core/storage/supabase.js";
 import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
@@ -248,6 +248,15 @@ export default function PlayerProfile({
   const [injuriesLoading, setInjuriesLoading] = useState(false);
   const [injuriesError,   setInjuriesError]   = useState(false);
 
+  // Notification preference (Phase 9 contact-capture) — player-self, keyed by me.token.
+  const [contact,        setContact]        = useState(null);
+  const [contactPhone,   setContactPhone]   = useState("");
+  const [contactChannel, setContactChannel] = useState("push");
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactSaving,  setContactSaving]  = useState(false);
+  const [contactSaved,   setContactSaved]   = useState(false);
+  const [contactError,   setContactError]   = useState(null);
+
   // Leave-squad — two-tap confirm, inline error
   const [leaveConfirming, setLeaveConfirming] = useState(false);
   const [leaving,         setLeaving]         = useState(false);
@@ -317,6 +326,36 @@ export default function PlayerProfile({
       setInjuriesError(true);
     } finally {
       setInjuriesLoading(false);
+    }
+  };
+
+  const loadContact = async () => {
+    if (!me?.token) return;
+    setContactLoading(true); setContactError(null);
+    try {
+      const c = await getMyContact(me.token);
+      setContact(c);
+      setContactPhone(c?.phone || "");
+      setContactChannel(c?.notification_channel || "push");
+    } catch (e) {
+      console.error("Failed to load contact prefs:", e);
+      setContactError("Couldn't load preferences");
+    } finally {
+      setContactLoading(false);
+    }
+  };
+
+  const saveContact = async () => {
+    setContactSaving(true); setContactError(null); setContactSaved(false);
+    try {
+      await setPlayerContact(me.token, contactPhone, contactChannel);
+      setContactSaved(true);
+      setTimeout(() => setContactSaved(false), 2000);
+    } catch (e) {
+      const msg = e?.message || "";
+      setContactError(msg.includes("phone_required") ? "Add a phone number to use SMS or WhatsApp." : "Couldn't save");
+    } finally {
+      setContactSaving(false);
     }
   };
 
@@ -567,6 +606,61 @@ export default function PlayerProfile({
             currentlyInjured={me?.injured}
           />
         </Section>
+
+        {/* Notifications preference (player mode only) — Phase 9 contact-capture */}
+        {!isAdminView && me?.token && (
+          <Section
+            icon={<BellSimple size={16} weight="thin" color="var(--t2)"/>}
+            label="NOTIFICATIONS"
+            onExpand={loadContact}
+          >
+            <div style={{ padding:"4px 16px 16px" }}>
+              {contactLoading ? (
+                <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>Loading…</div>
+              ) : (
+                <>
+                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, margin:"0 0 6px" }}>How should we reach you?</div>
+                  <select value={contactChannel} onChange={e => setContactChannel(e.target.value)}
+                    style={{ width:"100%", background:"var(--s3)", border:"0.5px solid var(--border-subtle)",
+                      borderRadius:"var(--rs)", padding:"8px 10px", fontSize:13, color:"var(--t1)",
+                      fontFamily:"var(--font-body)", outline:"none" }}>
+                    <option value="push">Push notification (this app)</option>
+                    <option value="email" disabled={!contact?.has_linked_email}>
+                      {contact?.has_linked_email ? "Email" : "Email — sign in first"}
+                    </option>
+                    <option value="sms">Text message (SMS)</option>
+                    <option value="whatsapp">WhatsApp</option>
+                  </select>
+
+                  {(contactChannel === "sms" || contactChannel === "whatsapp") && (
+                    <input value={contactPhone} onChange={e => setContactPhone(e.target.value)}
+                      placeholder="+44…" inputMode="tel" autoComplete="tel"
+                      style={{ width:"100%", marginTop:8, background:"var(--s3)",
+                        border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                        padding:"8px 10px", fontSize:13, color:"var(--t1)",
+                        fontFamily:"var(--font-body)", outline:"none" }}/>
+                  )}
+
+                  <button onClick={saveContact} disabled={contactSaving}
+                    style={{ marginTop:10, background: contactSaved ? "var(--green)" : "var(--gold)",
+                      color:"var(--black)", border:"none", borderRadius:"var(--rs)",
+                      padding:"8px 16px", fontSize:13, fontWeight:600,
+                      cursor: contactSaving ? "not-allowed" : "pointer",
+                      fontFamily:"var(--font-body)", opacity: contactSaving ? 0.6 : 1 }}>
+                    {contactSaving ? "Saving…" : contactSaved ? "Saved ✓" : "Save"}
+                  </button>
+
+                  {contactError && (
+                    <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{contactError}</div>
+                  )}
+                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
+                    Used for league fixture reminders. Push is the default.
+                  </div>
+                </>
+              )}
+            </div>
+          </Section>
+        )}
 
         {/* Admin Actions (admin mode only) */}
         {isAdminView && (

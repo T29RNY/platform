@@ -13,9 +13,10 @@
    left open: competitive availability exists but nothing reminded the squad) · ✅ **`_sms.js`
    wired for ref assignment** (session 65 — `ref_assigned` routes through `pickChannel` honouring
    `match_officials.preferred_channel`, whatsapp→sms→email fallback; `apps/inorout/api/cron.js`
-   only, no DB/RPC/UI). **Remaining:** player push→email→SMS fallback (needs a contact-capture +
-   preference UI: `players.phone`/`notification_channel` exist but nothing captures a phone and
-   there's no setter RPC). **The Phase 9 "HQ weekly digest" cycle is deferred to ride with
+   only, no DB/RPC/UI). ✅ **player contact-capture** (session 65, mig 189) — `set_player_contact`/
+   `get_my_contact` + a NOTIFICATIONS section in PlayerProfile (phone + channel preference). **Remaining:**
+   wire the push→email→SMS fallback into the 48h/2h reminder crons (captured preference + `_sms`/`_mailer`
+   transports now all exist). **The Phase 9 "HQ weekly digest" cycle is deferred to ride with
    Phase 6** (it needs HQ aggregation).
 2. **Phase 6 (HQ dashboard)** — company-level cross-venue surface; data already flows
    up but nothing reads it. ✅ Cycle 6.1 (session 60): apps/hq app + auth/caller-resolution
