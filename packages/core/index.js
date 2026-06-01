@@ -79,6 +79,7 @@ export {
   venueGenerateFixtures,
   venuePersistCupBracket,
   venueScheduleCupTie,
+  getCupBracket,
   venueAssignPitch,
   venueAssignRef,
   venueUpdateFixtureStatus,

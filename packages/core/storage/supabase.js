@@ -2227,6 +2227,15 @@ export async function refRecordKnockoutDecider(refToken, { aetHome = null, aetAw
   return data;
 }
 
+// Phase 11 Cycle 11.3 — read a competition's full single-elim bracket (rounds → ties,
+// scores, decider detail, champion). Public match data, keyed by competition_id; used by
+// the venue bracket/scheduling UI, the player bracket view, and the display board.
+export async function getCupBracket(competitionId) {
+  const { data, error } = await supabase.rpc("get_cup_bracket", { p_competition_id: competitionId });
+  if (error) { console.error("[cup] get_cup_bracket failed", error); throw error; }
+  return data;
+}
+
 // Phase 11 Cycle 11.2 — venue schedules a 'ready' next-round cup tie (date/time/pitch).
 export async function venueScheduleCupTie(venueToken, tieId, scheduledDate, kickoffTime, playingAreaId = null) {
   const { data, error } = await supabase.rpc("venue_schedule_cup_tie", {

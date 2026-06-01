@@ -6,6 +6,7 @@ import SeasonWizard from "./SeasonWizard.jsx";
 import WeekPulse from "./WeekPulse.jsx";
 import BookingsView from "./BookingsView.jsx";
 import PaymentsView from "./PaymentsView.jsx";
+import BracketView from "./BracketView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
 
 // "Sat 7 Jun" — short next-fixture date for the empty Tonight hero.
@@ -18,7 +19,11 @@ const fmtNextDate = (d) => {
 export default function Dashboard({ state, venueToken, occupancy = [], onRefresh, onRefreshOccupancy, refreshing }) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
-  const [view, setView] = useState("ops"); // ops | bookings | payments
+  const [view, setView] = useState("ops"); // ops | bookings | payments | cups
+  const hasCups = useMemo(
+    () => (state.competitions ?? []).some((c) => c.type === "cup" && c.format === "single_elimination"),
+    [state.competitions]
+  );
 
   // Pending booking count for the Bookings tab badge — group a weekly block
   // (same series_id) into a single pending item.
@@ -220,6 +225,14 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
         >
           Payments
         </button>
+        {hasCups && (
+          <button
+            className={"viewnav-tab" + (view === "cups" ? " is-active" : "")}
+            onClick={() => setView("cups")}
+          >
+            Cups
+          </button>
+        )}
       </nav>
 
       <DisplaySettings
@@ -249,6 +262,8 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
         />
       ) : view === "payments" ? (
         <PaymentsView state={state} venueToken={venueToken} />
+      ) : view === "cups" ? (
+        <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />
       ) : (
       <main className="content dash-grid">
         <section className="panel panel-tonight" ref={tonightRef}>

@@ -40,8 +40,10 @@
    trigger (mig 187) propagate winners into parent ties (decisive score, ref ET/pens, walkover,
    forfeit) and mark next ties `ready`; `ref_record_knockout_decider` + `ref_confirm_full_time`
    level→`needs_decider` change + ref `DeciderModal`; `venue_schedule_cup_tie` (operator schedules
-   each round). **Next: 11.3** `get_cup_bracket` read RPC + bracket views (venue admin + scheduling
-   UI, player, display board).
+   each round). ◀ **Cycle 11.3 IN PROGRESS (session 65):** `get_cup_bracket` read RPC (mig 188)
+   shipped; ✅ **venue** bracket view + per-round scheduling UI (`BracketView`, Cups tab — wires
+   `venue_schedule_cup_tie`). **Remaining 11.3:** player bracket view (apps/inorout) + display-board
+   bracket zone.
 
 **After these three:** Phase 7 (AI layer — Ask the Gaffer evolved) · Phase 10 (public
 league pages). **Phase 8 (billing/self-serve) deferred to year 2.** Also outstanding:
