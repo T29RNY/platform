@@ -12,6 +12,7 @@ import DisplaySettings from "./DisplaySettings.jsx";
 import TeamsView from "./TeamsView.jsx";
 import StaffView from "./StaffView.jsx";
 import LeagueView from "./LeagueView.jsx";
+import LeagueTable from "./LeagueTable.jsx";
 import ComingSoon from "./ComingSoon.jsx";
 
 // "Sat 7 Jun" — short next-fixture date for the empty Tonight hero.
@@ -296,15 +297,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
           ]}
         />
       ) : view === "table" ? (
-        <ComingSoon
-          title="League table"
-          blurb="Live standings for every round-robin competition — played, won, drawn, lost, goals for/against, goal difference and points, ranked your way."
-          points={[
-            "Needs a venue standings RPC computed from completed fixtures.",
-            "Group-stage cup tables already render under the Cups tab.",
-            "Will honour each league’s public / private standings setting.",
-          ]}
-        />
+        <LeagueTable state={state} venueToken={venueToken} />
       ) : (
       <motion.main
         className="content dash-grid"

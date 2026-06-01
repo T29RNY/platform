@@ -2807,6 +2807,19 @@ export async function venueGetTeamRoster(venueToken, teamId) {
   return data;
 }
 
+// ── League standings (Table view) — mig 197 ──
+export async function venueGetStandings(venueToken, competitionId) {
+  const { data, error } = await supabase.rpc("venue_get_standings", {
+    p_venue_token: venueToken,
+    p_competition_id: competitionId,
+  });
+  if (error) {
+    console.error("[venue] get_standings failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function venueUpdateRef(venueToken, refId, updates) {
   const { data, error } = await supabase.rpc("venue_update_ref", {
     p_venue_token: venueToken,

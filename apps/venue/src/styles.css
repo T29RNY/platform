@@ -1659,6 +1659,52 @@ input:focus, select:focus, textarea:focus {
 .status-active { color: var(--good); background: rgba(61,220,106,0.10); border-color: rgba(61,220,106,0.32); }
 .status-draft  { color: var(--warn); background: rgba(255,176,32,0.10); border-color: rgba(255,176,32,0.32); }
 
+/* League Table (standings) */
+.lt-select { min-width: 200px; }
+.lt-panel { padding: 6px 6px 8px; overflow: hidden; }
+.lt-scroll { overflow-x: auto; }
+.lt-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.lt-table thead th {
+  font-family: var(--f-body); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-mute);
+  text-align: center; padding: 12px 8px; border-bottom: 1px solid var(--stroke-2);
+  white-space: nowrap;
+}
+.lt-table th.lt-team { text-align: left; padding-left: 12px; }
+.lt-table th.lt-pos { width: 44px; }
+.lt-table th.lt-pts { color: var(--accent); }
+.lt-table tbody td {
+  text-align: center; padding: 12px 8px; font-size: 14px; color: var(--ink-soft);
+  border-bottom: 1px solid var(--stroke);
+}
+.lt-table tbody tr:last-child td { border-bottom: none; }
+.lt-table tbody tr { transition: background 180ms var(--ease); }
+.lt-table tbody tr:hover { background: var(--surface); }
+.lt-table tbody tr.is-top .lt-rank { color: var(--accent); }
+.lt-pos { width: 44px; }
+.lt-rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 24px; border-radius: 7px;
+  font-family: var(--f-display); font-size: 16px; color: var(--ink);
+  background: var(--surface-hi); border: 1px solid var(--stroke-2);
+}
+.is-top .lt-rank { background: var(--accent-soft); border-color: rgba(232,160,32,0.35); }
+.lt-team { text-align: left !important; }
+td.lt-team { display: flex; align-items: center; gap: 10px; padding-left: 12px; }
+.lt-tick { flex: none; width: 4px; height: 22px; border-radius: 2px; }
+.lt-name {
+  font-family: var(--f-display); font-size: 19px; letter-spacing: 0.012em;
+  text-transform: uppercase; color: var(--ink); line-height: 1; white-space: nowrap;
+}
+.lt-gd.is-pos { color: var(--good); }
+.lt-gd.is-neg { color: var(--bad); }
+.lt-pts b { font-family: var(--f-display); font-size: 20px; font-weight: 400; color: var(--ink); }
+.lt-table .is-top .lt-pts b { color: var(--accent); }
+@media (max-width: 620px) {
+  .lt-hide-sm { display: none; }
+  .lt-name { font-size: 16px; }
+}
+
 /* Coming-soon panels (Players / Table) */
 .soon-panel { position: relative; overflow: hidden; padding: 40px 34px; max-width: 720px; }
 .soon-glow { position: absolute; inset: -40% 30% auto -10%; height: 200%;
