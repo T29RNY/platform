@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import FixtureActions from "./FixtureActions.jsx";
 
+const ACTIONABLE = new Set(["scheduled", "allocated", "postponed", "completed"]);
+
 export default function FixtureCard({ fx, state, venueToken, onDone, prominent, compact, withActions, animateScore }) {
   const teams = state.teams || {};
   const home = teams[fx.home_team_id]?.name || fx.home_team_id;
@@ -16,26 +18,39 @@ export default function FixtureCard({ fx, state, venueToken, onDone, prominent, 
     (compact ? " fx-compact" : "") +
     " fx-status-" + (fx.status || "scheduled");
 
+  const canAct = withActions && ACTIONABLE.has(fx.status);
+  const needsSetup = ["scheduled", "allocated"].includes(fx.status);
+  const showFoot = pitch || ref || canAct;
+
   return (
     <div className={cls}>
       <div className="fx-hover-sweep" aria-hidden="true" />
-      <div className="fx-when">
-        <div className="fx-date">{dateStr}</div>
-        {timeStr && <div className="fx-time">{timeStr}</div>}
-      </div>
-      <div className="fx-teams">
-        <div className="fx-team fx-home">{home}</div>
-        {renderScore(fx, animateScore)}
-        <div className="fx-team fx-away">{away}</div>
-      </div>
-      <div className="fx-meta">
+
+      <div className="fx-main">
+        <div className="fx-when">
+          {timeStr && <div className="fx-time">{timeStr}</div>}
+          <div className="fx-date">{dateStr}</div>
+        </div>
+        <div className="fx-teams">
+          <div className="fx-team fx-home">{home}</div>
+          {renderScore(fx, animateScore)}
+          <div className="fx-team fx-away">{away}</div>
+        </div>
         <span className="fx-status-pill">{labelStatus(fx)}</span>
-        {pitch && <span className="fx-pitch">{pitch.name}</span>}
-        {ref && <span className="fx-ref">{ref.name}</span>}
-        {withActions && (
-          <FixtureActions venueToken={venueToken} fixture={fx} state={state} onDone={onDone} />
-        )}
       </div>
+
+      {showFoot && (
+        <div className="fx-foot">
+          <div className="fx-tags">
+            {pitch && <span className="fx-pitch">{pitch.name}</span>}
+            {ref && <span className="fx-ref">{ref.name}</span>}
+            {!pitch && !ref && needsSetup && <span className="fx-tag-none">No pitch or referee yet</span>}
+          </div>
+          {withActions && (
+            <FixtureActions venueToken={venueToken} fixture={fx} state={state} onDone={onDone} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
