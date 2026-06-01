@@ -3,6 +3,7 @@
 
 const { createClient } = require("@supabase/supabase-js");
 const { sendTemplated } = require("./_mailer");
+const { sendTemplated: sendSmsTemplated, pickChannel } = require("./_sms");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -727,11 +728,62 @@ async function refFixtureCtx(fixtureId) {
 }
 
 async function alreadyEmailed(type, entityId, recipient) {
+  return alreadyNotified(type, entityId, recipient, "email");
+}
+
+// Channel-agnostic dedup: true if this (type, entity, recipient, channel) already sent.
+// Phase 9 SMS/WhatsApp wiring keys ref_assigned by the actual channel so an SMS send and
+// an email send for the same fixture+recipient never cross-collide.
+async function alreadyNotified(type, entityId, recipient, channel) {
   const { data } = await supabase
     .from("notification_log").select("id")
     .eq("type", type).eq("entity_id", entityId).eq("recipient", recipient)
-    .eq("channel", "email").not("sent_at", "is", null).limit(1);
+    .eq("channel", channel).not("sent_at", "is", null).limit(1);
   return !!(data && data.length);
+}
+
+// Route a ref-assignment notification through the official's preferred channel with
+// availability fallback (whatsapp→sms→email), honouring match_officials.preferred_channel.
+// Refs have no web-push subscription, so 'push' contacts are always absent and a 'push'
+// preference falls through to email. SMS/WhatsApp go via _sms.js (Twilio, no-op without
+// TWILIO_* env); email via _mailer.js (Resend). One channel per ref — the picked one.
+// notification_log is keyed per-channel so a Twilio outage retries next tick without
+// blocking the email fallback. Returns false only to stop the whole job (email no-key).
+async function dispatchRefAssigned(entityId, official, ctx, results) {
+  const contacts = {
+    whatsapp_number: official.whatsapp_number || null,
+    phone: official.phone || null,
+    email: official.email || null,
+    push: false,
+  };
+  const channel = pickChannel(official.preferred_channel || "push", contacts);
+  if (!channel) { results.push("onboardingEmail: ref_assigned no contact channel"); return true; }
+
+  const to = channel === "whatsapp" ? contacts.whatsapp_number
+           : channel === "sms"      ? contacts.phone
+           : contacts.email;
+  if (!to) return true;
+  if (await alreadyNotified("ref_assigned", entityId, to, channel)) return true;
+
+  if (channel === "email") {
+    return dispatchEmail("ref_assigned", entityId, [to], ctx, null, results);
+  }
+
+  // whatsapp / sms via Twilio
+  const r = await sendSmsTemplated("ref_assigned", channel, to, ctx);
+  if (r?.skipped === "no_credentials" || r?.skipped === "no_from") {
+    results.push(`onboardingEmail: ref_assigned ${channel} skipped (${r.skipped})`);
+    return true;
+  }
+  if (r?.id) {
+    await supabase.from("notification_log").insert({
+      type: "ref_assigned", entity_id: entityId, recipient: to, channel,
+    });
+    results.push(`onboardingEmail: ref_assigned → 1 ${channel}`);
+  } else if (r?.error) {
+    results.push(`onboardingEmail: ref_assigned ${channel} send failed (${to}) — ${r.error}`);
+  }
+  return true;
 }
 
 // Returns false if the whole job should stop (no API key); true otherwise.
@@ -791,10 +843,10 @@ async function onboardingEmailJob(results) {
     } else if (ev.action === "fixture_ref_assigned") {
       const officialId = m.official_id;
       if (!officialId) continue;
-      const { data: off } = await supabase.from("match_officials").select("email").eq("id", officialId).single();
-      if (!off?.email) continue;
-      const ok = await dispatchEmail("ref_assigned", ev.entity_id, [off.email],
-        await refFixtureCtx(ev.entity_id), null, results);
+      const { data: off } = await supabase.from("match_officials")
+        .select("email, phone, whatsapp_number, preferred_channel").eq("id", officialId).single();
+      if (!off) continue;
+      const ok = await dispatchRefAssigned(ev.entity_id, off, await refFixtureCtx(ev.entity_id), results);
       if (!ok) return;
     }
   }

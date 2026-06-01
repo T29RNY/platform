@@ -10,10 +10,13 @@
 **NEXT BUILD ORDER (operator, session 58): 9 → 6 → 11** (methodical, not number order):
 1. **Phase 9 (finish)** — ✅ email (9.1) · ✅ SMS/WhatsApp Twilio transport core (session 59,
    unwired) · ✅ fixture-reminder / 48h availability crons (session 59 — close the loop Phase 5
-   left open: competitive availability exists but nothing reminded the squad). **Remaining:**
-   wire `_sms.js` into a send path (refs via `match_officials.preferred_channel`; player
-   push→email→SMS fallback needs contact-capture UI). **The Phase 9 "HQ weekly digest" cycle is
-   deferred to ride with Phase 6** (it needs HQ aggregation).
+   left open: competitive availability exists but nothing reminded the squad) · ✅ **`_sms.js`
+   wired for ref assignment** (session 65 — `ref_assigned` routes through `pickChannel` honouring
+   `match_officials.preferred_channel`, whatsapp→sms→email fallback; `apps/inorout/api/cron.js`
+   only, no DB/RPC/UI). **Remaining:** player push→email→SMS fallback (needs a contact-capture +
+   preference UI: `players.phone`/`notification_channel` exist but nothing captures a phone and
+   there's no setter RPC). **The Phase 9 "HQ weekly digest" cycle is deferred to ride with
+   Phase 6** (it needs HQ aggregation).
 2. **Phase 6 (HQ dashboard)** — company-level cross-venue surface; data already flows
    up but nothing reads it. ✅ Cycle 6.1 (session 60): apps/hq app + auth/caller-resolution
    + company-state/drill-down/incident-resolve RPCs + Venue Health Grid + Alerts. ✅ Cycle 6.3
