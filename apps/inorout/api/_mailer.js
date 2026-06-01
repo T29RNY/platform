@@ -90,6 +90,28 @@ const TEMPLATES = {
       (c.link ? `<p><a href="${esc(c.link)}">Open your match sheet →</a></p>` : "")
     ),
   }),
+  // Phase 9 finish — league reminder emails (the email leg of the push→email→SMS fallback;
+  // same type names + ctx as the _sms.js templates so one router resolves a type per channel).
+  leagueAvailability48h: (c) => ({
+    subject: `Are you in? ${c.opponent} on ${c.dateLabel}`,
+    text:
+      `League fixture vs ${c.opponent} on ${c.dateLabel}. Are you in?` +
+      (c.link ? ` Mark in or out: ${c.link}` : ""),
+    html: wrap(
+      `<p>League fixture vs <b>${esc(c.opponent)}</b> on <b>${esc(c.dateLabel)}</b>.</p>` +
+      `<p>Are you in?` + (c.link ? ` <a href="${esc(c.link)}">Mark in or out →</a>` : "") + `</p>`
+    ),
+  }),
+  leagueFixtureReminder2h: (c) => ({
+    subject: `Last call — kickoff vs ${c.opponent} in 2h`,
+    text:
+      `Kickoff vs ${c.opponent} in about 2 hours — are you in?` +
+      (c.link ? ` Mark in or out now: ${c.link}` : ""),
+    html: wrap(
+      `<p>Kickoff vs <b>${esc(c.opponent)}</b> in about 2 hours — are you in?</p>` +
+      (c.link ? `<p><a href="${esc(c.link)}">Mark in or out now →</a></p>` : "")
+    ),
+  }),
 };
 
 async function sendTemplated(type, to, ctx) {

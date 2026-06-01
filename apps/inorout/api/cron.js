@@ -883,7 +883,9 @@ async function squadPlayers(teamId) {
   const ids = (tps || []).map(t => t.player_id);
   if (!ids.length) return [];
   const { data: players } = await supabase
-    .from("players").select("id, status, injured, disabled").in("id", ids);
+    .from("players")
+    .select("id, status, injured, disabled, phone, notification_channel, user_id, token")
+    .in("id", ids);
   return (players || []).filter(p => !p.injured && !p.disabled);
 }
 
@@ -896,6 +898,60 @@ async function callNotifyDirect(base, body) {
       body: JSON.stringify(body),
     });
   } catch (e) { /* best-effort; the job's results line records the attempt count */ }
+}
+
+// Which of these players have a push subscription on this team.
+async function pushSubPlayerIds(teamId, playerIds) {
+  if (!playerIds.length) return new Set();
+  const { data } = await supabase
+    .from("push_subscriptions").select("player_id")
+    .eq("team_id", teamId).in("player_id", playerIds);
+  return new Set((data || []).map(r => r.player_id));
+}
+
+async function emailForUser(userId) {
+  if (!userId) return null;
+  const arr = await authEmailsForUserIds([userId]);
+  return arr[0] || null;
+}
+
+// Phase 9 finish — route a competitive reminder across each player's preferred channel
+// (push→email→SMS fallback via pickChannel). Push players go through /api/notify (which
+// owns quiet-hours + per-player logging); email via _mailer, sms/whatsapp via _sms, each
+// logged to notification_log with its channel. The caller's side-level alreadyLogged guard
+// means this runs once per (team,type,date), so no per-player dedup is needed. Players with
+// no reachable channel are silently skipped (same as the old push-only path). Returns the
+// per-channel counts for the results line.
+async function dispatchReminder(base, teamId, type, players, ctx, payload, gameDate) {
+  const ids = players.map(p => p.id);
+  const subbed = await pushSubPlayerIds(teamId, ids);
+  const pushIds = [];
+  const counts = { push: 0, email: 0, sms: 0, whatsapp: 0, none: 0 };
+  for (const p of players) {
+    const pref = p.notification_channel || "push";
+    const contacts = { whatsapp_number: p.phone, phone: p.phone, email: null, push: subbed.has(p.id) };
+    if (pref === "email" || !contacts.push) contacts.email = await emailForUser(p.user_id);
+    const ch = pickChannel(pref, contacts);
+    if (ch === "push") { pushIds.push(p.id); counts.push++; continue; }
+    if (!ch) { counts.none++; continue; }
+    const link = p.token ? `https://www.in-or-out.com/p/${p.token}` : "";
+    const tctx = { ...ctx, link };
+    let r;
+    if (ch === "email") r = await sendTemplated(type, contacts.email, tctx);
+    else r = await sendSmsTemplated(type, ch, p.phone, tctx);
+    if (r?.id) {
+      counts[ch]++;
+      await supabase.from("notification_log").insert({
+        team_id: teamId, player_id: p.id, type, game_date: gameDate,
+        channel: ch, recipient: ch === "email" ? contacts.email : p.phone,
+        sent_at: new Date().toISOString(),
+      });
+    }
+  }
+  if (pushIds.length) {
+    await callNotifyDirect(base, { type, teamId, playerIds: pushIds, gameDate, payload });
+  }
+  return counts;
 }
 
 const FIXTURE_REMINDER_STATES = ["scheduled", "allocated"];
@@ -924,18 +980,18 @@ async function availabilityRequestJob(base, results) {
     for (const side of sides) {
       if (!side.teamId) continue; // bye (away_team_id NULL)
       if (await alreadyLogged(side.teamId, "leagueAvailability48h", fx.scheduled_date)) continue;
-      const playerIds = (await squadPlayers(side.teamId)).map(p => p.id);
-      if (!playerIds.length) continue;
+      const players = await squadPlayers(side.teamId);
+      if (!players.length) continue;
       const opponent = (await teamNameOf(side.oppId)) || "your opponent";
-      await callNotifyDirect(base, {
-        type: "leagueAvailability48h", teamId: side.teamId, playerIds,
-        gameDate: fx.scheduled_date,
-        payload: {
+      const dateLabel = fmtUkDate(fx.scheduled_date);
+      await dispatchReminder(base, side.teamId, "leagueAvailability48h", players,
+        { opponent, dateLabel },
+        {
           title: "Are you in? ⚽",
-          body: `League fixture vs ${opponent} on ${fmtUkDate(fx.scheduled_date)} — mark in or out.`,
+          body: `League fixture vs ${opponent} on ${dateLabel} — mark in or out.`,
           icon: "/icons/icon-192.png",
         },
-      });
+        fx.scheduled_date);
       pushed++;
     }
   }
@@ -968,18 +1024,18 @@ async function fixtureReminderJob(base, results) {
     for (const side of sides) {
       if (!side.teamId) continue;
       if (await alreadyLogged(side.teamId, "leagueFixtureReminder2h", fx.scheduled_date)) continue;
-      const unmarked = (await squadPlayers(side.teamId)).filter(p => p.status === "none").map(p => p.id);
+      const unmarked = (await squadPlayers(side.teamId)).filter(p => p.status === "none");
       if (!unmarked.length) continue;
       const opponent = (await teamNameOf(side.oppId)) || "your opponent";
-      await callNotifyDirect(base, {
-        type: "leagueFixtureReminder2h", teamId: side.teamId, playerIds: unmarked,
-        gameDate: fx.scheduled_date,
-        payload: {
+      const dateLabel = fmtUkDate(fx.scheduled_date);
+      await dispatchReminder(base, side.teamId, "leagueFixtureReminder2h", unmarked,
+        { opponent, dateLabel },
+        {
           title: "Last call ⚽",
           body: `Kickoff vs ${opponent} in 2 hours — are you in? Mark in or out now.`,
           icon: "/icons/icon-192.png",
         },
-      });
+        fx.scheduled_date);
       pushed++;
     }
   }

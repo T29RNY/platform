@@ -14,10 +14,12 @@
    wired for ref assignment** (session 65 — `ref_assigned` routes through `pickChannel` honouring
    `match_officials.preferred_channel`, whatsapp→sms→email fallback; `apps/inorout/api/cron.js`
    only, no DB/RPC/UI). ✅ **player contact-capture** (session 65, mig 189) — `set_player_contact`/
-   `get_my_contact` + a NOTIFICATIONS section in PlayerProfile (phone + channel preference). **Remaining:**
-   wire the push→email→SMS fallback into the 48h/2h reminder crons (captured preference + `_sms`/`_mailer`
-   transports now all exist). **The Phase 9 "HQ weekly digest" cycle is deferred to ride with
-   Phase 6** (it needs HQ aggregation).
+   `get_my_contact` + a NOTIFICATIONS section in PlayerProfile (phone + channel preference). ✅ **fallback
+   wired (session 65):** the 48h/2h reminder crons now route each player via `pickChannel`
+   (push→email→SMS/WhatsApp) — push through `/api/notify`, email via `_mailer`, SMS/WhatsApp via `_sms`,
+   each logged to `notification_log` with its channel; league reminder email templates added. **Phase 9
+   is functionally COMPLETE** bar the **HQ weekly digest** (deferred to ride with Phase 6 — needs HQ
+   aggregation). *Operator owes a real-delivery test once `TWILIO_*` env is set (SMS no-ops until then).*
 2. **Phase 6 (HQ dashboard)** — company-level cross-venue surface; data already flows
    up but nothing reads it. ✅ Cycle 6.1 (session 60): apps/hq app + auth/caller-resolution
    + company-state/drill-down/incident-resolve RPCs + Venue Health Grid + Alerts. ✅ Cycle 6.3
