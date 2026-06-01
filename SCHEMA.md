@@ -475,7 +475,7 @@ arrive in Phase 2+. All currently empty.
 
 ### Phase 1 — Fixture / event layer
 
-- `fixtures` — competition_id, home_team_id, away_team_id (nullable = bye), week_number, scheduled_date, kickoff_time, playing_area_id, official_id, ref_token (per-fixture, unique). status (scheduled/allocated/in_progress/completed/postponed/void/walkover). home_score/away_score. `cup_tie_id` (Phase 11 mig 184) links a cup fixture back to its `cup_ties` bracket slot.
+- `fixtures` — competition_id, home_team_id, away_team_id (nullable = bye), week_number, scheduled_date, kickoff_time, playing_area_id, official_id, ref_token (per-fixture, unique). status (scheduled/allocated/in_progress/completed/postponed/void/walkover). home_score/away_score. `cup_tie_id` (Phase 11 mig 184) links a cup fixture back to its `cup_ties` bracket slot. **Knockout decider (Phase 11 mig 186):** `aet_home_score`/`aet_away_score` (extra-time aggregate, NULL if none), `pens_home_score`/`pens_away_score` (shootout), `ko_winner_id` (winner when a level tie is decided by ET/pens), `decided_by` ('regulation'|'extra_time'|'penalties'|'walkover'|'forfeit'; NULL for league/unfinished).
 - `match_events` — fixture_id, team_id, player_id, event_type (open text), minute, period (open text), sub_player_on_id, sub_player_off_id, recorded_by_token + recorded_by_type, synced_at (NULL = recorded offline), local_timestamp.
 - `player_registrations` — player_id, competition_id, team_id, registration_number, status (active/suspended/ineligible), suspension_until/reason. UNIQUE(player_id, competition_id).
 

@@ -6,6 +6,7 @@ import {
   refSetPeriod,
   refUndoEvent,
   refConfirmFullTime,
+  refRecordKnockoutDecider,
 } from "@platform/core/storage/supabase.js";
 import {
   enqueue as queueEnqueue,
@@ -346,16 +347,40 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
   // Full-time confirm
   const [confirmFT, setConfirmFT] = useState(false);
   const [confirmingFT, setConfirmingFT] = useState(false);
+  // Knockout decider (cup tie level at full time)
+  const [decider, setDecider] = useState(null); // { home_score, away_score } when needed
   async function doConfirmFullTime() {
     setConfirmingFT(true);
     try {
-      await refConfirmFullTime(refToken);
+      const res = await refConfirmFullTime(refToken);
+      if (res?.needs_decider) {
+        // Level cup knockout — collect extra time and/or penalties before completing.
+        setConfirmFT(false);
+        setConfirmingFT(false);
+        setDecider({ home_score: res.home_score, away_score: res.away_score });
+        return;
+      }
       await onRefresh();   // App will flip to PreMatch terminal banner
     } catch (err) {
       console.error("[ref] confirm_full_time failed", err);
       alert(`Could not confirm full time: ${err?.message || String(err)}`);
       setConfirmingFT(false);
       setConfirmFT(false);
+    }
+  }
+
+  const [submittingDecider, setSubmittingDecider] = useState(false);
+  async function submitDecider(payload) {
+    setSubmittingDecider(true);
+    try {
+      await refRecordKnockoutDecider(refToken, payload);
+      setDecider(null);
+      setSubmittingDecider(false);
+      await onRefresh();
+    } catch (err) {
+      console.error("[ref] decider failed", err);
+      alert(`Could not record the decider: ${err?.message || String(err)}`);
+      setSubmittingDecider(false);
     }
   }
 
@@ -493,7 +518,79 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
           </div>
         </div>
       )}
+
+      {decider && (
+        <DeciderModal
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          reg={decider}
+          busy={submittingDecider}
+          onCancel={() => setDecider(null)}
+          onSubmit={submitDecider}
+        />
+      )}
     </main>
+  );
+}
+
+// Knockout decider — a cup tie level after normal time. The ref enters extra-time
+// and/or penalties (typed) and picks the winner; the RPC validates consistency.
+function DeciderModal({ homeTeam, awayTeam, reg, busy, onCancel, onSubmit }) {
+  const [aetH, setAetH] = useState("");
+  const [aetA, setAetA] = useState("");
+  const [penH, setPenH] = useState("");
+  const [penA, setPenA] = useState("");
+  const [winner, setWinner] = useState("");
+  const num = (v) => (v === "" ? null : Number(v));
+  const hasPens = penH !== "" && penA !== "";
+  const hasAet = aetH !== "" && aetA !== "";
+  const canSave = !!winner && (hasPens || hasAet);
+  const rowStyle = { display: "flex", alignItems: "center", gap: "8px", margin: "4px 0 12px" };
+  const inputStyle = { width: "64px", textAlign: "center", fontSize: "20px", padding: "8px" };
+  return (
+    <div className="live-overlay">
+      <div className="live-modal">
+        <h2>Level at full time</h2>
+        <p className="muted">
+          {homeTeam.name} {reg.home_score}–{reg.away_score} {awayTeam.name} after normal time.
+          Enter extra time and/or penalties, then pick who goes through.
+        </p>
+
+        <label className="muted">Extra time</label>
+        <div style={rowStyle}>
+          <input type="number" min="0" inputMode="numeric" style={inputStyle}
+            value={aetH} onChange={(e) => setAetH(e.target.value)} aria-label={`${homeTeam.name} extra time`} />
+          <span>–</span>
+          <input type="number" min="0" inputMode="numeric" style={inputStyle}
+            value={aetA} onChange={(e) => setAetA(e.target.value)} aria-label={`${awayTeam.name} extra time`} />
+        </div>
+
+        <label className="muted">Penalties</label>
+        <div style={rowStyle}>
+          <input type="number" min="0" inputMode="numeric" style={inputStyle}
+            value={penH} onChange={(e) => setPenH(e.target.value)} aria-label={`${homeTeam.name} penalties`} />
+          <span>–</span>
+          <input type="number" min="0" inputMode="numeric" style={inputStyle}
+            value={penA} onChange={(e) => setPenA(e.target.value)} aria-label={`${awayTeam.name} penalties`} />
+        </div>
+
+        <label className="muted">Who goes through?</label>
+        <div style={{ display: "flex", gap: "8px", margin: "4px 0 12px" }}>
+          <button className={`btn-ghost${winner === homeTeam.id ? " is-selected" : ""}`}
+            aria-pressed={winner === homeTeam.id} onClick={() => setWinner(homeTeam.id)}>{homeTeam.name}</button>
+          <button className={`btn-ghost${winner === awayTeam.id ? " is-selected" : ""}`}
+            aria-pressed={winner === awayTeam.id} onClick={() => setWinner(awayTeam.id)}>{awayTeam.name}</button>
+        </div>
+
+        <div className="live-modal-actions">
+          <button className="btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+          <button className="btn-primary" disabled={busy || !canSave}
+            onClick={() => onSubmit({ aetHome: num(aetH), aetAway: num(aetA), pensHome: num(penH), pensAway: num(penA), winnerTeamId: winner })}>
+            {busy ? "Saving…" : "Confirm result"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

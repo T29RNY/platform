@@ -2213,6 +2213,33 @@ export async function refConfirmFullTime(refToken) {
   return data;
 }
 
+// Phase 11 Cycle 11.2 — knockout decider. Called when a cup tie is level at full time
+// (refConfirmFullTime returned { needs_decider: true }). Pass aet (extra-time aggregate)
+// and/or pens scores; the winner must match the higher of whichever decider is given.
+export async function refRecordKnockoutDecider(refToken, { aetHome = null, aetAway = null, pensHome = null, pensAway = null, winnerTeamId }) {
+  const { data, error } = await supabase.rpc("ref_record_knockout_decider", {
+    p_ref_token: refToken,
+    p_aet_home: aetHome, p_aet_away: aetAway,
+    p_pens_home: pensHome, p_pens_away: pensAway,
+    p_winner_team_id: winnerTeamId,
+  });
+  if (error) { console.error("[ref] record_knockout_decider failed", error); throw error; }
+  return data;
+}
+
+// Phase 11 Cycle 11.2 — venue schedules a 'ready' next-round cup tie (date/time/pitch).
+export async function venueScheduleCupTie(venueToken, tieId, scheduledDate, kickoffTime, playingAreaId = null) {
+  const { data, error } = await supabase.rpc("venue_schedule_cup_tie", {
+    p_venue_token: venueToken,
+    p_tie_id: tieId,
+    p_scheduled_date: scheduledDate,
+    p_kickoff_time: kickoffTime,
+    p_playing_area_id: playingAreaId,
+  });
+  if (error) { console.error("[venue] schedule_cup_tie failed", error); throw error; }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.3 season setup ────────────────────────────
 
 export async function venueCreateSeason(venueToken, season) {

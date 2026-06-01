@@ -35,9 +35,13 @@
    shown on venue+player+display.** ✅ **Cycle 11.1 (session 65):** bracket persistence —
    `cup_ties` tree (mig 184) + `venue_persist_cup_bracket` (mig 185) builds the whole
    single-elim bracket (canonical seeding, byes, feeder edges, round-1 fixtures+charges)
-   server-side; SeasonWizard single-elim branch wired. **Next: 11.2** advancement +
-   knockout result entry (ref ET/pens → `ko_winner_id`; advance winners into parent ties);
-   **11.3** `get_cup_bracket` + bracket views (venue/player/display).
+   server-side; SeasonWizard single-elim branch wired. ✅ **Cycle 11.2 (session 65):** the
+   bracket comes alive — decider columns (mig 186) + `_cup_advance` sweep & `cup_advance_after_result`
+   trigger (mig 187) propagate winners into parent ties (decisive score, ref ET/pens, walkover,
+   forfeit) and mark next ties `ready`; `ref_record_knockout_decider` + `ref_confirm_full_time`
+   level→`needs_decider` change + ref `DeciderModal`; `venue_schedule_cup_tie` (operator schedules
+   each round). **Next: 11.3** `get_cup_bracket` read RPC + bracket views (venue admin + scheduling
+   UI, player, display board).
 
 **After these three:** Phase 7 (AI layer — Ask the Gaffer evolved) · Phase 10 (public
 league pages). **Phase 8 (billing/self-serve) deferred to year 2.** Also outstanding:
