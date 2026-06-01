@@ -64,6 +64,8 @@ export {
   leagueListTeams,
   leagueGetStandings,
   leagueUpdateFixtureResult,
+  leagueUpdateFixtureStatus,
+  leagueRescheduleFixture,
   joinGetLeagueByCode,
   getLeagueStandingsForPlayer,
   getPlayerCompetitionFixtures,

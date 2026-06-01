@@ -1,11 +1,15 @@
 import React, { useState } from "react";
 import ResultModal from "./ResultModal.jsx";
+import FixtureManageModal from "./FixtureManageModal.jsx";
+
+const MANAGEABLE = new Set(["scheduled", "allocated", "postponed"]);
 
 // League fixture card — three bands (kickoff/status · matchup · meta). Team
 // names resolve through the `teams` map (league_list_teams). On a completed
 // fixture the league admin can correct the result (leagueToken + onDone).
 export default function FixtureCard({ fx, teams = {}, compact, leagueToken, onDone }) {
   const [editing, setEditing] = useState(false);
+  const [managing, setManaging] = useState(false);
   const home = teams[fx.home_team_id]?.name || fx.home_team_id;
   const away = fx.away_team_id ? (teams[fx.away_team_id]?.name || fx.away_team_id) : "(bye)";
   const homeCol = teams[fx.home_team_id]?.primary_colour || "var(--accent)";
@@ -34,26 +38,25 @@ export default function FixtureCard({ fx, teams = {}, compact, leagueToken, onDo
           <span className="fx-tick" style={{ background: awayCol }} />
         </span>
       </div>
-      {(fx.round_name || (leagueToken && fx.status === "completed")) && (
+      {(fx.round_name || (leagueToken && (fx.status === "completed" || MANAGEABLE.has(fx.status)))) && (
         <div className="fx-foot">
           <div className="fx-tags">{fx.round_name && <span className="fx-ref">{fx.round_name}</span>}</div>
-          {leagueToken && fx.status === "completed" && (
+          {leagueToken && (
             <div className="row-actions">
-              <button onClick={() => setEditing(true)}>Edit result</button>
+              {fx.status === "completed" && <button onClick={() => setEditing(true)}>Edit result</button>}
+              {MANAGEABLE.has(fx.status) && <button onClick={() => setManaging(true)}>Manage</button>}
             </div>
           )}
         </div>
       )}
 
       {editing && (
-        <ResultModal
-          leagueToken={leagueToken}
-          fixture={fx}
-          homeName={home}
-          awayName={away}
-          onClose={() => setEditing(false)}
-          onDone={onDone}
-        />
+        <ResultModal leagueToken={leagueToken} fixture={fx} homeName={home} awayName={away}
+          onClose={() => setEditing(false)} onDone={onDone} />
+      )}
+      {managing && (
+        <FixtureManageModal leagueToken={leagueToken} fixture={fx} homeName={home} awayName={away}
+          onClose={() => setManaging(false)} onDone={onDone} />
       )}
     </div>
   );

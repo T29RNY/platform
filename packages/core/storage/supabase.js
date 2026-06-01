@@ -2102,6 +2102,37 @@ export async function leagueUpdateFixtureResult(leagueToken, fixtureId, homeScor
   return data;
 }
 
+// League write — postpone/void/walkover/forfeit (mig 202).
+export async function leagueUpdateFixtureStatus(leagueToken, fixtureId, newStatus, metadata) {
+  const { data, error } = await supabase.rpc("league_update_fixture_status", {
+    p_league_token: leagueToken,
+    p_fixture_id: fixtureId,
+    p_new_status: newStatus,
+    p_metadata: metadata || {},
+  });
+  if (error) {
+    console.error("[league] update_fixture_status failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// League write — reschedule a fixture's date/time (mig 203).
+export async function leagueRescheduleFixture(leagueToken, fixtureId, scheduledDate, kickoffTime, reason) {
+  const { data, error } = await supabase.rpc("league_reschedule_fixture", {
+    p_league_token: leagueToken,
+    p_fixture_id: fixtureId,
+    p_scheduled_date: scheduledDate,
+    p_kickoff_time: kickoffTime,
+    p_reason: reason || null,
+  });
+  if (error) {
+    console.error("[league] reschedule_fixture failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function joinGetLeagueByCode(leagueCode) {
   if (!leagueCode) return null;
   const { data, error } = await supabase.rpc("join_get_league_by_code", {
