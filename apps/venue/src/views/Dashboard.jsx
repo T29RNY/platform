@@ -8,6 +8,13 @@ import BookingsView from "./BookingsView.jsx";
 import PaymentsView from "./PaymentsView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
 
+// "Sat 7 Jun" — short next-fixture date for the empty Tonight hero.
+const fmtNextDate = (d) => {
+  if (!d) return "TBC";
+  try { return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }); }
+  catch (e) { return d; }
+};
+
 export default function Dashboard({ state, venueToken, occupancy = [], onRefresh, onRefreshOccupancy, refreshing }) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
@@ -263,6 +270,18 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
                 <em>Floodlights down.</em>
               </p>
               <p className="empty-hero-sub">No fixtures scheduled for today. The pitch is quiet.</p>
+              {(() => {
+                const next = restOfWeek[0] || upcoming[0];
+                if (!next) return null;
+                const tn = (id) => state.teams?.[id]?.name || "TBC";
+                return (
+                  <p className="empty-hero-next">
+                    <span className="ehn-label">Next up</span>
+                    <span className="ehn-when">{fmtNextDate(next.scheduled_date)}</span>
+                    <span className="ehn-teams">{tn(next.home_team_id)} v {tn(next.away_team_id)}</span>
+                  </p>
+                );
+              })()}
             </div>
           ) : (
             <div className="fixture-list">

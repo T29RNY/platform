@@ -1106,11 +1106,30 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ─── Empty hero state ─── */
+/* panel-tonight spans two grid rows, so an empty state used to leave a big
+   dead void; make the panel a column and let the empty state grow + centre. */
+.panel-tonight { display: flex; flex-direction: column; }
 .empty-hero {
-  padding: 36px 8px 24px;
-  display: flex; flex-direction: column; gap: 8px;
-  align-items: flex-start;
+  flex: 1;
+  padding: 24px 8px;
+  display: flex; flex-direction: column; gap: 10px;
+  align-items: flex-start; justify-content: center;
+  min-height: 200px;
 }
+.empty-hero-next {
+  margin: 14px 0 0;
+  display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+}
+.empty-hero-next .ehn-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-faint); font-family: var(--f-mono);
+}
+.empty-hero-next .ehn-when { font-size: 13px; font-weight: 600; color: var(--accent); }
+.empty-hero-next .ehn-teams { font-size: 13px; color: var(--ink-soft); }
 .empty-hero-line {
   margin: 0;
   font-family: var(--f-edit);

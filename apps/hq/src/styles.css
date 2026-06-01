@@ -198,3 +198,11 @@ input, select, textarea {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Preview upsell — fills the sparse space below the venue list + sells the tier. */
+.preview-cta { margin-top: 28px; padding: 22px 24px; background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 16px; }
+.preview-cta h2 { font-size: 18px; margin: 0 0 14px; }
+.preview-cta-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.preview-cta-list li { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.preview-cta-list li b { color: var(--text); font-weight: 600; }
+.preview-cta-foot { margin: 16px 0 0; font-size: 13px; color: var(--accent); font-weight: 500; }

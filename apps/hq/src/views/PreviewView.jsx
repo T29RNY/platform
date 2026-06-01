@@ -67,6 +67,17 @@ export default function PreviewView({ token }) {
             </div>
           ))}
         </div>
+
+        <div className="preview-cta">
+          <h2>This is a snapshot. The live HQ does more.</h2>
+          <ul className="preview-cta-list">
+            <li><b>Revenue &amp; collection</b> — owed, collected and collection-rate across every venue.</li>
+            <li><b>Utilisation</b> — prime-time vs off-peak fill, your busiest and quietest slots.</li>
+            <li><b>Health scores</b> — a transparent /100 per venue with the top reason to act.</li>
+            <li><b>Live alerts</b> — incidents, unallocated fixtures and at-risk teams as they happen.</li>
+          </ul>
+          <p className="preview-cta-foot">Ask your contact for permanent, signed-in access to the HQ tier.</p>
+        </div>
       </div>
     </div>
   );
