@@ -1,7 +1,27 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: May 29 2026 (session 56 — Cycle 5.7 eligibility; latent VC teamsheet bug RESOLVED via mig 162.)*
+*Last updated: Jun 1 2026 (session 64 — HQ health_score "shipped but never wired" latent gap RESOLVED in Payments V4 / mig 182.)*
 
 ---
+
+## RESOLVED (session 64, mig 182) — HQ health score returned but never rendered in the UI
+
+**Symptom:** the mig-179 (session 63) Health Score work added `health_score` / `health_reason` /
+`health_axes` to `hq_get_company_state` and the commit message (cc06212) stated "Consumer apps/hq
+VenueHealthGrid now shows the score." It did not — the commit touched **only** the two SQL files.
+An independent grep found **zero** consumers of those fields anywhere in apps/hq, so the score and
+reason were invisible; only the red/amber/green dot reflected the score.
+
+**Root cause:** a session-63 tooling-lag incident (Read/Bash output hallucinating/lagging) — the
+frontend edit was believed applied but never landed, and the commit's own success message was
+trusted instead of an independent grep. Classic [[feedback_verify_tool_success]] failure mode.
+
+**Fix:** Payments V4 (mig 182) wires `health_score` (a band-coloured badge) + `health_reason`
+(a line under the venue name) into `VenueHealthGrid.jsx`. Confirmed by grep (`health_score`,
+`health_reason`, `healthClass` all present) + clean build. The same cycle added the revenue axis,
+so the score the badge now shows already includes collection-rate.
+
+**Lesson reinforced:** after any commit claiming a frontend wire-up, grep the consumer for the new
+field — never trust the commit message. A returned-but-unconsumed field is silent.
 
 ## RESOLVED (session 56, mig 162) — Vice Captains got `invalid_admin_token` on the Teamsheet
 
