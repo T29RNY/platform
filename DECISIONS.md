@@ -1,8 +1,37 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 1 2026 (session 65 — Phase 11 cups: server-owned bracket, ref ET/pens decider, operator-schedules-each-round; Phase 9 player channel fallback)*
+*Last updated: Jun 1 2026 (session 66 — HQ weekly digest = template-first, AI rides Phase 7; Phase 9 complete)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## HQ weekly digest — template-first, AI rides Phase 7 (session 66)
+
+**The rule:** the HQ weekly digest (the last Phase 9 piece) is a **deterministic, template-
+rendered email**, not an AI-narrated one — for now. AI narration of the same dataset is
+**deferred to Phase 7** (the Ask-the-Gaffer layer), per the standing 9→6→11→7 ordering.
+
+**Why template-first:**
+- The AI layer (`/api/gaffer`) is real and grounded, but **team-scoped only** (admin_token→
+  team_id, `audience='admin'`, `gaffer_get_context_*` RPCs). There is **no HQ/company surface**
+  in it. Building an AI HQ digest now means pulling Phase 7 forward: a company-scoped context
+  RPC, an `'hq'` branch in `gaffer.js` (which hard-resolves admin_token→teams today), company-
+  not-team `ai_briefings` scoping, a new `hq_weekly_digest` prompt + canary. That's a phase, not
+  a cycle.
+- A template ships value now, server/cron-only, zero AI dependency, deterministic + testable.
+- **Not throwaway:** the data-assembly RPC built now (`hq_get_analytics_for_company`, mig 190)
+  becomes the Phase-7 context RPC. The AI simply narrates the same jsonb later — the cron's
+  ctx-builder is the only thing that gets swapped for an LLM call.
+
+**Recipient scope (this cycle):** **super_admins only, company-wide digest.** The service-role
+RPC returns company-wide numbers, which is exactly what a super_admin wants. Regional_admins
+would expect region-scoped figures — that's a clean follow-up (add a region param + per-recipient
+render), not this cycle.
+
+**How to apply:** when Phase 7 lands, add the `'hq'` surface to `gaffer.js` over
+`hq_get_analytics_for_company`, and switch `weeklyDigestJob` to call `/api/gaffer` for the body
+instead of the `hqWeeklyDigest` template. Keep the template as the no-AI-key fallback.
 
 ---
 

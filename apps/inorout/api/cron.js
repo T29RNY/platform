@@ -202,6 +202,13 @@ module.exports = async function handler(req, res) {
     results.push(`fixtureReminder: error — ${e.message}`);
   }
 
+  // ── HQ weekly digest (per-company, Monday 08:00 UK) ───────────────────────
+  try {
+    await weeklyDigestJob(results);
+  } catch (e) {
+    results.push(`weeklyDigest: error — ${e.message}`);
+  }
+
   res.json({ ok: true, ts: new Date().toISOString(), results });
 };
 
@@ -1040,6 +1047,86 @@ async function fixtureReminderJob(base, results) {
     }
   }
   results.push(`fixtureReminder: ${pushed} squad(s) reminded`);
+}
+
+// ── HQ weekly digest (Phase 9 finish — rides Phase 6) ────────────────────────
+// A per-company "state of the group" email for super_admins, covering the previous
+// complete week (Mon–Sun). Template-first (the AI narration of this same dataset rides
+// Phase 7). Data comes from the service-role hq_get_analytics_for_company RPC (mig 190);
+// the auth-gated hq_get_analytics can't be called from a JWT-less cron. EMAIL ONLY.
+// Cadence: fires once on Monday 08:00 UK (one 15-min window); notification_log keyed by
+// company_id:weekStart dedups within the window and resets next week. No-op safe without
+// RESEND_API_KEY (dispatchEmail short-circuits).
+const DIGEST_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function digestDayParts(iso) {
+  const d = new Date(iso + "T00:00:00Z");
+  return { day: d.getUTCDate(), mon: DIGEST_MONTHS[d.getUTCMonth()], year: d.getUTCFullYear() };
+}
+function digestWeekLabel(fromIso, toIso) {
+  const a = digestDayParts(fromIso), b = digestDayParts(toIso);
+  if (a.mon === b.mon && a.year === b.year) return `${a.day}–${b.day} ${b.mon} ${b.year}`;
+  if (a.year === b.year) return `${a.day} ${a.mon} – ${b.day} ${b.mon} ${b.year}`;
+  return `${a.day} ${a.mon} ${a.year} – ${b.day} ${b.mon} ${b.year}`;
+}
+
+async function weeklyDigestJob(results) {
+  const uk = nowInUkParts();
+  if (uk.dayName !== "Monday" || uk.hours !== 8 || uk.minutes >= 15) {
+    results.push("weeklyDigest: not in window");
+    return;
+  }
+  const today = nowInUkFull().date;          // Monday (UK)
+  const weekStart = addDaysIso(today, -7);   // previous Monday
+  const weekEnd = addDaysIso(today, -1);     // previous Sunday
+  const weekLabel = digestWeekLabel(weekStart, weekEnd);
+
+  const { data: companies, error } = await supabase
+    .from("companies").select("id, name").eq("active", true);
+  if (error) { results.push(`weeklyDigest: error — ${error.message}`); return; }
+  if (!companies?.length) { results.push("weeklyDigest: no active companies"); return; }
+
+  let sentCompanies = 0;
+  for (const co of companies) {
+    const { data: admins } = await supabase
+      .from("company_admins").select("user_id")
+      .eq("company_id", co.id).eq("role", "super_admin");
+    const recipients = await authEmailsForUserIds((admins || []).map(a => a.user_id));
+    if (!recipients.length) continue;
+
+    const { data: a, error: rpcErr } = await supabase.rpc("hq_get_analytics_for_company", {
+      p_company_id: co.id, p_date_from: weekStart, p_date_to: weekEnd,
+    });
+    if (rpcErr) { results.push(`weeklyDigest: ${co.id} rpc error — ${rpcErr.message}`); continue; }
+
+    const ov = a?.overview || {};
+    const rev = a?.revenue || {};
+    const venueComp = Array.isArray(a?.venue_comparison) ? a.venue_comparison : [];
+    const scorers = Array.isArray(a?.top_scorers) ? a.top_scorers : [];
+    const ctx = {
+      companyName: co.name,
+      weekLabel,
+      venues: ov.venues || 0,
+      fixturesCompleted: ov.fixtures_completed || 0,
+      fixturesRemaining: ov.fixtures_remaining || 0,
+      totalGoals: ov.total_goals || 0,
+      revenue: {
+        collectedPence: rev.collected_pence || 0,
+        owedPence: rev.owed_pence || 0,
+        outstandingPence: rev.outstanding_pence || 0,
+        rate: rev.collection_rate ?? null,
+      },
+      incidents: a?.incidents || {},
+      topVenues: venueComp.slice(0, 8).map(v => ({ venue: v.venue, completionPct: v.completion_pct ?? null })),
+      topScorer: scorers.length ? { player: scorers[0].player, goals: scorers[0].goals } : null,
+      link: process.env.HQ_APP_URL || null,
+    };
+
+    const entityId = `${co.id}:${weekStart}`;
+    const ok = await dispatchEmail("hqWeeklyDigest", entityId, recipients, ctx, null, results);
+    if (!ok) return; // RESEND_API_KEY unset — stop the whole job
+    sentCompanies++;
+  }
+  results.push(`weeklyDigest: processed ${sentCompanies} company digest(s)`);
 }
 
 // ── Demo player reset ─────────────────────────────────────────────────────────

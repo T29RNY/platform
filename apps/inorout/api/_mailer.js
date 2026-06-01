@@ -112,6 +112,59 @@ const TEMPLATES = {
       (c.link ? `<p><a href="${esc(c.link)}">Mark in or out now →</a></p>` : "")
     ),
   }),
+  // Phase 9 finish — HQ weekly digest (template-first; the AI narration of this same dataset
+  // rides Phase 7). ctx is built in cron.js weeklyDigestJob from hq_get_analytics_for_company.
+  // Pence→£ conversion happens here. Sections, never bullets, per the house style.
+  hqWeeklyDigest: (c) => {
+    const r = c.revenue || {};
+    const inc = c.incidents || {};
+    const venues = Array.isArray(c.topVenues) ? c.topVenues : [];
+    const money = (p) => {
+      const n = Number(p || 0) / 100;
+      return "£" + (Number.isInteger(n) ? String(n) : n.toFixed(2));
+    };
+    const incTotal = (inc.critical || 0) + (inc.warning || 0) + (inc.info || 0);
+    const venueRows = venues
+      .map((v) =>
+        `<tr><td style="padding:4px 12px 4px 0">${esc(v.venue)}</td>` +
+        `<td style="padding:4px 0;text-align:right;color:#555">${v.completionPct == null ? "—" : v.completionPct + "% complete"}</td></tr>`)
+      .join("");
+    const scorerLine = c.topScorer && c.topScorer.player
+      ? `Top scorer this week: <b>${esc(c.topScorer.player)}</b> with ${c.topScorer.goals} goal${c.topScorer.goals === 1 ? "" : "s"}.`
+      : "No goals logged across the group this week.";
+    return {
+      subject: `This week at ${c.companyName} — ${c.weekLabel}`,
+      text:
+        `${c.companyName} — week of ${c.weekLabel}.\n` +
+        `${c.venues} venue(s). Fixtures: ${c.fixturesCompleted} completed, ${c.fixturesRemaining} remaining. ${c.totalGoals} goals.\n` +
+        `Revenue: ${money(r.collectedPence)} collected of ${money(r.owedPence)} owed` +
+        `${r.rate == null ? "" : ` (${r.rate}% collection rate)`}, ${money(r.outstandingPence)} outstanding.\n` +
+        `Open incidents: ${incTotal} (${inc.critical || 0} critical, ${inc.warning || 0} warning).\n` +
+        (c.topScorer && c.topScorer.player ? `Top scorer: ${c.topScorer.player} (${c.topScorer.goals}).\n` : "") +
+        (c.link ? `Open HQ: ${c.link}` : ""),
+      html: wrap(
+        `<p style="margin:0 0 4px"><b style="font-size:17px">${esc(c.companyName)}</b></p>` +
+        `<p style="margin:0 0 18px;color:#888;font-size:13px">Week of ${esc(c.weekLabel)}</p>` +
+        `<p style="margin:0 0 14px">Across <b>${c.venues}</b> venue${c.venues === 1 ? "" : "s"}: ` +
+        `<b>${c.fixturesCompleted}</b> fixture${c.fixturesCompleted === 1 ? "" : "s"} completed, ` +
+        `<b>${c.fixturesRemaining}</b> still to play, <b>${c.totalGoals}</b> goal${c.totalGoals === 1 ? "" : "s"} scored. ` +
+        scorerLine + `</p>` +
+        `<p style="margin:0 0 6px"><b>Revenue</b></p>` +
+        `<p style="margin:0 0 14px;color:#333">` +
+        `${money(r.collectedPence)} collected of ${money(r.owedPence)} owed` +
+        `${r.rate == null ? "" : ` — <b>${r.rate}%</b> collection rate`}. ` +
+        `<span style="color:#a00">${money(r.outstandingPence)} outstanding.</span></p>` +
+        (incTotal > 0
+          ? `<p style="margin:0 0 14px"><b>Open incidents:</b> ${incTotal} ` +
+            `(${inc.critical || 0} critical, ${inc.warning || 0} warning, ${inc.info || 0} info)</p>`
+          : `<p style="margin:0 0 14px;color:#2a2">No open incidents — all clear.</p>`) +
+        (venueRows
+          ? `<p style="margin:0 0 6px"><b>Venues</b></p><table style="border-collapse:collapse;margin:0 0 14px">${venueRows}</table>`
+          : "") +
+        (c.link ? `<p><a href="${esc(c.link)}">Open your HQ dashboard →</a></p>` : "")
+      ),
+    };
+  },
 };
 
 async function sendTemplated(type, to, ctx) {

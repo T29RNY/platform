@@ -1,5 +1,35 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 1 2026 (session 65 — Phase 9 finished (refs + player capture + push→email→SMS fallback); Phase 11 cups complete end-to-end (migs 184–189).)*
+*Last updated: Jun 1 2026 (session 66 — HQ weekly digest shipped (mig 190); Phase 9 COMPLETE.)*
+
+## SESSION 66 — Phase 9 finish: HQ weekly digest (Jun 1 2026)
+
+Closed out the last Phase 9 piece — the per-company HQ weekly digest, deferred from session 59
+to ride Phase 6 (it needed HQ aggregation, now live). One AUDIT→EXECUTE→VERIFY→COMMIT cycle.
+
+- **mig 190 — `hq_get_analytics_for_company`** (service-role read RPC): a JWT-less sibling of
+  `hq_get_analytics`. The auth-gated original resolves the caller via `auth.uid()`, which a cron
+  doesn't have; this variant drops caller-resolution + region scoping + config/meta and returns
+  the bare analytics jsonb (same 7 sections). service-role-only grant (anon/authenticated/PUBLIC
+  REVOKED). Precedent: mig 126 `admin_go_live_for_team`. Read-only → no ephemeral-verify; verified
+  via pg_proc (SECDEF + search_path + 1 overload + service-role ACL) + a live read smoke on
+  `company_demo`.
+- **`apps/inorout/api/_mailer.js`** — new `hqWeeklyDigest` template (pence→£ in-template; sections,
+  not bullets; reuses `wrap()`/`esc()`).
+- **`apps/inorout/api/cron.js`** — `weeklyDigestJob`: Monday 08:00 UK gate via `nowInUkParts`,
+  previous-week range, loops active companies → super_admin recipients (`company_admins` +
+  `authEmailsForUserIds`) → calls the RPC → builds ctx → reuses `dispatchEmail` (dedup via
+  `notification_log` keyed `company_id:weekStart`; no-op safe without `RESEND_API_KEY`).
+- **Decision: template-first, AI rides Phase 7.** The data-assembly RPC becomes the Phase-7 context
+  RPC, so nothing is wasted. Recipients = super_admins only, company-wide (regional scope = follow-up).
+  Full rationale in DECISIONS.
+
+No `apps/inorout/src` or `packages/core` touch (cron + mailer live under `api/`) → no casual-
+regression gate. Build PASS. **Phase 9 COMPLETE.**
+
+**Operator owes:** real Monday-morning digest delivery once `RESEND_API_KEY` is live (eyeball the
+rendered email) + the two carried-over session-65 items (real SMS/WhatsApp delivery once `TWILIO_*`
+is set; real-device check of the player Bracket button + PlayerProfile NOTIFICATIONS). **Open next:**
+apps/display redesign + Phase 4 device-test/deploy · group-stage→knockout cups · Phase 7 (AI layer).
 
 ## SESSION 65 — Phase 9 finish + Phase 11 cups complete (Jun 1 2026)
 

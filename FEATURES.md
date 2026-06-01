@@ -5,7 +5,7 @@
 
 ## LEAGUE MODE — ROADMAP & VENUE-SURFACING GAPS (noted session 55, updated 56)
 
-**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 IN PROGRESS** (Cycle 9.1 email + session-59 SMS/WhatsApp transport core + league reminder crons). **Phase 6 IN PROGRESS** (Cycle 6.1 HQ foundation + venue drill-down + incident resolve — session 60).
+**Phase 5 COMPLETE. Phase 4 COMPLETE** (reception display). **Phase 9 COMPLETE** (email + SMS/WhatsApp transport + reminder crons + player channel fallback + HQ weekly digest — session 66). **Phase 6 functionally complete** (Cycle 6.1–6.5 — session 60). **Phase 11 cups COMPLETE** (single-elim, session 65).
 
 **NEXT BUILD ORDER (operator, session 58): 9 → 6 → 11** (methodical, not number order):
 1. **Phase 9 (finish)** — ✅ email (9.1) · ✅ SMS/WhatsApp Twilio transport core (session 59,
@@ -17,9 +17,14 @@
    `get_my_contact` + a NOTIFICATIONS section in PlayerProfile (phone + channel preference). ✅ **fallback
    wired (session 65):** the 48h/2h reminder crons now route each player via `pickChannel`
    (push→email→SMS/WhatsApp) — push through `/api/notify`, email via `_mailer`, SMS/WhatsApp via `_sms`,
-   each logged to `notification_log` with its channel; league reminder email templates added. **Phase 9
-   is functionally COMPLETE** bar the **HQ weekly digest** (deferred to ride with Phase 6 — needs HQ
-   aggregation). *Operator owes a real-delivery test once `TWILIO_*` env is set (SMS no-ops until then).*
+   each logged to `notification_log` with its channel; league reminder email templates added. ✅ **HQ
+   weekly digest (session 66)** — the last Phase 9 piece. `hq_get_analytics_for_company` (mig 190,
+   service-role sibling of `hq_get_analytics`) + a `hqWeeklyDigest` `_mailer` template + `weeklyDigestJob`
+   in cron.js: per-company "state of the group" email to super_admins, Monday 08:00 UK, previous-week
+   range, dedup via `notification_log` keyed `company_id:weekStart`. **Template-first; the AI narration
+   of the same dataset rides Phase 7** (see DECISIONS). **Phase 9 is COMPLETE.** *Operator owes a
+   real-delivery test once `TWILIO_*` env is set (SMS no-ops until then) + a Monday digest delivery
+   eyeball once `RESEND_API_KEY` is live.*
 2. **Phase 6 (HQ dashboard)** — company-level cross-venue surface; data already flows
    up but nothing reads it. ✅ Cycle 6.1 (session 60): apps/hq app + auth/caller-resolution
    + company-state/drill-down/incident-resolve RPCs + Venue Health Grid + Alerts. ✅ Cycle 6.3
@@ -28,9 +33,9 @@
    ✅ Cycle 6.4 (session 60): **live activity feed** (centre column) — cross-venue tonight's
    fixtures + live scores + goals ticker + per-venue realtime subscriptions.
    ✅ Cycle 6.5 (session 60): **HQ preview token** — 7-day no-login watermarked read-only link
-   (`/hq/preview/TOKEN`) + super_admin Share-preview button. **Remaining:** 6.x HQ weekly digest
-   (the deferred Phase 9 cycle, rides here — needs an email over the 6.3 analytics). **Phase 6 is
-   otherwise functionally complete** (6A–6E shipped). Fold the Phase 9 HQ digest in here.
+   (`/hq/preview/TOKEN`) + super_admin Share-preview button. ✅ **HQ weekly digest shipped (session 66)** —
+   the deferred Phase 9 cycle landed here as planned (`hq_get_analytics_for_company` mig 190 + cron
+   `weeklyDigestJob` + `hqWeeklyDigest` email). **Phase 6 functionally complete** (6A–6E shipped).
 3. **Phase 11 (cups & knockouts)** — most cross-cutting (fixtures/standings→brackets/
    ref/display/player); last, when other surfaces are stable. `cup_rounds` +
    `generateCupBracket` were groundwork. **Scope (session 65): single-elimination
