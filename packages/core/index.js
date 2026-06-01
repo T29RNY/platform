@@ -103,6 +103,7 @@ export {
   venueListStaff,
   venueAddStaff,
   venueUpdateStaff,
+  venueGetTeamRoster,
   getLeagueConfig,
   getCompanyByDomain,
   searchBookableVenues,

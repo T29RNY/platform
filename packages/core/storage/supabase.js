@@ -2794,6 +2794,19 @@ export async function venueUpdateStaff(venueToken, staffId, updates) {
   return data;
 }
 
+// ── Team roster (team management depth) — mig 196 ──
+export async function venueGetTeamRoster(venueToken, teamId) {
+  const { data, error } = await supabase.rpc("venue_get_team_roster", {
+    p_venue_token: venueToken,
+    p_team_id: teamId,
+  });
+  if (error) {
+    console.error("[venue] get_team_roster failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function venueUpdateRef(venueToken, refId, updates) {
   const { data, error } = await supabase.rpc("venue_update_ref", {
     p_venue_token: venueToken,

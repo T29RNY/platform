@@ -475,6 +475,7 @@ JS wrappers land with the consuming UI (Stages 5/6).
 | `venue_list_staff(p_venue_token)` | `venueListStaff(token)` | anon, authenticated | Read. Returns `{ ok, staff: [...] }` from `venue_staff` for the caller's venue (token→`resolve_venue_caller`). mig 195. *Consumer: `apps/venue` StaffView (Venue Staff section).* |
 | `venue_add_staff(p_venue_token, p_staff)` | `venueAddStaff(token, staff)` | anon, authenticated | **WRITE** (mig 195, ephemeral-verify gated). Inserts a `venue_staff` row (role ∈ reception/manager/admin/groundstaff/coach/other). Validates name + role. Audit `staff_added`; `notify_venue_change('staff_added')`. *Consumer: `apps/venue` StaffMemberForm.* |
 | `venue_update_staff(p_venue_token, p_staff_id, p_updates)` | `venueUpdateStaff(token, id, updates)` | anon, authenticated | **WRITE** (mig 195, ephemeral-verify gated). Patches a venue-owned `venue_staff` row (ownership-checked → `staff_not_found`). Audit `staff_updated`; `notify_venue_change('staff_updated')`. *Consumer: `apps/venue` StaffMemberForm.* |
+| `venue_get_team_roster(p_venue_token, p_team_id)` | `venueGetTeamRoster(token, teamId)` | anon, authenticated | Read. Returns `{ ok, team, players[], competitions[] }` for a team that plays in one of the caller's competitions (ownership via competition_teams→competitions→seasons→leagues→venue_id → `team_not_in_venue`). Excludes token/user_id/phone. mig 196. *Consumer: `apps/venue` TeamDetail.* |
 
 ---
 

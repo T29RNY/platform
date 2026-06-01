@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { venueListActiveTeams } from "@platform/core/storage/supabase.js";
+import TeamDetail from "./TeamDetail.jsx";
 
 // Team management — every team active across the venue's competitions.
 // Roster/player detail needs a dedicated RPC (not yet built); this is the
@@ -9,6 +10,7 @@ export default function TeamsView({ venueToken }) {
   const [teams, setTeams] = useState(null);
   const [error, setError] = useState(null);
   const [q, setQ] = useState("");
+  const [openTeam, setOpenTeam] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -48,7 +50,8 @@ export default function TeamsView({ venueToken }) {
           variants={{ show: { transition: { staggerChildren: 0.04 } } }}
           initial="hidden" animate="show">
           {filtered.map((t) => (
-            <motion.div key={t.team_id} className="team-card panel"
+            <motion.button key={t.team_id} className="team-card panel" type="button"
+              onClick={() => setOpenTeam(t)} title="View roster"
               variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}>
               <span className="team-crest" style={crestStyle(t)}>{initials(t.name)}</span>
               <div className="team-id">
@@ -58,9 +61,19 @@ export default function TeamsView({ venueToken }) {
                   {t.last_active_at ? ` · last active ${fmtAgo(t.last_active_at)}` : ""}
                 </span>
               </div>
-            </motion.div>
+              <span className="team-go" aria-hidden="true">›</span>
+            </motion.button>
           ))}
         </motion.div>
+      )}
+
+      {openTeam && (
+        <TeamDetail
+          venueToken={venueToken}
+          teamId={openTeam.team_id}
+          teamName={openTeam.name}
+          onClose={() => setOpenTeam(null)}
+        />
       )}
     </main>
   );
