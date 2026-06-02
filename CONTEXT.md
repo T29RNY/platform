@@ -1,5 +1,55 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 1 2026 (session 66 — HQ weekly digest (mig 190, Phase 9 COMPLETE); Phase 11.4a group stage (migs 191–193).)*
+*Last updated: Jun 1 2026 (session 67 — Venue "Broadcast Gallery" redesign + full management surfaces (migs 195–198); marketing landing pages live; new League Control dashboard apps/league (migs 199–203).)*
+
+## SESSION 67 — Venue redesign + management depth; League Control dashboard; landing pages live (Jun 1 2026)
+
+A long product/UX session across three threads. Operator brief: bold/brave/3D
+in-theme admin dashboards; "make the landing page live without touching the app";
+then start the League dashboard with write actions.
+
+**1. Venue dashboard redesign — "Broadcast Gallery"** (`apps/venue`)
+- Full restyle to the In-or-Out theme (gold `#E8A020`/dark, Bebas Neue + DM Sans,
+  NO italics, 3D floodlit-pitch background, Framer Motion). Iterated 3× on screenshots.
+- **Modal bleed-through fix:** modals now portal to `document.body` (`Modal.jsx`) —
+  Framer-Motion panel transforms were trapping `position:fixed` modals so dashboard
+  content painted over them. One fix covers every modal.
+- **Fixture card rethought** into three bands (kickoff/status · matchup · meta) after
+  the 1-line version collided long names with the score. Robust at all widths.
+- **Season wizard capacity fix:** derive staggered kickoff slots so a venue runs
+  several games per pitch per night (killed false `capacity_insufficient`).
+
+**2. Venue management surfaces (nav expanded, all real):**
+- **Staff** = all staff, not just refs — new `venue_staff` table + CRUD
+  (`venue_list_staff`/`venue_add_staff`/`venue_update_staff`, **mig 195**, EV 8/8
+  + live UI smoke). Two sections: Match Officials (refs) + Venue Staff.
+- **Teams** + click-through roster — `venue_get_team_roster` (**mig 196**).
+- **Table** standings — `venue_get_standings` (**mig 197**, computed from fixtures).
+- **Players** aggregate index — `venue_list_players` (**mig 198**).
+- All reads ownership-gated `competition_teams→competitions→seasons→leagues→venue_id`,
+  exclude token/user_id/phone; both security negatives verified each.
+
+**3. Marketing landing pages LIVE** — deployed `marketing/` as its OWN Vercel
+project (`marketing-tau-seven.vercel.app`), deliberately separate from `inor-out`/
+in-or-out.com so it can't displace the live app (a domain = one project's prod).
+Brand-domain attachment deferred to operator's choice (root-swap vs path rewrite).
+
+**4. NEW League Control dashboard** (`apps/league`, Vite port 5177, token via
+`?token=`/`/league/TOKEN`, demo `demo_league_admin_token`). Mirrors the venue
+Broadcast-Gallery design (styles copied). Consumes `leagueGetState` +:
+- **mig 199 `league_list_teams`** (read) — league state has no teams map; used for
+  fixture name resolution + Teams view.
+- **mig 200 `league_get_standings`** (read) — league table by league token.
+- **mig 201 `league_update_fixture_result`** (WRITE, EV 8/8 + live 2-3→2-4→revert)
+  — correct a completed fixture's score.
+- **mig 202 `league_update_fixture_status`** (WRITE) + **mig 203
+  `league_reschedule_fixture`** (WRITE) — postpone/void/walkover/forfeit +
+  reschedule; one EV run = 5 transitions + 7 error paths, leak clean.
+- Views: Operations (fixtures + Edit result / Manage), Table, Teams. Still read-only
+  for team registrations; not yet deployed (needs its own Vercel project + env).
+
+All write RPCs ephemeral-verified with leak-checks; demo data left pristine after
+every live UI smoke. RPCS.md + memory `project_venue_redesign` updated. Commits this
+session: portal fix → … → league reschedule (`3c143fa`).
 
 ## SESSION 66 (cont.) — Phase 11.4a: group-stage cups (Jun 1 2026)
 
