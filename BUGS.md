@@ -21,6 +21,13 @@ Smaller fixes around the migs 204/205 cluster (below):
   has_history guard and would delete the squad row. Now `adminSetPlayerStatus(...,'none')` —
   un-enters them for the week, keeps the squad row. (First shipped as `'out'`, corrected to
   `'none'` per operator: 'out' reads as an active decline.)
+- **MY IO tab blank for recent matches.** `computeDeeperIntel` (packages/core/engine/deeperIntel.js)
+  resolved teammates/opponents by NAME only against matchHistory.teamA/teamB (now IDs) → all 6
+  insight cards (most-played-with, nemesis, partnership, most-faced, impact, reliability ranking)
+  came back empty. Also `computeStatsFromHistory` (App.jsx) keyed the player's own win/loss/goals/
+  scorers + squad form-dots by name (admin route only — the player route gets these server-side
+  from player_match, which was always correct). Both made id-first/name-fallback. **Stats tab was
+  already safe** (table fixed earlier; form/reliability + H2H are player_match-backed).
 
 See DECISIONS.md "Casual result-save pipeline — settled invariants" and
 [[project_result_save_invariants]] (memory).

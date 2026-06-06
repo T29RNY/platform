@@ -144,8 +144,10 @@ function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
   let wins = 0, draws = 0, losses = 0, goals = 0, potm = 0;
 
   for (const m of played) {
-    const inA = (m.teamA || []).some(n => playerNames.has(n?.toLowerCase()));
-    const inB = (m.teamB || []).some(n => playerNames.has(n?.toLowerCase()));
+    // Recent matches store player IDs in teamA/teamB; legacy store names.
+    const isMe = (v) => v === playerId || playerNames.has(v?.toLowerCase());
+    const inA = (m.teamA || []).some(isMe);
+    const inB = (m.teamB || []).some(isMe);
     if (!inA && !inB) continue;
 
     let result;
@@ -153,8 +155,8 @@ function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
     else if ((m.winner === "A" && inA) || (m.winner === "B" && inB)) { result = "w"; wins++;   }
     else                                               { result = "l"; losses++; }
 
-    for (const [name, g] of Object.entries(m.scorers || {})) {
-      if (playerNames.has(name?.toLowerCase())) goals += (g || 0);
+    for (const [key, g] of Object.entries(m.scorers || {})) {
+      if (key === playerId || playerNames.has(key?.toLowerCase())) goals += (g || 0);
     }
 
     if (m.motm) {
@@ -194,15 +196,18 @@ function computeStatsFromHistory(playerId, squad, matches, bibHistory) {
 
   // playerForm — map of playerId → ["w","d","l",...] oldest-first (max 5)
   const nameToId = {};
+  const idSet = new Set();
   squad.forEach(p => {
+    idSet.add(p.id);
     if (p.name) nameToId[p.name.toLowerCase()] = p.id;
     if (p.nickname) nameToId[p.nickname.toLowerCase()] = p.id;
   });
   const formAccum = {};
   for (const m of played) {
-    const processTeam = (names, teamKey) => {
-      for (const name of (names || [])) {
-        const pid = nameToId[name?.toLowerCase()];
+    const processTeam = (entries, teamKey) => {
+      for (const v of (entries || [])) {
+        // Recent matches store player IDs; legacy store names.
+        const pid = idSet.has(v) ? v : nameToId[v?.toLowerCase()];
         if (!pid) continue;
         if (!formAccum[pid]) formAccum[pid] = [];
         if (formAccum[pid].length >= 5) continue;

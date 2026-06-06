@@ -14,10 +14,13 @@ function buildNameToId(squad) {
   return map;
 }
 
-function playedIds(names, nameToId) {
+// Recent matches store player IDs in teamA/teamB; legacy matches store names.
+// Resolve id-first (entry is already a squad id), then fall back to name lookup.
+function playedIds(entries, nameToId, byId) {
   const ids = new Set();
-  for (const n of names || []) {
-    const id = nameToId[n?.toLowerCase()];
+  for (const v of entries || []) {
+    if (v == null) continue;
+    const id = byId[v] ? v : nameToId[String(v).toLowerCase()];
     if (id) ids.add(id);
   }
   return ids;
@@ -53,8 +56,8 @@ export function computeDeeperIntel(playerId, squad, matches) {
   for (const m of matches) {
     if (m.cancelled || !m.winner) continue;
 
-    const aIds = playedIds(m.teamA, nameToId);
-    const bIds = playedIds(m.teamB, nameToId);
+    const aIds = playedIds(m.teamA, nameToId, byId);
+    const bIds = playedIds(m.teamB, nameToId, byId);
 
     // attendance tally for every squad member who appeared
     for (const id of [...aIds, ...bIds]) {
