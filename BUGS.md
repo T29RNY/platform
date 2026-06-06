@@ -3,6 +3,47 @@
 
 ---
 
+## RESOLVED (session 68, mig 204) — post-game-completion trio: locked board, stats show only POTM, share results show IDs
+
+**Symptoms (operator-reported, Footy Tuesdays `team_KPaoX8oJYMQ` after match `m_WXZHG_SM9Zc`):**
+(1) last week's teams still "locked" — players couldn't say in/out this week; (2) the Stats tab
+showed only the POTM, nobody else; (3) Results → Share Results listed raw player IDs under Team A/B
+while POTM and Bibs showed names.
+
+**Root causes — two, one shared:**
+- **Locked board:** opening a new casual week never reset player `status`. The whole squad still
+  carried `status='in'` from last week, so the squad read as **full** → `set_player_status` threw
+  `squad_full` for anyone trying to come in, and the already-`in` players saw the "🔒 Locked in"
+  badge. Only cancel-reopen and the **demo-only** cron ever reset status; the real go-live RPCs
+  (`admin_go_live`, `admin_go_live_for_team`) did not.
+- **Stats + Share (shared cause):** the save path writes player **IDs** into
+  `matches.team_a/team_b/scorers/motm/bib_holder` (required — `player_match` keys on `player_id`),
+  but two display consumers still resolved by **name only**. `StatsView` rebuilt its table from
+  `matchHistory` with a name-only `lookup()`, so every outfield player resolved to null and only the
+  POTM block (id-first) survived. `HistoryView`'s share-text joined the raw ID arrays.
+
+**Fix:**
+- **mig 204** adds a status/team reset to both go-live RPCs, gated to the *new-match-creation* path
+  only (idempotent re-calls/double-taps never wipe a week already in progress). Resets
+  `status='none'`, `admin_locked_in=false`, `team=NULL`. **Payment flags carry over by design**
+  (paid/self_paid/paid_by/paid_at/owes) so the "Owes" balance keeps working — this intentionally
+  differs from the cancel-week reset.
+- **StatsView.jsx**: added `resolve = v => byId[v] || lookup(v)` (id-first, name-fallback) for team
+  rosters and scorers, mirroring the existing POTM line.
+- **HistoryView.jsx**: share text now resolves Team A/B + scorers via the existing `findPlayer`
+  helper (name-first, id-fallback) → shows `nickname || name`.
+- Both display fixes are backward-compatible with legacy name-stored matches (e.g. demo seed).
+- One-off live repair reset the stuck Footy Tuesdays squad (24 players → `status='none'`, payment
+  preserved) so this week works without waiting for the next open.
+
+**Verified:** ephemeral-verify on `admin_go_live` (reset ✓, locks cleared ✓, teams cleared ✓,
+payment carried ✓, rollback ✓, `_e2e_%` leak-check = 0); both RPCs `SECURITY DEFINER`, single
+overload, grants preserved; clean build.
+
+**Lesson:** when a write path migrates from names to IDs, grep every *read* consumer — a returned/
+stored ID is silent in a name-keyed lookup. Resolve id-first with name-fallback so old + new rows
+both work.
+
 ## RESOLVED (session 64, mig 182) — HQ health score returned but never rendered in the UI
 
 **Symptom:** the mig-179 (session 63) Health Score work added `health_score` / `health_reason` /

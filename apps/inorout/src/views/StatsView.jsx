@@ -237,6 +237,9 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
       const low = name.toLowerCase();
       return byName[low] || byNickname[low] || null;
     };
+    // Recent matches store player IDs in teamA/teamB/scorers/motm; legacy
+    // matches store names. Resolve id-first, then fall back to name lookup.
+    const resolve = (v) => (v == null ? null : (byId[v] || lookup(v)));
 
     // Per-player accumulators
     const acc = {};
@@ -247,8 +250,8 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
     for (const m of filtered) {
       const { teamA = [], teamB = [], winner, scorers = {}, motm } = m;
 
-      const teamAIds = teamA.map(n => lookup(n)?.id).filter(Boolean);
-      const teamBIds = teamB.map(n => lookup(n)?.id).filter(Boolean);
+      const teamAIds = teamA.map(n => resolve(n)?.id).filter(Boolean);
+      const teamBIds = teamB.map(n => resolve(n)?.id).filter(Boolean);
       const teamASet = new Set(teamAIds);
 
       // Result per player
@@ -266,9 +269,9 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
         }
       }
 
-      // Goals from scorers (keyed by player name)
-      for (const [scorerName, goals] of Object.entries(scorers)) {
-        const p = lookup(scorerName);
+      // Goals from scorers (keyed by player id on recent matches, name on legacy)
+      for (const [scorerKey, goals] of Object.entries(scorers)) {
+        const p = resolve(scorerKey);
         if (!p || p.disabled || p.isGuest) continue;
         init(p.id);
         acc[p.id].goals += (goals || 0);
@@ -276,7 +279,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
 
       // POTM — try ID lookup first (recent matches), then name (legacy)
       if (motm) {
-        const p = byId[motm] || lookup(motm);
+        const p = resolve(motm);
         if (p && !p.disabled && !p.isGuest) {
           init(p.id);
           acc[p.id].potm++;

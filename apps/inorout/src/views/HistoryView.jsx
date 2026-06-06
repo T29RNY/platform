@@ -125,15 +125,22 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
     .filter(([, g]) => g > 0)
     .sort(([, a], [, b]) => b - a);
 
+  // Team rosters/scorers store player IDs on recent matches (names on legacy);
+  // resolve each entry to a display name, falling back to the raw value.
+  const displayName = nameOrId => {
+    const p = findPlayer(nameOrId);
+    return p?.nickname || p?.name || nameOrId;
+  };
+
   const buildShareText = () => {
     const resEmoji   = result === "win" ? "🟢" : result === "draw" ? "🟡" : result === "loss" ? "🔴" : "❌";
-    const scorersStr = scorersList.map(([n, g]) => `${n} (${g})`).join(", ");
+    const scorersStr = scorersList.map(([n, g]) => `${displayName(n)} (${g})`).join(", ");
     return [
       `⚽ ${groupName || "Match"} · ${dayOfWeek} ${m.matchDate ? new Date(m.matchDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : ""}`,
       `${resEmoji} Team A ${m.scoreA ?? "?"} – ${m.scoreB ?? "?"} Team B`,
       "",
-      `🔵 Team A: ${(m.teamA || []).join(", ") || "—"}`,
-      `🔴 Team B: ${(m.teamB || []).join(", ") || "—"}`,
+      `🔵 Team A: ${(m.teamA || []).map(displayName).join(", ") || "—"}`,
+      `🔴 Team B: ${(m.teamB || []).map(displayName).join(", ") || "—"}`,
       "",
       scorersStr           ? `⚽ Scorers: ${scorersStr}` : null,
       m.motm               ? `🏆 POTM: ${motmName}`      : null,
