@@ -172,16 +172,16 @@ export default function AdminView({
       setSquad(prev);
     }
   };
-  // "Remove" on an orphaned guest takes them OUT of this week's lineup —
-  // it does NOT delete the squad row (which would fail on match history and
-  // lose the player permanently). Same path as reserveGuest, status 'out'.
+  // "Remove" on an orphaned guest clears them from this week's lineup back to
+  // un-entered ('none') — NOT 'out' (which reads as an active decline), and NOT
+  // a squad delete (which would fail on match history and lose the player).
   const removeGuest   = async (id) => {
     setOrphanErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
     const prev = squad;
-    setSquad(squad.map(p => p.id===id ? { ...p, status:"out" } : p));
+    setSquad(squad.map(p => p.id===id ? { ...p, status:"none" } : p));
     dismissOrphan(id);
     try {
-      await adminSetPlayerStatus(adminToken, id, "out");
+      await adminSetPlayerStatus(adminToken, id, "none");
     } catch (e) {
       console.error(e);
       setSquad(prev);
