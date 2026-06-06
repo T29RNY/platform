@@ -19,7 +19,8 @@ function initials(name) {
 // reserveIndex: 1-based queue position, shown as "#N" below name
 // hasGuest:   show "+1" below name
 // hasBibs:    true → amber dot badge bottom-right of circle
-export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest, isInjured, hasBibs = false }) {
+// hasMotm:    true → trophy badge top-right of circle (last match's POTM)
+export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest, isInjured, hasBibs = false, hasMotm = false }) {
   const variant = player?.injured ? "injured" : isMe ? "you" : (tileColour || "green");
   const c       = CIRCLE[variant] ?? CIRCLE.green;
 
@@ -50,6 +51,11 @@ export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGues
             width:10, height:10, borderRadius:"50%",
             background:"var(--amber)",
           }}/>
+        )}
+        {hasMotm && !isInjured && (
+          <span style={{
+            position:"absolute", top:-4, right:-4, fontSize:11, lineHeight:1,
+          }}>🏆</span>
         )}
       </div>
 

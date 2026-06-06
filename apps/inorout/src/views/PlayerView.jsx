@@ -320,6 +320,9 @@ export default function PlayerView({
   const nonGuestInPlayers = inPlayers.filter(p => !p.isGuest);
   const teamsSet         = nonGuestInPlayers.length > 0 && nonGuestInPlayers.every(p => p.team);
   const formMap          = Object.fromEntries((stats?.playerForm || []).map(f => [f.player_id, f.form]));
+  // Last week's POTM — id-first (recent matches store the id), name fallback (legacy)
+  const isLastMotm = (p) => !!lastMatchMeta?.motm &&
+    (lastMatchMeta.motm === p.id || lastMatchMeta.motm === (p.nickname || p.name));
 
   useEffect(() => {
     setLastMatchMeta(stats?.lastMatchMeta || null);
@@ -1381,7 +1384,7 @@ export default function PlayerView({
               ) : (
                 <Tile colour="green" icon="✅" label="In" count={inPlayers.length}>
                   {inPlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
                   ))}
                 </Tile>
               )}
@@ -1391,7 +1394,7 @@ export default function PlayerView({
                 <div data-gaffer-target="reserve-list">
                   <Tile colour="purple" icon="🟣" label="Reserve" count={reservePlayers.length}>
                     {reservePlayers.map((p, i) => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="purple" reserveIndex={i + 1} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} />
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="purple" reserveIndex={i + 1} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
                     ))}
                   </Tile>
                 </div>
@@ -1401,7 +1404,7 @@ export default function PlayerView({
               {maybePlayers.length > 0 && (
                 <Tile colour="amber" icon="❓" label="Maybe" count={maybePlayers.length}>
                   {maybePlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
                   ))}
                 </Tile>
               )}
@@ -1410,7 +1413,7 @@ export default function PlayerView({
               {outPlayers.length > 0 && (
                 <Tile colour="red" icon="❌" label="Out" count={outPlayers.length}>
                   {outPlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
                   ))}
                 </Tile>
               )}
@@ -1438,7 +1441,7 @@ export default function PlayerView({
                   <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 9px",
                     padding:"0 4px", marginBottom:8 }}>
                     {noRespPlayers.map(p => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} />
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
                     ))}
                   </div>
                 )}
