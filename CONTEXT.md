@@ -1,5 +1,47 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 1 2026 (session 67 — Venue "Broadcast Gallery" redesign + full management surfaces (migs 195–198); marketing landing pages live; new League Control dashboard apps/league (migs 199–203).)*
+*Last updated: Jun 6 2026 (session 68 — casual result-save pipeline repair + week-rollover + display id/name fixes (migs 204–206); see GO_LIVE_ISSUES + BUGS.)*
+
+## SESSION 68 — casual post-game pipeline repair (week lock, payments, bibs, stats, share, POTM) (Jun 6 2026)
+
+Operator-reported cluster after a real Footy Tuesdays game completed. Several symptoms,
+two deep root causes, plus display id/name regressions. All on the **casual** (apps/inorout)
+flow. Full narrative in BUGS.md (migs 204/205/206 RESOLVED entries); operator-facing
+pre-flight in GO_LIVE_ISSUES.md.
+
+**Root cause A — week never reset (mig 204).** Opening a new week never reset player
+`status`; the whole squad stayed `status='in'` from last week, so the squad read as full →
+`set_player_status` threw `squad_full` ("teams locked, can't say in/out"). Only cancel-reopen
+and the demo-only cron reset status. **Fix:** `admin_go_live` + `admin_go_live_for_team` now
+reset status='none' / admin_locked_in=false / team=NULL on new-match creation; payment fields
+carry over (Owes balance). Gated to new-match path so double-taps don't wipe a live week.
+
+**Root cause B — result-save did almost nothing (migs 205/206).** `admin_save_match_result`
+keyed "fresh save" on player_match row count, but the kickoff lineup-lock pre-creates those
+rows → every real save read as a re-save (`is_fresh_save=false`, confirmed in audit_events) →
+skipped owes, payment history, stats, payment reset. **Fix:** freshness now keys on
+`matches.winner` (NULL until first finalisation — nothing sets it earlier; audited every
+winner-write path). Added payment_ledger game_fee/unpaid charge per unpaid non-guest attendee
+(payment history) + bib_history cascade (admin Bib tracker reads bib_history, which had 0 rows).
+205b fixed a latent ambiguous-column bug (p.attended/p.goals) exposed once the block ran. 206
+also clears admin_locked_in in the reset (audit-found cross-week stuck-lock gap).
+**Live backfill:** last week (m_WXZHG) — 9 unpaid non-guest attendees charged £5 (£45 outstanding)
++ ledger rows + bib holder, idempotently. Footy Tuesdays squad un-stuck (status→none, payment kept).
+
+**Display id/name fixes (JS).** Save path stores player **IDs** in matches.team_a/team_b/
+scorers/motm/bib_holder, but consumers resolved by name only:
+- StatsView league table showed only the POTM (id-only POTM block survived) → added id-first/
+  name-fallback resolver; also added bib-duty counting (rows never carried bibCount).
+- HistoryView "Share Results" listed raw IDs for Team A/B + scorers → resolve via findPlayer.
+- Avatar had a bib dot but no POTM badge, and the squad list never passed it → added `hasMotm`
+  trophy badge (bottom-right) wired across the in/out list.
+- Orphaned-guest "Remove" (host dropped out) called deletePlayer (blocked by match history) →
+  now sets status='none' (un-entered), not a squad delete, not 'out'.
+
+**Audit (end of session):** confirmed `matches.winner IS NULL` freshness is unbreakable (no
+path sets winner early); lifecycle coherent (owes never wrongly cleared, charged before reset);
+live↔source no drift; no new security advisors (all 371 pre-existing/architectural); only other
+real teams (Finbars, Competitive FC) have no finalised matches so no latent payment debt.
+Invariants saved to memory ([[project_result_save_invariants]]).
 
 ## SESSION 67 — Venue redesign + management depth; League Control dashboard; landing pages live (Jun 1 2026)
 

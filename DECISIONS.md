@@ -1,8 +1,43 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 1 2026 (session 66 — HQ weekly digest = template-first; Phase 11.4 group→knockout cups: single-competition model, snake draw, manual Build-knockout, two sub-cycles)*
+*Last updated: Jun 6 2026 (session 68 — casual result-save pipeline: freshness via matches.winner; payment carry-over via owes; orphaned-guest Remove = un-enter)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Casual result-save pipeline — settled invariants (session 68)
+
+Repairing the post-game cluster (migs 204–206) settled several rules. See
+[[project_result_save_invariants]] and RPCS.md.
+
+1. **"First finalisation" is detected by `matches.winner IS NULL`, never by player_match
+   existence.** The kickoff lineup-lock cron pre-creates player_match rows, so the old
+   row-count freshness check silently skipped the entire end-of-match cascade. Rule:
+   **no code path may set `matches.winner` before the admin's first result save.** If an
+   early winner is ever needed, add a dedicated `matches.result_saved_at` and switch to it.
+
+2. **Payments carry over week-to-week via `owes`, not via the `paid` flag.** Opening a new
+   week (mig 204) resets status/team/admin_locked_in but deliberately **keeps**
+   paid/self_paid/paid_by/paid_at/owes. Result-save charges unpaid non-guest attendees into
+   `owes` (running debt) **and** writes a `payment_ledger` game_fee/unpaid row (history).
+   `owes` is cleared only by self-pay-debt / admin_clear_debt / admin_waive_debt — **not** by
+   mark-paid (which settles only the current week). "Outstanding" = sum(players.owes).
+
+3. **Week reset lives in two places on purpose:** go-live (mig 204, only when a new match is
+   created) AND result-save (migs 205/206). Both set status='none'/team=NULL/admin_locked_in=
+   false. Result-save covers the go-live double-tap reuse path; go-live covers weeks where no
+   result was saved. Both setting the same values makes the overlap harmless.
+
+4. **Orphaned-guest "Remove" (host dropped out) un-enters the player (`status='none'`), it does
+   not delete the squad row and does not mark them `out`.** Deleting fails on match history and
+   loses the player; `out` reads as an active decline. The squad row + guest link are kept.
+
+5. **Casual stats stored as IDs; display resolves id-first, name-fallback.** matches.team_a/
+   team_b/scorers/motm/bib_holder hold player IDs (player_match keys on player_id). Every
+   consumer (StatsView, HistoryView share, PlayerLeagueTable, Avatar/PlayerView) must resolve
+   id-first then name (legacy seed rows stored names). player_match remains stats source of
+   truth; players.* flat columns are write-only convenience.
 
 ---
 

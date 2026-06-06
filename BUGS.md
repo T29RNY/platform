@@ -1,7 +1,29 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 1 2026 (session 64 — HQ health_score "shipped but never wired" latent gap RESOLVED in Payments V4 / mig 182.)*
+*Last updated: Jun 6 2026 (session 68 — casual post-game pipeline cluster RESOLVED: migs 204/205/206 + display id/name fixes; end-of-session audit clean.)*
 
 ---
+
+## RESOLVED (session 68, mig 206 + JS) — follow-ups: admin_locked_in stuck-lock, Stats bib-duty, POTM avatar, orphaned-guest Remove
+
+Smaller fixes around the migs 204/205 cluster (below):
+
+- **admin_locked_in stuck across weeks (mig 206).** End-of-session audit found result-save
+  reset `status='none'` but left `admin_locked_in=true`; go-live (204) clears it only on
+  new-match creation, so the idempotent double-tap reuse path could leave a force-in player
+  locked next week. mig 206 adds `admin_locked_in=false` to the fresh-save reset. EV'd.
+- **Stats "Bib Duty" always empty.** `StatsView` league-table rows were built without a
+  `bibCount`, so `filter(p => p.bibCount > 0)` matched nothing. Now accumulated from
+  `matchHistory.bibHolder` (id-first/name-fallback, period-filtered) like POTM.
+- **POTM trophy missing on avatar.** `Avatar` had a bib dot but no POTM badge, and the in/out
+  list never told it who the POTM was. Added `hasMotm` 🏆 badge (bottom-right) wired across the
+  squad list via `isLastMotm` (id-first/name-fallback).
+- **Orphaned-guest "Remove" (host dropped out)** called `deletePlayer` → blocked by the
+  has_history guard and would delete the squad row. Now `adminSetPlayerStatus(...,'none')` —
+  un-enters them for the week, keeps the squad row. (First shipped as `'out'`, corrected to
+  `'none'` per operator: 'out' reads as an active decline.)
+
+See DECISIONS.md "Casual result-save pipeline — settled invariants" and
+[[project_result_save_invariants]] (memory).
 
 ## RESOLVED (session 68, mig 205) — result-save did nothing: £0 outstanding, empty payment history, dead admin Bib tracker
 

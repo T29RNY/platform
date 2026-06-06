@@ -1039,6 +1039,60 @@ duplicate on the following tick.
 
 ---
 
+## 12. CASUAL POST-GAME PIPELINE (week rollover · payments · bibs · stats) — session 68
+
+**Issue class:** a real game completed and the next week's board, the payments
+totals, the admin Bib tracker, the Stats table, and Share Results were all wrong.
+Two deep root causes (migs 204–206) plus display id/name regressions. None surfaced
+in build/type/hygiene — only a real squad playing a real week exposed them.
+
+**12a. New week opens but the board is "locked" (can't say in/out).**
+Cause: opening a week never reset player `status`; last week's whole squad stayed
+`status='in'`, so the squad read as full and `set_player_status` threw `squad_full`.
+Fixed mig 204 (go-live resets status/team/admin_locked_in; payments carry over).
+- **Pre-flight:** after the auto-open (or manual "Open Next Week"), confirm every
+  player shows **no-response** (not carried "in"), the IN count is 0, and a player on
+  `/p/<token>` can tap In and Out freely. Verify against a REAL team (not demo — demo
+  has its own reset cron). SQL spot-check: `SELECT count(*) FILTER (WHERE status='in')
+  FROM players p JOIN team_players tp ON tp.player_id=p.id WHERE tp.team_id=<team>` = 0
+  right after open.
+
+**12b. Outstanding shows £0 / nobody charged after a played game; empty payment history.**
+Cause: `admin_save_match_result` keyed "fresh save" on player_match row count, but the
+kickoff lineup-lock pre-creates those rows → every save ran as a re-save and skipped the
+charge/stats/history cascade. Fixed migs 205/206 (freshness via `matches.winner`; adds
+payment_ledger charge rows). **Never let any new code set `matches.winner` before the
+admin's first result save** — it would re-break this.
+- **Pre-flight (do once per squad after their first real result):** save a result with a
+  known set of non-payers, then check Admin → Outstanding reflects `£(price × non-payers)`,
+  the Payments screen lists them as owing, and each owing player's payment history shows a
+  `game_fee`/unpaid row for that match. Audit check: the `match_result_saved` audit_event
+  for that match has `is_fresh_save: true`. A `false` on a first save means the freshness
+  signal is defeated — STOP.
+
+**12c. Admin Bib tracker empty.**
+Cause: result-save wrote the bib holder onto the match but never into `bib_history` (the
+table the tracker reads). Fixed mig 205 (bib_history cascade).
+- **Pre-flight:** after a result with a bib holder set, Admin → Bibs shows that player as
+  current holder; `SELECT count(*) FROM bib_history WHERE team_id=<team> AND returned=false`
+  ≥ 1.
+
+**12d. Stats showed only the POTM; Share Results / Bib-duty / POTM-avatar wrong.**
+Cause: matches store player **IDs** (team_a/team_b/scorers/motm/bib_holder) but several JS
+consumers resolved by name only. Fixed in StatsView (id-first resolver + bib counting),
+HistoryView share text, Avatar (POTM trophy badge), AdminView (orphaned-guest Remove → 'none').
+- **Pre-flight (on a real phone after deploy):** Stats tab lists the whole squad (not just
+  POTM); Results → Share Results shows names in Team A/B + scorers; last POTM's avatar carries
+  the 🏆 (bottom-right); Bib Duty lists holders; the host-dropped-out "Remove" un-enters the
+  guest (keeps them in the squad).
+
+**Status:** all fixed + live-backfilled for Footy Tuesdays (£45 across 9 players) session 68.
+Migs 204/205/206 + JS commits on `main`. End-of-session audit confirmed the freshness signal
+is unbreakable and no other real team carries latent debt. The checks above are the re-run
+procedure for each new squad's first full week + first result.
+
+---
+
 ## SCOPE OUT
 
 These known issues exist but are LOW priority with documented
