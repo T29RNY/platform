@@ -244,11 +244,11 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
     // Per-player accumulators
     const acc = {};
     const init = (id) => {
-      if (!acc[id]) acc[id] = { wins: 0, draws: 0, losses: 0, goals: 0, potm: 0 };
+      if (!acc[id]) acc[id] = { wins: 0, draws: 0, losses: 0, goals: 0, potm: 0, bibs: 0 };
     };
 
     for (const m of filtered) {
-      const { teamA = [], teamB = [], winner, scorers = {}, motm } = m;
+      const { teamA = [], teamB = [], winner, scorers = {}, motm, bibHolder } = m;
 
       const teamAIds = teamA.map(n => resolve(n)?.id).filter(Boolean);
       const teamBIds = teamB.map(n => resolve(n)?.id).filter(Boolean);
@@ -285,6 +285,15 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
           acc[p.id].potm++;
         }
       }
+
+      // Bibs — same id-first/name-fallback as POTM, period-filtered
+      if (bibHolder) {
+        const p = resolve(bibHolder);
+        if (p && !p.disabled && !p.isGuest) {
+          init(p.id);
+          acc[p.id].bibs++;
+        }
+      }
     }
 
     // Build rows
@@ -304,6 +313,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
           points, winRate,
           goals:       s.goals,
           potm:        s.potm,
+          bibCount:    s.bibs,
           reliability: null,
           form:        [],
           ranked:      played >= 3,
