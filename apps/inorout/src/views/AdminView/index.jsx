@@ -9,7 +9,6 @@ import {
   getTeamNextFixtureLineup,
 } from "@platform/core";
 import {
-  deletePlayer,
   clearPlayerInjury,
   upsertSchedule, adminCancelMatch, addPlayerToTeam,
   getRecentNotification,
@@ -173,20 +172,23 @@ export default function AdminView({
       setSquad(prev);
     }
   };
+  // "Remove" on an orphaned guest takes them OUT of this week's lineup —
+  // it does NOT delete the squad row (which would fail on match history and
+  // lose the player permanently). Same path as reserveGuest, status 'out'.
   const removeGuest   = async (id) => {
     setOrphanErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+    const prev = squad;
+    setSquad(squad.map(p => p.id===id ? { ...p, status:"out" } : p));
+    dismissOrphan(id);
     try {
-      await deletePlayer(adminToken, id);
-      setSquad(squad.filter(p => p.id !== id));
-      dismissOrphan(id);
-    } catch(e) {
+      await adminSetPlayerStatus(adminToken, id, "out");
+    } catch (e) {
       console.error(e);
+      setSquad(prev);
       const msg = String(e?.message || "").toLowerCase();
       const friendly =
-        msg.includes("has_history")          ? "Can't remove — they have match history. Try disabling instead."
-      : msg.includes("invalid_admin_token")  ? "Couldn't remove — your admin link may be out of date. Pull to refresh."
-      : msg.includes("not_found")            ? "Already removed — refreshing."
-      :                                        "Couldn't remove. Tap again or try later.";
+        msg.includes("invalid_admin_token")  ? "Couldn't update — your admin link may be out of date. Pull to refresh."
+      :                                        "Couldn't update. Tap again or try later.";
       setOrphanErrors(prev => ({ ...prev, [id]: friendly }));
     }
   };
