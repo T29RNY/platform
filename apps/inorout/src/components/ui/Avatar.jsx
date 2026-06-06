@@ -54,7 +54,7 @@ export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGues
         )}
         {hasMotm && !isInjured && (
           <span style={{
-            position:"absolute", top:-4, right:-4, fontSize:11, lineHeight:1,
+            position:"absolute", bottom:-4, right:-4, fontSize:11, lineHeight:1,
           }}>🏆</span>
         )}
       </div>
