@@ -3,6 +3,46 @@
 
 ---
 
+## RESOLVED (session 68, mig 205) — result-save did nothing: £0 outstanding, empty payment history, dead admin Bib tracker
+
+**Symptoms (Footy Tuesdays):** after a £5/player game with 9 non-payers, the admin
+panel showed **£0 outstanding**; nobody appeared as owing; the admin **Bib tracker was
+empty**; and per-player payment history had no charge rows for the game.
+
+**Root cause:** `admin_save_match_result`'s "fresh save" guard was
+`v_is_fresh_save := (player_match row count = 0)`. The kickoff lineup-lock cron
+pre-creates `player_match` rows, so every real result save read as a **re-save**
+(`is_fresh_save=false`, confirmed in audit_events) and **skipped the entire
+end-of-match block**: owes for non-payers, the new-week payment reset, and stats.
+Separately, the result-save never cascaded the bib holder into `bib_history` (the
+table the admin Bib tracker reads — it had 0 rows), and the fresh block carried a
+**latent ambiguous-column bug** (`attended`/`goals` unqualified while `player_match`
+also has those columns) that only surfaced once the block actually ran.
+
+**Fix (mig 205):**
+- Freshness now keys on `matches.winner` — NULL until the first finalisation (the
+  lineup-lock doesn't set it) — a correct one-shot signal the pre-lock can't defeat.
+  Already-finalised matches (winner set) read as re-saves → never double-charge.
+- Qualified `p.attended`/`p.total`/`p.goals`/`p.w/l/d/owes` in the fresh block.
+- Added a `payment_ledger` `game_fee`/`unpaid` charge row per unpaid non-guest
+  attendee (mirrors the owes condition; `admin_confirm_payment` promotes it to
+  `paid`; `get_my_payment_history` surfaces it) so the charge shows in each player's
+  payment history.
+- Cascaded the bib holder into `bib_history` (+ `bib_count`) so the admin Bib
+  tracker reflects the holder chosen at result entry.
+- **Live backfill** of last week (m_WXZHG): 9 unpaid non-guest attendees charged £5
+  (= £45 outstanding) with matching ledger rows, idempotently (NOT EXISTS guard); the
+  bib holder (rockybram) written to `bib_history`. Payment flags carried over per the
+  established model — guests and already-paid players excluded.
+
+**Verified:** ephemeral-verify proved the save is fresh **despite pre-existing
+player_match rows**, owes/ledger/bib_history all populate, and a re-save does not
+double-charge; rollback + `_e2e_%` leak-check = 0. Single overload, SECURITY DEFINER,
+grants preserved.
+
+**Lesson:** never key "first time" idempotency on a side-effect table that another
+job also writes. Use a column that only the finalising action sets (here, `winner`).
+
 ## RESOLVED (session 68, mig 204) — post-game-completion trio: locked board, stats show only POTM, share results show IDs
 
 **Symptoms (operator-reported, Footy Tuesdays `team_KPaoX8oJYMQ` after match `m_WXZHG_SM9Zc`):**
