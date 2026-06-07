@@ -1114,8 +1114,18 @@ HistoryView share text, Avatar (POTM trophy badge), AdminView (orphaned-guest Re
   the 🏆 (bottom-right); Bib Duty lists holders; the host-dropped-out "Remove" un-enters the
   guest (keeps them in the squad).
 
+**12e. Player who had a +1 last week can't bring a guest the next week.**
+Cause: `add_guest_player` creates a per-week `players` row (`is_guest=true`) but the go-live
+reset only zeroed `status` — it never deleted the row. The stale guest persisted, and the next
+week `PlayerView` found it and showed "your +1 — [name]" instead of the Plus One button, blocking
+the host. Fixed mig 207 (both go-live RPCs now delete guest rows on new-match creation).
+- **Pre-flight:** after a week opens, SQL spot-check: `SELECT count(*) FROM players WHERE
+  is_guest=true AND guest_of IN (SELECT player_id FROM team_players WHERE team_id=<team>)` = 0.
+  Then as a player who had a +1 last week, open `/p/<token>` — should see the Plus One button,
+  not a stale guest card.
+
 **Status:** all fixed + live-backfilled for Footy Tuesdays (£45 across 9 players) session 68.
-Migs 204/205/206 + JS commits on `main`. End-of-session audit confirmed the freshness signal
+Migs 204/205/206/207 + JS commits on `main`. End-of-session audit confirmed the freshness signal
 is unbreakable and no other real team carries latent debt. The checks above are the re-run
 procedure for each new squad's first full week + first result.
 

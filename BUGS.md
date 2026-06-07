@@ -1,5 +1,32 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 7 2026 (session 69 — BST timezone offset on all cron notifications RESOLVED, commit 4e351b6; PWA live-update staleness RESOLVED, commit 5edd64f.)*
+*Last updated: Jun 7 2026 (session 70 — stale guest row blocks Plus One button every week RESOLVED, commit e6f9459; session 69 — BST timezone offset on all cron notifications RESOLVED, commit 4e351b6; PWA live-update staleness RESOLVED, commit 5edd64f.)*
+
+---
+
+## RESOLVED (session 70, commit e6f9459) — stale guest row blocks Plus One button on weekly rollover
+
+**Symptom (operator):** Gurnam couldn't add Pav as a guest for this week's game — the "Plus One"
+button was missing. He had added Pav the previous week. The workaround was to tap "Remove" on the
+old guest card, then add Pav fresh. This would have hit any player who regularly brings a +1.
+
+**Root cause:** `add_guest_player` creates a `players` row with `is_guest=true`. On weekly
+rollover `admin_go_live` / `admin_go_live_for_team` reset all player statuses to `'none'` but
+never deleted the guest rows. The next week, `PlayerView` found the stale row via
+`squad.find(p => p.isGuest && p.guestOf === myId)` and rendered "your +1 — Pav" (status='none')
+instead of the Plus One button. The host had no way to add a new guest until they manually
+removed the old one first.
+
+**Fix (mig 207):** both go-live RPCs now delete all `is_guest=true` rows for the team inside
+the new-match-creation block (`IF v_match_id IS NULL`), before the bulk status reset. Order:
+DELETE from `team_players` first (NO ACTION FK on `players.id`), then DELETE from `players`
+identified via `guest_of` pointing to a host still on the team. Idempotent re-taps (reusing a
+live match) hit the `v_was_existing` path and skip the delete entirely — a guest added mid-week
+is safe. All other FKs on `players.id` are SET NULL or CASCADE; no manual cleanup needed.
+RPC security sweep PASS. No JS changes.
+
+**Verified:** DB query confirms the stale guest rows from Footy Tuesdays (including `p_RZDRbZyj`
+which Gurnam had to manually remove this morning) are gone from the `players` table. Gurnam
+manually worked around it at 12:04 today; Pav (`p_Wi6P2ddr`) is correctly in for Tuesday.
 
 ---
 
