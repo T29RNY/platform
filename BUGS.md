@@ -1,7 +1,13 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 7 2026 (session 69 — PWA live-update staleness on iOS resume RESOLVED, commit 5edd64f; verified on real device.)*
+*Last updated: Jun 7 2026 (session 69 — BST timezone offset on all cron notifications RESOLVED, commit 4e351b6; PWA live-update staleness RESOLVED, commit 5edd64f.)*
 
 ---
+
+## RESOLVED (session 69, commit 4e351b6) — BST timezone offset: all cron notifications 1hr late in summer
+
+**Root cause:** Two separate UTC-vs-BST failures, both harmless in winter (GMT = UTC) but 1hr wrong from late March onwards. (1) `admin_upsert_schedule` built `game_date_time` as `(date || ' ' || kickoff || ':00')::timestamptz` — a bare cast that PostgreSQL interprets as UTC on the Supabase server. Admin enters "20:00" meaning 8pm UK; system stored 20:00 UTC = 21:00 BST. Every kickoff-relative cron job was therefore 1hr late: `oneHrBefore` fired at kickoff, `lineupLock` fired 1hr into the game, `bibs45min` fired after kickoff, `potmVotingOpen` 2hrs after real kickoff. This was a documented "Known limitation (Phase 1)" in mig 013. (2) `notify.js` `gameDay9am` used `now.getHours() === 9` — UTC hours on Vercel, so fired at 9am UTC = 10am BST.
+
+**Fix:** SQL now uses `(date || 'T' || kickoff || ':00') AT TIME ZONE 'Europe/London'` (DST-aware, auto-adjusts each year at clocks change). JS `gameDay9am` now uses `Intl.DateTimeFormat` with `timeZone: 'Europe/London'` matching the pattern already used in `cron.js`. One-off data migration subtracted 1hr from the 3 live schedule rows (Jun 9 + Jun 10 games). Also corrected a stale REVOKE/GRANT: prior migrations referenced the 13-param function signature; live function has 14 params (p_game_is_live, added session 27), so REVOKE never applied — anon had EXECUTE on an admin-only RPC. Fixed to authenticated-only. Files: `rls_migrations/207_fix_game_date_time_timezone.sql`, `apps/inorout/api/notify.js`. Commit: 4e351b6.
 
 ## RESOLVED (session 69, commit 5edd64f) — live updates stale after PWA returns from background
 

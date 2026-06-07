@@ -1,10 +1,18 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 7 2026 (session 69 — PWA resume = reconnect + catch-up re-fetch; stay on PWA, Capacitor not needed for live updates)*
+*Last updated: Jun 7 2026 (session 69 — UK timestamps require AT TIME ZONE 'Europe/London'; PWA resume = reconnect + catch-up re-fetch)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## UK timestamps: always `AT TIME ZONE 'Europe/London'` in SQL, never bare `::timestamptz` (session 69)
+
+Any SQL that constructs a UK wall-clock timestamp from a text string (e.g. `'2026-06-09' || 'T' || '20:00' || ':00'`) MUST use `AT TIME ZONE 'Europe/London'`, not a bare `::timestamptz` cast. The bare cast defaults to the server timezone (UTC on Supabase), which is correct in winter (GMT = UTC) but 1hr wrong during BST (late March → late October). This caused every kickoff-relative cron job to fire 1hr late for the entire BST window: `oneHrBefore` at kickoff, `lineupLock` 1hr into the game, `bibs45min` after kickoff.
+
+The same applies in JS on Vercel (also UTC): never use `Date.getHours()` or `Date.getDay()` to check UK local time — use `Intl.DateTimeFormat` with `timeZone: 'Europe/London'` as already established in `cron.js`'s `nowInUkParts()` helper. Applies to any new time-window job added to `cron.js` or `notify.js`.
+
+`AT TIME ZONE 'Europe/London'` and `Intl.DateTimeFormat Europe/London` are both DST-aware and auto-adjust when the clocks change — no manual intervention required year to year.
 
 ## PWA resume = reconnect + catch-up re-fetch; not a Capacitor trigger (session 69)
 
