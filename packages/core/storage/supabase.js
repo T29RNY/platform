@@ -1182,26 +1182,10 @@ export async function findMatchLedgerEntry(playerId, teamId, matchId, type) {
   return row ? { id: row.id, status: row.status } : null;
 }
 
-export async function getLedgerForTeam(teamId) {
-  const { data, error } = await supabase
-    .from("payment_ledger")
-    .select("*")
-    .eq("team_id", teamId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(dbToLedger);
-}
-
-export async function getOutstandingBalance(playerId, teamId) {
-  const { data, error } = await supabase
-    .from("payment_ledger")
-    .select("amount")
-    .eq("player_id", playerId)
-    .eq("team_id", teamId)
-    .eq("status", "unpaid");
-  if (error) throw error;
-  return (data || []).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-}
+// (213/214 cleanup) getLedgerForTeam + getOutstandingBalance removed — no consumers,
+// and they were direct payment_ledger reads that RLS blocks for anon/most roles. The
+// admin outstanding total comes from the squad payload (players.owes); per-player
+// ledger history goes through adminGetPlayerLedger / get_my_payment_history (RPCs).
 
 // ─── Team Selection ───────────────────────────────────────────────────────────
 

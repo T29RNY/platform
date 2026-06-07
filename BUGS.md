@@ -16,15 +16,15 @@ pending claim (mig 211) ✅. VC parity now complete across all 28 casual admin_*
 reconciliation closed (team_KPaoX £45 owes == £45 ledger).
 
 **OPEN — remaining from session-71 audit (Batch B/C, priority order):**
-- **[Batch C] ScoreScreen guest exclusion (F2):** ScoreScreen sends guest ids into the
-  result-save team arrays, so guests get `player_match` rows + w/l/d increments during their
-  week. Harmless now that mig 209 cleans the children on guest delete (no more orphans), so
-  downgraded to a hygiene item — build the team arrays from the guest-excluded `eligible` set.
-- **[Batch C] advanceGameDateJob** DST-boundary drift (re-confirmed, known-open); ~10
-  broadcast reasons missing from notify_team_change whitelist (log noise, latent drift);
-  no cap on guests per host; dead code (attendance.js helpers, cast_potm_vote,
-  getOutstandingBalance/getLedgerForTeam). (HistoryView legacy POTM crown / last-goal-scorer
-  fixed alongside #4.)
+- **[Batch C — WON'T-CHANGE] ScoreScreen guest "exclusion" (F2):** ScoreScreen records guest
+  ids in the result-save team arrays, so guests get `player_match` rows + w/l/d while they
+  exist. Decided NOT to change: a guest who played legitimately belongs in that match's record,
+  and mig 209 already cleans their child rows on delete (no orphans). The only residue is a
+  guest's raw id showing in a past match if they're later deleted — cosmetic, rare.
+- **[Batch C] advanceGameDateJob** DST-boundary drift (re-confirmed, known-open — being fixed
+  this batch); no cap on guests per host; dead `attendance.js` helpers (calcStreaks /
+  topSingleGame / getHatTricks / biggestWins — unexported, zero call sites; left in place,
+  harmless). (HistoryView legacy POTM crown / last-goal-scorer fixed alongside #4.)
 - **[Batch C] "Update this week" one-off date** — TWO bugs, both latent (the path is never
   reached from the UI today): (1) ScheduleScreen never sends `oneOffDate` to upsertSchedule,
   so the override doesn't persist; (2) `admin_upsert_schedule`'s one-off branch has the same
@@ -34,6 +34,19 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   AND send oneOffDate from the UI.
 
 ---
+
+## RESOLVED (session 71, migs 213/214 + JS) — Batch C cleanup: notify whitelist + dead code
+
+- **notify_team_change whitelist (mig 213):** added the 10 reasons emitted by live RPCs but
+  previously un-whitelisted (week_opened, week_reopened, groups_cleared, group_assigned,
+  player_contact_updated, player_left_squad, result_corrected, fixture_status_changed,
+  match_event_recorded, match_started) — every one was logging a `RAISE WARNING` per call
+  (harmless, but the mig-121/127 latent-drift class). Verified: emitted ⊆ whitelist (0 gaps).
+- **Dropped dead `cast_potm_vote` (mig 214):** complete-but-superseded POTM RPC, zero callers
+  (JS + SQL), anon-granted, no audit. The live path is `submit_potm_vote`. Down recreates it.
+- **Removed dead `getLedgerForTeam` / `getOutstandingBalance`** from supabase.js + barrel — no
+  consumers, and they were direct `payment_ledger` reads RLS blocks anyway (latent footgun for
+  a future consumer). Build clean.
 
 ## RESOLVED (session 71, commit BibsScreen) — dead hidden bib-assign block (silent "save" that never persisted)
 
