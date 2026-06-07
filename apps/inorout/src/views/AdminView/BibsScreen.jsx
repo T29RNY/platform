@@ -14,8 +14,6 @@ function daysSince(matchDate) {
 const LIMIT = 5;
 
 export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory, schedule, onBack }) {
-  const [bibHolder,    setBibHolder] = useState("");
-  const [bibSaved,     setBibSaved]  = useState(false);
   const [showAll,      setShowAll]   = useState(false);
   const [statsOpen,    setStatsOpen] = useState(false);
 
@@ -58,19 +56,12 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
   const visibleHistory = showAll ? bibHistory : bibHistory.slice(0, LIMIT);
   const hiddenCount    = bibHistory.length - LIMIT;
 
-  // Preserved for hidden dropdown
-  const bibCounts = bibHistory.reduce((acc, b) => ({ ...acc, [b.name]: (acc[b.name] || 0) + 1 }), {});
-  const saveBibs  = () => {
-    if (!bibHolder) return;
-    const matchDate = new Date().toISOString().split('T')[0];
-    setBibHistory([{ name: bibHolder, matchDate, returned: false }, ...bibHistory]);
-    setSquad(squad.map(p => p.name === bibHolder ? { ...p, bibCount: (p.bibCount || 0) + 1 } : p));
-    setBibSaved(true);
-  };
+  // Bib holder is assigned at result entry (ScoreScreen → admin_save_match_result,
+  // migs 205/206). This screen is read-only: current holder, history, stats.
 
   return (
     <div style={{ padding: 18 }}>
-      <BackBtn onClick={() => { onBack(); setBibSaved(false); setBibHolder(""); }} />
+      <BackBtn onClick={onBack} />
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -128,46 +119,6 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
         </div>
       )}
       </FirstTimeHint>
-
-      {/* ── Hidden dropdown — WHO HAS THEM TONIGHT ──────────────── */}
-      <div style={{ display: "none" }}>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color: "var(--t2)", letterSpacing: "0.08em", marginBottom: 10 }}>
-          WHO HAS THEM TONIGHT?
-        </div>
-        {(squad || []).filter(p => p.status === "in" && !p.disabled && !p.isGuest).map(p => (
-          <button key={p.id} onClick={() => { setBibHolder(p.name); setBibSaved(false); }} style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%",
-            padding: "13px 14px", borderRadius: 6, marginBottom: 7, cursor: "pointer",
-            border: `2px solid ${bibHolder === p.name ? "var(--amber)" : "var(--s3)"}`,
-            background: bibHolder === p.name ? "var(--amber2)" : "transparent",
-          }}>
-            <span style={{ fontSize: 14, fontWeight: 500, color: bibHolder === p.name ? "var(--amber)" : "var(--t1)" }}>
-              {p.nickname || p.name}
-            </span>
-            <span style={{ fontSize: 12, color: "var(--t2)" }}>taken {bibCounts[p.name] || 0}× before</span>
-          </button>
-        ))}
-        {!bibSaved ? (
-          <button onClick={saveBibs} disabled={!bibHolder} style={{
-            width: "100%", padding: "14px 0", borderRadius: 10, border: "none",
-            background: bibHolder ? "var(--amber)" : "var(--s3)",
-            color: bibHolder ? "#0A0A08" : "var(--t2)",
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "0.08em",
-            cursor: bibHolder ? "pointer" : "default",
-          }}>
-            {bibHolder ? `Confirm — ${bibHolder} has the bibs` : "Select a player first"}
-          </button>
-        ) : (
-          <button onClick={onBack} style={{
-            width: "100%", padding: "16px 0", borderRadius: 12, border: "none",
-            background: "var(--gold)", color: "var(--bg)",
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em",
-            cursor: "pointer",
-          }}>
-            DONE
-          </button>
-        )}
-      </div>
 
       {/* ── History section ──────────────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>

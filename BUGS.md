@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 7 2026 (session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 7 2026 (session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
 
 ---
 
@@ -34,6 +34,20 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   AND send oneOffDate from the UI.
 
 ---
+
+## RESOLVED (session 71, commit BibsScreen) — dead hidden bib-assign block (silent "save" that never persisted)
+
+**Symptom (latent — no live impact):** the audit flagged BibsScreen's SAVE as pure local
+state (no RPC, no adminToken prop). On inspection the entire "WHO HAS THEM TONIGHT" assign
+block — including that SAVE button — was wrapped in `display:"none"`: hidden dead code left
+over from when bib assignment moved to result entry (ScoreScreen → admin_save_match_result,
+migs 205/206). So there was no user-facing bug, just a dead silent-persistence handler waiting
+to mislead.
+
+**Fix:** removed the hidden block + its dead `saveBibs`/`bibCounts`/`bibHolder`/`bibSaved`
+state and the BackBtn resets that referenced them. BibsScreen is now cleanly read-only (current
+holder, history, stats). Also removed a `#0A0A08` hardcoded hex that lived in the dead block.
+No persistence wired up — the holder is correctly set at result entry. Build clean, hygiene 7/7.
 
 ## RESOLVED (session 71, mig 212) — create_team built the first game_date_time in UTC (summer reminders 1hr late)
 
