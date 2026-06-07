@@ -1,5 +1,9 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 7 2026 (session 69 — PWA live-update staleness on iOS resume fixed (commit 5edd64f); verified on real device; see GO_LIVE_ISSUES §7.2 + BUGS + DECISIONS.)*
+*Last updated: Jun 7 2026 (session 69 — BST cron timezone offset fixed (commit 4e351b6) + PWA live-update staleness fixed (commit 5edd64f); see BUGS + DECISIONS.)*
+
+## SESSION 69 — BST timezone offset on cron notifications (Jun 7 2026)
+
+All scheduled notifications were firing 1hr late during BST. Two root causes: `admin_upsert_schedule` stored `game_date_time` as UTC-naive (bare `::timestamptz` cast), so admin-entered "20:00 UK" was saved as 21:00 BST; and `notify.js` `gameDay9am` used `now.getHours()` (UTC on Vercel). Fixed via mig 207: `AT TIME ZONE 'Europe/London'` in SQL, `Intl.DateTimeFormat Europe/London` in JS, plus a one-off -1hr data migration on 3 live schedule rows. Also corrected a stale REVOKE/GRANT (anon had EXECUTE on an admin RPC due to prior grants referencing the wrong 13-param signature). Commit 4e351b6. See BUGS.md + DECISIONS.md.
 
 ## SESSION 69 — PWA live updates on resume from background (Jun 7 2026)
 
