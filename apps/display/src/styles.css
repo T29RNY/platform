@@ -61,7 +61,7 @@ body {
   isolation: isolate;
 }
 .stage::before {
-  /* floodlight pools + colour wash */
+  /* floodlight pools + colour wash + a floodlit pitch rising from the foot */
   content: "";
   position: absolute; inset: 0; z-index: -2;
   background:
@@ -69,6 +69,24 @@ body {
     radial-gradient(120% 90% at 92% 8%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent 55%),
     radial-gradient(90% 120% at 50% 120%, var(--pitch-deep), transparent 60%),
     linear-gradient(180deg, var(--bg-1), var(--bg-0));
+}
+/* Stylised pitch: mowing stripes in perspective, darkened heavily so it reads as
+   texture behind the data rather than a literal photo (kept legible from a room
+   away). A real photo can be swapped in here later if a venue wants one. */
+.pitch {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 46%; z-index: -2;
+  pointer-events: none; overflow: hidden;
+  transform: perspective(60rem) rotateX(58deg); transform-origin: bottom center;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(31,143,87,0.30) 0 8%, rgba(12,59,38,0.30) 8% 16%);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 70%);
+          mask-image: linear-gradient(180deg, transparent, #000 70%);
+  opacity: 0.5;
+}
+.pitch::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, var(--bg-0) 0%, transparent 40%);
 }
 .stage::after {
   /* grain */
@@ -223,9 +241,10 @@ body {
 .tbl { width: 100%; height: 100%; display: flex; flex-direction: column; }
 .tbl-head, .tbl-row {
   display: grid;
-  grid-template-columns: 1.6rem 1fr repeat(6, 1.5rem) 1.9rem;
+  grid-template-columns: 1.9rem 1fr repeat(5, 1.5rem) 6.4rem 2.3rem;
   align-items: center; gap: 0.3rem;
 }
+.tbl-head .form-col, .tbl-row .form-col { text-align: center; }
 .tbl-head {
   font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint);
   font-weight: 700; padding: 0.2rem 0.55rem 0.45rem;
@@ -284,13 +303,25 @@ body {
 .list-meta { font-size: 0.66rem; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; }
 
 /* ---------- Goals ticker ---------- */
-.ticker {
+.botbar {
   grid-column: 1 / -1; grid-row: 2 / 3;
+  display: flex; align-items: stretch; gap: 1.1rem; min-width: 0;
+}
+.ticker {
+  flex: 1; min-width: 0;
   height: 3rem; border-radius: 0.8rem; overflow: hidden;
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, var(--bg-1)), var(--bg-1));
   border: 1px solid var(--panel-border-bright);
   display: flex; align-items: center;
 }
+/* sponsor slot in the bottom bar */
+.sponsor {
+  flex: none; height: 3rem; display: flex; align-items: center; gap: 0.6rem;
+  padding: 0 1.1rem; border-radius: 0.8rem;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--panel-border-bright);
+}
+.sponsor-kicker { font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+.sponsor-img { max-height: 2.1rem; max-width: 9rem; object-fit: contain; }
 .ticker-label {
   flex: none; height: 100%; display: flex; align-items: center; gap: 0.4rem;
   padding: 0 1.1rem; background: var(--accent); color: var(--bg-0);
@@ -379,3 +410,85 @@ body {
 .bkt-row.bkt-bye { color: var(--ink-faint); font-style: italic; }
 .bkt-team { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bkt-score { font-family: var(--font-mono); font-weight: 700; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PREMIUM BROADCAST RE-SKIN (Phase 4 redesign)
+   Generated crests · form guide · lower-thirds · richer idle state · sponsor
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ---------- Generated crest ---------- */
+.crest { filter: drop-shadow(0 0.15rem 0.35rem rgba(0,0,0,0.45)); }
+
+/* ---------- Form guide pips ---------- */
+.formpips { display: inline-flex; gap: 0.2rem; justify-content: center; align-items: center; }
+.pip {
+  width: 1.05rem; height: 1.05rem; border-radius: 0.28rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 0.78rem; line-height: 1; color: #07120c;
+}
+.pip-W { background: var(--pitch);  color: #eafff3; box-shadow: 0 0 0.4rem rgba(31,143,87,0.5); }
+.pip-D { background: var(--amber);  color: #1a1206; }
+.pip-L { background: var(--live);   color: #fff; }
+.pip-empty { background: rgba(255,255,255,0.06); border: 1px solid var(--panel-border); }
+
+/* ---------- Live card additions ---------- */
+.fixcard-wash { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.fixcard > * { position: relative; z-index: 1; }
+.score-wrap { display: flex; align-items: center; gap: 0.3rem; }
+.team .crest { margin: 0; }
+.live-grid[data-n="1"] .team { gap: 1.1rem; }
+.live-grid[data-n="1"] .team-name { font-size: 2.6rem; }
+
+/* lower-third — latest goal sweeps across the foot of the card */
+.lowerthird-slot { position: relative; min-height: 2.4rem; }
+.lowerthird {
+  position: relative; display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 1rem 0.3rem 0.7rem; border-radius: 0.4rem; margin-bottom: 0.4rem;
+  max-width: 100%; overflow: hidden;
+}
+.lt-glyph { font-size: 0.95rem; }
+.lt-name { font-family: var(--font-display); font-size: 1.25rem; letter-spacing: 0.02em; color: #fff; white-space: nowrap; }
+.lt-min { font-family: var(--font-mono); font-size: 0.8rem; color: rgba(255,255,255,0.8); }
+
+/* ---------- Idle hero ---------- */
+.idle-body { display: flex; flex-direction: column; gap: 1.1rem; }
+.nextup {
+  position: relative; border-radius: 0.95rem; padding: 1.2rem 1.4rem;
+  background: linear-gradient(150deg, var(--panel-strong), rgba(0,0,0,0.22));
+  border: 1px solid var(--panel-border-bright);
+  display: flex; flex-direction: column; align-items: center; gap: 0.7rem;
+}
+.nextup-kicker { font-size: 0.74rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.nextup-teams { display: flex; align-items: center; gap: 1.6rem; width: 100%; justify-content: center; }
+.nextup-side { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; max-width: 40%; }
+.nextup-name { font-family: var(--font-display); font-size: 1.7rem; line-height: 0.95; text-align: center; letter-spacing: 0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.nextup-v { font-family: var(--font-display); font-size: 2.2rem; color: var(--ink-faint); }
+.nextup-comp { font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
+
+.idle-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; min-height: 0; }
+.idle-col { min-width: 0; }
+.lf-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-fix .crest { flex: none; }
+
+/* ---------- League leaders podium (deep idle) ---------- */
+.leaders { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.leaders-podium { display: flex; align-items: flex-end; justify-content: center; gap: 1.6rem; }
+.podium {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  padding: 1.2rem 1rem; border-radius: 1rem; min-width: 8rem;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border);
+}
+.podium-1 { border-color: color-mix(in srgb, var(--gold) 55%, transparent); background: color-mix(in srgb, var(--gold) 9%, transparent); transform: translateY(-0.6rem); }
+.podium-rank { font-family: var(--font-display); font-size: 1.6rem; color: var(--ink-faint); }
+.podium-1 .podium-rank { color: var(--gold); }
+.podium-name { font-family: var(--font-display); font-size: 1.5rem; text-align: center; letter-spacing: 0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 9rem; }
+.podium-pts { font-family: var(--font-display); font-size: 1.9rem; color: var(--ink); }
+.podium-pts small { font-size: 0.62rem; color: var(--ink-faint); letter-spacing: 0.12em; }
+
+/* ---------- Branded idle (no league, no fixtures) ---------- */
+.idle-brand { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; text-align: center; }
+.idle-brand-logo { height: 6rem; width: 6rem; object-fit: contain; border-radius: 1rem; opacity: 0.9; }
+.idle-brand-name { font-family: var(--font-display); font-size: 3.4rem; letter-spacing: 0.02em; color: var(--ink); }
+.idle-brand-msg { font-size: 1rem; letter-spacing: 0.04em; color: var(--ink-dim); max-width: 28rem; }

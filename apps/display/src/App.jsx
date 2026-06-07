@@ -9,6 +9,7 @@ import TopScorersZone from "./components/TopScorersZone.jsx";
 import UpcomingRecentZone from "./components/UpcomingRecentZone.jsx";
 import GoalsTicker from "./components/GoalsTicker.jsx";
 import PoweredBy from "./components/PoweredBy.jsx";
+import SponsorBug from "./components/SponsorBug.jsx";
 import { resolveConfig } from "./lib/format.js";
 
 function readTokenFromUrl() {
@@ -116,6 +117,7 @@ export default function App() {
   }, [state?.venue?.primary_colour, state?.venue?.secondary_colour]);
 
   const config = useMemo(() => resolveConfig(state?.venue?.display_config), [state?.venue?.display_config]);
+  const rawConfig = state?.venue?.display_config || {};
   const competitions = state?.competitions || [];
   const liveFixtures = state?.live_fixtures || [];
   const liveCompIds = useMemo(() => new Set(liveFixtures.map((f) => f.competition_id)), [liveFixtures]);
@@ -155,6 +157,7 @@ export default function App() {
   return (
     <div className="stage">
       <div className="floodsweep" />
+      <div className="pitch" />
       <DisplayHeader venue={state.venue} clock={clock} liveCount={liveFixtures.length} connected={connected} />
 
       <div className="grid">
@@ -166,6 +169,8 @@ export default function App() {
               upcoming={has("upcoming") ? state.upcoming_fixtures : []}
               recent={has("recent") ? state.recent_results : []}
               customMessage={has("custom_message") ? config.custom_message : ""}
+              leaders={shownComp?.standings_confirmed || []}
+              venue={state.venue}
             />
           )}
           {has("top_scorers") && <TopScorersZone competition={shownComp} />}
@@ -179,9 +184,16 @@ export default function App() {
           )}
         </div>
 
-        {has("goals_ticker") && (
-          <GoalsTicker goals={state.goals_ticker} customMessage={has("custom_message") ? config.custom_message : ""} />
-        )}
+        <div className="botbar">
+          <SponsorBug
+            sponsorUrl={rawConfig.sponsor_image_url}
+            sponsorLabel={rawConfig.sponsor_label}
+            venueLogo={state.venue?.logo_url}
+          />
+          {has("goals_ticker") && (
+            <GoalsTicker goals={state.goals_ticker} customMessage={has("custom_message") ? config.custom_message : ""} />
+          )}
+        </div>
       </div>
 
       <PoweredBy />

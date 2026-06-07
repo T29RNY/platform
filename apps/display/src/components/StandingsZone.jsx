@@ -1,6 +1,7 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { teamColour } from "../lib/format.js";
+import Crest from "./Crest.jsx";
+import FormPips from "./FormPips.jsx";
 
 export default function StandingsZone({ competition, isLive }) {
   if (!competition) return null;
@@ -35,12 +36,12 @@ export default function StandingsZone({ competition, isLive }) {
               <span className="n">#</span>
               <span className="l">Team</span>
               <span className="n">P</span><span className="n">W</span><span className="n">D</span>
-              <span className="n">L</span><span className="n">GD</span><span className="n">GF</span>
+              <span className="n">L</span><span className="n">GD</span>
+              <span className="l form-col">Form</span>
               <span className="n">Pts</span>
             </div>
             <motion.div layout className="tbl-rows">
               {rows.map((r, i) => {
-                const c = teamColour(r.primary_colour, r.team_name);
                 const prev = confirmedPos.has(r.team_id) ? confirmedPos.get(r.team_id) : i;
                 const delta = prev - i; // +ve = climbed vs confirmed
                 const provisional = isLive && live.length && delta !== 0;
@@ -53,7 +54,7 @@ export default function StandingsZone({ competition, isLive }) {
                   >
                     <span className="pos">{i + 1}</span>
                     <span className="tbl-team">
-                      <span className="tbl-chip" style={{ background: c, color: c }} />
+                      <Crest name={r.team_name} primary={r.primary_colour} secondary={r.secondary_colour} size={1.7} />
                       <span className="tbl-team-name">{r.team_name}</span>
                       {provisional && (
                         <span className={`delta ${delta > 0 ? "up" : "down"}`}>{delta > 0 ? "▲" : "▼"}</span>
@@ -64,7 +65,7 @@ export default function StandingsZone({ competition, isLive }) {
                     <span className="n">{r.d}</span>
                     <span className="n">{r.l}</span>
                     <span className="n">{r.gd > 0 ? `+${r.gd}` : r.gd}</span>
-                    <span className="n">{r.gf}</span>
+                    <span className="form-col"><FormPips form={r.form} /></span>
                     <span className="pts">{r.pts}</span>
                   </motion.div>
                 );

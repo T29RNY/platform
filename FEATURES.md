@@ -501,14 +501,22 @@ with the apps/venue Payments screen.
 
 ## LEAGUE MODE — PHASE 4 RECEPTION DISPLAY SHIPPED (session 57, 2026-05-29)
 
-> ⚠️ **LAYOUT REDESIGN PENDING (operator, session 57).** The functional system
-> below is shipped and verified, but the operator judged the `apps/display` **visual
-> layout too plain** — a full broadcast-grade redesign of the display front-end is
-> scheduled for a follow-up session. **Scope of the redesign = `apps/display/src`
-> only (styles + zone components + layout).** The data/RPC/realtime layer (migs
-> 164–168, `get_display_state` shape, `venue_live` subscription, the venue config
-> editor) is **stable and NOT changing** — the redesign re-skins/re-lays-out the same
-> payload. Do not treat the current layout as final.
+> ⚠️ **LAYOUT REDESIGN — WIREFRAME ONLY, NOT FINAL (operator, session 73).** A first
+> "premium broadcast" re-skin pass shipped session 73 (generated monogram crests,
+> last-5 form guide, live-card lower-thirds, League-Leaders idle podium, sponsor slot,
+> stylised pitch backdrop — all over the SAME payload). **The operator judged the
+> result not good enough ("looks awful") and asked to leave it as a wireframe baseline;
+> the FINAL visual design is a later session.** What IS done and keepable: the data
+> layer additions (mig 221 `form`), the component structure, and the crest/form/idle
+> mechanics. The DB/RPC/realtime layer (migs 164–168 + 221, `get_display_state`,
+> `venue_live`, venue config editor) is stable. **Deferred to the final-look session:**
+> sponsor-image upload in venue settings (Stage 2 — backend confirmed: `sponsor_image_url`
+> already persists via `display_config`, just needs the venue uploader) AND deploying
+> `apps/display` to its own Vercel project + `VITE_DISPLAY_APP_URL` (Stage 4 — don't put
+> an unfinished look on a real venue TV). Do not treat the current layout as final.
+>
+> Original session-57 note: the operator first judged the layout "too plain"; the
+> session-73 pass was the response, still not the final article.
 
 The venue big-screen (`/display/TOKEN`) — a TV-targeted, PIN-gated, white-labelled
 live scoreboard for **all** competitions at a venue, updating in real time off the

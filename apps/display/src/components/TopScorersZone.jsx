@@ -1,6 +1,6 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { teamColour } from "../lib/format.js";
+import Crest from "./Crest.jsx";
 
 export default function TopScorersZone({ competition }) {
   const scorers = (competition?.top_scorers || []).slice(0, 6);
@@ -22,22 +22,19 @@ export default function TopScorersZone({ competition }) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.35 }}
             >
-              {scorers.map((s, i) => {
-                const c = teamColour(s.primary_colour, s.team_name);
-                return (
-                  <div key={s.player_id || i} className={`scorer-row${i === 0 ? " boot" : ""}`}>
-                    <span className="scorer-rank">{i + 1}</span>
-                    <span className="scorer-id">
-                      <span className="tbl-chip" style={{ background: c, color: c }} />
-                      <span style={{ minWidth: 0 }}>
-                        <div className="scorer-name">{s.name}</div>
-                        <div className="scorer-team">{s.team_name}</div>
-                      </span>
+              {scorers.map((s, i) => (
+                <div key={s.player_id || i} className={`scorer-row${i === 0 ? " boot" : ""}`}>
+                  <span className="scorer-rank">{i === 0 ? "👟" : i + 1}</span>
+                  <span className="scorer-id">
+                    <Crest name={s.team_name} primary={s.primary_colour} size={1.6} />
+                    <span style={{ minWidth: 0 }}>
+                      <div className="scorer-name">{s.name}</div>
+                      <div className="scorer-team">{s.team_name}</div>
                     </span>
-                    <span className="scorer-goals">{s.goals}<small>GLS</small></span>
-                  </div>
-                );
-              })}
+                  </span>
+                  <span className="scorer-goals">{s.goals}<small>GLS</small></span>
+                </div>
+              ))}
             </motion.div>
           </AnimatePresence>
         )}

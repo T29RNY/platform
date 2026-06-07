@@ -54,6 +54,28 @@ export function teamColour(hex, seed = "") {
   return PALETTE[h % PALETTE.length];
 }
 
+// Up to two-letter monogram for a generated crest. "Demo Athletic" → "DA",
+// "Rovers" → "RO", "FC United" → "FU". Skips trivial words so "AFC Wimbledon"
+// reads "AW" not "AF".
+const SKIP = new Set(["fc", "afc", "the", "of", "and", "&", "united", "city", "town"]);
+export function teamInitials(name = "") {
+  const words = String(name).trim().split(/\s+/).filter(Boolean);
+  const meaty = words.filter((w) => !SKIP.has(w.toLowerCase()));
+  const use = meaty.length ? meaty : words;
+  if (use.length === 0) return "?";
+  if (use.length === 1) return use[0].slice(0, 2).toUpperCase();
+  return (use[0][0] + use[use.length - 1][0]).toUpperCase();
+}
+
+// Readable ink (#000 / #fff) for text sitting on a coloured crest fill.
+export function contrastInk(hex) {
+  const h = (hex || "").replace("#", "");
+  if (h.length < 6) return "#fff";
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  // perceived luminance
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? "#0a0d14" : "#ffffff";
+}
+
 export const DEFAULT_CONFIG = {
   zones: ["live_scores", "standings", "top_scorers", "goals_ticker"],
   mode: "smart",
