@@ -567,6 +567,51 @@ Apply SQL before writing any JS wrapper.
 
 ---
 
+## CLOUD SESSION DISCIPLINE
+
+Cloud sessions (run from the phone, away from the laptop) are
+encouraged. They carry one failure mode the desktop flow does not:
+two sessions branched off the same `main`, editing the same files,
+blind to each other. Whichever merges first wins; the second
+conflicts. Established session 70 — two same-day sessions (BST cron
+fix + guest-row fix) both appended to BUGS.md and RPCS.md and both
+numbered their migration `207`; the second PR landed `dirty` and had
+to be hand-resolved.
+
+Rules:
+
+1. **One session at a time, closed start-to-finish.** Kick off a
+   session, let it run fix → verify → **merge its PR** → confirm
+   merged, BEFORE starting the next. The conflict only exists when
+   two PRs are open against the same base at once. This is the single
+   highest-leverage habit and costs nothing — it's just sequencing.
+
+2. **Merge the PR the moment a session says "ready."** Don't leave a
+   finished fix sitting as an open PR. The danger window is
+   "fix done, PR not merged."
+
+3. **"DB fix is already live, PR is source-sync only" still merges
+   promptly.** That exact phrasing is the trap: the live DB runs ahead
+   of committed source until the PR lands — the drift Hard Rule #11
+   forbids. A working fix whose source isn't on `main` is not done.
+
+4. **If two MUST run in parallel, keep them in different files.**
+   Conflicts only happen on shared files — and almost every fix
+   appends to the shared docs (BUGS.md, RPCS.md, CONTEXT.md,
+   DECISIONS.md, GO_LIVE_ISSUES.md) and grabs the next migration
+   number. Two sessions on genuinely separate app areas merge clean;
+   two that both touch the docs or both add a migration will collide.
+
+5. **Migration numbers are first-come on `main`.** A cloud session
+   picks the next number off the base it branched from. If another
+   session merged a migration meanwhile, the numbers clash (two
+   `207_*` files). Harmless on the live DB — applied by timestamp —
+   but it breaks the "numbered chronologically" convention. Sequencing
+   (rule 1) is the only real fix; if a clash already exists, leave the
+   live DB alone and just note it.
+
+---
+
 ## HOOKS — DETERMINISTIC ENFORCEMENT
 
 Three Claude Code hooks live in `.claude/` and fire automatically
