@@ -11,8 +11,11 @@ worked as **Batch A (HIGH) first**, then B/C. Open (not-yet-fixed) items from th
 are tracked in the OPEN section below; fixed ones move to RESOLVED as they land.
 
 **Batch A status:** #1 VC parity (mig 208) ✅ · #3 guest FK orphans (mig 209) ✅ ·
-#4 HistoryView id-resolution (commit ba282a3) ✅ · #2 payment reconciliation — IN PROGRESS
-(product decision taken: self-pay is a PENDING CLAIM, not confirmed-paid).
+#4 HistoryView id-resolution (commit ba282a3) ✅ · VC schedule access (mig 210) ✅ —
+VC parity now COMPLETE across all 28 casual admin_* RPCs · #2 payment reconciliation —
+DEFERRED to its own cycle (product decision taken: self-pay is a PENDING CLAIM, not
+confirmed-paid; it's a model rework across set_player_paid/set_guest_payment/
+admin_confirm_payment + getPaymentState + PaymentsScreen + PlayerView, not a one-liner).
 
 **OPEN — from session-71 audit (priority order):**
 - **[Batch A] Payment reconciliation (self-pay = pending claim):** per operator decision, a
@@ -25,9 +28,6 @@ are tracked in the OPEN section below; fixed ones move to RESOLVED as they land.
   result-save team arrays, so guests get `player_match` rows + w/l/d increments during their
   week. Harmless now that mig 209 cleans the children on guest delete (no more orphans), so
   downgraded to a hygiene item — build the team arrays from the guest-excluded `eligible` set.
-- **[Batch B] VC schedule access:** `admin_upsert_schedule` still bare-lookup. Operator
-  decided VCs ARE full deputies → fix to `resolve_admin_caller` + re-grant anon (token check
-  is the gate, matching the other 27 admin RPCs). Next up.
 - **[Batch B] create_team** builds first game_date_time in UTC not Europe/London (mig-207
   class on the create path) → new squad's first-week reminders 1hr late in summer.
 - **[Batch B] BibsScreen** SAVE is pure local state (no adminToken prop; saveBibHolder has
@@ -91,8 +91,28 @@ preserved) + ephemeral-verify (seeded `_e2e_` team with a VC + 2 reserves: resol
 VC token, VC reorders reserves, VC opens the week, audit logs `vice_captain`, bad token still
 rejected — 5/5 PASS) + `_e2e_%` leak-check = 0.
 
-**Note (deliberately NOT changed):** `admin_upsert_schedule` is the only remaining bare-lookup
-admin RPC. Left for a product decision — see the session-71 OPEN section above.
+**Follow-up resolved (mig 210):** `admin_upsert_schedule` — the only remaining bare-lookup
+admin RPC — was fixed once the operator confirmed VCs are full deputies (see below).
+
+## RESOLVED (session 71, mig 210) — admin_upsert_schedule rejected Vice Captains (VC parity complete)
+
+**Symptom:** `admin_upsert_schedule` (save schedule + save reminders, both via
+`upsertSchedule`) authenticated with a bare admin_token lookup, so a VC editing the schedule
+or reminders via `/p/<vc_token>` got `invalid_admin_token`. The last casual admin_* RPC on the
+old pattern.
+
+**Decision:** operator confirmed Vice Captains are full deputies (may edit schedule/reminders).
+
+**Fix (mig 210):** resolves via `resolve_admin_caller`; audit actor_type reflects `vice_captain`.
+Re-granted EXECUTE to anon + authenticated — mig 207 had revoked anon as a tidy-up, leaving this
+the only admin RPC not granted to anon; the security gate is the SECDEF + token check (an anon
+caller still needs a valid admin/VC token), consistent with all 27 siblings and required for an
+unauthenticated VC/admin (PWA cold-start, mig-125 lineage). mig-207 BST fix preserved.
+
+**Verified:** deterministic (resolver in, bare out, SECDEF, single overload, anon+auth granted)
++ ephemeral-verify 4/4 PASS (VC upserts schedule, kickoff persisted, audit logs vice_captain,
+bad token rejected) + `_e2e_%` leak-check = 0. **VC parity now complete across all 28 casual
+admin_* RPCs.**
 
 ## RESOLVED (session 70, commit e6f9459) — stale guest row blocks Plus One button on weekly rollover
 
