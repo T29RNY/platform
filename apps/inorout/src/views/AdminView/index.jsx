@@ -17,7 +17,7 @@ import {
   adminReorderReserves,
 } from "@platform/core/storage/supabase.js";
 import {
-  CaretRight, Megaphone, XCircle, PaperPlaneTilt,
+  CaretRight, CaretUp, CaretDown, Megaphone, XCircle, PaperPlaneTilt,
   UsersThree, FlagCheckered, UserList, CalendarBlank,
   Bell, TShirt, Users, Link as LinkIcon, Money, ClipboardText,
 } from "@phosphor-icons/react";
@@ -197,6 +197,27 @@ export default function AdminView({
     }
   };
 
+  // Persist a new reserve order (optimistic + revert on error). The server's
+  // admin_reorder_reserves expects the FULL set of status='reserve' players, so
+  // `reord` must be every reservePlayers id — which it is (reservePlayers now
+  // includes injured reserves; disabled/dormant rows aren't status='reserve').
+  const persistReserveOrder = async (reord) => {
+    const prev = squad;
+    const orderMap = new Map(reord.map((id, idx) => [id, idx]));
+    setSquad(squad.map(p =>
+      orderMap.has(p.id)
+        ? { ...p, reservePriorityOrder: orderMap.get(p.id) }
+        : p
+    ));
+    try {
+      await adminReorderReserves(adminToken, reord);
+    } catch (e) {
+      console.error(e);
+      setSquad(prev);
+    }
+  };
+
+  // Drag-and-drop reorder (desktop / mouse only — HTML5 DnD doesn't fire on touch).
   const moveReserve = async (fromId, toId) => {
     if (fromId === toId) return;
     const currentOrder = reservePlayers.map(p => p.id);
@@ -206,21 +227,17 @@ export default function AdminView({
     const reord = [...currentOrder];
     const [moved] = reord.splice(from, 1);
     reord.splice(to, 0, moved);
+    await persistReserveOrder(reord);
+  };
 
-    const prev = squad;
-    const orderMap = new Map(reord.map((id, idx) => [id, idx]));
-    setSquad(squad.map(p =>
-      orderMap.has(p.id)
-        ? { ...p, reservePriorityOrder: orderMap.get(p.id) }
-        : p
-    ));
-
-    try {
-      await adminReorderReserves(adminToken, reord);
-    } catch (e) {
-      console.error(e);
-      setSquad(prev);
-    }
+  // Tap reorder (works on touch AND desktop) — swap a reserve up/down one slot.
+  const nudgeReserve = async (id, dir) => {
+    const order = reservePlayers.map(p => p.id);
+    const i = order.indexOf(id);
+    const j = i + dir;
+    if (i === -1 || j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    await persistReserveOrder(order);
   };
 
   const cancelWeek = async () => {
@@ -493,6 +510,29 @@ export default function AdminView({
                 cursor:"pointer", fontFamily:"var(--font-body)", whiteSpace:"nowrap" }}>
               Clear
             </button>
+          )}
+
+          {sectionKey === "reserve" && (
+            <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+              <button aria-label="Move up" disabled={idx === 0}
+                onClick={() => nudgeReserve(p.id, -1)}
+                style={{ width:28, height:28, background:"var(--purple2)",
+                  border:"0.5px solid var(--purpleb)", borderRadius:6,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  cursor: idx === 0 ? "default" : "pointer", opacity: idx === 0 ? 0.3 : 1,
+                  padding:0 }}>
+                <CaretUp size={14} weight="thin" color="var(--purple)" />
+              </button>
+              <button aria-label="Move down" disabled={isLast}
+                onClick={() => nudgeReserve(p.id, 1)}
+                style={{ width:28, height:28, background:"var(--purple2)",
+                  border:"0.5px solid var(--purpleb)", borderRadius:6,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  cursor: isLast ? "default" : "pointer", opacity: isLast ? 0.3 : 1,
+                  padding:0 }}>
+                <CaretDown size={14} weight="thin" color="var(--purple)" />
+              </button>
+            </div>
           )}
 
           {p.token && (

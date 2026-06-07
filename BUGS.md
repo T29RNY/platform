@@ -39,6 +39,29 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   fixed alongside #4.)
 ---
 
+## RESOLVED (session 73, AdminView) — admin couldn't reorder the reserve queue
+
+Reorder from Admin ▸ Reserve silently failed (optimistic move reverted). Two causes:
+1. **Touch:** the only reorder affordance was an HTML5 drag handle (`draggable`/`onDrop`),
+   which does not fire on touch screens — so on a phone/tablet (the operator's primary
+   device) reordering was impossible by any means.
+2. **Count mismatch:** `admin_reorder_reserves` validates that the id set sent equals the
+   FULL count of `status='reserve'` players (it does NOT filter injured). Before the
+   mig-220 injured fix loaded, the admin reserve list excluded injured players, so a team
+   with an injured reserve (Footy Tuesdays: Callum + Kyle🤕 + Happy) sent fewer ids than
+   the server counted → `reserve_set_changed` → revert.
+
+Fix: added tap **up/down arrows** to each admin reserve row (`nudgeReserve`, shares a new
+`persistReserveOrder` helper with the existing drag path) — works on touch AND desktop,
+with ends correctly disabled. The reserve list now includes injured players (mig-220
+change), so the id set it sends matches the server count. Verified end-to-end against the
+live RPC: tapped Kyle (injured) down to last → DB persisted Callum 0 / Happy 1 / Kyle 2.
+
+Latent note (not fixed, low): `admin_reorder_reserves` also counts `disabled` players with
+`status='reserve'`, which the client always hides — a disabled reserve would re-trigger the
+same mismatch. No such row exists today; tighten the RPC count to `AND NOT disabled` if it
+ever surfaces.
+
 ## RESOLVED (session 73, mig 220 + AdminView) — injured reserve stuck at top of queue; player view & admin disagreed
 
 A player could be both `status='reserve'` and `injured=true` at once (separate columns), and
