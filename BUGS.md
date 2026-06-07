@@ -21,10 +21,10 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   exist. Decided NOT to change: a guest who played legitimately belongs in that match's record,
   and mig 209 already cleans their child rows on delete (no orphans). The only residue is a
   guest's raw id showing in a past match if they're later deleted — cosmetic, rare.
-- **[Batch C] advanceGameDateJob** DST-boundary drift (re-confirmed, known-open — being fixed
-  this batch); no cap on guests per host; dead `attendance.js` helpers (calcStreaks /
-  topSingleGame / getHatTricks / biggestWins — unexported, zero call sites; left in place,
-  harmless). (HistoryView legacy POTM crown / last-goal-scorer fixed alongside #4.)
+- **[Batch C] Remaining (low/cosmetic, left as-is):** no cap on guests per host; dead
+  `attendance.js` helpers (calcStreaks / topSingleGame / getHatTricks / biggestWins —
+  unexported, zero call sites; harmless). (HistoryView legacy POTM crown / last-goal-scorer
+  fixed alongside #4.)
 - **[Batch C] "Update this week" one-off date** — TWO bugs, both latent (the path is never
   reached from the UI today): (1) ScheduleScreen never sends `oneOffDate` to upsertSchedule,
   so the override doesn't persist; (2) `admin_upsert_schedule`'s one-off branch has the same
@@ -34,6 +34,23 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   AND send oneOffDate from the UI.
 
 ---
+
+## RESOLVED (session 71, cron.js) — advanceGameDateJob DST-boundary drift (kickoff ±1h on clock-change weeks)
+
+**Symptom (latent, known-open since session 50, 2 weeks/year/team):** the weekly auto-rollover
+`advanceGameDateJob` advanced `game_date_time` with `d.setDate(d.getDate()+7)` — in the Vercel
+machine TZ (UTC), preserving the absolute instant +168h. Across a DST boundary the UK wall-clock
+kickoff shifted ±1h (e.g. 20:00 → 21:00 the week after the clocks go forward), so that week's
+kickoff-relative crons fired an hour off until the next rollover corrected it.
+
+**Fix:** new `ukAdvanceDays(iso, days)` helper in cron.js advances the **UK wall-clock** (keeps
+hour/minute/weekday fixed) and recomputes the UTC instant using the Europe/London offset valid
+on the new date (Intl-based, same DST-aware approach as the other cron helpers). `advanceGameDateJob`
+now uses it.
+
+**Verified:** node test across both 2026 boundaries — spring (Tue 24 Mar 20:00Z → 31 Mar 19:00Z =
+UK Tue 20:00) and autumn (Tue 20 Oct 19:00Z → 27 Oct 20:00Z = UK Tue 20:00), plus a normal week
+(unchanged) — all hold the 20:00 UK wall-clock. `node --check` clean.
 
 ## RESOLVED (session 71, migs 213/214 + JS) — Batch C cleanup: notify whitelist + dead code
 

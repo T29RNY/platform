@@ -55,6 +55,33 @@ function addDaysIso(dateStr, n) {
   return d.toISOString().slice(0, 10);
 }
 
+// Advance a timestamptz by `days` in UK WALL-CLOCK terms (DST-safe). The naive
+// `d.setDate(d.getDate()+7)` preserves the absolute UTC instant, so a kickoff
+// shifts ±1h across a DST boundary week (e.g. 20:00 → 21:00 the week after the
+// clocks change). This keeps the UK wall-clock (hour/minute/weekday) fixed and
+// recomputes the UTC instant using the offset valid on the new date.
+function ukAdvanceDays(iso, days) {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  });
+  const read = (d) => {
+    const p = Object.fromEntries(fmt.formatToParts(d).map(x => [x.type, x.value]));
+    return { y:+p.year, mo:+p.month, da:+p.day, h:+(p.hour === "24" ? "0" : p.hour), mi:+p.minute, s:+p.second };
+  };
+  const cur = read(new Date(iso));
+  const wantMs = Date.UTC(cur.y, cur.mo - 1, cur.da + days, cur.h, cur.mi, cur.s);
+  let guess = wantMs; // treat the target UK wall-clock as if UTC, then correct by the UK offset
+  for (let i = 0; i < 3; i++) {
+    const r = read(new Date(guess));
+    const renderedMs = Date.UTC(r.y, r.mo - 1, r.da, r.h, r.mi, r.s);
+    const delta = wantMs - renderedMs;
+    if (delta === 0) break;
+    guess += delta;
+  }
+  return new Date(guess).toISOString();
+}
+
 // Friendly UK date label, e.g. "Thu 4 Jun". Noon anchor avoids any midnight DST edge.
 function fmtUkDate(dateStr) {
   try {
@@ -521,9 +548,9 @@ async function advanceGameDateJob(results) {
     const hoursAfter = (now - kickoff) / (60 * 60 * 1000);
     if (hoursAfter < 3) { results.push(`advanceGameDate: ${sched.team_id} kickoff not passed`); continue; }
 
-    const d = new Date(sched.game_date_time);
-    d.setDate(d.getDate() + 7);
-    const nextDt = d.toISOString();
+    // DST-safe: advance the UK wall-clock by 7 days (not the absolute instant),
+    // so kickoff stays at e.g. 20:00 UK across a clock-change boundary week.
+    const nextDt = ukAdvanceDays(sched.game_date_time, 7);
 
     await supabase.from("schedule").update({
       game_date_time:    nextDt,
