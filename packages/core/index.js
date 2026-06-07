@@ -32,6 +32,7 @@ export {
   addPlayerToTeam,
   playerJoinTeam,
   removeGuestPlayer,
+  reactivateGuestPlayer,
   getHeadToHead,
   getPOTMVotingState,
   getPlayerTeams,

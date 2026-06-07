@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
-  resolveMotm, sortByReservePriority } from "@platform/core";
-import { savePushSubscription, addGuestPlayer, removeGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
+  resolveMotm, sortByReservePriority, isDormantGuest } from "@platform/core";
+import { savePushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
   getPOTMVotingState, setPlayerNickname,
   resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
 import POTMVotingModal from "./POTMVotingModal.jsx";
@@ -318,6 +318,11 @@ export default function PlayerView({
   // block the Plus One button — it's available again via the returning picker.
   const myGuest       = squad.find(p => p.isGuest && p.guestOf === myId && p.status !== "none");
   const canRemoveGuest = !schedule.isDraft;
+  // Persistent guests S2: the team's dormant past guests, offered in the Plus One
+  // picker so a host can bring one back (re-activate) instead of re-typing a name.
+  const pastGuests    = squad
+    .filter(isDormantGuest)
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
   const inPlayers        = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
   const nonGuestInPlayers = inPlayers.filter(p => !p.isGuest);
@@ -501,6 +506,26 @@ export default function PlayerView({
       onMidFlowChange?.(false);
     } catch(e) {
       console.error("Failed to add guest:", e);
+    } finally {
+      setAddingGuest(false);
+    }
+  };
+
+  const reactivateGuest = async (guestId) => {
+    if (addingGuest) return;
+    if (needsSelfAuth) { promptSignIn(); return; }
+    setAddingGuest(true);
+    try {
+      const guest = await reactivateGuestPlayer(me?.token, guestId);
+      // Swap the dormant squad row for the now-active one (it's already in squad).
+      setSquad(sq => sq.map(p => p.id === guest.id ? guest : p));
+      setGuestName("");
+      setGuestSelfPaid(false);
+      setPickerPlayer(null);
+      setShowPlusOneForm(false);
+      onMidFlowChange?.(false);
+    } catch(e) {
+      console.error("Failed to reactivate guest:", e);
     } finally {
       setAddingGuest(false);
     }
@@ -1219,6 +1244,27 @@ export default function PlayerView({
               <div style={{ fontSize:13, fontWeight:700, color:"var(--t1)", marginBottom:12 }}>
                 ➕ Add a plus one
               </div>
+              {pastGuests.length > 0 && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:11, fontWeight:400, color:"var(--t2)", marginBottom:8 }}>
+                    Bringing someone back?
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                    {pastGuests.map(g => (
+                      <button key={g.id} onClick={() => reactivateGuest(g.id)} disabled={addingGuest}
+                        style={{ padding:"7px 12px", borderRadius:16,
+                          border:"0.5px solid var(--amberb)", background:"var(--amber2)",
+                          color:"var(--amber)", fontFamily:"var(--font-body)", fontSize:12,
+                          fontWeight:600, cursor: addingGuest ? "not-allowed" : "pointer" }}>
+                        {g.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize:11, fontWeight:300, color:"var(--t2)", margin:"10px 0 2px" }}>
+                    or add someone new
+                  </div>
+                </div>
+              )}
               <input
                 value={guestName}
                 onChange={e => handleGuestNameChange(e.target.value)}

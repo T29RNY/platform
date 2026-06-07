@@ -47,8 +47,17 @@ deleted; `is_guest=true` just means "brought by a host, not yet a self-managing 
   status reset already leaves guests dormant. EV 7/7 + leak 0, casual-regression browser PASS,
   RPC-security-sweep PASS, live 14-ins invariance proven. *Operator owes the real-iPhone board
   test (Hard Rule 13) — confirm board renders + Plus One appears after a rollover.*
-- **S2 — Returning-guest picker:** read the team guest roster; PlayerView "Plus One" → pick
-  returning (re-activate) or add new; add_guest_player gains a reactivate path.
+- **S2 — Returning-guest picker: ✅ SHIPPED (session 72, mig 217).** New
+  `reactivate_guest_player(p_token, p_guest_id)` RPC (dedicated sibling, not an `add_guest_player`
+  overload) brings a dormant team guest back: re-attaches `guest_of` to the calling host,
+  `status='in'`, `team=NULL`, fresh per-week payment baseline, **keeps accumulated stats +
+  player_match history**. PlayerView Plus One form gains a "Bringing someone back?" picker
+  listing `squad.filter(isDormantGuest)` (no new fetch — dormant guests are already in the S1
+  squad payload); tap a chip to re-activate, or use the existing name input for a new guest.
+  EV 6/6 + leak 0 (stats/history preserved, payment reset, re-attach, bad-id + non-guest
+  rejected), casual-regression browser PASS (empty-picker path byte-identical for teams with no
+  dormant guests), RPC-security-sweep PASS, build clean, hygiene 7/7. *Operator owes a real-team
+  eyeball of the picker once a dormant guest exists (next rollover) + Hard Rule 13.*
 - **S3 — Promotion + self-claim:** `admin_promote_guest` RPC (flip is_guest=false, issue token,
   audit) + AdminView "make permanent"; guest self-claim via the existing link_player_to_user flow.
 - **S4 — Legacy display:** already-deleted guests (e.g. 2 Jun match) are gone for good — show

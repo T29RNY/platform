@@ -510,6 +510,17 @@ export async function removeGuestPlayer(hostToken, guestId) {
   return data;
 }
 
+// Persistent guests S2: bring back a dormant team guest, re-attached to this host.
+// Returns the now-active guest (mapped) so the caller can swap the dormant row.
+export async function reactivateGuestPlayer(hostToken, guestId) {
+  const { data, error } = await supabase.rpc('reactivate_guest_player', {
+    p_token:    hostToken,
+    p_guest_id: guestId,
+  });
+  if (error) throw error;
+  return dbToPlayer(data);
+}
+
 // ─── Cover pool ───────────────────────────────────────────────────────────────
 export async function getCoverPool(teamId) {
   const { data, error } = await supabase
