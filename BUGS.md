@@ -20,18 +20,44 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   result-save team arrays, so guests get `player_match` rows + w/l/d increments during their
   week. Harmless now that mig 209 cleans the children on guest delete (no more orphans), so
   downgraded to a hygiene item — build the team arrays from the guest-excluded `eligible` set.
-- **[Batch B] create_team** builds first game_date_time in UTC not Europe/London (mig-207
-  class on the create path) → new squad's first-week reminders 1hr late in summer.
-- **[Batch B] BibsScreen** SAVE is pure local state (no adminToken prop; saveBibHolder has
-  zero callers) → bib holder set there is lost on refresh (works via end-of-match flow).
 - **[Batch C] advanceGameDateJob** DST-boundary drift (re-confirmed, known-open); ~10
   broadcast reasons missing from notify_team_change whitelist (log noise, latent drift);
   no cap on guests per host; dead code (attendance.js helpers, cast_potm_vote,
-  getOutstandingBalance/getLedgerForTeam); ScheduleScreen one-off date override never
-  persists (oneOffDate not sent). (HistoryView legacy POTM crown / last-goal-scorer fixed
-  alongside #4.)
+  getOutstandingBalance/getLedgerForTeam). (HistoryView legacy POTM crown / last-goal-scorer
+  fixed alongside #4.)
+- **[Batch C] "Update this week" one-off date** — TWO bugs, both latent (the path is never
+  reached from the UI today): (1) ScheduleScreen never sends `oneOffDate` to upsertSchedule,
+  so the override doesn't persist; (2) `admin_upsert_schedule`'s one-off branch has the same
+  text→timestamp cast bug mig 212 just fixed in create_team — `(p_one_off_date || 'T' ||
+  p_kickoff || ':00') AT TIME ZONE 'Europe/London'` will raise `timezone(unknown,text)` once
+  (1) is fixed. Fix BOTH together when wiring the feature: add `::timestamp` to the SQL cast
+  AND send oneOffDate from the UI.
 
 ---
+
+## RESOLVED (session 71, mig 212) — create_team built the first game_date_time in UTC (summer reminders 1hr late)
+
+**Symptom:** a brand-new squad's first-week cron reminders (lineup lock, 1hr-before, POTM)
+fired 1hr late in summer. `create_team` computed the first kickoff from bare `now()` (UTC on
+the server): `date_trunc('day', now()) + kickoff` stored e.g. 20:00 UTC = 21:00 BST. The
+day-of-week / "past kickoff today" tests also used UTC (wrong-week risk 00:00–01:00 BST). Only
+the onboarding week (self-corrects at first rollover), but that's the highest-visibility week.
+Same class as mig 207, on the create path.
+
+**Fix (mig 212):** day-of-week, the past-kickoff test, and the kickoff instant all derive from
+`now() AT TIME ZONE 'Europe/London'`, composing the final timestamptz via
+`(...::date::text || 'T' || p_kickoff || ':00')::timestamp AT TIME ZONE 'Europe/London'` —
+note the explicit `::timestamp` cast (text→timestamp is not implicit; without it the expression
+raises `timezone(unknown, text)`). Also added the missing `SET search_path TO 'public',
+'pg_temp'` (create_team was SECURITY DEFINER with none).
+
+**Verified:** ephemeral-verify 3/3 PASS (kickoff resolves to 20:00 London, lands on the right
+weekday, in the future) + leak-check 0 (no `%e2e%` teams/players left) + SECDEF / single
+overload / search_path set / anon+authenticated grants preserved.
+
+**Discovered (latent, logged to OPEN):** `admin_upsert_schedule`'s one-off-date branch has the
+identical text→timestamp cast bug — never fires because the UI doesn't send `p_one_off_date`.
+Fix with the ScheduleScreen "update this week" wiring.
 
 ## RESOLVED (session 71, mig 209) — guest deletion leaked FK-less player_match + payment_ledger orphans
 
