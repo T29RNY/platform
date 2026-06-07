@@ -163,8 +163,12 @@ export function computeDeeperIntel(playerId, squad, matches) {
     }
   }
 
-  // Reliability ranking — attended/total desc, min MIN_RELIABILITY_GAMES total exposure
+  // Reliability ranking — attended/total desc, min MIN_RELIABILITY_GAMES total exposure.
+  // Guests are excluded from the team reliability ranking until promoted
+  // (persistent-guests decision 2); the filter reads the live is_guest flag, so a
+  // promoted guest appears automatically.
   const reliabilityRanking = squad
+    .filter(p => !p.isGuest)
     .map(p => {
       const a = attend[p.id]?.attended ?? 0;
       const t = totalNonCancelled;

@@ -27,6 +27,12 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   build emits a non-blocking `Duplicate key "minWidth" in object literal` warning. Pre-existing,
   unrelated to persistent guests (surfaced during the S1 build). Build still passes. Fix in its
   own small cleanup cycle.
+- **[NEW — LOW, persistent-guests S5 deferral] Gaffer top-reliable doesn't filter guests:**
+  `gaffer_get_context_team_summary` (mig 034) builds its "top reliable last 30 days" list from
+  `player_match` without an `is_guest=false` filter, so a guest could appear in the AI's context.
+  AI-context only (not a user-facing reliability table — those are guest-filtered, see mig 219).
+  Close when the Gaffer/Phase-7 AI layer is next worked. Also `getHeadToHead` doesn't filter
+  guests, but H2H is a per-record comparison (decision 2 allows a guest's own record) — not a bug.
 - **[Batch C] Remaining (low/cosmetic, left as-is):** no cap on guests per host; dead
   `attendance.js` helpers (calcStreaks / topSingleGame / getHatTricks / biggestWins —
   unexported, zero call sites; harmless). (HistoryView legacy POTM crown / last-goal-scorer

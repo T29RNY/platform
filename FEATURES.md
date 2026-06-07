@@ -74,8 +74,25 @@ deleted; `is_guest=true` just means "brought by a host, not yet a self-managing 
   "send claim link" button vs the copy-link menu item) can be polished later if needed.
 - **S4 — Legacy display:** already-deleted guests (e.g. 2 Jun match) are gone for good — show
   "Guest" for any unresolved `p_…` roster id (HistoryView). Handles orphaned history forever.
-- **S5 — Stats verification:** confirm guests excluded from team reliability/POTM until promoted,
-  and that promotion makes them count.
+- **S5 — Stats verification: ✅ SHIPPED (session 72, mig 219).** Audit confirmed the PRIMARY team
+  reliability/stats table (both routes — `getPlayerLeagueTable` + StatsView, and its derived
+  POTM-awards/top-scorer/win%/bibs leaderboards) already excludes guests via `is_guest` filters
+  that read the LIVE flag, so a promoted guest auto-appears (decision 2 core guarantee). Closed two
+  gaps the audit surfaced: (1) **MY IO reliability ranking** (`deeperIntel.reliabilityRanking`)
+  filtered nothing → now `.filter(p => !p.isGuest)`; (2) **POTM** — `get_potm_voting_state` already
+  excluded guests from the nominee list, but `submit_potm_vote` / `get_potm_tally` /
+  `admin_close_potm_voting` didn't enforce it (mig 219): guest nominee rejected
+  (`nominee_not_eligible`), guests dropped from the tally, guest winner refused
+  (`winner_not_eligible`) — all keyed on the live `is_guest` flag so a promoted guest is eligible
+  automatically. EV 6/6 + leak 0 (guest barred as nominee/tally/winner; promoted guest counts),
+  RPC-security-sweep PASS, build clean, hygiene 7/7. **Remaining (low, documented in BUGS):** the
+  Gaffer AI-context RPC `gaffer_get_context_team_summary` top-reliable list doesn't filter guests
+  (AI context only, not a user-facing table) — deferred.
+
+**PERSISTENT GUESTS EPIC — ✅ COMPLETE (S1–S5, session 72).** Guests persist as dormant rows,
+returning-guest picker, promotion (admin + self-claim via token link), legacy "Guest" display,
+and stats/POTM exclusion-until-promoted all shipped. *Operator owes the real-iPhone passes flagged
+per slice (Hard Rule 13): board + Plus One (S1), picker (S2), guest-link sign-in promotion (S3).*
 
 **Reverses:** migs 207 (guest delete) + 209 (guest child cleanup) — superseded by the dormant
 model. Their orphan-cleanup value remains for the already-deleted past guests.
