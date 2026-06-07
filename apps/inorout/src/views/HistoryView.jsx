@@ -118,8 +118,19 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
       (p.name || "").toLowerCase().trim() === (nameOrId || "").toLowerCase().trim()
     ) || (players || []).find(p => p.id === nameOrId);
 
-  const teamAObjs = (m.teamA || []).map(n => ({ name: n, ...(findPlayer(n) || {}) }));
-  const teamBObjs = (m.teamB || []).map(n => ({ name: n, ...(findPlayer(n) || {}) }));
+  // A roster id that no longer resolves is a removed guest — regular players who
+  // appear in a saved match can't be deleted (the admin_delete_player has_history
+  // guard blocks it), and guests are hard-deleted on weekly rollover. Show "Guest"
+  // instead of the raw id. (The guest's original name died with the deleted players
+  // row; not recoverable for past matches.)
+  const toRosterObj = n => {
+    const f = findPlayer(n);
+    if (f) return { ...f };
+    // Unresolved: a removed-guest id (p_…) → "Guest"; a legacy name string → keep it.
+    return { name: /^p_/.test(n || "") ? "Guest" : n, id: null };
+  };
+  const teamAObjs = (m.teamA || []).map(toRosterObj);
+  const teamBObjs = (m.teamB || []).map(toRosterObj);
 
   const venue       = m.venue        || schedule?.venue   || null;
   const kickoffTime = m.kickoff_time || schedule?.kickoff || null;
@@ -132,7 +143,8 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
   // resolve each entry to a display name, falling back to the raw value.
   const displayName = nameOrId => {
     const p = findPlayer(nameOrId);
-    return p?.nickname || p?.name || nameOrId;
+    // Unresolved id (removed guest) → "Guest", never the raw id (share text + scorers).
+    return p?.nickname || p?.name || (/^p_/.test(nameOrId || "") ? "Guest" : (nameOrId || "Guest"));
   };
 
   const buildShareText = () => {

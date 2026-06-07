@@ -16,16 +16,36 @@ pending claim (mig 211) ✅. VC parity now complete across all 28 casual admin_*
 reconciliation closed (team_KPaoX £45 owes == £45 ledger).
 
 **OPEN — remaining from session-71 audit (Batch B/C, priority order):**
-- **[Batch C — WON'T-CHANGE] ScoreScreen guest "exclusion" (F2):** ScoreScreen records guest
-  ids in the result-save team arrays, so guests get `player_match` rows + w/l/d while they
-  exist. Decided NOT to change: a guest who played legitimately belongs in that match's record,
-  and mig 209 already cleans their child rows on delete (no orphans). The only residue is a
-  guest's raw id showing in a past match if they're later deleted — cosmetic, rare.
+- **[Batch C] Removed-guest names in Results — FORWARD ENHANCEMENT open:** a guest's id lives
+  in `matches.team_a/team_b`; once the guest is deleted (weekly rollover) the id no longer
+  resolves. The display now shows "Guest" instead of the raw id (commit below) — fixes the
+  reported screenshot for all past + future matches. NOT yet done: preserving the guest's
+  *actual* name (e.g. "Big k") for FUTURE matches via a lineup-name snapshot at result-save
+  (matches → self-contained). Past names are unrecoverable (died with the deleted players row).
 - **[Batch C] Remaining (low/cosmetic, left as-is):** no cap on guests per host; dead
   `attendance.js` helpers (calcStreaks / topSingleGame / getHatTricks / biggestWins —
   unexported, zero call sites; harmless). (HistoryView legacy POTM crown / last-goal-scorer
   fixed alongside #4.)
 ---
+
+## RESOLVED (session 71, HistoryView) — Results showed raw player IDs for removed guests
+
+**Symptom (operator screenshot):** the expanded Results card for the 2 Jun Footy Tuesdays match
+showed three raw IDs (`p_WEeIK8vS`, `p_RZDRbZyj`, `p_uXFt-4br`) where names should be. Confirmed:
+all three are guests that were added then removed — their ids persist in `matches.team_a/team_b`
+but the `players` rows are gone (weekly-rollover guest delete), so HistoryView's resolver fell
+through to the raw id.
+
+**Why it's only guests:** a regular player who appears in a saved match can't be deleted
+(`admin_delete_player`'s has_history guard blocks it), so an unresolved roster id is always a
+removed guest — "Guest" is an accurate label.
+
+**Fix (HistoryView):** `toRosterObj` and `displayName` now render "Guest" for an unresolved
+`p_…` id (legacy name-stored values are preserved). Fixes all past + future matches. Build clean,
+hygiene 7/7.
+
+**Forward enhancement (open, not done):** preserve the guest's *actual* name for future matches
+via a lineup-name snapshot at result-save (the name is lost for past matches). See OPEN above.
 
 ## RESOLVED (session 71, mig 215 + ScheduleScreen) — "Update this week" one-off date override never worked
 

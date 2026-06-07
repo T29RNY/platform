@@ -1,5 +1,55 @@
 # In or Out — Feature Tracker
-*Last updated: May 29 2026 (session 58 — build-order reprioritised: next phases 9→6→11)*
+*Last updated: Jun 7 2026 (session 71 — PERSISTENT GUESTS epic added; design below)*
+
+---
+
+## PERSISTENT GUESTS — design (session 71, operator-approved decisions; NOT yet built)
+
+**Problem.** Today a guest (+1) is a throwaway `players` row (is_guest=true, guest_of=host)
+that is **hard-deleted on the weekly rollover** (migs 207/209) and by remove_guest_player. So:
+no retained history, no accumulation, no way to promote/link to a member, and deleted-guest ids
+linger unresolved in `matches.team_a/team_b` (raw ids shown in Results — operator screenshot).
+
+**Why deletion exists (the tension to design around).** mig 207 deleted guests to fix a real
+bug: a *leftover* guest row made the host's "Plus One" button disappear every week. Root cause
+was conflating "person exists on the team" with "person is in THIS week". The future-proof fix
+separates those — reusing the per-week `status` mechanism regulars already have.
+
+**Target model.** A guest is a **first-class, persistent `players` row** that is never auto-
+deleted; `is_guest=true` just means "brought by a host, not yet a self-managing member."
+- **Persist + accumulate:** guest rows + their `player_match` history are never deleted, so
+  appearances/stats build up.
+- **Per-week participation:** on rollover a guest is reset to **dormant** (status='none',
+  team=NULL, admin_locked_in=false) — NOT deleted. Dormant guests are hidden from the weekly
+  board but stay in the team's guest roster.
+- **Plus One logic** keys on "host has an ACTIVE guest this week" (a guest with guest_of=host
+  AND status active), not "a guest row exists" — so a dormant guest never blocks the button.
+
+**Operator-approved decisions (session 71):**
+1. **Returning guests:** when a host taps "Plus One", they pick from the team's past guests
+   (re-activate, keeping history) OR add a new name.
+2. **Stats:** a guest's games accumulate on **their own record only**; they stay OUT of the
+   team reliability table + POTM until promoted. (Keep the existing `is_guest=false` filters;
+   promotion flips the flag and they start counting automatically.)
+3. **Promotion:** BOTH — admin "make permanent" from the squad, AND guest self-claim on signup
+   (link the existing guest row to their account). Either way history carries over (same row).
+
+**Build slices (each its own audit→execute→verify→commit, EV + casual-regression):**
+- **S1 — Foundation (stop deleting):** rollover RPCs (admin_go_live / admin_go_live_for_team)
+  reset guests to dormant instead of deleting; remove_guest_player → dormant (not delete);
+  board/squad rendering hides dormant guests; get_team_state still exposes guests for the
+  roster. This is the keystone + the riskiest change (core rollover) — green-light before applying.
+- **S2 — Returning-guest picker:** read the team guest roster; PlayerView "Plus One" → pick
+  returning (re-activate) or add new; add_guest_player gains a reactivate path.
+- **S3 — Promotion + self-claim:** `admin_promote_guest` RPC (flip is_guest=false, issue token,
+  audit) + AdminView "make permanent"; guest self-claim via the existing link_player_to_user flow.
+- **S4 — Legacy display:** already-deleted guests (e.g. 2 Jun match) are gone for good — show
+  "Guest" for any unresolved `p_…` roster id (HistoryView). Handles orphaned history forever.
+- **S5 — Stats verification:** confirm guests excluded from team reliability/POTM until promoted,
+  and that promotion makes them count.
+
+**Reverses:** migs 207 (guest delete) + 209 (guest child cleanup) — superseded by the dormant
+model. Their orphan-cleanup value remains for the already-deleted past guests.
 
 ---
 
