@@ -1,5 +1,33 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 7 2026 (session 69 — BST cron timezone offset fixed (commit 4e351b6) + PWA live-update staleness fixed (commit 5edd64f); see BUGS + DECISIONS.)*
+*Last updated: Jun 7 2026 (session 72 — PERSISTENT GUESTS epic S1–S5 shipped, migs 216–219; see FEATURES + DECISIONS + RPCS.)*
+
+## SESSION 72 — PERSISTENT GUESTS epic (S1–S5 complete, Jun 7 2026)
+
+Reworked the guest (+1) model: a guest is now a **persistent `players` row that is never
+auto-deleted**. Five slices, each its own audit→execute→verify→commit cycle, all on `main`.
+
+- **S1 (mig 216, cb339ee):** rollover RPCs (`admin_go_live`/`admin_go_live_for_team`) +
+  `remove_guest_player` stop deleting guests — they go DORMANT (is_guest=true, status='none',
+  team=NULL). Reverses the guest-delete of migs 207/209 (the mig-204 bulk reset already makes
+  them dormant). JS hides dormant guests via a shared `isDormantGuest(p)` helper; PlayerView's
+  `myGuest` keys on an ACTIVE guest so a dormant row no longer blocks the Plus One button.
+- **S2 (mig 217, f0d28b7):** `reactivate_guest_player` + a "Bringing someone back?" picker in the
+  Plus One form (reads `squad.filter(isDormantGuest)` — no new fetch).
+- **S3 (mig 218, 7eac73b):** promotion to permanent member, BOTH routes on the same row →
+  history carries over. Admin `admin_promote_guest` ("Make permanent" in SquadScreen, which now
+  also shows dormant past guests + a DORMANT pill + copy-link for guests); self-claim via a GATED
+  promote-on-link branch in `link_player_to_user` (guest signs in on their own /p/<token> link →
+  promoted). **Touched the auth RPC** → real-device test owed.
+- **S5 (mig 219, 108f6aa):** guests excluded from reliability + POTM until promoted
+  (`deeperIntel.reliabilityRanking` filter + POTM nominee/tally/winner guards), keyed on the live
+  is_guest flag so promotion makes them count automatically. (S4 — legacy "Guest" display — shipped
+  earlier, session 71.)
+
+Every migration was PURE function redefinition proven to mutate ZERO live rows (snapshot before/after;
+the week's 14 ins untouched). Verification: ephemeral-verify across all four migrations (24 assertions,
+leak-check 0 each), RPC-security-sweep, casual-regression browser, build + hygiene 7/7. **Owed
+(Hard Rule 13):** real-iPhone passes — board+Plus One (S1), picker (S2), guest-link sign-in promotion
++ normal sign-in still works (S3). Model + owed tests recorded in memory `project_persistent_guests`.
 
 ## SESSION 69 — BST timezone offset on cron notifications (Jun 7 2026)
 

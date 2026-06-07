@@ -77,8 +77,13 @@ late_dropouts int DEFAULT 0,
 note text,
 self_paid bool DEFAULT false,
 paid_by text CHECK (self/host/admin/stripe),
-is_guest bool DEFAULT false,
-guest_of text,                ← player_id of host
+is_guest bool DEFAULT false,  ← PERSISTENT (session 72, migs 216–219): guests are NEVER
+                              -- auto-deleted; on rollover/host-remove they go DORMANT
+                              -- (is_guest=true, status='none'). Hidden from the board via
+                              -- isDormantGuest(p); excluded from reliability+POTM until promoted.
+                              -- Promotion (admin_promote_guest OR link_player_to_user via the
+                              -- guest's own token link) flips is_guest=false on the same row.
+guest_of text,                ← player_id of host (cleared on promotion)
 injured bool DEFAULT false,
 injured_since timestamptz,
 nickname text,
