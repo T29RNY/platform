@@ -1,5 +1,41 @@
 # In or Out — Feature Tracker
-*Last updated: Jun 7 2026 (session 71 — PERSISTENT GUESTS epic added; design below)*
+*Last updated: Jun 7 2026 (session 73 — remaining-work snapshot added at top; display re-skin wireframe shipped)*
+
+---
+
+## REMAINING WORK SNAPSHOT (session 73, 2026-06-07)
+
+At-a-glance of everything left, across all surfaces. Status: 🔴 not started · 🟡 partly done · 🟢 built, only deploy/test owed. Detail for each lives in the per-phase sections below.
+
+| Area | Task | Type | Status |
+|---|---|---|---|
+| Website / marketing | Deploy + wire the landing pages (`marketing/` — players + venues; design & motion done) | Infra/UI | 🟡 built, not deployed |
+| App wrapping | Wrap the PWA as native iOS/Android app for the app stores (Capacitor/TWA) | Infra/New | 🔴 not started, not yet scoped |
+| League — Display (TV) | Final visual design (wireframe baseline shipped session 73) | UI | 🟡 wireframe only |
+| League — Display | Sponsor-image upload in venue settings (backend field already persists via `display_config`) | Backend+UI | 🔴 deferred |
+| League — Display | Deploy `apps/display` to its own Vercel project + wire `VITE_DISPLAY_APP_URL` | Infra | 🔴 deferred |
+| League — Display | Real-TV device test (wake-lock, reconnect, PIN, colours) | Test | 🔴 owed |
+| League — Display | Nice-to-haves: display-token rotation, enterprise white-label removal | UI/Backend | 🔴 deferred |
+| League — Ref app | Visual redesign sweep (functional & complete; styling deliberately bare) | UI | 🔴 deferred |
+| League — Venue | Read-RPCs for team rosters / players / standings views | Backend | 🟡 some screens need data first |
+| League — Venue | Skin those screens once data exists | UI | 🔴 blocked on above |
+| League — Venue | Logged-in browser passes (payments screens etc.) | Test | 🟢 owed |
+| HQ dashboard | Final visual polish + `regional_admin` region-filter UI | UI | 🟡 functional, polish pending |
+| HQ dashboard | Deploy `apps/hq` to Vercel | Infra | 🔴 owed |
+| HQ dashboard | Logged-in (Google-OAuth) browser passes — several surfaces | Test | 🟢 owed |
+| AI — Phase 7 | "Ask the Gaffer" AI layer (team + HQ); HQ Weekly Brief rides on it | New feature | 🔴 not started (the big one) |
+| Public — Phase 10 | Public, no-login league/standings/fixtures pages | New feature | 🔴 not started |
+| HQ Intelligence — Phase 3 | Competition & Team-Risk analytics (at-risk teams, fill rate, completion) | Backend+UI | 🔴 not started |
+| HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
+| HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
+| Payments | Venue Ledger **V5** — online card payments (Stripe Connect + Apple/Google Pay) | Backend/New | 🔴 deferred (cash/transfer tracked now) |
+| Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
+| Operational | SMS/WhatsApp real-delivery once `TWILIO_*` env set | Test/Config | 🟢 owed (no-ops until keys set) |
+| Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
+| Operational | Real-iPhone passes: persistent guests, cups player view, reserve/injured (session 73) | Test | 🟢 owed |
+
+**Net-new features left:** Phase 7 (AI) · Phase 10 (public pages) · HQ-I Phase 3. (Phase 8 billing + Payments V5 deliberately later.)
+**Wrap-up (not new features):** the league/venue/HQ/display skins · deploying display + HQ + landing pages · native app-store wrapping (unscoped).
 
 ---
 
