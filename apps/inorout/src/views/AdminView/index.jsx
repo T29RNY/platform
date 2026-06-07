@@ -6,6 +6,7 @@ import {
   reopenWeek,
   goLive,
   sortByReservePriority,
+  isDormantGuest,
   getTeamNextFixtureLineup,
 } from "@platform/core";
 import {
@@ -134,7 +135,7 @@ export default function AdminView({
   const maybePlayers   = squad.filter(p => p.status==="maybe"   && !p.disabled && !p.injured);
   const outPlayers     = squad.filter(p => p.status==="out"     && !p.disabled && !p.injured);
   const injuredPlayers = squad.filter(p => p.injured && !p.disabled);
-  const noRespPlayers  = squad.filter(p => p.status==="none"    && !p.disabled && !p.injured);
+  const noRespPlayers  = squad.filter(p => p.status==="none"    && !p.disabled && !p.injured && !isDormantGuest(p));
   const paidCount      = inPlayers.filter(p => p.paid || (p.selfPaid && p.paidBy)).length;
   const totalOwed      = squad.filter(p => !p.disabled).reduce((s, p) => s + (p.owes || 0), 0);
   const teamsSet       = inPlayers.filter(p => !p.isGuest).length > 0
@@ -146,7 +147,7 @@ export default function AdminView({
     ? matchHistory.find(m => m.adminDecisionPending && m.tiedCandidates?.length > 0)
     : null;
   const orphanedGuests = squad.filter(p =>
-    p.isGuest && !p.disabled &&
+    p.isGuest && !p.disabled && !isDormantGuest(p) &&
     squad.find(h => h.id === p.guestOf)?.status !== "in" &&
     !dismissedOrphans.has(p.id)
   );
@@ -945,7 +946,7 @@ export default function AdminView({
             bg:"linear-gradient(135deg,rgba(232,160,32,0.14) 0%,rgba(232,160,32,0.03) 60%,rgba(10,10,8,0.5) 100%)",
             border:"rgba(232,160,32,0.25)",
             title:"Squad",
-            sub:`${squad.filter(p=>!p.disabled&&!p.isGuest).length} players · ${squad.filter(p=>p.isGuest&&!p.disabled).length} guests`,
+            sub:`${squad.filter(p=>!p.disabled&&!p.isGuest).length} players · ${squad.filter(p=>p.isGuest&&!p.disabled&&!isDormantGuest(p)).length} guests`,
             badge:0, onClick:() => setScreen("squad"),
           })}
           {tile({

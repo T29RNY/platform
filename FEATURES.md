@@ -35,10 +35,18 @@ deleted; `is_guest=true` just means "brought by a host, not yet a self-managing 
    (link the existing guest row to their account). Either way history carries over (same row).
 
 **Build slices (each its own audit→execute→verify→commit, EV + casual-regression):**
-- **S1 — Foundation (stop deleting):** rollover RPCs (admin_go_live / admin_go_live_for_team)
-  reset guests to dormant instead of deleting; remove_guest_player → dormant (not delete);
-  board/squad rendering hides dormant guests; get_team_state still exposes guests for the
-  roster. This is the keystone + the riskiest change (core rollover) — green-light before applying.
+- **S1 — Foundation (stop deleting): ✅ SHIPPED (session 72, mig 216).** rollover RPCs
+  (admin_go_live / admin_go_live_for_team) reset guests to dormant instead of deleting;
+  remove_guest_player → dormant (not delete); board/squad rendering hides dormant guests via a
+  shared `isDormantGuest(p)` engine helper (PlayerView board, AdminView squad + guest-count +
+  orphan-detection, Payments guest list, Stats guest count, SquadScreen guest filter);
+  get_team_state still exposes guests in the squad payload for S2's picker (no RPC shape change).
+  **Keystone:** PlayerView `myGuest` now keys on an ACTIVE guest (status!=='none') so a dormant
+  row no longer blocks the Plus One button. mig 216 is PURE function-redefinition (no row
+  mutation) — reverses ONLY the guest-delete portions of migs 207/209; the existing mig-204 bulk
+  status reset already leaves guests dormant. EV 7/7 + leak 0, casual-regression browser PASS,
+  RPC-security-sweep PASS, live 14-ins invariance proven. *Operator owes the real-iPhone board
+  test (Hard Rule 13) — confirm board renders + Plus One appears after a rollover.*
 - **S2 — Returning-guest picker:** read the team guest roster; PlayerView "Plus One" → pick
   returning (re-activate) or add new; add_guest_player gains a reactivate path.
 - **S3 — Promotion + self-claim:** `admin_promote_guest` RPC (flip is_guest=false, issue token,

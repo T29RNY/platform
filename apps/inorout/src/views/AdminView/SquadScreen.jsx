@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { addPlayerToTeam, toggleViceCaptain, disablePlayer, adminSetPlayerStatus } from "@platform/core";
+import { addPlayerToTeam, toggleViceCaptain, disablePlayer, adminSetPlayerStatus, isDormantGuest } from "@platform/core";
 import {
   insertPlayerInjury, clearPlayerInjury,
   deletePlayer as removePlayerFromDb,
@@ -315,7 +315,8 @@ export default function SquadScreen({
     let list = squad;
     if (q) list = list.filter(p => ((p.nickname || "") + " " + (p.name || "")).toLowerCase().includes(q));
     if (filter === "regular")  list = list.filter(p => !(p.isGuest || p.type === "guest"));
-    if (filter === "guest")    list = list.filter(p => p.isGuest || p.type === "guest");
+    // Persistent guests (S1): dormant guests are hidden until S2's returning picker.
+    if (filter === "guest")    list = list.filter(p => (p.isGuest || p.type === "guest") && !isDormantGuest(p));
     if (filter === "priority") list = list.filter(p => p.priority);
     if (filter === "injured")  list = list.filter(p => p.injured);
     return [...list].sort((a, b) => {

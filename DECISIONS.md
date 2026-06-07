@@ -1,10 +1,22 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 7 2026 (session 69 — UK timestamps require AT TIME ZONE 'Europe/London'; PWA resume = reconnect + catch-up re-fetch)*
+*Last updated: Jun 7 2026 (session 72 — Persistent Guests: a guest is a dormant-not-deleted players row)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## Guests are PERSISTENT: dormant-not-deleted, hidden via status not deletion (session 72, PERSISTENT GUESTS S1, mig 216)
+
+A guest (+1) is a first-class, persistent `players` row (`is_guest=true`, `guest_of=host`) that is **never auto-deleted**. The previous model hard-deleted guests on every weekly rollover (and on host-remove) to stop a leftover guest row from hiding the host's "Plus One" button — but that conflated "person exists on the team" with "person is in THIS week", and threw away history + left unresolvable ids in `matches.team_a/team_b`.
+
+The settled model separates those two concerns using the same per-week `status` mechanism regulars already have:
+- **On rollover / host-remove a guest goes DORMANT** — `status='none'`, `team=NULL`, `admin_locked_in=false` — not deleted. Its `players` row, `team_players` row, and `player_match`/`payment_ledger` history all persist.
+- **The board hides dormant guests** via one shared engine predicate `isDormantGuest(p) = p.isGuest && p.status==='none'` (applied at every current-week render/count surface). A guest with any active status renders normally.
+- **"Plus One" keys on an ACTIVE guest** (`status!=='none'`), NOT on "a guest row exists" — so a dormant row never blocks the button. This is the structural fix for the bug mig 207's deletion was papering over.
+- **`get_team_state` keeps guests in the squad payload** so the returning-guest picker (S2) reads them from the same array — no parallel fetch (reuse over new systems).
+
+Implementation note: the go-live RPCs didn't need new reset logic — the existing mig-204 bulk status reset already covers guests (they have team_players rows), so S1's DB change was purely *removing* the guest-delete blocks (mig 216 reverses the guest-delete portions of migs 207/209). Stats decision: a guest's games accumulate on their own record only and stay out of the team reliability table + POTM until promoted (S3 flips `is_guest=false`). Full slice plan in FEATURES.md.
 
 ## UK timestamps: always `AT TIME ZONE 'Europe/London'` in SQL, never bare `::timestamptz` (session 69)
 

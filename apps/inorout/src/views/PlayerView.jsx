@@ -313,7 +313,10 @@ export default function PlayerView({
   const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
   const canPush      = "PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone);
 
-  const myGuest       = squad.find(p => p.isGuest && p.guestOf === myId);
+  // Persistent guests (S1): only an ACTIVE guest (status !== 'none') counts as
+  // "my +1 this week". A dormant guest row left over from last week must NOT
+  // block the Plus One button — it's available again via the returning picker.
+  const myGuest       = squad.find(p => p.isGuest && p.guestOf === myId && p.status !== "none");
   const canRemoveGuest = !schedule.isDraft;
 
   const inPlayers        = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);

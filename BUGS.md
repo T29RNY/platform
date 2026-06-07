@@ -16,12 +16,17 @@ pending claim (mig 211) ✅. VC parity now complete across all 28 casual admin_*
 reconciliation closed (team_KPaoX £45 owes == £45 ledger).
 
 **OPEN — remaining from session-71 audit (Batch B/C, priority order):**
-- **[Batch C] Removed-guest names in Results — FORWARD ENHANCEMENT open:** a guest's id lives
-  in `matches.team_a/team_b`; once the guest is deleted (weekly rollover) the id no longer
-  resolves. The display now shows "Guest" instead of the raw id (commit below) — fixes the
-  reported screenshot for all past + future matches. NOT yet done: preserving the guest's
-  *actual* name (e.g. "Big k") for FUTURE matches via a lineup-name snapshot at result-save
-  (matches → self-contained). Past names are unrecoverable (died with the deleted players row).
+- **[Batch C] Removed-guest names in Results — LARGELY RESOLVED by PERSISTENT GUESTS S1
+  (mig 216, session 72):** previously a guest's id in `matches.team_a/team_b` stopped resolving
+  once the guest was deleted on rollover. As of S1 guests are NO LONGER deleted — they go dormant
+  and persist, so any FUTURE removed-guest id still resolves to a live `players` row (real name
+  shows); the lineup-name-snapshot enhancement is now unnecessary for new matches. The S4 "Guest"
+  fallback (commit ff3eb8c) still covers already-deleted PAST guests, whose rows died before S1.
+  Past names remain unrecoverable.
+- **[NEW — LOW tech debt] `SquadScreen.jsx` duplicate object key `minWidth` (~line 751):** vite
+  build emits a non-blocking `Duplicate key "minWidth" in object literal` warning. Pre-existing,
+  unrelated to persistent guests (surfaced during the S1 build). Build still passes. Fix in its
+  own small cleanup cycle.
 - **[Batch C] Remaining (low/cosmetic, left as-is):** no cap on guests per host; dead
   `attendance.js` helpers (calcStreaks / topSingleGame / getHatTricks / biggestWins —
   unexported, zero call sites; harmless). (HistoryView legacy POTM crown / last-goal-scorer

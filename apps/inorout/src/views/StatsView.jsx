@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { /* biggestWins, */ payRate, getPlayerLeagueTable } from "@platform/core";
+import { /* biggestWins, */ payRate, getPlayerLeagueTable, isDormantGuest } from "@platform/core";
 import {
   SoccerBall, Star, CalendarCheck, /* Hourglass, */ Trophy, CaretRight,
 } from "@phosphor-icons/react";
@@ -414,7 +414,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
   const active        = allPlayers.filter(p => !p.isGuest);
   // The Core — always current squad composition, not period-filtered
   const regularsCount = active.length;
-  const guestsCount   = allPlayers.filter(p => p.isGuest).length;
+  const guestsCount   = allPlayers.filter(p => p.isGuest && !isDormantGuest(p)).length;
 
   // Top scorers — player_match derived (period-filtered)
   const topScorers = tableData

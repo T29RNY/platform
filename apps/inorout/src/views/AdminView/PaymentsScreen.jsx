@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { handleMarkPaid, handleResetPayment, handleWaiveDebt } from "@platform/core";
+import { handleMarkPaid, handleResetPayment, handleWaiveDebt, isDormantGuest } from "@platform/core";
 import { adminGetPlayerLedger } from "@platform/core/storage/supabase.js";
 import { ArrowLeft, CaretDown, CaretUp, DotsThreeVertical } from "@phosphor-icons/react";
 import FirstTimeHint from "../../components/FirstTimeHint.jsx";
@@ -444,7 +444,7 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
   const [openMenuId, setOpenMenuId] = useState(null);
 
   const activePlayers = squad.filter(p => !p.disabled && !p.isGuest);
-  const guestPlayers  = squad.filter(p => p.isGuest && !p.disabled);
+  const guestPlayers  = squad.filter(p => p.isGuest && !p.disabled && !isDormantGuest(p));
 
   const byName = (a, b) => (a.nickname || a.name).localeCompare(b.nickname || b.name);
 

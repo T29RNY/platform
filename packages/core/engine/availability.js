@@ -31,14 +31,22 @@ export function sortByReservePriority(players) {
   });
 }
 
+// Persistent-guests (S1): a guest reset to status='none' on rollover is
+// "dormant" — kept on the team (history + returning-guest picker) but hidden
+// from the weekly board. A guest with any active status still renders normally.
+export function isDormantGuest(p) {
+  return p?.isGuest === true && p?.status === STATUS.NONE;
+}
+
 export function groupByStatus(players) {
+  const visible = players.filter(p => !isDormantGuest(p));
   return {
-    in:      players.filter(p => p.status === STATUS.IN      && !p.disabled),
-    maybe:   players.filter(p => p.status === STATUS.MAYBE   && !p.disabled),
-    out:     players.filter(p => p.status === STATUS.OUT     && !p.disabled),
-    none:    players.filter(p => p.status === STATUS.NONE    && !p.disabled),
+    in:      visible.filter(p => p.status === STATUS.IN      && !p.disabled),
+    maybe:   visible.filter(p => p.status === STATUS.MAYBE   && !p.disabled),
+    out:     visible.filter(p => p.status === STATUS.OUT     && !p.disabled),
+    none:    visible.filter(p => p.status === STATUS.NONE    && !p.disabled),
     reserve: sortByReservePriority(
-      players.filter(p => p.status === STATUS.RESERVE && !p.disabled)
+      visible.filter(p => p.status === STATUS.RESERVE && !p.disabled)
     ),
   };
 }
@@ -52,7 +60,7 @@ export function getConfirmedCount(players) {
 }
 
 export function getNonResponders(players) {
-  return players.filter(p => p.status === STATUS.NONE && !p.disabled);
+  return players.filter(p => p.status === STATUS.NONE && !p.disabled && !isDormantGuest(p));
 }
 
 export function getMaybes(players) {
