@@ -10,18 +10,24 @@ silent-persistence, VC/admin auth) cross-checked against the live DB. Findings b
 worked as **Batch A (HIGH) first**, then B/C. Open (not-yet-fixed) items from the audit
 are tracked in the OPEN section below; fixed ones move to RESOLVED as they land.
 
+**Batch A status:** #1 VC parity (mig 208) ✅ · #3 guest FK orphans (mig 209) ✅ ·
+#4 HistoryView id-resolution (commit ba282a3) ✅ · #2 payment reconciliation — IN PROGRESS
+(product decision taken: self-pay is a PENDING CLAIM, not confirmed-paid).
+
 **OPEN — from session-71 audit (priority order):**
-- **[Batch A] Payment reconciliation:** `set_player_paid` / `set_guest_payment` write the
-  ledger row `status='unpaid'` while flipping `players.paid/self_paid` → admin "outstanding"
-  (Σ owes) and Gaffer/ledger (Σ unpaid) disagree. Live: team_KPaoX8oJYMQ £45 owes vs £55
-  ledger. Includes a stale row for Bidz (`p_4ef07e08`, paid but £5 unpaid in ledger).
-- **[Batch A] Guest FK orphans:** `player_match`/`payment_ledger` have no FK to `players`;
-  deleting a guest (remove_guest_player + go-live rollover) leaves orphan rows. Live: 3
-  orphan player_match + 2 orphan payment_ledger (incl. deleted guest p_WEeIK8vS unpaid £5 —
-  the other half of the £45-vs-£55 gap). Upstream: ScoreScreen sends guest ids into the
-  result-save team arrays so guests get player_match rows + w/l/d increments.
-- **[Batch A] HistoryView goal counts:** expanded match card (HistoryView.jsx:410) reads
-  `m.scorers[p.name]` against id-keyed scorers → ⚽ count blank on all modern matches.
+- **[Batch A] Payment reconciliation (self-pay = pending claim):** per operator decision, a
+  player's "I've paid" (`set_player_paid` / `set_guest_payment`) is a CLAIM pending admin
+  confirmation — it must NOT read as fully paid. Today the Payments screen treats
+  `selfPaid` as paid (`isPaid = paid || selfPaid`); that's what changes. Also unify the
+  outstanding source of truth (Σ owes vs Σ unpaid-ledger). Live residue: Bidz (`p_4ef07e08`)
+  self_paid with a £5 unpaid game_fee — the remaining £45-owes vs £50-ledger gap after mig 209.
+- **[Batch A→C] ScoreScreen guest exclusion (F2):** ScoreScreen sends guest ids into the
+  result-save team arrays, so guests get `player_match` rows + w/l/d increments during their
+  week. Harmless now that mig 209 cleans the children on guest delete (no more orphans), so
+  downgraded to a hygiene item — build the team arrays from the guest-excluded `eligible` set.
+- **[Batch B] VC schedule access:** `admin_upsert_schedule` still bare-lookup. Operator
+  decided VCs ARE full deputies → fix to `resolve_admin_caller` + re-grant anon (token check
+  is the gate, matching the other 27 admin RPCs). Next up.
 - **[Batch B] create_team** builds first game_date_time in UTC not Europe/London (mig-207
   class on the create path) → new squad's first-week reminders 1hr late in summer.
 - **[Batch B] BibsScreen** SAVE is pure local state (no adminToken prop; saveBibHolder has
@@ -29,9 +35,35 @@ are tracked in the OPEN section below; fixed ones move to RESOLVED as they land.
 - **[Batch B] set_guest_payment** missing audit_events insert (HARD RULE 9).
 - **[Batch C] advanceGameDateJob** DST-boundary drift (re-confirmed, known-open); ~10
   broadcast reasons missing from notify_team_change whitelist (log noise, latent drift);
-  HistoryView legacy-only POTM crown / last-goal-scorer id-only; ScheduleScreen one-off
-  date override never persists (oneOffDate not sent); no cap on guests per host; dead code
-  (attendance.js helpers, cast_potm_vote, getOutstandingBalance/getLedgerForTeam).
+  no cap on guests per host; dead code (attendance.js helpers, cast_potm_vote,
+  getOutstandingBalance/getLedgerForTeam); ScheduleScreen one-off date override never
+  persists (oneOffDate not sent). (HistoryView legacy POTM crown / last-goal-scorer fixed
+  alongside #4.)
+
+---
+
+## RESOLVED (session 71, mig 209) — guest deletion leaked FK-less player_match + payment_ledger orphans
+
+**Symptom (data integrity, latent):** `player_match` and `payment_ledger` have no foreign key
+to `players`. Guests (is_guest=true) are deleted weekly by the go-live rollover and on-demand
+by `remove_guest_player`, leaving their child rows dangling. Live DB carried 3 orphan
+`player_match` + 2 orphan `payment_ledger` rows — including a removed guest's (`p_WEeIK8vS`)
+unpaid £5 `guest_fee` that inflated the ledger-based outstanding total (the £55 figure).
+
+**Fix (mig 209):** every path that deletes a guest's `players` row (`remove_guest_player`,
+`admin_go_live`, `admin_go_live_for_team`) now deletes that guest's `player_match` +
+`payment_ledger` rows (scoped by team_id) first. A one-off DELETE swept the existing orphans
+(rows whose player_id no longer exists in players). Real players' history is never touched —
+deletes are scoped to the guest ids being removed.
+
+**Verified:** orphans 0 after apply; team_KPaoX8oJYMQ reconciliation moved £55 → £50 ledger
+(the dead guest's £5 gone; remaining £45-vs-£50 is Bidz, the pending-claim item above).
+Ephemeral-verify 3/3 PASS (remove_guest cleans children, go_live cleans guest children, HOST's
+own child rows preserved) + `_e2e_%` leak-check = 0. All 3 RPCs SECDEF, single overload,
+search_path set, grants correct (go_live_for_team service-role only).
+
+**Lesson:** when a table has no FK to a row that gets hard-deleted, every delete path must clean
+the children explicitly. Guests are the only routinely hard-deleted player.
 
 ---
 
