@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { colors as C, computeDeeperIntel, sortByReservePriority } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import {
@@ -625,23 +625,95 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Refresh the access token when the PWA returns from the background.
-  // iOS suspends the PWA and the access token can go stale silently. Calling
-  // refreshSession on visibilitychange picks up a fresh JWT so RPCs go out
-  // authed when the user starts tapping. Throttled to once per 5 minutes
-  // so rapid foreground/background cycles don't spam.
+  // Full catch-up re-fetch. Single source of truth for the team_live broadcast
+  // handler AND the PWA-resume handler. Re-fetches all team state via the
+  // existing wrappers and replays it into the raw setters, branching by route
+  // exactly like the initial load. Guarded by isRefreshing so the multiple
+  // resume events (visibilitychange + pageshow + focus) coalesce into one
+  // network round-trip. Declared above the resume effect because that effect's
+  // dependency array references it — a later const would be in the TDZ.
+  const isRefreshing = useRef(false);
+  const refreshTeamData = useCallback(async () => {
+    if (isRefreshing.current) return;
+    isRefreshing.current = true;
+    try {
+      if (route?.type === "player" && route?.token) {
+        const state = await getTeamStateByPlayerToken(route.token);
+        if (state && state.player) {
+          const ps = buildPlayerSquad(state.player, state.squad);
+          setSquadRaw(ps);
+          setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+          setMatchHistRaw(state.matches);
+          setBibHistRaw(state.bibHistory);
+          setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+          setCoverPoolRaw(state.coverPool);
+          const intel = computeDeeperIntel(state.player.id, ps, state.matches || []);
+          setStatsRaw({ ...(state.stats || {}), ...intel });
+        }
+      } else if (route?.type === "admin" || route?.type === "demoadmin") {
+        const tok = route.type === "demoadmin" ? "admin_demo" : route.token;
+        const state = await getTeamStateByAdminToken(tok);
+        if (state) {
+          setSquadRaw(state.squad);
+          setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
+          setMatchHistRaw(state.matches);
+          setBibHistRaw(state.bibHistory);
+          setSettingsRaw(state.settings || DEFAULT_SETTINGS);
+          setCoverPoolRaw(state.coverPool);
+        }
+      }
+    } catch (e) {
+      console.error("refreshTeamData error:", e);
+    } finally {
+      isRefreshing.current = false;
+    }
+  }, [route?.type, route?.token]);
+
+  // On PWA resume from the background, refresh the access token, reconnect the
+  // realtime socket, and catch up on any data missed while suspended.
+  // iOS suspends the PWA and tears down both the WebSocket and the access token
+  // silently. The auth refresh picks up a fresh JWT so RPCs go out authed; the
+  // realtime reconnect resumes live streaming; the catch-up re-fetch pulls any
+  // events lost while suspended.
   useEffect(() => {
-    let lastRefresh = 0;
-    const onVisibility = async () => {
+    let lastAuthRefresh = 0;
+    const AUTH_THROTTLE = 5 * 60 * 1000;
+    const onResume = async () => {
       if (document.visibilityState !== 'visible') return;
+
+      // (a) Auth token refresh — throttled to once / 5 min. Refreshing the JWT
+      // on every rapid foreground/background cycle is wasteful and rate-limit
+      // prone.
       const now = Date.now();
-      if (now - lastRefresh < 5 * 60 * 1000) return;
-      lastRefresh = now;
-      try { await supabase.auth.refreshSession(); } catch (e) { /* expected for anon — silent */ }
+      if (now - lastAuthRefresh >= AUTH_THROTTLE) {
+        lastAuthRefresh = now;
+        try { await supabase.auth.refreshSession(); } catch (e) { /* expected for anon — silent */ }
+      }
+
+      // (b) Force the realtime socket to reconnect. iOS tore it down while the
+      // PWA was suspended; nudge it back so ONGOING live updates stream in
+      // post-resume without needing another foreground. On a fresh socket
+      // supabase-js v2 auto-rejoins the tracked channels.
+      try {
+        if (!supabase.realtime.isConnected()) supabase.realtime.connect();
+      } catch (e) { console.error("realtime reconnect error:", e); }
+
+      // (c) Catch-up re-fetch — NEVER throttled. Broadcast / postgres_changes
+      // events that fired while suspended are ephemeral and lost forever, so we
+      // always pull fresh state on every foreground.
+      refreshTeamData();
     };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
+    // pageshow (incl. bfcache restore) + focus + visibilitychange can all fire
+    // on an iOS PWA resume; refreshTeamData's isRefreshing ref dedupes them.
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('pageshow', onResume);
+    window.addEventListener('focus', onResume);
+    return () => {
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('pageshow', onResume);
+      window.removeEventListener('focus', onResume);
+    };
+  }, [refreshTeamData]);
 
   // Part A — returning user recognition on /join
   // Runs when both authUser and joinTeam are available
@@ -799,37 +871,10 @@ export default function App() {
     // notify_team_change publishes with event name 'broadcast' via
     // realtime.send(payload, 'broadcast', topic). Match exactly — wildcard
     // event filters are NOT supported for broadcast type in the JS client.
-    channel.on('broadcast', { event: 'broadcast' }, async () => {
-      try {
-        if (route?.type === "player" && route?.token) {
-          const state = await getTeamStateByPlayerToken(route.token);
-          if (state && state.player) {
-            setSquadRaw(buildPlayerSquad(state.player, state.squad));
-            setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
-            setMatchHistRaw(state.matches);
-            setBibHistRaw(state.bibHistory);
-            setSettingsRaw(state.settings || DEFAULT_SETTINGS);
-            setCoverPoolRaw(state.coverPool);
-          }
-        } else if (route?.type === "admin" || route?.type === "demoadmin") {
-          const tok = route.type === "demoadmin" ? "admin_demo" : route.token;
-          const state = await getTeamStateByAdminToken(tok);
-          if (state) {
-            setSquadRaw(state.squad);
-            setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);
-            setMatchHistRaw(state.matches);
-            setBibHistRaw(state.bibHistory);
-            setSettingsRaw(state.settings || DEFAULT_SETTINGS);
-            setCoverPoolRaw(state.coverPool);
-          }
-        }
-      } catch (e) {
-        console.error("team_live broadcast refresh error:", e);
-      }
-    });
+    channel.on('broadcast', { event: 'broadcast' }, () => { refreshTeamData(); });
     channel.subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [teamId, liveChannelKey, route?.type, route?.token]);
+  }, [teamId, liveChannelKey, refreshTeamData]);
 
   // ── Setters ──────────────────────────────────────────────────────────────────
   const setSquad = (updater) => {

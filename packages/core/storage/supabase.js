@@ -3,7 +3,16 @@ import { hasGoalData, resolveDominantType, periodCutoff } from "../engine/scorin
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  realtime: {
+    // iOS suspends the PWA and tears down the realtime WebSocket when
+    // backgrounded. A short, capped backoff gets the socket rejoined fast on
+    // foreground instead of the SDK's default long ramp, so live updates
+    // resume streaming quickly after the app returns from the background.
+    reconnectAfterMs: (tries) => Math.min(tries * 1000, 5000),
+    timeout: 20000,
+  },
+});
 
 // ─── Team resolution ──────────────────────────────────────────────────────────
 export async function getTeamByAdminToken(token) {
