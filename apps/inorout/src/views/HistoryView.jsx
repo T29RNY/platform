@@ -103,7 +103,10 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
   const rs       = RESULT_STYLES[result];
   const scoreType = m.scoreType || null;
   const lastGoalScorerPlayer = m.lastGoalScorer
-    ? (players || []).find(p => p.id === m.lastGoalScorer) || null
+    ? ((players || []).find(p => p.id === m.lastGoalScorer)
+        || (players || []).find(p =>
+             (p.name || "").toLowerCase().trim() === String(m.lastGoalScorer).toLowerCase().trim())
+        || null)
     : null;
   const d        = m.matchDate ? new Date(m.matchDate) : null;
   const dayOfWeek = d ? d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase() : "—";
@@ -387,7 +390,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
                           display: "flex", alignItems: "center", overflow: "hidden",
                         }}>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {p.nickname || p.name}{m.motm && p.id === m.motm ? " 🏆" : ""}
+                            {p.nickname || p.name}{m.motm && (p.id === m.motm || p.name === m.motm) ? " 🏆" : ""}
                           </span>
                           {wasSwitched && (
                             <span style={{
@@ -407,11 +410,15 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
                           );
                         })()}
                       </div>
-                      {(m.scorers || {})[p.name] > 0 && (
-                        <div style={{ fontSize: 11, color: "var(--t2)", flexShrink: 0 }}>
-                          ⚽ {m.scorers[p.name]}
-                        </div>
-                      )}
+                      {(() => {
+                        // scorers keyed by player id on modern matches, by name on legacy.
+                        const g = (m.scorers || {})[p.id] ?? (m.scorers || {})[p.name];
+                        return g > 0 ? (
+                          <div style={{ fontSize: 11, color: "var(--t2)", flexShrink: 0 }}>
+                            ⚽ {g}
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   );
                 })}
