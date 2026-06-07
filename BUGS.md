@@ -1,7 +1,66 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 7 2026 (session 70 — stale guest row blocks Plus One button every week RESOLVED, commit e6f9459; session 69 — BST timezone offset on all cron notifications RESOLVED, commit 4e351b6; PWA live-update staleness RESOLVED, commit 5edd64f.)*
+*Last updated: Jun 7 2026 (session 71 — full-codebase bug audit; Batch A fixes landing. VC parity completed (mig 208). session 70 — stale guest row blocks Plus One button every week RESOLVED, commit e6f9459; session 69 — BST timezone offset RESOLVED, commit 4e351b6; PWA live-update staleness RESOLVED, commit 5edd64f.)*
 
 ---
+
+## SESSION 71 AUDIT — full-codebase sweep of recurring bug classes
+
+A six-domain read-only audit (names-vs-IDs, timezone/notifications, guests, payments,
+silent-persistence, VC/admin auth) cross-checked against the live DB. Findings being
+worked as **Batch A (HIGH) first**, then B/C. Open (not-yet-fixed) items from the audit
+are tracked in the OPEN section below; fixed ones move to RESOLVED as they land.
+
+**OPEN — from session-71 audit (priority order):**
+- **[Batch A] Payment reconciliation:** `set_player_paid` / `set_guest_payment` write the
+  ledger row `status='unpaid'` while flipping `players.paid/self_paid` → admin "outstanding"
+  (Σ owes) and Gaffer/ledger (Σ unpaid) disagree. Live: team_KPaoX8oJYMQ £45 owes vs £55
+  ledger. Includes a stale row for Bidz (`p_4ef07e08`, paid but £5 unpaid in ledger).
+- **[Batch A] Guest FK orphans:** `player_match`/`payment_ledger` have no FK to `players`;
+  deleting a guest (remove_guest_player + go-live rollover) leaves orphan rows. Live: 3
+  orphan player_match + 2 orphan payment_ledger (incl. deleted guest p_WEeIK8vS unpaid £5 —
+  the other half of the £45-vs-£55 gap). Upstream: ScoreScreen sends guest ids into the
+  result-save team arrays so guests get player_match rows + w/l/d increments.
+- **[Batch A] HistoryView goal counts:** expanded match card (HistoryView.jsx:410) reads
+  `m.scorers[p.name]` against id-keyed scorers → ⚽ count blank on all modern matches.
+- **[Batch B] create_team** builds first game_date_time in UTC not Europe/London (mig-207
+  class on the create path) → new squad's first-week reminders 1hr late in summer.
+- **[Batch B] BibsScreen** SAVE is pure local state (no adminToken prop; saveBibHolder has
+  zero callers) → bib holder set there is lost on refresh (works via end-of-match flow).
+- **[Batch B] set_guest_payment** missing audit_events insert (HARD RULE 9).
+- **[Batch C] advanceGameDateJob** DST-boundary drift (re-confirmed, known-open); ~10
+  broadcast reasons missing from notify_team_change whitelist (log noise, latent drift);
+  HistoryView legacy-only POTM crown / last-goal-scorer id-only; ScheduleScreen one-off
+  date override never persists (oneOffDate not sent); no cap on guests per host; dead code
+  (attendance.js helpers, cast_potm_vote, getOutstandingBalance/getLedgerForTeam).
+
+---
+
+## RESOLVED (session 71, mig 208) — Vice Captains rejected by admin_go_live + admin_reorder_reserves
+
+**Symptom (latent, would hit any VC):** the session-49 open follow-up. A Vice Captain
+operates AdminView via `/p/<vc_token>`, so their 21-char player token is passed as
+`adminToken`. `admin_go_live` ("Open Next Week") and `admin_reorder_reserves` (drag-reorder
+reserves) still authenticated with a bare `SELECT id FROM teams WHERE admin_token = p_admin_token`
+— a VC's player token never matches a 28-char team admin_token → `invalid_admin_token`, silent
+failure. The audit confirmed these were the **last two** of the 28 casual admin_* RPCs still on
+the bare lookup (the mig-075 sweep + migs 116/162 fixed the other 26; `admin_go_live_for_team`
+is cron/service-role only).
+
+**Fix (mig 208):** both now resolve the caller via `resolve_admin_caller(p_admin_token)`
+(admin_token OR VC player_token), with the existing `IF v_team_id IS NULL THEN RAISE
+'invalid_admin_token'`. Audit rows now use the resolved `actor_type`/`actor_identifier`
+(a VC action logs as `vice_captain`, not a hardcoded `team_admin`). Bodies otherwise re-applied
+byte-for-byte; admin_go_live keeps its mig-204/207 squad-reset + guest-cleanup block. No grant
+change — both already granted anon + authenticated (the token check is the security gate, as on
+all sibling admin RPCs).
+
+**Verified:** deterministic (both use resolver, no bare lookup, SECDEF, single overload, grants
+preserved) + ephemeral-verify (seeded `_e2e_` team with a VC + 2 reserves: resolver recognises
+VC token, VC reorders reserves, VC opens the week, audit logs `vice_captain`, bad token still
+rejected — 5/5 PASS) + `_e2e_%` leak-check = 0.
+
+**Note (deliberately NOT changed):** `admin_upsert_schedule` is the only remaining bare-lookup
+admin RPC. Left for a product decision — see the session-71 OPEN section above.
 
 ## RESOLVED (session 70, commit e6f9459) — stale guest row blocks Plus One button on weekly rollover
 
