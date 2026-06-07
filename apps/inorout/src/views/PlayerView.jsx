@@ -641,6 +641,8 @@ export default function PlayerView({
                 let amountText, amountColor = "var(--t2)";
                 if (paymentState === 'paid') {
                   amountText = "Nothing owed 👊"; amountColor = "var(--green)";
+                } else if (paymentState === 'claimed') {
+                  amountText = "Awaiting confirmation"; amountColor = "var(--amber)";
                 } else if (effectiveDebt > 0) {
                   amountText = `£${effectiveDebt} owed`;
                 } else if (status === 'in') {
@@ -709,7 +711,8 @@ export default function PlayerView({
                           setPayError(null);
                           try {
                             await handleCashPayment(me.token);
-                            setSquad(squad.map(p => p.id === myId ? { ...p, owes:0, selfPaid:true } : p));
+                            // self-pay is a pending CLAIM (mig 211) — keep owes; admin confirms to clear
+                            setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
                             setCashPending(false);
                             setClearDebtExpanded(false);
                           } catch {

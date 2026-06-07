@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 7 2026 (session 71 — full-codebase bug audit; Batch A fixes landing. VC parity completed (mig 208). session 70 — stale guest row blocks Plus One button every week RESOLVED, commit e6f9459; session 69 — BST timezone offset RESOLVED, commit 4e351b6; PWA live-update staleness RESOLVED, commit 5edd64f.)*
+*Last updated: Jun 7 2026 (session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
 
 ---
 
@@ -10,21 +10,13 @@ silent-persistence, VC/admin auth) cross-checked against the live DB. Findings b
 worked as **Batch A (HIGH) first**, then B/C. Open (not-yet-fixed) items from the audit
 are tracked in the OPEN section below; fixed ones move to RESOLVED as they land.
 
-**Batch A status:** #1 VC parity (mig 208) ✅ · #3 guest FK orphans (mig 209) ✅ ·
-#4 HistoryView id-resolution (commit ba282a3) ✅ · VC schedule access (mig 210) ✅ —
-VC parity now COMPLETE across all 28 casual admin_* RPCs · #2 payment reconciliation —
-DEFERRED to its own cycle (product decision taken: self-pay is a PENDING CLAIM, not
-confirmed-paid; it's a model rework across set_player_paid/set_guest_payment/
-admin_confirm_payment + getPaymentState + PaymentsScreen + PlayerView, not a one-liner).
+**Batch A status — COMPLETE:** #1 VC parity (mig 208) ✅ · #3 guest FK orphans (mig 209) ✅ ·
+#4 HistoryView id-resolution (ba282a3) ✅ · VC schedule access (mig 210) ✅ · #2 self-pay =
+pending claim (mig 211) ✅. VC parity now complete across all 28 casual admin_* RPCs; payment
+reconciliation closed (team_KPaoX £45 owes == £45 ledger).
 
-**OPEN — from session-71 audit (priority order):**
-- **[Batch A] Payment reconciliation (self-pay = pending claim):** per operator decision, a
-  player's "I've paid" (`set_player_paid` / `set_guest_payment`) is a CLAIM pending admin
-  confirmation — it must NOT read as fully paid. Today the Payments screen treats
-  `selfPaid` as paid (`isPaid = paid || selfPaid`); that's what changes. Also unify the
-  outstanding source of truth (Σ owes vs Σ unpaid-ledger). Live residue: Bidz (`p_4ef07e08`)
-  self_paid with a £5 unpaid game_fee — the remaining £45-owes vs £50-ledger gap after mig 209.
-- **[Batch A→C] ScoreScreen guest exclusion (F2):** ScoreScreen sends guest ids into the
+**OPEN — remaining from session-71 audit (Batch B/C, priority order):**
+- **[Batch C] ScoreScreen guest exclusion (F2):** ScoreScreen sends guest ids into the
   result-save team arrays, so guests get `player_match` rows + w/l/d increments during their
   week. Harmless now that mig 209 cleans the children on guest delete (no more orphans), so
   downgraded to a hygiene item — build the team arrays from the guest-excluded `eligible` set.
@@ -32,7 +24,6 @@ admin_confirm_payment + getPaymentState + PaymentsScreen + PlayerView, not a one
   class on the create path) → new squad's first-week reminders 1hr late in summer.
 - **[Batch B] BibsScreen** SAVE is pure local state (no adminToken prop; saveBibHolder has
   zero callers) → bib holder set there is lost on refresh (works via end-of-match flow).
-- **[Batch B] set_guest_payment** missing audit_events insert (HARD RULE 9).
 - **[Batch C] advanceGameDateJob** DST-boundary drift (re-confirmed, known-open); ~10
   broadcast reasons missing from notify_team_change whitelist (log noise, latent drift);
   no cap on guests per host; dead code (attendance.js helpers, cast_potm_vote,
@@ -93,6 +84,43 @@ rejected — 5/5 PASS) + `_e2e_%` leak-check = 0.
 
 **Follow-up resolved (mig 210):** `admin_upsert_schedule` — the only remaining bare-lookup
 admin RPC — was fixed once the operator confirmed VCs are full deputies (see below).
+
+## RESOLVED (session 71, mig 211 + JS) — self-pay was treated as fully paid; payment model reworked to "pending claim"
+
+**Symptom:** when a player tapped "I've paid" (`set_player_paid`), the system marked them
+fully paid and zeroed `owes` — so a self-declared claim vanished from the admin's outstanding
+list before the admin had confirmed receiving the money. The ledger-based total (Gaffer /
+per-player history) and the flat `Σ owes` total disagreed (live: team_KPaoX £45 owes vs £55
+ledger). Root cause: debt-clearing lived in `set_player_paid` (the claim), while
+`admin_confirm_payment` (the confirmation) didn't touch `owes` at all — backwards.
+
+**Decision (operator):** a player's "I've paid" is a PENDING CLAIM awaiting admin confirmation,
+kept visibly outstanding until confirmed. Guests stay confirmed-on-declare (no admin-confirm
+path exists for guests).
+
+**Fix (mig 211 + JS):**
+- `set_player_paid` → flags `self_paid` only; **owes unchanged, ledger untouched** (claim).
+- `admin_confirm_payment` → now also `owes = 0` (confirmation is the real money event).
+- `admin_reset_payment` → restores `owes` by the charge amount when undoing a CONFIRMED
+  payment (a mere claim leaves owes alone).
+- `set_guest_payment` → added the missing `audit_events` row (HARD RULE 9 / finding B2), and
+  fixed a **latent bug**: `v_ledger_id` was declared `text` but `payment_ledger.id` is `uuid`,
+  so the UPDATE branch (`WHERE id = v_ledger_id`) raised `uuid = text` whenever a guest_fee
+  row already existed — masked by the WHEN OTHERS catch. Now `uuid`.
+- Engine/UI: `getPaymentState` adds a `claimed` state; PaymentsScreen shows "claims paid ·
+  CONFIRM" (amber) and keeps claimers in the outstanding list (`isPaid` = confirmed only);
+  PlayerView shows "Awaiting confirmation" and no longer optimistically zeroes owes on self-pay.
+- **Hygiene fix (same cycle):** the 5 payment `supabase.rpc()` calls in `packages/core/engine/
+  payments.js` were moved into named `supabase.js` wrappers (`setPlayerPaid`, `setGuestPayment`,
+  `resetPayment`, `waiveDebt` + existing `confirmPayment`) — a pre-existing violation of the
+  raw-rpc-only-in-supabase.js rule the hygiene hook surfaced. Behaviour identical.
+- **One-off reconciliation:** a confirmed-paid player (paid=true, owes=0) with a stale unpaid
+  game_fee ledger row (Bidz `p_4ef07e08`) — the row marked paid so Σ owes == unpaid ledger.
+
+**Verified:** ephemeral-verify 4/4 PASS (claim keeps owes & self_paid; confirm clears owes +
+ledger paid; reset restores owes + ledger unpaid; guest uuid-fix + audit + flag) + `_e2e_%`
+leak-check = 0; live reconciliation team_KPaoX **£45 owes == £45 unpaid ledger**, 0 stale rows;
+build clean, hygiene 7/7 on all changed files.
 
 ## RESOLVED (session 71, mig 210) — admin_upsert_schedule rejected Vice Captains (VC parity complete)
 

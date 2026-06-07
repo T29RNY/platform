@@ -91,20 +91,24 @@ function PlayerRow({
 
   const isMenuOpen = openMenuId === player.id;
 
-  const isPaid = player.paid === true || player.selfPaid === true;
+  const isPaid    = player.paid === true;                              // admin-CONFIRMED
+  const isClaimed = player.selfPaid === true && player.paid !== true;  // pending claim (mig 211)
   const owes   = player.owes || 0;
   const price  = schedule.pricePerPlayer || 0;
   const sp     = STATUS_PILL[player.status] || STATUS_PILL.none;
   const isIn   = player.status === 'in';
 
-  // Avatar ring colour mirrors payment state
+  // Avatar ring colour mirrors payment state. A claim is amber (needs your confirm)
+  // even though owes is still > 0.
   const ringColor =
-      owes > 0       ? "rgba(255,80,80,0.55)"
+      isClaimed      ? "rgba(255,176,32,0.55)"
+    : owes > 0       ? "rgba(255,80,80,0.55)"
     : isPaid         ? "rgba(61,220,106,0.55)"
     : isIn           ? "rgba(255,176,32,0.55)"
     : "var(--border-subtle)";
   const ringGlow =
-      owes > 0       ? "0 0 10px rgba(255,80,80,0.22)"
+      isClaimed      ? "0 0 10px rgba(255,176,32,0.18)"
+    : owes > 0       ? "0 0 10px rgba(255,80,80,0.22)"
     : isPaid         ? "0 0 10px rgba(61,220,106,0.20)"
     : isIn           ? "0 0 10px rgba(255,176,32,0.18)"
     : "none";
@@ -135,7 +139,8 @@ function PlayerRow({
 
   const doMarkPaid = async () => {
     await handleMarkPaid(adminToken, player.id, schedule.activeMatchId || null).catch(console.error);
-    setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true } : p));
+    // confirm clears the debt (mig 211) — reflect optimistically; broadcast reconciles
+    setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true, owes:0, selfPaid:false } : p));
     setJustPaid(true);
     setTimeout(() => setJustPaid(false), 1100);
     if (open) refreshLedger();
@@ -204,8 +209,18 @@ function PlayerRow({
           onClick={e => e.stopPropagation()}>
           {owes > 0 && payPill(`£${owes}`, "var(--red2)", "var(--redb)", "var(--red)")}
           {isPaid
-            ? payPill(owes > 0 ? "✓ This week" : "✓ Paid", "var(--green2)", "var(--greenb)", "var(--green)")
-            : isIn && (
+            ? payPill("✓ Paid", "var(--green2)", "var(--greenb)", "var(--green)")
+            : isClaimed
+              ? (
+                <button onClick={doMarkPaid}
+                  style={{ padding:"4px 12px", borderRadius:"var(--r-pill)",
+                    border:"0.5px solid var(--amberb)", background:"var(--amber2)",
+                    color:"var(--amber)", fontFamily:"var(--font-body)", fontSize:12,
+                    fontWeight:600, letterSpacing:"0.04em", cursor:"pointer" }}>
+                  claims paid · CONFIRM
+                </button>
+              )
+              : isIn && (
                 <button onClick={doMarkPaid}
                   style={{ padding:"4px 12px", borderRadius:"var(--r-pill)", border:"none",
                     background:"var(--gold)", color:"var(--black)",
@@ -240,12 +255,12 @@ function PlayerRow({
               }}>
                 {!isPaid && (
                   <MenuItem onClick={() => { setOpenMenuId(null); doMarkPaid(); }}>
-                    Mark paid — this week
+                    {isClaimed ? "Confirm payment" : "Mark paid — this week"}
                   </MenuItem>
                 )}
-                {isPaid && (
+                {(isPaid || isClaimed) && (
                   <MenuItem onClick={() => { setOpenMenuId(null); doReset(); }}>
-                    Reset payment
+                    {isClaimed ? "Reject claim" : "Reset payment"}
                   </MenuItem>
                 )}
                 {owes > 0 && (
@@ -437,20 +452,22 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
     .filter(p => (p.owes || 0) > 0)
     .sort((a, b) => (b.owes || 0) - (a.owes || 0));
 
+  // paid = admin-CONFIRMED only (mig 211). A self-claim still has owes > 0 and lands
+  // in owesSection (with a "claims paid · CONFIRM" action), i.e. still outstanding.
   const unpaidIn = activePlayers
-    .filter(p => !(p.owes > 0) && p.status === 'in' && !(p.paid || p.selfPaid))
+    .filter(p => !(p.owes > 0) && p.status === 'in' && !p.paid)
     .sort(byName);
 
   const paidUp = activePlayers
-    .filter(p => !(p.owes > 0) && (p.paid || p.selfPaid))
+    .filter(p => !(p.owes > 0) && p.paid)
     .sort(byName);
 
   const notPlaying = activePlayers
-    .filter(p => !(p.owes > 0) && !(p.paid || p.selfPaid) && p.status !== 'in')
+    .filter(p => !(p.owes > 0) && !p.paid && p.status !== 'in')
     .sort(byName);
 
   const totalOwed = activePlayers.reduce((s, p) => s + (p.owes || 0), 0);
-  const paidCount = activePlayers.filter(p => p.paid || p.selfPaid).length;
+  const paidCount = activePlayers.filter(p => p.paid).length;
 
   const rowProps = { adminToken, schedule, setSquad, openMenuId, setOpenMenuId };
 

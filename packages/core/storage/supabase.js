@@ -1123,6 +1123,43 @@ export async function confirmPayment(adminToken, playerId, matchId) {
   if (error) throw error;
 }
 
+// Player self-declares cash payment — a PENDING CLAIM (mig 211): flags self_paid,
+// does NOT clear owes. An admin confirms via confirmPayment to settle the debt.
+export async function setPlayerPaid(token) {
+  const { error } = await supabase.rpc('set_player_paid', { p_token: token });
+  if (error) throw error;
+}
+
+// Host/guest declares a guest's cash payment.
+export async function setGuestPayment(hostToken, guestId, paidBy = 'host') {
+  const { error } = await supabase.rpc('set_guest_payment', {
+    p_host_token: hostToken,
+    p_guest_id:   guestId,
+    p_paid_by:    paidBy,
+  });
+  if (error) throw error;
+}
+
+// Admin undoes a payment — restores owes if it was a CONFIRMED payment (mig 211).
+export async function resetPayment(adminToken, playerId, matchId) {
+  const { error } = await supabase.rpc('admin_reset_payment', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_match_id:    matchId || null,
+  });
+  if (error) throw error;
+}
+
+// Admin waives a player's outstanding debt to zero.
+export async function waiveDebt(adminToken, playerId, note) {
+  const { error } = await supabase.rpc('admin_waive_debt', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_note:        note || null,
+  });
+  if (error) throw error;
+}
+
 // Targeted lookup to avoid duplicate ledger entries on Mark Paid / Reset.
 // Handles null matchId (no lineup lock) by querying IS NULL — avoids maybeSingle()
 // errors when pre-existing duplicates are present.
