@@ -368,10 +368,16 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
     if (!dateOverride || dateOverrideSaved) return;
     const newDt = buildOverrideDateISO(dateOverride, sched.kickoff);
     const newSched = { ...sched, gameDateTime: newDt };
-    setSched(newSched);
     if (adminToken) {
-      try { await upsertSchedule(adminToken, { ...newSched, remindersConfig: reminders }); } catch (_) {}
+      try {
+        // Send oneOffDate (YYYY-MM-DD) — the server builds game_date_time from it
+        // in Europe/London (mig 215). Without it the override never persisted.
+        await upsertSchedule(adminToken, { ...newSched, oneOffDate: dateOverride, remindersConfig: reminders });
+      } catch (_) {
+        return; // save failed — don't show "UPDATED ✓" or clear the picker
+      }
     }
+    setSched(newSched);
     setDateOverrideSaved(true);
     setTimeout(() => { setDateOverrideSaved(false); setDateOverride(""); }, 2000);
   };

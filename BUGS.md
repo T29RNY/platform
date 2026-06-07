@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 7 2026 (session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 7 2026 (session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
 
 ---
 
@@ -25,15 +25,24 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   `attendance.js` helpers (calcStreaks / topSingleGame / getHatTricks / biggestWins —
   unexported, zero call sites; harmless). (HistoryView legacy POTM crown / last-goal-scorer
   fixed alongside #4.)
-- **[Batch C] "Update this week" one-off date** — TWO bugs, both latent (the path is never
-  reached from the UI today): (1) ScheduleScreen never sends `oneOffDate` to upsertSchedule,
-  so the override doesn't persist; (2) `admin_upsert_schedule`'s one-off branch has the same
-  text→timestamp cast bug mig 212 just fixed in create_team — `(p_one_off_date || 'T' ||
-  p_kickoff || ':00') AT TIME ZONE 'Europe/London'` will raise `timezone(unknown,text)` once
-  (1) is fixed. Fix BOTH together when wiring the feature: add `::timestamp` to the SQL cast
-  AND send oneOffDate from the UI.
-
 ---
+
+## RESOLVED (session 71, mig 215 + ScheduleScreen) — "Update this week" one-off date override never worked
+
+**Symptom:** the admin Schedule screen's "UPDATE THIS WEEK" control (a live button) silently did
+nothing — two stacked bugs: (1) `applyDateOverride` sent the override as `gameDateTime` but
+`upsertSchedule` only forwards `oneOffDate`, so `admin_upsert_schedule` received NULL and kept
+the existing date; (2) even with (1) fixed, the RPC's one-off branch
+`(p_one_off_date || 'T' || p_kickoff || ':00') AT TIME ZONE 'Europe/London'` would raise
+`timezone(unknown,text)` (text→timestamp not implicit — same class as mig 212 create_team).
+Both latent together: (1) kept (2) unreached.
+
+**Fix:** mig 215 adds the `::timestamp` cast to the one-off branch (Europe/London, DST-aware);
+ScheduleScreen `applyDateOverride` now sends `oneOffDate: dateOverride` and only shows "UPDATED ✓"
+on a successful save (was an unconditional optimistic set that lied on failure).
+
+**Verified:** ephemeral-verify PASS (one-off override → game_date_time = 2026-07-16 20:30 London)
++ leak-check 0; ScheduleScreen build clean + hygiene 7/7.
 
 ## RESOLVED (session 71, cron.js) — advanceGameDateJob DST-boundary drift (kickoff ±1h on clock-change weeks)
 
