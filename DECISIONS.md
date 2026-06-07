@@ -6,6 +6,23 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## An injured player can still be a reserve — but auto-drops to the bottom of the queue (session 73, mig 220)
+
+`status` and `injured` are independent columns, so "injured reserve" is a valid state — an injured
+player may still want to offer themselves as cover. The settled rule: when a reserve is marked
+injured (by themselves or an admin), they are **automatically demoted to last place** in the reserve
+queue (`reserve_priority_order = MAX(others)+1`), and admins can manually re-order them afterward.
+They are NOT removed from reserve and NOT forced to `out` (only an *in* player still drops to `out`
+on injury, unchanged). Both `set_player_injured` and `admin_set_player_injured` carry this demotion.
+
+Display: the admin reserve list shows injured reserves (with a 🤕 marker) so they can be re-ordered,
+*and* they still appear in the admin Injured section (dual-listing is intentional). The player view
+already lists injured reserves with an injured badge and now orders them at the bottom.
+
+Prior bug this replaced: the RPCs only reset status when it was `in`, so a reserve marked injured
+kept `status='reserve'` at their old position while the client optimistically showed `out` — the DB
+and the two screens drifted apart (see BUGS.md session-73 entry).
+
 ## Guests are PERSISTENT: dormant-not-deleted, hidden via status not deletion (session 72, PERSISTENT GUESTS S1, mig 216)
 
 A guest (+1) is a first-class, persistent `players` row (`is_guest=true`, `guest_of=host`) that is **never auto-deleted**. The previous model hard-deleted guests on every weekly rollover (and on host-remove) to stop a leftover guest row from hiding the host's "Plus One" button — but that conflated "person exists on the team" with "person is in THIS week", and threw away history + left unresolvable ids in `matches.team_a/team_b`.

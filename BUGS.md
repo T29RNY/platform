@@ -39,6 +39,35 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   fixed alongside #4.)
 ---
 
+## RESOLVED (session 73, mig 220 + AdminView) — injured reserve stuck at top of queue; player view & admin disagreed
+
+A player could be both `status='reserve'` and `injured=true` at once (separate columns), and
+the two surfaces rendered that state inconsistently:
+- **Player view** (`PlayerView` via `groupByStatus`) kept the injured player in the reserve
+  queue at their *old* position — e.g. shown as Reserve #1.
+- **Admin view** (`AdminView/index.jsx`) filtered injured out of reserve entirely, so the same
+  player showed only in the Injured section and the next reserve became #1.
+Result: the injured player appeared as reserve #1 on My View while admin showed someone else as #1.
+
+**Root cause:** `set_player_injured` / `admin_set_player_injured` only reset `status` to `'out'`
+when `status='in'`. A reserve marked injured kept `status='reserve'` AND their queue position.
+The client optimistically moved them to `'out'`, so the screen looked right until the next reload
+pulled the stale `reserve` row back.
+
+**Fix (product rule, session 73):** an injured player CAN still be a reserve (they may offer to
+play) but auto-drops to the **bottom** of the reserve queue; admins can re-order them.
+- **mig 220** — both injured RPCs now set the reserve's `reserve_priority_order` to `MAX(others)+1`
+  when marked injured (status stays `'reserve'`). The `manage_reserve_priority_order` trigger only
+  fires on status changes, so it doesn't interfere.
+- **AdminView** — reserve list no longer filters injured (`!p.injured` removed) so admins can
+  reorder injured reserves; a 🤕 marker shows next to them. They also remain in the Injured
+  section (deliberate dual-listing).
+- **PlayerView** — no code change; it already listed injured reserves and now orders them correctly.
+- One live row repaired (team_KPaoX8oJYMQ: Kyle Bowden demoted below Callum).
+Verified end-to-end via ephemeral-verify (5 assertions PASS, leak-check clean) + RPC security sweep.
+
+**Owed:** real-iPhone walk of the reserve/injured surfaces (per hard-rule #13 / casual-regression).
+
 ## RESOLVED (session 71, HistoryView) — Results showed raw player IDs for removed guests
 
 **Symptom (operator screenshot):** the expanded Results card for the 2 Jun Footy Tuesdays match

@@ -131,7 +131,10 @@ export default function AdminView({
 
   // ── derived ──────────────────────────────────────────────────────────────
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
-  const reservePlayers = sortByReservePriority(squad.filter(p => p.status==="reserve" && !p.disabled && !p.injured));
+  // Injured reserves stay in the queue (auto-demoted to the bottom by mig 220);
+  // admins can re-order them, so they must appear here — they also show in the
+  // dedicated Injured section below (deliberate dual-listing).
+  const reservePlayers = sortByReservePriority(squad.filter(p => p.status==="reserve" && !p.disabled));
   const maybePlayers   = squad.filter(p => p.status==="maybe"   && !p.disabled && !p.injured);
   const outPlayers     = squad.filter(p => p.status==="out"     && !p.disabled && !p.injured);
   const injuredPlayers = squad.filter(p => p.injured && !p.disabled);
@@ -451,6 +454,9 @@ export default function AdminView({
             {p.nickname || p.name}
             {sectionKey === "reserve" && (
               <span style={{ fontSize:10, color:"var(--purple)", fontWeight:400 }}> · #{idx+1}</span>
+            )}
+            {sectionKey === "reserve" && p.injured && (
+              <span style={{ fontSize:10, fontWeight:400 }}> 🤕</span>
             )}
           </div>
           {sub && (
