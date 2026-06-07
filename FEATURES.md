@@ -58,8 +58,20 @@ deleted; `is_guest=true` just means "brought by a host, not yet a self-managing 
   rejected), casual-regression browser PASS (empty-picker path byte-identical for teams with no
   dormant guests), RPC-security-sweep PASS, build clean, hygiene 7/7. *Operator owes a real-team
   eyeball of the picker once a dormant guest exists (next rollover) + Hard Rule 13.*
-- **S3 — Promotion + self-claim:** `admin_promote_guest` RPC (flip is_guest=false, issue token,
-  audit) + AdminView "make permanent"; guest self-claim via the existing link_player_to_user flow.
+- **S3 — Promotion + self-claim: ✅ SHIPPED (session 72, mig 218).** Both routes land on the SAME
+  row (history carries over). **Admin:** new `admin_promote_guest(p_admin_token, p_guest_id)`
+  (resolve_admin_caller → VC parity) flips `is_guest=false, guest_of=NULL`, keeps token/status/
+  stats/history; SquadScreen kebab gains a green "Make permanent" item; the admin "Guests" filter
+  now shows dormant past guests too (DORMANT pill); "Copy personal link" enabled for guests so the
+  admin can send the claim link. **Self-claim:** `link_player_to_user` gains a GATED promote-on-link
+  branch — a guest sent their own `/p/<token>` link signs in and that row is promoted+linked (the
+  token IS the identity, no name-matching); regulars are untouched (`is_guest=false` skips the
+  branch). New `promoteGuest` wrapper + barrel. EV 5/5 + leak 0 (admin promote keeps stats/history/
+  token; self-claim promotes a guest but leaves a regular's link unchanged; bad-token + non-guest
+  rejected), casual-regression browser PASS, RPC-security-sweep PASS, build clean, hygiene 7/7.
+  *Auth RPC touched → operator owes real-iPhone test (Hard Rule 13): sign in via a guest link →
+  becomes permanent; and a normal sign-in still works.* **Guest link distribution UX** (a dedicated
+  "send claim link" button vs the copy-link menu item) can be polished later if needed.
 - **S4 — Legacy display:** already-deleted guests (e.g. 2 Jun match) are gone for good — show
   "Guest" for any unresolved `p_…` roster id (HistoryView). Handles orphaned history forever.
 - **S5 — Stats verification:** confirm guests excluded from team reliability/POTM until promoted,

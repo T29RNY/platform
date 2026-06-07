@@ -521,6 +521,17 @@ export async function reactivateGuestPlayer(hostToken, guestId) {
   return dbToPlayer(data);
 }
 
+// Persistent guests S3: admin promotes a guest to a permanent member (same row,
+// history kept). Returns the updated (now non-guest) player, mapped.
+export async function promoteGuest(adminToken, guestId) {
+  const { data, error } = await supabase.rpc('admin_promote_guest', {
+    p_admin_token: adminToken,
+    p_guest_id:    guestId,
+  });
+  if (error) throw error;
+  return dbToPlayer(data);
+}
+
 // ─── Cover pool ───────────────────────────────────────────────────────────────
 export async function getCoverPool(teamId) {
   const { data, error } = await supabase

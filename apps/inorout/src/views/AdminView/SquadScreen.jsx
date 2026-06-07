@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { addPlayerToTeam, toggleViceCaptain, disablePlayer, adminSetPlayerStatus, isDormantGuest } from "@platform/core";
+import { addPlayerToTeam, toggleViceCaptain, disablePlayer, adminSetPlayerStatus, isDormantGuest, promoteGuest } from "@platform/core";
 import {
   insertPlayerInjury, clearPlayerInjury,
   deletePlayer as removePlayerFromDb,
@@ -140,6 +140,27 @@ export default function SquadScreen({
       setCopiedId(p.id);
       setTimeout(() => setCopiedId(id => id === p.id ? null : id), 1800);
     });
+  };
+
+  // Persistent guests S3: promote a guest to a permanent squad member (same row,
+  // history kept). Optimistic flip; rollback + toast on error.
+  const [promotingId, setPromotingId] = useState(null);
+  const handlePromote = async (p) => {
+    if (promotingId) return;
+    setPromotingId(p.id);
+    const prev = squad;
+    try {
+      const updated = await promoteGuest(adminToken, p.id);
+      setSquad(sq => sq.map(x => x.id === p.id ? { ...x, ...updated } : x));
+      setOpenMenuId(null);
+      setOkToast(`${p.nickname || p.name} is now a permanent member`);
+    } catch (e) {
+      console.error("Failed to promote guest:", e);
+      setSquad(prev);
+      setErrorToast("Couldn't make permanent");
+    } finally {
+      setPromotingId(null);
+    }
   };
 
   async function handleTogglePriority(p) {
@@ -315,8 +336,9 @@ export default function SquadScreen({
     let list = squad;
     if (q) list = list.filter(p => ((p.nickname || "") + " " + (p.name || "")).toLowerCase().includes(q));
     if (filter === "regular")  list = list.filter(p => !(p.isGuest || p.type === "guest"));
-    // Persistent guests (S1): dormant guests are hidden until S2's returning picker.
-    if (filter === "guest")    list = list.filter(p => (p.isGuest || p.type === "guest") && !isDormantGuest(p));
+    // Persistent guests (S3): the admin Guests tab shows ALL guests incl. dormant
+    // past guests (marked with a DORMANT pill) so they can be made permanent.
+    if (filter === "guest")    list = list.filter(p => p.isGuest || p.type === "guest");
     if (filter === "priority") list = list.filter(p => p.priority);
     if (filter === "injured")  list = list.filter(p => p.injured);
     return [...list].sort((a, b) => {
@@ -556,6 +578,7 @@ export default function SquadScreen({
           const displayName = p.nickname || p.name;
           const host        = p.guestOf ? squad.find(h => h.id === p.guestOf) : null;
           const isGuest     = p.isGuest || p.type === "guest";
+          const isDormant   = isDormantGuest(p);
           const vcSelf      = p.id === me?.id;
           const isInjured   = !!p.injured;
           const isPriority  = !!p.priority;
@@ -680,6 +703,9 @@ export default function SquadScreen({
                     {isGuest && !host && (
                       <Pill color="var(--t2)" border="var(--s3)" bg="transparent">GUEST</Pill>
                     )}
+                    {isDormant && (
+                      <Pill color="var(--t2)" border="var(--s3)" bg="var(--s3)">DORMANT</Pill>
+                    )}
                     {isVC      && <Pill icon={<ShieldCheck size={9} weight="thin" color="#60A0FF" />} color="#60A0FF" border="rgba(96,160,255,0.4)" bg="rgba(96,160,255,0.12)">VC</Pill>}
                     {isPriority && <Pill icon={<Star size={9} weight="thin" color="var(--gold)" />} color="var(--gold)" border="var(--goldb)" bg="var(--gold2)">PRIORITY</Pill>}
                     {p.adminLockedIn && <Pill icon={<Lock size={9} weight="thin" color="var(--green)" />} color="var(--green)" border="var(--greenb)" bg="var(--green2)">LOCKED IN</Pill>}
@@ -792,16 +818,25 @@ export default function SquadScreen({
                         <MenuItem icon={<PencilSimple size={14} weight="thin" />} onClick={() => startEdit(p)}>
                           Rename
                         </MenuItem>
-                        {!isGuest && (
+                        {isGuest && (
                           <MenuItem
-                            icon={copiedId === p.id
-                              ? <Check size={14} weight="thin" color="var(--green)" />
-                              : <Copy  size={14} weight="thin" />}
-                            onClick={() => handleCopyPlayer(p)}
+                            icon={<ShieldCheck size={14} weight="thin" color="var(--green)" />}
+                            onClick={() => handlePromote(p)}
+                            disabled={promotingId === p.id}
+                            subtitle="Guest → full squad member, keeps history"
                           >
-                            {copiedId === p.id ? "Copied!" : "Copy personal link"}
+                            {promotingId === p.id ? "Making permanent…" : "Make permanent"}
                           </MenuItem>
                         )}
+                        <MenuItem
+                          icon={copiedId === p.id
+                            ? <Check size={14} weight="thin" color="var(--green)" />
+                            : <Copy  size={14} weight="thin" />}
+                          onClick={() => handleCopyPlayer(p)}
+                          subtitle={isGuest ? "Send so they can claim their spot" : null}
+                        >
+                          {copiedId === p.id ? "Copied!" : "Copy personal link"}
+                        </MenuItem>
                         {!isGuest && (
                           <MenuItem icon={<ArrowsClockwise size={14} weight="thin" />} onClick={() => handleResetLink(p)}>
                             Reset personal link
