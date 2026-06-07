@@ -158,7 +158,11 @@ async function handleCron(cronType) {
     // 5. Game day 9am — cron schedule: "0 9 * * *"
     if (cronType === 'gameDay9am') {
       const isGameDay   = kickoff.toDateString() === now.toDateString();
-      const is9amWindow = now.getHours() === 9 && now.getMinutes() < 15;
+      // now.getHours() is UTC on Vercel — must read UK wall-clock time
+      const ukHour      = parseInt(new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/London', hour: '2-digit', hour12: false,
+      }).formatToParts(now).find(p => p.type === 'hour').value, 10);
+      const is9amWindow = ukHour === 9 && now.getMinutes() < 15;
       if (!isGameDay || !is9amWindow || !inPlayers.length) continue;
       if (await alreadySent(teamId, cronType, gameDate)) continue;
       const subs = await getSubsForPlayers(teamId, inPlayers.map(p => p.id));
