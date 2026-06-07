@@ -1,5 +1,31 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 6 2026 (session 68 — casual result-save pipeline repair + week-rollover + display id/name fixes (migs 204–206); see GO_LIVE_ISSUES + BUGS.)*
+*Last updated: Jun 7 2026 (session 69 — PWA live-update staleness on iOS resume fixed (commit 5edd64f); verified on real device; see GO_LIVE_ISSUES §7.2 + BUGS + DECISIONS.)*
+
+## SESSION 69 — PWA live updates on resume from background (Jun 7 2026)
+
+Operator: had to fully close & reopen the installed PWA to get latest info; live
+updates didn't arrive after the app was backgrounded. Asked whether to start a
+Capacitor build for the App Store if it was a PWA limitation.
+
+Diagnosis: not a PWA limitation. iOS suspends the PWA and tears down the realtime
+WebSocket; the only `visibilitychange` handler refreshed the auth token and never
+reconnected the socket or re-fetched. Broadcast/postgres_changes events are
+ephemeral, so anything that fired during suspension was lost until a full relaunch.
+
+Fix (commit `5edd64f`, 2 files): realtime client got a capped `reconnectAfterMs`
+backoff; App.jsx got a shared `refreshTeamData()` catch-up (reused by the team_live
+broadcast handler) and a resume handler on visibilitychange/pageshow/focus that
+refreshes auth (throttled), reconnects realtime, and re-fetches unthrottled on every
+foreground. Caught a self-inflicted TDZ (resume effect referenced refreshTeamData in
+its dep array before declaration) and moved the declaration above it.
+
+Live test against Footy Tuesdays via `admin_set_player_status`: foreground-live
+update worked; then a change made during a 90-second suspension appeared instantly on
+foreground — fix confirmed on the operator's real iPhone. Confirmed the fix is live
+on www.in-or-out.com by grepping the deployed bundle. Detour: Vercel MCP API showed
+stale deploy data (looked frozen at a dead repo's May build) — disproven by the live
+bundle; recorded in [[project_inorout_deploy_and_pwa_update]]. Capacitor decoupled
+from this and not pursued. Decision logged in DECISIONS.md.
 
 ## SESSION 68 — casual post-game pipeline repair (week lock, payments, bibs, stats, share, POTM) (Jun 6 2026)
 

@@ -732,6 +732,34 @@ on `/admin/<token>`, one as a player on `/p/<token>` in a private
 browser window (no auth). Admin marks a player as INJURED. Player
 device must update within ~2s without reload.
 
+### 7.2 Live updates stale after the PWA returns from the background (session 69)
+**Symptom:** installed PWA shows stale data after being backgrounded
+on iOS — the user had to fully close and relaunch the app to see the
+latest in/out counts. Live updates worked fine while the app stayed
+open and foregrounded.
+**Root cause:** iOS suspends the PWA and tears down the realtime
+WebSocket when backgrounded. The only `visibilitychange` handler
+refreshed the auth token and nothing else — it never reconnected the
+socket or re-fetched state. Broadcast / postgres_changes events that
+fired while suspended are ephemeral and lost forever, so the app sat
+on whatever it had before suspension until a full relaunch re-ran the
+initial load.
+**Fix:** commit `5edd64f`. (1) `packages/core/storage/supabase.js`
+gives the realtime client a short capped `reconnectAfterMs` backoff.
+(2) App.jsx adds a shared `refreshTeamData()` catch-up (reused by the
+team_live broadcast handler) and a resume handler on
+`visibilitychange`/`pageshow`/`focus` that, on foreground: refreshes
+auth (still throttled 5 min), calls `supabase.realtime.connect()` if
+disconnected, and runs an **unthrottled** full re-fetch every time.
+**Pre-flight check:** on a real iPhone home-screen install, open the
+app, then background it (don't kill it) for a solid 60+ seconds. From
+a second device/admin, change a player's in/out status. Tap back into
+the app from the app-switcher (do NOT relaunch). The new count must
+appear immediately on its own — no pull-to-refresh, no relaunch. Then,
+still foregrounded, make another change from the other device: it must
+stream in live. Verified on Footy Tuesdays, 90-second suspension,
+session 69.
+
 ---
 
 ## 8. READS UNDER RLS

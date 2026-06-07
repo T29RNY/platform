@@ -1,10 +1,40 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 6 2026 (session 68 — casual result-save pipeline: freshness via matches.winner; payment carry-over via owes; orphaned-guest Remove = un-enter)*
+*Last updated: Jun 7 2026 (session 69 — PWA resume = reconnect + catch-up re-fetch; stay on PWA, Capacitor not needed for live updates)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## PWA resume = reconnect + catch-up re-fetch; not a Capacitor trigger (session 69)
+
+Realtime is two pipes (team_live broadcast + postgres_changes), and both are
+ephemeral — events that fire while the app is suspended are **gone forever**, never
+replayed. So correctness on resume cannot rely on the socket alone. The settled
+pattern, on every foreground (`visibilitychange`/`pageshow`/`focus`):
+
+1. **Catch-up re-fetch, unthrottled** — call the full `refreshTeamData()` so the app
+   is correct immediately regardless of what the socket missed. This is the
+   load-bearing step.
+2. **Reconnect the socket** — `supabase.realtime.connect()` when disconnected (plus a
+   short capped `reconnectAfterMs` on the client) so *ongoing* live updates resume.
+3. **Auth refresh stays throttled** (5 min); data catch-up must NOT be throttled.
+
+Any future surface that depends on realtime must assume the suspended-window gap and
+re-fetch on resume — do not add "live-only" state with no catch-up path.
+
+**Capacitor decision:** the "must close & reopen to see updates" bug was an app-code
+gap, NOT a PWA limitation — a native shell suspends the same WebSocket, so Capacitor
+would not have fixed it. Capacitor remains the right path for App Store distribution
+and native push when we choose to pursue it, but it is decoupled from live-update
+correctness. Do not reach for Capacitor to solve realtime/resume issues.
+
+**Deploy/verify note:** the Vercel MCP API reported stale data for the `inor-out`
+project (looked frozen at a May build from a dead repo). It is not — the live site
+auto-deploys this monorepo. The authoritative check for "what code is live" is to
+grep the deployed bundle from www.in-or-out.com for a known string from the change.
+The push-only service worker has no `fetch` handler, so installed PWAs pick up new
+code on a full close + reopen. See [[project_inorout_deploy_and_pwa_update]].
 
 ## Casual result-save pipeline — settled invariants (session 68)
 

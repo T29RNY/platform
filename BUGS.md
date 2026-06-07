@@ -1,7 +1,34 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 6 2026 (session 68 — casual post-game pipeline cluster RESOLVED: migs 204/205/206 + display id/name fixes; end-of-session audit clean.)*
+*Last updated: Jun 7 2026 (session 69 — PWA live-update staleness on iOS resume RESOLVED, commit 5edd64f; verified on real device.)*
 
 ---
+
+## RESOLVED (session 69, commit 5edd64f) — live updates stale after PWA returns from background
+
+**Symptom (operator):** had to fully close and reopen the installed PWA to see the
+latest info — live in/out updates didn't come through after the app had been
+backgrounded on iOS. Live updates were fine while the app stayed open.
+
+**Root cause:** iOS suspends the PWA and tears down the realtime WebSocket when
+backgrounded. The only `visibilitychange` handler refreshed the auth token and
+nothing else — never reconnected the socket, never re-fetched state. Broadcast /
+postgres_changes events that fired during suspension are ephemeral and lost
+forever, so the app stayed frozen until a full relaunch re-ran the initial load.
+
+**Fix:** (1) `packages/core/storage/supabase.js` — realtime client given a short
+capped `reconnectAfterMs` backoff + 20s timeout. (2) `apps/inorout/src/App.jsx` —
+extracted a shared `refreshTeamData()` catch-up (player/admin/demoadmin), reused
+by the team_live broadcast handler; replaced the auth-only visibility effect with a
+resume handler on `visibilitychange`/`pageshow`/`focus` that refreshes auth (still
+throttled 5 min), reconnects realtime when disconnected, and runs an **unthrottled**
+full re-fetch on every foreground. `isRefreshing` ref dedupes the overlapping
+resume events. Declared above the resume effect to avoid a TDZ on its dep array.
+
+**Verified:** real iPhone home-screen install, Footy Tuesdays — change made during a
+90-second suspension appeared instantly on foreground, no relaunch. Live code
+confirmed serving on www.in-or-out.com (fix markers present in the deployed bundle).
+Not a PWA limitation; Capacitor not required. See GO_LIVE_ISSUES.md §7.2,
+DECISIONS.md, and [[project_inorout_deploy_and_pwa_update]] (memory).
 
 ## RESOLVED (session 68, mig 206 + JS) — follow-ups: admin_locked_in stuck-lock, Stats bib-duty, POTM avatar, orphaned-guest Remove
 
