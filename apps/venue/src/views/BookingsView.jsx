@@ -5,6 +5,7 @@ import DayAgenda from "./DayAgenda.jsx";
 import WalkInModal from "./WalkInModal.jsx";
 import BookingSettings from "./BookingSettings.jsx";
 import BookingDetailModal from "./BookingDetailModal.jsx";
+import CancellationsLog from "./CancellationsLog.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 import { todayIso, addDays, fmtDayLabel, isOnDate } from "../bookingUtil.js";
@@ -56,6 +57,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
   const [walkIn, setWalkIn] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [cancelKey, setCancelKey] = useState(0); // bump to reload the cancellations log
 
   useEffect(() => {
     if (!mobilePitchId && pitches.length) setMobilePitchId(pitches[0].id);
@@ -64,7 +66,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
   const pendingGroups = useMemo(() => buildPendingGroups(occupancy), [occupancy]);
   const dayOcc = useMemo(() => occupancy.filter((o) => isOnDate(o.start, date)), [occupancy, date]);
 
-  const afterWrite = () => { onRefreshOccupancy?.(); };
+  const afterWrite = () => { onRefreshOccupancy?.(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
 
   return (
@@ -153,10 +155,13 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
       <BookingDetailModal
         open={!!selectedBooking}
         occ={selectedBooking}
+        venue={venue}
         venueToken={venueToken}
         onClose={() => setSelectedBooking(null)}
         onChanged={() => { setSelectedBooking(null); afterWrite(); }}
       />
+
+      <CancellationsLog venueToken={venueToken} refreshKey={cancelKey} />
     </div>
   );
 }

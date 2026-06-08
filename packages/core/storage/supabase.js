@@ -2550,9 +2550,29 @@ export async function bookPitchSeries(teamId, playingAreaId, kickoffTime, startD
   return data;
 }
 
-export async function cancelBooking(bookingId, venueToken = null) {
-  const { data, error } = await supabase.rpc("cancel_booking", { p_booking_id: bookingId, p_venue_token: venueToken });
+// Cancel a booking. The optional `opts` carries the venue operator's
+// cancellation reason/note and refund decision (mig 222): decision is
+// 'full' | 'partial' | 'none' and acts on the booking's charge server-side.
+// withinPolicy is the client's policy check (booking time vs cancellation_policy),
+// recorded for the audit log. Existing 2-arg callers are unaffected (opts={}).
+export async function cancelBooking(bookingId, venueToken = null, opts = {}) {
+  const { data, error } = await supabase.rpc("cancel_booking", {
+    p_booking_id: bookingId,
+    p_venue_token: venueToken,
+    p_reason: opts.reason ?? null,
+    p_note: opts.note ?? null,
+    p_decision: opts.decision ?? null,
+    p_within_policy: opts.withinPolicy ?? null,
+  });
   if (error) { console.error("[booking] cancel_booking failed", error); throw error; }
+  return data;
+}
+
+// Venue cancellations audit log (mig 222) — booking_cancelled rows for this
+// venue with joined pitch/team/reason/refund detail, newest first.
+export async function venueListCancellations(venueToken, limit = 200) {
+  const { data, error } = await supabase.rpc("venue_list_cancellations", { p_venue_token: venueToken, p_limit: limit });
+  if (error) { console.error("[booking] venue_list_cancellations failed", error); throw error; }
   return data;
 }
 

@@ -124,6 +124,7 @@ export {
   bookPitchSeries,
   cancelBooking,
   cancelBookingSeries,
+  venueListCancellations,
   venueCreateBooking,
   venueConfirmBooking,
   venueDeclineBooking,

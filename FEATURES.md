@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: Jun 7 2026 (session 73 — remaining-work snapshot added at top; display re-skin wireframe shipped)*
+*Last updated: Jun 8 2026 (session 74 — Venue dashboard v2 re-skin shipped (PR #3, all 9 screens, dark operator console). Phase B started, venue-domain-only scope: Cancellations log + policy-driven refund SHIPPED (mig 222 — cancel_booking records reason/decision + refunds the charge; venue_list_cancellations + CSV export). Still Phase B: Customers booker-directory (recency-based, no cross-domain ins), Nudge messaging, per-booking ins (deferred — crosses the venue↔casual RLS wall).)*
 
 ---
 
