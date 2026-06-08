@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   venueGetCharges, venueRecordPayment, venueVoidCharge,
   venueAddFixtureCharge, venueUpdateBookingSettings,
+  venueVoidPayment, venueSetChargeDue,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -28,6 +29,8 @@ export default function PaymentsView({ state, venueToken }) {
   const [filter, setFilter] = useState("all");
   const [recordFor, setRecordFor] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [dueFor, setDueFor] = useState(null);          // charge whose owed amount is being edited
+  const [paymentsFor, setPaymentsFor] = useState(null); // charge id whose payments are being shown/undone
   const [link, setLink] = useState(state?.venue?.payment_link ?? "");
   const [editingLink, setEditingLink] = useState(false);
 
@@ -68,6 +71,16 @@ export default function PaymentsView({ state, venueToken }) {
     try { await venueAddFixtureCharge(venueToken, fixtureId, teamId, amountPence); setAdding(false); await load(); }
     catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
   };
+  const onSetDue = async (chargeId, amountPence) => {
+    setBusy(true);
+    try { await venueSetChargeDue(venueToken, chargeId, amountPence); setDueFor(null); await load(); }
+    catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
+  };
+  const onVoidPayment = async (paymentId) => {
+    setBusy(true);
+    try { await venueVoidPayment(venueToken, paymentId); await load(); }
+    catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
+  };
   const onSaveLink = async () => {
     setBusy(true);
     try {
@@ -83,6 +96,9 @@ export default function PaymentsView({ state, venueToken }) {
   const s = data.summary ?? {};
   const charges = data.charges ?? [];
   const rate = s.collection_rate;
+  // payCharge derives live from the reloaded list so the payments modal updates
+  // the moment a payment is voided (paymentsFor holds the id, not a snapshot).
+  const payCharge = paymentsFor ? charges.find((c) => c.id === paymentsFor) : null;
 
   return (
     <div>
@@ -147,12 +163,22 @@ export default function PaymentsView({ state, venueToken }) {
                     <td>{c.source_type === "fixture" ? "Fixture" : "Booking"}{c.due_date ? <span className="text-mute"> · {c.due_date}</span> : null}</td>
                     <td className="text-mute">{teamName(c.team_id) || "—"}</td>
                     <td className="num">{gbp(c.amount_due_pence)}</td>
-                    <td className="num">{gbp(c.paid_pence)}</td>
+                    <td className="num">
+                      {c.payments?.length ? (
+                        <button type="button" onClick={() => setPaymentsFor(c.id)} title="View / undo payments"
+                          style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", textDecoration: "underline dotted", padding: 0 }}>
+                          {gbp(c.paid_pence)}
+                        </button>
+                      ) : gbp(c.paid_pence)}
+                    </td>
                     <td className="num">{gbp(c.balance_pence)}</td>
                     <td><span className={"pill " + st.cls}><span className="pill-dot" /> {st.label}</span></td>
                     <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                       {c.status !== "paid" && c.status !== "refunded" && (
                         <button className="btn btn-xs" onClick={() => setRecordFor(c)}>Record payment</button>
+                      )}
+                      {c.status !== "refunded" && (
+                        <button className="btn btn-xs" style={{ marginLeft: 6 }} onClick={() => setDueFor(c)}>Edit due</button>
                       )}
                       {c.status !== "refunded" && (
                         <button className="btn btn-xs btn-danger" style={{ marginLeft: 6 }} onClick={() => onVoidCharge(c)} disabled={busy}>Void</button>
@@ -171,6 +197,12 @@ export default function PaymentsView({ state, venueToken }) {
       )}
       {adding && (
         <AddChargeModal fixtures={fixtures} busy={busy} teamName={teamName} onClose={() => setAdding(false)} onSubmit={onAddCharge} />
+      )}
+      {dueFor && (
+        <DueModal charge={dueFor} busy={busy} onClose={() => setDueFor(null)} onSubmit={onSetDue} teamName={teamName(dueFor.team_id)} />
+      )}
+      {payCharge && (
+        <PaymentsModal charge={payCharge} busy={busy} onClose={() => setPaymentsFor(null)} onVoid={onVoidPayment} teamName={teamName(payCharge.team_id)} />
       )}
     </div>
   );
@@ -261,6 +293,65 @@ function AddChargeModal({ fixtures, busy, teamName, onClose, onSubmit }) {
       </select>
       <label className="field-label">Amount (£, optional)</label>
       <input className="input" type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="league default" />
+    </Modal>
+  );
+}
+
+// Adjust the amount owed on a charge (discount / correction) without voiding it.
+function DueModal({ charge, busy, onClose, onSubmit, teamName }) {
+  const [amount, setAmount] = useState(((charge.amount_due_pence ?? 0) / 100).toFixed(2));
+
+  const submit = () => {
+    const pence = Math.round(parseFloat(amount) * 100);
+    if (!Number.isFinite(pence) || pence < 0) return;
+    onSubmit(charge.id, pence);
+  };
+
+  return (
+    <Modal onClose={onClose} title="Edit amount owed"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
+      </>}>
+      <p className="text-mute" style={{ marginBottom: 14 }}>
+        {charge.source_type === "fixture" ? "Fixture" : "Booking"}{teamName ? ` · ${teamName}` : ""} · paid £{((charge.paid_pence ?? 0) / 100).toFixed(2)}
+      </p>
+      <label className="field-label">Amount owed (£)</label>
+      <input className="input" type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+      <p className="text-mute" style={{ fontSize: 12, marginTop: 10 }}>Sets the total due. Recorded payments are kept; the balance recalculates.</p>
+    </Modal>
+  );
+}
+
+// List a charge's recorded payments and undo any single one (venue_void_payment).
+function PaymentsModal({ charge, busy, onClose, onVoid, teamName }) {
+  const pays = charge?.payments ?? [];
+  const methodLabel = (m) => (METHODS.find(([v]) => v === m)?.[1]) || m || "—";
+  return (
+    <Modal onClose={onClose} title="Recorded payments"
+      foot={<button className="btn btn-ghost" onClick={onClose} disabled={busy}>Close</button>}>
+      <p className="text-mute" style={{ marginBottom: 14 }}>
+        {charge.source_type === "fixture" ? "Fixture" : "Booking"}{teamName ? ` · ${teamName}` : ""}
+      </p>
+      {pays.length === 0 ? (
+        <p className="text-mute">No active payments — they may have all been undone.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {pays.map((p) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong>{gbp(p.amount_pence)}</strong> · {methodLabel(p.method)}
+                {p.note ? <span className="text-mute"> · {p.note}</span> : null}
+                <div className="text-mute" style={{ fontSize: 12 }}>
+                  {p.taken_at ? new Date(p.taken_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""}
+                </div>
+              </div>
+              <button className="btn btn-xs btn-danger" disabled={busy} onClick={() => onVoid(p.id)}>Undo</button>
+            </div>
+          ))}
+        </div>
+      )}
     </Modal>
   );
 }
