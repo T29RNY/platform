@@ -1,9 +1,9 @@
 import React from "react";
-import { motion } from "framer-motion";
+import Icon from "./Icon.jsx";
+import { SectionHead, EmptyState } from "./atoms.jsx";
 
-// League management — the leagues, seasons and competitions this venue runs.
-// Read-only overview today (all data is in venue state); season creation
-// routes through the existing Season Wizard via onNewSeason.
+// League overview — the leagues, seasons and competitions this venue runs.
+// Read-only; season creation routes through the Season Wizard via onNewSeason.
 export default function LeagueView({ state, onNewSeason }) {
   const leagues = state.leagues ?? [];
   const seasons = state.seasons ?? [];
@@ -13,75 +13,60 @@ export default function LeagueView({ state, onNewSeason }) {
   const compsBySeason = (seasonId) => competitions.filter((c) => c.season_id === seasonId);
 
   return (
-    <main className="content mgmt">
-      <div className="mgmt-head">
-        <div>
-          <h2 className="mgmt-title">Leagues</h2>
-          <p className="mgmt-sub">{leagues.length} league{leagues.length === 1 ? "" : "s"} · {seasons.length} season{seasons.length === 1 ? "" : "s"}</p>
-        </div>
-        <button className="btn-accent" onClick={onNewSeason}>+ Set up new season</button>
-      </div>
+    <div>
+      <SectionHead label="Leagues" count={`${leagues.length} league${leagues.length === 1 ? "" : "s"} · ${seasons.length} season${seasons.length === 1 ? "" : "s"}`}>
+        <button className="btn btn-sm btn-primary" onClick={onNewSeason}>
+          <Icon name="plus" size={14} /> Set up new season
+        </button>
+      </SectionHead>
 
       {leagues.length === 0 ? (
-        <div className="panel mgmt-empty">
-          <p className="muted">No leagues configured yet.</p>
-        </div>
+        <EmptyState title="No leagues configured yet" body="Set up a season to generate fixtures." />
       ) : (
-        <motion.div className="league-stack"
-          variants={{ show: { transition: { staggerChildren: 0.06 } } }}
-          initial="hidden" animate="show">
-          {leagues.map((lg) => {
-            const lgSeasons = seasonsByLeague(lg.id);
-            return (
-              <motion.section key={lg.id} className="panel league-card"
-                variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}>
-                <div className="league-card-head">
-                  <div>
-                    <h3 className="league-name">{lg.name}</h3>
-                    <div className="league-tags">
-                      {lg.short_name && <span className="lg-tag">{lg.short_name}</span>}
-                      {lg.format && <span className="lg-tag">{String(lg.format).replace(/_/g, " ")}</span>}
-                      {lg.day_of_week != null && <span className="lg-tag">{dayName(lg.day_of_week)}s</span>}
-                      {lg.default_kickoff_time && <span className="lg-tag">{stripSeconds(lg.default_kickoff_time)}</span>}
-                      <span className={"lg-tag lg-vis-" + (lg.standings_visibility || "public")}>
-                        {(lg.standings_visibility || "public")} table
-                      </span>
-                    </div>
-                  </div>
-                  {lg.league_code && <span className="league-code">{lg.league_code}</span>}
-                </div>
+        leagues.map((lg) => {
+          const lgSeasons = seasonsByLeague(lg.id);
+          return (
+            <div key={lg.id} className="league-card">
+              <div className="lh">
+                <h3>{lg.name}</h3>
+                <span className="lmeta" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {lg.short_name && <span className="pill pill-muted">{lg.short_name}</span>}
+                  {lg.format && <span className="pill pill-muted">{String(lg.format).replace(/_/g, " ")}</span>}
+                  {lg.day_of_week != null && <span className="pill pill-muted">{dayName(lg.day_of_week)}s</span>}
+                  {lg.default_kickoff_time && <span className="pill pill-muted">{stripSeconds(lg.default_kickoff_time)}</span>}
+                  <span className="pill pill-muted">{(lg.standings_visibility || "public")} table</span>
+                </span>
+                {lg.league_code && <span className="lcode">{lg.league_code}</span>}
+              </div>
 
-                {lgSeasons.length === 0 ? (
-                  <p className="muted league-empty">No seasons yet — set one up to generate fixtures.</p>
-                ) : (
-                  <div className="season-list">
-                    {lgSeasons.map((s) => (
-                      <div key={s.id} className="season-row">
-                        <div className="season-id">
-                          <span className="season-name">{s.name}</span>
-                          <span className="season-dates">{fmtDate(s.start_date)} – {fmtDate(s.end_date)} · {s.num_weeks}w</span>
-                        </div>
-                        <div className="season-comps">
-                          {compsBySeason(s.id).map((c) => (
-                            <span key={c.id} className={"comp-chip comp-" + (c.type || "league")}>{c.name}</span>
-                          ))}
-                          <span className={"season-status status-" + (s.status || "draft")}>{s.status || "draft"}</span>
-                        </div>
+              {lgSeasons.length === 0 ? (
+                <div className="season-row"><span className="text-mute">No seasons yet — set one up to generate fixtures.</span></div>
+              ) : (
+                lgSeasons.map((s) => (
+                  <div key={s.id} className="season-row">
+                    <div>
+                      <div className="sname">{s.name}</div>
+                      <div className="sdate">{fmtDate(s.start_date)} – {fmtDate(s.end_date)} · {s.num_weeks}w</div>
+                      <div className="comps">
+                        {compsBySeason(s.id).map((c) => (
+                          <span key={c.id} className={"pill " + (c.type === "cup" ? "pill-accent" : "pill-info")}>{c.name}</span>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                    <span className="pill pill-muted" style={{ textTransform: "capitalize", alignSelf: "start" }}>{s.status || "draft"}</span>
                   </div>
-                )}
-              </motion.section>
-            );
-          })}
-        </motion.div>
+                ))
+              )}
+            </div>
+          );
+        })
       )}
-    </main>
+    </div>
   );
 }
 
 function dayName(n) {
-  return ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][n] || "";
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][n] || "";
 }
 function stripSeconds(t) {
   const m = String(t || "").match(/^(\d{2}:\d{2})/);
