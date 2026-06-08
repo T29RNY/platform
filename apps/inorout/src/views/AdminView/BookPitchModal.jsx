@@ -28,17 +28,18 @@ function nextDateForDay(dayName) {
   return isoLocal(d);
 }
 
-// Snap an ISO date forward to the next occurrence of dayName on/after it, so a
-// weekly block always starts on its chosen weekday (book_pitch_series keys the
-// whole series on EXTRACT(DOW FROM start_date)).
-function snapToDay(iso, dayName) {
-  const target = DAYS.indexOf(dayName);
-  if (target < 0) return iso;
+// The weekday name for an ISO date — a weekly block repeats on whatever day its
+// start date falls on (book_pitch_series keys the series on the start DOW).
+function weekdayName(iso) {
   const d = new Date(iso + "T00:00:00");
-  if (isNaN(d.getTime())) return nextDateForDay(dayName);
-  const delta = (target - d.getDay() + 7) % 7;
-  d.setDate(d.getDate() + delta);
-  return isoLocal(d);
+  return isNaN(d.getTime()) ? "" : DAYS[d.getDay()];
+}
+// Human-readable date, e.g. "Wednesday, 24 June 2026".
+function prettyDate(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  } catch { return iso; }
 }
 
 function localTime(tstz) {
@@ -100,8 +101,7 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
   const [selected, setSelected] = useState(null);    // the chosen slot row {playing_area_id, pitch_name, slot_minutes, slot_start}
   const [selectedTime, setSelectedTime] = useState(null); // chosen kickoff time "HH:MM"
   const [weeks, setWeeks]     = useState(6);
-  const [blockDay, setBlockDay]     = useState(dayOfWeek);                 // weekly-block weekday (defaults to match day)
-  const [blockStart, setBlockStart] = useState(nextDateForDay(dayOfWeek)); // first occurrence (ISO, always on blockDay)
+  const [blockStart, setBlockStart] = useState(nextDateForDay(dayOfWeek)); // weekly-block start date (its weekday IS the repeat day)
 
   const [busy, setBusy]   = useState(false);
   const [error, setError] = useState(null);
@@ -151,19 +151,13 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
     if (venue) loadSlotsFor(venue.venue_id, mode, d, weeks, blockStart);
   };
 
-  // Weekly-block day picker: changing the day re-anchors the start to that day's
-  // next occurrence; the start-date picker snaps any chosen date onto that weekday.
-  const onBlockDay = (day) => {
-    const start = nextDateForDay(day);
-    setBlockDay(day); setBlockStart(start);
-    setSelected(null); setSelectedTime(null);
-    if (venue) loadSlotsFor(venue.venue_id, "block", date, weeks, start);
-  };
+  // One picker: the start date. The block repeats weekly on whatever day that
+  // date falls on, so picking the date sets both the day and the start.
   const onBlockStart = (iso) => {
-    const snapped = snapToDay(iso, blockDay);
-    setBlockStart(snapped);
+    if (!iso) return;
+    setBlockStart(iso);
     setSelected(null); setSelectedTime(null);
-    if (venue) loadSlotsFor(venue.venue_id, "block", date, weeks, snapped);
+    if (venue) loadSlotsFor(venue.venue_id, "block", date, weeks, iso);
   };
 
   // Reload block availability when the week count changes — more weeks means more
@@ -323,21 +317,11 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
               </>
             ) : (
               <>
-                <div className="form-row" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                  <div>
-                    <label>Day</label>
-                    <select value={blockDay} onChange={(e) => onBlockDay(e.target.value)}>
-                      {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Starts</label>
-                    <input type="date" value={blockStart} min={isoLocal(new Date())}
-                      onChange={(e) => onBlockStart(e.target.value)} />
-                  </div>
-                </div>
-                <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, margin: "10px 0 14px" }}>
-                  A weekly slot on <span style={{ color: "var(--t1)" }}>{blockDay}s</span>, starting {blockStart}.
+                <div style={LABEL}>Starts</div>
+                <input type="date" value={blockStart} min={isoLocal(new Date())}
+                  onChange={(e) => onBlockStart(e.target.value)} style={{ ...INPUT, marginBottom: 10 }} />
+                <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, marginBottom: 14 }}>
+                  Repeats weekly from <span style={{ color: "var(--t1)" }}>{prettyDate(blockStart)}</span>.
                 </div>
                 <div style={LABEL}>Number of weeks</div>
                 <input type="number" min={1} max={52} value={weeks}
@@ -356,9 +340,12 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
               <div><strong style={{ fontWeight: 400 }}>{venue.name}</strong>{venue.city ? ` — ${venue.city}` : ""}</div>
               <div>{selected.pitch_name}</div>
               {mode === "adhoc" ? (
-                <div>{date} · {localTime(selected.slot_start)} · {selected.slot_minutes} min</div>
+                <div>{prettyDate(date)} · {localTime(selected.slot_start)} · {selected.slot_minutes} min</div>
               ) : (
-                <div>{blockDay}s at {localTime(selected.slot_start)} · {selected.slot_minutes} min · {weeks} week{Number(weeks) === 1 ? "" : "s"} · from {blockStart}</div>
+                <>
+                  <div>Every {weekdayName(blockStart)} at {localTime(selected.slot_start)} · {selected.slot_minutes} min · {weeks} week{Number(weeks) === 1 ? "" : "s"}</div>
+                  <div style={{ marginTop: 4, color: "var(--t2)" }}>From {prettyDate(blockStart)}</div>
+                </>
               )}
             </div>
 
