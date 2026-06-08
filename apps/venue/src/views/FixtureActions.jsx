@@ -21,14 +21,14 @@ export default function FixtureActions({ venueToken, fixture, state, onDone }) {
 
   return (
     <>
-      <div className="row-actions">
+      <div className="actions">
         {["scheduled","allocated"].includes(fixture.status) && (
           <>
-            <button onClick={() => setOpen("pitch")}>Pitch</button>
-            <button onClick={() => setOpen("ref")}>Ref</button>
+            <button className="btn btn-xs" onClick={() => setOpen("pitch")}>Pitch</button>
+            <button className="btn btn-xs" onClick={() => setOpen("ref")}>Ref</button>
           </>
         )}
-        <button onClick={() => setOpen("status")}>Status</button>
+        <button className="btn btn-xs" onClick={() => setOpen("status")}>{fixture.status === "completed" ? "Edit" : "•••"}</button>
       </div>
       {open === "pitch"  && <PitchModal  fixture={fixture} state={state} venueToken={venueToken} onDone={onDone} onClose={() => setOpen(null)} />}
       {open === "ref"    && <RefModal    fixture={fixture} state={state} venueToken={venueToken} onDone={onDone} onClose={() => setOpen(null)} />}
@@ -62,11 +62,12 @@ function PitchModal({ fixture, state, venueToken, onDone, onClose }) {
   return (
     <Modal open onClose={() => !busy && onClose()} title="Assign pitch"
       footer={<>
-        <button onClick={onClose} disabled={busy}>Cancel</button>
-        <button onClick={save} disabled={busy} className="btn-accent">{busy ? "Saving…" : "Save"}</button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
       </>}>
-      <label>Pitch</label>
-      <select value={pitchId} onChange={(e) => setPitchId(e.target.value)}>
+      <label className="field-label">Pitch</label>
+      <select className="input" value={pitchId} onChange={(e) => setPitchId(e.target.value)}>
         <option value="">— None (clear) —</option>
         {pitches.map((p) => {
           const blocked = inMaintenance(p);
@@ -77,7 +78,7 @@ function PitchModal({ fixture, state, venueToken, onDone, onClose }) {
           );
         })}
       </select>
-      {error && <p className="error">{error}</p>}
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{error}</p>}
     </Modal>
   );
 }
@@ -99,11 +100,12 @@ function RefModal({ fixture, state, venueToken, onDone, onClose }) {
   return (
     <Modal open onClose={() => !busy && onClose()} title="Assign referee"
       footer={<>
-        <button onClick={onClose} disabled={busy}>Cancel</button>
-        <button onClick={save} disabled={busy} className="btn-accent">{busy ? "Saving…" : "Save"}</button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
       </>}>
-      <label>Official</label>
-      <select value={refId} onChange={(e) => setRefId(e.target.value)}>
+      <label className="field-label">Official</label>
+      <select className="input" value={refId} onChange={(e) => setRefId(e.target.value)}>
         <option value="">— None (clear) —</option>
         {refs.map((r) => (
           <option key={r.id} value={r.id}>
@@ -111,7 +113,7 @@ function RefModal({ fixture, state, venueToken, onDone, onClose }) {
           </option>
         ))}
       </select>
-      {error && <p className="error">{error}</p>}
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{error}</p>}
     </Modal>
   );
 }
@@ -147,18 +149,19 @@ function StatusModal({ fixture, state, venueToken, onDone, onClose }) {
   return (
     <Modal open onClose={() => !busy && onClose()} title="Change fixture status"
       footer={<>
-        <button onClick={onClose} disabled={busy}>Cancel</button>
-        <button onClick={save} disabled={busy} className="btn-accent">{busy ? "Saving…" : "Save"}</button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
       </>}>
-      <label>New status</label>
-      <select value={status} onChange={(e) => { setStatus(e.target.value); setReason(""); setWinnerId(""); }}>
+      <label className="field-label">New status</label>
+      <select className="input" value={status} onChange={(e) => { setStatus(e.target.value); setReason(""); setWinnerId(""); }}>
         <option value="">— pick one —</option>
         {allowed.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
       </select>
       {needsWinner && (
         <>
-          <label>Winner</label>
-          <select value={winnerId} onChange={(e) => setWinnerId(e.target.value)}>
+          <label className="field-label">Winner</label>
+          <select className="input" value={winnerId} onChange={(e) => setWinnerId(e.target.value)}>
             <option value="">— pick one —</option>
             <option value={fixture.home_team_id}>{teams[fixture.home_team_id]?.name || fixture.home_team_id} (home)</option>
             {fixture.away_team_id && (
@@ -169,11 +172,11 @@ function StatusModal({ fixture, state, venueToken, onDone, onClose }) {
       )}
       {needsReason && (
         <>
-          <label>Reason</label>
-          <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+          <label className="field-label">Reason</label>
+          <textarea className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
         </>
       )}
-      {error && <p className="error">{error}</p>}
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{error}</p>}
     </Modal>
   );
 }
