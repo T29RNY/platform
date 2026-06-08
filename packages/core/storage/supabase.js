@@ -2511,6 +2511,20 @@ export async function getPitchFreeSlots(venueId, date, playingAreaId = null, slo
   return data;
 }
 
+// Weekly-block free slots (mig 228): only slots free across ALL N weekly
+// occurrences from startDate, so a block booking never fails on a later week.
+// slot_start is week 1 — pass it straight to bookPitchSeries.
+export async function getPitchFreeSlotsSeries(venueId, startDate, weeks, slotLength = null) {
+  const { data, error } = await supabase.rpc("get_pitch_free_slots_series", {
+    p_venue_id: venueId,
+    p_start_date: startDate,
+    p_weeks: weeks,
+    p_slot_length: slotLength,
+  });
+  if (error) { console.error("[booking] get_pitch_free_slots_series failed", error); throw error; }
+  return data;
+}
+
 export async function getTeamBookings(teamId) {
   const { data, error } = await supabase.rpc("get_team_bookings", { p_team_id: teamId });
   if (error) { console.error("[booking] get_team_bookings failed", error); throw error; }

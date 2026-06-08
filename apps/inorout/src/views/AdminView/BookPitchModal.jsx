@@ -3,6 +3,7 @@ import { X, MagnifyingGlass, CaretLeft, CheckCircle } from "@phosphor-icons/reac
 import {
   searchBookableVenues,
   getPitchFreeSlots,
+  getPitchFreeSlotsSeries,
   bookPitchAdhoc,
   bookPitchSeries,
 } from "@platform/core";
@@ -102,34 +103,47 @@ export default function BookPitchModal({ teamId, dayOfWeek, kickoff, recentVenue
     debounceRef.current = setTimeout(() => runSearch(v), 350);
   };
 
-  // ── load slots when venue/date/mode changes ──
-  const loadSlots = useCallback((venueId, d) => {
+  // ── load slots when venue/date/mode/weeks changes ──
+  // Block mode uses the series RPC so a slot is only offered when it's free on
+  // EVERY one of the N weeks — otherwise book_pitch_series would reject the whole
+  // block at the last step (mig 228). One-off mode checks the single chosen date.
+  const loadSlotsFor = useCallback((venueId, m, d, w) => {
     setLoadingSlots(true);
-    getPitchFreeSlots(venueId, d)
+    const req = m === "block"
+      ? getPitchFreeSlotsSeries(venueId, nextDateForDay(dayOfWeek), Math.min(Math.max(Number(w) || 1, 1), 52))
+      : getPitchFreeSlots(venueId, d);
+    req
       .then((rows) => setSlots(Array.isArray(rows) ? rows : []))
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false));
-  }, []);
+  }, [dayOfWeek]);
 
   const pickVenue = (v) => {
     setVenue(v);
     setSelected(null); setSelectedTime(null);
     setStep("plan");
-    loadSlots(v.venue_id, mode === "block" ? nextDateForDay(dayOfWeek) : date);
+    loadSlotsFor(v.venue_id, mode, date, weeks);
   };
 
   const switchMode = (m) => {
     setMode(m);
     setSelected(null); setSelectedTime(null);
-    const d = m === "block" ? nextDateForDay(dayOfWeek) : date;
     if (m === "block") setDate(nextDateForDay(dayOfWeek));
-    if (venue) loadSlots(venue.venue_id, d);
+    if (venue) loadSlotsFor(venue.venue_id, m, date, weeks);
   };
 
   const onDate = (d) => {
     setDate(d); setSelected(null); setSelectedTime(null);
-    if (venue) loadSlots(venue.venue_id, d);
+    if (venue) loadSlotsFor(venue.venue_id, mode, d, weeks);
   };
+
+  // Reload block availability when the week count changes — more weeks means more
+  // chances of a clash, so the free-slot list can shrink.
+  useEffect(() => {
+    if (mode !== "block" || !venue) return;
+    setSelected(null); setSelectedTime(null);
+    loadSlotsFor(venue.venue_id, "block", date, weeks);
+  }, [weeks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Time-first: group the day's free slots by kickoff time. Shared by both modes —
   // the booker picks a time, then a pitch free at that time.

@@ -119,6 +119,7 @@ export {
   getCompanyByDomain,
   searchBookableVenues,
   getPitchFreeSlots,
+  getPitchFreeSlotsSeries,
   getTeamBookings,
   bookPitchAdhoc,
   bookPitchSeries,
