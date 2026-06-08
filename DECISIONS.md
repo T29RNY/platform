@@ -1,10 +1,36 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 8 2026 (session 74 — Venue v2 redesign + Phase B booker layer; venue↔casual boundary)*
+*Last updated: Jun 9 2026 (session 76 — reserve "spot opened" stays tap-to-claim, made reliable server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## Reserves stay tap-to-claim (no auto-promotion); the "spot opened" alert is reliable + server-side (session 76, mig 230)
+
+When a squad spot frees up, the next reserve is **alerted to claim it** — their status does NOT
+auto-flip to `in`. Auto-promotion was explicitly considered and **rejected**: flipping a reserve to
+`in` without their tap would commit them to playing and to the match fee/owes without consent, and
+reverses the deliberate "Reserve must respond IN to confirm" model (Gaffer spec + the player-facing
+"we'll let you know if a spot opens" copy). The reserve queue ordering already auto-adjusts
+(append/compact, mig 130); only the *notification* changed.
+
+What DID change: the alert is now **reliable and universal**. It was fired client-side from the
+dropping player's own device via the self-toggle only — so it missed admin-marks-out, disable, and
+injury, and failed if that device didn't POST. As of mig 230 a DB trigger `notify_spot_opened`
+(`AFTER UPDATE OF status, disabled ON players`) detects ANY spot-freeing transition server-side and
+pushes to the **next reserve only** (lowest `reserve_priority_order`) via `net.http_post` →
+`/api/notify` direct mode. **Recipient rule:** always just the next reserve, at any time (no
+>24h/<24h split — operator decision). Chaining is automatic: if that reserve passes/drops, the next
+drop is a fresh freeing event that alerts the next in line.
+
+**Why a trigger (not per-RPC or cron):** one place catches all paths (self/admin status, disable,
+injury), immediate, and mirrors the proven mig-225 venue-ins "status trigger → notification,
+exception-swallowing" pattern. **Anti-spam:** the weekly squad reset sets the whole squad
+`status='none'` in one statement; the go-live RPCs set a transaction-local `inorout.bulk_reset`
+GUC before the reset and the trigger skips it (proven load-bearing in ephemeral-verify). Delivery
+is best-effort (lost if the app is down, no retry) — matches the prior client behaviour. The
+separate `squadFull` push stays client-fired (out of scope).
 
 ## Venue Phase B is venue-domain-only; cross the venue↔casual RLS wall by counts-only opt-in (session 74)
 

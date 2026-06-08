@@ -1,7 +1,25 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 7 2026 (session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 9 2026 (session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
 
 ---
+
+## SESSION 76 — RESOLVED: "spot opened" reserve notification was unreliable + partial (mig 230)
+
+**Defect.** The "🟣 a spot's opened — tap to claim" push was fired **client-side** from the
+dropping player's OWN device, only via the self-toggle (`PlayerView.setStatus`). It therefore
+**did not fire** when an admin marked a player out, when a player was disabled/removed, or when an
+in-player was marked injured (which drops them to `out`) — and was lost entirely if the dropping
+device failed to POST (fire-and-forget `.catch(console.error)`). Reserves could silently miss a
+spot opening.
+
+**Fix (mig 230, PR #6).** Replaced with a server-side DB trigger `notify_spot_opened`
+(`AFTER UPDATE OF status, disabled ON players`) that detects ANY spot-freeing transition and pushes
+to the next reserve via `net.http_post` → `/api/notify` direct mode. Exception-swallowing (never
+breaks the player write). Client block removed. **Anti-spam:** the weekly squad reset would have
+fired the trigger per-row mid-statement → both go-live RPCs now set a transaction-local
+`inorout.bulk_reset` GUC before the reset; the trigger skips it (proven load-bearing). No
+auto-promotion — tap-to-claim unchanged. Ephemeral-verified (all 4 freeing paths → next reserve;
+cancelled/no-reserve/bulk-reset = 0; leak-check 0). **Owed:** real-iPhone confirmation post-deploy.
 
 ## SESSION 71 AUDIT — full-codebase sweep of recurring bug classes
 

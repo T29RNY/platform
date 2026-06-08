@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
-  resolveMotm, sortByReservePriority, isDormantGuest } from "@platform/core";
+  resolveMotm, isDormantGuest } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
   getPOTMVotingState, setPlayerNickname,
   resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
@@ -446,20 +446,9 @@ export default function PlayerView({
     if (!teamId) return;
     const gameDate = schedule.gameDateTime?.split("T")[0];
 
-    if (me?.status === "in" && s !== "in") {
-      const reserves = sortByReservePriority(squad.filter(p => p.status === "reserve" && !p.disabled));
-      if (reserves.length) {
-        const hoursToKick = schedule.gameDateTime
-          ? (new Date(schedule.gameDateTime) - new Date()) / 3600000
-          : Infinity;
-        const toNotify = hoursToKick < 24 ? reserves : [reserves[0]];
-        notifyServer("spotOpened", teamId, toNotify.map(p => p.id), {
-          title: "In or Out ⚽",
-          body: `🟣 A spot's opened up for ${schedule.dayOfWeek} — tap to claim it!`,
-          icon: "/icons/icon-192.png",
-        }, gameDate);
-      }
-    }
+    // Spot-opened notification is now server-driven (mig 230): a DB trigger
+    // reliably alerts the next reserve on ANY spot-freeing event (player out,
+    // admin out, disable, injury) — not just this device's self-toggle.
 
     if (s === "in" && me?.status !== "in") {
       const currentInCount = inPlayers.length;

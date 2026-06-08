@@ -1,5 +1,33 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 8 2026 (session 75 — Venue dashboard screen-by-screen wiring audit; migs 227–229 + Edit-score.)*
+*Last updated: Jun 9 2026 (session 76 — reliable server-side "spot opened" reserve notification, mig 230.)*
+
+## SESSION 76 — Reliable "a spot's opened — claim it" reserve notification (Jun 9 2026)
+
+Branch `reserve-spot-opened-notify` / **PR #6**. Operator decisions: **keep tap-to-claim** (NO
+auto-promotion — a reserve still taps In to confirm; auto-In was rejected as it would commit them
+to the fee without consent), but make the alert fire **reliably on ALL spot-freeing events,
+server-side**, to just the **next reserve** in the queue.
+
+- **The defect:** the "🟣 a spot's opened — tap to claim" push was fired **client-side** from the
+  dropping player's OWN device, only via the self-toggle (`PlayerView.setStatus`). It missed
+  admin-marks-out, disable, and injury, and failed silently if that device didn't POST.
+- **mig 230:** new trigger `notify_spot_opened` on `players` `AFTER UPDATE OF status, disabled` —
+  fires on any spot-freeing transition (`'in'→not 'in'`, or disabled flips true while `'in'`),
+  recomputes in-count vs `schedule.squad_size`, and on a genuine opening posts to `/api/notify`
+  **direct mode** (no auth) via `net.http_post` (canonical `www` URL, mig 049) for the lowest
+  `reserve_priority_order` reserve only. notify.js does all gating (trigger config, quiet hours,
+  injured filter, log). Exception-swallowing — can never break the player write (mirrors mig-225
+  venue-ins pattern). Client `spotOpened` block removed from PlayerView; `squadFull` left as-is.
+- **Anti-spam:** the weekly squad reset (`admin_go_live` / `admin_go_live_for_team`) sets the whole
+  squad `status='none'` in one statement; a row-level trigger could fire mid-statement while later
+  reserve rows still read `'reserve'`. Both go-live RPCs now `set_config('inorout.bulk_reset',
+  team_id, true)` (transaction-local) before the reset; the trigger returns immediately when set.
+- **Verified:** ephemeral-verify (rolled back, leak-check 0) — all four freeing paths (out / maybe
+  / injury / disable) notify res1 only; cancelled-game and no-reserve = 0; the guard is
+  load-bearing (unguarded mass reset Δ3 vs guarded go-live Δ0). RPC-security-sweep pass (go-live
+  grants preserved; trigger fn anon/authenticated EXECUTE revoked); build + hygiene 7/7 +
+  casual-regression clean. **Real-iPhone test owed post-deploy** (drop an in-player → next
+  reserve's phone gets the push). The separate `squadFull` push is still client-fired (out of scope).
 
 ## SESSION 75 — Venue dashboard wiring audit + 4 fixes (Jun 8 2026)
 
