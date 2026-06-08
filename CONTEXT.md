@@ -1,5 +1,35 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 7 2026 (session 72 — PERSISTENT GUESTS epic S1–S5 shipped, migs 216–219; see FEATURES + DECISIONS + RPCS.)*
+*Last updated: Jun 8 2026 (session 74 — Venue v2 redesign + Phase B booker layer; venue app first deploy.)*
+
+## SESSION 74 — Venue dashboard v2 + Phase B + first venue deploy (Jun 8 2026)
+
+Branch `venue-redesign-v2` / **PR #3** (not yet merged at session end).
+
+- **Phase A — v2 re-skin:** the whole venue app moved from "Broadcast Gallery" to a dark
+  "operator console" (Manrope, sodium-amber, rail nav). All 9 screens + entry screens; a
+  transitional CSS shim themes the few not-fully-ported secondary modals. No backend touched.
+- **Phase B — booker layer (migs 222–226, all applied live + ephemeral-verified + leak-checked):**
+  - 222 Cancellations: `cancel_booking` records reason/decision + refunds the charge (full→
+    refunded, partial→halved, none→untouched, mirrors fixture-void); `venue_list_cancellations`
+    log + CSV. Policy-driven CancelBookingModal.
+  - 223 Customers: `venue_list_customers` (teams/walk-ins; bookings/spend/recency `nudge_status`).
+  - 224 Nudge: `venue_request_nudge` (records ask, count only) + cron/`_mailer` `venue_nudge`
+    send (server-side; venue never sees contact).
+  - 225 Live ins: `venue_get_booking_ins` (in/target counts) + `players_ins_notify` trigger →
+    `booking_ins_changed` broadcast; venue badge updates the instant a player taps in/out.
+  - 226 Customer detail: `venue_get_customer` (a booker's bookings + charge + live ins).
+  - Scope: **venue-domain only** (see DECISIONS.md). Boundary held by counts-only reads.
+- **First venue deploy:** the venue app had never been deployed (no `platform-venue` Vercel
+  project). Deployed the branch's static build (Supabase anon key is public, baked at build) as a
+  new production project → **https://platform-venue.vercel.app**. Demo: append
+  `?token=demo_venue_token_DO_NOT_USE_IN_PROD`. NB this is a **manual static deploy of the branch**
+  — not Git-integrated yet, so it won't auto-update on push. Permanent path: merge PR #3 + connect
+  `platform-venue` to the repo (Root Directory `apps/venue`) for CI deploys, then it tracks `main`.
+  `VENUE_APP_URL` can now be set to this URL on the `inor-out` project so registration emails carry
+  the venue link.
+- **Open at session end:** PR #3 unmerged → live DB (migs 222–226) runs ahead of `main` source
+  (the Hard-Rule-#11 drift). Merge PR #3 to reconcile. Live ins + Nudge are best eyeballed against
+  a real team (demo has only walk-in bookers).
 
 ## SESSION 72 — PERSISTENT GUESTS epic (S1–S5 complete, Jun 7 2026)
 

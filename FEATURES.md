@@ -761,9 +761,11 @@ cycle; the web-push chain is untouched. SMS/WhatsApp (Twilio) is a later 9.x cyc
   (`https://platform-ref.vercel.app`) set in the inor-out Vercel project; redeployed. Live test:
   a `team_approved` event resolved to the Competitive FC admin, Resend sent, `notification_log`
   logged `channel='email'`, and the email **landed in the inbox**. Dedup confirmed (second tick
-  no resend); test rows cleaned up. `VENUE_APP_URL` left unset (venue app not yet deployed →
-  registration-pending email omits the link). `team_registration_pending` still needs a **real**
-  venue to exercise (demo venue has no linked `venue_admins` row).
+  no resend); test rows cleaned up. `VENUE_APP_URL` left unset (registration-pending email omits
+  the link). **Update (session 74):** the venue app is now deployed at
+  **https://platform-venue.vercel.app** — `VENUE_APP_URL` can be set to it on the `inor-out`
+  project so the link appears. `team_registration_pending` still needs a **real** venue to
+  exercise (demo venue has no linked `venue_admins` row).
 - **Deferred to later 9.x:** SMS/WhatsApp; player notification-preference UI + contact setters;
   fixture-reminder/availability crons; HQ weekly digest; the AI `pre_match_briefing` (overlaps Phase 7).
 
