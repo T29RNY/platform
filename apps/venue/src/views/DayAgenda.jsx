@@ -24,11 +24,11 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
 
   return (
     <div className="da">
-      <div className="da-switch">
+      <div className="agenda-pitches">
         {pitches.map((p) => (
           <button
             key={p.id}
-            className={"da-pitch" + (p.id === pitch?.id ? " is-active" : "")}
+            className={"btn btn-xs" + (p.id === pitch?.id ? " btn-primary" : "")}
             onClick={() => onPitchChange(p.id)}
           >
             {p.name}
@@ -36,7 +36,7 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
         ))}
       </div>
 
-      <div className="da-timeline" style={{ gridTemplateColumns: "52px 1fr" }}>
+      <div className="da-timeline" style={{ display: "grid", gridTemplateColumns: "52px 1fr" }}>
         <div className="sg-axis" style={{ height }}>
           {hours.map((m) => (
             <div className="sg-tick" key={m} style={{ top: (m - startMin) * PXMIN }}>
@@ -72,8 +72,8 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
       </div>
 
       {canBook && pitch && (
-        <button className="btn-accent da-fab" onClick={() => onTapEmpty(pitch.id, "")} aria-label="Add walk-in booking">
-          +
+        <button className="btn btn-primary" style={{ marginTop: 12, width: "100%" }} onClick={() => onTapEmpty(pitch.id, "")}>
+          + Add walk-in booking
         </button>
       )}
     </div>

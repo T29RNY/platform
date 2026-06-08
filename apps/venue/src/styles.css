@@ -2561,3 +2561,131 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   display: flex;
   justify-content: center;
 }
+
+/* ============================================================
+   Schedule grid + day agenda — kept layout from the original
+   ScheduleGrid/DayAgenda (proven minute-positioning math),
+   re-themed to v2 tokens. Booking flow is unchanged.
+   ============================================================ */
+.sg-scroll { overflow: auto; max-height: 720px; }
+.sg {
+  display: grid;
+  min-width: max-content;
+}
+.sg-corner {
+  position: sticky; top: 0; left: 0; z-index: 3;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.sg-colhead {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 12px 14px;
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+}
+.sg-axis {
+  position: relative;
+  border-right: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.sg-tick {
+  position: absolute; left: 0; right: 0;
+  padding-right: 8px; text-align: right;
+  font-size: 11px; color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-50%);
+}
+.sg-col {
+  position: relative;
+  border-right: 1px solid var(--border);
+}
+.sg-col.is-bookable { cursor: copy; }
+.sg-hourline {
+  position: absolute; left: 0; right: 0;
+  border-top: 1px solid var(--rule);
+}
+.sg .occ {
+  position: absolute; left: 6px; right: 6px;
+}
+.occ-label { display: block; font-weight: 600; font-size: 12px; }
+.occ-time { display: block; font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+.occ-fixture { background: var(--accent-soft); border-color: rgba(255,200,58,0.4); color: var(--accent); cursor: default; }
+.occ-fixture .occ-time { color: var(--accent); }
+.occ-maint {
+  background: repeating-linear-gradient(45deg, var(--bg-3) 0 8px, var(--bg-4) 8px 16px);
+  border-style: dashed; color: var(--ink-3); cursor: default;
+}
+.occ-pending { background: var(--warn-soft); border-color: rgba(245,158,11,0.4); color: var(--warn); }
+.occ-pending .occ-time { color: var(--warn); }
+.occ-confirmed { background: var(--ok-soft); border-color: rgba(18,185,129,0.4); color: var(--ok); }
+.occ-confirmed .occ-time { color: var(--ok); }
+.occ-actionable { cursor: pointer; }
+
+/* Day agenda (mobile single-pitch list) */
+.agenda-pitches { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.agenda-list { display: flex; flex-direction: column; gap: 8px; }
+.agenda-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.agenda-row.is-empty { color: var(--ink-4); border-style: dashed; cursor: copy; }
+.agenda-row .ag-time { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--ink-3); min-width: 92px; }
+.agenda-row .ag-label { font-weight: 600; font-size: 13px; }
+
+/* ============================================================
+   TRANSITIONAL SHIM — maps legacy venue classes + bare form
+   fields to v2 tokens so screens/modals not yet ported to the
+   rich v2 components stay legible. Each block is retired as its
+   screen is re-skinned; delete this section when Phase A lands.
+   ============================================================ */
+.center { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.muted, .text-mute { color: var(--ink-3); }
+.error { color: var(--live); font-size: 12px; margin-top: 8px; }
+.row-actions { display: flex; gap: 6px; }
+
+/* legacy form fields inside modals → v2 input look */
+.modal-body label {
+  display: block; font-size: 12px; font-weight: 500; color: var(--ink-3);
+  margin: 0 0 8px;
+}
+.modal-body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.modal-body select,
+.modal-body textarea {
+  display: block; width: 100%; height: var(--row-h); padding: 0 14px;
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 13px; color: var(--ink); margin-bottom: 12px;
+}
+.modal-body textarea { height: auto; min-height: 80px; padding: 12px 14px; resize: vertical; }
+.modal-body input:focus, .modal-body select:focus, .modal-body textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* legacy button classes → v2 button look (class wins over .btn where both used) */
+.btn-accent {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: var(--row-h); padding: 0 16px; background: var(--accent); color: var(--accent-ink);
+  border: 1px solid var(--accent); border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-accent:hover { background: #FFD15C; }
+.btn-good, .btn-bad {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border); background: var(--bg-3); cursor: pointer;
+}
+.btn-good { color: var(--ok); } .btn-good:hover { background: var(--ok-soft); border-color: var(--ok); }
+.btn-bad { color: var(--live); } .btn-bad:hover { background: var(--live-soft); border-color: var(--live); }
+.btn-link { background: transparent; border: none; color: var(--accent); font-weight: 600; cursor: pointer; font-size: 13px; }
+.btn-link:hover { text-decoration: underline; }
+
+/* bare buttons in legacy modal footers → v2 default button */
+.modal-foot button:not(.btn):not(.btn-accent):not(.btn-good):not(.btn-bad) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: var(--row-h); padding: 0 16px; background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer;
+}
+.modal-foot button:not(.btn):not(.btn-accent):not(.btn-good):not(.btn-bad):hover { background: var(--bg-4); }
