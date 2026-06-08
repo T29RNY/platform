@@ -2586,6 +2586,15 @@ export async function venueListCustomers(venueToken) {
   return data;
 }
 
+// Live "ins" per upcoming team booking (mig 225) — map of booking_id →
+// { team_id, in_count, target }. Counts only; no player identities. Refetch on
+// a 'booking_ins_changed' venue broadcast for live updates.
+export async function venueGetBookingIns(venueToken) {
+  const { data, error } = await supabase.rpc("venue_get_booking_ins", { p_venue_token: venueToken });
+  if (error) { console.error("[booking] venue_get_booking_ins failed", error); throw error; }
+  return data?.ins ?? {};
+}
+
 // Request a nudge to a team booker (mig 224, server-side send). Records the
 // request; the cron resolves the team admin contact + sends. Returns
 // {ok, recipients} or {ok:false, reason:'no_contact'} (walk-ins / no contact).

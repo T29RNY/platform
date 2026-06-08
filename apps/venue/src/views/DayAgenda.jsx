@@ -4,7 +4,7 @@ import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel } from "../book
 const PXMIN = 0.9;
 const SNAP = 30;
 
-export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOcc, canBook, onTapEmpty, onSelectBooking }) {
+export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOcc, bookingIns = {}, canBook, onTapEmpty, onSelectBooking }) {
   const pitch = pitches.find((p) => p.id === pitchId) ?? pitches[0];
   const { startMin, endMin } = dayWindow(pitches, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
@@ -56,6 +56,7 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
             const top = (minsOfDay(o.start) - startMin) * PXMIN;
             const h = Math.max((minsOfDay(o.end) - minsOfDay(o.start)) * PXMIN, 22);
             const isBooking = o.source_kind === "booking";
+            const ins = isBooking ? bookingIns[o.source_id] : null;
             return (
               <div
                 key={o.id}
@@ -65,6 +66,7 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
               >
                 <span className="occ-label">{occLabel(o)}</span>
                 <span className="occ-time">{fmtTime(o.start)}–{fmtTime(o.end)}</span>
+                {ins && <span className="occ-ins">{ins.in_count}{ins.target ? `/${ins.target}` : ""} in</span>}
               </div>
             );
           })}

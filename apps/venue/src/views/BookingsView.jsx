@@ -46,7 +46,7 @@ function buildPendingGroups(occupancy) {
     .sort((a, b) => a.starts[0]?.localeCompare(b.starts[0] ?? "") ?? 0);
 }
 
-export default function BookingsView({ state, venueToken, occupancy = [], onRefresh, onRefreshOccupancy }) {
+export default function BookingsView({ state, venueToken, occupancy = [], bookingIns = {}, onRefresh, onRefreshOccupancy }) {
   const venue = state.venue ?? {};
   const enabled = !!venue.bookings_enabled;
   const pitches = useMemo(() => (state.pitches ?? []).filter((p) => p.active), [state.pitches]);
@@ -116,6 +116,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
                 pitchId={mobilePitchId}
                 onPitchChange={setMobilePitchId}
                 dayOcc={dayOcc}
+                bookingIns={bookingIns}
                 canBook={enabled}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
                 onSelectBooking={setSelectedBooking}
@@ -125,6 +126,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
                 date={date}
                 pitches={pitches}
                 dayOcc={dayOcc}
+                bookingIns={bookingIns}
                 canBook={enabled}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
                 onSelectBooking={setSelectedBooking}
@@ -156,6 +158,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], onRefr
         open={!!selectedBooking}
         occ={selectedBooking}
         venue={venue}
+        ins={selectedBooking ? bookingIns[selectedBooking.source_id] : null}
         venueToken={venueToken}
         onClose={() => setSelectedBooking(null)}
         onChanged={() => { setSelectedBooking(null); afterWrite(); }}

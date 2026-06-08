@@ -42,7 +42,7 @@ const TITLES = {
   league: "Leagues", table: "Standings", cups: "Cups",
 };
 
-export default function Dashboard({ state, venueToken, occupancy = [], onRefresh, onRefreshOccupancy, refreshing }) {
+export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, onRefresh, onRefreshOccupancy, refreshing }) {
   const [view, setView] = useState("ops");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
@@ -105,7 +105,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
           )}
 
           {view === "bookings" && (
-            <BookingsView state={state} venueToken={venueToken} occupancy={occupancy} onRefresh={onRefresh} onRefreshOccupancy={onRefreshOccupancy} />
+            <BookingsView state={state} venueToken={venueToken} occupancy={occupancy} bookingIns={bookingIns} onRefresh={onRefresh} onRefreshOccupancy={onRefreshOccupancy} />
           )}
           {view === "payments" && <PaymentsView state={state} venueToken={venueToken} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}

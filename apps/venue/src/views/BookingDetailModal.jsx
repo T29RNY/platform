@@ -8,7 +8,7 @@ import { fmtTime, fmtDayShort } from "../bookingUtil.js";
 // Tap a booking block → confirm/decline (pending) or cancel (confirmed).
 // A confirmed-booking cancel opens the policy-driven CancelBookingModal so the
 // operator records a reason + refund decision (mig 222).
-export default function BookingDetailModal({ open, occ, venue, venueToken, onClose, onChanged }) {
+export default function BookingDetailModal({ open, occ, venue, ins, venueToken, onClose, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -49,6 +49,12 @@ export default function BookingDetailModal({ open, occ, venue, venueToken, onClo
         <div className="bk-detail-row"><span className="text-mute">When</span><strong>{fmtDayShort(occ.start)} · {fmtTime(occ.start)}–{fmtTime(occ.end)}</strong></div>
         <div className="bk-detail-row"><span className="text-mute">Type</span><strong>{isSeries ? "Weekly block" : "One-off"}</strong></div>
         <div className="bk-detail-row"><span className="text-mute">Status</span><strong style={{ textTransform: "capitalize" }}>{d.status}</strong></div>
+        {ins && (
+          <div className="bk-detail-row">
+            <span className="text-mute">Players in</span>
+            <strong style={{ color: "var(--ok)" }}>{ins.in_count}{ins.target ? `/${ins.target}` : ""} in <span className="pill pill-live" style={{ marginLeft: 6 }}><span className="pill-dot" />live</span></strong>
+          </div>
+        )}
       </div>
 
       {error && <div className="bk-inbox-error">{error}</div>}

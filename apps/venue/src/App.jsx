@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { venueGetState, getPitchOccupancy, supabase } from "@platform/core/storage/supabase.js";
+import { venueGetState, getPitchOccupancy, venueGetBookingIns, supabase } from "@platform/core/storage/supabase.js";
 import Dashboard from "./views/Dashboard.jsx";
 import { todayIso, addDays } from "./bookingUtil.js";
 
@@ -21,6 +21,7 @@ export default function App() {
   const [token, setToken] = useState(() => readTokenFromUrl());
   const [state, setState] = useState(null);
   const [occupancy, setOccupancy] = useState([]);
+  const [bookingIns, setBookingIns] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -53,9 +54,29 @@ export default function App() {
     }
   }, []);
 
+  // Live "ins" per upcoming team booking (mig 225). Refetched on a
+  // 'booking_ins_changed' venue broadcast (a player toggled in/out) and on a
+  // 60s fallback poll. Lightweight — counts only, never a full state reload.
+  const loadIns = useCallback(async (t) => {
+    if (!t) return;
+    try {
+      setBookingIns(await venueGetBookingIns(t));
+    } catch (err) {
+      console.error("venue_get_booking_ins failed", err);
+    }
+  }, []);
+
   useEffect(() => {
-    if (token) { load(token); loadOccupancy(token); }
-  }, [token, load, loadOccupancy]);
+    if (token) { load(token); loadOccupancy(token); loadIns(token); }
+  }, [token, load, loadOccupancy, loadIns]);
+
+  // 60s fallback poll catches the few status-change sources the realtime trigger
+  // can't (e.g. a player being disabled), so the ins never drift for long.
+  useEffect(() => {
+    if (!token) return;
+    const id = setInterval(() => loadIns(token), 60000);
+    return () => clearInterval(id);
+  }, [token, loadIns]);
 
   // Subscribe to venue-level realtime broadcasts. Every ref RPC publishes
   // on venue_live:<live_channel_key> (mig 121) so the office dashboard
@@ -67,12 +88,17 @@ export default function App() {
   reloadRef.current = load;
   const reloadOccRef = useRef(loadOccupancy);
   reloadOccRef.current = loadOccupancy;
+  const reloadInsRef = useRef(loadIns);
+  reloadInsRef.current = loadIns;
   useEffect(() => {
     if (!venueChannelKey || !token) return;
     const ch = supabase.channel(`venue_live:${venueChannelKey}`);
     ch.on("broadcast", { event: "broadcast" }, (payload) => {
       const reason = payload?.payload?.reason;
       console.info("[venue] live update", reason);
+      // A player toggled in/out (mig 225) → only refetch the lightweight ins
+      // map. Never a full state/occupancy reload on a tap.
+      if (reason === "booking_ins_changed") { reloadInsRef.current(token); return; }
       // Booking reasons only move occupancy → refetch the calendar/inbox.
       // Everything else (fixtures, refs, settings) can also shift occupancy,
       // so refetch both. Keeps the grid from ever showing a stale slot.
@@ -132,6 +158,7 @@ export default function App() {
       state={state}
       venueToken={token}
       occupancy={occupancy}
+      bookingIns={bookingIns}
       onRefresh={() => load(token)}
       onRefreshOccupancy={() => loadOccupancy(token)}
       refreshing={loading}

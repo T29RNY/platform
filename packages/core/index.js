@@ -126,6 +126,7 @@ export {
   cancelBookingSeries,
   venueListCancellations,
   venueListCustomers,
+  venueGetBookingIns,
   venueRequestNudge,
   venueCreateBooking,
   venueConfirmBooking,
