@@ -90,6 +90,20 @@ const TEMPLATES = {
       (c.link ? `<p><a href="${esc(c.link)}">Open your match sheet →</a></p>` : "")
     ),
   }),
+  // Venue Nudge (mig 224) — a venue messaging one of its team bookers. The send
+  // is server-side (cron resolves the team admin email); the venue never sees it.
+  venue_nudge: (c) => {
+    const msg = {
+      dormant_winback: `We've missed ${c.teamName} at ${c.venueName}! Your pitch is still here — come back for a game whenever you're ready.`,
+      check_in: `Just a friendly hello from ${c.venueName}. Fancy getting ${c.teamName} back on the pitch? Reply to book your next session.`,
+      offer_slot: `${c.venueName} has some prime slots opening up — want us to hold one for ${c.teamName}?`,
+    }[c.template] || `A quick hello from ${c.venueName} — we'd love to see ${c.teamName} back on the pitch.`;
+    return {
+      subject: `A note from ${c.venueName}`,
+      text: `Hi ${c.teamName},\n\n${msg}`,
+      html: wrap(`<p>Hi <b>${esc(c.teamName)}</b>,</p><p>${esc(msg)}</p>`),
+    };
+  },
   // Phase 9 finish — league reminder emails (the email leg of the push→email→SMS fallback;
   // same type names + ctx as the _sms.js templates so one router resolves a type per channel).
   leagueAvailability48h: (c) => ({

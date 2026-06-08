@@ -2586,6 +2586,17 @@ export async function venueListCustomers(venueToken) {
   return data;
 }
 
+// Request a nudge to a team booker (mig 224, server-side send). Records the
+// request; the cron resolves the team admin contact + sends. Returns
+// {ok, recipients} or {ok:false, reason:'no_contact'} (walk-ins / no contact).
+export async function venueRequestNudge(venueToken, bookerKey, template = null) {
+  const { data, error } = await supabase.rpc("venue_request_nudge", {
+    p_venue_token: venueToken, p_booker_key: bookerKey, p_template: template,
+  });
+  if (error) { console.error("[booking] venue_request_nudge failed", error); throw error; }
+  return data;
+}
+
 export async function cancelBookingSeries(seriesId, venueToken = null) {
   const { data, error } = await supabase.rpc("cancel_booking_series", { p_series_id: seriesId, p_venue_token: venueToken });
   if (error) { console.error("[booking] cancel_booking_series failed", error); throw error; }

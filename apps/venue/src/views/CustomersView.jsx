@@ -1,8 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { venueListCustomers } from "@platform/core/storage/supabase.js";
+import { venueListCustomers, venueRequestNudge } from "@platform/core/storage/supabase.js";
+import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState, Crest } from "./atoms.jsx";
 import { getInitials, poundsRound, relativeFrom } from "../lib/format.js";
+
+const NUDGE_TEMPLATES = {
+  dormant: [["dormant_winback", "Win them back"], ["offer_slot", "Offer a slot"]],
+  lapsing: [["check_in", "Friendly check-in"], ["offer_slot", "Offer a slot"]],
+  healthy: [["check_in", "Friendly check-in"], ["offer_slot", "Offer a regular slot"]],
+  new:     [["check_in", "Welcome / check-in"]],
+};
 
 // Customers — booker directory for this venue (mig 223, venue-domain only).
 // Teams and walk-ins that book here, with bookings/spend/recency. No casual
@@ -21,6 +29,7 @@ export default function CustomersView({ venueToken }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
   const [kind, setKind] = useState("all"); // all | teams | walkins
+  const [nudgeFor, setNudgeFor] = useState(null); // customer obj | null
 
   useEffect(() => {
     let alive = true;
@@ -107,12 +116,72 @@ export default function CustomersView({ venueToken }) {
                   <span className="text-mute" style={{ fontSize: 12 }}>
                     {c.last_at ? `Active ${relativeFrom(c.last_at)}` : "—"}
                   </span>
+                  <span style={{ flex: 1 }} />
+                  {c.is_team && (
+                    <button className="btn btn-xs" onClick={() => setNudgeFor(c)}>
+                      <Icon name="whatsapp" size={13} /> Nudge
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {nudgeFor && (
+        <NudgeModal customer={nudgeFor} venueToken={venueToken} onClose={() => setNudgeFor(null)} />
+      )}
     </div>
+  );
+}
+
+function NudgeModal({ customer, venueToken, onClose }) {
+  const options = NUDGE_TEMPLATES[customer.nudge_status] || NUDGE_TEMPLATES.healthy;
+  const [template, setTemplate] = useState(options[0][0]);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  const send = async () => {
+    setBusy(true); setError(null);
+    try {
+      const r = await venueRequestNudge(venueToken, customer.booker_key, template);
+      if (r?.ok) setResult(r);
+      else setError(r?.reason === "no_contact" ? "No contact on file for this booker." : "Couldn't queue the nudge.");
+    } catch (e) {
+      setError("Couldn't queue the nudge — try again.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={`Nudge ${customer.name}`}
+      foot={result ? (
+        <><span className="spacer" /><button className="btn btn-primary" onClick={onClose}>Done</button></>
+      ) : (
+        <>
+          <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <span className="spacer" />
+          <button className="btn btn-primary" onClick={send} disabled={busy}>{busy ? "Queuing…" : "Send nudge"}</button>
+        </>
+      )}>
+      {result ? (
+        <p className="text-mute">Queued to {result.recipients} contact{result.recipients === 1 ? "" : "s"} — it sends from the venue automatically (email now; WhatsApp/SMS once those channels are switched on). The booker’s contact details are never shown here.</p>
+      ) : (
+        <>
+          <p className="text-mute" style={{ marginBottom: 14 }}>Pick a message. It’s sent to the team’s admins on your behalf — you never see their contact details.</p>
+          <label className="field-label">Message</label>
+          <div style={{ display: "grid", gap: 8 }}>
+            {options.map(([id, label]) => (
+              <button key={id} type="button" className="charge-opt" onClick={() => setTemplate(id)}
+                style={{ borderColor: template === id ? "var(--accent)" : "var(--border)" }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{label}</div>
+              </button>
+            ))}
+          </div>
+          {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+        </>
+      )}
+    </Modal>
   );
 }

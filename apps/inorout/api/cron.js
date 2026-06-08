@@ -703,6 +703,7 @@ const ONBOARDING_ACTIONS = [
   "team_approved",               // → team admin
   "team_rejected",               // → team admin
   "fixture_ref_assigned",        // → referee
+  "venue_nudge_requested",       // → team admin (venue Nudge, mig 224)
 ];
 
 async function authEmailsForUserIds(userIds) {
@@ -881,6 +882,17 @@ async function onboardingEmailJob(results) {
         .select("email, phone, whatsapp_number, preferred_channel").eq("id", officialId).single();
       if (!off) continue;
       const ok = await dispatchRefAssigned(ev.entity_id, off, await refFixtureCtx(ev.entity_id), results);
+      if (!ok) return;
+    } else if (ev.action === "venue_nudge_requested") {
+      // Venue Nudge (mig 224). The RPC recorded the request; resolve the team's
+      // admin emails server-side here (the venue never saw them) and send.
+      const teamId = m.team_id;
+      const recipients = await teamAdminEmails(teamId);
+      const ok = await dispatchEmail("venue_nudge", ev.entity_id, recipients,
+        { teamName: await teamNameOf(teamId) || "your team",
+          venueName: m.venue_name || "the venue",
+          template: m.template || "check_in" },
+        teamId, results);
       if (!ok) return;
     }
   }

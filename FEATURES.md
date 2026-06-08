@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: Jun 8 2026 (session 74 — Venue dashboard v2 re-skin shipped (PR #3, all 9 screens, dark operator console). Phase B started, venue-domain-only scope: Cancellations log + policy-driven refund SHIPPED (mig 222 — cancel_booking records reason/decision + refunds the charge; venue_list_cancellations + CSV export). Still Phase B: Customers booker-directory (recency-based, no cross-domain ins), Nudge messaging, per-booking ins (deferred — crosses the venue↔casual RLS wall).)*
+*Last updated: Jun 8 2026 (session 74 — Venue dashboard v2 re-skin shipped (PR #3, all 9 screens, dark operator console). Phase B venue-domain-only: Cancellations log + policy refund (mig 222), Customers booker-directory (mig 223, recency-based status), and Nudge (mig 224 — venue_request_nudge records the ask, cron resolves the team-admin contact + sends server-side via the venue_nudge mailer template; venue never sees the contact; email live, SMS/WhatsApp await Twilio keys) all SHIPPED. Deferred: per-booking "ins" + customer detail modal (ins crosses the venue↔casual RLS wall — only on explicit opt-in).)*
 
 ---
 
