@@ -1,10 +1,29 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 7 2026 (session 72 — Persistent Guests: a guest is a dormant-not-deleted players row)*
+*Last updated: Jun 8 2026 (session 74 — Venue v2 redesign + Phase B booker layer; venue↔casual boundary)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## Venue Phase B is venue-domain-only; cross the venue↔casual RLS wall by counts-only opt-in (session 74)
+
+The venue dashboard's "booker layer" (Cancellations, Customers, Nudge, live ins — migs 222–226)
+is built **venue-domain only**: aggregate from venue-side tables (`pitch_bookings`, `venue_charges`,
+`venue_payments`, `booking_series`), never SELECT casual `players`/`team_admins` from a venue RPC.
+The casual side (player `status`/ins, admin contacts) sits behind RLS and stays there.
+
+Two sanctioned exceptions, both **counts/sends only — no casual identities reach the venue UI**:
+- **Live ins (mig 225):** `venue_get_booking_ins` returns in/target COUNTS for booked teams; a
+  `players.status` trigger pushes a content-free `booking_ins_changed` broadcast to the venue
+  channel. Implemented as a TRIGGER, not edits to the hot `set_player_status`/`admin_set_player_status`
+  bodies, and exception-swallowing so it can never break a player toggle.
+- **Nudge (mig 224):** `venue_request_nudge` records the ask + returns a recipient COUNT; the cron
+  resolves the team-admin contact and sends server-side (venue never sees the address).
+
+**Why:** keeps the boundary intact, no per-feature privacy design, ships fast. **Customer detail**
+(mig 226) and the recency-based `nudge_status` follow the same venue-domain rule. Full context in
+memory `project_venue_phase_b`.
 
 ## An injured player can still be a reserve — but auto-drops to the bottom of the queue (session 73, mig 220)
 

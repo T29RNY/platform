@@ -4,7 +4,7 @@ import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel } from "../book
 const PXMIN = 0.8;          // pixels per minute
 const SNAP = 30;            // tap-to-book snaps to 30-min
 
-export default function ScheduleGrid({ date, pitches, dayOcc, canBook, onTapEmpty, onSelectBooking }) {
+export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, canBook, onTapEmpty, onSelectBooking }) {
   const { startMin, endMin } = dayWindow(pitches, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
 
@@ -59,6 +59,7 @@ export default function ScheduleGrid({ date, pitches, dayOcc, canBook, onTapEmpt
               const top = (minsOfDay(o.start) - startMin) * PXMIN;
               const h = Math.max((minsOfDay(o.end) - minsOfDay(o.start)) * PXMIN, 18);
               const isBooking = o.source_kind === "booking";
+              const ins = isBooking ? bookingIns[o.source_id] : null;
               return (
                 <div
                   key={o.id}
@@ -68,6 +69,7 @@ export default function ScheduleGrid({ date, pitches, dayOcc, canBook, onTapEmpt
                 >
                   <span className="occ-label">{occLabel(o)}</span>
                   <span className="occ-time">{fmtTime(o.start)}–{fmtTime(o.end)}</span>
+                  {ins && <span className="occ-ins">{ins.in_count}{ins.target ? `/${ins.target}` : ""} in</span>}
                 </div>
               );
             })}

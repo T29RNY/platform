@@ -2511,6 +2511,20 @@ export async function getPitchFreeSlots(venueId, date, playingAreaId = null, slo
   return data;
 }
 
+// Weekly-block free slots (mig 228): only slots free across ALL N weekly
+// occurrences from startDate, so a block booking never fails on a later week.
+// slot_start is week 1 — pass it straight to bookPitchSeries.
+export async function getPitchFreeSlotsSeries(venueId, startDate, weeks, slotLength = null) {
+  const { data, error } = await supabase.rpc("get_pitch_free_slots_series", {
+    p_venue_id: venueId,
+    p_start_date: startDate,
+    p_weeks: weeks,
+    p_slot_length: slotLength,
+  });
+  if (error) { console.error("[booking] get_pitch_free_slots_series failed", error); throw error; }
+  return data;
+}
+
 export async function getTeamBookings(teamId) {
   const { data, error } = await supabase.rpc("get_team_bookings", { p_team_id: teamId });
   if (error) { console.error("[booking] get_team_bookings failed", error); throw error; }
@@ -2550,9 +2564,67 @@ export async function bookPitchSeries(teamId, playingAreaId, kickoffTime, startD
   return data;
 }
 
-export async function cancelBooking(bookingId, venueToken = null) {
-  const { data, error } = await supabase.rpc("cancel_booking", { p_booking_id: bookingId, p_venue_token: venueToken });
+// Cancel a booking. The optional `opts` carries the venue operator's
+// cancellation reason/note and refund decision (mig 222): decision is
+// 'full' | 'partial' | 'none' and acts on the booking's charge server-side.
+// withinPolicy is the client's policy check (booking time vs cancellation_policy),
+// recorded for the audit log. Existing 2-arg callers are unaffected (opts={}).
+export async function cancelBooking(bookingId, venueToken = null, opts = {}) {
+  const { data, error } = await supabase.rpc("cancel_booking", {
+    p_booking_id: bookingId,
+    p_venue_token: venueToken,
+    p_reason: opts.reason ?? null,
+    p_note: opts.note ?? null,
+    p_decision: opts.decision ?? null,
+    p_within_policy: opts.withinPolicy ?? null,
+  });
   if (error) { console.error("[booking] cancel_booking failed", error); throw error; }
+  return data;
+}
+
+// Venue cancellations audit log (mig 222) — booking_cancelled rows for this
+// venue with joined pitch/team/reason/refund detail, newest first.
+export async function venueListCancellations(venueToken, limit = 200) {
+  const { data, error } = await supabase.rpc("venue_list_cancellations", { p_venue_token: venueToken, p_limit: limit });
+  if (error) { console.error("[booking] venue_list_cancellations failed", error); throw error; }
+  return data;
+}
+
+// Venue customers / booker directory (mig 223, venue-domain only) — bookers at
+// this venue (teams or walk-ins) aggregated from pitch_bookings + venue_charges:
+// bookings_count, total_paid/outstanding pence, recency-based nudge_status.
+// No casual-team data (ins/contacts) is read.
+export async function venueListCustomers(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_customers", { p_venue_token: venueToken });
+  if (error) { console.error("[booking] venue_list_customers failed", error); throw error; }
+  return data;
+}
+
+// One customer's bookings at this venue (mig 226) — newest first, with charge
+// (paid/due) and live in/target on upcoming team sessions. Venue-domain.
+export async function venueGetCustomer(venueToken, bookerKey) {
+  const { data, error } = await supabase.rpc("venue_get_customer", { p_venue_token: venueToken, p_booker_key: bookerKey });
+  if (error) { console.error("[booking] venue_get_customer failed", error); throw error; }
+  return data?.bookings ?? [];
+}
+
+// Live "ins" per upcoming team booking (mig 225) — map of booking_id →
+// { team_id, in_count, target }. Counts only; no player identities. Refetch on
+// a 'booking_ins_changed' venue broadcast for live updates.
+export async function venueGetBookingIns(venueToken) {
+  const { data, error } = await supabase.rpc("venue_get_booking_ins", { p_venue_token: venueToken });
+  if (error) { console.error("[booking] venue_get_booking_ins failed", error); throw error; }
+  return data?.ins ?? {};
+}
+
+// Request a nudge to a team booker (mig 224, server-side send). Records the
+// request; the cron resolves the team admin contact + sends. Returns
+// {ok, recipients} or {ok:false, reason:'no_contact'} (walk-ins / no contact).
+export async function venueRequestNudge(venueToken, bookerKey, template = null) {
+  const { data, error } = await supabase.rpc("venue_request_nudge", {
+    p_venue_token: venueToken, p_booker_key: bookerKey, p_template: template,
+  });
+  if (error) { console.error("[booking] venue_request_nudge failed", error); throw error; }
   return data;
 }
 

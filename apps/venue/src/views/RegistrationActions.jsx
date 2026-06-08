@@ -35,9 +35,9 @@ export default function RegistrationActions({ venueToken, registration, onDone }
 
   return (
     <>
-      <div className="row-actions">
-        <button onClick={doApprove} disabled={busy} className="btn-good">Approve</button>
-        <button onClick={() => setRejectOpen(true)} disabled={busy} className="btn-bad">Reject</button>
+      <div className="actions">
+        <button className="btn btn-xs btn-primary" onClick={doApprove} disabled={busy}>Approve</button>
+        <button className="btn btn-xs" onClick={() => setRejectOpen(true)} disabled={busy}>Reject</button>
       </div>
       <Modal
         open={rejectOpen}
@@ -45,21 +45,23 @@ export default function RegistrationActions({ venueToken, registration, onDone }
         title={`Reject ${registration.team_name || registration.team_id}`}
         footer={
           <>
-            <button onClick={() => setRejectOpen(false)} disabled={busy}>Cancel</button>
-            <button onClick={doReject} disabled={busy} className="btn-bad">
+            <button className="btn btn-ghost" onClick={() => setRejectOpen(false)} disabled={busy}>Cancel</button>
+            <span className="spacer" />
+            <button className="btn btn-danger" onClick={doReject} disabled={busy}>
               {busy ? "Rejecting…" : "Reject"}
             </button>
           </>
         }
       >
-        <label>Reason</label>
+        <label className="field-label">Reason</label>
         <textarea
+          className="input"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
           placeholder="e.g. squad not yet complete; please re-apply once finalised"
         />
-        {error && <p className="error">{error}</p>}
+        {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{error}</p>}
       </Modal>
     </>
   );

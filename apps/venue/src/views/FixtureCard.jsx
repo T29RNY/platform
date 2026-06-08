@@ -1,97 +1,107 @@
 import React, { useEffect, useRef, useState } from "react";
 import FixtureActions from "./FixtureActions.jsx";
+import Icon from "./Icon.jsx";
+import { TeamCrest, StatusPill, deriveStatusForCard, FixtureCompact } from "./atoms.jsx";
+import { getInitials, dayLabel } from "../lib/format.js";
 
-const ACTIONABLE = new Set(["scheduled", "allocated", "postponed", "completed"]);
-
+// v2 fixture card (.fxc). `compact` renders the list-row variant for
+// recent/upcoming. Real pitch/ref/status actions stay wired through
+// <FixtureActions> (venueAssignPitch / venueAssignRef / venueUpdateFixtureStatus).
 export default function FixtureCard({ fx, state, venueToken, onDone, prominent, compact, withActions, animateScore }) {
   const teams = state.teams || {};
-  const home = teams[fx.home_team_id]?.name || fx.home_team_id;
-  const away = fx.away_team_id ? (teams[fx.away_team_id]?.name || fx.away_team_id) : "(bye)";
-  const homeCol = teams[fx.home_team_id]?.primary_colour || "var(--accent)";
-  const awayCol = teams[fx.away_team_id]?.primary_colour || "var(--ink-faint)";
-  const pitch = lookupPitch(state, fx.playing_area_id);
-  const ref = lookupRef(state, fx.official_id);
-  const dateStr = fx.scheduled_date ? formatDate(fx.scheduled_date) : "—";
-  const timeStr = fx.kickoff_time ? formatTime(fx.kickoff_time) : "TBC";
+  const teamFor = (id) => (id ? teams[id] : null);
 
-  const cls =
-    "fx" +
-    (prominent ? " fx-prominent" : "") +
-    (compact ? " fx-compact" : "") +
-    " fx-status-" + (fx.status || "scheduled");
+  if (compact) {
+    return <FixtureCompact fx={fx} teamFor={teamFor} dayLabel={dayLabel} />;
+  }
 
-  const canAct = withActions && ACTIONABLE.has(fx.status);
-  const needsSetup = ["scheduled", "allocated"].includes(fx.status);
-  const showFoot = pitch || ref || canAct;
+  const home = teamFor(fx.home_team_id);
+  const away = teamFor(fx.away_team_id);
+  const pitch = (state.pitches || []).find((p) => p.id === fx.playing_area_id) || null;
+  const ref = (state.refs || []).find((r) => r.id === fx.official_id) || null;
+  const status = deriveStatusForCard(fx);
+  const live = fx.status === "in_progress";
+  const completed = fx.status === "completed";
+  const showScore = live || completed || fx.home_score != null;
+
+  const cls = [
+    "fxc",
+    live && "fxc--live",
+    completed && "fxc--completed",
+    ["postponed", "void", "walkover", "forfeit"].includes(fx.status) && "fxc--" + fx.status,
+  ].filter(Boolean).join(" ");
 
   return (
-    <div className={cls}>
-      <div className="fx-hover-sweep" aria-hidden="true" />
+    <article className={cls}>
+      <header className="fxc-head">
+        <span className="when">{dayLabel(fx.scheduled_date)} {fx.kickoff_time}</span>
+        {fx.round_name && <><span className="dot" /><span className="meta">{fx.round_name}</span></>}
+        <span className="spacer" />
+        {live
+          ? <span className="pill pill-live"><span className="pill-dot" />Live</span>
+          : <StatusPill status={status} />}
+      </header>
 
-      {/* Band 1 — kickoff + status, on opposite ends so they never collide */}
-      <div className="fx-top">
-        <span className="fx-kick">
-          <span className="fx-time">{timeStr}</span>
-          <span className="fx-date">{dateStr}</span>
-        </span>
-        <span className="fx-status-pill">{labelStatus(fx)}</span>
+      <div className="fxc-body">
+        <div className="fxc-team">
+          <TeamCrest team={home} size={28} />
+          <span className="name">{home?.name || fx.home_team_id}</span>
+        </div>
+        <Score show={showScore} value={fx.home_score} fx={fx} side="home" animate={animateScore} />
+        <div className="fxc-team">
+          <TeamCrest team={away} size={28} />
+          <span className="name">{away ? away.name : "(bye)"}</span>
+        </div>
+        <Score show={showScore} value={fx.away_score} fx={fx} side="away" animate={animateScore} />
       </div>
 
-      {/* Band 2 — the matchup, its own full-width row */}
-      <div className="fx-teams">
-        <span className="fx-team fx-home">
-          <span className="fx-tick" style={{ background: homeCol }} />
-          <span className="fx-team-name">{home}</span>
-        </span>
-        {renderScore(fx, animateScore)}
-        <span className="fx-team fx-away">
-          <span className="fx-team-name">{away}</span>
-          <span className="fx-tick" style={{ background: awayCol }} />
-        </span>
-      </div>
-
-      {/* Band 3 — pitch/ref + actions */}
-      {showFoot && (
-        <div className="fx-foot">
-          <div className="fx-tags">
-            {pitch && <span className="fx-pitch">{pitch.name}</span>}
-            {ref && <span className="fx-ref">{ref.name}</span>}
-            {!pitch && !ref && needsSetup && <span className="fx-tag-none">No pitch or referee yet</span>}
-          </div>
-          {withActions && (
-            <FixtureActions venueToken={venueToken} fixture={fx} state={state} onDone={onDone} />
-          )}
+      {(live || completed) && (
+        <div className="fxc-progress">
+          <div className="fxc-progress-fill" style={{ width: (completed ? 100 : 50) + "%" }} />
         </div>
       )}
+
+      <footer className="fxc-foot">
+        <span className="assign">
+          <Icon name="pitch" size={12} />
+          {pitch ? <strong>{pitch.name.replace(/ \(.*\)/, "")}</strong> : <span className="needs">Pitch?</span>}
+        </span>
+        <span className="assign">
+          <Icon name="whistle" size={12} />
+          {ref ? <strong>{ref.name.split(" ")[0]}</strong> : <span className="needs">Ref?</span>}
+        </span>
+        <span className="spacer" />
+        {withActions && (
+          <span className="actions">
+            <FixtureActions venueToken={venueToken} fixture={fx} state={state} onDone={onDone} />
+          </span>
+        )}
+      </footer>
+    </article>
+  );
+}
+
+// Walkover/forfeit synthesise a 3–0 to the winner; completed shows real scores.
+function Score({ show, value, fx, side, animate }) {
+  const wo = (fx.status === "walkover" && fx.walkover_winner_id) || (fx.status === "forfeit" && fx.forfeit_winner_id);
+  if (wo) {
+    const winnerId = fx.walkover_winner_id || fx.forfeit_winner_id;
+    const wantHome = winnerId === fx.home_team_id;
+    const n = side === "home" ? (wantHome ? 3 : 0) : (wantHome ? 0 : 3);
+    return <div className="fxc-score">{n}</div>;
+  }
+  if (!show) return side === "home" ? <div className="fxc-score vs">vs</div> : <div className="fxc-score vs" />;
+  return (
+    <div className="fxc-score">
+      {animate ? <CountUp value={value ?? 0} /> : (value ?? "–")}
     </div>
   );
 }
 
-function renderScore(fx, animate) {
-  if (fx.status === "completed" && fx.home_score != null && fx.away_score != null) {
-    return (
-      <div className="fx-score">
-        <CountUp value={fx.home_score} enabled={!!animate} /><span className="fx-score-sep">–</span><CountUp value={fx.away_score} enabled={!!animate} />
-      </div>
-    );
-  }
-  if (fx.status === "walkover" && fx.walkover_winner_id) {
-    const wantHome = fx.walkover_winner_id === fx.home_team_id;
-    return <div className="fx-score fx-score-walkover">{wantHome ? "3–0" : "0–3"}</div>;
-  }
-  if (fx.status === "forfeit" && fx.forfeit_winner_id) {
-    const wantHome = fx.forfeit_winner_id === fx.home_team_id;
-    return <div className="fx-score fx-score-forfeit">{wantHome ? "3–0" : "0–3"}</div>;
-  }
-  return <div className="fx-score-vs">vs</div>;
-}
-
-function CountUp({ value, enabled }) {
-  const [n, setN] = useState(enabled ? 0 : value);
-  const ref = useRef(null);
-
+function CountUp({ value }) {
+  const [n, setN] = useState(0);
+  const ref = useRef(0);
   useEffect(() => {
-    if (!enabled) { setN(value); return; }
     const duration = 700;
     const start = performance.now();
     let frame = 0;
@@ -103,41 +113,6 @@ function CountUp({ value, enabled }) {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [value, enabled]);
-
-  return <span ref={ref} className="fx-score-num">{n}</span>;
-}
-
-function labelStatus(fx) {
-  switch (fx.status) {
-    case "scheduled":   return "Needs pitch";
-    case "allocated":   return fx.official_id ? "All set" : "Needs ref";
-    case "in_progress": return "Live";
-    case "completed":   return "Result";
-    case "postponed":   return "Postponed";
-    case "void":        return "Void";
-    case "walkover":    return "Walkover";
-    case "forfeit":     return "Forfeit";
-    default:            return fx.status;
-  }
-}
-
-function lookupPitch(state, id) {
-  if (!id) return null;
-  return (state.pitches || []).find((p) => p.id === id) || null;
-}
-function lookupRef(state, id) {
-  if (!id) return null;
-  return (state.refs || []).find((r) => r.id === id) || null;
-}
-function formatDate(iso) {
-  try {
-    const d = new Date(iso + "T00:00:00");
-    return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  } catch { return iso; }
-}
-function formatTime(t) {
-  if (!t) return "";
-  const m = String(t).match(/^(\d{2}):(\d{2})/);
-  return m ? `${m[1]}:${m[2]}` : String(t);
+  }, [value]);
+  return <span className="changed">{n}</span>;
 }

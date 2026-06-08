@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import { venueListPlayers } from "@platform/core/storage/supabase.js";
+import Icon from "./Icon.jsx";
+import { SectionHead, EmptyState } from "./atoms.jsx";
 
-// Player management (aggregate) — every player across the venue's teams.
-// Search by player or team; filter by status.
+// Aggregate player directory across all the venue's teams.
 export default function PlayersView({ venueToken }) {
   const [players, setPlayers] = useState(null);
   const [error, setError] = useState(null);
@@ -33,61 +33,69 @@ export default function PlayersView({ venueToken }) {
   const totalActive = (players || []).filter((p) => !p.disabled).length;
 
   return (
-    <main className="content mgmt">
-      <div className="mgmt-head">
-        <div>
-          <h2 className="mgmt-title">Players</h2>
-          <p className="mgmt-sub">
-            {players == null ? "Loading…" : `${totalActive} active player${totalActive === 1 ? "" : "s"} across your teams`}
-          </p>
-        </div>
+    <div>
+      <SectionHead label="Players" count={players == null ? "Loading…" : `${totalActive} active across your teams`}>
         {players && players.length > 0 && (
-          <div className="pv-controls">
-            <div className="pv-filters">
+          <>
+            <span className="chips">
               {["all", "injured", "inactive"].map((f) => (
-                <button key={f} className={"pv-filter" + (filter === f ? " is-active" : "")} onClick={() => setFilter(f)}>{f}</button>
+                <button key={f} className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)} style={{ textTransform: "capitalize" }}>{f}</button>
               ))}
-            </div>
-            <input className="mgmt-search" placeholder="Search players or teams…" value={q} onChange={(e) => setQ(e.target.value)} />
-          </div>
+            </span>
+            <span className="search">
+              <span className="ico"><Icon name="search" size={15} /></span>
+              <input placeholder="Search players or teams…" value={q} onChange={(e) => setQ(e.target.value)} />
+            </span>
+          </>
         )}
-      </div>
+      </SectionHead>
 
-      {error && <div className="panel mgmt-empty"><p className="error">{error}</p></div>}
+      {error && <EmptyState title="Couldn’t load players" body={error} />}
       {players && players.length === 0 && !error && (
-        <div className="panel mgmt-empty"><p className="muted">No players yet. They appear here once teams build their squads.</p></div>
+        <EmptyState title="No players yet" body="They appear here once teams build their squads." />
+      )}
+      {players && players.length > 0 && filtered.length === 0 && (
+        <EmptyState title="No players match" body="Try a different search or filter." />
       )}
 
-      {players && filtered.length > 0 && (
-        <motion.div className="panel pv-panel"
-          initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
-          <div className="pv-list">
-            {filtered.map((p) => (
-              <div className={"pv-row" + (p.disabled ? " is-out" : "")} key={`${p.team_id}-${p.id}`}>
-                <span className="pv-shirt">{p.shirt_number ?? "–"}</span>
-                <div className="pv-id">
-                  <span className="pv-name">
+      {filtered.length > 0 && (
+        <div className="dt-card">
+          <table className="dt">
+            <thead>
+              <tr>
+                <th style={{ width: 56 }}>#</th>
+                <th>Player</th>
+                <th>Team</th>
+                <th className="num">G</th>
+                <th className="num">P</th>
+                <th className="num">App</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr key={`${p.team_id}-${p.id}`} className={p.disabled ? "player-row inactive" : "player-row"}>
+                  <td className="num">{p.shirt_number ?? "–"}</td>
+                  <td>
                     {p.name}
-                    {p.nickname && <span className="pv-nick">“{p.nickname}”</span>}
-                    {p.injured && <span className="td-badge td-badge-warn">Injured</span>}
-                    {p.disabled && <span className="td-badge td-badge-mute">Inactive</span>}
-                  </span>
-                  <span className="pv-team"><span className="pv-tick" style={{ background: p.team_colour || "var(--accent)" }} />{p.team_name}</span>
-                </div>
-                <div className="td-stats">
-                  <span className="td-stat" title="Goals"><b>{p.goals ?? 0}</b><i>G</i></span>
-                  <span className="td-stat" title="POTM"><b>{p.motm ?? 0}</b><i>P</i></span>
-                  <span className="td-stat" title="Appearances"><b>{p.attended ?? 0}</b><i>App</i></span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+                    {p.nickname && <span className="text-mute"> “{p.nickname}”</span>}
+                    <span className="player-badges">
+                      {p.injured && <span className="pb pb-inj">INJ</span>}
+                      {p.disabled && <span className="pb pb-off">OUT</span>}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="team-color-bar" style={{ "--c": p.team_colour || "var(--accent)" }} />
+                    {p.team_name}
+                  </td>
+                  <td className="num">{p.goals ?? 0}</td>
+                  <td className="num">{p.motm ?? 0}</td>
+                  <td className="num">{p.attended ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-      {players && filtered.length === 0 && players.length > 0 && (
-        <div className="panel mgmt-empty"><p className="muted">No players match.</p></div>
-      )}
-    </main>
+    </div>
   );
 }

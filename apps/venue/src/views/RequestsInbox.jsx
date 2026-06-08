@@ -1,22 +1,16 @@
 import React, { useState } from "react";
 import { venueConfirmBooking, venueDeclineBooking, cancelBookingSeries } from "@platform/core/storage/supabase.js";
+import Icon from "./Icon.jsx";
+import { EmptyState } from "./atoms.jsx";
+import { getInitials } from "../lib/format.js";
 import { fmtTime, fmtDayShort } from "../bookingUtil.js";
-
-function summary(g) {
-  const first = g.starts[0];
-  const time = first ? fmtTime(first) : "";
-  if (g.seriesId) {
-    return `Weekly · ${g.bookingIds.length} week${g.bookingIds.length === 1 ? "" : "s"} · ${first ? fmtDayShort(first) : ""} · ${time}`;
-  }
-  return `${first ? fmtDayShort(first) : ""} · ${time}`;
-}
 
 export default function RequestsInbox({ groups, venueToken, onChanged }) {
   const [busyKey, setBusyKey] = useState(null);
   const [error, setError] = useState(null);
 
   if (!groups.length) {
-    return <p className="muted">No pending requests. The queue is clear.</p>;
+    return <EmptyState title="The queue is clear." body="New booking requests will arrive here." />;
   }
 
   const run = async (g, action) => {
@@ -24,10 +18,9 @@ export default function RequestsInbox({ groups, venueToken, onChanged }) {
     setError(null);
     try {
       if (action === "confirm") {
-        // Confirm each occurrence (series = confirm every weekly row we hold).
         for (const id of g.bookingIds) await venueConfirmBooking(venueToken, id);
       } else if (g.seriesId) {
-        await cancelBookingSeries(g.seriesId, venueToken); // decline whole block
+        await cancelBookingSeries(g.seriesId, venueToken);
       } else {
         await venueDeclineBooking(venueToken, g.bookingIds[0]);
       }
@@ -42,33 +35,42 @@ export default function RequestsInbox({ groups, venueToken, onChanged }) {
   };
 
   return (
-    <div className="bk-inbox">
-      {error && <div className="bk-inbox-error">{error}</div>}
-      {groups.map((g) => {
-        const busy = busyKey === g.key;
-        return (
-          <div className="bk-req" key={g.key}>
-            <div className="bk-req-main">
-              <div className="bk-req-team">{g.teamName}</div>
-              <div className="bk-req-meta">
-                <span className={"bk-kind " + (g.seriesId ? "bk-kind-block" : "bk-kind-adhoc")}>
-                  {g.seriesId ? "Block" : "One-off"}
+    <>
+      {error && <div className="banner banner-warn" style={{ marginBottom: "var(--gap)" }}>{error}</div>}
+      <div className="req-grid">
+        {groups.map((g) => {
+          const busy = busyKey === g.key;
+          const first = g.starts[0];
+          return (
+            <div className="req-card" key={g.key}>
+              <div className="req-top">
+                <span className="req-label">
+                  {g.seriesId ? `Weekly · ${g.bookingIds.length} wk${g.bookingIds.length === 1 ? "" : "s"}` : "One-off"}
                 </span>
-                <span className="bk-req-pitch">{g.pitchName}</span>
+                <span className="req-pitch">
+                  <Icon name="pitch" size={12} /> {(g.pitchName || "").replace(/ \(.*\)/, "")}
+                </span>
               </div>
-              <div className="bk-req-when">{summary(g)}</div>
+              <div className="req-booker">
+                <div className="avatar">{getInitials(g.teamName)}</div>
+                <div className="req-booker-text">
+                  <div className="bname">{g.teamName}</div>
+                </div>
+              </div>
+              <div className="req-when">
+                <Icon name="clock" size={12} />
+                <span>{first && <><strong>{fmtDayShort(first)}</strong> · {fmtTime(first)}</>}</span>
+              </div>
+              <div className="req-actions">
+                <button className="btn btn-sm btn-primary" disabled={busy} onClick={() => run(g, "confirm")}>
+                  {busy ? "…" : "Confirm"}
+                </button>
+                <button className="btn btn-sm" disabled={busy} onClick={() => run(g, "decline")}>Decline</button>
+              </div>
             </div>
-            <div className="bk-req-actions">
-              <button className="btn-good" disabled={busy} onClick={() => run(g, "confirm")}>
-                {busy ? "…" : "Confirm"}
-              </button>
-              <button className="btn-bad" disabled={busy} onClick={() => run(g, "decline")}>
-                Decline
-              </button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

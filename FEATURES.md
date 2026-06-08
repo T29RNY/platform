@@ -1,5 +1,5 @@
 # In or Out — Feature Tracker
-*Last updated: Jun 7 2026 (session 73 — remaining-work snapshot added at top; display re-skin wireframe shipped)*
+*Last updated: Jun 8 2026 (session 74 — Venue dashboard v2 re-skin shipped (PR #3, all 9 screens, dark operator console). Phase B venue-domain-only: Cancellations log + policy refund (mig 222), Customers booker-directory (mig 223, recency-based status), and Nudge (mig 224 — venue_request_nudge records the ask, cron resolves the team-admin contact + sends server-side via the venue_nudge mailer template; venue never sees the contact; email live, SMS/WhatsApp await Twilio keys) all SHIPPED. Live "ins" SHIPPED (mig 225, operator opted into the cross-domain read): venues see live N/target players IN per upcoming team booking (target = schedule.squad_size); a players.status trigger broadcasts booking_ins_changed on the venue channel so it updates the instant a player taps in/out (counts only — no casual identities cross). Deferred: customer detail modal.)*
 
 ---
 
@@ -761,9 +761,11 @@ cycle; the web-push chain is untouched. SMS/WhatsApp (Twilio) is a later 9.x cyc
   (`https://platform-ref.vercel.app`) set in the inor-out Vercel project; redeployed. Live test:
   a `team_approved` event resolved to the Competitive FC admin, Resend sent, `notification_log`
   logged `channel='email'`, and the email **landed in the inbox**. Dedup confirmed (second tick
-  no resend); test rows cleaned up. `VENUE_APP_URL` left unset (venue app not yet deployed →
-  registration-pending email omits the link). `team_registration_pending` still needs a **real**
-  venue to exercise (demo venue has no linked `venue_admins` row).
+  no resend); test rows cleaned up. `VENUE_APP_URL` left unset (registration-pending email omits
+  the link). **Update (session 74):** the venue app is now deployed at
+  **https://platform-venue.vercel.app** — `VENUE_APP_URL` can be set to it on the `inor-out`
+  project so the link appears. `team_registration_pending` still needs a **real** venue to
+  exercise (demo venue has no linked `venue_admins` row).
 - **Deferred to later 9.x:** SMS/WhatsApp; player notification-preference UI + contact setters;
   fixture-reminder/availability crons; HQ weekly digest; the AI `pre_match_briefing` (overlaps Phase 7).
 

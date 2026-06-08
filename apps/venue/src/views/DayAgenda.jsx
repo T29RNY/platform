@@ -4,7 +4,7 @@ import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel } from "../book
 const PXMIN = 0.9;
 const SNAP = 30;
 
-export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOcc, canBook, onTapEmpty, onSelectBooking }) {
+export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOcc, bookingIns = {}, canBook, onTapEmpty, onSelectBooking }) {
   const pitch = pitches.find((p) => p.id === pitchId) ?? pitches[0];
   const { startMin, endMin } = dayWindow(pitches, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
@@ -24,11 +24,11 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
 
   return (
     <div className="da">
-      <div className="da-switch">
+      <div className="agenda-pitches">
         {pitches.map((p) => (
           <button
             key={p.id}
-            className={"da-pitch" + (p.id === pitch?.id ? " is-active" : "")}
+            className={"btn btn-xs" + (p.id === pitch?.id ? " btn-primary" : "")}
             onClick={() => onPitchChange(p.id)}
           >
             {p.name}
@@ -36,7 +36,7 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
         ))}
       </div>
 
-      <div className="da-timeline" style={{ gridTemplateColumns: "52px 1fr" }}>
+      <div className="da-timeline" style={{ display: "grid", gridTemplateColumns: "52px 1fr" }}>
         <div className="sg-axis" style={{ height }}>
           {hours.map((m) => (
             <div className="sg-tick" key={m} style={{ top: (m - startMin) * PXMIN }}>
@@ -56,6 +56,7 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
             const top = (minsOfDay(o.start) - startMin) * PXMIN;
             const h = Math.max((minsOfDay(o.end) - minsOfDay(o.start)) * PXMIN, 22);
             const isBooking = o.source_kind === "booking";
+            const ins = isBooking ? bookingIns[o.source_id] : null;
             return (
               <div
                 key={o.id}
@@ -65,6 +66,7 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
               >
                 <span className="occ-label">{occLabel(o)}</span>
                 <span className="occ-time">{fmtTime(o.start)}–{fmtTime(o.end)}</span>
+                {ins && <span className="occ-ins">{ins.in_count}{ins.target ? `/${ins.target}` : ""} in</span>}
               </div>
             );
           })}
@@ -72,8 +74,8 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
       </div>
 
       {canBook && pitch && (
-        <button className="btn-accent da-fab" onClick={() => onTapEmpty(pitch.id, "")} aria-label="Add walk-in booking">
-          +
+        <button className="btn btn-primary" style={{ marginTop: 12, width: "100%" }} onClick={() => onTapEmpty(pitch.id, "")}>
+          + Add walk-in booking
         </button>
       )}
     </div>
