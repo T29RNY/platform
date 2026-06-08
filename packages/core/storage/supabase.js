@@ -2576,6 +2576,16 @@ export async function venueListCancellations(venueToken, limit = 200) {
   return data;
 }
 
+// Venue customers / booker directory (mig 223, venue-domain only) — bookers at
+// this venue (teams or walk-ins) aggregated from pitch_bookings + venue_charges:
+// bookings_count, total_paid/outstanding pence, recency-based nudge_status.
+// No casual-team data (ins/contacts) is read.
+export async function venueListCustomers(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_customers", { p_venue_token: venueToken });
+  if (error) { console.error("[booking] venue_list_customers failed", error); throw error; }
+  return data;
+}
+
 export async function cancelBookingSeries(seriesId, venueToken = null) {
   const { data, error } = await supabase.rpc("cancel_booking_series", { p_series_id: seriesId, p_venue_token: venueToken });
   if (error) { console.error("[booking] cancel_booking_series failed", error); throw error; }

@@ -12,6 +12,7 @@ import StaffView from "./StaffView.jsx";
 import LeagueView from "./LeagueView.jsx";
 import LeagueTable from "./LeagueTable.jsx";
 import PlayersView from "./PlayersView.jsx";
+import CustomersView from "./CustomersView.jsx";
 import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import { poundsRound } from "../lib/format.js";
@@ -23,9 +24,10 @@ const TABS = [
     { id: "payments", label: "Payments",   icon: "payments" },
   ]},
   { group: "Directory",   items: [
-    { id: "teams",   label: "Teams",   icon: "teams" },
-    { id: "players", label: "Players", icon: "players" },
-    { id: "staff",   label: "Staff",   icon: "staff" },
+    { id: "customers", label: "Customers", icon: "customers" },
+    { id: "teams",     label: "Teams",     icon: "teams" },
+    { id: "players",   label: "Players",   icon: "players" },
+    { id: "staff",     label: "Staff",     icon: "staff" },
   ]},
   { group: "Competition", items: [
     { id: "league", label: "Leagues", icon: "league" },
@@ -36,7 +38,7 @@ const TABS = [
 
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments",
-  teams: "Teams", players: "Players", staff: "Staff",
+  customers: "Customers", teams: "Teams", players: "Players", staff: "Staff",
   league: "Leagues", table: "Standings", cups: "Cups",
 };
 
@@ -106,6 +108,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], onRefresh
             <BookingsView state={state} venueToken={venueToken} occupancy={occupancy} onRefresh={onRefresh} onRefreshOccupancy={onRefreshOccupancy} />
           )}
           {view === "payments" && <PaymentsView state={state} venueToken={venueToken} />}
+          {view === "customers" && <CustomersView venueToken={venueToken} />}
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}
           {view === "staff" && <StaffView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
