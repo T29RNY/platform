@@ -2586,6 +2586,14 @@ export async function venueListCustomers(venueToken) {
   return data;
 }
 
+// One customer's bookings at this venue (mig 226) — newest first, with charge
+// (paid/due) and live in/target on upcoming team sessions. Venue-domain.
+export async function venueGetCustomer(venueToken, bookerKey) {
+  const { data, error } = await supabase.rpc("venue_get_customer", { p_venue_token: venueToken, p_booker_key: bookerKey });
+  if (error) { console.error("[booking] venue_get_customer failed", error); throw error; }
+  return data?.bookings ?? [];
+}
+
 // Live "ins" per upcoming team booking (mig 225) — map of booking_id →
 // { team_id, in_count, target }. Counts only; no player identities. Refetch on
 // a 'booking_ins_changed' venue broadcast for live updates.

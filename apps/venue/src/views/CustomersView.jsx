@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { venueListCustomers, venueRequestNudge } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
+import CustomerDetailModal from "./CustomerDetailModal.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState, Crest } from "./atoms.jsx";
 import { getInitials, poundsRound, relativeFrom } from "../lib/format.js";
@@ -30,6 +31,7 @@ export default function CustomersView({ venueToken }) {
   const [status, setStatus] = useState("all");
   const [kind, setKind] = useState("all"); // all | teams | walkins
   const [nudgeFor, setNudgeFor] = useState(null); // customer obj | null
+  const [detailFor, setDetailFor] = useState(null); // customer obj | null
 
   useEffect(() => {
     let alive = true;
@@ -87,7 +89,7 @@ export default function CustomersView({ venueToken }) {
           {filtered.map((c) => {
             const st = STATUS[c.nudge_status] || STATUS.healthy;
             return (
-              <div className="customer-card" key={c.booker_key}>
+              <div className="customer-card" key={c.booker_key} onClick={() => setDetailFor(c)} title="View bookings">
                 <div className="cu-top">
                   {c.is_team
                     ? <span className="cu-crest"><Crest c1={c.primary_colour} c2={c.secondary_colour} size={44} initials={getInitials(c.name)} big seed={c.name} /></span>
@@ -118,7 +120,7 @@ export default function CustomersView({ venueToken }) {
                   </span>
                   <span style={{ flex: 1 }} />
                   {c.is_team && (
-                    <button className="btn btn-xs" onClick={() => setNudgeFor(c)}>
+                    <button className="btn btn-xs" onClick={(e) => { e.stopPropagation(); setNudgeFor(c); }}>
                       <Icon name="whatsapp" size={13} /> Nudge
                     </button>
                   )}
@@ -129,6 +131,14 @@ export default function CustomersView({ venueToken }) {
         </div>
       )}
 
+      {detailFor && (
+        <CustomerDetailModal
+          customer={detailFor}
+          venueToken={venueToken}
+          onClose={() => setDetailFor(null)}
+          onNudge={(c) => { setDetailFor(null); setNudgeFor(c); }}
+        />
+      )}
       {nudgeFor && (
         <NudgeModal customer={nudgeFor} venueToken={venueToken} onClose={() => setNudgeFor(null)} />
       )}
