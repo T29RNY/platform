@@ -87,10 +87,14 @@ export default function App() {
 
   if (!token) {
     return (
-      <div className="center">
-        <div className="card">
-          <h1>Venue dashboard</h1>
-          <p className="muted">Enter your venue admin token to view the dashboard.</p>
+      <div className="token-screen">
+        <div className="token-card">
+          <div className="brand-row">
+            <div className="mark">io</div>
+            <div className="wm">In or Out</div>
+          </div>
+          <h1>Venue console</h1>
+          <p>Enter your venue admin token to open the dashboard.</p>
           <TokenForm onSubmit={(t) => setToken(t)} />
         </div>
       </div>
@@ -99,19 +103,23 @@ export default function App() {
 
   if (loading && !state) {
     return (
-      <div className="center">
-        <div className="muted">Loading dashboard…</div>
+      <div className="token-screen">
+        <div className="text-mute">Loading dashboard…</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="center">
-        <div className="card">
-          <h1>Could not load</h1>
-          <p className="muted">{error}</p>
-          <button onClick={() => { setToken(null); setError(null); }}>Use a different token</button>
+      <div className="token-screen">
+        <div className="token-card">
+          <div className="brand-row">
+            <div className="mark">io</div>
+            <div className="wm">In or Out</div>
+          </div>
+          <h1>Couldn’t load</h1>
+          <p>{error}</p>
+          <button className="btn btn-primary" onClick={() => { setToken(null); setError(null); }}>Use a different token</button>
         </div>
       </div>
     );
@@ -146,14 +154,17 @@ function TokenForm({ onSubmit }) {
         }
       }}
     >
-      <input
-        type="text"
-        placeholder="venue_admin_token"
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
-        autoFocus
-      />
-      <button type="submit">Open dashboard</button>
+      <div className="token-input-row">
+        <input
+          className="input"
+          type="text"
+          placeholder="venue_admin_token"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          autoFocus
+        />
+        <button className="btn btn-primary" type="submit">Open</button>
+      </div>
     </form>
   );
 }
