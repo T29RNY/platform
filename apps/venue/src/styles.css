@@ -1212,6 +1212,9 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .picker-row .pick-arrow { color: var(--ink-3); font-size: 16px; }
 
 /* Bookings */
+/* grid item in .main: allow it to shrink below its content so the schedule grid
+   scrolls INSIDE .sg-scroll (many pitches) instead of widening the page. */
+.bookings { min-width: 0; }
 .bookings-layout {
   display: grid;
   grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
@@ -2567,7 +2570,9 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
    ScheduleGrid/DayAgenda (proven minute-positioning math),
    re-themed to v2 tokens. Booking flow is unchanged.
    ============================================================ */
-.sg-scroll { overflow: auto; max-height: 720px; }
+/* min-width:0 + max-width:100% so the grid scrolls INSIDE this box (many pitches)
+   instead of expanding the page — which also lets the sticky time-axis pin. */
+.sg-scroll { overflow: auto; max-height: 720px; max-width: 100%; min-width: 0; }
 .sg {
   display: grid;
   min-width: max-content;
@@ -2587,7 +2592,7 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   font-size: 12px; font-weight: 600; color: var(--ink-2);
 }
 .sg-axis {
-  position: relative;
+  position: sticky; left: 0; z-index: 1;   /* pin time labels when many pitches scroll sideways */
   border-right: 1px solid var(--border);
   background: var(--bg-2);
 }
