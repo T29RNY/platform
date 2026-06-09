@@ -1,7 +1,7 @@
 import React from "react";
 import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel } from "../bookingUtil.js";
 
-const PXMIN = 0.8;          // pixels per minute
+const PXMIN = 1.0;          // pixels per minute (60px/hr — fits name + time + ins in a 60-min block)
 const SNAP = 30;            // tap-to-book snaps to 30-min
 
 export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, canBook, onTapEmpty, onSelectBooking }) {
