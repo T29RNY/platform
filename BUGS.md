@@ -46,7 +46,7 @@ through the persistent top "VOTE FOR POTM" banner, so nothing is lost. Build cle
 
 ---
 
-## SESSION 80 — OPEN (live-mitigated): players can sign IN to a game that's already been played
+## SESSION 80 — RESOLVED (mig 241): players could sign IN to a game that's already been played
 
 **Incident (user-reported, Footy Tuesdays).** After tonight's game finished and the result was
 saved, the app still showed the In/Out/Maybe/Reserve buttons and players (Gurpal) could mark
@@ -70,27 +70,30 @@ team_KPaoX8oJYMQ and reset Gurpal `status='in' → 'none'`. Verified live — si
 player view shows "isn't live yet". This holds until next Wednesday's auto-open; the code bug
 will recur every week and affects every team.
 
-**Agreed post-game behaviour (operator spec, session 80) + fix owed (code, not yet done):**
-1. **Close the game.** `admin_save_match_result` must set `schedule.game_is_live=false` when it
-   locks the result, alongside its existing schedule update. See [[project_result_save_invariants]].
-2. **Reset ALL statuses, including reserves.** The result-save reset only touches attendees
-   (`WHERE pm.attended=true`), so reserves/maybes/non-players keep their status. It must reset
-   every squad player's `status → 'none'` on completion (reserves are treated like any other
-   status — operator: "reserves should not stay as reserves once the game is complete"). Live-fixed
-   this session for Callum + Kyle.
-3. **Don't blank-hide the sign-up buttons.** Instead of the bare "isn't live yet", show an
-   informative note where the buttons were: "Sign-ups open <opens_day> at <opens_time>" pulled
-   live from `schedule.opens_day` / `opens_time` (here: Wednesday 10:00). PlayerView change —
-   real-iPhone test (Hard Rule #13).
-4. **Server-side gate.** `set_player_status` must reject a status change unless
-   `game_is_live=true AND NOT is_cancelled` — enforcement server-side, not just the client gate.
-   (Ephemeral-verify + rpc-security-sweep required — core write RPC on the casual sign-up path.)
-5. **Stop wiping the paid flag** for players whose ledger row for that match is already `paid`
-   (see the separate "result-save wipes the flat paid flag" entry below — same `pm.attended` UPDATE).
+**Agreed post-game behaviour (operator spec, session 80) — ALL shipped in mig 241:**
+1. ✅ **Close the game.** `admin_save_match_result` now sets `schedule.game_is_live=false` on
+   fresh save. See [[project_result_save_invariants]].
+2. ✅ **Reset ALL statuses, including reserves.** Added a blanket `status → 'none'` over the whole
+   squad after the attendee reset (the attendee-only `WHERE pm.attended=true` left reserves/maybes
+   lingering). Operator: "reserves should not stay as reserves once the game is complete."
+3. ✅ **Informative sign-up note.** PlayerView now shows "Sign-ups aren't open yet … next game
+   goes live — <opens_day> at <opens_time>" pulled live from `schedule.opens_day`/`opens_time`
+   (am/pm formatted) instead of the bare "isn't live yet". **Owed: real-iPhone test (Hard Rule #13).**
+4. ✅ **Server-side gate.** `set_player_status` now rejects with `game_not_live` unless
+   `game_is_live=true AND NOT is_cancelled`. Ephemeral-verified (allow-when-live / reject-when-not)
+   + rpc-security-sweep PASS (SECDEF, search_path pinned, anon+authenticated grants intact).
+5. ✅ **Stop wiping the paid flag.** The attendee reset now preserves `paid=true` for players whose
+   game_fee ledger for that match is `paid` (go-live resets status but NOT paid; next week's save
+   keys on next week's match_id, so no stale paid carries forward). Ephemeral-verified.
+
+**Verification:** ephemeral DO-block on a throwaway `_e2e_` fixture — 8/8 assertions pass
+(gate allow=in / reject=game_not_live; game_live→false; reserve & non-attendee→none; paid kept;
+unpaid stays unpaid owing £5) + leak-check 0. Live mitigation (game closed, Gurpal/Callum/Kyle
+reset) already applied earlier this session; mig 241 makes it permanent + automatic for all teams.
 
 ---
 
-## SESSION 80 — OPEN: result-save wipes the flat `paid` flag of already-confirmed players
+## SESSION 80 — RESOLVED (mig 241): result-save wipes the flat `paid` flag of already-confirmed players
 
 **Found reconciling payments (Footy Tuesdays, m_vcM3fQbBx6Y).** Players confirmed paid BEFORE
 the result was saved (Bidz 06-05, Rohan 20:24) had `players.paid` reset to **false** by the

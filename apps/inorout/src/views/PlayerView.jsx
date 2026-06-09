@@ -808,7 +808,7 @@ export default function PlayerView({
                       <div style={{ fontSize:10, fontWeight:300, letterSpacing:"0.1em",
                         textTransform:"uppercase", color:"var(--t2)" }}>
                         {!schedule.gameIsLive
-                          ? "This week's game isn't live yet"
+                          ? "Sign-ups not open yet"
                           : (!me?.status || me?.status === "none")
                             ? `Are you in this ${gameDay}? Tap below ↓`
                             : `${gameDay}${schedule.kickoff ? ` · ${schedule.kickoff}` : ""}`}
@@ -932,6 +932,35 @@ export default function PlayerView({
                   ❌ This week's match is cancelled
                 </div>
               )}
+
+              {/* Sign-ups closed (game not live + not cancelled): instead of a
+                  bare gap, tell the player exactly when the next game opens,
+                  pulling the day + time live from the schedule (opens_day /
+                  opens_time). Session 80. */}
+              {!schedule.gameIsLive && !schedule.isCancelled && (() => {
+                const d = schedule.opensDay;
+                const t = schedule.opensTime; // "HH:MM"
+                let timeLabel = t;
+                if (t && /^\d{1,2}:\d{2}$/.test(t)) {
+                  const [h, m] = t.split(":").map(Number);
+                  const ap = h < 12 ? "am" : "pm";
+                  const h12 = h % 12 === 0 ? 12 : h % 12;
+                  timeLabel = m === 0 ? `${h12}${ap}` : `${h12}:${String(m).padStart(2, "0")}${ap}`;
+                }
+                const when = d && timeLabel ? `${d} at ${timeLabel}` : (d || timeLabel || "soon");
+                return (
+                  <div style={{ padding:"14px 12px", textAlign:"center",
+                    border:"0.5px solid var(--border-subtle)", borderRadius:12,
+                    background:"var(--s1)", color:"var(--t2)", fontSize:12,
+                    fontWeight:300, fontFamily:"var(--font-body)", lineHeight:1.5 }}>
+                    <div style={{ color:"var(--t1)", fontWeight:600, marginBottom:3 }}>
+                      Sign-ups aren't open yet
+                    </div>
+                    Tap In/Out becomes available when the next game goes live —{" "}
+                    <span style={{ color:"var(--gold)" }}>{when}</span>.
+                  </div>
+                );
+              })()}
 
               {/* Status buttons 4-grid — gameIsLive or cancelled.
                   Pulses gold while player hasn't responded (status='none');
