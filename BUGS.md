@@ -46,6 +46,31 @@ through the persistent top "VOTE FOR POTM" banner, so nothing is lost. Build cle
 
 ---
 
+## SESSION 80 — OPEN: result-save wipes the flat `paid` flag of already-confirmed players
+
+**Found reconciling payments (Footy Tuesdays, m_vcM3fQbBx6Y).** Players confirmed paid BEFORE
+the result was saved (Bidz 06-05, Rohan 20:24) had `players.paid` reset to **false** by the
+20:25 `admin_save_match_result` cascade, while their `payment_ledger` row stayed `paid`. The
+admin Payments screen reads the ledger (correct), but the player's **My View** reads the flat
+`players.paid`/`owes` (`getPaymentState` → payments.js), so a genuinely-paid player saw "Nothing
+owed" instead of "✓ Paid". Net: ledger and flat flags diverge for anyone paid mid-cycle, on the
+same match. **Reconciled live this session** (set `paid=true` for Bidz + Rohan whose active-match
+game_fee ledger = paid). **Fix owed:** `admin_save_match_result` must not clear `paid` for players
+whose ledger row for that same match is already `paid` (only reset on true week rollover). Lives in
+the result-save cascade — see [[project_result_save_invariants]] (migs 205/206).
+
+## SESSION 80 — OPEN: result-save double-charges guests (game_fee on top of guest_fee)
+
+**Found in the same reconciliation.** Guest Little K (`p_rlETFBOM`) carries TWO £5 ledger rows for
+m_vcM3fQbBx6Y: a `guest_fee` (unpaid, host owes — created by `set_guest_payment`) AND a `game_fee`
+(created by the result-save because the guest is in the `team_b` array). That's £10 of charges for
+one guest appearance. The `game_fee` was admin-confirmed, so the guest reads as paid while a phantom
+£5 `guest_fee` sits outstanding against the host. **Fix owed:** `admin_save_match_result` should skip
+`is_guest=true` players when creating `game_fee` rows (guests are billed via `guest_fee` only). Left
+as-is pending operator decision — not auto-mutated.
+
+---
+
 ## SESSION 80 — OPEN: drawn teams stay mutable after kick-off (player silently dropped from a locked team)
 
 **Incident (user-reported).** Squad **Footy Tuesdays** (`team_KPaoX8oJYMQ`), this week's match
