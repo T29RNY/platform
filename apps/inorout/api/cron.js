@@ -360,7 +360,9 @@ async function potmVotingOpenJob(base, results) {
       continue;
     }
 
-    const closesAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+    // Voting window: 2 hours from when it opens (≈ end of game). Session 80 —
+    // extended from 1h to 2h at operator request.
+    const closesAt = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
 
     // Update matches table
     await supabase.from("matches").update({
@@ -384,7 +386,7 @@ async function potmVotingOpenJob(base, results) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` },
         body: JSON.stringify({
           type: "potmVotingOpen", teamId: sched.team_id, playerIds,
-          payload: { title: "Vote for POTM 🏆", body: "Who was the best player tonight? You've got 60 minutes." },
+          payload: { title: "Vote for POTM 🏆", body: "Who was the best player tonight? You've got 2 hours." },
         }),
       });
     } catch(e) {}
