@@ -11,7 +11,7 @@ import {
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool,
   getSession, getPlayerTeams, logAppBoot,
-  linkPlayerToUser, updateUserProfile,
+  linkPlayerToUser, updateUserProfile, claimMyAdminTeams,
   resetDemoData, updateDemoInteraction,
 } from "@platform/core/storage/supabase.js";
 import { SEED_COVER } from "./seeds.js";
@@ -624,6 +624,14 @@ export default function App() {
     );
     return () => subscription.unsubscribe();
   }, []);
+
+  // Adopt any superadmin-created squad shells whose admin_email matches this signed-in
+  // user (mig 240). Fire-and-forget + idempotent: makes the squad appear in My Squads the
+  // first time the organiser signs in. Isolated side-effect — never blocks or breaks auth.
+  useEffect(() => {
+    if (!authUser) return;
+    claimMyAdminTeams().catch(() => {});
+  }, [authUser]);
 
   // Full catch-up re-fetch. Single source of truth for the team_live broadcast
   // handler AND the PWA-resume handler. Re-fetches all team state via the

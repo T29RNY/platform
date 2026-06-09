@@ -37,6 +37,7 @@ export {
   getHeadToHead,
   getPOTMVotingState,
   getPlayerTeams,
+  claimMyAdminTeams,
   getPlayerTeamsByToken,
   setPlayerGroup,
   clearAllGroups,

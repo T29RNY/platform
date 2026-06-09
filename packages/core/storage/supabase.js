@@ -351,6 +351,18 @@ export async function getPlayerTeams() {
   return data || [];
 }
 
+// Adopt any superadmin-created squad shells whose admin_email matches the signed-in user's
+// verified email (mig 240). Idempotent + safe (only claims squads with no existing admin).
+// Returns { claimed: [{team_id, name}] }. Call after sign-in; never throws fatally.
+export async function claimMyAdminTeams() {
+  const { data, error } = await supabase.rpc("claim_my_admin_teams");
+  if (error) {
+    console.error("[claim] claim_my_admin_teams failed", error);
+    throw error;
+  }
+  return data || { claimed: [] };
+}
+
 // Token-based variant for PWA users whose auth session does not survive the
 // iOS Safari→home-screen-app storage partition. Resolves the user_id from
 // the supplied player token server-side. Same return shape as getPlayerTeams.
