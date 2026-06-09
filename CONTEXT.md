@@ -1,6 +1,36 @@
 # IN OR OUT — Project Context & Session History
 *Last updated: Jun 9 2026 (session 78 — venue Requests inbox: confirm made whole-series atomic, mig 236. session 77 — venue Operations + Bookings deep-pass: incident lifecycle, New-booking rework, schedule-grid overhaul + filters; migs 231–233.)*
 
+## SESSION 78 — Venue staff logins, Phase 1 (data + auth core, mig 237)
+
+Started the **venue staff logins** epic (full settled design: DECISIONS.md "VENUE
+LOGIN CREDENTIALS → Session 78"; memory [[project_venue_staff_logins]]). Per-person
+accounts replacing the shared `venue_admin_token`. Phase 1 = data + auth core,
+additive + safe (existing token path untouched; the new authed stage only fires for
+a logged-in member, of which there are none until invites ship). **mig 237:**
+- `venue_admins` table (copies team_admins mig 002 + `email`/`status` for invites +
+  `caps_grant[]`/`caps_deny[]` for per-person overrides; 5 gated caps: reverse_money,
+  booking_settings, manage_facility, staff_directory, manage_logins). Superseded an
+  unused 5-col `venue_admins` stub (0 rows, no refs).
+- `_venue_has_cap(role,grant,deny,cap)` — owner=all, manager=all 5, staff=none, then
+  per-person deny/grant overrides.
+- `resolve_venue_caller` — return shape gains `role`+`caps_grant`+`caps_deny` (all 49
+  callers bind `SELECT * INTO v_caller`, verified safe; DROP+CREATE since OUT cols
+  change), + **Stage 1b**: a logged-in member acting on their venue (client passes
+  `venue_id` in the old token slot — ids never collide with the long tokens).
+  actor_type stays `'venue_admin'` (no audit CHECK churn) but actor_ident →
+  `user_id:<uuid>` = real attribution. Shared-token + platform-admin stages keep
+  role 'owner'.
+- `venue_whoami()` (read, mirrors company_admin_whoami) + `venue_claim_memberships()`
+  (write — binds 'invited' rows to the user's VERIFIED auth email on first sign-in;
+  global-by-email, audited). Demo venues seeded an Owner invite (operator email).
+- **Verified:** EV 10/10 (cap matrix, shared-token intact, claim=1, row active,
+  whoami, resolver-1b, idempotent re-claim, staff gated, revoked-not-resolved,
+  no-auth rejected) via faked `request.jwt.claims`; leak-check 0 + demo seed intact
+  (switched test identity to tarny@desicity.com to avoid touching the operator's
+  demo seed rows per Hard Rule #15). rpc-security PASS. **Next: Phase 2** — reuse the
+  casual SignIn (Email-OTP+Google) in apps/venue, claim-on-login, venue picker.
+
 ## SESSION 78 — Venue Requests inbox: series-aware confirm (Jun 9 2026)
 
 Direct-to-`main` desktop session, continuing the venue screen-by-screen pass (Bookings nav
