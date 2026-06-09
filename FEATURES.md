@@ -20,6 +20,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | League — Venue | Read-RPCs for team rosters / players / standings views | Backend | 🟡 some screens need data first |
 | League — Venue | Skin those screens once data exists | UI | 🔴 blocked on above |
 | League — Venue | Logged-in browser passes (payments screens etc.) | Test | 🟢 owed |
+| League — Venue | **Venue login credentials / per-user accounts** — replace the single shared `venue_admin_token` with per-person logins (email/OAuth → venue + name + role). Unblocks per-person audit attribution (reported-by, approved-by, resolved-by, recorded-by). HQ OAuth layer is the model. | New feature | 🔴 not started (flagged session 77) |
 | HQ dashboard | Final visual polish + `regional_admin` region-filter UI | UI | 🟡 functional, polish pending |
 | HQ dashboard | Deploy `apps/hq` to Vercel | Infra | 🔴 owed |
 | HQ dashboard | Logged-in (Google-OAuth) browser passes — several surfaces | Test | 🟢 owed |
@@ -34,7 +35,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
 | Operational | Real-iPhone passes: persistent guests, cups player view, reserve/injured (session 73) | Test | 🟢 owed |
 
-**Net-new features left:** Phase 7 (AI) · Phase 10 (public pages) · HQ-I Phase 3. (Phase 8 billing + Payments V5 deliberately later.)
+**Net-new features left:** Phase 7 (AI) · Phase 10 (public pages) · HQ-I Phase 3 · Venue login credentials / per-user accounts. (Phase 8 billing + Payments V5 deliberately later.)
 **Wrap-up (not new features):** the league/venue/HQ/display skins · deploying display + HQ + landing pages · native app-store wrapping (unscoped).
 
 ---

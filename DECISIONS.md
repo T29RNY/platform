@@ -2074,3 +2074,30 @@ Full spec: `GROUP_BALANCER.md`.
   too tight (1.6 float cycles, read as twitch); 4.5s gives ~2.7 cycles
   which reads as intentional celebration. The cache-window math from
   ScheduleWakeup is irrelevant here — only the user-perception math is.
+
+## VENUE LOGIN CREDENTIALS / PER-USER ACCOUNTS (session 77 — flagged, not built)
+
+- **Today:** the venue console (`apps/venue` → platform-venue.vercel.app)
+  authenticates by a SINGLE shared `venue_admin_token` per venue
+  (`resolve_venue_caller` stage 1). There are NO individual user accounts —
+  anyone with the link is "the venue," with no personal identity. The token
+  is also the venue's identity in every venue RPC.
+- **Consequence (the trigger):** "reported by" on an incident — and every
+  other audit field (approved-by on registrations, resolved-by on incidents,
+  recorded-by on payments) — can only resolve to the venue, never a person.
+  The write RPCs already capture `auth.uid()`, but it's NULL for token
+  callers, so attribution is empty. Session 77's incident reporter line
+  shows the venue name (`state.venue.name`) as an honest placeholder.
+- **Decision:** proper per-user venue accounts are a NEW FEATURE, not a
+  bolt-on. Build it like the existing `apps/hq` OAuth layer: each user logs
+  in (email/password or OAuth) and is mapped to a venue with a name + role
+  (e.g. a `venue_users`/`venue_admins` table keyed on `auth.uid()`).
+  `resolve_venue_caller` gains an authenticated-user stage that returns the
+  person's identity; the shared token can remain as a fallback/bootstrap.
+- **Payoff:** once it lands, `reported_by` / `resolved_by` / `approved_by` /
+  recorded-by auto-populate with the actual person (the RPCs already store
+  `auth.uid()`), per-person access revocation becomes possible, and the
+  audit trail becomes real. Tracked in FEATURES.md (League — Venue).
+- **Not bolting on a half-version now:** deliberately avoided adding a
+  free-text "reporter name" field, since it would create a parallel, untrusted
+  identity path that the real accounts system would have to unwind.
