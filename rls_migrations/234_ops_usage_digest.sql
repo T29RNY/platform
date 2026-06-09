@@ -47,13 +47,13 @@ prev AS (
     AND a.created_at::date BETWEEN p_prev_from AND p_prev_to
     AND a.team_id IN (SELECT id FROM real_teams)
 ),
--- last activity per real squad (for dormancy)
+-- last activity per real squad (for dormancy + new-and-quiet)
 last_seen AS (
-  SELECT rt.id, rt.name,
+  SELECT rt.id, rt.name, rt.created_at,
          max(a.created_at) AS last_active
   FROM real_teams rt
   LEFT JOIN audit_events a ON a.team_id = rt.id
-  GROUP BY rt.id, rt.name
+  GROUP BY rt.id, rt.name, rt.created_at
 )
 SELECT jsonb_build_object(
   'range', jsonb_build_object('from', p_from, 'to', p_to),
@@ -111,6 +111,18 @@ SELECT jsonb_build_object(
                         ELSE floor(EXTRACT(EPOCH FROM (now() - last_active)) / 86400)::int END
     ) ORDER BY last_active ASC NULLS FIRST)
     FROM last_seen
+  ), '[]'::jsonb),
+
+  -- new squads (≤14 days old) gone quiet (no activity ≥3 days, or never) — onboarding risk
+  'new_and_quiet', COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+      'name', name,
+      'days_old', floor(EXTRACT(EPOCH FROM (now() - created_at)) / 86400)::int,
+      'days_quiet', CASE WHEN last_active IS NULL THEN NULL ELSE floor(EXTRACT(EPOCH FROM (now() - last_active)) / 86400)::int END
+    ) ORDER BY created_at DESC)
+    FROM last_seen
+    WHERE created_at > now() - interval '14 days'
+      AND (last_active IS NULL OR last_active < now() - interval '3 days')
   ), '[]'::jsonb),
 
   'prev', jsonb_build_object(

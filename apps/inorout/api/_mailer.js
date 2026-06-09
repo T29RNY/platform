@@ -38,6 +38,10 @@ async function sendEmail(to, { subject, html, text }) {
 const esc = (s) =>
   String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
+// New squad (≤14d) gone quiet — onboarding-risk label shared by both ops digests.
+const quietLabel = (q) =>
+  `${q.name} (${q.days_old}d old, ${q.days_quiet == null ? "never active" : q.days_quiet + "d quiet"})`;
+
 const wrap = (bodyHtml) =>
   `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;color:#111;line-height:1.55;max-width:520px">` +
   bodyHtml +
@@ -202,6 +206,7 @@ const TEMPLATES = {
   // (real squads only; demo/dc seeds stripped in SQL). EMAIL ONLY. Sections, never bullets.
   opsDailyDigest: (c) => {
     const newSquads = Array.isArray(c.newSquads) ? c.newSquads : [];
+    const quiet = Array.isArray(c.newAndQuiet) ? c.newAndQuiet : [];
     const churn = (c.disabled || 0) + (c.deleted || 0);
     return {
       subject: `In or Out — ${c.dateLabel}: ${c.squadsActive}/${c.squadsTotal} squads active`,
@@ -210,6 +215,7 @@ const TEMPLATES = {
         `${c.squadsActive} of ${c.squadsTotal} squads active, ${c.activePlayers} players opened the app, ${c.totalEvents} actions (${c.availabilityMarks} in/out marks).\n` +
         (newSquads.length ? `New squads: ${newSquads.map((s) => s.name).join(", ")}.\n` : "") +
         (c.newPlayers ? `${c.newPlayers} new player(s).\n` : "") +
+        (quiet.length ? `⚠ New & quiet (needs a nudge): ${quiet.map(quietLabel).join("; ")}.\n` : "") +
         (churn ? `Churn: ${c.disabled} disabled, ${c.deleted} removed.\n` : "No churn.\n"),
       html: wrap(
         `<p style="margin:0 0 4px"><b style="font-size:17px">In or Out</b></p>` +
@@ -225,6 +231,10 @@ const TEMPLATES = {
         (c.newPlayers
           ? `<p style="margin:0 0 14px"><b>${c.newPlayers}</b> new player${c.newPlayers === 1 ? "" : "s"} joined.</p>`
           : "") +
+        (quiet.length
+          ? `<p style="margin:0 0 6px;color:#a00"><b>⚠ New &amp; quiet — needs a nudge</b></p>` +
+            `<p style="margin:0 0 14px;color:#a00">${quiet.map((q) => esc(quietLabel(q))).join("<br>")}</p>`
+          : "") +
         (churn
           ? `<p style="margin:0 0 14px;color:#a00"><b>Churn:</b> ${c.disabled} disabled, ${c.deleted} removed.</p>`
           : `<p style="margin:0 0 14px;color:#2a7a2a">No churn.</p>`)
@@ -234,6 +244,7 @@ const TEMPLATES = {
   opsWeeklyDigest: (c) => {
     const newSquads = Array.isArray(c.newSquads) ? c.newSquads : [];
     const dormancy = Array.isArray(c.dormancy) ? c.dormancy : [];
+    const quiet = Array.isArray(c.newAndQuiet) ? c.newAndQuiet : [];
     const churn = (c.disabled || 0) + (c.deleted || 0);
     const wow = (cur, prev) => {
       if (!prev) return cur ? "" : "";
@@ -262,6 +273,7 @@ const TEMPLATES = {
         `${c.totalEvents} actions${wow(c.totalEvents, c.totalEventsPrev)}.\n` +
         (newSquads.length ? `New squads: ${newSquads.map((s) => s.name).join(", ")}.\n` : "No new squads.\n") +
         (c.newPlayers ? `${c.newPlayers} new players.\n` : "") +
+        (quiet.length ? `⚠ New & quiet (needs a nudge): ${quiet.map(quietLabel).join("; ")}.\n` : "") +
         (churn ? `Churn: ${c.disabled} disabled, ${c.deleted} removed.\n` : "No churn.\n") +
         dormancy.map((d) => `${d.name}: ${dormLabel(d)}`).join("; "),
       html: wrap(
@@ -276,6 +288,10 @@ const TEMPLATES = {
           ? `<span style="color:#2a7a2a">${newSquads.length} new squad${newSquads.length === 1 ? "" : "s"}: ${newSquads.map((s) => esc(s.name)).join(", ")}</span>`
           : `No new squads`) +
         `. <b>${c.newPlayers || 0}</b> new player${(c.newPlayers || 0) === 1 ? "" : "s"}.</p>` +
+        (quiet.length
+          ? `<p style="margin:0 0 6px;color:#a00"><b>⚠ New &amp; quiet — needs a nudge</b></p>` +
+            `<p style="margin:0 0 14px;color:#a00">${quiet.map((q) => esc(quietLabel(q))).join("<br>")}</p>`
+          : "") +
         (churn
           ? `<p style="margin:0 0 14px;color:#a00"><b>Churn:</b> ${c.disabled} disabled, ${c.deleted} removed.</p>`
           : `<p style="margin:0 0 14px;color:#2a7a2a">No churn.</p>`) +

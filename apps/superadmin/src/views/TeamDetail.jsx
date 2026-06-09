@@ -24,6 +24,15 @@ function fmtMoney(n) {
   return "£" + Number(n).toFixed(2);
 }
 
+const CASUAL_BASE = "https://www.in-or-out.com";
+function copyToClipboard(text) {
+  if (!text || typeof navigator === "undefined" || !navigator.clipboard) return;
+  navigator.clipboard.writeText(text).catch((err) => console.error("[teamdetail] copy failed", err));
+}
+function CopyBtn({ text }) {
+  return <button onClick={(e) => { e.stopPropagation(); copyToClipboard(text); }} style={{ fontSize: 12, padding: "2px 8px" }}>Copy</button>;
+}
+
 function StatusBadge({ status }) {
   const cls =
     status === "in"      ? "good" :
@@ -88,6 +97,39 @@ export default function TeamDetail({ teamId }) {
               : <span className="badge warn">incomplete</span>}</dd>
           </div>
         </div>
+      </div>
+
+      {/* Share links — onboarding hand-off */}
+      <div className="section" style={{ gridColumn: "1 / -1" }}>
+        <h2 style={{ marginTop: 0 }}>Share links</h2>
+        {team.join_code ? (
+          <div style={{ marginBottom: 14 }}>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>Join link — send to new players so they can join the squad:</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <code className="mono" style={{ flex: 1, padding: "8px 10px", background: "#0f0f12", borderRadius: 6, wordBreak: "break-all" }}>
+                {CASUAL_BASE}/join/{team.join_code}
+              </code>
+              <CopyBtn text={`${CASUAL_BASE}/join/${team.join_code}`} />
+            </div>
+          </div>
+        ) : <div className="muted" style={{ marginBottom: 14 }}>No join code on this squad.</div>}
+
+        <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>Player links — each player's personal in/out page (re-send to anyone who hasn't joined or installed):</div>
+        <table className="data">
+          <thead><tr><th>Player</th><th>Personal link</th><th style={{ width: 70 }}></th></tr></thead>
+          <tbody>
+            {squad.filter((p) => !p.disabled && p.token).map((p) => (
+              <tr key={p.player_id}>
+                <td>{p.name}{p.is_guest && <span className="badge" style={{ marginLeft: 6 }}>guest</span>}</td>
+                <td className="mono muted">{CASUAL_BASE}/p/{p.token.slice(0, 10)}…</td>
+                <td><CopyBtn text={`${CASUAL_BASE}/p/${p.token}`} /></td>
+              </tr>
+            ))}
+            {squad.filter((p) => !p.disabled && p.token).length === 0 && (
+              <tr><td colSpan={3} className="muted">No player links yet.</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Schedule */}

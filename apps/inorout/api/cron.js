@@ -1304,6 +1304,7 @@ function opsCtxBase(d, dateLabel) {
     activePlayers: ac.active_players || 0,
     totalEvents: ac.total_events || 0,
     availabilityMarks: ac.availability_marks || 0,
+    newAndQuiet: Array.isArray(d.new_and_quiet) ? d.new_and_quiet : [],
   };
 }
 

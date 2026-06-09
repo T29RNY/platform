@@ -11,6 +11,20 @@ function fmtMoney(n) {
   return "£" + Number(n).toFixed(2);
 }
 
+const STAGE_LABELS = ["Just created", "Week opened", "Players responding", "Teams picked", "Running"];
+
+function daysSince(d) {
+  if (!d) return null;
+  return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+}
+// A brand-new squad (≤14d) that has gone quiet (no activity ≥3 days, or never) — onboarding risk.
+function isNewAndQuiet(t) {
+  const age = daysSince(t.created_at);
+  if (age == null || age > 14) return false;
+  const quiet = daysSince(t.last_active);
+  return quiet == null || quiet >= 3;
+}
+
 export default function Teams({ onOpenTeam }) {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +73,7 @@ export default function Teams({ onOpenTeam }) {
                 <th>Admin</th>
                 <th style={{ width: 90, textAlign: "right" }}>Players</th>
                 <th style={{ width: 90, textAlign: "right" }}>Admins</th>
-                <th style={{ width: 120 }}>Last match</th>
+                <th style={{ width: 150 }}>Activation</th>
                 <th style={{ width: 120, textAlign: "right" }}>Outstanding</th>
                 <th style={{ width: 110 }}>Join code</th>
                 <th style={{ width: 110 }}>Created</th>
@@ -81,7 +95,16 @@ export default function Teams({ onOpenTeam }) {
                   <td>{t.admin_email || <span className="muted">—</span>}</td>
                   <td className="num">{t.player_count}</td>
                   <td className="num">{t.admin_count}</td>
-                  <td>{fmtDate(t.last_match_date)}</td>
+                  <td>
+                    <span className="badge" style={(t.activation_stage ?? 0) >= 4 ? { background: "rgba(58,138,74,0.18)", color: "#7fd494" } : (t.activation_stage ?? 0) <= 1 ? { background: "rgba(180,83,58,0.18)", color: "#e09a82" } : undefined}>
+                      {STAGE_LABELS[t.activation_stage ?? 0]}
+                    </span>
+                    {isNewAndQuiet(t) && (
+                      <div style={{ color: "#b4533a", fontSize: 11, marginTop: 3 }}>
+                        ⚠ new &amp; quiet{daysSince(t.last_active) != null ? ` ${daysSince(t.last_active)}d` : ""}
+                      </div>
+                    )}
+                  </td>
                   <td className="num">{fmtMoney(t.outstanding_total)}</td>
                   <td className="mono">{t.join_code || <span className="muted">—</span>}</td>
                   <td className="mono">{fmtDate(t.created_at)}</td>
