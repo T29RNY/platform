@@ -1955,6 +1955,20 @@ export async function superadminEngagement(from, to) {
   return data;
 }
 
+// Squad-health analytics for the superadmin Health tab (mig 236): activation funnel,
+// notification reach, install/sign-in health, response/ghost rate.
+export async function superadminHealth(from, to) {
+  const { data, error } = await supabase.rpc("superadmin_health", {
+    p_from: from,
+    p_to: to,
+  });
+  if (error) {
+    console.error("[superadmin] health failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function getLeagueConfig(leagueId = null) {
   const { data, error } = await supabase.rpc("get_league_config", { p_league_id: leagueId });
   if (error) {
@@ -2718,6 +2732,21 @@ export async function venueDeclineBooking(venueToken, bookingId) {
 export async function venueConfirmBookingSeries(venueToken, seriesId) {
   const { data, error } = await supabase.rpc("venue_confirm_booking_series", { p_venue_token: venueToken, p_series_id: seriesId });
   if (error) { console.error("[booking] venue_confirm_booking_series failed", error); throw error; }
+  return data;
+}
+
+// ── Venue staff logins (mig 237) ─────────────────────────────────────────
+// Post-login identity: which venues this signed-in user is a member of + role.
+export async function venueWhoami() {
+  const { data, error } = await supabase.rpc("venue_whoami");
+  if (error) { console.error("[venue] venue_whoami failed", error); throw error; }
+  return data;
+}
+
+// On first sign-in, bind any pending email invites to this user (verified email).
+export async function venueClaimMemberships() {
+  const { data, error } = await supabase.rpc("venue_claim_memberships");
+  if (error) { console.error("[venue] venue_claim_memberships failed", error); throw error; }
   return data;
 }
 

@@ -68,13 +68,18 @@ SELECT jsonb_build_object(
     ), '[]'::jsonb)
   ),
 
+  -- squad membership is team_players (players.team is the A/B matchday side, NOT the squad id).
   'players', jsonb_build_object(
-    'total',         (SELECT count(*) FROM players WHERE team NOT LIKE 'team_demo%' AND team NOT LIKE 'team_dc%'),
-    'new',           (SELECT count(*) FROM players
-                        WHERE team NOT LIKE 'team_demo%' AND team NOT LIKE 'team_dc%'
-                          AND created_at::date BETWEEN p_from AND p_to),
-    'disabled_now',  (SELECT count(*) FROM players
-                        WHERE team NOT LIKE 'team_demo%' AND team NOT LIKE 'team_dc%' AND disabled IS TRUE),
+    'total',         (SELECT count(DISTINCT p.id) FROM team_players tp JOIN players p ON p.id = tp.player_id
+                        WHERE tp.team_id NOT LIKE 'team_demo%' AND tp.team_id NOT LIKE 'team_dc%'
+                          AND p.disabled IS NOT TRUE AND p.is_guest IS NOT TRUE),
+    'new',           (SELECT count(DISTINCT p.id) FROM team_players tp JOIN players p ON p.id = tp.player_id
+                        WHERE tp.team_id NOT LIKE 'team_demo%' AND tp.team_id NOT LIKE 'team_dc%'
+                          AND p.is_guest IS NOT TRUE
+                          AND p.created_at::date BETWEEN p_from AND p_to),
+    'disabled_now',  (SELECT count(DISTINCT p.id) FROM team_players tp JOIN players p ON p.id = tp.player_id
+                        WHERE tp.team_id NOT LIKE 'team_demo%' AND tp.team_id NOT LIKE 'team_dc%'
+                          AND p.disabled IS TRUE),
     'disabled_in_window', (SELECT count(*) FROM win WHERE action = 'player_disabled'),
     'deleted_in_window',  (SELECT count(*) FROM win
                              WHERE action IN ('player_deleted','guest_player_removed_self'))
