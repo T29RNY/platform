@@ -109,7 +109,7 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
   return (
     <Modal open={open} onClose={onClose} title="Booking settings" wide>
       <div className="bk-set-section">
-        <label className="bk-switch">
+        <label className={"bk-switch" + (enabled ? " on" : "")}>
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           <span className="bk-switch-track"><span className="bk-switch-knob" /></span>
           <span className="bk-switch-label">
@@ -142,7 +142,7 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
           <div className="bk-set-pitch" key={p.id}>
             <div className="bk-set-pitch-head">
               <span className="bk-set-pitch-name">{p.name}</span>
-              <button className="btn-link" onClick={() => setPitchWindows(p.id, [...rows, blankWindow()])}>+ Add window</button>
+              <button className="btn-link" onClick={() => setPitchWindows(p.id, [blankWindow(), ...rows])}>+ Add window</button>
             </div>
             {rows.length === 0 && <p className="muted bk-set-empty">No windows — this pitch isn't bookable.</p>}
             {rows.map((w, i) => (
@@ -198,7 +198,7 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
       <div className="bk-set-pitch">
         <div className="bk-set-pitch-head">
           <span className="bk-set-pitch-name">Venue default (all pitches)</span>
-          <button className="btn-link" onClick={() => setVenuePrime([...venuePrime, blankPrimeWindow()])}>+ Add peak window</button>
+          <button className="btn-link" onClick={() => setVenuePrime([blankPrimeWindow(), ...venuePrime])}>+ Add peak window</button>
         </div>
         {venuePrime.length === 0 && <p className="muted bk-set-empty">No default peak hours — pitches without their own override count as off-peak all day.</p>}
         {venuePrime.map((w, i) => (
@@ -232,7 +232,7 @@ export default function BookingSettings({ open, onClose, venueToken, venue, pitc
           <div className="bk-set-pitch" key={p.id}>
             <div className="bk-set-pitch-head">
               <span className="bk-set-pitch-name">{p.name}</span>
-              <button className="btn-link" onClick={() => setPitchPrime(p.id, [...rows, blankPrimeWindow()])}>+ Add peak window</button>
+              <button className="btn-link" onClick={() => setPitchPrime(p.id, [blankPrimeWindow(), ...rows])}>+ Add peak window</button>
             </div>
             {rows.length === 0 && <p className="muted bk-set-empty">No override — this pitch uses the venue default.</p>}
             {rows.map((w, i) => (
