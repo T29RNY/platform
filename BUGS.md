@@ -46,6 +46,50 @@ through the persistent top "VOTE FOR POTM" banner, so nothing is lost. Build cle
 
 ---
 
+## SESSION 80 — OPEN (live-mitigated): players can sign IN to a game that's already been played
+
+**Incident (user-reported, Footy Tuesdays).** After tonight's game finished and the result was
+saved, the app still showed the In/Out/Maybe/Reserve buttons and players (Gurpal) could mark
+themselves **In** for the already-played match. The operator: "nobody should be able to mark
+themselves in yet as next week's game isn't live."
+
+**Root cause — two layers:**
+1. **`admin_save_match_result` never closes the game.** Verified: it does not touch
+   `schedule.game_is_live` (only `game_is_live=false` paths are match-cancel migs 013/082 and the
+   unstick scripts). So after a result is saved the schedule stays `game_is_live=true`,
+   `active_match_id` still pointing at the finished match, and the client gate
+   `(schedule.gameIsLive || isCancelled)` ([PlayerView.jsx:939](apps/inorout/src/views/PlayerView.jsx))
+   keeps the sign-up buttons visible. The game only closes on cancel or the next week's auto-open.
+2. **`set_player_status` has NO server-side gate.** Verified it checks none of `game_is_live` /
+   `is_cancelled` / `lineup_locked`. The ONLY thing stopping a sign-up is the client hiding the
+   button — a stale client, a direct RPC call, or any window where `game_is_live` is wrongly true
+   sails straight through. Violates this project's own "never trust the client" rule.
+
+**Live mitigation applied this session (data only):** set `schedule.game_is_live=false` for
+team_KPaoX8oJYMQ and reset Gurpal `status='in' → 'none'`. Verified live — sign-up buttons gone,
+player view shows "isn't live yet". This holds until next Wednesday's auto-open; the code bug
+will recur every week and affects every team.
+
+**Agreed post-game behaviour (operator spec, session 80) + fix owed (code, not yet done):**
+1. **Close the game.** `admin_save_match_result` must set `schedule.game_is_live=false` when it
+   locks the result, alongside its existing schedule update. See [[project_result_save_invariants]].
+2. **Reset ALL statuses, including reserves.** The result-save reset only touches attendees
+   (`WHERE pm.attended=true`), so reserves/maybes/non-players keep their status. It must reset
+   every squad player's `status → 'none'` on completion (reserves are treated like any other
+   status — operator: "reserves should not stay as reserves once the game is complete"). Live-fixed
+   this session for Callum + Kyle.
+3. **Don't blank-hide the sign-up buttons.** Instead of the bare "isn't live yet", show an
+   informative note where the buttons were: "Sign-ups open <opens_day> at <opens_time>" pulled
+   live from `schedule.opens_day` / `opens_time` (here: Wednesday 10:00). PlayerView change —
+   real-iPhone test (Hard Rule #13).
+4. **Server-side gate.** `set_player_status` must reject a status change unless
+   `game_is_live=true AND NOT is_cancelled` — enforcement server-side, not just the client gate.
+   (Ephemeral-verify + rpc-security-sweep required — core write RPC on the casual sign-up path.)
+5. **Stop wiping the paid flag** for players whose ledger row for that match is already `paid`
+   (see the separate "result-save wipes the flat paid flag" entry below — same `pm.attended` UPDATE).
+
+---
+
 ## SESSION 80 — OPEN: result-save wipes the flat `paid` flag of already-confirmed players
 
 **Found reconciling payments (Footy Tuesdays, m_vcM3fQbBx6Y).** Players confirmed paid BEFORE
