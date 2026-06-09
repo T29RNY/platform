@@ -9,7 +9,7 @@ import CancellationsLog from "./CancellationsLog.jsx";
 import CalendarFilters from "./CalendarFilters.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
-import { todayIso, addDays, fmtDayLabel, isOnDate, occLabel, occTypeKey, occIsFirst } from "../bookingUtil.js";
+import { todayIso, addDays, fmtDayLabel, isOnDate, occLabel, occTypeKey, occIsFirst, occBounds } from "../bookingUtil.js";
 
 const EMPTY_FILTERS = { paid: false, owed: false, oneoff: false, block: false, league: false, maint: false, pending: false, isnew: false, free: false };
 
@@ -106,6 +106,19 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   );
   const visiblePitches = useMemo(() => pitches.filter((p) => !hiddenPitches.has(p.id)), [pitches, hiddenPitches]);
 
+  // Free-slots mode shows availability (booked blocks stripped); any content chip
+  // (payment/type/pending/new/search) collapses the calendar to just the matches.
+  const freeMode = filters.free;
+  const contentActive = filters.paid || filters.owed || filters.oneoff || filters.block
+    || filters.league || filters.maint || filters.pending || filters.isnew || !!filterQ.trim();
+  const pitchOcc = useMemo(() => dayOcc.filter((o) => !hiddenPitches.has(o.playing_area_id)), [dayOcc, hiddenPitches]);
+  const gridOcc = freeMode ? pitchOcc : visibleOcc;           // free mode needs real bookings for gap calc
+  const windowOverride = useMemo(
+    () => (!freeMode && contentActive ? occBounds(visibleOcc) : null),
+    [freeMode, contentActive, visibleOcc],
+  );
+  const noMatches = !freeMode && contentActive && visibleOcc.length === 0;
+
   const afterWrite = () => { onRefreshOccupancy?.(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
 
@@ -166,22 +179,27 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                 pitches={pitches}
                 pitchId={mobilePitchId}
                 onPitchChange={setMobilePitchId}
-                dayOcc={visibleOcc}
+                dayOcc={gridOcc}
                 bookingIns={bookingIns}
                 canBook={enabled}
+                windowOverride={windowOverride}
+                freeMode={freeMode}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
                 onSelectBooking={setSelectedBooking}
               />
             ) : visiblePitches.length === 0 ? (
               <EmptyState title="No pitches shown" body="All pitches are hidden by the filter." />
+            ) : noMatches ? (
+              <EmptyState title="No bookings match" body="Nothing on this day fits the current filters." />
             ) : (
               <ScheduleGrid
                 date={date}
                 pitches={visiblePitches}
-                dayOcc={visibleOcc}
+                dayOcc={gridOcc}
                 bookingIns={bookingIns}
                 canBook={enabled}
-                freeHighlight={filters.free}
+                windowOverride={windowOverride}
+                freeMode={freeMode}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
                 onSelectBooking={setSelectedBooking}
               />

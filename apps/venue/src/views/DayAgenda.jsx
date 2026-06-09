@@ -1,17 +1,18 @@
 import React from "react";
-import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel } from "../bookingUtil.js";
+import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, freeGaps } from "../bookingUtil.js";
 
 const PXMIN = 0.9;
 const SNAP = 30;
 
-export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOcc, bookingIns = {}, canBook, onTapEmpty, onSelectBooking }) {
+export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOcc, bookingIns = {}, canBook, windowOverride = null, freeMode = false, onTapEmpty, onSelectBooking }) {
   const pitch = pitches.find((p) => p.id === pitchId) ?? pitches[0];
-  const { startMin, endMin } = dayWindow(pitches, date, dayOcc);
+  const { startMin, endMin } = windowOverride ?? dayWindow(pitches, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
   const hours = [];
   for (let m = startMin; m <= endMin; m += 60) hours.push(m);
 
   const blocks = dayOcc.filter((o) => o.playing_area_id === pitch?.id);
+  const gaps = freeMode ? freeGaps(blocks, startMin, endMin) : [];
 
   const tap = (e) => {
     if (!canBook) return;
@@ -52,7 +53,15 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
           {hours.map((m) => (
             <div className="sg-hourline" key={m} style={{ top: (m - startMin) * PXMIN }} />
           ))}
-          {blocks.map((o) => {
+          {freeMode && gaps.map(([s, e], i) => (
+            <div className="occ occ-free occ-actionable" key={"free" + i}
+              style={{ top: (s - startMin) * PXMIN, height: Math.max((e - s) * PXMIN, 22) }}
+              onClick={(ev) => { ev.stopPropagation(); if (canBook) onTapEmpty?.(pitch.id, hhmm(s)); }}>
+              <span className="occ-label">Available</span>
+              <span className="occ-time">{hhmm(s)}–{hhmm(e)}</span>
+            </div>
+          ))}
+          {!freeMode && blocks.map((o) => {
             const top = (minsOfDay(o.start) - startMin) * PXMIN;
             const h = Math.max((minsOfDay(o.end) - minsOfDay(o.start)) * PXMIN, 22);
             const isBooking = o.source_kind === "booking";

@@ -123,6 +123,32 @@ export function occTypeKey(o) {
   return o.detail?.kind === "block" ? "block" : "oneoff";
 }
 
+// Tight time bounds (minutes, padded to whole hours) of a set of occupancy blocks.
+// Used to collapse the calendar to just the filtered results. null when empty.
+export function occBounds(occ) {
+  if (!occ.length) return null;
+  let lo = Infinity, hi = -Infinity;
+  for (const o of occ) { lo = Math.min(lo, minsOfDay(o.start)); hi = Math.max(hi, minsOfDay(o.end)); }
+  lo = Math.floor(lo / 60) * 60;
+  hi = Math.ceil(hi / 60) * 60;
+  if (hi <= lo) hi = lo + 60;
+  return { startMin: lo, endMin: hi };
+}
+
+// Free (unoccupied) intervals within [startMin,endMin] given a pitch's blocks.
+export function freeGaps(occ, startMin, endMin) {
+  const spans = occ.map((o) => [minsOfDay(o.start), minsOfDay(o.end)]).sort((a, b) => a[0] - b[0]);
+  const gaps = [];
+  let cursor = startMin;
+  for (const [s, e] of spans) {
+    if (s > cursor) gaps.push([cursor, Math.min(s, endMin)]);
+    cursor = Math.max(cursor, e);
+    if (cursor >= endMin) break;
+  }
+  if (cursor < endMin) gaps.push([cursor, endMin]);
+  return gaps;
+}
+
 // True when this is the booker's first-ever booking at the venue (bookings only).
 export function occIsFirst(o) {
   return o.source_kind === "booking" && o.detail?.is_first === true;

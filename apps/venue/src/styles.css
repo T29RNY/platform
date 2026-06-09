@@ -2608,12 +2608,9 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   border-right: 1px solid var(--border);
 }
 .sg-col.is-bookable { cursor: copy; }
-/* free-slots highlight: green underlay over unbooked time (clicks pass through to book) */
-.sg-free {
-  position: absolute; left: 6px; right: 6px; border-radius: 8px;
-  background: var(--ok-soft); border: 1px dashed rgba(18,185,129,0.35);
-  pointer-events: none;
-}
+/* free-slots mode: an open/available slot, tappable to book */
+.occ-free { background: var(--ok-soft); border: 1px dashed rgba(18,185,129,0.45); color: var(--ok); cursor: copy; }
+.occ-free .occ-time { color: var(--ok); }
 /* ── calendar filter bar ── */
 .cal-filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .cal-search {
