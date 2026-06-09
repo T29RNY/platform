@@ -1,7 +1,30 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 9 2026 (session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 9 2026 (session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
 
 ---
+
+## SESSION 78 — RESOLVED: venue Requests inbox confirmed long weekly blocks only partially (mig 236)
+
+**Defect (latent, found in the Requests-inbox audit — not user-reported).** Decline of a
+weekly block had a clean atomic whole-series server path (`cancel_booking_series(series_id)`,
+mig 146), but **confirm did not.** [RequestsInbox.jsx](apps/venue/src/views/RequestsInbox.jsx)
+looped `venue_confirm_booking` over `g.bookingIds` — an array `BookingsView.buildPendingGroups`
+builds only from occupancy rows in the **today..+90d** window (`get_pitch_occupancy`'s range).
+Both series RPCs (`book_pitch_series` / `venue_create_booking_series`) allow up to **52 weeks**,
+so for any block longer than ~12 weeks the inbox under-counted ("Weekly · 12 wks" for a 52-wk
+block) and confirm confirmed **only the in-window weeks** — weeks 13+ stayed `status='requested'`
+indefinitely: slot held, no `venue_charge` raised, the casual team never told confirmed.
+
+**Fix (mig 236).** New `venue_confirm_booking_series(p_venue_token, p_series_id)` — confirms
+every still-`requested` booking in the series + raises one charge per booking, in one
+transaction (same fee logic + `venue_charges_source_uniq` ON CONFLICT guard as
+`venue_confirm_booking`; venue-token authed only — a team can't confirm its own request).
+RequestsInbox confirm now routes `g.seriesId → venueConfirmBookingSeries` else the single-id
+call — symmetric with decline. Ephemeral-verified 7/7 (15-wk series incl. weeks past +90d → all
+confirmed, 0 left requested, 15 charges no-dup, audit row, invalid-token / wrong-venue /
+double-tap rejected) + leak-check 0; rpc-security-sweep PASS; venue build clean; deployed
+prebuilt-static + inbox eyeballed live. Commit `871520f`. **Owed:** logged-in/real-squad pass
+confirming a long block end-to-end (no pending series in the demo seed to exercise it in UI).
 
 ## SESSION 77 — RESOLVED: players couldn't save their own nickname (mig 233)
 
