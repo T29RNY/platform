@@ -2608,6 +2608,33 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   border-right: 1px solid var(--border);
 }
 .sg-col.is-bookable { cursor: copy; }
+/* free-slots highlight: green underlay over unbooked time (clicks pass through to book) */
+.sg-free {
+  position: absolute; left: 6px; right: 6px; border-radius: 8px;
+  background: var(--ok-soft); border: 1px dashed rgba(18,185,129,0.35);
+  pointer-events: none;
+}
+/* ── calendar filter bar ── */
+.cal-filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.cal-search {
+  display: flex; align-items: center; gap: 6px; max-width: 320px;
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 10px; color: var(--ink-3);
+}
+.cal-search input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--ink); font-size: 13px; }
+.cal-search-x { background: none; border: none; color: var(--ink-3); cursor: pointer; font-size: 16px; line-height: 1; }
+.cal-chiprow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cal-rowlabel { font-size: 11px; color: var(--ink-3); margin-right: 2px; }
+.cal-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+.cal-chip {
+  padding: 5px 10px; font-size: 12px; cursor: pointer;
+  background: var(--bg-3); color: var(--ink-2);
+  border: 1px solid var(--border); border-radius: 999px; transition: background 120ms, color 120ms, border-color 120ms;
+}
+.cal-chip.is-active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.cal-chip.is-active.chip-ok { background: var(--ok); border-color: var(--ok); color: #04150e; }
+.cal-chip.is-active.chip-warn { background: var(--warn); border-color: var(--warn); color: #1a1203; }
+.cal-clear { margin-left: 4px; background: none; border: none; color: var(--ink-3); cursor: pointer; font-size: 12px; text-decoration: underline; }
 .sg-hourline {
   position: absolute; left: 0; right: 0;
   border-top: 1px solid var(--rule);

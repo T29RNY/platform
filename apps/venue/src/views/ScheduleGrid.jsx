@@ -4,7 +4,23 @@ import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIs
 const PXMIN = 1.0;          // pixels per minute (60px/hr — fits name + time + ins in a 60-min block)
 const SNAP = 30;            // tap-to-book snaps to 30-min
 
-export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, canBook, onTapEmpty, onSelectBooking }) {
+// Free (unoccupied) intervals within [startMin,endMin] for a pitch's blocks.
+function freeGaps(occ, startMin, endMin) {
+  const spans = occ
+    .map((o) => [minsOfDay(o.start), minsOfDay(o.end)])
+    .sort((a, b) => a[0] - b[0]);
+  const gaps = [];
+  let cursor = startMin;
+  for (const [s, e] of spans) {
+    if (s > cursor) gaps.push([cursor, Math.min(s, endMin)]);
+    cursor = Math.max(cursor, e);
+    if (cursor >= endMin) break;
+  }
+  if (cursor < endMin) gaps.push([cursor, endMin]);
+  return gaps;
+}
+
+export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, canBook, freeHighlight = false, onTapEmpty, onSelectBooking }) {
   const { startMin, endMin } = dayWindow(pitches, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
 
@@ -54,6 +70,10 @@ export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, c
           >
             {hours.map((m) => (
               <div className="sg-hourline" key={m} style={{ top: (m - startMin) * PXMIN }} />
+            ))}
+            {freeHighlight && freeGaps(byPitch.get(p.id) ?? [], startMin, endMin).map(([s, e], i) => (
+              <div className="sg-free" key={"free" + i}
+                style={{ top: (s - startMin) * PXMIN, height: (e - s) * PXMIN }} />
             ))}
             {(byPitch.get(p.id) ?? []).map((o) => {
               const top = (minsOfDay(o.start) - startMin) * PXMIN;

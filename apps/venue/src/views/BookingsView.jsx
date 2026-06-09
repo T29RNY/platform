@@ -6,9 +6,36 @@ import WalkInModal from "./WalkInModal.jsx";
 import BookingSettings from "./BookingSettings.jsx";
 import BookingDetailModal from "./BookingDetailModal.jsx";
 import CancellationsLog from "./CancellationsLog.jsx";
+import CalendarFilters from "./CalendarFilters.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
-import { todayIso, addDays, fmtDayLabel, isOnDate } from "../bookingUtil.js";
+import { todayIso, addDays, fmtDayLabel, isOnDate, occLabel, occTypeKey, occIsFirst } from "../bookingUtil.js";
+
+const EMPTY_FILTERS = { paid: false, owed: false, oneoff: false, block: false, league: false, maint: false, pending: false, isnew: false, free: false };
+
+// Does an occupancy block pass the active calendar filters? (q = search, hidden = pitch hide.)
+function occPasses(o, f, q, hidden) {
+  if (hidden.has(o.playing_area_id)) return false;
+  const query = q.trim().toLowerCase();
+  if (query && !occLabel(o).toLowerCase().includes(query)) return false;
+
+  const owed = !!o.detail?.owed;
+  const pending = o.detail?.status === "requested";
+  const key = occTypeKey(o);
+
+  if (f.paid || f.owed) {
+    const matchPay = (f.paid && !owed && o.source_kind !== "maintenance") || (f.owed && owed);
+    if (!matchPay) return false;
+  }
+  if (f.oneoff || f.block || f.league || f.maint) {
+    const matchType = (f.oneoff && key === "oneoff") || (f.block && key === "block")
+      || (f.league && key === "league") || (f.maint && key === "maint");
+    if (!matchType) return false;
+  }
+  if (f.pending && !pending) return false;
+  if (f.isnew && !occIsFirst(o)) return false;
+  return true;
+}
 
 function useIsMobile() {
   const [m, setM] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
@@ -63,8 +90,21 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
     if (!mobilePitchId && pitches.length) setMobilePitchId(pitches[0].id);
   }, [pitches, mobilePitchId]);
 
+  // ── calendar filters ──────────────────────────────────────────────────────
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filterQ, setFilterQ] = useState("");
+  const [hiddenPitches, setHiddenPitches] = useState(() => new Set());
+  const toggleFilter = (k) => setFilters((s) => ({ ...s, [k]: !s[k] }));
+  const togglePitch = (id) => setHiddenPitches((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const clearFilters = () => { setFilters(EMPTY_FILTERS); setFilterQ(""); setHiddenPitches(new Set()); };
+
   const pendingGroups = useMemo(() => buildPendingGroups(occupancy), [occupancy]);
   const dayOcc = useMemo(() => occupancy.filter((o) => isOnDate(o.start, date)), [occupancy, date]);
+  const visibleOcc = useMemo(
+    () => dayOcc.filter((o) => occPasses(o, filters, filterQ, hiddenPitches)),
+    [dayOcc, filters, filterQ, hiddenPitches],
+  );
+  const visiblePitches = useMemo(() => pitches.filter((p) => !hiddenPitches.has(p.id)), [pitches, hiddenPitches]);
 
   const afterWrite = () => { onRefreshOccupancy?.(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
@@ -109,25 +149,39 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
               <span className="date">{fmtDayLabel(date)}</span>
               <span style={{ flex: 1 }} />
             </div>
+            <CalendarFilters
+              pitches={pitches}
+              hiddenPitches={hiddenPitches}
+              onTogglePitch={togglePitch}
+              q={filterQ}
+              onQ={setFilterQ}
+              f={filters}
+              onToggle={toggleFilter}
+              onClear={clearFilters}
+              isMobile={isMobile}
+            />
             {isMobile ? (
               <DayAgenda
                 date={date}
                 pitches={pitches}
                 pitchId={mobilePitchId}
                 onPitchChange={setMobilePitchId}
-                dayOcc={dayOcc}
+                dayOcc={visibleOcc}
                 bookingIns={bookingIns}
                 canBook={enabled}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
                 onSelectBooking={setSelectedBooking}
               />
+            ) : visiblePitches.length === 0 ? (
+              <EmptyState title="No pitches shown" body="All pitches are hidden by the filter." />
             ) : (
               <ScheduleGrid
                 date={date}
-                pitches={pitches}
-                dayOcc={dayOcc}
+                pitches={visiblePitches}
+                dayOcc={visibleOcc}
                 bookingIns={bookingIns}
                 canBook={enabled}
+                freeHighlight={filters.free}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
                 onSelectBooking={setSelectedBooking}
               />

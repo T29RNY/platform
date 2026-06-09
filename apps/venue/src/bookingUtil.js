@@ -116,6 +116,13 @@ export function occType(o) {
   return o.detail?.kind === "block" ? "Block" : "One-off";
 }
 
+// Machine key for the booking TYPE — used by the calendar filters.
+export function occTypeKey(o) {
+  if (o.source_kind === "maintenance") return "maint";
+  if (o.source_kind === "fixture") return "league";
+  return o.detail?.kind === "block" ? "block" : "oneoff";
+}
+
 // True when this is the booker's first-ever booking at the venue (bookings only).
 export function occIsFirst(o) {
   return o.source_kind === "booking" && o.detail?.is_first === true;
