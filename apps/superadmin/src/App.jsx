@@ -4,6 +4,7 @@ import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { superadminWhoami } from "@platform/core/storage/supabase.js";
 import Activity from "./views/Activity.jsx";
+import Engagement from "./views/Engagement.jsx";
 import Teams from "./views/Teams.jsx";
 import TeamDetail from "./views/TeamDetail.jsx";
 import Venues from "./views/Venues.jsx";
@@ -106,6 +107,12 @@ export default function App() {
             Activity
           </button>
           <button
+            className={tab === "engagement" ? "active" : ""}
+            onClick={() => { setTab("engagement"); setSelectedTeamId(null); }}
+          >
+            Engagement
+          </button>
+          <button
             className={tab === "teams" ? "active" : ""}
             onClick={() => { setTab("teams"); setSelectedTeamId(null); }}
           >
@@ -134,6 +141,7 @@ export default function App() {
 
       <main className="content">
         {tab === "activity" && <Activity onOpenTeam={openTeam} />}
+        {tab === "engagement" && <Engagement />}
         {tab === "teams" && <Teams onOpenTeam={openTeam} />}
         {tab === "venues" && <Venues />}
         {tab === "team_detail" && selectedTeamId && (

@@ -1941,6 +1941,20 @@ export async function superadminRecentActivity({ limit = 100, sinceHours = 24 } 
   return data || [];
 }
 
+// Granular engagement analytics for the superadmin Engagement tab (mig 235).
+// p_from / p_to are UK calendar dates (YYYY-MM-DD), inclusive.
+export async function superadminEngagement(from, to) {
+  const { data, error } = await supabase.rpc("superadmin_engagement", {
+    p_from: from,
+    p_to: to,
+  });
+  if (error) {
+    console.error("[superadmin] engagement failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function getLeagueConfig(leagueId = null) {
   const { data, error } = await supabase.rpc("get_league_config", { p_league_id: leagueId });
   if (error) {

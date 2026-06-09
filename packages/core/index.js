@@ -52,6 +52,7 @@ export {
   superadminListTeams,
   superadminTeamDetail,
   superadminRecentActivity,
+  superadminEngagement,
   superadminCreateVenue,
   companyAdminWhoami,
   hqGetCompanyState,
