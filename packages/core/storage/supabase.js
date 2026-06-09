@@ -1023,6 +1023,21 @@ export async function setPlayerNickname(adminToken, playerId, nickname) {
   if (error) throw error;
 }
 
+// Player editing their OWN nickname from My View (token-authenticated).
+// Distinct from setPlayerNickname (admin-only). Throws an error whose .code
+// is 'nickname_taken' when another teammate already uses that nickname.
+export async function setMyNickname(token, nickname) {
+  const { error } = await supabase.rpc('set_my_nickname', {
+    p_token:    token,
+    p_nickname: nickname ? nickname.trim() : '',
+  });
+  if (error) {
+    const e = new Error(error.message || 'set_my_nickname failed');
+    e.code = error.message;
+    throw e;
+  }
+}
+
 export async function getUserProfile(userId) {
   const { data, error } = await supabase
     .from("user_profiles")

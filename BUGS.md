@@ -1,7 +1,26 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 9 2026 (session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 9 2026 (session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
 
 ---
+
+## SESSION 77 — RESOLVED: players couldn't save their own nickname (mig 233)
+
+**Defect.** The "My View" nickname pencil ([PlayerView.jsx](apps/inorout/src/views/PlayerView.jsx))
+always showed "Failed to save" for any plain player (e.g. `rockybram`, `p_cQ-NpVz55ng`, nickname
+stuck `null`). The RLS rewrite (commit `7bd7ef2`) changed the `setPlayerNickname` wrapper from a
+direct-table write `(playerId, teamId, nickname)` to the **admin-only** RPC
+`admin_update_player_name(adminToken, playerId, nickname)`. SquadScreen + PlayerProfile (both admin
+paths) were updated; the player-self call site was missed and kept calling
+`setPlayerNickname(myId, teamId, myNick)` — passing the player id as the admin token and the team id
+as the player id, so `resolve_admin_caller` rejected it (`invalid_admin_token`). A plain player has
+no admin token at all, so no player-self path ever existed. Classic Hard-Rule-#7 signature-drift miss.
+
+**Fix (mig 233).** New token-authenticated `set_my_nickname(p_token, p_nickname)` mirroring the
+audited `set_player_note` pattern (Hard Rule #9), and restoring the same-team `nickname_taken` clash
+check that the original direct-write wrapper did before `7bd7ef2` dropped it. New `setMyNickname`
+wrapper; My View call site now `setMyNickname(me?.token, myNick)`. Ephemeral-verified (set / return
+shape / clash / clear / audit / invalid-token all pass; leak-check 0). **Owed:** real-iPhone confirm
+of the My View save post-deploy (Hard Rule #13 — PlayerView is PWA-in-scope).
 
 ## SESSION 76 — RESOLVED: "spot opened" reserve notification was unreliable + partial (mig 230)
 

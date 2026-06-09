@@ -4,7 +4,7 @@ import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTe
   handleCashPayment, handleGuestCashPayment,
   resolveMotm, isDormantGuest } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
-  getPOTMVotingState, setPlayerNickname,
+  getPOTMVotingState, setMyNickname,
   resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
@@ -297,7 +297,7 @@ export default function PlayerView({
   const saveMyNick = async () => {
     setMyNickSaving(true); setMyNickError(null);
     try {
-      await setPlayerNickname(myId, teamId, myNick);
+      await setMyNickname(me?.token, myNick);
       const trimmed = myNick.trim() || null;
       setSquad(sq => sq.map(p => p.id === myId ? { ...p, nickname: trimmed } : p));
       setEditingMyNick(false);
