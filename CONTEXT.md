@@ -1,5 +1,57 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 9 2026 (session 78 — venue Requests inbox: confirm made whole-series atomic, mig 236. session 77 — venue Operations + Bookings deep-pass: incident lifecycle, New-booking rework, schedule-grid overhaul + filters; migs 231–233.)*
+*Last updated: Jun 9 2026 (session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with the parallel session 78 venue work — see SESSION 79. session 78 — venue staff logins + Requests inbox, migs 236–240.)*
+
+## SESSION 79 — Superadmin operator-analytics suite + ops email digest (migs 234–240*)
+
+Ran **in parallel with session 78** (venue staff logins). ⚠ **MIGRATION-NUMBER COLLISION:**
+both sessions branched off `main` and grabbed 236–240. The live DB is fine (Supabase applies
+by timestamp; all functions exist), so per CLAUDE.md cloud-discipline rule 5 the clash is
+**left as-is and noted** — NOT renumbered. My migration FILES 236–240 duplicate the venue ones
+by number; disambiguate by filename (`236_superadmin_health` vs `236_venue_confirm_booking_series`).
+Migs **234–235 are uniquely mine.** Root cause: two same-day sessions on one base — the exact
+trap CLAUDE.md warns about. Going forward the next free number is **241**.
+
+Built the **operator-analytics layer** — "is the casual app being used, by whom, what's working":
+
+- **Ops email digest (mig 234, `get_ops_usage_digest`).** Daily (Tue–Sun 08:00 UK) + weekly
+  (Mon 08:00) emails to `OPS_DIGEST_EMAIL` (defaults to operator) via the existing Resend
+  mailer + `api/cron.js` (`opsDailyDigestJob`/`opsWeeklyDigestJob`, new `_mailer.js` templates).
+  Real squads only (`team_demo%` + `team_dc%` stripped). Squads active/new, players, activity,
+  wk/wk delta, dormancy, **new-and-quiet onboarding alert**. `?ops_force=1` on `/api/cron`
+  (behind CRON_SECRET) re-sends on demand. Resend confirmed LIVE — test send hit operator gmail.
+- **Superadmin dashboard (`apps/superadmin`) — three new tabs + onboarding aids:**
+  - **Engagement (mig 235, `superadmin_engagement`)** — per-squad × per-feature-category
+    activity; AI-vs-manual team split (`match_teams_saved.balance_score`); opens split
+    admin/player (`app_boot.route_type`). Flags "nobody did this".
+  - **Health (mig 236*, `superadmin_health`)** — activation FUNNEL, notification REACH (real
+    delivery paths only — push-sub/phone/linked-email; `notification_channel` preference
+    IGNORED, defaults to 'push' for all), INSTALL/sign-in, RESPONSE/ghost rate.
+  - **Team Detail recent events (mig 237*)** — period + event-type filters, plain-English
+    labels (`eventLabels.js`); RPC events cap 20→200.
+  - **Teams list (mig 238*)** — Activation column + "⚠ new & quiet" flag; **Share-links
+    panel** on Team Detail (join link + per-player /p/ links).
+  - **Create Squad tab (mig 239*, `superadmin_create_team`)** — casual twin of Create Venue:
+    creates the squad SHELL (team+schedule+settings+`admin_token`), no members; hands back an
+    admin link `/admin/<admin_token>` (full access, no login) + join link. EV'd, leak 0.
+  - **Account-claim (mig 240*, `claim_my_admin_teams`)** — organiser signs into the casual app
+    with the `admin_email` → unclaimed shell auto-adopted into their My Squads. Verified-email
+    match, only unclaimed shells (no hijack), idempotent, EV'd. Fire-and-forget post-sign-in in
+    `apps/inorout` App.jsx — **PWA Hard-Rule-#13 real-iPhone test OWED.**
+- **Bug fixed (mig 234 + caught in 236 pre-ship):** ops analytics counted players off
+  `players.team` — the **A/B matchday side, NOT squad membership** (which is `team_players`).
+  Fixed both. See DECISIONS + BUGS.
+- **Production bug fixed:** `apps/superadmin` rendered a blank screen since first deploy —
+  deployed (manual prebuilt-static) without `VITE_SUPABASE_URL/ANON_KEY` baked in. Created
+  `apps/superadmin/.env.local` + redeployed. Logged GO_LIVE_ISSUES.md #13.
+
+**Deploy note:** `apps/superadmin` (Vercel `platform-superadmin`, alias
+`platform-superadmin-nu.vercel.app`) does NOT auto-deploy — manual prebuilt-static:
+`npm run build` → stage `.vercel/output/static` + SPA `config.json` → `vercel deploy
+--prebuilt --prod`. Needs its own `.env.local` or the bundle ships env-less (blank screen).
+
+**Deferred follow-up:** screen-VIEW instrumentation — `audit_events` logs writes not views, so
+"results checked / table viewed" isn't trackable until the casual app emits view events; that
+becomes another Engagement category with no shape change.
 
 ## SESSION 78 — Venue staff logins, Phase 1 (data + auth core, mig 237)
 

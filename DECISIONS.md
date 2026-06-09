@@ -1,8 +1,46 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 9 2026 (session 78 — venue staff logins design settled: Email-OTP+Google, hard cutover (no dual-mode — zero real venues), 3 roles Owner/Manager/Staff enforced server-side with per-person capability overrides; see VENUE LOGIN CREDENTIALS below. session 76 — reserve "spot opened" stays tap-to-claim, made reliable server-side)*
+*Last updated: Jun 9 2026 (session 79 — operator analytics: granular detail lives on the superadmin DASHBOARD, the email digest stays a lean alert layer; notification "reach" = real delivery path not the channel preference; casual squad admin access = admin_token hand-off + verified-email account-claim; ops analytics scope by team_players NOT players.team. session 78 — venue staff logins design settled. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
+
+---
+
+## Operator analytics: dashboard for detail, email for alerts (session 79)
+
+Granular "what's being done and what isn't" lives on the **superadmin dashboard**
+(`apps/superadmin` — Engagement + Health tabs); the **email digest stays lean** — headline
+numbers + things that need attention (new-and-quiet squads, churn) + the data behind them.
+Email and dashboard are different jobs: email is **push** (finds you, good for alerts/deltas,
+bad for exploration — dozens of zero-rows read as noise); the dashboard is **pull** (good for
+filtering/drill-down/time-ranges). Cramming per-squad × per-category tables into a daily email
+was explicitly rejected. The same RPCs back both where useful.
+
+**Notification "reach" = a real delivery path, never the preference.** `players.notification_channel`
+defaults to `'push'` for everyone and does NOT mean we can reach them — only 2/21 of the live
+active squad actually had a push subscription. "Reachable" counts push-subscription OR phone OR
+linked-account-email (the reminder cron's push→email→SMS fallback). The preference field is
+deliberately ignored in Health-tab reach metrics.
+
+## Casual squad creation + hand-off from superadmin (session 79, migs 239–240)
+
+Operator-led squad creation mirrors Create Venue. `superadmin_create_team` makes the squad
+SHELL only (team + schedule + settings + `admin_token`) — **no members, no team_admins**. The
+**`admin_token` IS the hand-off access** (`/admin/<admin_token>`, full admin, no login — the
+same model every casual team already has). Account ownership is a SEPARATE, later step:
+`claim_my_admin_teams` adopts an unclaimed shell into a user's account when they sign into the
+casual app with the email the platform admin set as `admin_email`. Match is by **OAuth/OTP-verified
+`auth.email()`** (user provably owns it) and only **unclaimed** shells (no active team_admins) —
+so it can never hijack an owned squad; idempotent. Both verified end-to-end with auto-rollback.
+
+## `players.team` is the A/B matchday side, NOT squad membership (session 79 — caused a bug)
+
+Squad membership lives in **`team_players`** (player_id ↔ team_id). `players.team` is the
+denormalised **A/B team-sheet assignment** for the live match ('A'/'B'/NULL) — set by
+`admin_save_teams`. Any "players on a squad" query MUST go through `team_players`, not
+`players.team`. The shipped ops digest (mig 234) initially counted off `players.team` and
+reported wrong totals; caught + fixed in mig 234 and again pre-ship in `superadmin_health`
+(mig 236*). Filed because it's an easy, recurring trap.
 
 ---
 

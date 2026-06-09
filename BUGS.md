@@ -1,5 +1,28 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 9 2026 (session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 9 2026 (session 79 — RESOLVED ops analytics counted players off players.team (A/B matchday side) not team_players (squad membership), mig 234; RESOLVED apps/superadmin blank screen since first deploy — prebuilt build missing VITE_SUPABASE_* env, see GO_LIVE #13. session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+
+---
+
+## SESSION 79 — RESOLVED: ops analytics counted players off the wrong column (mig 234)
+
+**Defect (latent, found during `superadmin_health` verification — not user-reported).** The
+shipped ops email digest (`get_ops_usage_digest`, mig 234) counted "players" via
+`players.team NOT LIKE 'team_demo%'`. But **`players.team` is the A/B matchday team-sheet side
+('A'/'B'/NULL), not squad membership** — membership lives in `team_players`. So the count was
+nonsense (players currently assigned to a side), reported as 24 when real active membership was
+22. Same trap nearly shipped in `superadmin_health` (mig 236*) — caught in verification before
+deploy. **Fix:** both RPCs now scope players via `team_players JOIN players` (active, non-guest),
+demo/dc stripped on `team_players.team_id`. See DECISIONS "players.team is the A/B matchday side".
+
+## SESSION 79 — RESOLVED: apps/superadmin blank screen since first deploy (env-less bundle)
+
+The superadmin dashboard rendered a blank black screen for everyone since it was first
+deployed — never usable. Root cause: `apps/superadmin` deploys **manual prebuilt-static** (its
+remote build fails on the monorepo install, like `apps/venue`), and it had **no `.env.local`**,
+so `VITE_SUPABASE_URL`/`ANON_KEY` baked in as `undefined` → `createClient(undefined)` threw →
+React never mounted. **Fix:** created `apps/superadmin/.env.local` (gitignored; URL + anon key
+are public), rebuilt, redeployed prebuilt; live bundle now carries the Supabase URL. Full detail
++ deploy recipe in **GO_LIVE_ISSUES.md #13**.
 
 ---
 
