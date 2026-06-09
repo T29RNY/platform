@@ -1,5 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { superadminTeamDetail } from "@platform/core/storage/supabase.js";
+import { actionLabel, actorLabel } from "../eventLabels.js";
+
+const EVENT_PERIODS = [
+  { key: "all", label: "All", hours: null },
+  { key: "24h", label: "24h", hours: 24 },
+  { key: "7d", label: "7 days", hours: 168 },
+  { key: "30d", label: "30 days", hours: 720 },
+];
 
 function fmtDate(d) {
   if (!d) return "—";
@@ -30,6 +38,22 @@ export default function TeamDetail({ teamId }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [evPeriod, setEvPeriod] = useState("all");
+  const [evType, setEvType] = useState("all");
+
+  const allEvents = detail?.recent_events || [];
+  const eventTypes = useMemo(
+    () => Array.from(new Set(allEvents.map((e) => e.action))).sort(),
+    [allEvents]
+  );
+  const filteredEvents = useMemo(() => {
+    const cutoff = EVENT_PERIODS.find((p) => p.key === evPeriod)?.hours;
+    const minTs = cutoff ? Date.now() - cutoff * 3600 * 1000 : null;
+    return allEvents.filter((e) =>
+      (evType === "all" || e.action === evType) &&
+      (!minTs || new Date(e.created_at).getTime() >= minTs)
+    );
+  }, [allEvents, evPeriod, evType]);
 
   useEffect(() => {
     setLoading(true);
@@ -184,19 +208,34 @@ export default function TeamDetail({ teamId }) {
       </div>
 
       <div className="section">
-        <h2>Recent events ({recent_events.length})</h2>
-        <table className="data">
-          <thead><tr><th>When</th><th>Actor</th><th>Action</th></tr></thead>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+          <h2 style={{ margin: 0 }}>Recent events ({filteredEvents.length}{filteredEvents.length !== allEvents.length ? ` of ${allEvents.length}` : ""})</h2>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            {EVENT_PERIODS.map((p) => (
+              <button key={p.key} className={evPeriod === p.key ? "primary" : ""} onClick={() => setEvPeriod(p.key)}>
+                {p.label}
+              </button>
+            ))}
+            <select value={evType} onChange={(e) => setEvType(e.target.value)}>
+              <option value="all">All event types</option>
+              {eventTypes.map((a) => (
+                <option key={a} value={a}>{actionLabel(a)}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <table className="data" style={{ marginTop: 10 }}>
+          <thead><tr><th style={{ width: 150 }}>When</th><th style={{ width: 160 }}>Who</th><th>What happened</th></tr></thead>
           <tbody>
-            {recent_events.length === 0 && <tr><td colSpan={3} className="muted">No events.</td></tr>}
-            {recent_events.map((ev) => (
+            {filteredEvents.length === 0 && <tr><td colSpan={3} className="muted">No events match.</td></tr>}
+            {filteredEvents.map((ev) => (
               <tr key={ev.id}>
                 <td className="mono">{fmtDateTime(ev.created_at)}</td>
                 <td>
-                  <span className="badge">{ev.actor_type}</span>
+                  <span className="badge">{actorLabel(ev.actor_type)}</span>
                   {ev.actor_email && <span className="muted" style={{ marginLeft: 6 }}>{ev.actor_email}</span>}
                 </td>
-                <td className="mono">{ev.action}</td>
+                <td>{actionLabel(ev.action)}</td>
               </tr>
             ))}
           </tbody>
