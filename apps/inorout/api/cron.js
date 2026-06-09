@@ -98,6 +98,11 @@ module.exports = async function handler(req, res) {
   }
 
   const results = [];
+  // Manual one-off trigger for the ops digest (still behind the CRON_SECRET gate above,
+  // so it's no new public surface). `?ops_force=1` runs the daily + weekly digest jobs
+  // ignoring their 08:00-UK time window — used to test/re-send on demand. notification_log
+  // still dedups per window date, so re-triggering the same day is a safe no-op.
+  const opsForce = req.query?.ops_force === "1";
   // Hardcoded to the canonical apex-www host. process.env.VERCEL_URL
   // resolves to the per-deployment URL (e.g. inorout-xxx.vercel.app),
   // which is gated by Vercel Deployment Protection and 401s every
@@ -246,12 +251,12 @@ module.exports = async function handler(req, res) {
   // ── Casual-app ops usage digest (operator-only, mig 234) ──────────────────
   // Daily Tue–Sun 08:00 UK (previous day); weekly Monday 08:00 UK (previous week).
   try {
-    await opsDailyDigestJob(results);
+    await opsDailyDigestJob(results, opsForce);
   } catch (e) {
     results.push(`opsDailyDigest: error — ${e.message}`);
   }
   try {
-    await opsWeeklyDigestJob(results);
+    await opsWeeklyDigestJob(results, opsForce);
   } catch (e) {
     results.push(`opsWeeklyDigest: error — ${e.message}`);
   }
@@ -1302,10 +1307,10 @@ function opsCtxBase(d, dateLabel) {
   };
 }
 
-async function opsDailyDigestJob(results) {
+async function opsDailyDigestJob(results, force = false) {
   const uk = nowInUkParts();
   // Monday morning belongs to the weekly roll-up; the daily covers Tue–Sun.
-  if (uk.hours !== 8 || uk.minutes >= 15 || uk.dayName === "Monday") {
+  if (!force && (uk.hours !== 8 || uk.minutes >= 15 || uk.dayName === "Monday")) {
     results.push("opsDailyDigest: not in window");
     return;
   }
@@ -1318,9 +1323,9 @@ async function opsDailyDigestJob(results) {
   results.push(ok ? "opsDailyDigest: processed" : "opsDailyDigest: skipped (RESEND_API_KEY unset)");
 }
 
-async function opsWeeklyDigestJob(results) {
+async function opsWeeklyDigestJob(results, force = false) {
   const uk = nowInUkParts();
-  if (uk.dayName !== "Monday" || uk.hours !== 8 || uk.minutes >= 15) {
+  if (!force && (uk.dayName !== "Monday" || uk.hours !== 8 || uk.minutes >= 15)) {
     results.push("opsWeeklyDigest: not in window");
     return;
   }
