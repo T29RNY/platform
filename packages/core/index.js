@@ -55,6 +55,7 @@ export {
   superadminEngagement,
   superadminHealth,
   superadminCreateVenue,
+  superadminCreateTeam,
   companyAdminWhoami,
   hqGetCompanyState,
   hqGetVenueDetail,

@@ -2131,6 +2131,33 @@ export async function superadminCreateVenue({
   return data;
 }
 
+// Operator-led casual squad creation (mig 239). Creates the squad shell (team + schedule +
+// settings + admin_token); no members. Returns {team_id, admin_token, join_code, name}.
+export async function superadminCreateTeam({
+  name,
+  adminEmail,
+  dayOfWeek,
+  kickoff,
+  squadSize,
+  venue = null,
+  price = 0,
+} = {}) {
+  const { data, error } = await supabase.rpc("superadmin_create_team", {
+    p_team_name: name,
+    p_admin_email: adminEmail,
+    p_day_of_week: dayOfWeek,
+    p_kickoff: kickoff,
+    p_squad_size: squadSize,
+    p_venue: venue,
+    p_price: price,
+  });
+  if (error) {
+    console.error("[superadmin] create_team failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ─── League Mode — Phase 2 Cycle 2.2 read RPCs ───────────────────────────────
 
 export async function venueGetState(venueToken) {
