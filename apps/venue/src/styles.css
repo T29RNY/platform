@@ -1916,6 +1916,52 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .token-card p { color: var(--ink-3); margin: 0 0 24px; font-size: 14px; }
 .token-input-row { display: flex; gap: 10px; }
 
+/* Venue sign-in (staff logins, mig 237) */
+.btn-google {
+  width: 100%;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 0;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--ink-1);
+  font-weight: 600;
+}
+.btn-google:hover { background: var(--bg-4); }
+.auth-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 16px 0;
+  color: var(--ink-3); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.auth-form { display: flex; flex-direction: column; gap: 10px; }
+.auth-form .btn-primary { width: 100%; justify-content: center; padding: 13px 0; }
+
+/* Rail account block (signed-in identity + sign out) */
+.rail-account {
+  border-top: 1px solid var(--border);
+  margin-top: 8px; padding-top: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.rail-account .who { min-width: 0; padding: 0 4px; }
+.rail-account .who .email {
+  font-size: 12px; color: var(--ink-1); font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rail-account .who .role { font-size: 11px; color: var(--ink-3); text-transform: capitalize; }
+
+/* Venue picker (a user who belongs to >1 venue) */
+.venue-picker { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.venue-picker .pick {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; text-align: left;
+  padding: 14px 16px; border-radius: 12px;
+  background: var(--bg-3); border: 1px solid var(--border);
+  color: var(--ink-1); cursor: pointer;
+}
+.venue-picker .pick:hover { background: var(--bg-4); border-color: var(--accent); }
+.venue-picker .pick .role { font-size: 11px; color: var(--ink-3); text-transform: capitalize; }
+
 /* Loading shimmer */
 .skel {
   background: linear-gradient(90deg, var(--bg-3) 0%, var(--bg-4) 50%, var(--bg-3) 100%);

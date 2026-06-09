@@ -42,7 +42,7 @@ const TITLES = {
   league: "Leagues", table: "Standings", cups: "Cups",
 };
 
-export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, onRefresh, onRefreshOccupancy, refreshing }) {
+export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, refreshing }) {
   const [view, setView] = useState("ops");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
@@ -78,6 +78,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
         anyLive={anyLive} liveCount={liveCount}
         onOpenWizard={() => setWizardOpen(true)}
         onOpenDisplay={() => setDisplayOpen(true)}
+        me={me} onSignOut={onSignOut} onSwitchVenue={onSwitchVenue}
       />
 
       <div className="workspace">
@@ -132,7 +133,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   );
 }
 
-function Rail({ view, onView, bookingBadge, hasCups, anyLive, liveCount, onOpenWizard, onOpenDisplay }) {
+function Rail({ view, onView, bookingBadge, hasCups, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue }) {
   return (
     <aside className="rail">
       <div className="rail-brand">
@@ -174,6 +175,23 @@ function Rail({ view, onView, bookingBadge, hasCups, anyLive, liveCount, onOpenW
         <button className="rail-tab" onClick={onOpenWizard}>
           <span className="ico"><Icon name="settings" /></span><span>Season setup</span>
         </button>
+
+        {me?.mode === "login" && (
+          <div className="rail-account">
+            <div className="who">
+              <div className="email" title={me.email}>{me.email}</div>
+              <div className="role">{me.role}</div>
+            </div>
+            {onSwitchVenue && (
+              <button className="rail-tab" onClick={onSwitchVenue}>
+                <span className="ico"><Icon name="arrow_r" /></span><span>Switch venue</span>
+              </button>
+            )}
+            <button className="rail-tab" onClick={onSignOut}>
+              <span className="ico"><Icon name="x" /></span><span>Sign out</span>
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

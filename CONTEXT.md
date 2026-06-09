@@ -28,8 +28,24 @@ a logged-in member, of which there are none until invites ship). **mig 237:**
   whoami, resolver-1b, idempotent re-claim, staff gated, revoked-not-resolved,
   no-auth rejected) via faked `request.jwt.claims`; leak-check 0 + demo seed intact
   (switched test identity to tarny@desicity.com to avoid touching the operator's
-  demo seed rows per Hard Rule #15). rpc-security PASS. **Next: Phase 2** — reuse the
-  casual SignIn (Email-OTP+Google) in apps/venue, claim-on-login, venue picker.
+  demo seed rows per Hard Rule #15). rpc-security PASS.
+
+**Phase 2 — login UI (frontend only, deployed).** Operator chose **Google +
+email/password** (both) for the venue console. New `VenueSignIn.jsx` (venue-styled:
+Continue-with-Google + email/password form). `App.jsx` rewritten: tracks the Supabase
+session (`getSession`+`onAuthStateChange`), on a session runs `venueClaimMemberships`
+→ `venueWhoami`, then renders sign-in / loading / no-access / **venue-picker** (>1
+venue) / dashboard. The chosen `venue_id` is the credential passed as `venueToken`
+to every RPC (Stage 1b); all existing loaders/realtime re-keyed onto it. The legacy
+`?token=` URL stays a silent dev/demo backdoor (skips auth entirely). Rail footer
+gained an account chip (email + role + Switch venue + Sign out); `venueWhoami`/
+`venueClaimMemberships` JS wrappers + barrel. **Demo owner password set** on
+tarnysingh@gmail.com (`InOrOut-Demo-2026`, additive — Google identity untouched;
+verified via the GoTrue password grant → 200 + access_token). Deployed prebuilt-
+static; **eyeballed live**: password sign-in → both invites auto-claimed → picker
+(both demo venues as Owner) → Demo Sports Centre dashboard loads real data via the
+login credential + account chip shows owner. **Next: Phase 3** — invites + Staff
+management screen (owner invites by email + role; Managers invite Staff only).
 
 ## SESSION 78 — Venue Requests inbox: series-aware confirm (Jun 9 2026)
 

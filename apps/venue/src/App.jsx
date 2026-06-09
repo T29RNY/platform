@@ -1,6 +1,10 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { venueGetState, getPitchOccupancy, venueGetBookingIns, supabase } from "@platform/core/storage/supabase.js";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import {
+  venueGetState, getPitchOccupancy, venueGetBookingIns,
+  venueWhoami, venueClaimMemberships, supabase,
+} from "@platform/core/storage/supabase.js";
 import Dashboard from "./views/Dashboard.jsx";
+import VenueSignIn from "./views/VenueSignIn.jsx";
 import { todayIso, addDays } from "./bookingUtil.js";
 
 const BOOKING_REASONS = new Set([
@@ -8,6 +12,8 @@ const BOOKING_REASONS = new Set([
   "booking_cancelled", "booking_superseded",
 ]);
 
+// Legacy / dev-demo backdoor: a shared venue_admin_token in the URL skips login
+// entirely (resolve_venue_caller stage 1). Real staff use the sign-in screen.
 function readTokenFromUrl() {
   if (typeof window === "undefined") return null;
   const sp = new URLSearchParams(window.location.search);
@@ -18,7 +24,29 @@ function readTokenFromUrl() {
 }
 
 export default function App() {
-  const [token, setToken] = useState(() => readTokenFromUrl());
+  const urlToken = useMemo(() => readTokenFromUrl(), []);
+
+  // ── Auth (skipped entirely when the URL backdoor token is present) ──
+  const [session, setSession] = useState(undefined);   // undefined = checking, null = none
+  const [venues, setVenues] = useState(null);           // null = not loaded, [] = none, [...] = member
+  const [selectedVenueId, setSelectedVenueId] = useState(null);
+  const [authError, setAuthError] = useState(null);
+
+  // The credential passed to every venue RPC: the shared token (backdoor) OR,
+  // for a logged-in member, their venue_id (resolve_venue_caller stage 1b —
+  // venue ids never collide with the long random tokens).
+  const credential = urlToken || selectedVenueId;
+
+  // Identity for the chosen venue — drives the rail account chip + (later) gating.
+  const me = useMemo(() => {
+    if (urlToken) return { mode: "token" };
+    const v = (venues || []).find((x) => x.venue_id === selectedVenueId);
+    return v
+      ? { mode: "login", email: session?.user?.email, role: v.role, capsGrant: v.caps_grant, capsDeny: v.caps_deny }
+      : null;
+  }, [urlToken, venues, selectedVenueId, session]);
+
+  // ── Dashboard data ──
   const [state, setState] = useState(null);
   const [occupancy, setOccupancy] = useState([]);
   const [bookingIns, setBookingIns] = useState({});
@@ -41,8 +69,6 @@ export default function App() {
     }
   }, []);
 
-  // Booking occupancy (fixtures + bookings + maintenance) for the inbox + calendar.
-  // Window: today .. +90d covers all pending requests and the visible calendar.
   const loadOccupancy = useCallback(async (t) => {
     if (!t) return;
     try {
@@ -54,9 +80,6 @@ export default function App() {
     }
   }, []);
 
-  // Live "ins" per upcoming team booking (mig 225). Refetched on a
-  // 'booking_ins_changed' venue broadcast (a player toggled in/out) and on a
-  // 60s fallback poll. Lightweight — counts only, never a full state reload.
   const loadIns = useCallback(async (t) => {
     if (!t) return;
     try {
@@ -66,86 +89,147 @@ export default function App() {
     }
   }, []);
 
+  // ── Auth bootstrap: track the Supabase session (unless using the backdoor) ──
   useEffect(() => {
-    if (token) { load(token); loadOccupancy(token); loadIns(token); }
-  }, [token, load, loadOccupancy, loadIns]);
+    if (urlToken) return;
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => { if (active) setSession(data.session ?? null); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s ?? null));
+    return () => { active = false; sub.subscription.unsubscribe(); };
+  }, [urlToken]);
 
-  // 60s fallback poll catches the few status-change sources the realtime trigger
-  // can't (e.g. a player being disabled), so the ins never drift for long.
+  // On a fresh session: claim any pending email invites, then load memberships.
   useEffect(() => {
-    if (!token) return;
-    const id = setInterval(() => loadIns(token), 60000);
+    if (urlToken) return;
+    if (!session) { setVenues(null); setSelectedVenueId(null); return; }
+    let active = true;
+    (async () => {
+      try {
+        await venueClaimMemberships();
+        const who = await venueWhoami();
+        if (!active) return;
+        const vs = who?.venues ?? [];
+        setVenues(vs);
+        setSelectedVenueId((prev) => prev || (vs.length === 1 ? vs[0].venue_id : null));
+      } catch (err) {
+        if (active) setAuthError(err?.message || String(err));
+      }
+    })();
+    return () => { active = false; };
+  }, [session, urlToken]);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setVenues(null);
+    setSelectedVenueId(null);
+    setState(null);
+  }, []);
+
+  // ── Load dashboard data once a credential is resolved ──
+  useEffect(() => {
+    if (credential) { load(credential); loadOccupancy(credential); loadIns(credential); }
+  }, [credential, load, loadOccupancy, loadIns]);
+
+  // 60s fallback poll for the live "ins" counts.
+  useEffect(() => {
+    if (!credential) return;
+    const id = setInterval(() => loadIns(credential), 60000);
     return () => clearInterval(id);
-  }, [token, loadIns]);
+  }, [credential, loadIns]);
 
-  // Subscribe to venue-level realtime broadcasts. Every ref RPC publishes
-  // on venue_live:<live_channel_key> (mig 121) so the office dashboard
-  // updates the moment a goal/card/sub/period/full-time happens at any
-  // pitch in this venue. Channel-key UUID is the secret — match the
-  // server-side publisher byte-for-byte (CLAUDE.md hard-rule #10).
+  // Venue-level realtime broadcasts (mig 121). Mirror the publisher byte-for-byte.
   const venueChannelKey = state?.venue?.live_channel_key ?? null;
-  const reloadRef = useRef(load);
-  reloadRef.current = load;
-  const reloadOccRef = useRef(loadOccupancy);
-  reloadOccRef.current = loadOccupancy;
-  const reloadInsRef = useRef(loadIns);
-  reloadInsRef.current = loadIns;
+  const reloadRef = useRef(load);          reloadRef.current = load;
+  const reloadOccRef = useRef(loadOccupancy); reloadOccRef.current = loadOccupancy;
+  const reloadInsRef = useRef(loadIns);    reloadInsRef.current = loadIns;
   useEffect(() => {
-    if (!venueChannelKey || !token) return;
+    if (!venueChannelKey || !credential) return;
     const ch = supabase.channel(`venue_live:${venueChannelKey}`);
     ch.on("broadcast", { event: "broadcast" }, (payload) => {
       const reason = payload?.payload?.reason;
       console.info("[venue] live update", reason);
-      // A player toggled in/out (mig 225) → only refetch the lightweight ins
-      // map. Never a full state/occupancy reload on a tap.
-      if (reason === "booking_ins_changed") { reloadInsRef.current(token); return; }
-      // Booking reasons only move occupancy → refetch the calendar/inbox.
-      // Everything else (fixtures, refs, settings) can also shift occupancy,
-      // so refetch both. Keeps the grid from ever showing a stale slot.
-      reloadOccRef.current(token);
-      if (!BOOKING_REASONS.has(reason)) reloadRef.current(token);
+      if (reason === "booking_ins_changed") { reloadInsRef.current(credential); return; }
+      reloadOccRef.current(credential);
+      if (!BOOKING_REASONS.has(reason)) reloadRef.current(credential);
     });
     ch.subscribe((status) => {
       if (status === "SUBSCRIBED") console.info("[venue] subscribed to", `venue_live:${venueChannelKey.slice(0, 8)}…`);
     });
     return () => { supabase.removeChannel(ch); };
-  }, [venueChannelKey, token]);
+  }, [venueChannelKey, credential]);
 
-  if (!token) {
-    return (
-      <div className="token-screen">
-        <div className="token-card">
-          <div className="brand-row">
-            <div className="mark">io</div>
-            <div className="wm">In or Out</div>
+  // ── Render gates ──────────────────────────────────────────────────────────
+  // Auth flow (no backdoor token): checking → sign-in → claim/whoami →
+  // no-access / venue-picker → dashboard.
+  if (!urlToken) {
+    if (session === undefined) {
+      return <div className="token-screen"><div className="text-mute">Loading…</div></div>;
+    }
+    if (!session) return <VenueSignIn />;
+
+    if (authError) {
+      return (
+        <div className="token-screen">
+          <div className="token-card">
+            <div className="brand-row"><div className="mark">io</div><div className="wm">In or Out</div></div>
+            <h1>Couldn’t load your access</h1>
+            <p>{authError}</p>
+            <button className="btn btn-primary" onClick={signOut}>Sign out</button>
           </div>
-          <h1>Venue console</h1>
-          <p>Enter your venue admin token to open the dashboard.</p>
-          <TokenForm onSubmit={(t) => setToken(t)} />
         </div>
-      </div>
-    );
+      );
+    }
+    if (venues === null) {
+      return <div className="token-screen"><div className="text-mute">Loading your venues…</div></div>;
+    }
+    if (venues.length === 0) {
+      return (
+        <div className="token-screen">
+          <div className="token-card">
+            <div className="brand-row"><div className="mark">io</div><div className="wm">In or Out</div></div>
+            <h1>No venue access</h1>
+            <p>You’re signed in as <strong>{session.user?.email}</strong>, but this account isn’t a member of any venue yet. Ask a venue owner to invite you.</p>
+            <button className="btn btn-primary" onClick={signOut}>Sign out</button>
+          </div>
+        </div>
+      );
+    }
+    if (!selectedVenueId) {
+      return (
+        <div className="token-screen">
+          <div className="token-card">
+            <div className="brand-row"><div className="mark">io</div><div className="wm">In or Out</div></div>
+            <h1>Choose a venue</h1>
+            <p>You manage more than one venue. Which are you working on?</p>
+            <div className="venue-picker">
+              {venues.map((v) => (
+                <button key={v.venue_id} className="pick" onClick={() => setSelectedVenueId(v.venue_id)}>
+                  <span>{v.name}</span>
+                  <span className="role">{v.role}</span>
+                </button>
+              ))}
+            </div>
+            <button className="btn btn-ghost btn-sm" style={{ marginTop: 16 }} onClick={signOut}>Sign out</button>
+          </div>
+        </div>
+      );
+    }
   }
 
   if (loading && !state) {
-    return (
-      <div className="token-screen">
-        <div className="text-mute">Loading dashboard…</div>
-      </div>
-    );
+    return <div className="token-screen"><div className="text-mute">Loading dashboard…</div></div>;
   }
 
   if (error) {
     return (
       <div className="token-screen">
         <div className="token-card">
-          <div className="brand-row">
-            <div className="mark">io</div>
-            <div className="wm">In or Out</div>
-          </div>
+          <div className="brand-row"><div className="mark">io</div><div className="wm">In or Out</div></div>
           <h1>Couldn’t load</h1>
           <p>{error}</p>
-          <button className="btn btn-primary" onClick={() => { setToken(null); setError(null); }}>Use a different token</button>
+          <button className="btn btn-primary" onClick={() => (urlToken ? load(credential) : signOut())}>
+            {urlToken ? "Retry" : "Sign out"}
+          </button>
         </div>
       </div>
     );
@@ -156,42 +240,15 @@ export default function App() {
   return (
     <Dashboard
       state={state}
-      venueToken={token}
+      venueToken={credential}
       occupancy={occupancy}
       bookingIns={bookingIns}
-      onRefresh={() => load(token)}
-      onRefreshOccupancy={() => loadOccupancy(token)}
+      me={me}
+      onSignOut={me?.mode === "login" ? signOut : null}
+      onSwitchVenue={(venues && venues.length > 1) ? () => setSelectedVenueId(null) : null}
+      onRefresh={() => load(credential)}
+      onRefreshOccupancy={() => loadOccupancy(credential)}
       refreshing={loading}
     />
-  );
-}
-
-function TokenForm({ onSubmit }) {
-  const [val, setVal] = useState("");
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        const t = val.trim();
-        if (t) {
-          const url = new URL(window.location.href);
-          url.searchParams.set("token", t);
-          window.history.replaceState({}, "", url.toString());
-          onSubmit(t);
-        }
-      }}
-    >
-      <div className="token-input-row">
-        <input
-          className="input"
-          type="text"
-          placeholder="venue_admin_token"
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          autoFocus
-        />
-        <button className="btn btn-primary" type="submit">Open</button>
-      </div>
-    </form>
   );
 }
