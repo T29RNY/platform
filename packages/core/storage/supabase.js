@@ -2650,7 +2650,7 @@ export async function cancelBookingSeries(seriesId, venueToken = null) {
 }
 
 // Venue-operator booking writes (venue-token authed; consumed by apps/venue BookingsPanel).
-export async function venueCreateBooking(venueToken, playingAreaId, bookingDate, kickoffTime, slotMinutes = null, teamId = null, bookedByName = null) {
+export async function venueCreateBooking(venueToken, playingAreaId, bookingDate, kickoffTime, slotMinutes = null, teamId = null, bookedByName = null, contactEmail = null, contactPhone = null) {
   const { data, error } = await supabase.rpc("venue_create_booking", {
     p_venue_token: venueToken,
     p_playing_area_id: playingAreaId,
@@ -2659,8 +2659,28 @@ export async function venueCreateBooking(venueToken, playingAreaId, bookingDate,
     p_slot_minutes: slotMinutes,
     p_team_id: teamId,
     p_booked_by_name: bookedByName,
+    p_contact_email: contactEmail,
+    p_contact_phone: contactPhone,
   });
   if (error) { console.error("[booking] venue_create_booking failed", error); throw error; }
+  return data;
+}
+
+// Venue-side weekly block (mig 232) — team-only; contact required. Mirrors the
+// arg order of the RPC: (token, pitch, time, startDate, weeks, teamId, slot?, email?, phone?).
+export async function venueCreateBookingSeries(venueToken, playingAreaId, kickoffTime, startDate, weeks, teamId, slotMinutes = null, contactEmail = null, contactPhone = null) {
+  const { data, error } = await supabase.rpc("venue_create_booking_series", {
+    p_venue_token: venueToken,
+    p_playing_area_id: playingAreaId,
+    p_kickoff_time: kickoffTime,
+    p_start_date: startDate,
+    p_weeks: weeks,
+    p_team_id: teamId,
+    p_slot_minutes: slotMinutes,
+    p_contact_email: contactEmail,
+    p_contact_phone: contactPhone,
+  });
+  if (error) { console.error("[booking] venue_create_booking_series failed", error); throw error; }
   return data;
 }
 

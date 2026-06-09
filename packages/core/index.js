@@ -131,6 +131,7 @@ export {
   venueGetBookingIns,
   venueRequestNudge,
   venueCreateBooking,
+  venueCreateBookingSeries,
   venueConfirmBooking,
   venueDeclineBooking,
   getPitchOccupancy,

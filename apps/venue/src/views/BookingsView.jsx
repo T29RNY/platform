@@ -140,6 +140,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
         open={!!walkIn}
         onClose={() => setWalkIn(null)}
         venueToken={venueToken}
+        venueId={venue?.id ?? state.venue?.id}
         date={date}
         pitches={pitches}
         teams={state.teams ?? {}}
