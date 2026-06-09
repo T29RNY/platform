@@ -1,5 +1,46 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 9 2026 (session 76 — reliable server-side "spot opened" reserve notification, mig 230.)*
+*Last updated: Jun 9 2026 (session 77 — venue Operations + Bookings deep-pass: incident lifecycle, New-booking rework, schedule-grid overhaul + filters; migs 231–233.)*
+
+## SESSION 77 — Venue Operations + Bookings screen pass (Jun 9 2026)
+
+Direct-to-`main` desktop session (no PRs). Screen-by-screen audit→fix of the venue
+dashboard, deploying `apps/venue` after each piece via the **manual prebuilt-static**
+path (platform-venue.vercel.app does NOT auto-deploy — see [[project_venue_deploy]] /
+the venue-deploy memory). Shipped, in order:
+
+- **Operations — incident lifecycle (mig 231).** Venue admin can now REPORT an incident
+  (button+modal → `venue_log_incident`) and RESOLVE one (per-row → `venue_resolve_incident`);
+  was create-by-seed-only + resolve-by-HQ-only. `incidents.reported_by` made nullable (venue
+  = token caller, no auth.uid()). Each incident row shows reporter (venue name) + timestamp.
+  EV 12/12, rpc-security 2/2.
+- **Bookings — New-booking modal rework (mig 232, 3 slices).** Existing customer
+  (Team/Person dropdowns) vs New customer; Single vs Block (weekly, team-only via
+  `venue_create_booking_series`); UK date + availability-driven time; email+phone REQUIRED
+  (contact cols on pitch_bookings) → `booking_confirmation` email (Resend) + SMS-ready cron job.
+  EV 15/15, rpc-security 2/2.
+- **Bookings — schedule grid overhaul + filters (mig 233 + frontend).** Un-squashed blocks
+  (60px/hr); colour = PAYMENT (green/amber, pending=dashed), TYPE word tag, NEW badge — via
+  `get_pitch_occupancy` gaining `owed`+`is_first` (`_venue_source_owed` helper). Scales to many
+  pitches (sticky axis + internal scroll; fixed a min-width:auto page-overflow). Client-side
+  FILTERS (CalendarFilters.jsx): search, Paid/Owed, type, Pending, New, pitch show/hide,
+  Free-slots; content filters COLLAPSE the calendar to matches (`occBounds`), Free-slots =
+  availability view (`freeGaps`, tappable "Available" slots, bookings stripped).
+- **Booking-settings bug fixes:** toggle CSS specificity (switch knob overlapped label),
+  unstyled slot-length pills ("30456090120"), "Add window" appended off-screen (now prepends).
+
+**Decisions logged (DECISIONS.md / FEATURES.md backlog):**
+- **Venue per-user login credentials** — venue console is one shared `venue_admin_token` (no
+  per-person identity); proper accounts are a new feature (model on apps/hq OAuth). Until then
+  audit "who" = the venue. Deliberately did NOT bolt on a free-text reporter field.
+- **IP + device in the audit trail — PARKED (on hold).** Backend-only enrichment; *who*/*when*
+  already captured on all 93 audit-writing RPCs. Agreed shape when resumed: a shared
+  `record_audit()` reading client IP + user-agent from PostgREST `request.headers` (never
+  client-passed) into new audit_events cols; adopt forward + backfill the 93.
+- **Person/new-customer block booking — deferred** (needs booking_series booker-agnostic +
+  a `create_renewal_holds` guard).
+
+**Operator still owes:** logged-in venue passes on the write flows (create a booking end-to-end;
+log+resolve an incident); real email-delivery eyeball once `RESEND_API_KEY` is live.
 
 ## SESSION 76 — Reliable "a spot's opened — claim it" reserve notification (Jun 9 2026)
 
