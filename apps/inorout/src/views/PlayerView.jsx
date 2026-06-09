@@ -350,11 +350,22 @@ export default function PlayerView({
       getPOTMVotingState(me.token, matchId, teamId)
         .then(({ eligible, existingVote, votes }) => {
           const myVote = votes.find(v => v.voter_id === myId);
+          const voted = !!(myVote || existingVote);
           setPotmEligible(eligible);
-          setPotmHasVoted(!!(myVote || existingVote));
+          setPotmHasVoted(voted);
           setPotmExistingVote(existingVote || myVote?.nominee_id || null);
           const amEligible = eligible.some(p => p.id === myId);
-          if (amEligible) setShowPOTMModal(true);
+          // One-time per match per device. prevVotingOpen resets to false on
+          // every mount, so without a persistent flag the modal re-popped on
+          // every app open while voting was live — even after the player had
+          // already voted. Suppress if they've voted OR already seen it; they
+          // can still vote via the persistent top banner.
+          const seenKey = `ioo_potm_seen_${matchId}`;
+          const alreadySeen = voted || localStorage.getItem(seenKey) === '1';
+          if (amEligible && !alreadySeen) {
+            localStorage.setItem(seenKey, '1');
+            setShowPOTMModal(true);
+          }
         })
         .catch(() => {});
     }
@@ -647,6 +658,14 @@ export default function PlayerView({
                 const paymentState = me
                   ? getPaymentState(me, cashPending)
                   : 'unpaid';
+                // Persistent (cashPending-independent) state for the OUTER branch
+                // structure. paymentState flips to 'cash_pending' the moment the
+                // player taps "Paid Cash", which would otherwise drop them out of
+                // the debt branch (where the Confirm button lives) entirely —
+                // leaving a debt-state player with no way to finish paying.
+                const basePaymentState = me
+                  ? getPaymentState(me, false)
+                  : 'unpaid';
                 const paymentMode  = 'both';
                 const status       = me?.status;
                 const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
@@ -700,7 +719,7 @@ export default function PlayerView({
                       minHeight:28, fontFamily:"var(--font-body)",
                     }}>✓ Paid</span>
                   );
-                } else if (paymentState === 'debt') {
+                } else if (basePaymentState === 'debt') {
                   if (!clearDebtExpanded) {
                     btns.push(
                       <button key="clear" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setClearDebtExpanded(true); }}

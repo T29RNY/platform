@@ -1,5 +1,48 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 9 2026 (session 80 — OPEN: drawn teams stay mutable AFTER kick-off — a post-kickoff injured-toggle silently dropped a player from team B (Footy Tuesdays, this week); two linked bugs filed, live data corrected, no code fix yet. session 79 — RESOLVED ops analytics counted players off players.team (A/B matchday side) not team_players (squad membership), mig 234; RESOLVED apps/superadmin blank screen since first deploy — prebuilt build missing VITE_SUPABASE_* env, see GO_LIVE #13. session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 9 2026 (session 80 — RESOLVED: debt-state players couldn't finish paying (Confirm button unreachable once "Paid Cash" tapped) + POTM modal re-popped on every app open even after voting — both PlayerView, fixed this session. OPEN: drawn teams stay mutable AFTER kick-off — a post-kickoff injured-toggle silently dropped a player from team B (Footy Tuesdays, this week); two linked bugs filed, live data corrected, no code fix yet. session 79 — RESOLVED ops analytics counted players off players.team (A/B matchday side) not team_players (squad membership), mig 234; RESOLVED apps/superadmin blank screen since first deploy — prebuilt build missing VITE_SUPABASE_* env, see GO_LIVE #13. session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+
+---
+
+## SESSION 80 — RESOLVED: debt-state players could not finish self-paying (Confirm button unreachable)
+
+**Incident (user-reported — Bidz + Tarny, Footy Tuesdays).** "The Paid button doesn't work."
+A player with an outstanding debt taps **Clear Debt → Paid Cash → (nothing)** — the
+"Confirm — You've Paid?" button never appears, so the cash claim can never be submitted.
+Reproduced live on production with Tarny's player link: after "Paid Cash" the entire payment
+button row vanished; no `set_player_paid` request ever fired.
+
+**Root cause.** `getPaymentState(me, cashPending)` returns `'cash_pending'` the instant the
+player taps "Paid Cash" (the `cashPending` UI flag overrides everything — payments.js:16). But
+the render's debt branch is guarded by `paymentState === 'debt'`
+([PlayerView.jsx](apps/inorout/src/views/PlayerView.jsx)), and the **Confirm button lives inside
+that branch**. So flipping `cashPending` true drops the player out of the debt branch entirely;
+the only branch that handles `'cash_pending'` is the `status === 'in'` one. Result: a player who
+is **'in'** can confirm (worked for Rohan/Sav at 18:32, pre-result), but a player in the
+post-game **'debt'** state (status reset to 'none', `owes>0`) hits a dead end. Once a result is
+saved the whole squad is in the debt state — so the button broke for everyone at once.
+
+**Fix.** Branch the outer button structure on a `cashPending`-independent
+`basePaymentState = getPaymentState(me, false)`, so the debt branch stays selected through the
+Paid-Cash → Confirm sub-flow. One-line guard change + the new derived value. Build clean;
+re-verified live after deploy. **Owed:** real-iPhone confirm (Hard Rule #13 — PlayerView).
+Note: self-pay is a *pending claim* by design (mig 211) — a successful tap shows "Awaiting
+confirmation", it does NOT clear the debt; the admin confirms in Payments to settle.
+
+## SESSION 80 — RESOLVED: POTM vote modal re-popped on every app open (even after voting)
+
+**Incident (user-reported).** The POTM voting modal — meant to appear once — reappeared on
+every app open/force-quit-reopen while voting was live, even after the player had already voted.
+Openly described by the operator as "very off-putting."
+
+**Root cause.** The auto-open effect keys off `prevVotingOpen` — a `useRef(false)`
+([PlayerView.jsx:285](apps/inorout/src/views/PlayerView.jsx)) that **resets to false on every
+mount**. So each fresh load with `schedule.votingOpen === true` reads `nowOpen && !wasOpen` =
+true and re-opens the modal. The open condition only checked `amEligible` — never whether the
+player had already voted or already dismissed it. No persistence.
+
+**Fix.** Suppress the auto-open when the player has voted OR has already seen it, via a
+per-match `localStorage` flag (`ioo_potm_seen_<matchId>`) set on first open. They can still vote
+through the persistent top "VOTE FOR POTM" banner, so nothing is lost. Build clean.
 
 ---
 
