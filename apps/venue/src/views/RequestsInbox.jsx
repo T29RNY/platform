@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { venueConfirmBooking, venueDeclineBooking, cancelBookingSeries } from "@platform/core/storage/supabase.js";
+import { venueConfirmBooking, venueConfirmBookingSeries, venueDeclineBooking, cancelBookingSeries } from "@platform/core/storage/supabase.js";
 import Icon from "./Icon.jsx";
 import { EmptyState } from "./atoms.jsx";
 import { getInitials } from "../lib/format.js";
@@ -18,7 +18,10 @@ export default function RequestsInbox({ groups, venueToken, onChanged }) {
     setError(null);
     try {
       if (action === "confirm") {
-        for (const id of g.bookingIds) await venueConfirmBooking(venueToken, id);
+        // Series confirm is whole-series + atomic server-side (mig 236) — the
+        // old per-id loop only reached the in-window weeks of a long block.
+        if (g.seriesId) await venueConfirmBookingSeries(venueToken, g.seriesId);
+        else for (const id of g.bookingIds) await venueConfirmBooking(venueToken, id);
       } else if (g.seriesId) {
         await cancelBookingSeries(g.seriesId, venueToken);
       } else {

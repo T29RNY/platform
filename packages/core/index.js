@@ -134,6 +134,7 @@ export {
   venueCreateBooking,
   venueCreateBookingSeries,
   venueConfirmBooking,
+  venueConfirmBookingSeries,
   venueDeclineBooking,
   getPitchOccupancy,
   venueUpdateBookingSettings,

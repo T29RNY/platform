@@ -1,5 +1,33 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 9 2026 (session 77 — venue Operations + Bookings deep-pass: incident lifecycle, New-booking rework, schedule-grid overhaul + filters; migs 231–233.)*
+*Last updated: Jun 9 2026 (session 78 — venue Requests inbox: confirm made whole-series atomic, mig 236. session 77 — venue Operations + Bookings deep-pass: incident lifecycle, New-booking rework, schedule-grid overhaul + filters; migs 231–233.)*
+
+## SESSION 78 — Venue Requests inbox: series-aware confirm (Jun 9 2026)
+
+Direct-to-`main` desktop session, continuing the venue screen-by-screen pass (Bookings nav
+group). Audited the **Requests inbox** (`RequestsInbox.jsx` ← `BookingsView.buildPendingGroups`
+← `get_pitch_occupancy`). Read+write paths were cleanly wired (status read live from
+`pitch_bookings`, all three write reasons in `BOOKING_REASONS`, realtime refetch closes the
+loop) **except one asymmetry**:
+
+- **Gap:** decline of a weekly block had an atomic whole-series server path
+  (`cancel_booking_series(series_id)`), but **confirm did not** — the inbox looped
+  `venue_confirm_booking` over `g.bookingIds`, an array built only from the today..+90d
+  occupancy window. Series allow up to **52 weeks** (`book_pitch_series` /
+  `venue_create_booking_series` guards), so a block >~12 weeks was **confirmed partially**:
+  weeks 13+ stayed `requested` forever — slot held, no charge raised, team never told confirmed.
+- **Fix (mig 236):** new `venue_confirm_booking_series(p_venue_token, p_series_id)` — confirms
+  every still-`requested` booking in the series atomically + raises one `venue_charge` per
+  booking (same fee logic + `venue_charges_source_uniq` ON CONFLICT guard as
+  `venue_confirm_booking`). Venue-token authed only (a team can't confirm its own request).
+  RequestsInbox confirm now routes `g.seriesId → venueConfirmBookingSeries` else the single-id
+  call — symmetric with decline.
+- **Verified:** ephemeral-verify 7/7 (15-wk series incl. weeks past +90d → all confirmed, 0
+  left requested, 15 charges with no dup via ON CONFLICT, audit row, invalid-token /
+  wrong-venue / double-tap all rejected) + leak-check 0; rpc-security-sweep PASS (SECDEF,
+  search_path, single overload, anon+authenticated); venue build clean; raw RPC name in
+  exactly one `supabase.rpc()`. Deployed to platform-venue.vercel.app (prebuilt-static); inbox
+  eyeballed live (one-off card unchanged). **Owed:** logged-in/real-squad pass confirming a
+  long block end-to-end (no pending series in the demo seed to exercise the new path in UI).
 
 ## SESSION 77 — Venue Operations + Bookings screen pass (Jun 9 2026)
 

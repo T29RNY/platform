@@ -2710,6 +2710,17 @@ export async function venueDeclineBooking(venueToken, bookingId) {
   return data;
 }
 
+// Confirm an ENTIRE weekly block in one transaction (mig 236). The per-booking
+// venue_confirm_booking loop only reached the in-window weeks (occupancy is
+// today..+90d) so a >12wk block was confirmed partially; this confirms every
+// still-requested booking in the series + raises a charge per booking. Mirrors
+// the whole-series cancel_booking_series path. Consumed by RequestsInbox.
+export async function venueConfirmBookingSeries(venueToken, seriesId) {
+  const { data, error } = await supabase.rpc("venue_confirm_booking_series", { p_venue_token: venueToken, p_series_id: seriesId });
+  if (error) { console.error("[booking] venue_confirm_booking_series failed", error); throw error; }
+  return data;
+}
+
 // Venue calendar/inbox read (active occupancy + fixture/booking/maintenance detail) over a date range.
 export async function getPitchOccupancy(venueToken, from, to) {
   const { data, error } = await supabase.rpc("get_pitch_occupancy", { p_venue_token: venueToken, p_from: from, p_to: to });
