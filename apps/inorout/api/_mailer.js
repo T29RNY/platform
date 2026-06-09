@@ -104,6 +104,24 @@ const TEMPLATES = {
       html: wrap(`<p>Hi <b>${esc(c.teamName)}</b>,</p><p>${esc(msg)}</p>`),
     };
   },
+  // Venue booking confirmation (mig 232) — sent to the booker's captured contact email
+  // when a venue creates a booking. Covers single + block (weeks > 1).
+  booking_confirmation: (c) => {
+    const whenLine = c.weeks > 1
+      ? `${c.weeks} weeks from ${c.dateLabel} at ${c.timeLabel}`
+      : `${c.dateLabel} at ${c.timeLabel}`;
+    const dur = c.slotMinutes ? ` (${c.slotMinutes} min)` : "";
+    return {
+      subject: `Booking confirmed — ${c.venueName}`,
+      text:
+        `Your booking at ${c.venueName} is confirmed.\n` +
+        `${c.pitchName} — ${whenLine}${dur}.`,
+      html: wrap(
+        `<p>Your booking at <b>${esc(c.venueName)}</b> is confirmed.</p>` +
+        `<p><b>${esc(c.pitchName)}</b> — ${esc(whenLine)}${esc(dur)}.</p>`
+      ),
+    };
+  },
   // Phase 9 finish — league reminder emails (the email leg of the push→email→SMS fallback;
   // same type names + ctx as the _sms.js templates so one router resolves a type per channel).
   leagueAvailability48h: (c) => ({

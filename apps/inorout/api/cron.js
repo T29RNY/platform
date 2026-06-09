@@ -215,6 +215,13 @@ module.exports = async function handler(req, res) {
     results.push(`onboardingEmail: error — ${e.message}`);
   }
 
+  // ── Booking confirmation to the customer (mig 232, every tick) ────────────
+  try {
+    await bookingConfirmEmailJob(results);
+  } catch (e) {
+    results.push(`bookingConfirmEmail: error — ${e.message}`);
+  }
+
   // ── League availability request (48h before a competitive fixture, 9am UK) ─
   try {
     await availabilityRequestJob(base, results);
@@ -688,6 +695,86 @@ async function confirmPushJob(base, results) {
       g.gameDate);
   }
   results.push(`confirmPush: ${groups.size} booking(s) notified`);
+}
+
+// ── Booking confirmation to the CUSTOMER (mig 232, every tick) ────────────────
+// confirmPushJob (above) notifies the registered team's admins via web-push. This sends
+// the booker's captured contact (email now via Resend; SMS-ready via _sms, no-op without
+// TWILIO_*) a confirmation — covering walk-in / new customers who have no team to push.
+// Reads pitch_bookings directly (catches both single rows and block series; block audits
+// as 'booking_series' so an audit poll would miss it). Collapses a block to ONE message
+// per series. Dedup per (type='booking_confirmation', entity_id=series||booking, recipient,
+// channel) via notification_log. No-ops cleanly when RESEND_API_KEY is unset.
+async function bookingConfirmEmailJob(results) {
+  const since = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+  const { data: bookings, error } = await supabase
+    .from("pitch_bookings")
+    .select("id, series_id, venue_id, playing_area_id, booking_date, kickoff_time, slot_minutes, contact_email, contact_phone")
+    .eq("status", "confirmed")
+    .not("contact_email", "is", null)
+    .gt("created_at", since);
+  if (error) { results.push(`bookingConfirmEmail: error — ${error.message}`); return; }
+  if (!bookings?.length) { results.push("bookingConfirmEmail: none"); return; }
+
+  // Collapse to one message per (series || single booking): earliest date + week count.
+  const groups = new Map();
+  for (const b of bookings) {
+    const key = b.series_id || b.id;
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, { key, entityId: key, weeks: 1, ...b, gameDate: b.booking_date });
+    } else {
+      g.weeks += 1;
+      if (b.booking_date < g.gameDate) { g.gameDate = b.booking_date; }
+    }
+  }
+
+  // Resolve venue + pitch names once per id.
+  const venueNames = {}, pitchNames = {};
+  for (const g of groups.values()) {
+    if (g.venue_id && venueNames[g.venue_id] === undefined) {
+      const { data } = await supabase.from("venues").select("name").eq("id", g.venue_id).single();
+      venueNames[g.venue_id] = data?.name || "the venue";
+    }
+    if (g.playing_area_id && pitchNames[g.playing_area_id] === undefined) {
+      const { data } = await supabase.from("playing_areas").select("name").eq("id", g.playing_area_id).single();
+      pitchNames[g.playing_area_id] = data?.name || "the pitch";
+    }
+  }
+
+  let sent = 0;
+  for (const g of groups.values()) {
+    const ctx = {
+      venueName: venueNames[g.venue_id], pitchName: pitchNames[g.playing_area_id],
+      dateLabel: fmtUkDate(g.gameDate), timeLabel: String(g.kickoff_time).slice(0, 5),
+      slotMinutes: g.slot_minutes || null, weeks: g.weeks,
+    };
+    // Email (Resend)
+    if (!(await alreadyNotified("booking_confirmation", g.entityId, g.contact_email, "email"))) {
+      const r = await sendTemplated("booking_confirmation", g.contact_email, ctx);
+      if (r?.skipped === "no_api_key") { results.push("bookingConfirmEmail: skipped (RESEND_API_KEY unset)"); break; }
+      if (r?.id) {
+        await supabase.from("notification_log").insert({
+          type: "booking_confirmation", entity_id: g.entityId, recipient: g.contact_email,
+          channel: "email", game_date: g.gameDate,
+        });
+        sent++;
+      } else if (r?.error) {
+        results.push(`bookingConfirmEmail: send failed (${g.contact_email}) — ${r.error}`);
+      }
+    }
+    // SMS (Twilio) — SMS-ready; no-ops cleanly until TWILIO_* is set.
+    if (g.contact_phone && !(await alreadyNotified("booking_confirmation", g.entityId, g.contact_phone, "sms"))) {
+      const s = await sendSmsTemplated("booking_confirmation", "sms", g.contact_phone, ctx);
+      if (s?.id) {
+        await supabase.from("notification_log").insert({
+          type: "booking_confirmation", entity_id: g.entityId, recipient: g.contact_phone,
+          channel: "sms", game_date: g.gameDate,
+        });
+      }
+    }
+  }
+  results.push(`bookingConfirmEmail: ${sent} email(s)`);
 }
 
 // ── Onboarding & ops emails (Phase 9 Cycle 9.1) ──────────────────────────────

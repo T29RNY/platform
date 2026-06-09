@@ -77,6 +77,10 @@ const TEMPLATES = {
     `In or Out — league fixture vs ${c.opponent} on ${c.dateLabel}. Are you in? ${c.link || ""}`.trim(),
   leagueFixtureReminder2h: (c) =>
     `In or Out — last call: kickoff vs ${c.opponent} in 2h. Mark in/out: ${c.link || ""}`.trim(),
+  booking_confirmation: (c) =>
+    `In or Out — booking confirmed at ${c.venueName}: ${c.pitchName}, ` +
+    (c.weeks > 1 ? `${c.weeks} weeks from ${c.dateLabel}` : `${c.dateLabel}`) +
+    ` at ${c.timeLabel}.`,
 };
 
 async function sendTemplated(type, channel, to, ctx) {
