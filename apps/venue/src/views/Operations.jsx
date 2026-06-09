@@ -99,7 +99,7 @@ export default function Operations({ state, venueToken, onRefresh }) {
                   <div className="label">{i.description}</div>
                   <div className="meta">
                     Incident · {i.severity || "info"}
-                    {" · reported by "}{state.venue?.name || "Venue admin"}
+                    {" · reported by "}{i.reported_by_name || state.venue?.name || "Venue admin"}
                     {i.created_at ? ` · ${incidentStamp(i.created_at)}` : ""}
                   </div>
                 </div>

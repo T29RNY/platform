@@ -82,6 +82,19 @@ each of the 11 carries the correct cap. Backend-only — no redeploy. **Next: Ph
 — attribution payoff (show the person's name on reported/resolved/refunded-by; data
 already records who via actor_ident=user_id).
 
+**Phase 5 — attribution payoff (mig 240). EPIC COMPLETE.** New `_venue_actor_name(uuid)`
+helper resolves a user_id → display name (Google full_name/name metadata, else email;
+NULL-safe; SECDEF reads auth.users). `venue_get_state.open_incidents` gains
+`reported_by_name` via the helper (injected programmatically — venue_get_state is large;
+read its body verbatim + add one field, idempotent). Operations.jsx incident line now
+shows `i.reported_by_name` (fallback to venue name for legacy/token-reported NULLs).
+Read-only (no EV-rollback needed); helper rpc-security PASS (SECDEF + search_path).
+Eyeballed live: both demo incidents flipped from "reported by Demo Sports Centre" to
+**"reported by Tarny Singh"** (their reported_by held the operator uid). The helper is
+reusable for future attribution surfaces (recorded-by / resolved-by / refunded-by).
+**Venue staff logins epic done: migs 237–240 + login UI + access mgmt + enforcement
++ attribution.**
+
 ## SESSION 78 — Venue Requests inbox: series-aware confirm (Jun 9 2026)
 
 Direct-to-`main` desktop session, continuing the venue screen-by-screen pass (Bookings nav

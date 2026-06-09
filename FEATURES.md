@@ -22,7 +22,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | League — Venue | Logged-in browser passes (payments screens etc.) | Test | 🟢 owed |
 | Platform — Audit | **IP + device in the audit trail** (ON HOLD, session 77 — backend-only, never shown on frontend). *Who* + *when* already captured on all 93 audit-writing RPCs (`audit_events.actor_*` + `created_at`). Agreed shape when resumed: a shared `record_audit()` helper that reads client IP + user-agent server-side from PostgREST `request.headers` (`x-forwarded-for`; never client-passed), stored on new `audit_events.ip_address`/`user_agent` cols; adopt for new/changed RPCs + backfill the 93 incrementally. Venue "person" fills in once per-user venue credentials exist. | Backend | ⏸️ on hold (flagged session 77) |
 | League — Venue | **Person/new-customer block booking** — venue block (recurring weekly) is team-only in v1 (mig 232). Extending to walk-in/person bookers needs `booking_series` made booker-agnostic (nullable team_id + booked_by_name + contact) + a `create_renewal_holds` guard (`team_id IS NOT NULL`) so person blocks aren't auto-renewed. | Backend | 🔴 deferred (flagged session 77) |
-| League — Venue | **Venue login credentials / per-user accounts** — replace the single shared `venue_admin_token` with per-person logins (email/OAuth → venue + name + role). Unblocks per-person audit attribution (reported-by, approved-by, resolved-by, recorded-by). HQ OAuth layer is the model. | New feature | 🔴 not started (flagged session 77) |
+| League — Venue | **Venue login credentials / per-user accounts** — per-person logins replacing the shared `venue_admin_token`. ✅ **SHIPPED session 78 (migs 237–240):** venue_admins table + resolve_venue_caller authed stage + venue_whoami/claim (237); Google+password sign-in + venue picker + account chip (P2); invites + access mgmt screen with role + per-person capability overrides (238); server-side capability enforcement on 11 gated RPCs (239); attribution payoff — reporter name on incidents (240). Owner/Manager/Staff; league admin open to Staff; gated Manager+ = reverse money / settings / facility / staff directory / manage logins. Hard cutover (shared token now a dev/demo backdoor). | New feature | 🟢 SHIPPED (s78) |
 | HQ dashboard | Final visual polish + `regional_admin` region-filter UI | UI | 🟡 functional, polish pending |
 | HQ dashboard | Deploy `apps/hq` to Vercel | Infra | 🔴 owed |
 | HQ dashboard | Logged-in (Google-OAuth) browser passes — several surfaces | Test | 🟢 owed |
@@ -37,7 +37,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
 | Operational | Real-iPhone passes: persistent guests, cups player view, reserve/injured (session 73) | Test | 🟢 owed |
 
-**Net-new features left:** Phase 7 (AI) · Phase 10 (public pages) · HQ-I Phase 3 · Venue login credentials / per-user accounts. (Phase 8 billing + Payments V5 deliberately later.)
+**Net-new features left:** Phase 7 (AI) · Phase 10 (public pages) · HQ-I Phase 3. (Venue login credentials ✅ shipped s78. Phase 8 billing + Payments V5 deliberately later.)
 **Wrap-up (not new features):** the league/venue/HQ/display skins · deploying display + HQ + landing pages · native app-store wrapping (unscoped).
 
 ---
