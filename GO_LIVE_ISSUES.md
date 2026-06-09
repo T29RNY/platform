@@ -1165,6 +1165,45 @@ their name). Don't report that as a regression.
 
 ---
 
+## 13. SUPERADMIN DASHBOARD — blank screen (missing build-time env)
+
+**Symptom:** `https://platform-superadmin-nu.vercel.app` rendered a
+**blank black screen** — had done since first deploy, so the dashboard
+was never usable.
+
+**Root cause:** `apps/superadmin` is deployed **manual prebuilt-static**
+(remote build fails on the monorepo `npm install`, same as `apps/venue`).
+Unlike the remote-built apps, a local prebuilt deploy does NOT get
+Vercel's env injected at build time — and `apps/superadmin` had **no
+`.env.local` of its own**, so `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
+baked in as `undefined`. `createClient(undefined, …)` throws on load →
+React never mounts → blank screen. (Confirmed by grepping the deployed
+bundle: no `*.supabase.co` URL, only the lib's "supabaseUrl is required"
+string.)
+
+**Fix (session — ops digest work):** created
+`apps/superadmin/.env.local` (gitignored; the URL + **anon** key are
+public client values, copied from `apps/inorout/.env.local`), rebuilt,
+and redeployed prebuilt to production. Verified the live bundle now
+contains `https://ktvpzpnqbwhooiaqrigm.supabase.co`.
+
+**Pre-flight check (any manual-prebuilt app — superadmin, venue):**
+before deploying, confirm the app has its own `.env.local` with the
+needed `VITE_*` vars, OR the deployed bundle will be env-less. Quick
+proof after deploy: `curl` the live `/assets/index-*.js` and grep for
+`supabase.co` — present = env baked in, absent = blank-screen bug.
+**Deploy recipe** (from `apps/superadmin`, linked to
+`platform-superadmin`): `npm run build` → stage `.vercel/output/static`
++ a `config.json` SPA-rewrite → `vercel deploy --prebuilt --prod`.
+
+**Durable risk:** `.env.local` is gitignored, so a fresh checkout on
+another machine reintroduces the bug on the next manual deploy. Two
+real fixes for later: (a) document/script the env step into the deploy,
+or (b) fix `platform-superadmin`'s Vercel remote build so it auto-deploys
+with injected env like the casual app.
+
+---
+
 ## SCOPE OUT
 
 These known issues exist but are LOW priority with documented
