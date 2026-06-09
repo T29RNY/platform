@@ -62,8 +62,25 @@ barrel. **Eyeballed live:** invited reception@demo.test as Staff → row shows I
 + 5 cap chips OFF → toggled Reverse-money ON (override persisted) → Removed (revoke);
 owner row correctly self-locked (no role edit / no remove / no caps). Email delivery
 of the invite is DEFERRED (Resend) — the invite works regardless (activates on first
-sign-in via claim). **Next: Phase 4** — wire the capability gates into the ~45
-venue_* write RPCs (server-side enforcement; UI already mirrors).
+sign-in via claim).
+
+**Phase 4 — server-side capability enforcement (mig 239).** The screens already
+HID controls a role can't use; this makes the RPCs REFUSE a too-low role. Injected
+one capability guard (`_venue_has_cap` → `insufficient_role`) into the 11 venue
+write RPCs that map to a gated cap: reverse_money (venue_void_payment/void_charge/
+set_charge_due), booking_settings (update_booking_settings), manage_facility
+(add_pitch/update_pitch/add_ref/update_ref/update_display_config), staff_directory
+(add_staff/update_staff). Everything else stays open (bookings, record-payment,
+incidents, rota, nudge, full league/cup admin). **Mechanism:** all 11 share the
+preamble anchor `v_venue_id := v_caller.venue_id;`; mig 239 is a DO block that reads
+each body via `pg_get_functiondef` (no hand transcription), injects the guard after
+the anchor, and CREATE OR REPLACEs — idempotent (skips already-gated), with an
+anchor-uniqueness assert. Shared token + platform_admin resolve as owner → pass all
+gates. EV 17 checks (staff blocked on ALL 11; manager passes all 4 caps; per-person
+grant lets staff through that one cap but still blocks the others) + leak 0; verified
+each of the 11 carries the correct cap. Backend-only — no redeploy. **Next: Phase 5**
+— attribution payoff (show the person's name on reported/resolved/refunded-by; data
+already records who via actor_ident=user_id).
 
 ## SESSION 78 — Venue Requests inbox: series-aware confirm (Jun 9 2026)
 
