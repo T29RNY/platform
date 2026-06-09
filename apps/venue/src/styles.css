@@ -2613,17 +2613,34 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 }
 .occ-label { display: block; font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .occ-time { display: block; font-size: 10px; color: var(--ink-3); margin-top: 1px; }
-.occ-fixture { background: var(--accent-soft); border-color: rgba(255,200,58,0.4); color: var(--accent); cursor: default; }
-.occ-fixture .occ-time { color: var(--accent); }
+/* colour = payment status */
+.occ-paid { background: var(--ok-soft); border-color: rgba(18,185,129,0.4); color: var(--ok); }
+.occ-paid .occ-time { color: var(--ok); }
+.occ-owed { background: var(--warn-soft); border-color: rgba(245,158,11,0.4); color: var(--warn); }
+.occ-owed .occ-time { color: var(--warn); }
+/* a pending request to action — outline, not a filled (confirmed) block */
+.occ-pending { background: transparent; border: 1px dashed var(--border-strong); color: var(--ink-2); }
+.occ-pending .occ-time { color: var(--ink-3); }
 .occ-maint {
   background: repeating-linear-gradient(45deg, var(--bg-3) 0 8px, var(--bg-4) 8px 16px);
   border-style: dashed; color: var(--ink-3); cursor: default;
 }
-.occ-pending { background: var(--warn-soft); border-color: rgba(245,158,11,0.4); color: var(--warn); }
-.occ-pending .occ-time { color: var(--warn); }
-.occ-confirmed { background: var(--ok-soft); border-color: rgba(18,185,129,0.4); color: var(--ok); }
-.occ-confirmed .occ-time { color: var(--ok); }
 .occ-actionable { cursor: pointer; }
+/* block header: name (ellipsis) + NEW badge + type word */
+.occ-top { display: flex; align-items: center; gap: 5px; }
+.occ-top .occ-label { flex: 0 1 auto; min-width: 0; }
+.occ-type {
+  flex: none; margin-left: auto;
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 1px 5px; border-radius: 5px;
+  background: rgba(255,255,255,0.09); color: var(--ink-2);
+}
+.occ-new {
+  flex: none;
+  font-size: 8px; font-weight: 800; letter-spacing: 0.03em;
+  padding: 1px 4px; border-radius: 4px;
+  background: var(--accent); color: var(--accent-ink);
+}
 
 /* Day agenda (mobile single-pitch list) */
 .agenda-pitches { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }

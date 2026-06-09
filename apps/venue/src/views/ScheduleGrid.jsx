@@ -1,5 +1,5 @@
 import React from "react";
-import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel } from "../bookingUtil.js";
+import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIsFirst } from "../bookingUtil.js";
 
 const PXMIN = 1.0;          // pixels per minute (60px/hr — fits name + time + ins in a 60-min block)
 const SNAP = 30;            // tap-to-book snaps to 30-min
@@ -60,6 +60,7 @@ export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, c
               const h = Math.max((minsOfDay(o.end) - minsOfDay(o.start)) * PXMIN, 18);
               const isBooking = o.source_kind === "booking";
               const ins = isBooking ? bookingIns[o.source_id] : null;
+              const type = occType(o);
               return (
                 <div
                   key={o.id}
@@ -67,7 +68,11 @@ export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, c
                   style={{ top, height: h }}
                   onClick={(e) => { e.stopPropagation(); if (isBooking) onSelectBooking?.(o); }}
                 >
-                  <span className="occ-label">{occLabel(o)}</span>
+                  <div className="occ-top">
+                    <span className="occ-label">{occLabel(o)}</span>
+                    {occIsFirst(o) && <span className="occ-new">NEW</span>}
+                    {type && <span className="occ-type">{type}</span>}
+                  </div>
                   <span className="occ-time">{fmtTime(o.start)}–{fmtTime(o.end)}</span>
                   {ins && <span className="occ-ins">{ins.in_count}{ins.target ? `/${ins.target}` : ""} in</span>}
                 </div>

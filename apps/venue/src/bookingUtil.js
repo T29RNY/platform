@@ -97,12 +97,28 @@ export function dayWindow(pitches, iso, dayOcc = []) {
   return { startMin: lo, endMin: hi };
 }
 
-// Colour/intent class for an occupancy block.
+// Colour class for an occupancy block. Colour now means PAYMENT:
+//   green  = paid / nothing owed     (occ-paid)
+//   amber  = money owed              (occ-owed)
+//   dashed = a request to action     (occ-pending — not yet a confirmed booking)
+//   striped= maintenance             (occ-maint)
+// Booking TYPE (one-off/block/league) is conveyed by occType(), not colour.
 export function occClass(o) {
   if (o.source_kind === "maintenance") return "occ-maint";
-  if (o.source_kind === "fixture") return "occ-fixture";
   if (o.detail?.status === "requested") return "occ-pending";
-  return "occ-confirmed";
+  return o.detail?.owed ? "occ-owed" : "occ-paid";
+}
+
+// Word tag for the booking TYPE — "League" | "Block" | "One-off" (null = maintenance).
+export function occType(o) {
+  if (o.source_kind === "maintenance") return null;
+  if (o.source_kind === "fixture") return "League";
+  return o.detail?.kind === "block" ? "Block" : "One-off";
+}
+
+// True when this is the booker's first-ever booking at the venue (bookings only).
+export function occIsFirst(o) {
+  return o.source_kind === "booking" && o.detail?.is_first === true;
 }
 
 // Primary label for an occupancy block.
