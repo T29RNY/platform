@@ -2718,6 +2718,21 @@ export async function venueVoidCharge(venueToken, chargeId) {
   return data;
 }
 
+// ── Venue incident lifecycle (mig 231) — log + resolve from the Operations panel ──
+export async function venueLogIncident(venueToken, description, severity, fixtureId = null) {
+  const { data, error } = await supabase.rpc("venue_log_incident", {
+    p_venue_token: venueToken, p_description: description, p_severity: severity, p_fixture_id: fixtureId });
+  if (error) { console.error("[incidents] venue_log_incident failed", error); throw error; }
+  return data;
+}
+
+export async function venueResolveIncident(venueToken, incidentId, note = null) {
+  const { data, error } = await supabase.rpc("venue_resolve_incident", {
+    p_venue_token: venueToken, p_incident_id: incidentId, p_resolution_note: note });
+  if (error) { console.error("[incidents] venue_resolve_incident failed", error); throw error; }
+  return data;
+}
+
 // League Mode Phase 4 — Reception Display (mig 164–167).
 // Display token is the auth signal (read-only, on the TV); never the venue_admin_token.
 export async function getDisplayState(displayToken) {

@@ -1,6 +1,7 @@
 import React from "react";
 import FixtureCard from "./FixtureCard.jsx";
 import RegistrationActions from "./RegistrationActions.jsx";
+import IncidentActions, { ReportIncidentButton } from "./IncidentActions.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 import { longDate } from "../lib/format.js";
@@ -8,8 +9,8 @@ import { longDate } from "../lib/format.js";
 // Operations content (the centre column). Stat row + right sidebar are rendered
 // by Dashboard into their own grid areas. Real wiring preserved: fixture actions
 // via <FixtureCard>/<FixtureActions>, registration approve/reject via
-// <RegistrationActions>. Open-incident "Resolve" is display-only (no venue RPC
-// exists for it yet — incidents surface here read-only).
+// <RegistrationActions>, and the incident lifecycle (report + resolve) via
+// <ReportIncidentButton>/<IncidentActions> (venue_log_incident / venue_resolve_incident, mig 231).
 export default function Operations({ state, venueToken, onRefresh }) {
   const fixtures = state.fixtures || {};
   const tonight = fixtures.tonight || [];
@@ -72,6 +73,8 @@ export default function Operations({ state, venueToken, onRefresh }) {
         <header className="issues-head">
           <h3>Open issues</h3>
           {issuesCount > 0 && <span className="count">{issuesCount}</span>}
+          <span className="spacer" />
+          <ReportIncidentButton venueToken={venueToken} onDone={onRefresh} />
         </header>
         {issuesCount === 0 ? (
           <div className="issues-empty">Nothing to action right now.</div>
@@ -96,6 +99,7 @@ export default function Operations({ state, venueToken, onRefresh }) {
                   <div className="label">{i.description}</div>
                   <div className="meta">Incident · {i.severity || "info"}</div>
                 </div>
+                <IncidentActions venueToken={venueToken} incident={i} onDone={onRefresh} />
               </div>
             ))}
           </>

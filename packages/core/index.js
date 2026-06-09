@@ -141,6 +141,8 @@ export {
   venueSetChargeDue,
   venueAddFixtureCharge,
   venueVoidCharge,
+  venueLogIncident,
+  venueResolveIncident,
   confirmRenewal,
   getDisplayState,
   checkDisplayPin,
