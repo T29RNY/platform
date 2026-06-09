@@ -1,10 +1,33 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 9 2026 (session 79 — operator analytics: granular detail lives on the superadmin DASHBOARD, the email digest stays a lean alert layer; notification "reach" = real delivery path not the channel preference; casual squad admin access = admin_token hand-off + verified-email account-claim; ops analytics scope by team_players NOT players.team. session 78 — venue staff logins design settled. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
+*Last updated: Jun 9 2026 (session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## Post-game lifecycle: a finished game closes, and sign-ups are gated server-side (session 80)
+
+Settled while firefighting a real squad the night a game finished:
+
+- **A played game closes.** `admin_save_match_result` sets `schedule.game_is_live=false` on the
+  fresh save. Once the result is in, the match stops accepting sign-ups — you do not leave the
+  played game "open" until next week's auto-open. (Before, nothing closed it, so players signed
+  IN to a match that had already happened.)
+- **The sign-up window is enforced server-side, not just by hiding buttons.** `set_player_status`
+  refuses any change unless `game_is_live=true AND NOT is_cancelled` (`game_not_live`). The client
+  hiding the In/Out buttons is convenience; the server is the gate. Consistent with the project's
+  "never trust the client" rule.
+- **Completion resets EVERY status, reserves included.** Reserves/maybes/no-shows are treated like
+  any other status and reset to 'none' when a game completes — not carried forward. (The old reset
+  only touched players who attended.)
+- **Result-save preserves an already-paid player's flag.** It no longer blanket-wipes `paid`; a
+  player whose ledger for that match is `paid` stays `paid=true` so My View and the ledger agree.
+  Payment-cycle reset still happens (go-live resets status; next week's save keys on next match).
+- **POTM voting window is 2 hours** (from when it opens, ≈ end of game), not 1. Set in
+  `cron.js potmVotingOpenJob`.
+- **When sign-ups are closed, tell the player WHEN they open.** PlayerView shows
+  "sign-ups open <opens_day> at <opens_time>" pulled live from the schedule — not a blank gap.
 
 ## Operator analytics: dashboard for detail, email for alerts (session 79)
 

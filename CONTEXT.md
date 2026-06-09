@@ -1,5 +1,39 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 9 2026 (session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with the parallel session 78 venue work — see SESSION 79. session 78 — venue staff logins + Requests inbox, migs 236–240.)*
+*Last updated: Jun 9 2026 (session 80 — live firefight on Footy Tuesdays the night a game finished: fixed the paid button (debt-state Confirm unreachable), the POTM modal re-popping every open, payment ledger/flat reconciliation, and — mig 241 — the post-game lifecycle: games now close on result-save, ALL statuses incl reserves reset, server-side sign-up gate, paid-flag wipe fixed; POTM voting window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with the parallel session 78 venue work — see SESSION 79.)*
+
+## SESSION 80 — Live firefight + post-game lifecycle hardening (mig 241)
+
+Operator hit a cascade of issues on a real squad (Footy Tuesdays, `team_KPaoX8oJYMQ`) the night
+a game finished. Worked them live, then shipped the durable fixes.
+
+**Data fixes (live, no code):** Matty wrongly dropped from team B (an injured-toggle ON/OFF at
+20:23 — after the 20:00 kick-off — stripped him from the saved `team_b` array; result-save then
+locked a 6-man team B). Re-added to `team_b` + set his `player_match.result='l'`. Reconciled
+Bidz + Rohan flat `paid=true` (result-save had wiped the flag the admin-confirm set). Closed the
+stuck-open game + reset Gurpal/Callum/Kyle statuses.
+
+**Code fixes shipped:**
+- **Paid button** (commit 888be3a): the "Confirm — You've Paid?" button lived inside the
+  `paymentState==='debt'` branch, but tapping "Paid Cash" flips state to `'cash_pending'` →
+  debt branch skipped → no Confirm. Once a result saves the whole squad is in the debt state, so
+  it broke for everyone. Branch the outer structure on a `cashPending`-independent
+  `basePaymentState`. Reproduced + fixed live via Playwright.
+- **POTM modal re-popping** (888be3a): `prevVotingOpen` is `useRef(false)`, reset every mount, and
+  the open check only tested eligibility — so it re-opened on every app launch, even after voting.
+  Now suppressed via per-match `localStorage` (`ioo_potm_seen_<matchId>`) + a voted check.
+- **mig 241 — post-game lifecycle:** `admin_save_match_result` now closes the game
+  (`game_is_live=false`), resets EVERY squad status (reserves included, not just attendees), and
+  preserves `paid` for already-ledger-paid players; `set_player_status` gains a server-side
+  sign-up-window gate (`game_not_live`). PlayerView shows a "sign-ups open <day> at <time>" note
+  (pulled from `schedule.opens_day/opens_time`) instead of a bare gap. Ephemeral-verified 8/8 +
+  leak 0; rpc-security-sweep PASS. See RPCS.md mig 241 + [[project_result_save_invariants]].
+- **POTM voting window 1h → 2h** (commit b5439af): `cron.js potmVotingOpenJob` `closesAt` bumped
+  to `now + 2h`; push copy updated. Applies next game onward.
+
+**Owed:** real-iPhone test of the PlayerView changes (Hard Rule #13). Enhancement requested: an
+admin "pending claims" banner (list everyone awaiting payment confirmation on the Admin tab).
+Root-cause bugs still OPEN in BUGS.md: drawn teams stay mutable after kick-off (the Matty trigger)
++ result-save double-charges guests (game_fee on top of guest_fee).
 
 ## SESSION 79 — Superadmin operator-analytics suite + ops email digest (migs 234–240*)
 
