@@ -1,5 +1,5 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 9 2026 (session 76 — reserve "spot opened" stays tap-to-claim, made reliable server-side)*
+*Last updated: Jun 9 2026 (session 78 — venue staff logins design settled: Email-OTP+Google, hard cutover (no dual-mode — zero real venues), 3 roles Owner/Manager/Staff enforced server-side with per-person capability overrides; see VENUE LOGIN CREDENTIALS below. session 76 — reserve "spot opened" stays tap-to-claim, made reliable server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
@@ -2102,3 +2102,62 @@ Full spec: `GROUP_BALANCER.md`.
 - **Not bolting on a half-version now:** deliberately avoided adding a
   free-text "reporter name" field, since it would create a parallel, untrusted
   identity path that the real accounts system would have to unwind.
+
+### Session 78 — design settled (build starting)
+
+Worked through the model with the operator. Settled:
+
+- **Sign-in:** **Email OTP primary + "Continue with Google"** — passwordless,
+  reuses the casual app's existing `SignIn.jsx` Supabase flow (OTP + Google
+  already live there). Not password (reset/breach burden); not OAuth-only
+  (would lock out staff without a Google account). Zero new auth infra.
+- **No dual-mode — hard cutover.** There are only TWO venues in the system and
+  both are demo (`demo_venue`, `venue_demo_south`); ZERO real venues live (the
+  31 recent venue_admin audit actions are the two demo tokens = us testing).
+  So the transition machinery dual-mode exists to protect (claim-links,
+  retire-later) would be built only to be deleted. Staff logins becomes how
+  venues work from day one. The shared `venue_admin_token` stays ONLY as a
+  hidden dev/demo backdoor (kept in `resolve_venue_caller` stage 1, removed
+  from the real UI). The two demo venues get a seeded Owner each. "First owner"
+  of a real venue = just the first invite the operator sends at onboarding —
+  no migration.
+- **Three roles: Owner / Manager / Staff**, enforced **server-side** (the login
+  tells each RPC the caller's role; the RPC refuses if too low; the UI just
+  hides buttons to match). Default capability matrix:
+  - **Always-on for any logged-in member (incl. Staff):** take/confirm/decline/
+    cancel bookings; record a payment (cash in); report AND resolve incidents;
+    assign ref/pitch to fixtures; nudge a team; **full league & cup admin**
+    (seasons, fixtures, approve/reject/expel/withdraw teams, edit scores,
+    brackets) — operator explicitly opened league admin to Staff.
+  - **Manager+ only (the gated capabilities):** reverse money (refund / undo
+    payment / void charge / edit amount owed); booking settings (hours, slot
+    length, pricing, on/off); manage pitches & officials roster + reception-
+    display/sponsor config; staff contact directory (the address book);
+    invite/manage logins (Managers may invite **Staff-level only**).
+  - **Owner only (not delegable):** create Managers, transfer ownership, core
+    venue settings.
+- **Roles are defaults, not a cage — per-person overrides.** On an individual's
+  card an Owner (or Manager, for Staff) can toggle a specific gated capability
+  ON or OFF for that one person (e.g. grant a trusted Staff member refunds;
+  remove league admin from a new hire). Guardrails: (1) you can never grant a
+  capability you don't hold yourself; (2) you can only edit people **below**
+  you (Manager edits Staff; Owner edits anyone); (3) "create Managers /
+  transfer ownership" is Owner-only and is NOT override-able (blocks
+  privilege-escalation loops). Chose per-person overrides over editable role
+  templates (one edit silently re-permissioning the whole team is a footgun) —
+  keeps the 3-tier mental model with a contained escape hatch.
+- **Effective capability** = role default ∪ per-person grants − per-person
+  denies, capped at the editor's own ceiling.
+- **Job-title vs permission-role are separate axes:** the existing `venue_staff`
+  table (mig 195: reception/manager/groundstaff/coach…) stays a CONTACT
+  directory; the permission role (owner/manager/staff) lives on the new
+  `venue_admins` login table. A login may optionally link to a directory row.
+- **Model to copy:** `team_admins` (mig 002) — user_id + role + granted_by/at +
+  revoked_at/by soft-delete + active-unique index — extended with `email`
+  (invite target, matched on first sign-in), `status` (invited/active/revoked),
+  and `caps_grant[]`/`caps_deny[]` for the overrides.
+
+Build phases: (1) `venue_admins` table + `resolve_venue_caller` authenticated
+stage + `venue_whoami`; (2) reuse SignIn for the venue app; (3) invites + Staff
+management screen; (4) per-RPC capability gating; (5) attribution payoff
+(named reported/resolved/refunded-by). Phase 1 audit next.
