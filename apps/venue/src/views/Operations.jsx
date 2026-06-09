@@ -4,7 +4,7 @@ import RegistrationActions from "./RegistrationActions.jsx";
 import IncidentActions, { ReportIncidentButton } from "./IncidentActions.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
-import { longDate } from "../lib/format.js";
+import { longDate, incidentStamp } from "../lib/format.js";
 
 // Operations content (the centre column). Stat row + right sidebar are rendered
 // by Dashboard into their own grid areas. Real wiring preserved: fixture actions
@@ -97,7 +97,11 @@ export default function Operations({ state, venueToken, onRefresh }) {
                 </span>
                 <div>
                   <div className="label">{i.description}</div>
-                  <div className="meta">Incident · {i.severity || "info"}</div>
+                  <div className="meta">
+                    Incident · {i.severity || "info"}
+                    {" · reported by "}{state.venue?.name || "Venue admin"}
+                    {i.created_at ? ` · ${incidentStamp(i.created_at)}` : ""}
+                  </div>
                 </div>
                 <IncidentActions venueToken={venueToken} incident={i} onDone={onRefresh} />
               </div>

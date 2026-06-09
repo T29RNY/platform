@@ -44,6 +44,17 @@ export function longDate(d) {
   } catch { return d; }
 }
 
+// Absolute date + time for an audit-style stamp ("9 Jun, 14:30"). Used for the
+// incident "reported" timestamp where the exact moment matters, not recency.
+export function incidentStamp(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("en-GB", {
+      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return ""; }
+}
+
 // Relative time from an ISO timestamp ("3h ago", "2d ago", then a date).
 export function relativeFrom(iso) {
   if (!iso) return "";
