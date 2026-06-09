@@ -510,6 +510,14 @@ JS wrappers land with the consuming UI (Stages 5/6).
 
 ---
 
+## OPS / INTERNAL CRON RPCs (no JS wrapper — called directly from api/cron.js)
+
+| SQL function | Grant | Notes |
+|---|---|---|
+| `get_ops_usage_digest(p_from date, p_to date, p_prev_from date?, p_prev_to date?)` | service_role only (anon + authenticated **revoked**) | **Migration 234.** STABLE, read-only. Operator-only "is the casual app being used?" analytics over a window `[p_from,p_to]` (UK dates, inclusive) + an optional previous window for the wk/wk delta. Returns one jsonb: `squads{total,active,new[]}`, `players{total,new,disabled_now,disabled_in_window,deleted_in_window}`, `activity{total_events,app_opens,active_players,availability_marks,bookings,by_action[]}`, `dormancy[{id,name,last_active,days_since}]`, `prev{total_events,active_players}`. **Real squads only** — demo (`team_demo%`) AND demo-company league seed (`team_dc%`) stripped in SQL per Hard Rule #15, so the numbers are genuine onboarded squads. SECURITY DEFINER, `search_path=public`. No JS wrapper — called via `supabase.rpc()` directly in `api/cron.js` (same pattern as `hq_get_analytics_for_company`/`weeklyDigestJob`), so it never lands in `packages/core`. **Consumers (Hard Rule #14)**: `api/cron.js` `opsDailyDigestJob` (Tue–Sun 08:00 UK, previous day) + `opsWeeklyDigestJob` (Mon 08:00 UK, previous week) → `_mailer.js` `opsDailyDigest`/`opsWeeklyDigest` templates → `OPS_DIGEST_EMAIL` (defaults to operator address); **planned**: Phase 7 Gaffer AI-narration layer reads this same shape for the prose digest. Return-shape changes must check both cron.js templates AND that future consumer. |
+
+---
+
 ## ADDING A NEW RPC — CHECKLIST
 
 1. Write SQL in Supabase SQL editor first — never via Claude Code

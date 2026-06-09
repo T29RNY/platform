@@ -197,6 +197,95 @@ const TEMPLATES = {
       ),
     };
   },
+  // Casual-app ops digest (mig 234) — operator-only "is the app being used?" email.
+  // ctx is built in cron.js opsDailyDigestJob / opsWeeklyDigestJob from get_ops_usage_digest
+  // (real squads only; demo/dc seeds stripped in SQL). EMAIL ONLY. Sections, never bullets.
+  opsDailyDigest: (c) => {
+    const newSquads = Array.isArray(c.newSquads) ? c.newSquads : [];
+    const churn = (c.disabled || 0) + (c.deleted || 0);
+    return {
+      subject: `In or Out — ${c.dateLabel}: ${c.squadsActive}/${c.squadsTotal} squads active`,
+      text:
+        `In or Out — ${c.dateLabel}.\n` +
+        `${c.squadsActive} of ${c.squadsTotal} squads active, ${c.activePlayers} players opened the app, ${c.totalEvents} actions (${c.availabilityMarks} in/out marks).\n` +
+        (newSquads.length ? `New squads: ${newSquads.map((s) => s.name).join(", ")}.\n` : "") +
+        (c.newPlayers ? `${c.newPlayers} new player(s).\n` : "") +
+        (churn ? `Churn: ${c.disabled} disabled, ${c.deleted} removed.\n` : "No churn.\n"),
+      html: wrap(
+        `<p style="margin:0 0 4px"><b style="font-size:17px">In or Out</b></p>` +
+        `<p style="margin:0 0 18px;color:#888;font-size:13px">${esc(c.dateLabel)}</p>` +
+        `<p style="margin:0 0 14px"><b>${c.squadsActive}</b> of <b>${c.squadsTotal}</b> squads active yesterday — ` +
+        `<b>${c.activePlayers}</b> player${c.activePlayers === 1 ? "" : "s"} opened the app, ` +
+        `<b>${c.totalEvents}</b> action${c.totalEvents === 1 ? "" : "s"} ` +
+        `(<b>${c.availabilityMarks}</b> in/out mark${c.availabilityMarks === 1 ? "" : "s"}).</p>` +
+        (newSquads.length
+          ? `<p style="margin:0 0 6px"><b>New squads</b></p>` +
+            `<p style="margin:0 0 14px;color:#2a7a2a">${newSquads.map((s) => esc(s.name)).join(", ")}</p>`
+          : "") +
+        (c.newPlayers
+          ? `<p style="margin:0 0 14px"><b>${c.newPlayers}</b> new player${c.newPlayers === 1 ? "" : "s"} joined.</p>`
+          : "") +
+        (churn
+          ? `<p style="margin:0 0 14px;color:#a00"><b>Churn:</b> ${c.disabled} disabled, ${c.deleted} removed.</p>`
+          : `<p style="margin:0 0 14px;color:#2a7a2a">No churn.</p>`)
+      ),
+    };
+  },
+  opsWeeklyDigest: (c) => {
+    const newSquads = Array.isArray(c.newSquads) ? c.newSquads : [];
+    const dormancy = Array.isArray(c.dormancy) ? c.dormancy : [];
+    const churn = (c.disabled || 0) + (c.deleted || 0);
+    const wow = (cur, prev) => {
+      if (!prev) return cur ? "" : "";
+      const pct = Math.round(((cur - prev) / prev) * 100);
+      return pct === 0 ? " (flat wk/wk)" : ` (${pct > 0 ? "+" : ""}${pct}% wk/wk)`;
+    };
+    const dormLabel = (d) =>
+      d.days_since == null ? "never active"
+        : d.days_since === 0 ? "active today"
+        : `${d.days_since}d ago`;
+    const dormRows = dormancy
+      .map((d) => {
+        const silent = d.days_since == null || d.days_since >= 14;
+        return (
+          `<tr><td style="padding:4px 12px 4px 0">${esc(d.name)}</td>` +
+          `<td style="padding:4px 0;text-align:right;color:${silent ? "#a00" : "#555"}">` +
+          `${dormLabel(d)}${silent ? " — silent" : ""}</td></tr>`
+        );
+      })
+      .join("");
+    return {
+      subject: `In or Out weekly — week of ${c.weekLabel}`,
+      text:
+        `In or Out — week of ${c.weekLabel}.\n` +
+        `${c.squadsActive} of ${c.squadsTotal} squads active. ${c.activePlayers} active players${wow(c.activePlayers, c.activePlayersPrev)}. ` +
+        `${c.totalEvents} actions${wow(c.totalEvents, c.totalEventsPrev)}.\n` +
+        (newSquads.length ? `New squads: ${newSquads.map((s) => s.name).join(", ")}.\n` : "No new squads.\n") +
+        (c.newPlayers ? `${c.newPlayers} new players.\n` : "") +
+        (churn ? `Churn: ${c.disabled} disabled, ${c.deleted} removed.\n` : "No churn.\n") +
+        dormancy.map((d) => `${d.name}: ${dormLabel(d)}`).join("; "),
+      html: wrap(
+        `<p style="margin:0 0 4px"><b style="font-size:17px">In or Out — weekly</b></p>` +
+        `<p style="margin:0 0 18px;color:#888;font-size:13px">Week of ${esc(c.weekLabel)}</p>` +
+        `<p style="margin:0 0 14px"><b>${c.squadsActive}</b> of <b>${c.squadsTotal}</b> squads active this week. ` +
+        `<b>${c.activePlayers}</b> active player${c.activePlayers === 1 ? "" : "s"}${wow(c.activePlayers, c.activePlayersPrev)}, ` +
+        `<b>${c.totalEvents}</b> action${c.totalEvents === 1 ? "" : "s"}${wow(c.totalEvents, c.totalEventsPrev)}.</p>` +
+        `<p style="margin:0 0 6px"><b>New this week</b></p>` +
+        `<p style="margin:0 0 14px;color:#333">` +
+        (newSquads.length
+          ? `<span style="color:#2a7a2a">${newSquads.length} new squad${newSquads.length === 1 ? "" : "s"}: ${newSquads.map((s) => esc(s.name)).join(", ")}</span>`
+          : `No new squads`) +
+        `. <b>${c.newPlayers || 0}</b> new player${(c.newPlayers || 0) === 1 ? "" : "s"}.</p>` +
+        (churn
+          ? `<p style="margin:0 0 14px;color:#a00"><b>Churn:</b> ${c.disabled} disabled, ${c.deleted} removed.</p>`
+          : `<p style="margin:0 0 14px;color:#2a7a2a">No churn.</p>`) +
+        (dormRows
+          ? `<p style="margin:0 0 6px"><b>Squads — last active</b></p>` +
+            `<table style="border-collapse:collapse;margin:0 0 14px">${dormRows}</table>`
+          : "")
+      ),
+    };
+  },
 };
 
 async function sendTemplated(type, to, ctx) {

@@ -243,6 +243,19 @@ module.exports = async function handler(req, res) {
     results.push(`weeklyDigest: error — ${e.message}`);
   }
 
+  // ── Casual-app ops usage digest (operator-only, mig 234) ──────────────────
+  // Daily Tue–Sun 08:00 UK (previous day); weekly Monday 08:00 UK (previous week).
+  try {
+    await opsDailyDigestJob(results);
+  } catch (e) {
+    results.push(`opsDailyDigest: error — ${e.message}`);
+  }
+  try {
+    await opsWeeklyDigestJob(results);
+  } catch (e) {
+    results.push(`opsWeeklyDigest: error — ${e.message}`);
+  }
+
   res.json({ ok: true, ts: new Date().toISOString(), results });
 };
 
@@ -1253,6 +1266,81 @@ async function weeklyDigestJob(results) {
     sentCompanies++;
   }
   results.push(`weeklyDigest: processed ${sentCompanies} company digest(s)`);
+}
+
+// ── Casual-app ops usage digest (mig 234) ────────────────────────────────────
+// Operator-only "is the app being used?" email — real squads only (demo + dc seeds are
+// stripped inside get_ops_usage_digest). Two cadences share one morning slot so the
+// operator gets exactly one email a day: daily fires Tue–Sun, weekly fires Monday.
+// Recipient: OPS_DIGEST_EMAIL (falls back to the operator's address). notification_log
+// keyed by the window date dedups within the 08:00 window and resets next window. EMAIL
+// ONLY; no-op safe without RESEND_API_KEY (dispatchEmail short-circuits).
+const OPS_DIGEST_TO = process.env.OPS_DIGEST_EMAIL || "tarnysingh@gmail.com";
+
+async function fetchOpsDigest(from, to, prevFrom, prevTo) {
+  const { data, error } = await supabase.rpc("get_ops_usage_digest", {
+    p_from: from, p_to: to, p_prev_from: prevFrom, p_prev_to: prevTo,
+  });
+  if (error) { return { _error: error.message }; }
+  return data;
+}
+
+// Shared ctx (daily + weekly) from the get_ops_usage_digest jsonb shape.
+function opsCtxBase(d, dateLabel) {
+  const sq = d.squads || {}, pl = d.players || {}, ac = d.activity || {};
+  return {
+    dateLabel,
+    squadsActive: sq.active || 0,
+    squadsTotal: sq.total || 0,
+    newSquads: Array.isArray(sq.new) ? sq.new : [],
+    newPlayers: pl.new || 0,
+    disabled: pl.disabled_in_window || 0,
+    deleted: pl.deleted_in_window || 0,
+    activePlayers: ac.active_players || 0,
+    totalEvents: ac.total_events || 0,
+    availabilityMarks: ac.availability_marks || 0,
+  };
+}
+
+async function opsDailyDigestJob(results) {
+  const uk = nowInUkParts();
+  // Monday morning belongs to the weekly roll-up; the daily covers Tue–Sun.
+  if (uk.hours !== 8 || uk.minutes >= 15 || uk.dayName === "Monday") {
+    results.push("opsDailyDigest: not in window");
+    return;
+  }
+  const today = nowInUkFull().date;
+  const day = addDaysIso(today, -1); // yesterday (UK)
+  const d = await fetchOpsDigest(day, day, null, null);
+  if (!d || d._error) { results.push(`opsDailyDigest: rpc error — ${d?._error || "no data"}`); return; }
+  const ctx = opsCtxBase(d, fmtUkDate(day));
+  const ok = await dispatchEmail("opsDailyDigest", `ops_daily:${day}`, [OPS_DIGEST_TO], ctx, null, results);
+  results.push(ok ? "opsDailyDigest: processed" : "opsDailyDigest: skipped (RESEND_API_KEY unset)");
+}
+
+async function opsWeeklyDigestJob(results) {
+  const uk = nowInUkParts();
+  if (uk.dayName !== "Monday" || uk.hours !== 8 || uk.minutes >= 15) {
+    results.push("opsWeeklyDigest: not in window");
+    return;
+  }
+  const today = nowInUkFull().date;          // Monday (UK)
+  const weekStart = addDaysIso(today, -7);   // previous Monday
+  const weekEnd = addDaysIso(today, -1);     // previous Sunday
+  const prevStart = addDaysIso(today, -14);  // the Monday before that
+  const prevEnd = addDaysIso(today, -8);     // the Sunday before that
+  const weekLabel = digestWeekLabel(weekStart, weekEnd);
+  const d = await fetchOpsDigest(weekStart, weekEnd, prevStart, prevEnd);
+  if (!d || d._error) { results.push(`opsWeeklyDigest: rpc error — ${d?._error || "no data"}`); return; }
+  const ctx = {
+    ...opsCtxBase(d, weekLabel),
+    weekLabel,
+    activePlayersPrev: d.prev?.active_players || 0,
+    totalEventsPrev: d.prev?.total_events || 0,
+    dormancy: Array.isArray(d.dormancy) ? d.dormancy : [],
+  };
+  const ok = await dispatchEmail("opsWeeklyDigest", `ops_weekly:${weekStart}`, [OPS_DIGEST_TO], ctx, null, results);
+  results.push(ok ? "opsWeeklyDigest: processed" : "opsWeeklyDigest: skipped (RESEND_API_KEY unset)");
 }
 
 // ── Demo player reset ─────────────────────────────────────────────────────────
