@@ -44,8 +44,26 @@ tarnysingh@gmail.com (`InOrOut-Demo-2026`, additive — Google identity untouche
 verified via the GoTrue password grant → 200 + access_token). Deployed prebuilt-
 static; **eyeballed live**: password sign-in → both invites auto-claimed → picker
 (both demo venues as Owner) → Demo Sports Centre dashboard loads real data via the
-login credential + account chip shows owner. **Next: Phase 3** — invites + Staff
-management screen (owner invites by email + role; Managers invite Staff only).
+login credential + account chip shows owner.
+
+**Phase 3 — invites + access management (mig 238 + frontend, deployed).** Four
+token/login-authed RPCs gated on the `manage_logins` capability with the role
+guardrails: `venue_list_admins` (read), `venue_invite_admin`, `venue_update_admin`
+(role + per-person caps), `venue_revoke_admin` (soft-delete). Guardrails — Owner
+manages owner/manager/staff; Manager manages STAFF only; can't grant a cap you don't
+hold; last active Owner can't be demoted/revoked (no lockout). `_venue_role_rank`
+helper. EV 13/13 (owner invite/list/promote/set-caps + already_member + both
+last_owner guards; manager invite-staff-ok / invite-manager-blocked /
+touch-owner-blocked / cap_not_grantable; staff fully blocked) + leak 0; rpc-security
+4/4. New `AccessView.jsx` (gated nav tab "Access" — hidden unless caller has
+manage_logins): member list with role select, per-person capability chips
+(toggle = grant/deny override), Remove, and an inline invite form. JS wrappers +
+barrel. **Eyeballed live:** invited reception@demo.test as Staff → row shows Invited
++ 5 cap chips OFF → toggled Reverse-money ON (override persisted) → Removed (revoke);
+owner row correctly self-locked (no role edit / no remove / no caps). Email delivery
+of the invite is DEFERRED (Resend) — the invite works regardless (activates on first
+sign-in via claim). **Next: Phase 4** — wire the capability gates into the ~45
+venue_* write RPCs (server-side enforcement; UI already mirrors).
 
 ## SESSION 78 — Venue Requests inbox: series-aware confirm (Jun 9 2026)
 

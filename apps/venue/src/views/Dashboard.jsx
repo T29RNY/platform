@@ -13,6 +13,7 @@ import LeagueView from "./LeagueView.jsx";
 import LeagueTable from "./LeagueTable.jsx";
 import PlayersView from "./PlayersView.jsx";
 import CustomersView from "./CustomersView.jsx";
+import AccessView from "./AccessView.jsx";
 import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import { poundsRound } from "../lib/format.js";
@@ -28,6 +29,7 @@ const TABS = [
     { id: "teams",     label: "Teams",     icon: "teams" },
     { id: "players",   label: "Players",   icon: "players" },
     { id: "staff",     label: "Staff",     icon: "staff" },
+    { id: "access",    label: "Access",    icon: "settings", adminOnly: true },
   ]},
   { group: "Competition", items: [
     { id: "league", label: "Leagues", icon: "league" },
@@ -39,8 +41,18 @@ const TABS = [
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments",
   customers: "Customers", teams: "Teams", players: "Players", staff: "Staff",
-  league: "Leagues", table: "Standings", cups: "Cups",
+  access: "Access", league: "Leagues", table: "Standings", cups: "Cups",
 };
+
+// manage_logins capability for the signed-in caller (token backdoor = full owner).
+function canManageLogins(me) {
+  if (!me) return false;
+  if (me.mode === "token") return true;
+  if (me.role === "owner") return true;
+  if ((me.capsDeny || []).includes("manage_logins")) return false;
+  if ((me.capsGrant || []).includes("manage_logins")) return true;
+  return me.role === "manager";
+}
 
 export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, refreshing }) {
   const [view, setView] = useState("ops");
@@ -68,13 +80,14 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   const tonight = state.fixtures?.tonight ?? [];
   const liveCount = tonight.filter((f) => f.status === "in_progress").length;
   const anyLive = liveCount > 0;
+  const showAccess = canManageLogins(me);
 
   return (
     <div className="app">
       <Rail
         view={view} onView={setView}
         bookingBadge={pendingCount}
-        hasCups={hasCups}
+        hasCups={hasCups} showAccess={showAccess}
         anyLive={anyLive} liveCount={liveCount}
         onOpenWizard={() => setWizardOpen(true)}
         onOpenDisplay={() => setDisplayOpen(true)}
@@ -113,6 +126,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}
           {view === "staff" && <StaffView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
+          {view === "access" && <AccessView venueToken={venueToken} me={me} />}
           {view === "league" && <LeagueView state={state} onNewSeason={() => setWizardOpen(true)} />}
           {view === "table" && <LeagueTable state={state} venueToken={venueToken} />}
           {view === "cups" && <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
@@ -133,7 +147,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   );
 }
 
-function Rail({ view, onView, bookingBadge, hasCups, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue }) {
+function Rail({ view, onView, bookingBadge, hasCups, showAccess, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue }) {
   return (
     <aside className="rail">
       <div className="rail-brand">
@@ -145,7 +159,7 @@ function Rail({ view, onView, bookingBadge, hasCups, anyLive, liveCount, onOpenW
         {TABS.map((grp) => (
           <React.Fragment key={grp.group}>
             <div className="rail-nav-label">{grp.group}</div>
-            {grp.items.filter((t) => !t.cupOnly || hasCups).map((t) => (
+            {grp.items.filter((t) => (!t.cupOnly || hasCups) && (!t.adminOnly || showAccess)).map((t) => (
               <button
                 key={t.id}
                 className="rail-tab"

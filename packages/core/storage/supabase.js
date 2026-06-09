@@ -2750,6 +2750,32 @@ export async function venueClaimMemberships() {
   return data;
 }
 
+// ── Venue access management (mig 238) — Owner/Manager only (manage_logins) ──
+export async function venueListAdmins(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_admins", { p_venue_token: venueToken });
+  if (error) { console.error("[venue] venue_list_admins failed", error); throw error; }
+  return data;
+}
+export async function venueInviteAdmin(venueToken, email, role, capsGrant = [], capsDeny = []) {
+  const { data, error } = await supabase.rpc("venue_invite_admin", {
+    p_venue_token: venueToken, p_email: email, p_role: role, p_caps_grant: capsGrant, p_caps_deny: capsDeny,
+  });
+  if (error) { console.error("[venue] venue_invite_admin failed", error); throw error; }
+  return data;
+}
+export async function venueUpdateAdmin(venueToken, adminId, role = null, capsGrant = null, capsDeny = null) {
+  const { data, error } = await supabase.rpc("venue_update_admin", {
+    p_venue_token: venueToken, p_admin_id: adminId, p_role: role, p_caps_grant: capsGrant, p_caps_deny: capsDeny,
+  });
+  if (error) { console.error("[venue] venue_update_admin failed", error); throw error; }
+  return data;
+}
+export async function venueRevokeAdmin(venueToken, adminId) {
+  const { data, error } = await supabase.rpc("venue_revoke_admin", { p_venue_token: venueToken, p_admin_id: adminId });
+  if (error) { console.error("[venue] venue_revoke_admin failed", error); throw error; }
+  return data;
+}
+
 // Venue calendar/inbox read (active occupancy + fixture/booking/maintenance detail) over a date range.
 export async function getPitchOccupancy(venueToken, from, to) {
   const { data, error } = await supabase.rpc("get_pitch_occupancy", { p_venue_token: venueToken, p_from: from, p_to: to });
