@@ -1131,6 +1131,39 @@ procedure for each new squad's first full week + first result.
 
 ---
 
+## 11. PLAYER SELF-EDIT
+
+### 11.1 Players couldn't save their own nickname (mig 233, session 77)
+**Symptom:** a player taps the pencil next to their name on My View,
+types a nickname, hits Save → "Failed to save". Nickname never
+persists (`players.nickname` stays NULL). Affected every plain
+player, not one squad. Surfaced by `rockybram` (`p_cQ-NpVz55ng`).
+**Root cause:** the RLS rewrite (commit `7bd7ef2`) repointed the
+`setPlayerNickname` wrapper at the **admin-only** RPC
+`admin_update_player_name(adminToken, playerId, nickname)`. The two
+admin call sites were updated; the player-self call site on My View
+was missed and kept calling `setPlayerNickname(myId, teamId, nick)`
+— handing the player's own id over as the admin token, which
+`resolve_admin_caller` rejected (`invalid_admin_token`). No
+player-token nickname path had ever existed. Classic Hard-Rule-#7
+signature-drift miss — invisible to build, type-check, hygiene.
+**Fix:** mig 233 — token-authenticated `set_my_nickname(p_token,
+p_nickname)` (audited self-write, Hard Rule #9; same-team
+`nickname_taken` clash check restored). New `setMyNickname` wrapper;
+My View now calls `setMyNickname(me.token, nick)`. Commit `8b054bf`.
+**Pre-flight check:** on a real iPhone, open `/p/<token>` for a
+plain (non-admin) player, tap the pencil by their name, save a
+nickname, force-quit and reopen — the nickname should persist and
+show on every screen the player appears (squad board, bibs, league
+table, head-to-head, results). Confirm a clash: a second teammate
+trying the same nickname should get "Already taken on this squad."
+**Note (by design, not a bug):** nicknames are **squad-local** —
+each squad gives a player a separate `players` row, so a nickname
+set on one squad does NOT follow them onto a new squad (same as
+their name). Don't report that as a regression.
+
+---
+
 ## SCOPE OUT
 
 These known issues exist but are LOW priority with documented

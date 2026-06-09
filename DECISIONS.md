@@ -1889,6 +1889,7 @@ if this ever surfaces again.
 - **POTM in UI, `motm` in DB/code** — never change DB column names.
 - **Results in UI, `history` in filenames/functions** — never change.
 - **`is_vice_captain` lives on `team_players`** (per-team), not `players` (global). Migrated session 26.
+- **Nicknames are squad-local, not per-person.** `players.nickname` sits on the per-team `players` row, and a player gets a *separate* `players` row per squad (`player_join_team` creates a fresh row + token, blank nickname, on each join) — so a nickname set on one squad does NOT follow the player onto another squad, exactly like their name. Display everywhere uses `nickname || name`; the clash check (`nickname_taken`) is scoped to the squad. Player-self edits go through `set_my_nickname(p_token,…)` (mig 233, session 77); admin edits through `admin_update_player_name`. A global-per-person nickname would have to key off `user_id` and copy forward on join — deliberately NOT done.
 
 ## ARCHITECTURE
 
