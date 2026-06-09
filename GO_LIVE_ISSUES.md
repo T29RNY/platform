@@ -1151,6 +1151,7 @@ signature-drift miss — invisible to build, type-check, hygiene.
 p_nickname)` (audited self-write, Hard Rule #9; same-team
 `nickname_taken` clash check restored). New `setMyNickname` wrapper;
 My View now calls `setMyNickname(me.token, nick)`. Commit `8b054bf`.
+**Confirmed on device** (session 77 — Rocky + operator both saved OK).
 **Pre-flight check:** on a real iPhone, open `/p/<token>` for a
 plain (non-admin) player, tap the pencil by their name, save a
 nickname, force-quit and reopen — the nickname should persist and

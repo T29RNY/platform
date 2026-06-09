@@ -19,8 +19,8 @@ no admin token at all, so no player-self path ever existed. Classic Hard-Rule-#7
 audited `set_player_note` pattern (Hard Rule #9), and restoring the same-team `nickname_taken` clash
 check that the original direct-write wrapper did before `7bd7ef2` dropped it. New `setMyNickname`
 wrapper; My View call site now `setMyNickname(me?.token, myNick)`. Ephemeral-verified (set / return
-shape / clash / clear / audit / invalid-token all pass; leak-check 0). **Owed:** real-iPhone confirm
-of the My View save post-deploy (Hard Rule #13 — PlayerView is PWA-in-scope).
+shape / clash / clear / audit / invalid-token all pass; leak-check 0). **Real-iPhone confirmed**
+(session 77 — Rocky + operator both saved successfully on device; Hard Rule #13 satisfied).
 
 ## SESSION 76 — RESOLVED: "spot opened" reserve notification was unreliable + partial (mig 230)
 
