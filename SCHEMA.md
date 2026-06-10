@@ -732,3 +732,11 @@ Added session 21:
 - `idx_player_match_team_attended` — on player_match(team_id, attended)
 - `idx_player_match_team_player` — on player_match(team_id, player_id)
 - `idx_matches_team_date` — on matches(team_id, match_date)
+
+---
+
+## STORAGE BUCKETS (migration 246)
+
+| Bucket | Public | Limits | Write access |
+|---|---|---|---|
+| `venue-media` | yes (objects served via `/object/public/…`) | 5 MB; image/png, jpeg, webp, gif, svg+xml | `authenticated` venue staff only, object path must start with their `venue_id` folder (`<venue_id>/…`), checked against an active `venue_admins` row. Used for reception-display sponsor creative; public URL saved into `venues.display_config.sponsor_image_url` via `venue_update_display_config` (mig 245). |
