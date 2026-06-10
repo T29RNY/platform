@@ -1,7 +1,30 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 9 2026 (session 80 — RESOLVED: debt-state players couldn't finish paying (Confirm button unreachable once "Paid Cash" tapped) + POTM modal re-popped on every app open even after voting — both PlayerView, fixed this session. OPEN: drawn teams stay mutable AFTER kick-off — a post-kickoff injured-toggle silently dropped a player from team B (Footy Tuesdays, this week); two linked bugs filed, live data corrected, no code fix yet. session 79 — RESOLVED ops analytics counted players off players.team (A/B matchday side) not team_players (squad membership), mig 234; RESOLVED apps/superadmin blank screen since first deploy — prebuilt build missing VITE_SUPABASE_* env, see GO_LIVE #13. session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 10 2026 (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at), owes untouched, mig 243. session 80 — RESOLVED: debt-state players couldn't finish paying (Confirm button unreachable once "Paid Cash" tapped) + POTM modal re-popped on every app open even after voting — both PlayerView, fixed this session. OPEN: drawn teams stay mutable AFTER kick-off — a post-kickoff injured-toggle silently dropped a player from team B (Footy Tuesdays, this week); two linked bugs filed, live data corrected, no code fix yet. session 79 — RESOLVED ops analytics counted players off players.team (A/B matchday side) not team_players (squad membership), mig 234; RESOLVED apps/superadmin blank screen since first deploy — prebuilt build missing VITE_SUPABASE_* env, see GO_LIVE #13. session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
 
 ---
+
+## SESSION 82 — RESOLVED: "Paid" carried into the next game (stale per-game flag)
+
+**Incident (user-reported).** "My view shows me still as Paid, even though I've opted in for the
+new game which has opened." A player who paid last week sees **✓ Paid** in My View for a brand-new
+game they haven't paid for yet.
+
+**Root cause.** `players.paid` is a **per-current-game** flag, but it was only ever recomputed at
+end-of-game (`admin_save_match_result`, mig 241). The go-live RPCs (`admin_go_live` /
+`admin_go_live_for_team`) reset the squad board (status='none', team=NULL, admin_locked_in=false)
+on new-match creation but **deliberately left the payment flags alone** (mig 204 comment: "the Owes
+balance depends on it"). So from the moment a new week opened until that game's result was saved,
+`paid=true` survived from the previous game. [PlayerView.jsx:742](apps/inorout/src/views/PlayerView.jsx#L742)
+reads `me.paid` → "✓ Paid". The admin **Payments → PAID UP** section had the identical bug
+([PaymentsScreen.jsx:461](apps/inorout/src/views/AdminView/PaymentsScreen.jsx#L461)).
+
+**Fix (mig 243).** The go-live new-match reset now also clears `paid=false, self_paid=false,
+paid_by=NULL, paid_at=NULL`. `owes` is **untouched** — it's an independent accumulator and the
+debt must persist; `payment_ledger` keeps the permanent per-match payment record, so no history is
+lost. The mig-204 "Owes depends on it" note was a misread: what actually relies on the carry-over
+is the post-game reconciliation window, and go-live is exactly the right boundary to close it.
+SQL-only (both RPC signatures unchanged → grants preserved; `dbToPlayer` already maps these fields).
+Ephemeral-verified both entry points incl. owes-preservation (0/5/10/7), leak-check clean.
 
 ## SESSION 80 — RESOLVED: debt-state players could not finish self-paying (Confirm button unreachable)
 
