@@ -1,5 +1,39 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 9 2026 (session 80 — live firefight on Footy Tuesdays the night a game finished: fixed the paid button (debt-state Confirm unreachable), the POTM modal re-popping every open, payment ledger/flat reconciliation, and — mig 241 — the post-game lifecycle: games now close on result-save, ALL statuses incl reserves reset, server-side sign-up gate, paid-flag wipe fixed; POTM voting window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with the parallel session 78 venue work — see SESSION 79.)*
+*Last updated: Jun 10 2026 (session 81 — payment labels reworded "Paid Cash"→"Paid" across player button, admin confirmation line, guest labels (commits 2736c1a, c6c2415, UI-only, no schema). NEXT: Part 2 — live POTM tally, revealed only after you vote, planned but not built; full plan below.) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+
+## SESSION 81 — "Paid" wording + POTM live-tally plan
+
+**Shipped (UI-only, no SQL):** the cash payment flow no longer says "cash" anywhere
+on-screen. Player "Paid Cash" buttons (debt / in / guest paths), the admin payment-
+confirmation line (`Name · £5 cash` → `Name · £5`), the guest paid labels
+(`✓ You paid — cash` → `✓ You paid`), and the two guest "Paying cash" status
+sub-labels all now read **"Paid"**. The `method='cash'` DB column and all
+`cash_pending` / `paymentMode` state logic are untouched — display only.
+Commits `2736c1a` + `c6c2415`. Build clean.
+
+**PLANNED, NOT BUILT — Part 2: live POTM tally (next session).**
+Goal: players can see the running vote tally, but ONLY after they've cast their own
+vote — never before. Tally updates live during the 2-hour voting window, shown
+winner-first with low/zero candidates collapsed.
+
+Design (settled with operator):
+- **New read RPC `get_potm_tally_public(p_token, p_match_id, p_team_id)`** (mig 242).
+  Returns counts only — `[{nominee_id, votes}]` + total — NEVER voter identities.
+  Server-enforced "not before you vote" gate: if the caller's token has no row in
+  `potm_votes` for this match, return `{ voted: false }` and no counts. Read-only
+  RPC (no writes → ephemeral-verify NOT required), GRANT to anon + authenticated.
+  NB: the existing `get_potm_voting_state` already ships the full `votes` array
+  (voter_id + nominee_id) to every eligible client — a latent who-voted-for-whom
+  leak. The new tally RPC must NOT widen that; counts-only is the point.
+- **Client:** wrapper `getPOTMTallyPublic` in supabase.js + barrel export. In
+  `POTMVotingModal.jsx`, once in the locked / already-voted state, fetch the tally
+  and render winner-first leaderboard (collapse zero/low). Live updates piggyback on
+  the EXISTING `team_live:<key>` broadcast subscriber (App.jsx:882 fires
+  `refreshTeamData` on every `notify_team_change`, which `submit_potm_vote` already
+  calls) — have the modal re-fetch the tally on that same signal; no new channel.
+- **Sequence:** apply mig 242 in Supabase first → rpc-security-sweep → wrapper +
+  barrel → modal UI → build → casual-regression (touches inorout) → commit migration
+  source + code together (Hard Rule #11) → update RPCS.md / CONTEXT.md / FEATURES.md.
 
 ## SESSION 80 — Live firefight + post-game lifecycle hardening (mig 241)
 
