@@ -248,4 +248,15 @@ All parts landed on `main` in four commits:
 | B — display rebuild | `9abb08f` | Full broadcast wall, verified live on both demo venues at 1920×1080 + letterboxed. Found/fixed: grid `place-items:center` can't centre an oversized canvas — letterbox uses absolute-centre + translate scale. |
 | C — venue controls | `a217637` | Sponsor copy/ratio/upload + featured pin (expiry presets + story tag). End-to-end save verified; `venue_updated` broadcast received. TallPromo gates venue creative strictly on an uploaded image per §6.7. |
 
-**Still owed (tracked in FEATURES.md):** display Vercel deploy + `VITE_DISPLAY_APP_URL`; real-TV device pass (§13) and a real-device venue sponsor-upload test; goal-celebration live-fire against a real ref-recorded goal.
+**Deployed (session 83, same day):** `platform-display.vercel.app` — manual
+prebuilt-static (same recipe as platform-venue/superadmin: local `npm run build`
+with `.env.local` baked in → stage `.vercel/output/static` + SPA `config.json` →
+`vercel deploy --prebuilt --prod`; does NOT auto-deploy on push). Verified live
+with a real display token (state loads, sync ticking). `apps/venue` rebuilt +
+redeployed with `VITE_DISPLAY_APP_URL` baked in — the DisplaySettings copy-link
+now shows the full `https://platform-display.vercel.app/display/<token>` URL
+(verified in the live bundle + live modal).
+
+**Still owed (tracked in FEATURES.md):** real-TV device pass (§13) and a
+real-device venue sponsor-upload test; goal-celebration live-fire against a
+real ref-recorded goal.
