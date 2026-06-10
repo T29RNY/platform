@@ -36,6 +36,7 @@ export {
   promoteGuest,
   getHeadToHead,
   getPOTMVotingState,
+  getPOTMTallyPublic,
   getPlayerTeams,
   claimMyAdminTeams,
   getPlayerTeamsByToken,

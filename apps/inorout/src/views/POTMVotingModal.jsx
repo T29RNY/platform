@@ -26,6 +26,7 @@ export default function POTMVotingModal({
   matchId, teamId, voterId, voterToken, voterName,
   eligiblePlayers, hasVoted, existingVote,
   votingOpen, votingClosesAt, motm, onClose,
+  tally = [], totalVotes = 0, onVoted,
 }) {
   // State machine: idle → selected → confirming → locked | counting
   const [selected,    setSelected]    = useState(null);
@@ -44,13 +45,10 @@ export default function POTMVotingModal({
     return () => clearInterval(t);
   }, [votingClosesAt]);
 
-  // Auto-dismiss after locked state
-  useEffect(() => {
-    if (phase === "locked") {
-      const t = setTimeout(onClose, 4500);
-      return () => clearTimeout(t);
-    }
-  }, [phase, onClose]);
+  // Notify the parent the moment a vote lands so it can fetch the now-unlocked
+  // tally and keep it live (parent re-fetches on each team_live broadcast).
+  // No auto-dismiss in the locked state any more — the player lingers on the
+  // live leaderboard and closes manually.
 
   const teamA = eligiblePlayers.filter(p => p.team === "A");
   const teamB = eligiblePlayers.filter(p => p.team === "B");
@@ -80,9 +78,11 @@ export default function POTMVotingModal({
       const result = await submitPOTMVote(voterToken, matchId, teamId, selected.id);
       if (result?.error === "already_voted") {
         setPhase("locked");
+        onVoted?.();
         return;
       }
       setPhase("locked");
+      onVoted?.();
     } catch(e) {
       setError("Failed to submit. Try again.");
       setPhase("selected");
@@ -96,6 +96,84 @@ export default function POTMVotingModal({
     : null;
 
   const winnerName = resolveMotm(motm, eligiblePlayers);
+
+  // Live tally leaderboard — shown only once the player has voted (the RPC
+  // gate enforces this server-side; tally arrives empty until then). Winner-
+  // first (already sorted desc by the RPC), counts only — no voter identities.
+  const nameFor = (id) => {
+    const p = eligiblePlayers.find(x => x.id === id);
+    return p?.nickname || p?.name || "Unknown";
+  };
+  const myPick = existingVote || selected?.id || null;
+  const renderTally = () => {
+    if (!tally || tally.length === 0) return null;
+    const maxVotes = tally[0]?.votes || 1;
+    return (
+      <div style={{ marginTop: 18, paddingTop: 14, borderTop: "0.5px solid rgba(255,255,255,0.08)" }}>
+        <div style={{
+          fontSize: 10, color: "var(--t2)", fontWeight: 700,
+          letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10,
+          textAlign: "center",
+        }}>
+          Live tally · {totalVotes} {totalVotes === 1 ? "vote" : "votes"}
+        </div>
+        {tally.map((row, i) => {
+          const isLeader = row.votes === maxVotes;
+          const isMine   = row.nominee_id === myPick;
+          return (
+            <motion.div
+              key={row.nominee_id}
+              layout
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 * i, duration: 0.25 }}
+              style={{ marginBottom: 8 }}
+            >
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                marginBottom: 4,
+              }}>
+                <span style={{
+                  fontSize: 13, fontWeight: isLeader ? 700 : 400,
+                  color: isLeader ? "var(--gold)" : "var(--t1)",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  {nameFor(row.nominee_id)}
+                  {isMine && (
+                    <span style={{
+                      fontSize: 9, color: "var(--t2)", background: "var(--s3)",
+                      borderRadius: 4, padding: "1px 5px", fontWeight: 600,
+                      letterSpacing: "0.04em",
+                    }}>
+                      YOUR VOTE
+                    </span>
+                  )}
+                </span>
+                <span style={{
+                  fontSize: 13, fontWeight: 700,
+                  color: isLeader ? "var(--gold)" : "var(--t2)",
+                  fontFamily: "var(--font-display)",
+                }}>
+                  {row.votes}
+                </span>
+              </div>
+              <div style={{ height: 4, borderRadius: 2, background: "var(--s3)", overflow: "hidden" }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(row.votes / maxVotes) * 100}%` }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  style={{
+                    height: "100%", borderRadius: 2,
+                    background: isLeader ? "var(--gold)" : "rgba(255,255,255,0.25)",
+                  }}
+                />
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div style={{
@@ -150,6 +228,7 @@ export default function POTMVotingModal({
               <span style={{ color: "var(--gold)", fontWeight: 600 }}>
                 {votedPlayer?.nickname || votedPlayer?.name || "Unknown"}
               </span>
+              {renderTally()}
             </div>
           )}
 
@@ -226,6 +305,7 @@ export default function POTMVotingModal({
                 You voted for{" "}
                 <span style={{ color: "var(--t1)", fontWeight: 600 }}>{selected?.nickname || selected?.name}</span>
               </motion.div>
+              {renderTally()}
             </motion.div>
           )}
 
@@ -329,13 +409,13 @@ export default function POTMVotingModal({
         </div>
 
         {/* Footer */}
-        {!isResult && phase !== "locked" && (
+        {!isResult && (
           <div style={{
             padding: "12px 20px 20px",
             borderTop: "0.5px solid rgba(255,255,255,0.06)",
             textAlign: "center",
           }}>
-            {!hasVoted && (
+            {!hasVoted && phase !== "locked" && (
               <button
                 onClick={onClose}
                 style={{
@@ -347,7 +427,7 @@ export default function POTMVotingModal({
                 skip — I'll decide later
               </button>
             )}
-            {hasVoted && (
+            {(hasVoted || phase === "locked") && (
               <button
                 onClick={onClose}
                 style={{

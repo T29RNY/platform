@@ -964,6 +964,24 @@ export async function getPOTMVotingState(token, matchId, teamId) {
   };
 }
 
+// Running POTM tally for players — counts only, NEVER voter identities.
+// Server-gated: returns { voted: false } until the caller has cast their own
+// vote for this match; once voted, { voted: true, tally: [{nominee_id, votes}]
+// sorted winner-first, total_votes }. Backed by mig 242 get_potm_tally_public.
+export async function getPOTMTallyPublic(token, matchId, teamId) {
+  const { data, error } = await supabase.rpc('get_potm_tally_public', {
+    p_token:    token,
+    p_match_id: matchId,
+    p_team_id:  teamId,
+  });
+  if (error) throw error;
+  return {
+    voted:      !!data?.voted,
+    tally:      data?.tally       || [],
+    totalVotes: data?.total_votes || 0,
+  };
+}
+
 // Deprecated — use getPOTMVotingState instead.
 // Will be removed once PlayerView is updated.
 export async function getPOTMVotes(matchId) {

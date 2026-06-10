@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
   resolveMotm, isDormantGuest } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
-  getPOTMVotingState, setMyNickname,
+  getPOTMVotingState, getPOTMTallyPublic, setMyNickname,
   resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
 import POTMVotingModal from "./POTMVotingModal.jsx";
 import {
@@ -281,6 +281,8 @@ export default function PlayerView({
   const [potmEligible,    setPotmEligible]    = useState([]);
   const [potmHasVoted,    setPotmHasVoted]    = useState(false);
   const [potmExistingVote,setPotmExistingVote]= useState(null);
+  const [potmTally,       setPotmTally]       = useState([]);
+  const [potmTotalVotes,  setPotmTotalVotes]  = useState(0);
   const [potmBanner,      setPotmBanner]      = useState(null); // { winnerName, isWinner }
   const prevVotingOpen = useRef(false);
 
@@ -337,6 +339,21 @@ export default function PlayerView({
     setLedgerBalance(stats?.outstandingBalance ?? 0);
   }, [stats]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live POTM tally fetch — server-gated, returns counts only once the player
+  // has voted ({ voted:false } otherwise). Counts arrive winner-first.
+  const fetchPotmTally = useCallback(() => {
+    if (!me?.token) return;
+    const matchId = schedule?.activeMatchId || matchHistory?.[0]?.id;
+    if (!matchId) return;
+    getPOTMTallyPublic(me.token, matchId, teamId)
+      .then(({ voted, tally, totalVotes }) => {
+        if (!voted) return; // gate not yet open for this caller
+        setPotmTally(tally);
+        setPotmTotalVotes(totalVotes);
+      })
+      .catch(() => {});
+  }, [me?.token, teamId, schedule?.activeMatchId, matchHistory]);
+
   // POTM voting — open modal when voting becomes active for this player
   useEffect(() => {
     const activeMatch = matchHistory?.[0];
@@ -354,6 +371,7 @@ export default function PlayerView({
           setPotmEligible(eligible);
           setPotmHasVoted(voted);
           setPotmExistingVote(existingVote || myVote?.nominee_id || null);
+          if (voted) fetchPotmTally(); // already voted → pull the live tally
           const amEligible = eligible.some(p => p.id === myId);
           // One-time per match per device. prevVotingOpen resets to false on
           // every mount, so without a persistent flag the modal re-popped on
@@ -381,6 +399,15 @@ export default function PlayerView({
       prevVotingOpen.current = false;
     }
   }, [schedule?.votingOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live tally refresh — piggybacks on the team_live broadcast: every
+  // notify_team_change (incl. submit_potm_vote) drives App.jsx's refreshTeamData,
+  // which re-sets matchHistory. Re-pull the tally on that signal while the modal
+  // is open, voting is live, and this player has voted. No new channel.
+  useEffect(() => {
+    if (showPOTMModal && schedule?.votingOpen && potmHasVoted) fetchPotmTally();
+  }, [matchHistory, showPOTMModal, schedule?.votingOpen, potmHasVoted, fetchPotmTally]);
+
   const isFull   = inPlayers.length >= (schedule.squadSize || 14);
   // Admin-configured day_of_week is authoritative; the timestamp-derived
   // weekday is only a fallback (the demo schedule had drift between the
@@ -593,6 +620,9 @@ export default function PlayerView({
           votingOpen={!!schedule.votingOpen}
           votingClosesAt={schedule.votingClosesAt}
           motm={matchHistory?.[0]?.motm}
+          tally={potmTally}
+          totalVotes={potmTotalVotes}
+          onVoted={() => { setPotmHasVoted(true); fetchPotmTally(); }}
           onClose={() => setShowPOTMModal(false)}
         />
       )}
