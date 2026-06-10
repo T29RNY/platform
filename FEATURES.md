@@ -11,10 +11,10 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 |---|---|---|---|
 | Website / marketing | Deploy + wire the landing pages (`marketing/` — players + venues; design & motion done) | Infra/UI | 🟡 built, not deployed |
 | App wrapping | Wrap the PWA as native iOS/Android app for the app stores (Capacitor/TWA) | Infra/New | 🔴 not started, not yet scoped |
-| League — Display (TV) | Final visual design (wireframe baseline shipped session 73) | UI | 🟡 wireframe only |
-| League — Display | Sponsor-image upload in venue settings (backend field already persists via `display_config`) | Backend+UI | 🔴 deferred |
+| League — Display (TV) | Final visual design — **broadcast wall redesign SHIPPED session 83** (hero + featured algorithm, minis, rotating live table, golden boot, coming-up incl. casual bookings, tall promo, goal celebration; migs 244–246, see RECEPTION_DISPLAY_SCOPE.md) | UI | ✅ shipped s83 |
+| League — Display | Sponsor-image upload in venue settings — **SHIPPED session 83** (`venue-media` bucket mig 246 + DisplaySettings upload/copy/ratio + featured-match pin, mig 245). Upload needs a venue staff login (shared-token venues can't upload) | Backend+UI | ✅ shipped s83 |
 | League — Display | Deploy `apps/display` to its own Vercel project + wire `VITE_DISPLAY_APP_URL` | Infra | 🔴 deferred |
-| League — Display | Real-TV device test (wake-lock, reconnect, PIN, colours) | Test | 🔴 owed |
+| League — Display | Real-TV device test (wake-lock, reconnect, PIN, colours) + venue-app sponsor upload on a real device | Test | 🔴 owed |
 | League — Display | Nice-to-haves: display-token rotation, enterprise white-label removal | UI/Backend | 🔴 deferred |
 | League — Ref app | Visual redesign sweep (functional & complete; styling deliberately bare) | UI | 🔴 deferred |
 | League — Venue | Read-RPCs for team rosters / players / standings views | Backend | 🟡 some screens need data first |

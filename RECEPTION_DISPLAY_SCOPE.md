@@ -234,3 +234,18 @@ No changes to `apps/ref` (live push already flows) or the casual app write side
   celebration.
 - **Real-device:** display app is PWA-adjacent but the venue app touches
   auth/upload — sanity-check the venue upload flow on a real device.
+
+---
+
+## STATUS — SHIPPED (session 83, Jun 10 2026)
+
+All parts landed on `main` in four commits:
+
+| Part | Commit | Notes |
+|---|---|---|
+| A1 — `get_display_state` enrichment | `ce9d289` | **Migration renumbered 244** (doc said 241; 241–243 were taken by sessions 80–82). `pitch_bookings.status` has no `active` value → filter is `confirmed` + active occupancy. `apps` = lineup-array membership (0 until lineups used). No `position` column → key omitted. |
+| A2+A3 — config RPC + bucket | `bf843e5` | **Migrations 245 + 246.** Mig 245 based on the LIVE body (167 + mig-239 capability guard). EV 11/11 PASS, leak-check 0. `venue-media` bucket live (public, 5 MB, images; venue-scoped authenticated write). |
+| B — display rebuild | `9abb08f` | Full broadcast wall, verified live on both demo venues at 1920×1080 + letterboxed. Found/fixed: grid `place-items:center` can't centre an oversized canvas — letterbox uses absolute-centre + translate scale. |
+| C — venue controls | `a217637` | Sponsor copy/ratio/upload + featured pin (expiry presets + story tag). End-to-end save verified; `venue_updated` broadcast received. TallPromo gates venue creative strictly on an uploaded image per §6.7. |
+
+**Still owed (tracked in FEATURES.md):** display Vercel deploy + `VITE_DISPLAY_APP_URL`; real-TV device pass (§13) and a real-device venue sponsor-upload test; goal-celebration live-fire against a real ref-recorded goal.
