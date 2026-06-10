@@ -1163,7 +1163,7 @@ export default function PlayerView({
                     </div>
                   );
                 } else if (myGuest.selfPaid) {
-                  right = <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>Paying cash</span>;
+                  right = <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>Paid</span>;
                 } else {
                   right = (
                     <div style={{ display:"flex", flexDirection:"row", gap:6, alignItems:"center" }}>
@@ -1225,7 +1225,7 @@ export default function PlayerView({
                     )}
                   </div>
                   <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
-                    {myGuest.selfPaid ? "Paying cash" : "You're covering payment"}
+                    {myGuest.selfPaid ? "Paid" : "You're covering payment"}
                   </div>
                 </div>
               ) : !showPlusOneForm ? (
