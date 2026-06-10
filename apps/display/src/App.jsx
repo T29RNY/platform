@@ -2,15 +2,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { supabase, getDisplayState } from "@platform/core/storage/supabase.js";
 import PinGate from "./components/PinGate.jsx";
 import DisplayHeader from "./components/DisplayHeader.jsx";
-import LiveScoresZone from "./components/LiveScoresZone.jsx";
-import StandingsZone from "./components/StandingsZone.jsx";
-import BracketZone from "./components/BracketZone.jsx";
-import TopScorersZone from "./components/TopScorersZone.jsx";
-import UpcomingRecentZone from "./components/UpcomingRecentZone.jsx";
+import Hero from "./components/Hero.jsx";
+import MiniTile from "./components/MiniTile.jsx";
+import LiveTable from "./components/LiveTable.jsx";
+import GoldenBoot from "./components/GoldenBoot.jsx";
+import ComingUp from "./components/ComingUp.jsx";
+import TallPromo from "./components/TallPromo.jsx";
 import GoalsTicker from "./components/GoalsTicker.jsx";
-import PoweredBy from "./components/PoweredBy.jsx";
-import SponsorBug from "./components/SponsorBug.jsx";
+import PanelBoundary from "./components/PanelBoundary.jsx";
 import { resolveConfig } from "./lib/format.js";
+import { selectFeatured } from "./lib/featured.js";
+import { diffPayloads } from "./lib/diff.js";
 
 function readTokenFromUrl() {
   if (typeof window === "undefined") return null;
@@ -22,6 +24,8 @@ function readTokenFromUrl() {
 }
 
 const POLL_MS = 60000; // belt-and-braces fallback if the realtime socket silently drops
+const CELEB_MS = 3500; // goal celebration hold
+const CELEB_GAP_MS = 5000; // throttle: at most one celebration per 5s, queue extras
 
 export default function App() {
   const token = useMemo(readTokenFromUrl, []);
@@ -31,19 +35,49 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [clock, setClock] = useState(() => new Date());
   const [compIndex, setCompIndex] = useState(0);
+  const [lastSyncAt, setLastSyncAt] = useState(null);
+  const [celebration, setCelebration] = useState(null);
+  const [heroFading, setHeroFading] = useState(false);
   const serverOffsetRef = useRef(0);
+  const prevPayloadRef = useRef(null);
+  const celebQueueRef = useRef([]);
+  const celebBusyRef = useRef(false);
+  const goalLatchRef = useRef({ fixtureId: null, until: 0 });
+  const featuredIdRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  // ---- celebration queue: one at a time, ≥5s apart ----
+  const pumpCelebrations = useCallback(() => {
+    if (celebBusyRef.current) return;
+    const next = celebQueueRef.current.shift();
+    if (!next) return;
+    celebBusyRef.current = true;
+    setCelebration(next);
+    setTimeout(() => setCelebration(null), CELEB_MS);
+    setTimeout(() => {
+      celebBusyRef.current = false;
+      pumpCelebrations();
+    }, CELEB_GAP_MS);
+  }, []);
 
   const load = useCallback(async (t) => {
     try {
       const data = await getDisplayState(t);
       if (data?.server_time) serverOffsetRef.current = new Date(data.server_time).getTime() - Date.now();
+      const { celebrations } = diffPayloads(prevPayloadRef.current, data);
+      prevPayloadRef.current = data;
+      if (celebrations.length) {
+        celebQueueRef.current.push(...celebrations);
+        pumpCelebrations();
+      }
       setState(data);
+      setLastSyncAt(Date.now());
       setError(null);
     } catch (err) {
       console.error("[display] load failed", err);
       setError(err?.message || String(err));
     }
-  }, []);
+  }, [pumpCelebrations]);
 
   // initial + poll fallback
   useEffect(() => {
@@ -100,103 +134,197 @@ export default function App() {
     return () => { document.removeEventListener("visibilitychange", onVis); try { lock?.release(); } catch {} };
   }, [unlocked]);
 
-  // clock tick (also drives live-minute re-render)
+  // clock tick (server-anchored; also drives live-minute re-render)
   useEffect(() => {
-    const id = setInterval(() => setClock(new Date()), 1000);
+    const id = setInterval(() => setClock(new Date(Date.now() + serverOffsetRef.current)), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // white-label accents
+  // 1920×1080 canvas → scale-to-fit letterbox (HANDOVER §3)
+  useEffect(() => {
+    const fit = () => {
+      if (!canvasRef.current) return;
+      const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      canvasRef.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [unlocked, state ? 1 : 0]);
+
+  // venue brand colours → CSS vars
   useEffect(() => {
     const root = document.documentElement;
     const p = state?.venue?.primary_colour;
     const s = state?.venue?.secondary_colour;
-    if (p) root.style.setProperty("--accent", p);
-    if (s) root.style.setProperty("--accent-2", s);
-    return () => { root.style.removeProperty("--accent"); root.style.removeProperty("--accent-2"); };
+    if (p) root.style.setProperty("--venue", p);
+    if (s) root.style.setProperty("--venue-2", s);
+    return () => { root.style.removeProperty("--venue"); root.style.removeProperty("--venue-2"); };
   }, [state?.venue?.primary_colour, state?.venue?.secondary_colour]);
 
   const config = useMemo(() => resolveConfig(state?.venue?.display_config), [state?.venue?.display_config]);
   const rawConfig = state?.venue?.display_config || {};
   const competitions = state?.competitions || [];
   const liveFixtures = state?.live_fixtures || [];
-  const liveCompIds = useMemo(() => new Set(liveFixtures.map((f) => f.competition_id)), [liveFixtures]);
+  const liveTeamIds = useMemo(
+    () => new Set(liveFixtures.flatMap((f) => [f.home_team_id, f.away_team_id]).filter(Boolean)),
+    [liveFixtures]
+  );
 
-  // rotate which competition the standings + scorers show
+  // rotation pool by mode: smart skips comps with no live fixtures (unless none
+  // are live anywhere), fixed pins one, cycle round-robins everything
+  const liveCompIds = useMemo(() => new Set(liveFixtures.map((f) => f.competition_id)), [liveFixtures]);
+  const rotation = useMemo(() => {
+    if (!competitions.length) return [];
+    if (config.mode === "fixed") {
+      const liveComp = competitions.find((c) => liveCompIds.has(c.competition_id));
+      return [liveComp || competitions[0]];
+    }
+    if (config.mode === "smart" && liveCompIds.size > 0) {
+      const livePool = competitions.filter((c) => liveCompIds.has(c.competition_id));
+      if (livePool.length) return livePool;
+    }
+    return competitions;
+  }, [competitions, config.mode, liveCompIds]);
+
   useEffect(() => {
-    if (competitions.length <= 1) { setCompIndex(0); return; }
+    if (rotation.length <= 1) { setCompIndex(0); return; }
     const id = setInterval(
-      () => setCompIndex((i) => (i + 1) % competitions.length),
-      (config.interval_secs || 15) * 1000
+      () => setCompIndex((i) => (i + 1) % rotation.length),
+      (config.interval_secs || 10) * 1000
     );
     return () => clearInterval(id);
-  }, [competitions.length, config.interval_secs]);
+  }, [rotation.length, config.interval_secs]);
 
-  const safeIndex = competitions.length ? compIndex % competitions.length : 0;
-  const shownComp = competitions[safeIndex] || null;
-  const shownCompIsLive = shownComp ? liveCompIds.has(shownComp.competition_id) : false;
+  const safeIndex = rotation.length ? compIndex % rotation.length : 0;
+  const shownComp = rotation[safeIndex] || null;
+
+  // featured match (HANDOVER §8) + crossfade on swap
+  const featured = useMemo(
+    () => selectFeatured(state, serverOffsetRef.current, goalLatchRef.current, rawConfig),
+    // clock dep: re-evaluate roughly once a minute as minutes tick over
+    [state, Math.floor(clock.getTime() / 60000)]
+  );
+  const featuredId = featured.fixture?.fixture_id || featured.mode;
+  useEffect(() => {
+    if (featuredIdRef.current != null && featuredIdRef.current !== featuredId) {
+      setHeroFading(true);
+      const t = setTimeout(() => setHeroFading(false), 250);
+      return () => clearTimeout(t);
+    }
+    featuredIdRef.current = featuredId;
+  }, [featuredId]);
+  useEffect(() => { featuredIdRef.current = featuredId; }, [featuredId]);
+
+  const featuredComp = featured.fixture
+    ? competitions.find((c) => c.competition_id === featured.fixture.competition_id)
+    : null;
+  const sideFixtures = liveFixtures
+    .filter((f) => f.fixture_id !== featured.fixture?.fixture_id)
+    .slice(0, 2);
 
   const has = (z) => config.zones.includes(z);
 
   // ---- gates ----
-  if (!token) {
-    return <div className="loader">NO DISPLAY TOKEN</div>;
-  }
-  if (!unlocked) {
-    return <PinGate token={token} onUnlock={() => setUnlocked(true)} />;
-  }
+  if (!token) return <div className="loader">NO DISPLAY TOKEN</div>;
+  if (!unlocked) return <PinGate token={token} onUnlock={() => setUnlocked(true)} />;
   if (error && !state) {
     return <div className="loader">{error === "invalid_display_token" ? "INVALID DISPLAY LINK" : "CONNECTING…"}</div>;
   }
-  if (!state) {
-    return <div className="loader">●</div>;
-  }
+  if (!state) return <div className="loader">●</div>;
 
-  const showLiveHero = has("live_scores") && liveFixtures.length > 0;
+  // lower-row panels honour the operator's zone toggles; the grid re-weights
+  const lowerPanels = [
+    has("standings") && {
+      key: "table", fr: "1.05fr",
+      el: (
+        <LiveTable
+          comps={rotation}
+          activeIdx={safeIndex}
+          intervalSecs={config.interval_secs || 10}
+          liveTeamIds={liveTeamIds}
+          serverTime={state.server_time}
+        />
+      ),
+    },
+    has("top_scorers") && { key: "gb", fr: "0.62fr", el: <GoldenBoot competition={shownComp} /> },
+    has("upcoming") && {
+      key: "upcoming", fr: "0.62fr",
+      el: <ComingUp upcoming={state.upcoming_fixtures} bookings={state.bookings} serverOffset={serverOffsetRef.current} />,
+    },
+    {
+      key: "promo", fr: "0.5fr",
+      el: (
+        <TallPromo
+          config={rawConfig}
+          venue={state.venue}
+          liveFixtures={liveFixtures}
+          upcoming={state.upcoming_fixtures}
+        />
+      ),
+    },
+  ].filter(Boolean);
 
   return (
     <div className="stage">
-      <div className="floodsweep" />
-      <div className="pitch" />
-      <DisplayHeader venue={state.venue} clock={clock} liveCount={liveFixtures.length} connected={connected} />
+      <div className="canvas" ref={canvasRef}>
+        <DisplayHeader
+          venue={state.venue}
+          clock={clock}
+          liveCount={liveFixtures.length}
+          compLabel={shownComp?.name}
+        />
 
-      <div className="grid">
-        <div className="col-left">
-          {showLiveHero ? (
-            <LiveScoresZone fixtures={liveFixtures} serverOffset={serverOffsetRef.current} />
-          ) : (
-            <UpcomingRecentZone
-              upcoming={has("upcoming") ? state.upcoming_fixtures : []}
-              recent={has("recent") ? state.recent_results : []}
-              customMessage={has("custom_message") ? config.custom_message : ""}
-              leaders={shownComp?.standings_confirmed || []}
-              venue={state.venue}
-            />
-          )}
-          {has("top_scorers") && <TopScorersZone competition={shownComp} />}
-        </div>
+        <main className="main">
+          <section className="live-row">
+            <PanelBoundary name="hero" resetKey={lastSyncAt} fallback={<article className="hero" />}>
+              <Hero
+                featured={featured}
+                comp={featuredComp}
+                serverOffset={serverOffsetRef.current}
+                celebration={celebration}
+                venue={state.venue}
+                customMessage={has("custom_message") ? config.custom_message : ""}
+                fading={heroFading}
+              />
+            </PanelBoundary>
+            <div className="side-stack">
+              <PanelBoundary name="mini-0" resetKey={lastSyncAt} fallback={<article className="mini empty" />}>
+                <MiniTile
+                  fixture={sideFixtures[0]}
+                  comp={sideFixtures[0] ? competitions.find((c) => c.competition_id === sideFixtures[0].competition_id) : null}
+                  serverOffset={serverOffsetRef.current}
+                />
+              </PanelBoundary>
+              <PanelBoundary name="mini-1" resetKey={lastSyncAt} fallback={<article className="mini empty" />}>
+                <MiniTile
+                  fixture={sideFixtures[1]}
+                  comp={sideFixtures[1] ? competitions.find((c) => c.competition_id === sideFixtures[1].competition_id) : null}
+                  serverOffset={serverOffsetRef.current}
+                />
+              </PanelBoundary>
+            </div>
+          </section>
 
-        <div className="col-right">
-          {has("standings") && (
-            shownComp?.type === "cup"
-              ? <BracketZone competition={shownComp} version={state.server_time} />
-              : <StandingsZone competition={shownComp} isLive={shownCompIsLive} />
-          )}
-        </div>
+          <section className="lower" style={{ gridTemplateColumns: lowerPanels.map((p) => p.fr).join(" ") }}>
+            {lowerPanels.map((p) => (
+              <PanelBoundary name={p.key} resetKey={lastSyncAt} key={p.key} fallback={<article className="panel" />}>
+                {p.el}
+              </PanelBoundary>
+            ))}
+          </section>
+        </main>
 
-        <div className="botbar">
-          <SponsorBug
-            sponsorUrl={rawConfig.sponsor_image_url}
-            sponsorLabel={rawConfig.sponsor_label}
-            venueLogo={state.venue?.logo_url}
-          />
-          {has("goals_ticker") && (
-            <GoalsTicker goals={state.goals_ticker} customMessage={has("custom_message") ? config.custom_message : ""} />
-          )}
-        </div>
+        {has("goals_ticker") && (
+          <PanelBoundary name="ticker" resetKey={lastSyncAt} fallback={<footer className="ticker" />}>
+            <GoalsTicker goals={state.goals_ticker} lastSyncAt={lastSyncAt} />
+          </PanelBoundary>
+        )}
+
+        {!connected && state && (
+          <div className="offline-toast"><span className="dot" /> Live updates paused — reconnecting</div>
+        )}
       </div>
-
-      <PoweredBy />
     </div>
   );
 }

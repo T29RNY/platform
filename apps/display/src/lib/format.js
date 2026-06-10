@@ -23,6 +23,31 @@ export function matchMinute(kickoffIso, serverOffsetMs = 0) {
   return Math.min(mins, 130);
 }
 
+// Display minute with half-time hold (HANDOVER §11): when the latest
+// period_change event is half_time, show "HT" instead of a running minute.
+export function displayMinute(fixture, serverOffsetMs = 0) {
+  const events = fixture?.recent_events || [];
+  const lastPeriod = events.find((e) => e.type === "period_change");
+  if (lastPeriod && lastPeriod.period === "half_time") return "HT";
+  const m = matchMinute(fixture?.actual_kickoff_at, serverOffsetMs);
+  return m == null ? "" : `${m}'`;
+}
+
+// "IN 43M" / "IN 1H 43M" / "FAR" countdown label for Coming-Up rows.
+// kickoffTime = "HH:MM[:SS]" today (Europe/London comes from the server filter).
+export function kickoffCountdown(kickoffTime, serverOffsetMs = 0) {
+  if (!kickoffTime) return { label: "", imminent: false };
+  const [hh, mm] = String(kickoffTime).split(":").map(Number);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return { label: "", imminent: false };
+  const now = new Date(Date.now() + serverOffsetMs);
+  const ko = new Date(now); ko.setHours(hh, mm, 0, 0);
+  const mins = Math.round((ko.getTime() - now.getTime()) / 60000);
+  if (mins <= 0) return { label: "NOW", imminent: true };
+  if (mins <= 60) return { label: `IN ${mins}M`, imminent: true };
+  if (mins <= 180) return { label: `IN ${Math.floor(mins / 60)}H ${mins % 60}M`, imminent: false };
+  return { label: "FAR", imminent: false };
+}
+
 export function timeShort(t) {
   // t = "HH:MM:SS" | "HH:MM"
   if (!t) return "";
