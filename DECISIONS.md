@@ -1,10 +1,27 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 9 2026 (session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
+*Last updated: Jun 10 2026 (session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## `players.paid` is a per-current-game flag; `owes` persists, the ledger is permanent (session 82)
+
+Settled fixing a user-reported "still shows Paid after the new game opened":
+
+- **`players.paid` (and `self_paid`/`paid_by`/`paid_at`) mean "paid for the game that is open
+  right now."** They are **cleared when a new game opens** (`admin_go_live` /
+  `admin_go_live_for_team`, mig 243) and recomputed at result-save. A brand-new game starts with
+  nobody marked paid — because nobody has paid for it yet.
+- **`owes` is the cross-week persistence mechanism, NOT `paid`.** It's an independent accumulator;
+  go-live never touches it. The mig-204 comment "payment fields carry over, the Owes balance
+  depends on it" was a misread — owes does not depend on the flat `paid` flag carrying over.
+- **`payment_ledger` is the permanent, per-`match_id` record of who paid for what.** Clearing the
+  flat flags loses no history. Admin reconciliation and any "who paid for game X" question must
+  read the ledger, never the flat flag.
+- **The flag still persists through the post-game window** (result-save → next go-live) so the
+  admin can reconcile the just-played game; go-live is the correct boundary to clear it.
 
 ## Post-game lifecycle: a finished game closes, and sign-ups are gated server-side (session 80)
 

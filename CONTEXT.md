@@ -1,5 +1,30 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 10 2026 (session 81 — Part 2 SHIPPED: live POTM tally revealed only after you vote (mig 242 get_potm_tally_public, counts-only, server-gated; POTMVotingModal voted-state leaderboard, live via team_live broadcast). Operator decision: tally at vote-time only, NO reopen path (no banner exists to reopen the modal). OWED: real-iPhone test (Hard Rule #13). Earlier this session: payment labels reworded "Paid Cash"→"Paid" (commits 2736c1a, c6c2415, UI-only).) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+*Last updated: Jun 10 2026 (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at) on new-match creation, owes untouched (mig 243, commit 4a5fbe4); + retroactive one-off cleanup of 4 stale flags on the live Footy Tuesdays game.) session 81 — Part 2 SHIPPED: live POTM tally revealed only after you vote (mig 242 get_potm_tally_public, counts-only, server-gated; POTMVotingModal voted-state leaderboard, live via team_live broadcast). Operator decision: tally at vote-time only, NO reopen path (no banner exists to reopen the modal). OWED: real-iPhone test (Hard Rule #13). Earlier this session: payment labels reworded "Paid Cash"→"Paid" (commits 2736c1a, c6c2415, UI-only).) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+
+## SESSION 82 — "Paid" carried into the next game (mig 243)
+
+**Incident (user-reported, Footy Tuesdays).** A player who paid last week still saw **✓ Paid**
+in My View after the new game auto-opened and they'd opted in. The admin Payments screen had the
+same bug — last week's payers sat under **PAID UP** for a game nobody had paid for.
+
+**Root cause.** `players.paid` is a per-current-game flag, recomputed only at end-of-game
+(`admin_save_match_result`, mig 241). The go-live RPCs reset status/team/admin_locked_in on
+new-match creation but **deliberately left payment flags alone** (mig 204: "the Owes balance
+depends on it" — a misread; owes is an independent accumulator). So `paid=true` survived from
+the previous match through the whole new week until the next result-save.
+
+**Fix (mig 243, commit `4a5fbe4`).** `admin_go_live` + `admin_go_live_for_team` now also clear
+`paid/self_paid/paid_by/paid_at` on new-match creation. `owes` untouched (debt persists;
+`payment_ledger` keeps the permanent per-match record, so no history lost). SQL-only, signatures
+unchanged → grants preserved; `dbToPlayer` already maps these fields. Ephemeral-verified both
+entry points incl. owes-preservation (0/5/10/7), leak-check clean; rpc-security-sweep clean.
+
+**One-off cleanup (live DB).** Only two games were live: Footy Tuesdays (real) + 5-a-Side FC
+(demo — left untouched). Cleared 4 stale flags on Footy Tuesdays (Bidz, Rohan, Tarny admin/VC-
+confirmed yesterday; Gurpal self-declared 08:13 pre-rollover) — conditionally (only where no
+game_fee 'paid' ledger row exists for the current match `m_3tjaDMsUpJs`), `owes`/`status` left
+intact, audit_events rows written, `notify_team_change` fired for live refresh. Verified: zero
+payment flags remain on the live squad; debts preserved.
 
 ## SESSION 81 — "Paid" wording + POTM live-tally plan
 
