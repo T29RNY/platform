@@ -745,7 +745,7 @@ export default function AdminView({
                       ? `Host paid for ${p.nickname || p.name}`
                       : (
                           <>
-                            {p.nickname || p.name} · £{schedule.pricePerPlayer || 0} cash
+                            {p.nickname || p.name} · £{schedule.pricePerPlayer || 0}
                             {p.owes > 0 && <span style={{ color:"var(--red)" }}> + £{p.owes} debt</span>}
                           </>
                         )

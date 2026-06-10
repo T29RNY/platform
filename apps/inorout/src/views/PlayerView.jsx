@@ -660,7 +660,7 @@ export default function PlayerView({
                   : 'unpaid';
                 // Persistent (cashPending-independent) state for the OUTER branch
                 // structure. paymentState flips to 'cash_pending' the moment the
-                // player taps "Paid Cash", which would otherwise drop them out of
+                // player taps "Paid", which would otherwise drop them out of
                 // the debt branch (where the Confirm button lives) entirely —
                 // leaving a debt-state player with no way to finish paying.
                 const basePaymentState = me
@@ -737,7 +737,7 @@ export default function PlayerView({
                     if (paymentMode !== 'stripe_only') btns.push(
                       <button key="cash" onClick={() => setCashPending(true)}
                         style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
-                        Paid Cash
+                        Paid
                       </button>
                     );
                   } else {
@@ -772,7 +772,7 @@ export default function PlayerView({
                     if (paymentMode !== 'stripe_only') btns.push(
                       <button key="cash" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setCashPending(true); }}
                         style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
-                        Paid Cash
+                        Paid
                       </button>
                     );
                   } else if (paymentState === 'cash_pending') {
@@ -1140,9 +1140,9 @@ export default function PlayerView({
                 if (gps === 'paid_stripe') {
                   right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>✓ Stripe</span>;
                 } else if (gps === 'paid_cash') {
-                  const label = myGuest.paidBy === 'host'  ? "✓ You paid — cash"
+                  const label = myGuest.paidBy === 'host'  ? "✓ You paid"
                               : myGuest.paidBy === 'admin' ? "✓ Admin confirmed"
-                              : `✓ ${guestName} paid — cash`;
+                              : `✓ ${guestName} paid`;
                   right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>{label}</span>;
                 } else if (gps === 'cash_pending') {
                   right = (
@@ -1174,7 +1174,7 @@ export default function PlayerView({
                       )}
                       {payMode !== 'stripe_only' && (
                         <button onClick={() => setGuestCashPending(true)} style={ts({ background:"var(--gold)", color:"var(--black)" })}>
-                          Paid Cash
+                          Paid
                         </button>
                       )}
                     </div>
