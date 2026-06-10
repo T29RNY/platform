@@ -138,6 +138,8 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
         onClose={() => setDisplayOpen(false)}
         venueToken={venueToken}
         venue={state.venue ?? {}}
+        fixtures={tonight}
+        teams={state.teams ?? {}}
         onSaved={onRefresh}
       />
       {wizardOpen && (

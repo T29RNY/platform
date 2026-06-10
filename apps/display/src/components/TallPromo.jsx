@@ -53,7 +53,8 @@ export default function TallPromo({ config, venue, liveFixtures, upcoming }) {
     sub: config?.sponsor_body || "",
     url: config?.sponsor_url || "",
   };
-  const hasSponsor = !!(sponsor.image || sponsor.title);
+  // spec: no uploaded image ⇒ 100% IoO (never show the dashed placeholder in prod)
+  const hasSponsor = !!sponsor.image;
   const ratioRaw = Number(config?.sponsor_ratio);
   const ratio = hasSponsor ? (Number.isFinite(ratioRaw) ? Math.max(0, Math.min(1, ratioRaw)) : 0.7) : 0;
 

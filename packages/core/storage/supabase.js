@@ -2929,6 +2929,23 @@ export async function venueUpdateDisplayConfig(venueToken, config, displayPin = 
   return data;
 }
 
+// Sponsor creative upload → public `venue-media` bucket (mig 246). Storage
+// RLS requires an authenticated venue-staff session AND a `<venue_id>/...`
+// object path; legacy shared-token (anon) operators cannot upload until they
+// have logins. Returns the public URL to persist via
+// venueUpdateDisplayConfig({ sponsor_image_url }).
+export async function uploadVenueMedia(venueId, file) {
+  if (!venueId || !file) throw new Error("upload_missing_args");
+  const ext = (file.name?.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+  const path = `${venueId}/sponsor-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("venue-media").upload(path, file, {
+    cacheControl: "3600", upsert: false, contentType: file.type || undefined,
+  });
+  if (error) { console.error("[display] venue-media upload failed", error); throw error; }
+  const { data } = supabase.storage.from("venue-media").getPublicUrl(path);
+  return data?.publicUrl || null;
+}
+
 export async function venueAssignRef(venueToken, fixtureId, officialId) {
   const { data, error } = await supabase.rpc("venue_assign_ref", {
     p_venue_token: venueToken,
