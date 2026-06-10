@@ -257,6 +257,18 @@ redeployed with `VITE_DISPLAY_APP_URL` baked in — the DisplaySettings copy-lin
 now shows the full `https://platform-display.vercel.app/display/<token>` URL
 (verified in the live bundle + live modal).
 
+**Follow-ups shipped same session:**
+- **Mig 247** — `live_fixtures[]` gain `round_name`/`official_id`/`official_name`
+  so the hero bar reads "R6 · Main Pitch · Ref Cooper" per §6.2 (244 had only
+  enriched upcoming). HT-hold fix: real data writes period `'HT'`, not the
+  doc's `'half_time'` — display accepts both.
+- **Fonts (product call, overrides §14):** Plus Jakarta Sans for all headings
+  and body; JetBrains Mono only on the small uppercase label accents.
+- **Client-demo kit:** `scripts/demo-display-showroom.sql` (re-runnable —
+  re-times the demo matchday to now(); run before every client demo, evenings
+  best) + `scripts/demo-display-goal.sql` (fires a live goal mid-demo →
+  score punch + GOAL celebration within ~2s).
+
 **Still owed (tracked in FEATURES.md):** real-TV device pass (§13) and a
 real-device venue sponsor-upload test; goal-celebration live-fire against a
 real ref-recorded goal.

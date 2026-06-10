@@ -1,5 +1,47 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 10 2026 (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at) on new-match creation, owes untouched (mig 243, commit 4a5fbe4); + retroactive one-off cleanup of 4 stale flags on the live Footy Tuesdays game.) session 81 — Part 2 SHIPPED: live POTM tally revealed only after you vote (mig 242 get_potm_tally_public, counts-only, server-gated; POTMVotingModal voted-state leaderboard, live via team_live broadcast). Operator decision: tally at vote-time only, NO reopen path (no banner exists to reopen the modal). OWED: real-iPhone test (Hard Rule #13). Earlier this session: payment labels reworded "Paid Cash"→"Paid" (commits 2736c1a, c6c2415, UI-only).) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+*Last updated: Jun 10 2026 (session 83 — Reception Display broadcast redesign SHIPPED + DEPLOYED end-to-end, migs 244–247, see SESSION 83 below.) (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at) on new-match creation, owes untouched (mig 243, commit 4a5fbe4); + retroactive one-off cleanup of 4 stale flags on the live Footy Tuesdays game.) session 81 — Part 2 SHIPPED: live POTM tally revealed only after you vote (mig 242 get_potm_tally_public, counts-only, server-gated; POTMVotingModal voted-state leaderboard, live via team_live broadcast). Operator decision: tally at vote-time only, NO reopen path (no banner exists to reopen the modal). OWED: real-iPhone test (Hard Rule #13). Earlier this session: payment labels reworded "Paid Cash"→"Paid" (commits 2736c1a, c6c2415, UI-only).) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+
+## SESSION 83 — Reception Display broadcast redesign: shipped, deployed, demo-ready (migs 244–247)
+
+**The whole epic in one session** — plan in `RECEPTION_DISPLAY_SCOPE.md` (shipped-status table
+at the bottom maps every part to its commit). Eight commits `ce9d289 → 38b8fc0`.
+
+**Data layer (migs 244–247, all live + md5-verified ≡ source):**
+- 244 `get_display_state` enrichment: top-level `bookings[]` (today's confirmed casual bookings),
+  upcoming `round_name`/`official_*`/`competition_type`, top-scorer `apps` + `shirt_number`.
+  ⚠ Migration RENUMBERING: scope doc said 241 — sessions 80–82 took 241–243. Next free: **248**.
+- 245 `venue_update_display_config`: sponsor copy/image/ratio (clamped 0..1) + featured-match pin
+  (venue-ownership check). Based on the LIVE body (167 + mig-239 capability guard the 167 FILE
+  lacks). EV 11/11 + leak-check 0.
+- 246 storage bucket `venue-media` (public read, 5 MB images, venue-scoped authenticated write —
+  shared-token venues can't upload until staff logins).
+- 247 live_fixtures gain `round_name`/`official_*` (hero bar "R6 · Main Pitch · Ref Cooper");
+  applied via guarded anchor-rewrite (mig-239 pattern).
+
+**Apps:** `apps/display` fully rebuilt to the broadcast-wall design (hero + featured algorithm
+with 60s goal latch + operator pin, mini tiles, mode-aware rotating live table, golden boot,
+coming-up incl. casual bookings, tall promo sponsor↔IoO by ratio, goal celebration with 5s
+throttle queue, per-panel error boundaries, reduced-motion). Fonts = product call overriding the
+handoff: **Plus Jakarta Sans** everywhere, **JetBrains Mono** only on small uppercase label
+accents. `apps/venue` DisplaySettings gained sponsor copy/ratio/upload + featured-pin picker.
+Found/fixed: CSS grid can't centre an oversized canvas (letterbox = absolute-centre + translate
+scale); real HT period is `'HT'` not the doc's `'half_time'`.
+
+**Deploys (both manual prebuilt-static, do NOT auto-deploy):** NEW `platform-display.vercel.app`
+(Vercel project `platform-display`; needs `apps/display/.env.local` baked in) + `platform-venue`
+redeployed with `VITE_DISPLAY_APP_URL` in the bundle (changing the display URL ⇒ rebuild venue).
+
+**Client-demo kit:** `scripts/demo-display-showroom.sql` — RE-RUNNABLE, re-times the demo
+matchday relative to now() (3 live games + events, tonight's fixtures, bookings, real player
+names on both demo leagues, sponsor creative). Run before every client demo (evenings best).
+`scripts/demo-display-goal.sql` — fires a live goal mid-demo → score punch + GOAL celebration
+on the wall in ~2s. Ref→display chain verified: all 8 live ref RPCs broadcast `venue_live:<key>`,
+the display re-pulls, and standings_live/top_scorers fold live goals — tables + golden boot
+update on every ref tap.
+
+**OWED:** real-TV device pass (§13); real-device venue sponsor-upload test; goal-celebration
+live-fire from a real ref goal; rpc-security-sweep baseline finding — 31 older SECURITY DEFINER
+fns still carry the default PUBLIC execute grant (none touched; dedicated cleanup cycle).
 
 ## SESSION 82 — "Paid" carried into the next game (mig 243)
 
