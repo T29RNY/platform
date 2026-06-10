@@ -28,7 +28,8 @@ export function matchMinute(kickoffIso, serverOffsetMs = 0) {
 export function displayMinute(fixture, serverOffsetMs = 0) {
   const events = fixture?.recent_events || [];
   const lastPeriod = events.find((e) => e.type === "period_change");
-  if (lastPeriod && lastPeriod.period === "half_time") return "HT";
+  // live data writes period 'HT' (mig 120); the design doc said 'half_time' — accept both
+  if (lastPeriod && (lastPeriod.period === "HT" || lastPeriod.period === "half_time")) return "HT";
   const m = matchMinute(fixture?.actual_kickoff_at, serverOffsetMs);
   return m == null ? "" : `${m}'`;
 }
