@@ -1,8 +1,19 @@
 # EQUIPMENT HIRE — FEATURE PLAN
 
-Status: **PLAN — awaiting developer confirmation before audit.md begins.**
-Produced via `skills/feature-plan.md`. Read-only research. No code written yet.
-Date: 2026-06-11 (session 85). Next free migration at time of writing: **248**.
+Status: **CYCLE 1 SHIPPED (session 85, migs 255–256).** Cycles 2–4 pending.
+Produced via `skills/feature-plan.md`.
+Date: 2026-06-11 (session 85).
+
+> **Cycle 1 done (migs 255–256):** schema (3 tables + `venue_charges` CHECK
+> extension + indexes, data foundations locked in) + catalogue RPCs
+> `venue_list_equipment`/`venue_upsert_equipment` + venue **Equipment** tab
+> (`EquipmentView.jsx`). Build ✓, ephemeral-verify 10/10 + leak 0 ✓,
+> rpc-security-sweep ✓, hygiene ✓. Real-device PWA pass on the venue dashboard
+> still owed (Hard Rule #13). One plan correction found during audit:
+> `fixtures.id` is **uuid** (not text as risk-flag #6 assumed) — session-link FKs
+> are both uuid.
+>
+> **Next: Cycle 2** — quantity-aware availability + the hire flow.
 
 ---
 

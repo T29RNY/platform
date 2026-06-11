@@ -2952,6 +2952,29 @@ export async function venueGetCharges(venueToken, { status = null, sourceType = 
   return data;
 }
 
+// ── Equipment Hire catalogue (mig 256, Cycle 1) — sport-agnostic kit the venue owns ──
+// venue_list_equipment: catalogue + per-item live counts + summary. Venue-domain.
+export async function venueListEquipment(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_equipment", { p_venue_token: venueToken });
+  if (error) { console.error("[equipment] venue_list_equipment failed", error); throw error; }
+  return data;
+}
+
+// Create (id null) or edit a catalogue item. Amounts in pence. Returns { ok, is_new, equipment }.
+export async function venueUpsertEquipment(venueToken, {
+  id = null, name, category, quantity,
+  defaultFeePence = 0, depositPence = 0, hireUnit = "per_session",
+  purchasePricePence = null, acquiredOn = null, condition = "good", active = true,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_upsert_equipment", {
+    p_venue_token: venueToken, p_id: id, p_name: name, p_category: category, p_quantity: quantity,
+    p_default_fee_pence: defaultFeePence, p_deposit_pence: depositPence, p_hire_unit: hireUnit,
+    p_purchase_price_pence: purchasePricePence, p_acquired_on: acquiredOn,
+    p_condition: condition, p_active: active });
+  if (error) { console.error("[equipment] venue_upsert_equipment failed", error); throw error; }
+  return data;
+}
+
 export async function venueRecordPayment(venueToken, chargeId, amountPence, method, { externalRef = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("venue_record_payment", {
     p_venue_token: venueToken, p_charge_id: chargeId, p_amount_pence: amountPence,

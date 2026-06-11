@@ -154,6 +154,8 @@ export {
   venueSetChargeDue,
   venueAddFixtureCharge,
   venueVoidCharge,
+  venueListEquipment,
+  venueUpsertEquipment,
   venueLogIncident,
   venueResolveIncident,
   confirmRenewal,

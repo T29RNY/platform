@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar.jsx";
 import SeasonWizard from "./SeasonWizard.jsx";
 import BookingsView from "./BookingsView.jsx";
 import PaymentsView from "./PaymentsView.jsx";
+import EquipmentView from "./EquipmentView.jsx";
 import BracketView from "./BracketView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
 import TeamsView from "./TeamsView.jsx";
@@ -21,9 +22,10 @@ import { poundsRound } from "../lib/format.js";
 
 const TABS = [
   { group: "Workspace",   items: [
-    { id: "ops",      label: "Operations", icon: "ops" },
-    { id: "bookings", label: "Bookings",   icon: "bookings" },
-    { id: "payments", label: "Payments",   icon: "payments" },
+    { id: "ops",       label: "Operations", icon: "ops" },
+    { id: "bookings",  label: "Bookings",   icon: "bookings" },
+    { id: "payments",  label: "Payments",   icon: "payments" },
+    { id: "equipment", label: "Equipment",  icon: "equipment" },
   ]},
   { group: "Directory",   items: [
     { id: "customers", label: "Customers", icon: "customers" },
@@ -41,7 +43,7 @@ const TABS = [
 ];
 
 const TITLES = {
-  ops: "Operations", bookings: "Bookings", payments: "Payments",
+  ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
   customers: "Customers", teams: "Teams", players: "Players", staff: "Staff",
   access: "Access", invites: "QR codes", league: "Leagues", table: "Standings", cups: "Cups",
 };
@@ -124,6 +126,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
             <BookingsView state={state} venueToken={venueToken} occupancy={occupancy} bookingIns={bookingIns} onRefresh={onRefresh} onRefreshOccupancy={onRefreshOccupancy} />
           )}
           {view === "payments" && <PaymentsView state={state} venueToken={venueToken} />}
+          {view === "equipment" && <EquipmentView venueToken={venueToken} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}

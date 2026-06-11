@@ -596,7 +596,7 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
 
 **Venue Payments Ledger (mig 180 — V1, schema only; money OWED TO the venue):**
 - `venue_charges` — what's owed: `id`, `venue_id`→venues (denormalised), `source_type`
-  (booking|fixture), `source_id` text, `team_id`→teams NULL, `competition_id`→competitions NULL,
+  (booking|fixture|equipment — `equipment` added mig 255), `source_id` text, `team_id`→teams NULL, `competition_id`→competitions NULL,
   `amount_due_pence`, `status` (unpaid|partial|paid|refunded), `due_date`, `created_at`.
   UNIQUE(source_type, source_id, COALESCE(team_id,'')) — one charge per booking, one per team
   per fixture.
@@ -619,6 +619,28 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   per `fixture_fee_payer` from `league_config.fixture_fee_pence`; skip if no fee),
   `venue_update_fixture_status` (on `void` → that fixture's charges set `refunded`, payments kept).
   `notify_venue_change` whitelist gains `payment_recorded`/`payment_voided`/`charge_updated`.
+
+**Equipment Hire (mig 255 — V1 schema; Cycle 1 of EQUIPMENT_HIRE_PLAN.md; sport-agnostic):**
+- `equipment` — the catalogue (one row per kit type a venue owns): `id`, `venue_id`→venues,
+  `name` (free-text label), `category` (apparel|balls|goals_targets|nets|training_aids|tech_av|safety
+  — controlled taxonomy, the clean aggregation spine), `quantity` (units owned), `default_fee_pence`,
+  `deposit_pence`, `hire_unit` (per_hour|per_session|per_day), `purchase_price_pence` NULL,
+  `acquired_on` NULL, `condition` (new|good|worn|damaged|retired), `active`, `created_at`, `updated_at`.
+- `equipment_bookings` — concrete hires (mirrors `pitch_bookings`): `id`, `equipment_id`→equipment,
+  `venue_id`→venues, `team_id`→teams NULL (registered booker), `booked_by_name` NULL (walk-in),
+  `qty`, `start_at`, `end_at`, `due_back_at` NULL, `returned_at` NULL, `booking_id`→pitch_bookings NULL +
+  `fixture_id`→fixtures NULL (**session-link FKs = cross-sell spine**), `status`
+  (requested|confirmed|declined|cancelled|out|returned|overdue), `amount_pence` NULL, `contact_email`,
+  `contact_phone`, `created_at`. CHECK end_at>start_at; CHECK team_id OR booked_by_name present.
+  Tables exist now; the hire-flow RPCs that WRITE them land in Cycle 2.
+- `equipment_demand_misses` — turned-away demand (procurement signal): `id`, `venue_id`→venues,
+  `category`, `equipment_id`→equipment NULL, `window_start`, `window_end`, `qty_wanted`,
+  `source` (venue|self_qr), `created_at`. Captured at the moment of an empty availability check (Cycle 2).
+- RLS on all three, anon/authenticated revoked (RPC-only). Demo seed (5 items) on demo_venue only.
+- **Catalogue RPCs (mig 256, SECDEF · `resolve_venue_caller` · audited):**
+  `venue_list_equipment(token)` (read: catalogue + per-item `hires_count`/`out_now` + summary),
+  `venue_upsert_equipment(token,name,category,quantity,id?,default_fee_pence?,deposit_pence?,hire_unit?,
+  purchase_price_pence?,acquired_on?,condition?,active?)` (create when id NULL, else edit).
 
 ### Stage 2b — priority displacement (migrations 142–143)
 
