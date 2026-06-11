@@ -1,5 +1,41 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 10 2026 (session 83 — Reception Display broadcast redesign SHIPPED + DEPLOYED end-to-end, migs 244–247, see SESSION 83 below.) (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at) on new-match creation, owes untouched (mig 243, commit 4a5fbe4); + retroactive one-off cleanup of 4 stale flags on the live Footy Tuesdays game.) session 81 — Part 2 SHIPPED: live POTM tally revealed only after you vote (mig 242 get_potm_tally_public, counts-only, server-gated; POTMVotingModal voted-state leaderboard, live via team_live broadcast). Operator decision: tally at vote-time only, NO reopen path (no banner exists to reopen the modal). OWED: real-iPhone test (Hard Rule #13). Earlier this session: payment labels reworded "Paid Cash"→"Paid" (commits 2736c1a, c6c2415, UI-only).) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+*Last updated: Jun 11 2026 (session 85 — QR ONBOARDING epic COMPLETE: slice 7 link management shipped (mig 254 — venue_create/set_active/repoint/list_invite_links + venue_owns_entity helper; re-point fully flexible cross-type; EV 15/15 + sweep PASS; commit 612adf7) + apps/venue redeployed prebuilt-static & verified live. All 7 slices done; slices 1–6 shipped session 84 (migs 248–253). OWED: real-device tests (slices 2 iPhone install, 4 TV, 7 dashboard). See SESSION 85 below.) (session 83 — Reception Display broadcast redesign SHIPPED + DEPLOYED end-to-end, migs 244–247, see SESSION 83 below.) (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at) on new-match creation, owes untouched (mig 243, commit 4a5fbe4); + retroactive one-off cleanup of 4 stale flags on the live Footy Tuesdays game.) session 81 — Part 2 SHIPPED: live POTM tally revealed only after you vote (mig 242 get_potm_tally_public, counts-only, server-gated; POTMVotingModal voted-state leaderboard, live via team_live broadcast). Operator decision: tally at vote-time only, NO reopen path (no banner exists to reopen the modal). OWED: real-iPhone test (Hard Rule #13). Earlier this session: payment labels reworded "Paid Cash"→"Paid" (commits 2736c1a, c6c2415, UI-only).) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+
+## SESSION 85 — QR Onboarding epic COMPLETE: slice 7 link management (mig 254) + venue redeploy
+
+Closed the final slice of the 7-slice QR Onboarding epic. Slices 1–6 shipped session 84
+(migs 248–253: routing layer, join-team, venue landing, QR rendering, printable assets,
+match check-in). This session = slice 7, link management.
+
+- **DB (mig 254, commit 612adf7):** four venue-authed RPCs + one shared helper, all via
+  `resolve_venue_caller`:
+  - `venue_owns_entity(venue_id, entity_type, entity_id)` — internal boolean ownership
+    predicate (venue / team / fixture roll up `competition_teams|fixtures → competitions →
+    seasons → leagues.venue_id`). **Revoked from anon/authenticated** (Supabase default
+    privileges re-grant on create — had to revoke explicitly; the security sweep caught it).
+  - `venue_create_invite_link` (write) — mints a NEW labelled code unconditionally (vs
+    slice-4 `venue_ensure_invite_link`'s get-or-create).
+  - `venue_set_invite_link_active` (write) — toggle on/off; ownership re-derived from the
+    code's STORED entity, never a client-passed venue.
+  - `venue_repoint_invite_link` (write) — **fully flexible** re-point: the new
+    (entity_type, action) may differ from the old, so a code can move across types
+    (team→venue→fixture). **Double ownership check** — caller must own BOTH the existing
+    code's entity AND the new target. Operator chose full flexibility over same-type-only.
+  - `venue_list_invite_links` (read) — every code the venue owns + use_count + server-derived
+    `target_name`.
+  - All writes INSERT `audit_events` (Hard Rule #9). EV-verified: 15 assertions incl.
+    cross-venue isolation + 4 foreign-ownership rejections, leak 0. rpc-security-sweep PASS.
+- **UI (apps/venue):** `InvitesView.jsx` gains an "All codes" section (scan counts, Show QR,
+  Copy, Deactivate, Re-point) + `New code` button; new `InviteLinkForm.jsx` create/re-point
+  modal (StaffMemberForm template). Canonical venue + per-team QR sections retained; QR
+  render/copy/print extracted into a shared `QRBlock`.
+- **Deploy:** `apps/venue` → platform-venue.vercel.app redeployed via the manual
+  prebuilt-static path ([[project_venue_deploy]]) and verified live by grepping the bundle
+  (hash `index-B-QuFRrV.js`, contains "All codes" / "Re-point code" / `venue_repoint_invite_link`).
+- **Owed (manual, non-blocking):** real-device tests across the epic — slice 2 iPhone
+  home-screen install (Hard Rule #13), slice 4 QR on a real TV, slice 7 venue-dashboard
+  create/deactivate/re-point on a phone/tablet. The four demo-critical slices (1–4) were
+  already verified live for the 2026-06-18 pilot pitch.
 
 ## SESSION 83 — Reception Display broadcast redesign: shipped, deployed, demo-ready (migs 244–247)
 
