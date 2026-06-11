@@ -10,7 +10,6 @@ import ComingUp from "./components/ComingUp.jsx";
 import TallPromo from "./components/TallPromo.jsx";
 import GoalsTicker from "./components/GoalsTicker.jsx";
 import PanelBoundary from "./components/PanelBoundary.jsx";
-import QRPanel from "./components/QRPanel.jsx";
 import { resolveConfig } from "./lib/format.js";
 import { selectFeatured } from "./lib/featured.js";
 import { diffPayloads } from "./lib/diff.js";
@@ -273,10 +272,10 @@ export default function App() {
           venue={state.venue}
           liveFixtures={liveFixtures}
           upcoming={state.upcoming_fixtures}
+          landingUrl={landingUrl}
         />
       ),
     },
-    landingUrl && { key: "qr", fr: "0.5fr", el: <QRPanel url={landingUrl} venue={state.venue} /> },
   ].filter(Boolean);
 
   return (

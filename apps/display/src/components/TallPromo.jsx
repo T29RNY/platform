@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "react-qr-code";
 import { teamColour, timeShort } from "../lib/format.js";
 
 // Tall portrait promo (HANDOVER §6.7): rotates venue sponsor creative ↔ IoO
 // app creative every 8s, weighted by display_config.sponsor_ratio (default
 // 0.7). No sponsor image uploaded → 100% IoO. 250ms crossfade via classes.
+// Each ad's call-to-action is a scannable QR (the venue's /q/<code> landing)
+// in place of a url+arrow, so a viewer can act on whatever ad is showing.
 const ROTATE_MS = 8000;
 
 function PhoneMock({ liveFixtures, upcoming }) {
@@ -45,7 +48,7 @@ const IOO_CREATIVES = [
   { tag: "Built for Sunday League", title: "Stop chasing the WhatsApp group.", sub: "Players RSVP. You track stats. Done.", url: "in-or-out.com" },
 ];
 
-export default function TallPromo({ config, venue, liveFixtures, upcoming }) {
+export default function TallPromo({ config, venue, liveFixtures, upcoming, landingUrl }) {
   const sponsor = {
     image: config?.sponsor_image_url || null,
     tag: config?.sponsor_label || "Sponsor",
@@ -110,10 +113,19 @@ export default function TallPromo({ config, venue, liveFixtures, upcoming }) {
         <div className="tall-promo__tag">{creative.tag}</div>
         <div className="tall-promo__title">{creative.title}</div>
         {creative.sub && <div className="tall-promo__sub">{creative.sub}</div>}
-        <div className="tall-promo__cta">
-          <div className="tall-promo__url">{creative.url}</div>
-          <div className="tall-promo__arrow">→</div>
-        </div>
+        {landingUrl ? (
+          <div className="tall-promo__cta">
+            <div style={{ background: "#FFFFFF", padding: 7, borderRadius: 9, lineHeight: 0 }}>
+              <QRCode value={landingUrl} size={92} bgColor="#FFFFFF" fgColor="#04060B" />
+            </div>
+            <div className="tall-promo__url">Scan to join</div>
+          </div>
+        ) : (
+          <div className="tall-promo__cta">
+            <div className="tall-promo__url">{creative.url}</div>
+            <div className="tall-promo__arrow">→</div>
+          </div>
+        )}
       </div>
     </div>
   );
