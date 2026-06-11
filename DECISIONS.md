@@ -1,10 +1,34 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 10 2026 (session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
+*Last updated: Jun 11 2026 (session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## Equipment intelligence ships venue-dashboard-first; the Gaffer narrative + HQ benchmarking are deferred (session 86, Equipment Cycle 5)
+
+The equipment data-product tail (ROI-per-asset, usage, procurement signal) was
+built as a single **read-only** RPC `venue_equipment_insights` surfaced in the
+venue dashboard's new **Insights** tab — NOT as an "Ask the Gaffer" narrative
+surface, and NOT as an HQ multi-venue rollup. Two reasons:
+
+- **Gaffer has no venue path today.** It is casual/`admin_token`-only (inorout app,
+  `team_admins`-gated). A venue-facing Gaffer surface is net-new infra (venue
+  audience in the edge function, a venue token route, new UI) — a meaningfully
+  bigger build than one read RPC + one tab. Operator chose the venue dashboard
+  for the pilot (Option A).
+- **The pilot is a single venue.** HQ's value is multi-venue benchmarking; with
+  one venue there's nothing to benchmark. HQ equipment intelligence stays a
+  vision-tier item, unblocked by the clean category data already captured.
+
+The RPC is deliberately shaped as the **future venue-Gaffer context source**:
+it returns one jsonb block a future edge function can pass verbatim as
+`<context>`, recorded in RPCS.md per Hard Rule #14. So adopting Gaffer later is a
+wiring job, not a rebuild — but any change to the RPC's return shape must
+re-check that surface. ROI is **lifetime** (purchase cost is one-off); usage and
+procurement honour a date range (default trailing 90d). No fabricated
+"utilisation %" denominator — honest activity counts only.
 
 ## `players.paid` is a per-current-game flag; `owes` persists, the ledger is permanent (session 82)
 

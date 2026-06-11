@@ -229,6 +229,31 @@ unchanged.
 
 ---
 
+## FUTURE CONTEXT SOURCES — VENUE PRODUCTS (not yet wired)
+
+Gaffer is currently casual/`admin_token`-only (inorout app, `team_admins`-gated).
+A venue-facing Gaffer surface is net-new infra — a venue audience in the edge
+function, a venue token route (`resolve_venue_caller`), and venue UI — and is not
+built. But venue context RPCs are already being shaped Gaffer-ready as their
+features ship, so adopting Gaffer later is a wiring job, not a rebuild:
+
+- **`venue_equipment_insights(p_venue_token, p_from?, p_to?)`** (mig 260, Equipment
+  Cycle 5) — the future grounding for a venue-Gaffer *"what equipment should I buy
+  next?"* surface. Returns one jsonb (`summary` / `roi[]` / `usage[]` /
+  `procurement[]`) an edge function can pass verbatim as `<context>`: ROI-per-asset
+  (lifetime cost vs revenue collected), usage over a range, and a procurement signal
+  from `equipment_demand_misses` (turned-away demand vs currently owned). Recorded as
+  a future consumer in RPCS.md per Hard Rule #14 — any return-shape change must
+  re-check this surface. Built read-only and surfaced in the venue dashboard's
+  Insights tab first (session 86, Option A); the Gaffer narrative version was the
+  explicitly-deferred bigger build.
+
+When the venue-Gaffer path is built, add a `gaffer_get_context_equipment` thin
+wrapper (or call this RPC directly) + an `audience='venue'`/equipment surface to
+`ai_briefings`, mirroring the Phase 1 admin pattern above.
+
+---
+
 ## SURFACES — DETAILED (Phase 1)
 
 ### 1. Team summary (admin home)

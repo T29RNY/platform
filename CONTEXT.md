@@ -1,5 +1,44 @@
 # IN OR OUT — Project Context & Session History
-*Last updated: Jun 11 2026 (session 85 — QR ONBOARDING epic COMPLETE: slice 7 link management shipped (mig 254 — venue_create/set_active/repoint/list_invite_links + venue_owns_entity helper; re-point fully flexible cross-type; EV 15/15 + sweep PASS; commit 612adf7) + apps/venue redeployed prebuilt-static & verified live. All 7 slices done; slices 1–6 shipped session 84 (migs 248–253). OWED: real-device tests (slices 2 iPhone install, 4 TV, 7 dashboard). See SESSION 85 below.) (session 83 — Reception Display broadcast redesign SHIPPED + DEPLOYED end-to-end, migs 244–247, see SESSION 83 below.) (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at) on new-match creation, owes untouched (mig 243, commit 4a5fbe4); + retroactive one-off cleanup of 4 stale flags on the live Footy Tuesdays game.) session 81 — Part 2 SHIPPED: live POTM tally revealed only after you vote (mig 242 get_potm_tally_public, counts-only, server-gated; POTMVotingModal voted-state leaderboard, live via team_live broadcast). Operator decision: tally at vote-time only, NO reopen path (no banner exists to reopen the modal). OWED: real-iPhone test (Hard Rule #13). Earlier this session: payment labels reworded "Paid Cash"→"Paid" (commits 2736c1a, c6c2415, UI-only).) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+*Last updated: Jun 11 2026 (session 86 — EQUIPMENT HIRE Cycle 5 = the data-product tail SHIPPED + DEPLOYED: one READ-ONLY RPC `venue_equipment_insights` (mig 260) → ROI-per-asset (lifetime cost vs collected), usage over range, procurement signal from `equipment_demand_misses`; new EquipmentView **Insights** tab; no write path → EV N/A, proven via live BEGIN…ROLLBACK revenue-join probe (ALL PASS + leak 0), sweep PASS, both builds clean; commit 36645d3; venue redeployed prebuilt-static & verified live (bundle index-Bm0OHgf7.js contains `venue_equipment_insights`). Operator chose Option A = venue-dashboard-only; venue-Gaffer narrative + HQ multi-venue benchmarking deferred (pilot is one venue). RPC shaped as future venue-Gaffer context source (Hard Rule #14). OWED: logged-in browser pass. See SESSION 86 below.) (session 85 — QR ONBOARDING epic COMPLETE: slice 7 link management shipped (mig 254 — venue_create/set_active/repoint/list_invite_links + venue_owns_entity helper; re-point fully flexible cross-type; EV 15/15 + sweep PASS; commit 612adf7) + apps/venue redeployed prebuilt-static & verified live. All 7 slices done; slices 1–6 shipped session 84 (migs 248–253). OWED: real-device tests (slices 2 iPhone install, 4 TV, 7 dashboard). See SESSION 85 below.) (session 83 — Reception Display broadcast redesign SHIPPED + DEPLOYED end-to-end, migs 244–247, see SESSION 83 below.) (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at) on new-match creation, owes untouched (mig 243, commit 4a5fbe4); + retroactive one-off cleanup of 4 stale flags on the live Footy Tuesdays game.) session 81 — Part 2 SHIPPED: live POTM tally revealed only after you vote (mig 242 get_potm_tally_public, counts-only, server-gated; POTMVotingModal voted-state leaderboard, live via team_live broadcast). Operator decision: tally at vote-time only, NO reopen path (no banner exists to reopen the modal). OWED: real-iPhone test (Hard Rule #13). Earlier this session: payment labels reworded "Paid Cash"→"Paid" (commits 2736c1a, c6c2415, UI-only).) session 80 — live firefight on Footy Tuesdays: paid button (debt-state Confirm unreachable), POTM modal re-popping, payment reconciliation, mig 241 post-game lifecycle, POTM window 1h→2h. session 79 — superadmin operator-analytics suite + ops email digest; migs 234–240, ⚠ migration-number COLLISION with parallel session 78 venue work — see SESSION 79.*
+
+## SESSION 86 — Equipment Hire Cycle 5: the data-product tail (mig 260) + venue redeploy
+
+Turned the clean data the first three equipment cycles captured into venue-facing
+intelligence. The payoff for the Cycle-1 data foundations (category taxonomy,
+demand-miss capture, asset value/condition). **Read-mostly cycle — no write paths.**
+
+- **Operator decision (Option A):** surface in the venue dashboard ONLY this cycle.
+  The "Ask the Gaffer" AI narrative version + HQ multi-venue benchmarking were
+  deferred — Gaffer is casual/admin-token-only today and has no venue path, so a
+  venue-Gaffer surface is net-new infra (a bigger build). The new RPC is shaped so a
+  future venue-Gaffer surface can pass it verbatim as `<context>` (Hard Rule #14).
+- **DB (mig 260, commit 36645d3):** one READ-ONLY RPC `venue_equipment_insights(p_venue_token,
+  p_from?, p_to?)` → `{summary, roi[], usage[], procurement[]}`, STABLE SECDEF,
+  `resolve_venue_caller`, search_path pinned, REVOKE PUBLIC / GRANT anon+authenticated.
+  - **ROI** per asset, **lifetime** (cost is one-off): `purchase_price_pence` vs
+    `collected_pence` = net non-voided `venue_payments` on the hire's `source_type='equipment'`
+    charge (mirrors `venue_list_equipment_hires`), + `billed_pence`, `payback_pct`,
+    `payback_status` (recouped/partial/not_started/unknown), `idle` flag.
+  - **Usage** per asset over `[from,to]` (default trailing 90d): hires/units/unit-hours/
+    busiest-day/share — no fabricated "owned-hours" denominator (honest activity).
+  - **Procurement** from `equipment_demand_misses` grouped by category over range: turn-aways,
+    units wanted, last miss, vs currently-owned qty. Recommendation sentence built client-side.
+  - "Hired" = confirmed/out/returned/overdue (matches the catalogue's hires_count).
+- **UI (apps/venue `EquipmentView.jsx`):** third **Insights** tab beside Catalogue/Hires —
+  three cards (Return on each item / How busy each item is / What to buy next). New
+  `venueEquipmentInsights` wrapper + barrel export. No nav change in `Dashboard.jsx`.
+- **Verify:** no write path → ephemeral-verify N/A (Hard Rule #15); instead proved the
+  revenue join with a live `BEGIN…ROLLBACK` probe (seeded hire+charge+payment+£5 refund+miss,
+  asserted collected=£10/share=50%/proc counts/summary, RAISE-rolled-back, leak-check 0).
+  rpc-security-sweep PASS; venue + inorout builds clean; raw RPC name in exactly one
+  `supabase.rpc()`.
+- **Deploy:** `apps/venue` → platform-venue.vercel.app redeployed prebuilt-static
+  ([[project_venue_deploy]]); verified live by grepping the bundle (`index-Bm0OHgf7.js`
+  contains `venue_equipment_insights`).
+- **Owed (manual, non-blocking):** logged-in browser pass on the Insights tab (demo venue has
+  no hires yet, so it reads all-idle/empty until real hires flow — expected, not a bug).
+- **Equipment status now:** Cycles 1–3 + 5 shipped (migs 255–260). Cycle 4 (QR self-hire) =
+  backlog. Plan: `EQUIPMENT_HIRE_PLAN.md`.
 
 ## SESSION 85 — QR Onboarding epic COMPLETE: slice 7 link management (mig 254) + venue redeploy
 
