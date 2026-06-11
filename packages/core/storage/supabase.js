@@ -380,6 +380,21 @@ export async function getTeamByJoinCode(code) {
   return data;
 }
 
+// ─── QR / invite_links routing layer (mig 248) ────────────────────────────────
+// Resolve a scanned /q/<code> to its action + minimal destination. Read-only.
+export async function resolveInviteLink(code) {
+  const { data, error } = await supabase.rpc("resolve_invite_link", { p_code: code });
+  if (error) { console.error('[invite] resolve failed', error); return null; }
+  return data;
+}
+
+// Count a use of an invite code (call AFTER the action succeeds). Write.
+export async function redeemInviteLink(code) {
+  const { data, error } = await supabase.rpc("redeem_invite_link", { p_code: code });
+  if (error) { console.error('[invite] redeem failed', error); throw error; }
+  return data;
+}
+
 export async function getTeamStateByPlayerToken(token) {
   const { data, error } = await supabase.rpc('get_team_state_by_player_token', { p_token: token });
   if (error || !data) return null;

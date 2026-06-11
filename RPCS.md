@@ -372,10 +372,24 @@ mig 172: `company_admins.dashboard_config jsonb NULL` (per-admin saved layout; N
 
 ---
 
+## QR ONBOARDING RPCs (migration 248 — slice 1 routing layer)
+
+Generic `invite_links` routing layer. Stable code → mutable destination;
+the QR encodes only `/q/<code>`. Plan: `QR_ONBOARDING_SCOPE.md`; design:
+DECISIONS.md "QR ONBOARDING ARCHITECTURE".
+
+| RPC | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `resolve_invite_link(p_code)` | `resolveInviteLink(code)` | anon + authenticated | **Read-only** (STABLE, SECURITY DEFINER, search_path locked). Resolves a scanned code → `{ok, status, code, action, entity_type, entity_id, destination}`. `status ∈ ok\|inactive\|expired\|exhausted\|not_found`. `destination` is minimal per action (team→`{team_id,team_name}`; venue→`{venue_id,venue_name,logo_url,colours}`; fixture→`{fixture_id}`) — richer data comes from each action's own RPC. NULL destination (target entity gone) → status `not_found`. **Consumers (hard-rule #14)**: `apps/inorout` `InviteResolve.jsx` (`/q/<code>`); slice 3 venue landing; slice 6 check-in. |
+| `redeem_invite_link(p_code)` | `redeemInviteLink(code)` | anon + authenticated | **Write** (VOLATILE, SECURITY DEFINER, search_path locked). Atomic `use_count++` under `FOR UPDATE`, re-checks active/expiry/max_uses in-txn (race-safe); refuses invalid without incrementing. INSERTs `audit_events` (`action='invite_link_redeemed'`, `actor_type='system'`, scope `team_id`=entity_id for team/venue; Hard Rule #9). Slice 1 handles team + venue; the **fixture branch raises `checkin_redeem_not_built`** until slice 6 adds it. Call AFTER the action succeeds (post-join), NOT on scan. EV-verified (resolve/redeem/status-paths/audit-trace/fixture-deferred, 6 assertions, leak 0); rpc-security-sweep PASS (secdef, search_path, 1 overload, anon+auth granted, PUBLIC revoked). **Consumers (hard-rule #14)**: slice 2 post-join hook; slice 6 check-in. |
+
+---
+
 ## MIGRATION FILE MAP
 
 | Migration | Contents |
 |---|---|
+| 248 | `invite_links` table + `resolve_invite_link` (read) + `redeem_invite_link` (write) — QR Onboarding slice 1 routing layer. RLS enabled, no client policies; both SECURITY DEFINER, search_path locked, anon+authenticated, PUBLIC revoked. EV-verified + rpc-security-sweep PASS + casual-regression PASS (additive route only). See QR ONBOARDING RPCs above + `QR_ONBOARDING_SCOPE.md`. |
 | 006 | RLS enable on all 19 tables |
 | 007 | RLS team-scoped table policies |
 | 008 | RLS financial/audit table policies |

@@ -735,6 +735,33 @@ Added session 21:
 
 ---
 
+## invite_links (migration 248 — QR Onboarding routing layer)
+
+Stable code → mutable destination. A printed/laminated QR encodes ONLY
+`/q/<code>`; the row behind it can be re-pointed forever. Never QR-encode
+an internal id. All access via SECURITY DEFINER RPCs (`resolve_invite_link`,
+`redeem_invite_link`) — RLS enabled, no client policies. Plan:
+`QR_ONBOARDING_SCOPE.md`.
+
+| Column | Type | Null | Default | Notes |
+|---|---|---|---|---|
+| `code` | text PK | NO | — | url-safe, generated server-side (`generate_url_safe_token`) |
+| `entity_type` | text | NO | — | CHECK `IN ('team','venue','fixture')` |
+| `entity_id` | text | NO | — | `teams.id` / `venues.id` / `fixtures.id::text`. Not a typed FK (polymorphic; `fixtures.id` is uuid) — integrity enforced in the resolver per `entity_type` |
+| `action` | text | NO | — | CHECK `IN ('join_team','venue_landing','match_checkin')` |
+| `active` | boolean | NO | `true` | venue can deactivate (slice 7) |
+| `expires_at` | timestamptz | YES | — | NULL = never |
+| `max_uses` | integer | YES | — | NULL = unlimited |
+| `use_count` | integer | NO | `0` | incremented by `redeem_invite_link` |
+| `label` | text | YES | — | venue-facing name ("Reception poster") |
+| `created_by` | text | YES | — | venue actor_ident (audit) |
+| `created_at` | timestamptz | NO | `now()` | |
+
+Index: `invite_links_entity_idx` on `(entity_type, entity_id)` — for the
+management panel's per-entity code list (slice 7).
+
+---
+
 ## STORAGE BUCKETS (migration 246)
 
 | Bucket | Public | Limits | Write access |
