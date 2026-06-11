@@ -429,6 +429,8 @@ Apply SQL before writing any JS wrapper.
 **Building new features:**
 - `DECISIONS.md` — settled architectural and product decisions
 - `FEATURES.md` — phase tracker; what's built, what's next, IO unlock grid
+- `STRATEGY.md` — commercial strategy, pilot venue plan, go-to-market
+  sequencing. Read before any pilot, pricing, or sales-facing work.
 
 **IO Intelligence work only:**
 - `IO_INTELLIGENCE.md` — full IO spec, hook structure, edge cases, H2H detail
@@ -454,6 +456,7 @@ Apply SQL before writing any JS wrapper.
 - `RPCS.md` — RPC inventory. Read before any write path work.
 - `DECISIONS.md` — key decisions log.
 - `FEATURES.md` — phase tracker and IO unlock grid.
+- `STRATEGY.md` — commercial strategy, pilot plan, go-to-market sequencing.
 - `IO_INTELLIGENCE.md` — IO spec. Read only for IO work.
 - `GAFFER.md` — AI agent layer spec. Read only for Gaffer work.
 - `CONTEXT.md` — infrastructure, tokens, session history.

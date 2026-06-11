@@ -9,6 +9,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 
 | Area | Task | Type | Status |
 |---|---|---|---|
+| **QR Onboarding v1** | **NEXT BUILD PRIORITY — deadline 2026-06-18 (pilot pitch date).** Generic `invite_links` routing layer + `/q/<code>` route (stable code → mutable destination, never QR-encode internal IDs) + `react-qr-code` rendering. V1 actions: join-team, venue landing page, QR on reception display rotation. Match check-in = v2. Scope + pilot context: `STRATEGY.md`; design: DECISIONS.md session 84 "QR ONBOARDING ARCHITECTURE". | Backend+UI | 🔴 not started |
 | Website / marketing | Deploy + wire the landing pages (`marketing/` — players + venues; design & motion done) | Infra/UI | 🟡 built, not deployed |
 | App wrapping | Wrap the PWA as native iOS/Android app for the app stores (Capacitor/TWA) | Infra/New | 🔴 not started, not yet scoped |
 | League — Display (TV) | Final visual design — **broadcast wall redesign SHIPPED session 83** (hero + featured algorithm, minis, rotating live table, golden boot, coming-up incl. casual bookings, tall promo, goal celebration; migs 244–246, see RECEPTION_DISPLAY_SCOPE.md) | UI | ✅ shipped s83 |

@@ -2239,3 +2239,63 @@ Build phases: (1) `venue_admins` table + `resolve_venue_caller` authenticated
 stage + `venue_whoami`; (2) reuse SignIn for the venue app; (3) invites + Staff
 management screen; (4) per-RPC capability gating; (5) attribution payoff
 (named reported/resolved/refunded-by). Phase 1 audit next.
+
+## SPORTS LOOKUP TABLE — REJECTED (session 84, 2026-06-11)
+
+An externally-written strategic brief proposed a `sports` lookup table
+(`id`, `name`) with FKs on teams/competitions/fixtures/venues. **Rejected.**
+The session-40 MULTI-SPORT POSTURE (mig 050) stands: `sport text DEFAULT
+'football'` self-identification on companies/venues/leagues/league_config,
+sport-agnostic naming for all new identifiers, per-sport game rules on
+`league_config` (per-league, sport as discriminator).
+
+Reasoning:
+- **No integrity risk to protect against.** Sport values are written only
+  by SECURITY DEFINER RPCs with a default — never user-typed. A FK locks a
+  door no one can reach. (Cheap belt-and-braces if ever wanted: a CHECK
+  constraint, no joins, no sweep.)
+- **No sport-level metadata exists to house.** The table would hold one
+  row ("football") with only its own name. When per-sport config DID
+  arrive (card_types, formats) it deliberately went on `league_config` —
+  the more flexible shape (two football leagues can differ; a sport-level
+  table can't express that).
+- **Real cost in this repo.** FKs on 4+ production tables ⇒ mandatory
+  schema-sync sweep across all migrations, RPC body checks, mapper
+  updates — days of change-control for a behaviourally identical end
+  state.
+- **Future-proofing lives elsewhere.** Multi-sport rebuild risk is
+  football baked into identifiers/logic, not sport-as-string. Session 40
+  already fixed that (playing_areas, match_officials, naming rule).
+- **Reversibility asymmetry.** Text→lookup later is a mechanical
+  afternoon migration (`INSERT INTO sports SELECT DISTINCT sport…` + FK);
+  pre-building now risks the wrong shape. Deferring is free.
+
+**Re-open trigger:** a second sport is actually onboarding AND needs
+sport-level metadata `league_config` cannot express. Strategy context in
+STRATEGY.md.
+
+## QR ONBOARDING ARCHITECTURE (session 84, 2026-06-11)
+
+QR codes are the next net-new build (pilot demo centrepiece — pitch date
+2026-06-18, see STRATEGY.md). Verified nothing QR exists today: no
+library, no routes, no table; joins are `/join/<code>` (`teams.join_code`)
+and `/p/<token>` only.
+
+Settled design — **stable code → mutable destination**:
+- **Never QR-encode internal database IDs or direct entity URLs.** A
+  printed/laminated QR must survive every future routing change.
+- Generic routing layer: `invite_links` table — `code`, `entity_type`,
+  `entity_id`, `action`, `active`, `expires_at`, `max_uses`, `use_count` —
+  resolved by a `/q/<code>` route that dispatches on `action`.
+- **V1 actions:** join-team; venue landing page ("what's on here" + join
+  options); QR rendered on the reception display rotation (scan the
+  screen → joined in <30s — the demo moment).
+- **V2+ (the `action` field already accommodates):** match check-in,
+  equipment, payments, registration, tournament access, venue onboarding.
+- Rendering library: `react-qr-code`.
+- Existing `/join/<code>` mechanic stays as-is; folding it into
+  invite_links considered later, not now.
+
+Design decision recorded ahead of build (per the feature-plan → audit →
+execute cycle); implementation will follow the RPC + RLS checklists as
+normal. Backlog row in FEATURES.md.
