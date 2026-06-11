@@ -126,7 +126,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
             <BookingsView state={state} venueToken={venueToken} occupancy={occupancy} bookingIns={bookingIns} onRefresh={onRefresh} onRefreshOccupancy={onRefreshOccupancy} />
           )}
           {view === "payments" && <PaymentsView state={state} venueToken={venueToken} />}
-          {view === "equipment" && <EquipmentView venueToken={venueToken} />}
+          {view === "equipment" && <EquipmentView venueToken={venueToken} state={state} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}

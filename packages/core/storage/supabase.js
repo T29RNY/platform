@@ -2975,6 +2975,47 @@ export async function venueUpsertEquipment(venueToken, {
   return data;
 }
 
+// ── Equipment Hire flow (mig 257, Cycle 2) — quantity-aware availability + hires ──
+// Free units for each active item across a window (peak-concurrent aware). from/to ISO.
+export async function getEquipmentAvailability(venueToken, from, to, category = null) {
+  const { data, error } = await supabase.rpc("get_equipment_availability", {
+    p_venue_token: venueToken, p_from: from, p_to: to, p_category: category });
+  if (error) { console.error("[equipment] get_equipment_availability failed", error); throw error; }
+  return data;
+}
+
+// Create a pre-confirmed hire + auto-charge. Returns { ok:true, hire_id, charge_id, fee_pence }
+// OR { ok:false, reason:'insufficient_quantity', free, wanted } (a logged turn-away — check ok).
+export async function venueCreateEquipmentHire(venueToken, {
+  equipmentId, qty, startAt, endAt, teamId = null, bookedByName = null,
+  dueBackAt = null, bookingId = null, fixtureId = null,
+  contactEmail = null, contactPhone = null, amountPence = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_create_equipment_hire", {
+    p_venue_token: venueToken, p_equipment_id: equipmentId, p_qty: qty,
+    p_start_at: startAt, p_end_at: endAt, p_team_id: teamId, p_booked_by_name: bookedByName,
+    p_due_back_at: dueBackAt, p_booking_id: bookingId, p_fixture_id: fixtureId,
+    p_contact_email: contactEmail, p_contact_phone: contactPhone, p_amount_pence: amountPence });
+  if (error) { console.error("[equipment] venue_create_equipment_hire failed", error); throw error; }
+  return data;
+}
+
+// Cancel a hire and refund (void) its charge. Idempotent ({ ok, already }).
+export async function venueCancelEquipmentHire(venueToken, hireId) {
+  const { data, error } = await supabase.rpc("venue_cancel_equipment_hire", {
+    p_venue_token: venueToken, p_hire_id: hireId });
+  if (error) { console.error("[equipment] venue_cancel_equipment_hire failed", error); throw error; }
+  return data;
+}
+
+// Hires for this venue (newest first) with booker + charge state. Optional status filter.
+export async function venueListEquipmentHires(venueToken, { status = null, limit = 200 } = {}) {
+  const { data, error } = await supabase.rpc("venue_list_equipment_hires", {
+    p_venue_token: venueToken, p_status: status, p_limit: limit });
+  if (error) { console.error("[equipment] venue_list_equipment_hires failed", error); throw error; }
+  return data;
+}
+
 export async function venueRecordPayment(venueToken, chargeId, amountPence, method, { externalRef = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("venue_record_payment", {
     p_venue_token: venueToken, p_charge_id: chargeId, p_amount_pence: amountPence,

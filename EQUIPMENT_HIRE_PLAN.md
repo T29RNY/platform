@@ -1,19 +1,26 @@
 # EQUIPMENT HIRE — FEATURE PLAN
 
-Status: **CYCLE 1 SHIPPED (session 85, migs 255–256).** Cycles 2–4 pending.
+Status: **CYCLES 1–2 SHIPPED (session 85, migs 255–257).** Cycles 3–4 pending.
 Produced via `skills/feature-plan.md`.
 Date: 2026-06-11 (session 85).
 
 > **Cycle 1 done (migs 255–256):** schema (3 tables + `venue_charges` CHECK
 > extension + indexes, data foundations locked in) + catalogue RPCs
 > `venue_list_equipment`/`venue_upsert_equipment` + venue **Equipment** tab
-> (`EquipmentView.jsx`). Build ✓, ephemeral-verify 10/10 + leak 0 ✓,
-> rpc-security-sweep ✓, hygiene ✓. Real-device PWA pass on the venue dashboard
-> still owed (Hard Rule #13). One plan correction found during audit:
-> `fixtures.id` is **uuid** (not text as risk-flag #6 assumed) — session-link FKs
-> are both uuid.
+> (`EquipmentView.jsx`). EV 10/10 + leak 0. One plan correction: `fixtures.id` is
+> **uuid** (not text as risk-flag #6 assumed) — session-link FKs are both uuid.
 >
-> **Next: Cycle 2** — quantity-aware availability + the hire flow.
+> **Cycle 2 done (mig 257):** quantity-aware availability
+> (`get_equipment_availability` + internal `_equipment_peak_committed` peak-concurrent
+> primitive) + the hire flow — `venue_create_equipment_hire` (pre-confirmed,
+> row-locked quantity guard, auto-charge, **demand-miss logged on turn-away via
+> soft-fail** so the signal persists), `venue_cancel_equipment_hire` (+ refund),
+> `venue_list_equipment_hires`. EV **13/13 + leak 0**, security-sweep PASS, build ✓.
+> EquipmentView gains a Catalogue/Hires toggle (window availability + hire modal +
+> hires list). `venue_confirm/decline_equipment_hire` deferred to Cycle 4 (no
+> request channel until self-serve exists). Real-device/browser pass still owed.
+>
+> **Next: Cycle 3** — returns, deposits, overdue board.
 
 ---
 

@@ -632,7 +632,7 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   `fixture_id`→fixtures NULL (**session-link FKs = cross-sell spine**), `status`
   (requested|confirmed|declined|cancelled|out|returned|overdue), `amount_pence` NULL, `contact_email`,
   `contact_phone`, `created_at`. CHECK end_at>start_at; CHECK team_id OR booked_by_name present.
-  Tables exist now; the hire-flow RPCs that WRITE them land in Cycle 2.
+  Written by the Cycle 2 hire flow (mig 257).
 - `equipment_demand_misses` — turned-away demand (procurement signal): `id`, `venue_id`→venues,
   `category`, `equipment_id`→equipment NULL, `window_start`, `window_end`, `qty_wanted`,
   `source` (venue|self_qr), `created_at`. Captured at the moment of an empty availability check (Cycle 2).
@@ -641,6 +641,10 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   `venue_list_equipment(token)` (read: catalogue + per-item `hires_count`/`out_now` + summary),
   `venue_upsert_equipment(token,name,category,quantity,id?,default_fee_pence?,deposit_pence?,hire_unit?,
   purchase_price_pence?,acquired_on?,condition?,active?)` (create when id NULL, else edit).
+- **Hire-flow RPCs (mig 256+257, Cycle 2):** `get_equipment_availability(token,from,to,cat?)` (read:
+  quantity-aware free units, `free = quantity − _equipment_peak_committed`), `venue_create_equipment_hire(...)`
+  (pre-confirmed hire, row-locked qty guard, auto-charge, demand-miss-on-turn-away),
+  `venue_cancel_equipment_hire(token,hire)` (+ refund), `venue_list_equipment_hires(token,status?,limit?)`.
 
 ### Stage 2b — priority displacement (migrations 142–143)
 

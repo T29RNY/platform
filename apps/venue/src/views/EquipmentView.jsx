@@ -1,13 +1,18 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { venueListEquipment, venueUpsertEquipment } from "@platform/core/storage/supabase.js";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  venueListEquipment, venueUpsertEquipment,
+  getEquipmentAvailability, venueCreateEquipmentHire,
+  venueCancelEquipmentHire, venueListEquipmentHires,
+} from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
 import { EmptyState } from "./atoms.jsx";
 
-// Equipment Hire — catalogue management (Cycle 1 of EQUIPMENT_HIRE_PLAN.md).
-// Sport-agnostic: the venue types in its own kit; category is the clean spine.
-// RPCs: venueListEquipment (read) / venueUpsertEquipment (create + edit).
-// The hire flow (availability, charging, returns) lands in Cycle 2.
+// Equipment Hire — catalogue management (Cycle 1) + hire flow (Cycle 2) of
+// EQUIPMENT_HIRE_PLAN.md. Sport-agnostic: the venue types in its own kit.
+// RPCs: venueListEquipment / venueUpsertEquipment (catalogue);
+//       getEquipmentAvailability / venueCreateEquipmentHire /
+//       venueCancelEquipmentHire / venueListEquipmentHires (hires).
 
 const gbp = (pence) => (pence == null ? "—" : "£" + (pence / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
@@ -25,12 +30,35 @@ const HIRE_UNITS = [["per_hour", "per hour"], ["per_session", "per session"], ["
 const UNIT_LABEL = Object.fromEntries(HIRE_UNITS);
 const CONDITIONS = [["new", "New"], ["good", "Good"], ["worn", "Worn"], ["damaged", "Damaged"], ["retired", "Retired"]];
 const COND_LABEL = Object.fromEntries(CONDITIONS);
+const HIRE_STATUS = {
+  requested: { label: "Requested", cls: "pill-warn" },
+  confirmed: { label: "Confirmed", cls: "pill-ok" },
+  out:       { label: "Out",       cls: "pill-ok" },
+  returned:  { label: "Returned",  cls: "pill-muted" },
+  cancelled: { label: "Cancelled", cls: "pill-muted" },
+  declined:  { label: "Declined",  cls: "pill-muted" },
+  overdue:   { label: "Overdue",   cls: "pill-warn" },
+};
 
-export default function EquipmentView({ venueToken }) {
+export default function EquipmentView({ venueToken, state }) {
+  const [tab, setTab] = useState("catalogue");
+  return (
+    <div>
+      <div className="chips" style={{ marginBottom: "var(--gap-2)" }}>
+        <button className="chip" aria-pressed={tab === "catalogue"} onClick={() => setTab("catalogue")}>Catalogue</button>
+        <button className="chip" aria-pressed={tab === "hires"} onClick={() => setTab("hires")}>Hires</button>
+      </div>
+      {tab === "catalogue" ? <CataloguePanel venueToken={venueToken} /> : <HiresPanel venueToken={venueToken} state={state} />}
+    </div>
+  );
+}
+
+// ── Catalogue (Cycle 1) ───────────────────────────────────────────────────────
+function CataloguePanel({ venueToken }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(null); // item being edited, or {} for a new one
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(async () => {
     if (!venueToken) return;
@@ -38,7 +66,6 @@ export default function EquipmentView({ venueToken }) {
     try { setData(await venueListEquipment(venueToken)); }
     catch (e) { setErr(e?.message || String(e)); }
   }, [venueToken]);
-
   useEffect(() => { load(); }, [load]);
 
   const onSave = async (form) => {
@@ -104,6 +131,225 @@ export default function EquipmentView({ venueToken }) {
         <EquipmentModal item={editing} busy={busy} onClose={() => setEditing(null)} onSubmit={onSave} />
       )}
     </div>
+  );
+}
+
+// ── Hires (Cycle 2) ───────────────────────────────────────────────────────────
+function todayISO() { const d = new Date(); return d.toISOString().slice(0, 10); }
+
+function HiresPanel({ venueToken, state }) {
+  const [date, setDate] = useState(todayISO());
+  const [startT, setStartT] = useState("19:00");
+  const [endT, setEndT] = useState("21:00");
+  const [avail, setAvail] = useState(null);
+  const [hires, setHires] = useState(null);
+  const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [hireFor, setHireFor] = useState(null); // availability item being hired
+
+  const window = useMemo(() => {
+    const from = new Date(`${date}T${startT}`);
+    const to = new Date(`${date}T${endT}`);
+    if (!(from < to)) return null;
+    return { fromISO: from.toISOString(), toISO: to.toISOString() };
+  }, [date, startT, endT]);
+
+  const teamName = useCallback((id) => (id ? (state?.teams?.[id]?.name || id) : null), [state]);
+
+  const loadAvail = useCallback(async () => {
+    if (!venueToken || !window) { setAvail(null); return; }
+    setErr(null);
+    try { setAvail(await getEquipmentAvailability(venueToken, window.fromISO, window.toISO)); }
+    catch (e) { setErr(e?.message || String(e)); }
+  }, [venueToken, window]);
+
+  const loadHires = useCallback(async () => {
+    if (!venueToken) return;
+    try { setHires(await venueListEquipmentHires(venueToken)); }
+    catch (e) { setErr(e?.message || String(e)); }
+  }, [venueToken]);
+
+  useEffect(() => { loadAvail(); }, [loadAvail]);
+  useEffect(() => { loadHires(); }, [loadHires]);
+
+  const onCreate = async (form) => {
+    setBusy(true);
+    try {
+      const res = await venueCreateEquipmentHire(venueToken, { ...form, startAt: window.fromISO, endAt: window.toISO });
+      if (!res?.ok) { setErr(res?.reason === "insufficient_quantity" ? `Only ${res.free} free in that window (wanted ${res.wanted}).` : "Couldn’t create hire."); return; }
+      setHireFor(null); await loadAvail(); await loadHires();
+    } catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
+  };
+
+  const onCancel = async (hire) => {
+    if (!window.confirm(`Cancel this hire of ${hire.equipment_name}? Its charge is voided (payments kept).`)) return;
+    setBusy(true);
+    try { await venueCancelEquipmentHire(venueToken, hire.id); await loadAvail(); await loadHires(); }
+    catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
+  };
+
+  const items = avail?.equipment ?? [];
+  const list = hires?.hires ?? [];
+
+  return (
+    <div>
+      {err && (
+        <div className="card card-pad" style={{ marginBottom: "var(--gap-2)", display: "flex", alignItems: "center", gap: 10 }}>
+          <Icon name="alert" size={16} />
+          <span style={{ flex: 1 }}>{err}</span>
+          <button className="btn btn-xs btn-ghost" onClick={() => setErr(null)}>Dismiss</button>
+        </div>
+      )}
+
+      <div className="dt-card" style={{ marginBottom: "var(--gap-2)" }}>
+        <div className="dt-toolbar" style={{ flexWrap: "wrap", gap: 10 }}>
+          <strong style={{ fontSize: 15 }}>Availability</strong>
+          <span style={{ flex: 1 }} />
+          <label className="field-label" style={{ margin: 0 }}>Date</label>
+          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "auto" }} />
+          <input className="input" type="time" value={startT} onChange={(e) => setStartT(e.target.value)} style={{ width: "auto" }} />
+          <span className="text-mute">→</span>
+          <input className="input" type="time" value={endT} onChange={(e) => setEndT(e.target.value)} style={{ width: "auto" }} />
+        </div>
+
+        {!window ? (
+          <div style={{ padding: 24 }}><EmptyState title="Pick a valid window" body="End time must be after start time." /></div>
+        ) : !avail ? (
+          <div style={{ padding: 24 }}><EmptyState title="Loading availability…" /></div>
+        ) : items.length === 0 ? (
+          <div style={{ padding: 24 }}><EmptyState title="No active equipment" body="Add items in the Catalogue tab first." /></div>
+        ) : (
+          <table className="dt">
+            <thead>
+              <tr><th>Item</th><th>Category</th><th className="num">Free</th><th className="num">Fee</th><th /></tr>
+            </thead>
+            <tbody>
+              {items.map((it) => (
+                <tr key={it.id}>
+                  <td><strong>{it.name}</strong></td>
+                  <td className="text-mute">{CAT_LABEL[it.category] || it.category}</td>
+                  <td className="num"><strong style={{ color: it.free > 0 ? "var(--ok, inherit)" : "var(--warn, inherit)" }}>{it.free}</strong><span className="text-mute"> / {it.quantity}</span></td>
+                  <td className="num">{gbp(it.default_fee_pence)}</td>
+                  <td style={{ textAlign: "right" }}>
+                    <button className="btn btn-xs btn-primary" disabled={it.free < 1} onClick={() => setHireFor(it)}>Hire</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="dt-card">
+        <div className="dt-toolbar">
+          <strong style={{ fontSize: 15 }}>Hires</strong>
+          {list.length > 0 && <span className="text-mute">{list.length}</span>}
+        </div>
+        {!hires ? (
+          <div style={{ padding: 24 }}><EmptyState title="Loading hires…" /></div>
+        ) : list.length === 0 ? (
+          <div style={{ padding: 24 }}><EmptyState title="No hires yet" body="Hire kit from the availability list above." /></div>
+        ) : (
+          <table className="dt">
+            <thead>
+              <tr><th>Item</th><th>Hired by</th><th className="num">Qty</th><th>When</th><th>Status</th><th className="num">Charge</th><th /></tr>
+            </thead>
+            <tbody>
+              {list.map((h) => {
+                const st = HIRE_STATUS[h.status] || { label: h.status, cls: "pill-muted" };
+                const live = h.status === "confirmed" || h.status === "out";
+                return (
+                  <tr key={h.id} style={live ? undefined : { opacity: 0.6 }}>
+                    <td><strong>{h.equipment_name}</strong></td>
+                    <td className="text-mute">{teamName(h.team_id) || h.booked_by_name || "—"}</td>
+                    <td className="num">{h.qty}</td>
+                    <td className="text-mute">{fmtWindow(h.start_at, h.end_at)}</td>
+                    <td><span className={"pill " + st.cls}><span className="pill-dot" /> {st.label}</span></td>
+                    <td className="num">{h.amount_due_pence != null ? gbp(h.amount_due_pence) : (h.amount_pence ? gbp(h.amount_pence) : "—")}</td>
+                    <td style={{ textAlign: "right" }}>
+                      {live && <button className="btn btn-xs btn-danger" disabled={busy} onClick={() => onCancel(h)}>Cancel</button>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {hireFor && (
+        <HireModal item={hireFor} busy={busy} state={state} window={window}
+          onClose={() => setHireFor(null)} onSubmit={onCreate} />
+      )}
+    </div>
+  );
+}
+
+function fmtWindow(startISO, endISO) {
+  try {
+    const s = new Date(startISO), e = new Date(endISO);
+    const d = s.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const t = (x) => x.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    return `${d} · ${t(s)}–${t(e)}`;
+  } catch { return "—"; }
+}
+
+function HireModal({ item, busy, state, window: win, onClose, onSubmit }) {
+  const teams = useMemo(() => Object.entries(state?.teams ?? {}).map(([id, t]) => ({ id, name: t.name || id })).sort((a, b) => a.name.localeCompare(b.name)), [state]);
+  const [qty, setQty] = useState("1");
+  const [bookerKind, setBookerKind] = useState(teams.length ? "team" : "walkin");
+  const [teamId, setTeamId] = useState(teams[0]?.id || "");
+  const [walkName, setWalkName] = useState("");
+  const [fee, setFee] = useState(((item.default_fee_pence ?? 0) / 100).toFixed(2));
+
+  const submit = () => {
+    const q = parseInt(qty, 10);
+    if (!Number.isFinite(q) || q < 1 || q > item.free) return;
+    if (bookerKind === "team" && !teamId) return;
+    if (bookerKind === "walkin" && !walkName.trim()) return;
+    const pence = Math.round(parseFloat(fee) * 100);
+    onSubmit({
+      equipmentId: item.id, qty: q,
+      teamId: bookerKind === "team" ? teamId : null,
+      bookedByName: bookerKind === "walkin" ? walkName.trim() : null,
+      amountPence: Number.isFinite(pence) && pence >= 0 ? pence : null,
+    });
+  };
+
+  return (
+    <Modal onClose={onClose} title={`Hire ${item.name}`}
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Confirm hire"}</button>
+      </>}>
+      <p className="text-mute" style={{ marginBottom: 14 }}>
+        {win ? fmtWindow(win.fromISO, win.toISO) : ""} · {item.free} free
+      </p>
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Quantity</label>
+          <input className="input" type="number" min="1" max={item.free} step="1" value={qty} onChange={(e) => setQty(e.target.value)} autoFocus />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Fee (£)</label>
+          <input className="input" type="number" min="0" step="0.01" value={fee} onChange={(e) => setFee(e.target.value)} />
+        </div>
+      </div>
+
+      <label className="field-label">Hired by</label>
+      <div className="chips" style={{ marginBottom: 10 }}>
+        {teams.length > 0 && <button className="chip" aria-pressed={bookerKind === "team"} onClick={() => setBookerKind("team")}>Registered team</button>}
+        <button className="chip" aria-pressed={bookerKind === "walkin"} onClick={() => setBookerKind("walkin")}>Walk-up</button>
+      </div>
+      {bookerKind === "team" ? (
+        <select className="input" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+          {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      ) : (
+        <input className="input" type="text" value={walkName} onChange={(e) => setWalkName(e.target.value)} placeholder="Name on the hire" />
+      )}
+    </Modal>
   );
 }
 
