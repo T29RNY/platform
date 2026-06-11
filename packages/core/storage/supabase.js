@@ -402,6 +402,13 @@ export async function getVenueLanding(venueId) {
   return data;
 }
 
+// The reception display's venue_landing QR code+url (read-only, mig 252).
+export async function getDisplayLandingCode(displayToken) {
+  const { data, error } = await supabase.rpc("get_display_landing_code", { p_display_token: displayToken });
+  if (error) { console.error('[invite] display landing code failed', error); return null; }
+  return data;
+}
+
 // Get-or-create the canonical QR code for an entity (venue QR view, mig 251). Write.
 export async function venueEnsureInviteLink(credential, entityType, entityId, action) {
   const { data, error } = await supabase.rpc("venue_ensure_invite_link", {

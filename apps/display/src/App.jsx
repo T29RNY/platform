@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase, getDisplayState } from "@platform/core/storage/supabase.js";
+import { supabase, getDisplayState, getDisplayLandingCode } from "@platform/core/storage/supabase.js";
 import PinGate from "./components/PinGate.jsx";
 import DisplayHeader from "./components/DisplayHeader.jsx";
 import Hero from "./components/Hero.jsx";
@@ -10,6 +10,7 @@ import ComingUp from "./components/ComingUp.jsx";
 import TallPromo from "./components/TallPromo.jsx";
 import GoalsTicker from "./components/GoalsTicker.jsx";
 import PanelBoundary from "./components/PanelBoundary.jsx";
+import QRPanel from "./components/QRPanel.jsx";
 import { resolveConfig } from "./lib/format.js";
 import { selectFeatured } from "./lib/featured.js";
 import { diffPayloads } from "./lib/diff.js";
@@ -31,6 +32,7 @@ export default function App() {
   const token = useMemo(readTokenFromUrl, []);
   const [unlocked, setUnlocked] = useState(false);
   const [state, setState] = useState(null);
+  const [landingUrl, setLandingUrl] = useState(null);
   const [error, setError] = useState(null);
   const [connected, setConnected] = useState(false);
   const [clock, setClock] = useState(() => new Date());
@@ -45,6 +47,17 @@ export default function App() {
   const goalLatchRef = useRef({ fixtureId: null, until: 0 });
   const featuredIdRef = useRef(null);
   const canvasRef = useRef(null);
+
+  // Fetch the venue's venue_landing QR url once (rarely changes; off the hot
+  // poll/broadcast path). Panel shows only when the venue has provisioned one.
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    getDisplayLandingCode(token)
+      .then((r) => { if (alive) setLandingUrl(r?.url || null); })
+      .catch((e) => { console.error("[display] landing code failed", e); });
+    return () => { alive = false; };
+  }, [token]);
 
   // ---- celebration queue: one at a time, ≥5s apart ----
   const pumpCelebrations = useCallback(() => {
@@ -263,6 +276,7 @@ export default function App() {
         />
       ),
     },
+    landingUrl && { key: "qr", fr: "0.5fr", el: <QRPanel url={landingUrl} venue={state.venue} /> },
   ].filter(Boolean);
 
   return (
