@@ -402,6 +402,18 @@ export async function getVenueLanding(venueId) {
   return data;
 }
 
+// Get-or-create the canonical QR code for an entity (venue QR view, mig 251). Write.
+export async function venueEnsureInviteLink(credential, entityType, entityId, action) {
+  const { data, error } = await supabase.rpc("venue_ensure_invite_link", {
+    p_credential:  credential,
+    p_entity_type: entityType,
+    p_entity_id:   entityId,
+    p_action:      action,
+  });
+  if (error) { console.error('[invite] ensure failed', error); throw error; }
+  return data;
+}
+
 export async function getTeamStateByPlayerToken(token) {
   const { data, error } = await supabase.rpc('get_team_state_by_player_token', { p_token: token });
   if (error || !data) return null;

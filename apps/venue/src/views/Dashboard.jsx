@@ -14,6 +14,7 @@ import LeagueTable from "./LeagueTable.jsx";
 import PlayersView from "./PlayersView.jsx";
 import CustomersView from "./CustomersView.jsx";
 import AccessView from "./AccessView.jsx";
+import InvitesView from "./InvitesView.jsx";
 import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import { poundsRound } from "../lib/format.js";
@@ -29,6 +30,7 @@ const TABS = [
     { id: "teams",     label: "Teams",     icon: "teams" },
     { id: "players",   label: "Players",   icon: "players" },
     { id: "staff",     label: "Staff",     icon: "staff" },
+    { id: "invites",   label: "QR codes",  icon: "settings" },
     { id: "access",    label: "Access",    icon: "settings", adminOnly: true },
   ]},
   { group: "Competition", items: [
@@ -41,7 +43,7 @@ const TABS = [
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments",
   customers: "Customers", teams: "Teams", players: "Players", staff: "Staff",
-  access: "Access", league: "Leagues", table: "Standings", cups: "Cups",
+  access: "Access", invites: "QR codes", league: "Leagues", table: "Standings", cups: "Cups",
 };
 
 // manage_logins capability for the signed-in caller (token backdoor = full owner).
@@ -127,6 +129,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "players" && <PlayersView venueToken={venueToken} />}
           {view === "staff" && <StaffView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
           {view === "access" && <AccessView venueToken={venueToken} me={me} />}
+          {view === "invites" && <InvitesView state={state} venueToken={venueToken} />}
           {view === "league" && <LeagueView state={state} onNewSeason={() => setWizardOpen(true)} />}
           {view === "table" && <LeagueTable state={state} venueToken={venueToken} />}
           {view === "cups" && <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />}

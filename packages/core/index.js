@@ -164,6 +164,7 @@ export {
   resolveInviteLink,
   redeemInviteLink,
   getVenueLanding,
+  venueEnsureInviteLink,
 } from "./storage/supabase.js";
 export { generateRoundRobin } from "./engine/roundRobin.js";
 export { generateCupBracket } from "./engine/cupBracket.js";
