@@ -395,6 +395,13 @@ export async function redeemInviteLink(code) {
   return data;
 }
 
+// Public "what's on at this venue" for the /q/<venue_code> landing (mig 249).
+export async function getVenueLanding(venueId) {
+  const { data, error } = await supabase.rpc("get_venue_landing", { p_venue_id: venueId });
+  if (error) { console.error('[invite] venue landing failed', error); return null; }
+  return data;
+}
+
 export async function getTeamStateByPlayerToken(token) {
   const { data, error } = await supabase.rpc('get_team_state_by_player_token', { p_token: token });
   if (error || !data) return null;

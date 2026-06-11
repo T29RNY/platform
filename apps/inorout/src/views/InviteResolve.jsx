@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { resolveInviteLink } from "@platform/core/storage/supabase.js";
+import VenueLanding from "./VenueLanding.jsx";
 
 // /q/<code> — resolves a scanned invite_links code (mig 248) and dispatches
 // on its action. Slice 1: full resolution + error states + dispatch skeleton.
@@ -92,13 +93,7 @@ export default function InviteResolve({ code }) {
   }
 
   if (data.action === "venue_landing") {
-    return (
-      <Shell>
-        <h1 className="q-title">{dest.venue_name || "What's on here"}</h1>
-        <p className="q-body">The venue's what's-on page is coming soon.</p>
-        <p className="q-muted">venue_landing · slice 3</p>
-      </Shell>
-    );
+    return <VenueLanding venueId={data.entity_id} code={data.code} />;
   }
 
   if (data.action === "match_checkin") {
