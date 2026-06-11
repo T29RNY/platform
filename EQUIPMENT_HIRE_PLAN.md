@@ -14,7 +14,16 @@ Date: 2026-06-11 (session 85). Cycles 1–2 deployed + browser-verified live.
 > + ReturnModal. EV **7/7 + leak 0**, security-sweep PASS, build ✓. (Fixed a latent
 > Cycle-2 bug: `window.confirm` was shadowed by the local window memo.)
 >
-> **Next: Cycle 4** — QR self-hire (reuses the shipped QR rail).
+> **Next (chosen session 85, run in a NEW session): the data-product tail** —
+> HQ/Gaffer equipment intelligence: ROI-per-asset, utilisation, and
+> `equipment_demand_misses` → procurement recommendations. This is the payoff for
+> the data foundations locked into Cycle 1.
+>
+> **Backlog (deferred): Cycle 4 — QR self-hire.** Scan-a-QR-on-the-kit self-serve
+> hire on the `invite_links` rail; self-serve hires arrive as `requested` and the
+> venue approves them via `venue_confirm_equipment_hire`/`venue_decline_equipment_hire`
+> (the request channel that lands in this cycle). Lower priority than the data tail
+> for the pilot.
 
 > **Cycle 1 done (migs 255–256):** schema (3 tables + `venue_charges` CHECK
 > extension + indexes, data foundations locked in) + catalogue RPCs
