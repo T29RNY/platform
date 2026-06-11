@@ -163,6 +163,7 @@ export {
   uploadVenueMedia,
   resolveInviteLink,
   redeemInviteLink,
+  checkinViaInvite,
   getVenueLanding,
   venueEnsureInviteLink,
   getDisplayLandingCode,

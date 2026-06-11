@@ -395,6 +395,16 @@ export async function redeemInviteLink(code) {
   return data;
 }
 
+// Atomic QR check-in: marks the player IN for the fixture linked by the code (mig 253).
+export async function checkinViaInvite(code, playerToken) {
+  const { data, error } = await supabase.rpc("checkin_via_invite", {
+    p_code:         code,
+    p_player_token: playerToken,
+  });
+  if (error) { console.error('[invite] checkin failed', error); throw error; }
+  return data;
+}
+
 // Public "what's on at this venue" for the /q/<venue_code> landing (mig 249).
 export async function getVenueLanding(venueId) {
   const { data, error } = await supabase.rpc("get_venue_landing", { p_venue_id: venueId });
