@@ -3,6 +3,7 @@ import {
   venueListEquipment, venueUpsertEquipment,
   getEquipmentAvailability, venueCreateEquipmentHire,
   venueCancelEquipmentHire, venueListEquipmentHires,
+  venueMarkEquipmentOut, venueMarkEquipmentReturned,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -145,7 +146,9 @@ function HiresPanel({ venueToken, state }) {
   const [hires, setHires] = useState(null);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [hireFor, setHireFor] = useState(null); // availability item being hired
+  const [hireFor, setHireFor] = useState(null);   // availability item being hired
+  const [returnFor, setReturnFor] = useState(null); // hire being returned
+  const [filter, setFilter] = useState("live");   // live | out | overdue | returned | all
 
   const window = useMemo(() => {
     const from = new Date(`${date}T${startT}`);
@@ -182,14 +185,35 @@ function HiresPanel({ venueToken, state }) {
   };
 
   const onCancel = async (hire) => {
-    if (!window.confirm(`Cancel this hire of ${hire.equipment_name}? Its charge is voided (payments kept).`)) return;
+    if (!globalThis.confirm(`Cancel this hire of ${hire.equipment_name}? Its charge is voided (payments kept).`)) return;
     setBusy(true);
     try { await venueCancelEquipmentHire(venueToken, hire.id); await loadAvail(); await loadHires(); }
     catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
   };
 
+  const onMarkOut = async (hire) => {
+    setBusy(true);
+    try { await venueMarkEquipmentOut(venueToken, hire.id); await loadHires(); }
+    catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
+  };
+
+  const onReturn = async (form) => {
+    setBusy(true);
+    try { await venueMarkEquipmentReturned(venueToken, returnFor.id, form); setReturnFor(null); await loadAvail(); await loadHires(); }
+    catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
+  };
+
   const items = avail?.equipment ?? [];
-  const list = hires?.hires ?? [];
+  const allHires = hires?.hires ?? [];
+  const board = hires?.summary ?? {};
+  const list = allHires.filter((h) => {
+    if (filter === "all") return true;
+    if (filter === "live") return h.status === "confirmed" || h.status === "out";
+    if (filter === "overdue") return h.is_overdue;
+    if (filter === "out") return h.status === "out";
+    if (filter === "returned") return h.status === "returned";
+    return true;
+  });
 
   return (
     <div>
@@ -240,34 +264,50 @@ function HiresPanel({ venueToken, state }) {
         )}
       </div>
 
+      <div className="stat-row" style={{ marginBottom: "var(--gap-2)" }}>
+        <Stat label="Out now" value={board.out_now ?? 0} />
+        <Stat label="Overdue" value={board.overdue ?? 0} tone={(board.overdue ?? 0) > 0 ? "crit" : undefined} />
+        <Stat label="Due back today" value={board.due_today ?? 0} />
+      </div>
+
       <div className="dt-card">
         <div className="dt-toolbar">
           <strong style={{ fontSize: 15 }}>Hires</strong>
           {list.length > 0 && <span className="text-mute">{list.length}</span>}
+          <span style={{ flex: 1 }} />
+          <span className="chips">
+            {[["live", "Live"], ["out", "Out"], ["overdue", "Overdue"], ["returned", "Returned"], ["all", "All"]].map(([f, l]) => (
+              <button key={f} className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>{l}</button>
+            ))}
+          </span>
         </div>
         {!hires ? (
           <div style={{ padding: 24 }}><EmptyState title="Loading hires…" /></div>
         ) : list.length === 0 ? (
-          <div style={{ padding: 24 }}><EmptyState title="No hires yet" body="Hire kit from the availability list above." /></div>
+          <div style={{ padding: 24 }}><EmptyState title="No hires" body="Hire kit from the availability list above." /></div>
         ) : (
           <table className="dt">
             <thead>
-              <tr><th>Item</th><th>Hired by</th><th className="num">Qty</th><th>When</th><th>Status</th><th className="num">Charge</th><th /></tr>
+              <tr><th>Item</th><th>Hired by</th><th className="num">Qty</th><th>When</th><th>Due back</th><th>Status</th><th className="num">Charge</th><th className="num">Deposit</th><th /></tr>
             </thead>
             <tbody>
               {list.map((h) => {
-                const st = HIRE_STATUS[h.status] || { label: h.status, cls: "pill-muted" };
+                const st = h.is_overdue ? { label: "Overdue", cls: "pill-warn" } : (HIRE_STATUS[h.status] || { label: h.status, cls: "pill-muted" });
                 const live = h.status === "confirmed" || h.status === "out";
                 return (
                   <tr key={h.id} style={live ? undefined : { opacity: 0.6 }}>
-                    <td><strong>{h.equipment_name}</strong></td>
+                    <td><strong>{h.equipment_name}</strong>{h.returned_condition ? <span className="text-mute" style={{ fontSize: 11 }}> · back {COND_LABEL[h.returned_condition] || h.returned_condition}</span> : null}</td>
                     <td className="text-mute">{teamName(h.team_id) || h.booked_by_name || "—"}</td>
                     <td className="num">{h.qty}</td>
                     <td className="text-mute">{fmtWindow(h.start_at, h.end_at)}</td>
+                    <td className="text-mute">{h.due_back_at ? fmtDateTime(h.due_back_at) : "—"}</td>
                     <td><span className={"pill " + st.cls}><span className="pill-dot" /> {st.label}</span></td>
                     <td className="num">{h.amount_due_pence != null ? gbp(h.amount_due_pence) : (h.amount_pence ? gbp(h.amount_pence) : "—")}</td>
-                    <td style={{ textAlign: "right" }}>
-                      {live && <button className="btn btn-xs btn-danger" disabled={busy} onClick={() => onCancel(h)}>Cancel</button>}
+                    <td className="num">{depositCell(h)}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {h.status === "confirmed" && <button className="btn btn-xs" disabled={busy} onClick={() => onMarkOut(h)}>Hand out</button>}
+                      {live && <button className="btn btn-xs btn-primary" style={{ marginLeft: 6 }} disabled={busy} onClick={() => setReturnFor(h)}>Return</button>}
+                      {live && <button className="btn btn-xs btn-danger" style={{ marginLeft: 6 }} disabled={busy} onClick={() => onCancel(h)}>Cancel</button>}
                     </td>
                   </tr>
                 );
@@ -281,8 +321,27 @@ function HiresPanel({ venueToken, state }) {
         <HireModal item={hireFor} busy={busy} state={state} window={window}
           onClose={() => setHireFor(null)} onSubmit={onCreate} />
       )}
+      {returnFor && (
+        <ReturnModal hire={returnFor} busy={busy} onClose={() => setReturnFor(null)} onSubmit={onReturn} />
+      )}
     </div>
   );
+}
+
+function fmtDateTime(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + " " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  } catch { return "—"; }
+}
+
+function depositCell(h) {
+  if (!h.deposit_pence) return "—";
+  const amt = gbp(h.deposit_pence);
+  if (h.deposit_status === "held") return <span>{amt}<span className="text-mute" style={{ fontSize: 11 }}> held</span></span>;
+  if (h.deposit_status === "released") return <span className="text-mute">{amt} released</span>;
+  if (h.deposit_status === "forfeited") return <span>{amt}<span className="text-mute" style={{ fontSize: 11 }}> kept</span></span>;
+  return amt;
 }
 
 function fmtWindow(startISO, endISO) {
@@ -301,6 +360,11 @@ function HireModal({ item, busy, state, window: win, onClose, onSubmit }) {
   const [teamId, setTeamId] = useState(teams[0]?.id || "");
   const [walkName, setWalkName] = useState("");
   const [fee, setFee] = useState(((item.default_fee_pence ?? 0) / 100).toFixed(2));
+  const defaultDueBack = useMemo(() => {
+    try { const d = new Date(win.toISO); const off = d.getTimezoneOffset(); return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16); }
+    catch { return ""; }
+  }, [win]);
+  const [dueBack, setDueBack] = useState(defaultDueBack);
 
   const submit = () => {
     const q = parseInt(qty, 10);
@@ -313,6 +377,7 @@ function HireModal({ item, busy, state, window: win, onClose, onSubmit }) {
       teamId: bookerKind === "team" ? teamId : null,
       bookedByName: bookerKind === "walkin" ? walkName.trim() : null,
       amountPence: Number.isFinite(pence) && pence >= 0 ? pence : null,
+      dueBackAt: dueBack ? new Date(dueBack).toISOString() : null,
     });
   };
 
@@ -337,6 +402,10 @@ function HireModal({ item, busy, state, window: win, onClose, onSubmit }) {
         </div>
       </div>
 
+      <label className="field-label">Due back (optional)</label>
+      <input className="input" type="datetime-local" value={dueBack} onChange={(e) => setDueBack(e.target.value)} style={{ marginBottom: 12 }} />
+      {item.deposit_pence > 0 && <p className="text-mute" style={{ fontSize: 12, marginTop: -4, marginBottom: 12 }}>A {gbp(item.deposit_pence)} deposit will be held.</p>}
+
       <label className="field-label">Hired by</label>
       <div className="chips" style={{ marginBottom: 10 }}>
         {teams.length > 0 && <button className="chip" aria-pressed={bookerKind === "team"} onClick={() => setBookerKind("team")}>Registered team</button>}
@@ -348,6 +417,36 @@ function HireModal({ item, busy, state, window: win, onClose, onSubmit }) {
         </select>
       ) : (
         <input className="input" type="text" value={walkName} onChange={(e) => setWalkName(e.target.value)} placeholder="Name on the hire" />
+      )}
+    </Modal>
+  );
+}
+
+function ReturnModal({ hire, busy, onClose, onSubmit }) {
+  const [condition, setCondition] = useState("");
+  const [forfeit, setForfeit] = useState(false);
+  const hasDeposit = hire.deposit_pence > 0 && hire.deposit_status === "held";
+
+  return (
+    <Modal onClose={onClose} title={`Return ${hire.equipment_name}`}
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={() => onSubmit({ condition: condition || null, forfeitDeposit: forfeit })} disabled={busy}>{busy ? "Saving…" : "Mark returned"}</button>
+      </>}>
+      <p className="text-mute" style={{ marginBottom: 14 }}>
+        {hire.qty} × {hire.equipment_name}{hire.booked_by_name ? ` · ${hire.booked_by_name}` : ""}
+      </p>
+      <label className="field-label">Condition back (optional — updates the item)</label>
+      <select className="input" value={condition} onChange={(e) => setCondition(e.target.value)} style={{ marginBottom: 12 }}>
+        <option value="">No change</option>
+        {CONDITIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      {hasDeposit && (
+        <label className="row-check" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <input type="checkbox" checked={forfeit} onChange={(e) => setForfeit(e.target.checked)} />
+          <span>Keep the {gbp(hire.deposit_pence)} deposit (kit lost/damaged) — otherwise it’s released</span>
+        </label>
       )}
     </Modal>
   );

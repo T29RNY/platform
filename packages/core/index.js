@@ -160,6 +160,8 @@ export {
   venueCreateEquipmentHire,
   venueCancelEquipmentHire,
   venueListEquipmentHires,
+  venueMarkEquipmentOut,
+  venueMarkEquipmentReturned,
   venueLogIncident,
   venueResolveIncident,
   confirmRenewal,

@@ -1,8 +1,20 @@
 # EQUIPMENT HIRE — FEATURE PLAN
 
-Status: **CYCLES 1–2 SHIPPED (session 85, migs 255–257).** Cycles 3–4 pending.
+Status: **CYCLES 1–3 SHIPPED (session 85, migs 255–259).** Cycle 4 pending.
 Produced via `skills/feature-plan.md`.
-Date: 2026-06-11 (session 85).
+Date: 2026-06-11 (session 85). Cycles 1–2 deployed + browser-verified live.
+
+> **Cycle 3 done (migs 258–259):** returns / deposits / overdue. Deposit is a
+> refundable HOLD snapshotted on the hire row (`deposit_pence`/`deposit_status`),
+> released or forfeited on return — never in the ledger. `venue_mark_equipment_out`
+> (confirmed→out), `venue_mark_equipment_returned` (→returned, release/forfeit
+> deposit, write condition back to the asset). `is_overdue` derived on read +
+> board summary (out-now/overdue/due-today) folded into `venue_list_equipment_hires`.
+> EquipmentView: due-back field, board stats, status filter, Hand-out/Return/Cancel
+> + ReturnModal. EV **7/7 + leak 0**, security-sweep PASS, build ✓. (Fixed a latent
+> Cycle-2 bug: `window.confirm` was shadowed by the local window memo.)
+>
+> **Next: Cycle 4** — QR self-hire (reuses the shipped QR rail).
 
 > **Cycle 1 done (migs 255–256):** schema (3 tables + `venue_charges` CHECK
 > extension + indexes, data foundations locked in) + catalogue RPCs

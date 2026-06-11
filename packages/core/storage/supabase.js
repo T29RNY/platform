@@ -3008,11 +3008,29 @@ export async function venueCancelEquipmentHire(venueToken, hireId) {
   return data;
 }
 
-// Hires for this venue (newest first) with booker + charge state. Optional status filter.
+// Hires for this venue (newest first) with booker + charge + deposit/return state +
+// derived is_overdue, plus a board `summary` (out_now/overdue/due_today). (mig 257; 259).
 export async function venueListEquipmentHires(venueToken, { status = null, limit = 200 } = {}) {
   const { data, error } = await supabase.rpc("venue_list_equipment_hires", {
     p_venue_token: venueToken, p_status: status, p_limit: limit });
   if (error) { console.error("[equipment] venue_list_equipment_hires failed", error); throw error; }
+  return data;
+}
+
+// Hand kit over: confirmed → out (mig 259). Idempotent.
+export async function venueMarkEquipmentOut(venueToken, hireId) {
+  const { data, error } = await supabase.rpc("venue_mark_equipment_out", {
+    p_venue_token: venueToken, p_hire_id: hireId });
+  if (error) { console.error("[equipment] venue_mark_equipment_out failed", error); throw error; }
+  return data;
+}
+
+// Receive kit back: confirmed/out → returned (mig 259). Optional condition (written back
+// to the asset) + forfeitDeposit (held → forfeited, else released).
+export async function venueMarkEquipmentReturned(venueToken, hireId, { condition = null, forfeitDeposit = false } = {}) {
+  const { data, error } = await supabase.rpc("venue_mark_equipment_returned", {
+    p_venue_token: venueToken, p_hire_id: hireId, p_condition: condition, p_forfeit_deposit: forfeitDeposit });
+  if (error) { console.error("[equipment] venue_mark_equipment_returned failed", error); throw error; }
   return data;
 }
 

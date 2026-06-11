@@ -632,7 +632,9 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   `fixture_id`→fixtures NULL (**session-link FKs = cross-sell spine**), `status`
   (requested|confirmed|declined|cancelled|out|returned|overdue), `amount_pence` NULL, `contact_email`,
   `contact_phone`, `created_at`. CHECK end_at>start_at; CHECK team_id OR booked_by_name present.
-  Written by the Cycle 2 hire flow (mig 257).
+  **Mig 258 (Cycle 3) adds** `deposit_pence` + `deposit_status` (none|held|released|forfeited) +
+  `deposit_resolved_at` (deposit = a refundable HOLD tracked on the row, never in the ledger),
+  `handed_out_at`, `returned_condition`. Written by the Cycle 2/3 hire flow (migs 257/259).
 - `equipment_demand_misses` — turned-away demand (procurement signal): `id`, `venue_id`→venues,
   `category`, `equipment_id`→equipment NULL, `window_start`, `window_end`, `qty_wanted`,
   `source` (venue|self_qr), `created_at`. Captured at the moment of an empty availability check (Cycle 2).
