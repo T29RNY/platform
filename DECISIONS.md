@@ -2299,3 +2299,89 @@ Settled design — **stable code → mutable destination**:
 Design decision recorded ahead of build (per the feature-plan → audit →
 execute cycle); implementation will follow the RPC + RLS checklists as
 normal. Backlog row in FEATURES.md.
+
+### Three surfaces, three audiences (session 84 walkthrough — do not blur)
+
+QR onboarding touches three "venue" surfaces that are easy to confuse:
+- **Venue dashboard** (`apps/venue`, platform-venue) — PRIVATE staff ops
+  console. Logged in. Where staff *run* the venue.
+- **Reception display** (`apps/display`, platform-display) — PUBLIC but
+  *passive* big screen. Read-only, no interaction. Shows live scores —
+  the "make the venue look elite" spectacle. Where the QR is *rendered*.
+- **Venue landing page** (`apps/inorout` `/q/<code>`, action
+  `venue_landing`) — PUBLIC and *active* phone page. Where a scan *goes*.
+  "What's on here" + join options.
+
+The display and landing page are the two halves of one scan (look at
+screen → scan → page opens on phone). The dashboard is a separate,
+private surface that merely also belongs to the venue.
+
+### Public-landing privacy rule (settled — never expose private teams)
+
+"Public but passive" (display: showing scores to a room — fine) vs
+"public and active" (landing: offering *joining*) are DIFFERENT risk
+profiles despite both being "public". The venue landing page must surface
+ONLY public/open competitions and registration — **never private/casual
+teams**. A casual team is joined by its admin deliberately sharing its
+`join_code`; auto-listing it on a public reception-display QR would let
+randoms into a private group. Same applies to competitive-team squads
+(admin-built, not self-serve). No `venue_id` is added to casual `teams`
+for QR onboarding; slice 3 reads public competitions only (reuses the
+display's competition/team assembly), zero `teams` schema change.
+
+### "You register a team, not a person" (league-join model)
+
+A league is a competition of TEAMS, not a roster of individuals — there
+is no "join a league as a person" path, by design. The only self-serve
+league entry is `join_register_team` (mig 098/158): a CAPTAIN registers a
+team → `competition_teams` row status `pending` → venue approves. Three
+would-be joiners: (A) captain → `join_register_team` (RPC+wrapper exist,
+self-serve wizard NOT built in apps/inorout, auth+approval-gated — not a
+<30s flow); (B) free agent with no team → NO path exists (capture-
+interest at most); (C) squad-filler joining a mate's team → team admin
+adds them (`player_registrations` via lineup, admin-driven, not public).
+So the venue landing page's "join options" = **register-your-team**
+(captain), not individual join.
+
+Registration loop is HALF-built (verified session 84): the CAPTAIN-submit
+side (`join_register_team`) has RPC + wrapper but NO UI — slice 3 builds
+that form (first-ever UI for it). The VENUE-approve side is COMPLETE —
+`venue_approve_team_registration`/`venue_reject_team_registration` (migs
+099/100) + wrappers + live UI (`Operations.jsx` pending_registrations list
+→ `RegistrationActions.jsx` Approve/Reject). So slice 3 builds ONLY the
+captain form; the moment it drops a `pending` competition_teams row, the
+venue's existing approval screen lights up automatically.
+
+ONE enrichment to that approval screen IS in slice 3 scope (verified
+session 84): the card has never received a real self-serve registration,
+and as built it shows ONLY team name — too thin to judge a stranger's
+request. `v_pending` (in `venue_get_state`, latest mig 227) carries
+`competition_id`, `registered_at`, `team_name` but the card renders only
+the name; `admin_email` isn't even selected. Slice 3 enriches: extend
+`v_pending` to also select the competition/league NAME (join via the
+existing `v_competitions` CTE) + `admin_email` (`registered_at` already
+present) → `venue_get_state` REPLACE, return-shape add (hard-rule #12,
+consumer = raw-jsonb Operations card) → render
+"competition · captain email · registered Xh ago" on the card. Watch-item
+(NOT v1 scope): a public QR lets anyone mint `pending` rows — consider
+rate-limiting/abuse handling later; the approval card is the gate.
+
+### Two QR types, two speeds (demo note)
+
+- **Team code** (`action='join_team'`, a team admin's own code) → instant
+  join one specific team via `playerJoinTeam`. Controlled (admin chose to
+  share). THIS is the STRATEGY.md "<30s join" money moment — the demo
+  display QR must be a `join_team` code pointing at a demo team.
+- **Venue code** (`action='venue_landing'`, public) → "what's on" +
+  register-your-team (auth'd, approval-gated — NOT <30s).
+Both are v1 actions; `invite_links.action` dispatches between them.
+
+### Separate, NOT part of QR onboarding: venue↔casual-team link
+
+Letting the venue *dashboard* (private) see the casual groups using its
+pitches is real future value ("venue as owner of its community") — but
+it's about DASHBOARD VISIBILITY, not public joining, and requires schema
++ create-flow changes (casual `teams` have no venue link today; the
+casual create flow carries no venue context). It is a SEPARATE feature on
+its own cycle, after the pitch — explicitly out of QR-onboarding scope.
+Backlog row in FEATURES.md.
