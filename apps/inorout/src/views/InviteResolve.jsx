@@ -80,7 +80,11 @@ export default function InviteResolve({ code }) {
       <Shell>
         <h1 className="q-title">{dest.team_name || "Join the team"}</h1>
         <p className="q-body">You've been invited to join this team on In or Out.</p>
-        <button className="q-cta" onClick={() => { window.location.href = `/join/${data.entity_id}`; }}>
+        <button className="q-cta" onClick={() => {
+          // Reuse the existing /join flow; carry the code so the join counts
+          // a use (redeem fires post-join in App.jsx doJoin, not on scan).
+          window.location.href = `/join/${data.entity_id}?invite=${encodeURIComponent(data.code)}`;
+        }}>
           Continue to join
         </button>
       </Shell>

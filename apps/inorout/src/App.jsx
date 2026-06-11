@@ -7,7 +7,7 @@ import {
   getBibHistory,
   getSchedule,
   getSettings,
-  getTeamByJoinCode, playerJoinTeam,
+  getTeamByJoinCode, playerJoinTeam, redeemInviteLink,
   getTeamStateByPlayerToken, getTeamStateByAdminToken,
   getCoverPool,
   getSession, getPlayerTeams, logAppBoot,
@@ -928,6 +928,14 @@ export default function App() {
     setJoinLoading(true); setJoinError(null);
     try {
       const player = await playerJoinTeam(joinTeam.id, name);
+      // If arrived via a QR invite (/q/<code> → /join/<id>?invite=<code>), count
+      // the use now that the join succeeded. Never let a redeem failure block the
+      // join — it's already done; the audit trace is best-effort.
+      const inviteCode = new URLSearchParams(window.location.search).get("invite");
+      if (inviteCode) {
+        try { await redeemInviteLink(inviteCode); }
+        catch (e) { console.error("[invite] post-join redeem failed", e); }
+      }
       // CRITICAL — iOS PWA install requires URL = /p/<token> at HTML parse
       // time so the inline manifest script in index.html injects
       // /api/manifest?player=<token>. Cannot install from /join/<code>
