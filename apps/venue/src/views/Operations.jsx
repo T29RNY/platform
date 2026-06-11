@@ -4,7 +4,7 @@ import RegistrationActions from "./RegistrationActions.jsx";
 import IncidentActions, { ReportIncidentButton } from "./IncidentActions.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
-import { longDate, incidentStamp } from "../lib/format.js";
+import { longDate, incidentStamp, relativeFrom } from "../lib/format.js";
 
 // Operations content (the centre column). Stat row + right sidebar are rendered
 // by Dashboard into their own grid areas. Real wiring preserved: fixture actions
@@ -85,7 +85,13 @@ export default function Operations({ state, venueToken, onRefresh }) {
                 <span className="sev sev-info"><Icon name="info" size={16} /></span>
                 <div>
                   <div className="label">{r.team_name || r.team_id}</div>
-                  <div className="meta">Pending team registration · awaiting approval</div>
+                  <div className="meta">
+                    {[
+                      r.competition_name,
+                      r.captain_email,
+                      r.registered_at ? `registered ${relativeFrom(r.registered_at)}` : null,
+                    ].filter(Boolean).join(" · ") || "Pending team registration · awaiting approval"}
+                  </div>
                 </div>
                 <RegistrationActions venueToken={venueToken} registration={r} onDone={onRefresh} />
               </div>

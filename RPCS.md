@@ -390,6 +390,7 @@ DECISIONS.md "QR ONBOARDING ARCHITECTURE".
 
 | Migration | Contents |
 |---|---|
+| 250 | `venue_get_state` REPLACE — QR slice 3b approval-card enrichment. `v_pending` CTE gains `captain_email` (teams.admin_email) + `competition_name` (JOIN competitions); `to_jsonb(p)` auto-includes them in `pending_registrations` (the ONLY change vs mig-227 body — pulled live body first). Lets the venue judge a self-serve registration (was team-name only). Read-only → no EV mandate, but EV-verified the enrichment surfaces + leak 0; security intact (secdef, search_path, overload 1, anon+auth). Consumer: apps/venue `Operations.jsx` approval card. |
 | 249 | `get_venue_landing` (read) — QR Onboarding slice 3 venue landing page ("what's on at this venue" + register-your-team). STABLE SECURITY DEFINER, search_path locked, anon+authenticated, PUBLIC revoked. Public/open competitions + approved teams only. rpc-security-sweep PASS. See QR ONBOARDING RPCs above + `QR_ONBOARDING_SCOPE.md`. |
 | 248 | `invite_links` table + `resolve_invite_link` (read) + `redeem_invite_link` (write) — QR Onboarding slice 1 routing layer. RLS enabled, no client policies; both SECURITY DEFINER, search_path locked, anon+authenticated, PUBLIC revoked. EV-verified + rpc-security-sweep PASS + casual-regression PASS (additive route only). See QR ONBOARDING RPCs above + `QR_ONBOARDING_SCOPE.md`. |
 | 006 | RLS enable on all 19 tables |
