@@ -1,8 +1,20 @@
 # EQUIPMENT HIRE — FEATURE PLAN
 
-Status: **CYCLES 1–3 SHIPPED (session 85, migs 255–259).** Cycle 4 pending.
+Status: **CYCLES 1–3 + 5 SHIPPED (migs 255–260).** Cycle 4 (QR self-hire) pending.
 Produced via `skills/feature-plan.md`.
-Date: 2026-06-11 (session 85). Cycles 1–2 deployed + browser-verified live.
+Date: 2026-06-11. Cycles 1–3 deployed + browser-verified live; Cycle 5 owes venue redeploy + browser pass.
+
+> **Cycle 5 done (mig 260): the data-product tail.** READ-ONLY equipment intelligence —
+> one RPC `venue_equipment_insights(token, from?, to?)` returning three blocks: **ROI per
+> asset** (lifetime — purchase cost vs revenue collected = net `venue_payments`, payback %,
+> status, idle flag), **usage** (over range, default trailing 90d — hires/units/unit-hours/
+> busiest day/share, no fabricated denominator), **procurement** (from `equipment_demand_misses`
+> by category — turn-aways vs currently owned). New venue `EquipmentView` **Insights** tab
+> (3 cards) + `venueEquipmentInsights` wrapper + barrel. No write path → ephemeral-verify N/A;
+> proven with a live `BEGIN…ROLLBACK` revenue-join probe (ALL PASS + leak 0), rpc-security-sweep
+> PASS, both builds ✓. RPC shaped as the future venue-Gaffer "what should I buy?" context
+> source (Hard Rule #14, recorded in RPCS.md). HQ multi-venue equipment benchmarking + the
+> venue-Gaffer narrative surface explicitly deferred (pilot is a single venue).
 
 > **Cycle 3 done (migs 258–259):** returns / deposits / overdue. Deposit is a
 > refundable HOLD snapshotted on the hire row (`deposit_pence`/`deposit_status`),

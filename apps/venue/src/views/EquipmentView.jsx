@@ -4,6 +4,7 @@ import {
   getEquipmentAvailability, venueCreateEquipmentHire,
   venueCancelEquipmentHire, venueListEquipmentHires,
   venueMarkEquipmentOut, venueMarkEquipmentReturned,
+  venueEquipmentInsights,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -48,8 +49,11 @@ export default function EquipmentView({ venueToken, state }) {
       <div className="chips" style={{ marginBottom: "var(--gap-2)" }}>
         <button className="chip" aria-pressed={tab === "catalogue"} onClick={() => setTab("catalogue")}>Catalogue</button>
         <button className="chip" aria-pressed={tab === "hires"} onClick={() => setTab("hires")}>Hires</button>
+        <button className="chip" aria-pressed={tab === "insights"} onClick={() => setTab("insights")}>Insights</button>
       </div>
-      {tab === "catalogue" ? <CataloguePanel venueToken={venueToken} /> : <HiresPanel venueToken={venueToken} state={state} />}
+      {tab === "catalogue" && <CataloguePanel venueToken={venueToken} />}
+      {tab === "hires" && <HiresPanel venueToken={venueToken} state={state} />}
+      {tab === "insights" && <InsightsPanel venueToken={venueToken} />}
     </div>
   );
 }
@@ -449,6 +453,134 @@ function ReturnModal({ hire, busy, onClose, onSubmit }) {
         </label>
       )}
     </Modal>
+  );
+}
+
+// ── Insights (Cycle 5, mig 260) — ROI / usage / procurement ───────────────────
+const PAYBACK = {
+  recouped:    { label: "Paid back",   cls: "pill-ok" },
+  partial:     { label: "Part paid",   cls: "pill-warn" },
+  not_started: { label: "No revenue",  cls: "pill-muted" },
+  unknown:     { label: "No cost set", cls: "pill-muted" },
+};
+
+function InsightsPanel({ venueToken }) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState(null);
+
+  const load = useCallback(async () => {
+    if (!venueToken) return;
+    setErr(null);
+    try { setData(await venueEquipmentInsights(venueToken)); }
+    catch (e) { setErr(e?.message || String(e)); }
+  }, [venueToken]);
+  useEffect(() => { load(); }, [load]);
+
+  if (err) return <EmptyState title="Couldn’t load insights" body={err} action={<button className="btn btn-sm" style={{ marginTop: 12 }} onClick={() => { setErr(null); load(); }}>Retry</button>} />;
+  if (!data) return <EmptyState title="Loading insights…" />;
+
+  const s = data.summary ?? {};
+  const roi = data.roi ?? [];
+  const usage = data.usage ?? [];
+  const procurement = data.procurement ?? [];
+  const range = data.range ?? {};
+
+  return (
+    <div>
+      <div className="stat-row">
+        <Stat label="Asset value" value={gbp(s.asset_cost_pence)} />
+        <Stat label="Collected (lifetime)" value={gbp(s.collected_lifetime_pence)} />
+        <Stat label="Payback" value={s.overall_payback_pct == null ? "—" : s.overall_payback_pct + "%"} />
+        <Stat label="Idle items" value={s.idle_count ?? 0} tone={(s.idle_count ?? 0) > 0 ? "warn" : undefined} />
+      </div>
+
+      {/* ROI per asset — lifetime */}
+      <div className="dt-card">
+        <div className="dt-toolbar">
+          <strong style={{ fontSize: 15 }}>Return on each item</strong>
+          <span className="text-mute">lifetime · revenue collected vs purchase cost</span>
+        </div>
+        {roi.length === 0 ? (
+          <div style={{ padding: 32 }}><EmptyState title="No equipment yet" body="Add kit in the Catalogue tab to see its payback." /></div>
+        ) : (
+          <table className="dt">
+            <thead>
+              <tr><th>Item</th><th>Category</th><th className="num">Cost</th><th className="num">Collected</th><th className="num">Payback</th><th>Status</th><th className="num">Hires</th></tr>
+            </thead>
+            <tbody>
+              {roi.map((it) => {
+                const pb = PAYBACK[it.payback_status] || PAYBACK.unknown;
+                return (
+                  <tr key={it.id} style={it.active ? undefined : { opacity: 0.5 }}>
+                    <td><strong>{it.name}</strong>{it.idle && <span className="text-mute"> · idle</span>}</td>
+                    <td className="text-mute">{CAT_LABEL[it.category] || it.category}</td>
+                    <td className="num">{gbp(it.purchase_price_pence)}</td>
+                    <td className="num">{gbp(it.collected_pence)}</td>
+                    <td className="num">{it.payback_pct == null ? "—" : it.payback_pct + "%"}</td>
+                    <td><span className={"pill " + pb.cls}><span className="pill-dot" /> {pb.label}</span></td>
+                    <td className="num">{it.hires_count}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Usage over range */}
+      <div className="dt-card">
+        <div className="dt-toolbar">
+          <strong style={{ fontSize: 15 }}>How busy each item is</strong>
+          <span className="text-mute">{range.from} → {range.to} ({range.days} days)</span>
+        </div>
+        {usage.length === 0 ? (
+          <div style={{ padding: 32 }}><EmptyState title="Nothing active" body="No active equipment to report on." /></div>
+        ) : (
+          <table className="dt">
+            <thead>
+              <tr><th>Item</th><th className="num">Hires</th><th className="num">Units out</th><th className="num">Unit-hours</th><th>Busiest day</th><th className="num">Share</th></tr>
+            </thead>
+            <tbody>
+              {usage.map((it) => (
+                <tr key={it.id}>
+                  <td><strong>{it.name}</strong></td>
+                  <td className="num">{it.hires_count}</td>
+                  <td className="num">{it.units_hired}</td>
+                  <td className="num">{it.unit_hours}</td>
+                  <td className="text-mute">{it.busiest_day || "—"}</td>
+                  <td className="num">{it.share_pct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Procurement signal */}
+      <div className="dt-card">
+        <div className="dt-toolbar">
+          <strong style={{ fontSize: 15 }}>What to buy next</strong>
+          <span className="text-mute">turned-away demand · {range.from} → {range.to}</span>
+        </div>
+        {procurement.length === 0 ? (
+          <div style={{ padding: 32 }}>
+            <EmptyState title="No turned-away demand" body="When a hire can’t be filled because you’re short on stock, it’s logged here as a buy signal. Nothing turned away in this period." />
+          </div>
+        ) : (
+          <div style={{ padding: "var(--gap-2)", display: "grid", gap: "var(--gap-2)" }}>
+            {procurement.map((p) => (
+              <div key={p.category} className="rec-row" style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                <span className="pill pill-warn"><span className="pill-dot" /> {p.miss_count} turned away</span>
+                <span>
+                  <strong>{CAT_LABEL[p.category] || p.category}</strong> — turned away {p.miss_count} hire{p.miss_count === 1 ? "" : "s"} ({p.units_wanted} unit{p.units_wanted === 1 ? "" : "s"} wanted).
+                  {" "}You own {p.owned_qty} across {p.item_count} item{p.item_count === 1 ? "" : "s"}. Consider buying more.
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

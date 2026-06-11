@@ -162,6 +162,7 @@ export {
   venueListEquipmentHires,
   venueMarkEquipmentOut,
   venueMarkEquipmentReturned,
+  venueEquipmentInsights,
   venueLogIncident,
   venueResolveIncident,
   confirmRenewal,

@@ -3034,6 +3034,17 @@ export async function venueMarkEquipmentReturned(venueToken, hireId, { condition
   return data;
 }
 
+// ── Equipment intelligence (mig 260, Cycle 5) — the data-product tail ──
+// ROI per asset (lifetime), usage over range, and procurement signal from demand
+// misses. from/to are dates (YYYY-MM-DD); null → trailing 90 days. Read-only.
+// Returns { range, note, summary, roi[], usage[], procurement[] }.
+export async function venueEquipmentInsights(venueToken, { from = null, to = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_equipment_insights", {
+    p_venue_token: venueToken, p_from: from, p_to: to });
+  if (error) { console.error("[equipment] venue_equipment_insights failed", error); throw error; }
+  return data;
+}
+
 export async function venueRecordPayment(venueToken, chargeId, amountPence, method, { externalRef = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("venue_record_payment", {
     p_venue_token: venueToken, p_charge_id: chargeId, p_amount_pence: amountPence,
