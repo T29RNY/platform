@@ -167,14 +167,25 @@ SCHEMA.md, FEATURES.md as each slice ships.
   audit_events. → EV + sweep.
 - Check-in confirm UI in `InviteResolve.jsx`. → casual-regression.
 
-### Slice 7 — Link management
+### Slice 7 — Link management ✅ SHIPPED (mig 254)
 - `venue_create_invite_link`, `venue_set_invite_link_active`,
-  `venue_repoint_invite_link` (writes) + `venue_list_invite_links` (read) —
-  caller via `resolve_venue_caller`; server validates the target entity
-  belongs to the caller's venue (no minting codes at another venue's
-  teams); all writes INSERT audit_events. → EV + sweep on the three writes.
-- `InvitesView.jsx` venue tab (Directory group, `StaffView.jsx` template) —
-  create / deactivate / re-point + list, with QR view/copy/print per code.
+  `venue_repoint_invite_link` (writes) + `venue_list_invite_links` (read) +
+  `venue_owns_entity` (shared internal ownership helper, revoked from
+  anon/authenticated) — all via `resolve_venue_caller`; the helper validates
+  the target entity belongs to the caller's venue (team/fixture roll up
+  competition→season→league.venue_id; no minting/re-pointing at another
+  venue's entities); all writes INSERT audit_events. Re-point is **fully
+  flexible** — a code may move across entity types (team→venue→fixture),
+  with a double ownership check (existing entity + new target). EV-verified
+  (15 assertions incl. cross-venue isolation + 4 foreign-ownership
+  rejections, leak 0) + rpc-security-sweep PASS.
+- `InvitesView.jsx` "All codes" section (scan counts, Show QR, Copy,
+  Deactivate, Re-point) + `New code` → `InviteLinkForm.jsx` create/re-point
+  modal. Canonical venue + per-team QR sections retained; QR view/copy/print
+  shared via the extracted `QRBlock`.
+- **Owed:** real-iPhone/device check of the venue dashboard list +
+  create/re-point flow; venue app manual redeploy ([[project_venue_deploy]]
+  — platform-venue.vercel.app does NOT auto-deploy on push).
 
 ---
 

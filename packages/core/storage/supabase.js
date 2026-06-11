@@ -431,6 +431,52 @@ export async function venueEnsureInviteLink(credential, entityType, entityId, ac
   return data;
 }
 
+// ─── invite-link management (venue dashboard slice 7, mig 254) ────────────────
+// List every code the venue owns (its landing + teams' join + fixtures' check-in)
+// with use_count / active / label / target_name. Read-only.
+export async function venueListInviteLinks(credential) {
+  const { data, error } = await supabase.rpc("venue_list_invite_links", { p_credential: credential });
+  if (error) { console.error('[invite] list failed', error); throw error; }
+  return data;
+}
+
+// Mint a NEW code for an entity (distinct from ensure's get-or-create). Write.
+export async function venueCreateInviteLink(credential, entityType, entityId, action, label = null) {
+  const { data, error } = await supabase.rpc("venue_create_invite_link", {
+    p_credential:  credential,
+    p_entity_type: entityType,
+    p_entity_id:   entityId,
+    p_action:      action,
+    p_label:       label,
+  });
+  if (error) { console.error('[invite] create failed', error); throw error; }
+  return data;
+}
+
+// Toggle a code on/off. Write.
+export async function venueSetInviteLinkActive(credential, code, active) {
+  const { data, error } = await supabase.rpc("venue_set_invite_link_active", {
+    p_credential: credential,
+    p_code:       code,
+    p_active:     active,
+  });
+  if (error) { console.error('[invite] set-active failed', error); throw error; }
+  return data;
+}
+
+// Re-point a code to a new destination (may cross entity types). Write.
+export async function venueRepointInviteLink(credential, code, entityType, entityId, action) {
+  const { data, error } = await supabase.rpc("venue_repoint_invite_link", {
+    p_credential:  credential,
+    p_code:        code,
+    p_entity_type: entityType,
+    p_entity_id:   entityId,
+    p_action:      action,
+  });
+  if (error) { console.error('[invite] repoint failed', error); throw error; }
+  return data;
+}
+
 export async function getTeamStateByPlayerToken(token) {
   const { data, error } = await supabase.rpc('get_team_state_by_player_token', { p_token: token });
   if (error || !data) return null;
