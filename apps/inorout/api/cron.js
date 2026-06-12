@@ -206,6 +206,13 @@ module.exports = async function handler(req, res) {
     results.push(`membershipRenewals: error — ${e.message}`);
   }
 
+  // ── Membership reminders (10:00 UK daily — after renewals mint charges) ────
+  try {
+    await membershipRemindersJob(results);
+  } catch (e) {
+    results.push(`membershipReminders: error — ${e.message}`);
+  }
+
   // ── Superseded-booking displacement push (every tick) ─────────────────────
   try {
     await supersededPushJob(base, results);
@@ -667,6 +674,48 @@ async function membershipRenewalsJob(results) {
   } else {
     results.push(`membershipRenewals: ${data?.minted ?? 0} charged, ${data?.reactivated ?? 0} reactivated, ${data?.ended ?? 0} ended`);
   }
+}
+
+// ── Membership reminders (10:00 UK daily) ────────────────────────────────────
+// Member-facing emails: welcome / renewal-due / payment-due / freeze-ending.
+// The service_role-only get_membership_reminders_due RPC computes who's due (with
+// PII); this job sends via Resend and dedups per (type, entity_key, email) in
+// notification_log so a daily run never double-sends within a cycle. EMAIL ONLY —
+// no-ops cleanly until RESEND_API_KEY is set.
+async function membershipRemindersJob(results) {
+  const uk = nowInUkParts();
+  if (uk.hours !== 10 || uk.minutes >= 15) { results.push("membershipReminders: not 10am window"); return; }
+
+  const { data, error } = await supabase.rpc("get_membership_reminders_due");
+  if (error) { results.push(`membershipReminders: error — ${error.message}`); return; }
+  const reminders = data?.reminders || [];
+  if (!reminders.length) { results.push("membershipReminders: none due"); return; }
+
+  let sent = 0, skipped = 0;
+  for (const r of reminders) {
+    const type = `membership_${r.kind}`;
+    if (await alreadyNotified(type, r.entity_key, r.email, "email")) { skipped++; continue; }
+    const ctx = {
+      firstName: r.first_name || "there",
+      venueName: r.venue_name,
+      tierName: r.tier_name,
+      amountPence: r.amount_pence,
+      period: r.period,
+      dateLabel: fmtUkDate(r.date_label),
+      passUrl: r.pass_token ? `https://www.in-or-out.com/m/${r.pass_token}` : "",
+    };
+    const res = await sendTemplated(type, r.email, ctx);
+    if (res?.skipped === "no_api_key") { results.push("membershipReminders: skipped (RESEND_API_KEY unset)"); return; }
+    if (res?.id) {
+      await supabase.from("notification_log").insert({
+        type, entity_id: r.entity_key, recipient: r.email, channel: "email",
+      });
+      sent++;
+    } else if (res?.error) {
+      results.push(`membershipReminders: send failed (${r.email}) — ${res.error}`);
+    }
+  }
+  results.push(`membershipReminders: ${sent} sent, ${skipped} already-sent`);
 }
 
 // ── Superseded-booking displacement push (every tick) ────────────────────────

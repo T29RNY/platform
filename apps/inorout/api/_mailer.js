@@ -38,6 +38,12 @@ async function sendEmail(to, { subject, html, text }) {
 const esc = (s) =>
   String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
+// pence → "£X" / "£X.YZ"
+const gbp = (p) => {
+  const n = Number(p || 0) / 100;
+  return "£" + (Number.isInteger(n) ? String(n) : n.toFixed(2));
+};
+
 // New squad (≤14d) gone quiet — onboarding-risk label shared by both ops digests.
 const quietLabel = (q) =>
   `${q.name} (${q.days_old}d old, ${q.days_quiet == null ? "never active" : q.days_quiet + "d quiet"})`;
@@ -126,6 +132,55 @@ const TEMPLATES = {
       ),
     };
   },
+  // ── Membership reminders (Phase 6, mig 276) — member-facing, sent by
+  // membershipRemindersJob from get_membership_reminders_due. ctx:
+  // {firstName, venueName, tierName, amountPence, period, dateLabel, passUrl}.
+  membership_welcome: (c) => ({
+    subject: `Welcome to ${c.venueName}`,
+    text:
+      `Hi ${c.firstName},\n\nWelcome to ${c.venueName}! Your ${c.tierName} membership is active.` +
+      (c.passUrl ? ` Your membership pass: ${c.passUrl}` : ""),
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p>Welcome to <b>${esc(c.venueName)}</b>! Your <b>${esc(c.tierName)}</b> membership is now active.</p>` +
+      (c.passUrl ? `<p><a href="${esc(c.passUrl)}">Open your membership pass →</a> — show it at reception to check in.</p>` : "")
+    ),
+  }),
+  membership_renewal_due: (c) => ({
+    subject: `Your ${c.venueName} membership renews on ${c.dateLabel}`,
+    text:
+      `Hi ${c.firstName},\n\nYour ${c.tierName} membership at ${c.venueName} renews on ${c.dateLabel} ` +
+      `(${gbp(c.amountPence)}/${c.period}).` + (c.passUrl ? ` Your pass: ${c.passUrl}` : ""),
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p>Your <b>${esc(c.tierName)}</b> membership at <b>${esc(c.venueName)}</b> renews on <b>${esc(c.dateLabel)}</b> ` +
+      `(${gbp(c.amountPence)}/${esc(c.period)}).</p>` +
+      (c.passUrl ? `<p><a href="${esc(c.passUrl)}">View your membership →</a></p>` : "")
+    ),
+  }),
+  membership_payment_due: (c) => ({
+    subject: `Payment due — ${c.venueName} membership`,
+    text:
+      `Hi ${c.firstName},\n\nA membership payment of ${gbp(c.amountPence)} is due${c.dateLabel ? ` (due ${c.dateLabel})` : ""} ` +
+      `at ${c.venueName}. Please settle it at reception to keep your membership active.`,
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p>A membership payment of <b>${gbp(c.amountPence)}</b> is due${c.dateLabel ? ` (due <b>${esc(c.dateLabel)}</b>)` : ""} at <b>${esc(c.venueName)}</b>.</p>` +
+      `<p>Please settle it at reception to keep your membership active.</p>`
+    ),
+  }),
+  membership_freeze_ending: (c) => ({
+    subject: `Your ${c.venueName} membership unfreezes on ${c.dateLabel}`,
+    text:
+      `Hi ${c.firstName},\n\nYour ${c.tierName} membership at ${c.venueName} comes out of freeze on ${c.dateLabel} ` +
+      `and billing resumes (${gbp(c.amountPence)}/${c.period}).`,
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p>Your <b>${esc(c.tierName)}</b> membership at <b>${esc(c.venueName)}</b> comes out of freeze on <b>${esc(c.dateLabel)}</b> ` +
+      `and billing resumes (${gbp(c.amountPence)}/${esc(c.period)}).</p>` +
+      (c.passUrl ? `<p><a href="${esc(c.passUrl)}">View your membership →</a></p>` : "")
+    ),
+  }),
   // Phase 9 finish — league reminder emails (the email leg of the push→email→SMS fallback;
   // same type names + ctx as the _sms.js templates so one router resolves a type per channel).
   leagueAvailability48h: (c) => ({
