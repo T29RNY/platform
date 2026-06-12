@@ -4,6 +4,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { sendTemplated } = require("./_mailer");
 const { sendTemplated: sendSmsTemplated, pickChannel } = require("./_sms");
+const { stripe: stripeClient, isConfigured: stripeConfigured } = require("./_stripe");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -211,6 +212,13 @@ module.exports = async function handler(req, res) {
     await membershipRemindersJob(results);
   } catch (e) {
     results.push(`membershipReminders: error — ${e.message}`);
+  }
+
+  // ── Stripe reconciliation (04:00 UK daily — DORMANT until keys exist) ──────
+  try {
+    await membershipReconciliationJob(results);
+  } catch (e) {
+    results.push(`membershipReconciliation: error — ${e.message}`);
   }
 
   // ── Superseded-booking displacement push (every tick) ─────────────────────
@@ -716,6 +724,43 @@ async function membershipRemindersJob(results) {
     }
   }
   results.push(`membershipReminders: ${sent} sent, ${skipped} already-sent`);
+}
+
+// ── Stripe reconciliation (Phase 7) ──────────────────────────────────────────
+// Webhooks are for speed; THIS is for truth (plan §resilience). Pulls the real
+// subscription status from Stripe for every membership on Stripe and re-applies it
+// via the state machine, repairing any drift from a dropped/out-of-order webhook.
+// DORMANT (clean no-op) until STRIPE_SECRET_KEY is set.
+async function membershipReconciliationJob(results) {
+  const uk = nowInUkParts();
+  if (uk.hours !== 4 || uk.minutes >= 15) { results.push("membershipReconciliation: not 4am window"); return; }
+  if (!stripeConfigured()) { results.push("membershipReconciliation: stripe not configured"); return; }
+
+  const { data: subs, error } = await supabase
+    .from("venue_memberships")
+    .select("id, stripe_subscription_id, venue_id")
+    .not("stripe_subscription_id", "is", null)
+    .neq("status", "cancelled");
+  if (error) { results.push(`membershipReconciliation: query error — ${error.message}`); return; }
+  if (!subs?.length) { results.push("membershipReconciliation: none on stripe"); return; }
+
+  const venueIds = [...new Set(subs.map((s) => s.venue_id))];
+  const { data: venues } = await supabase.from("venues").select("id, stripe_connect_account_id").in("id", venueIds);
+  const acctByVenue = Object.fromEntries((venues || []).map((v) => [v.id, v.stripe_connect_account_id]));
+
+  let checked = 0;
+  for (const m of subs) {
+    const acct = acctByVenue[m.venue_id];
+    if (!acct) continue;
+    try {
+      const sub = await stripeClient.subscriptions.retrieve(m.stripe_subscription_id, { stripeAccount: acct });
+      await supabase.rpc("apply_membership_subscription_status", { p_subscription_id: sub.id, p_stripe_status: sub.status });
+      checked++;
+    } catch (e) {
+      results.push(`membershipReconciliation: sub ${m.stripe_subscription_id} — ${e.message}`);
+    }
+  }
+  results.push(`membershipReconciliation: ${checked} reconciled`);
 }
 
 // ── Superseded-booking displacement push (every tick) ────────────────────────
