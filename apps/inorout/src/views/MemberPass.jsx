@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getMemberPass } from "@platform/core/storage/supabase.js";
+import { getMemberPass, redeemMemberOffer } from "@platform/core/storage/supabase.js";
 
 // MemberPass — the member-facing PWA pass at /m/<pass_token> (Membership Phase 5,
 // mig 272). Public read keyed by the secret token. Shows tier, perks, status,
@@ -87,8 +87,44 @@ export default function MemberPass({ token }) {
               {pass.check_in_code}
             </div>
           </div>
+
+          {/* partner perks */}
+          {Array.isArray(pass.offers) && pass.offers.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Member perks</div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {pass.offers.map((o) => <OfferRow key={o.offer_id} offer={o} token={token} />)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function OfferRow({ offer, token }) {
+  const [revealed, setRevealed] = useState(null); // null | {code}
+  const [busy, setBusy] = useState(false);
+  const reveal = async () => {
+    setBusy(true);
+    try { const r = await redeemMemberOffer(token, offer.offer_id); if (r?.ok) setRevealed({ code: r.code }); }
+    catch (e) { console.error("[memberpass] redeem failed", e); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "12px 14px" }}>
+      <div style={{ fontWeight: 700 }}>{offer.title}</div>
+      <div style={{ color: "var(--t2)", fontSize: 13, marginTop: 2 }}>{offer.partner_name}{offer.description ? ` · ${offer.description}` : ""}</div>
+      {revealed ? (
+        revealed.code
+          ? <div style={{ marginTop: 8, fontFamily: "monospace", fontWeight: 700, letterSpacing: 1 }}>{revealed.code}</div>
+          : <div style={{ marginTop: 8, color: "var(--green)", fontSize: 13 }}>✓ Just show your pass</div>
+      ) : (
+        <button onClick={reveal} disabled={busy} style={{ marginTop: 8, background: "transparent", color: "var(--t1)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-button)", padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
+          {busy ? "…" : (offer.code ? "Show code" : "Use perk")}
+        </button>
+      )}
     </div>
   );
 }

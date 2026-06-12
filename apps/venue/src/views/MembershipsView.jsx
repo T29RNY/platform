@@ -3,6 +3,7 @@ import {
   venueListMembers, venueListMembershipTiers, venueListCustomersPeople,
   venueCreateMembershipTier, venueEnrolMembership, venueFreezeMembership, venueCancelMembership,
   venueCreateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
+  venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -39,7 +40,7 @@ export default function MembershipsView({ venueToken }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -47,6 +48,7 @@ export default function MembershipsView({ venueToken }) {
       {tab === "members" && <MembersTab venueToken={venueToken} />}
       {tab === "plans" && <PlansTab venueToken={venueToken} />}
       {tab === "fees" && <FeesTab venueToken={venueToken} />}
+      {tab === "perks" && <PerksTab venueToken={venueToken} />}
     </div>
   );
 }
@@ -54,23 +56,36 @@ export default function MembershipsView({ venueToken }) {
 // ── Members ──────────────────────────────────────────────────────────────────
 function MembersTab({ venueToken }) {
   const [members, setMembers] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
   const [enrolOpen, setEnrolOpen] = useState(false);
   const [freezeFor, setFreezeFor] = useState(null);
   const [cancelFor, setCancelFor] = useState(null);
 
   const reload = () => {
-    venueListMembers(venueToken)
-      .then((rows) => setMembers(Array.isArray(rows) ? rows : []))
-      .catch((e) => setError(e?.message || String(e)));
+    venueListMembers(venueToken).then((rows) => setMembers(Array.isArray(rows) ? rows : [])).catch((e) => setError(e?.message || String(e)));
+    venueMembershipSummary(venueToken).then(setSummary).catch(() => {});
   };
-  useEffect(() => { let a = true; venueListMembers(venueToken).then((r) => { if (a) setMembers(r || []); }).catch((e) => { if (a) setError(e?.message || String(e)); }); return () => { a = false; }; }, [venueToken]);
+  useEffect(() => {
+    let a = true;
+    venueListMembers(venueToken).then((r) => { if (a) setMembers(r || []); }).catch((e) => { if (a) setError(e?.message || String(e)); });
+    venueMembershipSummary(venueToken).then((s) => { if (a) setSummary(s); }).catch(() => {});
+    return () => { a = false; };
+  }, [venueToken]);
 
   const live = (members || []).filter((m) => m.status !== "cancelled");
   const dueSoon = live.filter((m) => m.due_soon).length;
 
   return (
     <div>
+      {summary && (
+        <div className="customers-grid" style={{ marginBottom: "var(--gap-2)" }}>
+          <div className="customer-card"><div className="cu-stat-label">Active members</div><div className="cu-stat-value" style={{ fontSize: 26 }}>{summary.active ?? 0}</div></div>
+          <div className="customer-card"><div className="cu-stat-label">Monthly value (MRR)</div><div className="cu-stat-value" style={{ fontSize: 26 }}>{poundsRound(summary.mrr_pence || 0)}</div></div>
+          <div className="customer-card"><div className="cu-stat-label">Renewing in 7 days</div><div className="cu-stat-value" style={{ fontSize: 26 }}>{summary.due_soon ?? 0}</div></div>
+          <div className="customer-card"><div className="cu-stat-label">Frozen · Cancelled 30d</div><div className="cu-stat-value" style={{ fontSize: 26 }}>{summary.paused ?? 0} · {summary.cancelled_30d ?? 0}</div></div>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "var(--gap-2)" }}>
         {dueSoon > 0 && <span className="pill pill-warn">{dueSoon} renewing soon</span>}
         <span style={{ flex: 1 }} />
@@ -436,6 +451,101 @@ function FeeEnrolModal({ venueToken, plan, onClose, onDone }) {
       <p className="text-mute" style={{ marginBottom: 12 }}>First charge is raised now; the next is auto-raised each {plan.period} onto the Payments ledger.</p>
       <label className="field-label">Team or booker name</label>
       <input className="input" placeholder="e.g. Sunday FC" value={memberKey} onChange={(e) => setMemberKey(e.target.value)} />
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+// ── Perks (partner offers) ───────────────────────────────────────────────────
+function PerksTab({ venueToken }) {
+  const [partners, setPartners] = useState(null);
+  const [error, setError] = useState(null);
+  const [partnerOpen, setPartnerOpen] = useState(false);
+  const [offerFor, setOfferFor] = useState(null);
+  const reload = () => venueListPartners(venueToken).then((r) => setPartners(r || [])).catch((e) => setError(e?.message || String(e)));
+  useEffect(() => { let a = true; venueListPartners(venueToken).then((r) => { if (a) setPartners(r || []); }).catch((e) => { if (a) setError(e?.message || String(e)); }); return () => { a = false; }; }, [venueToken]);
+
+  return (
+    <div>
+      <p className="text-mute" style={{ fontSize: 13, marginBottom: "var(--gap-2)" }}>Local partner offers that show on members’ passes (e.g. the pub). A separate revenue stream from bookings.</p>
+      <div style={{ display: "flex", marginBottom: "var(--gap-2)" }}>
+        <span style={{ flex: 1 }} />
+        <button className="btn btn-primary" onClick={() => setPartnerOpen(true)}><Icon name="plus" size={14} /> Add partner</button>
+      </div>
+      {error && <EmptyState title="Couldn’t load partners" body={error} />}
+      {partners && partners.length === 0 && !error && <EmptyState title="No partners yet" body="Add a local partner and attach a member offer." />}
+      {partners && partners.length > 0 && (
+        <div className="customers-grid">
+          {partners.map((p) => (
+            <div className="customer-card" key={p.partner_id}>
+              <div className="cu-top">
+                <div className="cu-head-text"><div className="cu-name">{p.name}</div><div className="cu-sub">{p.contact || "Partner"}</div></div>
+                <button className="btn btn-xs" onClick={() => setOfferFor(p)}><Icon name="plus" size={13} /> Offer</button>
+              </div>
+              <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                {(p.offers || []).length === 0 ? <span className="text-mute" style={{ fontSize: 12 }}>No offers yet</span> :
+                  (p.offers || []).map((o) => (
+                    <div key={o.offer_id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 13, flex: 1 }}>{o.title}{o.code ? ` · ${o.code}` : ""}</span>
+                      <span className="pill pill-info">{o.redemptions} used</span>
+                      {!o.active && <span className="pill pill-muted">off</span>}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {partnerOpen && <PartnerModal venueToken={venueToken} onClose={() => setPartnerOpen(false)} onDone={() => { setPartnerOpen(false); reload(); }} />}
+      {offerFor && <OfferModal venueToken={venueToken} partner={offerFor} onClose={() => setOfferFor(null)} onDone={() => { setOfferFor(null); reload(); }} />}
+    </div>
+  );
+}
+
+function PartnerModal({ venueToken, onClose, onDone }) {
+  const [name, setName] = useState(""); const [contact, setContact] = useState("");
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(null);
+  const submit = async () => {
+    setBusy(true); setError(null);
+    try { if (!name.trim()) { setError("Name the partner."); setBusy(false); return; }
+      await venueCreatePartner(venueToken, name.trim(), contact.trim() || null); onDone();
+    } catch (e) { setError(errLabel(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Modal onClose={onClose} title="Add partner" foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Add partner"}</button></>
+    }>
+      <label className="field-label">Name</label>
+      <input className="input" placeholder="e.g. The Crown" value={name} onChange={(e) => setName(e.target.value)} />
+      <label className="field-label" style={{ marginTop: 14 }}>Contact — optional</label>
+      <input className="input" placeholder="email or phone" value={contact} onChange={(e) => setContact(e.target.value)} />
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+function OfferModal({ venueToken, partner, onClose, onDone }) {
+  const [title, setTitle] = useState(""); const [desc, setDesc] = useState(""); const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(null);
+  const submit = async () => {
+    setBusy(true); setError(null);
+    try { if (!title.trim()) { setError("Give the offer a title."); setBusy(false); return; }
+      await venueCreateOffer(venueToken, partner.partner_id, title.trim(), { description: desc.trim() || null, code: code.trim() || null, tierIds: null }); onDone();
+    } catch (e) { setError(errLabel(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Modal onClose={onClose} title={`Offer at ${partner.name}`} foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Add offer"}</button></>
+    }>
+      <label className="field-label">Title</label>
+      <input className="input" placeholder="e.g. 10% off food" value={title} onChange={(e) => setTitle(e.target.value)} />
+      <label className="field-label" style={{ marginTop: 14 }}>Detail — optional</label>
+      <input className="input" placeholder="e.g. Sun–Thu, food only" value={desc} onChange={(e) => setDesc(e.target.value)} />
+      <label className="field-label" style={{ marginTop: 14 }}>Code — optional (blank = just show the pass)</label>
+      <input className="input" placeholder="e.g. MEMBER10" value={code} onChange={(e) => setCode(e.target.value)} />
+      <p className="text-mute" style={{ fontSize: 12, marginTop: 10 }}>Shows on every member’s pass. Redemptions are counted for you.</p>
       {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
     </Modal>
   );

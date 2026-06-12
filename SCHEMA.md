@@ -596,6 +596,22 @@ makes renewals idempotent.
   `apps/inorout/api/cron.js membershipRenewalsJob` (09:00 UK). Freeze: `status`
   paused + `renews_at` pushed by the freeze length (frozen window never billed).
 
+### Partner perks + reporting (mig 273, Phase 6)
+
+- `venue_partners` — `venue_id`, `name`, `contact`, `active`. Local partners
+  (e.g. the pub).
+- `partner_offers` — `venue_id`, `partner_id`, `title`, `description`, `code`
+  (NULL = show-your-pass), `tier_ids uuid[]` (NULL/empty = all members; else
+  scoped), `active`. Surfaced on the member pass via `get_member_pass`.
+- `partner_redemptions` — `offer_id`, `membership_id`, `redeemed_at`. Logged by
+  `redeem_member_offer` (member taps to reveal). **Sponsorship/affiliate revenue
+  — a separate pool from the booking flow.**
+- Reads: `venue_membership_summary` (active/paused/ending, due-soon, cadence-
+  normalised MRR, 30-day churn), `venue_list_partners`. See RPCS.md.
+- **Deferred:** auto-applying tier `discount_pct` inside `venue_confirm_booking`
+  — needs a booking↔member link (bookings key on team/walk-in, memberships on
+  person) that doesn't exist yet.
+
 ## PITCH BOOKING TABLES (migration 133+)
 
 Casual pitch booking + the unified occupancy guard. Booking session owns

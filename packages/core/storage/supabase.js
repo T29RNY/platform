@@ -3036,6 +3036,48 @@ export async function getMemberPass(passToken) {
   return data;
 }
 
+// ── Membership Phase 6 — partner perks + reporting (mig 273) ──
+export async function venueCreatePartner(venueToken, name, contact = null) {
+  const { data, error } = await supabase.rpc("venue_create_partner", { p_venue_token: venueToken, p_name: name, p_contact: contact });
+  if (error) { console.error("[membership] venue_create_partner failed", error); throw error; }
+  return data;
+}
+
+// tierIds = null/[] → all members; else only those tiers. code = null → show-your-pass.
+export async function venueCreateOffer(venueToken, partnerId, title, { description = null, code = null, tierIds = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_create_offer", {
+    p_venue_token: venueToken, p_partner_id: partnerId, p_title: title,
+    p_description: description, p_code: code, p_tier_ids: tierIds,
+  });
+  if (error) { console.error("[membership] venue_create_offer failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetOfferActive(venueToken, offerId, active) {
+  const { data, error } = await supabase.rpc("venue_set_offer_active", { p_venue_token: venueToken, p_offer_id: offerId, p_active: active });
+  if (error) { console.error("[membership] venue_set_offer_active failed", error); throw error; }
+  return data;
+}
+
+export async function venueListPartners(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_partners", { p_venue_token: venueToken });
+  if (error) { console.error("[membership] venue_list_partners failed", error); throw error; }
+  return data?.partners ?? [];
+}
+
+export async function venueMembershipSummary(venueToken) {
+  const { data, error } = await supabase.rpc("venue_membership_summary", { p_venue_token: venueToken });
+  if (error) { console.error("[membership] venue_membership_summary failed", error); throw error; }
+  return data?.summary ?? {};
+}
+
+// Member-facing: log + reveal an offer's code (public, keyed by pass token).
+export async function redeemMemberOffer(passToken, offerId) {
+  const { data, error } = await supabase.rpc("redeem_member_offer", { p_pass_token: passToken, p_offer_id: offerId });
+  if (error) { console.error("[membership] redeem_member_offer failed", error); throw error; }
+  return data;
+}
+
 export async function cancelBookingSeries(seriesId, venueToken = null) {
   const { data, error } = await supabase.rpc("cancel_booking_series", { p_series_id: seriesId, p_venue_token: venueToken });
   if (error) { console.error("[booking] cancel_booking_series failed", error); throw error; }
