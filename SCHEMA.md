@@ -580,8 +580,10 @@ makes renewals idempotent.
 - `venue_memberships` — `venue_id`, `customer_id`→venue_customers, `tier_id`,
   `period`, `amount_pence` (snapshot at enrol = fair rate hold), `status`
   (active|paused|ending|cancelled), `started_at`, `renews_at` (next charge),
-  `frozen_until`, `cancel_at`. Partial UNIQUE `(customer_id) WHERE status IN
-  (active,paused,ending)` — one live membership per person.
+  `frozen_until`, `cancel_at`, **`pass_token` (mig 272 — UNIQUE, auto-filled
+  `'m_'||uuid`; the secret in the member's `/m/<token>` PWA pass)**. Partial
+  UNIQUE `(customer_id) WHERE status IN (active,paused,ending)` — one live
+  membership per person.
 - `venue_fee_plans` — `venue_id`, `name`, `amount_pence`, `period`
   (weekly|monthly|quarterly|annual), `sport`, `active`. Team/booker-level.
 - `venue_fee_subscriptions` — `venue_id`, `plan_id`, `member_key` (team id OR

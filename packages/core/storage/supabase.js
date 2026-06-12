@@ -3028,6 +3028,14 @@ export async function venueListFeePlans(venueToken) {
   return data?.fee_plans ?? [];
 }
 
+// Member pass — PUBLIC read by the secret pass token (Phase 5, mig 272). Powers
+// the member's /m/<token> PWA pass page. Returns {ok:false} for unknown/cancelled.
+export async function getMemberPass(passToken) {
+  const { data, error } = await supabase.rpc("get_member_pass", { p_token: passToken });
+  if (error) { console.error("[membership] get_member_pass failed", error); throw error; }
+  return data;
+}
+
 export async function cancelBookingSeries(seriesId, venueToken = null) {
   const { data, error } = await supabase.rpc("cancel_booking_series", { p_series_id: seriesId, p_venue_token: venueToken });
   if (error) { console.error("[booking] cancel_booking_series failed", error); throw error; }

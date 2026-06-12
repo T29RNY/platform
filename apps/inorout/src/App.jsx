@@ -23,6 +23,7 @@ import InstallBanner from "./views/InstallBanner.jsx";
 import Onboarding    from "./onboarding/index.jsx";
 import JoinTeam             from "./views/JoinTeam.jsx";
 import InviteResolve        from "./views/InviteResolve.jsx";
+import MemberPass           from "./views/MemberPass.jsx";
 import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
@@ -80,6 +81,7 @@ function getRoute() {
   if (parts[0]==="create")                    return { type:"create" };
   if (parts[0]==="join"          && parts[1]) return { type:"join",     code:parts[1] };
   if (parts[0]==="q"             && parts[1]) return { type:"qr",       code:parts[1] };
+  if (parts[0]==="m"             && parts[1]) return { type:"member",   token:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
@@ -1004,6 +1006,7 @@ export default function App() {
   if (route.type === "auth_callback") return <AuthCallback/>;
   if (route.type === "legal") return <Legal/>;
   if (route.type === "qr") return <InviteResolve code={route.code} />;
+  if (route.type === "member") return <MemberPass token={route.token} />;
 
   // Hold every other route until the initial auth check has resolved.
   // Prevents the brief paint where authUser is still null before

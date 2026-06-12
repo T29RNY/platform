@@ -155,6 +155,7 @@ export {
   venueEnrolFee,
   venueCancelFee,
   venueListFeePlans,
+  getMemberPass,
   venueCreateBooking,
   venueCreateBookingSeries,
   venueConfirmBooking,
