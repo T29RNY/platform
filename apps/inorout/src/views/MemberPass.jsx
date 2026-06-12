@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import QRCode from "react-qr-code";
 import { getMemberPass, redeemMemberOffer } from "@platform/core/storage/supabase.js";
 
 // MemberPass — the member-facing PWA pass at /m/<pass_token> (Membership Phase 5,
@@ -40,6 +41,8 @@ export default function MemberPass({ token }) {
   const st = STATUS[pass.status] || STATUS.active;
   const accent = pass.primary_colour || "#60A0FF";
   const discount = pass.benefits?.discount_pct;
+  // QR encodes this pass's own URL — reception scans it, parses the token, checks the member in.
+  const passUrl = typeof window !== "undefined" ? `${window.location.origin}/m/${token}` : "";
 
   return (
     <div style={wrap}>
@@ -82,8 +85,13 @@ export default function MemberPass({ token }) {
 
           {/* check-in */}
           <div style={{ marginTop: 20, textAlign: "center" }}>
-            <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Show at reception to check in</div>
-            <div style={{ fontFamily: "monospace", fontSize: 15, letterSpacing: 1, padding: "12px 14px", border: "1px dashed var(--border-subtle)", borderRadius: "var(--r)", wordBreak: "break-all", color: "var(--t1)" }}>
+            <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>Scan at reception to check in</div>
+            {passUrl ? (
+              <div style={{ display: "inline-block", background: "var(--white)", padding: 14, borderRadius: "var(--r)" }}>
+                <QRCode value={passUrl} size={172} level="M" />
+              </div>
+            ) : null}
+            <div style={{ marginTop: 10, fontFamily: "monospace", fontSize: 13, letterSpacing: 1, color: "var(--t2)" }}>
               {pass.check_in_code}
             </div>
           </div>
