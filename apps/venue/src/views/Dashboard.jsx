@@ -14,6 +14,7 @@ import LeagueView from "./LeagueView.jsx";
 import LeagueTable from "./LeagueTable.jsx";
 import PlayersView from "./PlayersView.jsx";
 import CustomersView from "./CustomersView.jsx";
+import MembershipsView from "./MembershipsView.jsx";
 import AccessView from "./AccessView.jsx";
 import InvitesView from "./InvitesView.jsx";
 import SearchPalette from "./SearchPalette.jsx";
@@ -28,7 +29,8 @@ const TABS = [
     { id: "equipment", label: "Equipment",  icon: "equipment" },
   ]},
   { group: "Directory",   items: [
-    { id: "customers", label: "Customers", icon: "customers" },
+    { id: "customers",   label: "Customers",   icon: "customers" },
+    { id: "memberships", label: "Memberships", icon: "pound" },
     { id: "teams",     label: "Teams",     icon: "teams" },
     { id: "players",   label: "Players",   icon: "players" },
     { id: "staff",     label: "Staff",     icon: "staff" },
@@ -44,7 +46,7 @@ const TABS = [
 
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
-  customers: "Customers", teams: "Teams", players: "Players", staff: "Staff",
+  customers: "Customers", memberships: "Memberships", teams: "Teams", players: "Players", staff: "Staff",
   access: "Access", invites: "QR codes", league: "Leagues", table: "Standings", cups: "Cups",
 };
 
@@ -128,6 +130,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "payments" && <PaymentsView state={state} venueToken={venueToken} />}
           {view === "equipment" && <EquipmentView venueToken={venueToken} state={state} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
+          {view === "memberships" && <MembershipsView venueToken={venueToken} />}
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}
           {view === "staff" && <StaffView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
