@@ -6,6 +6,32 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## A drawn casual lineup is frozen at kick-off; the lock point is `schedule.game_date_time` (session 88, mig 268)
+
+Once a casual game has kicked off, the drawn team arrays are **frozen** — no self-service
+write may mutate them. This was forced by the SESSION 80 incident (a post-kickoff
+injured-toggle silently deleted a player from a locked team).
+
+Settled calls:
+
+- **Kick-off lock point = `schedule.game_date_time`.** Casual `matches` rows carry **no**
+  kick-off-time column (`matches.match_date` is a date only). The team's scheduled kick-off
+  timestamptz lives on `schedule.game_date_time` (TZ-correct Europe/London since mig 212), so
+  that is the single source of truth for "has this game kicked off?". The helper
+  `is_lineup_locked(team_id)` encodes it: active schedule + `game_is_live` + `now() >=
+  game_date_time`. `game_is_live` alone is insufficient — it stays true from go-live until
+  result-save, spanning both before and after kick-off.
+- **The lock is lineup-scoped, not a blanket freeze.** Self-service writes are rejected
+  (`lineup_locked`) only for a player who is actually on a drawn team (`players.team IN
+  ('A','B')`); a non-drawn player (reserve/maybe/late sub) can still change their own status
+  after kick-off. Guest-add is unscoped (a new in-guest alters availability for the frozen
+  lineup either way).
+- **Admins are exempt.** `admin_set_player_injured` is NOT locked — an admin may fix a frozen
+  lineup mid-game. The lock is a self-service guard only.
+- **`player_match` is the integrity backstop.** Even with the lock, `admin_save_match_result`
+  reconciles any `attended=true, result IS NULL` row before the flat W/L/D bump, so the
+  source-of-truth table and the convenience columns can never diverge for a dropped player.
+
 ## Ref V2 — match-format config is layered, and the clock pause is per-match (session 87, "RefSix-killer")
 
 The referee tool is being rebuilt to make RefSix obsolete: the ref's thumb drives the whole venue

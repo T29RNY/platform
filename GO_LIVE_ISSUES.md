@@ -1163,6 +1163,29 @@ each squad gives a player a separate `players` row, so a nickname
 set on one squad does NOT follow them onto a new squad (same as
 their name). Don't report that as a regression.
 
+### 11.2 Drawn lineup stayed mutable after kick-off (mig 268, session 88)
+**Symptom:** a player who is in a drawn team self-toggles injured
+(or in/out) **after the game has kicked off** and silently disappears
+from the saved team — at result-save their per-match stats go missing.
+Footy Tuesdays, 2026-06-09: Matty toggled injured on/off at 20:23
+(kick-off 20:00) and the result saved a 6-man team B with him gone.
+**Root cause:** three stacked gaps — un-injure never restored a drawn
+player to `'in'`, there was no kick-off lock, and result-save never
+reconciled the dropped player's `player_match` row. See BUGS.md
+SESSION 80.
+**Fix:** mig 268 — `is_lineup_locked()` (lock point =
+`schedule.game_date_time`) rejects post-kickoff self-service lineup
+writes for drawn players; un-injure restores `status='in'`;
+`admin_save_match_result` reconciles orphan rows. EV'd, leak-clean.
+**Pre-flight check:** on a real iPhone, with teams already drawn and
+the kick-off time in the past (game still live, result not yet saved),
+open a drawn player's `/p/<token>` and try to toggle injured or change
+status → it should be refused (no silent change); the player stays in
+their team. A **non-drawn** reserve/maybe should still be able to
+change their own status. Then save the result and confirm every drawn
+player has a W/L/D record (none missing), and the team counts match
+what was drawn (e.g. 7v7 stays 7v7).
+
 ---
 
 ## 13. SUPERADMIN DASHBOARD — blank screen (missing build-time env)

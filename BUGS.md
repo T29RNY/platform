@@ -1,5 +1,5 @@
 # In or Out — Known Bugs & Tech Debt
-*Last updated: Jun 10 2026 (session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at), owes untouched, mig 243. session 80 — RESOLVED: debt-state players couldn't finish paying (Confirm button unreachable once "Paid Cash" tapped) + POTM modal re-popped on every app open even after voting — both PlayerView, fixed this session. OPEN: drawn teams stay mutable AFTER kick-off — a post-kickoff injured-toggle silently dropped a player from team B (Footy Tuesdays, this week); two linked bugs filed, live data corrected, no code fix yet. session 79 — RESOLVED ops analytics counted players off players.team (A/B matchday side) not team_players (squad membership), mig 234; RESOLVED apps/superadmin blank screen since first deploy — prebuilt build missing VITE_SUPABASE_* env, see GO_LIVE #13. session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
+*Last updated: Jun 12 2026 (session 88 — RESOLVED (mig 268): drawn teams stayed mutable after kick-off — a post-kickoff injured-toggle silently dropped a player from a locked team. Three fixes: un-injure restores a drawn player to 'in'; a kick-off lineup lock (`is_lineup_locked`, lock point = schedule.game_date_time) on the four self-service lineup RPCs; result-save reconciles orphan player_match rows so flat stats can't diverge. EV'd 9 assertions, leak-clean. session 82 — RESOLVED: "Paid" carried into the next game — go-live now clears per-game payment flags (paid/self_paid/paid_by/paid_at), owes untouched, mig 243. session 80 — RESOLVED: debt-state players couldn't finish paying (Confirm button unreachable once "Paid Cash" tapped) + POTM modal re-popped on every app open even after voting — both PlayerView, fixed this session. OPEN: drawn teams stay mutable AFTER kick-off — a post-kickoff injured-toggle silently dropped a player from team B (Footy Tuesdays, this week); two linked bugs filed, live data corrected, no code fix yet. session 79 — RESOLVED ops analytics counted players off players.team (A/B matchday side) not team_players (squad membership), mig 234; RESOLVED apps/superadmin blank screen since first deploy — prebuilt build missing VITE_SUPABASE_* env, see GO_LIVE #13. session 78 — RESOLVED venue Requests inbox confirmed long weekly blocks only partially, mig 236. session 77 — RESOLVED players couldn't save their own nickname, mig 233. session 76 — RESOLVED unreliable "spot opened" reserve notification, mig 230. session 71 — full-codebase bug audit; Batch A COMPLETE (migs 208–211); Batch B COMPLETE (mig 212 create_team TZ + BibsScreen dead-code); Batch C COMPLETE (migs 213–215: notify whitelist, drop cast_potm_vote, update-this-week; + cron DST-safe rollover + dead-code removal). VC parity + guest orphans + HistoryView id-res + self-pay-as-pending-claim all shipped. session 70 — stale guest row RESOLVED e6f9459; session 69 — BST offset RESOLVED 4e351b6; PWA live-update RESOLVED 5edd64f.)*
 
 ---
 
@@ -155,7 +155,34 @@ as-is pending operator decision — not auto-mutated.
 
 ---
 
-## SESSION 80 — OPEN: drawn teams stay mutable after kick-off (player silently dropped from a locked team)
+## SESSION 80 — RESOLVED (mig 268): drawn teams stay mutable after kick-off (player silently dropped from a locked team)
+
+**Fixed session 88 (mig 268, `268_lineup_lock_and_team_integrity.sql`).** Three server-side
+fixes, no JS change, all six replaced RPCs keep identical signatures (grants preserved):
+
+1. **Un-injure restores the player.** `set_player_injured` (and `admin_set_player_injured`)
+   now restore a still-drawn player (`players.team IN ('A','B')`) from `'out'` back to `'in'`
+   on un-injure — closing the silent-drop. (Was: un-injure left them at `'out'`, so the
+   client's `inPlayers`-derived team array dropped them at result-save.)
+2. **Kick-off lineup lock.** New helper `is_lineup_locked(team_id)` returns true once the
+   team's active live match reaches `schedule.game_date_time` (the casual kick-off lock point —
+   `matches` has no kick-off column). The four self-service lineup RPCs now raise
+   `lineup_locked` post-kickoff: `set_player_injured`, `set_player_status` (both scoped to drawn
+   players so a non-drawn player can still act), `add_guest_player` (unscoped), and
+   `remove_guest_player` (scoped to a drawn guest). The admin injured path is NOT locked —
+   admins may edit a frozen lineup.
+3. **Result-save reconciliation.** `admin_save_match_result` now, before the flat W/L/D bump,
+   repairs any `attended=true, result IS NULL` `player_match` row (derives result from
+   `team_assignment` vs winner) and demotes a sideless orphan to `attended=false` — so
+   `player_match` and the flat columns can never diverge again.
+
+Ephemeral-verified (9 assertions incl. pre-kickoff restore, all four post-kickoff locks,
+non-drawn-not-blocked, dropped-player reconciliation, sideless demote, idempotent re-save);
+leak-check clean. Original incident write-up retained below.
+
+---
+
+### Original incident (SESSION 80)
 
 **Incident (user-reported).** Squad **Footy Tuesdays** (`team_KPaoX8oJYMQ`), this week's match
 `m_vcM3fQbBx6Y` (match_date 2026-06-09, kick-off 20:00, result A 1–0). The operator noticed
@@ -198,14 +225,13 @@ a fresh save.
   last week's games aren't in anyone's flat columns, a separate squad-wide pre-existing gap, out of
   scope here. Verified live: `team_b_count=7`, `matty_in_team_b=true`, `matty_result='l'`.
 
-**Fix owed (code, not yet done):**
-1. Un-injuring (and any "back in" transition) must restore the player to their prior team slot when
-   teams are already drawn for the current match — don't just clear the flag.
-2. Lock the team arrays at kick-off: reject/no-op lineup-array mutations from self-service RPCs once
-   `now >= kick-off`. (Confirm where kick-off time lives — `matches.kickoff_time` is currently NULL
-   on casual matches; may need the schedule/standard kick-off as the lock point.)
-3. Harden `admin_save_match_result` to reconcile `player_match` rows against the team arrays and
-   never leave an `attended=true` row with `result IS NULL`.
+**Fix shipped (mig 268) — all three:**
+1. ✅ Un-injuring restores the player to their drawn team slot (`status → 'in'` when
+   `players.team IN ('A','B')`). Applied to both the player and admin injured RPCs.
+2. ✅ Team arrays locked at kick-off via `is_lineup_locked()` — the lock point is
+   `schedule.game_date_time` (casual `matches` carry no kick-off column, as suspected here).
+3. ✅ `admin_save_match_result` reconciles `player_match` against the team arrays and never
+   leaves an `attended=true, result IS NULL` row.
 
 ---
 
