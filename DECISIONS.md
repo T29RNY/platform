@@ -2354,6 +2354,32 @@ Reasoning:
 sport-level metadata `league_config` cannot express. Strategy context in
 STRATEGY.md.
 
+## MULTI-SPORT VENUES — text[], NOT the rejected lookup table (Membership Phase 1, mig 269)
+
+The second membership pilot is a **multi-sport venue** (individuals who
+attend across sports). This needs a venue to express the *set* of sports it
+offers — but it does **NOT** trigger the session-84 re-open condition above,
+and it does **NOT** resurrect the rejected `sports` lookup table.
+
+Settled call: multi-sport-per-venue is modelled as **self-identified text**,
+extending the session-40 posture from one-sport-per-venue to a venue's text[]:
+
+- `venues.sports text[] NOT NULL DEFAULT ARRAY['football']` — the offered set.
+  `venues.sport` stays the primary/default sport (heavily referenced; left
+  untouched). No lookup table, no FKs, no schema-sync sweep.
+- `playing_areas.sport text NULL` (NULL = inherit venue primary) scopes a
+  pitch/court to a sport.
+- Membership tiers' `sports_included text[]` (Phase 3) references these text
+  values — same self-identified convention, no FK (optional belt-and-braces
+  CHECK only if ever wanted, per the session-84 reasoning).
+
+Why this is NOT a session-84 reversal: the rejection was of a *global `sports`
+lookup table with FKs* whose only justification would be sport-level metadata.
+Membership needs sport purely as a **tag/scope** — no metadata `league_config`
+can't already express. So the cheaper, posture-consistent text[] extension is
+correct; the lookup table stays rejected. If a genuine sport-level-metadata
+need ever arrives, the session-84 re-open trigger — not this entry — governs.
+
 ## QR ONBOARDING ARCHITECTURE (session 84, 2026-06-11)
 
 QR codes are the next net-new build (pilot demo centrepiece — pitch date

@@ -452,6 +452,13 @@ arrive in Phase 2+. All currently empty.
   basketball courts, hockey rinks, tennis courts, boxing rings)
 - `match_officials` (was `referees` in spec — covers referees, umpires,
   judges)
+- **Multi-sport-per-venue (Membership Phase 1, mig 269):** `venues.sports
+  text[] NOT NULL DEFAULT ARRAY['football']` — a venue self-declares the set
+  of sports it offers, as plain text (NOT the session-84-rejected `sports`
+  lookup table; extends the self-identified-text posture above). `venues.sport`
+  remains the primary/default sport. `playing_areas.sport text NULL` (NULL =
+  inherits the venue's primary sport) scopes a pitch/court to a sport.
+  Membership tiers' `sports_included` (Phase 3) references these text values.
 
 ### Phase 0 tables (migrations 050, 054)
 
@@ -476,8 +483,8 @@ arrive in Phase 2+. All currently empty.
 ### Phase 1 — Venue layer
 
 - `venues` — text PK. company_id (nullable — independent venues allowed). venue_admin_token. display_pin. Stripe columns. sport DEFAULT 'football'. **Phase 4 (mig 164):** `display_token text NOT NULL DEFAULT gen_random_uuid()::text` (UNIQUE — per-venue READ-ONLY public token for the reception big-screen `/display/TOKEN`; NOT the venue_admin_token) + `display_config jsonb` (panel/layout config: `{zones[],mode,interval_secs,custom_message}`; NULL = app default). White-label `logo_url`/`primary_colour`/`secondary_colour` already existed.
-- `venue_admins` — user_id ↔ venue_id. Roles: admin / staff.
-- `playing_areas` — venue_id, name, surface, capacity. (Multi-sport rename of `pitches`.)
+- `venue_admins` — user_id ↔ venue_id. Roles: owner / manager / staff (migs 237–240). `caps_grant`/`caps_deny text[]` constrained by `venue_admins_caps_known` CHECK to the known gated keys: reverse_money, booking_settings, manage_facility, staff_directory, manage_logins, **manage_memberships** (added mig 269). `_venue_has_cap`: owner+manager pass by default, staff only if granted.
+- `playing_areas` — venue_id, name, surface, capacity, **sport text NULL** (mig 269; NULL = inherit venue primary sport). (Multi-sport rename of `pitches`.)
 - `match_officials` — venue_id, name, contact channels, preferred_channel. (Multi-sport rename of `referees`.)
 
 ### Phase 1 — League / Season / Competition layer
