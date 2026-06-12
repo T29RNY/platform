@@ -531,6 +531,39 @@ work pre-auth for OAuth callback and landing pages).
 
 ---
 
+## MEMBERSHIP TABLES (Venue Membership programme, mig 270+)
+
+Venue-domain, RLS-walled, RPC-only. Never cross the casual↔venue wall.
+
+### venue_customers (mig 270, Phase 2) — per-person/family identity
+
+The venue domain's first **person** entity (before this, customers were
+*derived* from `pitch_bookings`). Backs per-person memberships.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `venue_id` | text NOT NULL | FK → `venues(id)` ON DELETE CASCADE |
+| `first_name` | text NOT NULL | (`'[erased]'` after GDPR erasure) |
+| `last_name` | text NULL | |
+| `email` | text NULL | de-dup key (lower) per venue |
+| `phone` | text NULL | |
+| `dob` | date NULL | junior pricing + age-up |
+| `household_id` | uuid NULL | shared uuid groups a family; NULL = none |
+| `status` | text NOT NULL | `active`/`archived`/`erased` (DEFAULT active) |
+| `consent_marketing` | boolean NOT NULL | DEFAULT false (+ `consent_at`) |
+| `consent_at` | timestamptz NULL | set when consent first granted |
+| `notes` | text NULL | |
+| `created_at`/`updated_at` | timestamptz NOT NULL | DEFAULT now() |
+
+- Partial UNIQUE `(venue_id, lower(email)) WHERE email IS NOT NULL AND status
+  <> 'erased'` — one live person per venue-email; a scrub frees the slot.
+- **GDPR:** `venue_erase_customer` scrubs all PII but KEEPS the row
+  (`status='erased'`) so membership/charge history stays referentially intact.
+- RPCs: `venue_create_customer` / `venue_update_customer` /
+  `venue_erase_customer` (writes, gated `manage_memberships`) +
+  `venue_list_customers_people` (read, any member). See RPCS.md.
+
 ## PITCH BOOKING TABLES (migration 133+)
 
 Casual pitch booking + the unified occupancy guard. Booking session owns

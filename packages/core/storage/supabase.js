@@ -2892,6 +2892,49 @@ export async function venueRequestNudge(venueToken, bookerKey, template = null) 
   return data;
 }
 
+// ── Membership Phase 2 — per-person customer identity (venue_customers, mig 270) ──
+// People directory — DISTINCT from venueListCustomers (which is booking-derived).
+// Venue-ops authed (venue token / staff login venue_id). Read open to any member.
+export async function venueListCustomersPeople(venueToken, includeErased = false) {
+  const { data, error } = await supabase.rpc("venue_list_customers_people", {
+    p_venue_token: venueToken, p_include_erased: includeErased,
+  });
+  if (error) { console.error("[membership] venue_list_customers_people failed", error); throw error; }
+  return data?.customers ?? [];
+}
+
+// Create a person (gated: manage_memberships). Throws 'customer_exists' (existing
+// id in error DETAIL) on email de-dup; 'first_name_required' on blank name.
+export async function venueCreateCustomer(venueToken, { firstName, lastName = null, email = null, phone = null, dob = null, householdId = null, consentMarketing = false }) {
+  const { data, error } = await supabase.rpc("venue_create_customer", {
+    p_venue_token: venueToken, p_first_name: firstName, p_last_name: lastName,
+    p_email: email, p_phone: phone, p_dob: dob, p_household_id: householdId,
+    p_consent_marketing: consentMarketing,
+  });
+  if (error) { console.error("[membership] venue_create_customer failed", error); throw error; }
+  return data;
+}
+
+// Partial update — a null field is left UNCHANGED. (gated: manage_memberships)
+export async function venueUpdateCustomer(venueToken, customerId, { firstName = null, lastName = null, email = null, phone = null, dob = null, householdId = null, consentMarketing = null, notes = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_update_customer", {
+    p_venue_token: venueToken, p_customer_id: customerId, p_first_name: firstName,
+    p_last_name: lastName, p_email: email, p_phone: phone, p_dob: dob,
+    p_household_id: householdId, p_consent_marketing: consentMarketing, p_notes: notes,
+  });
+  if (error) { console.error("[membership] venue_update_customer failed", error); throw error; }
+  return data;
+}
+
+// GDPR right-to-erasure — scrubs PII, keeps the row (status='erased'). (gated)
+export async function venueEraseCustomer(venueToken, customerId) {
+  const { data, error } = await supabase.rpc("venue_erase_customer", {
+    p_venue_token: venueToken, p_customer_id: customerId,
+  });
+  if (error) { console.error("[membership] venue_erase_customer failed", error); throw error; }
+  return data;
+}
+
 export async function cancelBookingSeries(seriesId, venueToken = null) {
   const { data, error } = await supabase.rpc("cancel_booking_series", { p_series_id: seriesId, p_venue_token: venueToken });
   if (error) { console.error("[booking] cancel_booking_series failed", error); throw error; }
