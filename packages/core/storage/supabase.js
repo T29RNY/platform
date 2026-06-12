@@ -3036,6 +3036,16 @@ export async function getMemberPass(passToken) {
   return data;
 }
 
+// Reception check-in (Phase 5, mig 274) — the display scans a member's pass QR and
+// calls this with its own display token + the scanned value (full /m/ URL or bare
+// token). Venue-bound server-side; returns a greeting payload {ok, first_name,
+// tier_name, status, visit_count, already_checked_in} or {ok:false, reason}.
+export async function memberCheckIn(displayToken, passToken) {
+  const { data, error } = await supabase.rpc("member_check_in", { p_display_token: displayToken, p_pass_token: passToken });
+  if (error) { console.error("[membership] member_check_in failed", error); throw error; }
+  return data;
+}
+
 // ── Membership Phase 6 — partner perks + reporting (mig 273) ──
 export async function venueCreatePartner(venueToken, name, contact = null) {
   const { data, error } = await supabase.rpc("venue_create_partner", { p_venue_token: venueToken, p_name: name, p_contact: contact });

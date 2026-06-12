@@ -595,6 +595,11 @@ makes renewals idempotent.
   due memberships + fee subscriptions, advances dates. Driven by
   `apps/inorout/api/cron.js membershipRenewalsJob` (09:00 UK). Freeze: `status`
   paused + `renews_at` pushed by the freeze length (frozen window never billed).
+- `venue_member_checkins` (mig 274, Phase 5) — reception attendance log. `venue_id`,
+  `membership_id`→venue_memberships, `customer_id`→venue_customers, `checked_in_at`,
+  `source` (`display_qr`). RLS-walled, definer-only (REVOKE anon/authenticated).
+  Written ONLY by `member_check_in` (de-duped within a 4h window). Feeds visit
+  counts on check-in + Phase 6 attendance intelligence.
 
 ### Partner perks + reporting (mig 273, Phase 6)
 

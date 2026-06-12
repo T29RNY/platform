@@ -9,6 +9,7 @@ import GoldenBoot from "./components/GoldenBoot.jsx";
 import ComingUp from "./components/ComingUp.jsx";
 import TallPromo from "./components/TallPromo.jsx";
 import GoalsTicker from "./components/GoalsTicker.jsx";
+import CheckInOverlay from "./components/CheckInOverlay.jsx";
 import PanelBoundary from "./components/PanelBoundary.jsx";
 import { resolveConfig } from "./lib/format.js";
 import { selectFeatured } from "./lib/featured.js";
@@ -39,6 +40,7 @@ export default function App() {
   const [lastSyncAt, setLastSyncAt] = useState(null);
   const [celebration, setCelebration] = useState(null);
   const [heroFading, setHeroFading] = useState(false);
+  const [checkInOpen, setCheckInOpen] = useState(false);
   const serverOffsetRef = useRef(0);
   const prevPayloadRef = useRef(null);
   const celebQueueRef = useRef([]);
@@ -338,6 +340,24 @@ export default function App() {
           <div className="offline-toast"><span className="dot" /> Live updates paused — reconnecting</div>
         )}
       </div>
+
+      {/* Reception member check-in — staff-triggered, rendered outside the scaled
+          canvas so the camera/greeting display at real device resolution. */}
+      <button
+        type="button"
+        onClick={() => setCheckInOpen(true)}
+        aria-label="Member check-in"
+        style={{
+          position: "fixed", left: 20, bottom: 20, zIndex: 50,
+          padding: "10px 16px", borderRadius: 999, cursor: "pointer",
+          border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.06)",
+          color: "var(--ink)", fontFamily: "var(--font-display)", fontWeight: 700,
+          fontSize: 14, letterSpacing: 0.3, opacity: 0.55,
+        }}
+      >
+        ＋ Check in
+      </button>
+      {checkInOpen && <CheckInOverlay token={token} onClose={() => setCheckInOpen(false)} />}
     </div>
   );
 }
