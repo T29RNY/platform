@@ -597,6 +597,14 @@ makes renewals idempotent.
   due memberships + fee subscriptions, advances dates. Driven by
   `apps/inorout/api/cron.js membershipRenewalsJob` (09:00 UK). Freeze: `status`
   paused + `renews_at` pushed by the freeze length (frozen window never billed).
+- **Phase 7 Stripe scaffolding (mig 279, DORMANT)** — `venues` +
+  `stripe_connect_account_id`, `stripe_connect_status` (none|onboarding|active|restricted),
+  `stripe_charges_enabled`, `stripe_details_submitted`; `venue_customers` +
+  `stripe_customer_id`; `venue_memberships` + `stripe_subscription_id`, `stripe_price_id`,
+  `payment_state` (current|past_due|suspended — Stripe-driven, separate from `status`);
+  `billing_events` (mig 055) gains entity scope `membership` + lifecycle `status`
+  (received|processed|failed|ignored) + `processed_at` + `payload jsonb` (the persist-then-
+  process webhook store; UNIQUE `stripe_event_id` = idempotency key).
 - `venue_member_checkins` (mig 274, Phase 5) — reception attendance log. `venue_id`,
   `membership_id`→venue_memberships, `customer_id`→venue_customers, `checked_in_at`,
   `source` (`display_qr`). RLS-walled, definer-only (REVOKE anon/authenticated).

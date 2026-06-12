@@ -6,6 +6,36 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## ⛔ MONEY-FLOW GATE — Stripe Connect for memberships (PROPOSED, awaiting operator sign-off; mig 279 scaffolding only)
+
+Phase 7 of the membership programme moves real money for the first time. The **schema
++ server-side scaffolding is built (mig 279) but DORMANT** — no Stripe code is wired and
+no keys exist. Before any live collection, the operator must explicitly sign off the
+architecture below. **Nothing in mig 279 moves money; it only caches Stripe state.**
+
+Proposed (not yet ratified) calls:
+
+- **Stripe Connect, money → the venue's own account, never ours.** Each venue connects its
+  own Stripe account; members are Stripe Customers and memberships are Stripe Subscriptions
+  **on that connected account**. We orchestrate via the platform API key + the `Stripe-Account`
+  header; we never custody funds. Consistent with the standing "don't sit in the money flow".
+- **Stripe is the source of truth; our DB is a cache** repaired by a reconciliation cron.
+  `venue_memberships.payment_state` (`current`/`past_due`/`suspended`) is driven by Stripe
+  subscription status via `apply_membership_subscription_status`, never by our own timers.
+  `payment_state` is a SEPARATE dimension from `status` (the freeze/cancel access dimension).
+- **Webhook resilience:** signature-verify → `record_stripe_event` (persist-then-process,
+  idempotent on `billing_events.stripe_event_id` UNIQUE) → fetch-fresh from Stripe → act →
+  `mark_stripe_event_processed`. Unprocessable events flagged `failed` + alerted.
+- **Grace, not day-one cut:** `active → past_due (grace, access continues) → suspended`.
+
+**Still required from the operator before go-live (HARD BLOCKERS):**
+1. Sign-off on this money-flow architecture (ratify this entry).
+2. A Stripe account + Connect platform setup + **test** keys (for the test-clock lifecycle
+   proof) and later **live** keys (one pilot first).
+3. The webhook signing secret + the Vercel env wiring.
+No live keys until the full renewal/failure/refund lifecycle passes under Stripe **test
+clocks** and reconciliation self-heals a deliberately dropped webhook (plan Phase 7 exit).
+
 ## A drawn casual lineup is frozen at kick-off; the lock point is `schedule.game_date_time` (session 88, mig 268)
 
 Once a casual game has kicked off, the drawn team arrays are **frozen** — no self-service
