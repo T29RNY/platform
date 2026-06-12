@@ -1,300 +1,196 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// ============================================================
+// PreMatch — squads, start gate (kick-off window + hold-to-override),
+// and the terminal banners (void / postponed / walkover / forfeit /
+// completed). Ported from the artifact's screens.jsx, wired to the
+// real refStartMatch wrapper.
+// ============================================================
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { refStartMatch } from "@platform/core/storage/supabase.js";
+import { uuid, nowISO, hasLineup, isSuspended } from "../lib/engine.js";
+import { Swatch, RefreshIcon, PlayIcon, fmtKick } from "../components/ui.jsx";
 
-const HOLD_MS = 3000;           // 3-second hold to override the kickoff gate
-const EARLY_WINDOW_MIN = 15;    // unlock the Start button this many mins before kickoff
+const EARLY_WINDOW_MIN = 15;
+const HOLD_MS = 3000;
 
-export default function PreMatch({ state, refToken, onRefresh, refreshing }) {
-  const fixture     = state.fixture     ?? {};
-  const competition = state.competition ?? {};
-  const venue       = state.venue       ?? {};
-  const pitch       = state.pitch       ?? null;
-  const official    = state.official    ?? null;
-  const homeTeam    = state.home_team   ?? { name: fixture.home_team_id };
-  const awayTeam    = state.away_team   ?? { name: fixture.away_team_id ?? "(bye)" };
-  const homeSquad   = state.home_squad  ?? [];
-  const awaySquad   = state.away_squad  ?? [];
+function SquadRows({ squad }) {
+  if (!squad || squad.length === 0) return <div className="empty-state">No confirmed squad yet</div>;
+  const lineup = hasLineup(squad);
+  const row = (p) => (
+    <div className="prow" key={p.id} style={{ cursor: "default", minHeight: 50 }}>
+      <span className="shirt" style={{ width: 32, height: 32, fontSize: 14 }}>{p.shirt_number ?? "—"}</span>
+      <div className="who">
+        <div className="nm"><span className="t">{p.name}</span>{isSuspended(p) && <span className="flag-susp">Susp</span>}</div>
+      </div>
+    </div>
+  );
+  if (!lineup) return <div>{squad.map(row)}</div>;
+  const starting = squad.filter((p) => p.lineup_role === "starting");
+  const bench = squad.filter((p) => p.lineup_role === "bench");
+  return (
+    <div>
+      <div className="subhead">Starting</div>
+      {starting.map(row)}
+      {bench.length > 0 && <div className="subhead">Bench</div>}
+      {bench.map(row)}
+    </div>
+  );
+}
 
-  // Show a terminal-state banner instead of Start when the fixture is not
-  // in a pre-match status (walkover, completed, void, postponed).
-  const terminal = useMemo(() => {
-    const s = fixture.status;
-    if (s === "completed") return { kind: "completed", label: "Result already recorded" };
-    if (s === "void")      return { kind: "void",      label: "Match voided" };
-    if (s === "postponed") return { kind: "postponed", label: `Postponed${fixture.postpone_reason ? ` — ${fixture.postpone_reason}` : ""}` };
-    if (s === "walkover")  return { kind: "walkover",  label: "Decided by walkover" };
-    if (s === "forfeit")   return { kind: "forfeit",   label: `Forfeit${fixture.forfeit_reason ? ` — ${fixture.forfeit_reason}` : ""}` };
-    return null;
-  }, [fixture.status, fixture.postpone_reason, fixture.forfeit_reason]);
+function SquadCard({ team, squad, isBye }) {
+  const lineup = squad && hasLineup(squad);
+  const count = lineup
+    ? `${squad.filter((p) => p.lineup_role === "starting").length} starting · ${squad.filter((p) => p.lineup_role === "bench").length} subs`
+    : (squad && squad.length ? `${squad.length} players` : "");
+  return (
+    <div className="card squad-card">
+      <div className="sc-head">
+        <Swatch c={team ? team.primary_colour : "#555"} size={14} />
+        <div className="nm">{team ? team.name : "Bye"} {isBye && <span style={{ color: "var(--txt3)", fontWeight: 600 }}>(bye)</span>}</div>
+        {count && <div className="ct">{count}</div>}
+      </div>
+      <div className="sc-body">
+        {isBye ? <div className="empty-state">No opponent — this is a bye</div> : <SquadRows squad={squad} />}
+      </div>
+    </div>
+  );
+}
 
-  // Compute the kickoff Date once per fixture change.
-  const kickoffAt = useMemo(() => parseKickoff(fixture.scheduled_date, fixture.kickoff_time), [fixture.scheduled_date, fixture.kickoff_time]);
+function StartGate({ state, onStart, onRefresh, busy, error }) {
+  const { fixture } = state;
+  const [, force] = useState(0);
+  useEffect(() => { const id = setInterval(() => force((x) => x + 1), 1000); return () => clearInterval(id); }, []);
 
-  // Live tick so the kickoff gate flips without a refresh.
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    if (terminal) return; // no countdown needed
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, [terminal]);
-
-  const unlocksInMin = kickoffAt ? Math.round((kickoffAt.getTime() - now.getTime()) / 60000) - EARLY_WINDOW_MIN : null;
-  const insideWindow = kickoffAt ? unlocksInMin <= 0 : true;
-
-  if (terminal) {
-    return (
-      <main className="match">
-        <Header fixture={fixture} competition={competition} venue={venue} />
-        <KickoffStrip kickoffAt={kickoffAt} pitch={pitch} official={official} />
-        <div className={`banner banner-${terminal.kind}`}>{terminal.label}</div>
-        {(fixture.home_score != null || fixture.away_score != null) && (
-          <div className="final-score">
-            <span className="final-score-num">{fixture.home_score ?? "—"}</span>
-            <span className="final-score-vs">vs</span>
-            <span className="final-score-num">{fixture.away_score ?? "—"}</span>
-          </div>
-        )}
-        <Squads homeTeam={homeTeam} awayTeam={awayTeam} homeSquad={homeSquad} awaySquad={awaySquad} />
-        <button className="btn-ghost" onClick={onRefresh} disabled={refreshing}>
-          {refreshing ? "Refreshing…" : "Refresh"}
-        </button>
-      </main>
-    );
+  let unlockMin = -1; // default: unlocked (no schedule)
+  if (fixture.scheduled_date && fixture.kickoff_time) {
+    const ko = new Date(`${fixture.scheduled_date}T${fixture.kickoff_time.length === 5 ? fixture.kickoff_time + ":00" : fixture.kickoff_time}`);
+    unlockMin = (ko.getTime() - EARLY_WINDOW_MIN * 60000 - Date.now()) / 60000;
   }
+  const inWindow = unlockMin <= 0;
 
-  return (
-    <main className="match">
-      <Header fixture={fixture} competition={competition} venue={venue} />
-      <KickoffStrip kickoffAt={kickoffAt} pitch={pitch} official={official} />
-      <Squads homeTeam={homeTeam} awayTeam={awayTeam} homeSquad={homeSquad} awaySquad={awaySquad} />
-      <StartMatch
-        insideWindow={insideWindow}
-        unlocksInMin={unlocksInMin}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        refToken={refToken}
-        onAfterStart={onRefresh}
-      />
-    </main>
-  );
-}
-
-function Header({ fixture, competition, venue }) {
-  return (
-    <div className="match-head">
-      <div className="match-eyebrow">
-        {venue.name ? `${venue.name} · ` : ""}{competition.name || "Match"}
-        {fixture.week_number ? ` · Week ${fixture.week_number}` : ""}
-        {fixture.round_name ? ` · ${fixture.round_name}` : ""}
-      </div>
-      <h1 className="match-title">Pre-match</h1>
-      <div className="match-subtitle">Confirm both squads, then start the match when ready.</div>
-    </div>
-  );
-}
-
-function KickoffStrip({ kickoffAt, pitch, official }) {
-  return (
-    <div className="kickoff">
-      <div className="kickoff-cell">
-        <div className="kickoff-label">Kickoff</div>
-        <div className="kickoff-value">{kickoffAt ? formatTime(kickoffAt) : "—"}</div>
-        <div className="kickoff-sub">{kickoffAt ? formatDate(kickoffAt) : "Time TBC"}</div>
-      </div>
-      <div className="kickoff-cell">
-        <div className="kickoff-label">Pitch · Ref</div>
-        <div className="kickoff-value">{pitch?.name || "—"}</div>
-        <div className="kickoff-sub">
-          {official?.name ? official.name : "No referee assigned"}
-          {pitch?.surface ? ` · ${pitch.surface}` : ""}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Squads({ homeTeam, awayTeam, homeSquad, awaySquad }) {
-  return (
-    <div className="squads">
-      <SquadCard team={homeTeam} squad={homeSquad} side="home" />
-      <SquadCard team={awayTeam} squad={awaySquad} side="away" />
-    </div>
-  );
-}
-
-function SquadRow({ p }) {
-  const suspended = p.suspension_until && new Date(p.suspension_until) > new Date();
-  return (
-    <li className="squad-row">
-      {p.shirt_number != null
-        ? <span className="squad-shirt">{p.shirt_number}</span>
-        : <span className="squad-shirt-blank">—</span>}
-      <span className="squad-name">{p.name}</span>
-      {suspended && <span className="squad-flag">Susp</span>}
-    </li>
-  );
-}
-
-function SquadCard({ team, squad, side }) {
-  // A submitted teamsheet tags each player with lineup_role ('starting'|'bench').
-  // When present, show a Starting / Bench split; otherwise the flat registered squad
-  // exactly as before (backward compatible — Cycle 5.6).
-  const hasLineup = squad.some((p) => p.lineup_role);
-  const starting = hasLineup ? squad.filter((p) => p.lineup_role === "starting") : [];
-  const bench    = hasLineup ? squad.filter((p) => p.lineup_role === "bench") : [];
-  const subhead = { fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase",
-                    opacity: 0.6, margin: "10px 0 4px" };
-  return (
-    <section className="squad">
-      <div className="squad-head">
-        <div className="squad-team">
-          <span className="squad-swatch" style={{ background: team?.primary_colour || "var(--surface-2)" }} />
-          {team?.name || (side === "away" ? "(bye)" : "Home")}
-        </div>
-        <div className="squad-count">
-          {hasLineup
-            ? `${starting.length} starting · ${bench.length} sub${bench.length === 1 ? "" : "s"}`
-            : `${squad.length} player${squad.length === 1 ? "" : "s"}`}
-        </div>
-      </div>
-      {squad.length === 0 ? (
-        <div className="squad-empty">No confirmed squad yet</div>
-      ) : hasLineup ? (
-        <>
-          <div style={subhead}>Starting</div>
-          <ul className="squad-list">{starting.map((p) => <SquadRow key={p.id} p={p} />)}</ul>
-          {bench.length > 0 && (
-            <>
-              <div style={subhead}>Bench</div>
-              <ul className="squad-list">{bench.map((p) => <SquadRow key={p.id} p={p} />)}</ul>
-            </>
-          )}
-        </>
-      ) : (
-        <ul className="squad-list">
-          {squad.map((p) => <SquadRow key={p.id} p={p} />)}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function StartMatch({ insideWindow, unlocksInMin, refreshing, onRefresh, refToken, onAfterStart }) {
   const [holding, setHolding] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [starting, setStarting] = useState(false);
-  const [startError, setStartError] = useState(null);
-  const rafRef = useRef(null);
-  const startedAtRef = useRef(0);
-  const startingRef = useRef(false);
+  const [pct, setPct] = useState(0);
+  const raf = useRef(0), start = useRef(0), fired = useRef(false);
+  const stopHold = useCallback(() => { cancelAnimationFrame(raf.current); setHolding(false); setPct(0); fired.current = false; }, []);
+  const tick = useCallback(() => {
+    const p = Math.min(1, (performance.now() - start.current) / HOLD_MS);
+    setPct(p);
+    if (p >= 1) { if (!fired.current) { fired.current = true; setHolding(false); onStart(); } return; }
+    raf.current = requestAnimationFrame(tick);
+  }, [onStart]);
+  const beginHold = useCallback((e) => {
+    e.preventDefault(); if (busy) return;
+    setHolding(true); fired.current = false; start.current = performance.now();
+    raf.current = requestAnimationFrame(tick);
+  }, [busy, tick]);
 
-  async function onStart() {
-    if (startingRef.current) return;
-    startingRef.current = true;
-    setStarting(true);
-    setStartError(null);
-    try {
-      await refStartMatch(refToken, crypto.randomUUID(), new Date().toISOString());
-      await onAfterStart();
-      // App re-renders into LiveMatch on the next state load — nothing else to do here.
-    } catch (err) {
-      console.error("[ref] ref_start_match failed", err);
-      setStartError(err?.message || String(err));
-      setStarting(false);
-      startingRef.current = false;
-    }
-  }
-
-  function beginHold() {
-    if (holding) return;
-    setHolding(true);
-    startedAtRef.current = performance.now();
-    const tick = (t) => {
-      const elapsed = t - startedAtRef.current;
-      const pct = Math.min(100, (elapsed / HOLD_MS) * 100);
-      setProgress(pct);
-      if (pct >= 100) {
-        cancelHold();
-        onStart();
-        return;
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  }
-  function cancelHold() {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    setHolding(false);
-    setProgress(0);
-  }
-  useEffect(() => () => cancelHold(), []);
-
-  if (insideWindow) {
-    return (
-      <div className="start">
-        <button className="btn-primary start-btn" onClick={onStart} disabled={starting}>
-          <span className="start-label">{starting ? "Starting…" : "Start Match"}</span>
-        </button>
-        {startError && <div className="start-hint is-warning">{startError}</div>}
-        <button className="btn-ghost" onClick={onRefresh} disabled={refreshing || starting}>
-          {refreshing ? "Refreshing…" : "Refresh squads"}
-        </button>
-      </div>
-    );
-  }
-
-  // Outside the kickoff window — Start is gated. Hold for 3s to override.
-  const hint = formatUnlock(unlocksInMin);
+  const unlockHint = () => {
+    if (inWindow) return "Unlock available";
+    if (unlockMin >= 1440) return `Unlocks in ${Math.round(unlockMin / 1440)} day${unlockMin >= 2880 ? "s" : ""}`;
+    if (unlockMin >= 60) return `Unlocks in ${Math.round(unlockMin / 60)} h`;
+    return `Unlocks in ${Math.ceil(unlockMin)} min`;
+  };
 
   return (
-    <div className="start">
-      <button
-        className="btn-primary start-btn"
-        disabled={starting}
-        onPointerDown={beginHold}
-        onPointerUp={cancelHold}
-        onPointerLeave={cancelHold}
-        onPointerCancel={cancelHold}
-        style={{ "--hold": `${progress}%` }}
-      >
-        <span className="start-fill" />
-        <span className="start-label">
-          {starting ? "Starting…" : holding ? "Hold to start early…" : "Start Match"}
-        </span>
-      </button>
-      <div className={`start-hint ${holding || startError ? "is-warning" : ""}`}>
-        {startError
-          ? startError
-          : holding
-            ? `Keep holding · ${Math.ceil((HOLD_MS - (progress / 100) * HOLD_MS) / 1000)}s`
-            : hint}
-      </div>
-      <button className="btn-ghost" onClick={onRefresh} disabled={refreshing || starting}>
-        {refreshing ? "Refreshing…" : "Refresh squads"}
+    <div className="gate">
+      {inWindow ? (
+        <button className="btn btn-primary btn-block btn-xl" disabled={busy} onClick={onStart}>
+          <PlayIcon s={18} /> {busy ? "Starting…" : "Start Match"}
+        </button>
+      ) : (
+        <div
+          className={"hold-btn" + (holding ? " holding" : "")}
+          onPointerDown={beginHold} onPointerUp={stopHold} onPointerLeave={stopHold} onPointerCancel={stopHold}
+        >
+          <span className="hold-fill" style={{ width: `${pct * 100}%`, transition: holding ? "none" : "width .2s" }} />
+          <span className="hlabel">
+            <PlayIcon s={18} />
+            {holding ? `Keep holding · ${Math.ceil((1 - pct) * HOLD_MS / 1000)}s` : "Hold to start early"}
+          </span>
+        </div>
+      )}
+      <div className="gate-hint">{inWindow ? "Within kick-off window" : unlockHint() + " · hold 3s to override"}</div>
+      {error && <div className="gate-hint" style={{ color: "var(--red)" }}>{error}</div>}
+      <button className="btn btn-ghost btn-block" style={{ height: 46, marginTop: 14 }} onClick={onRefresh}>
+        <RefreshIcon /> Refresh squads
       </button>
     </div>
   );
 }
 
-function formatUnlock(min) {
-  if (min <= 0)   return "Unlock available";
-  if (min < 60)   return `Unlocks in ${min} min`;
-  const hours = Math.round(min / 60);
-  if (hours < 24) return `Unlocks in ${hours} h`;
-  const days = Math.round(hours / 24);
-  return `Unlocks in ${days} day${days === 1 ? "" : "s"}`;
+function TerminalBanner({ state, onRefresh }) {
+  const { fixture, home_team, away_team } = state;
+  const map = {
+    void: { cls: "void", tt: "Match voided", td: fixture.void_reason || "This fixture has been voided." },
+    postponed: { cls: "postponed", tt: "Postponed", td: fixture.postpone_reason || "This fixture has been postponed." },
+    walkover: { cls: "walkover", tt: "Decided by walkover", td: "A walkover has been awarded." },
+    forfeit: { cls: "forfeit", tt: "Forfeit", td: fixture.forfeit_reason || "This fixture was forfeited." },
+    completed: { cls: "completed", tt: "Result already recorded", td: "This match is complete." },
+  }[fixture.status] || { cls: "void", tt: "Unavailable", td: "" };
+  const hasScore = fixture.home_score != null && fixture.away_score != null;
+  return (
+    <div className={"term-banner " + map.cls}>
+      <div className="tt">{map.tt}</div>
+      <div className="td">{map.td}</div>
+      {hasScore && (
+        <div className="disp tabnum" style={{ fontSize: 24, marginTop: 6 }}>
+          {home_team?.name?.split(" ")[0]} {fixture.home_score} – {fixture.away_score} {away_team?.name?.split(" ")[0]}
+        </div>
+      )}
+      <button className="btn btn-ghost btn-block" style={{ height: 46, marginTop: 12 }} onClick={onRefresh}>
+        <RefreshIcon /> Refresh
+      </button>
+    </div>
+  );
 }
 
-function parseKickoff(dateIso, time) {
-  if (!dateIso) return null;
-  const t = (time || "00:00").slice(0, 5);
-  const d = new Date(`${dateIso}T${t}:00`);
-  return isNaN(d.getTime()) ? null : d;
-}
-function formatTime(d) {
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-}
-function formatDate(d) {
-  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+export default function PreMatch({ state, refToken, onRefresh }) {
+  const { fixture, venue, competition, pitch, official, home_team, away_team, home_squad, away_squad } = state;
+  const isBye = !away_team;
+  const terminal = ["completed", "void", "postponed", "walkover", "forfeit"].includes(fixture.status);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const eyebrow = [venue?.name, competition?.name, fixture.week_number != null ? `Week ${fixture.week_number}` : null, fixture.round_name]
+    .filter(Boolean).join(" · ");
+  const kick = fmtKick(fixture.scheduled_date, fixture.kickoff_time);
+
+  const start = async () => {
+    if (busy) return; setBusy(true); setErr(null);
+    try { await refStartMatch(refToken, uuid(), nowISO()); await onRefresh(); }
+    catch (e) { setErr(e?.message || "Could not start match"); setBusy(false); }
+  };
+
+  return (
+    <div className="app">
+      <div className="safetop" />
+      <div className="scroll">
+        <div className="hdr">
+          {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+          <h1>{terminal ? "Fixture" : "Pre-match"}</h1>
+          <div className="sub">{terminal ? "This match isn’t playable right now." : "Confirm both squads, then start the clock at kick-off."}</div>
+        </div>
+
+        <div className="kick-strip">
+          <div className="kick-cell">
+            <div className="k">Kick-off</div>
+            <div className="v tabnum">{kick.big}</div>
+            {kick.small && <div className="v2">{kick.small}</div>}
+          </div>
+          <div className="kick-cell">
+            <div className="k">Pitch · Referee</div>
+            <div className="v">{pitch ? pitch.name : "TBC"}</div>
+            <div className="v2">{official ? official.name : "No referee assigned"}{pitch?.surface ? ` · ${pitch.surface}` : ""}</div>
+          </div>
+        </div>
+
+        {terminal
+          ? <TerminalBanner state={state} onRefresh={onRefresh} />
+          : <StartGate state={state} onStart={start} onRefresh={onRefresh} busy={busy} error={err} />}
+
+        <SquadCard team={home_team} squad={home_squad} />
+        <SquadCard team={away_team} squad={away_squad} isBye={isBye} />
+        <div style={{ height: 24 }} />
+      </div>
+    </div>
+  );
 }
