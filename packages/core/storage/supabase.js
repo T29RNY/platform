@@ -2564,6 +2564,73 @@ export async function refRecordKnockoutDecider(refToken, { aetHome = null, aetAw
   return data;
 }
 
+// ─── Ref V2 (RefSix-killer, migs 264/267) — clock pause, incident note, sin bin,
+// added time, and the league match-format config write. Same idempotent-on-clientEventId
+// contract as the Phase 3 ref writes; all broadcast venue_live so the big screen reacts.
+
+export async function refSetClock(refToken, action, clientEventId, localTimestamp) {
+  const { data, error } = await supabase.rpc("ref_set_clock", {
+    p_ref_token:       refToken,
+    p_action:          action, // 'pause' | 'resume'
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] set_clock failed", error); throw error; }
+  return data;
+}
+
+export async function refRecordNote(refToken, { text, playerId = null, minute, period, clientEventId, localTimestamp }) {
+  const { data, error } = await supabase.rpc("ref_record_note", {
+    p_ref_token:       refToken,
+    p_text:            text,
+    p_player_id:       playerId,
+    p_minute:          minute,
+    p_period:          period,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] record_note failed", error); throw error; }
+  return data;
+}
+
+export async function refRecordSinBin(refToken, { playerId, minute, period, durationMin, clientEventId, localTimestamp }) {
+  const { data, error } = await supabase.rpc("ref_record_sin_bin", {
+    p_ref_token:       refToken,
+    p_player_id:       playerId,
+    p_minute:          minute,
+    p_period:          period,
+    p_duration_min:    durationMin,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] record_sin_bin failed", error); throw error; }
+  return data;
+}
+
+export async function refSetAddedTime(refToken, { period, minutes, clientEventId, localTimestamp }) {
+  const { data, error } = await supabase.rpc("ref_set_added_time", {
+    p_ref_token:       refToken,
+    p_period:          period,
+    p_minutes:         minutes,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] set_added_time failed", error); throw error; }
+  return data;
+}
+
+// Match-format config write — callable by a venue admin/staff token OR a super admin
+// (resolve_venue_caller handles both). league-tier of the layered match_format resolution.
+export async function updateLeagueConfig(token, leagueId, config) {
+  const { data, error } = await supabase.rpc("update_league_config", {
+    p_token:     token,
+    p_league_id: leagueId,
+    p_config:    config,
+  });
+  if (error) { console.error("[league] update_league_config failed", error); throw error; }
+  return data;
+}
+
 // Phase 11 Cycle 11.3 — read a competition's full single-elim bracket (rounds → ties,
 // scores, decider detail, champion). Public match data, keyed by competition_id; used by
 // the venue bracket/scheduling UI, the player bracket view, and the display board.
