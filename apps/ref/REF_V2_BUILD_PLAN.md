@@ -58,9 +58,18 @@ Two non-negotiables from the operator: **data flows must be unambiguous**, and t
 - **`league_config`** already has `match_duration_mins`, `has_halves`, `half_duration_mins`,
   `has_sin_bin`, `sin_bin_mins` — but read-only, unwired, and only models "halves".
 
-**The live gap:** ref RPCs broadcast to the two *team* channels, **not** to `venue_live`.
-So today a ref goal reaches the big screen only on its 60-second safety poll. Fix = make every
-ref write also broadcast to `venue_live`. The display already knows how to render the rest.
+**Live broadcast — already wired (verified against live DB).** mig 121 added
+`notify_venue_change` (→ `venue_live:<key>`, key from `venues.live_channel_key`, venue
+resolved via `_ref_venue_id_for_fixture`) to all seven ref RPCs, and mig 187 preserved it on
+full-time + the decider. So the reception display + venue dashboard **already light up on
+every existing ref event** — no retrofit. Remaining live work is only: (a) the NEW RPCs call
+the same `notify_venue_change` (+ two new reasons in its whitelist), and (b) `get_display_state`
+carries pause + added_time so the screen can render the freeze and "+3".
+
+**Out of scope (optional later):** the standalone league *web app* (apps/league) subscribes to
+no realtime channel — it's refresh-only. The live league table + Golden Boot that matter for the
+pilot already render on the reception display via `venue_live`, so the public live surface is
+covered; making apps/league itself live is a separate add.
 
 ---
 
@@ -104,11 +113,12 @@ ref write also broadcast to `venue_live`. The display already knows how to rende
 - `update_league_config(token, leagueId, config)` — UPSERT. Granted to **venue ops + super
   admin**. Validates the caller owns the league.
 
-### Retrofitted
-- **Add `venue_live` broadcast** to `ref_start_match`, `ref_record_goal`, `ref_record_card`,
-  `ref_record_substitution`, `ref_set_period`, `ref_undo_event`, `ref_confirm_full_time`
-  (and the new ones). Channel key derived from the fixture's venue. **This is the
-  "make it live, no room for error" item — verified end-to-end.**
+### Already live (no retrofit — confirmed in mig 121 + 187)
+- All seven existing ref RPCs already call `notify_venue_change` → `venue_live`. The new RPCs
+  reuse the same helper; add two new reasons (`match_clock_changed`, `match_added_time_changed`)
+  to its whitelist. (`note`/`sin_bin` are match_events → reuse the existing `match_event_recorded`.)
+
+### Extended (existing functions, additive)
 - **`superadmin_create_venue`** — first-league block also seeds a `league_config` row with the
   match-format fields.
 - **`get_fixture_state_by_ref_token`** — return resolved match-format config (league →
