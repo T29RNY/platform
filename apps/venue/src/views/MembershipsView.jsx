@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  venueListMembers, venueListMembershipTiers, venueListCustomersPeople,
+  venueListMembers, venueListMembershipTiers, venueListCustomersPeople, venueApproveCustomer,
   venueCreateMembershipTier, venueEnrolMembership, venueFreezeMembership, venueCancelMembership,
   venueCreateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
@@ -61,23 +61,59 @@ function MembersTab({ venueToken }) {
   const [enrolOpen, setEnrolOpen] = useState(false);
   const [freezeFor, setFreezeFor] = useState(null);
   const [cancelFor, setCancelFor] = useState(null);
+  const [pending, setPending] = useState([]);
+  const [approving, setApproving] = useState(null); // person id being acted on
+
+  const loadPending = () => venueListCustomersPeople(venueToken)
+    .then((r) => setPending((r || []).filter((p) => p.status === "pending")))
+    .catch(() => {});
 
   const reload = () => {
     venueListMembers(venueToken).then((rows) => setMembers(Array.isArray(rows) ? rows : [])).catch((e) => setError(e?.message || String(e)));
     venueMembershipSummary(venueToken).then(setSummary).catch(() => {});
+    loadPending();
   };
   useEffect(() => {
     let a = true;
     venueListMembers(venueToken).then((r) => { if (a) setMembers(r || []); }).catch((e) => { if (a) setError(e?.message || String(e)); });
     venueMembershipSummary(venueToken).then((s) => { if (a) setSummary(s); }).catch(() => {});
+    venueListCustomersPeople(venueToken).then((r) => { if (a) setPending((r || []).filter((p) => p.status === "pending")); }).catch(() => {});
     return () => { a = false; };
   }, [venueToken]);
+
+  const decide = async (person, approve) => {
+    setApproving(person.id);
+    try { await venueApproveCustomer(venueToken, person.id, approve); await loadPending(); }
+    catch (e) { setError(e?.message || String(e)); }
+    finally { setApproving(null); }
+  };
 
   const live = (members || []).filter((m) => m.status !== "cancelled");
   const dueSoon = live.filter((m) => m.due_soon).length;
 
   return (
     <div>
+      {pending.length > 0 && (
+        <div className="panel" style={{ marginBottom: "var(--gap-2)", padding: "var(--gap-2)", border: "1px solid var(--accent)", borderRadius: "var(--radius)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span className="pill pill-warn">{pending.length}</span>
+            <strong>Membership requests</strong>
+            <span className="text-mute" style={{ fontSize: 12 }}>— self-signups from your QR, awaiting approval</span>
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {pending.map((p) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="cu-name">{fullName(p) || "—"}</div>
+                  <div className="cu-sub">{[p.email, p.phone].filter(Boolean).join(" · ") || "No contact given"}</div>
+                </div>
+                <button className="btn btn-xs btn-ghost" disabled={approving === p.id} onClick={() => decide(p, false)}><Icon name="x" size={13} /> Reject</button>
+                <button className="btn btn-xs btn-primary" disabled={approving === p.id} onClick={() => decide(p, true)}><Icon name="check" size={13} /> Approve</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {summary && (
         <div className="customers-grid" style={{ marginBottom: "var(--gap-2)" }}>
           <div className="customer-card"><div className="cu-stat-label">Active members</div><div className="cu-stat-value" style={{ fontSize: 26 }}>{summary.active ?? 0}</div></div>

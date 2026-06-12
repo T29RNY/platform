@@ -3046,6 +3046,27 @@ export async function memberCheckIn(displayToken, passToken) {
   return data;
 }
 
+// Member self-signup (Phase 5, mig 275) — PUBLIC. A prospective member on the
+// venue's /q/<code> landing taps "Join as a member"; this creates a `pending`
+// venue_customers person the venue then approves. Idempotent on email. Returns
+// {ok, already_registered, status} or {ok:false, reason}.
+export async function memberSelfSignup(code, { firstName, lastName = null, email = null, phone = null, consentMarketing = false }) {
+  const { data, error } = await supabase.rpc("member_self_signup", {
+    p_code: code, p_first_name: firstName, p_last_name: lastName,
+    p_email: email, p_phone: phone, p_consent_marketing: consentMarketing,
+  });
+  if (error) { console.error("[membership] member_self_signup failed", error); throw error; }
+  return data;
+}
+
+// Venue approve/reject a pending self-signup person (Phase 5, mig 275) — gated
+// manage_memberships. p_approve=true → active, false → archived. Returns {ok, status}.
+export async function venueApproveCustomer(venueToken, customerId, approve = true) {
+  const { data, error } = await supabase.rpc("venue_approve_customer", { p_venue_token: venueToken, p_customer_id: customerId, p_approve: approve });
+  if (error) { console.error("[membership] venue_approve_customer failed", error); throw error; }
+  return data;
+}
+
 // ── Membership Phase 6 — partner perks + reporting (mig 273) ──
 export async function venueCreatePartner(venueToken, name, contact = null) {
   const { data, error } = await supabase.rpc("venue_create_partner", { p_venue_token: venueToken, p_name: name, p_contact: contact });

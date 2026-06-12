@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import {
-  getVenueLanding, joinRegisterTeam, redeemInviteLink,
+  getVenueLanding, joinRegisterTeam, redeemInviteLink, memberSelfSignup,
 } from "@platform/core/storage/supabase.js";
 import useRequireAuth from "../hooks/useRequireAuth.js";
 import AuthGateModal from "../components/AuthGateModal.jsx";
@@ -48,6 +48,8 @@ function Styles() {
       .vl-row { display: flex; gap: 8px; margin-top: 12px; }
       .vl-row .vl-cta { flex: 1; }
       .vl-ghost { background: transparent; color: var(--t2); border: 1px solid rgba(255,255,255,0.14); }
+      .vl-consent { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0 0; color: var(--t2); font-size: 13px; line-height: 1.4; cursor: pointer; }
+      .vl-consent input { margin-top: 2px; }
     `}</style>
   );
 }
@@ -99,10 +101,59 @@ function RegisterForm({ comp, onDone, onCancel, inviteCode }) {
   );
 }
 
+function MemberSignupForm({ code, onDone }) {
+  const [f, setF]         = useState({ first: "", last: "", email: "", phone: "", consent: false });
+  const [busy, setBusy]   = useState(false);
+  const [error, setError] = useState(null);
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+
+  const submit = async () => {
+    if (!f.first.trim()) { setError("Your first name is required."); return; }
+    setBusy(true); setError(null);
+    try {
+      const r = await memberSelfSignup(code, {
+        firstName: f.first.trim(), lastName: f.last.trim() || null,
+        email: f.email.trim() || null, phone: f.phone.trim() || null,
+        consentMarketing: f.consent,
+      });
+      if (!r?.ok) {
+        setError(r?.reason === "first_name_required" ? "Your first name is required." : "Couldn't submit your request. Please try again.");
+        return;
+      }
+      onDone(r.already_registered ? (r.status === "active" ? "member" : "pending") : "new");
+    } catch (e) {
+      console.error("[membership] self-signup failed", e);
+      setError("Couldn't submit your request. Please try again.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <>
+      <label className="vl-field-label">First name</label>
+      <input className="vl-input" value={f.first} onChange={set("first")} placeholder="Your first name" maxLength={80} />
+      <label className="vl-field-label">Last name (optional)</label>
+      <input className="vl-input" value={f.last} onChange={set("last")} placeholder="Your last name" maxLength={80} />
+      <label className="vl-field-label">Email (optional)</label>
+      <input className="vl-input" type="email" value={f.email} onChange={set("email")} placeholder="you@example.com" maxLength={160} />
+      <label className="vl-field-label">Phone (optional)</label>
+      <input className="vl-input" type="tel" value={f.phone} onChange={set("phone")} placeholder="07…" maxLength={30} />
+      <label className="vl-consent">
+        <input type="checkbox" checked={f.consent} onChange={(e) => setF((p) => ({ ...p, consent: e.target.checked }))} />
+        <span>Keep me updated about membership offers and events.</span>
+      </label>
+      {error && <p className="vl-msg--err">{error}</p>}
+      <button className="vl-cta" onClick={submit} disabled={busy} style={{ marginTop: 12 }}>
+        {busy ? "Submitting…" : "Request membership"}
+      </button>
+    </>
+  );
+}
+
 export default function VenueLanding({ venueId, code }) {
   const [state, setState]   = useState({ phase: "loading" });
   const [openComp, setOpenComp] = useState(null);   // competition_id with the form open
   const [doneComp, setDoneComp] = useState(null);   // competition_id just submitted
+  const [memberPhase, setMemberPhase] = useState("idle"); // idle | open | new | pending | member
   const { requireAuth, gateProps } = useRequireAuth();
 
   useEffect(() => {
@@ -177,6 +228,23 @@ export default function VenueLanding({ venueId, code }) {
             )}
           </div>
         ))}
+
+        {/* Become a member — self-signup → pending venue approval (mig 275) */}
+        <div className="vl-comp">
+          <h2 className="vl-comp-name">Become a member</h2>
+          <p className="vl-comp-sub">Join {venue.name} and unlock member perks.</p>
+          {memberPhase === "new" ? (
+            <p className="vl-msg vl-msg--ok">Thanks! The venue will review your request and confirm your membership.</p>
+          ) : memberPhase === "pending" ? (
+            <p className="vl-msg vl-msg--ok">You're already on the list — the venue will confirm your place shortly.</p>
+          ) : memberPhase === "member" ? (
+            <p className="vl-msg vl-msg--ok">You're already a member here. See reception if you need your pass.</p>
+          ) : memberPhase === "open" ? (
+            <MemberSignupForm code={code} onDone={(outcome) => setMemberPhase(outcome)} />
+          ) : (
+            <button className="vl-cta" onClick={() => setMemberPhase("open")}>Join as a member</button>
+          )}
+        </div>
       </div>
       <AuthGateModal {...gateProps} />
     </div>

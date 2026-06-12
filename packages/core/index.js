@@ -157,6 +157,8 @@ export {
   venueListFeePlans,
   getMemberPass,
   memberCheckIn,
+  memberSelfSignup,
+  venueApproveCustomer,
   venueCreatePartner,
   venueCreateOffer,
   venueSetOfferActive,
