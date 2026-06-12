@@ -2935,6 +2935,99 @@ export async function venueEraseCustomer(venueToken, customerId) {
   return data;
 }
 
+// ── Membership Phase 3 — tiers, pricing, enrolment, freeze, fees (mig 271) ──
+// Tiers + per-cadence prices. prices = [{period:'monthly'|'quarterly'|'annual', price_pence}]
+export async function venueCreateMembershipTier(venueToken, name, benefits = {}, prices = []) {
+  const { data, error } = await supabase.rpc("venue_create_membership_tier", {
+    p_venue_token: venueToken, p_name: name, p_benefits: benefits, p_prices: prices,
+  });
+  if (error) { console.error("[membership] venue_create_membership_tier failed", error); throw error; }
+  return data;
+}
+
+export async function venueUpdateMembershipTier(venueToken, tierId, { name = null, benefits = null, active = null, prices = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_update_membership_tier", {
+    p_venue_token: venueToken, p_tier_id: tierId, p_name: name, p_benefits: benefits,
+    p_active: active, p_prices: prices,
+  });
+  if (error) { console.error("[membership] venue_update_membership_tier failed", error); throw error; }
+  return data;
+}
+
+export async function venueListMembershipTiers(venueToken, includeInactive = false) {
+  const { data, error } = await supabase.rpc("venue_list_membership_tiers", {
+    p_venue_token: venueToken, p_include_inactive: includeInactive,
+  });
+  if (error) { console.error("[membership] venue_list_membership_tiers failed", error); throw error; }
+  return data?.tiers ?? [];
+}
+
+// Enrol a person (gated). period ∈ monthly|quarterly|annual. Throws 'already_member',
+// 'price_not_set', 'customer_not_found', 'tier_not_found'. Mints the first charge.
+export async function venueEnrolMembership(venueToken, customerId, tierId, period) {
+  const { data, error } = await supabase.rpc("venue_enrol_membership", {
+    p_venue_token: venueToken, p_customer_id: customerId, p_tier_id: tierId, p_period: period,
+  });
+  if (error) { console.error("[membership] venue_enrol_membership failed", error); throw error; }
+  return data;
+}
+
+// Freeze (pause, no charge while frozen; renews_at pushed out). until = ISO date.
+export async function venueFreezeMembership(venueToken, membershipId, until) {
+  const { data, error } = await supabase.rpc("venue_freeze_membership", {
+    p_venue_token: venueToken, p_membership_id: membershipId, p_until: until,
+  });
+  if (error) { console.error("[membership] venue_freeze_membership failed", error); throw error; }
+  return data;
+}
+
+// Cancel — immediate=true ends now; false = end-of-period (status 'ending').
+export async function venueCancelMembership(venueToken, membershipId, immediate = false) {
+  const { data, error } = await supabase.rpc("venue_cancel_membership", {
+    p_venue_token: venueToken, p_membership_id: membershipId, p_immediate: immediate,
+  });
+  if (error) { console.error("[membership] venue_cancel_membership failed", error); throw error; }
+  return data;
+}
+
+export async function venueListMembers(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_members", { p_venue_token: venueToken });
+  if (error) { console.error("[membership] venue_list_members failed", error); throw error; }
+  return data?.members ?? [];
+}
+
+// Fees (team/booker level). plan period also allows 'weekly'.
+export async function venueCreateFeePlan(venueToken, name, amountPence, period, sport = null) {
+  const { data, error } = await supabase.rpc("venue_create_fee_plan", {
+    p_venue_token: venueToken, p_name: name, p_amount_pence: amountPence, p_period: period, p_sport: sport,
+  });
+  if (error) { console.error("[membership] venue_create_fee_plan failed", error); throw error; }
+  return data;
+}
+
+// Enrol a booker (memberKey = team id or booked-by name; teamId set when a team).
+export async function venueEnrolFee(venueToken, planId, memberKey, teamId = null) {
+  const { data, error } = await supabase.rpc("venue_enrol_fee", {
+    p_venue_token: venueToken, p_plan_id: planId, p_member_key: memberKey, p_team_id: teamId,
+  });
+  if (error) { console.error("[membership] venue_enrol_fee failed", error); throw error; }
+  return data;
+}
+
+export async function venueCancelFee(venueToken, subscriptionId) {
+  const { data, error } = await supabase.rpc("venue_cancel_fee", {
+    p_venue_token: venueToken, p_subscription_id: subscriptionId,
+  });
+  if (error) { console.error("[membership] venue_cancel_fee failed", error); throw error; }
+  return data;
+}
+
+export async function venueListFeePlans(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_fee_plans", { p_venue_token: venueToken });
+  if (error) { console.error("[membership] venue_list_fee_plans failed", error); throw error; }
+  return data?.fee_plans ?? [];
+}
+
 export async function cancelBookingSeries(seriesId, venueToken = null) {
   const { data, error } = await supabase.rpc("cancel_booking_series", { p_series_id: seriesId, p_venue_token: venueToken });
   if (error) { console.error("[booking] cancel_booking_series failed", error); throw error; }

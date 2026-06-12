@@ -199,6 +199,13 @@ module.exports = async function handler(req, res) {
     results.push(`renewalHolds: error — ${e.message}`);
   }
 
+  // ── Membership/fee renewals (09:00 UK daily) ──────────────────────────────
+  try {
+    await membershipRenewalsJob(results);
+  } catch (e) {
+    results.push(`membershipRenewals: error — ${e.message}`);
+  }
+
   // ── Superseded-booking displacement push (every tick) ─────────────────────
   try {
     await supersededPushJob(base, results);
@@ -641,6 +648,24 @@ async function renewalHoldsJob(base, results) {
         { title: "Renewal hold lapsed", body: "Your renewal hold lapsed — the slot has reopened." });
     }
     results.push(`renewalExpire: ${(exp?.expired || []).length} expired`);
+  }
+}
+
+// ── Membership/fee renewals (Membership Phase 3, mig 271) ────────────────────
+// 09:00 UK daily. One server-side pass: reactivates lapsed freezes, flips
+// end-of-period cancellations to cancelled, and mints the next venue_charge for
+// every due membership + fee subscription (idempotent — charges encode the period
+// in source_id, so re-running the same day is a no-op). All logic in the
+// service_role-only RPC; this is just the thin scheduler, like renewalHoldsJob.
+async function membershipRenewalsJob(results) {
+  const uk = nowInUkParts();
+  if (uk.hours !== 9 || uk.minutes >= 15) { results.push("membershipRenewals: not 9am window"); return; }
+
+  const { data, error } = await supabase.rpc("run_membership_renewals");
+  if (error) {
+    results.push(`membershipRenewals: error — ${error.message}`);
+  } else {
+    results.push(`membershipRenewals: ${data?.minted ?? 0} charged, ${data?.reactivated ?? 0} reactivated, ${data?.ended ?? 0} ended`);
   }
 }
 

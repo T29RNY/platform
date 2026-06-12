@@ -564,6 +564,36 @@ The venue domain's first **person** entity (before this, customers were
   `venue_erase_customer` (writes, gated `manage_memberships`) +
   `venue_list_customers_people` (read, any member). See RPCS.md.
 
+### Membership & fee core (mig 271, Phase 3) — manual billing
+
+Billing reuses `venue_charges` (source_type CHECK extended to add `'fee'`,
+`'membership'`); manual payment stays via `venue_record_payment`. One charge per
+cycle: the renewal mint encodes the period in `source_id` (`<id>:<period_date>`)
+so the `venue_charges` uniqueness `(source_type, source_id, COALESCE(team_id,''))`
+makes renewals idempotent.
+
+- `venue_membership_tiers` — `venue_id`, `name`, `benefits jsonb`
+  ({discount_pct, included_sessions, priority_booking, equipment_included,
+  sports_included[]}), `active`. **Venue ops builds these themselves.**
+- `venue_tier_prices` — `tier_id`, `period` (monthly|quarterly|annual),
+  `price_pence`, `active`. UNIQUE(tier_id, period) — per-cadence pricing.
+- `venue_memberships` — `venue_id`, `customer_id`→venue_customers, `tier_id`,
+  `period`, `amount_pence` (snapshot at enrol = fair rate hold), `status`
+  (active|paused|ending|cancelled), `started_at`, `renews_at` (next charge),
+  `frozen_until`, `cancel_at`. Partial UNIQUE `(customer_id) WHERE status IN
+  (active,paused,ending)` — one live membership per person.
+- `venue_fee_plans` — `venue_id`, `name`, `amount_pence`, `period`
+  (weekly|monthly|quarterly|annual), `sport`, `active`. Team/booker-level.
+- `venue_fee_subscriptions` — `venue_id`, `plan_id`, `member_key` (team id OR
+  booked_by_name), `team_id`→teams (set when a team), `status`, `started_at`,
+  `next_charge_at`, `cancel_at`.
+- Helper `_membership_period_interval(text)→interval` (IMMUTABLE).
+- `run_membership_renewals()` — **service_role only** (cron). Reactivates lapsed
+  freezes, flips end-of-period cancels to `cancelled`, mints the next charge for
+  due memberships + fee subscriptions, advances dates. Driven by
+  `apps/inorout/api/cron.js membershipRenewalsJob` (09:00 UK). Freeze: `status`
+  paused + `renews_at` pushed by the freeze length (frozen window never billed).
+
 ## PITCH BOOKING TABLES (migration 133+)
 
 Casual pitch booking + the unified occupancy guard. Booking session owns
