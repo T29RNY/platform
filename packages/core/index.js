@@ -64,6 +64,7 @@ export {
   hqResolveIncident,
   hqGetAnalytics,
   hqGetUtilisation,
+  hqGetMembershipRollup,
   hqSetDashboardConfig,
   hqGetActivity,
   hqGeneratePreviewToken,

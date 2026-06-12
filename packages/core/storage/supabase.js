@@ -2193,6 +2193,19 @@ export async function hqGetUtilisation(companyId, dateFrom = null, dateTo = null
   return data;
 }
 
+// Membership health rolled up across the company's venues (Phase 6, mig 278).
+// Returns {ok, venues:[{venue_id, venue_name, region, active, paused, ending,
+// due_soon, mrr_pence, cancelled_30d, pending_requests}], total:{…}}.
+export async function hqGetMembershipRollup(companyId) {
+  if (!companyId) return null;
+  const { data, error } = await supabase.rpc("hq_get_membership_rollup", { p_company_id: companyId });
+  if (error) {
+    console.error("[hq] get_membership_rollup failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function hqSetDashboardConfig(companyId, config) {
   const { data, error } = await supabase.rpc("hq_set_dashboard_config", {
     p_company_id: companyId,

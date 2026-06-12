@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { hqGetAnalytics, hqGetUtilisation, hqSetDashboardConfig } from "@platform/core/storage/supabase.js";
+import { hqGetAnalytics, hqGetUtilisation, hqGetMembershipRollup, hqSetDashboardConfig } from "@platform/core/storage/supabase.js";
 
-const ALL_CARDS = ["overview", "venue_comparison", "top_scorers", "discipline", "incidents", "billing", "utilisation", "revenue"];
+const ALL_CARDS = ["overview", "venue_comparison", "top_scorers", "discipline", "incidents", "billing", "utilisation", "revenue", "memberships"];
 const CARD_TITLES = {
   overview: "Overview",
   venue_comparison: "Venue comparison",
@@ -11,10 +11,11 @@ const CARD_TITLES = {
   billing: "Billing",
   utilisation: "Utilisation",
   revenue: "Revenue",
+  memberships: "Memberships",
 };
 const PRESETS = {
   operations: ["overview", "venue_comparison", "incidents"],
-  commercial: ["overview", "revenue", "billing", "venue_comparison"],
+  commercial: ["overview", "revenue", "memberships", "billing", "venue_comparison"],
   performance: ["overview", "top_scorers", "discipline"],
 };
 const DEFAULT_PRESET = "operations";
@@ -22,6 +23,7 @@ const DEFAULT_PRESET = "operations";
 export default function AnalyticsView({ companyId }) {
   const [data, setData] = useState(null);
   const [util, setUtil] = useState(null);
+  const [mem, setMem] = useState(null);
   const [err, setErr] = useState(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState([]);
@@ -46,6 +48,8 @@ export default function AnalyticsView({ companyId }) {
     (async () => {
       try { const u = await hqGetUtilisation(companyId); if (!cancelled) setUtil(u); }
       catch (e) { console.error("[hq] utilisation load failed", e); }
+      try { const m = await hqGetMembershipRollup(companyId); if (!cancelled) setMem(m); }
+      catch (e) { console.error("[hq] membership rollup load failed", e); }
     })();
     return () => { cancelled = true; };
   }, [companyId]);
@@ -130,14 +134,14 @@ export default function AnalyticsView({ companyId }) {
             </div>
           )}
           <h3>{CARD_TITLES[key] || key}</h3>
-          <CardBody cardKey={key} a={a} util={util} />
+          <CardBody cardKey={key} a={a} util={util} mem={mem} />
         </div>
       ))}
     </div>
   );
 }
 
-function CardBody({ cardKey, a, util }) {
+function CardBody({ cardKey, a, util, mem }) {
   if (cardKey === "overview") return <Overview o={a.overview || {}} />;
   if (cardKey === "venue_comparison") return <VenueComparison rows={a.venue_comparison || []} />;
   if (cardKey === "top_scorers") return <TopScorers rows={a.top_scorers || []} />;
@@ -146,7 +150,47 @@ function CardBody({ cardKey, a, util }) {
   if (cardKey === "billing") return <Billing b={a.billing || {}} />;
   if (cardKey === "utilisation") return <UtilCard u={util} />;
   if (cardKey === "revenue") return <Revenue r={a.revenue || {}} />;
+  if (cardKey === "memberships") return <Memberships m={mem} />;
   return null;
+}
+
+function Memberships({ m }) {
+  if (!m) return <div className="empty">Loading memberships…</div>;
+  const t = m.total || {};
+  const rows = m.venues || [];
+  return (
+    <>
+      <div className="chips">
+        {Chip(t.active, "Active members")}
+        {Chip(gbp(t.mrr_pence), "MRR")}
+        {Chip(t.due_soon, "Renewing ≤7d")}
+        {Chip(t.paused, "Frozen")}
+        {Chip(t.pending_requests, "Pending requests")}
+        {Chip(t.cancelled_30d, "Cancelled 30d")}
+      </div>
+      {rows.length === 0 ? (
+        <div className="empty">No memberships yet.</div>
+      ) : (
+        <table className="atable">
+          <thead><tr><th>Venue</th><th>Region</th><th>Active</th><th>MRR</th><th>Renewing</th><th>Frozen</th><th>Pending</th><th>Cancelled 30d</th></tr></thead>
+          <tbody>
+            {rows.map((v) => (
+              <tr key={v.venue_id}>
+                <td>{v.venue_name}</td>
+                <td className="muted">{v.region || "—"}</td>
+                <td className="num">{v.active}</td>
+                <td className="num">{gbp(v.mrr_pence)}</td>
+                <td className="num">{v.due_soon}</td>
+                <td className="num">{v.paused}</td>
+                <td className="num">{v.pending_requests}</td>
+                <td className="num">{v.cancelled_30d}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
 }
 
 // pence -> £; whole pounds when exact, else 2dp
