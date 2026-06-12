@@ -25,6 +25,19 @@ SECURITY DEFINER RPCs — no direct client writes permitted.
 
 ---
 
+> **Session 87 (Ref V2 — RefSix-killer) — schema changes (migs 261–263):**
+> - `fixtures`: `clock_paused_at timestamptz`, `clock_paused_ms bigint DEFAULT 0`,
+>   `added_time jsonb DEFAULT '{}'` (stoppage minutes per period, e.g. `{"1H":2}`),
+>   `format_override jsonb NULL` (mig 261). Per-fixture pausable clock + persisted stoppage +
+>   timing override. Clock model: `elapsed = now − actual_kickoff_at − clock_paused_ms −
+>   (clock_paused_at ? now − clock_paused_at : 0)`. Pause is per-fixture (one match freezes, others run).
+> - `match_events`: `note_text text`, `duration integer` (mig 262) — for `note` and `sin_bin`
+>   events. `event_type`/`period` stay OPEN TEXT (sport-extensible; new values `note`, `sin_bin`,
+>   `clock_pause`, `clock_resume` — no constraint change).
+> - `league_config`: `num_periods integer`, `period_length_mins integer`, `period_names text[]`
+>   (mig 263) — generalises the legacy `has_halves` (kept for back-compat) to single/halves/quarters;
+>   back-filled from `has_halves` so existing leagues are behaviour-identical.
+
 ## RLS ARCHITECTURE
 
 - Row Level Security enabled on all 19 tables

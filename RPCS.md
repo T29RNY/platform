@@ -248,8 +248,20 @@ ref OAuth without re-grant.
 | `ref_set_period` | `refSetPeriod(refToken, period, clientEventId, localTimestamp?)` | Migration 120. `period ∈ {HT,2H,ET1,ET2,PEN}`. Inserts a `period_change` event. Idempotent. |
 | `ref_undo_event` | `refUndoEvent(refToken, clientEventId)` | Migration 120. DELETEs the `match_events` row by `client_event_id`. Idempotent (missing row treated as no-op). Server requires `status='in_progress'`; the 30-sec undo window is client-enforced. |
 | `ref_confirm_full_time` | `refConfirmFullTime(refToken)` | Migration 120. Materialises `home_score`/`away_score` from match_events (goals(home)+own_goals(away), mirror). Transitions `status → completed`. Broadcasts `match_result_saved`. Standings recompute on-read via `get_league_standings_for_player` — no separate cascade RPC. |
+| `ref_set_clock` | `refSetClock(refToken, action, clientEventId, localTimestamp?)` | **Mig 264 (Ref V2).** `action ∈ {pause,resume}` — pauses/resumes the per-fixture clock. Records a `clock_pause`/`clock_resume` match_event for the idempotency key, then mutates `fixtures.clock_paused_at/_ms` only on a FRESH insert + state guard (can't pause-while-paused) → a re-drained [pause,resume] pair can't inflate paused time. Offline-safe (uses the client timestamp). Broadcasts `venue_live` only (no clock on the team tab). |
+| `ref_record_note` | `refRecordNote(refToken, {text, playerId?, minute, period, clientEventId, localTimestamp?})` | **Mig 264 (Ref V2).** Free-text incident note → `match_events(event_type='note', note_text)`, optionally attributed to a player. Idempotent. Team+venue broadcast. |
+| `ref_record_sin_bin` | `refRecordSinBin(refToken, {playerId, minute, period, durationMin, clientEventId, localTimestamp?})` | **Mig 264 (Ref V2).** Temporary dismissal → `match_events(event_type='sin_bin', duration)`. Player resolved via `player_registrations`. Idempotent. Team+venue broadcast. |
+| `ref_set_added_time` | `refSetAddedTime(refToken, {period, minutes, clientEventId, localTimestamp?})` | **Mig 264 (Ref V2).** Absolute set of `fixtures.added_time[period] = minutes` (idempotent on replay). Renders "45 +N" on reception/venue. Venue broadcast. |
 
-**All seven `ref_*` write RPCs**: SECURITY DEFINER, search_path locked,
+**Ref V2 (mig 264–265):** the **eleven** `ref_*` write RPCs (above) + the read RPC now also carry the
+new design. `get_fixture_state_by_ref_token` (mig 265) gained resolved `match_format`
+(league_config → competitions.config.match_format → fixtures.format_override, with `is_overridden`),
+`fixture.clock_paused_at/_ms/added_time/format_override`, `note_text`/`duration` on events, and
+**RESTORED `actual_kickoff_at`** (mig 160 dropped it — see BUGS.md session 87). **Consumers (hard-rule #14):**
+`get_fixture_state_by_ref_token` → apps/ref (rebuilt, Ref V2); the new write RPCs → apps/ref;
+all broadcast `venue_live` → apps/display + apps/venue (which refetch on any ping).
+
+**All eleven `ref_*` write RPCs**: SECURITY DEFINER, search_path locked,
 EXECUTE granted to `anon + authenticated`. Token-gated via private
 helper `_ref_resolve_fixture` (anon/authenticated explicitly revoked —
 Supabase auto-grants every public function so a plain `REVOKE FROM

@@ -3,6 +3,20 @@
 
 ---
 
+## SESSION 87 — RESOLVED: ref live match clock broken (actual_kickoff_at dropped from RPC, mig 160)
+
+**Found during the Ref V2 build** (pulling the live `get_fixture_state_by_ref_token` body before
+extending it). mig 120 added `actual_kickoff_at` to the ref state RPC's returned `fixture` object;
+mig 160 (Cycle 5.6 lineup-aware rewrite) **silently dropped it** when it re-created the function.
+The deployed ref app's live clock derives from `fixture.actual_kickoff_at`
+([apps/ref/src/views/LiveMatch.jsx](apps/ref/src/views/LiveMatch.jsx) ~L94), so it has been reading
+`undefined` → a stuck/zeroed clock for every live match since mig 160 shipped.
+
+**Fix (mig 265).** Ref V2's `get_fixture_state_by_ref_token` extension restores `actual_kickoff_at`
+(plus adds `clock_paused_at/_ms`, `added_time`, `format_override`, resolved `match_format`).
+Data side is live; the **deployed ref app won't benefit until redeployed** — which happens as part of
+the Ref V2 re-skin (this epic). See GO_LIVE_ISSUES "Ref clock". Ephemeral-verified (mig 265).
+
 ## SESSION 82 — RESOLVED: "Paid" carried into the next game (stale per-game flag)
 
 **Incident (user-reported).** "My view shows me still as Paid, even though I've opted in for the

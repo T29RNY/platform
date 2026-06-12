@@ -1204,6 +1204,23 @@ with injected env like the casual app.
 
 ---
 
+## 14. LEAGUE — REF LIVE MATCH
+
+### 14.1 Ref live clock stuck/zeroed — actual_kickoff_at dropped from RPC (mig 160 → mig 265)
+
+**Issue.** The deployed ref app's live match clock derives from
+`fixture.actual_kickoff_at`, but mig 160 (Cycle 5.6) silently dropped that
+field from `get_fixture_state_by_ref_token`'s return — so the clock read
+`undefined` and showed 00:00 / stuck for every live match since. Fixed data-side
+in mig 265 (Ref V2), which restores the field; **the deployed ref app must be
+redeployed** (lands with the Ref V2 re-skin) before the fix is visible.
+
+**Pre-flight check.** On a real phone, open a ref link for an `in_progress`
+fixture and confirm the clock is counting up (MM:SS), not frozen at 00:00.
+Re-run after the Ref V2 redeploy. See BUGS.md session 87.
+
+---
+
 ## SCOPE OUT
 
 These known issues exist but are LOW priority with documented

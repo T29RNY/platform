@@ -6,6 +6,36 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Ref V2 — match-format config is layered, and the clock pause is per-match (session 87, "RefSix-killer")
+
+The referee tool is being rebuilt to make RefSix obsolete: the ref's thumb drives the whole venue
+(every tap is live on the reception display + venue dashboard within ~1s), faithful to the
+broadcast-dark artifact design (`apps/ref/REF_V2_BUILD_PLAN.md`). Two settled architecture calls:
+
+- **Match-format config is layered: league default → competition override → fixture/ref override.**
+  `league_config` holds the league's standing timing (num_periods / period_length / sin-bin); a
+  competition may override it (`competitions.config.match_format`, e.g. a cup with ET/pens); a single
+  fixture may override per-match (`fixtures.format_override`) — and that per-fixture override is
+  **flagged** (`is_overridden` in the resolved `match_format`) so venue/league see the ref deviated,
+  for fairness. `get_fixture_state_by_ref_token` returns the resolved answer; the ref clock counts
+  toward the period length and prompts half/full time. Built league-level now, competition tier
+  structured-in for later (futureproof, not built). The legacy `league_config.has_halves` is kept for
+  back-compat; `num_periods`/`period_length_mins`/`period_names` supersede it.
+
+- **The clock pause is PER-MATCH, not platform-wide.** `clock_paused_at`/`clock_paused_ms` live on the
+  individual fixture row, so pausing match X freezes only match X wherever it appears; every other
+  match keeps ticking. "Platform-wide" only ever meant the *elapsed formula* must be identical in the
+  ref app and the display (a shared helper) — never that one pause stops everything. Pause is
+  offline-safe: it records a `clock_pause`/`clock_resume` event for idempotency and uses the client
+  timestamp, so a queued pause reconstructs the exact frozen duration on drain.
+
+- **Multi-writer rule:** the ref **owns the match while `in_progress`** (all new RPCs guard on it); the
+  venue corrects the record only **after full time** (existing `venue_update_fixture_result`).
+
+- **Live fan-out scope:** reception display + venue dashboard are covered now (already on `venue_live`).
+  The **public league web app** (apps/league, refresh-only) being live too is parked as a fast-follow
+  after the pilot — the pilot-critical live surfaces are the big screen, already done.
+
 ## Equipment intelligence ships venue-dashboard-first; the Gaffer narrative + HQ benchmarking are deferred (session 86, Equipment Cycle 5)
 
 The equipment data-product tail (ROI-per-asset, usage, procurement signal) was
