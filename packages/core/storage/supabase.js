@@ -3958,3 +3958,55 @@ export async function memberListConsents() {
   if (error) { console.error("[member] member_list_consents failed", error); throw error; }
   return data;
 }
+
+// ── ID document upload (Phase 6) ─────────────────────────────────────────────
+
+export async function uploadMemberIdDoc(memberProfileId, file) {
+  const ext = file.name.split(".").pop().toLowerCase();
+  const path = `${memberProfileId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from("member-id-docs").upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
+  if (error) { console.error("[member] id doc upload failed", error); throw error; }
+  return path;
+}
+
+export async function getMemberIdDocUrl(storagePath) {
+  const { data, error } = await supabase.storage
+    .from("member-id-docs")
+    .createSignedUrl(storagePath, 3600);
+  if (error) { console.error("[member] id doc signed url failed", error); throw error; }
+  return data.signedUrl;
+}
+
+export async function memberSubmitIdDocument(clubId, documentType, storagePath) {
+  const { data, error } = await supabase.rpc("member_submit_id_document", {
+    p_club_id: clubId, p_document_type: documentType, p_storage_path: storagePath,
+  });
+  if (error) { console.error("[member] member_submit_id_document failed", error); throw error; }
+  return data;
+}
+
+export async function memberListIdDocuments() {
+  const { data, error } = await supabase.rpc("member_list_id_documents");
+  if (error) { console.error("[member] member_list_id_documents failed", error); throw error; }
+  return data;
+}
+
+export async function venueListIdSubmissions(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_id_submissions", {
+    p_venue_token: venueToken,
+  });
+  if (error) { console.error("[membership] venue_list_id_submissions failed", error); throw error; }
+  return data;
+}
+
+export async function venueVerifyIdDocument(venueToken, documentId, action, rejectionReason = null) {
+  const { data, error } = await supabase.rpc("venue_verify_id_document", {
+    p_venue_token: venueToken, p_document_id: documentId,
+    p_action: action, p_rejection_reason: rejectionReason,
+  });
+  if (error) { console.error("[membership] venue_verify_id_document failed", error); throw error; }
+  return data;
+}

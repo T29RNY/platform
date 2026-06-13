@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   venueListMembers, venueListMembershipTiers, venueListCustomersPeople, venueApproveCustomer, venueApproveAndEnrol,
   venueCreateMembershipTier, venueUpdateMembershipTier, venueEnrolMembership, venueFreezeMembership, venueCancelMembership,
@@ -6,6 +6,7 @@ import {
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
   venueCreatePolicyDocument, venuePublishPolicyVersion, venueListPolicyDocuments,
+  venueListIdSubmissions, venueVerifyIdDocument, getMemberIdDocUrl,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -104,7 +105,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["documents", "Documents"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["documents", "Documents"], ["iddocs", "ID docs"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -115,6 +116,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
       {tab === "club"       && <ClubTab venueToken={venueToken} />}
       {tab === "documents"  && <DocumentsTab venueToken={venueToken} />}
+      {tab === "iddocs"     && <IdDocsTab venueToken={venueToken} />}
     </div>
   );
 }
@@ -1355,6 +1357,206 @@ function DocumentsTab({ venueToken }) {
           <textarea className="input" rows={12} value={pubBody}
             onChange={(e) => setPubBody(e.target.value)} style={{ resize: "vertical", fontFamily: "inherit", fontSize: 13 }} />
           {pubErr && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{pubErr}</p>}
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── ID Docs ────────────────────────────────────────────────────────────────────
+// Verification tab: pending member ID document submissions across all clubs
+// linked to this venue. Venue admins view the doc and approve or reject.
+
+const DOC_TYPE_LABELS = {
+  passport: "Passport",
+  driving_licence: "Driving licence",
+  pass_card: "PASS card",
+  birth_certificate: "Birth certificate",
+};
+
+function IdDocsTab({ venueToken }) {
+  const [submissions, setSubmissions] = useState(null);
+  const [error,       setError]       = useState(null);
+  const [viewDoc,     setViewDoc]     = useState(null);  // submission being reviewed
+  const [docUrl,      setDocUrl]      = useState(null);  // signed URL for the doc
+  const [docUrlErr,   setDocUrlErr]   = useState(null);
+  const [rejectText,  setRejectText]  = useState("");
+  const [acting,      setActing]      = useState(false);
+  const [actErr,      setActErr]      = useState(null);
+  const isActingRef = useRef(false);
+
+  const load = () => venueListIdSubmissions(venueToken)
+    .then((r) => setSubmissions(r?.submissions ?? []))
+    .catch((e) => setError(e?.message || String(e)));
+
+  useEffect(() => { load(); }, [venueToken]);
+
+  const openDoc = async (sub) => {
+    setViewDoc(sub); setDocUrl(null); setDocUrlErr(null);
+    setRejectText(""); setActErr(null);
+    try {
+      const url = await getMemberIdDocUrl(sub.storage_path);
+      setDocUrl(url);
+    } catch (e) {
+      console.error("[id-docs] signed url failed", e);
+      setDocUrlErr("Could not load document — check you are signed in.");
+    }
+  };
+
+  const act = async (action) => {
+    if (isActingRef.current) return;
+    if (action === "reject" && !rejectText.trim()) { setActErr("Enter a rejection reason."); return; }
+    isActingRef.current = true;
+    setActing(true); setActErr(null);
+    try {
+      await venueVerifyIdDocument(venueToken, viewDoc.id, action, rejectText.trim() || null);
+      setViewDoc(null);
+      load();
+    } catch (e) {
+      console.error("[id-docs] verify failed", e);
+      setActErr(e?.message || "Something went wrong.");
+    } finally { setActing(false); isActingRef.current = false; }
+  };
+
+  const pending = (submissions || []).filter((s) => s.status === "pending");
+  const rest    = (submissions || []).filter((s) => s.status !== "pending");
+
+  const statusPill = (s) => {
+    if (s.status === "approved") return <span className="pill-ok" style={{ fontSize: 11 }}>Approved</span>;
+    if (s.status === "rejected") return <span className="pill-warn" style={{ fontSize: 11 }}>Rejected</span>;
+    return <span className="pill-info" style={{ fontSize: 11 }}>Pending</span>;
+  };
+
+  const subRow = (s) => (
+    <div key={s.id} className="customer-card" style={{ marginBottom: 8 }}>
+      <div className="cu-top">
+        <div className="cu-head-text">
+          <div className="cu-name">{[s.first_name, s.last_name].filter(Boolean).join(" ")}</div>
+          <div className="cu-sub">
+            {s.club_name} · {DOC_TYPE_LABELS[s.document_type] ?? s.document_type}
+            {" · "}Uploaded {new Date(s.uploaded_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {statusPill(s)}
+          <button
+            className="btn-secondary"
+            style={{ fontSize: 12, padding: "6px 12px" }}
+            onClick={() => openDoc(s)}
+          >
+            Review
+          </button>
+        </div>
+      </div>
+      {s.status === "rejected" && s.rejection_reason && (
+        <div style={{ fontSize: 12, color: "var(--live)", padding: "0 14px 10px" }}>
+          Reason: {s.rejection_reason}
+        </div>
+      )}
+    </div>
+  );
+
+  if (error) return <EmptyState title="Couldn't load submissions" body={error} />;
+  if (!submissions) return <p className="text-mute" style={{ fontSize: 13, padding: "var(--gap-2)" }}>Loading…</p>;
+
+  return (
+    <div>
+      {pending.length === 0 && rest.length === 0 && (
+        <EmptyState title="No ID submissions" body="Members will appear here once they upload a document." />
+      )}
+
+      {pending.length > 0 && (
+        <div style={{ marginBottom: "var(--gap-2)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "var(--text-mute, #888)", margin: "14px 0 8px" }}>
+            Awaiting review ({pending.length})
+          </div>
+          {pending.map(subRow)}
+        </div>
+      )}
+
+      {rest.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "var(--text-mute, #888)", margin: "14px 0 8px" }}>
+            Reviewed
+          </div>
+          {rest.map(subRow)}
+        </div>
+      )}
+
+      {viewDoc && (
+        <Modal onClose={() => setViewDoc(null)}>
+          <div style={{ padding: "20px 0 8px" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>
+              {[viewDoc.first_name, viewDoc.last_name].filter(Boolean).join(" ")}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-mute, #888)", marginBottom: 16 }}>
+              {viewDoc.club_name} · {DOC_TYPE_LABELS[viewDoc.document_type] ?? viewDoc.document_type}
+            </div>
+
+            {docUrlErr && (
+              <p style={{ fontSize: 13, color: "var(--live)", marginBottom: 16 }}>{docUrlErr}</p>
+            )}
+            {!docUrl && !docUrlErr && (
+              <p style={{ fontSize: 13, color: "var(--text-mute, #888)", marginBottom: 16 }}>Loading document…</p>
+            )}
+            {docUrl && (
+              <div style={{ marginBottom: 16, textAlign: "center" }}>
+                {viewDoc.storage_path.endsWith(".pdf") ? (
+                  <a href={docUrl} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: "var(--accent, #60A0FF)" }}>
+                    Open PDF document
+                  </a>
+                ) : (
+                  <img
+                    src={docUrl}
+                    alt="ID document"
+                    style={{ maxWidth: "100%", maxHeight: 320, borderRadius: "var(--r)", border: "1px solid var(--border)" }}
+                  />
+                )}
+              </div>
+            )}
+
+            {viewDoc.status === "pending" && (
+              <>
+                <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                  <button
+                    className="btn-primary"
+                    style={{ flex: 1 }}
+                    disabled={acting || !docUrl}
+                    onClick={() => act("approve")}
+                  >
+                    {acting ? "Saving…" : "Approve"}
+                  </button>
+                </div>
+                <textarea
+                  placeholder="Rejection reason (required to reject)"
+                  value={rejectText}
+                  onChange={(e) => setRejectText(e.target.value)}
+                  style={{
+                    width: "100%", minHeight: 64, padding: "8px 10px",
+                    borderRadius: "var(--r)", border: "1px solid var(--border)",
+                    background: "var(--b1)", color: "var(--t1)",
+                    fontSize: 13, fontFamily: "var(--font-body)", resize: "vertical",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  className="btn-secondary"
+                  style={{ width: "100%", marginTop: 8 }}
+                  disabled={acting || !rejectText.trim()}
+                  onClick={() => act("reject")}
+                >
+                  Reject
+                </button>
+                {actErr && <p style={{ fontSize: 12, color: "var(--live)", marginTop: 8 }}>{actErr}</p>}
+              </>
+            )}
+
+            {viewDoc.status !== "pending" && (
+              <div style={{ fontSize: 13, color: "var(--text-mute, #888)", textAlign: "center" }}>
+                {viewDoc.status === "approved" ? "This document has been approved." : `Rejected — ${viewDoc.rejection_reason}`}
+              </div>
+            )}
+          </div>
         </Modal>
       )}
     </div>

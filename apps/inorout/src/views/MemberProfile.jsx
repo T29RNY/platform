@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChild, memberUpdateChild,
-         memberGetPendingConsents, memberListConsents, memberAcceptConsent } from "@platform/core/storage/supabase.js";
+         memberGetPendingConsents, memberListConsents, memberAcceptConsent,
+         uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments } from "@platform/core/storage/supabase.js";
 
 // MemberProfile — the member's own account profile at /profile.
 // Authenticated gate is enforced by App.jsx before mounting.
@@ -48,6 +49,14 @@ export default function MemberProfile({ authUser }) {
   const [signingSaving,   setSigningSaving]   = useState(false);
   const isSigningRef = useRef(false);
 
+  const [idDocuments,    setIdDocuments]    = useState([]);   // member's own submissions
+  const [idUploadClub,   setIdUploadClub]   = useState(null); // club being uploaded for
+  const [idDocType,      setIdDocType]      = useState("passport");
+  const [idFile,         setIdFile]         = useState(null);
+  const [idUploading,    setIdUploading]    = useState(false);
+  const [idUploadError,  setIdUploadError]  = useState(null);
+  const isIdUploadingRef = useRef(false);
+
   useEffect(() => {
     let alive = true;
     Promise.all([
@@ -55,12 +64,14 @@ export default function MemberProfile({ authUser }) {
       memberListChildren(),
       memberGetPendingConsents().catch(() => null),
       memberListConsents().catch(() => null),
-    ]).then(([selfResult, childrenResult, pendingResult, signedResult]) => {
+      memberListIdDocuments().catch(() => null),
+    ]).then(([selfResult, childrenResult, pendingResult, signedResult, idDocsResult]) => {
       if (!alive) return;
       setProfile(selfResult?.found ? selfResult : null);
       setChildren(childrenResult?.children ?? []);
       setPendingConsents(pendingResult?.pending ?? []);
       setSignedConsents(signedResult?.consents ?? []);
+      setIdDocuments(idDocsResult?.documents ?? []);
     }).catch((e) => {
       console.error("[member-profile] load failed", e);
       if (alive) setProfile(null);
@@ -635,6 +646,120 @@ export default function MemberProfile({ authUser }) {
               )
             )}
           </div>
+        )}
+
+        {/* ── ID & age verification ────────────────────────────────── */}
+        {profile?.id_mandate_clubs?.length > 0 && !editing && (
+          <Section title="ID & age verification">
+            {profile.id_mandate_clubs.map((club) => {
+              const latestDoc = idDocuments.find((d) => d.club_id === club.club_id);
+              const isApproved = latestDoc?.status === "approved";
+              const isPending  = latestDoc?.status === "pending";
+              const isRejected = latestDoc?.status === "rejected";
+              const uploadingThis = idUploadClub === club.club_id && idUploading;
+
+              return (
+                <div key={club.club_id} style={{
+                  padding: "12px 14px",
+                  borderBottom: "1px solid var(--border-subtle)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{club.club_name}</div>
+                    {isApproved && (
+                      <span style={{ fontSize: 12, color: "var(--green, #4caf50)", fontWeight: 600 }}>✓ Verified</span>
+                    )}
+                    {isPending && (
+                      <span style={{ fontSize: 12, color: "var(--t2)" }}>Pending review</span>
+                    )}
+                    {isRejected && (
+                      <span style={{ fontSize: 12, color: "var(--red, #f44336)" }}>Rejected</span>
+                    )}
+                  </div>
+
+                  {isRejected && latestDoc.rejection_reason && (
+                    <div style={{ fontSize: 12, color: "var(--red, #f44336)", marginBottom: 8 }}>
+                      {latestDoc.rejection_reason}
+                    </div>
+                  )}
+
+                  {!isApproved && !isPending && (
+                    <div style={{ fontSize: 12, color: "var(--t2)", marginBottom: 10 }}>
+                      {isRejected ? "Please upload a new document." : "Upload a photo or scan of your ID to complete registration."}
+                    </div>
+                  )}
+
+                  {!isApproved && !isPending && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <select
+                        value={idUploadClub === club.club_id ? idDocType : "passport"}
+                        onChange={(e) => { setIdUploadClub(club.club_id); setIdDocType(e.target.value); }}
+                        style={{
+                          padding: "8px 10px", borderRadius: "var(--r)",
+                          border: "1px solid var(--border)", background: "var(--b1)",
+                          color: "var(--t1)", fontSize: 13, fontFamily: "var(--font-body)",
+                        }}
+                      >
+                        <option value="passport">Passport</option>
+                        <option value="driving_licence">Driving licence</option>
+                        <option value="pass_card">PASS card</option>
+                        <option value="birth_certificate">Birth certificate</option>
+                      </select>
+
+                      <label style={{
+                        display: "block", padding: "10px 14px", textAlign: "center",
+                        border: "1px dashed var(--border)", borderRadius: "var(--r)",
+                        fontSize: 13, color: "var(--t2)", cursor: "pointer",
+                      }}>
+                        {idUploadClub === club.club_id && idFile
+                          ? idFile.name
+                          : "Choose file (JPG, PNG, PDF — max 10 MB)"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            setIdUploadClub(club.club_id);
+                            setIdFile(e.target.files[0] ?? null);
+                            setIdUploadError(null);
+                          }}
+                        />
+                      </label>
+
+                      {idUploadError && idUploadClub === club.club_id && (
+                        <div style={{ fontSize: 12, color: "var(--red, #f44336)" }}>{idUploadError}</div>
+                      )}
+
+                      <button
+                        disabled={uploadingThis || idUploadClub !== club.club_id || !idFile}
+                        onClick={async () => {
+                          if (isIdUploadingRef.current) return;
+                          if (!idFile) return;
+                          isIdUploadingRef.current = true;
+                          setIdUploading(true); setIdUploadError(null);
+                          try {
+                            const path = await uploadMemberIdDoc(profile.id, idFile);
+                            await memberSubmitIdDocument(club.club_id, idDocType, path);
+                            const result = await memberListIdDocuments();
+                            setIdDocuments(result?.documents ?? []);
+                            setIdFile(null); setIdUploadClub(null);
+                          } catch (e) {
+                            console.error("[member-profile] id upload failed", e);
+                            setIdUploadError("Upload failed — please try again.");
+                          } finally { setIdUploading(false); isIdUploadingRef.current = false; }
+                        }}
+                        style={btnStyle(
+                          idUploadClub === club.club_id && idFile ? "var(--amber)" : "var(--border)",
+                          "var(--black)", true
+                        )}
+                      >
+                        {uploadingThis ? "Uploading…" : "Submit document"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </Section>
         )}
 
         {/* ── Consents ─────────────────────────────────────────────── */}
