@@ -4166,3 +4166,66 @@ export async function memberGetSessionRsvpBoard(sessionId) {
   if (error) { console.error("[member] member_get_session_rsvp_board failed", error); throw error; }
   return data;
 }
+
+export async function clubManagerCreateSession(teamId, {
+  title, scheduledAt, sessionType = 'training',
+  location = null, notes = null, capacity = null,
+  meetTime = null, opponentName = null, homeAway = null,
+  opponentVenueName = null, opponentAddress = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("club_manager_create_session", {
+    p_team_id: teamId, p_title: title, p_scheduled_at: scheduledAt,
+    p_session_type: sessionType, p_location: location, p_notes: notes,
+    p_capacity: capacity, p_meet_time: meetTime, p_opponent_name: opponentName,
+    p_home_away: homeAway, p_opponent_venue_name: opponentVenueName,
+    p_opponent_address: opponentAddress,
+  });
+  if (error) { console.error("[club-manager] club_manager_create_session failed", error); throw error; }
+  return data;
+}
+
+export async function clubManagerCreateSessionSeries(teamId, {
+  title, dayOfWeek, startTime, fromDate, toDate,
+  sessionType = 'training', location = null, notes = null, capacity = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("club_manager_create_session_series", {
+    p_team_id: teamId, p_title: title, p_day_of_week: dayOfWeek,
+    p_start_time: startTime, p_from_date: fromDate, p_to_date: toDate,
+    p_session_type: sessionType, p_location: location, p_notes: notes,
+    p_capacity: capacity,
+  });
+  if (error) { console.error("[club-manager] club_manager_create_session_series failed", error); throw error; }
+  return data;
+}
+
+export async function clubManagerCancelSession(sessionId, reason = null) {
+  const { data, error } = await supabase.rpc("club_manager_cancel_session", {
+    p_session_id: sessionId, p_reason: reason,
+  });
+  if (error) { console.error("[club-manager] club_manager_cancel_session failed", error); throw error; }
+  return data;
+}
+
+export async function clubManagerGetTeamMembers(teamId, sessionId = null) {
+  const { data, error } = await supabase.rpc("club_manager_get_team_members", {
+    p_team_id: teamId, p_session_id: sessionId,
+  });
+  if (error) { console.error("[club-manager] club_manager_get_team_members failed", error); throw error; }
+  return data;
+}
+
+export async function clubManagerAddSessionGuest(sessionId, guestProfileId) {
+  const { data, error } = await supabase.rpc("club_manager_add_session_guest", {
+    p_session_id: sessionId, p_guest_profile_id: guestProfileId,
+  });
+  if (error) { console.error("[club-manager] club_manager_add_session_guest failed", error); throw error; }
+  return data;
+}
+
+export async function clubManagerRemoveSessionGuest(sessionId, guestProfileId) {
+  const { data, error } = await supabase.rpc("club_manager_remove_session_guest", {
+    p_session_id: sessionId, p_guest_profile_id: guestProfileId,
+  });
+  if (error) { console.error("[club-manager] club_manager_remove_session_guest failed", error); throw error; }
+  return data;
+}
