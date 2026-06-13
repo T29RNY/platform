@@ -2977,19 +2977,30 @@ export async function venueEraseCustomer(venueToken, customerId) {
 }
 
 // ── Membership Phase 3 — tiers, pricing, enrolment, freeze, fees (mig 271) ──
-// Tiers + per-cadence prices. prices = [{period:'monthly'|'quarterly'|'annual', price_pence}]
-export async function venueCreateMembershipTier(venueToken, name, benefits = {}, prices = []) {
+// Tiers + per-cadence prices.
+// prices = [{period:'monthly'|'quarterly'|'annual'|'season', price_pence, price_type?:'standard'|'family'|'sibling'}]
+// audience ∈ 'all'|'adult'|'junior'|'child'; pricingModel ∈ 'recurring'|'season'
+export async function venueCreateMembershipTier(venueToken, name, benefits = {}, prices = [], {
+  audience = "all", pricingModel = "recurring", seasonStart = null, seasonEnd = null,
+} = {}) {
   const { data, error } = await supabase.rpc("venue_create_membership_tier", {
     p_venue_token: venueToken, p_name: name, p_benefits: benefits, p_prices: prices,
+    p_audience: audience, p_pricing_model: pricingModel,
+    p_season_start: seasonStart, p_season_end: seasonEnd,
   });
   if (error) { console.error("[membership] venue_create_membership_tier failed", error); throw error; }
   return data;
 }
 
-export async function venueUpdateMembershipTier(venueToken, tierId, { name = null, benefits = null, active = null, prices = null } = {}) {
+export async function venueUpdateMembershipTier(venueToken, tierId, {
+  name = null, benefits = null, active = null, prices = null,
+  audience = null, pricingModel = null, seasonStart = null, seasonEnd = null,
+} = {}) {
   const { data, error } = await supabase.rpc("venue_update_membership_tier", {
     p_venue_token: venueToken, p_tier_id: tierId, p_name: name, p_benefits: benefits,
     p_active: active, p_prices: prices,
+    p_audience: audience, p_pricing_model: pricingModel,
+    p_season_start: seasonStart, p_season_end: seasonEnd,
   });
   if (error) { console.error("[membership] venue_update_membership_tier failed", error); throw error; }
   return data;
@@ -3802,10 +3813,16 @@ export async function venueListClubs(venueToken) {
   const { data, error } = await supabase.rpc("venue_list_clubs", {
     p_venue_token: venueToken,
   });
-  if (error) {
-    console.error("[member] venue_list_clubs failed", error);
-    throw error;
-  }
+  if (error) { console.error("[member] venue_list_clubs failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function venueUpdateClubSettings(venueToken, clubId, { idMandate = null, safeguardingConfig = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_update_club_settings", {
+    p_venue_token: venueToken, p_club_id: clubId,
+    p_id_mandate: idMandate, p_safeguarding_config: safeguardingConfig,
+  });
+  if (error) { console.error("[member] venue_update_club_settings failed", error); throw error; }
   return data;
 }
 

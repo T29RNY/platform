@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   venueListMembers, venueListMembershipTiers, venueListCustomersPeople, venueApproveCustomer, venueApproveAndEnrol,
-  venueCreateMembershipTier, venueEnrolMembership, venueFreezeMembership, venueCancelMembership,
+  venueCreateMembershipTier, venueUpdateMembershipTier, venueEnrolMembership, venueFreezeMembership, venueCancelMembership,
   venueCreateCustomer, venueUpdateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
+  venueListClubs, venueUpdateClubSettings,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -102,15 +103,16 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
       </SectionHead>
       {tab === "members" && <MembersTab venueToken={venueToken} liveTick={liveTick} />}
-      {tab === "plans" && <PlansTab venueToken={venueToken} />}
-      {tab === "fees" && <FeesTab venueToken={venueToken} />}
-      {tab === "perks" && <PerksTab venueToken={venueToken} />}
+      {tab === "plans"   && <PlansTab venueToken={venueToken} />}
+      {tab === "fees"    && <FeesTab venueToken={venueToken} />}
+      {tab === "perks"   && <PerksTab venueToken={venueToken} />}
+      {tab === "club"    && <ClubTab venueToken={venueToken} />}
     </div>
   );
 }
@@ -579,115 +581,327 @@ function CancelModal({ venueToken, member, onClose, onDone }) {
 }
 
 // ── Plans (tiers) ────────────────────────────────────────────────────────────
+const AUDIENCE_LABELS = { all: "All", adult: "Adult", junior: "Junior", child: "Child" };
+const AUDIENCE_PILLS  = { all: null, adult: "pill-info", junior: "pill-warn", child: "pill-ok" };
+
+function tierSubline(t) {
+  const lines = (t.benefits?.benefit_lines || []);
+  if (lines.length) return lines.map((l) => l.label + (l.value ? ` · ${l.value_type === "pct" ? l.value + "%" : poundsRound(l.value * 100)}` : "")).join(", ");
+  if (t.benefits?.discount_pct) return `${t.benefits.discount_pct}% booking discount`;
+  return "No benefits set";
+}
+
+function standardPrices(prices = []) {
+  return prices.filter((p) => p.price_type === "standard" || !p.price_type);
+}
+
 function PlansTab({ venueToken }) {
   const [tiers, setTiers] = useState(null);
   const [error, setError] = useState(null);
-  const [open, setOpen] = useState(false);
-  const reload = () => venueListMembershipTiers(venueToken).then((r) => setTiers(r || [])).catch((e) => setError(e?.message || String(e)));
-  useEffect(() => { let a = true; venueListMembershipTiers(venueToken).then((r) => { if (a) setTiers(r || []); }).catch((e) => { if (a) setError(e?.message || String(e)); }); return () => { a = false; }; }, [venueToken]);
+  const [openNew, setOpenNew] = useState(false);
+  const [editTier, setEditTier] = useState(null);
+
+  const reload = () => venueListMembershipTiers(venueToken)
+    .then((r) => setTiers(r || []))
+    .catch((e) => setError(e?.message || String(e)));
+
+  useEffect(() => {
+    let a = true;
+    venueListMembershipTiers(venueToken)
+      .then((r) => { if (a) setTiers(r || []); })
+      .catch((e) => { if (a) setError(e?.message || String(e)); });
+    return () => { a = false; };
+  }, [venueToken]);
 
   return (
     <div>
       <div style={{ display: "flex", marginBottom: "var(--gap-2)" }}>
         <span style={{ flex: 1 }} />
-        <button className="btn btn-primary" onClick={() => setOpen(true)}><Icon name="plus" size={14} /> New plan</button>
+        <button className="btn btn-primary" onClick={() => setOpenNew(true)}><Icon name="plus" size={14} /> New plan</button>
       </div>
       {error && <EmptyState title="Couldn’t load plans" body={error} />}
-      {tiers && tiers.length === 0 && !error && <EmptyState title="No plans yet" body="Create a membership plan with monthly, quarterly or annual pricing." />}
+      {tiers && tiers.length === 0 && !error && (
+        <EmptyState title="No plans yet" body="Create a membership plan with named benefits and monthly, quarterly or annual pricing." />
+      )}
       {tiers && tiers.length > 0 && (
         <div className="customers-grid">
-          {tiers.map((t) => (
-            <div className="customer-card" key={t.tier_id}>
-              <div className="cu-top">
-                <div className="cu-head-text">
-                  <div className="cu-name">{t.name}</div>
-                  <div className="cu-sub">{t.benefits?.discount_pct ? `${t.benefits.discount_pct}% booking discount` : "No discount"}</div>
+          {tiers.map((t) => {
+            const stdPrices = standardPrices(t.prices);
+            const famPrices = (t.prices || []).filter((p) => p.price_type === "family");
+            const sibPrices = (t.prices || []).filter((p) => p.price_type === "sibling");
+            const audPill   = AUDIENCE_PILLS[t.audience];
+            return (
+              <div className="customer-card" key={t.tier_id}>
+                <div className="cu-top">
+                  <div className="cu-head-text">
+                    <div className="cu-name">{t.name}</div>
+                    <div className="cu-sub">{tierSubline(t)}</div>
+                  </div>
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "flex-start" }}>
+                    {audPill && <span className={"pill " + audPill}>{AUDIENCE_LABELS[t.audience]}</span>}
+                    {t.pricing_model === "season" && <span className="pill pill-info">Season</span>}
+                    {t.benefits?.is_free && <span className="pill pill-ok">Free</span>}
+                    {t.benefits?.self_signup && <span className="pill pill-info">On signup</span>}
+                    {!t.active && <span className="pill pill-muted">Inactive</span>}
+                  </span>
                 </div>
-                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {t.benefits?.is_free && <span className="pill pill-ok">Free</span>}
-                  {t.benefits?.self_signup && <span className="pill pill-info">On signup</span>}
-                  {!t.active && <span className="pill pill-muted">Inactive</span>}
-                </span>
-              </div>
-              <div className="cu-stats">
-                {(t.prices || []).length === 0 ? <span className="text-mute" style={{ fontSize: 12 }}>No prices set</span> :
-                  (t.prices || []).map((p) => (
-                    <div className="cu-stat" key={p.period}>
-                      <div className="cu-stat-label" style={{ textTransform: "capitalize" }}>{p.period}</div>
+
+                {t.pricing_model === "season" && t.season_start && (
+                  <div className="text-mute" style={{ fontSize: 12, marginBottom: 4 }}>
+                    {t.season_start} → {t.season_end || "open-ended"}
+                  </div>
+                )}
+
+                <div className="cu-stats">
+                  {stdPrices.length === 0 && !t.benefits?.is_free
+                    ? <span className="text-mute" style={{ fontSize: 12 }}>No prices set</span>
+                    : stdPrices.map((p) => (
+                      <div className="cu-stat" key={p.period + p.price_type}>
+                        <div className="cu-stat-label" style={{ textTransform: "capitalize" }}>{p.period}</div>
+                        <div className="cu-stat-value">{poundsRound(p.price_pence)}</div>
+                      </div>
+                    ))}
+                  {famPrices.map((p) => (
+                    <div className="cu-stat" key={"fam-" + p.period}>
+                      <div className="cu-stat-label" style={{ textTransform: "capitalize" }}>Family {p.period !== "season" ? p.period : ""}</div>
                       <div className="cu-stat-value">{poundsRound(p.price_pence)}</div>
                     </div>
                   ))}
+                  {sibPrices.map((p) => (
+                    <div className="cu-stat" key={"sib-" + p.period}>
+                      <div className="cu-stat-label" style={{ textTransform: "capitalize" }}>Sibling {p.period !== "season" ? p.period : ""}</div>
+                      <div className="cu-stat-value">{poundsRound(p.price_pence)}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="cu-foot">
+                  <span style={{ flex: 1 }} />
+                  <button className="btn btn-xs" onClick={() => setEditTier(t)}><Icon name="settings" size={13} /> Edit</button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
-      {open && <TierModal venueToken={venueToken} onClose={() => setOpen(false)} onDone={() => { setOpen(false); reload(); }} />}
+      {openNew && (
+        <TierModal venueToken={venueToken} onClose={() => setOpenNew(false)} onDone={() => { setOpenNew(false); reload(); }} />
+      )}
+      {editTier && (
+        <TierModal venueToken={venueToken} tier={editTier} onClose={() => setEditTier(null)} onDone={() => { setEditTier(null); reload(); }} />
+      )}
     </div>
   );
 }
 
-function TierModal({ venueToken, onClose, onDone }) {
-  const [name, setName] = useState("");
-  const [discount, setDiscount] = useState("");
-  const [isFree, setIsFree] = useState(false);
-  const [selfSignup, setSelfSignup] = useState(true);
-  const [prices, setPrices] = useState({ monthly: "", quarterly: "", annual: "" });
-  const [busy, setBusy] = useState(false);
+// Shared new-benefit-line blank
+const EMPTY_LINE = { label: "", value_type: "text", value: "" };
+
+function TierModal({ venueToken, tier = null, onClose, onDone }) {
+  const editing = !!tier;
+
+  const [name,         setName]         = useState(tier?.name || "");
+  const [audience,     setAudience]     = useState(tier?.audience || "all");
+  const [pricingModel, setPricingModel] = useState(tier?.pricing_model || "recurring");
+  const [seasonStart,  setSeasonStart]  = useState(tier?.season_start || "");
+  const [seasonEnd,    setSeasonEnd]    = useState(tier?.season_end || "");
+  const [isFree,       setIsFree]       = useState(!!(tier?.benefits?.is_free));
+  const [selfSignup,   setSelfSignup]   = useState(tier?.benefits?.self_signup !== false);
+  const [active,       setActive]       = useState(tier?.active !== false);
+
+  // Named benefit lines
+  const [lines, setLines] = useState(
+    (tier?.benefits?.benefit_lines && tier.benefits.benefit_lines.length > 0)
+      ? tier.benefits.benefit_lines
+      : [{ ...EMPTY_LINE }]
+  );
+
+  // Prices: one object per cadence+price_type
+  const initPrices = (type) => {
+    const out = { monthly: "", quarterly: "", annual: "", season: "" };
+    (tier?.prices || []).filter((p) => (p.price_type || "standard") === type)
+      .forEach((p) => { out[p.period] = String(p.price_pence / 100); });
+    return out;
+  };
+  const [stdPrices, setStdPrices] = useState(initPrices("standard"));
+  const [famPrices, setFamPrices] = useState(initPrices("family"));
+  const [sibPrices, setSibPrices] = useState(initPrices("sibling"));
+  const [showFamily,  setShowFamily]  = useState(() => (tier?.prices || []).some((p) => p.price_type === "family"));
+  const [showSibling, setShowSibling] = useState(() => (tier?.prices || []).some((p) => p.price_type === "sibling"));
+
+  const [busy,  setBusy]  = useState(false);
   const [error, setError] = useState(null);
+
+  const addLine    = () => setLines((ls) => [...ls, { ...EMPTY_LINE }]);
+  const removeLine = (i) => setLines((ls) => ls.filter((_, idx) => idx !== i));
+  const setLine    = (i, k, v) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, [k]: v } : l));
+
+  const buildPriceArr = () => {
+    if (isFree) return [];
+    const arr = [];
+    const cadences = pricingModel === "season" ? ["season"] : ["monthly", "quarterly", "annual"];
+    for (const period of cadences) {
+      const std = toPence(stdPrices[period]);
+      if (std != null && std >= 0) arr.push({ period, price_pence: std, price_type: "standard" });
+      if (showFamily) {
+        const fam = toPence(famPrices[period]);
+        if (fam != null && fam >= 0) arr.push({ period, price_pence: fam, price_type: "family" });
+      }
+      if (showSibling) {
+        const sib = toPence(sibPrices[period]);
+        if (sib != null && sib >= 0) arr.push({ period, price_pence: sib, price_type: "sibling" });
+      }
+    }
+    return arr;
+  };
 
   const submit = async () => {
     setBusy(true); setError(null);
     try {
       if (!name.trim()) { setError("Give the plan a name."); setBusy(false); return; }
-      const priceArr = isFree ? [] : CADENCES.map(([p]) => [p, toPence(prices[p])]).filter(([, v]) => v != null && v >= 0)
-        .map(([period, price_pence]) => ({ period, price_pence }));
-      if (!isFree && priceArr.length === 0) { setError("Set at least one price (or mark it free)."); setBusy(false); return; }
-      const benefits = {};
-      const d = parseInt(discount, 10);
-      if (Number.isFinite(d) && d > 0) benefits.discount_pct = d;
-      if (isFree) benefits.is_free = true;
-      if (selfSignup) benefits.self_signup = true;
-      await venueCreateMembershipTier(venueToken, name.trim(), benefits, priceArr);
+      const priceArr = buildPriceArr();
+      if (!isFree && priceArr.filter((p) => p.price_type === "standard").length === 0) {
+        setError("Set at least one standard price (or mark the plan free)."); setBusy(false); return;
+      }
+      if (pricingModel === "season" && !seasonStart) {
+        setError("Enter a season start date."); setBusy(false); return;
+      }
+      const validLines = lines.filter((l) => l.label.trim());
+      const benefits = {
+        benefit_lines: validLines,
+        ...(isFree && { is_free: true }),
+        ...(selfSignup && { self_signup: true }),
+      };
+      const opts = {
+        audience,
+        pricingModel,
+        seasonStart: pricingModel === "season" ? (seasonStart || null) : null,
+        seasonEnd:   pricingModel === "season" ? (seasonEnd || null)   : null,
+      };
+      if (editing) {
+        await venueUpdateMembershipTier(venueToken, tier.tier_id, {
+          name: name.trim(), benefits, active, prices: priceArr, ...opts,
+        });
+      } else {
+        await venueCreateMembershipTier(venueToken, name.trim(), benefits, priceArr, opts);
+      }
       onDone();
     } catch (e) { setError(errLabel(e)); } finally { setBusy(false); }
   };
 
-  return (
-    <Modal onClose={onClose} title="New membership plan" foot={
-      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
-      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Create plan"}</button></>
-    }>
-      <label className="field-label">Plan name</label>
-      <input className="input" placeholder="e.g. Gold" value={name} onChange={(e) => setName(e.target.value)} />
+  const cadences      = pricingModel === "season" ? [["season", "Season fee"]] : CADENCES;
+  const head          = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "16px 0 6px" };
+  const inlineRow     = { display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 13, cursor: "pointer" };
+  const priceRow      = (label, prices, setPrices) => (
+    <div style={{ display: "grid", gap: 8 }}>
+      {cadences.map(([p, l]) => (
+        <div key={p} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ width: 90, fontSize: 13 }}>{l} {label && <span className="text-mute">({label})</span>}</span>
+          <input className="input" type="number" min="0" step="0.01" placeholder="—" value={prices[p]}
+            onChange={(e) => setPrices((s) => ({ ...s, [p]: e.target.value }))} />
+        </div>
+      ))}
+    </div>
+  );
 
-      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, fontSize: 13, cursor: "pointer" }}>
+  return (
+    <Modal onClose={onClose} title={editing ? `Edit — ${tier.name}` : "New membership plan"} foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Create plan"}</button></>
+    }>
+
+      <label className="field-label">Plan name</label>
+      <input className="input" placeholder="e.g. Junior Gold" value={name} onChange={(e) => setName(e.target.value)} />
+
+      <div style={head}>Audience</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {[["all","All ages"],["adult","Adult"],["junior","Junior"],["child","Child"]].map(([v, l]) => (
+          <button key={v} type="button" className="charge-opt" onClick={() => setAudience(v)}
+            style={{ borderColor: audience === v ? "var(--accent)" : "var(--border)", padding: "6px 14px", fontSize: 13 }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      <div style={head}>Pricing model</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        {[["recurring","Recurring (monthly/quarterly/annual)"],["season","Season (one-off per season)"]].map(([v, l]) => (
+          <button key={v} type="button" className="charge-opt" onClick={() => setPricingModel(v)}
+            style={{ borderColor: pricingModel === v ? "var(--accent)" : "var(--border)", flex: 1, fontSize: 13 }}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {pricingModel === "season" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+          <div>
+            <label className="field-label">Season start</label>
+            <input className="input" type="date" value={seasonStart} onChange={(e) => setSeasonStart(e.target.value)} />
+          </div>
+          <div>
+            <label className="field-label">Season end (optional)</label>
+            <input className="input" type="date" value={seasonEnd} onChange={(e) => setSeasonEnd(e.target.value)} />
+          </div>
+        </div>
+      )}
+
+      <div style={head}>Benefits</div>
+      <p className="text-mute" style={{ fontSize: 12, marginBottom: 8 }}>Name what this plan includes — shown on the member pass and signup page.</p>
+      {lines.map((l, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+          <input className="input" placeholder="e.g. Free pitch booking" value={l.label}
+            onChange={(e) => setLine(i, "label", e.target.value)} style={{ flex: 2 }} />
+          <select className="input" value={l.value_type} onChange={(e) => setLine(i, "value_type", e.target.value)} style={{ flex: 1 }}>
+            <option value="text">Text only</option>
+            <option value="pct">% discount</option>
+            <option value="gbp">£ value</option>
+          </select>
+          {l.value_type !== "text" && (
+            <input className="input" type="number" min="0" step={l.value_type === "gbp" ? "0.01" : "1"} placeholder="0"
+              value={l.value} onChange={(e) => setLine(i, "value", e.target.value)} style={{ flex: 1 }} />
+          )}
+          {lines.length > 1 && (
+            <button type="button" className="btn btn-xs btn-ghost" onClick={() => removeLine(i)} title="Remove">✕</button>
+          )}
+        </div>
+      ))}
+      <button type="button" className="btn btn-xs" onClick={addLine} style={{ marginTop: 2 }}><Icon name="plus" size={12} /> Add line</button>
+
+      <label style={inlineRow}>
         <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} />
         <span>Free membership (no payment — members join instantly)</span>
       </label>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 13, cursor: "pointer" }}>
+      <label style={{ ...inlineRow, marginTop: 4 }}>
         <input type="checkbox" checked={selfSignup} onChange={(e) => setSelfSignup(e.target.checked)} />
-        <span>Offer this plan on the QR signup page</span>
+        <span>Offer on the QR signup page</span>
       </label>
-
-      <label className="field-label" style={{ marginTop: 14 }}>Booking discount (%) — optional</label>
-      <input className="input" type="number" min="0" max="100" placeholder="0" value={discount} onChange={(e) => setDiscount(e.target.value)} />
 
       {!isFree && (
         <>
-          <label className="field-label" style={{ marginTop: 14 }}>Pricing (£) — set any cadence you offer</label>
-          <div style={{ display: "grid", gap: 8 }}>
-            {CADENCES.map(([p, l]) => (
-              <div key={p} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 90, fontSize: 13 }}>{l}</span>
-                <input className="input" type="number" min="0" step="0.01" placeholder="—" value={prices[p]}
-                  onChange={(e) => setPrices((s) => ({ ...s, [p]: e.target.value }))} />
-              </div>
-            ))}
-          </div>
-          <p className="text-mute" style={{ fontSize: 12, marginTop: 10 }}>Tip: discount the annual cadence to reward upfront payers.</p>
+          <div style={head}>Standard pricing (£)</div>
+          {priceRow("", stdPrices, setStdPrices)}
+
+          <label style={{ ...inlineRow, marginTop: 12 }}>
+            <input type="checkbox" checked={showFamily} onChange={(e) => setShowFamily(e.target.checked)} />
+            <span>Family price</span>
+          </label>
+          {showFamily && <div style={{ marginTop: 8 }}>{priceRow("family", famPrices, setFamPrices)}</div>}
+
+          <label style={{ ...inlineRow, marginTop: 8 }}>
+            <input type="checkbox" checked={showSibling} onChange={(e) => setShowSibling(e.target.checked)} />
+            <span>Sibling price</span>
+          </label>
+          {showSibling && <div style={{ marginTop: 8 }}>{priceRow("sibling", sibPrices, setSibPrices)}</div>}
         </>
       )}
+
+      {editing && (
+        <label style={{ ...inlineRow, marginTop: 16, color: active ? "inherit" : "var(--live)" }}>
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+          <span>Plan active (uncheck to deactivate)</span>
+        </label>
+      )}
+
       {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
     </Modal>
   );
@@ -889,5 +1103,116 @@ function OfferModal({ venueToken, partner, onClose, onDone }) {
       <p className="text-mute" style={{ fontSize: 12, marginTop: 10 }}>Shows on every member’s pass. Redemptions are counted for you.</p>
       {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
     </Modal>
+  );
+}
+
+// ── Club settings ─────────────────────────────────────────────────────────────
+// CPSU-standard safeguarding field toggles. Keys mirror safeguarding_config jsonb.
+const SAFEGUARDING_FIELDS = [
+  ["ec2",           "Second emergency contact"],
+  ["send",          "SEND / additional needs"],
+  ["dietary",       "Dietary requirements"],
+  ["emergency_tx",  "Consent to emergency medical treatment"],
+  ["administer_med","Consent to administer medication"],
+  ["leave_alone",   "May leave session unaccompanied + authorised collectors"],
+];
+
+function ClubTab({ venueToken }) {
+  const [clubs,   setClubs]   = useState(null);
+  const [error,   setError]   = useState(null);
+  const [saving,  setSaving]  = useState(null);  // club id being saved
+  const [saveErr, setSaveErr] = useState(null);
+
+  useEffect(() => {
+    let a = true;
+    venueListClubs(venueToken)
+      .then((r) => { if (a) setClubs(r || []); })
+      .catch((e) => { if (a) setError(e?.message || String(e)); });
+    return () => { a = false; };
+  }, [venueToken]);
+
+  const toggleIdMandate = async (club) => {
+    const next = !club.id_mandate;
+    setSaving(club.id); setSaveErr(null);
+    setClubs((cs) => cs.map((c) => c.id === club.id ? { ...c, id_mandate: next } : c));
+    try {
+      await venueUpdateClubSettings(venueToken, club.id, { idMandate: next });
+    } catch (e) {
+      setClubs((cs) => cs.map((c) => c.id === club.id ? { ...c, id_mandate: club.id_mandate } : c));
+      setSaveErr(e?.message || String(e));
+    } finally { setSaving(null); }
+  };
+
+  const toggleSafeguardingField = async (club, key) => {
+    const current = club.safeguarding_config || {};
+    const next = { ...current, [key]: !current[key] };
+    setSaving(club.id + "." + key); setSaveErr(null);
+    setClubs((cs) => cs.map((c) => c.id === club.id ? { ...c, safeguarding_config: next } : c));
+    try {
+      await venueUpdateClubSettings(venueToken, club.id, { safeguardingConfig: next });
+    } catch (e) {
+      setClubs((cs) => cs.map((c) => c.id === club.id ? { ...c, safeguarding_config: current } : c));
+      setSaveErr(e?.message || String(e));
+    } finally { setSaving(null); }
+  };
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 6px" };
+
+  if (error) return <EmptyState title="Couldn’t load clubs" body={error} />;
+  if (!clubs) return <p className="text-mute" style={{ fontSize: 13, padding: "var(--gap-2)" }}>Loading…</p>;
+  if (clubs.length === 0) return (
+    <EmptyState title="No clubs linked" body="This venue has no clubs configured. Contact support to link a club." />
+  );
+
+  return (
+    <div>
+      {clubs.map((club) => {
+        const sc = club.safeguarding_config || {};
+        return (
+          <div className="customer-card" key={club.id} style={{ marginBottom: "var(--gap-2)" }}>
+            <div className="cu-top">
+              <div className="cu-head-text">
+                <div className="cu-name">{club.name}</div>
+                <div className="cu-sub">{club.contact_email || "No contact email"} · {club.cohorts_count ?? 0} cohort{club.cohorts_count !== 1 ? "s" : ""}</div>
+              </div>
+            </div>
+
+            <div style={head}>ID &amp; age verification</div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={!!club.id_mandate}
+                disabled={saving === club.id}
+                onChange={() => toggleIdMandate(club)}
+              />
+              <span>Require proof of ID / age at registration</span>
+            </label>
+            <p className="text-mute" style={{ fontSize: 12, marginTop: 4 }}>
+              Members will be prompted to upload a document (passport, licence, PASS card or birth certificate) when joining via the QR signup page.
+            </p>
+
+            <div style={head}>Safeguarding fields (CPSU standard)</div>
+            <p className="text-mute" style={{ fontSize: 12, marginBottom: 8 }}>
+              Turn on the extra fields your club needs to collect on youth registration forms.
+            </p>
+            <div style={{ display: "grid", gap: 6 }}>
+              {SAFEGUARDING_FIELDS.map(([key, label]) => (
+                <label key={key} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!sc[key]}
+                    disabled={saving === club.id + "." + key}
+                    onChange={() => toggleSafeguardingField(club, key)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+
+            {saveErr && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{saveErr}</p>}
+          </div>
+        );
+      })}
+    </div>
   );
 }

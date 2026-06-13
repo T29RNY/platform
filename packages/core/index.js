@@ -168,6 +168,7 @@ export {
   memberUpdateChild,
   clubCreate,
   venueListClubs,
+  venueUpdateClubSettings,
   getVenueSignupTiers,
   venueApproveAndEnrol,
   venueApproveCustomer,
