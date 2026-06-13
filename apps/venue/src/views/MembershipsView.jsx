@@ -5,6 +5,7 @@ import {
   venueCreateCustomer, venueUpdateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
+  venueCreatePolicyDocument, venuePublishPolicyVersion, venueListPolicyDocuments,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -103,7 +104,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["documents", "Documents"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -112,7 +113,8 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
       {tab === "plans"   && <PlansTab venueToken={venueToken} />}
       {tab === "fees"    && <FeesTab venueToken={venueToken} />}
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
-      {tab === "club"    && <ClubTab venueToken={venueToken} />}
+      {tab === "club"       && <ClubTab venueToken={venueToken} />}
+      {tab === "documents"  && <DocumentsTab venueToken={venueToken} />}
     </div>
   );
 }
@@ -1213,6 +1215,148 @@ function ClubTab({ venueToken }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Documents ─────────────────────────────────────────────────────────────────
+// Policy documents tab: versioned club-scoped consent docs.
+// Venue admins create and publish new versions; members sign via MemberProfile.
+
+function DocumentsTab({ venueToken }) {
+  const [clubs,   setClubs]   = useState(null);
+  const [docs,    setDocs]    = useState({});   // { [clubId]: [{document_id, title, ...}] }
+  const [error,   setError]   = useState(null);
+  // create modal
+  const [creating, setCreating] = useState(null);  // club object
+  const [newTitle, setNewTitle] = useState("");
+  const [newBody,  setNewBody]  = useState("");
+  const [createErr, setCreateErr] = useState(null);
+  const [createSaving, setCreateSaving] = useState(false);
+  // new version modal
+  const [publishing, setPublishing] = useState(null);  // document object
+  const [pubBody,    setPubBody]    = useState("");
+  const [pubErr,     setPubErr]     = useState(null);
+  const [pubSaving,  setPubSaving]  = useState(false);
+
+  const loadDocs = async (clubList) => {
+    const results = {};
+    await Promise.all((clubList || []).map(async (c) => {
+      try {
+        const r = await venueListPolicyDocuments(venueToken, c.id);
+        results[c.id] = r?.documents || [];
+      } catch { results[c.id] = []; }
+    }));
+    setDocs(results);
+  };
+
+  useEffect(() => {
+    let a = true;
+    venueListClubs(venueToken)
+      .then(async (r) => { if (!a) return; const cl = r || []; setClubs(cl); await loadDocs(cl); })
+      .catch((e) => { if (a) setError(e?.message || String(e)); });
+    return () => { a = false; };
+  }, [venueToken]);
+
+  const openCreate = (club) => { setCreating(club); setNewTitle(""); setNewBody(""); setCreateErr(null); };
+  const closeCreate = () => { setCreating(null); setCreateSaving(false); };
+  const saveCreate = async () => {
+    if (!newTitle.trim()) { setCreateErr("Title is required."); return; }
+    if (!newBody.trim())  { setCreateErr("Document body is required."); return; }
+    setCreateSaving(true); setCreateErr(null);
+    try {
+      await venueCreatePolicyDocument(venueToken, creating.id, newTitle.trim(), newBody.trim());
+      const r = await venueListPolicyDocuments(venueToken, creating.id);
+      setDocs((d) => ({ ...d, [creating.id]: r?.documents || [] }));
+      closeCreate();
+    } catch (e) { setCreateErr(e?.message || String(e)); setCreateSaving(false); }
+  };
+
+  const openPublish = (doc) => { setPublishing(doc); setPubBody(doc.body ?? ""); setPubErr(null); };
+  const closePublish = () => { setPublishing(null); setPubSaving(false); };
+  const savePublish = async () => {
+    if (!pubBody.trim()) { setPubErr("Body is required."); return; }
+    setPubSaving(true); setPubErr(null);
+    try {
+      await venuePublishPolicyVersion(venueToken, publishing.document_id, pubBody.trim());
+      // reload docs for the club that owns this document
+      const clubId = clubs.find((c) => (docs[c.id] || []).some((d) => d.document_id === publishing.document_id))?.id;
+      if (clubId) {
+        const r = await venueListPolicyDocuments(venueToken, clubId);
+        setDocs((d) => ({ ...d, [clubId]: r?.documents || [] }));
+      }
+      closePublish();
+    } catch (e) { setPubErr(e?.message || String(e)); setPubSaving(false); }
+  };
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 6px" };
+
+  if (error) return <EmptyState title="Couldn't load documents" body={error} />;
+  if (!clubs) return <p className="text-mute" style={{ fontSize: 13, padding: "var(--gap-2)" }}>Loading…</p>;
+  if (clubs.length === 0) return <EmptyState title="No clubs linked" body="Policy documents are club-scoped. Link a club first via the Club tab." />;
+
+  return (
+    <div>
+      {clubs.map((club) => {
+        const clubDocs = docs[club.id] || [];
+        return (
+          <div key={club.id} style={{ marginBottom: "var(--gap-3)" }}>
+            <div style={{ ...head, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>{club.name}</span>
+              <button className="btn-sm btn-outline" onClick={() => openCreate(club)}>+ Add document</button>
+            </div>
+            {clubDocs.length === 0 ? (
+              <p className="text-mute" style={{ fontSize: 12 }}>No documents yet.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {clubDocs.map((doc) => (
+                  <div className="customer-card" key={doc.document_id} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{doc.title}</div>
+                      <div className="text-mute" style={{ fontSize: 12, marginTop: 2 }}>
+                        Version {doc.version} · {doc.acceptance_count} signed · {doc.is_current ? "Current" : "Archived"}
+                      </div>
+                    </div>
+                    {doc.is_current && (
+                      <button className="btn-sm btn-outline" onClick={() => openPublish(doc)}>New version</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Create document modal */}
+      {creating && (
+        <Modal title={`New document — ${creating.name}`} onClose={closeCreate}
+          primaryLabel="Create" primaryDisabled={createSaving} onPrimary={saveCreate}>
+          <label className="field-label">Title</label>
+          <input className="input" placeholder="e.g. Code of Conduct" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+          <label className="field-label" style={{ marginTop: 14 }}>Policy text</label>
+          <textarea className="input" rows={10} placeholder="Paste or type the full policy text here…" value={newBody}
+            onChange={(e) => setNewBody(e.target.value)} style={{ resize: "vertical", fontFamily: "inherit", fontSize: 13 }} />
+          <p className="text-mute" style={{ fontSize: 12, marginTop: 8 }}>
+            Members will read this text and provide a typed signature to accept.
+          </p>
+          {createErr && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{createErr}</p>}
+        </Modal>
+      )}
+
+      {/* Publish new version modal */}
+      {publishing && (
+        <Modal title={`New version — ${publishing.title}`} onClose={closePublish}
+          primaryLabel="Publish" primaryDisabled={pubSaving} onPrimary={savePublish}>
+          <p className="text-mute" style={{ fontSize: 12, marginBottom: 10 }}>
+            Publishing retires version {publishing.version}. Members who signed the old version will be prompted to re-sign.
+          </p>
+          <label className="field-label">Updated policy text</label>
+          <textarea className="input" rows={12} value={pubBody}
+            onChange={(e) => setPubBody(e.target.value)} style={{ resize: "vertical", fontFamily: "inherit", fontSize: 13 }} />
+          {pubErr && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{pubErr}</p>}
+        </Modal>
+      )}
     </div>
   );
 }

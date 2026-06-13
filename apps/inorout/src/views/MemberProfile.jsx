@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChild, memberUpdateChild } from "@platform/core/storage/supabase.js";
+import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChild, memberUpdateChild,
+         memberGetPendingConsents, memberListConsents, memberAcceptConsent } from "@platform/core/storage/supabase.js";
 
 // MemberProfile — the member's own account profile at /profile.
 // Authenticated gate is enforced by App.jsx before mounting.
@@ -39,15 +40,27 @@ export default function MemberProfile({ authUser }) {
   const [childSaveError, setChildSaveError] = useState(null);
   const isChildSavingRef = useRef(false);
 
+  const [pendingConsents, setPendingConsents] = useState([]);
+  const [signedConsents,  setSignedConsents]  = useState([]);
+  const [signingDoc,      setSigningDoc]      = useState(null);  // pending doc being signed
+  const [typedSig,        setTypedSig]        = useState("");
+  const [sigError,        setSigError]        = useState(null);
+  const [signingSaving,   setSigningSaving]   = useState(false);
+  const isSigningRef = useRef(false);
+
   useEffect(() => {
     let alive = true;
     Promise.all([
       memberGetSelf(),
       memberListChildren(),
-    ]).then(([selfResult, childrenResult]) => {
+      memberGetPendingConsents().catch(() => null),
+      memberListConsents().catch(() => null),
+    ]).then(([selfResult, childrenResult, pendingResult, signedResult]) => {
       if (!alive) return;
       setProfile(selfResult?.found ? selfResult : null);
       setChildren(childrenResult?.children ?? []);
+      setPendingConsents(pendingResult?.pending ?? []);
+      setSignedConsents(signedResult?.consents ?? []);
     }).catch((e) => {
       console.error("[member-profile] load failed", e);
       if (alive) setProfile(null);
@@ -624,6 +637,79 @@ export default function MemberProfile({ authUser }) {
           </div>
         )}
 
+        {/* ── Consents ─────────────────────────────────────────────── */}
+        {(pendingConsents.length > 0 || signedConsents.length > 0) && !editing && (
+          <Section title={pendingConsents.length > 0 ? `Consents · ${pendingConsents.length} action required` : "Consents"}>
+            {pendingConsents.map((doc) => (
+              <div key={`${doc.document_id}:${doc.for_profile_id}`} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "12px 14px", borderBottom: "1px solid var(--border-subtle)",
+              }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{doc.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                    {doc.club_name}{doc.for_profile_id !== profile.member_profile_id ? ` · for ${doc.for_name}` : ""}
+                    {" · "}v{doc.version}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setSigningDoc(doc); setTypedSig(""); setSigError(null); }}
+                  style={{ ...btnStyle("var(--amber)", "var(--black)"), padding: "8px 14px", fontSize: 13, flexShrink: 0 }}
+                >
+                  Sign
+                </button>
+              </div>
+            ))}
+            {signedConsents.map((ca) => (
+              <div key={ca.acceptance_id} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "12px 14px", borderBottom: "1px solid var(--border-subtle)",
+              }}>
+                <div>
+                  <div style={{ fontSize: 14 }}>{ca.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                    {ca.club_name}
+                    {ca.for_profile_id !== profile.member_profile_id ? ` · for ${ca.for_name}` : ""}
+                    {" · "}v{ca.version}{!ca.is_current ? " (outdated)" : ""}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--t2)", flexShrink: 0 }}>
+                  ✓ Signed {new Date(ca.accepted_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </div>
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {/* Consent signing modal */}
+        {signingDoc && (
+          <ConsentModal
+            doc={signingDoc}
+            typedSig={typedSig}
+            onSigChange={setTypedSig}
+            error={sigError}
+            saving={signingSaving}
+            onClose={() => setSigningDoc(null)}
+            onSign={async () => {
+              if (isSigningRef.current) return;
+              if (!typedSig.trim()) { setSigError("Please type your full name."); return; }
+              isSigningRef.current = true;
+              setSigningSaving(true); setSigError(null);
+              try {
+                const onBehalf = signingDoc.for_profile_id !== profile.member_profile_id ? signingDoc.for_profile_id : null;
+                await memberAcceptConsent(signingDoc.document_id, typedSig.trim(), { onBehalfOfProfileId: onBehalf });
+                const [p, s] = await Promise.all([memberGetPendingConsents(), memberListConsents()]);
+                setPendingConsents(p?.pending ?? []);
+                setSignedConsents(s?.consents ?? []);
+                setSigningDoc(null);
+              } catch (e) {
+                console.error("[member-profile] sign consent failed", e);
+                setSigError("Couldn't save — please try again.");
+              } finally { setSigningSaving(false); isSigningRef.current = false; }
+            }}
+          />
+        )}
+
         {/* ── Save / cancel ────────────────────────────────────────── */}
         {editing && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingBottom: 8 }}>
@@ -777,4 +863,74 @@ function btnStyle(bg, color, full = false, border = "none") {
     cursor: "pointer",
     ...(full ? { width: "100%", padding: "14px 0" } : {}),
   };
+}
+
+// ── ConsentModal ──────────────────────────────────────────────────────────────
+// Scrollable document viewer + typed signature + agree button.
+function ConsentModal({ doc, typedSig, onSigChange, error, saving, onClose, onSign }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end",
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        width: "100%", maxHeight: "90vh",
+        background: "var(--b1)", borderRadius: "var(--r) var(--r) 0 0",
+        display: "flex", flexDirection: "column",
+        overflow: "hidden",
+      }}>
+        {/* header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0,
+        }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>{doc.title}</div>
+            <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+              {doc.club_name} · v{doc.version}
+              {doc.for_name ? ` · for ${doc.for_name}` : ""}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: "none", border: "none", fontSize: 22, color: "var(--t2)",
+            cursor: "pointer", padding: "0 4px", lineHeight: 1,
+          }}>×</button>
+        </div>
+
+        {/* body — scrollable */}
+        <div style={{
+          flex: 1, overflowY: "auto", padding: "16px 20px",
+          fontSize: 14, lineHeight: 1.6, color: "var(--t1)",
+          whiteSpace: "pre-wrap",
+        }}>
+          {doc.body}
+        </div>
+
+        {/* sign area */}
+        <div style={{
+          padding: "16px 20px 24px", borderTop: "1px solid var(--border-subtle)", flexShrink: 0,
+        }}>
+          <div style={{ fontSize: 13, color: "var(--t2)", marginBottom: 10 }}>
+            Type your full name below to confirm you have read and agree to this document.
+          </div>
+          <input
+            className="input"
+            placeholder="Your full name"
+            value={typedSig}
+            onChange={(e) => onSigChange(e.target.value)}
+            style={{ marginBottom: 10 }}
+            autoComplete="name"
+          />
+          {error && <div style={{ fontSize: 13, color: "var(--red)", marginBottom: 8 }}>{error}</div>}
+          <button
+            onClick={onSign}
+            disabled={saving}
+            style={btnStyle("var(--amber)", "var(--black)", true)}
+          >
+            {saving ? "Saving…" : "I agree — sign document"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

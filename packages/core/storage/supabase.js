@@ -3908,3 +3908,53 @@ export async function memberUpdateChild(childProfileId, updates) {
   }
   return data;
 }
+
+// ── Membership V2 Phase 5 — Consent documents + e-sign (mig 293) ─────────────
+
+export async function venueCreatePolicyDocument(venueToken, clubId, title, body) {
+  const { data, error } = await supabase.rpc("venue_create_policy_document", {
+    p_venue_token: venueToken, p_club_id: clubId, p_title: title, p_body: body,
+  });
+  if (error) { console.error("[member] venue_create_policy_document failed", error); throw error; }
+  return data;
+}
+
+export async function venuePublishPolicyVersion(venueToken, documentId, body, title = null) {
+  const { data, error } = await supabase.rpc("venue_publish_policy_version", {
+    p_venue_token: venueToken, p_document_id: documentId, p_body: body, p_title: title,
+  });
+  if (error) { console.error("[member] venue_publish_policy_version failed", error); throw error; }
+  return data;
+}
+
+export async function venueListPolicyDocuments(venueToken, clubId, allVersions = false) {
+  const { data, error } = await supabase.rpc("venue_list_policy_documents", {
+    p_venue_token: venueToken, p_club_id: clubId, p_all_versions: allVersions,
+  });
+  if (error) { console.error("[member] venue_list_policy_documents failed", error); throw error; }
+  return data;
+}
+
+export async function memberAcceptConsent(documentId, typedSignature, { onBehalfOfProfileId = null, ipAddress = null, userAgent = null } = {}) {
+  const { data, error } = await supabase.rpc("member_accept_consent", {
+    p_document_id:               documentId,
+    p_typed_signature:           typedSignature,
+    p_on_behalf_of_profile_id:   onBehalfOfProfileId,
+    p_ip_address:                ipAddress,
+    p_user_agent:                userAgent,
+  });
+  if (error) { console.error("[member] member_accept_consent failed", error); throw error; }
+  return data;
+}
+
+export async function memberGetPendingConsents() {
+  const { data, error } = await supabase.rpc("member_get_pending_consents");
+  if (error) { console.error("[member] member_get_pending_consents failed", error); throw error; }
+  return data;
+}
+
+export async function memberListConsents() {
+  const { data, error } = await supabase.rpc("member_list_consents");
+  if (error) { console.error("[member] member_list_consents failed", error); throw error; }
+  return data;
+}
