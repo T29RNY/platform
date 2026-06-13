@@ -3,6 +3,21 @@
 
 ---
 
+## SESSION 96 — TECH DEBT: venue_enrol_membership rejects period='season'
+
+`venue_enrol_membership` (mig 271) validates `p_period NOT IN ('monthly','quarterly','annual')` — raises
+`invalid_period` on `'season'`. Phase 4 (mig 291) added season tiers + `period='season'` rows to
+`venue_tier_prices`, but the enrolment RPC wasn't updated in scope. Until this is fixed, attempting to
+enrol a member onto a season-priced tier will fail with `invalid_period` at the DB layer.
+
+**Fix scope (next session):** Update `venue_enrol_membership` to accept `period='season'` and pass it
+through to the membership + charge rows. Also check `run_membership_renewals` — season memberships
+shouldn't auto-renew (billing is one-off per season; renewal happens at season_start next year, manual
+or via a new cron). No JS or UI changes required — the enrol modal already sends the period from the
+tier's price rows.
+
+---
+
 ## SESSION 87 — RESOLVED: ref live match clock broken (actual_kickoff_at dropped from RPC, mig 160)
 
 **Found during the Ref V2 build** (pulling the live `get_fixture_state_by_ref_token` body before
