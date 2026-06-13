@@ -4,7 +4,9 @@ import {
   clubListCohorts,
   clubListSessions,
   clubCreateSession,
+  clubCreateSessionSeries,
   clubCancelSession,
+  clubCancelSessionSeries,
   clubGetSessionRsvps,
   clubMarkAttendance,
 } from "@platform/core/storage/supabase.js";
@@ -37,6 +39,14 @@ const RSVP_STATUS = {
   maybe:   { label: "Maybe",   cls: "pill-info" },
   pending: { label: "Pending", cls: "pill-warn" },
 };
+
+const SESSION_TYPE_LABELS = {
+  training: "Training", match: "Match", friendly: "Friendly", other: "Other",
+};
+
+const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Map display label → DB value (EXTRACT(DOW): 0=Sun…6=Sat)
+const DOW_OPTIONS = [1, 2, 3, 4, 5, 6, 0].map((v) => ({ value: v, label: DOW_LABELS[v] }));
 
 export default function SessionsView({ venueToken }) {
   const [clubs, setClubs] = useState(null);
@@ -176,6 +186,7 @@ function SessionsPanel({ venueToken, clubId }) {
           session={detail}
           onClose={() => setDetail(null)}
           onCancelled={() => { setDetail(null); loadSessions(); }}
+          onSeriesCancelled={() => { setDetail(null); loadSessions(); }}
         />
       )}
     </div>
@@ -192,11 +203,14 @@ function SessionRow({ session: s, onClick }) {
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
             <strong style={{ fontSize: 14 }}>{s.title}</strong>
             <span className={"pill " + st.cls}><span className="pill-dot" />{st.label}</span>
             {s.cohort_name && (
               <span className="pill pill-info">{s.cohort_name}</span>
+            )}
+            {s.series_id && (
+              <span className="pill pill-muted">Recurring</span>
             )}
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -229,8 +243,10 @@ function SessionRow({ session: s, onClick }) {
 }
 
 function CreateSessionModal({ venueToken, clubId, cohorts, onClose, onDone }) {
+  const [mode, setMode] = useState("oneoff"); // "oneoff" | "recurring"
   const [form, setForm] = useState({
     title: "", scheduledAt: "", cohortId: "", location: "", notes: "", capacity: "",
+    sessionType: "training", dayOfWeek: "1", startTime: "", fromDate: "", toDate: "",
   });
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -242,18 +258,40 @@ function CreateSessionModal({ venueToken, clubId, cohorts, onClose, onDone }) {
     if (isSavingRef.current) return;
     setErr(null);
     if (!form.title.trim()) { setErr("Enter a session title."); return; }
-    if (!form.scheduledAt) { setErr("Pick a date and time."); return; }
+    if (mode === "oneoff") {
+      if (!form.scheduledAt) { setErr("Pick a date and time."); return; }
+    } else {
+      if (!form.startTime) { setErr("Pick a start time."); return; }
+      if (!form.fromDate)  { setErr("Pick a start date."); return; }
+      if (!form.toDate)    { setErr("Pick an end date."); return; }
+      if (form.fromDate > form.toDate) { setErr("Start date must be before end date."); return; }
+    }
     isSavingRef.current = true;
     setBusy(true);
     try {
-      await clubCreateSession(venueToken, clubId, {
-        title: form.title.trim(),
-        scheduledAt: new Date(form.scheduledAt).toISOString(),
-        cohortId: form.cohortId || null,
-        location: form.location.trim() || null,
-        notes: form.notes.trim() || null,
-        capacity: form.capacity ? parseInt(form.capacity, 10) : null,
-      });
+      if (mode === "oneoff") {
+        await clubCreateSession(venueToken, clubId, {
+          title: form.title.trim(),
+          scheduledAt: new Date(form.scheduledAt).toISOString(),
+          cohortId: form.cohortId || null,
+          location: form.location.trim() || null,
+          notes: form.notes.trim() || null,
+          capacity: form.capacity ? parseInt(form.capacity, 10) : null,
+        });
+      } else {
+        await clubCreateSessionSeries(venueToken, clubId, {
+          title: form.title.trim(),
+          sessionType: form.sessionType,
+          dayOfWeek: parseInt(form.dayOfWeek, 10),
+          startTime: form.startTime,
+          fromDate: form.fromDate,
+          toDate: form.toDate,
+          cohortId: form.cohortId || null,
+          location: form.location.trim() || null,
+          notes: form.notes.trim() || null,
+          capacity: form.capacity ? parseInt(form.capacity, 10) : null,
+        });
+      }
       onDone();
     } catch (e) {
       setErr(e?.message || String(e));
@@ -268,19 +306,69 @@ function CreateSessionModal({ venueToken, clubId, cohorts, onClose, onDone }) {
       <>
         <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
         <button className="btn btn-primary" onClick={submit} disabled={busy}>
-          {busy ? "Creating…" : "Create session"}
+          {busy ? "Creating…" : mode === "recurring" ? "Create recurring block" : "Create session"}
         </button>
       </>
     }>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+        {/* Mode toggle */}
+        <div className="chips">
+          <button className="chip" aria-pressed={mode === "oneoff"} onClick={() => setMode("oneoff")}>
+            One-off
+          </button>
+          <button className="chip" aria-pressed={mode === "recurring"} onClick={() => setMode("recurring")}>
+            Recurring block
+          </button>
+        </div>
+
         <div>
           <label className="field-label">Title *</label>
           <input className="input" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Tuesday Training" />
         </div>
-        <div>
-          <label className="field-label">Date & time *</label>
-          <input className="input" type="datetime-local" value={form.scheduledAt} onChange={(e) => set("scheduledAt", e.target.value)} />
-        </div>
+
+        {mode === "oneoff" ? (
+          <div>
+            <label className="field-label">Date & time *</label>
+            <input className="input" type="datetime-local" value={form.scheduledAt} onChange={(e) => set("scheduledAt", e.target.value)} />
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="field-label">Day *</label>
+                <select className="input" value={form.dayOfWeek} onChange={(e) => set("dayOfWeek", e.target.value)}>
+                  {DOW_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="field-label">Time *</label>
+                <input className="input" type="time" value={form.startTime} onChange={(e) => set("startTime", e.target.value)} />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="field-label">From *</label>
+                <input className="input" type="date" value={form.fromDate} onChange={(e) => set("fromDate", e.target.value)} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="field-label">To *</label>
+                <input className="input" type="date" value={form.toDate} onChange={(e) => set("toDate", e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="field-label">Session type</label>
+              <select className="input" value={form.sessionType} onChange={(e) => set("sessionType", e.target.value)}>
+                {Object.entries(SESSION_TYPE_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
         {cohorts.length > 0 && (
           <div>
             <label className="field-label">Cohort</label>
@@ -310,7 +398,7 @@ function CreateSessionModal({ venueToken, clubId, cohorts, onClose, onDone }) {
   );
 }
 
-function SessionDetailModal({ venueToken, session, onClose, onCancelled }) {
+function SessionDetailModal({ venueToken, session, onClose, onCancelled, onSeriesCancelled }) {
   const [rsvpData, setRsvpData] = useState(null);
   const [rsvpErr, setRsvpErr] = useState(null);
   const [attendance, setAttendance] = useState({});
@@ -318,6 +406,7 @@ function SessionDetailModal({ venueToken, session, onClose, onCancelled }) {
   const [attErr, setAttErr] = useState(null);
   const [attSaved, setAttSaved] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelSeriesOpen, setCancelSeriesOpen] = useState(false);
   const isSavingRef = useRef(false);
 
   const loadRsvps = useCallback(async () => {
@@ -469,11 +558,16 @@ function SessionDetailModal({ venueToken, session, onClose, onCancelled }) {
             </div>
           )}
 
-          {/* Cancel session */}
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+          {/* Cancel session / series */}
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="btn btn-sm btn-danger" onClick={() => setCancelOpen(true)}>
               Cancel session
             </button>
+            {session.series_id && (
+              <button className="btn btn-sm btn-danger" style={{ opacity: 0.8 }} onClick={() => setCancelSeriesOpen(true)}>
+                Cancel remaining series
+              </button>
+            )}
           </div>
         </div>
       </Modal>
@@ -484,6 +578,15 @@ function SessionDetailModal({ venueToken, session, onClose, onCancelled }) {
           session={session}
           onClose={() => setCancelOpen(false)}
           onDone={() => { setCancelOpen(false); onCancelled(); }}
+        />
+      )}
+
+      {cancelSeriesOpen && (
+        <CancelSeriesModal
+          venueToken={venueToken}
+          session={session}
+          onClose={() => setCancelSeriesOpen(false)}
+          onDone={() => { setCancelSeriesOpen(false); onSeriesCancelled(); }}
         />
       )}
     </>
@@ -533,6 +636,57 @@ function CancelSessionModal({ venueToken, session, onClose, onDone }) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="e.g. Pitch unavailable"
+          />
+        </div>
+        {err && <p style={{ color: "var(--live)", fontSize: 13, margin: 0 }}>{err}</p>}
+      </div>
+    </Modal>
+  );
+}
+
+function CancelSeriesModal({ venueToken, session, onClose, onDone }) {
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const isSavingRef = useRef(false);
+
+  const submit = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    setErr(null);
+    setBusy(true);
+    try {
+      await clubCancelSessionSeries(venueToken, session.series_id, reason.trim() || null);
+      onDone();
+    } catch (e) {
+      setErr(e?.message || String(e));
+    } finally {
+      isSavingRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title="Cancel recurring block" onClose={onClose} footer={
+      <>
+        <button className="btn" onClick={onClose} disabled={busy}>Keep sessions</button>
+        <button className="btn btn-danger" onClick={submit} disabled={busy}>
+          {busy ? "Cancelling…" : "Cancel all remaining"}
+        </button>
+      </>
+    }>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <p style={{ fontSize: 14, margin: 0 }}>
+          Cancel all remaining scheduled sessions in the <strong>{session.series_title || session.title}</strong> recurring block?
+          Past and already-cancelled sessions are not affected.
+        </p>
+        <div>
+          <label className="field-label">Reason (optional)</label>
+          <input
+            className="input"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Season ended"
           />
         </div>
         {err && <p style={{ color: "var(--live)", fontSize: 13, margin: 0 }}>{err}</p>}

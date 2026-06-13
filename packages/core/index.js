@@ -246,6 +246,8 @@ export {
   clubListSessions,
   clubGetSessionRsvps,
   clubMarkAttendance,
+  clubCreateSessionSeries,
+  clubCancelSessionSeries,
   memberListUpcomingSessions,
   memberRsvpSession,
   memberGetSessionRsvpBoard,

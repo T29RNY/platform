@@ -4119,6 +4119,29 @@ export async function clubMarkAttendance(venueToken, sessionId, attendances) {
   return data;
 }
 
+export async function clubCreateSessionSeries(venueToken, clubId, {
+  title, sessionType, dayOfWeek, startTime, fromDate, toDate,
+  cohortId = null, teamId = null, location = null, notes = null, capacity = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("club_create_session_series", {
+    p_venue_token: venueToken, p_club_id: clubId, p_title: title,
+    p_session_type: sessionType, p_day_of_week: dayOfWeek, p_start_time: startTime,
+    p_from_date: fromDate, p_to_date: toDate,
+    p_cohort_id: cohortId, p_team_id: teamId,
+    p_location: location, p_notes: notes, p_capacity: capacity,
+  });
+  if (error) { console.error("[club] club_create_session_series failed", error); throw error; }
+  return data;
+}
+
+export async function clubCancelSessionSeries(venueToken, seriesId, reason = null) {
+  const { data, error } = await supabase.rpc("club_cancel_session_series", {
+    p_venue_token: venueToken, p_series_id: seriesId, p_reason: reason,
+  });
+  if (error) { console.error("[club] club_cancel_session_series failed", error); throw error; }
+  return data;
+}
+
 export async function memberListUpcomingSessions(clubId, cohortId = null) {
   const { data, error } = await supabase.rpc("member_list_upcoming_sessions", {
     p_club_id: clubId, p_cohort_id: cohortId,
