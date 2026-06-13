@@ -536,8 +536,11 @@ work pre-auth for OAuth callback and landing pages).
 Venue-domain, RLS-walled, RPC-only. Never cross the casual↔venue wall.
 
 <!-- mig 275: venue_customers.status CHECK gains 'pending' (self-signup awaiting
-     venue approval). Values now: pending | active | archived | erased. -->
-### venue_customers (mig 270, Phase 2; +`pending` status mig 275) — per-person/family identity
+     venue approval). Values now: pending | active | archived | erased.
+     mig 280: + requested_tier_id uuid →venue_membership_tiers (which paid tier a
+     pending self-signup asked for; cleared on approve-and-enrol). Tier free/signup
+     flags live on venue_membership_tiers.benefits jsonb: is_free, self_signup. -->
+### venue_customers (mig 270, Phase 2; +`pending` status mig 275; +`requested_tier_id` mig 280) — per-person/family identity
 
 The venue domain's first **person** entity (before this, customers were
 *derived* from `pitch_bookings`). Backs per-person memberships.

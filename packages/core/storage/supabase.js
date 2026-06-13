@@ -3063,12 +3063,30 @@ export async function memberCheckIn(displayToken, passToken) {
 // venue's /q/<code> landing taps "Join as a member"; this creates a `pending`
 // venue_customers person the venue then approves. Idempotent on email. Returns
 // {ok, already_registered, status} or {ok:false, reason}.
-export async function memberSelfSignup(code, { firstName, lastName = null, email = null, phone = null, consentMarketing = false }) {
+export async function memberSelfSignup(code, { firstName, lastName = null, email = null, phone = null, consentMarketing = false, tierId = null }) {
   const { data, error } = await supabase.rpc("member_self_signup", {
     p_code: code, p_first_name: firstName, p_last_name: lastName,
-    p_email: email, p_phone: phone, p_consent_marketing: consentMarketing,
+    p_email: email, p_phone: phone, p_consent_marketing: consentMarketing, p_tier_id: tierId,
   });
   if (error) { console.error("[membership] member_self_signup failed", error); throw error; }
+  return data;
+}
+
+// The tier menu for the /q signup page (Phase 5+, mig 280) — PUBLIC, keyed by the
+// venue's /q code. Returns {ok, tiers:[{tier_id, name, benefits, is_free, prices[]}]}.
+export async function getVenueSignupTiers(code) {
+  const { data, error } = await supabase.rpc("get_venue_signup_tiers", { p_code: code });
+  if (error) { console.error("[membership] get_venue_signup_tiers failed", error); throw error; }
+  return data;
+}
+
+// One-tap approve a pending self-signup AND enrol them on a tier (mig 280) — gated
+// manage_memberships. Free tier → £0 active membership; paid → membership + charge.
+export async function venueApproveAndEnrol(venueToken, customerId, tierId, period) {
+  const { data, error } = await supabase.rpc("venue_approve_and_enrol", {
+    p_venue_token: venueToken, p_customer_id: customerId, p_tier_id: tierId, p_period: period,
+  });
+  if (error) { console.error("[membership] venue_approve_and_enrol failed", error); throw error; }
   return data;
 }
 

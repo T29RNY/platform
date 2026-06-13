@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  venueListMembers, venueListMembershipTiers, venueListCustomersPeople, venueApproveCustomer,
+  venueListMembers, venueListMembershipTiers, venueListCustomersPeople, venueApproveCustomer, venueApproveAndEnrol,
   venueCreateMembershipTier, venueEnrolMembership, venueFreezeMembership, venueCancelMembership,
   venueCreateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
@@ -64,6 +64,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
   const [pending, setPending] = useState([]);
   const [approving, setApproving] = useState(null); // person id being acted on
   const [copiedId, setCopiedId] = useState(null);   // membership id whose pass link was just copied
+  const [enrolReq, setEnrolReq] = useState(null);   // pending person being approved-and-enrolled
 
   // The member pass lives on the casual app (in-or-out.com), not the venue console.
   const copyPassLink = async (m) => {
@@ -120,10 +121,15 @@ function MembersTab({ venueToken, liveTick = 0 }) {
               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="cu-name">{fullName(p) || "—"}</div>
-                  <div className="cu-sub">{[p.email, p.phone].filter(Boolean).join(" · ") || "No contact given"}</div>
+                  <div className="cu-sub">
+                    {[p.email, p.phone].filter(Boolean).join(" · ") || "No contact given"}
+                    {p.requested_tier_name && <span className="pill pill-info" style={{ marginLeft: 8 }}>wants {p.requested_tier_name}</span>}
+                  </div>
                 </div>
                 <button className="btn btn-xs btn-ghost" disabled={approving === p.id} onClick={() => decide(p, false)}><Icon name="x" size={13} /> Reject</button>
-                <button className="btn btn-xs btn-primary" disabled={approving === p.id} onClick={() => decide(p, true)}><Icon name="check" size={13} /> Approve</button>
+                {p.requested_tier_id
+                  ? <button className="btn btn-xs btn-primary" onClick={() => setEnrolReq(p)}><Icon name="check" size={13} /> Approve & enrol</button>
+                  : <button className="btn btn-xs btn-primary" disabled={approving === p.id} onClick={() => decide(p, true)}><Icon name="check" size={13} /> Approve</button>}
               </div>
             ))}
           </div>
@@ -182,6 +188,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
         </div>
       )}
 
+      {enrolReq && <ApproveEnrolModal venueToken={venueToken} person={enrolReq} onClose={() => setEnrolReq(null)} onDone={() => { setEnrolReq(null); reload(); }} />}
       {enrolOpen && <EnrolModal venueToken={venueToken} onClose={() => setEnrolOpen(false)} onDone={() => { setEnrolOpen(false); reload(); }} />}
       {freezeFor && <FreezeModal venueToken={venueToken} member={freezeFor} onClose={() => setFreezeFor(null)} onDone={() => { setFreezeFor(null); reload(); }} />}
       {cancelFor && <CancelModal venueToken={venueToken} member={cancelFor} onClose={() => setCancelFor(null)} onDone={() => { setCancelFor(null); reload(); }} />}
@@ -265,6 +272,66 @@ function EnrolModal({ venueToken, onClose, onDone }) {
   );
 }
 
+// Approve a pending self-signup AND enrol them in one go (the tier they requested
+// is pre-selected). Free tiers need no cadence. Uses venue_approve_and_enrol.
+function ApproveEnrolModal({ venueToken, person, onClose, onDone }) {
+  const [tiers, setTiers] = useState([]);
+  const [tierId, setTierId] = useState(person.requested_tier_id || "");
+  const [period, setPeriod] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => { venueListMembershipTiers(venueToken).then((r) => setTiers(r || [])).catch(() => {}); }, [venueToken]);
+
+  const tier = tiers.find((t) => t.tier_id === tierId);
+  const isFree = !!tier?.benefits?.is_free;
+  const cadences = tier?.prices || [];
+
+  const submit = async () => {
+    setBusy(true); setError(null);
+    try {
+      if (!tierId) { setError("Pick a plan."); setBusy(false); return; }
+      if (!isFree && !period) { setError("Pick a cadence."); setBusy(false); return; }
+      await venueApproveAndEnrol(venueToken, person.id, tierId, isFree ? "monthly" : period);
+      onDone();
+    } catch (e) { setError(errLabel(e)); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={`Approve & enrol ${fullName(person) || "member"}`} foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Enrolling…" : "Approve & enrol"}</button></>
+    }>
+      <p className="text-mute" style={{ fontSize: 12, marginBottom: 12 }}>
+        This activates the member and starts their plan. For a paid plan it raises the first charge — take payment in the Payments tab.
+      </p>
+      <label className="field-label">Plan</label>
+      <select className="input" value={tierId} onChange={(e) => { setTierId(e.target.value); setPeriod(""); }}>
+        <option value="">— Select plan —</option>
+        {tiers.map((t) => <option key={t.tier_id} value={t.tier_id}>{t.name}{t.benefits?.is_free ? " (free)" : ""}</option>)}
+      </select>
+      {tier && !isFree && (
+        <>
+          <label className="field-label" style={{ marginTop: 14 }}>Cadence</label>
+          {cadences.length === 0 ? <p className="text-mute" style={{ fontSize: 12 }}>This plan has no prices set yet — add them under Plans.</p> : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {cadences.map((p) => (
+                <button key={p.period} type="button" className="charge-opt" onClick={() => setPeriod(p.period)}
+                  style={{ borderColor: period === p.period ? "var(--accent)" : "var(--border)", display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 600, fontSize: 13, textTransform: "capitalize" }}>{p.period}</span>
+                  <span>{poundsRound(p.price_pence)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {tier && isFree && <p className="text-mute" style={{ fontSize: 12, marginTop: 12 }}>Free plan — no payment, no cadence.</p>}
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
 function FreezeModal({ venueToken, member, onClose, onDone }) {
   const [until, setUntil] = useState(isoPlusDays(30));
   const [busy, setBusy] = useState(false);
@@ -341,7 +408,11 @@ function PlansTab({ venueToken }) {
                   <div className="cu-name">{t.name}</div>
                   <div className="cu-sub">{t.benefits?.discount_pct ? `${t.benefits.discount_pct}% booking discount` : "No discount"}</div>
                 </div>
-                {!t.active && <span className="pill pill-muted">Inactive</span>}
+                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {t.benefits?.is_free && <span className="pill pill-ok">Free</span>}
+                  {t.benefits?.self_signup && <span className="pill pill-info">On signup</span>}
+                  {!t.active && <span className="pill pill-muted">Inactive</span>}
+                </span>
               </div>
               <div className="cu-stats">
                 {(t.prices || []).length === 0 ? <span className="text-mute" style={{ fontSize: 12 }}>No prices set</span> :
@@ -364,6 +435,8 @@ function PlansTab({ venueToken }) {
 function TierModal({ venueToken, onClose, onDone }) {
   const [name, setName] = useState("");
   const [discount, setDiscount] = useState("");
+  const [isFree, setIsFree] = useState(false);
+  const [selfSignup, setSelfSignup] = useState(true);
   const [prices, setPrices] = useState({ monthly: "", quarterly: "", annual: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -372,12 +445,14 @@ function TierModal({ venueToken, onClose, onDone }) {
     setBusy(true); setError(null);
     try {
       if (!name.trim()) { setError("Give the plan a name."); setBusy(false); return; }
-      const priceArr = CADENCES.map(([p]) => [p, toPence(prices[p])]).filter(([, v]) => v != null && v >= 0)
+      const priceArr = isFree ? [] : CADENCES.map(([p]) => [p, toPence(prices[p])]).filter(([, v]) => v != null && v >= 0)
         .map(([period, price_pence]) => ({ period, price_pence }));
-      if (priceArr.length === 0) { setError("Set at least one price."); setBusy(false); return; }
+      if (!isFree && priceArr.length === 0) { setError("Set at least one price (or mark it free)."); setBusy(false); return; }
       const benefits = {};
       const d = parseInt(discount, 10);
       if (Number.isFinite(d) && d > 0) benefits.discount_pct = d;
+      if (isFree) benefits.is_free = true;
+      if (selfSignup) benefits.self_signup = true;
       await venueCreateMembershipTier(venueToken, name.trim(), benefits, priceArr);
       onDone();
     } catch (e) { setError(errLabel(e)); } finally { setBusy(false); }
@@ -390,19 +465,34 @@ function TierModal({ venueToken, onClose, onDone }) {
     }>
       <label className="field-label">Plan name</label>
       <input className="input" placeholder="e.g. Gold" value={name} onChange={(e) => setName(e.target.value)} />
+
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, fontSize: 13, cursor: "pointer" }}>
+        <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} />
+        <span>Free membership (no payment — members join instantly)</span>
+      </label>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 13, cursor: "pointer" }}>
+        <input type="checkbox" checked={selfSignup} onChange={(e) => setSelfSignup(e.target.checked)} />
+        <span>Offer this plan on the QR signup page</span>
+      </label>
+
       <label className="field-label" style={{ marginTop: 14 }}>Booking discount (%) — optional</label>
       <input className="input" type="number" min="0" max="100" placeholder="0" value={discount} onChange={(e) => setDiscount(e.target.value)} />
-      <label className="field-label" style={{ marginTop: 14 }}>Pricing (£) — set any cadence you offer</label>
-      <div style={{ display: "grid", gap: 8 }}>
-        {CADENCES.map(([p, l]) => (
-          <div key={p} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ width: 90, fontSize: 13 }}>{l}</span>
-            <input className="input" type="number" min="0" step="0.01" placeholder="—" value={prices[p]}
-              onChange={(e) => setPrices((s) => ({ ...s, [p]: e.target.value }))} />
+
+      {!isFree && (
+        <>
+          <label className="field-label" style={{ marginTop: 14 }}>Pricing (£) — set any cadence you offer</label>
+          <div style={{ display: "grid", gap: 8 }}>
+            {CADENCES.map(([p, l]) => (
+              <div key={p} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 90, fontSize: 13 }}>{l}</span>
+                <input className="input" type="number" min="0" step="0.01" placeholder="—" value={prices[p]}
+                  onChange={(e) => setPrices((s) => ({ ...s, [p]: e.target.value }))} />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <p className="text-mute" style={{ fontSize: 12, marginTop: 10 }}>Tip: discount the annual cadence to reward upfront payers.</p>
+          <p className="text-mute" style={{ fontSize: 12, marginTop: 10 }}>Tip: discount the annual cadence to reward upfront payers.</p>
+        </>
+      )}
       {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
     </Modal>
   );

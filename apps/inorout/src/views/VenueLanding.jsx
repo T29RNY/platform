@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import {
-  getVenueLanding, joinRegisterTeam, redeemInviteLink, memberSelfSignup,
+  getVenueLanding, joinRegisterTeam, redeemInviteLink, memberSelfSignup, getVenueSignupTiers,
 } from "@platform/core/storage/supabase.js";
 import useRequireAuth from "../hooks/useRequireAuth.js";
 import AuthGateModal from "../components/AuthGateModal.jsx";
@@ -50,6 +50,11 @@ function Styles() {
       .vl-ghost { background: transparent; color: var(--t2); border: 1px solid rgba(255,255,255,0.14); }
       .vl-consent { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0 0; color: var(--t2); font-size: 13px; line-height: 1.4; cursor: pointer; }
       .vl-consent input { margin-top: 2px; }
+      .vl-tier { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; text-align: left;
+        padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
+        color: var(--t1); font-family: "DM Sans", sans-serif; font-size: 15px; cursor: pointer; }
+      .vl-tier--on { border-color: var(--t1); background: rgba(255,255,255,0.10); }
+      .vl-tier strong { font-family: "Bebas Neue", sans-serif; font-size: 18px; letter-spacing: 0.5px; white-space: nowrap; }
     `}</style>
   );
 }
@@ -101,26 +106,40 @@ function RegisterForm({ comp, onDone, onCancel, inviteCode }) {
   );
 }
 
-function MemberSignupForm({ code, onDone }) {
+const tierPrice = (t) => {
+  if (t.is_free) return "Free";
+  const prices = Array.isArray(t.prices) ? t.prices : [];
+  const monthly = prices.find((p) => p.period === "monthly") || prices[0];
+  return monthly ? `£${(monthly.price_pence / 100).toFixed(monthly.price_pence % 100 ? 2 : 0)}/${monthly.period === "monthly" ? "mo" : monthly.period}` : "";
+};
+
+function MemberSignupForm({ code, tiers, onDone }) {
+  const [tierId, setTierId] = useState(tiers.length === 1 ? tiers[0].tier_id : "");
   const [f, setF]         = useState({ first: "", last: "", email: "", phone: "", consent: false });
   const [busy, setBusy]   = useState(false);
   const [error, setError] = useState(null);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const selectedTier = tiers.find((t) => t.tier_id === tierId) || null;
 
   const submit = async () => {
     if (!f.first.trim()) { setError("Your first name is required."); return; }
+    if (tiers.length > 0 && !tierId) { setError("Please choose a membership."); return; }
     setBusy(true); setError(null);
     try {
       const r = await memberSelfSignup(code, {
         firstName: f.first.trim(), lastName: f.last.trim() || null,
         email: f.email.trim() || null, phone: f.phone.trim() || null,
-        consentMarketing: f.consent,
+        consentMarketing: f.consent, tierId: tierId || null,
       });
       if (!r?.ok) {
-        setError(r?.reason === "first_name_required" ? "Your first name is required." : "Couldn't submit your request. Please try again.");
+        setError(r?.reason === "tier_unavailable" ? "That membership isn't available — pick another."
+          : r?.reason === "first_name_required" ? "Your first name is required."
+          : "Couldn't submit your request. Please try again.");
         return;
       }
-      onDone(r.already_registered ? (r.status === "active" ? "member" : "pending") : "new");
+      if (r.already_registered) { onDone(r.status === "active" ? "member" : "pending"); return; }
+      if (r.free) { onDone("joined", { passToken: r.pass_token }); return; }
+      onDone("new");
     } catch (e) {
       console.error("[membership] self-signup failed", e);
       setError("Couldn't submit your request. Please try again.");
@@ -129,6 +148,20 @@ function MemberSignupForm({ code, onDone }) {
 
   return (
     <>
+      {tiers.length > 0 && (
+        <>
+          <label className="vl-field-label">Choose your membership</label>
+          <div style={{ display: "grid", gap: 8 }}>
+            {tiers.map((t) => (
+              <button key={t.tier_id} type="button" onClick={() => setTierId(t.tier_id)}
+                className={"vl-tier" + (tierId === t.tier_id ? " vl-tier--on" : "")}>
+                <span>{t.name}{t.benefits?.discount_pct ? <span className="vl-muted"> · {t.benefits.discount_pct}% off bookings</span> : null}</span>
+                <strong>{tierPrice(t)}</strong>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <label className="vl-field-label">First name</label>
       <input className="vl-input" value={f.first} onChange={set("first")} placeholder="Your first name" maxLength={80} />
       <label className="vl-field-label">Last name (optional)</label>
@@ -143,7 +176,7 @@ function MemberSignupForm({ code, onDone }) {
       </label>
       {error && <p className="vl-msg--err">{error}</p>}
       <button className="vl-cta" onClick={submit} disabled={busy} style={{ marginTop: 12 }}>
-        {busy ? "Submitting…" : "Request membership"}
+        {busy ? "Submitting…" : selectedTier?.is_free ? "Join now" : "Request membership"}
       </button>
     </>
   );
@@ -153,7 +186,9 @@ export default function VenueLanding({ venueId, code }) {
   const [state, setState]   = useState({ phase: "loading" });
   const [openComp, setOpenComp] = useState(null);   // competition_id with the form open
   const [doneComp, setDoneComp] = useState(null);   // competition_id just submitted
-  const [memberPhase, setMemberPhase] = useState("idle"); // idle | open | new | pending | member
+  const [memberPhase, setMemberPhase] = useState("idle"); // idle | open | new | pending | member | joined
+  const [signupTiers, setSignupTiers] = useState([]);
+  const [joinedPass, setJoinedPass] = useState(null);     // pass_token for a free auto-join
   const { requireAuth, gateProps } = useRequireAuth();
 
   useEffect(() => {
@@ -161,8 +196,14 @@ export default function VenueLanding({ venueId, code }) {
     getVenueLanding(venueId)
       .then((data) => { if (alive) setState({ phase: "done", data }); })
       .catch((e) => { console.error("[invite] venue landing threw", e); if (alive) setState({ phase: "done", data: null }); });
+    if (code) getVenueSignupTiers(code).then((r) => { if (alive && r?.ok) setSignupTiers(r.tiers || []); }).catch(() => {});
     return () => { alive = false; };
-  }, [venueId]);
+  }, [venueId, code]);
+
+  const onSignupDone = (outcome, extra) => {
+    if (outcome === "joined") setJoinedPass(extra?.passToken || null);
+    setMemberPhase(outcome);
+  };
 
   if (state.phase === "loading") {
     return <div className="vl-shell"><Styles /><div className="vl-wrap"><p className="vl-muted">Loading…</p></div></div>;
@@ -233,14 +274,19 @@ export default function VenueLanding({ venueId, code }) {
         <div className="vl-comp">
           <h2 className="vl-comp-name">Become a member</h2>
           <p className="vl-comp-sub">Join {venue.name} and unlock member perks.</p>
-          {memberPhase === "new" ? (
+          {memberPhase === "joined" ? (
+            <div className="vl-msg vl-msg--ok">
+              <p>You're in — welcome! Here's your membership pass:</p>
+              {joinedPass && <p style={{ marginTop: 8 }}><a href={`/m/${joinedPass}`}>Open your pass →</a></p>}
+            </div>
+          ) : memberPhase === "new" ? (
             <p className="vl-msg vl-msg--ok">Thanks! The venue will review your request and confirm your membership.</p>
           ) : memberPhase === "pending" ? (
             <p className="vl-msg vl-msg--ok">You're already on the list — the venue will confirm your place shortly.</p>
           ) : memberPhase === "member" ? (
             <p className="vl-msg vl-msg--ok">You're already a member here. See reception if you need your pass.</p>
           ) : memberPhase === "open" ? (
-            <MemberSignupForm code={code} onDone={(outcome) => setMemberPhase(outcome)} />
+            <MemberSignupForm code={code} tiers={signupTiers} onDone={onSignupDone} />
           ) : (
             <button className="vl-cta" onClick={() => setMemberPhase("open")}>Join as a member</button>
           )}

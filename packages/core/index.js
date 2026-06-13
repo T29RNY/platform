@@ -159,6 +159,8 @@ export {
   getMemberPass,
   memberCheckIn,
   memberSelfSignup,
+  getVenueSignupTiers,
+  venueApproveAndEnrol,
   venueApproveCustomer,
   venueCreatePartner,
   venueCreateOffer,
