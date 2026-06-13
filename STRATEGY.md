@@ -7,6 +7,19 @@ THIS DOC WINS — the brief was written without sight of the codebase and
 roughly a third of it was already built or already decided. Future
 sessions should read this, not the raw brief.*
 
+*UPDATE (session 91, 2026-06-13): the product has grown from "an app to
+manage in-and-outs" into a full modular system (casual + league play,
+venue ops, league/tournament management, ref view, reception display,
+cross-venue membership, QR onboarding, payments) — driven by two real
+pilots who asked for these surfaces. Modules are superadmin-toggled per
+customer. The commercial model below is rewritten accordingly: a free
+casual wedge + two paid SKUs (Venue, Club/Org), both pilots now PAID
+(founder-discounted), and the revenue-share/payment-rail question
+re-opened because the payments+membership module puts the platform in
+the money flow for the first time. Price points remain undetermined —
+the operator is weighing options; this doc fixes the STRUCTURE, not the
+numbers.*
+
 ---
 
 ## PRODUCT THESIS & THE WEDGE
@@ -65,12 +78,71 @@ architecture.
 
 ---
 
-## PILOT VENUE PLAN
+## MODULAR SYSTEM & PACKAGING (session 91 — settled structure)
 
-**Status (2026-06-11):** one pilot candidate — a football venue whose
-co-owner also runs a successful city-centre pub and has local business
-influence + introduction value. **Interested, not committed.** The pitch
-still has to land.
+The platform is now a modular system. Superadmin toggles each module on
+or off per customer. **The module toggles are the price fence** — every
+module is a line item, and the test for "should I build this for a
+pilot" is *"is this a future SKU line?"* (yes) vs *"is this a one-off
+favour?"* (build with care). Future-proofing is legitimate; un-priceable
+bespoke work is not.
+
+**The Spond defence (do not forget this).** Spond is free forever and
+Heja is free + cheap; both are well funded. We **cannot out-free them on
+the casual in-and-out app** and must not try. So:
+
+- The **casual In or Out app is the wedge and the free tier**, not the
+  product. It does the acquisition job (players + squads into the system
+  at zero friction) exactly as Spond's free app does. We give it away.
+- We **monetise the operational layer our competitors deliberately don't
+  run**: reception display, venue dashboard + staff logins, ref view,
+  league/tournament management, cross-venue membership, QR onboarding,
+  payments. **None of Spond / Heja / TeamSnap run a venue.** Pitchero is
+  the only one close, and it's a club-*website* tool, not a live-ops
+  system. That whitespace is the product.
+
+**Two SKUs — defined by the two pilots, not invented:**
+
+| SKU | Buyer (pilot) | Modules on |
+|---|---|---|
+| **Free / Casual** | a single squad doing in-and-outs | player app only. £0. Acquisition; never our revenue. |
+| **Venue** | Pilot 1 (small pitch venue, casual + leagues) | player app + venue dashboard + reception display + ref view + league management + payments. Membership OFF. |
+| **Club / Org** | Pilot 2 (multi-age club, leagues, tournaments, cross-venue) | everything in Venue **plus** full membership, multi-age/multi-team, tournaments, cross-venue. |
+
+Modules above a SKU's base (extra reception screens, advanced
+membership, tournament engine) are **add-ons** — the upsell lever the
+toggle architecture already supports.
+
+**Positioning rule unchanged: sell the OUTCOME, not the system.** We do
+not pitch "a sports operating system" just because we built one (the
+thesis above still holds: the platform emerges from adoption, it is not
+pitched into existence). Modules are *how we deliver and price*, not the
+story. To Pilot 1: *"Run your venue and your leagues, and look elite
+doing it."* To Pilot 2: *"Run your whole club — every age group, league
+and membership — in one place."* Same engine, two outcomes, two buyers.
+
+---
+
+## PILOT PLAN (two pilots)
+
+**Status (2026-06-13):** two pilots, both intending to PAY (each
+founder-discounted — see Commercial Terms).
+
+- **Pilot 1 — small pitch venue.** Runs casual + league games only. Maps
+  to the **Venue** SKU. Football venue whose co-owner also runs a
+  successful city-centre pub (local business influence + introduction
+  value). *Likely* paid, founder-discounted.
+- **Pilot 2 — multi-age club.** Hosts training sessions across age
+  groups, multiple leagues and tournaments; membership is club- and
+  cross-venue-based (a full membership system). Maps to the **Club / Org**
+  SKU. **Paid**, founder-discounted. A club of this size with membership
+  revenue flowing through the platform is a different animal from a small
+  venue — it justifies a paid deal from day one and gives a natural
+  transaction-fee hook (see payment-rail note below) even during a
+  founder-priced period.
+
+The Pilot 1 discovery / pitch / demo detail below was written for the
+single-venue case and still applies to Pilot 1 specifically.
 
 **Open discovery question (ask BEFORE the pitch):** do they currently
 run leagues?
@@ -113,36 +185,59 @@ player_match), so case-study numbers will exist whenever needed.
 
 ---
 
-## PILOT COMMERCIAL TERMS (structure agreed session 84)
+## PILOT COMMERCIAL TERMS (revised session 91 — both pilots paid)
 
-**3 months free — but priced in kind, in writing.** The venue's side of
-the deal is enumerated like a price:
+**Both pilots are paid, founder-discounted.** The session-84 "3 months
+free" structure is superseded: a paid pilot (even at a deep founder
+discount) is a stronger signal of real intent than a free one, anchors
+the product's value above zero from day one, and avoids the "re-open the
+money conversation at month 3" problem entirely.
+
+**Founder pricing = % off list, locked 12 months (e.g. 50%).** NEVER a
+"symbolic" absolute price — a token price anchors value at near-zero, and
+customer #2 WILL ask what customer #1 pays. The founder deal scales with
+the list price instead of undercutting it.
+
+**List price is undetermined — by design.** The operator is weighing
+options. There are now TWO list prices to discover, one per SKU (Venue,
+Club/Org), set from what the pilots teach about willingness to pay.
+Rough external anchors for the discovery (not targets): Pitchero
+multi-team £30/mo, Pitchero "Ultimate" £80/mo (and it does far less live
+ops than the Venue SKU); TeamSnap-ONE is sales-led/custom precisely
+because the club/org bracket is worth more. The Venue SKU sits around /
+above Pitchero Ultimate; the Club/Org SKU sits in the TeamSnap-ONE
+bracket and scales with members/teams.
+
+**Priced ALSO in kind, in writing — still required even though paid.**
+The founder discount is *bought* with these; enumerate them like a price:
 
 1. Fortnightly 20-minute feedback call
 2. Case-study + testimonial rights
 3. Named-logo permission
-4. Reception display physically installed and on
-5. Two warm introductions to other venues
+4. Reception display physically installed and on (Pilot 1)
+5. Two warm introductions to other venues/clubs
 
-If the owner won't agree to these, the pilot was never going to produce
-a case study — better to learn at signing.
+If a pilot won't agree to these, the founder discount has no
+justification and the pilot was never going to produce a case study —
+better to learn at signing.
 
-**Post-pilot price agreed AT SIGNING, not at month 3.** Conversion is
-automatic-unless-cancelled. Never re-open the money conversation with
-someone anchored at £0 for three months.
+**Payment-rail revenue: RE-OPENED (session 91).** Session 84 ruled out
+revenue share because *"the platform doesn't sit in the booking/payment
+money flow."* The **payments + membership module changes that** — match
+fees, membership fees and tournament entries now flow *through* the app,
+putting the platform exactly where Spond and Pitchero make their money:
+a small clip on transactions. This is the best-feeling revenue available
+— it scales with the customer's success, it's how the grassroots market
+already expects to pay (Spond trained them), and it doesn't read as a
+price rise. **Direction under consideration:** SaaS subscription for the
+operational software **+** a transaction fee on money flowing through the
+membership/payments module (the proven Pitchero model: £/mo tiers *and*
+a Stripe-rate clip). Rate undetermined. Booking-flow revenue share
+remains ruled out — the platform still doesn't sit in the booking money
+flow; this is specifically about fees/subs collected via our own module.
 
-**Founder pricing = % off list, locked 12 months (e.g. 50%).** NEVER a
-"symbolic" absolute price — a token price anchors the product's value
-at near-zero, and venue #2 WILL ask what venue #1 pays. List price
-doesn't exist yet; set it later from what the pilot teaches about
-willingness to pay — the founder deal scales with it instead of
-undercutting it.
-
-**Revenue share: ruled out.** The platform doesn't sit in the
-booking/payment money flow; nothing clean to share.
-
-**The first venue is a strategic partner, not a normal customer. The
-platform is never permanently free.**
+**The first customers are strategic partners, not normal customers. The
+platform is never permanently free above the casual wedge tier.**
 
 ---
 
@@ -197,7 +292,10 @@ platform is never permanently free.**
 - Enterprise functionality
 - App Store work ("App Store perfection" is moot — the product is a
   PWA; native wrapping stays unscoped in FEATURES.md Phase 3)
-- Permanent free tier of any kind
+- Permanent free tier *of the paid SKUs* (Venue / Club/Org are never
+  free). NOTE (s91): the casual In-or-Out app IS a permanent free wedge
+  tier — that is deliberate Spond-defence, not a contradiction. "Never
+  permanently free" applies to the operational/paid layer only.
 
 Anything on this list that can't affect a decision in the next 6 months
 stays out of plans — vision is not a backlog.
