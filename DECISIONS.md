@@ -1,10 +1,30 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 11 2026 (session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
+*Last updated: Jun 13 2026 (session 90 — MY VIEW has ONE header. The old `HeroCard` green pitch banner is gone; the floodlit pitch is now the *background* of the single `PageHeader` (via `PitchCanvas.jsx`), which carries the wordmark + one fixture line (day · venue · time · £price) + a thin admins line. The day is printed once. Do NOT re-introduce a separate "this week" hero/banner block above or below the header. session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## MY VIEW has ONE header — the pitch is the header background, not a separate banner (session 90, commit 4e1ee0d)
+
+MY VIEW used to stack two title blocks: `PageHeader` (IN OR OUT wordmark + `day · venue ·
+time` meta + confirmed gauge) and `HeroCard` (the animated green pitch banner repeating the
+day + price + admins). Both printed `schedule.dayOfWeek` — a visible duplicate the operator
+flagged.
+
+**Settled:** the screen has a **single** header — `PageHeader` — which renders the
+floodlit pitch as its *background* (new presentational `PitchCanvas.jsx`), the wordmark,
+ONE fixture line (`day · venue · time` + a `£price` pill), and a thin **Admins**
+(vice-captain) line. `HeroCard.jsx` is **deleted**.
+
+- Do **not** re-add a separate "This Week" hero/banner block. Any new match-context info
+  belongs *inside* `PageHeader`, not as a second stacked card.
+- The pitch animation lives in `PitchCanvas.jsx` and is **reduced-motion aware** (single
+  static frame under `prefers-reduced-motion`). Its colours are `rgb()/rgba()` strings on
+  purpose — `check-hygiene.sh` flags `#hex` literals, so keep canvas colours non-hex.
+- Header entrance motion (row stagger + wordmark scale-pop) is gated behind
+  `useReducedMotion`; keep that gate on any new header motion.
 
 ## ⛔ MONEY-FLOW GATE — Stripe Connect for memberships (PROPOSED, awaiting operator sign-off; mig 279 scaffolding only)
 
