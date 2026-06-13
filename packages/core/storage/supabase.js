@@ -3856,3 +3856,38 @@ export async function memberUpdateSelf(updates) {
   }
   return data;
 }
+
+export async function memberRegisterChild({ first_name, last_name, dob, relationship }) {
+  const { data, error } = await supabase.rpc("member_register_child", {
+    p_first_name:   first_name,
+    p_last_name:    last_name,
+    p_dob:          dob ?? null,
+    p_relationship: relationship ?? null,
+  });
+  if (error) {
+    console.error("[member] member_register_child failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function memberListChildren() {
+  const { data, error } = await supabase.rpc("member_list_children");
+  if (error) {
+    console.error("[member] member_list_children failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function memberUpdateChild(childProfileId, updates) {
+  const { data, error } = await supabase.rpc("member_update_child", {
+    p_child_profile_id: childProfileId,
+    p_updates:          updates,
+  });
+  if (error) {
+    console.error("[member] member_update_child failed", error);
+    throw error;
+  }
+  return data;
+}

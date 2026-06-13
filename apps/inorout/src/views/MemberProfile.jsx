@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { memberGetSelf, memberUpdateSelf } from "@platform/core/storage/supabase.js";
+import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChild, memberUpdateChild } from "@platform/core/storage/supabase.js";
 
 // MemberProfile — the member's own account profile at /profile.
 // Authenticated gate is enforced by App.jsx before mounting.
@@ -26,18 +26,32 @@ export default function MemberProfile({ authUser }) {
   const [saveError, setSaveError] = useState(null);
   const isSavingRef = useRef(false);
 
+  const [children, setChildren] = useState([]); // child profile summaries
+  const [addingChild, setAddingChild] = useState(false);
+  const [addChildForm, setAddChildForm] = useState({ first_name: "", last_name: "", dob: "" });
+  const [addingChildSaving, setAddingChildSaving] = useState(false);
+  const [addChildError, setAddChildError] = useState(null);
+  const isAddingChildRef = useRef(false);
+
+  const [expandedChild, setExpandedChild] = useState(null); // uuid of child being edited
+  const [childForm, setChildForm] = useState(null);
+  const [childSaving, setChildSaving] = useState(false);
+  const [childSaveError, setChildSaveError] = useState(null);
+  const isChildSavingRef = useRef(false);
+
   useEffect(() => {
     let alive = true;
-    memberGetSelf()
-      .then((r) => {
-        if (!alive) return;
-        if (r?.found) setProfile(r);
-        else setProfile(null);
-      })
-      .catch((e) => {
-        console.error("[member-profile] load failed", e);
-        if (alive) setProfile(null);
-      });
+    Promise.all([
+      memberGetSelf(),
+      memberListChildren(),
+    ]).then(([selfResult, childrenResult]) => {
+      if (!alive) return;
+      setProfile(selfResult?.found ? selfResult : null);
+      setChildren(childrenResult?.children ?? []);
+    }).catch((e) => {
+      console.error("[member-profile] load failed", e);
+      if (alive) setProfile(null);
+    });
     return () => { alive = false; };
   }, []);
 
@@ -74,6 +88,93 @@ export default function MemberProfile({ authUser }) {
   };
 
   const cancelEdit = () => { setEditing(false); setForm(null); setSaveError(null); };
+
+  const openAddChild = () => {
+    setAddChildForm({ first_name: "", last_name: "", dob: "" });
+    setAddChildError(null);
+    setAddingChild(true);
+  };
+  const cancelAddChild = () => { setAddingChild(false); setAddChildError(null); };
+
+  const handleAddChild = async () => {
+    if (isAddingChildRef.current) return;
+    if (!addChildForm.first_name.trim()) { setAddChildError("First name is required."); return; }
+    isAddingChildRef.current = true;
+    setAddingChildSaving(true);
+    setAddChildError(null);
+    try {
+      await memberRegisterChild({
+        first_name: addChildForm.first_name.trim(),
+        last_name:  addChildForm.last_name.trim() || null,
+        dob:        addChildForm.dob || null,
+      });
+      const updated = await memberListChildren();
+      setChildren(updated?.children ?? []);
+      setAddingChild(false);
+    } catch (e) {
+      console.error("[member-profile] add child failed", e);
+      setAddChildError("Couldn't add child — please try again.");
+    } finally {
+      setAddingChildSaving(false);
+      isAddingChildRef.current = false;
+    }
+  };
+
+  const openEditChild = (child) => {
+    setExpandedChild(child.id);
+    setChildSaveError(null);
+    setChildForm({
+      first_name:                    child.first_name ?? "",
+      last_name:                     child.last_name ?? "",
+      phone:                         child.phone ?? "",
+      gender:                        child.gender ?? "",
+      address_line1:                 child.address_line1 ?? "",
+      address_line2:                 child.address_line2 ?? "",
+      address_city:                  child.address_city ?? "",
+      address_postcode:              child.address_postcode ?? "",
+      ec1_name:                      child.ec1_name ?? "",
+      ec1_relationship:              child.ec1_relationship ?? "",
+      ec1_phone:                     child.ec1_phone ?? "",
+      ec2_name:                      child.ec2_name ?? "",
+      ec2_relationship:              child.ec2_relationship ?? "",
+      ec2_phone:                     child.ec2_phone ?? "",
+      send_notes:                    child.send_notes ?? "",
+      dietary_notes:                 child.dietary_notes ?? "",
+      consent_emergency_treatment:   child.consent_emergency_treatment ?? false,
+      consent_administer_medication: child.consent_administer_medication ?? false,
+      may_leave_unaccompanied:       child.may_leave_unaccompanied ?? false,
+      authorised_collectors:         child.authorised_collectors ?? "",
+      photo_consent:                 child.photo_consent ?? {},
+      medical_conditions:            child.medical_conditions ?? "",
+      allergies:                     child.allergies ?? "",
+      medications:                   child.medications ?? "",
+      gp_details:                    child.gp_details ?? "",
+    });
+  };
+  const cancelEditChild = () => { setExpandedChild(null); setChildForm(null); setChildSaveError(null); };
+  const setC = (key, val) => setChildForm((f) => ({ ...f, [key]: val }));
+  const setChildConsent = (key, val) => setChildForm((f) => ({
+    ...f, photo_consent: { ...f.photo_consent, [key]: val },
+  }));
+
+  const handleSaveChild = async (childId) => {
+    if (isChildSavingRef.current) return;
+    isChildSavingRef.current = true;
+    setChildSaving(true);
+    setChildSaveError(null);
+    try {
+      const updated = await memberUpdateChild(childId, { ...childForm });
+      setChildren((prev) => prev.map((c) => c.id === childId ? { ...c, ...updated } : c));
+      setExpandedChild(null);
+      setChildForm(null);
+    } catch (e) {
+      console.error("[member-profile] save child failed", e);
+      setChildSaveError("Couldn't save — please try again.");
+    } finally {
+      setChildSaving(false);
+      isChildSavingRef.current = false;
+    }
+  };
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
   const setConsent = (key, val) => setForm((f) => ({
@@ -312,6 +413,216 @@ export default function MemberProfile({ authUser }) {
             </>
           )}
         </Section>
+
+        {/* ── My children ──────────────────────────────────────────── */}
+        {profile && (
+          <div>
+            <div style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase",
+              color: "var(--t2)", marginBottom: 12,
+            }}>My children</div>
+
+            {children.map((child) => {
+              const childName = [child.first_name, child.last_name].filter(Boolean).join(" ");
+              const isExpanded = expandedChild === child.id;
+              return (
+                <div key={child.id} style={{
+                  background: "var(--b2)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--r)",
+                  overflow: "hidden",
+                  marginBottom: 10,
+                }}>
+                  <div style={{
+                    padding: "14px",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                  }}>
+                    <div>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 18 }}>{childName}</div>
+                      {child.dob && (
+                        <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 2 }}>
+                          DOB: {fmtDate(child.dob)}
+                        </div>
+                      )}
+                    </div>
+                    {!isExpanded && (
+                      <button onClick={() => openEditChild(child)} style={btnStyle("var(--b3)", "var(--t1)")}>
+                        Edit
+                      </button>
+                    )}
+                  </div>
+
+                  {isExpanded && childForm && (
+                    <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "0 14px 14px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 0, marginTop: 12 }}>
+
+                        <SubHead>Personal</SubHead>
+                        <FieldRow label="First name">
+                          <Input value={childForm.first_name} onChange={(v) => setC("first_name", v)} />
+                        </FieldRow>
+                        <FieldRow label="Last name">
+                          <Input value={childForm.last_name} onChange={(v) => setC("last_name", v)} />
+                        </FieldRow>
+                        <FieldRow label="Phone (optional)">
+                          <Input value={childForm.phone} onChange={(v) => setC("phone", v)} type="tel" />
+                        </FieldRow>
+                        <FieldRow label="Gender (optional)">
+                          <Input value={childForm.gender} onChange={(v) => setC("gender", v)} />
+                        </FieldRow>
+
+                        <SubHead>Emergency contacts</SubHead>
+                        <FieldRow label="Contact 1 — name">
+                          <Input value={childForm.ec1_name} onChange={(v) => setC("ec1_name", v)} />
+                        </FieldRow>
+                        <FieldRow label="Contact 1 — relationship">
+                          <Input value={childForm.ec1_relationship} onChange={(v) => setC("ec1_relationship", v)} />
+                        </FieldRow>
+                        <FieldRow label="Contact 1 — phone">
+                          <Input value={childForm.ec1_phone} onChange={(v) => setC("ec1_phone", v)} type="tel" />
+                        </FieldRow>
+                        <FieldRow label="Contact 2 — name">
+                          <Input value={childForm.ec2_name} onChange={(v) => setC("ec2_name", v)} />
+                        </FieldRow>
+                        <FieldRow label="Contact 2 — relationship">
+                          <Input value={childForm.ec2_relationship} onChange={(v) => setC("ec2_relationship", v)} />
+                        </FieldRow>
+                        <FieldRow label="Contact 2 — phone">
+                          <Input value={childForm.ec2_phone} onChange={(v) => setC("ec2_phone", v)} type="tel" />
+                        </FieldRow>
+
+                        <SubHead>Additional needs & consents</SubHead>
+                        <FieldRow label="SEND / additional needs">
+                          <Textarea value={childForm.send_notes} onChange={(v) => setC("send_notes", v)} placeholder="Any disability, SEND, or additional needs" />
+                        </FieldRow>
+                        <FieldRow label="Dietary requirements">
+                          <Textarea value={childForm.dietary_notes} onChange={(v) => setC("dietary_notes", v)} />
+                        </FieldRow>
+                        <CheckRow
+                          label="Consent to emergency medical treatment"
+                          checked={childForm.consent_emergency_treatment}
+                          onChange={(v) => setC("consent_emergency_treatment", v)}
+                        />
+                        <CheckRow
+                          label="Consent to administer prescribed medication"
+                          checked={childForm.consent_administer_medication}
+                          onChange={(v) => setC("consent_administer_medication", v)}
+                        />
+                        <CheckRow
+                          label="Can leave the session unaccompanied"
+                          checked={childForm.may_leave_unaccompanied}
+                          onChange={(v) => setC("may_leave_unaccompanied", v)}
+                        />
+                        <FieldRow label="Authorised collectors">
+                          <Textarea value={childForm.authorised_collectors} onChange={(v) => setC("authorised_collectors", v)} placeholder="Names of people authorised to collect" />
+                        </FieldRow>
+
+                        <SubHead>Photo & image consent</SubHead>
+                        {PHOTO_USES.map(({ key, label }) => (
+                          <CheckRow
+                            key={key}
+                            label={label}
+                            checked={!!(childForm.photo_consent?.[key])}
+                            onChange={(v) => setChildConsent(key, v)}
+                          />
+                        ))}
+
+                        <SubHead>Medical information</SubHead>
+                        <div style={{ padding: "8px 14px 4px", fontSize: 12, color: "var(--t2)" }}>
+                          Special-category data. Access is audit-logged.
+                        </div>
+                        <FieldRow label="Medical conditions">
+                          <Textarea value={childForm.medical_conditions} onChange={(v) => setC("medical_conditions", v)} />
+                        </FieldRow>
+                        <FieldRow label="Allergies">
+                          <Textarea value={childForm.allergies} onChange={(v) => setC("allergies", v)} />
+                        </FieldRow>
+                        <FieldRow label="Current medications">
+                          <Textarea value={childForm.medications} onChange={(v) => setC("medications", v)} />
+                        </FieldRow>
+                        <FieldRow label="GP name & surgery">
+                          <Textarea value={childForm.gp_details} onChange={(v) => setC("gp_details", v)} />
+                        </FieldRow>
+                      </div>
+
+                      {childSaveError && (
+                        <div style={{ color: "var(--red)", fontSize: 13, textAlign: "center", marginTop: 10 }}>
+                          {childSaveError}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                        <button
+                          onClick={() => handleSaveChild(child.id)}
+                          disabled={childSaving}
+                          style={{ ...btnStyle("var(--amber)", "var(--black)"), flex: 1, padding: "12px 0" }}
+                        >
+                          {childSaving ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          onClick={cancelEditChild}
+                          disabled={childSaving}
+                          style={{ ...btnStyle("transparent", "var(--t2)", false, "1px solid var(--border-subtle)"), flex: 1, padding: "12px 0" }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {addingChild ? (
+              <div style={{
+                background: "var(--b2)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--r)",
+                overflow: "hidden",
+                marginBottom: 10,
+              }}>
+                <div style={{ padding: "14px", fontWeight: 700, fontSize: 14 }}>Add a child</div>
+                <FieldRow label="First name *">
+                  <Input value={addChildForm.first_name} onChange={(v) => setAddChildForm((f) => ({ ...f, first_name: v }))} />
+                </FieldRow>
+                <FieldRow label="Last name">
+                  <Input value={addChildForm.last_name} onChange={(v) => setAddChildForm((f) => ({ ...f, last_name: v }))} />
+                </FieldRow>
+                <FieldRow label="Date of birth">
+                  <Input value={addChildForm.dob} onChange={(v) => setAddChildForm((f) => ({ ...f, dob: v }))} type="date" />
+                </FieldRow>
+                {addChildError && (
+                  <div style={{ padding: "0 14px 8px", color: "var(--red)", fontSize: 13 }}>{addChildError}</div>
+                )}
+                <div style={{ display: "flex", gap: 10, padding: "8px 14px 14px" }}>
+                  <button
+                    onClick={handleAddChild}
+                    disabled={addingChildSaving}
+                    style={{ ...btnStyle("var(--amber)", "var(--black)"), flex: 1, padding: "12px 0" }}
+                  >
+                    {addingChildSaving ? "Adding…" : "Add child"}
+                  </button>
+                  <button
+                    onClick={cancelAddChild}
+                    disabled={addingChildSaving}
+                    style={{ ...btnStyle("transparent", "var(--t2)", false, "1px solid var(--border-subtle)"), flex: 1, padding: "12px 0" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              !editing && (
+                <button onClick={openAddChild} style={{
+                  width: "100%", padding: "12px 0",
+                  background: "var(--b2)", border: "1px dashed var(--border)",
+                  borderRadius: "var(--r)", color: "var(--t2)",
+                  fontSize: 14, fontFamily: "var(--font-body)", cursor: "pointer",
+                }}>
+                  + Add a child
+                </button>
+              )
+            )}
+          </div>
+        )}
 
         {/* ── Save / cancel ────────────────────────────────────────── */}
         {editing && (
