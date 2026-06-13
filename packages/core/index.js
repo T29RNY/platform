@@ -237,6 +237,15 @@ export {
   venueCreateInviteLink,
   venueSetInviteLinkActive,
   venueRepointInviteLink,
+  clubCreateCohort,
+  clubListCohorts,
+  clubUpdateCohort,
+  clubCreateSession,
+  clubUpdateSession,
+  clubCancelSession,
+  clubListSessions,
+  clubGetSessionRsvps,
+  clubMarkAttendance,
 } from "./storage/supabase.js";
 export { generateRoundRobin } from "./engine/roundRobin.js";
 export { generateCupBracket } from "./engine/cupBracket.js";

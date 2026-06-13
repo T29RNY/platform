@@ -4038,3 +4038,83 @@ export async function memberEnrolMembership(inviteCode, tierId, period, forProfi
   if (error) { console.error("[member] member_enrol_membership failed", error); throw error; }
   return data;
 }
+
+// ── Phase 10 — Club Attendance admin RPCs (mig 298) ──────────────────────────
+
+export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null } = {}) {
+  const { data, error } = await supabase.rpc("club_create_cohort", {
+    p_venue_token: venueToken, p_club_id: clubId, p_name: name,
+    p_description: description, p_min_age: minAge, p_max_age: maxAge,
+  });
+  if (error) { console.error("[club] club_create_cohort failed", error); throw error; }
+  return data;
+}
+
+export async function clubListCohorts(venueToken, clubId, includeInactive = false) {
+  const { data, error } = await supabase.rpc("club_list_cohorts", {
+    p_venue_token: venueToken, p_club_id: clubId, p_include_inactive: includeInactive,
+  });
+  if (error) { console.error("[club] club_list_cohorts failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdateCohort(venueToken, cohortId, { name = null, description = null, minAge = null, maxAge = null, active = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_cohort", {
+    p_venue_token: venueToken, p_cohort_id: cohortId, p_name: name,
+    p_description: description, p_min_age: minAge, p_max_age: maxAge, p_active: active,
+  });
+  if (error) { console.error("[club] club_update_cohort failed", error); throw error; }
+  return data;
+}
+
+export async function clubCreateSession(venueToken, clubId, { title, scheduledAt, cohortId = null, location = null, notes = null, capacity = null } = {}) {
+  const { data, error } = await supabase.rpc("club_create_session", {
+    p_venue_token: venueToken, p_club_id: clubId, p_title: title,
+    p_scheduled_at: scheduledAt, p_cohort_id: cohortId ?? null,
+    p_location: location, p_notes: notes, p_capacity: capacity,
+  });
+  if (error) { console.error("[club] club_create_session failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdateSession(venueToken, sessionId, { title = null, scheduledAt = null, location = null, notes = null, capacity = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_session", {
+    p_venue_token: venueToken, p_session_id: sessionId, p_title: title,
+    p_scheduled_at: scheduledAt, p_location: location, p_notes: notes, p_capacity: capacity,
+  });
+  if (error) { console.error("[club] club_update_session failed", error); throw error; }
+  return data;
+}
+
+export async function clubCancelSession(venueToken, sessionId, reason = null) {
+  const { data, error } = await supabase.rpc("club_cancel_session", {
+    p_venue_token: venueToken, p_session_id: sessionId, p_reason: reason,
+  });
+  if (error) { console.error("[club] club_cancel_session failed", error); throw error; }
+  return data;
+}
+
+export async function clubListSessions(venueToken, clubId, { cohortId = null, from = null, to = null } = {}) {
+  const { data, error } = await supabase.rpc("club_list_sessions", {
+    p_venue_token: venueToken, p_club_id: clubId,
+    p_cohort_id: cohortId, p_from: from, p_to: to,
+  });
+  if (error) { console.error("[club] club_list_sessions failed", error); throw error; }
+  return data;
+}
+
+export async function clubGetSessionRsvps(venueToken, sessionId) {
+  const { data, error } = await supabase.rpc("club_get_session_rsvps", {
+    p_venue_token: venueToken, p_session_id: sessionId,
+  });
+  if (error) { console.error("[club] club_get_session_rsvps failed", error); throw error; }
+  return data;
+}
+
+export async function clubMarkAttendance(venueToken, sessionId, attendances) {
+  const { data, error } = await supabase.rpc("club_mark_attendance", {
+    p_venue_token: venueToken, p_session_id: sessionId, p_attendances: attendances,
+  });
+  if (error) { console.error("[club] club_mark_attendance failed", error); throw error; }
+  return data;
+}
