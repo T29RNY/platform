@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import {
-  getVenueLanding, joinRegisterTeam, redeemInviteLink, memberSelfSignup, getVenueSignupTiers,
+  getVenueLanding, joinRegisterTeam, redeemInviteLink, getVenueSignupTiers,
 } from "@platform/core/storage/supabase.js";
 import useRequireAuth from "../hooks/useRequireAuth.js";
 import AuthGateModal from "../components/AuthGateModal.jsx";
+import MembershipSignup from "./MembershipSignup.jsx";
 
 // /q/<venue_code> (action venue_landing) — public "what's on at this venue".
 // Shows venue branding + registerable competitions (setup/active) with their
@@ -128,215 +129,12 @@ function ageFromDob(dob) {
   return a;
 }
 
-const EMPTY_FORM = {
-  first: "", last: "", email: "", phone: "", dob: "", gender: "",
-  addr1: "", addr2: "", city: "", postcode: "",
-  emName: "", emRel: "", emPhone: "",
-  medConditions: "", allergies: "", medications: "", gp: "",
-  gName: "", gRel: "", gPhone: "", gEmail: "",
-  consentData: false, consentTerms: false, consentPhoto: false, consentMedical: false,
-  consentMarketing: false,
-};
-
-function MemberSignupForm({ code, tiers, onDone }) {
-  const [tierId, setTierId] = useState(tiers.length === 1 ? tiers[0].tier_id : "");
-  const [f, setF]         = useState(EMPTY_FORM);
-  const [busy, setBusy]   = useState(false);
-  const [error, setError] = useState(null);
-  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
-  const chk = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.checked }));
-  const selectedTier = tiers.find((t) => t.tier_id === tierId) || null;
-
-  const age = ageFromDob(f.dob);
-  const isMinor = age !== null && age < 18;
-  const hasMedical = !!(f.medConditions.trim() || f.allergies.trim() || f.medications.trim() || f.gp.trim());
-
-  const submit = async () => {
-    if (!f.first.trim()) { setError("Your first name is required."); return; }
-    if (tiers.length > 0 && !tierId) { setError("Please choose a membership."); return; }
-    if (!f.consentData || !f.consentTerms) { setError("Please agree to the data-protection and membership terms."); return; }
-    if (isMinor && (!f.gName.trim() || !f.gPhone.trim())) { setError("A parent/guardian name and phone are required for under-18s."); return; }
-    if (hasMedical && !f.consentMedical) { setError("Please confirm consent to store the medical information you've entered."); return; }
-    setBusy(true); setError(null);
-    try {
-      const r = await memberSelfSignup(code, {
-        firstName: f.first.trim(), lastName: f.last.trim() || null,
-        email: f.email.trim() || null, phone: f.phone.trim() || null,
-        consentMarketing: f.consentMarketing, tierId: tierId || null,
-        dob: f.dob || null, gender: f.gender.trim() || null,
-        addressLine1: f.addr1.trim() || null, addressLine2: f.addr2.trim() || null,
-        addressCity: f.city.trim() || null, addressPostcode: f.postcode.trim() || null,
-        emergencyName: f.emName.trim() || null, emergencyRelationship: f.emRel.trim() || null,
-        emergencyPhone: f.emPhone.trim() || null,
-        medicalConditions: f.medConditions.trim() || null, allergies: f.allergies.trim() || null,
-        medications: f.medications.trim() || null, gpDetails: f.gp.trim() || null,
-        guardianName: f.gName.trim() || null, guardianRelationship: f.gRel.trim() || null,
-        guardianPhone: f.gPhone.trim() || null, guardianEmail: f.gEmail.trim() || null,
-        consentDataProcessing: f.consentData, consentTerms: f.consentTerms,
-        consentPhoto: f.consentPhoto, consentMedical: f.consentMedical,
-      });
-      if (!r?.ok) {
-        setError(r?.reason === "tier_unavailable" ? "That membership isn't available — pick another."
-          : r?.reason === "first_name_required" ? "Your first name is required."
-          : r?.reason === "consent_required" ? "Please agree to the data-protection and membership terms."
-          : r?.reason === "guardian_required" ? "A parent/guardian name and phone are required for under-18s."
-          : r?.reason === "medical_consent_required" ? "Please confirm consent to store the medical information you've entered."
-          : "Couldn't submit your request. Please try again.");
-        return;
-      }
-      if (r.already_registered) { onDone(r.status === "active" ? "member" : "pending"); return; }
-      if (r.free) { onDone("joined", { passToken: r.pass_token }); return; }
-      onDone("new");
-    } catch (e) {
-      console.error("[membership] self-signup failed", e);
-      setError("Couldn't submit your request. Please try again.");
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <>
-      {tiers.length > 0 && (
-        <>
-          <label className="vl-field-label">Choose your membership</label>
-          <div style={{ display: "grid", gap: 8 }}>
-            {tiers.map((t) => (
-              <button key={t.tier_id} type="button" onClick={() => setTierId(t.tier_id)}
-                className={"vl-tier" + (tierId === t.tier_id ? " vl-tier--on" : "")}>
-                <span>{t.name}{t.benefits?.discount_pct ? <span className="vl-muted"> · {t.benefits.discount_pct}% off bookings</span> : null}</span>
-                <strong>{tierPrice(t)}</strong>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      <p className="vl-section">Your details</p>
-      <div className="vl-two">
-        <div>
-          <label className="vl-field-label">First name</label>
-          <input className="vl-input" value={f.first} onChange={set("first")} placeholder="First name" maxLength={80} />
-        </div>
-        <div>
-          <label className="vl-field-label">Last name</label>
-          <input className="vl-input" value={f.last} onChange={set("last")} placeholder="Last name" maxLength={80} />
-        </div>
-      </div>
-      <div className="vl-two">
-        <div>
-          <label className="vl-field-label">Date of birth</label>
-          <input className="vl-input" type="date" value={f.dob} onChange={set("dob")} />
-        </div>
-        <div>
-          <label className="vl-field-label">Gender (optional)</label>
-          <input className="vl-input" value={f.gender} onChange={set("gender")} placeholder="e.g. Female" maxLength={40} />
-        </div>
-      </div>
-      <label className="vl-field-label">Email (optional)</label>
-      <input className="vl-input" type="email" value={f.email} onChange={set("email")} placeholder="you@example.com" maxLength={160} />
-      <label className="vl-field-label">Phone (optional)</label>
-      <input className="vl-input" type="tel" value={f.phone} onChange={set("phone")} placeholder="07…" maxLength={30} />
-
-      <p className="vl-section">Address</p>
-      <label className="vl-field-label">Address line 1</label>
-      <input className="vl-input" value={f.addr1} onChange={set("addr1")} placeholder="House / street" maxLength={120} />
-      <label className="vl-field-label">Address line 2 (optional)</label>
-      <input className="vl-input" value={f.addr2} onChange={set("addr2")} maxLength={120} />
-      <div className="vl-two">
-        <div>
-          <label className="vl-field-label">Town / city</label>
-          <input className="vl-input" value={f.city} onChange={set("city")} maxLength={80} />
-        </div>
-        <div>
-          <label className="vl-field-label">Postcode</label>
-          <input className="vl-input" value={f.postcode} onChange={set("postcode")} maxLength={12} />
-        </div>
-      </div>
-
-      <p className="vl-section">Emergency contact</p>
-      <label className="vl-field-label">Name</label>
-      <input className="vl-input" value={f.emName} onChange={set("emName")} placeholder="Contact name" maxLength={120} />
-      <div className="vl-two">
-        <div>
-          <label className="vl-field-label">Relationship</label>
-          <input className="vl-input" value={f.emRel} onChange={set("emRel")} placeholder="e.g. Partner" maxLength={60} />
-        </div>
-        <div>
-          <label className="vl-field-label">Phone</label>
-          <input className="vl-input" type="tel" value={f.emPhone} onChange={set("emPhone")} placeholder="07…" maxLength={30} />
-        </div>
-      </div>
-
-      <p className="vl-section">Medical &amp; safeguarding</p>
-      <p className="vl-hint">Optional — but anything you share is treated as sensitive data and only used to keep you safe.</p>
-      <label className="vl-field-label">Medical conditions</label>
-      <input className="vl-input" value={f.medConditions} onChange={set("medConditions")} maxLength={300} />
-      <label className="vl-field-label">Allergies</label>
-      <input className="vl-input" value={f.allergies} onChange={set("allergies")} maxLength={300} />
-      <label className="vl-field-label">Medications</label>
-      <input className="vl-input" value={f.medications} onChange={set("medications")} maxLength={300} />
-      <label className="vl-field-label">GP / doctor details</label>
-      <input className="vl-input" value={f.gp} onChange={set("gp")} maxLength={200} />
-
-      {isMinor && (
-        <>
-          <p className="vl-section">Parent / guardian</p>
-          <p className="vl-hint">Required because the member is under 18.</p>
-          <label className="vl-field-label">Guardian name</label>
-          <input className="vl-input" value={f.gName} onChange={set("gName")} maxLength={120} />
-          <div className="vl-two">
-            <div>
-              <label className="vl-field-label">Relationship</label>
-              <input className="vl-input" value={f.gRel} onChange={set("gRel")} placeholder="e.g. Mother" maxLength={60} />
-            </div>
-            <div>
-              <label className="vl-field-label">Phone</label>
-              <input className="vl-input" type="tel" value={f.gPhone} onChange={set("gPhone")} placeholder="07…" maxLength={30} />
-            </div>
-          </div>
-          <label className="vl-field-label">Guardian email (optional)</label>
-          <input className="vl-input" type="email" value={f.gEmail} onChange={set("gEmail")} maxLength={160} />
-        </>
-      )}
-
-      <p className="vl-section">Consent</p>
-      <label className="vl-consent">
-        <input type="checkbox" checked={f.consentData} onChange={chk("consentData")} />
-        <span>I consent to the venue storing and processing my personal data for membership administration. <strong>(required)</strong></span>
-      </label>
-      <label className="vl-consent">
-        <input type="checkbox" checked={f.consentTerms} onChange={chk("consentTerms")} />
-        <span>I agree to the membership terms and code of conduct. <strong>(required)</strong></span>
-      </label>
-      <label className="vl-consent">
-        <input type="checkbox" checked={f.consentPhoto} onChange={chk("consentPhoto")} />
-        <span>I consent to photos/video being taken at events for club use.</span>
-      </label>
-      {hasMedical && (
-        <label className="vl-consent">
-          <input type="checkbox" checked={f.consentMedical} onChange={chk("consentMedical")} />
-          <span>I consent to the club storing the medical information above. <strong>(required)</strong></span>
-        </label>
-      )}
-      <label className="vl-consent">
-        <input type="checkbox" checked={f.consentMarketing} onChange={chk("consentMarketing")} />
-        <span>Keep me updated about membership offers and events.</span>
-      </label>
-
-      {error && <p className="vl-msg--err">{error}</p>}
-      <button className="vl-cta" onClick={submit} disabled={busy} style={{ marginTop: 16 }}>
-        {busy ? "Submitting…" : selectedTier?.is_free ? "Join now" : "Request membership"}
-      </button>
-    </>
-  );
-}
 
 export default function VenueLanding({ venueId, code }) {
   const [state, setState]   = useState({ phase: "loading" });
   const [openComp, setOpenComp] = useState(null);   // competition_id with the form open
   const [doneComp, setDoneComp] = useState(null);   // competition_id just submitted
-  const [memberPhase, setMemberPhase] = useState("idle"); // idle | open | new | pending | member | joined
-  const [signupTiers, setSignupTiers] = useState([]);
-  const [joinedPass, setJoinedPass] = useState(null);     // pass_token for a free auto-join
+  const [signupData, setSignupData] = useState(null);  // { venue_id, club, documents, tiers }
   const { requireAuth, gateProps } = useRequireAuth();
 
   useEffect(() => {
@@ -344,14 +142,10 @@ export default function VenueLanding({ venueId, code }) {
     getVenueLanding(venueId)
       .then((data) => { if (alive) setState({ phase: "done", data }); })
       .catch((e) => { console.error("[invite] venue landing threw", e); if (alive) setState({ phase: "done", data: null }); });
-    if (code) getVenueSignupTiers(code).then((r) => { if (alive && r?.ok) setSignupTiers(r.tiers || []); }).catch(() => {});
+    if (code) getVenueSignupTiers(code).then((r) => { if (alive && r?.ok) setSignupData(r); }).catch(() => {});
     return () => { alive = false; };
   }, [venueId, code]);
 
-  const onSignupDone = (outcome, extra) => {
-    if (outcome === "joined") setJoinedPass(extra?.passToken || null);
-    setMemberPhase(outcome);
-  };
 
   if (state.phase === "loading") {
     return <div className="vl-shell"><Styles /><div className="vl-wrap"><p className="vl-muted">Loading…</p></div></div>;
@@ -418,26 +212,15 @@ export default function VenueLanding({ venueId, code }) {
           </div>
         ))}
 
-        {/* Become a member — self-signup → pending venue approval (mig 275) */}
+        {/* Become a member — Phase 7 wizard (mig 296) */}
         <div className="vl-comp">
-          <h2 className="vl-comp-name">Become a member</h2>
-          <p className="vl-comp-sub">Join {venue.name} and unlock member perks.</p>
-          {memberPhase === "joined" ? (
-            <div className="vl-msg vl-msg--ok">
-              <p>You're in — welcome! Here's your membership pass:</p>
-              {joinedPass && <p style={{ marginTop: 8 }}><a href={`/m/${joinedPass}`}>Open your pass →</a></p>}
-            </div>
-          ) : memberPhase === "new" ? (
-            <p className="vl-msg vl-msg--ok">Thanks! The venue will review your request and confirm your membership.</p>
-          ) : memberPhase === "pending" ? (
-            <p className="vl-msg vl-msg--ok">You're already on the list — the venue will confirm your place shortly.</p>
-          ) : memberPhase === "member" ? (
-            <p className="vl-msg vl-msg--ok">You're already a member here. See reception if you need your pass.</p>
-          ) : memberPhase === "open" ? (
-            <MemberSignupForm code={code} tiers={signupTiers} onDone={onSignupDone} />
-          ) : (
-            <button className="vl-cta" onClick={() => setMemberPhase("open")}>Join as a member</button>
-          )}
+          <MembershipSignup
+            code={code}
+            club={signupData?.club ?? null}
+            documents={signupData?.documents ?? []}
+            tiers={signupData?.tiers ?? []}
+            onStart={(proceed) => requireAuth(proceed, { reason: "Sign in to join as a member. You'll only need to do this once." })}
+          />
         </div>
       </div>
       <AuthGateModal {...gateProps} />

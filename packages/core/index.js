@@ -178,6 +178,8 @@ export {
   memberListIdDocuments,
   venueListIdSubmissions,
   venueVerifyIdDocument,
+  memberSelfCreateProfile,
+  memberEnrolMembership,
   clubCreate,
   venueListClubs,
   venueUpdateClubSettings,

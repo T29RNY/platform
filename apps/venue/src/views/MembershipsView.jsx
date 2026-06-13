@@ -12,6 +12,7 @@ import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 import { poundsRound } from "../lib/format.js";
+import { POLICY_TEMPLATES } from "../lib/policyTemplates.js";
 
 // Memberships — venue-ops surface for the membership programme (migs 269–271).
 // Three sub-tabs: Members (per-person roster + enrol/freeze/cancel), Plans
@@ -1260,7 +1261,9 @@ function DocumentsTab({ venueToken }) {
     return () => { a = false; };
   }, [venueToken]);
 
-  const openCreate = (club) => { setCreating(club); setNewTitle(""); setNewBody(""); setCreateErr(null); };
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const openCreate = (club) => { setCreating(club); setNewTitle(""); setNewBody(""); setCreateErr(null); setShowTemplates(false); };
   const closeCreate = () => { setCreating(null); setCreateSaving(false); };
   const saveCreate = async () => {
     if (!newTitle.trim()) { setCreateErr("Title is required."); return; }
@@ -1334,14 +1337,41 @@ function DocumentsTab({ venueToken }) {
       {creating && (
         <Modal title={`New document — ${creating.name}`} onClose={closeCreate}
           primaryLabel="Create" primaryDisabled={createSaving} onPrimary={saveCreate}>
-          <label className="field-label">Title</label>
-          <input className="input" placeholder="e.g. Code of Conduct" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
-          <label className="field-label" style={{ marginTop: 14 }}>Policy text</label>
-          <textarea className="input" rows={10} placeholder="Paste or type the full policy text here…" value={newBody}
-            onChange={(e) => setNewBody(e.target.value)} style={{ resize: "vertical", fontFamily: "inherit", fontSize: 13 }} />
-          <p className="text-mute" style={{ fontSize: 12, marginTop: 8 }}>
-            Members will read this text and provide a typed signature to accept.
-          </p>
+          {showTemplates ? (
+            <>
+              <p className="text-mute" style={{ fontSize: 12, marginBottom: 10 }}>
+                Choose a template — placeholders like [CLUB NAME] will be visible for you to replace before publishing.
+              </p>
+              <div style={{ display: "grid", gap: 6 }}>
+                {POLICY_TEMPLATES.map((t) => (
+                  <button key={t.id} className="btn-sm btn-outline" style={{ textAlign: "left", padding: "8px 12px", height: "auto" }}
+                    onClick={() => { setNewTitle(t.title); setNewBody(t.body); setShowTemplates(false); }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{t.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-mute, #888)", marginTop: 2 }}>
+                      {t.audience === "junior" ? "Youth / child" : "All ages"}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <button className="btn-sm" style={{ marginTop: 10 }} onClick={() => setShowTemplates(false)}>
+                ← Back to blank form
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label className="field-label" style={{ margin: 0 }}>Title</label>
+                <button className="btn-sm btn-outline" onClick={() => setShowTemplates(true)}>Start from a template</button>
+              </div>
+              <input className="input" placeholder="e.g. Code of Conduct" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} style={{ marginTop: 6 }} />
+              <label className="field-label" style={{ marginTop: 14 }}>Policy text</label>
+              <textarea className="input" rows={10} placeholder="Paste or type the full policy text here…" value={newBody}
+                onChange={(e) => setNewBody(e.target.value)} style={{ resize: "vertical", fontFamily: "inherit", fontSize: 13 }} />
+              <p className="text-mute" style={{ fontSize: 12, marginTop: 8 }}>
+                Members will read this text and provide a typed signature to accept.
+              </p>
+            </>
+          )}
           {createErr && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{createErr}</p>}
         </Modal>
       )}

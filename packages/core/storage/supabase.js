@@ -4010,3 +4010,31 @@ export async function venueVerifyIdDocument(venueToken, documentId, action, reje
   if (error) { console.error("[membership] venue_verify_id_document failed", error); throw error; }
   return data;
 }
+
+// ── Phase 7 — /q signup rebuild (mig 296) ────────────────────────────────────
+
+// Create member's own profile at /q signup (authenticated, fails if profile exists).
+export async function memberSelfCreateProfile({ firstName, lastName, email, dob, phone } = {}) {
+  const { data, error } = await supabase.rpc("member_self_create_profile", {
+    p_first_name: firstName,
+    p_last_name:  lastName  ?? null,
+    p_email:      email     ?? null,
+    p_dob:        dob       ?? null,
+    p_phone:      phone     ?? null,
+  });
+  if (error) { console.error("[member] member_self_create_profile failed", error); throw error; }
+  return data;
+}
+
+// Enrol authenticated member (or their child) onto a membership tier.
+// forProfileId = child's member_profile_id; null = enrolling self.
+export async function memberEnrolMembership(inviteCode, tierId, period, forProfileId = null) {
+  const { data, error } = await supabase.rpc("member_enrol_membership", {
+    p_invite_code:    inviteCode,
+    p_tier_id:        tierId,
+    p_period:         period,
+    p_for_profile_id: forProfileId,
+  });
+  if (error) { console.error("[member] member_enrol_membership failed", error); throw error; }
+  return data;
+}
