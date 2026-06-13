@@ -24,6 +24,7 @@ import Onboarding    from "./onboarding/index.jsx";
 import JoinTeam             from "./views/JoinTeam.jsx";
 import InviteResolve        from "./views/InviteResolve.jsx";
 import MemberPass           from "./views/MemberPass.jsx";
+import MemberProfile        from "./views/MemberProfile.jsx";
 import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
@@ -82,6 +83,7 @@ function getRoute() {
   if (parts[0]==="join"          && parts[1]) return { type:"join",     code:parts[1] };
   if (parts[0]==="q"             && parts[1]) return { type:"qr",       code:parts[1] };
   if (parts[0]==="m"             && parts[1]) return { type:"member",   token:parts[1] };
+  if (parts[0]==="profile")                  return { type:"profile" };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
@@ -1046,6 +1048,18 @@ export default function App() {
   }
 
   if (route.type === "pwa_welcome")  return <PWAWelcome/>;
+
+  if (route.type === "profile") {
+    if (loading) return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        alignItems:"center", justifyContent:"center" }}>
+        <div style={{ fontSize:48 }}>⚽</div>
+      </div>
+    );
+    if (!authUser) return <SignIn returnTo="/profile" />;
+    return <MemberProfile authUser={authUser} />;
+  }
+
   if (route.type === "create") {
     if (loading) return (
       <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",

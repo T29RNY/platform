@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
-import { getMemberPass, redeemMemberOffer } from "@platform/core/storage/supabase.js";
+import { getMemberPass, memberGetSelf, redeemMemberOffer } from "@platform/core/storage/supabase.js";
+import { supabase } from "@platform/core/storage/supabase.js";
 
 // MemberPass — the member-facing PWA pass at /m/<pass_token> (Membership Phase 5,
 // mig 272). Public read keyed by the secret token. Shows tier, perks, status,
@@ -19,6 +20,7 @@ const STATUS = {
 
 export default function MemberPass({ token }) {
   const [pass, setPass] = useState(undefined); // undefined=loading, null=not found, obj=ok
+  const [isOwner, setIsOwner] = useState(false); // true when logged-in user owns this pass
 
   useEffect(() => {
     let alive = true;
@@ -27,6 +29,23 @@ export default function MemberPass({ token }) {
       .catch((e) => { if (alive) { console.error("[memberpass] load failed", e); setPass(null); } });
     return () => { alive = false; };
   }, [token]);
+
+  // Check if the logged-in user is the account-holder for this pass.
+  useEffect(() => {
+    if (!pass?.member_profile_id) return;
+    let alive = true;
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!session?.user || !alive) return;
+        return memberGetSelf();
+      })
+      .then((profile) => {
+        if (!alive || !profile?.found) return;
+        if (profile.id === pass.member_profile_id) setIsOwner(true);
+      })
+      .catch((e) => console.error("[memberpass] owner check failed", e));
+    return () => { alive = false; };
+  }, [pass?.member_profile_id]);
 
   const wrap = { minHeight: "100vh", background: "var(--bg)", color: "var(--t1)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "var(--font-body)" };
 
@@ -53,10 +72,20 @@ export default function MemberPass({ token }) {
           {pass.venue_logo
             ? <img src={pass.venue_logo} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover" }} />
             : null}
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, opacity: 0.85, letterSpacing: 0.5, textTransform: "uppercase" }}>Membership</div>
             <div style={{ fontFamily: "var(--font-display)", fontSize: 22, lineHeight: 1 }}>{pass.venue_name}</div>
           </div>
+          {isOwner && (
+            <a href="/profile" style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+              background: "rgba(0,0,0,0.25)", color: "var(--white)",
+              padding: "4px 10px", borderRadius: 20, textDecoration: "none",
+              whiteSpace: "nowrap", flexShrink: 0,
+            }}>
+              Your account
+            </a>
+          )}
         </div>
 
         {/* member + tier */}

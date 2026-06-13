@@ -3779,3 +3779,80 @@ export async function venueUpdateRef(venueToken, refId, updates) {
   }
   return data;
 }
+
+// ── Membership V2 — member account RPCs (migs 286–289) ───────────────────────
+
+export async function clubCreate(fields) {
+  const { data, error } = await supabase.rpc("club_create", {
+    p_name:             fields.name,
+    p_short_name:       fields.short_name       ?? null,
+    p_contact_email:    fields.contact_email     ?? null,
+    p_contact_phone:    fields.contact_phone     ?? null,
+    p_id_mandate:       fields.id_mandate        ?? false,
+    p_safeguarding_config: fields.safeguarding_config ?? null,
+  });
+  if (error) {
+    console.error("[member] club_create failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueListClubs(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_clubs", {
+    p_venue_token: venueToken,
+  });
+  if (error) {
+    console.error("[member] venue_list_clubs failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function memberCreateProfile(venueId, fields) {
+  const { data, error } = await supabase.rpc("member_create_profile", {
+    p_venue_id:           venueId,
+    p_first_name:         fields.first_name,
+    p_last_name:          fields.last_name          ?? null,
+    p_email:              fields.email               ?? null,
+    p_dob:                fields.dob                 ?? null,
+    p_phone:              fields.phone               ?? null,
+    p_source_customer_id: fields.source_customer_id  ?? null,
+  });
+  if (error) {
+    console.error("[member] member_create_profile failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function memberClaimProfile(profileId) {
+  const { data, error } = await supabase.rpc("member_claim_profile", {
+    p_profile_id: profileId,
+  });
+  if (error) {
+    console.error("[member] member_claim_profile failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function memberGetSelf() {
+  const { data, error } = await supabase.rpc("member_get_self");
+  if (error) {
+    console.error("[member] member_get_self failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function memberUpdateSelf(updates) {
+  const { data, error } = await supabase.rpc("member_update_self", {
+    p_updates: updates,
+  });
+  if (error) {
+    console.error("[member] member_update_self failed", error);
+    throw error;
+  }
+  return data;
+}
