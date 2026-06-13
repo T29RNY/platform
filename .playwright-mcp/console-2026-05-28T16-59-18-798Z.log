@@ -1,3 +1,0 @@
-[     697ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=7d632e86:21550
-[     909ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5176/favicon.ico:0
-[    3376ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx:91

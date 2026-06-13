@@ -1,1 +1,0 @@
-[     516ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://ktvpzpnqbwhooiaqrigm.supabase.co/rest/v1/teams?select=id&limit=1:0

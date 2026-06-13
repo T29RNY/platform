@@ -1,6 +1,0 @@
-[     470ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5177/node_modules/.vite/deps/chunk-SQIELOP7.js?v=ee658289:21550
-[  298421ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5177/@vite/client:559
-[  298481ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
-[  299487ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
-[  300492ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
-[  301497ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0

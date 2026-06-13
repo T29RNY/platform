@@ -1,4 +1,0 @@
-[     381ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5176/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=440c01ae:21550
-[     812ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780347382362:91
-[  548758ms] [WARNING] GoTrueClient@sb-ktvpzpnqbwhooiaqrigm-auth-token:1 (2.105.4) 2026-06-01T21:06:15.346Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:5176/node_modules/.vite/deps/@supabase_supabase-js.js?v=d4d2c986:15281
-[  549339ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780347974950:91
