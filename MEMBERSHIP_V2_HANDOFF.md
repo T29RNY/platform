@@ -247,11 +247,91 @@ on version change. Sources: Law Commission 2019, UK eIDAS.
 
 ---
 
-## 9. OPEN QUESTIONS (resolve in Phase-1 audit)
+## 9. RESOLVED IN PHASE-1 AUDIT (session 92)
 
-- **Club vs company entity.** HQ already has a *company*/region concept
-  that venues sit under. Does "club" reuse it or stand alone? Lean:
-  **new `clubs` entity** (a company can run many clubs; a club can be one
-  independent venue with no company). Verify against the live HQ/company
-  schema before committing Phase 1's schema.
-- Next free migration number at time of writing: **283**.
+- **Club vs company entity — RESOLVED.** The audit found a `clubs` table
+  **already exists** (mig 055, league layer: `id text, name, short_name,
+  founded_year` + `club_teams` → casual `teams`), but it is **completely
+  dormant** (0 rows, RLS-on, no policies/RPCs/JS refs). `companies` is a
+  separate thing — the **billing/operator rollup that owns venues 1:N**
+  (`venues.company_id`, regions, HQ analytics). **DECISION: extend the
+  single existing `clubs` table** as the canonical club entity (NOT
+  `companies`, NOT a new table). League, membership (`club_venues` M:N),
+  cohorts and attendance are all *relationships* off the one `clubs` row —
+  never a second club-like table. Elegance (one real-world club = one row),
+  futureproof (club-member tournaments later consume the existing cup engine
+  via the same `clubs`), safe (empty/unwired so we define the meaning now),
+  zero-footprint (league-only clubs just have no `club_venues` rows). Full
+  rationale + guardrail in `DECISIONS.md` ("clubs is the SINGLE canonical
+  club entity").
+
+- **v1 security posture observed (carry into Phase-1 design).** Existing
+  membership RPCs are SECDEF + `search_path` set, but granted to **anon +
+  authenticated** and authenticate via the **shared `p_venue_token`**;
+  `member_self_signup` is **anon**; `get_member_pass` is an **anon
+  bearer-token** page leaking first+last name + tier; `venue_claim_memberships`
+  claims venue-**admin** invites (no member-side claim exists yet). New
+  club/member RPCs must break this pattern — `auth.uid()`-based, verified-email
+  claim, negative-path EV. See §6.
+
+- Next free migration number: **283**.
+
+## 9a. PHASE-1 RECOMMENDED SCHEMA (audit output — review before execute)
+
+All tables **born RLS-on, REVOKE-all, RPC-only** from migration one.
+
+- **`member_profiles`** (NEW) — the *person*, source of truth, role-agnostic.
+  `auth_user_id → auth.users` (null = unclaimed venue-created record),
+  PII + DOB + address, CPSU safeguarding superset (**two** emergency contacts,
+  SEND/additional needs, dietary, emergency-treatment + administer-medication
+  consent, "may leave unaccompanied" + authorised collectors, medical/allergies/
+  meds/GP), **granular per-use photo consent** (website/social/press/marketing).
+  No role columns.
+- **`member_guardians`** (NEW) — household graph: `child_profile_id`,
+  `guardian_profile_id`, relationship, `is_primary`, `can_collect`, invite/accept
+  state, `UNIQUE(child,guardian)`. Parent→many children; many guardians→one child.
+- **`clubs`** (EXTEND existing) — add owner/contact, `id_mandate boolean` (D5),
+  `safeguarding_config jsonb` (D6 toggles), pricing/cohort defaults. Nullable,
+  dormant until membership on.
+- **`club_venues`** (NEW) — M:N `club_id`/`venue_id`, `UNIQUE(club_id,venue_id)`.
+- **`club_cohorts`** (NEW) — age-group/squad, referenced by membership (enables
+  Phase 10 attendance + Phase 12 cohort-scoped staff visibility).
+- **Reframe `venue_memberships`** (additive, keep `venue_id` for back-compat):
+  add `club_id`, `member_profile_id`, `payer_profile_id`, **`pricing_model`
+  discriminator (`recurring`|`term`)**.
+- **Line-item money hook:** extend the existing **`venue_charges` polymorphism**
+  (`source_type`/`source_id` already supports membership/fee/merchandise/add-on) —
+  do NOT add a parallel ledger. (Note: a second recurring engine `venue_fee_plans`/
+  `venue_fee_subscriptions` exists — reconcile, don't triplicate.)
+- **Club-scoped consent hook:** Phase-5 `policy_documents`/`consent_acceptances`
+  should FK the **club**, not the venue — seat that scoping now so it needn't move.
+- **Untouched:** `players`, `teams`, `player_match`, `club_teams`, all casual RPCs +
+  their RLS wall. MySquads aggregates casual + membership in the **UI only**.
+
+## 9b. PHASE-1 DEMO BACKFILL STRATEGY (`demo_venue` only)
+
+1. Create `club_demo` (extend `clubs`) + `club_venues(club_demo → demo_venue)`.
+2. One `member_profiles` per existing `venue_customer` (9), copying PII (idempotent
+   on a stable key).
+3. **Leo Bennett** (DOB 2012, the one junior with guardian fields): also create a
+   guardian profile + `member_guardians(child=Leo, guardian, is_primary)` — proves
+   the household path with real demo data.
+4. Re-point the 8 `venue_memberships` to `club_id` + `member_profile_id`
+   (+ `payer_profile_id` for Leo). **Keep `venue_customers` rows intact/dual-readable**
+   so the v1 venue dashboard keeps working until Phase 4 reworks the builder — no drift.
+5. Seed data, not an EV run — must not COMMIT against any non-membership domain row;
+   casual `players`/`teams` byte-for-byte unchanged (casual-regression gate before commit).
+
+## 9c. PHASE-1 RPC THREAT MODEL (negative-path EV mandatory — prove the WRONG user is refused)
+
+| RPC (Phase 1–3) | Caller | Horizontal-access threat | Guard |
+|---|---|---|---|
+| `member_claim_profile` (NEW) | authed | claim a stranger's unclaimed record (account takeover) | **verified-email match only**, one-time, audit-log, refuse if already claimed; never a guessable token |
+| `member_get_self`/`member_update_self` | authed | read/write another person | scope to `auth_user_id = auth.uid()`; never trust a passed profile_id |
+| `member_get_child`/`member_update_child` | authed (parent) | parent A reads/edits parent B's child | require a `member_guardians(child, auth.uid())` edge |
+| `member_invite_guardian`/accept | authed | attach self as guardian to arbitrary child | invite only by existing guardian; accept binds to auth.uid()'s verified email |
+| `get_member_pass` (EXISTS, anon) | anon | bearer link leaks name+tier | decide: gate behind member login or keep anon; do NOT widen |
+| medical/safeguarding reads | club/venue admin | over-broad PII read | narrowest (cohort/club) scope, **access audit-logged** (Hard Rule #9) |
+| any club/member write | — | shared-token backdoor | authenticate via `auth.uid()`/`venue_admins`, NOT the shared `p_venue_token` |
+
+A **standing membership-domain RLS/authorization suite** runs every phase.

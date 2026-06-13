@@ -6,6 +6,48 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## `clubs` is the SINGLE canonical club entity — league, membership & attendance all hang off it (session 92, Membership V2 Phase-1 audit)
+
+The Phase-1 audit resolved the open "club vs company" question. A `clubs` table
+**already exists** (migration 055, the league layer: `id text, name, short_name,
+founded_year` + `club_teams` mapping `club_id ↔ casual team_id`). It is **completely
+dormant** — 0 rows, RLS-on, no policies, no RPCs, no JS references; only migs 055/056
+mention it.
+
+**Settled:** Membership V2's "club" is **NOT a new entity and NOT `companies`** — we
+**extend this one existing `clubs` table** as the canonical real-world org. A club is a
+single thing ("Finbar's FC") with multiple *relationships* hanging off it, never multiple
+club tables:
+
+```
+              ┌─ club_teams   (existing)  → casual teams it fields in leagues
+   clubs  ────┼─ club_venues  (NEW, M:N)  → venues where it operates / sells membership
+   (one row)  ├─ club_cohorts (NEW)       → age-groups / squads
+              └─ memberships  (reframed)  → the people it grants membership to
+```
+
+Rationale: (1) **elegance** — one club in the real world = one row; two club-like tables
+would force every query to know which id it means and tax every league↔membership join
+forever; (2) **futureproof** — the plan banks on club-member-based tournaments later
+*consuming the existing cup engine*, which only works if the club holding members is the
+same club `club_teams` wires into competitions; (3) **safe now** — the table is empty and
+unwired, so we are *defining* its meaning before either consumer is built, the cheapest
+this will ever be; (4) **zero-footprint** — membership stays as relationships, not columns,
+so a league-only club simply has no `club_venues` rows and carries no membership baggage.
+The 2–3 club-level columns added (`id_mandate`, `safeguarding_config`) are nullable and
+dormant until membership is switched on. Keeps the `id text` PK house convention
+(`club_demo`).
+
+`companies` stays exactly what it is: the **billing/operator rollup that owns venues 1:N**
+(`venues.company_id`). A club maps to venues M:N via `club_venues`; the venue still belongs
+to a company for billing. Three clean, non-overlapping entities: **company** (operator/
+billing) → **venue** (site) ← **club** (membership issuer + team fielder).
+
+⚠️ **Guardrail for future sessions:** do NOT re-fork `clubs` into a separate
+league-club vs membership-club. When the league layer is finally built, it consumes this
+same `clubs`. Full Phase-1 audit (current-state, schema, threat model, backfill) lives in
+`MEMBERSHIP_V2_HANDOFF.md` + `~/.claude/plans/membership-v2-club-os.md`.
+
 ## MY VIEW has ONE header — the pitch is the header background, not a separate banner (session 90, commit 4e1ee0d)
 
 MY VIEW used to stack two title blocks: `PageHeader` (IN OR OUT wordmark + `day · venue ·
