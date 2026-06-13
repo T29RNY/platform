@@ -13,6 +13,7 @@ import {
   getSession, getPlayerTeams, logAppBoot,
   linkPlayerToUser, updateUserProfile, claimMyAdminTeams,
   resetDemoData, updateDemoInteraction,
+  memberGetSelf,
 } from "@platform/core/storage/supabase.js";
 import { SEED_COVER } from "./seeds.js";
 import PlayerView    from "./views/PlayerView.jsx";
@@ -25,6 +26,7 @@ import JoinTeam             from "./views/JoinTeam.jsx";
 import InviteResolve        from "./views/InviteResolve.jsx";
 import MemberPass           from "./views/MemberPass.jsx";
 import MemberProfile        from "./views/MemberProfile.jsx";
+import SessionsScreen       from "./views/SessionsScreen.jsx";
 import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
@@ -84,6 +86,7 @@ function getRoute() {
   if (parts[0]==="q"             && parts[1]) return { type:"qr",       code:parts[1] };
   if (parts[0]==="m"             && parts[1]) return { type:"member",   token:parts[1] };
   if (parts[0]==="profile")                  return { type:"profile" };
+  if (parts[0]==="sessions")                 return { type:"sessions" };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
@@ -296,6 +299,11 @@ export default function App() {
   // Auth state
   const [authUser,     setAuthUser]    = useState(null);
   const [authReady,    setAuthReady]   = useState(false);
+
+  // Member profile — populated when authUser is set. Used by SessionsScreen
+  // (passed as prop to avoid a duplicate memberGetSelf() call) and by the
+  // My Squads switcher to surface club membership entries.
+  const [memberProfile, setMemberProfile] = useState(null);
 
   // Just-created overlay state. After useOnboarding finishes create_team it
   // hard-redirects to /admin/<token>?just_created=1 (so the inline manifest
@@ -637,6 +645,14 @@ export default function App() {
   useEffect(() => {
     if (!authUser) return;
     claimMyAdminTeams().catch(() => {});
+  }, [authUser]);
+
+  // Fetch member profile whenever auth user changes. Powers the SessionsScreen
+  // (passed as prop so /sessions avoids a duplicate fetch) and the My Squads
+  // switcher club entries.
+  useEffect(() => {
+    if (!authUser) { setMemberProfile(null); return; }
+    memberGetSelf().then(p => setMemberProfile(p?.found ? p : null)).catch(() => {});
   }, [authUser]);
 
   // Full catch-up re-fetch. Single source of truth for the team_live broadcast
@@ -1060,6 +1076,17 @@ export default function App() {
     return <MemberProfile authUser={authUser} />;
   }
 
+  if (route.type === "sessions") {
+    if (!authReady) return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        alignItems:"center", justifyContent:"center" }}>
+        <div style={{ fontSize:48 }}>⚽</div>
+      </div>
+    );
+    if (!authUser) return <SignIn returnTo="/sessions" />;
+    return <SessionsScreen authUser={authUser} memberProfile={memberProfile} />;
+  }
+
   if (route.type === "create") {
     if (loading) return (
       <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
@@ -1105,6 +1132,14 @@ export default function App() {
         checking={joinChecking}
       />
     );
+  }
+
+  // Pure parent — authenticated user with club memberships but no casual squad.
+  // The redirect bridge has already exhausted lastVisited, so they're genuinely
+  // at "/" with no home. Route them to /sessions.
+  if (route.type === "landing" && authReady && authUser && (memberProfile?.active_clubs?.length ?? 0) > 0) {
+    window.location.replace("/sessions");
+    return null;
   }
 
   if (route.type === "landing") return (
@@ -1216,8 +1251,9 @@ export default function App() {
     </div>
   );
 
-  // Multi-team switcher
-  if (route.type==="player" && myPlayer && playerTeams.length > 1 && !selectedTeam) return (
+  // Multi-team / club-membership switcher
+  const clubEntries = memberProfile?.active_clubs ?? [];
+  if (route.type==="player" && myPlayer && (playerTeams.length > 1 || clubEntries.length > 0) && !selectedTeam) return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
@@ -1229,24 +1265,56 @@ export default function App() {
           color:C.muted, marginTop:2 }}>Welcome back, {myPlayer.name}</div>
       </div>
       <div style={{ padding:18 }}>
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
-          color:C.muted, letterSpacing:1.5, textTransform:"uppercase", marginBottom:16 }}>
-          YOUR GAMES
-        </div>
-        {playerTeams.map(team => (
-          <div key={team.id} onClick={() => loadTeamData(team.id)}
-            style={{ background:C.surface, border:`1px solid ${C.border}`,
-              borderRadius:12, padding:20, marginBottom:14, cursor:"pointer" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor=C.amber}
-            onMouseLeave={e => e.currentTarget.style.borderColor=C.border}>
-            <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
-              color:C.amber, letterSpacing:2 }}>{team.name}</div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
-              color:C.amber, marginTop:12, fontWeight:600, textAlign:"right" }}>
-              Open →
+        {playerTeams.length > 0 && (
+          <>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+              color:C.muted, letterSpacing:1.5, textTransform:"uppercase", marginBottom:16 }}>
+              YOUR GAMES
             </div>
-          </div>
-        ))}
+            {playerTeams.map(team => (
+              <div key={team.id} onClick={() => loadTeamData(team.id)}
+                style={{ background:C.surface, border:`1px solid ${C.border}`,
+                  borderRadius:12, padding:20, marginBottom:14, cursor:"pointer" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor=C.amber}
+                onMouseLeave={e => e.currentTarget.style.borderColor=C.border}>
+                <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
+                  color:C.amber, letterSpacing:2 }}>{team.name}</div>
+                <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+                  color:C.amber, marginTop:12, fontWeight:600, textAlign:"right" }}>
+                  Open →
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+        {clubEntries.length > 0 && (
+          <>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+              color:C.muted, letterSpacing:1.5, textTransform:"uppercase",
+              marginBottom:16, marginTop: playerTeams.length > 0 ? 8 : 0 }}>
+              YOUR CLUBS
+            </div>
+            {clubEntries.map(club => (
+              <div key={`${club.club_id}:${club.cohort_id}`}
+                onClick={() => window.location.href = "/sessions"}
+                style={{ background:C.surface, border:`1px solid ${C.border}`,
+                  borderRadius:12, padding:20, marginBottom:14, cursor:"pointer" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor=C.amber}
+                onMouseLeave={e => e.currentTarget.style.borderColor=C.border}>
+                <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
+                  color:C.amber, letterSpacing:2 }}>{club.club_name}</div>
+                {club.cohort_name && (
+                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
+                    color:C.muted, marginTop:4 }}>{club.cohort_name}</div>
+                )}
+                <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+                  color:C.amber, marginTop:12, fontWeight:600, textAlign:"right" }}>
+                  Sessions →
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
