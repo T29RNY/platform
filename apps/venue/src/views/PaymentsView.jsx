@@ -160,7 +160,8 @@ export default function PaymentsView({ state, venueToken }) {
                 const st = STATUS[c.status] || { label: c.status, cls: "pill-muted" };
                 return (
                   <tr key={c.id}>
-                    <td>{c.source_type === "fixture" ? "Fixture" : "Booking"}{c.due_date ? <span className="text-mute"> · {c.due_date}</span> : null}</td>
+                    <td>{c.source_type === "fixture" ? "Fixture" : "Booking"}{c.due_date ? <span className="text-mute"> · {c.due_date}</span> : null}
+                      {c.member_discount_pct ? <span className="pill pill-ok" style={{ marginLeft: 8 }} title="Member booking discount applied">{c.member_discount_pct}% member</span> : null}</td>
                     <td className="text-mute">{teamName(c.team_id) || "—"}</td>
                     <td className="num">{gbp(c.amount_due_pence)}</td>
                     <td className="num">

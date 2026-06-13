@@ -826,6 +826,7 @@ points at the origin; origin flips to `ending` when its hold is created),
 | `payment_status` | text | CHECK `not_required`/`pending`/`paid`/`refunded`, default `not_required` |
 | `series_id` | uuid NULL →booking_series (CASCADE) | block week's parent |
 | `customer_id` | uuid NULL →venue_customers (SET NULL) | mig 277 — booking↔member link; set explicitly or auto-matched by `contact_email` at confirm; drives member discount in `venue_confirm_booking(_series)` |
+| `member_discount_pct` | int NULL | mig 281 — the member discount % APPLIED at confirm (immutable record); surfaced on the charge by `venue_get_charges` for the Payments "N% member" badge |
 | `superseded_at` | timestamptz NULL | mig 151 — set by the fixture auto-yield trigger; polled by the superseded push |
 | `created_at` | timestamptz | |
 

@@ -41,6 +41,7 @@ export default function MemberPass({ token }) {
   const st = STATUS[pass.status] || STATUS.active;
   const accent = pass.primary_colour || "#60A0FF";
   const discount = pass.benefits?.discount_pct;
+  const isFree = pass.benefits?.is_free || pass.amount_pence === 0;
   // QR encodes this pass's own URL — reception scans it, parses the token, checks the member in.
   const passUrl = typeof window !== "undefined" ? `${window.location.origin}/m/${token}` : "";
 
@@ -63,17 +64,23 @@ export default function MemberPass({ token }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 30, lineHeight: 1 }}>{[pass.first_name, pass.last_name].filter(Boolean).join(" ")}</div>
-              <div style={{ color: "var(--t2)", marginTop: 4 }}>{pass.tier_name} · {pass.period}</div>
+              <div style={{ color: "var(--t2)", marginTop: 4 }}>{pass.tier_name}{isFree ? " · Free" : ` · ${pass.period}`}</div>
             </div>
             <span style={{ background: st.color, color: "var(--black)", fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: "var(--r-pill)" }}>{st.label}</span>
           </div>
 
           {/* status detail */}
           <div style={{ marginTop: 16, padding: "12px 14px", border: "1px solid var(--border-subtle)", borderRadius: "var(--r)", display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "var(--t2)" }}>
-              {pass.status === "paused" ? "Frozen until" : pass.status === "ending" ? "Access until" : "Renews"}
-            </span>
-            <strong>{fmtDate(pass.status === "paused" ? pass.frozen_until : pass.renews_at)} · {money(pass.amount_pence)}/{pass.period}</strong>
+            {isFree && pass.status !== "paused" && pass.status !== "ending" ? (
+              <><span style={{ color: "var(--t2)" }}>Membership</span><strong>Free membership</strong></>
+            ) : (
+              <>
+                <span style={{ color: "var(--t2)" }}>
+                  {pass.status === "paused" ? "Frozen until" : pass.status === "ending" ? "Access until" : "Renews"}
+                </span>
+                <strong>{fmtDate(pass.status === "paused" ? pass.frozen_until : pass.renews_at)}{isFree ? "" : ` · ${money(pass.amount_pence)}/${pass.period}`}</strong>
+              </>
+            )}
           </div>
 
           {/* perks */}
