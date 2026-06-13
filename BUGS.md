@@ -3,18 +3,13 @@
 
 ---
 
-## SESSION 96 — TECH DEBT: venue_enrol_membership rejects period='season'
+## SESSION 97 — RESOLVED (mig 292): venue_enrol_membership rejected period='season'
 
-`venue_enrol_membership` (mig 271) validates `p_period NOT IN ('monthly','quarterly','annual')` — raises
-`invalid_period` on `'season'`. Phase 4 (mig 291) added season tiers + `period='season'` rows to
-`venue_tier_prices`, but the enrolment RPC wasn't updated in scope. Until this is fixed, attempting to
-enrol a member onto a season-priced tier will fail with `invalid_period` at the DB layer.
-
-**Fix scope (next session):** Update `venue_enrol_membership` to accept `period='season'` and pass it
-through to the membership + charge rows. Also check `run_membership_renewals` — season memberships
-shouldn't auto-renew (billing is one-off per season; renewal happens at season_start next year, manual
-or via a new cron). No JS or UI changes required — the enrol modal already sends the period from the
-tier's price rows.
+`venue_enrol_membership` now accepts `'season'`; `renews_at` is set to the tier's `season_end`
+(or `9999-12-31` if unset). `run_membership_renewals` now excludes `period='season'` rows from
+loop (c) — season memberships are one-off, billed at enrolment, never auto-renewed.
+`venue_memberships.period` constraint updated to include `'season'`. No JS/UI changes (enrol
+modal already passed period from the tier's price rows).
 
 ---
 
