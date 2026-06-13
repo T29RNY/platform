@@ -14,7 +14,6 @@ import {
 import AuthGateModal from "../components/AuthGateModal.jsx";
 import useRequireAuth from "../hooks/useRequireAuth.js";
 import PageHeader  from "../components/ui/PageHeader.jsx";
-import HeroCard    from "../components/ui/HeroCard.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import Tile        from "../components/ui/Tile.jsx";
@@ -651,6 +650,8 @@ export default function PlayerView({
             dayOfWeek={schedule.dayOfWeek}
             venue={schedule.venue}
             kickoff={schedule.kickoff}
+            pricePerPlayer={schedule.pricePerPlayer}
+            squad={squad}
             inCount={inPlayers.length}
             squadSize={schedule.squadSize || 14}
             gameIsLive={schedule.gameIsLive}
@@ -670,10 +671,7 @@ export default function PlayerView({
       {activeTab === "my-view" && (
         <div style={{ padding:"0 16px 110px" }}>
 
-          {/* a — Hero card */}
-          <HeroCard dayOfWeek={schedule.dayOfWeek} pricePerPlayer={schedule.pricePerPlayer} squad={squad} />
-
-          {/* b — Response card */}
+          {/* a — Response card (fixture/admins/price now live in the consolidated PageHeader) */}
           <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
             borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
 
