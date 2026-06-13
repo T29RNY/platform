@@ -350,9 +350,9 @@ function SessionDetailModal({ venueToken, session, onClose, onCancelled }) {
     isSavingRef.current = true;
     setSavingAtt(true);
     try {
-      const payload = Object.entries(attendance).map(([member_profile_id, status]) => ({
-        member_profile_id, status,
-      }));
+      const payload = Object.entries(attendance)
+        .filter(([, status]) => status != null)
+        .map(([member_profile_id, status]) => ({ member_profile_id, status }));
       if (payload.length === 0) { setAttErr("No attendance to save — toggle some members first."); return; }
       await clubMarkAttendance(venueToken, session.session_id, payload);
       setAttSaved(true);
