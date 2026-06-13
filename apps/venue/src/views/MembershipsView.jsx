@@ -34,7 +34,7 @@ const errLabel = (e) => ({
   tier_not_found: "Couldn’t find that plan.",
 }[e?.message] || "Something went wrong — try again.");
 
-export default function MembershipsView({ venueToken }) {
+export default function MembershipsView({ venueToken, liveTick = 0 }) {
   const [tab, setTab] = useState("members");
   return (
     <div>
@@ -45,7 +45,7 @@ export default function MembershipsView({ venueToken }) {
           ))}
         </span>
       </SectionHead>
-      {tab === "members" && <MembersTab venueToken={venueToken} />}
+      {tab === "members" && <MembersTab venueToken={venueToken} liveTick={liveTick} />}
       {tab === "plans" && <PlansTab venueToken={venueToken} />}
       {tab === "fees" && <FeesTab venueToken={venueToken} />}
       {tab === "perks" && <PerksTab venueToken={venueToken} />}
@@ -54,7 +54,7 @@ export default function MembershipsView({ venueToken }) {
 }
 
 // ── Members ──────────────────────────────────────────────────────────────────
-function MembersTab({ venueToken }) {
+function MembersTab({ venueToken, liveTick = 0 }) {
   const [members, setMembers] = useState(null);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
@@ -92,6 +92,9 @@ function MembersTab({ venueToken }) {
     venueListCustomersPeople(venueToken).then((r) => { if (a) setPending((r || []).filter((p) => p.status === "pending")); }).catch(() => {});
     return () => { a = false; };
   }, [venueToken]);
+
+  // Live: a member self-signup / approval broadcast bumps liveTick → re-fetch roster + requests.
+  useEffect(() => { if (liveTick > 0) reload(); }, [liveTick]);
 
   const decide = async (person, approve) => {
     setApproving(person.id);

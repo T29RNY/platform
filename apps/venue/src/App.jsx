@@ -142,12 +142,16 @@ export default function App() {
   const reloadRef = useRef(load);          reloadRef.current = load;
   const reloadOccRef = useRef(loadOccupancy); reloadOccRef.current = loadOccupancy;
   const reloadInsRef = useRef(loadIns);    reloadInsRef.current = loadIns;
+  // Membership-scoped live signal: bumped on a self-signup / approval so the
+  // Memberships view (which owns its own data) re-fetches without a full reload.
+  const [membershipTick, setMembershipTick] = useState(0);
   useEffect(() => {
     if (!venueChannelKey || !credential) return;
     const ch = supabase.channel(`venue_live:${venueChannelKey}`);
     ch.on("broadcast", { event: "broadcast" }, (payload) => {
       const reason = payload?.payload?.reason;
       console.info("[venue] live update", reason);
+      if (reason === "customer_self_signup" || reason === "customer_approved") setMembershipTick((t) => t + 1);
       if (reason === "booking_ins_changed") { reloadInsRef.current(credential); return; }
       reloadOccRef.current(credential);
       if (!BOOKING_REASONS.has(reason)) reloadRef.current(credential);
@@ -249,6 +253,7 @@ export default function App() {
       onRefresh={() => load(credential)}
       onRefreshOccupancy={() => loadOccupancy(credential)}
       refreshing={loading}
+      membershipTick={membershipTick}
     />
   );
 }

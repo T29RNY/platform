@@ -60,7 +60,7 @@ function canManageLogins(me) {
   return me.role === "manager";
 }
 
-export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, refreshing }) {
+export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, refreshing, membershipTick = 0 }) {
   const [view, setView] = useState("ops");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
@@ -130,7 +130,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "payments" && <PaymentsView state={state} venueToken={venueToken} />}
           {view === "equipment" && <EquipmentView venueToken={venueToken} state={state} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
-          {view === "memberships" && <MembershipsView venueToken={venueToken} />}
+          {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} />}
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}
           {view === "staff" && <StaffView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
