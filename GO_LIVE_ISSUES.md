@@ -1242,6 +1242,33 @@ redeployed** (lands with the Ref V2 re-skin) before the fix is visible.
 fixture and confirm the clock is counting up (MM:SS), not frozen at 00:00.
 Re-run after the Ref V2 redeploy. See BUGS.md session 87.
 
+**Update (session 89): Ref V2 redeployed.** `apps/ref` rebuilt + deployed
+prebuilt to `platform-ref.vercel.app`; verified live bundle carries the
+Supabase URL + the new RPC names (`ref_set_clock` / `ref_record_sin_bin` /
+`ref_set_added_time`), and migs 261–265 confirmed applied to prod. So the
+clock fix + the full Ref V2 broadcast-dark redesign are now LIVE. **Still
+owed:** the real-phone clock + Ref V2 walk above.
+
+### 14.2 Manual-prebuilt deploy: `platform-ref` had a Root Directory set (path doubling)
+
+**Issue (session 89, first redeploy).** `vercel deploy --prebuilt --prod`
+from `apps/ref` failed with `path "…/apps/ref/apps/ref" does not exist`. The
+`platform-ref` Vercel project had its **Root Directory** set to `apps/ref`, so
+the CLI appended it to the cwd (already `apps/ref`) → doubled path. `platform-venue`
+had no Root Directory set, which is why venue deployed clean from `apps/venue`.
+
+**Fix.** Cleared `platform-ref`'s Root Directory to null (PATCH
+`/v9/projects/{id}` `{"rootDirectory":null}`) so it matches the venue pattern —
+deploy from the app dir with cwd treated as root. Redeploy then succeeded.
+
+**Pre-flight (any manual-prebuilt app).** Before the first deploy from a fresh
+machine/project, confirm the Vercel project's Root Directory is **empty** if you
+deploy from inside the app dir — otherwise the prebuilt path doubles. Deploy
+recipe (from the app dir, e.g. `apps/ref` / `apps/venue`): `npm run build` →
+sync `dist/` into `.vercel/output/static` (config.json = SPA rewrite already
+present) → `vercel deploy --prebuilt --prod` → verify the live bundle greps a
+`*.supabase.co` URL (env baked in, per #13).
+
 ---
 
 ## SCOPE OUT
