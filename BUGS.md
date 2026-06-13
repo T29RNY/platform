@@ -143,15 +143,22 @@ game_fee ledger = paid). **Fix owed:** `admin_save_match_result` must not clear 
 whose ledger row for that same match is already `paid` (only reset on true week rollover). Lives in
 the result-save cascade — see [[project_result_save_invariants]] (migs 205/206).
 
-## SESSION 80 — OPEN: result-save double-charges guests (game_fee on top of guest_fee)
+## SESSION 80 — RESOLVED (not a code bug): result-save "double-charges guests" was a stale/historical row
 
-**Found in the same reconciliation.** Guest Little K (`p_rlETFBOM`) carries TWO £5 ledger rows for
-m_vcM3fQbBx6Y: a `guest_fee` (unpaid, host owes — created by `set_guest_payment`) AND a `game_fee`
-(created by the result-save because the guest is in the `team_b` array). That's £10 of charges for
-one guest appearance. The `game_fee` was admin-confirmed, so the guest reads as paid while a phantom
-£5 `guest_fee` sits outstanding against the host. **Fix owed:** `admin_save_match_result` should skip
-`is_guest=true` players when creating `game_fee` rows (guests are billed via `guest_fee` only). Left
-as-is pending operator decision — not auto-mutated.
+**Found in the same reconciliation.** Guest Little K (`p_rlETFBOM`) carried TWO £5 ledger rows for
+m_vcM3fQbBx6Y: a `guest_fee` (unpaid, host owes — created by `set_guest_payment`) AND a `game_fee`.
+The original note assumed the result-save created the `game_fee` because the guest sat in the
+`team_b` array, and that `admin_save_match_result` needed a fix to skip `is_guest=true` players.
+
+**Re-checked against the live function (session 89).** That fix was already in place — and predates
+the report. The `is_guest = false` guard sits on BOTH the `owes` bump AND the `game_fee` ledger
+insert in every definition of `admin_save_match_result` since **mig 206**, through **mig 241**, and
+in the current live definition **mig 268** ([268_lineup_lock_and_team_integrity.sql:759-778](rls_migrations/268_lineup_lock_and_team_integrity.sql#L759-L778):
+`UPDATE players … AND p.is_guest = false` and the ledger `INSERT … AND p.is_guest = false`). mig 206
+predates the session-80 report (mig 241), so the cascade could not have produced a guest `game_fee`
+at the time it was filed. The observed Little K row was therefore a **historical/hand-created row**,
+not output of the current code path. **No code or SQL change required** — guests are billed via
+`guest_fee` only, as intended. Verified by direct inspection of the live function body.
 
 ---
 
