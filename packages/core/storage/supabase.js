@@ -4118,3 +4118,28 @@ export async function clubMarkAttendance(venueToken, sessionId, attendances) {
   if (error) { console.error("[club] club_mark_attendance failed", error); throw error; }
   return data;
 }
+
+export async function memberListUpcomingSessions(clubId, cohortId = null) {
+  const { data, error } = await supabase.rpc("member_list_upcoming_sessions", {
+    p_club_id: clubId, p_cohort_id: cohortId,
+  });
+  if (error) { console.error("[member] member_list_upcoming_sessions failed", error); throw error; }
+  return data;
+}
+
+export async function memberRsvpSession(sessionId, status, { forProfileId = null, note = null } = {}) {
+  const { data, error } = await supabase.rpc("member_rsvp_session", {
+    p_session_id: sessionId, p_status: status,
+    p_for_profile_id: forProfileId, p_note: note,
+  });
+  if (error) { console.error("[member] member_rsvp_session failed", error); throw error; }
+  return data;
+}
+
+export async function memberGetSessionRsvpBoard(sessionId) {
+  const { data, error } = await supabase.rpc("member_get_session_rsvp_board", {
+    p_session_id: sessionId,
+  });
+  if (error) { console.error("[member] member_get_session_rsvp_board failed", error); throw error; }
+  return data;
+}
