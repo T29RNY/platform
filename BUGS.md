@@ -139,9 +139,12 @@ admin Payments screen reads the ledger (correct), but the player's **My View** r
 `players.paid`/`owes` (`getPaymentState` → payments.js), so a genuinely-paid player saw "Nothing
 owed" instead of "✓ Paid". Net: ledger and flat flags diverge for anyone paid mid-cycle, on the
 same match. **Reconciled live this session** (set `paid=true` for Bidz + Rohan whose active-match
-game_fee ledger = paid). **Fix owed:** `admin_save_match_result` must not clear `paid` for players
-whose ledger row for that same match is already `paid` (only reset on true week rollover). Lives in
-the result-save cascade — see [[project_result_save_invariants]] (migs 205/206).
+game_fee ledger = paid). **Fixed (mig 241, still live in mig 268):** the attendee reset now derives
+`paid = (l_paid.id IS NOT NULL)` from a LEFT JOIN onto that same match's `game_fee` ledger row where
+`status='paid'` — so an attended player keeps `paid=true` whenever their ledger row for this match is
+already paid, and only resets to false otherwise ([268_lineup_lock_and_team_integrity.sql:788-798](rls_migrations/268_lineup_lock_and_team_integrity.sql#L788-L798)).
+The flat flag and the ledger can no longer diverge mid-cycle. Lives in the result-save cascade — see
+[[project_result_save_invariants]] (migs 205/206). Verified against the live function body session 89.
 
 ## SESSION 80 — RESOLVED (not a code bug): result-save "double-charges guests" was a stale/historical row
 
