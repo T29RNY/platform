@@ -1,0 +1,354 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "IN OR OUT VENUES" [ref=e4] [cursor=pointer]:
+        - /url: index.html
+        - text: IN OR OUT
+        - generic [ref=e6]: VENUES
+      - generic [ref=e7]:
+        - link "Platform" [ref=e8] [cursor=pointer]:
+          - /url: "#products"
+        - link "Fill pitches" [ref=e9] [cursor=pointer]:
+          - /url: "#fill"
+        - link "Leagues" [ref=e10] [cursor=pointer]:
+          - /url: "#leagues"
+        - link "HQ Intelligence" [ref=e11] [cursor=pointer]:
+          - /url: "#hq"
+      - generic [ref=e12]:
+        - link "For players" [ref=e13] [cursor=pointer]:
+          - /url: index.html
+        - link "Book a demo" [ref=e14] [cursor=pointer]:
+          - /url: "#cta"
+  - banner [ref=e15]:
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - text: The operating system for football venues
+        - heading "Fill every pitch." [level=1] [ref=e18]:
+          - text: Fill every
+          - text: pitch.
+        - paragraph [ref=e19]: In or Out brings the players. The venue platform fills your empty slots, runs your leagues, and shows your whole estate from one intelligence view.
+        - generic [ref=e20]:
+          - link "Book a demo" [ref=e21] [cursor=pointer]:
+            - /url: "#cta"
+          - link "See the platform" [ref=e22] [cursor=pointer]:
+            - /url: "#products"
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: +0%
+            - generic [ref=e26]: PITCH UTILISATION
+          - generic [ref=e27]:
+            - generic [ref=e28]: "0"
+            - generic [ref=e29]: VIEW, EVERY VENUE
+          - generic [ref=e30]:
+            - generic [ref=e31]: £0
+            - generic [ref=e32]: SETUP COST
+      - generic [ref=e34]:
+        - generic [ref=e36]: VENUE · TONIGHT
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: 1%
+              - generic [ref=e45]: UTILISATION
+            - generic [ref=e46]:
+              - generic [ref=e47]: £0.0k
+              - generic [ref=e48]: TONIGHT'S TAKE
+            - generic [ref=e49]:
+              - generic [ref=e50]: "0"
+              - generic [ref=e51]: SLOTS LEFT
+          - generic [ref=e60]:
+            - generic [ref=e61]: M
+            - generic [ref=e62]: T
+            - generic [ref=e63]: W
+            - generic [ref=e64]: T
+            - generic [ref=e65]: F
+            - generic [ref=e66]: S
+            - generic [ref=e67]: S
+          - generic [ref=e68]:
+            - generic [ref=e69]: 6PM
+            - generic [ref=e70]: 7PM
+            - generic [ref=e71]: 8PM
+            - generic [ref=e72]: 9PM
+            - generic [ref=e73]: P2·6
+            - generic [ref=e74]: P2·7
+            - generic [ref=e75]: P2·8
+            - generic [ref=e76]: P2·9
+  - generic [ref=e78]:
+    - generic [ref=e79]:
+      - generic [ref=e80]: +31%
+      - text: AVG UTILISATION LIFT
+    - generic [ref=e81]:
+      - generic [ref=e82]: 12k
+      - text: PLAYERS IN NETWORK
+    - generic [ref=e83]:
+      - generic [ref=e84]: "6"
+      - text: JUDGMENT DIMENSIONS
+    - generic [ref=e85]:
+      - generic [ref=e86]: "1"
+      - text: SCREEN, WHOLE ESTATE
+  - generic [ref=e88]:
+    - generic [ref=e89]:
+      - text: Two products, one platform
+      - heading "The pitch. And the boardroom." [level=2] [ref=e90]:
+        - text: The pitch.
+        - text: And the boardroom.
+      - paragraph [ref=e91]: The Venue app runs the day-to-day. HQ Intelligence runs the estate. Together they turn a venue from a booking diary into a business you can read at a glance.
+    - generic [ref=e92]:
+      - generic [ref=e93]:
+        - generic [ref=e94]: Venue App
+        - heading "Run the floor" [level=3] [ref=e95]
+        - paragraph [ref=e96]: "Everything front-of-house: bookings, leagues, fill alerts and the casual groups already playing at your pitches."
+        - list [ref=e97]:
+          - listitem [ref=e98]: Live pitch & slot management
+          - listitem [ref=e100]: Fill empty slots from the In or Out network
+          - listitem [ref=e102]: Run & score in-house leagues
+          - listitem [ref=e104]: Booking ledger & takings, per night
+      - generic [ref=e106]:
+        - generic [ref=e107]: HQ Intelligence
+        - heading "Read the estate" [level=3] [ref=e108]
+        - paragraph [ref=e109]: One operator-grade view across every venue. Venue Judgment scores each site on six dimensions — not just revenue.
+        - list [ref=e110]:
+          - listitem [ref=e111]: Cross-venue utilisation & revenue
+          - listitem [ref=e113]: Venue Judgment — a 6-dimension score
+          - listitem [ref=e115]: Demand heatmaps & trend lines
+          - listitem [ref=e117]: Spot the weak night before it costs you
+  - generic [ref=e120]:
+    - generic [ref=e121]:
+      - generic [ref=e122]:
+        - text: 01 — DEMAND
+        - heading "Empty slot? We've got the players." [level=3] [ref=e123]:
+          - text: Empty slot?
+          - text: We've got the
+          - text: players.
+        - paragraph [ref=e124]: Thousands of casual sides already organise their matches on In or Out. When you've a gap in the diary, we surface it to the groups playing near you — and fill it.
+        - generic [ref=e125]:
+          - generic [ref=e126]:
+            - generic [ref=e127]: ●
+            - text: Push open slots to nearby casual groups
+          - generic [ref=e128]:
+            - generic [ref=e129]: ●
+            - text: Last-minute drop-out? Re-fill automatically
+          - generic [ref=e130]:
+            - generic [ref=e131]: ●
+            - text: No cold marketing — demand is already there
+      - generic [ref=e133]:
+        - generic [ref=e135]: FILL ALERTS
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - generic [ref=e142]: 9PM
+            - generic [ref=e143]:
+              - generic [ref=e144]: Pitch 1 · Thu open
+              - generic [ref=e145]: 3 groups nearby want this slot
+            - generic [ref=e146]: FILL
+          - generic [ref=e147]:
+            - generic [ref=e148]: 8PM
+            - generic [ref=e149]:
+              - generic [ref=e150]: Pitch 2 · Wed
+              - generic [ref=e151]: Wednesday Casuals — re-booked
+            - generic [ref=e152]: FILLED
+          - generic [ref=e153]:
+            - generic [ref=e154]: 7PM
+            - generic [ref=e155]:
+              - generic [ref=e156]: Pitch 1 · Fri
+              - generic [ref=e157]: The Office XI — regular
+            - generic [ref=e158]: FILLED
+    - generic [ref=e159]:
+      - generic [ref=e160]:
+        - text: 02 — COMPETE
+        - heading "Run leagues without the clipboard" [level=3] [ref=e161]:
+          - text: Run leagues
+          - text: without the
+          - text: clipboard
+        - paragraph [ref=e162]: Spin up a league, drop in the teams, and let results, tables and fixtures keep themselves. Players get live standings on the same app they already use to say they're in.
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - generic [ref=e165]: ●
+            - text: Auto-generated fixtures & tables
+          - generic [ref=e166]:
+            - generic [ref=e167]: ●
+            - text: Results flow straight from match day
+          - generic [ref=e168]:
+            - generic [ref=e169]: ●
+            - text: Standings players actually check
+      - generic [ref=e171]:
+        - generic [ref=e173]: MON 6-A-SIDE · TABLE
+        - generic [ref=e178]:
+          - generic [ref=e179]:
+            - generic [ref=e180]: 1 Real Ale Madrid
+            - generic [ref=e181]: "21"
+          - generic [ref=e182]:
+            - generic [ref=e183]: 2 Inter Milan Keynes
+            - generic [ref=e184]: "18"
+          - generic [ref=e185]:
+            - generic [ref=e186]: 3 Athletico Madthreed
+            - generic [ref=e187]: "14"
+          - generic [ref=e188]:
+            - generic [ref=e189]: 4 Notting Hill Forest
+            - generic [ref=e190]: "9"
+  - generic [ref=e192]:
+    - generic [ref=e193]:
+      - text: HQ Intelligence
+      - heading "Judge every venue. Fairly." [level=2] [ref=e194]:
+        - text: Judge every
+        - text: venue. Fairly.
+      - paragraph [ref=e195]: Revenue is one signal of six. Venue Judgment scores each site across the dimensions that actually decide whether a venue thrives — so a packed-but-fragile pitch can't hide behind a good month.
+    - generic [ref=e196]:
+      - generic [ref=e197]:
+        - text: THE SCORE
+        - heading "Six dimensions. One grade." [level=3] [ref=e198]:
+          - text: Six dimensions.
+          - text: One grade.
+        - paragraph [ref=e199]: Every venue gets a Judgment grade, refreshed nightly. Drill into any dimension to see what's pulling the score up — or quietly dragging it down.
+        - generic [ref=e200]:
+          - generic [ref=e201]:
+            - generic [ref=e202]: ●
+            - text: Refreshed every night, no manual reports
+          - generic [ref=e203]:
+            - generic [ref=e204]: ●
+            - text: Compare any two venues side by side
+          - generic [ref=e205]:
+            - generic [ref=e206]: ●
+            - text: Early-warning flags before a site slips
+      - generic [ref=e208]:
+        - generic [ref=e209]:
+          - generic [ref=e210]:
+            - generic [ref=e211]: SHOREDITCH
+            - generic [ref=e212]: Top 8% of the estate
+          - generic [ref=e213]: A−
+        - generic [ref=e214]:
+          - generic [ref=e215]: Utilisation
+          - generic [ref=e218]: "87"
+        - generic [ref=e219]:
+          - generic [ref=e220]: Revenue
+          - generic [ref=e223]: "74"
+        - generic [ref=e224]:
+          - generic [ref=e225]: Retention
+          - generic [ref=e228]: "91"
+        - generic [ref=e229]:
+          - generic [ref=e230]: Demand
+          - generic [ref=e233]: "82"
+        - generic [ref=e234]:
+          - generic [ref=e235]: Reliability
+          - generic [ref=e238]: "79"
+        - generic [ref=e239]:
+          - generic [ref=e240]: Growth
+          - generic [ref=e243]: "68"
+    - generic [ref=e244]:
+      - generic [ref=e245]:
+        - generic [ref=e246]: "01"
+        - heading "Utilisation" [level=4] [ref=e247]
+        - paragraph [ref=e248]: How full your pitches really run — by slot, by night, by season. The number you can't fake.
+      - generic [ref=e249]:
+        - generic [ref=e250]: "02"
+        - heading "Revenue" [level=4] [ref=e251]
+        - paragraph [ref=e252]: Takings per pitch-hour, trended. One input — never the whole story.
+      - generic [ref=e253]:
+        - generic [ref=e254]: "03"
+        - heading "Retention" [level=4] [ref=e255]
+        - paragraph [ref=e256]: Do the groups come back? Repeat bookings are the truest health signal a venue has.
+      - generic [ref=e257]:
+        - generic [ref=e258]: "04"
+        - heading "Demand" [level=4] [ref=e259]
+        - paragraph [ref=e260]: Unmet appetite nearby — the players who'd book if you had the slot.
+      - generic [ref=e261]:
+        - generic [ref=e262]: "05"
+        - heading "Reliability" [level=4] [ref=e263]
+        - paragraph [ref=e264]: No-shows, late drop-outs and re-fills. Volatility that quietly erodes the diary.
+      - generic [ref=e265]:
+        - generic [ref=e266]: "06"
+        - heading "Growth" [level=4] [ref=e267]
+        - paragraph [ref=e268]: Trajectory, not snapshot. Which way every signal is heading, month over month.
+  - generic [ref=e271]:
+    - generic [ref=e272]:
+      - text: THE WHOLE ESTATE
+      - heading "Every venue. One screen." [level=3] [ref=e273]:
+        - text: Every venue.
+        - text: One screen.
+      - paragraph [ref=e274]: Stop stitching spreadsheets from five sites. HQ rolls every venue into a single, live picture — and lets you drop into any one of them in a tap.
+      - generic [ref=e275]:
+        - generic [ref=e276]:
+          - generic [ref=e277]: ●
+          - text: Estate-wide utilisation & revenue at a glance
+        - generic [ref=e278]:
+          - generic [ref=e279]: ●
+          - text: Rank venues by Judgment grade
+        - generic [ref=e280]:
+          - generic [ref=e281]: ●
+          - text: Drill from estate → venue → pitch → slot
+    - generic [ref=e283]:
+      - generic [ref=e285]: ESTATE · 5 VENUES
+      - generic [ref=e290]:
+        - generic [ref=e291]:
+          - generic [ref=e292]:
+            - generic [ref=e293]: 81%
+            - generic [ref=e294]: EST. UTIL
+          - generic [ref=e295]:
+            - generic [ref=e296]: £6.2k
+            - generic [ref=e297]: TONIGHT
+          - generic [ref=e298]:
+            - generic [ref=e299]: B+
+            - generic [ref=e300]: EST. GRADE
+        - generic [ref=e301]:
+          - generic [ref=e302]: Shoreditch
+          - generic [ref=e303]:
+            - generic [ref=e304]: 87%
+            - generic [ref=e305]: A−
+        - generic [ref=e306]:
+          - generic [ref=e307]: Hackney
+          - generic [ref=e308]:
+            - generic [ref=e309]: 79%
+            - generic [ref=e310]: B+
+        - generic [ref=e311]:
+          - generic [ref=e312]: Croydon
+          - generic [ref=e313]:
+            - generic [ref=e314]: 72%
+            - generic [ref=e315]: B
+        - generic [ref=e316]:
+          - generic [ref=e317]: Watford
+          - generic [ref=e318]:
+            - generic [ref=e319]: 61%
+            - generic [ref=e320]: C+
+  - generic [ref=e322]:
+    - heading "See your whole estate." [level=2] [ref=e323]:
+      - text: See your
+      - text: whole estate.
+    - paragraph [ref=e324]: Book a 20-minute walkthrough. We'll map your venues onto HQ and show you the slots you're leaving on the table.
+    - generic [ref=e325]:
+      - link "Book a demo" [ref=e326] [cursor=pointer]:
+        - /url: "#"
+      - link "← For players" [ref=e327] [cursor=pointer]:
+        - /url: index.html
+  - contentinfo [ref=e328]:
+    - generic [ref=e329]:
+      - generic [ref=e330]:
+        - generic [ref=e331]:
+          - generic [ref=e332]:
+            - text: IN OR OUT
+            - generic [ref=e334]: VENUES
+          - paragraph [ref=e335]: The operating system for football venues. Fill every pitch, run every league, and read your whole estate from one intelligence view.
+        - generic [ref=e336]:
+          - heading "Platform" [level=5] [ref=e337]
+          - link "Fill pitches" [ref=e338] [cursor=pointer]:
+            - /url: "#fill"
+          - link "Leagues" [ref=e339] [cursor=pointer]:
+            - /url: "#leagues"
+          - link "HQ Intelligence" [ref=e340] [cursor=pointer]:
+            - /url: "#hq"
+        - generic [ref=e341]:
+          - heading "For players" [level=5] [ref=e342]
+          - link "In or Out app" [ref=e343] [cursor=pointer]:
+            - /url: index.html
+          - link "Features" [ref=e344] [cursor=pointer]:
+            - /url: index.html#features
+          - link "For organisers" [ref=e345] [cursor=pointer]:
+            - /url: index.html#organisers
+        - generic [ref=e346]:
+          - heading "Company" [level=5] [ref=e347]
+          - link "Book a demo" [ref=e348] [cursor=pointer]:
+            - /url: "#cta"
+          - link "Privacy" [ref=e349] [cursor=pointer]:
+            - /url: "#"
+          - link "Contact" [ref=e350] [cursor=pointer]:
+            - /url: "#"
+      - generic [ref=e351]:
+        - generic [ref=e352]: © 2026 In or Out. The operating system for football venues.
+        - generic [ref=e353]: Built for operators.

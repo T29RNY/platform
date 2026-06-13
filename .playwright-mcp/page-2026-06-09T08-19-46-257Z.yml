@@ -1,0 +1,583 @@
+- generic [ref=e5]:
+  - complementary [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]: io
+      - generic [ref=e9]:
+        - text: In or Out
+        - generic [ref=e10]: Venue console
+    - navigation [ref=e11]:
+      - generic [ref=e12]: Workspace
+      - button "Operations" [ref=e13] [cursor=pointer]:
+        - img [ref=e15]
+        - generic [ref=e19]: Operations
+      - button "Bookings 1" [ref=e20] [cursor=pointer]:
+        - img [ref=e22]
+        - generic [ref=e25]: Bookings
+        - generic [ref=e26]: "1"
+      - button "Payments" [ref=e27] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e31]: Payments
+      - generic [ref=e32]: Directory
+      - button "Customers" [ref=e33] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e40]: Customers
+      - button "Teams" [ref=e41] [cursor=pointer]:
+        - img [ref=e43]
+        - generic [ref=e48]: Teams
+      - button "Players" [ref=e49] [cursor=pointer]:
+        - img [ref=e51]
+        - generic [ref=e54]: Players
+      - button "Staff" [ref=e55] [cursor=pointer]:
+        - img [ref=e57]
+        - generic [ref=e61]: Staff
+      - generic [ref=e62]: Competition
+      - button "Leagues" [ref=e63] [cursor=pointer]:
+        - img [ref=e65]
+        - generic [ref=e70]: Leagues
+      - button "Table" [ref=e71] [cursor=pointer]:
+        - img [ref=e73]
+        - generic [ref=e76]: Table
+    - generic [ref=e77]:
+      - generic [ref=e80]:
+        - generic [ref=e81]: Status
+        - generic [ref=e82]: Standby
+      - button "Reception display" [ref=e83] [cursor=pointer]:
+        - img [ref=e85]
+        - generic [ref=e88]: Reception display
+      - button "Season setup" [ref=e89] [cursor=pointer]:
+        - img [ref=e91]
+        - generic [ref=e94]: Season setup
+  - generic [ref=e95]:
+    - banner [ref=e96]:
+      - heading "Payments" [level=1] [ref=e356]
+      - button "Search" [ref=e99] [cursor=pointer]:
+        - img [ref=e100]
+      - button "Notifications" [ref=e104] [cursor=pointer]:
+        - img [ref=e105]
+        - generic [ref=e108]: "4"
+      - button "Refresh" [ref=e109] [cursor=pointer]:
+        - img [ref=e110]
+      - generic [ref=e115]:
+        - generic [ref=e116]: 09:19
+        - generic [ref=e117]: Tuesday 9 June
+    - main [ref=e118]:
+      - generic [ref=e357]:
+        - generic [ref=e358]:
+          - generic [ref=e359]:
+            - generic [ref=e361]: Owed
+            - generic [ref=e362]: £990.00
+          - generic [ref=e363]:
+            - generic [ref=e365]: Collected
+            - generic [ref=e366]: £330.00
+          - generic [ref=e367]:
+            - generic [ref=e369]: Outstanding
+            - generic [ref=e370]: £660.00
+          - generic [ref=e371]:
+            - generic [ref=e373]: Collection rate
+            - generic [ref=e374]: 33.3%
+        - generic [ref=e377]:
+          - img [ref=e378]
+          - generic [ref=e380]: No online pay link set.
+          - button "Add link" [ref=e381] [cursor=pointer]
+        - generic [ref=e382]:
+          - generic [ref=e383]:
+            - strong [ref=e384]: Charges
+            - generic [ref=e385]: "34"
+            - generic [ref=e386]:
+              - button "All" [pressed] [ref=e387] [cursor=pointer]
+              - button "Unpaid" [ref=e388] [cursor=pointer]
+              - button "Part-paid" [ref=e389] [cursor=pointer]
+              - button "Paid" [ref=e390] [cursor=pointer]
+              - button "Voided" [ref=e391] [cursor=pointer]
+            - button "Add charge" [ref=e392] [cursor=pointer]:
+              - img [ref=e393]
+              - text: Add charge
+          - table [ref=e395]:
+            - rowgroup [ref=e396]:
+              - row "Source Team Due Paid Balance Status" [ref=e397]:
+                - columnheader "Source" [ref=e398]
+                - columnheader "Team" [ref=e399]
+                - columnheader "Due" [ref=e400]
+                - columnheader "Paid" [ref=e401]
+                - columnheader "Balance" [ref=e402]
+                - columnheader "Status" [ref=e403]
+                - columnheader [ref=e404]
+            - rowgroup [ref=e405]:
+              - row "Booking · 2026-06-17 Alpha United £50.00 £0.00 £50.00 Unpaid Record payment Edit due Void" [ref=e406]:
+                - cell "Booking · 2026-06-17" [ref=e407]:
+                  - text: Booking
+                  - generic [ref=e408]: · 2026-06-17
+                - cell "Alpha United" [ref=e409]
+                - cell "£50.00" [ref=e410]
+                - cell "£0.00" [ref=e411]
+                - cell "£50.00" [ref=e412]
+                - cell "Unpaid" [ref=e413]:
+                  - generic [ref=e414]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e416]:
+                  - button "Record payment" [ref=e417] [cursor=pointer]
+                  - button "Edit due" [ref=e418] [cursor=pointer]
+                  - button "Void" [ref=e419] [cursor=pointer]
+              - row "Booking · 2026-06-13 Demo City £75.00 £25.00 £50.00 Part-paid Record payment Edit due Void" [ref=e420]:
+                - cell "Booking · 2026-06-13" [ref=e421]:
+                  - text: Booking
+                  - generic [ref=e422]: · 2026-06-13
+                - cell "Demo City" [ref=e423]
+                - cell "£75.00" [ref=e424]
+                - cell "£25.00" [ref=e425]:
+                  - button "£25.00" [ref=e426] [cursor=pointer]
+                - cell "£50.00" [ref=e427]
+                - cell "Part-paid" [ref=e428]:
+                  - generic [ref=e429]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e431]:
+                  - button "Record payment" [ref=e432] [cursor=pointer]
+                  - button "Edit due" [ref=e433] [cursor=pointer]
+                  - button "Void" [ref=e434] [cursor=pointer]
+              - row "Booking · 2026-06-12 — £25.00 £0.00 £25.00 Unpaid Record payment Edit due Void" [ref=e435]:
+                - cell "Booking · 2026-06-12" [ref=e436]:
+                  - text: Booking
+                  - generic [ref=e437]: · 2026-06-12
+                - cell "—" [ref=e438]
+                - cell "£25.00" [ref=e439]
+                - cell "£0.00" [ref=e440]
+                - cell "£25.00" [ref=e441]
+                - cell "Unpaid" [ref=e442]:
+                  - generic [ref=e443]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e445]:
+                  - button "Record payment" [ref=e446] [cursor=pointer]
+                  - button "Edit due" [ref=e447] [cursor=pointer]
+                  - button "Void" [ref=e448] [cursor=pointer]
+              - row "Booking · 2026-06-10 Competitive FC £50.00 £50.00 £0.00 Paid Edit due Void" [ref=e449]:
+                - cell "Booking · 2026-06-10" [ref=e450]:
+                  - text: Booking
+                  - generic [ref=e451]: · 2026-06-10
+                - cell "Competitive FC" [ref=e452]
+                - cell "£50.00" [ref=e453]
+                - cell "£50.00" [ref=e454]:
+                  - button "£50.00" [ref=e455] [cursor=pointer]
+                - cell "£0.00" [ref=e456]
+                - cell "Paid" [ref=e457]:
+                  - generic [ref=e458]: Paid
+                - cell "Edit due Void" [ref=e460]:
+                  - button "Edit due" [ref=e461] [cursor=pointer]
+                  - button "Void" [ref=e462] [cursor=pointer]
+              - row "Booking · 2026-06-10 Demo Rovers £50.00 £0.00 £50.00 Unpaid Record payment Edit due Void" [ref=e463]:
+                - cell "Booking · 2026-06-10" [ref=e464]:
+                  - text: Booking
+                  - generic [ref=e465]: · 2026-06-10
+                - cell "Demo Rovers" [ref=e466]
+                - cell "£50.00" [ref=e467]
+                - cell "£0.00" [ref=e468]
+                - cell "£50.00" [ref=e469]
+                - cell "Unpaid" [ref=e470]:
+                  - generic [ref=e471]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e473]:
+                  - button "Record payment" [ref=e474] [cursor=pointer]
+                  - button "Edit due" [ref=e475] [cursor=pointer]
+                  - button "Void" [ref=e476] [cursor=pointer]
+              - row "Booking · 2026-06-09 Bravo Athletic £50.00 £0.00 £50.00 Voided" [ref=e477]:
+                - cell "Booking · 2026-06-09" [ref=e478]:
+                  - text: Booking
+                  - generic [ref=e479]: · 2026-06-09
+                - cell "Bravo Athletic" [ref=e480]
+                - cell "£50.00" [ref=e481]
+                - cell "£0.00" [ref=e482]
+                - cell "£50.00" [ref=e483]
+                - cell "Voided" [ref=e484]:
+                  - generic [ref=e485]: Voided
+                - cell [ref=e487]
+              - row "Fixture · 2026-06-04 Demo City £20.00 £20.00 £0.00 Paid Edit due Void" [ref=e488]:
+                - cell "Fixture · 2026-06-04" [ref=e489]:
+                  - text: Fixture
+                  - generic [ref=e490]: · 2026-06-04
+                - cell "Demo City" [ref=e491]
+                - cell "£20.00" [ref=e492]
+                - cell "£20.00" [ref=e493]:
+                  - button "£20.00" [ref=e494] [cursor=pointer]
+                - cell "£0.00" [ref=e495]
+                - cell "Paid" [ref=e496]:
+                  - generic [ref=e497]: Paid
+                - cell "Edit due Void" [ref=e499]:
+                  - button "Edit due" [ref=e500] [cursor=pointer]
+                  - button "Void" [ref=e501] [cursor=pointer]
+              - row "Fixture · 2026-06-04 Demo Rovers £20.00 £0.00 £20.00 Unpaid Record payment Edit due Void" [ref=e502]:
+                - cell "Fixture · 2026-06-04" [ref=e503]:
+                  - text: Fixture
+                  - generic [ref=e504]: · 2026-06-04
+                - cell "Demo Rovers" [ref=e505]
+                - cell "£20.00" [ref=e506]
+                - cell "£0.00" [ref=e507]
+                - cell "£20.00" [ref=e508]
+                - cell "Unpaid" [ref=e509]:
+                  - generic [ref=e510]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e512]:
+                  - button "Record payment" [ref=e513] [cursor=pointer]
+                  - button "Edit due" [ref=e514] [cursor=pointer]
+                  - button "Void" [ref=e515] [cursor=pointer]
+              - row "Fixture · 2026-06-04 Competitive FC £20.00 £10.00 £10.00 Part-paid Record payment Edit due Void" [ref=e516]:
+                - cell "Fixture · 2026-06-04" [ref=e517]:
+                  - text: Fixture
+                  - generic [ref=e518]: · 2026-06-04
+                - cell "Competitive FC" [ref=e519]
+                - cell "£20.00" [ref=e520]
+                - cell "£10.00" [ref=e521]:
+                  - button "£10.00" [ref=e522] [cursor=pointer]
+                - cell "£10.00" [ref=e523]
+                - cell "Part-paid" [ref=e524]:
+                  - generic [ref=e525]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e527]:
+                  - button "Record payment" [ref=e528] [cursor=pointer]
+                  - button "Edit due" [ref=e529] [cursor=pointer]
+                  - button "Void" [ref=e530] [cursor=pointer]
+              - row "Fixture · 2026-06-04 Demo Athletic £20.00 £0.00 £20.00 Unpaid Record payment Edit due Void" [ref=e531]:
+                - cell "Fixture · 2026-06-04" [ref=e532]:
+                  - text: Fixture
+                  - generic [ref=e533]: · 2026-06-04
+                - cell "Demo Athletic" [ref=e534]
+                - cell "£20.00" [ref=e535]
+                - cell "£0.00" [ref=e536]
+                - cell "£20.00" [ref=e537]
+                - cell "Unpaid" [ref=e538]:
+                  - generic [ref=e539]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e541]:
+                  - button "Record payment" [ref=e542] [cursor=pointer]
+                  - button "Edit due" [ref=e543] [cursor=pointer]
+                  - button "Void" [ref=e544] [cursor=pointer]
+              - row "Fixture · 2026-06-03 Charlie City £20.00 £0.00 £20.00 Unpaid Record payment Edit due Void" [ref=e545]:
+                - cell "Fixture · 2026-06-03" [ref=e546]:
+                  - text: Fixture
+                  - generic [ref=e547]: · 2026-06-03
+                - cell "Charlie City" [ref=e548]
+                - cell "£20.00" [ref=e549]
+                - cell "£0.00" [ref=e550]
+                - cell "£20.00" [ref=e551]
+                - cell "Unpaid" [ref=e552]:
+                  - generic [ref=e553]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e555]:
+                  - button "Record payment" [ref=e556] [cursor=pointer]
+                  - button "Edit due" [ref=e557] [cursor=pointer]
+                  - button "Void" [ref=e558] [cursor=pointer]
+              - row "Fixture · 2026-06-03 Bravo Athletic £20.00 £10.00 £10.00 Part-paid Record payment Edit due Void" [ref=e559]:
+                - cell "Fixture · 2026-06-03" [ref=e560]:
+                  - text: Fixture
+                  - generic [ref=e561]: · 2026-06-03
+                - cell "Bravo Athletic" [ref=e562]
+                - cell "£20.00" [ref=e563]
+                - cell "£10.00" [ref=e564]:
+                  - button "£10.00" [ref=e565] [cursor=pointer]
+                - cell "£10.00" [ref=e566]
+                - cell "Part-paid" [ref=e567]:
+                  - generic [ref=e568]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e570]:
+                  - button "Record payment" [ref=e571] [cursor=pointer]
+                  - button "Edit due" [ref=e572] [cursor=pointer]
+                  - button "Void" [ref=e573] [cursor=pointer]
+              - row "Fixture · 2026-06-03 Alpha United £20.00 £10.00 £10.00 Part-paid Record payment Edit due Void" [ref=e574]:
+                - cell "Fixture · 2026-06-03" [ref=e575]:
+                  - text: Fixture
+                  - generic [ref=e576]: · 2026-06-03
+                - cell "Alpha United" [ref=e577]
+                - cell "£20.00" [ref=e578]
+                - cell "£10.00" [ref=e579]:
+                  - button "£10.00" [ref=e580] [cursor=pointer]
+                - cell "£10.00" [ref=e581]
+                - cell "Part-paid" [ref=e582]:
+                  - generic [ref=e583]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e585]:
+                  - button "Record payment" [ref=e586] [cursor=pointer]
+                  - button "Edit due" [ref=e587] [cursor=pointer]
+                  - button "Void" [ref=e588] [cursor=pointer]
+              - row "Fixture · 2026-06-03 Delta FC £20.00 £10.00 £10.00 Part-paid Record payment Edit due Void" [ref=e589]:
+                - cell "Fixture · 2026-06-03" [ref=e590]:
+                  - text: Fixture
+                  - generic [ref=e591]: · 2026-06-03
+                - cell "Delta FC" [ref=e592]
+                - cell "£20.00" [ref=e593]
+                - cell "£10.00" [ref=e594]:
+                  - button "£10.00" [ref=e595] [cursor=pointer]
+                - cell "£10.00" [ref=e596]
+                - cell "Part-paid" [ref=e597]:
+                  - generic [ref=e598]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e600]:
+                  - button "Record payment" [ref=e601] [cursor=pointer]
+                  - button "Edit due" [ref=e602] [cursor=pointer]
+                  - button "Void" [ref=e603] [cursor=pointer]
+              - row "Booking · 2026-05-31 — £50.00 £0.00 £50.00 Unpaid Record payment Edit due Void" [ref=e604]:
+                - cell "Booking · 2026-05-31" [ref=e605]:
+                  - text: Booking
+                  - generic [ref=e606]: · 2026-05-31
+                - cell "—" [ref=e607]
+                - cell "£50.00" [ref=e608]
+                - cell "£0.00" [ref=e609]
+                - cell "£50.00" [ref=e610]
+                - cell "Unpaid" [ref=e611]:
+                  - generic [ref=e612]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e614]:
+                  - button "Record payment" [ref=e615] [cursor=pointer]
+                  - button "Edit due" [ref=e616] [cursor=pointer]
+                  - button "Void" [ref=e617] [cursor=pointer]
+              - row "Booking · 2026-05-30 — £50.00 £25.00 £25.00 Part-paid Record payment Edit due Void" [ref=e618]:
+                - cell "Booking · 2026-05-30" [ref=e619]:
+                  - text: Booking
+                  - generic [ref=e620]: · 2026-05-30
+                - cell "—" [ref=e621]
+                - cell "£50.00" [ref=e622]
+                - cell "£25.00" [ref=e623]:
+                  - button "£25.00" [ref=e624] [cursor=pointer]
+                - cell "£25.00" [ref=e625]
+                - cell "Part-paid" [ref=e626]:
+                  - generic [ref=e627]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e629]:
+                  - button "Record payment" [ref=e630] [cursor=pointer]
+                  - button "Edit due" [ref=e631] [cursor=pointer]
+                  - button "Void" [ref=e632] [cursor=pointer]
+              - row "Booking · 2026-05-27 Competitive FC £50.00 £0.00 £50.00 Paid Edit due Void" [ref=e633]:
+                - cell "Booking · 2026-05-27" [ref=e634]:
+                  - text: Booking
+                  - generic [ref=e635]: · 2026-05-27
+                - cell "Competitive FC" [ref=e636]
+                - cell "£50.00" [ref=e637]
+                - cell "£0.00" [ref=e638]
+                - cell "£50.00" [ref=e639]
+                - cell "Paid" [ref=e640]:
+                  - generic [ref=e641]: Paid
+                - cell "Edit due Void" [ref=e643]:
+                  - button "Edit due" [ref=e644] [cursor=pointer]
+                  - button "Void" [ref=e645] [cursor=pointer]
+              - row "Fixture · 2026-05-21 Demo Rovers £20.00 £20.00 £0.00 Paid Edit due Void" [ref=e646]:
+                - cell "Fixture · 2026-05-21" [ref=e647]:
+                  - text: Fixture
+                  - generic [ref=e648]: · 2026-05-21
+                - cell "Demo Rovers" [ref=e649]
+                - cell "£20.00" [ref=e650]
+                - cell "£20.00" [ref=e651]:
+                  - button "£20.00" [ref=e652] [cursor=pointer]
+                - cell "£0.00" [ref=e653]
+                - cell "Paid" [ref=e654]:
+                  - generic [ref=e655]: Paid
+                - cell "Edit due Void" [ref=e657]:
+                  - button "Edit due" [ref=e658] [cursor=pointer]
+                  - button "Void" [ref=e659] [cursor=pointer]
+              - row "Fixture · 2026-05-21 Demo Athletic £20.00 £20.00 £0.00 Paid Edit due Void" [ref=e660]:
+                - cell "Fixture · 2026-05-21" [ref=e661]:
+                  - text: Fixture
+                  - generic [ref=e662]: · 2026-05-21
+                - cell "Demo Athletic" [ref=e663]
+                - cell "£20.00" [ref=e664]
+                - cell "£20.00" [ref=e665]:
+                  - button "£20.00" [ref=e666] [cursor=pointer]
+                - cell "£0.00" [ref=e667]
+                - cell "Paid" [ref=e668]:
+                  - generic [ref=e669]: Paid
+                - cell "Edit due Void" [ref=e671]:
+                  - button "Edit due" [ref=e672] [cursor=pointer]
+                  - button "Void" [ref=e673] [cursor=pointer]
+              - row "Fixture · 2026-05-21 Demo City £20.00 £0.00 £20.00 Unpaid Record payment Edit due Void" [ref=e674]:
+                - cell "Fixture · 2026-05-21" [ref=e675]:
+                  - text: Fixture
+                  - generic [ref=e676]: · 2026-05-21
+                - cell "Demo City" [ref=e677]
+                - cell "£20.00" [ref=e678]
+                - cell "£0.00" [ref=e679]
+                - cell "£20.00" [ref=e680]
+                - cell "Unpaid" [ref=e681]:
+                  - generic [ref=e682]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e684]:
+                  - button "Record payment" [ref=e685] [cursor=pointer]
+                  - button "Edit due" [ref=e686] [cursor=pointer]
+                  - button "Void" [ref=e687] [cursor=pointer]
+              - row "Fixture · 2026-05-21 Competitive FC £20.00 £0.00 £20.00 Unpaid Record payment Edit due Void" [ref=e688]:
+                - cell "Fixture · 2026-05-21" [ref=e689]:
+                  - text: Fixture
+                  - generic [ref=e690]: · 2026-05-21
+                - cell "Competitive FC" [ref=e691]
+                - cell "£20.00" [ref=e692]
+                - cell "£0.00" [ref=e693]
+                - cell "£20.00" [ref=e694]
+                - cell "Unpaid" [ref=e695]:
+                  - generic [ref=e696]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e698]:
+                  - button "Record payment" [ref=e699] [cursor=pointer]
+                  - button "Edit due" [ref=e700] [cursor=pointer]
+                  - button "Void" [ref=e701] [cursor=pointer]
+              - row "Fixture · 2026-05-20 Delta FC £20.00 £0.00 £20.00 Unpaid Record payment Edit due Void" [ref=e702]:
+                - cell "Fixture · 2026-05-20" [ref=e703]:
+                  - text: Fixture
+                  - generic [ref=e704]: · 2026-05-20
+                - cell "Delta FC" [ref=e705]
+                - cell "£20.00" [ref=e706]
+                - cell "£0.00" [ref=e707]
+                - cell "£20.00" [ref=e708]
+                - cell "Unpaid" [ref=e709]:
+                  - generic [ref=e710]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e712]:
+                  - button "Record payment" [ref=e713] [cursor=pointer]
+                  - button "Edit due" [ref=e714] [cursor=pointer]
+                  - button "Void" [ref=e715] [cursor=pointer]
+              - row "Fixture · 2026-05-20 Bravo Athletic £20.00 £0.00 £20.00 Unpaid Record payment Edit due Void" [ref=e716]:
+                - cell "Fixture · 2026-05-20" [ref=e717]:
+                  - text: Fixture
+                  - generic [ref=e718]: · 2026-05-20
+                - cell "Bravo Athletic" [ref=e719]
+                - cell "£20.00" [ref=e720]
+                - cell "£0.00" [ref=e721]
+                - cell "£20.00" [ref=e722]
+                - cell "Unpaid" [ref=e723]:
+                  - generic [ref=e724]: Unpaid
+                - cell "Record payment Edit due Void" [ref=e726]:
+                  - button "Record payment" [ref=e727] [cursor=pointer]
+                  - button "Edit due" [ref=e728] [cursor=pointer]
+                  - button "Void" [ref=e729] [cursor=pointer]
+              - row "Booking · 2026-05-14 Competitive FC £50.00 £0.00 £50.00 Paid Edit due Void" [ref=e730]:
+                - cell "Booking · 2026-05-14" [ref=e731]:
+                  - text: Booking
+                  - generic [ref=e732]: · 2026-05-14
+                - cell "Competitive FC" [ref=e733]
+                - cell "£50.00" [ref=e734]
+                - cell "£0.00" [ref=e735]
+                - cell "£50.00" [ref=e736]
+                - cell "Paid" [ref=e737]:
+                  - generic [ref=e738]: Paid
+                - cell "Edit due Void" [ref=e740]:
+                  - button "Edit due" [ref=e741] [cursor=pointer]
+                  - button "Void" [ref=e742] [cursor=pointer]
+              - row "Fixture · 2026-05-14 Demo Rovers £20.00 £20.00 £0.00 Paid Edit due Void" [ref=e743]:
+                - cell "Fixture · 2026-05-14" [ref=e744]:
+                  - text: Fixture
+                  - generic [ref=e745]: · 2026-05-14
+                - cell "Demo Rovers" [ref=e746]
+                - cell "£20.00" [ref=e747]
+                - cell "£20.00" [ref=e748]:
+                  - button "£20.00" [ref=e749] [cursor=pointer]
+                - cell "£0.00" [ref=e750]
+                - cell "Paid" [ref=e751]:
+                  - generic [ref=e752]: Paid
+                - cell "Edit due Void" [ref=e754]:
+                  - button "Edit due" [ref=e755] [cursor=pointer]
+                  - button "Void" [ref=e756] [cursor=pointer]
+              - row "Fixture · 2026-05-14 Competitive FC £20.00 £10.00 £10.00 Part-paid Record payment Edit due Void" [ref=e757]:
+                - cell "Fixture · 2026-05-14" [ref=e758]:
+                  - text: Fixture
+                  - generic [ref=e759]: · 2026-05-14
+                - cell "Competitive FC" [ref=e760]
+                - cell "£20.00" [ref=e761]
+                - cell "£10.00" [ref=e762]:
+                  - button "£10.00" [ref=e763] [cursor=pointer]
+                - cell "£10.00" [ref=e764]
+                - cell "Part-paid" [ref=e765]:
+                  - generic [ref=e766]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e768]:
+                  - button "Record payment" [ref=e769] [cursor=pointer]
+                  - button "Edit due" [ref=e770] [cursor=pointer]
+                  - button "Void" [ref=e771] [cursor=pointer]
+              - row "Fixture · 2026-05-14 Demo Athletic £20.00 £20.00 £0.00 Paid Edit due Void" [ref=e772]:
+                - cell "Fixture · 2026-05-14" [ref=e773]:
+                  - text: Fixture
+                  - generic [ref=e774]: · 2026-05-14
+                - cell "Demo Athletic" [ref=e775]
+                - cell "£20.00" [ref=e776]
+                - cell "£20.00" [ref=e777]:
+                  - button "£20.00" [ref=e778] [cursor=pointer]
+                - cell "£0.00" [ref=e779]
+                - cell "Paid" [ref=e780]:
+                  - generic [ref=e781]: Paid
+                - cell "Edit due Void" [ref=e783]:
+                  - button "Edit due" [ref=e784] [cursor=pointer]
+                  - button "Void" [ref=e785] [cursor=pointer]
+              - row "Fixture · 2026-05-14 Demo City £20.00 £20.00 £0.00 Paid Edit due Void" [ref=e786]:
+                - cell "Fixture · 2026-05-14" [ref=e787]:
+                  - text: Fixture
+                  - generic [ref=e788]: · 2026-05-14
+                - cell "Demo City" [ref=e789]
+                - cell "£20.00" [ref=e790]
+                - cell "£20.00" [ref=e791]:
+                  - button "£20.00" [ref=e792] [cursor=pointer]
+                - cell "£0.00" [ref=e793]
+                - cell "Paid" [ref=e794]:
+                  - generic [ref=e795]: Paid
+                - cell "Edit due Void" [ref=e797]:
+                  - button "Edit due" [ref=e798] [cursor=pointer]
+                  - button "Void" [ref=e799] [cursor=pointer]
+              - row "Fixture · 2026-05-13 Bravo Athletic £20.00 £10.00 £10.00 Part-paid Record payment Edit due Void" [ref=e800]:
+                - cell "Fixture · 2026-05-13" [ref=e801]:
+                  - text: Fixture
+                  - generic [ref=e802]: · 2026-05-13
+                - cell "Bravo Athletic" [ref=e803]
+                - cell "£20.00" [ref=e804]
+                - cell "£10.00" [ref=e805]:
+                  - button "£10.00" [ref=e806] [cursor=pointer]
+                - cell "£10.00" [ref=e807]
+                - cell "Part-paid" [ref=e808]:
+                  - generic [ref=e809]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e811]:
+                  - button "Record payment" [ref=e812] [cursor=pointer]
+                  - button "Edit due" [ref=e813] [cursor=pointer]
+                  - button "Void" [ref=e814] [cursor=pointer]
+              - row "Fixture · 2026-05-13 Alpha United £20.00 £10.00 £10.00 Part-paid Record payment Edit due Void" [ref=e815]:
+                - cell "Fixture · 2026-05-13" [ref=e816]:
+                  - text: Fixture
+                  - generic [ref=e817]: · 2026-05-13
+                - cell "Alpha United" [ref=e818]
+                - cell "£20.00" [ref=e819]
+                - cell "£10.00" [ref=e820]:
+                  - button "£10.00" [ref=e821] [cursor=pointer]
+                - cell "£10.00" [ref=e822]
+                - cell "Part-paid" [ref=e823]:
+                  - generic [ref=e824]: Part-paid
+                - cell "Record payment Edit due Void" [ref=e826]:
+                  - button "Record payment" [ref=e827] [cursor=pointer]
+                  - button "Edit due" [ref=e828] [cursor=pointer]
+                  - button "Void" [ref=e829] [cursor=pointer]
+              - row "Fixture · 2026-05-13 Delta FC £20.00 £20.00 £0.00 Paid Edit due Void" [ref=e830]:
+                - cell "Fixture · 2026-05-13" [ref=e831]:
+                  - text: Fixture
+                  - generic [ref=e832]: · 2026-05-13
+                - cell "Delta FC" [ref=e833]
+                - cell "£20.00" [ref=e834]
+                - cell "£20.00" [ref=e835]:
+                  - button "£20.00" [ref=e836] [cursor=pointer]
+                - cell "£0.00" [ref=e837]
+                - cell "Paid" [ref=e838]:
+                  - generic [ref=e839]: Paid
+                - cell "Edit due Void" [ref=e841]:
+                  - button "Edit due" [ref=e842] [cursor=pointer]
+                  - button "Void" [ref=e843] [cursor=pointer]
+              - row "Fixture · 2026-05-13 Charlie City £20.00 £20.00 £0.00 Paid Edit due Void" [ref=e844]:
+                - cell "Fixture · 2026-05-13" [ref=e845]:
+                  - text: Fixture
+                  - generic [ref=e846]: · 2026-05-13
+                - cell "Charlie City" [ref=e847]
+                - cell "£20.00" [ref=e848]
+                - cell "£20.00" [ref=e849]:
+                  - button "£20.00" [ref=e850] [cursor=pointer]
+                - cell "£0.00" [ref=e851]
+                - cell "Paid" [ref=e852]:
+                  - generic [ref=e853]: Paid
+                - cell "Edit due Void" [ref=e855]:
+                  - button "Edit due" [ref=e856] [cursor=pointer]
+                  - button "Void" [ref=e857] [cursor=pointer]
+              - row "Booking · 2026-04-24 Delta FC £50.00 £0.00 £50.00 Paid Edit due Void" [ref=e858]:
+                - cell "Booking · 2026-04-24" [ref=e859]:
+                  - text: Booking
+                  - generic [ref=e860]: · 2026-04-24
+                - cell "Delta FC" [ref=e861]
+                - cell "£50.00" [ref=e862]
+                - cell "£0.00" [ref=e863]
+                - cell "£50.00" [ref=e864]
+                - cell "Paid" [ref=e865]:
+                  - generic [ref=e866]: Paid
+                - cell "Edit due Void" [ref=e868]:
+                  - button "Edit due" [ref=e869] [cursor=pointer]
+                  - button "Void" [ref=e870] [cursor=pointer]
+              - row "Booking · 2026-03-28 Charlie City £50.00 £0.00 £50.00 Paid Edit due Void" [ref=e871]:
+                - cell "Booking · 2026-03-28" [ref=e872]:
+                  - text: Booking
+                  - generic [ref=e873]: · 2026-03-28
+                - cell "Charlie City" [ref=e874]
+                - cell "£50.00" [ref=e875]
+                - cell "£0.00" [ref=e876]
+                - cell "£50.00" [ref=e877]
+                - cell "Paid" [ref=e878]:
+                  - generic [ref=e879]: Paid
+                - cell "Edit due Void" [ref=e881]:
+                  - button "Edit due" [ref=e882] [cursor=pointer]
+                  - button "Void" [ref=e883] [cursor=pointer]

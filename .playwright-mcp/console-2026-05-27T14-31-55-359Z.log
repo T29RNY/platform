@@ -1,0 +1,5 @@
+[    1062ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5179/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a3c7a30e:21550
+[    2206ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5179/src/App.jsx?t=1779892254020:63
+[   33557ms] [INFO] [venue] live update match_started @ http://localhost:5179/src/App.jsx?t=1779892254020:59
+[   33572ms] [INFO] [venue] live update match_event_recorded @ http://localhost:5179/src/App.jsx?t=1779892254020:59
+[  420288ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5179/src/App.jsx?t=1779892735441:63

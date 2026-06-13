@@ -1,0 +1,10 @@
+- main [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e6]: IN OR OUT
+    - paragraph [ref=e7]: You've been invited to join
+    - heading "5-a-Side FC" [level=1] [ref=e8]
+    - button "Continue with Google" [ref=e9] [cursor=pointer]:
+      - img [ref=e10]
+      - text: Continue with Google
+    - generic [ref=e17]: or
+    - button "Use email instead" [ref=e19] [cursor=pointer]

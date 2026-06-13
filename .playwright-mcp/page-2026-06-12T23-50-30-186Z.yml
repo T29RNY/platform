@@ -1,0 +1,19 @@
+- generic [ref=e7]:
+  - paragraph [ref=e8]: What's on at
+  - heading "Sim Sports Centre" [level=1] [ref=e9]
+  - paragraph [ref=e10]: No competitions are open for registration right now.
+  - generic [ref=e11]:
+    - heading "Become a member" [level=2] [ref=e12]
+    - paragraph [ref=e13]: Join Sim Sports Centre and unlock member perks.
+    - generic [ref=e15]: First name
+    - textbox "Your first name" [ref=e16]
+    - generic [ref=e17]: Last name (optional)
+    - textbox "Your last name" [ref=e18]
+    - generic [ref=e19]: Email (optional)
+    - textbox "you@example.com" [ref=e20]
+    - generic [ref=e21]: Phone (optional)
+    - textbox "07…" [ref=e22]
+    - generic [ref=e23] [cursor=pointer]:
+      - checkbox "Keep me updated about membership offers and events." [ref=e24]
+      - generic [ref=e25]: Keep me updated about membership offers and events.
+    - button "Request membership" [ref=e26] [cursor=pointer]

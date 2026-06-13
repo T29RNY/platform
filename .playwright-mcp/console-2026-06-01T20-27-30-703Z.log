@@ -1,0 +1,65 @@
+[    1466ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5176/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=440c01ae:21550
+[    2173ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780345305587:91
+[  784899ms] [WARNING] GoTrueClient@sb-ktvpzpnqbwhooiaqrigm-auth-token:1 (2.105.4) 2026-06-01T20:40:35.597Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:5176/node_modules/.vite/deps/@supabase_supabase-js.js?v=d4d2c986:15281
+[  785588ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780346434797:91
+[  948895ms] [INFO] [venue] live update staff_added @ http://localhost:5176/src/App.jsx?t=1780346434797:86
+[ 1072811ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5176/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=440c01ae:21550
+[ 1073142ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780346496347:91
+[ 1668631ms] [WARNING] GoTrueClient@sb-ktvpzpnqbwhooiaqrigm-auth-token:1 (2.105.4) 2026-06-01T20:55:19.327Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:5176/node_modules/.vite/deps/@supabase_supabase-js.js?v=d4d2c986:15281
+[ 1669216ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780347318891:91
+[ 2324649ms] [WARNING] GoTrueClient@sb-ktvpzpnqbwhooiaqrigm-auth-token:2 (2.105.4) 2026-06-01T21:06:15.346Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:5176/node_modules/.vite/deps/@supabase_supabase-js.js?v=d4d2c986:15281
+[ 2325073ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780347974950:91
+[ 2524153ms] [WARNING] GoTrueClient@sb-ktvpzpnqbwhooiaqrigm-auth-token:3 (2.105.4) 2026-06-01T21:09:34.852Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:5176/node_modules/.vite/deps/@supabase_supabase-js.js?v=d4d2c986:15281
+[ 2524532ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780348174705:91
+[ 2657797ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5176/src/views/ComingSoon.jsx?t=1780348308468:0
+[ 2657800ms] [ERROR] [hmr] Failed to reload /src/views/ComingSoon.jsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5176/@vite/client:175
+[ 3818720ms] [WARNING] GoTrueClient@sb-ktvpzpnqbwhooiaqrigm-auth-token:4 (2.105.4) 2026-06-01T21:31:09.404Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:5176/node_modules/.vite/deps/@supabase_supabase-js.js?v=d4d2c986:15281
+[ 3819112ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780349468619:91
+[ 4253076ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780349468619:91
+[ 5005186ms] [WARNING] GoTrueClient@sb-ktvpzpnqbwhooiaqrigm-auth-token:5 (2.105.4) 2026-06-01T21:50:55.886Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:5176/node_modules/.vite/deps/@supabase_supabase-js.js?v=d4d2c986:15281
+[ 5005439ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780350655188:91
+[ 5136673ms] [INFO] [venue] live update result_corrected @ http://localhost:5176/src/App.jsx?t=1780350655188:86
+[ 5418612ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780350655188:91
+[ 7056910ms] [WARNING] GoTrueClient@sb-ktvpzpnqbwhooiaqrigm-auth-token:6 (2.105.4) 2026-06-01T22:25:07.606Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:5176/node_modules/.vite/deps/@supabase_supabase-js.js?v=d4d2c986:15281
+[ 7057209ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1780352706311:91
+[32912726ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5176/@vite/client:559
+[32912975ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_RESET @ http://localhost:5176/:0
+[32914043ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32915101ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32916127ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32917159ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32918189ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32919193ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32920279ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32921323ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32922368ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32923375ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32924533ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32925550ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32926624ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32927773ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32928781ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32929843ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32931311ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32932318ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32933324ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32934328ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32935335ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32936413ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32937435ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32938452ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32939464ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32940467ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32941475ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32942491ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32943498ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32944568ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32945833ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32946886ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32947903ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32948919ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32949941ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32950953ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32952007ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32953095ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[32954194ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0

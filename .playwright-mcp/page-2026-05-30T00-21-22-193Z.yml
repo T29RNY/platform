@@ -1,0 +1,452 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]: IN OR OUT
+      - generic [ref=e6]:
+        - link "Why" [ref=e7] [cursor=pointer]:
+          - /url: "#problem"
+        - link "Features" [ref=e8] [cursor=pointer]:
+          - /url: "#features"
+        - link "For organisers" [ref=e9] [cursor=pointer]:
+          - /url: "#organisers"
+        - link "For venues →" [ref=e10] [cursor=pointer]:
+          - /url: venues.html
+      - generic [ref=e11]:
+        - link "How it works" [ref=e12] [cursor=pointer]:
+          - /url: "#features"
+        - link "Get the app" [ref=e13] [cursor=pointer]:
+          - /url: "#cta"
+  - banner [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - text: For players & organisers
+        - heading "Are you in, or out?" [level=1] [ref=e17]:
+          - text: Are you
+          - text: in, or out?
+        - paragraph [ref=e18]: The casual football organiser that kills the group-chat chaos. One tap to commit — teams, fees and stats sorted before kickoff.
+        - generic [ref=e19]:
+          - link "Get In or Out" [ref=e20] [cursor=pointer]:
+            - /url: "#cta"
+          - link "See how it works" [ref=e21] [cursor=pointer]:
+            - /url: "#features"
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - generic [ref=e24]: 1k+
+            - generic [ref=e25]: MATCHES ORGANISED
+          - generic [ref=e26]:
+            - generic [ref=e27]: 5%
+            - generic [ref=e28]: KICK OFF FULL
+          - generic [ref=e29]:
+            - generic [ref=e30]: 0s
+            - generic [ref=e31]: TO SAY YOU'RE IN
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e36]: NEXT MATCH
+          - generic [ref=e37]: ● LIVE
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]: TUE · 7:00PM
+            - generic [ref=e41]: Powerleague Shoreditch · 6-a-side
+            - generic [ref=e42]:
+              - generic [ref=e43]:
+                - generic [ref=e44]: "11"
+                - text: IN
+              - generic [ref=e45]:
+                - generic [ref=e46]: "4"
+                - text: MAYBE
+              - generic [ref=e47]:
+                - generic [ref=e48]: "2"
+                - text: OUT
+            - generic [ref=e49]:
+              - generic [ref=e50]: I'M IN
+              - generic [ref=e51]: OUT
+          - generic [ref=e52]:
+            - generic [ref=e53]: MJ
+            - generic [ref=e54]: Marcus J.
+            - generic [ref=e55]: PAID
+          - generic [ref=e56]:
+            - generic [ref=e57]: DK
+            - generic [ref=e58]: Dan K.
+            - generic [ref=e59]: IN
+          - generic [ref=e60]:
+            - generic [ref=e61]: SP
+            - generic [ref=e62]: Sam P.
+            - generic [ref=e63]: FEE DUE
+          - generic [ref=e64]:
+            - generic [ref=e65]: TR
+            - generic [ref=e66]: Tom R.
+            - generic [ref=e67]: PAID
+  - generic [ref=e69]:
+    - generic [ref=e70]: TUESDAY 5-A-SIDE ·
+    - generic [ref=e71]: SUNDAY LEAGUE ·
+    - generic [ref=e72]: THE OFFICE XI ·
+    - generic [ref=e73]: POWERLEAGUE REGULARS ·
+    - generic [ref=e74]: WEDNESDAY CASUALS ·
+    - generic [ref=e75]: FRIDAY 6S ·
+    - generic [ref=e76]: TUESDAY 5-A-SIDE ·
+    - generic [ref=e77]: SUNDAY LEAGUE ·
+    - generic [ref=e78]: THE OFFICE XI ·
+    - generic [ref=e79]: POWERLEAGUE REGULARS ·
+    - generic [ref=e80]: WEDNESDAY CASUALS ·
+    - generic [ref=e81]: FRIDAY 6S ·
+  - region "From group-chat chaos to one-tap clarity" [ref=e82]:
+    - generic [ref=e83]:
+      - paragraph [ref=e84]: The Tuesday-night group chat
+      - generic:
+        - generic: Anyone for Tuesday??
+        - generic: Maybe, lemme check 👍
+        - generic: Out this week, sorry lads
+        - generic: who's actually paid??
+        - generic: what time again?
+        - generic: 😩
+      - generic [ref=e85]:
+        - generic [ref=e86]:
+          - generic [ref=e87]: TUE · 7:00PM
+          - generic [ref=e88]: Powerleague Shoreditch · 6-a-side
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - generic [ref=e91]: "11"
+              - text: IN
+            - generic [ref=e92]:
+              - generic [ref=e93]: "4"
+              - text: MAYBE
+            - generic [ref=e94]:
+              - generic [ref=e95]: "2"
+              - text: OUT
+          - generic [ref=e96]:
+            - generic [ref=e97]: I'M IN
+            - generic [ref=e98]: OUT
+        - paragraph [ref=e99]: One tap. Sorted.
+  - generic [ref=e101]:
+    - generic [ref=e102]:
+      - text: The Tuesday-night nightmare
+      - heading "\"Who's actually playing this week?\"" [level=2] [ref=e103]:
+        - text: "\"Who's actually"
+        - text: playing this week?"
+      - paragraph [ref=e104]: Forty unread messages. Three maybes. A no-show at kickoff and a striker short. The group chat was never built to organise a match. In or Out is.
+    - generic [ref=e105]:
+      - generic [ref=e106]:
+        - heading "The group chat" [level=3] [ref=e107]
+        - generic [ref=e108]:
+          - generic [ref=e109]: Dave
+          - generic [ref=e110]: Anyone for Tuesday??
+        - generic [ref=e111]:
+          - generic [ref=e112]: Mike
+          - generic [ref=e113]: Maybe, will let you know 👍
+        - generic [ref=e114]:
+          - generic [ref=e115]: Jay
+          - generic [ref=e116]: Out this week sorry lads
+        - generic [ref=e117]:
+          - generic [ref=e118]: Dave
+          - generic [ref=e119]: So that's… 6? 7? who's paid?
+        - generic [ref=e120]:
+          - generic [ref=e121]: Sam
+          - generic [ref=e122]: Sorry what time again
+        - generic [ref=e123]:
+          - generic [ref=e124]: Dave
+          - generic [ref=e125]: 😩
+      - generic [ref=e126]:
+        - heading "In or Out" [level=3] [ref=e127]
+        - list [ref=e128]:
+          - listitem [ref=e129]:
+            - generic [ref=e130]: ✓
+            - text: One tap — in, out, or maybe
+          - listitem [ref=e131]:
+            - generic [ref=e132]: ✓
+            - text: Live headcount, always accurate
+          - listitem [ref=e133]:
+            - generic [ref=e134]: ✓
+            - text: Teams picked automatically
+          - listitem [ref=e135]:
+            - generic [ref=e136]: ✓
+            - text: Who's paid, who hasn't — at a glance
+          - listitem [ref=e137]:
+            - generic [ref=e138]: ✓
+            - text: Reminders that nudge the maybes
+          - listitem [ref=e139]:
+            - generic [ref=e140]: ✓
+            - text: Stats and reliability, every week
+  - generic [ref=e142]:
+    - generic [ref=e143]:
+      - text: How it works
+      - heading "Sorted before the whistle" [level=2] [ref=e144]:
+        - text: Sorted before
+        - text: the whistle
+      - paragraph [ref=e145]: Everything a casual side needs, in one place. No spreadsheets, no chasing, no chaos.
+    - generic [ref=e146]:
+      - generic [ref=e147]:
+        - text: 01 — COMMIT
+        - heading "One tap. In or out." [level=3] [ref=e148]:
+          - text: One tap.
+          - text: In or out.
+        - paragraph [ref=e149]: The whole app starts with a single decision. Players get the next match and answer in seconds. The headcount updates live for everyone, instantly.
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - generic [ref=e152]: ●
+            - text: In, out or maybe — no typing required
+          - generic [ref=e153]:
+            - generic [ref=e154]: ●
+            - text: Live count syncs across every phone
+          - generic [ref=e155]:
+            - generic [ref=e156]: ●
+            - text: Waitlist auto-promotes when a spot opens
+      - generic [ref=e158]:
+        - generic [ref=e159]:
+          - generic [ref=e160]: TUE · 7:00PM
+          - generic [ref=e161]: 11 IN
+        - generic [ref=e162]:
+          - generic [ref=e163]: I'M IN
+          - generic [ref=e164]: OUT
+          - generic [ref=e165]: "?"
+        - generic [ref=e166]:
+          - generic [ref=e167]: MJ
+          - generic [ref=e168]: Marcus J.
+          - generic [ref=e169]: IN
+        - generic [ref=e170]:
+          - generic [ref=e171]: DK
+          - generic [ref=e172]: Dan K.
+          - generic [ref=e173]: IN
+        - generic [ref=e174]:
+          - generic [ref=e175]: SP
+          - generic [ref=e176]: Sam P.
+          - generic [ref=e177]: MAYBE
+    - generic [ref=e178]:
+      - generic [ref=e179]:
+        - text: 02 — BALANCE
+        - heading "Fair teams, picked for you" [level=3] [ref=e180]:
+          - text: Fair teams,
+          - text: picked for you
+        - paragraph [ref=e181]: Hit the whistle and In or Out splits everyone into balanced sides using reliability and form — or shuffle them yourself. No more captains arguing over who gets the ringer.
+        - generic [ref=e182]:
+          - generic [ref=e183]:
+            - generic [ref=e184]: ●
+            - text: Auto-balanced by ability & attendance
+          - generic [ref=e185]:
+            - generic [ref=e186]: ●
+            - text: Drag to rebalance in a tap
+          - generic [ref=e187]:
+            - generic [ref=e188]: ●
+            - text: Bibs assigned so everyone knows their side
+      - generic [ref=e190]:
+        - generic [ref=e191]:
+          - generic [ref=e192]: TEAMS
+          - generic [ref=e193]: AUTO-PICKED
+        - generic [ref=e194]:
+          - generic [ref=e195]:
+            - heading "BLUES" [level=5] [ref=e196]
+            - generic [ref=e197]: Marcus J.
+            - generic [ref=e199]: Sam P.
+            - generic [ref=e201]: Leo M.
+            - generic [ref=e203]: Aaron T.
+          - generic [ref=e205]:
+            - heading "REDS" [level=5] [ref=e206]
+            - generic [ref=e207]: Dan K.
+            - generic [ref=e209]: Tom R.
+            - generic [ref=e211]: Will H.
+            - generic [ref=e213]: Niko P.
+    - generic [ref=e215]:
+      - generic [ref=e216]:
+        - text: 03 — SETTLE
+        - heading "Fees, sorted. No chasing." [level=3] [ref=e217]:
+          - text: Fees, sorted.
+          - text: No chasing.
+        - paragraph [ref=e218]: Every player sees what they owe and marks themselves paid. Organisers get a clean ledger — who's settled, who's due, and the running pot — without sending a single "mate, the £5?" message.
+        - generic [ref=e219]:
+          - generic [ref=e220]:
+            - generic [ref=e221]: ●
+            - text: Per-match pitch fee split automatically
+          - generic [ref=e222]:
+            - generic [ref=e223]: ●
+            - text: Paid / due status at a glance
+          - generic [ref=e224]:
+            - generic [ref=e225]: ●
+            - text: Running balance for the season pot
+      - generic [ref=e227]:
+        - generic [ref=e228]:
+          - generic [ref=e229]: THE POT
+          - generic [ref=e230]: £55 COLLECTED
+        - generic [ref=e231]:
+          - generic [ref=e232]: Marcus J.
+          - generic [ref=e233]: PAID £5
+        - generic [ref=e234]:
+          - generic [ref=e235]: Dan K.
+          - generic [ref=e236]: PAID £5
+        - generic [ref=e237]:
+          - generic [ref=e238]: Sam P.
+          - generic [ref=e239]: DUE £5
+        - generic [ref=e240]:
+          - generic [ref=e241]: Tom R.
+          - generic [ref=e242]: PAID £5
+        - generic [ref=e243]:
+          - generic [ref=e244]: Will H.
+          - generic [ref=e245]: DUE £5
+    - generic [ref=e246]:
+      - generic [ref=e247]:
+        - text: 04 — TRACK
+        - heading "Stats that settle debates" [level=3] [ref=e248]:
+          - text: Stats that
+          - text: settle debates
+        - paragraph [ref=e249]: Goals, appearances, Player of the Match votes and an all-time reliability score for everyone. The receipts are in. The banter writes itself.
+        - generic [ref=e250]:
+          - generic [ref=e251]:
+            - generic [ref=e252]: ●
+            - text: Reliability — your all-time turn-up rate
+          - generic [ref=e253]:
+            - generic [ref=e254]: ●
+            - text: Goals, assists & appearances logged
+          - generic [ref=e255]:
+            - generic [ref=e256]: ●
+            - text: Player of the Match, voted after full-time
+      - generic [ref=e258]:
+        - generic [ref=e259]:
+          - generic [ref=e260]: MARCUS J.
+          - generic [ref=e261]: ★ POTM x4
+        - generic [ref=e262]:
+          - generic [ref=e263]:
+            - img [ref=e264]
+            - generic [ref=e267]:
+              - generic [ref=e268]: 88%
+              - generic [ref=e269]: RELIABLE
+          - generic [ref=e270]:
+            - generic [ref=e271]:
+              - generic [ref=e272]: Appearances
+              - generic [ref=e273]: "34"
+            - generic [ref=e274]:
+              - generic [ref=e275]: Goals
+              - generic [ref=e276]: "21"
+            - generic [ref=e277]:
+              - generic [ref=e278]: POTM
+              - generic [ref=e279]: "4"
+  - generic [ref=e281]:
+    - generic [ref=e282]:
+      - generic [ref=e283]: 12k
+      - text: MATCHES SORTED
+    - generic [ref=e284]:
+      - generic [ref=e285]: 40%
+      - text: FEWER NO-SHOWS
+    - generic [ref=e286]:
+      - generic [ref=e287]: "0"
+      - text: SPREADSHEETS NEEDED
+    - generic [ref=e288]:
+      - generic [ref=e289]: £0
+      - text: CHASED BY HAND
+  - generic [ref=e291]:
+    - generic [ref=e292]:
+      - text: More in the kit bag
+      - heading "Built for the way you play" [level=2] [ref=e293]:
+        - text: Built for the
+        - text: way you play
+    - generic [ref=e294]:
+      - generic [ref=e295]:
+        - generic [ref=e296]: 🔔
+        - heading "Smart reminders" [level=4] [ref=e297]
+        - paragraph [ref=e298]: Auto-nudges the maybes 24 hours out, then again on the morning. The fence-sitters commit — without you sending a word.
+        - generic [ref=e299]: −40%
+        - paragraph [ref=e300]: no-shows once reminders are on.
+      - generic [ref=e301]:
+        - generic [ref=e302]: 👥
+        - heading "Guest players" [level=4] [ref=e303]
+        - paragraph [ref=e304]: Short a man? Add a guest in one tap and they're in the count and the fee split.
+      - generic [ref=e305]:
+        - generic [ref=e306]: 🩹
+        - heading "Injury list" [level=4] [ref=e307]
+        - paragraph [ref=e308]: Mark yourself crocked — out of selection, still in the squad.
+      - generic [ref=e309]:
+        - generic [ref=e310]: ⚡
+        - heading "Real-time everything" [level=4] [ref=e311]
+        - paragraph [ref=e312]: Someone drops out, the waitlist promotes, the count updates, and every phone in the squad sees it the same second. No refresh, no "did you get my message?"
+      - generic [ref=e313]:
+        - generic [ref=e314]: 🏆
+        - heading "POTM votes" [level=4] [ref=e315]
+        - paragraph [ref=e316]: Vote after full-time. Bragging rights, officially logged.
+  - generic [ref=e319]:
+    - generic [ref=e320]:
+      - text: For the one who runs it
+      - heading "You run the side. We run the admin." [level=3] [ref=e321]:
+        - text: You run the
+        - text: side. We run
+        - text: the admin.
+      - paragraph [ref=e322]: If you're the one herding cats every week, In or Out is your assistant manager. Open the next match, watch it fill, pick the teams, settle the pot — in the time it takes to lace your boots.
+      - generic [ref=e323]:
+        - generic [ref=e324]:
+          - generic [ref=e325]: ●
+          - text: Open next week's match in one tap
+        - generic [ref=e326]:
+          - generic [ref=e327]: ●
+          - text: Approve guests & manage the waitlist
+        - generic [ref=e328]:
+          - generic [ref=e329]: ●
+          - text: Full fee ledger, no chasing
+        - generic [ref=e330]:
+          - generic [ref=e331]: ●
+          - text: Hand the armband over any time
+      - link "Start your squad" [ref=e333] [cursor=pointer]:
+        - /url: "#cta"
+    - generic [ref=e336]:
+      - generic [ref=e337]:
+        - generic [ref=e338]: ADMIN
+        - generic [ref=e339]: ORGANISER
+      - generic [ref=e340]:
+        - generic [ref=e341]:
+          - generic [ref=e342]: OPEN NEXT WEEK
+          - generic [ref=e343]: Tap to publish to the squad
+          - generic [ref=e345]: PUBLISH MATCH
+        - generic [ref=e346]:
+          - generic [ref=e347]: In
+          - generic [ref=e348]: "11"
+        - generic [ref=e349]:
+          - generic [ref=e350]: Waitlist
+          - generic [ref=e351]: "3"
+        - generic [ref=e352]:
+          - generic [ref=e353]: Pot collected
+          - generic [ref=e354]: £55
+        - generic [ref=e355]:
+          - generic [ref=e356]: Fees outstanding
+          - generic [ref=e357]: £10
+  - generic [ref=e359]:
+    - heading "Next match. In or out?" [level=2] [ref=e360]:
+      - text: Next match.
+      - text: In or out?
+    - paragraph [ref=e361]: Free to start. Set up your squad in two minutes and never chase a reply again.
+    - generic [ref=e362]:
+      - link "Get In or Out" [ref=e363] [cursor=pointer]:
+        - /url: "#"
+      - link "Run a venue? →" [ref=e364] [cursor=pointer]:
+        - /url: venues.html
+  - contentinfo [ref=e365]:
+    - generic [ref=e366]:
+      - generic [ref=e367]:
+        - generic [ref=e368]:
+          - generic [ref=e369]: IN OR OUT
+          - paragraph [ref=e371]: The casual football organiser that kills the group-chat chaos. Commit, pick teams, settle up — sorted before kickoff.
+        - generic [ref=e372]:
+          - heading "Product" [level=5] [ref=e373]
+          - link "Features" [ref=e374] [cursor=pointer]:
+            - /url: "#features"
+          - link "For organisers" [ref=e375] [cursor=pointer]:
+            - /url: "#organisers"
+          - link "Why In or Out" [ref=e376] [cursor=pointer]:
+            - /url: "#problem"
+        - generic [ref=e377]:
+          - heading "For business" [level=5] [ref=e378]
+          - link "For venues" [ref=e379] [cursor=pointer]:
+            - /url: venues.html
+          - link "HQ Intelligence" [ref=e380] [cursor=pointer]:
+            - /url: venues.html#hq
+          - link "Book a demo" [ref=e381] [cursor=pointer]:
+            - /url: venues.html#cta
+        - generic [ref=e382]:
+          - heading "Company" [level=5] [ref=e383]
+          - link "About" [ref=e384] [cursor=pointer]:
+            - /url: "#"
+          - link "Privacy" [ref=e385] [cursor=pointer]:
+            - /url: "#"
+          - link "Contact" [ref=e386] [cursor=pointer]:
+            - /url: "#"
+      - generic [ref=e387]:
+        - generic [ref=e388]: © 2026 In or Out. Made for the Tuesday-nighters.
+        - generic [ref=e389]:
+          - link "App Store" [ref=e390] [cursor=pointer]:
+            - /url: "#"
+          - link "Google Play" [ref=e391] [cursor=pointer]:
+            - /url: "#"

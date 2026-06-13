@@ -1,0 +1,274 @@
+- generic [ref=e1]:
+  - generic [ref=e5]:
+    - banner [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - generic [ref=e9]: Standby
+          - generic [ref=e11]: ·
+          - generic [ref=e12]: Venue Control
+        - heading "Demo Sports Centre" [level=1] [ref=e13]:
+          - generic [ref=e14]: D
+          - generic [ref=e15]: e
+          - generic [ref=e16]: m
+          - generic [ref=e17]: o
+          - generic [ref=e19]: S
+          - generic [ref=e20]: p
+          - generic [ref=e21]: o
+          - generic [ref=e22]: r
+          - generic [ref=e23]: t
+          - generic [ref=e24]: s
+          - generic [ref=e26]: C
+          - generic [ref=e27]: e
+          - generic [ref=e28]: "n"
+          - generic [ref=e29]: t
+          - generic [ref=e30]: r
+          - generic [ref=e31]: e
+        - generic [ref=e32]: Demo Summer League — and 1 more
+      - generic [ref=e70]:
+        - generic "Current time 21:57" [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]: 21:57
+            - generic [ref=e74]: "23"
+          - generic [ref=e75]: Monday 1 June
+        - generic [ref=e76]:
+          - button "Set up new season" [ref=e77] [cursor=pointer]: Set up new season
+          - button "Reception display" [ref=e78] [cursor=pointer]
+          - button "Refresh" [ref=e79] [cursor=pointer]
+    - generic [ref=e81]:
+      - generic [ref=e82]:
+        - generic [ref=e83]: ◆
+        - text: Demo Summer League
+      - generic [ref=e84]:
+        - generic [ref=e85]: ◆
+        - text: Demo Competitive League
+      - generic [ref=e86]:
+        - generic [ref=e87]: ◆
+        - text: 2 pitches
+      - generic [ref=e88]:
+        - generic [ref=e89]: ◆
+        - text: 3 officials
+      - generic [ref=e90]:
+        - generic [ref=e91]: ◆
+        - text: 4 fixtures this week
+      - generic [ref=e92]:
+        - generic [ref=e93]: ◆
+        - text: 1 pending registration
+      - generic [ref=e94]:
+        - generic [ref=e95]: ◆
+        - text: 2 open incidents
+      - generic [ref=e96]:
+        - generic [ref=e97]: ◆
+        - text: Demo Summer League
+      - generic [ref=e98]:
+        - generic [ref=e99]: ◆
+        - text: Demo Competitive League
+      - generic [ref=e100]:
+        - generic [ref=e101]: ◆
+        - text: 2 pitches
+      - generic [ref=e102]:
+        - generic [ref=e103]: ◆
+        - text: 3 officials
+      - generic [ref=e104]:
+        - generic [ref=e105]: ◆
+        - text: 4 fixtures this week
+      - generic [ref=e106]:
+        - generic [ref=e107]: ◆
+        - text: 1 pending registration
+      - generic [ref=e108]:
+        - generic [ref=e109]: ◆
+        - text: 2 open incidents
+    - navigation "Dashboard sections" [ref=e110]:
+      - button "Operations" [ref=e111] [cursor=pointer]
+      - button "Bookings" [ref=e112] [cursor=pointer]
+      - button "Payments" [ref=e113] [cursor=pointer]
+      - button "Teams" [ref=e114] [cursor=pointer]
+      - button "Players" [ref=e115] [cursor=pointer]
+      - button "Staff" [ref=e116] [cursor=pointer]
+      - button "League" [ref=e117] [cursor=pointer]
+      - button "Table" [ref=e118] [cursor=pointer]
+    - main [ref=e446]:
+      - generic [ref=e447]:
+        - generic [ref=e448]:
+          - heading "Teams" [level=2] [ref=e449]
+          - paragraph [ref=e450]: 9 teams across active competitions
+        - textbox "Search teams…" [ref=e451]
+      - generic [ref=e452]:
+        - button "AU Alpha United 1 competition · last active 6d ago" [ref=e453] [cursor=pointer]:
+          - generic [ref=e454]: AU
+          - generic [ref=e455]:
+            - generic [ref=e456]: Alpha United
+            - generic [ref=e457]: 1 competition · last active 6d ago
+          - generic [ref=e458]: ›
+        - button "BA Bravo Athletic 1 competition · last active 6d ago" [ref=e459] [cursor=pointer]:
+          - generic [ref=e460]: BA
+          - generic [ref=e461]:
+            - generic [ref=e462]: Bravo Athletic
+            - generic [ref=e463]: 1 competition · last active 6d ago
+          - generic [ref=e464]: ›
+        - button "CC Charlie City 1 competition · last active 6d ago" [ref=e465] [cursor=pointer]:
+          - generic [ref=e466]: CC
+          - generic [ref=e467]:
+            - generic [ref=e468]: Charlie City
+            - generic [ref=e469]: 1 competition · last active 6d ago
+          - generic [ref=e470]: ›
+        - button "CF Competitive FC 1 competition · last active 4d ago" [active] [ref=e471] [cursor=pointer]:
+          - generic [ref=e472]: CF
+          - generic [ref=e473]:
+            - generic [ref=e474]: Competitive FC
+            - generic [ref=e475]: 1 competition · last active 4d ago
+          - generic [ref=e476]: ›
+        - button "DF Delta FC 1 competition · last active 6d ago" [ref=e477] [cursor=pointer]:
+          - generic [ref=e478]: DF
+          - generic [ref=e479]:
+            - generic [ref=e480]: Delta FC
+            - generic [ref=e481]: 1 competition · last active 6d ago
+          - generic [ref=e482]: ›
+        - button "DA Demo Athletic 1 competition · last active 4d ago" [ref=e483] [cursor=pointer]:
+          - generic [ref=e484]: DA
+          - generic [ref=e485]:
+            - generic [ref=e486]: Demo Athletic
+            - generic [ref=e487]: 1 competition · last active 4d ago
+          - generic [ref=e488]: ›
+        - button "DC Demo City 1 competition · last active 4d ago" [ref=e489] [cursor=pointer]:
+          - generic [ref=e490]: DC
+          - generic [ref=e491]:
+            - generic [ref=e492]: Demo City
+            - generic [ref=e493]: 1 competition · last active 4d ago
+          - generic [ref=e494]: ›
+        - button "DR Demo Rovers 1 competition · last active 4d ago" [ref=e495] [cursor=pointer]:
+          - generic [ref=e496]: DR
+          - generic [ref=e497]:
+            - generic [ref=e498]: Demo Rovers
+            - generic [ref=e499]: 1 competition · last active 4d ago
+          - generic [ref=e500]: ›
+        - button "EW Echo Wanderers 1 competition · last active 6d ago" [ref=e501] [cursor=pointer]:
+          - generic [ref=e502]: EW
+          - generic [ref=e503]:
+            - generic [ref=e504]: Echo Wanderers
+            - generic [ref=e505]: 1 competition · last active 6d ago
+          - generic [ref=e506]: ›
+  - generic [ref=e508]:
+    - banner [ref=e509]:
+      - heading "Competitive FC" [level=2] [ref=e510]
+      - button "Close" [ref=e511] [cursor=pointer]: ×
+    - generic [ref=e512]:
+      - generic [ref=e513]:
+        - generic [ref=e514]: CF
+        - generic [ref=e515]:
+          - generic [ref=e517]: Demo Competitive League
+          - generic [ref=e518]: 8 players
+      - generic [ref=e519]:
+        - generic [ref=e520]:
+          - generic [ref=e521]: –
+          - generic [ref=e523]: Femi Ade
+          - generic [ref=e524]:
+            - generic "Goals" [ref=e525]:
+              - generic [ref=e526]: "0"
+              - generic [ref=e527]: G
+            - generic "POTM" [ref=e528]:
+              - generic [ref=e529]: "0"
+              - generic [ref=e530]: P
+            - generic "Played" [ref=e531]:
+              - generic [ref=e532]: "0"
+              - generic [ref=e533]: App
+            - generic "Win–Draw–Loss" [ref=e534]: 0-0-0
+        - generic [ref=e535]:
+          - generic [ref=e536]: –
+          - generic [ref=e538]: Jay Patel
+          - generic [ref=e539]:
+            - generic "Goals" [ref=e540]:
+              - generic [ref=e541]: "0"
+              - generic [ref=e542]: G
+            - generic "POTM" [ref=e543]:
+              - generic [ref=e544]: "0"
+              - generic [ref=e545]: P
+            - generic "Played" [ref=e546]:
+              - generic [ref=e547]: "0"
+              - generic [ref=e548]: App
+            - generic "Win–Draw–Loss" [ref=e549]: 0-0-0
+        - generic [ref=e550]:
+          - generic [ref=e551]: –
+          - generic [ref=e553]: Marcus Lee
+          - generic [ref=e554]:
+            - generic "Goals" [ref=e555]:
+              - generic [ref=e556]: "0"
+              - generic [ref=e557]: G
+            - generic "POTM" [ref=e558]:
+              - generic [ref=e559]: "0"
+              - generic [ref=e560]: P
+            - generic "Played" [ref=e561]:
+              - generic [ref=e562]: "0"
+              - generic [ref=e563]: App
+            - generic "Win–Draw–Loss" [ref=e564]: 0-0-0
+        - generic [ref=e565]:
+          - generic [ref=e566]: –
+          - generic [ref=e568]: Niko Vasilev
+          - generic [ref=e569]:
+            - generic "Goals" [ref=e570]:
+              - generic [ref=e571]: "0"
+              - generic [ref=e572]: G
+            - generic "POTM" [ref=e573]:
+              - generic [ref=e574]: "0"
+              - generic [ref=e575]: P
+            - generic "Played" [ref=e576]:
+              - generic [ref=e577]: "0"
+              - generic [ref=e578]: App
+            - generic "Win–Draw–Loss" [ref=e579]: 0-0-0
+        - generic [ref=e580]:
+          - generic [ref=e581]: –
+          - generic [ref=e583]: Rob Hart
+          - generic [ref=e584]:
+            - generic "Goals" [ref=e585]:
+              - generic [ref=e586]: "0"
+              - generic [ref=e587]: G
+            - generic "POTM" [ref=e588]:
+              - generic [ref=e589]: "0"
+              - generic [ref=e590]: P
+            - generic "Played" [ref=e591]:
+              - generic [ref=e592]: "0"
+              - generic [ref=e593]: App
+            - generic "Win–Draw–Loss" [ref=e594]: 0-0-0
+        - generic [ref=e595]:
+          - generic [ref=e596]: –
+          - generic [ref=e598]: Sol Greene
+          - generic [ref=e599]:
+            - generic "Goals" [ref=e600]:
+              - generic [ref=e601]: "0"
+              - generic [ref=e602]: G
+            - generic "POTM" [ref=e603]:
+              - generic [ref=e604]: "0"
+              - generic [ref=e605]: P
+            - generic "Played" [ref=e606]:
+              - generic [ref=e607]: "0"
+              - generic [ref=e608]: App
+            - generic "Win–Draw–Loss" [ref=e609]: 0-0-0
+        - generic [ref=e610]:
+          - generic [ref=e611]: –
+          - generic [ref=e613]: Tarny
+          - generic [ref=e614]:
+            - generic "Goals" [ref=e615]:
+              - generic [ref=e616]: "0"
+              - generic [ref=e617]: G
+            - generic "POTM" [ref=e618]:
+              - generic [ref=e619]: "0"
+              - generic [ref=e620]: P
+            - generic "Played" [ref=e621]:
+              - generic [ref=e622]: "0"
+              - generic [ref=e623]: App
+            - generic "Win–Draw–Loss" [ref=e624]: 0-0-0
+        - generic [ref=e625]:
+          - generic [ref=e626]: –
+          - generic [ref=e628]: Tom Reid
+          - generic [ref=e629]:
+            - generic "Goals" [ref=e630]:
+              - generic [ref=e631]: "0"
+              - generic [ref=e632]: G
+            - generic "POTM" [ref=e633]:
+              - generic [ref=e634]: "0"
+              - generic [ref=e635]: P
+            - generic "Played" [ref=e636]:
+              - generic [ref=e637]: "0"
+              - generic [ref=e638]: App
+            - generic "Win–Draw–Loss" [ref=e639]: 0-0-0
+    - contentinfo [ref=e640]:
+      - button "Close" [ref=e641] [cursor=pointer]

@@ -1,0 +1,389 @@
+- generic [ref=e5]:
+  - banner [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Standby
+        - generic [ref=e11]: ·
+        - generic [ref=e12]: Venue Control
+      - heading "Demo Sports Centre" [level=1] [ref=e13]:
+        - generic [ref=e14]: D
+        - generic [ref=e15]: e
+        - generic [ref=e16]: m
+        - generic [ref=e17]: o
+        - generic [ref=e19]: S
+        - generic [ref=e20]: p
+        - generic [ref=e21]: o
+        - generic [ref=e22]: r
+        - generic [ref=e23]: t
+        - generic [ref=e24]: s
+        - generic [ref=e26]: C
+        - generic [ref=e27]: e
+        - generic [ref=e28]: "n"
+        - generic [ref=e29]: t
+        - generic [ref=e30]: r
+        - generic [ref=e31]: e
+      - generic [ref=e32]: Demo Summer League
+    - generic [ref=e34]: Pitch bookings
+    - generic [ref=e35]:
+      - generic "Current time 18:41" [ref=e134]:
+        - generic [ref=e37]:
+          - generic [ref=e38]: 18:41
+          - generic [ref=e39]: "58"
+        - generic [ref=e40]: Thursday 28 May
+      - generic [ref=e41]:
+        - button "Set up new season" [ref=e42] [cursor=pointer]: Set up new season
+        - button "Refresh" [ref=e43] [cursor=pointer]
+  - generic [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e47]: ◆
+      - text: Demo Summer League
+    - generic [ref=e48]:
+      - generic [ref=e49]: ◆
+      - text: 2 pitches
+    - generic [ref=e50]:
+      - generic [ref=e51]: ◆
+      - text: 3 officials
+    - generic [ref=e52]:
+      - generic [ref=e53]: ◆
+      - text: 2 fixtures this week
+    - generic [ref=e54]:
+      - generic [ref=e55]: ◆
+      - text: 1 pending registration
+    - generic [ref=e56]:
+      - generic [ref=e57]: ◆
+      - text: Demo Summer League
+    - generic [ref=e58]:
+      - generic [ref=e59]: ◆
+      - text: 2 pitches
+    - generic [ref=e60]:
+      - generic [ref=e61]: ◆
+      - text: 3 officials
+    - generic [ref=e62]:
+      - generic [ref=e63]: ◆
+      - text: 2 fixtures this week
+    - generic [ref=e64]:
+      - generic [ref=e65]: ◆
+      - text: 1 pending registration
+  - navigation "Dashboard sections" [ref=e66]:
+    - button "Operations" [ref=e67] [cursor=pointer]
+    - button "Bookings" [ref=e68] [cursor=pointer]
+  - main [ref=e69]:
+    - generic [ref=e70]:
+      - generic [ref=e71]:
+        - button "Previous day" [ref=e72] [cursor=pointer]: ‹
+        - generic [ref=e73]:
+          - generic [ref=e74]: Sat 30 May
+          - button "Jump to today" [ref=e107] [cursor=pointer]
+        - button "Next day" [ref=e75] [cursor=pointer]: ›
+      - button "Settings" [active] [ref=e77] [cursor=pointer]
+    - generic [ref=e78]:
+      - generic [ref=e79]:
+        - heading "Requests" [level=2] [ref=e80]
+        - paragraph [ref=e81]: No pending requests. The queue is clear.
+      - generic [ref=e82]:
+        - heading "Schedule" [level=2] [ref=e83]
+        - generic [ref=e85]:
+          - generic [ref=e87]: Main Pitch
+          - generic [ref=e88]: Side Pitch
+          - generic [ref=e89]:
+            - generic [ref=e90]: 08:00
+            - generic [ref=e91]: 09:00
+            - generic [ref=e92]: 10:00
+            - generic [ref=e93]: 11:00
+            - generic [ref=e94]: 12:00
+            - generic [ref=e95]: 13:00
+            - generic [ref=e96]: 14:00
+            - generic [ref=e97]: 15:00
+            - generic [ref=e98]: 16:00
+            - generic [ref=e99]: 17:00
+            - generic [ref=e100]: 18:00
+            - generic [ref=e101]: 19:00
+            - generic [ref=e102]: 20:00
+            - generic [ref=e103]: 21:00
+            - generic [ref=e104]: 22:00
+          - generic "Tap an empty slot to book" [ref=e105]:
+            - generic [ref=e136]:
+              - generic [ref=e137]: E2E TEST DELETE
+              - generic [ref=e138]: 14:30–15:30
+            - generic [ref=e108]:
+              - generic [ref=e109]: Sunday Rovers (demo)
+              - generic [ref=e110]: 18:00–19:00
+          - generic "Tap an empty slot to book" [ref=e106]
+    - generic [ref=e140]:
+      - generic [ref=e141]:
+        - heading "Booking settings" [level=2] [ref=e142]
+        - button "Close" [ref=e143] [cursor=pointer]: ×
+      - generic [ref=e144]:
+        - generic [ref=e145]:
+          - generic [ref=e146] [cursor=pointer]:
+            - checkbox "Bookings on Casual teams can find and request this venue when on." [checked]
+            - generic [ref=e149]:
+              - text: Bookings on
+              - generic [ref=e150]: Casual teams can find and request this venue when on.
+          - generic [ref=e151]: Cancellation policy
+          - textbox "e.g. Free cancellation up to 48 hours before kick-off." [ref=e152]: Free cancellation up to 24 hours before kick-off. Within 24 hours the booking is non-refundable.
+          - button "Save settings" [ref=e154] [cursor=pointer]
+        - heading "Bookable hours" [level=3] [ref=e156]
+        - paragraph [ref=e157]: Per pitch, set which weekdays and times accept bookings, and the slot lengths offered.
+        - generic [ref=e158]:
+          - generic [ref=e159]:
+            - generic [ref=e160]: Main Pitch
+            - button "+ Add window" [ref=e161] [cursor=pointer]
+          - generic [ref=e162]:
+            - combobox [ref=e163] [cursor=pointer]:
+              - option "Sun" [selected]
+              - option "Mon"
+              - option "Tue"
+              - option "Wed"
+              - option "Thu"
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e164]: 08:00
+            - textbox [ref=e165]: 22:00
+            - generic [ref=e166]:
+              - button "30" [ref=e167] [cursor=pointer]
+              - button "45" [ref=e168] [cursor=pointer]
+              - button "60" [ref=e169] [cursor=pointer]
+              - button "90" [ref=e170] [cursor=pointer]
+              - button "120" [ref=e171] [cursor=pointer]
+            - button "Remove window" [ref=e172] [cursor=pointer]: ×
+          - generic [ref=e173]:
+            - combobox [ref=e174] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon" [selected]
+              - option "Tue"
+              - option "Wed"
+              - option "Thu"
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e175]: 08:00
+            - textbox [ref=e176]: 22:00
+            - generic [ref=e177]:
+              - button "30" [ref=e178] [cursor=pointer]
+              - button "45" [ref=e179] [cursor=pointer]
+              - button "60" [ref=e180] [cursor=pointer]
+              - button "90" [ref=e181] [cursor=pointer]
+              - button "120" [ref=e182] [cursor=pointer]
+            - button "Remove window" [ref=e183] [cursor=pointer]: ×
+          - generic [ref=e184]:
+            - combobox [ref=e185] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue" [selected]
+              - option "Wed"
+              - option "Thu"
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e186]: 08:00
+            - textbox [ref=e187]: 22:00
+            - generic [ref=e188]:
+              - button "30" [ref=e189] [cursor=pointer]
+              - button "45" [ref=e190] [cursor=pointer]
+              - button "60" [ref=e191] [cursor=pointer]
+              - button "90" [ref=e192] [cursor=pointer]
+              - button "120" [ref=e193] [cursor=pointer]
+            - button "Remove window" [ref=e194] [cursor=pointer]: ×
+          - generic [ref=e195]:
+            - combobox [ref=e196] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue"
+              - option "Wed" [selected]
+              - option "Thu"
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e197]: 08:00
+            - textbox [ref=e198]: 22:00
+            - generic [ref=e199]:
+              - button "30" [ref=e200] [cursor=pointer]
+              - button "45" [ref=e201] [cursor=pointer]
+              - button "60" [ref=e202] [cursor=pointer]
+              - button "90" [ref=e203] [cursor=pointer]
+              - button "120" [ref=e204] [cursor=pointer]
+            - button "Remove window" [ref=e205] [cursor=pointer]: ×
+          - generic [ref=e206]:
+            - combobox [ref=e207] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue"
+              - option "Wed"
+              - option "Thu" [selected]
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e208]: 08:00
+            - textbox [ref=e209]: 22:00
+            - generic [ref=e210]:
+              - button "30" [ref=e211] [cursor=pointer]
+              - button "45" [ref=e212] [cursor=pointer]
+              - button "60" [ref=e213] [cursor=pointer]
+              - button "90" [ref=e214] [cursor=pointer]
+              - button "120" [ref=e215] [cursor=pointer]
+            - button "Remove window" [ref=e216] [cursor=pointer]: ×
+          - generic [ref=e217]:
+            - combobox [ref=e218] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue"
+              - option "Wed"
+              - option "Thu"
+              - option "Fri" [selected]
+              - option "Sat"
+            - textbox [ref=e219]: 08:00
+            - textbox [ref=e220]: 22:00
+            - generic [ref=e221]:
+              - button "30" [ref=e222] [cursor=pointer]
+              - button "45" [ref=e223] [cursor=pointer]
+              - button "60" [ref=e224] [cursor=pointer]
+              - button "90" [ref=e225] [cursor=pointer]
+              - button "120" [ref=e226] [cursor=pointer]
+            - button "Remove window" [ref=e227] [cursor=pointer]: ×
+          - generic [ref=e228]:
+            - combobox [ref=e229] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue"
+              - option "Wed"
+              - option "Thu"
+              - option "Fri"
+              - option "Sat" [selected]
+            - textbox [ref=e230]: 08:00
+            - textbox [ref=e231]: 22:00
+            - generic [ref=e232]:
+              - button "30" [ref=e233] [cursor=pointer]
+              - button "45" [ref=e234] [cursor=pointer]
+              - button "60" [ref=e235] [cursor=pointer]
+              - button "90" [ref=e236] [cursor=pointer]
+              - button "120" [ref=e237] [cursor=pointer]
+            - button "Remove window" [ref=e238] [cursor=pointer]: ×
+          - button "Save Main Pitch" [ref=e240] [cursor=pointer]
+        - generic [ref=e241]:
+          - generic [ref=e242]:
+            - generic [ref=e243]: Side Pitch
+            - button "+ Add window" [ref=e244] [cursor=pointer]
+          - generic [ref=e245]:
+            - combobox [ref=e246] [cursor=pointer]:
+              - option "Sun" [selected]
+              - option "Mon"
+              - option "Tue"
+              - option "Wed"
+              - option "Thu"
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e247]: 08:00
+            - textbox [ref=e248]: 22:00
+            - generic [ref=e249]:
+              - button "30" [ref=e250] [cursor=pointer]
+              - button "45" [ref=e251] [cursor=pointer]
+              - button "60" [ref=e252] [cursor=pointer]
+              - button "90" [ref=e253] [cursor=pointer]
+              - button "120" [ref=e254] [cursor=pointer]
+            - button "Remove window" [ref=e255] [cursor=pointer]: ×
+          - generic [ref=e256]:
+            - combobox [ref=e257] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon" [selected]
+              - option "Tue"
+              - option "Wed"
+              - option "Thu"
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e258]: 08:00
+            - textbox [ref=e259]: 22:00
+            - generic [ref=e260]:
+              - button "30" [ref=e261] [cursor=pointer]
+              - button "45" [ref=e262] [cursor=pointer]
+              - button "60" [ref=e263] [cursor=pointer]
+              - button "90" [ref=e264] [cursor=pointer]
+              - button "120" [ref=e265] [cursor=pointer]
+            - button "Remove window" [ref=e266] [cursor=pointer]: ×
+          - generic [ref=e267]:
+            - combobox [ref=e268] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue" [selected]
+              - option "Wed"
+              - option "Thu"
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e269]: 08:00
+            - textbox [ref=e270]: 22:00
+            - generic [ref=e271]:
+              - button "30" [ref=e272] [cursor=pointer]
+              - button "45" [ref=e273] [cursor=pointer]
+              - button "60" [ref=e274] [cursor=pointer]
+              - button "90" [ref=e275] [cursor=pointer]
+              - button "120" [ref=e276] [cursor=pointer]
+            - button "Remove window" [ref=e277] [cursor=pointer]: ×
+          - generic [ref=e278]:
+            - combobox [ref=e279] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue"
+              - option "Wed" [selected]
+              - option "Thu"
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e280]: 08:00
+            - textbox [ref=e281]: 22:00
+            - generic [ref=e282]:
+              - button "30" [ref=e283] [cursor=pointer]
+              - button "45" [ref=e284] [cursor=pointer]
+              - button "60" [ref=e285] [cursor=pointer]
+              - button "90" [ref=e286] [cursor=pointer]
+              - button "120" [ref=e287] [cursor=pointer]
+            - button "Remove window" [ref=e288] [cursor=pointer]: ×
+          - generic [ref=e289]:
+            - combobox [ref=e290] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue"
+              - option "Wed"
+              - option "Thu" [selected]
+              - option "Fri"
+              - option "Sat"
+            - textbox [ref=e291]: 08:00
+            - textbox [ref=e292]: 22:00
+            - generic [ref=e293]:
+              - button "30" [ref=e294] [cursor=pointer]
+              - button "45" [ref=e295] [cursor=pointer]
+              - button "60" [ref=e296] [cursor=pointer]
+              - button "90" [ref=e297] [cursor=pointer]
+              - button "120" [ref=e298] [cursor=pointer]
+            - button "Remove window" [ref=e299] [cursor=pointer]: ×
+          - generic [ref=e300]:
+            - combobox [ref=e301] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue"
+              - option "Wed"
+              - option "Thu"
+              - option "Fri" [selected]
+              - option "Sat"
+            - textbox [ref=e302]: 08:00
+            - textbox [ref=e303]: 22:00
+            - generic [ref=e304]:
+              - button "30" [ref=e305] [cursor=pointer]
+              - button "45" [ref=e306] [cursor=pointer]
+              - button "60" [ref=e307] [cursor=pointer]
+              - button "90" [ref=e308] [cursor=pointer]
+              - button "120" [ref=e309] [cursor=pointer]
+            - button "Remove window" [ref=e310] [cursor=pointer]: ×
+          - generic [ref=e311]:
+            - combobox [ref=e312] [cursor=pointer]:
+              - option "Sun"
+              - option "Mon"
+              - option "Tue"
+              - option "Wed"
+              - option "Thu"
+              - option "Fri"
+              - option "Sat" [selected]
+            - textbox [ref=e313]: 08:00
+            - textbox [ref=e314]: 22:00
+            - generic [ref=e315]:
+              - button "30" [ref=e316] [cursor=pointer]
+              - button "45" [ref=e317] [cursor=pointer]
+              - button "60" [ref=e318] [cursor=pointer]
+              - button "90" [ref=e319] [cursor=pointer]
+              - button "120" [ref=e320] [cursor=pointer]
+            - button "Remove window" [ref=e321] [cursor=pointer]: ×
+          - button "Save Side Pitch" [ref=e323] [cursor=pointer]

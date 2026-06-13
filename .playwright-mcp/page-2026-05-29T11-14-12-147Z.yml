@@ -1,0 +1,143 @@
+- generic [ref=e109]:
+  - generic [ref=e113]:
+    - generic [ref=e114]:
+      - generic [ref=e115]: Competitive FC
+      - generic [ref=e116]: ADMIN PANEL
+    - generic [ref=e117]:
+      - generic [ref=e118]:
+        - generic [ref=e119]: "1"
+        - generic [ref=e120]: In this week
+      - generic [ref=e121]:
+        - generic [ref=e122]: "0"
+        - generic [ref=e123]: Paid
+      - generic [ref=e124]:
+        - generic [ref=e125]: £0
+        - generic [ref=e126]: Outstanding
+  - generic [ref=e127]:
+    - generic [ref=e132]: Make this week's game live
+    - generic [ref=e135]: This Week
+    - generic [ref=e137]:
+      - generic [ref=e138] [cursor=pointer]:
+        - img [ref=e139]
+        - generic [ref=e141]: Make Teams
+        - generic [ref=e142]: Split squad into A and B
+        - generic [ref=e143]: Not confirmed
+      - generic [ref=e144] [cursor=pointer]:
+        - img [ref=e145]
+        - generic [ref=e147]: Input Result
+        - generic [ref=e148]: Score, scorers, POTM, bibs
+    - generic [ref=e149]: Actions
+    - generic [ref=e151]:
+      - generic [ref=e152] [cursor=pointer]:
+        - img [ref=e154]
+        - generic [ref=e156]:
+          - generic [ref=e157]: Chase No-Responses
+          - generic [ref=e158]: Nudge the 7 players who haven't replied
+        - generic [ref=e159]:
+          - generic [ref=e160]: "7"
+          - img [ref=e161]
+      - generic [ref=e163] [cursor=pointer]:
+        - img [ref=e165]
+        - generic [ref=e167]:
+          - generic [ref=e168]: Cancel This Week
+          - generic [ref=e169]: Notify all confirmed players
+        - img [ref=e171]
+      - generic [ref=e173] [cursor=pointer]:
+        - img [ref=e175]
+        - generic [ref=e177]:
+          - generic [ref=e178]: Announce to Squad
+          - generic [ref=e179]: Choose who receives your message
+        - img [ref=e181]
+    - generic [ref=e183]: Live Board
+    - generic [ref=e185]:
+      - generic [ref=e186] [cursor=pointer]:
+        - generic [ref=e187]:
+          - generic [ref=e188]: ✅
+          - generic [ref=e189]: In
+          - generic [ref=e190]: "1"
+        - img [ref=e191]
+      - generic [ref=e193] [cursor=pointer]:
+        - generic [ref=e194]: TA
+        - generic [ref=e195]:
+          - generic [ref=e196]: Tarny
+          - generic [ref=e197]: Confirmed
+        - generic [ref=e198]:
+          - generic [ref=e199]: Unpaid
+          - img [ref=e201]
+    - generic [ref=e204] [cursor=pointer]:
+      - generic [ref=e205]:
+        - generic [ref=e206]: 🟣
+        - generic [ref=e207]: Reserve
+        - generic [ref=e208]: "0"
+      - img [ref=e209]
+    - generic [ref=e212] [cursor=pointer]:
+      - generic [ref=e213]:
+        - generic [ref=e214]: ❓
+        - generic [ref=e215]: Maybe
+        - generic [ref=e216]: "0"
+      - img [ref=e217]
+    - generic [ref=e220] [cursor=pointer]:
+      - generic [ref=e221]:
+        - generic [ref=e222]: ❌
+        - generic [ref=e223]: Out
+        - generic [ref=e224]: "0"
+      - img [ref=e225]
+    - generic [ref=e228] [cursor=pointer]:
+      - generic [ref=e229]:
+        - generic [ref=e230]: 🤕
+        - generic [ref=e231]: Injured
+        - generic [ref=e232]: "0"
+      - img [ref=e233]
+    - generic [ref=e236] [cursor=pointer]:
+      - generic [ref=e237]:
+        - generic [ref=e238]: ⏳
+        - generic [ref=e239]: No Response
+        - generic [ref=e240]: "7"
+      - img [ref=e241]
+    - generic [ref=e243]: Manage
+    - generic [ref=e246] [cursor=pointer]:
+      - img [ref=e247]
+      - generic [ref=e249]: Teamsheet
+      - generic [ref=e250]: vs Demo Athletic
+    - generic [ref=e252] [cursor=pointer]:
+      - img [ref=e253]
+      - generic [ref=e255]: Payments
+      - generic [ref=e256]: £0 outstanding
+    - generic [ref=e257]:
+      - generic [ref=e258] [cursor=pointer]:
+        - img [ref=e259]
+        - generic [ref=e261]: Squad
+        - generic [ref=e262]: 8 players · 0 guests
+      - generic [ref=e263] [cursor=pointer]:
+        - img [ref=e264]
+        - generic [ref=e266]: Match Settings
+        - generic [ref=e267]: Thursday · Demo Sports Centre · £5
+      - generic [ref=e268] [cursor=pointer]:
+        - img [ref=e269]
+        - generic [ref=e271]: Reminders
+        - generic [ref=e272]: Quiet hours · triggers
+      - generic [ref=e273] [cursor=pointer]:
+        - img [ref=e274]
+        - generic [ref=e276]: Bibs
+        - generic [ref=e277]: Not assigned
+    - generic [ref=e279] [cursor=pointer]:
+      - generic [ref=e280]:
+        - img [ref=e281]
+        - text: Cover Pool · 0 players
+      - img [ref=e283]
+  - navigation [ref=e285]:
+    - generic [ref=e286] [cursor=pointer]:
+      - img [ref=e287]
+      - generic [ref=e289]: My View
+    - generic [ref=e290] [cursor=pointer]:
+      - img [ref=e291]
+      - generic [ref=e293]: Stats
+    - generic [ref=e294] [cursor=pointer]:
+      - img [ref=e295]
+      - generic [ref=e297]: Results
+    - generic [ref=e298] [cursor=pointer]:
+      - img [ref=e299]
+      - generic [ref=e301]: MY IO
+    - generic [ref=e302] [cursor=pointer]:
+      - img [ref=e303]
+      - generic [ref=e305]: Admin

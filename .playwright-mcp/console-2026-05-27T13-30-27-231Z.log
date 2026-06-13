@@ -1,0 +1,43 @@
+[     160ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:21550
+[   45966ms] ReferenceError: formatUnlock is not defined
+    at StartMatch (http://localhost:5180/src/views/PreMatch.jsx?t=1779888672988:375:16)
+    at renderWithHooks (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:11548:26)
+    at updateFunctionComponent (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:14582:28)
+    at beginWork (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:3699:24)
+    at invokeGuardedCallback (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:3733:39)
+    at beginWork$1 (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19765:15)
+    at performUnitOfWork (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19198:20)
+    at workLoopSync (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19137:13)
+[   45968ms] ReferenceError: formatUnlock is not defined
+    at StartMatch (http://localhost:5180/src/views/PreMatch.jsx?t=1779888672988:375:16)
+    at renderWithHooks (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:11548:26)
+    at updateFunctionComponent (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:14582:28)
+    at beginWork (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:3699:24)
+    at invokeGuardedCallback (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:3733:39)
+    at beginWork$1 (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19765:15)
+    at performUnitOfWork (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19198:20)
+    at workLoopSync (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19137:13)
+[   45969ms] [ERROR] The above error occurred in the <StartMatch> component:
+
+    at StartMatch (http://localhost:5180/src/views/PreMatch.jsx?t=1779888672988:323:23)
+    at main
+    at PreMatch (http://localhost:5180/src/views/PreMatch.jsx?t=1779888672988:21:36)
+    at App (http://localhost:5180/src/App.jsx:31:29)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:14031
+[   45970ms] ReferenceError: formatUnlock is not defined
+    at StartMatch (http://localhost:5180/src/views/PreMatch.jsx?t=1779888672988:375:16)
+    at renderWithHooks (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:11548:26)
+    at updateFunctionComponent (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:14582:28)
+    at beginWork (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:15924:22)
+    at beginWork$1 (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19753:22)
+    at performUnitOfWork (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19198:20)
+    at workLoopSync (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19137:13)
+    at renderRootSync (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:19116:15)
+    at recoverFromConcurrentError (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:18736:28)
+    at performSyncWorkOnRoot (http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:18879:28)

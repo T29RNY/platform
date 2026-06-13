@@ -1,0 +1,8 @@
+[     464ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=8adb3851:21550
+[    1976ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx:91
+[  182443ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5176/@vite/client:559
+[  182558ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[  183565ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[  184585ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[  185587ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0
+[  186593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5176/:0

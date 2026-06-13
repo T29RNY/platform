@@ -1,0 +1,3 @@
+[     109ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=7d632e86:21550
+[     481ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1779989909603:91
+[   47672ms] [INFO] [venue] live update booking_confirmed @ http://localhost:5176/src/App.jsx?t=1779989909603:86

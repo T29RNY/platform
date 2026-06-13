@@ -1,0 +1,49 @@
+[     110ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:21550
+[     402ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx:91
+[   31700ms] [INFO] [venue] live update booking_confirmed @ http://localhost:5176/src/App.jsx:86
+[   72923ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1779991961466:91
+[   78258ms] ReferenceError: fmtDayLabel is not defined
+    at BookingDetailModal (http://localhost:5176/src/views/BookingDetailModal.jsx?t=1779991966928:67:54)
+    at renderWithHooks (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:11548:26)
+    at updateFunctionComponent (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:14582:28)
+    at beginWork (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:3699:24)
+    at invokeGuardedCallback (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:3733:39)
+    at beginWork$1 (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19765:15)
+    at performUnitOfWork (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19198:20)
+    at workLoopSync (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19137:13)
+[   78259ms] ReferenceError: fmtDayLabel is not defined
+    at BookingDetailModal (http://localhost:5176/src/views/BookingDetailModal.jsx?t=1779991966928:67:54)
+    at renderWithHooks (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:11548:26)
+    at updateFunctionComponent (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:14582:28)
+    at beginWork (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:3699:24)
+    at invokeGuardedCallback (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:3733:39)
+    at beginWork$1 (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19765:15)
+    at performUnitOfWork (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19198:20)
+    at workLoopSync (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19137:13)
+[   78256ms] [ERROR] The above error occurred in the <BookingDetailModal> component:
+
+    at BookingDetailModal (http://localhost:5176/src/views/BookingDetailModal.jsx?t=1779991966928:22:46)
+    at main
+    at BookingsView (http://localhost:5176/src/views/BookingsView.jsx?t=1779991961466:60:40)
+    at div
+    at Dashboard (http://localhost:5176/src/views/Dashboard.jsx?t=1779991961466:25:37)
+    at App (http://localhost:5176/src/App.jsx?t=1779991961466:41:29)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:14031
+[   78270ms] ReferenceError: fmtDayLabel is not defined
+    at BookingDetailModal (http://localhost:5176/src/views/BookingDetailModal.jsx?t=1779991966928:67:54)
+    at renderWithHooks (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:11548:26)
+    at updateFunctionComponent (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:14582:28)
+    at beginWork (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:15924:22)
+    at beginWork$1 (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19753:22)
+    at performUnitOfWork (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19198:20)
+    at workLoopSync (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19137:13)
+    at renderRootSync (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:19116:15)
+    at recoverFromConcurrentError (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:18736:28)
+    at performSyncWorkOnRoot (http://localhost:5176/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=a4f37be9:18879:28)
+[   86281ms] [INFO] [venue] subscribed to venue_live:demo_ven… @ http://localhost:5176/src/App.jsx?t=1779991961466:91

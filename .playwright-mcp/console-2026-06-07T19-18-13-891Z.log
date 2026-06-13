@@ -1,0 +1,130 @@
+[    2582ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:21550
+[ 1009108ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/StandingsZone.jsx?t=1780860902785:109:23
+    at Array.map (<anonymous>)
+    at StandingsZone (http://localhost:5181/src/components/StandingsZone.jsx?t=1780860902785:108:100)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at updateFunctionComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14582:28)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3699:24)
+    at invokeGuardedCallback (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3733:39)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19765:15)
+[ 1009119ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/StandingsZone.jsx?t=1780860902785:109:23
+    at Array.map (<anonymous>)
+    at StandingsZone (http://localhost:5181/src/components/StandingsZone.jsx?t=1780860902785:108:100)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at updateFunctionComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14582:28)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3699:24)
+    at invokeGuardedCallback (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3733:39)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19765:15)
+[ 1009105ms] [ERROR] The above error occurred in the <StandingsZone> component:
+
+    at StandingsZone (http://localhost:5181/src/components/StandingsZone.jsx?t=1780860902785:21:41)
+    at div
+    at div
+    at div
+    at App (http://localhost:5181/src/App.jsx?t=1780860862444:41:17)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14031
+[ 1009121ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/StandingsZone.jsx?t=1780860902785:109:23
+    at Array.map (<anonymous>)
+    at StandingsZone (http://localhost:5181/src/components/StandingsZone.jsx?t=1780860902785:108:100)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at updateFunctionComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14582:28)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15924:22)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19753:22)
+    at performUnitOfWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19198:20)
+    at workLoopSync (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19137:13)
+    at renderRootSync (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19116:15)
+[ 1015133ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/StandingsZone.jsx?t=1780860908732:109:23
+    at Array.map (<anonymous>)
+    at StandingsZone (http://localhost:5181/src/components/StandingsZone.jsx?t=1780860908732:108:100)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at mountIndeterminateComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14926:21)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3699:24)
+    at invokeGuardedCallback (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3733:39)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19765:15)
+[ 1015135ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/StandingsZone.jsx?t=1780860908732:109:23
+    at Array.map (<anonymous>)
+    at StandingsZone (http://localhost:5181/src/components/StandingsZone.jsx?t=1780860908732:108:100)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at mountIndeterminateComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14926:21)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3699:24)
+    at invokeGuardedCallback (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3733:39)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19765:15)
+[ 1015135ms] [ERROR] The above error occurred in the <StandingsZone> component:
+
+    at StandingsZone (http://localhost:5181/src/components/StandingsZone.jsx?t=1780860908732:21:41)
+    at div
+    at div
+    at div
+    at App (http://localhost:5181/src/App.jsx?t=1780860862444:41:17)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14031
+[ 1015136ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/StandingsZone.jsx?t=1780860908732:109:23
+    at Array.map (<anonymous>)
+    at StandingsZone (http://localhost:5181/src/components/StandingsZone.jsx?t=1780860908732:108:100)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at mountIndeterminateComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14926:21)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15914:22)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19753:22)
+    at performUnitOfWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19198:20)
+    at workLoopSync (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19137:13)
+    at renderRootSync (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19116:15)
+[ 1070798ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/TopScorersZone.jsx?t=1780860964649:55:21
+    at Array.map (<anonymous>)
+    at TopScorersZone (http://localhost:5181/src/components/TopScorersZone.jsx?t=1780860964649:54:27)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at updateFunctionComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14582:28)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3699:24)
+    at invokeGuardedCallback (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3733:39)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19765:15)
+[ 1070800ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/TopScorersZone.jsx?t=1780860964649:55:21
+    at Array.map (<anonymous>)
+    at TopScorersZone (http://localhost:5181/src/components/TopScorersZone.jsx?t=1780860964649:54:27)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at updateFunctionComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14582:28)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3699:24)
+    at invokeGuardedCallback (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:3733:39)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19765:15)
+[ 1070799ms] [ERROR] The above error occurred in the <TopScorersZone> component:
+
+    at TopScorersZone (http://localhost:5181/src/components/TopScorersZone.jsx?t=1780860964649:20:42)
+    at div
+    at div
+    at div
+    at App (http://localhost:5181/src/App.jsx?t=1780860862444:41:17)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14031
+[ 1070800ms] ReferenceError: teamColour is not defined
+    at http://localhost:5181/src/components/TopScorersZone.jsx?t=1780860964649:55:21
+    at Array.map (<anonymous>)
+    at TopScorersZone (http://localhost:5181/src/components/TopScorersZone.jsx?t=1780860964649:54:27)
+    at renderWithHooks (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:11548:26)
+    at updateFunctionComponent (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:14582:28)
+    at beginWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:15924:22)
+    at beginWork$1 (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19753:22)
+    at performUnitOfWork (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19198:20)
+    at workLoopSync (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19137:13)
+    at renderRootSync (http://localhost:5181/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=75f5651f:19116:15)

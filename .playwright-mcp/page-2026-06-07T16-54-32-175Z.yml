@@ -1,0 +1,131 @@
+- generic [ref=e139]:
+  - generic [ref=e143]:
+    - generic [ref=e144]:
+      - generic [ref=e145]: Test Tuesday FC
+      - generic [ref=e146]: ADMIN PANEL
+    - generic [ref=e147]:
+      - generic [ref=e148]:
+        - generic [ref=e149]: "0"
+        - generic [ref=e150]: In this week
+      - generic [ref=e151]:
+        - generic [ref=e152]: "0"
+        - generic [ref=e153]: Paid
+      - generic [ref=e154]:
+        - generic [ref=e155]: £15
+        - generic [ref=e156]: Outstanding
+  - generic [ref=e157]:
+    - generic [ref=e160]: LIVE
+    - generic [ref=e161]: This Week
+    - generic [ref=e163]:
+      - generic [ref=e164] [cursor=pointer]:
+        - img [ref=e165]
+        - generic [ref=e167]: Make Teams
+        - generic [ref=e168]: Split squad into A and B
+        - generic [ref=e169]: Not confirmed
+      - generic [ref=e170] [cursor=pointer]:
+        - img [ref=e171]
+        - generic [ref=e173]: Input Result
+        - generic [ref=e174]: Score, scorers, POTM, bibs
+        - generic [ref=e175]: "1"
+    - generic [ref=e176]: Actions
+    - generic [ref=e178]:
+      - generic [ref=e179] [cursor=pointer]:
+        - img [ref=e181]
+        - generic [ref=e183]:
+          - generic [ref=e184]: Chase No-Responses
+          - generic [ref=e185]: Nudge the 36 players who haven't replied
+        - generic [ref=e186]:
+          - generic [ref=e187]: "36"
+          - img [ref=e188]
+      - generic [ref=e190] [cursor=pointer]:
+        - img [ref=e192]
+        - generic [ref=e194]:
+          - generic [ref=e195]: Cancel This Week
+          - generic [ref=e196]: Notify all confirmed players
+        - img [ref=e198]
+      - generic [ref=e200] [cursor=pointer]:
+        - img [ref=e202]
+        - generic [ref=e204]:
+          - generic [ref=e205]: Announce to Squad
+          - generic [ref=e206]: Choose who receives your message
+        - img [ref=e208]
+    - generic [ref=e210]: Live Board
+    - generic [ref=e213] [cursor=pointer]:
+      - generic [ref=e214]:
+        - generic [ref=e215]: ✅
+        - generic [ref=e216]: In
+        - generic [ref=e217]: "0"
+      - img [ref=e218]
+    - generic [ref=e221] [cursor=pointer]:
+      - generic [ref=e222]:
+        - generic [ref=e223]: 🟣
+        - generic [ref=e224]: Reserve
+        - generic [ref=e225]: "0"
+      - img [ref=e226]
+    - generic [ref=e229] [cursor=pointer]:
+      - generic [ref=e230]:
+        - generic [ref=e231]: ❓
+        - generic [ref=e232]: Maybe
+        - generic [ref=e233]: "0"
+      - img [ref=e234]
+    - generic [ref=e237] [cursor=pointer]:
+      - generic [ref=e238]:
+        - generic [ref=e239]: ❌
+        - generic [ref=e240]: Out
+        - generic [ref=e241]: "0"
+      - img [ref=e242]
+    - generic [ref=e245] [cursor=pointer]:
+      - generic [ref=e246]:
+        - generic [ref=e247]: 🤕
+        - generic [ref=e248]: Injured
+        - generic [ref=e249]: "0"
+      - img [ref=e250]
+    - generic [ref=e253] [cursor=pointer]:
+      - generic [ref=e254]:
+        - generic [ref=e255]: ⏳
+        - generic [ref=e256]: No Response
+        - generic [ref=e257]: "36"
+      - img [ref=e258]
+    - generic [ref=e260]: Manage
+    - generic [ref=e263] [cursor=pointer]:
+      - img [ref=e264]
+      - generic [ref=e266]: Payments
+      - generic [ref=e267]: £15 outstanding
+    - generic [ref=e268]:
+      - generic [ref=e269] [cursor=pointer]:
+        - img [ref=e270]
+        - generic [ref=e272]: Squad
+        - generic [ref=e273]: 36 players · 0 guests
+      - generic [ref=e274] [cursor=pointer]:
+        - img [ref=e275]
+        - generic [ref=e277]: Match Settings
+        - generic [ref=e278]: Wednesday · Saint Finbars · £5
+      - generic [ref=e279] [cursor=pointer]:
+        - img [ref=e280]
+        - generic [ref=e282]: Reminders
+        - generic [ref=e283]: Quiet hours · triggers
+      - generic [ref=e284] [cursor=pointer]:
+        - img [ref=e285]
+        - generic [ref=e287]: Bibs
+        - generic [ref=e288]: Azza has them
+    - generic [ref=e290] [cursor=pointer]:
+      - generic [ref=e291]:
+        - img [ref=e292]
+        - text: Cover Pool · 0 players
+      - img [ref=e294]
+  - navigation [ref=e296]:
+    - generic [ref=e297] [cursor=pointer]:
+      - img [ref=e298]
+      - generic [ref=e300]: My View
+    - generic [ref=e301] [cursor=pointer]:
+      - img [ref=e302]
+      - generic [ref=e304]: Stats
+    - generic [ref=e305] [cursor=pointer]:
+      - img [ref=e306]
+      - generic [ref=e308]: Results
+    - generic [ref=e309] [cursor=pointer]:
+      - img [ref=e310]
+      - generic [ref=e312]: MY IO
+    - generic [ref=e313] [cursor=pointer]:
+      - img [ref=e314]
+      - generic [ref=e316]: Admin

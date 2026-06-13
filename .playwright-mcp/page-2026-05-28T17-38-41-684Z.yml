@@ -1,0 +1,103 @@
+- generic [ref=e5]:
+  - banner [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Standby
+        - generic [ref=e11]: ·
+        - generic [ref=e12]: Venue Control
+      - heading "Demo Sports Centre" [level=1] [ref=e13]:
+        - generic [ref=e14]: D
+        - generic [ref=e15]: e
+        - generic [ref=e16]: m
+        - generic [ref=e17]: o
+        - generic [ref=e19]: S
+        - generic [ref=e20]: p
+        - generic [ref=e21]: o
+        - generic [ref=e22]: r
+        - generic [ref=e23]: t
+        - generic [ref=e24]: s
+        - generic [ref=e26]: C
+        - generic [ref=e27]: e
+        - generic [ref=e28]: "n"
+        - generic [ref=e29]: t
+        - generic [ref=e30]: r
+        - generic [ref=e31]: e
+      - generic [ref=e32]: Demo Summer League
+    - generic [ref=e34]: Pitch bookings
+    - generic [ref=e35]:
+      - generic "Current time 18:38" [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]: 18:38
+          - generic [ref=e39]: "41"
+        - generic [ref=e40]: Thursday 28 May
+      - generic [ref=e41]:
+        - button "Set up new season" [ref=e42] [cursor=pointer]: Set up new season
+        - button "Refresh" [ref=e43] [cursor=pointer]
+  - generic [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e47]: ◆
+      - text: Demo Summer League
+    - generic [ref=e48]:
+      - generic [ref=e49]: ◆
+      - text: 2 pitches
+    - generic [ref=e50]:
+      - generic [ref=e51]: ◆
+      - text: 3 officials
+    - generic [ref=e52]:
+      - generic [ref=e53]: ◆
+      - text: 2 fixtures this week
+    - generic [ref=e54]:
+      - generic [ref=e55]: ◆
+      - text: 1 pending registration
+    - generic [ref=e56]:
+      - generic [ref=e57]: ◆
+      - text: Demo Summer League
+    - generic [ref=e58]:
+      - generic [ref=e59]: ◆
+      - text: 2 pitches
+    - generic [ref=e60]:
+      - generic [ref=e61]: ◆
+      - text: 3 officials
+    - generic [ref=e62]:
+      - generic [ref=e63]: ◆
+      - text: 2 fixtures this week
+    - generic [ref=e64]:
+      - generic [ref=e65]: ◆
+      - text: 1 pending registration
+  - navigation "Dashboard sections" [ref=e66]:
+    - button "Operations" [ref=e67] [cursor=pointer]
+    - button "Bookings" [active] [ref=e68] [cursor=pointer]
+  - main [ref=e69]:
+    - generic [ref=e70]:
+      - generic [ref=e71]:
+        - button "Previous day" [ref=e72] [cursor=pointer]: ‹
+        - generic [ref=e74]: Thu 28 May
+        - button "Next day" [ref=e75] [cursor=pointer]: ›
+      - button "Settings" [ref=e77] [cursor=pointer]
+    - generic [ref=e78]:
+      - generic [ref=e79]:
+        - heading "Requests" [level=2] [ref=e80]
+        - paragraph [ref=e81]: No pending requests. The queue is clear.
+      - generic [ref=e82]:
+        - heading "Schedule" [level=2] [ref=e83]
+        - generic [ref=e85]:
+          - generic [ref=e87]: Main Pitch
+          - generic [ref=e88]: Side Pitch
+          - generic [ref=e89]:
+            - generic [ref=e90]: 08:00
+            - generic [ref=e91]: 09:00
+            - generic [ref=e92]: 10:00
+            - generic [ref=e93]: 11:00
+            - generic [ref=e94]: 12:00
+            - generic [ref=e95]: 13:00
+            - generic [ref=e96]: 14:00
+            - generic [ref=e97]: 15:00
+            - generic [ref=e98]: 16:00
+            - generic [ref=e99]: 17:00
+            - generic [ref=e100]: 18:00
+            - generic [ref=e101]: 19:00
+            - generic [ref=e102]: 20:00
+            - generic [ref=e103]: 21:00
+            - generic [ref=e104]: 22:00
+          - generic "Tap an empty slot to book" [ref=e105]
+          - generic "Tap an empty slot to book" [ref=e106]

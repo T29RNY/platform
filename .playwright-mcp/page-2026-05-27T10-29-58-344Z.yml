@@ -1,0 +1,245 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: Standby
+        - generic [ref=e9]: ·
+        - generic [ref=e10]: Venue Control
+      - heading "Demo Sports Centre" [level=1] [ref=e11]:
+        - generic [ref=e12]: D
+        - generic [ref=e13]: e
+        - generic [ref=e14]: m
+        - generic [ref=e15]: o
+        - generic [ref=e17]: S
+        - generic [ref=e18]: p
+        - generic [ref=e19]: o
+        - generic [ref=e20]: r
+        - generic [ref=e21]: t
+        - generic [ref=e22]: s
+        - generic [ref=e24]: C
+        - generic [ref=e25]: e
+        - generic [ref=e26]: "n"
+        - generic [ref=e27]: t
+        - generic [ref=e28]: r
+        - generic [ref=e29]: e
+      - generic [ref=e30]: Demo Summer League
+    - generic "Week schedule" [ref=e32]:
+      - img [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]: M
+          - generic [ref=e36]: "25"
+        - generic [ref=e37]:
+          - generic [ref=e38]: T
+          - generic [ref=e39]: "26"
+        - generic [ref=e40]:
+          - generic [ref=e42]: W
+          - generic [ref=e43]: "27"
+        - generic [ref=e44]:
+          - generic [ref=e45]: T
+          - generic [ref=e46]: "28"
+        - generic [ref=e47]:
+          - generic [ref=e48]: F
+          - generic [ref=e49]: "29"
+        - generic [ref=e50]:
+          - generic [ref=e51]: S
+          - generic [ref=e52]: "30"
+        - generic [ref=e53]:
+          - generic [ref=e54]: S
+          - generic [ref=e55]: "31"
+    - generic [ref=e56]:
+      - generic "Current time 11:29" [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: 11:29
+          - generic [ref=e60]: "56"
+        - generic [ref=e61]: Wednesday 27 May
+      - generic [ref=e62]:
+        - button "Set up new season" [ref=e63] [cursor=pointer]: Set up new season
+        - button "Refresh" [ref=e64] [cursor=pointer]
+  - generic [ref=e66]:
+    - generic [ref=e67]:
+      - generic [ref=e68]: ◆
+      - text: Demo Summer League
+    - generic [ref=e69]:
+      - generic [ref=e70]: ◆
+      - text: 2 pitches
+    - generic [ref=e71]:
+      - generic [ref=e72]: ◆
+      - text: 3 officials
+    - generic [ref=e73]:
+      - generic [ref=e74]: ◆
+      - text: 0 fixtures this week
+    - generic [ref=e75]:
+      - generic [ref=e76]: ◆
+      - text: 1 pending registration
+    - generic [ref=e77]:
+      - generic [ref=e78]: ◆
+      - text: Demo Summer League
+    - generic [ref=e79]:
+      - generic [ref=e80]: ◆
+      - text: 2 pitches
+    - generic [ref=e81]:
+      - generic [ref=e82]: ◆
+      - text: 3 officials
+    - generic [ref=e83]:
+      - generic [ref=e84]: ◆
+      - text: 0 fixtures this week
+    - generic [ref=e85]:
+      - generic [ref=e86]: ◆
+      - text: 1 pending registration
+  - main [ref=e87]:
+    - generic [ref=e88]:
+      - heading "Tonight" [level=2] [ref=e89]:
+        - generic [ref=e90]: Tonight
+      - generic [ref=e91]:
+        - paragraph [ref=e92]:
+          - emphasis [ref=e93]: Floodlights down.
+        - paragraph [ref=e94]: No fixtures scheduled for today. The pitch is quiet.
+    - generic [ref=e95]:
+      - heading "Open Issues 1" [level=2] [ref=e96]:
+        - text: Open Issues
+        - generic [ref=e97]: "1"
+      - generic [ref=e99]:
+        - generic [ref=e100]: Registration
+        - generic [ref=e101]: Echo Wanderers
+        - generic [ref=e102]:
+          - button "Approve" [ref=e103] [cursor=pointer]
+          - button "Reject" [ref=e104] [cursor=pointer]
+    - generic [ref=e105]:
+      - heading "This Week" [level=2] [ref=e106]
+      - paragraph [ref=e107]: No other fixtures in the next 7 days.
+    - generic [ref=e108]:
+      - heading "Recent Results 4" [level=2] [ref=e109]:
+        - text: Recent Results
+        - generic [ref=e110]: "4"
+      - generic [ref=e111]:
+        - generic [ref=e112]:
+          - generic [ref=e113]:
+            - generic [ref=e114]: Wed 20 May
+            - generic [ref=e115]: 20:30
+          - generic [ref=e116]:
+            - generic [ref=e117]: Delta FC
+            - generic [ref=e118]:
+              - generic [ref=e119]: "2"
+              - text: –
+              - generic [ref=e120]: "3"
+            - generic [ref=e121]: Bravo Athletic
+          - generic [ref=e122]:
+            - generic [ref=e123]: Result
+            - generic [ref=e124]: Side Pitch
+            - generic [ref=e125]: Marcus Reid
+            - button "Status" [ref=e127] [cursor=pointer]
+        - generic [ref=e128]:
+          - generic [ref=e129]:
+            - generic [ref=e130]: Wed 20 May
+            - generic [ref=e131]: 19:30
+          - generic [ref=e132]:
+            - generic [ref=e133]: Alpha United
+            - generic [ref=e134]: 3 – 0
+            - generic [ref=e135]: Charlie City
+          - generic [ref=e136]:
+            - generic [ref=e137]: Walkover
+            - generic [ref=e138]: Main Pitch
+            - generic [ref=e139]: Sam Cooper
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - generic [ref=e142]: Wed 13 May
+            - generic [ref=e143]: 20:30
+          - generic [ref=e144]:
+            - generic [ref=e145]: Charlie City
+            - generic [ref=e146]:
+              - generic [ref=e147]: "1"
+              - text: –
+              - generic [ref=e148]: "1"
+            - generic [ref=e149]: Delta FC
+          - generic [ref=e150]:
+            - generic [ref=e151]: Result
+            - generic [ref=e152]: Side Pitch
+            - generic [ref=e153]: Priya Sharma
+            - button "Status" [ref=e155] [cursor=pointer]
+        - generic [ref=e156]:
+          - generic [ref=e157]:
+            - generic [ref=e158]: Wed 13 May
+            - generic [ref=e159]: 19:30
+          - generic [ref=e160]:
+            - generic [ref=e161]: Alpha United
+            - generic [ref=e162]:
+              - generic [ref=e163]: "4"
+              - text: –
+              - generic [ref=e164]: "2"
+            - generic [ref=e165]: Bravo Athletic
+          - generic [ref=e166]:
+            - generic [ref=e167]: Result
+            - generic [ref=e168]: Main Pitch
+            - generic [ref=e169]: Sam Cooper
+            - button "Status" [ref=e171] [cursor=pointer]
+    - generic [ref=e172]:
+      - heading "Upcoming 2" [level=2] [ref=e173]:
+        - text: Upcoming
+        - generic [ref=e174]: "2"
+      - generic [ref=e175]:
+        - generic [ref=e176]:
+          - generic [ref=e177]:
+            - generic [ref=e178]: Wed 3 Jun
+            - generic [ref=e179]: 19:30
+          - generic [ref=e180]:
+            - generic [ref=e181]: Alpha United
+            - generic [ref=e182]: vs
+            - generic [ref=e183]: Delta FC
+          - generic [ref=e184]:
+            - generic [ref=e185]: Needs ref
+            - generic [ref=e186]: Main Pitch
+            - generic [ref=e187]:
+              - button "Pitch" [ref=e188] [cursor=pointer]
+              - button "Ref" [ref=e189] [cursor=pointer]
+              - button "Status" [ref=e190] [cursor=pointer]
+        - generic [ref=e191]:
+          - generic [ref=e192]:
+            - generic [ref=e193]: Wed 3 Jun
+            - generic [ref=e194]: 20:30
+          - generic [ref=e195]:
+            - generic [ref=e196]: Bravo Athletic
+            - generic [ref=e197]: vs
+            - generic [ref=e198]: Charlie City
+          - generic [ref=e199]:
+            - generic [ref=e200]: Needs ref
+            - generic [ref=e201]: Side Pitch
+            - generic [ref=e202]:
+              - button "Pitch" [ref=e203] [cursor=pointer]
+              - button "Ref" [ref=e204] [cursor=pointer]
+              - button "Status" [ref=e205] [cursor=pointer]
+    - complementary [ref=e206]:
+      - generic [ref=e207]:
+        - generic [ref=e208]:
+          - heading "Pitches" [level=3] [ref=e209]
+          - button "+ Add" [ref=e210] [cursor=pointer]
+        - list [ref=e211]:
+          - listitem [ref=e212]:
+            - generic [ref=e213]:
+              - generic [ref=e214]: Main Pitch
+              - button "Edit" [ref=e215] [cursor=pointer]
+            - generic [ref=e216]: 4g · cap 10
+          - listitem [ref=e217]:
+            - generic [ref=e218]:
+              - generic [ref=e219]: Side Pitch
+              - button "Edit" [ref=e220] [cursor=pointer]
+            - generic [ref=e221]: 3g · cap 8
+            - generic [ref=e222]: • 1 maintenance window
+        - generic [ref=e223]:
+          - heading "Officials" [level=3] [ref=e224]
+          - button "+ Add" [ref=e225] [cursor=pointer]
+        - list [ref=e226]:
+          - listitem [ref=e227]:
+            - generic [ref=e228]:
+              - generic [ref=e229]: Marcus Reid
+              - button "Edit" [ref=e230] [cursor=pointer]
+            - generic [ref=e231]: email · freelance · 4.2★
+          - listitem [ref=e232]:
+            - generic [ref=e233]:
+              - generic [ref=e234]: Priya Sharma
+              - button "Edit" [ref=e235] [cursor=pointer]
+            - generic [ref=e236]: sms · freelance · 4.8★
+          - listitem [ref=e237]:
+            - generic [ref=e238]:
+              - generic [ref=e239]: Sam Cooper
+              - button "Edit" [ref=e240] [cursor=pointer]
+            - generic [ref=e241]: whatsapp · in_house · 4.6★

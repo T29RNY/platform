@@ -1,0 +1,149 @@
+- generic [ref=e5]:
+  - complementary [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]: io
+      - generic [ref=e9]:
+        - text: In or Out
+        - generic [ref=e10]: Venue console
+    - navigation [ref=e11]:
+      - generic [ref=e12]: Workspace
+      - button "Operations" [ref=e13] [cursor=pointer]:
+        - img [ref=e15]
+        - generic [ref=e19]: Operations
+      - button "Bookings 1" [ref=e20] [cursor=pointer]:
+        - img [ref=e22]
+        - generic [ref=e25]: Bookings
+        - generic [ref=e26]: "1"
+      - button "Payments" [ref=e27] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e31]: Payments
+      - button "Equipment" [ref=e32] [cursor=pointer]:
+        - img [ref=e34]
+        - generic [ref=e37]: Equipment
+      - generic [ref=e38]: Directory
+      - button "Customers" [ref=e39] [cursor=pointer]:
+        - img [ref=e41]
+        - generic [ref=e46]: Customers
+      - button "Teams" [ref=e47] [cursor=pointer]:
+        - img [ref=e49]
+        - generic [ref=e54]: Teams
+      - button "Players" [ref=e55] [cursor=pointer]:
+        - img [ref=e57]
+        - generic [ref=e60]: Players
+      - button "Staff" [ref=e61] [cursor=pointer]:
+        - img [ref=e63]
+        - generic [ref=e67]: Staff
+      - button "QR codes" [ref=e68] [cursor=pointer]:
+        - img [ref=e70]
+        - generic [ref=e73]: QR codes
+      - button "Access" [ref=e74] [cursor=pointer]:
+        - img [ref=e76]
+        - generic [ref=e79]: Access
+      - generic [ref=e80]: Competition
+      - button "Leagues" [ref=e81] [cursor=pointer]:
+        - img [ref=e83]
+        - generic [ref=e88]: Leagues
+      - button "Table" [ref=e89] [cursor=pointer]:
+        - img [ref=e91]
+        - generic [ref=e94]: Table
+    - generic [ref=e95]:
+      - generic [ref=e98]:
+        - generic [ref=e99]: Status
+        - generic [ref=e100]: Standby
+      - button "Reception display" [ref=e101] [cursor=pointer]:
+        - img [ref=e103]
+        - generic [ref=e106]: Reception display
+      - button "Season setup" [ref=e107] [cursor=pointer]:
+        - img [ref=e109]
+        - generic [ref=e112]: Season setup
+  - generic [ref=e113]:
+    - banner [ref=e114]:
+      - heading "Equipment" [level=1] [ref=e379]
+      - button "Search" [ref=e117] [cursor=pointer]:
+        - img [ref=e118]
+      - button "Notifications" [ref=e122] [cursor=pointer]:
+        - img [ref=e123]
+        - generic [ref=e126]: "4"
+      - button "Refresh" [ref=e127] [cursor=pointer]:
+        - img [ref=e128]
+      - generic [ref=e133]:
+        - generic [ref=e134]: 23:04
+        - generic [ref=e135]: Thursday 11 June
+    - main [ref=e136]:
+      - generic [ref=e380]:
+        - generic [ref=e381]:
+          - button "Catalogue" [ref=e382] [cursor=pointer]
+          - button "Hires" [active] [pressed] [ref=e383] [cursor=pointer]
+        - generic [ref=e471]:
+          - generic [ref=e472]:
+            - generic [ref=e473]:
+              - strong [ref=e474]: Availability
+              - generic [ref=e475]: Date
+              - textbox [ref=e476]: 2026-06-11
+              - textbox [ref=e477]: 19:00
+              - generic [ref=e478]: →
+              - textbox [ref=e479]: 21:00
+            - table [ref=e480]:
+              - rowgroup [ref=e481]:
+                - row "Item Category Free Fee" [ref=e482]:
+                  - columnheader "Item" [ref=e483]
+                  - columnheader "Category" [ref=e484]
+                  - columnheader "Free" [ref=e485]
+                  - columnheader "Fee" [ref=e486]
+                  - columnheader [ref=e487]
+              - rowgroup [ref=e488]:
+                - row "Bib set (12) Apparel / bibs 8 / 8 £5.00 Hire" [ref=e489]:
+                  - cell "Bib set (12)" [ref=e490]:
+                    - strong [ref=e491]: Bib set (12)
+                  - cell "Apparel / bibs" [ref=e492]
+                  - cell "8 / 8" [ref=e493]:
+                    - strong [ref=e494]: "8"
+                    - generic [ref=e495]: / 8
+                  - cell "£5.00" [ref=e496]
+                  - cell "Hire" [ref=e497]:
+                    - button "Hire" [ref=e498] [cursor=pointer]
+                - row "Match balls Balls 10 / 10 £3.00 Hire" [ref=e499]:
+                  - cell "Match balls" [ref=e500]:
+                    - strong [ref=e501]: Match balls
+                  - cell "Balls" [ref=e502]
+                  - cell "10 / 10" [ref=e503]:
+                    - strong [ref=e504]: "10"
+                    - generic [ref=e505]: / 10
+                  - cell "£3.00" [ref=e506]
+                  - cell "Hire" [ref=e507]:
+                    - button "Hire" [ref=e508] [cursor=pointer]
+                - row "Portable goals Goals & targets 4 / 4 £15.00 Hire" [ref=e509]:
+                  - cell "Portable goals" [ref=e510]:
+                    - strong [ref=e511]: Portable goals
+                  - cell "Goals & targets" [ref=e512]
+                  - cell "4 / 4" [ref=e513]:
+                    - strong [ref=e514]: "4"
+                    - generic [ref=e515]: / 4
+                  - cell "£15.00" [ref=e516]
+                  - cell "Hire" [ref=e517]:
+                    - button "Hire" [ref=e518] [cursor=pointer]
+                - row "PA / sound system Tech / AV 1 / 1 £25.00 Hire" [ref=e519]:
+                  - cell "PA / sound system" [ref=e520]:
+                    - strong [ref=e521]: PA / sound system
+                  - cell "Tech / AV" [ref=e522]
+                  - cell "1 / 1" [ref=e523]:
+                    - strong [ref=e524]: "1"
+                    - generic [ref=e525]: / 1
+                  - cell "£25.00" [ref=e526]
+                  - cell "Hire" [ref=e527]:
+                    - button "Hire" [ref=e528] [cursor=pointer]
+                - row "Speed/agility set Training aids 3 / 3 £8.00 Hire" [ref=e529]:
+                  - cell "Speed/agility set" [ref=e530]:
+                    - strong [ref=e531]: Speed/agility set
+                  - cell "Training aids" [ref=e532]
+                  - cell "3 / 3" [ref=e533]:
+                    - strong [ref=e534]: "3"
+                    - generic [ref=e535]: / 3
+                  - cell "£8.00" [ref=e536]
+                  - cell "Hire" [ref=e537]:
+                    - button "Hire" [ref=e538] [cursor=pointer]
+          - generic [ref=e539]:
+            - strong [ref=e541]: Hires
+            - generic [ref=e543]:
+              - heading "No hires yet" [level=3] [ref=e544]
+              - paragraph [ref=e545]: Hire kit from the availability list above.

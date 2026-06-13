@@ -1,0 +1,245 @@
+- generic [ref=e5]:
+  - complementary [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]: io
+      - generic [ref=e9]:
+        - text: In or Out
+        - generic [ref=e10]: Venue console
+    - navigation [ref=e11]:
+      - generic [ref=e12]: Workspace
+      - button "Operations" [ref=e13] [cursor=pointer]:
+        - img [ref=e15]
+        - generic [ref=e19]: Operations
+      - button "Bookings 1" [ref=e20] [cursor=pointer]:
+        - img [ref=e22]
+        - generic [ref=e25]: Bookings
+        - generic [ref=e26]: "1"
+      - button "Payments" [ref=e27] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e31]: Payments
+      - generic [ref=e32]: Directory
+      - button "Customers" [ref=e33] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e40]: Customers
+      - button "Teams" [ref=e41] [cursor=pointer]:
+        - img [ref=e43]
+        - generic [ref=e48]: Teams
+      - button "Players" [ref=e49] [cursor=pointer]:
+        - img [ref=e51]
+        - generic [ref=e54]: Players
+      - button "Staff" [ref=e55] [cursor=pointer]:
+        - img [ref=e57]
+        - generic [ref=e61]: Staff
+      - generic [ref=e62]: Competition
+      - button "Leagues" [ref=e63] [cursor=pointer]:
+        - img [ref=e65]
+        - generic [ref=e70]: Leagues
+      - button "Table" [ref=e71] [cursor=pointer]:
+        - img [ref=e73]
+        - generic [ref=e76]: Table
+    - generic [ref=e77]:
+      - generic [ref=e80]:
+        - generic [ref=e81]: Status
+        - generic [ref=e82]: Standby
+      - button "Reception display" [ref=e83] [cursor=pointer]:
+        - img [ref=e85]
+        - generic [ref=e88]: Reception display
+      - button "Season setup" [ref=e89] [cursor=pointer]:
+        - img [ref=e91]
+        - generic [ref=e94]: Season setup
+  - generic [ref=e95]:
+    - banner [ref=e96]:
+      - heading "Operations" [level=1] [ref=e98]
+      - button "Search" [ref=e99] [cursor=pointer]:
+        - img [ref=e100]
+      - button "Notifications" [ref=e104] [cursor=pointer]:
+        - img [ref=e105]
+        - generic [ref=e108]: "4"
+      - button "Refresh" [ref=e109] [cursor=pointer]:
+        - img [ref=e110]
+      - generic [ref=e115]:
+        - generic [ref=e116]: 09:34
+        - generic [ref=e117]: Tuesday 9 June
+    - main [ref=e118]:
+      - generic [ref=e120]:
+        - button "Tonight 0 kicking off" [ref=e121] [cursor=pointer]:
+          - generic [ref=e122]:
+            - img [ref=e124]
+            - generic [ref=e128]: Tonight
+          - generic [ref=e129]: "0"
+          - generic [ref=e130]: kicking off
+          - img [ref=e132]
+        - button "To assign 0 all set" [ref=e134] [cursor=pointer]:
+          - generic [ref=e135]:
+            - img [ref=e137]
+            - generic [ref=e139]: To assign
+          - generic [ref=e140]: "0"
+          - generic [ref=e141]: all set
+          - img [ref=e143]
+        - button "Issues 3 1 regs, 2 incidents" [ref=e145] [cursor=pointer]:
+          - generic [ref=e146]:
+            - img [ref=e148]
+            - generic [ref=e150]: Issues
+          - generic [ref=e151]: "3"
+          - generic [ref=e152]: 1 regs, 2 incidents
+          - img [ref=e154]
+        - button "Outstanding £660 see Payments" [ref=e156] [cursor=pointer]:
+          - generic [ref=e157]:
+            - img [ref=e159]
+            - generic [ref=e161]: Outstanding
+          - generic [ref=e162]: £660
+          - generic [ref=e163]: see Payments
+          - img [ref=e165]
+      - generic [ref=e168]:
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - heading "Tonight" [level=1] [ref=e171]
+            - generic [ref=e172]: Tuesday 9 June
+          - generic [ref=e179]:
+            - heading "Floodlights down." [level=3] [ref=e180]
+            - paragraph [ref=e181]: No fixtures scheduled here tonight. Quiet night at the venue.
+        - generic [ref=e182]:
+          - generic [ref=e183]:
+            - heading "Open issues" [level=3] [ref=e184]
+            - generic [ref=e185]: "3"
+            - button "Report incident" [ref=e186] [cursor=pointer]
+          - generic [ref=e187]:
+            - img [ref=e189]
+            - generic [ref=e191]:
+              - generic [ref=e192]: Echo Wanderers
+              - generic [ref=e193]: Pending team registration · awaiting approval
+            - generic [ref=e194]:
+              - button "Approve" [ref=e195] [cursor=pointer]
+              - button "Reject" [ref=e196] [cursor=pointer]
+          - generic [ref=e197]:
+            - img [ref=e199]
+            - generic [ref=e201]:
+              - generic [ref=e202]: Changing-room flood — pitch unplayable, fixtures at risk
+              - generic [ref=e203]: Incident · critical
+            - button "Resolve" [ref=e205] [cursor=pointer]
+          - generic [ref=e206]:
+            - img [ref=e208]
+            - generic [ref=e210]:
+              - generic [ref=e211]: Floodlight fault on pitch 2 — half the pitch dim
+              - generic [ref=e212]: Incident · warning
+            - button "Resolve" [ref=e214] [cursor=pointer]
+        - generic [ref=e215]:
+          - generic [ref=e216]:
+            - generic [ref=e217]:
+              - heading "Recent results" [level=2] [ref=e218]
+              - generic [ref=e219]: "10"
+            - generic [ref=e220]:
+              - generic [ref=e221]:
+                - strong [ref=e222]: 18:00:00
+                - text: MON
+              - generic [ref=e223]:
+                - generic [ref=e226]: EW
+                - generic [ref=e227]: Echo Wanderers
+                - generic [ref=e228]: vs
+                - generic [ref=e231]: AU
+                - generic [ref=e232]: Alpha United
+              - generic [ref=e233]: 3–2
+            - generic [ref=e234]:
+              - generic [ref=e235]:
+                - strong [ref=e236]: 19:30:00
+                - text: WED
+              - generic [ref=e237]:
+                - generic [ref=e240]: AU
+                - generic [ref=e241]: Alpha United
+                - generic [ref=e242]: vs
+                - generic [ref=e245]: DF
+                - generic [ref=e246]: Delta FC
+              - generic [ref=e247]: 3–4
+            - generic [ref=e248]:
+              - generic [ref=e249]:
+                - strong [ref=e250]: 20:00:00
+                - text: THU
+              - generic [ref=e251]:
+                - generic [ref=e254]: DR
+                - generic [ref=e255]: Demo Rovers
+                - generic [ref=e256]: vs
+                - generic [ref=e259]: DA
+                - generic [ref=e260]: Demo Athletic
+              - generic [ref=e261]: 1–4
+            - generic [ref=e262]:
+              - generic [ref=e263]:
+                - strong [ref=e264]: 20:00:00
+                - text: THU
+              - generic [ref=e265]:
+                - generic [ref=e268]: CF
+                - generic [ref=e269]: Competitive FC
+                - generic [ref=e270]: vs
+                - generic [ref=e273]: DC
+                - generic [ref=e274]: Demo City
+              - generic [ref=e275]: 2–0
+            - generic [ref=e276]:
+              - generic [ref=e277]:
+                - strong [ref=e278]: 20:30:00
+                - text: WED
+              - generic [ref=e279]:
+                - generic [ref=e282]: DF
+                - generic [ref=e283]: Delta FC
+                - generic [ref=e284]: vs
+                - generic [ref=e287]: BA
+                - generic [ref=e288]: Bravo Athletic
+              - generic [ref=e289]: 2–3
+            - generic [ref=e290]:
+              - generic [ref=e291]:
+                - strong [ref=e292]: 19:30:00
+                - text: WED
+              - generic [ref=e293]:
+                - generic [ref=e296]: AU
+                - generic [ref=e297]: Alpha United
+                - generic [ref=e298]: vs
+                - generic [ref=e301]: CC
+                - generic [ref=e302]: Charlie City
+              - generic [ref=e303]: W/O
+          - generic [ref=e304]:
+            - generic [ref=e305]:
+              - heading "Upcoming" [level=2] [ref=e306]
+              - generic [ref=e307]: "0"
+            - generic [ref=e308]:
+              - heading "No upcoming fixtures" [level=3] [ref=e309]
+              - paragraph [ref=e310]: Future fixtures will appear here.
+      - complementary [ref=e312]:
+        - generic [ref=e313]:
+          - generic [ref=e314]:
+            - heading "Pitches" [level=3] [ref=e315]
+            - generic [ref=e316]: 2 active
+          - generic [ref=e317]:
+            - generic [ref=e318]:
+              - generic [ref=e320]:
+                - generic [ref=e321]: Main Pitch
+                - generic [ref=e322]: 4g · cap 10
+              - button "Edit" [ref=e323] [cursor=pointer]
+            - generic [ref=e324]:
+              - generic [ref=e326]:
+                - generic [ref=e327]: Side Pitch
+                - generic [ref=e328]: 3g · cap 8
+              - button "Edit" [ref=e329] [cursor=pointer]
+          - button "Add pitch" [ref=e331] [cursor=pointer]:
+            - img [ref=e332]
+            - text: Add pitch
+        - generic [ref=e334]:
+          - generic [ref=e335]:
+            - heading "Officials" [level=3] [ref=e336]
+            - generic [ref=e337]: 3 active
+          - generic [ref=e338]:
+            - generic [ref=e339]:
+              - generic [ref=e341]:
+                - generic [ref=e342]: Marcus Reid
+                - generic [ref=e343]: freelance · ★4.2
+              - button "Edit" [ref=e344] [cursor=pointer]
+            - generic [ref=e345]:
+              - generic [ref=e347]:
+                - generic [ref=e348]: Priya Sharma
+                - generic [ref=e349]: freelance · ★4.8
+              - button "Edit" [ref=e350] [cursor=pointer]
+            - generic [ref=e351]:
+              - generic [ref=e353]:
+                - generic [ref=e354]: Sam Cooper
+                - generic [ref=e355]: in house · ★4.6
+              - button "Edit" [ref=e356] [cursor=pointer]
+          - button "Add official" [ref=e358] [cursor=pointer]:
+            - img [ref=e359]
+            - text: Add official

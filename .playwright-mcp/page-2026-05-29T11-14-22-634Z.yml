@@ -1,0 +1,17 @@
+- generic [ref=e307]:
+  - generic [ref=e308]:
+    - img [ref=e309] [cursor=pointer]
+    - generic [ref=e311]: TEAMSHEET
+  - generic [ref=e312]:
+    - generic [ref=e313]: vs Demo Athletic
+    - generic [ref=e314]: Demo Competitive League · Thu 4 Jun · 20:00
+  - generic [ref=e315]:
+    - generic [ref=e316]: STARTING 0
+    - generic [ref=e317]: BENCH 0
+  - generic [ref=e318]: AVAILABLE — MARKED IN
+  - generic [ref=e320]:
+    - generic [ref=e321]: Tarny
+    - button "START" [ref=e322] [cursor=pointer]
+    - button "BENCH" [ref=e323] [cursor=pointer]
+  - generic [ref=e325] [cursor=pointer]: ▸ NOT MARKED IN (7)
+  - button "SUBMIT TEAM SHEET" [disabled] [ref=e327]

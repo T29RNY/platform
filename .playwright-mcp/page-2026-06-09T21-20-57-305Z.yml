@@ -1,0 +1,135 @@
+- generic [ref=e3]:
+  - generic [ref=e170]:
+    - generic [ref=e171]: ⚽
+    - generic [ref=e172]:
+      - generic [ref=e173]: Add to Home Screen
+      - generic [ref=e174]: Install for quick access — works like a native app
+    - button "Install" [ref=e175] [cursor=pointer]
+    - button "×" [ref=e176] [cursor=pointer]
+  - generic [ref=e6]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - button "Open profile" [ref=e20] [cursor=pointer]: TA
+          - generic [ref=e21]: Footy Tuesdays
+        - generic [ref=e22]: IN OR OUT
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - img [ref=e25]
+            - text: Tuesday
+          - generic [ref=e27]:
+            - img [ref=e28]
+            - text: Finbars
+          - generic [ref=e30]:
+            - img [ref=e31]
+            - text: 20:00
+          - generic [ref=e33]: Game Open
+          - link "Share team sheet to WhatsApp" [ref=e35] [cursor=pointer]:
+            - /url: https://wa.me/?text=*Footy%20Tuesdays*%20%E2%80%94%20Tuesday%209%20Jun%0A%0A%F0%9F%95%97%208pm%20%20%F0%9F%93%8D%20Finbars%20%20%F0%9F%92%B7%20%C2%A35%0A%0A%F0%9F%9F%A3%20RESERVE%20(1)%0A1.%20Callum%0A%0A%F0%9F%A9%B9%20INJURED%0A%E2%80%A2%20Aaron%20M%0A%E2%80%A2%20Kyle%20Bowden%0A%0A%F0%9F%91%95%20Bibs%3A%20Tarny
+            - img [ref=e36]
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - img [ref=e40]
+          - generic [ref=e44]: "0"
+        - generic [ref=e45]:
+          - generic [ref=e46]: of 14
+          - generic [ref=e47]: confirmed
+        - generic [ref=e48]: 14 spots left
+    - generic [ref=e49]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]: This Week
+          - generic [ref=e56]: Tuesday Night
+          - generic [ref=e57]: Football
+          - generic [ref=e58]: £5 per player
+        - generic [ref=e59]:
+          - generic [ref=e60]: Admins
+          - generic [ref=e61]: Bidz
+          - generic [ref=e62]: Gurnam
+          - generic [ref=e63]: Rocky
+          - generic [ref=e64]: Tarny
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - generic [ref=e68]: Are you in this Tuesday? Tap below ↓
+            - generic [ref=e69]: £5 owed
+          - generic [ref=e70]:
+            - generic [ref=e71]: Tarny
+            - img [ref=e72] [cursor=pointer]
+          - generic [ref=e74]: YOU'VE GOT THE BIBS 👕
+          - button "Clear Debt — £5" [ref=e76] [cursor=pointer]
+        - generic [ref=e78]:
+          - button "In" [ref=e79] [cursor=pointer]:
+            - img [ref=e80]
+            - text: In
+          - button "Out" [ref=e82] [cursor=pointer]:
+            - img [ref=e83]
+            - text: Out
+          - button "Maybe" [ref=e85] [cursor=pointer]:
+            - img [ref=e86]
+            - text: Maybe
+          - button "Reserve" [ref=e88] [cursor=pointer]:
+            - img [ref=e89]
+            - text: Reserve
+        - generic [ref=e92] [cursor=pointer]:
+          - generic [ref=e93]:
+            - img [ref=e94]
+            - text: Add a note
+          - generic [ref=e96]: e.g. "Might be 5 mins late"
+      - generic [ref=e97]:
+        - button "Plus One Bring a guest" [ref=e98] [cursor=pointer]:
+          - img [ref=e99]
+          - generic [ref=e101]:
+            - generic [ref=e102]: Plus One
+            - generic [ref=e103]: Bring a guest
+        - button "Injured? Mark yourself out" [ref=e104] [cursor=pointer]:
+          - img [ref=e105]
+          - generic [ref=e107]:
+            - generic [ref=e108]: Injured?
+            - generic [ref=e109]: Mark yourself out
+      - generic [ref=e111]: Live Board
+      - generic [ref=e113]:
+        - generic [ref=e115]:
+          - generic [ref=e116]: ✅
+          - generic [ref=e117]: In
+          - generic [ref=e118]: "0"
+        - generic [ref=e121]:
+          - generic [ref=e122]:
+            - generic [ref=e123]: 🟣
+            - generic [ref=e124]: Reserve
+            - generic [ref=e125]: "2"
+          - generic [ref=e126]:
+            - generic [ref=e127]:
+              - generic [ref=e129]: CA
+              - generic [ref=e130]: Callum
+              - generic [ref=e131]: "#1"
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - generic [ref=e134]: KB
+                - generic [ref=e135]: 🤕
+              - generic [ref=e136]: Kyle Bowden
+              - generic [ref=e137]: "#2"
+      - generic [ref=e138] [cursor=pointer]:
+        - generic [ref=e139]:
+          - img [ref=e140]
+          - text: No response · 19
+        - generic [ref=e142]: Tap to view ↓
+      - generic [ref=e144] [cursor=pointer]:
+        - generic [ref=e145]: MY SQUADS
+        - img [ref=e146]
+    - navigation [ref=e148]:
+      - generic [ref=e149] [cursor=pointer]:
+        - img [ref=e150]
+        - generic [ref=e152]: My View
+      - generic [ref=e154] [cursor=pointer]:
+        - img [ref=e155]
+        - generic [ref=e157]: Stats
+      - generic [ref=e158] [cursor=pointer]:
+        - img [ref=e159]
+        - generic [ref=e161]: Results
+      - generic [ref=e162] [cursor=pointer]:
+        - img [ref=e163]
+        - generic [ref=e165]: MY IO
+      - generic [ref=e166] [cursor=pointer]:
+        - img [ref=e167]
+        - generic [ref=e169]: Admin

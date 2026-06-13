@@ -771,7 +771,7 @@ export default function SquadScreen({
                         style={{
                           position: "absolute", top: "100%", right: 0, marginTop: 6, zIndex: 20,
                           background: "var(--s1)", border: "0.5px solid var(--border-subtle)",
-                          borderRadius: 12, padding: 6, minWidth: 180,
+                          borderRadius: 12, padding: 6,
                           boxShadow: "0 12px 30px rgba(0,0,0,0.55)",
                           backdropFilter: "blur(12px)",
                           minWidth: 220,

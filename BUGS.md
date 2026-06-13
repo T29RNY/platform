@@ -348,10 +348,10 @@ reconciliation closed (team_KPaoX £45 owes == £45 ledger).
   shows); the lineup-name-snapshot enhancement is now unnecessary for new matches. The S4 "Guest"
   fallback (commit ff3eb8c) still covers already-deleted PAST guests, whose rows died before S1.
   Past names remain unrecoverable.
-- **[NEW — LOW tech debt] `SquadScreen.jsx` duplicate object key `minWidth` (~line 751):** vite
-  build emits a non-blocking `Duplicate key "minWidth" in object literal` warning. Pre-existing,
-  unrelated to persistent guests (surfaced during the S1 build). Build still passes. Fix in its
-  own small cleanup cycle.
+- **[RESOLVED session 89] `SquadScreen.jsx` duplicate object key `minWidth`:** the `ms-menu`
+  dropdown `style` literal carried both `minWidth: 180` and `minWidth: 220` (the later `220` won),
+  emitting a non-blocking vite `Duplicate key "minWidth"` warning. Removed the shadowed `minWidth: 180`
+  — preserves the rendered behaviour exactly (220 was already applied) and clears the warning.
 - **[NEW — LOW, persistent-guests S5 deferral] Gaffer top-reliable doesn't filter guests:**
   `gaffer_get_context_team_summary` (mig 034) builds its "top reliable last 30 days" list from
   `player_match` without an `is_guest=false` filter, so a guest could appear in the AI's context.
@@ -516,9 +516,12 @@ raises `timezone(unknown, text)`). Also added the missing `SET search_path TO 'p
 weekday, in the future) + leak-check 0 (no `%e2e%` teams/players left) + SECDEF / single
 overload / search_path set / anon+authenticated grants preserved.
 
-**Discovered (latent, logged to OPEN):** `admin_upsert_schedule`'s one-off-date branch has the
-identical text→timestamp cast bug — never fires because the UI doesn't send `p_one_off_date`.
-Fix with the ScheduleScreen "update this week" wiring.
+**Discovered (latent) — RESOLVED (mig 215):** `admin_upsert_schedule`'s one-off-date branch had
+the identical text→timestamp cast bug — it never fired because the UI didn't send `p_one_off_date`.
+Fixed in `215_upsert_schedule_oneoff_cast.sql`, which adds the explicit `::timestamp` cast to the
+one-off `game_date_time` construction (`((p_one_off_date || 'T' || p_kickoff || ':00')::timestamp)
+AT TIME ZONE 'Europe/London'`) alongside the ScheduleScreen "update this week" wiring. Verified
+against the live function body session 89.
 
 ## RESOLVED (session 71, mig 209) — guest deletion leaked FK-less player_match + payment_ledger orphans
 
@@ -1913,7 +1916,17 @@ returned `reused_existing=true`, same `match_id`, no duplicate row.
 
 ---
 
-## OPEN — Superadmin dashboard returns blank screen (session 45 close)
+## RESOLVED (session 79, GO_LIVE #13) — Superadmin dashboard returned blank screen
+
+**Resolved.** Root cause was exactly as diagnosed below — `apps/superadmin` is deployed manual
+prebuilt-static (remote build fails on the monorepo `npm install`), and a local prebuilt deploy does
+NOT get Vercel's env injected at build time, so with no `apps/superadmin/.env.local` the
+`VITE_SUPABASE_*` vars baked in as `undefined` → `createClient(undefined, …)` threw at module init →
+React never mounted. Fixed during the session-79 ops-digest work: created `apps/superadmin/.env.local`
+(gitignored; URL + public anon key), rebuilt, redeployed prebuilt to production; verified the live
+bundle now contains the `*.supabase.co` URL. Pre-flight + deploy recipe for any manual-prebuilt app
+(superadmin, venue) and the durable `.env.local`-is-gitignored risk are documented in GO_LIVE_ISSUES
+#13. Original diagnosis retained below for reference.
 
 **Symptom:** opening
 `https://platform-superadmin-djj9b1w8x-tarny-s-projects.vercel.app`

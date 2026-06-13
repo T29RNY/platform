@@ -1,0 +1,6 @@
+[     131ms] Error: supabaseUrl is required.
+    at Fv (http://localhost:4319/assets/index-Di97sISR.js:83:45267)
+    at new Wv (http://localhost:4319/assets/index-Di97sISR.js:83:45637)
+    at Vv (http://localhost:4319/assets/index-Di97sISR.js:83:49098)
+    at http://localhost:4319/assets/index-Di97sISR.js:83:49586
+[     136ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:4319/favicon.ico:0

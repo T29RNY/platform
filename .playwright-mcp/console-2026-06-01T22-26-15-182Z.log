@@ -1,0 +1,43 @@
+[     554ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5177/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=1cfb3831:21550
+[  810256ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5177/node_modules/.vite/deps/chunk-WNHV52DQ.js?v=1cfb3831:21550
+[25787985ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5177/@vite/client:559
+[25788386ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_RESET @ http://localhost:5177/:0
+[25789433ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25790605ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25791616ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25792624ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25793639ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25794652ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25795660ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25796669ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25797883ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25798897ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25800089ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25801096ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25802147ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25803287ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25804298ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25805366ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25806812ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25807818ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25808841ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25809846ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25810857ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25811932ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25812954ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25813974ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25814984ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25815989ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25816996ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25818010ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25819016ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25820083ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25821354ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25822398ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25823406ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25824440ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25825462ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25826472ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25827524ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25828598ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0
+[25829713ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5177/:0

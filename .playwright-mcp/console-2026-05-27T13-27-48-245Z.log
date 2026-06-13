@@ -1,0 +1,13 @@
+[     560ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=5ce8953b:21550
+[     579ms] Error: supabaseUrl is required.
+    at validateSupabaseUrl (http://localhost:5180/node_modules/.vite/deps/@supabase_supabase-js.js?v=4a0591b6:20203:26)
+    at new SupabaseClient (http://localhost:5180/node_modules/.vite/deps/@supabase_supabase-js.js?v=4a0591b6:20408:21)
+    at createClient (http://localhost:5180/node_modules/.vite/deps/@supabase_supabase-js.js?v=4a0591b6:20619:10)
+    at http://localhost:5180/@fs/Users/tarny/platform/packages/core/storage/supabase.js:6:25
+[     577ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5180/favicon.ico:0
+[   59914ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5180/@vite/client:559
+[   60216ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:21550
+[   87017ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5180/@vite/client:559
+[   87144ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5180/:0
+[   88160ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5180/:0
+[   89586ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5180/node_modules/.vite/deps/chunk-C5XBKZBZ.js?v=ea97830f:21550

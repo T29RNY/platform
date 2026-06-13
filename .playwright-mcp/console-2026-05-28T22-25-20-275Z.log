@@ -1,0 +1,3 @@
+[     206ms] [ERROR] Manifest: Line: 22, column: 1, Syntax error. @ http://localhost:5173/api/manifest?player=p_dc_tarny_token:21
+[     265ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-33LYQYQA.js?v=0c997aed:21550
+[     371ms] [ERROR] Manifest: Line: 22, column: 1, Syntax error. @ http://localhost:5173/api/manifest?player=p_dc_tarny_token:21

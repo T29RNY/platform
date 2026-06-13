@@ -1,0 +1,8 @@
+- generic [ref=e7]:
+  - paragraph [ref=e8]: What's on at
+  - heading "Sim Sports Centre" [level=1] [ref=e9]
+  - paragraph [ref=e10]: No competitions are open for registration right now.
+  - generic [ref=e11]:
+    - heading "Become a member" [level=2] [ref=e12]
+    - paragraph [ref=e13]: Join Sim Sports Centre and unlock member perks.
+    - paragraph [ref=e27]: Thanks! The venue will review your request and confirm your membership.

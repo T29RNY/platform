@@ -1,0 +1,30 @@
+- generic [ref=e6]:
+  - generic [ref=e7]:
+    - paragraph [ref=e8]: What's on at
+    - heading "Demo Sports Centre" [level=1] [ref=e9]
+    - generic [ref=e10]:
+      - heading "Demo Competitive League" [level=2] [ref=e11]
+      - paragraph [ref=e12]: Demo Competitive League
+      - generic [ref=e13]:
+        - generic [ref=e14]: Competitive FC
+        - generic [ref=e15]: Demo Athletic
+        - generic [ref=e16]: Demo City
+        - generic [ref=e17]: Demo Rovers
+      - button "Register your team" [ref=e18] [cursor=pointer]
+    - generic [ref=e19]:
+      - heading "Summer League" [level=2] [ref=e20]
+      - paragraph [ref=e21]: Demo Summer League
+      - generic [ref=e22]:
+        - generic [ref=e23]: Alpha United
+        - generic [ref=e24]: Bravo Athletic
+        - generic [ref=e25]: Charlie City
+        - generic [ref=e26]: Delta FC
+      - button "Register your team" [ref=e27] [cursor=pointer]
+  - generic [ref=e29]:
+    - generic [ref=e30]:
+      - generic [ref=e31]: SIGN IN
+      - button [ref=e32] [cursor=pointer]:
+        - img [ref=e33]
+    - generic [ref=e35]: Sign in to register a team for Demo Competitive League. You'll only need to do this once.
+    - textbox "your@email.com" [active] [ref=e36]
+    - button "Send me a code" [disabled] [ref=e37]

@@ -1,0 +1,16 @@
+- generic [ref=e3]:
+  - generic [ref=e4]: IN OR OUT
+  - generic [ref=e5]:
+    - text: The fastest way to organise your weekly football game.
+    - text: No apps. No accounts. Just tap and go.
+  - link "Create Your Team →" [ref=e6] [cursor=pointer]:
+    - /url: /create
+    - button "Create Your Team →" [ref=e7]
+  - button "Already have a player link?" [ref=e9] [cursor=pointer]
+  - generic [ref=e10]:
+    - link "Terms" [ref=e11] [cursor=pointer]:
+      - /url: /legal
+    - link "Privacy" [ref=e12] [cursor=pointer]:
+      - /url: /legal#privacy
+    - link "Contact" [ref=e13] [cursor=pointer]:
+      - /url: mailto:hello@in-or-out.com

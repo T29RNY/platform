@@ -1,0 +1,187 @@
+- generic [ref=e5]:
+  - complementary [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]: io
+      - generic [ref=e9]:
+        - text: In or Out
+        - generic [ref=e10]: Venue console
+    - navigation [ref=e11]:
+      - generic [ref=e12]: Workspace
+      - button "Operations" [ref=e13] [cursor=pointer]:
+        - img [ref=e15]
+        - generic [ref=e19]: Operations
+      - button "Bookings 1" [active] [ref=e20] [cursor=pointer]:
+        - img [ref=e22]
+        - generic [ref=e25]: Bookings
+        - generic [ref=e26]: "1"
+      - button "Payments" [ref=e27] [cursor=pointer]:
+        - img [ref=e29]
+        - generic [ref=e31]: Payments
+      - generic [ref=e32]: Directory
+      - button "Customers" [ref=e33] [cursor=pointer]:
+        - img [ref=e35]
+        - generic [ref=e40]: Customers
+      - button "Teams" [ref=e41] [cursor=pointer]:
+        - img [ref=e43]
+        - generic [ref=e48]: Teams
+      - button "Players" [ref=e49] [cursor=pointer]:
+        - img [ref=e51]
+        - generic [ref=e54]: Players
+      - button "Staff" [ref=e55] [cursor=pointer]:
+        - img [ref=e57]
+        - generic [ref=e61]: Staff
+      - generic [ref=e62]: Competition
+      - button "Leagues" [ref=e63] [cursor=pointer]:
+        - img [ref=e65]
+        - generic [ref=e70]: Leagues
+      - button "Table" [ref=e71] [cursor=pointer]:
+        - img [ref=e73]
+        - generic [ref=e76]: Table
+    - generic [ref=e77]:
+      - generic [ref=e80]:
+        - generic [ref=e81]: Status
+        - generic [ref=e82]: Standby
+      - button "Reception display" [ref=e83] [cursor=pointer]:
+        - img [ref=e85]
+        - generic [ref=e88]: Reception display
+      - button "Season setup" [ref=e89] [cursor=pointer]:
+        - img [ref=e91]
+        - generic [ref=e94]: Season setup
+  - generic [ref=e95]:
+    - banner [ref=e96]:
+      - generic [ref=e97]:
+        - heading "Bookings" [level=1] [ref=e98]
+        - generic [ref=e100]: 1 request pending
+      - button "Search" [ref=e102] [cursor=pointer]:
+        - img [ref=e103]
+      - button "Notifications" [ref=e107] [cursor=pointer]:
+        - img [ref=e108]
+        - generic [ref=e111]: "4"
+      - button "Refresh" [ref=e112] [cursor=pointer]:
+        - img [ref=e113]
+      - generic [ref=e118]:
+        - generic [ref=e119]: 12:19
+        - generic [ref=e120]: Tuesday 9 June
+    - main [ref=e121]:
+      - generic [ref=e122]:
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - heading "Requests" [level=2] [ref=e125]
+            - generic [ref=e126]: "1"
+            - generic [ref=e127]:
+              - button "Settings" [ref=e128] [cursor=pointer]:
+                - img [ref=e129]
+                - text: Settings
+              - button "Add booking" [ref=e132] [cursor=pointer]:
+                - img [ref=e133]
+                - text: Add booking
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: One-off
+              - generic [ref=e139]:
+                - img [ref=e140]
+                - text: Main Pitch
+            - generic [ref=e143]:
+              - generic [ref=e144]: DA
+              - generic [ref=e146]: Demo Athletic
+            - generic [ref=e147]:
+              - img [ref=e148]
+              - generic [ref=e151]:
+                - strong [ref=e152]: Thu 11 Jun
+                - text: · 19:30
+            - generic [ref=e153]:
+              - button "Confirm" [ref=e154] [cursor=pointer]
+              - button "Decline" [ref=e155] [cursor=pointer]
+        - generic [ref=e156]:
+          - heading "Schedule" [level=2] [ref=e158]
+          - generic [ref=e159]:
+            - generic [ref=e160]:
+              - generic [ref=e161]:
+                - button "Previous day" [ref=e162] [cursor=pointer]:
+                  - img [ref=e163]
+                - button "Next day" [ref=e165] [cursor=pointer]:
+                  - img [ref=e166]
+              - generic [ref=e168]: Tue 9 Jun
+            - generic [ref=e170]:
+              - generic [ref=e172]: Main Pitch
+              - generic [ref=e173]: Side Pitch
+              - generic [ref=e174]:
+                - generic [ref=e175]: 08:00
+                - generic [ref=e176]: 09:00
+                - generic [ref=e177]: 10:00
+                - generic [ref=e178]: 11:00
+                - generic [ref=e179]: 12:00
+                - generic [ref=e180]: 13:00
+                - generic [ref=e181]: 14:00
+                - generic [ref=e182]: 15:00
+                - generic [ref=e183]: 16:00
+                - generic [ref=e184]: 17:00
+                - generic [ref=e185]: 18:00
+                - generic [ref=e186]: 19:00
+                - generic [ref=e187]: 20:00
+                - generic [ref=e188]: 21:00
+                - generic [ref=e189]: 22:00
+              - generic "Tap an empty slot to book" [ref=e190]
+              - generic "Tap an empty slot to book" [ref=e206]
+        - generic [ref=e222]:
+          - generic [ref=e223]:
+            - heading "Cancellations" [level=2] [ref=e224]
+            - generic [ref=e225]: "2"
+            - generic [ref=e226]:
+              - generic [ref=e227]:
+                - img [ref=e229]
+                - textbox "Search booker, pitch, reason…" [ref=e232]
+              - generic [ref=e233]:
+                - button "7 days" [ref=e234] [cursor=pointer]
+                - button "30 days" [pressed] [ref=e235] [cursor=pointer]
+                - button "All" [ref=e236] [cursor=pointer]
+              - button "Export CSV" [ref=e237] [cursor=pointer]:
+                - img [ref=e238]
+                - text: Export CSV
+          - generic [ref=e241]:
+            - generic [ref=e242]:
+              - generic [ref=e243]:
+                - generic [ref=e244]: 16h ago
+                - generic [ref=e245]: by venue
+              - generic [ref=e246]:
+                - generic [ref=e247]: BA
+                - generic [ref=e248]:
+                  - generic [ref=e249]: Bravo Athletic
+                  - generic [ref=e250]: One-off
+              - generic [ref=e251]:
+                - generic [ref=e252]:
+                  - img [ref=e253]
+                  - text: Side Pitch
+                - generic [ref=e256]:
+                  - img [ref=e257]
+                  - text: 2026-06-09 · 17:00
+              - generic [ref=e260]:
+                - generic [ref=e261]:
+                  - text: Weather
+                  - generic [ref=e262]: short notice
+                - generic [ref=e263]: “Pitch waterlogged [seed74]”
+              - generic [ref=e264]:
+                - generic [ref=e265]: Full refund
+                - generic [ref=e266]: refund £50.00
+            - generic [ref=e267]:
+              - generic [ref=e268]:
+                - generic [ref=e269]: 16h ago
+                - generic [ref=e270]: by venue
+              - generic [ref=e271]:
+                - generic [ref=e272]: LC
+                - generic [ref=e273]:
+                  - generic [ref=e274]: Lunchtime Casuals
+                  - generic [ref=e275]: One-off
+              - generic [ref=e276]:
+                - generic [ref=e277]:
+                  - img [ref=e278]
+                  - text: Main Pitch
+                - generic [ref=e281]:
+                  - img [ref=e282]
+                  - text: 2026-06-12 · 21:00
+              - generic [ref=e285]:
+                - generic [ref=e286]: Booker request
+                - generic [ref=e287]: “Rebooking later [seed74]”
+              - generic [ref=e288]:
+                - generic [ref=e289]: 50% credit
+                - generic [ref=e290]: refund £25.00 · charged £25.00

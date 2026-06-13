@@ -1,0 +1,110 @@
+- generic [ref=e6]:
+  - generic [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - button "Open profile" [ref=e11] [cursor=pointer]: HA
+        - generic [ref=e12]: Test Tuesday FC
+      - generic [ref=e13]: IN OR OUT
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - img [ref=e16]
+          - text: Wednesday
+        - generic [ref=e18]:
+          - img [ref=e19]
+          - text: Saint Finbars
+        - generic [ref=e21]:
+          - img [ref=e22]
+          - text: 20:00
+        - generic [ref=e24]: Game Open
+        - link "Share team sheet to WhatsApp" [ref=e26] [cursor=pointer]:
+          - /url: https://wa.me/?text=*Test%20Tuesday%20FC*%20%E2%80%94%20Tuesday%209%20Jun%0A%0A%F0%9F%95%97%208pm%20%20%F0%9F%93%8D%20Saint%20Finbars%20%20%F0%9F%92%B7%20%C2%A35%0A%0A%F0%9F%91%95%20Bibs%3A%20Aaron
+          - img [ref=e27]
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - img [ref=e31]
+        - generic [ref=e35]: "0"
+      - generic [ref=e36]:
+        - generic [ref=e37]: of 10
+        - generic [ref=e38]: confirmed
+      - generic [ref=e39]: 10 spots left
+  - generic [ref=e40]:
+    - generic [ref=e44]:
+      - generic [ref=e45]:
+        - generic [ref=e46]: This Week
+        - generic [ref=e47]: Wednesday Night
+        - generic [ref=e48]: Football
+        - generic [ref=e49]: £5 per player
+      - generic [ref=e50]:
+        - generic [ref=e51]: Admins
+        - generic [ref=e52]: Callum
+        - generic [ref=e53]: Dave
+        - generic [ref=e54]: Finbar
+    - generic [ref=e55]:
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]: Are you in this Wednesday? Tap below ↓
+          - generic [ref=e59]: Nothing owed 👊
+        - generic [ref=e60]:
+          - generic [ref=e61]: Hassan
+          - img [ref=e62] [cursor=pointer]
+      - generic [ref=e65]:
+        - button "In" [ref=e66] [cursor=pointer]:
+          - img [ref=e67]
+          - text: In
+        - button "Out" [ref=e69] [cursor=pointer]:
+          - img [ref=e70]
+          - text: Out
+        - button "Maybe" [ref=e72] [cursor=pointer]:
+          - img [ref=e73]
+          - text: Maybe
+        - button "Reserve" [ref=e75] [cursor=pointer]:
+          - img [ref=e76]
+          - text: Reserve
+      - generic [ref=e79] [cursor=pointer]:
+        - generic [ref=e80]:
+          - img [ref=e81]
+          - text: Add a note
+        - generic [ref=e83]: e.g. "Might be 5 mins late"
+    - button "Injured? Mark yourself out" [ref=e85] [cursor=pointer]:
+      - img [ref=e86]
+      - generic [ref=e88]:
+        - generic [ref=e89]: Injured?
+        - generic [ref=e90]: Mark yourself out
+    - generic [ref=e91]:
+      - generic [ref=e92]: ➕ Add a plus one
+      - textbox "Guest's name..." [ref=e93]
+      - generic [ref=e94]:
+        - button "Hassan pays" [ref=e95] [cursor=pointer]
+        - button "They pay" [ref=e96] [cursor=pointer]
+      - generic [ref=e97]:
+        - button "Add Plus One" [disabled] [ref=e98]
+        - button "Cancel" [ref=e99] [cursor=pointer]
+    - generic [ref=e101]: Live Board
+    - generic [ref=e105]:
+      - generic [ref=e106]: ✅
+      - generic [ref=e107]: In
+      - generic [ref=e108]: "0"
+    - generic [ref=e110] [cursor=pointer]:
+      - generic [ref=e111]:
+        - img [ref=e112]
+        - text: No response · 36
+      - generic [ref=e114]: Tap to view ↓
+    - generic [ref=e116] [cursor=pointer]:
+      - generic [ref=e117]: MY SQUADS
+      - img [ref=e118]
+  - navigation [ref=e120]:
+    - generic [ref=e121] [cursor=pointer]:
+      - img [ref=e122]
+      - generic [ref=e124]: My View
+    - generic [ref=e126] [cursor=pointer]:
+      - img [ref=e127]
+      - generic [ref=e129]: Stats
+    - generic [ref=e130] [cursor=pointer]:
+      - img [ref=e131]
+      - generic [ref=e133]: Results
+    - generic [ref=e134] [cursor=pointer]:
+      - img [ref=e135]
+      - generic [ref=e137]: MY IO
+    - generic [ref=e138] [cursor=pointer]:
+      - img [ref=e139]
+      - generic [ref=e141]: Admin

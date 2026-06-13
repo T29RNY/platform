@@ -1,0 +1,157 @@
+- generic [ref=e5]:
+  - banner [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: Standby
+        - generic [ref=e11]: ·
+        - generic [ref=e12]: League Control
+      - heading "Demo Summer League" [level=1] [ref=e13]:
+        - generic [ref=e14]: D
+        - generic [ref=e15]: e
+        - generic [ref=e16]: m
+        - generic [ref=e17]: o
+        - generic [ref=e19]: S
+        - generic [ref=e20]: u
+        - generic [ref=e21]: m
+        - generic [ref=e22]: m
+        - generic [ref=e23]: e
+        - generic [ref=e24]: r
+        - generic [ref=e26]: L
+        - generic [ref=e27]: e
+        - generic [ref=e28]: a
+        - generic [ref=e29]: g
+        - generic [ref=e30]: u
+        - generic [ref=e31]: e
+      - generic [ref=e32]: Demo Sports Centre · DEMO0001
+    - generic [ref=e33]:
+      - generic "Current time 22:53" [ref=e198]:
+        - generic [ref=e35]:
+          - generic [ref=e36]: 22:53
+          - generic [ref=e37]: "08"
+        - generic [ref=e38]: Monday 1 June
+      - button "Refresh" [ref=e40] [cursor=pointer]
+  - generic [ref=e42]:
+    - generic [ref=e43]:
+      - generic [ref=e44]: ◆
+      - text: Demo Sports Centre
+    - generic [ref=e45]:
+      - generic [ref=e46]: ◆
+      - text: Summer League
+    - generic [ref=e47]:
+      - generic [ref=e48]: ◆
+      - text: 5 teams
+    - generic [ref=e49]:
+      - generic [ref=e50]: ◆
+      - text: 1 season
+    - generic [ref=e51]:
+      - generic [ref=e52]: ◆
+      - text: 2 fixtures this week
+    - generic [ref=e53]:
+      - generic [ref=e54]: ◆
+      - text: Demo Sports Centre
+    - generic [ref=e55]:
+      - generic [ref=e56]: ◆
+      - text: Summer League
+    - generic [ref=e57]:
+      - generic [ref=e58]: ◆
+      - text: 5 teams
+    - generic [ref=e59]:
+      - generic [ref=e60]: ◆
+      - text: 1 season
+    - generic [ref=e61]:
+      - generic [ref=e62]: ◆
+      - text: 2 fixtures this week
+  - navigation "Dashboard sections" [ref=e63]:
+    - button "Operations" [ref=e64] [cursor=pointer]
+    - button "Table" [ref=e65] [cursor=pointer]
+    - button "Teams" [ref=e66] [cursor=pointer]
+  - main [ref=e67]:
+    - generic [ref=e68]:
+      - heading "This Week 2" [level=2] [ref=e69]:
+        - text: This Week
+        - generic [ref=e70]: "2"
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - generic [ref=e75]: 19:30
+              - generic [ref=e76]: Wed 3 Jun
+            - generic [ref=e77]: Result
+          - generic [ref=e78]:
+            - generic [ref=e81]: Alpha United
+            - generic [ref=e82]:
+              - text: "3"
+              - generic [ref=e83]: –
+              - text: "4"
+            - generic [ref=e85]: Delta FC
+          - button "Edit result" [ref=e89] [cursor=pointer]
+        - generic [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - generic [ref=e93]: 20:30
+              - generic [ref=e94]: Wed 3 Jun
+            - generic [ref=e95]: Allocated
+          - generic [ref=e96]:
+            - generic [ref=e99]: Bravo Athletic
+            - generic [ref=e100]: vs
+            - generic [ref=e102]: Charlie City
+    - generic [ref=e104]:
+      - heading "Recent Results 4" [level=2] [ref=e105]:
+        - text: Recent Results
+        - generic [ref=e106]: "4"
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - generic [ref=e110]:
+              - generic [ref=e111]: 20:30
+              - generic [ref=e112]: Wed 20 May
+            - generic [ref=e113]: Result
+          - generic [ref=e114]:
+            - generic [ref=e117]: Delta FC
+            - generic [ref=e118]:
+              - text: "2"
+              - generic [ref=e119]: –
+              - text: "4"
+            - generic [ref=e121]: Bravo Athletic
+          - button "Edit result" [ref=e125] [cursor=pointer]
+        - generic [ref=e126]:
+          - generic [ref=e127]:
+            - generic [ref=e128]:
+              - generic [ref=e129]: 19:30
+              - generic [ref=e130]: Wed 20 May
+            - generic [ref=e131]: Walkover
+          - generic [ref=e132]:
+            - generic [ref=e135]: Alpha United
+            - generic [ref=e136]: 3–0
+            - generic [ref=e138]: Charlie City
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - generic [ref=e142]:
+              - generic [ref=e143]: 20:30
+              - generic [ref=e144]: Wed 13 May
+            - generic [ref=e145]: Result
+          - generic [ref=e146]:
+            - generic [ref=e149]: Charlie City
+            - generic [ref=e150]:
+              - text: "1"
+              - generic [ref=e151]: –
+              - text: "1"
+            - generic [ref=e153]: Delta FC
+          - button "Edit result" [ref=e157] [cursor=pointer]
+        - generic [ref=e158]:
+          - generic [ref=e159]:
+            - generic [ref=e160]:
+              - generic [ref=e161]: 19:30
+              - generic [ref=e162]: Wed 13 May
+            - generic [ref=e163]: Result
+          - generic [ref=e164]:
+            - generic [ref=e167]: Alpha United
+            - generic [ref=e168]:
+              - text: "4"
+              - generic [ref=e169]: –
+              - text: "2"
+            - generic [ref=e171]: Bravo Athletic
+          - button "Edit result" [ref=e175] [cursor=pointer]
+    - generic [ref=e176]:
+      - heading "Upcoming" [level=2] [ref=e177]
+      - paragraph [ref=e178]: No fixtures further out.
