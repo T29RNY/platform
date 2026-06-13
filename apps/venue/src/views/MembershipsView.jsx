@@ -63,6 +63,18 @@ function MembersTab({ venueToken }) {
   const [cancelFor, setCancelFor] = useState(null);
   const [pending, setPending] = useState([]);
   const [approving, setApproving] = useState(null); // person id being acted on
+  const [copiedId, setCopiedId] = useState(null);   // membership id whose pass link was just copied
+
+  // The member pass lives on the casual app (in-or-out.com), not the venue console.
+  const copyPassLink = async (m) => {
+    if (!m.pass_token) return;
+    const url = `https://www.in-or-out.com/m/${m.pass_token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(m.membership_id);
+      setTimeout(() => setCopiedId((c) => (c === m.membership_id ? null : c)), 2000);
+    } catch (e) { console.error("[membership] copy pass link failed", e); }
+  };
 
   const loadPending = () => venueListCustomersPeople(venueToken)
     .then((r) => setPending((r || []).filter((p) => p.status === "pending")))
@@ -152,6 +164,11 @@ function MembersTab({ venueToken }) {
                     <div className="cu-stat-value" style={m.due_soon ? { color: "var(--live)" } : null}>{m.status === "paused" ? m.frozen_until : m.renews_at}</div></div>
                 </div>
                 <div className="cu-foot">
+                  {m.pass_token && (
+                    <button className="btn btn-xs" onClick={() => copyPassLink(m)} title="Copy the member's pass link to share">
+                      <Icon name={copiedId === m.membership_id ? "check" : "copy"} size={13} /> {copiedId === m.membership_id ? "Copied" : "Copy link"}
+                    </button>
+                  )}
                   <span style={{ flex: 1 }} />
                   {m.status === "active" && <button className="btn btn-xs" onClick={() => setFreezeFor(m)}><Icon name="clock" size={13} /> Freeze</button>}
                   {m.status !== "cancelled" && <button className="btn btn-xs" onClick={() => setCancelFor(m)}><Icon name="x" size={13} /> Cancel</button>}
