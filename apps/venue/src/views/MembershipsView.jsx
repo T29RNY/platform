@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   venueListMembers, venueListMembershipTiers, venueListCustomersPeople, venueApproveCustomer, venueApproveAndEnrol,
   venueCreateMembershipTier, venueEnrolMembership, venueFreezeMembership, venueCancelMembership,
-  venueCreateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
+  venueCreateCustomer, venueUpdateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
@@ -32,7 +32,69 @@ const errLabel = (e) => ({
   price_not_set: "No price set for that cadence on this plan.",
   customer_not_found: "Couldn’t find that person.",
   tier_not_found: "Couldn’t find that plan.",
+  customer_exists: "Someone with that email already exists at this venue.",
+  consent_required: "Tick the data-protection and membership-terms consents.",
+  guardian_required: "A parent/guardian name and phone are required for under-18s.",
+  medical_consent_required: "Tick the medical-data consent to store medical details.",
 }[e?.message] || "Something went wrong — try again.");
+
+// age in whole years from a YYYY-MM-DD string (empty/invalid → null)
+const ageFromDob = (dob) => {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+  return a;
+};
+
+const EMPTY_REG = {
+  firstName: "", lastName: "", email: "", phone: "", dob: "", gender: "",
+  addressLine1: "", addressLine2: "", addressCity: "", addressPostcode: "",
+  emergencyName: "", emergencyRelationship: "", emergencyPhone: "",
+  medicalConditions: "", allergies: "", medications: "", gpDetails: "",
+  guardianName: "", guardianRelationship: "", guardianPhone: "", guardianEmail: "",
+  consentDataProcessing: false, consentTerms: false, consentPhoto: false,
+  consentMedical: false, consentMarketing: false,
+};
+
+// venue_list_customers_people row (snake_case) → controlled reg state (camelCase)
+const personToReg = (p = {}) => ({
+  firstName: p.first_name || "", lastName: p.last_name || "", email: p.email || "",
+  phone: p.phone || "", dob: p.dob || "", gender: p.gender || "",
+  addressLine1: p.address_line1 || "", addressLine2: p.address_line2 || "",
+  addressCity: p.address_city || "", addressPostcode: p.address_postcode || "",
+  emergencyName: p.emergency_name || "", emergencyRelationship: p.emergency_relationship || "",
+  emergencyPhone: p.emergency_phone || "",
+  medicalConditions: p.medical_conditions || "", allergies: p.allergies || "",
+  medications: p.medications || "", gpDetails: p.gp_details || "",
+  guardianName: p.guardian_name || "", guardianRelationship: p.guardian_relationship || "",
+  guardianPhone: p.guardian_phone || "", guardianEmail: p.guardian_email || "",
+  consentDataProcessing: !!p.consent_data_processing, consentTerms: !!p.consent_terms,
+  consentPhoto: !!p.consent_photo, consentMedical: !!p.consent_medical,
+  consentMarketing: !!p.consent_marketing,
+});
+
+// trims a reg object → only-non-blank fields (so partial updates leave blanks alone)
+const regTrimmed = (r) => {
+  const out = {};
+  for (const [k, v] of Object.entries(r)) out[k] = typeof v === "string" ? (v.trim() || null) : v;
+  return out;
+};
+
+// client-side mirror of the server registration gates → error string or null
+const regError = (r) => {
+  const age = ageFromDob(r.dob);
+  const isMinor = age !== null && age < 18;
+  const hasMedical = !!(r.medicalConditions?.trim() || r.allergies?.trim() || r.medications?.trim() || r.gpDetails?.trim());
+  if (!r.firstName?.trim()) return "Enter a first name.";
+  if (!r.consentDataProcessing || !r.consentTerms) return "Tick the data-protection and membership-terms consents.";
+  if (isMinor && (!r.guardianName?.trim() || !r.guardianPhone?.trim())) return "A parent/guardian name and phone are required for under-18s.";
+  if (hasMedical && !r.consentMedical) return "Tick the medical-data consent to store medical details.";
+  return null;
+};
 
 export default function MembershipsView({ venueToken, liveTick = 0 }) {
   const [tab, setTab] = useState("members");
@@ -65,6 +127,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
   const [approving, setApproving] = useState(null); // person id being acted on
   const [copiedId, setCopiedId] = useState(null);   // membership id whose pass link was just copied
   const [enrolReq, setEnrolReq] = useState(null);   // pending person being approved-and-enrolled
+  const [profileFor, setProfileFor] = useState(null); // member whose full registration is open
 
   // The member pass lives on the casual app (in-or-out.com), not the venue console.
   const copyPassLink = async (m) => {
@@ -179,6 +242,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
                     </button>
                   )}
                   <span style={{ flex: 1 }} />
+                  {m.customer_id && <button className="btn btn-xs" onClick={() => setProfileFor(m)} title="View / edit registration details"><Icon name="customers" size={13} /> Details</button>}
                   {m.status === "active" && <button className="btn btn-xs" onClick={() => setFreezeFor(m)}><Icon name="clock" size={13} /> Freeze</button>}
                   {m.status !== "cancelled" && <button className="btn btn-xs" onClick={() => setCancelFor(m)}><Icon name="x" size={13} /> Cancel</button>}
                 </div>
@@ -188,6 +252,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
         </div>
       )}
 
+      {profileFor && <ProfileModal venueToken={venueToken} customerId={profileFor.customer_id} name={fullName(profileFor)} onClose={() => setProfileFor(null)} onDone={() => { setProfileFor(null); reload(); }} />}
       {enrolReq && <ApproveEnrolModal venueToken={venueToken} person={enrolReq} onClose={() => setEnrolReq(null)} onDone={() => { setEnrolReq(null); reload(); }} />}
       {enrolOpen && <EnrolModal venueToken={venueToken} onClose={() => setEnrolOpen(false)} onDone={() => { setEnrolOpen(false); reload(); }} />}
       {freezeFor && <FreezeModal venueToken={venueToken} member={freezeFor} onClose={() => setFreezeFor(null)} onDone={() => { setFreezeFor(null); reload(); }} />}
@@ -200,7 +265,7 @@ function EnrolModal({ venueToken, onClose, onDone }) {
   const [people, setPeople] = useState([]);
   const [tiers, setTiers] = useState([]);
   const [customerId, setCustomerId] = useState("");
-  const [newName, setNewName] = useState("");
+  const [reg, setReg] = useState(EMPTY_REG);   // full registration for a NEW person
   const [tierId, setTierId] = useState("");
   const [period, setPeriod] = useState("");
   const [busy, setBusy] = useState(false);
@@ -214,16 +279,19 @@ function EnrolModal({ venueToken, onClose, onDone }) {
   const tier = tiers.find((t) => t.tier_id === tierId);
   const cadences = (tier?.prices || []);
   const priceFor = cadences.find((p) => p.period === period);
+  const addingNew = !customerId;
 
   const submit = async () => {
     setBusy(true); setError(null);
     try {
       let cid = customerId;
-      if (!cid && newName.trim()) {
-        const r = await venueCreateCustomer(venueToken, { firstName: newName.trim() });
+      if (addingNew) {
+        const ve = regError(reg);
+        if (ve) { setError(ve); setBusy(false); return; }
+        const r = await venueCreateCustomer(venueToken, regTrimmed(reg));
         cid = r?.customer_id;
       }
-      if (!cid) { setError("Pick a person or enter a name."); setBusy(false); return; }
+      if (!cid) { setError("Pick a person or fill in the new-member details."); setBusy(false); return; }
       if (!tierId || !period) { setError("Pick a plan and a cadence."); setBusy(false); return; }
       await venueEnrolMembership(venueToken, cid, tierId, period);
       onDone();
@@ -236,15 +304,14 @@ function EnrolModal({ venueToken, onClose, onDone }) {
       <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Enrolling…" : priceFor ? `Enrol · ${poundsRound(priceFor.price_pence)}/${period}` : "Enrol"}</button></>
     }>
       <label className="field-label">Person</label>
-      <select className="input" value={customerId} onChange={(e) => { setCustomerId(e.target.value); setNewName(""); }}>
-        <option value="">— Select existing —</option>
-        {people.map((p) => <option key={p.id} value={p.id}>{fullName(p)}{p.email ? ` · ${p.email}` : ""}</option>)}
+      <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+        <option value="">— Add a new member —</option>
+        {people.filter((p) => p.status !== "erased").map((p) => <option key={p.id} value={p.id}>{fullName(p)}{p.email ? ` · ${p.email}` : ""}</option>)}
       </select>
-      {!customerId && (
-        <>
-          <div className="text-mute" style={{ fontSize: 12, margin: "8px 0 4px" }}>…or add a new person</div>
-          <input className="input" placeholder="Full name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-        </>
+      {addingNew && (
+        <div style={{ margin: "12px 0", paddingTop: 4, borderTop: "1px solid var(--border)" }}>
+          <RegistrationFields reg={reg} setReg={setReg} />
+        </div>
       )}
       <label className="field-label" style={{ marginTop: 14 }}>Plan</label>
       <select className="input" value={tierId} onChange={(e) => { setTierId(e.target.value); setPeriod(""); }}>
@@ -267,6 +334,134 @@ function EnrolModal({ venueToken, onClose, onDone }) {
           )}
         </>
       )}
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+// Shared 360Player-style registration field-set (mig 282). Controlled by a `reg`
+// object (camelCase keys matching the venueCreateCustomer/venueUpdateCustomer
+// wrappers). Guardian section appears only for under-18s; medical-consent only
+// when a medical field is filled.
+function RegistrationFields({ reg, setReg }) {
+  const set = (k) => (e) => setReg((p) => ({ ...p, [k]: e.target.value }));
+  const chk = (k) => (e) => setReg((p) => ({ ...p, [k]: e.target.checked }));
+  const age = ageFromDob(reg.dob);
+  const isMinor = age !== null && age < 18;
+  const hasMedical = !!(reg.medicalConditions?.trim() || reg.allergies?.trim() || reg.medications?.trim() || reg.gpDetails?.trim());
+  const two = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 };
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 6px" };
+
+  return (
+    <div>
+      <div style={head}>Details</div>
+      <div style={two}>
+        <input className="input" placeholder="First name *" value={reg.firstName} onChange={set("firstName")} maxLength={80} />
+        <input className="input" placeholder="Last name" value={reg.lastName} onChange={set("lastName")} maxLength={80} />
+      </div>
+      <div style={{ ...two, marginTop: 8 }}>
+        <input className="input" type="date" value={reg.dob} onChange={set("dob")} title="Date of birth" />
+        <input className="input" placeholder="Gender" value={reg.gender} onChange={set("gender")} maxLength={40} />
+      </div>
+      <div style={{ ...two, marginTop: 8 }}>
+        <input className="input" type="email" placeholder="Email" value={reg.email} onChange={set("email")} maxLength={160} />
+        <input className="input" type="tel" placeholder="Phone" value={reg.phone} onChange={set("phone")} maxLength={30} />
+      </div>
+
+      <div style={head}>Address</div>
+      <input className="input" placeholder="Address line 1" value={reg.addressLine1} onChange={set("addressLine1")} maxLength={120} />
+      <input className="input" placeholder="Address line 2" value={reg.addressLine2} onChange={set("addressLine2")} maxLength={120} style={{ marginTop: 8 }} />
+      <div style={{ ...two, marginTop: 8 }}>
+        <input className="input" placeholder="Town / city" value={reg.addressCity} onChange={set("addressCity")} maxLength={80} />
+        <input className="input" placeholder="Postcode" value={reg.addressPostcode} onChange={set("addressPostcode")} maxLength={12} />
+      </div>
+
+      <div style={head}>Emergency contact</div>
+      <input className="input" placeholder="Name" value={reg.emergencyName} onChange={set("emergencyName")} maxLength={120} />
+      <div style={{ ...two, marginTop: 8 }}>
+        <input className="input" placeholder="Relationship" value={reg.emergencyRelationship} onChange={set("emergencyRelationship")} maxLength={60} />
+        <input className="input" type="tel" placeholder="Phone" value={reg.emergencyPhone} onChange={set("emergencyPhone")} maxLength={30} />
+      </div>
+
+      <div style={head}>Medical &amp; safeguarding (optional)</div>
+      <input className="input" placeholder="Medical conditions" value={reg.medicalConditions} onChange={set("medicalConditions")} maxLength={300} />
+      <input className="input" placeholder="Allergies" value={reg.allergies} onChange={set("allergies")} maxLength={300} style={{ marginTop: 8 }} />
+      <input className="input" placeholder="Medications" value={reg.medications} onChange={set("medications")} maxLength={300} style={{ marginTop: 8 }} />
+      <input className="input" placeholder="GP / doctor details" value={reg.gpDetails} onChange={set("gpDetails")} maxLength={200} style={{ marginTop: 8 }} />
+
+      {isMinor && (
+        <>
+          <div style={head}>Parent / guardian (required — under 18)</div>
+          <input className="input" placeholder="Guardian name *" value={reg.guardianName} onChange={set("guardianName")} maxLength={120} />
+          <div style={{ ...two, marginTop: 8 }}>
+            <input className="input" placeholder="Relationship" value={reg.guardianRelationship} onChange={set("guardianRelationship")} maxLength={60} />
+            <input className="input" type="tel" placeholder="Phone *" value={reg.guardianPhone} onChange={set("guardianPhone")} maxLength={30} />
+          </div>
+          <input className="input" type="email" placeholder="Guardian email" value={reg.guardianEmail} onChange={set("guardianEmail")} maxLength={160} style={{ marginTop: 8 }} />
+        </>
+      )}
+
+      <div style={head}>Consent</div>
+      <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, cursor: "pointer", marginBottom: 6 }}>
+        <input type="checkbox" checked={reg.consentDataProcessing} onChange={chk("consentDataProcessing")} />
+        <span>Consent to store &amp; process personal data for membership admin. <strong>(required)</strong></span>
+      </label>
+      <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, cursor: "pointer", marginBottom: 6 }}>
+        <input type="checkbox" checked={reg.consentTerms} onChange={chk("consentTerms")} />
+        <span>Agrees to membership terms &amp; code of conduct. <strong>(required)</strong></span>
+      </label>
+      <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, cursor: "pointer", marginBottom: 6 }}>
+        <input type="checkbox" checked={reg.consentPhoto} onChange={chk("consentPhoto")} />
+        <span>Consent to photos/video at events.</span>
+      </label>
+      {hasMedical && (
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, cursor: "pointer", marginBottom: 6 }}>
+          <input type="checkbox" checked={reg.consentMedical} onChange={chk("consentMedical")} />
+          <span>Consent to store the medical information above. <strong>(required)</strong></span>
+        </label>
+      )}
+      <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, cursor: "pointer" }}>
+        <input type="checkbox" checked={reg.consentMarketing} onChange={chk("consentMarketing")} />
+        <span>Happy to receive membership offers &amp; event news.</span>
+      </label>
+    </div>
+  );
+}
+
+// View / edit a member's full registration record (mig 282). Loads the person
+// from venue_list_customers_people (the now-richer people directory) by id,
+// edits via venue_update_customer (partial — blanks leave fields unchanged).
+function ProfileModal({ venueToken, customerId, name, onClose, onDone }) {
+  const [reg, setReg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let a = true;
+    venueListCustomersPeople(venueToken, true)
+      .then((rows) => {
+        const p = (rows || []).find((x) => x.id === customerId);
+        if (a) setReg(p ? personToReg(p) : EMPTY_REG);
+      })
+      .catch((e) => { if (a) setError(e?.message || String(e)); });
+    return () => { a = false; };
+  }, [venueToken, customerId]);
+
+  const save = async () => {
+    setBusy(true); setError(null);
+    try {
+      await venueUpdateCustomer(venueToken, customerId, regTrimmed(reg));
+      onDone();
+    } catch (e) { setError(errLabel(e)); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={`${name || "Member"} — details`} foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Close</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={save} disabled={busy || !reg}>{busy ? "Saving…" : "Save changes"}</button></>
+    }>
+      {!reg && !error && <p className="text-mute" style={{ fontSize: 13 }}>Loading…</p>}
+      {reg && <RegistrationFields reg={reg} setReg={setReg} />}
       {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
     </Modal>
   );

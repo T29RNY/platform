@@ -50,6 +50,9 @@ function Styles() {
       .vl-ghost { background: transparent; color: var(--t2); border: 1px solid rgba(255,255,255,0.14); }
       .vl-consent { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0 0; color: var(--t2); font-size: 13px; line-height: 1.4; cursor: pointer; }
       .vl-consent input { margin-top: 2px; }
+      .vl-section { font-family: "Bebas Neue", sans-serif; font-size: 18px; letter-spacing: 0.5px; margin: 22px 0 2px; color: var(--t2); }
+      .vl-hint { color: var(--t3); font-size: 12px; margin: 2px 0 0; line-height: 1.4; }
+      .vl-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
       .vl-tier { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; text-align: left;
         padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
         color: var(--t1); font-family: "DM Sans", sans-serif; font-size: 15px; cursor: pointer; }
@@ -113,27 +116,71 @@ const tierPrice = (t) => {
   return monthly ? `£${(monthly.price_pence / 100).toFixed(monthly.price_pence % 100 ? 2 : 0)}/${monthly.period === "monthly" ? "mo" : monthly.period}` : "";
 };
 
+// age in whole years from a YYYY-MM-DD string (empty/invalid → null)
+function ageFromDob(dob) {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+  return a;
+}
+
+const EMPTY_FORM = {
+  first: "", last: "", email: "", phone: "", dob: "", gender: "",
+  addr1: "", addr2: "", city: "", postcode: "",
+  emName: "", emRel: "", emPhone: "",
+  medConditions: "", allergies: "", medications: "", gp: "",
+  gName: "", gRel: "", gPhone: "", gEmail: "",
+  consentData: false, consentTerms: false, consentPhoto: false, consentMedical: false,
+  consentMarketing: false,
+};
+
 function MemberSignupForm({ code, tiers, onDone }) {
   const [tierId, setTierId] = useState(tiers.length === 1 ? tiers[0].tier_id : "");
-  const [f, setF]         = useState({ first: "", last: "", email: "", phone: "", consent: false });
+  const [f, setF]         = useState(EMPTY_FORM);
   const [busy, setBusy]   = useState(false);
   const [error, setError] = useState(null);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const chk = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.checked }));
   const selectedTier = tiers.find((t) => t.tier_id === tierId) || null;
+
+  const age = ageFromDob(f.dob);
+  const isMinor = age !== null && age < 18;
+  const hasMedical = !!(f.medConditions.trim() || f.allergies.trim() || f.medications.trim() || f.gp.trim());
 
   const submit = async () => {
     if (!f.first.trim()) { setError("Your first name is required."); return; }
     if (tiers.length > 0 && !tierId) { setError("Please choose a membership."); return; }
+    if (!f.consentData || !f.consentTerms) { setError("Please agree to the data-protection and membership terms."); return; }
+    if (isMinor && (!f.gName.trim() || !f.gPhone.trim())) { setError("A parent/guardian name and phone are required for under-18s."); return; }
+    if (hasMedical && !f.consentMedical) { setError("Please confirm consent to store the medical information you've entered."); return; }
     setBusy(true); setError(null);
     try {
       const r = await memberSelfSignup(code, {
         firstName: f.first.trim(), lastName: f.last.trim() || null,
         email: f.email.trim() || null, phone: f.phone.trim() || null,
-        consentMarketing: f.consent, tierId: tierId || null,
+        consentMarketing: f.consentMarketing, tierId: tierId || null,
+        dob: f.dob || null, gender: f.gender.trim() || null,
+        addressLine1: f.addr1.trim() || null, addressLine2: f.addr2.trim() || null,
+        addressCity: f.city.trim() || null, addressPostcode: f.postcode.trim() || null,
+        emergencyName: f.emName.trim() || null, emergencyRelationship: f.emRel.trim() || null,
+        emergencyPhone: f.emPhone.trim() || null,
+        medicalConditions: f.medConditions.trim() || null, allergies: f.allergies.trim() || null,
+        medications: f.medications.trim() || null, gpDetails: f.gp.trim() || null,
+        guardianName: f.gName.trim() || null, guardianRelationship: f.gRel.trim() || null,
+        guardianPhone: f.gPhone.trim() || null, guardianEmail: f.gEmail.trim() || null,
+        consentDataProcessing: f.consentData, consentTerms: f.consentTerms,
+        consentPhoto: f.consentPhoto, consentMedical: f.consentMedical,
       });
       if (!r?.ok) {
         setError(r?.reason === "tier_unavailable" ? "That membership isn't available — pick another."
           : r?.reason === "first_name_required" ? "Your first name is required."
+          : r?.reason === "consent_required" ? "Please agree to the data-protection and membership terms."
+          : r?.reason === "guardian_required" ? "A parent/guardian name and phone are required for under-18s."
+          : r?.reason === "medical_consent_required" ? "Please confirm consent to store the medical information you've entered."
           : "Couldn't submit your request. Please try again.");
         return;
       }
@@ -162,20 +209,121 @@ function MemberSignupForm({ code, tiers, onDone }) {
           </div>
         </>
       )}
-      <label className="vl-field-label">First name</label>
-      <input className="vl-input" value={f.first} onChange={set("first")} placeholder="Your first name" maxLength={80} />
-      <label className="vl-field-label">Last name (optional)</label>
-      <input className="vl-input" value={f.last} onChange={set("last")} placeholder="Your last name" maxLength={80} />
+
+      <p className="vl-section">Your details</p>
+      <div className="vl-two">
+        <div>
+          <label className="vl-field-label">First name</label>
+          <input className="vl-input" value={f.first} onChange={set("first")} placeholder="First name" maxLength={80} />
+        </div>
+        <div>
+          <label className="vl-field-label">Last name</label>
+          <input className="vl-input" value={f.last} onChange={set("last")} placeholder="Last name" maxLength={80} />
+        </div>
+      </div>
+      <div className="vl-two">
+        <div>
+          <label className="vl-field-label">Date of birth</label>
+          <input className="vl-input" type="date" value={f.dob} onChange={set("dob")} />
+        </div>
+        <div>
+          <label className="vl-field-label">Gender (optional)</label>
+          <input className="vl-input" value={f.gender} onChange={set("gender")} placeholder="e.g. Female" maxLength={40} />
+        </div>
+      </div>
       <label className="vl-field-label">Email (optional)</label>
       <input className="vl-input" type="email" value={f.email} onChange={set("email")} placeholder="you@example.com" maxLength={160} />
       <label className="vl-field-label">Phone (optional)</label>
       <input className="vl-input" type="tel" value={f.phone} onChange={set("phone")} placeholder="07…" maxLength={30} />
+
+      <p className="vl-section">Address</p>
+      <label className="vl-field-label">Address line 1</label>
+      <input className="vl-input" value={f.addr1} onChange={set("addr1")} placeholder="House / street" maxLength={120} />
+      <label className="vl-field-label">Address line 2 (optional)</label>
+      <input className="vl-input" value={f.addr2} onChange={set("addr2")} maxLength={120} />
+      <div className="vl-two">
+        <div>
+          <label className="vl-field-label">Town / city</label>
+          <input className="vl-input" value={f.city} onChange={set("city")} maxLength={80} />
+        </div>
+        <div>
+          <label className="vl-field-label">Postcode</label>
+          <input className="vl-input" value={f.postcode} onChange={set("postcode")} maxLength={12} />
+        </div>
+      </div>
+
+      <p className="vl-section">Emergency contact</p>
+      <label className="vl-field-label">Name</label>
+      <input className="vl-input" value={f.emName} onChange={set("emName")} placeholder="Contact name" maxLength={120} />
+      <div className="vl-two">
+        <div>
+          <label className="vl-field-label">Relationship</label>
+          <input className="vl-input" value={f.emRel} onChange={set("emRel")} placeholder="e.g. Partner" maxLength={60} />
+        </div>
+        <div>
+          <label className="vl-field-label">Phone</label>
+          <input className="vl-input" type="tel" value={f.emPhone} onChange={set("emPhone")} placeholder="07…" maxLength={30} />
+        </div>
+      </div>
+
+      <p className="vl-section">Medical &amp; safeguarding</p>
+      <p className="vl-hint">Optional — but anything you share is treated as sensitive data and only used to keep you safe.</p>
+      <label className="vl-field-label">Medical conditions</label>
+      <input className="vl-input" value={f.medConditions} onChange={set("medConditions")} maxLength={300} />
+      <label className="vl-field-label">Allergies</label>
+      <input className="vl-input" value={f.allergies} onChange={set("allergies")} maxLength={300} />
+      <label className="vl-field-label">Medications</label>
+      <input className="vl-input" value={f.medications} onChange={set("medications")} maxLength={300} />
+      <label className="vl-field-label">GP / doctor details</label>
+      <input className="vl-input" value={f.gp} onChange={set("gp")} maxLength={200} />
+
+      {isMinor && (
+        <>
+          <p className="vl-section">Parent / guardian</p>
+          <p className="vl-hint">Required because the member is under 18.</p>
+          <label className="vl-field-label">Guardian name</label>
+          <input className="vl-input" value={f.gName} onChange={set("gName")} maxLength={120} />
+          <div className="vl-two">
+            <div>
+              <label className="vl-field-label">Relationship</label>
+              <input className="vl-input" value={f.gRel} onChange={set("gRel")} placeholder="e.g. Mother" maxLength={60} />
+            </div>
+            <div>
+              <label className="vl-field-label">Phone</label>
+              <input className="vl-input" type="tel" value={f.gPhone} onChange={set("gPhone")} placeholder="07…" maxLength={30} />
+            </div>
+          </div>
+          <label className="vl-field-label">Guardian email (optional)</label>
+          <input className="vl-input" type="email" value={f.gEmail} onChange={set("gEmail")} maxLength={160} />
+        </>
+      )}
+
+      <p className="vl-section">Consent</p>
       <label className="vl-consent">
-        <input type="checkbox" checked={f.consent} onChange={(e) => setF((p) => ({ ...p, consent: e.target.checked }))} />
+        <input type="checkbox" checked={f.consentData} onChange={chk("consentData")} />
+        <span>I consent to the venue storing and processing my personal data for membership administration. <strong>(required)</strong></span>
+      </label>
+      <label className="vl-consent">
+        <input type="checkbox" checked={f.consentTerms} onChange={chk("consentTerms")} />
+        <span>I agree to the membership terms and code of conduct. <strong>(required)</strong></span>
+      </label>
+      <label className="vl-consent">
+        <input type="checkbox" checked={f.consentPhoto} onChange={chk("consentPhoto")} />
+        <span>I consent to photos/video being taken at events for club use.</span>
+      </label>
+      {hasMedical && (
+        <label className="vl-consent">
+          <input type="checkbox" checked={f.consentMedical} onChange={chk("consentMedical")} />
+          <span>I consent to the club storing the medical information above. <strong>(required)</strong></span>
+        </label>
+      )}
+      <label className="vl-consent">
+        <input type="checkbox" checked={f.consentMarketing} onChange={chk("consentMarketing")} />
         <span>Keep me updated about membership offers and events.</span>
       </label>
+
       {error && <p className="vl-msg--err">{error}</p>}
-      <button className="vl-cta" onClick={submit} disabled={busy} style={{ marginTop: 12 }}>
+      <button className="vl-cta" onClick={submit} disabled={busy} style={{ marginTop: 16 }}>
         {busy ? "Submitting…" : selectedTier?.is_free ? "Join now" : "Request membership"}
       </button>
     </>

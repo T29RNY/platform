@@ -2916,24 +2916,52 @@ export async function venueListCustomersPeople(venueToken, includeErased = false
   return data?.customers ?? [];
 }
 
+// Shared 360Player-style registration fields (mig 282) → p_* params. Used by
+// venueCreateCustomer / venueUpdateCustomer / memberSelfSignup so the three
+// write paths stay in lockstep. Any field left undefined maps to null.
+function registrationParams(r = {}) {
+  const n = (v) => (v === undefined ? null : v);
+  return {
+    p_gender: n(r.gender),
+    p_address_line1: n(r.addressLine1), p_address_line2: n(r.addressLine2),
+    p_address_city: n(r.addressCity),   p_address_postcode: n(r.addressPostcode),
+    p_emergency_name: n(r.emergencyName), p_emergency_relationship: n(r.emergencyRelationship),
+    p_emergency_phone: n(r.emergencyPhone),
+    p_medical_conditions: n(r.medicalConditions), p_allergies: n(r.allergies),
+    p_medications: n(r.medications), p_gp_details: n(r.gpDetails),
+    p_guardian_name: n(r.guardianName), p_guardian_relationship: n(r.guardianRelationship),
+    p_guardian_phone: n(r.guardianPhone), p_guardian_email: n(r.guardianEmail),
+    p_consent_data_processing: n(r.consentDataProcessing),
+    p_consent_terms: n(r.consentTerms),
+    p_consent_photo: n(r.consentPhoto),
+    p_consent_medical: n(r.consentMedical),
+  };
+}
+
 // Create a person (gated: manage_memberships). Throws 'customer_exists' (existing
-// id in error DETAIL) on email de-dup; 'first_name_required' on blank name.
-export async function venueCreateCustomer(venueToken, { firstName, lastName = null, email = null, phone = null, dob = null, householdId = null, consentMarketing = false }) {
+// id in error DETAIL) on email de-dup; 'first_name_required' on blank name;
+// 'consent_required' / 'guardian_required' / 'medical_consent_required' on the
+// registration gates (mig 282).
+export async function venueCreateCustomer(venueToken, reg = {}) {
+  const { firstName, lastName = null, email = null, phone = null, dob = null, householdId = null, consentMarketing = false } = reg;
   const { data, error } = await supabase.rpc("venue_create_customer", {
     p_venue_token: venueToken, p_first_name: firstName, p_last_name: lastName,
     p_email: email, p_phone: phone, p_dob: dob, p_household_id: householdId,
     p_consent_marketing: consentMarketing,
+    ...registrationParams(reg),
   });
   if (error) { console.error("[membership] venue_create_customer failed", error); throw error; }
   return data;
 }
 
 // Partial update — a null field is left UNCHANGED. (gated: manage_memberships)
-export async function venueUpdateCustomer(venueToken, customerId, { firstName = null, lastName = null, email = null, phone = null, dob = null, householdId = null, consentMarketing = null, notes = null } = {}) {
+export async function venueUpdateCustomer(venueToken, customerId, reg = {}) {
+  const { firstName = null, lastName = null, email = null, phone = null, dob = null, householdId = null, consentMarketing = null, notes = null } = reg;
   const { data, error } = await supabase.rpc("venue_update_customer", {
     p_venue_token: venueToken, p_customer_id: customerId, p_first_name: firstName,
     p_last_name: lastName, p_email: email, p_phone: phone, p_dob: dob,
     p_household_id: householdId, p_consent_marketing: consentMarketing, p_notes: notes,
+    ...registrationParams(reg),
   });
   if (error) { console.error("[membership] venue_update_customer failed", error); throw error; }
   return data;
@@ -3063,10 +3091,13 @@ export async function memberCheckIn(displayToken, passToken) {
 // venue's /q/<code> landing taps "Join as a member"; this creates a `pending`
 // venue_customers person the venue then approves. Idempotent on email. Returns
 // {ok, already_registered, status} or {ok:false, reason}.
-export async function memberSelfSignup(code, { firstName, lastName = null, email = null, phone = null, consentMarketing = false, tierId = null }) {
+export async function memberSelfSignup(code, reg = {}) {
+  const { firstName, lastName = null, email = null, phone = null, consentMarketing = false, tierId = null, dob = null } = reg;
   const { data, error } = await supabase.rpc("member_self_signup", {
     p_code: code, p_first_name: firstName, p_last_name: lastName,
     p_email: email, p_phone: phone, p_consent_marketing: consentMarketing, p_tier_id: tierId,
+    p_dob: dob,
+    ...registrationParams(reg),
   });
   if (error) { console.error("[membership] member_self_signup failed", error); throw error; }
   return data;

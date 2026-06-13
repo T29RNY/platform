@@ -540,7 +540,7 @@ Venue-domain, RLS-walled, RPC-only. Never cross the casual↔venue wall.
      mig 280: + requested_tier_id uuid →venue_membership_tiers (which paid tier a
      pending self-signup asked for; cleared on approve-and-enrol). Tier free/signup
      flags live on venue_membership_tiers.benefits jsonb: is_free, self_signup. -->
-### venue_customers (mig 270, Phase 2; +`pending` status mig 275; +`requested_tier_id` mig 280) — per-person/family identity
+### venue_customers (mig 270, Phase 2; +`pending` status mig 275; +`requested_tier_id` mig 280; +360Player registration fields mig 282) — per-person/family identity
 
 The venue domain's first **person** entity (before this, customers were
 *derived* from `pitch_bookings`). Backs per-person memberships.
@@ -556,15 +556,31 @@ The venue domain's first **person** entity (before this, customers were
 | `dob` | date NULL | junior pricing + age-up |
 | `household_id` | uuid NULL | shared uuid groups a family; NULL = none |
 | `status` | text NOT NULL | `active`/`archived`/`erased` (DEFAULT active) |
-| `consent_marketing` | boolean NOT NULL | DEFAULT false (+ `consent_at`) |
-| `consent_at` | timestamptz NULL | set when consent first granted |
 | `notes` | text NULL | |
 | `created_at`/`updated_at` | timestamptz NOT NULL | DEFAULT now() |
+| **mig 282 — identity** | | |
+| `gender` | text NULL | |
+| `address_line1`/`address_line2`/`address_city`/`address_postcode` | text NULL | structured address (postcode queryable for catchment/exports) |
+| **mig 282 — emergency contact** | | |
+| `emergency_name`/`emergency_relationship`/`emergency_phone` | text NULL | |
+| **mig 282 — medical (special category)** | | |
+| `medical_conditions`/`allergies`/`medications`/`gp_details` | text NULL | gated behind `consent_medical` |
+| **mig 282 — guardian (under-18s)** | | |
+| `guardian_name`/`guardian_relationship`/`guardian_phone`/`guardian_email` | text NULL | name+phone required if `dob` < 18y |
+| **mig 282 — consents** (each a bool + `_at` pair) | | |
+| `consent_marketing` + `consent_at` | bool/ts | DEFAULT false; existing |
+| `consent_data_processing` + `_at` | bool/ts | **required to submit** (GDPR lawful basis) |
+| `consent_terms` + `_at` | bool/ts | **required to submit** (code of conduct) |
+| `consent_photo` + `_at` | bool/ts | optional (media/photography) |
+| `consent_medical` + `_at` | bool/ts | optional, **required if any medical field filled** |
 
+- Each consent `_at` is stamped only when its boolean goes true (false→true).
 - Partial UNIQUE `(venue_id, lower(email)) WHERE email IS NOT NULL AND status
   <> 'erased'` — one live person per venue-email; a scrub frees the slot.
-- **GDPR:** `venue_erase_customer` scrubs all PII but KEEPS the row
-  (`status='erased'`) so membership/charge history stays referentially intact.
+- **GDPR:** `venue_erase_customer` scrubs ALL PII (incl. every mig-282 column)
+  but KEEPS the row (`status='erased'`) so membership/charge history stays
+  referentially intact. Audit metadata stores FLAGS (is_minor/has_medical/consent
+  bools) never the PII itself.
 - RPCs: `venue_create_customer` / `venue_update_customer` /
   `venue_erase_customer` (writes, gated `manage_memberships`) +
   `venue_list_customers_people` (read, any member). See RPCS.md.
