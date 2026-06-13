@@ -113,6 +113,17 @@ Modules above a SKU's base (extra reception screens, advanced
 membership, tournament engine) are **add-ons** — the upsell lever the
 toggle architecture already supports.
 
+**The Club/Org wedge is attendance, not admin.** A club's sharpest daily
+pain is "who's actually turning up to training / the match?" — today a
+WhatsApp-group mess of half-answers and untrusted headcounts. Our core
+**In or Out availability primitive already solves this** for casual and
+league play; extending it to club training sessions and fixtures (where a
+**parent declares their child in or out**) is the WhatsApp-killer that
+makes the Club/Org SKU sticky — membership/admin is the system of record,
+but attendance is what they open the app for every week. This is the
+centrepiece the Membership V2 epic builds toward (see
+`MEMBERSHIP_V2_HANDOFF.md`, Phase 10).
+
 **Positioning rule unchanged: sell the OUTCOME, not the system.** We do
 not pitch "a sports operating system" just because we built one (the
 thesis above still holds: the platform emerges from adoption, it is not
