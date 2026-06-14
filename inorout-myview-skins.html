@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>In or Out — MY VIEW · same bones, 3 skins</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:#050504;font-family:'DM Sans',-apple-system,sans-serif;color:#F2F0EA}
+  body{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;align-items:flex-start;padding:34px 14px 70px}
+  .stage{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .stage h2{font-family:'Bebas Neue';font-size:21px;letter-spacing:.05em;font-weight:400}
+  .stage .sub{font-size:11px;color:#8A877E;max-width:300px;text-align:center;line-height:1.5;min-height:30px}
+  .phone{width:380px;height:780px;border-radius:42px;overflow:hidden;position:relative;
+    box-shadow:0 0 0 9px #0d0d0b,0 26px 60px rgba(0,0,0,.7)}
+  .phone .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:114px;height:24px;background:#000;border-radius:13px;z-index:50}
+  .screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:48px 15px 90px;scrollbar-width:none}
+  .screen::-webkit-scrollbar{display:none}
+  #root{display:contents}
+  .banner{width:100%;text-align:center;font-size:12px;color:#8A877E;margin-bottom:6px;line-height:1.6}
+  .banner b{color:#E8A020}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import React,{useState} from 'https://esm.sh/react@18.3.1';
+import {createRoot} from 'https://esm.sh/react-dom@18.3.1/client';
+import {motion,AnimatePresence,LayoutGroup,useMotionValue,animate} from 'https://esm.sh/framer-motion@11.15.0?deps=react@18.3.1,react-dom@18.3.1';
+const h=React.createElement;
+const spring={type:'spring',stiffness:520,damping:30,mass:.7};
+const soft={type:'spring',stiffness:300,damping:26};
+
+const Ico=({size=18,fill='none',sw=1.4,color='currentColor',children})=>h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill,stroke:color,strokeWidth:sw,strokeLinecap:'round',strokeLinejoin:'round'},children);
+const ICheck=p=>h(Ico,{...p},h('path',{d:'M20 6 9 17l-5-5'}));
+const ICross=p=>h(Ico,{...p},h('path',{d:'M18 6 6 18M6 6l12 12'}));
+const IMaybe=p=>h(Ico,{...p},h('circle',{cx:12,cy:12,r:9.5}),h('path',{d:'M9.1 9a3 3 0 1 1 5.8 1c0 2-3 2.5-3 4'}),h('path',{d:'M12 17h.01'}));
+const IDown=p=>h(Ico,{...p},h('path',{d:'M12 5v14M19 12l-7 7-7-7'}));
+const IClock=p=>h(Ico,{...p},h('circle',{cx:12,cy:12,r:9}),h('path',{d:'M12 7v5l3 2'}));
+const IPin=p=>h(Ico,{...p},h('path',{d:'M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z'}),h('circle',{cx:12,cy:10,r:2.4}));
+const ICal=p=>h(Ico,{...p},h('rect',{x:3,y:4.5,width:18,height:16,rx:2}),h('path',{d:'M3 9h18M8 2.5v4M16 2.5v4'}));
+const IPencil=p=>h(Ico,{...p},h('path',{d:'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z'}));
+const IPlus=p=>h(Ico,{...p},h('path',{d:'M12 5v14M5 12h14'}));
+const IInjury=p=>h(Ico,{...p},h('rect',{x:3,y:8,width:18,height:8,rx:4}),h('path',{d:'M9 8v8M15 8v8'}));
+const IWhats=p=>h(Ico,{...p},h('path',{d:'M12 3a9 9 0 0 0-7.7 13.6L3 21l4.5-1.2A9 9 0 1 0 12 3Z'}));
+
+// ---------- THEMES: same bones, different look ----------
+const THEMES={
+  midnight:{
+    name:'Midnight Gold', tag:'Refined version of today — layered dark, soft glow, premium gold',
+    bg:'#0A0A08', s1:'#15140F', s2:'#1E1C16', s3:'#26241C',
+    t1:'#F4F1E8', t2:'#CFC9BC', t3:'#8C887C',
+    gold:'#E8A020', green:'#3DDC6A', red:'#FF4646', amber:'#FFB020', purple:'#B060F0',
+    rcard:16, rbtn:12, frame:'#0A0A08',
+    card:{background:'linear-gradient(180deg,#17160F,#121009)',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 1px 0 rgba(255,255,255,.04) inset, 0 10px 30px rgba(0,0,0,.4)'},
+    hero:'linear-gradient(150deg,#16301f,#0c150f 70%)',
+    wordmark:{a:'#3DDC6A',b:'#FF4646'},
+  },
+  floodlit:{
+    name:'Floodlit', tag:'Cool blue-black under stadium lights, electric green, glassy crisp cards',
+    bg:'#070A0F', s1:'#0E141C', s2:'#141C28', s3:'#1B2533',
+    t1:'#EAF1FA', t2:'#AEBACB', t3:'#6B7689',
+    gold:'#FFC53D', green:'#34E27A', red:'#FF5470', amber:'#FFC53D', purple:'#9D7BFF',
+    rcard:14, rbtn:10, frame:'#070A0F',
+    card:{background:'rgba(255,255,255,.045)',border:'1px solid rgba(255,255,255,.10)',backdropFilter:'blur(8px)',boxShadow:'0 8px 24px rgba(0,0,0,.5)'},
+    hero:'linear-gradient(150deg,#103a2a,#0a1f3a 75%)',
+    wordmark:{a:'#34E27A',b:'#FF5470'},
+  },
+  pitch:{
+    name:'Warm Pitch', tag:'Warm charcoal, cream type, grass-green & amber, softer & rounder — club clubhouse feel',
+    bg:'#14110C', s1:'#1E1A12', s2:'#272218', s3:'#322B1F',
+    t1:'#F6EFE0', t2:'#D8CDB6', t3:'#9A8E76',
+    gold:'#F0A93A', green:'#5BD06A', red:'#F56B5B', amber:'#F0A93A', purple:'#C07BE8',
+    rcard:20, rbtn:16, frame:'#14110C',
+    card:{background:'#1E1A12',border:'1px solid rgba(255,255,255,.07)',boxShadow:'0 10px 26px rgba(0,0,0,.35)'},
+    hero:'linear-gradient(150deg,#2a3a1c,#1a2113 72%)',
+    wordmark:{a:'#5BD06A',b:'#F56B5B'},
+  },
+};
+
+function Ring({value,total,T}){
+  const pct=value/total;
+  const r=22,c=2*Math.PI*r;
+  return h('div',{style:{position:'relative',width:58,height:58,display:'grid',placeItems:'center'}},
+    h('svg',{width:58,height:58,style:{position:'absolute',transform:'rotate(-90deg)'}},
+      h('circle',{cx:29,cy:29,r,fill:'none',stroke:'rgba(255,255,255,.10)',strokeWidth:4}),
+      h(motion.circle,{cx:29,cy:29,r,fill:'none',stroke:T.gold,strokeWidth:4,strokeLinecap:'round',
+        strokeDasharray:c, initial:{strokeDashoffset:c}, animate:{strokeDashoffset:c*(1-pct)},transition:soft})),
+    h('div',{style:{textAlign:'center',lineHeight:1}},
+      h('div',{style:{fontFamily:'Bebas Neue',fontSize:24,color:T.t1}},value),
+      h('div',{style:{fontSize:8,letterSpacing:'.12em',color:T.t3,marginTop:1}},'OF '+total)));
+}
+
+const RSVP=[
+  {k:'in',l:'IN',Ic:ICheck,col:'green'},
+  {k:'out',l:'OUT',Ic:ICross,col:'red'},
+  {k:'maybe',l:'MAYBE',Ic:IMaybe,col:'amber'},
+  {k:'reserve',l:'RESERVE',Ic:IDown,col:'purple'},
+];
+
+function MyView({T}){
+  const [pick,setPick]=useState(null);
+  const confirmed=(pick==='in')?5:4;
+  const sub=(c)=>({green:T.green,red:T.red,amber:T.amber,purple:T.purple}[c]);
+  function alpha(hex,a){return hex;} // themes already provide solid; we wrap with rgba via shadow
+
+  const Card=(props,...kids)=>h('div',{style:{borderRadius:T.rcard,...T.card,...(props.style||{})}},...kids);
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:13}},
+    // ---- header (same as today: badge, team, ring) ----
+    h('div',{style:{display:'flex',alignItems:'flex-start',gap:10}},
+      h('div',null,
+        h('div',{style:{display:'flex',alignItems:'center',gap:9}},
+          h('div',{style:{width:30,height:30,borderRadius:'50%',background:T.s3,display:'grid',placeItems:'center',
+            fontFamily:'Bebas Neue',fontSize:13,color:T.gold,border:'1px solid rgba(255,255,255,.1)'}},'HA'),
+          h('div',{style:{fontSize:11,letterSpacing:'.16em',color:T.t3,fontWeight:600}},'FINBARS TUESDAYS')),
+        h('div',{style:{fontFamily:'Bebas Neue',fontSize:40,lineHeight:.92,marginTop:6}},
+          h('span',{style:{color:T.wordmark.a}},'IN '),h('span',{style:{color:T.t2}},'OR '),h('span',{style:{color:T.wordmark.b}},'OUT')),
+        h('div',{style:{display:'flex',gap:13,marginTop:6,fontSize:12,color:T.t2,alignItems:'center'}},
+          h('span',{style:{display:'flex',gap:5,alignItems:'center'}},h(ICal,{size:13,color:T.t3}),'Tuesday'),
+          h('span',{style:{display:'flex',gap:5,alignItems:'center'}},h(IPin,{size:13,color:T.t3}),'Finbars'),
+          h('span',{style:{display:'flex',gap:5,alignItems:'center'}},h(IClock,{size:13,color:T.t3}),'20:00')),
+        h('div',{style:{display:'flex',gap:8,marginTop:7,alignItems:'center'}},
+          h('span',{style:{display:'flex',gap:6,alignItems:'center',fontSize:11,color:T.green}},
+            h(motion.span,{animate:{opacity:[1,.3,1]},transition:{repeat:Infinity,duration:1.8},style:{width:6,height:6,borderRadius:'50%',background:T.green}}),'GAME OPEN'),
+          h('span',{style:{width:24,height:24,borderRadius:7,background:T.s3,display:'grid',placeItems:'center'}},h(IWhats,{size:13,color:T.green})))),
+      h('div',{style:{marginLeft:'auto'}},h(Ring,{value:confirmed,total:14,T}))),
+
+    // ---- hero banner (THIS WEEK / TUESDAY NIGHT FOOTBALL) ----
+    h('div',{style:{position:'relative',borderRadius:T.rcard,overflow:'hidden',border:'1px solid rgba(255,255,255,.08)',
+        background:T.hero,padding:'14px 16px 16px'}},
+      h('div',{style:{position:'absolute',inset:0,opacity:.12,background:'radial-gradient(circle at 70% 130%, '+T.green+' 0, transparent 45%)'}}),
+      h('div',{style:{position:'relative'}},
+        h('div',{style:{fontSize:9.5,letterSpacing:'.2em',color:T.gold,fontWeight:700}},'THIS WEEK'),
+        h('div',{style:{fontFamily:'Bebas Neue',fontSize:30,lineHeight:.95,marginTop:2}},
+          h('span',{style:{color:T.t1}},'TUESDAY NIGHT '),h('span',{style:{color:T.green}},'FOOTBALL')),
+        h('div',{style:{fontSize:12,color:T.t3,marginTop:6}},'£5 per player'))),
+
+    // ---- RSVP card: label + nothing owed, name + edit, 4 EQUAL buttons, add note ----
+    Card({},
+      h('div',{style:{padding:'13px 14px 14px'}},
+        h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center'}},
+          h('div',{style:{fontSize:10.5,letterSpacing:'.13em',color:T.t3,fontWeight:600}},'ARE YOU IN THIS TUESDAY?'),
+          h('div',{style:{display:'flex',gap:5,alignItems:'center',fontSize:11.5,color:T.green}},
+            h('span',{style:{width:7,height:7,borderRadius:'50%',background:T.green}}),'Nothing owed')),
+        h('div',{style:{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:12}},
+          h('div',{style:{fontFamily:'Bebas Neue',fontSize:26,color:T.t1}},'HASSAN'),
+          h(IPencil,{size:14,color:T.t3})),
+        // 4 equal buttons — SAME structure as today, with live selected state
+        h(LayoutGroup,null,
+          h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:8}},
+            RSVP.map(({k,l,Ic,col})=>{
+              const on=pick===k; const c=sub(col);
+              return h(motion.button,{key:k, whileTap:{scale:.93}, transition:spring,
+                onClick:()=>{setPick(p=>p===k?null:k); if(navigator.vibrate)navigator.vibrate(11);},
+                style:{position:'relative',height:62,borderRadius:T.rbtn,border:'none',cursor:'pointer',background:'transparent',
+                  display:'flex',flexDirection:'column',gap:5,alignItems:'center',justifyContent:'center',overflow:'hidden'}},
+                on && h(motion.div,{layoutId:'sel_'+k,transition:spring,style:{position:'absolute',inset:0,borderRadius:T.rbtn,
+                  background:c+'22', border:'1.5px solid '+c, boxShadow:'0 0 18px '+c+'33'}}),
+                !on && h('div',{style:{position:'absolute',inset:0,borderRadius:T.rbtn,background:T.s2,border:'1px solid rgba(255,255,255,.08)'}}),
+                h(motion.span,{style:{position:'relative'},animate:on?{scale:[0.7,1.2,1]}:{scale:1},transition:spring},h(Ic,{size:19,color:on?c:T.t3,sw:1.7})),
+                h('span',{style:{position:'relative',fontFamily:'Bebas Neue',fontSize:13,letterSpacing:'.04em',color:on?c:T.t2}},l));
+            }))),
+        h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:12,paddingTop:11,borderTop:'1px solid rgba(255,255,255,.06)'}},
+          h('span',{style:{display:'flex',gap:6,alignItems:'center',fontSize:12.5,color:T.t3}},h(IPencil,{size:13,color:T.t3}),'Add a note'),
+          h('span',{style:{fontSize:11,color:T.t3,fontStyle:'italic'}},'e.g. “5 mins late”')))),
+
+    // ---- Plus One / Injured (two equal cards, same as today) ----
+    h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
+      [['Plus one','Bring a guest',IPlus,T.gold],['Injured?','Mark yourself out',IInjury,T.red]].map(([t,s,Ic,c])=>
+        h(motion.button,{key:t,whileTap:{scale:.97},
+          style:{display:'flex',gap:10,alignItems:'center',padding:'12px 13px',borderRadius:T.rcard,...T.card,cursor:'pointer',textAlign:'left'}},
+          h('span',{style:{width:32,height:32,borderRadius:9,background:T.s3,display:'grid',placeItems:'center'}},h(Ic,{size:16,color:c})),
+          h('span',{style:{display:'flex',flexDirection:'column'}},
+            h('span',{style:{fontSize:13,color:T.t1,fontWeight:600}},t),
+            h('span',{style:{fontSize:11,color:T.t3}},s))))),
+
+    // ---- LIVE BOARD (same as today) ----
+    h('div',null,
+      h('div',{style:{display:'flex',gap:6,alignItems:'center',fontSize:10.5,letterSpacing:'.13em',color:T.t3,fontWeight:600,marginBottom:7}},
+        h(motion.span,{animate:{opacity:[1,.3,1]},transition:{repeat:Infinity,duration:1.8},style:{width:6,height:6,borderRadius:'50%',background:T.green}}),'LIVE BOARD'),
+      h('div',{style:{position:'relative',borderRadius:T.rcard,overflow:'hidden',padding:'14px 16px',
+          background:T.green+'14',border:'1px solid '+T.green+'40'}},
+        h('div',{style:{display:'flex',gap:7,alignItems:'center'}},
+          h('span',{style:{fontSize:14}},'✅'),h('span',{style:{fontSize:11,letterSpacing:'.1em',color:T.green,fontWeight:600}},'IN')),
+        h('div',{style:{fontFamily:'Bebas Neue',fontSize:34,color:T.t1,marginTop:2}},confirmed))),
+    // no response row
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 14px',borderRadius:T.rcard,...T.card}},
+      h('span',{style:{fontSize:12.5,color:T.t2}},'No response · 9'),
+      h('span',{style:{fontSize:12,color:T.t3}},'Tap to view ↓'))
+  );
+}
+
+function Tabs({T}){
+  const items=[['MY VIEW',1],['STATS',0],['RESULTS',0],['MY IO',0]];
+  return h('div',{style:{position:'absolute',bottom:0,left:0,right:0,height:72,background:'linear-gradient(180deg,transparent,'+T.bg+' 45%)',
+    backdropFilter:'blur(10px)',borderTop:'1px solid rgba(255,255,255,.08)',display:'flex',alignItems:'flex-start',padding:'10px 14px 0',zIndex:40}},
+    items.map(([t,on])=>h('div',{key:t,style:{flex:1,display:'flex',flexDirection:'column',gap:5,alignItems:'center'}},
+      h('div',{style:{width:22,height:22,borderRadius:6,display:'grid',placeItems:'center',background:on?T.gold+'22':'transparent'}},
+        h('div',{style:{width:12,height:12,borderRadius:4,border:'1.5px solid '+(on?T.gold:T.t3)}})),
+      h('span',{style:{fontSize:9,letterSpacing:'.05em',color:on?T.gold:T.t3,fontWeight:600}},t))));
+}
+
+function Frame({tk}){
+  const T=THEMES[tk];
+  return h('div',{className:'stage'},
+    h('h2',{style:{color:T.gold}},T.name),
+    h('div',{className:'sub'},T.tag),
+    h('div',{className:'phone',style:{background:T.bg}},
+      h('div',{className:'notch'}),
+      h('div',{className:'screen'},h(MyView,{T})),
+      h(Tabs,{T})));
+}
+
+function App(){
+  return h(React.Fragment,null,
+    h('div',{className:'banner'},h('b',null,'Same bones, three skins.'),' Identical layout — header+ring, pitch hero, four equal IN/OUT/MAYBE/RESERVE buttons, Plus One/Injured, Live Board. Only the look changes. Tap a button to feel the selected state (spring + glow).'),
+    h(Frame,{tk:'midnight'}),
+    h(Frame,{tk:'floodlit'}),
+    h(Frame,{tk:'pitch'}));
+}
+createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>

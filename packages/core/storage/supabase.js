@@ -4463,3 +4463,20 @@ export async function clubAdminGetTournament(slug) {
   if (error) { console.error("[event-os] club_admin_get_tournament failed", error); throw error; }
   return data;
 }
+
+export async function getTournamentPublic(slug) {
+  const { data, error } = await supabase.rpc("get_tournament_public", {
+    p_slug: slug,
+  });
+  if (error) { console.error("[event-os] get_tournament_public failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminUpdateTournamentStatus(slug, status) {
+  const { data, error } = await supabase.rpc("club_admin_update_tournament_status", {
+    p_slug: slug,
+    p_status: status,
+  });
+  if (error) { console.error("[event-os] club_admin_update_tournament_status failed", error); throw error; }
+  return data;
+}

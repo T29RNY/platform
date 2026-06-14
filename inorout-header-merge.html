@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In or Out — header consolidation (2 → 1)</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0A08;--s1:#141412;--s2:#1C1C19;--s3:#222220;
+    --t1:#F2F0EA;--t2:#D0CCC2;--t3:#8A877E;
+    --gold:#E8A020;--green:#3DDC6A;--red:#FF4040;--border:rgba(255,255,255,.1);
+    --r:16px;--fd:'Bebas Neue',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:#050504;font-family:'DM Sans',-apple-system,sans-serif;color:var(--t1)}
+  body{display:flex;flex-wrap:wrap;gap:40px;justify-content:center;align-items:flex-start;padding:40px 16px 70px}
+  .stage{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .stage h2{font-family:var(--fd);font-size:20px;letter-spacing:.05em}
+  .stage .sub{font-size:11.5px;color:var(--t3);max-width:330px;text-align:center;line-height:1.55}
+  .badge{font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:20px;font-weight:700}
+  .b-bad{color:var(--red);background:rgba(255,64,64,.13);border:1px solid rgba(255,64,64,.35)}
+  .b-good{color:var(--green);background:rgba(61,220,106,.13);border:1px solid rgba(61,220,106,.35)}
+  .phone{width:380px;background:var(--bg);border-radius:30px;border:1px solid var(--border);
+    box-shadow:0 0 0 8px #0d0d0b,0 24px 54px rgba(0,0,0,.65);overflow:hidden;padding:16px}
+  .dim{opacity:.55}
+  .note{position:relative;font-size:10.5px;color:var(--red);margin:7px 0 0;padding-left:16px;line-height:1.4}
+  .note::before{content:'';position:absolute;left:0;top:4px;width:8px;height:8px;border-radius:50%;background:var(--red)}
+  .note.ok{color:var(--green)}.note.ok::before{background:var(--green)}
+  canvas{display:block}
+</style>
+</head>
+<body>
+
+<!-- ============ BEFORE ============ -->
+<div class="stage">
+  <h2 style="color:var(--red)">BEFORE</h2>
+  <div class="sub">Two stacked headers. The day is printed twice (arrowed), and there are two competing title treatments.</div>
+  <div class="phone">
+    <!-- PageHeader -->
+    <div style="display:flex;gap:12px;align-items:center">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);display:grid;place-items:center;font-family:var(--fd);font-size:13px">HA</div>
+          <div style="font-size:11px;font-weight:300;letter-spacing:.22em;text-transform:uppercase;color:var(--t2)">Finbars Tuesdays</div>
+        </div>
+        <div style="font-family:var(--fd);font-size:46px;line-height:.88;font-style:italic">
+          <span style="color:var(--green)">IN</span><span style="color:var(--t1)"> OR </span><span style="color:var(--red)">OUT</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;font-weight:300">
+          <span style="display:flex;gap:4px;align-items:center"><span style="color:var(--t3)">📅</span><b style="font-weight:600;color:var(--red)">Tuesday</b></span>
+          <span style="display:flex;gap:4px;align-items:center"><span style="color:var(--t3)">📍</span>Finbars</span>
+          <span style="display:flex;gap:4px;align-items:center"><span style="color:var(--t3)">🕗</span>20:00</span>
+          <span style="display:flex;gap:5px;align-items:center;color:var(--green);font-size:10px;letter-spacing:.12em;text-transform:uppercase">● Game Open</span>
+        </div>
+      </div>
+      <!-- ring -->
+      <div style="width:58px;height:58px;position:relative;display:grid;place-items:center">
+        <svg width="58" height="58" style="position:absolute;transform:rotate(-90deg)">
+          <circle cx="29" cy="29" r="22" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="4"/>
+          <circle cx="29" cy="29" r="22" fill="none" stroke="var(--gold)" stroke-width="4" stroke-linecap="round" stroke-dasharray="138" stroke-dashoffset="98"/>
+        </svg>
+        <div style="text-align:center;line-height:1"><div style="font-family:var(--fd);font-size:22px">4</div><div style="font-size:8px;letter-spacing:.12em;color:var(--t3)">OF 14</div></div>
+      </div>
+    </div>
+    <!-- HeroCard (green pitch banner) -->
+    <div style="position:relative;height:104px;border-radius:var(--r);overflow:hidden;margin-top:10px;background:#061006">
+      <canvas id="pitch1" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,16,6,.05),rgba(6,6,4,.6))"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:8px 16px 10px;display:flex;justify-content:space-between;align-items:flex-end">
+        <div>
+          <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)">This Week</div>
+          <span style="display:block;font-family:var(--fd);font-size:24px;line-height:1;font-style:italic;color:var(--t1)"><b style="color:var(--red);font-style:italic">TUESDAY</b> Night</span>
+          <span style="display:block;font-family:var(--fd);font-size:34px;line-height:1;font-style:italic;color:var(--green)">Football</span>
+          <div style="font-size:11px;color:rgba(242,240,234,.6);margin-top:2px;font-weight:300">£5 per player</div>
+        </div>
+        <div style="text-align:right;padding-bottom:2px">
+          <div style="font-family:var(--fd);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:3px">Admins</div>
+          <div style="font-size:12px">Callum</div><div style="font-size:12px">Dave</div><div style="font-size:12px">Finbar</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">“Tuesday” top-left, “TUESDAY Night” again below — same fact, twice.</div>
+    <div class="note">Two title blocks (IN OR OUT + TUESDAY NIGHT FOOTBALL) fight for the eye.</div>
+    <div class="note">~190px of vertical space gone before the player sees the IN button.</div>
+  </div>
+</div>
+
+<!-- ============ AFTER ============ -->
+<div class="stage">
+  <h2 style="color:var(--green)">AFTER — one header</h2>
+  <div class="sub">One block. The pitch visual becomes the header background; day appears once; price is a chip; admins move to a thin line. Same data, no duplication.</div>
+  <div class="phone">
+    <div style="position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--border)">
+      <canvas id="pitch2" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,12,8,.74) 0%,rgba(6,8,6,.62) 55%,rgba(6,8,6,.8) 100%)"></div>
+      <div style="position:relative;padding:14px 16px 13px">
+        <!-- row 1: team + status + ring -->
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);display:grid;place-items:center;font-family:var(--fd);font-size:12px">HA</div>
+          <div style="font-size:10.5px;font-weight:300;letter-spacing:.2em;text-transform:uppercase;color:var(--t2)">Finbars Tuesdays</div>
+          <span style="display:flex;gap:5px;align-items:center;color:var(--green);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-left:2px">● Open</span>
+          <div style="margin-left:auto;width:50px;height:50px;position:relative;display:grid;place-items:center">
+            <svg width="50" height="50" style="position:absolute;transform:rotate(-90deg)">
+              <circle cx="25" cy="25" r="19" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="3.5"/>
+              <circle cx="25" cy="25" r="19" fill="none" stroke="var(--gold)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="119" stroke-dashoffset="85"/>
+            </svg>
+            <div style="text-align:center;line-height:1"><div style="font-family:var(--fd);font-size:19px">4</div><div style="font-size:7.5px;letter-spacing:.1em;color:var(--t3)">OF 14</div></div>
+          </div>
+        </div>
+        <!-- row 2: IN OR OUT wordmark -->
+        <div style="font-family:var(--fd);font-size:46px;line-height:.9;font-style:italic;margin-top:9px">
+          <span style="color:var(--green)">IN</span><span style="color:var(--t1)"> OR </span><span style="color:var(--red)">OUT</span>
+        </div>
+        <!-- row 3: single fixture line — day ONCE, with price chip -->
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12.5px;font-weight:300;margin-top:8px">
+          <span style="display:flex;gap:4px;align-items:center"><span style="color:var(--t3)">📅</span>Tue · Tuesday Night Football</span>
+          <span style="display:flex;gap:4px;align-items:center"><span style="color:var(--t3)">📍</span>Finbars</span>
+          <span style="display:flex;gap:4px;align-items:center"><span style="color:var(--t3)">🕗</span>20:00</span>
+          <span style="font-size:11px;font-weight:700;color:var(--gold);background:rgba(232,160,32,.15);border:1px solid rgba(232,160,32,.4);padding:2px 8px;border-radius:20px">£5</span>
+        </div>
+        <!-- row 4: thin admins line -->
+        <div style="display:flex;gap:6px;align-items:center;font-size:11px;color:var(--t3);margin-top:9px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08)">
+          <span style="letter-spacing:.1em;text-transform:uppercase;font-size:9.5px;color:var(--t3)">Admins</span>
+          <span style="color:var(--t2)">Callum · Dave · Finbar</span>
+        </div>
+      </div>
+    </div>
+    <div class="note ok">Day stated once. Venue, time, price, admins all present — nothing lost.</div>
+    <div class="note ok">One title region. The floodlit pitch is kept, as the header backdrop.</div>
+    <div class="note ok">~95px saved — the IN/OUT decision rises up the screen.</div>
+  </div>
+</div>
+
+<script>
+function pitch(id){
+  const c=document.getElementById(id); if(!c) return;
+  const ctx=c.getContext('2d'); let t=0;
+  function rs(){c.width=c.offsetWidth;c.height=c.offsetHeight;} rs();
+  (function draw(){
+    const w=c.width,h=c.height; ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#0a1f0a';ctx.fillRect(0,0,w,h);
+    for(let i=0;i<10;i++){ctx.fillStyle=i%2===0?'rgba(55,150,45,0.28)':'rgba(35,110,28,0.18)';ctx.fillRect(i*(w/10),0,w/10,h);}
+    ctx.strokeStyle='rgba(255,255,255,0.18)';ctx.lineWidth=1;
+    const p=1+Math.sin(t*0.4)*0.015;
+    ctx.beginPath();ctx.arc(w*0.5,h*1.25,h*0.7*p,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,h*0.5);ctx.lineTo(w,h*0.5);ctx.stroke();
+    [0.08,0.26,0.5,0.74,0.92].forEach((xp,i)=>{
+      const f=0.12+Math.sin(t*0.7+i*1.4)*0.025;
+      const g=ctx.createLinearGradient(w*xp,0,w*xp+12,h*0.8);
+      g.addColorStop(0,`rgba(255,255,200,${f})`);g.addColorStop(1,'rgba(255,255,200,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(w*xp-1,0);ctx.lineTo(w*xp+1,0);ctx.lineTo(w*xp+30,h*0.8);ctx.lineTo(w*xp-30,h*0.8);ctx.closePath();ctx.fill();
+    });
+    const pg=ctx.createRadialGradient(w*0.5,h,0,w*0.5,h,w*0.6);
+    pg.addColorStop(0,'rgba(45,140,35,0.26)');pg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=pg;ctx.fillRect(0,0,w,h);
+    t+=0.016;requestAnimationFrame(draw);
+  })();
+}
+pitch('pitch1');pitch('pitch2');
+</script>
+</body>
+</html>

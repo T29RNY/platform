@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>In or Out — MY VIEW · Concept B (Team Sheet)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0A08; --s1:#141412; --s2:#1C1C19; --s3:#222220;
+    --t1:#F2F0EA; --t2:#D0CCC2; --t3:#8A877E;
+    --gold:#E8A020; --gold2:rgba(232,160,32,0.15); --goldb:rgba(232,160,32,0.4);
+    --green:#3DDC6A; --green2:rgba(61,220,106,0.13); --greenb:rgba(61,220,106,0.35);
+    --red:#FF4040; --red2:rgba(255,64,64,0.13); --redb:rgba(255,64,64,0.35);
+    --amber:#FFB020; --amber2:rgba(255,176,32,0.13); --amberb:rgba(255,176,32,.35);
+    --purple:#B060F0; --purple2:rgba(176,96,240,0.13); --purpleb:rgba(176,96,240,0.35);
+    --border:rgba(255,255,255,0.10); --b2:rgba(255,255,255,0.05);
+    --font-display:'Bebas Neue',sans-serif;
+    --font-body:'DM Sans',-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:#050504;font-family:var(--font-body);color:var(--t1)}
+  body{display:flex;flex-wrap:wrap;gap:40px;justify-content:center;align-items:flex-start;padding:40px 16px 80px}
+  .stage{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .stage h2{font-family:var(--font-display);font-size:22px;letter-spacing:.04em;color:var(--t2);font-weight:400}
+  .stage .sub{font-size:12px;color:var(--t3);max-width:330px;text-align:center;line-height:1.55}
+  .phone{width:390px;height:780px;background:var(--bg);border-radius:42px;border:1px solid var(--border);
+    box-shadow:0 0 0 10px #0d0d0b,0 30px 70px rgba(0,0,0,.7);overflow:hidden;position:relative}
+  .phone .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:120px;height:26px;background:#000;border-radius:14px;z-index:50}
+  .screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:50px 14px 92px;scrollbar-width:none}
+  .screen::-webkit-scrollbar{display:none}
+  #root{display:contents}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import React, { useState, useRef } from 'https://esm.sh/react@18.3.1';
+import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+import { motion, AnimatePresence, useMotionValue, animate, useTransform, LayoutGroup } from 'https://esm.sh/framer-motion@11.15.0?deps=react@18.3.1,react-dom@18.3.1';
+
+const h = React.createElement;
+const spring = { type:'spring', stiffness:520, damping:30, mass:0.7 };
+const soft = { type:'spring', stiffness:300, damping:26 };
+
+const Ico = ({size=18, fill='none', sw=1.4, color='currentColor', children}) =>
+  h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill,stroke:color,strokeWidth:sw,strokeLinecap:'round',strokeLinejoin:'round'}, children);
+const ICheck=(p)=>h(Ico,{...p},h('path',{d:'M20 6 9 17l-5-5'}));
+const ICross=(p)=>h(Ico,{...p},h('path',{d:'M18 6 6 18M6 6l12 12'}));
+const IClock=(p)=>h(Ico,{...p},h('circle',{cx:12,cy:12,r:9}),h('path',{d:'M12 7v5l3 2'}));
+const IPin=(p)=>h(Ico,{...p},h('path',{d:'M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z'}),h('circle',{cx:12,cy:10,r:2.4}));
+const IChevR=(p)=>h(Ico,{...p},h('path',{d:'M9 6l6 6-6 6'}));
+
+const SQUAD = [
+  {n:'Finbar', s:'in'},   {n:'Steve', s:'in'},    {n:'Priya', s:'in'},
+  {n:'Danny', s:'in'},    {n:'Sarah', s:'in'},    {n:'Marcus', s:'maybe'},
+  {n:'Kieran', s:'out'},  {n:'Luke', s:'none'},   {n:'Dave', s:'none'},
+  {n:'Amir', s:'none'},   {n:'Tom', s:'none'},    {n:'Raj', s:'none'},
+];
+const CAP=14;
+const STAT = {
+  in:    {c:'var(--green)',  bg:'var(--green2)',  b:'var(--greenb)',  lbl:'IN'},
+  out:   {c:'var(--red)',    bg:'var(--red2)',    b:'var(--redb)',    lbl:'OUT'},
+  maybe: {c:'var(--amber)',  bg:'var(--amber2)',  b:'var(--amberb)',  lbl:'MAYBE'},
+  none:  {c:'var(--t3)',     bg:'transparent',    b:'var(--border)',  lbl:'NO REPLY'},
+};
+
+function RollNumber({value, style}){
+  const ref=useRef(null); const mv=useMotionValue(value);
+  React.useEffect(()=>{const c=animate(mv,value,{duration:.5,ease:[0.22,1,0.36,1],onUpdate:v=>{if(ref.current)ref.current.textContent=Math.round(v);}});return ()=>c.stop();},[value]);
+  return h('span',{ref,style},value);
+}
+
+// ---- slide-to-commit ----
+function SlideCommit({pick, onPick}){
+  const trackRef=useRef(null);
+  const x=useMotionValue(0);
+  const [w,setW]=useState(300);
+  React.useEffect(()=>{ if(trackRef.current) setW(trackRef.current.offsetWidth); },[]);
+  const knob=60, pad=4, range=(w-knob)/2 - pad;
+  // colour wash follows the knob
+  const trackBg=useTransform(x,[-range,0,range],['var(--red2)','var(--s2)','var(--green2)']);
+  const hintOpacity=useTransform(x,[-range*0.4,0,range*0.4],[0,1,0]);
+
+  React.useEffect(()=>{
+    if(pick==='in') animate(x,range,spring);
+    else if(pick==='out') animate(x,-range,spring);
+    else animate(x,0,soft);
+  },[pick,range]);
+
+  function settle(){
+    const v=x.get();
+    if(v>range*0.55){ onPick('in'); if(navigator.vibrate)navigator.vibrate(14); }
+    else if(v<-range*0.55){ onPick('out'); if(navigator.vibrate)navigator.vibrate(14); }
+    else { onPick(null); animate(x,0,soft); }
+  }
+  const committed = pick==='in'||pick==='out';
+  const st = pick==='in'?STAT.in : pick==='out'?STAT.out : null;
+
+  return h(motion.div,{ref:trackRef, style:{position:'relative',height:knob+8,borderRadius:16,
+      background:trackBg, border:'1px solid var(--border)', overflow:'hidden',
+      display:'flex',alignItems:'center', cursor:'grab', touchAction:'none'}},
+    // side labels
+    h('div',{style:{position:'absolute',inset:0,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 22px',pointerEvents:'none'}},
+      h('span',{style:{fontFamily:'var(--font-display)',fontSize:20,letterSpacing:'.05em',color: pick==='out'?'var(--red)':'rgba(255,64,64,.45)'}},'OUT'),
+      h('span',{style:{fontFamily:'var(--font-display)',fontSize:20,letterSpacing:'.05em',color: pick==='in'?'var(--green)':'rgba(61,220,106,.5)'}},'IN')),
+    // center hint
+    h(motion.div,{style:{opacity:hintOpacity, position:'absolute',inset:0,display:'grid',placeItems:'center',pointerEvents:'none'}},
+      h('span',{style:{fontSize:12,letterSpacing:'.16em',color:'var(--t3)',fontWeight:600}},'◄ SLIDE TO COMMIT ►')),
+    // knob
+    h(motion.div,{drag:'x', dragConstraints:{left:-range,right:range}, dragElastic:0.08, dragMomentum:false,
+        style:{x, position:'absolute',left:'50%',marginLeft:-(knob/2), width:knob,height:knob,borderRadius:13,
+          background: committed? (st.c) : 'var(--s3)',
+          border:'1px solid '+(committed? st.c : 'var(--border)'),
+          display:'grid',placeItems:'center', cursor:'grab', boxShadow:'0 6px 16px rgba(0,0,0,.45)', zIndex:2},
+        whileTap:{cursor:'grabbing', scale:1.04}, onDragEnd:settle, transition:spring},
+      pick==='in' && h(motion.div,{initial:{scale:0},animate:{scale:1},transition:spring}, h(ICheck,{size:26,sw:2.6,color:'#06210f'})),
+      pick==='out' && h(motion.div,{initial:{scale:0},animate:{scale:1},transition:spring}, h(ICross,{size:24,sw:2.6,color:'#2a0808'})),
+      !committed && h('div',{style:{display:'flex',gap:2}}, [0,1].map(i=>h('span',{key:i,style:{width:3,height:18,borderRadius:2,background:'var(--t3)'}})))
+    )
+  );
+}
+
+function TeamSheetRow({p,i,onCycle,me}){
+  const st=STAT[p.s];
+  return h(motion.button,{layout:true, onClick:me?()=>onCycle(p.n):undefined,
+      initial:{opacity:0,x:-12},animate:{opacity:1,x:0},transition:{...soft,delay:Math.min(i*0.03,.3)},
+      whileTap: me?{scale:0.985}:{},
+      style:{display:'flex',alignItems:'center',gap:11,width:'100%',textAlign:'left',cursor:me?'pointer':'default',
+        padding:'9px 11px',borderRadius:11,background: me?'var(--s2)':'transparent',
+        borderLeft:'3px solid '+st.c, border:'1px solid '+(me?'var(--goldb)':'transparent'),
+        position:'relative',overflow:'hidden'}},
+    // jersey number
+    h('span',{style:{width:26,fontFamily:'var(--font-display)',fontSize:17,color:'var(--t3)',textAlign:'center'}}, i+1),
+    h('span',{style:{flex:1,fontSize:14,color:'var(--t1)',fontWeight: me?700:500,display:'flex',gap:7,alignItems:'center'}},
+      p.n, me && h('span',{style:{fontSize:9.5,letterSpacing:'.1em',color:'var(--gold)',background:'var(--gold2)',padding:'2px 6px',borderRadius:5,fontWeight:700}},'YOU')),
+    h(AnimatePresence,{mode:'popLayout'},
+      h(motion.span,{key:p.s, initial:{opacity:0,scale:0.6,y:4},animate:{opacity:1,scale:1,y:0},exit:{opacity:0,scale:0.6,y:-4},transition:spring,
+        style:{fontFamily:'var(--font-display)',fontSize:14,letterSpacing:'.06em',color:st.c,
+          background:st.bg,border:'1px solid '+st.b,padding:'3px 10px',borderRadius:7,minWidth:64,textAlign:'center'}}, st.lbl)),
+    me && h(IChevR,{size:15,color:'var(--t3)'})
+  );
+}
+
+function MyView(){
+  const [squad,setSquad]=useState(SQUAD.map((p,i)=> i===1? {...p,n:'Steve'} : p)); // (placeholder, keeps array)
+  const [meStatus,setMeStatus]=useState('none');
+  const [filter,setFilter]=useState('all');
+
+  // "me" is row index 1 → make Steve the user for the demo
+  const meName='Steve';
+  const data = squad.map(p=> p.n===meName? {...p,s:meStatus,me:true} : p);
+
+  const counts = data.reduce((a,p)=>{a[p.s]=(a[p.s]||0)+1;return a;},{});
+  const inN=counts.in||0, spots=Math.max(CAP-inN,0);
+
+  function setMe(s){ setMeStatus(prev=> prev===s? 'none' : s); }
+  function cycleMe(){ setMeStatus(s=> s==='in'?'maybe' : s==='maybe'?'out' : 'in'); }
+
+  const order={in:0,maybe:1,out:2,none:3};
+  const visible = data
+    .filter(p=> filter==='all' ? true : filter==='pending' ? p.s==='none' : p.s===filter)
+    .sort((a,b)=> (order[a.s]-order[b.s]) || 0);
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:14}},
+    // ---- scoreboard lower-third ----
+    h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:2}},
+      h('div',{style:{fontFamily:'var(--font-display)',fontSize:26,letterSpacing:'.02em'}},
+        h('span',{style:{color:'var(--green)'}},'IN'),h('span',{style:{color:'var(--t3)'}},' OR '),h('span',{style:{color:'var(--red)'}},'OUT')),
+      h('div',{style:{marginLeft:'auto',display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--green)'}},
+        h(motion.span,{animate:{opacity:[1,.3,1]},transition:{repeat:Infinity,duration:1.8},style:{width:7,height:7,borderRadius:'50%',background:'var(--green)'}}),'GAME OPEN')),
+
+    h('div',{style:{position:'relative',borderRadius:14,overflow:'hidden',border:'1px solid var(--border)',
+        background:'linear-gradient(105deg,#11231a,#0c100d 70%)',padding:'14px 16px'}},
+      h('div',{style:{position:'absolute',top:-30,right:-10,fontFamily:'var(--font-display)',fontSize:150,lineHeight:1,
+        color:'rgba(61,220,106,0.07)',pointerEvents:'none'}}, inN),
+      h('div',{style:{position:'relative'}},
+        h('div',{style:{fontFamily:'var(--font-display)',fontSize:30,lineHeight:.95}},'TUESDAY NIGHT FOOTBALL'),
+        h('div',{style:{display:'flex',gap:14,marginTop:7,fontSize:12.5,color:'var(--t2)'}},
+          h('span',{style:{display:'flex',gap:5,alignItems:'center'}},h(IClock,{size:14,color:'var(--t3)'}),'Tue 20:00'),
+          h('span',{style:{display:'flex',gap:5,alignItems:'center'}},h(IPin,{size:14,color:'var(--t3)'}),'Finbars, Holbrooks')),
+        h('div',{style:{display:'flex',alignItems:'baseline',gap:10,marginTop:12}},
+          h('div',{style:{display:'flex',alignItems:'baseline',gap:5}},
+            h(RollNumber,{value:inN,style:{fontFamily:'var(--font-display)',fontSize:38,color:'var(--green)',lineHeight:1}}),
+            h('span',{style:{fontFamily:'var(--font-display)',fontSize:22,color:'var(--t3)'}},'IN')),
+          h('span',{style:{fontSize:12.5,color: spots<=3?'var(--red)':'var(--gold)',fontWeight:600,marginLeft:'auto'}},
+            spots>0? spots+' spots left' : 'FULL'))
+      )
+    ),
+
+    // ---- slide to commit ----
+    h('div',null,
+      h('div',{style:{fontSize:11,letterSpacing:'.14em',color:'var(--t3)',fontWeight:600,marginBottom:9,display:'flex',justifyContent:'space-between'}},
+        h('span',null,'ARE YOU IN, STEVE?'),
+        meStatus!=='none' && h('span',{style:{color:STAT[meStatus].c}}, "You're "+STAT[meStatus].lbl)),
+      h(SlideCommit,{pick: meStatus==='in'?'in':meStatus==='out'?'out':null, onPick:(v)=>setMeStatus(v||'none')}),
+      // maybe / reserve secondary
+      h('div',{style:{display:'flex',gap:8,marginTop:9}},
+        [['maybe','MAYBE'],['reserve','RESERVE']].map(([k,l])=>{
+          const on = meStatus===k; const s = k==='maybe'?STAT.maybe:{c:'var(--purple)',bg:'var(--purple2)',b:'var(--purpleb)'};
+          return h(motion.button,{key:k, whileTap:{scale:0.96}, onClick:()=>setMe(k==='reserve'?'maybe':k) /* demo maps reserve→maybe colour */,
+            style:{flex:1,padding:'9px',borderRadius:10,cursor:'pointer',fontFamily:'var(--font-display)',fontSize:15,letterSpacing:'.05em',
+              background:on?s.bg:'var(--s2)',border:'1px solid '+(on?s.b:'var(--border)'),color:on?s.c:'var(--t2)'}}, l);
+        }))
+    ),
+
+    // ---- the team sheet (the live board, made primary) ----
+    h('div',{style:{borderRadius:14,border:'1px solid var(--border)',background:'var(--s1)',padding:'12px 12px 10px'}},
+      h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}},
+        h('div',{style:{fontFamily:'var(--font-display)',fontSize:20,letterSpacing:'.03em',color:'var(--t1)'}},'TEAM SHEET'),
+        h('div',{style:{fontSize:11,color:'var(--t3)'}}, (counts.none||0)+' to reply')),
+      // filter pills with sliding highlight
+      h(LayoutGroup,null,
+        h('div',{style:{display:'flex',gap:6,marginBottom:10}},
+          [['all','ALL'],['in','IN'],['maybe','MAYBE'],['out','OUT'],['pending','NO REPLY']].map(([k,l])=>{
+            const on=filter===k;
+            return h('button',{key:k, onClick:()=>setFilter(k),
+              style:{position:'relative',padding:'5px 10px',borderRadius:20,border:'none',cursor:'pointer',background:'none',
+                fontSize:10.5,letterSpacing:'.05em',fontWeight:700,color:on?'var(--gold)':'var(--t3)'}},
+              on && h(motion.div,{layoutId:'fpill',transition:spring,style:{position:'absolute',inset:0,borderRadius:20,background:'var(--gold2)',border:'1px solid var(--goldb)'}}),
+              h('span',{style:{position:'relative'}},l));
+          }))),
+      h(motion.div,{layout:true,style:{display:'flex',flexDirection:'column',gap:5}},
+        h(AnimatePresence,null,
+          visible.map((p,i)=>h(TeamSheetRow,{key:p.n,p,i,me:p.me,onCycle:cycleMe}))),
+        visible.length===0 && h('div',{style:{textAlign:'center',color:'var(--t3)',fontSize:12.5,padding:'18px 0'}},'Nobody here yet.'))
+    ),
+    h('div',{style:{textAlign:'center',fontSize:11,color:'var(--t3)',marginTop:2}},'Tap your own row to change your answer · drag the slider to commit')
+  );
+}
+
+function Tabs(){
+  const items=[['MY VIEW',true],['STATS',false],['RESULTS',false],['MY IO',false]];
+  return h('div',{style:{position:'absolute',bottom:0,left:0,right:0,height:74,
+    background:'linear-gradient(180deg,rgba(10,10,8,.4),var(--bg) 40%)',backdropFilter:'blur(12px)',
+    borderTop:'1px solid var(--border)',display:'flex',alignItems:'flex-start',padding:'10px 14px 0',zIndex:40}},
+    items.map(([t,on])=>h('div',{key:t,style:{flex:1,display:'flex',flexDirection:'column',gap:5,alignItems:'center'}},
+      h('div',{style:{width:24,height:24,borderRadius:7,display:'grid',placeItems:'center',background:on?'var(--gold2)':'transparent'}},
+        h('div',{style:{width:13,height:13,borderRadius:4,border:'1.5px solid '+(on?'var(--gold)':'var(--t3)')}})),
+      h('span',{style:{fontSize:9.5,letterSpacing:'.06em',color:on?'var(--gold)':'var(--t3)',fontWeight:600}},t))))
+}
+
+function App(){
+  return h('div',{className:'stage'},
+    h('h2',null,'MY VIEW — Concept B · Team Sheet'),
+    h('div',{className:'sub'},'Drag the slider left=OUT / right=IN (release to lock). The scoreboard tally rolls, and your row in the live TEAM SHEET flips status with a spring. Tap your own row to cycle; tap the filter pills to slide the highlight.'),
+    h('div',{className:'phone'},
+      h('div',{className:'notch'}),
+      h('div',{className:'screen'}, h(MyView)),
+      h(Tabs)));
+}
+createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>

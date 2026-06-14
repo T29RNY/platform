@@ -2080,6 +2080,11 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 
 **Phase 0 UI ✅ shipped (session 118, commit 5873d91):** App.jsx homeScreenType routing (derived const, null-guard = zero-footprint for squad-only users); 3 new screens: `UnifiedFeedScreen.jsx` (14-day chronological feed, live/upcoming sections, squad_game/club_session/child_event tap handlers), `ParentHomeScreen.jsx` (per-child ChildCard + next session + Follow Live CTA), `FollowLiveView.jsx` (getChildLiveMatch + venue_live realtime channel, ScoreBoard + EventRow). Zero-footprint confirmed: unauthenticated squad-only users unchanged.
 
-**Phase 1 schema (mig 315):** `rls_migrations/315_phase1_event_os_schema.sql` written + committed but **NOT yet applied in Supabase SQL editor** (Hard Rule #1). Apply before Phase 2 work. Tables: `tournament_events` (venue_id/club_id FK text, slug UNIQUE, status/entry_fee/schedule_config/branding/points_config), `performance_events` (FK to tournament, surface_id uuid→playing_areas, heats/attempts config), `performance_results` (athlete_id text→players, value numeric, attempt_number/heat_number, status pending|recorded|dns|dnf|disqualified). ALTERs: competitions.tournament_event_id, competition_teams.waitlist_position, league_config.ref_ui_config, playing_areas.sport_types[].
+**Phase 1 (migs 315–316) ✅ COMPLETE (session 119):** Schema applied. Three club-manager RPCs: `club_admin_create_tournament`, `club_admin_list_tournaments`, `club_admin_get_tournament`. UI: Tournaments tab in SessionsScreen + `/tournament/[slug]` public stub.
 
-Next migration: 316. Phase 1 RPCs (tournament management, club admin Tournaments tab, public tournament page).
+**Phase 2 (mig 317) ✅ COMPLETE (session 120):**
+- `get_tournament_public(slug)` — anon RPC; JOINs clubs+venues; guards status='draft'; wired into TournamentScreen.jsx (loading/not-found/live states).
+- `club_admin_update_tournament_status(slug, status)` — free lifecycle transitions (draft→open→live→completed); audits `tournament_status_changed`; wired as inline status `<select>` on each tournament card in SessionsScreen.
+- Venue picker: create-tournament modal now renders a `<select>` populated from `memberProfile.active_clubs[i].venues` (already loaded via `member_get_self` mig 308) instead of a plain text input. Auto-selects if only one venue.
+
+Next migration: 318. Phase 3 TBD.

@@ -7,7 +7,7 @@ import {
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
   memberListClubAnnouncements,
   memberGetMerchandise, memberPurchaseMerchandise,
-  clubAdminListTournaments, clubAdminCreateTournament,
+  clubAdminListTournaments, clubAdminCreateTournament, clubAdminUpdateTournamentStatus,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -625,7 +625,12 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
               Tournaments
             </span>
             <button
-              onClick={() => { setTError(null); setTForm({ name:"", slug:"", eventDate:"", venueId:"" }); setShowCreateTournament(true); }}
+              onClick={() => {
+                const venues = memberProfile?.active_clubs?.find(c => c.club_id === selectedClubId)?.venues ?? [];
+                setTError(null);
+                setTForm({ name:"", slug:"", eventDate:"", venueId: venues.length === 1 ? venues[0].venue_id : "" });
+                setShowCreateTournament(true);
+              }}
               style={{
                 fontSize: 13, fontWeight: 700,
                 background: "rgba(255,255,255,0.08)",
@@ -665,15 +670,33 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                 <span style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--t1)" }}>
                   {t.name}
                 </span>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-                  padding: "3px 8px", borderRadius: 20,
-                  fontFamily: "var(--font-body)", textTransform: "uppercase",
-                  background: t.status === "live" ? "rgba(76,175,80,0.15)" : "rgba(255,255,255,0.06)",
-                  color: t.status === "live" ? "rgba(76,175,80,1)" : "var(--t2)",
-                }}>
-                  {t.status}
-                </span>
+                <select
+                  value={t.status}
+                  onClick={e => e.stopPropagation()}
+                  onChange={async e => {
+                    e.stopPropagation();
+                    const next = e.target.value;
+                    setTournaments(ts => ts.map(x => x.tournament_id === t.tournament_id ? { ...x, status: next } : x));
+                    try {
+                      await clubAdminUpdateTournamentStatus(t.slug, next);
+                    } catch (err) {
+                      console.error("[sessions] status update failed", err);
+                      setTournaments(ts => ts.map(x => x.tournament_id === t.tournament_id ? { ...x, status: t.status } : x));
+                    }
+                  }}
+                  style={{
+                    fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                    padding: "3px 8px", borderRadius: 20,
+                    fontFamily: "var(--font-body)", textTransform: "uppercase",
+                    background: t.status === "live" ? "rgba(76,175,80,0.15)" : t.status === "open" ? "rgba(255,190,60,0.12)" : "rgba(255,255,255,0.06)",
+                    color: t.status === "live" ? "rgba(76,175,80,1)" : t.status === "open" ? "var(--amber)" : "var(--t2)",
+                    border: "1px solid transparent", outline: "none", cursor: "pointer", appearance: "none",
+                  }}
+                >
+                  {["draft", "open", "closed", "live", "completed"].map(s => (
+                    <option key={s} value={s} style={{ background: "var(--bg)", color: "var(--t1)", textTransform: "none" }}>{s}</option>
+                  ))}
+                </select>
               </div>
               <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
                 {fmtDate(t.event_date)}{t.event_end_date ? ` – ${fmtDate(t.event_end_date)}` : ""}
@@ -713,7 +736,6 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
               { label: "Name", key: "name", placeholder: "e.g. FC United Summer Cup 2026", type: "text" },
               { label: "Slug", key: "slug", placeholder: "e.g. fc-united-summer-2026", type: "text" },
               { label: "Event date", key: "eventDate", placeholder: "", type: "date" },
-              { label: "Venue ID", key: "venueId", placeholder: "Venue ID", type: "text" },
             ].map(({ label, key, placeholder, type }) => (
               <div key={key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
@@ -742,6 +764,36 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                 />
               </div>
             ))}
+
+            {(() => {
+              const venues = memberProfile?.active_clubs?.find(c => c.club_id === selectedClubId)?.venues ?? [];
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                    Venue
+                  </label>
+                  <select
+                    value={tForm.venueId}
+                    onChange={e => setTForm(f => ({ ...f, venueId: e.target.value }))}
+                    style={{
+                      background: "var(--b3, rgba(255,255,255,0.06))",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8, padding: "10px 12px",
+                      fontSize: 14, color: tForm.venueId ? "var(--t1)" : "var(--t3, #666)",
+                      fontFamily: "var(--font-body)", outline: "none", width: "100%", boxSizing: "border-box",
+                      appearance: "none",
+                    }}
+                  >
+                    {venues.length !== 1 && (
+                      <option value="" disabled>Select a venue…</option>
+                    )}
+                    {venues.map(v => (
+                      <option key={v.venue_id} value={v.venue_id}>{v.venue_name}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
 
             <button
               onClick={handleCreateTournament}
