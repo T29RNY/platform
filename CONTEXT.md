@@ -3720,3 +3720,42 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 **Next migration: 318. Phase 3 TBD.**
 
 **RPCS.md + FEATURES.md updated this session.**
+
+---
+
+## Session 121 — Event OS Phase 3 (2026-06-14)
+
+**Migrations applied:** 318 (schema + 6 new RPCs + 2 extended)
+
+**Schema changes:**
+- `competitions.season_id` → nullable + `competitions_identity_check` CHECK (season_id NOT NULL OR tournament_event_id NOT NULL)
+- `competition_teams.team_id` → nullable + new `team_name text` col + `ct_team_identity_check` CHECK (team_id NOT NULL OR team_name NOT NULL)
+- CREATE TABLE `tournament_invitations` (code unique, status: sent/accepted/expired, expires_at, created_by→auth.users)
+
+**RPCs added (mig 318):**
+- `club_admin_add_competition(tournament_event_id, name, type, format?)` — creates competitions row (season_id=NULL); auth club_team_managers check.
+- `club_admin_register_team(tournament_event_id, competition_id, team_name)` — host team straight to active.
+- `club_admin_send_team_invite(tournament_event_id, competition_id, email?)` — 12-char hex code via `extensions.gen_random_bytes(6)`; 14-day expiry.
+- `club_admin_approve_team(competition_team_id)` — pending→active; traverses CT→competition→tournament_event for club_id.
+- `club_admin_reject_team(competition_team_id, reason?)` — pending→rejected+reason.
+- `tournament_join_via_invite(code, team_name)` — authenticated external join; creates CT (pending); marks invite accepted.
+
+**RPCs extended (CREATE OR REPLACE):**
+- `get_tournament_public(slug)` — now returns `competitions[]` with active `teams[]`.
+- `club_admin_get_tournament(slug)` — now returns teams per competition (active/pending/rejected).
+
+**Bug caught and fixed by EV:** `gen_random_bytes(6)` unavailable in `public,pg_temp` search_path — pgcrypto is in `extensions` schema. Fixed to `extensions.gen_random_bytes(6)`. Live DB updated + migration file patched in the same session.
+
+**JS wrappers:** `clubAdminAddCompetition`, `clubAdminRegisterTeam`, `clubAdminSendTeamInvite`, `clubAdminApproveTeam`, `clubAdminRejectTeam`, `tournamentJoinViaInvite` — all in supabase.js + barrel-exported.
+
+**UI changes:**
+- `TournamentScreen.jsx` — competitions section below date/venue/club; lists competition name/type/format + active team chips.
+- `SessionsScreen.jsx` — tournament cards expand inline: competitions accordion, teams list, pending approval queue, invite link generator, register-team form, add-competition modal.
+- `TournamentJoinScreen.jsx` (new) — `/tournament/join/:code` route; form + double-fire guard; error handling for all invite error codes.
+- `App.jsx` — `/tournament/join/:code` route added before `/tournament/:slug` to avoid slug collision; auth gate redirects unauthenticated users to sign-in with returnTo.
+
+**Commit:** `58b6db3`
+
+**Next migration: 319.**
+
+**RPCS.md + FEATURES.md updated this session.**
