@@ -3791,3 +3791,35 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 **Next migration: 320.**
 
 **RPCS.md + FEATURES.md updated this session.**
+
+---
+
+## SESSION 123 — Event OS Phase 5 — Tournament Match Day Ops (mig 320)
+
+**Schema (mig 320):**
+- `fixtures.current_period text` — persists the live period (1H/HT/2H/FT) to DB so a referee reload doesn't reset to 1H.
+
+**RPCs (mig 320):**
+- `get_fixture_state_by_ref_token` REPLACED (CREATE OR REPLACE, backward-compatible) — resolves `home_team`/`away_team` from `competition_teams` when `home_team_id IS NULL` (tournament mode); adds `home_competition_team_id`, `away_competition_team_id`, `current_period` to returned fixture object. League fixtures unchanged.
+- `ref_start_tournament_match(p_ref_token, p_client_event_id, p_local_timestamp)` — SECDEF, anon+authenticated. Sets status=in_progress, actual_kickoff_at, current_period=1H. No match_events insert (match_events.team_id FK to teams blocks competition_team ids). Audits team_id='_system'.
+- `ref_set_tournament_period(p_ref_token, p_period, p_client_event_id, p_local_timestamp)` — SECDEF, anon+authenticated. Writes current_period to fixtures. Validates p_period ∈ {HT,2H,ET1,ET2,FT}. Audits '_system'.
+- `ref_record_tournament_goal(p_ref_token, p_side, p_minute, p_period, p_client_event_id, p_player_id?, p_player_name_override?, p_own_goal, p_local_timestamp)` — SECDEF, anon+authenticated. Increments home_score or away_score on fixtures (RETURNING). own_goal=true flips credit to opposite side. Player fields recorded in audit only. Returns {ok, home_score, away_score}.
+- `ref_undo_tournament_goal(p_ref_token, p_side)` — SECDEF, anon+authenticated. Decrements score, GREATEST(0, score-1). Returns {ok, home_score, away_score}. Audits '_system'.
+- `ref_confirm_tournament_match(p_ref_token)` — SECDEF, anon+authenticated. Sets status=completed, current_period=FT. Returns {ok, home_score, away_score, status}.
+- `club_admin_get_standings(p_tournament_event_id, p_competition_id)` — SECDEF, authenticated-only (anon revoked). Club ownership guard via club_admins. P/W/D/L/GF/GA/GD/Pts from completed fixtures. Ordered pts DESC, GD DESC, GF DESC, team_name ASC.
+
+**JS wrappers (supabase.js + index.js barrel):**
+`refStartTournamentMatch`, `refSetTournamentPeriod`, `refRecordTournamentGoal`, `refUndoTournamentGoal`, `refConfirmTournamentMatch`, `clubAdminGetStandings`.
+
+**UI changes:**
+- `apps/ref/src/views/PreMatch.jsx` — `isTournament = !!fixture.home_competition_team_id`; calls `refStartTournamentMatch` vs `refStartMatch`.
+- `apps/ref/src/views/LiveMatch.jsx` — `isTournament` flag; `tournamentPeriod` React state (init from `props.fixture.current_period || '1H'`) replaces `derivePeriod(events)` for period tracking so reload restores the real period. Score: `[fixture.home_score ?? 0, fixture.away_score ?? 0]` not `deriveScore(events, ...)`. Period setter: tournament branch calls `refSetTournamentPeriod` fire-and-forget + updates local state. `doTournamentGoal(side)`: optimistic update → RPC → authoritative score from RETURNING; revert on error. Undo toast: `toast.tournamentSide` → `refUndoTournamentGoal`. `confirmFT`: tournament → `refConfirmTournamentMatch`. Body: per-team conditional — `squad.length > 0` → existing `TeamColumn` (player picker, dormant for now as tournament fixtures have no squad); `squad.length === 0` → `TournamentGoalButton` (big GOAL button).
+- `apps/inorout/src/views/SessionsScreen.jsx` — Full timetable: score shown inline + "Ref" button per fixture (copies `https://platform-ref.vercel.app/?token=<ref_token>`). Per-competition fixture rows: score highlighted when known; Ref button. Standings table computed client-side from completed fixtures in `scheduleData`; shown once any match is complete (P/W/D/L/GD/Pts, sorted).
+
+**Security sweep:** 7/7 PASS (all SECDEF, search_path=public,pg_temp, overload=1, grants). Both builds clean. Hygiene 7/7 PASS on all 4 edited files.
+
+**Commit:** `b3d9f98`
+
+**Next migration: 321.**
+
+**FEATURES.md updated this session.**

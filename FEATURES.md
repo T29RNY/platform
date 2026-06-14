@@ -2101,4 +2101,21 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - UI: SessionsScreen per-competition fixture timetable (grouped by round) + "Generate schedule" button (shown when ≥2 active teams, no fixtures yet) + `GenerateScheduleModal` (date/time/slot/pitch picker) + director "Full Timetable" section (all competitions sorted by kickoff).
 - EV: 7/7 PASS (not_authenticated, not_enough_teams, 2-team schedule, fixture persisted, fixtures_already_exist, assign-slot, get-schedule). Leak-check: all zeros. Security sweep: 3/3 PASS.
 
-Next migration: 320.
+**Phase 5 (mig 320) ✅ COMPLETE (session 123):**
+- Schema: `fixtures.current_period text` column — persists HT/2H/etc. to DB so period survives a referee page-reload (fixes the clock reset bug).
+- `get_fixture_state_by_ref_token` REPLACED — now resolves team names from `competition_teams` when `home_team_id IS NULL`; adds `home/away_competition_team_id` + `current_period` to fixture payload. Backward-compatible: league fixtures unchanged.
+- 5 new tournament-specific RPCs (all SECDEF, anon+authenticated): `ref_start_tournament_match` (status→in_progress, current_period=1H; no match_events insert — team_id FK to teams blocks competition_team ids), `ref_set_tournament_period` (persists HT/2H to fixtures), `ref_record_tournament_goal` (increments home_score/away_score directly; own_goal flag; full audit trail; returns authoritative score), `ref_undo_tournament_goal` (decrements, floor 0), `ref_confirm_tournament_match` (status→completed, current_period=FT).
+- 1 new director RPC (SECDEF, authenticated-only): `club_admin_get_standings` (P/W/D/L/GF/GA/GD/Pts from completed fixtures, club ownership guard).
+- JS wrappers: `refStartTournamentMatch`, `refSetTournamentPeriod`, `refRecordTournamentGoal`, `refUndoTournamentGoal`, `refConfirmTournamentMatch`, `clubAdminGetStandings`.
+- Ref app — PreMatch.jsx: isTournament detection → calls `refStartTournamentMatch` instead of `refStartMatch`.
+- Ref app — LiveMatch.jsx: `isTournament` branches throughout; `tournamentPeriod` state (from `fixture.current_period`) replaces `derivePeriod(events)` so period survives reload; score from `fixture.home_score/away_score` not `match_events`; per-team conditional — squad present → existing TeamColumn (player picker); squad empty → `TournamentGoalButton` (big GOAL button); undo toast calls `refUndoTournamentGoal`; confirmFT calls `refConfirmTournamentMatch`.
+- Director — SessionsScreen.jsx: Full timetable shows score inline + Ref button per fixture (copies `https://platform-ref.vercel.app/?token=<ref_token>`). Per-competition fixture rows: score highlighted when known + Ref button. Standings table computed client-side from `scheduleData` once any match is complete.
+- Security sweep: 7/7 PASS (all SECDEF, search_path, overload=1, grants). Build: both inorout + ref clean. Hygiene: 7/7 PASS on all 4 edited files.
+- Commit: `b3d9f98`. Next migration: 321.
+
+| 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | 🔲 Not started |
+| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🔲 Not started |
+| 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
+| 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
+
+Next migration: 321.
