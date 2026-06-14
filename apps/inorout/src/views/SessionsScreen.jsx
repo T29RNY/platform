@@ -5,6 +5,7 @@ import {
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
+  memberListClubAnnouncements,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -76,6 +77,11 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [attendanceMaps, setAttendanceMaps] = useState({});
   const [attendanceSaving, setAttendanceSaving] = useState(false);
 
+  // announcements
+  const [announcements, setAnnouncements]             = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
+
   // medical detail: { [profileId]: detailObj | 'loading' | 'error' }
   const [memberDetails, setMemberDetails] = useState({});
   const isFetchingDetailRef = useRef(false);
@@ -118,6 +124,20 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       .then(data => { if (alive) setSessions(data ?? []); })
       .catch(e => { console.error("[sessions] list failed", e); })
       .finally(() => { if (alive) setSessionsLoading(false); });
+    return () => { alive = false; };
+  }, [selectedClubId]);
+
+  // Load announcements when a club is selected
+  useEffect(() => {
+    if (!selectedClubId) return;
+    let alive = true;
+    setAnnouncementsLoading(true);
+    setAnnouncements([]);
+    setShowAllAnnouncements(false);
+    memberListClubAnnouncements(selectedClubId)
+      .then(data => { if (alive) setAnnouncements(data ?? []); })
+      .catch(e => { console.error("[sessions] announcements failed", e); })
+      .finally(() => { if (alive) setAnnouncementsLoading(false); });
     return () => { alive = false; };
   }, [selectedClubId]);
 
@@ -392,6 +412,51 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           </div>
         )}
       </div>
+
+      {/* ── Announcements ───────────────────────────────────────────────── */}
+      {selectedClubId && (announcementsLoading || announcements.length > 0) && (
+        <div style={{ padding: "12px 20px 0" }}>
+          <div style={{
+            background: "var(--b2)", border: "1px solid var(--border-subtle)",
+            borderRadius: 10, overflow: "hidden",
+          }}>
+            <div style={{
+              padding: "10px 14px",
+              borderBottom: announcements.length > 0 ? "1px solid var(--border-subtle)" : "none",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                Announcements
+              </span>
+              {announcements.length > 3 && (
+                <button onClick={() => setShowAllAnnouncements(v => !v)}
+                  style={{ fontSize: 12, color: "var(--t2)", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)" }}>
+                  {showAllAnnouncements ? "Show less" : `See all (${announcements.length})`}
+                </button>
+              )}
+            </div>
+            {announcementsLoading && (
+              <p style={{ padding: "10px 14px", fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>Loading…</p>
+            )}
+            {!announcementsLoading && (showAllAnnouncements ? announcements : announcements.slice(0, 3)).map((a, i) => (
+              <div key={a.id} style={{
+                padding: "10px 14px",
+                borderTop: i > 0 ? "1px solid var(--border-subtle)" : "none",
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)", fontFamily: "var(--font-body)", marginBottom: 4 }}>
+                  {a.title}
+                </div>
+                <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+                  {a.body}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body)", marginTop: 6 }}>
+                  {fmtDate(a.created_at)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Session list ────────────────────────────────────────────────── */}
       <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>

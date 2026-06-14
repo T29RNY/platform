@@ -263,6 +263,8 @@ export {
   venueRemoveTeamManager,
   venueListClubStaff,
   venueUpsertStaffDbs,
+  clubSendAnnouncement,
+  memberListClubAnnouncements,
 } from "./storage/supabase.js";
 export { generateRoundRobin } from "./engine/roundRobin.js";
 export { generateCupBracket } from "./engine/cupBracket.js";

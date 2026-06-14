@@ -6,6 +6,7 @@ import {
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
   venueListClubStaff, venueAssignTeamManager, venueRemoveTeamManager, venueUpsertStaffDbs,
+  clubSendAnnouncement,
   venueCreatePolicyDocument, venuePublishPolicyVersion, venueListPolicyDocuments,
   venueListIdSubmissions, venueVerifyIdDocument, getMemberIdDocUrl,
 } from "@platform/core/storage/supabase.js";
@@ -107,7 +108,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["staff", "Staff"], ["documents", "Documents"], ["iddocs", "ID docs"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -117,8 +118,9 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
       {tab === "fees"    && <FeesTab venueToken={venueToken} />}
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
       {tab === "club"       && <ClubTab venueToken={venueToken} />}
-      {tab === "staff"      && <StaffTab venueToken={venueToken} />}
-      {tab === "documents"  && <DocumentsTab venueToken={venueToken} />}
+      {tab === "staff"          && <StaffTab venueToken={venueToken} />}
+      {tab === "announcements"  && <AnnouncementsTab venueToken={venueToken} />}
+      {tab === "documents"      && <DocumentsTab venueToken={venueToken} />}
       {tab === "iddocs"     && <IdDocsTab venueToken={venueToken} />}
     </div>
   );
@@ -1981,6 +1983,159 @@ function IdDocsTab({ venueToken }) {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// ── Announcements ─────────────────────────────────────────────────────────────
+function AnnouncementsTab({ venueToken }) {
+  const [clubs,      setClubs]      = useState(null);
+  const [clubId,     setClubId]     = useState(null);
+  const [cohorts,    setCohorts]    = useState([]);
+  const [teams,      setTeams]      = useState([]);
+  const [audience,   setAudience]   = useState("club");
+  const [cohortId,   setCohortId]   = useState(null);
+  const [teamId,     setTeamId]     = useState(null);
+  const [title,      setTitle]      = useState("");
+  const [body,       setBody]       = useState("");
+  const [saving,     setSaving]     = useState(false);
+  const [sent,       setSent]       = useState(false);
+  const [error,      setError]      = useState(null);
+  const isSavingRef = useRef(false);
+
+  useEffect(() => {
+    venueListClubs(venueToken)
+      .then((cs) => {
+        setClubs(cs || []);
+        if (cs?.length) {
+          const first = cs[0];
+          setClubId(first.id);
+          setCohorts(first.cohorts || []);
+          setTeams(first.teams || []);
+        }
+      })
+      .catch(() => setClubs([]));
+  }, [venueToken]);
+
+  const handleClubChange = (id) => {
+    setClubId(id);
+    setCohortId(null);
+    setTeamId(null);
+    setAudience("club");
+    const c = (clubs || []).find((c) => c.id === id);
+    setCohorts(c?.cohorts || []);
+    setTeams(c?.teams || []);
+  };
+
+  const handleSend = async () => {
+    if (isSavingRef.current) return;
+    setError(null);
+    if (!title.trim()) { setError("Title is required."); return; }
+    if (!body.trim())  { setError("Message body is required."); return; }
+    if (audience === "cohort" && !cohortId) { setError("Pick a cohort."); return; }
+    if (audience === "team"   && !teamId)   { setError("Pick a team."); return; }
+    isSavingRef.current = true;
+    setSaving(true);
+    try {
+      await clubSendAnnouncement(venueToken, clubId, title, body, audience,
+        audience === "cohort" ? cohortId : null,
+        audience === "team"   ? teamId   : null);
+      setSent(true);
+      setTitle("");
+      setBody("");
+      setAudience("club");
+      setCohortId(null);
+      setTeamId(null);
+    } catch (e) {
+      console.error("[announcements] club_send_announcement failed", e);
+      setError(e.message || "Failed to queue announcement.");
+    } finally {
+      isSavingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  if (!clubs) return <p style={{ padding: 24, color: "var(--text-mute, #888)" }}>Loading…</p>;
+  if (!clubs.length) return <EmptyState message="No clubs linked to this venue yet." />;
+
+  return (
+    <div style={{ padding: "20px 0", maxWidth: 560 }}>
+      <p style={{ fontSize: 13, color: "var(--text-mute, #888)", marginBottom: 20 }}>
+        Send a one-way announcement by email to club members. Delivered within 5 minutes.
+      </p>
+
+      {clubs.length > 1 && (
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>Club</label>
+          <select value={clubId || ""} onChange={(e) => handleClubChange(e.target.value)}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14 }}>
+            {clubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>Audience</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[["club", "Whole club"], ["cohort", "Cohort"], ["team", "Team"]].map(([v, l]) => (
+            <button key={v} onClick={() => { setAudience(v); setCohortId(null); setTeamId(null); }}
+              style={{
+                padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer",
+                background: audience === v ? "var(--accent, #111)" : "transparent",
+                color: audience === v ? "#fff" : "var(--text, #111)",
+                border: "1px solid var(--border, #ddd)",
+              }}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {audience === "cohort" && cohorts.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>Cohort</label>
+          <select value={cohortId || ""} onChange={(e) => setCohortId(e.target.value)}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14 }}>
+            <option value="">— pick a cohort —</option>
+            {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {audience === "team" && teams.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>Team</label>
+          <select value={teamId || ""} onChange={(e) => setTeamId(e.target.value)}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14 }}>
+            <option value="">— pick a team —</option>
+            {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>Subject / title</label>
+        <input type="text" value={title} onChange={(e) => { setTitle(e.target.value); setSent(false); }}
+          placeholder="e.g. Training update — this Saturday"
+          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14, boxSizing: "border-box" }} />
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>Message</label>
+        <textarea value={body} onChange={(e) => { setBody(e.target.value); setSent(false); }}
+          rows={5} placeholder="Write your message here…"
+          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14, resize: "vertical", boxSizing: "border-box" }} />
+      </div>
+
+      {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+      {sent  && <p style={{ color: "#2a7a2a", fontSize: 13, marginBottom: 12 }}>Announcement queued — will be emailed within 5 minutes.</p>}
+
+      <button onClick={handleSend} disabled={saving}
+        style={{
+          padding: "10px 24px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff",
+          border: "none", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
+          opacity: saving ? 0.6 : 1,
+        }}>
+        {saving ? "Sending…" : "Send announcement"}
+      </button>
     </div>
   );
 }

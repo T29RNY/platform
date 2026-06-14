@@ -357,6 +357,18 @@ const TEMPLATES = {
       ),
     };
   },
+  // Phase 11 Club Comms (mig 307) — broadcast from venue to club members.
+  // ctx: { firstName, clubName, venueName, title, body }
+  club_announcement: (c) => ({
+    subject: `[${c.clubName}] ${c.title}`,
+    text: `Hi ${c.firstName},\n\n${c.body}\n\n— ${c.venueName}`,
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p><b>${esc(c.title)}</b></p>` +
+      `<p>${esc(c.body).replace(/\n/g, "<br>")}</p>` +
+      `<p style="color:#888;font-size:13px">— ${esc(c.venueName)}</p>`
+    ),
+  }),
 };
 
 async function sendTemplated(type, to, ctx) {

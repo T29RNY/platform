@@ -4284,3 +4284,20 @@ export async function venueUpsertStaffDbs(venueToken, memberProfileId, clubId, {
   if (error) { console.error("[club-staff] venue_upsert_staff_dbs failed", error); throw error; }
   return data;
 }
+
+export async function clubSendAnnouncement(venueToken, clubId, title, body, audience, cohortId = null, teamId = null) {
+  const { data, error } = await supabase.rpc("club_send_announcement", {
+    p_token: venueToken, p_club_id: clubId, p_title: title, p_body: body,
+    p_audience: audience, p_cohort_id: cohortId, p_team_id: teamId,
+  });
+  if (error) { console.error("[club-comms] club_send_announcement failed", error); throw error; }
+  return data;
+}
+
+export async function memberListClubAnnouncements(clubId) {
+  const { data, error } = await supabase.rpc("member_list_club_announcements", {
+    p_club_id: clubId,
+  });
+  if (error) { console.error("[club-comms] member_list_club_announcements failed", error); throw error; }
+  return data?.announcements ?? [];
+}

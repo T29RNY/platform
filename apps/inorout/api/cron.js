@@ -270,6 +270,13 @@ module.exports = async function handler(req, res) {
     results.push(`fixtureReminder: error — ${e.message}`);
   }
 
+  // ── Club broadcast emails (Phase 11, every tick) ─────────────────────────
+  try {
+    await clubBroadcastJob(base, results);
+  } catch (e) {
+    results.push(`clubBroadcast: error — ${e.message}`);
+  }
+
   // ── HQ weekly digest (per-company, Monday 08:00 UK) ───────────────────────
   try {
     await weeklyDigestJob(results);
@@ -742,6 +749,50 @@ async function membershipRemindersJob(results) {
     }
   }
   results.push(`membershipReminders: ${sent} sent, ${skipped} already-sent`);
+}
+
+// ── Club broadcast emails (Phase 11, mig 307) — fire immediately on every tick
+// when a club_announcement is queued. No time-window gate: venue admins expect
+// near-real-time delivery after hitting send.
+async function clubBroadcastJob(base, results) {
+  const { data, error } = await supabase.rpc("get_pending_club_broadcasts");
+  if (error) { results.push(`clubBroadcast: error — ${error.message}`); return; }
+  const broadcasts = data?.broadcasts || [];
+  if (!broadcasts.length) { results.push("clubBroadcast: none queued"); return; }
+
+  let totalSent = 0, totalSkipped = 0;
+  for (const b of broadcasts) {
+    const recipients = b.recipients || [];
+    let sent = 0, skipped = 0;
+    for (const r of recipients) {
+      if (!r.email) continue;
+      if (await alreadyNotified("club_announcement", b.announcement_id, r.email, "email")) { skipped++; continue; }
+      const ctx = {
+        firstName: r.first_name || "there",
+        clubName: b.club_name,
+        venueName: b.venue_name,
+        title: b.title,
+        body: b.body,
+      };
+      const res = await sendTemplated("club_announcement", r.email, ctx);
+      if (res?.skipped === "no_api_key") { results.push("clubBroadcast: skipped (RESEND_API_KEY unset)"); return; }
+      if (res?.id) {
+        await supabase.from("notification_log").insert({
+          type: "club_announcement", entity_id: b.announcement_id, recipient: r.email, channel: "email",
+        });
+        sent++;
+      } else if (res?.error) {
+        results.push(`clubBroadcast: send failed (${r.email}) — ${res.error}`);
+      }
+    }
+    // Mark announcement sent regardless of per-recipient failures (partial delivery is still delivery)
+    await supabase
+      .from("club_announcements")
+      .update({ status: "sent", email_sent_count: sent, sent_at: new Date().toISOString() })
+      .eq("id", b.announcement_id);
+    totalSent += sent; totalSkipped += skipped;
+  }
+  results.push(`clubBroadcast: ${broadcasts.length} broadcast(s) — ${totalSent} sent, ${totalSkipped} already-sent`);
 }
 
 // ── Stripe reconciliation (Phase 7) ──────────────────────────────────────────
