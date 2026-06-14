@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChild, memberUpdateChild,
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
-         uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments } from "@platform/core/storage/supabase.js";
+         uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
+         memberListMyPurchases } from "@platform/core/storage/supabase.js";
 
 // MemberProfile — the member's own account profile at /profile.
 // Authenticated gate is enforced by App.jsx before mounting.
@@ -50,6 +51,7 @@ export default function MemberProfile({ authUser }) {
   const isSigningRef = useRef(false);
 
   const [idDocuments,    setIdDocuments]    = useState([]);   // member's own submissions
+  const [myOrders,       setMyOrders]       = useState([]);
   const [idUploadClub,   setIdUploadClub]   = useState(null); // club being uploaded for
   const [idDocType,      setIdDocType]      = useState("passport");
   const [idFile,         setIdFile]         = useState(null);
@@ -65,13 +67,15 @@ export default function MemberProfile({ authUser }) {
       memberGetPendingConsents().catch(() => null),
       memberListConsents().catch(() => null),
       memberListIdDocuments().catch(() => null),
-    ]).then(([selfResult, childrenResult, pendingResult, signedResult, idDocsResult]) => {
+      memberListMyPurchases().catch(() => null),
+    ]).then(([selfResult, childrenResult, pendingResult, signedResult, idDocsResult, ordersResult]) => {
       if (!alive) return;
       setProfile(selfResult?.found ? selfResult : null);
       setChildren(childrenResult?.children ?? []);
       setPendingConsents(pendingResult?.pending ?? []);
       setSignedConsents(signedResult?.consents ?? []);
       setIdDocuments(idDocsResult?.documents ?? []);
+      setMyOrders(ordersResult?.purchases ?? []);
     }).catch((e) => {
       console.error("[member-profile] load failed", e);
       if (alive) setProfile(null);
@@ -833,6 +837,34 @@ export default function MemberProfile({ authUser }) {
               } finally { setSigningSaving(false); isSigningRef.current = false; }
             }}
           />
+        )}
+
+        {/* ── My orders ───────────────────────────────────────────── */}
+        {myOrders.length > 0 && (
+          <Section title="My orders">
+            {myOrders.map((o, i) => (
+              <div key={o.id} style={{
+                padding: "10px 0",
+                borderTop: i > 0 ? "1px solid var(--border-subtle)" : "none",
+                display: "flex", alignItems: "flex-start", gap: 12,
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>{o.item_name}</div>
+                  <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                    Qty {o.quantity} · £{((o.total_pence || 0) / 100).toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--t3, #666)", marginTop: 3 }}>{fmtDate(o.created_at)}</div>
+                </div>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+                  background: o.status === "fulfilled" ? "rgba(76,175,80,0.15)" : o.status === "cancelled" ? "rgba(255,255,255,0.06)" : "rgba(255,190,60,0.15)",
+                  color: o.status === "fulfilled" ? "rgba(76,175,80,1)" : o.status === "cancelled" ? "var(--t2)" : "var(--amber)",
+                }}>
+                  {o.status === "pending_payment" ? "Pending" : o.status === "fulfilled" ? "Fulfilled" : o.status === "cancelled" ? "Cancelled" : o.status}
+                </span>
+              </div>
+            ))}
+          </Section>
         )}
 
         {/* ── Save / cancel ────────────────────────────────────────── */}

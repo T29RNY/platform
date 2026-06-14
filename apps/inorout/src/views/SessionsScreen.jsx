@@ -6,6 +6,7 @@ import {
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
   memberListClubAnnouncements,
+  memberGetMerchandise, memberPurchaseMerchandise,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -82,6 +83,11 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
 
+  // shop
+  const [shopItems,    setShopItems]    = useState([]);
+  const [shopOrdered,  setShopOrdered]  = useState(null);
+  const shopSavingRef = useRef(false);
+
   // medical detail: { [profileId]: detailObj | 'loading' | 'error' }
   const [memberDetails, setMemberDetails] = useState({});
   const isFetchingDetailRef = useRef(false);
@@ -127,17 +133,22 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     return () => { alive = false; };
   }, [selectedClubId]);
 
-  // Load announcements when a club is selected
+  // Load announcements + shop items when a club is selected
   useEffect(() => {
     if (!selectedClubId) return;
     let alive = true;
     setAnnouncementsLoading(true);
     setAnnouncements([]);
     setShowAllAnnouncements(false);
+    setShopItems([]);
+    setShopOrdered(null);
     memberListClubAnnouncements(selectedClubId)
       .then(data => { if (alive) setAnnouncements(data ?? []); })
       .catch(e => { console.error("[sessions] announcements failed", e); })
       .finally(() => { if (alive) setAnnouncementsLoading(false); });
+    memberGetMerchandise(selectedClubId)
+      .then(data => { if (alive) setShopItems(data ?? []); })
+      .catch(e => { console.error("[sessions] shop failed", e); });
     return () => { alive = false; };
   }, [selectedClubId]);
 
@@ -453,6 +464,48 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                   {fmtDate(a.created_at)}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Shop ────────────────────────────────────────────────────────── */}
+      {selectedClubId && shopItems.length > 0 && (
+        <div style={{ padding: "12px 20px 0" }}>
+          <div style={{
+            background: "var(--b2)", border: "1px solid var(--border-subtle)",
+            borderRadius: 10, overflow: "hidden",
+          }}>
+            <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-subtle)" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                Club Shop
+              </span>
+            </div>
+            {shopOrdered && (
+              <div style={{ padding: "10px 14px", background: "rgba(76,175,80,0.08)", borderBottom: "1px solid var(--border-subtle)" }}>
+                <p style={{ fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", margin: 0 }}>
+                  ✓ Order placed — the club will arrange payment and delivery.
+                </p>
+              </div>
+            )}
+            {shopItems.map((item, i) => (
+              <ShopItemRow
+                key={item.id}
+                item={item}
+                isFirst={i === 0}
+                onOrder={async (qty) => {
+                  if (shopSavingRef.current) return;
+                  shopSavingRef.current = true;
+                  try {
+                    await memberPurchaseMerchandise(item.id, qty);
+                    setShopOrdered(item.id);
+                  } catch (e) {
+                    console.error("[shop] purchase failed", e);
+                  } finally {
+                    shopSavingRef.current = false;
+                  }
+                }}
+              />
             ))}
           </div>
         </div>
@@ -1490,3 +1543,65 @@ const wrap = {
   display: "flex",
   flexDirection: "column",
 };
+
+function ShopItemRow({ item, isFirst, onOrder }) {
+  const [qty,     setQty]     = useState(1);
+  const [saving,  setSaving]  = useState(false);
+  const [ordered, setOrdered] = useState(false);
+
+  const handleBuy = async () => {
+    if (saving || ordered) return;
+    setSaving(true);
+    try {
+      await onOrder(qty);
+      setOrdered(true);
+    } catch (e) {
+      console.error("[shop] row buy failed", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{
+      padding: "12px 14px",
+      borderTop: isFirst ? "none" : "1px solid var(--border-subtle)",
+      display: "flex", alignItems: "center", gap: 12,
+    }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)", fontFamily: "var(--font-body)" }}>{item.name}</div>
+        {item.description && (
+          <div style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 2 }}>{item.description}</div>
+        )}
+        <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 3 }}>
+          £{(item.price_pence / 100).toFixed(2)}
+          {item.stock_qty != null && item.stock_qty <= 5 && item.stock_qty > 0 && (
+            <span style={{ marginLeft: 8, color: "var(--amber, #f90)" }}>Only {item.stock_qty} left</span>
+          )}
+          {item.stock_qty === 0 && (
+            <span style={{ marginLeft: 8, color: "#FF6060" }}>Out of stock</span>
+          )}
+        </div>
+      </div>
+      {item.stock_qty !== 0 && !ordered && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <select value={qty} onChange={(e) => setQty(Number(e.target.value))}
+            style={{ padding: "4px 6px", borderRadius: 6, border: "1px solid var(--border-subtle)", background: "var(--b2)", color: "var(--t1)", fontSize: 13, fontFamily: "var(--font-body)" }}>
+            {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <button onClick={handleBuy} disabled={saving}
+            style={{
+              padding: "7px 14px", borderRadius: 8, background: "var(--accent, #60A0FF)", color: "#fff",
+              border: "none", fontSize: 13, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
+              opacity: saving ? 0.6 : 1, fontFamily: "var(--font-body)",
+            }}>
+            {saving ? "…" : "Order"}
+          </button>
+        </div>
+      )}
+      {ordered && (
+        <span style={{ fontSize: 12, color: "rgba(76,175,80,1)", fontFamily: "var(--font-body)", fontWeight: 600 }}>Ordered ✓</span>
+      )}
+    </div>
+  );
+}

@@ -10,6 +10,8 @@ import {
   clubSendAnnouncement,
   venueCreatePolicyDocument, venuePublishPolicyVersion, venueListPolicyDocuments,
   venueListIdSubmissions, venueVerifyIdDocument, getMemberIdDocUrl,
+  venueUpsertMerchandise, venueListMerchandise, venueListPurchases,
+  venueFulfilPurchase, venueCancelPurchase,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -109,7 +111,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -123,6 +125,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
       {tab === "announcements"  && <AnnouncementsTab venueToken={venueToken} />}
       {tab === "documents"      && <DocumentsTab venueToken={venueToken} />}
       {tab === "iddocs"     && <IdDocsTab venueToken={venueToken} />}
+      {tab === "merchandise" && <MerchandiseTab venueToken={venueToken} />}
     </div>
   );
 }
@@ -2307,6 +2310,334 @@ function AnnouncementsTab({ venueToken }) {
         }}>
         {saving ? "Sending…" : "Send announcement"}
       </button>
+    </div>
+  );
+}
+
+// ── Merchandise ───────────────────────────────────────────────────────────────
+const MERCH_CATEGORIES = ["kit", "accessories", "equipment", "other"];
+const CAT_LABELS = { kit: "Kit / uniform", accessories: "Accessories", equipment: "Equipment", other: "Other" };
+
+function MerchandiseTab({ venueToken }) {
+  const [subTab,    setSubTab]    = useState("catalogue");
+  const [clubs,     setClubs]     = useState(null);
+  const [clubId,    setClubId]    = useState(null);
+
+  useEffect(() => {
+    venueListClubs(venueToken)
+      .then((cs) => {
+        setClubs(cs || []);
+        if (cs?.length) setClubId(cs[0].id);
+      })
+      .catch(() => setClubs([]));
+  }, [venueToken]);
+
+  if (!clubs) return <p style={{ padding: 24, color: "var(--muted, #888)" }}>Loading…</p>;
+  if (!clubs.length) return <EmptyState message="No clubs found at this venue." />;
+
+  return (
+    <div>
+      {clubs.length > 1 && (
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, marginRight: 8 }}>Club</label>
+          <select value={clubId || ""} onChange={(e) => setClubId(e.target.value)}
+            style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14 }}>
+            {clubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {[["catalogue", "Catalogue"], ["orders", "Orders"]].map(([v, l]) => (
+          <button key={v} onClick={() => setSubTab(v)}
+            style={{
+              padding: "6px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600,
+              border: "1px solid var(--border, #ddd)", cursor: "pointer",
+              background: subTab === v ? "var(--accent, #111)" : "transparent",
+              color: subTab === v ? "#fff" : "var(--text, #111)",
+            }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {clubId && subTab === "catalogue" && <CataloguePanel venueToken={venueToken} clubId={clubId} />}
+      {clubId && subTab === "orders"    && <OrdersPanel    venueToken={venueToken} clubId={clubId} />}
+    </div>
+  );
+}
+
+function CataloguePanel({ venueToken, clubId }) {
+  const [items,      setItems]      = useState(null);
+  const [showForm,   setShowForm]   = useState(false);
+  const [editing,    setEditing]    = useState(null);
+  const [saving,     setSaving]     = useState(false);
+  const [error,      setError]      = useState(null);
+  const isSavingRef = useRef(false);
+
+  const blank = { name: "", category: "kit", pricePence: "", description: "", stockQty: "", active: true };
+  const [form, setForm] = useState(blank);
+
+  const load = () => {
+    venueListMerchandise(venueToken, clubId)
+      .then((rows) => setItems(rows || []))
+      .catch(() => setItems([]));
+  };
+
+  useEffect(() => { load(); }, [venueToken, clubId]);
+
+  const openNew = () => { setEditing(null); setForm(blank); setError(null); setShowForm(true); };
+  const openEdit = (item) => {
+    setEditing(item.id);
+    setForm({
+      name: item.name || "",
+      category: item.category || "kit",
+      pricePence: item.price_pence != null ? (item.price_pence / 100).toFixed(2) : "",
+      description: item.description || "",
+      stockQty: item.stock_qty != null ? String(item.stock_qty) : "",
+      active: item.active !== false,
+    });
+    setError(null);
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
+    if (isSavingRef.current) return;
+    setError(null);
+    if (!form.name.trim())  { setError("Name is required."); return; }
+    if (!form.category)     { setError("Category is required."); return; }
+    const price = toPence(form.pricePence);
+    if (price == null || price < 0) { setError("Enter a valid price (e.g. 25.00)."); return; }
+    isSavingRef.current = true;
+    setSaving(true);
+    try {
+      await venueUpsertMerchandise(venueToken, clubId, {
+        id: editing || null,
+        name: form.name.trim(),
+        category: form.category,
+        pricePence: price,
+        description: form.description.trim() || null,
+        stockQty: form.stockQty !== "" ? parseInt(form.stockQty, 10) : null,
+        active: form.active,
+      });
+      setShowForm(false);
+      load();
+    } catch (e) {
+      console.error("[merch] upsert failed", e);
+      setError("Failed to save — try again.");
+    } finally {
+      isSavingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  const field = (label, content) => (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 5 }}>{label}</label>
+      {content}
+    </div>
+  );
+
+  const inputStyle = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14, boxSizing: "border-box" };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <SectionHead>Items ({items?.length ?? "…"})</SectionHead>
+        <button onClick={openNew}
+          style={{ padding: "7px 16px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          + Add item
+        </button>
+      </div>
+
+      {items === null && <p style={{ color: "var(--muted, #888)" }}>Loading…</p>}
+      {items?.length === 0 && <EmptyState message="No items yet — add your first product above." />}
+      {items?.length > 0 && (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid var(--border, #eee)" }}>
+              {["Name", "Category", "Price", "Stock", "Status", ""].map((h) => (
+                <th key={h} style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600, fontSize: 12, color: "var(--muted, #888)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id} style={{ borderBottom: "1px solid var(--border, #f0f0f0)" }}>
+                <td style={{ padding: "10px 8px", fontWeight: 500 }}>{item.name}</td>
+                <td style={{ padding: "10px 8px", color: "var(--muted, #666)" }}>{CAT_LABELS[item.category] || item.category}</td>
+                <td style={{ padding: "10px 8px" }}>£{(item.price_pence / 100).toFixed(2)}</td>
+                <td style={{ padding: "10px 8px", color: "var(--muted, #666)" }}>{item.stock_qty != null ? item.stock_qty : "—"}</td>
+                <td style={{ padding: "10px 8px" }}>
+                  <span className={item.active ? "pill-ok" : "pill-muted"} style={{ fontSize: 11 }}>
+                    {item.active ? "Active" : "Hidden"}
+                  </span>
+                </td>
+                <td style={{ padding: "10px 8px", textAlign: "right" }}>
+                  <button onClick={() => openEdit(item)}
+                    style={{ background: "none", border: "1px solid var(--border, #ddd)", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {showForm && (
+        <Modal onClose={() => setShowForm(false)} title={editing ? "Edit item" : "New item"}>
+          {field("Name", <input type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} style={inputStyle} placeholder="e.g. Home kit — adult" />)}
+          {field("Category",
+            <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} style={{ ...inputStyle, width: "auto" }}>
+              {MERCH_CATEGORIES.map((c) => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
+            </select>
+          )}
+          {field("Price (£)", <input type="number" min="0" step="0.01" value={form.pricePence} onChange={(e) => setForm((f) => ({ ...f, pricePence: e.target.value }))} style={inputStyle} placeholder="25.00" />)}
+          {field("Description (optional)", <input type="text" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="Sizes S–XXL available" />)}
+          {field("Stock quantity (optional — leave blank for unlimited)", <input type="number" min="0" step="1" value={form.stockQty} onChange={(e) => setForm((f) => ({ ...f, stockQty: e.target.value }))} style={inputStyle} placeholder="Unlimited" />)}
+          {field("Visibility",
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} />
+              Visible to members
+            </label>
+          )}
+          {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button onClick={() => setShowForm(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border, #ddd)", background: "none", fontSize: 14, cursor: "pointer" }}>Cancel</button>
+            <button onClick={handleSave} disabled={saving}
+              style={{ padding: "8px 20px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+const ORDER_STATUS_LABELS = { pending_payment: "Pending payment", pending: "Pending", fulfilled: "Fulfilled", cancelled: "Cancelled" };
+const ORDER_STATUS_CLS    = { pending_payment: "pill-warn", pending: "pill-info", fulfilled: "pill-ok", cancelled: "pill-muted" };
+
+function OrdersPanel({ venueToken, clubId }) {
+  const [orders,     setOrders]     = useState(null);
+  const [filter,     setFilter]     = useState("");
+  const [actioning,  setActioning]  = useState(null);
+  const [notes,      setNotes]      = useState("");
+  const [error,      setError]      = useState(null);
+  const [saving,     setSaving]     = useState(false);
+  const isSavingRef = useRef(false);
+
+  const load = () => {
+    venueListPurchases(venueToken, clubId, filter || null)
+      .then((rows) => setOrders(rows || []))
+      .catch(() => setOrders([]));
+  };
+
+  useEffect(() => { load(); }, [venueToken, clubId, filter]);
+
+  const handleAction = async (action) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      if (action === "fulfil") await venueFulfilPurchase(venueToken, actioning.id, notes.trim() || null);
+      if (action === "cancel") await venueCancelPurchase(venueToken, actioning.id, notes.trim() || null);
+      setActioning(null);
+      setNotes("");
+      load();
+    } catch (e) {
+      console.error("[merch] action failed", e);
+      setError("Failed — try again.");
+    } finally {
+      isSavingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+        <SectionHead style={{ margin: 0 }}>Orders</SectionHead>
+        <select value={filter} onChange={(e) => setFilter(e.target.value)}
+          style={{ marginLeft: "auto", padding: "5px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 13 }}>
+          <option value="">All statuses</option>
+          {Object.entries(ORDER_STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+
+      {orders === null && <p style={{ color: "var(--muted, #888)" }}>Loading…</p>}
+      {orders?.length === 0 && <EmptyState message="No orders yet." />}
+      {orders?.length > 0 && (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid var(--border, #eee)" }}>
+              {["Member", "Item", "Qty", "Total", "Status", "Notes", ""].map((h) => (
+                <th key={h} style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600, fontSize: 12, color: "var(--muted, #888)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((o) => (
+              <tr key={o.id} style={{ borderBottom: "1px solid var(--border, #f0f0f0)" }}>
+                <td style={{ padding: "10px 8px", fontWeight: 500 }}>{o.member_name || "—"}</td>
+                <td style={{ padding: "10px 8px" }}>{o.item_name || "—"}</td>
+                <td style={{ padding: "10px 8px" }}>{o.quantity}</td>
+                <td style={{ padding: "10px 8px" }}>£{((o.total_pence || 0) / 100).toFixed(2)}</td>
+                <td style={{ padding: "10px 8px" }}>
+                  <span className={ORDER_STATUS_CLS[o.status] || "pill-muted"} style={{ fontSize: 11 }}>
+                    {ORDER_STATUS_LABELS[o.status] || o.status}
+                  </span>
+                </td>
+                <td style={{ padding: "10px 8px", color: "var(--muted, #666)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.notes || "—"}</td>
+                <td style={{ padding: "10px 8px", textAlign: "right" }}>
+                  {(o.status === "pending" || o.status === "pending_payment") && (
+                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                      <button onClick={() => { setActioning({ ...o, _action: "fulfil" }); setNotes(""); setError(null); }}
+                        style={{ padding: "4px 10px", borderRadius: 6, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}>
+                        Fulfil
+                      </button>
+                      <button onClick={() => { setActioning({ ...o, _action: "cancel" }); setNotes(""); setError(null); }}
+                        style={{ padding: "4px 10px", borderRadius: 6, background: "none", color: "#c00", border: "1px solid #c00", fontSize: 12, cursor: "pointer" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {actioning && (
+        <Modal onClose={() => setActioning(null)} title={actioning._action === "fulfil" ? "Mark as fulfilled" : "Cancel order"}>
+          <p style={{ fontSize: 14, marginBottom: 12 }}>
+            {actioning._action === "fulfil"
+              ? `Mark ${actioning.member_name}'s order for "${actioning.item_name}" as fulfilled?`
+              : `Cancel ${actioning.member_name}'s order for "${actioning.item_name}"?`}
+          </p>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 5 }}>Notes (optional)</label>
+            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14, boxSizing: "border-box" }}
+              placeholder={actioning._action === "fulfil" ? "e.g. Handed out at training" : "e.g. Out of stock"} />
+          </div>
+          {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button onClick={() => setActioning(null)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border, #ddd)", background: "none", fontSize: 14, cursor: "pointer" }}>Back</button>
+            <button onClick={() => handleAction(actioning._action)} disabled={saving}
+              style={{
+                padding: "8px 20px", borderRadius: 8, border: "none", fontSize: 14, fontWeight: 600,
+                cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
+                background: actioning._action === "fulfil" ? "var(--accent, #111)" : "#c00", color: "#fff",
+              }}>
+              {saving ? "Saving…" : actioning._action === "fulfil" ? "Confirm fulfilled" : "Confirm cancel"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

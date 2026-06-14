@@ -4333,3 +4333,73 @@ export async function memberListClubAnnouncements(clubId) {
   if (error) { console.error("[club-comms] member_list_club_announcements failed", error); throw error; }
   return data?.announcements ?? [];
 }
+
+// ── Phase 9 — Club Merchandise (mig 309) ─────────────────────────────────────
+
+export async function venueUpsertMerchandise(venueToken, clubId, {
+  name, category, pricePence, id = null, description = null, stockQty = null, active = true,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_upsert_merchandise", {
+    p_venue_token: venueToken, p_club_id: clubId, p_name: name,
+    p_category: category, p_price_pence: pricePence,
+    p_id: id, p_description: description, p_stock_qty: stockQty, p_active: active,
+  });
+  if (error) { console.error("[merch] venue_upsert_merchandise failed", error); throw error; }
+  return data;
+}
+
+export async function venueListMerchandise(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_list_merchandise", {
+    p_venue_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[merch] venue_list_merchandise failed", error); throw error; }
+  return data?.items ?? [];
+}
+
+export async function venueListPurchases(venueToken, clubId, status = null) {
+  const { data, error } = await supabase.rpc("venue_list_purchases", {
+    p_venue_token: venueToken, p_club_id: clubId, p_status: status,
+  });
+  if (error) { console.error("[merch] venue_list_purchases failed", error); throw error; }
+  return data?.purchases ?? [];
+}
+
+export async function venueFulfilPurchase(venueToken, purchaseId, notes = null) {
+  const { data, error } = await supabase.rpc("venue_fulfil_purchase", {
+    p_venue_token: venueToken, p_purchase_id: purchaseId, p_notes: notes,
+  });
+  if (error) { console.error("[merch] venue_fulfil_purchase failed", error); throw error; }
+  return data;
+}
+
+export async function venueCancelPurchase(venueToken, purchaseId, reason = null) {
+  const { data, error } = await supabase.rpc("venue_cancel_purchase", {
+    p_venue_token: venueToken, p_purchase_id: purchaseId, p_reason: reason,
+  });
+  if (error) { console.error("[merch] venue_cancel_purchase failed", error); throw error; }
+  return data;
+}
+
+export async function memberGetMerchandise(clubId) {
+  const { data, error } = await supabase.rpc("member_get_merchandise", {
+    p_club_id: clubId,
+  });
+  if (error) { console.error("[merch] member_get_merchandise failed", error); throw error; }
+  return data?.items ?? [];
+}
+
+export async function memberPurchaseMerchandise(itemId, qty = 1, notes = null) {
+  const { data, error } = await supabase.rpc("member_purchase_merchandise", {
+    p_item_id: itemId, p_qty: qty, p_notes: notes,
+  });
+  if (error) { console.error("[merch] member_purchase_merchandise failed", error); throw error; }
+  return data;
+}
+
+export async function memberListMyPurchases(clubId = null) {
+  const { data, error } = await supabase.rpc("member_list_my_purchases", {
+    p_club_id: clubId,
+  });
+  if (error) { console.error("[merch] member_list_my_purchases failed", error); throw error; }
+  return data?.purchases ?? [];
+}

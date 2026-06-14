@@ -269,6 +269,14 @@ export {
   venueUpsertStaffDbs,
   clubSendAnnouncement,
   memberListClubAnnouncements,
+  venueUpsertMerchandise,
+  venueListMerchandise,
+  venueListPurchases,
+  venueFulfilPurchase,
+  venueCancelPurchase,
+  memberGetMerchandise,
+  memberPurchaseMerchandise,
+  memberListMyPurchases,
 } from "./storage/supabase.js";
 export { generateRoundRobin } from "./engine/roundRobin.js";
 export { generateCupBracket } from "./engine/cupBracket.js";
