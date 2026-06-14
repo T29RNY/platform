@@ -7,6 +7,7 @@ import {
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
   memberListClubAnnouncements,
   memberGetMerchandise, memberPurchaseMerchandise,
+  clubAdminListTournaments, clubAdminCreateTournament,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -92,6 +93,16 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [memberDetails, setMemberDetails] = useState({});
   const isFetchingDetailRef = useRef(false);
 
+  // tournaments (manager only)
+  const [activeTab, setActiveTab]                   = useState("sessions");
+  const [tournaments, setTournaments]               = useState([]);
+  const [tournamentsLoading, setTournamentsLoading] = useState(false);
+  const [showCreateTournament, setShowCreateTournament] = useState(false);
+  const [tForm, setTForm] = useState({ name:"", slug:"", eventDate:"", venueId:"" });
+  const [tSaving, setTSaving] = useState(false);
+  const [tError, setTError]   = useState(null);
+  const isTournamentSavingRef = useRef(false);
+
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
     if (memberProfileProp) {
@@ -151,6 +162,45 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       .catch(e => { console.error("[sessions] shop failed", e); });
     return () => { alive = false; };
   }, [selectedClubId]);
+
+  // Load tournaments when manager switches to the tournaments tab
+  useEffect(() => {
+    if (!selectedClubId || activeTab !== "tournaments") return;
+    let alive = true;
+    setTournamentsLoading(true);
+    setTournaments([]);
+    clubAdminListTournaments(selectedClubId)
+      .then(data => { if (alive) setTournaments(data ?? []); })
+      .catch(e => { console.error("[sessions] tournaments failed", e); })
+      .finally(() => { if (alive) setTournamentsLoading(false); });
+    return () => { alive = false; };
+  }, [selectedClubId, activeTab]);
+
+  const handleCreateTournament = async () => {
+    if (isTournamentSavingRef.current) return;
+    isTournamentSavingRef.current = true;
+    setTSaving(true);
+    setTError(null);
+    try {
+      await clubAdminCreateTournament(
+        selectedClubId,
+        tForm.venueId.trim(),
+        tForm.name.trim(),
+        tForm.slug.trim(),
+        tForm.eventDate,
+      );
+      setShowCreateTournament(false);
+      setTForm({ name:"", slug:"", eventDate:"", venueId:"" });
+      const refreshed = await clubAdminListTournaments(selectedClubId);
+      setTournaments(refreshed ?? []);
+    } catch (e) {
+      console.error("[sessions] create tournament failed", e);
+      setTError(e?.message ?? "Failed to create tournament");
+    } finally {
+      setTSaving(false);
+      isTournamentSavingRef.current = false;
+    }
+  };
 
   const openDetail = async (session) => {
     setDetailSession(session);
@@ -374,19 +424,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
               }}>
                 Manager
               </span>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                style={{
-                  fontSize: 13, fontWeight: 700,
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid var(--border)",
-                  color: "var(--t1)",
-                  padding: "5px 12px", borderRadius: 20,
-                  fontFamily: "var(--font-body)", cursor: "pointer",
-                }}
-              >
-                + Create
-              </button>
+              {activeTab === "sessions" && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  style={{
+                    fontSize: 13, fontWeight: 700,
+                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid var(--border)",
+                    color: "var(--t1)",
+                    padding: "5px 12px", borderRadius: 20,
+                    fontFamily: "var(--font-body)", cursor: "pointer",
+                  }}
+                >
+                  + Create
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -422,10 +474,33 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
             {selectedClub.club_name}{selectedClub.cohort_name ? ` · ${selectedClub.cohort_name}` : ""}
           </div>
         )}
+
+        {/* Manager tab bar */}
+        {isManager && selectedClubId && (
+          <div style={{ display: "flex", gap: 4, marginTop: 14 }}>
+            {["sessions", "tournaments"].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: "6px 16px", borderRadius: 20,
+                  border: `1px solid ${activeTab === tab ? "var(--amber)" : "var(--border)"}`,
+                  background: activeTab === tab ? "var(--amber)" : "transparent",
+                  color: activeTab === tab ? "rgba(0,0,0,0.9)" : "var(--t2)",
+                  fontSize: 13, fontWeight: activeTab === tab ? 700 : 400,
+                  fontFamily: "var(--font-body)", cursor: "pointer",
+                  textTransform: "capitalize",
+                }}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Announcements ───────────────────────────────────────────────── */}
-      {selectedClubId && (announcementsLoading || announcements.length > 0) && (
+      {selectedClubId && activeTab === "sessions" && (announcementsLoading || announcements.length > 0) && (
         <div style={{ padding: "12px 20px 0" }}>
           <div style={{
             background: "var(--b2)", border: "1px solid var(--border-subtle)",
@@ -470,7 +545,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       )}
 
       {/* ── Shop ────────────────────────────────────────────────────────── */}
-      {selectedClubId && shopItems.length > 0 && (
+      {selectedClubId && activeTab === "sessions" && shopItems.length > 0 && (
         <div style={{ padding: "12px 20px 0" }}>
           <div style={{
             background: "var(--b2)", border: "1px solid var(--border-subtle)",
@@ -512,7 +587,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       )}
 
       {/* ── Session list ────────────────────────────────────────────────── */}
-      <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      {activeTab === "sessions" && <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
 
         {!selectedClubId && (
           <p style={{ color: "var(--t2)", fontSize: 14, fontFamily: "var(--font-body)", textAlign: "center", marginTop: 32 }}>
@@ -539,7 +614,152 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
             onOpen={() => openDetail(session)}
           />
         ))}
-      </div>
+      </div>}
+
+      {/* ── Tournaments view ────────────────────────────────────────────── */}
+      {activeTab === "tournaments" && selectedClubId && (
+        <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase" }}>
+              Tournaments
+            </span>
+            <button
+              onClick={() => { setTError(null); setTForm({ name:"", slug:"", eventDate:"", venueId:"" }); setShowCreateTournament(true); }}
+              style={{
+                fontSize: 13, fontWeight: 700,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid var(--border)",
+                color: "var(--t1)",
+                padding: "5px 12px", borderRadius: 20,
+                fontFamily: "var(--font-body)", cursor: "pointer",
+              }}
+            >
+              + New Tournament
+            </button>
+          </div>
+
+          {tournamentsLoading && (
+            <p style={{ color: "var(--t2)", fontSize: 14, fontFamily: "var(--font-body)", textAlign: "center", marginTop: 24 }}>
+              Loading…
+            </p>
+          )}
+
+          {!tournamentsLoading && tournaments.length === 0 && (
+            <p style={{ color: "var(--t2)", fontSize: 14, fontFamily: "var(--font-body)", textAlign: "center", marginTop: 24 }}>
+              No tournaments yet. Create one to get started.
+            </p>
+          )}
+
+          {tournaments.map(t => (
+            <div
+              key={t.tournament_id}
+              onClick={() => window.location.href = `/tournament/${t.slug}`}
+              style={{
+                background: "var(--b2)", border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--r)", padding: "14px 16px",
+                cursor: "pointer", display: "flex", flexDirection: "column", gap: 6,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--t1)" }}>
+                  {t.name}
+                </span>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                  padding: "3px 8px", borderRadius: 20,
+                  fontFamily: "var(--font-body)", textTransform: "uppercase",
+                  background: t.status === "live" ? "rgba(76,175,80,0.15)" : "rgba(255,255,255,0.06)",
+                  color: t.status === "live" ? "rgba(76,175,80,1)" : "var(--t2)",
+                }}>
+                  {t.status}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
+                {fmtDate(t.event_date)}{t.event_end_date ? ` – ${fmtDate(t.event_end_date)}` : ""}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body)" }}>
+                /tournament/{t.slug}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Create tournament modal ─────────────────────────────────────── */}
+      {showCreateTournament && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 200,
+          background: "rgba(0,0,0,0.7)", display: "flex",
+          alignItems: "flex-end", justifyContent: "center",
+        }} onClick={() => setShowCreateTournament(false)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "var(--b2)", borderRadius: "16px 16px 0 0",
+              width: "100%", maxWidth: 540, padding: "24px 20px 40px",
+              display: "flex", flexDirection: "column", gap: 16,
+            }}
+          >
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 22 }}>New Tournament</div>
+
+            {tError && (
+              <div style={{ fontSize: 13, color: "#FF6060", fontFamily: "var(--font-body)", background: "rgba(255,96,96,0.08)", padding: "8px 12px", borderRadius: 8 }}>
+                {tError}
+              </div>
+            )}
+
+            {[
+              { label: "Name", key: "name", placeholder: "e.g. FC United Summer Cup 2026", type: "text" },
+              { label: "Slug", key: "slug", placeholder: "e.g. fc-united-summer-2026", type: "text" },
+              { label: "Event date", key: "eventDate", placeholder: "", type: "date" },
+              { label: "Venue ID", key: "venueId", placeholder: "Venue ID", type: "text" },
+            ].map(({ label, key, placeholder, type }) => (
+              <div key={key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                  {label}
+                </label>
+                <input
+                  type={type}
+                  value={tForm[key]}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (key === "name") {
+                      const auto = v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+                      setTForm(f => ({ ...f, name: v, slug: f.slug || auto }));
+                    } else {
+                      setTForm(f => ({ ...f, [key]: v }));
+                    }
+                  }}
+                  placeholder={placeholder}
+                  style={{
+                    background: "var(--b3, rgba(255,255,255,0.06))",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8, padding: "10px 12px",
+                    fontSize: 14, color: "var(--t1)",
+                    fontFamily: "var(--font-body)", outline: "none", width: "100%", boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            ))}
+
+            <button
+              onClick={handleCreateTournament}
+              disabled={tSaving || !tForm.name || !tForm.slug || !tForm.eventDate || !tForm.venueId}
+              style={{
+                marginTop: 4,
+                background: tSaving ? "rgba(255,255,255,0.1)" : "var(--amber)",
+                color: tSaving ? "var(--t2)" : "rgba(0,0,0,0.9)",
+                border: "none", borderRadius: 10, padding: "14px",
+                fontSize: 15, fontWeight: 700, fontFamily: "var(--font-body)",
+                cursor: tSaving ? "not-allowed" : "pointer", width: "100%",
+              }}
+            >
+              {tSaving ? "Creating…" : "Create Tournament"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Session detail sheet ────────────────────────────────────────── */}
       {detailSession && (

@@ -30,6 +30,7 @@ import MemberProfile        from "./views/MemberProfile.jsx";
 import SessionsScreen       from "./views/SessionsScreen.jsx";
 import UnifiedFeedScreen   from "./views/UnifiedFeedScreen.jsx";
 import ParentHomeScreen    from "./views/ParentHomeScreen.jsx";
+import TournamentScreen    from "./views/TournamentScreen.jsx";
 import FollowLiveView      from "./views/FollowLiveView.jsx";
 import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
@@ -94,6 +95,7 @@ function getRoute() {
   if (parts[0]==="parent-home")              return { type:"parent-home" };
   if (parts[0]==="feed")                     return { type:"feed" };
   if (parts[0]==="follow-live" && parts[1])  return { type:"follow-live", profileId:parts[1] };
+  if (parts[0]==="tournament"  && parts[1])  return { type:"tournament",  slug:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
@@ -1177,6 +1179,10 @@ export default function App() {
   if (route.type === "follow-live") {
     if (!authUser) return <SignIn returnTo={`/follow-live/${route.profileId}`} />;
     return <FollowLiveView profileId={route.profileId} />;
+  }
+
+  if (route.type === "tournament") {
+    return <TournamentScreen slug={route.slug} />;
   }
 
   // Authenticated user at "/" — route to the correct home based on relationships.
