@@ -3823,3 +3823,21 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 **Next migration: 321.**
 
 **FEATURES.md updated this session.**
+
+## SESSION 124 — Event OS Phase 6 — Public Tournament Page (mig 321)
+
+**RPCs (mig 321):**
+- `get_tournament_public(p_slug text)` REPLACED (CREATE OR REPLACE, 3rd version, same anon+authenticated grant, same signature) — extends return object with two new fields:
+  - `fixtures[]` — all tournament fixtures across all competitions: competition_id/name, round, round_name, scheduled_date, kickoff_time (HH:MM formatted server-side via `to_char`), pitch_name (JOIN playing_areas), home/away team names (from competition_teams), home_score, away_score, status, current_period. Ordered scheduled_date NULLS LAST then kickoff_time NULLS LAST.
+  - `standings[]` — per competition: competition_id/name + rows[] with team_name/P/W/D/L/GF/GA/GD/Pts. Same 3pts/win 1pt/draw arithmetic as `club_admin_get_standings` (mig 320). Active competition_teams only. Ordered pts DESC, GD DESC, GF DESC, team_name ASC.
+
+**UI changes:**
+- `apps/inorout/src/views/TournamentScreen.jsx` — full rewrite (stub → production page). Scrolling layout: **Header** (name, status badge, date/venue/club, Print button); **Schedule** (fixture rows grouped by date with time/teams/score-or-vs/status chip/pitch); **Standings** (P/W/D/L/GF/GA/GD/Pts per competition, shown only when any row has played>0; GD green/red). 30s live poll when `tournament.status === 'live'` (tournament RPCs don't broadcast). Print: `window.print()` + `@media print` (white background, hides nav + Print button via `.print-hide`). Hygiene fix: print hex `#fff`/`#000`/`#ddd` → CSS named keywords (`white`/`black`/`gainsboro`).
+
+**Security sweep:** SECDEF ✓, search_path ✓, overload_count=1 ✓. Build PASS. Hygiene 7/7 PASS.
+
+**Commits:** `312ec78` (Phase 6 feature) · `ffa5742` (docs)
+
+**Next migration: 322.**
+
+**FEATURES.md updated this session.**
