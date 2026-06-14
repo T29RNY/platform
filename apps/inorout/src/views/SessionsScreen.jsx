@@ -8,6 +8,9 @@ import {
   memberListClubAnnouncements,
   memberGetMerchandise, memberPurchaseMerchandise,
   clubAdminListTournaments, clubAdminCreateTournament, clubAdminUpdateTournamentStatus,
+  clubAdminGetTournament,
+  clubAdminAddCompetition, clubAdminRegisterTeam,
+  clubAdminSendTeamInvite, clubAdminApproveTeam, clubAdminRejectTeam,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -102,6 +105,34 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [tSaving, setTSaving] = useState(false);
   const [tError, setTError]   = useState(null);
   const isTournamentSavingRef = useRef(false);
+
+  // tournament detail: expanded view per tournament
+  const [expandedTournamentId, setExpandedTournamentId] = useState(null);
+  const [tournamentDetail, setTournamentDetail]         = useState(null);  // full detail from club_admin_get_tournament
+  const [detailLoading, setDetailLoading]               = useState(false);
+
+  // add competition modal
+  const [showAddComp, setShowAddComp]         = useState(false);
+  const [compForm, setCompForm]               = useState({ name:"", type:"cup", format:"" });
+  const [compSaving, setCompSaving]           = useState(false);
+  const [compError, setCompError]             = useState(null);
+  const isCompSavingRef = useRef(false);
+
+  // register team modal
+  const [registerCompId, setRegisterCompId]   = useState(null);
+  const [registerTeamName, setRegisterTeamName] = useState("");
+  const [registerSaving, setRegisterSaving]   = useState(false);
+  const [registerError, setRegisterError]     = useState(null);
+  const isRegisteringRef = useRef(false);
+
+  // invite modal
+  const [inviteCompId, setInviteCompId]       = useState(null);
+  const [inviteCode, setInviteCode]           = useState(null);
+  const [inviteSaving, setInviteSaving]       = useState(false);
+  const isInvitingRef = useRef(false);
+
+  // approve/reject
+  const isActingOnTeamRef = useRef(false);
 
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
@@ -199,6 +230,124 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     } finally {
       setTSaving(false);
       isTournamentSavingRef.current = false;
+    }
+  };
+
+  const loadTournamentDetail = async (t) => {
+    if (expandedTournamentId === t.tournament_id) {
+      setExpandedTournamentId(null);
+      setTournamentDetail(null);
+      return;
+    }
+    setExpandedTournamentId(t.tournament_id);
+    setTournamentDetail(null);
+    setDetailLoading(true);
+    try {
+      const detail = await clubAdminGetTournament(t.slug);
+      setTournamentDetail(detail);
+    } catch (e) {
+      console.error("[sessions] tournament detail failed", e);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const reloadDetail = async (slug) => {
+    try {
+      const detail = await clubAdminGetTournament(slug);
+      setTournamentDetail(detail);
+    } catch (e) {
+      console.error("[sessions] reload detail failed", e);
+    }
+  };
+
+  const handleAddCompetition = async () => {
+    if (isCompSavingRef.current || !tournamentDetail) return;
+    const name = compForm.name.trim();
+    if (!name) { setCompError("Competition name required."); return; }
+    isCompSavingRef.current = true;
+    setCompSaving(true);
+    setCompError(null);
+    try {
+      await clubAdminAddCompetition(
+        tournamentDetail.tournament_id,
+        name,
+        compForm.type,
+        compForm.format.trim() || null,
+      );
+      setShowAddComp(false);
+      setCompForm({ name:"", type:"cup", format:"" });
+      await reloadDetail(tournamentDetail.slug);
+    } catch (e) {
+      console.error("[sessions] add competition failed", e);
+      setCompError(e?.message ?? "Failed to add competition.");
+    } finally {
+      setCompSaving(false);
+      isCompSavingRef.current = false;
+    }
+  };
+
+  const handleRegisterTeam = async () => {
+    if (isRegisteringRef.current || !tournamentDetail || !registerCompId) return;
+    const name = registerTeamName.trim();
+    if (!name) { setRegisterError("Enter a team name."); return; }
+    isRegisteringRef.current = true;
+    setRegisterSaving(true);
+    setRegisterError(null);
+    try {
+      await clubAdminRegisterTeam(tournamentDetail.tournament_id, registerCompId, name);
+      setRegisterCompId(null);
+      setRegisterTeamName("");
+      await reloadDetail(tournamentDetail.slug);
+    } catch (e) {
+      console.error("[sessions] register team failed", e);
+      setRegisterError(e?.message ?? "Failed to register team.");
+    } finally {
+      setRegisterSaving(false);
+      isRegisteringRef.current = false;
+    }
+  };
+
+  const handleSendInvite = async (competitionId) => {
+    if (isInvitingRef.current || !tournamentDetail) return;
+    isInvitingRef.current = true;
+    setInviteSaving(true);
+    setInviteCode(null);
+    setInviteCompId(competitionId);
+    try {
+      const result = await clubAdminSendTeamInvite(tournamentDetail.tournament_id, competitionId);
+      if (result?.ok) setInviteCode(result.code);
+    } catch (e) {
+      console.error("[sessions] send invite failed", e);
+    } finally {
+      setInviteSaving(false);
+      isInvitingRef.current = false;
+    }
+  };
+
+  const handleApproveTeam = async (competitionTeamId) => {
+    if (isActingOnTeamRef.current || !tournamentDetail) return;
+    isActingOnTeamRef.current = true;
+    try {
+      await clubAdminApproveTeam(competitionTeamId);
+      await reloadDetail(tournamentDetail.slug);
+    } catch (e) {
+      console.error("[sessions] approve team failed", e);
+    } finally {
+      isActingOnTeamRef.current = false;
+    }
+  };
+
+  const handleRejectTeam = async (competitionTeamId) => {
+    if (isActingOnTeamRef.current || !tournamentDetail) return;
+    isActingOnTeamRef.current = true;
+    try {
+      await clubAdminRejectTeam(competitionTeamId);
+      await reloadDetail(tournamentDetail.slug);
+    } catch (e) {
+      console.error("[sessions] reject team failed", e);
+    } finally {
+      isActingOnTeamRef.current = false;
     }
   };
 
@@ -656,56 +805,263 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
             </p>
           )}
 
-          {tournaments.map(t => (
-            <div
-              key={t.tournament_id}
-              onClick={() => window.location.href = `/tournament/${t.slug}`}
-              style={{
-                background: "var(--b2)", border: "1px solid var(--border-subtle)",
-                borderRadius: "var(--r)", padding: "14px 16px",
-                cursor: "pointer", display: "flex", flexDirection: "column", gap: 6,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--t1)" }}>
-                  {t.name}
-                </span>
-                <select
-                  value={t.status}
-                  onClick={e => e.stopPropagation()}
-                  onChange={async e => {
-                    e.stopPropagation();
-                    const next = e.target.value;
-                    setTournaments(ts => ts.map(x => x.tournament_id === t.tournament_id ? { ...x, status: next } : x));
-                    try {
-                      await clubAdminUpdateTournamentStatus(t.slug, next);
-                    } catch (err) {
-                      console.error("[sessions] status update failed", err);
-                      setTournaments(ts => ts.map(x => x.tournament_id === t.tournament_id ? { ...x, status: t.status } : x));
-                    }
-                  }}
+          {tournaments.map(t => {
+            const isExpanded = expandedTournamentId === t.tournament_id;
+            return (
+              <div key={t.tournament_id} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <div
                   style={{
-                    fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-                    padding: "3px 8px", borderRadius: 20,
-                    fontFamily: "var(--font-body)", textTransform: "uppercase",
-                    background: t.status === "live" ? "rgba(76,175,80,0.15)" : t.status === "open" ? "rgba(255,190,60,0.12)" : "rgba(255,255,255,0.06)",
-                    color: t.status === "live" ? "rgba(76,175,80,1)" : t.status === "open" ? "var(--amber)" : "var(--t2)",
-                    border: "1px solid transparent", outline: "none", cursor: "pointer", appearance: "none",
+                    background: "var(--b2)", border: "1px solid var(--border-subtle)",
+                    borderRadius: isExpanded ? "var(--r) var(--r) 0 0" : "var(--r)",
+                    padding: "14px 16px",
+                    display: "flex", flexDirection: "column", gap: 6,
                   }}
                 >
-                  {["draft", "open", "closed", "live", "completed"].map(s => (
-                    <option key={s} value={s} style={{ background: "var(--bg)", color: "var(--t1)", textTransform: "none" }}>{s}</option>
-                  ))}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <button
+                      onClick={() => loadTournamentDetail(t)}
+                      style={{
+                        background: "none", border: "none", padding: 0, cursor: "pointer",
+                        fontFamily: "var(--font-body)", fontWeight: 700, fontSize: 15, color: "var(--t1)",
+                        textAlign: "left", flex: 1,
+                      }}
+                    >
+                      {isExpanded ? "▾ " : "▸ "}{t.name}
+                    </button>
+                    <select
+                      value={t.status}
+                      onChange={async e => {
+                        const next = e.target.value;
+                        setTournaments(ts => ts.map(x => x.tournament_id === t.tournament_id ? { ...x, status: next } : x));
+                        try {
+                          await clubAdminUpdateTournamentStatus(t.slug, next);
+                        } catch (err) {
+                          console.error("[sessions] status update failed", err);
+                          setTournaments(ts => ts.map(x => x.tournament_id === t.tournament_id ? { ...x, status: t.status } : x));
+                        }
+                      }}
+                      style={{
+                        fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                        padding: "3px 8px", borderRadius: 20,
+                        fontFamily: "var(--font-body)", textTransform: "uppercase",
+                        background: t.status === "live" ? "rgba(76,175,80,0.15)" : t.status === "open" ? "rgba(255,190,60,0.12)" : "rgba(255,255,255,0.06)",
+                        color: t.status === "live" ? "rgba(76,175,80,1)" : t.status === "open" ? "var(--amber)" : "var(--t2)",
+                        border: "1px solid transparent", outline: "none", cursor: "pointer", appearance: "none",
+                      }}
+                    >
+                      {["draft", "open", "closed", "live", "completed"].map(s => (
+                        <option key={s} value={s} style={{ background: "var(--bg)", color: "var(--t1)", textTransform: "none" }}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
+                    {fmtDate(t.event_date)}{t.event_end_date ? ` – ${fmtDate(t.event_end_date)}` : ""}
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flex: 1 }}>
+                      /tournament/{t.slug}
+                    </span>
+                    <a
+                      href={`/tournament/${t.slug}`}
+                      onClick={e => e.stopPropagation()}
+                      style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)" }}
+                    >
+                      Public page ↗
+                    </a>
+                  </div>
+                </div>
+
+                {/* ── Expanded detail panel ── */}
+                {isExpanded && (
+                  <div style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid var(--border-subtle)", borderTop: "none",
+                    borderRadius: "0 0 var(--r) var(--r)",
+                    padding: "14px 16px",
+                    display: "flex", flexDirection: "column", gap: 14,
+                  }}>
+                    {detailLoading && (
+                      <p style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>Loading…</p>
+                    )}
+                    {!detailLoading && tournamentDetail && (
+                      <>
+                        {/* Competitions */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                            Competitions
+                          </span>
+                          <button
+                            onClick={() => { setShowAddComp(true); setCompError(null); setCompForm({ name:"", type:"cup", format:"" }); }}
+                            style={{ fontSize: 12, fontWeight: 700, background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--t1)", padding: "3px 10px", borderRadius: 16, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                          >
+                            + Add
+                          </button>
+                        </div>
+
+                        {tournamentDetail.competitions.length === 0 && (
+                          <p style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", margin: 0 }}>
+                            No competitions yet. Add one to register teams.
+                          </p>
+                        )}
+
+                        {tournamentDetail.competitions.map(comp => {
+                          const activeTeams  = comp.teams.filter(tm => tm.status === "active");
+                          const pendingTeams = comp.teams.filter(tm => tm.status === "pending");
+                          return (
+                            <div key={comp.competition_id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--t1)", fontFamily: "var(--font-body)" }}>
+                                  {comp.name}
+                                  <span style={{ fontSize: 11, fontWeight: 400, color: "var(--t3, #666)", marginLeft: 6 }}>
+                                    {comp.type}{comp.format ? ` · ${comp.format}` : ""}
+                                  </span>
+                                </span>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  <button
+                                    onClick={() => { setRegisterCompId(comp.competition_id); setRegisterTeamName(""); setRegisterError(null); }}
+                                    style={{ fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--t2)", padding: "3px 8px", borderRadius: 14, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                                  >
+                                    Register team
+                                  </button>
+                                  <button
+                                    onClick={() => handleSendInvite(comp.competition_id)}
+                                    disabled={inviteSaving && inviteCompId === comp.competition_id}
+                                    style={{ fontSize: 11, fontWeight: 700, background: "rgba(255,190,60,0.08)", border: "1px solid rgba(255,190,60,0.2)", color: "var(--amber)", padding: "3px 8px", borderRadius: 14, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                                  >
+                                    {inviteSaving && inviteCompId === comp.competition_id ? "…" : "Get invite link"}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Invite code display */}
+                              {inviteCode && inviteCompId === comp.competition_id && (
+                                <div style={{ display: "flex", gap: 8, alignItems: "center", background: "rgba(255,190,60,0.06)", border: "1px solid rgba(255,190,60,0.15)", borderRadius: 8, padding: "8px 12px" }}>
+                                  <span style={{ fontSize: 12, fontFamily: "var(--font-body)", color: "var(--t1)", flex: 1, wordBreak: "break-all" }}>
+                                    {window.location.origin}/tournament/join/{inviteCode}
+                                  </span>
+                                  <button
+                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/tournament/join/${inviteCode}`)}
+                                    style={{ fontSize: 11, fontWeight: 700, background: "rgba(255,190,60,0.15)", border: "1px solid rgba(255,190,60,0.3)", color: "var(--amber)", padding: "4px 10px", borderRadius: 12, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
+                                  >
+                                    Copy
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Register team form */}
+                              {registerCompId === comp.competition_id && (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  {registerError && (
+                                    <div style={{ fontSize: 12, color: "#FF6060", fontFamily: "var(--font-body)" }}>{registerError}</div>
+                                  )}
+                                  <div style={{ display: "flex", gap: 8 }}>
+                                    <input
+                                      type="text"
+                                      value={registerTeamName}
+                                      onChange={e => setRegisterTeamName(e.target.value)}
+                                      placeholder="Team name"
+                                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", flex: 1 }}
+                                    />
+                                    <button
+                                      onClick={handleRegisterTeam}
+                                      disabled={registerSaving}
+                                      style={{ fontSize: 12, fontWeight: 700, background: "rgba(76,175,80,0.12)", border: "1px solid rgba(76,175,80,0.3)", color: "rgba(76,175,80,1)", padding: "8px 14px", borderRadius: 8, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                                    >
+                                      {registerSaving ? "…" : "Add"}
+                                    </button>
+                                    <button
+                                      onClick={() => setRegisterCompId(null)}
+                                      style={{ fontSize: 12, background: "none", border: "1px solid var(--border)", color: "var(--t2)", padding: "8px 10px", borderRadius: 8, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Pending approvals */}
+                              {pendingTeams.length > 0 && (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: "var(--amber)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                                    Pending approval
+                                  </span>
+                                  {pendingTeams.map(tm => (
+                                    <div key={tm.competition_team_id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,190,60,0.06)", borderRadius: 8, padding: "8px 12px" }}>
+                                      <span style={{ fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1 }}>{tm.team_name}</span>
+                                      <button onClick={() => handleApproveTeam(tm.competition_team_id)} style={{ fontSize: 11, fontWeight: 700, background: "rgba(76,175,80,0.12)", border: "1px solid rgba(76,175,80,0.3)", color: "rgba(76,175,80,1)", padding: "4px 10px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer" }}>
+                                        Approve
+                                      </button>
+                                      <button onClick={() => handleRejectTeam(tm.competition_team_id)} style={{ fontSize: 11, fontWeight: 700, background: "rgba(255,96,96,0.08)", border: "1px solid rgba(255,96,96,0.2)", color: "#FF6060", padding: "4px 10px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer" }}>
+                                        Reject
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Active teams */}
+                              {activeTeams.length > 0 && (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                  {activeTeams.map(tm => (
+                                    <div key={tm.competition_team_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                      <span style={{ fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1 }}>{tm.team_name}</span>
+                                      <span style={{ fontSize: 11, color: "rgba(76,175,80,0.7)", fontFamily: "var(--font-body)" }}>✓</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {activeTeams.length === 0 && pendingTeams.length === 0 && (
+                                <p style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body)", margin: 0 }}>
+                                  No teams yet.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Add competition modal ───────────────────────────────────────── */}
+      {showAddComp && tournamentDetail && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+          onClick={() => setShowAddComp(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "var(--b2)", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: 540, padding: "24px 20px 40px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)" }}>Add Competition</div>
+
+            {compError && (
+              <div style={{ fontSize: 13, color: "#FF6060", background: "rgba(255,96,96,0.08)", padding: "8px 12px", borderRadius: 8, fontFamily: "var(--font-body)" }}>{compError}</div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Name</label>
+              <input type="text" value={compForm.name} onChange={e => setCompForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. U12 Boys Cup" style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", width: "100%", boxSizing: "border-box" }} />
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Type</label>
+                <select value={compForm.type} onChange={e => setCompForm(f => ({ ...f, type: e.target.value }))} style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", appearance: "none" }}>
+                  {["cup", "league", "group_stage", "performance"].map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
-              <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
-                {fmtDate(t.event_date)}{t.event_end_date ? ` – ${fmtDate(t.event_end_date)}` : ""}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body)" }}>
-                /tournament/{t.slug}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Format (optional)</label>
+                <input type="text" value={compForm.format} onChange={e => setCompForm(f => ({ ...f, format: e.target.value }))} placeholder="e.g. 5-a-side" style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }} />
               </div>
             </div>
-          ))}
+
+            <button onClick={handleAddCompetition} disabled={compSaving || !compForm.name.trim()} style={{ marginTop: 4, background: compSaving ? "rgba(255,255,255,0.1)" : "var(--amber)", color: compSaving ? "var(--t2)" : "rgba(0,0,0,0.9)", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, fontFamily: "var(--font-body)", cursor: compSaving ? "not-allowed" : "pointer", width: "100%" }}>
+              {compSaving ? "Adding…" : "Add Competition"}
+            </button>
+          </div>
         </div>
       )}
 

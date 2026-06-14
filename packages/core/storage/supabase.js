@@ -4480,3 +4480,60 @@ export async function clubAdminUpdateTournamentStatus(slug, status) {
   if (error) { console.error("[event-os] club_admin_update_tournament_status failed", error); throw error; }
   return data;
 }
+
+export async function clubAdminAddCompetition(tournamentEventId, name, type, format = null) {
+  const { data, error } = await supabase.rpc("club_admin_add_competition", {
+    p_tournament_event_id: tournamentEventId,
+    p_name: name,
+    p_type: type,
+    p_format: format,
+  });
+  if (error) { console.error("[event-os] club_admin_add_competition failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminRegisterTeam(tournamentEventId, competitionId, teamName) {
+  const { data, error } = await supabase.rpc("club_admin_register_team", {
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id: competitionId,
+    p_team_name: teamName,
+  });
+  if (error) { console.error("[event-os] club_admin_register_team failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminSendTeamInvite(tournamentEventId, competitionId, email = null) {
+  const { data, error } = await supabase.rpc("club_admin_send_team_invite", {
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id: competitionId,
+    p_email: email,
+  });
+  if (error) { console.error("[event-os] club_admin_send_team_invite failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminApproveTeam(competitionTeamId) {
+  const { data, error } = await supabase.rpc("club_admin_approve_team", {
+    p_competition_team_id: competitionTeamId,
+  });
+  if (error) { console.error("[event-os] club_admin_approve_team failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminRejectTeam(competitionTeamId, reason = null) {
+  const { data, error } = await supabase.rpc("club_admin_reject_team", {
+    p_competition_team_id: competitionTeamId,
+    p_reason: reason,
+  });
+  if (error) { console.error("[event-os] club_admin_reject_team failed", error); throw error; }
+  return data;
+}
+
+export async function tournamentJoinViaInvite(code, teamName) {
+  const { data, error } = await supabase.rpc("tournament_join_via_invite", {
+    p_code: code,
+    p_team_name: teamName,
+  });
+  if (error) { console.error("[event-os] tournament_join_via_invite failed", error); throw error; }
+  return data;
+}

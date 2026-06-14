@@ -117,6 +117,40 @@ export default function TournamentScreen({ slug }) {
         <Row label="Club">{tournament.club_name}</Row>
       </div>
 
+      {tournament.competitions && tournament.competitions.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ height: 1, background: "var(--border-subtle, rgba(255,255,255,0.08))" }} />
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body, 'DM Sans', sans-serif)", textTransform: "uppercase" }}>
+            Competitions
+          </span>
+          {tournament.competitions.map(comp => (
+            <div key={comp.competition_id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--t1, #fff)", fontFamily: "var(--font-body, 'DM Sans', sans-serif)" }}>
+                  {comp.name}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body, 'DM Sans', sans-serif)" }}>
+                  {comp.type}{comp.format ? ` · ${comp.format}` : ""}
+                </span>
+              </div>
+              {comp.teams && comp.teams.length > 0 ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {comp.teams.map(tm => (
+                    <span key={tm.competition_team_id} style={{ fontSize: 12, color: "var(--t2, rgba(255,255,255,0.5))", background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "3px 10px", fontFamily: "var(--font-body, 'DM Sans', sans-serif)" }}>
+                      {tm.team_name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body, 'DM Sans', sans-serif)" }}>
+                  No teams registered yet.
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       <a href="/" style={{ fontSize: 13, color: "var(--t2, rgba(255,255,255,0.5))", textDecoration: "none", textAlign: "center", marginTop: 4 }}>
         ← Back to home
       </a>

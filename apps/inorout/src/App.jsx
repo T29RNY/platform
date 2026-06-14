@@ -31,6 +31,7 @@ import SessionsScreen       from "./views/SessionsScreen.jsx";
 import UnifiedFeedScreen   from "./views/UnifiedFeedScreen.jsx";
 import ParentHomeScreen    from "./views/ParentHomeScreen.jsx";
 import TournamentScreen    from "./views/TournamentScreen.jsx";
+import TournamentJoinScreen from "./views/TournamentJoinScreen.jsx";
 import FollowLiveView      from "./views/FollowLiveView.jsx";
 import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
@@ -95,6 +96,7 @@ function getRoute() {
   if (parts[0]==="parent-home")              return { type:"parent-home" };
   if (parts[0]==="feed")                     return { type:"feed" };
   if (parts[0]==="follow-live" && parts[1])  return { type:"follow-live", profileId:parts[1] };
+  if (parts[0]==="tournament" && parts[1]==="join" && parts[2]) return { type:"tournament_join", code:parts[2] };
   if (parts[0]==="tournament"  && parts[1])  return { type:"tournament",  slug:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
@@ -1183,6 +1185,11 @@ export default function App() {
 
   if (route.type === "tournament") {
     return <TournamentScreen slug={route.slug} />;
+  }
+
+  if (route.type === "tournament_join") {
+    if (!authUser) return <SignIn returnTo={`/tournament/join/${route.code}`} />;
+    return <TournamentJoinScreen code={route.code} />;
   }
 
   // Authenticated user at "/" — route to the correct home based on relationships.

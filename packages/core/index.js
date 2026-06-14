@@ -286,6 +286,12 @@ export {
   clubAdminGetTournament,
   getTournamentPublic,
   clubAdminUpdateTournamentStatus,
+  clubAdminAddCompetition,
+  clubAdminRegisterTeam,
+  clubAdminSendTeamInvite,
+  clubAdminApproveTeam,
+  clubAdminRejectTeam,
+  tournamentJoinViaInvite,
 } from "./storage/supabase.js";
 export { generateRoundRobin } from "./engine/roundRobin.js";
 export { generateCupBracket } from "./engine/cupBracket.js";

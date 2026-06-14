@@ -2087,4 +2087,12 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - `club_admin_update_tournament_status(slug, status)` — free lifecycle transitions (draft→open→live→completed); audits `tournament_status_changed`; wired as inline status `<select>` on each tournament card in SessionsScreen.
 - Venue picker: create-tournament modal now renders a `<select>` populated from `memberProfile.active_clubs[i].venues` (already loaded via `member_get_self` mig 308) instead of a plain text input. Auto-selects if only one venue.
 
-Next migration: 318. Phase 3 TBD.
+**Phase 3 (mig 318) ✅ COMPLETE (session 121):**
+- Schema: `competitions.season_id` → nullable + identity CHECK; `competition_teams.team_id` → nullable + `team_name text` col + identity CHECK; CREATE TABLE `tournament_invitations` (14-day expiry, 12-char hex code).
+- 6 new RPCs: `club_admin_add_competition`, `club_admin_register_team`, `club_admin_send_team_invite`, `club_admin_approve_team`, `club_admin_reject_team`, `tournament_join_via_invite`.
+- Extended: `get_tournament_public` now returns `competitions[]` with active `teams[]`; `club_admin_get_tournament` now returns teams per competition (all statuses).
+- UI: SessionsScreen tournament cards expand inline showing competitions + teams + pending approval queue + invite link generator. TournamentJoinScreen at `/tournament/join/:code`.
+- Bug caught+fixed by EV: `gen_random_bytes` unavailable in `public,pg_temp` search_path (pgcrypto in `extensions` schema). Fixed to `extensions.gen_random_bytes()`.
+- EV: 11/11 PASS, leak-clean. Security sweep: 8/8 PASS.
+
+Next migration: 319.
