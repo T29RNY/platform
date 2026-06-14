@@ -2113,9 +2113,17 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - Security sweep: 7/7 PASS (all SECDEF, search_path, overload=1, grants). Build: both inorout + ref clean. Hygiene: 7/7 PASS on all 4 edited files.
 - Commit: `b3d9f98`. Next migration: 321.
 
-| 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | 🔲 Not started |
+**Phase 6 (mig 321) ✅ COMPLETE (session 124):**
+- No schema changes — extends `get_tournament_public` (CREATE OR REPLACE, same anon+authenticated grant) to add two new fields to the return object:
+  - `fixtures[]` — all tournament fixtures across all competitions: competition_id/name, round, round_name, scheduled_date, kickoff_time (HH:MM formatted server-side via to_char), pitch_name (JOIN playing_areas), home/away team names (from competition_teams), home/away scores, status, current_period. Ordered by scheduled_date then kickoff_time (NULLS LAST).
+  - `standings[]` — per competition: team_name + P/W/D/L/GF/GA/GD/Pts from completed fixtures. Same 3pts/win 1pt/draw arithmetic as `club_admin_get_standings` (mig 320). Only active competition_teams included.
+- `TournamentScreen.jsx` full rewrite: scrolling public page with three sections — **Header** (name, status badge, date/venue/club, Print button), **Schedule** (fixture rows grouped by date: time, home vs away, score/vs, status chip + pitch name), **Standings** (per-competition P/W/D/L/GF/GA/GD/Pts table, only rendered when ≥1 fixture completed). GD column coloured green/red. 30-second live poll when `tournament.status === 'live'` (tournament write RPCs don't broadcast). Print button: `window.print()` + `@media print` collapses to black-on-white schedule + standings (`.print-hide` strips nav/button).
+- Hygiene: 7/7 PASS (print `#fff`/`#000` → `white`/`black` named keywords; `#ddd` → `gainsboro`). Build: PASS.
+- Commit: `312ec78`. Next migration: 322.
+
+| 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
 | 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🔲 Not started |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
-Next migration: 321.
+Next migration: 322.
