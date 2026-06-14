@@ -132,6 +132,15 @@ export default function MemberPass({ token }) {
             </div>
           </div>
 
+          {/* valid venues */}
+          {(pass.valid_venues || []).length > 1 ? (
+            <ValidVenuesSection venues={pass.valid_venues} />
+          ) : (pass.valid_venues || []).length === 1 ? (
+            <div style={{ marginTop: 12, fontSize: 12, color: "var(--t2)", textAlign: "center" }}>
+              Valid at <strong style={{ color: "var(--t1)" }}>{pass.valid_venues[0].venue_name}</strong>
+            </div>
+          ) : null}
+
           {/* partner perks */}
           {Array.isArray(pass.offers) && pass.offers.length > 0 && (
             <div style={{ marginTop: 24 }}>
@@ -143,6 +152,30 @@ export default function MemberPass({ token }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ValidVenuesSection({ venues }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={{ marginTop: 14, border: "1px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "10px 14px" }}>
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)" }}>Valid at {venues.length} venues</span>
+        <span style={{ fontSize: 11, color: "var(--t2)" }}>{expanded ? "▲" : "▼"}</span>
+      </button>
+      {expanded && (
+        <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+          {venues.map((v) => (
+            <div key={v.venue_id} style={{ fontSize: 13, color: "var(--t2)", paddingTop: 4, borderTop: "1px solid var(--border-subtle)" }}>
+              {v.venue_name}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   venueCreateCustomer, venueUpdateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
+  venueListClubVenues, venueAddClubVenue, venueRemoveClubVenue, venueSearch,
   venueListClubStaff, venueAssignTeamManager, venueRemoveTeamManager, venueUpsertStaffDbs,
   clubSendAnnouncement,
   venueCreatePolicyDocument, venuePublishPolicyVersion, venueListPolicyDocuments,
@@ -1132,6 +1133,174 @@ const DBS_ROLE_FIELDS = [
   ["dbs_required_coach",               "Require DBS check for coaches"],
 ];
 
+// AddVenueModal — debounced search → select → confirm add
+function AddVenueModal({ venueToken, clubId, onAdded, onClose }) {
+  const [query,    setQuery]    = useState("");
+  const [results,  setResults]  = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [adding,   setAdding]   = useState(null);  // venue_id being added
+  const [err,      setErr]      = useState(null);
+  const timerRef = useRef(null);
+
+  const search = (q) => {
+    setQuery(q);
+    clearTimeout(timerRef.current);
+    if (q.trim().length < 2) { setResults([]); return; }
+    timerRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const r = await venueSearch(venueToken, q, clubId);
+        setResults(r?.venues || []);
+      } catch (e) {
+        console.error(e);
+      } finally { setSearching(false); }
+    }, 300);
+  };
+
+  const add = async (v) => {
+    setAdding(v.venue_id); setErr(null);
+    try {
+      await venueAddClubVenue(venueToken, clubId, v.venue_id);
+      onAdded(v);
+    } catch (e) {
+      setErr(e?.message || String(e));
+      setAdding(null);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose} title="Add venue to club">
+      <div style={{ display: "grid", gap: "var(--gap-2)" }}>
+        <p style={{ fontSize: 13, color: "var(--text-mute)" }}>
+          Search by venue name or city. Only venues not already in the club’s network are shown.
+        </p>
+        <input
+          className="form-input"
+          placeholder="Search venues…"
+          value={query}
+          onChange={(e) => search(e.target.value)}
+          autoFocus
+        />
+        {searching && <p style={{ fontSize: 13, color: "var(--text-mute)" }}>Searching…</p>}
+        {!searching && query.trim().length >= 2 && results.length === 0 && (
+          <p style={{ fontSize: 13, color: "var(--text-mute)" }}>No venues found matching "{query}".</p>
+        )}
+        {results.length > 0 && (
+          <div style={{ display: "grid", gap: 6 }}>
+            {results.map((v) => (
+              <div key={v.venue_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "var(--surface-2)", borderRadius: 6 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{v.venue_name}</div>
+                  {v.city && <div style={{ fontSize: 12, color: "var(--text-mute)" }}>{v.city}</div>}
+                </div>
+                <button
+                  className="btn-primary"
+                  style={{ fontSize: 12, padding: "4px 12px" }}
+                  disabled={!!adding}
+                  onClick={() => add(v)}
+                >
+                  {adding === v.venue_id ? "Adding…" : "Add"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {err && <p style={{ color: "var(--live)", fontSize: 12 }}>{err}</p>}
+      </div>
+    </Modal>
+  );
+}
+
+// VenuesSection — lazy-loaded list of club venues with add/remove controls
+function VenuesSection({ venueToken, clubId }) {
+  const [venues,   setVenues]   = useState(null);
+  const [loading,  setLoading]  = useState(false);
+  const [open,     setOpen]     = useState(false);
+  const [removing, setRemoving] = useState(null);
+  const [removeErr, setRemoveErr] = useState(null);
+  const [showAdd,  setShowAdd]  = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await venueListClubVenues(venueToken, clubId);
+      setVenues(r?.venues || []);
+    } catch (e) {
+      console.error(e);
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    if (open && venues === null) load();
+  }, [open]);
+
+  const remove = async (v) => {
+    if (!window.confirm(`Remove ${v.venue_name} from this club’s network?`)) return;
+    setRemoving(v.venue_id); setRemoveErr(null);
+    try {
+      await venueRemoveClubVenue(venueToken, clubId, v.venue_id);
+      setVenues((vs) => vs.filter((x) => x.venue_id !== v.venue_id));
+    } catch (e) {
+      const msg = e?.message || String(e);
+      setRemoveErr(msg.includes("last_venue") ? "Can’t remove the last venue from a club." :
+                  msg.includes("active_members") ? "This venue has active members — reassign them first." : msg);
+    } finally { setRemoving(null); }
+  };
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 6px" };
+
+  return (
+    <div>
+      <div style={{ ...head, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }} onClick={() => setOpen((o) => !o)}>
+        <span>Venues ({venues !== null ? venues.length : "…"})</span>
+        <span style={{ fontSize: 10 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+          {loading && <p style={{ fontSize: 13, color: "var(--text-mute)" }}>Loading…</p>}
+          {!loading && venues !== null && venues.length === 0 && (
+            <p style={{ fontSize: 13, color: "var(--text-mute)" }}>No venues in this club’s network yet.</p>
+          )}
+          {(venues || []).map((v) => (
+            <div key={v.venue_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "var(--surface-2)", borderRadius: 6 }}>
+              <div>
+                <span style={{ fontWeight: v.is_self ? 600 : 400, fontSize: 13 }}>{v.venue_name}{v.is_self ? " (you)" : ""}</span>
+                {v.city && <span style={{ fontSize: 12, color: "var(--text-mute)", marginLeft: 6 }}>{v.city}</span>}
+                <span style={{ fontSize: 11, color: "var(--text-mute)", marginLeft: 8 }}>{v.recent_checkins} check-in{v.recent_checkins !== 1 ? "s" : ""} (30d)</span>
+              </div>
+              {!v.is_self && (
+                <button
+                  className="btn-ghost"
+                  style={{ fontSize: 12, color: "var(--live)", padding: "2px 8px" }}
+                  disabled={removing === v.venue_id}
+                  onClick={() => remove(v)}
+                >
+                  {removing === v.venue_id ? "…" : "Remove"}
+                </button>
+              )}
+            </div>
+          ))}
+          {removeErr && <p style={{ color: "var(--live)", fontSize: 12 }}>{removeErr}</p>}
+          <button className="btn-ghost" style={{ fontSize: 13, alignSelf: "flex-start", marginTop: 2 }} onClick={() => setShowAdd(true)}>
+            + Add venue
+          </button>
+        </div>
+      )}
+      {showAdd && (
+        <AddVenueModal
+          venueToken={venueToken}
+          clubId={clubId}
+          onAdded={(v) => {
+            setVenues((vs) => [...(vs || []), { ...v, is_self: false, recent_checkins: 0 }]);
+            setShowAdd(false);
+          }}
+          onClose={() => setShowAdd(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 function ClubTab({ venueToken }) {
   const [clubs,   setClubs]   = useState(null);
   const [error,   setError]   = useState(null);
@@ -1191,6 +1360,8 @@ function ClubTab({ venueToken }) {
                 <div className="cu-sub">{club.contact_email || "No contact email"} · {club.cohorts_count ?? 0} cohort{club.cohorts_count !== 1 ? "s" : ""}</div>
               </div>
             </div>
+
+            <VenuesSection venueToken={venueToken} clubId={club.id} />
 
             <div style={head}>ID &amp; age verification</div>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>

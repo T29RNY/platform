@@ -3817,6 +3817,38 @@ export async function venueListClubs(venueToken) {
   return data ?? [];
 }
 
+export async function venueListClubVenues(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_list_club_venues", {
+    p_venue_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[member] venue_list_club_venues failed", error); throw error; }
+  return data ?? { ok: false };
+}
+
+export async function venueAddClubVenue(venueToken, clubId, targetVenueId) {
+  const { data, error } = await supabase.rpc("venue_add_club_venue", {
+    p_venue_token: venueToken, p_club_id: clubId, p_target_venue_id: targetVenueId,
+  });
+  if (error) { console.error("[member] venue_add_club_venue failed", error); throw error; }
+  return data;
+}
+
+export async function venueRemoveClubVenue(venueToken, clubId, targetVenueId) {
+  const { data, error } = await supabase.rpc("venue_remove_club_venue", {
+    p_venue_token: venueToken, p_club_id: clubId, p_target_venue_id: targetVenueId,
+  });
+  if (error) { console.error("[member] venue_remove_club_venue failed", error); throw error; }
+  return data;
+}
+
+export async function venueSearch(venueToken, query, clubId = null) {
+  const { data, error } = await supabase.rpc("venue_search", {
+    p_venue_token: venueToken, p_query: query, p_club_id: clubId ?? null,
+  });
+  if (error) { console.error("[member] venue_search failed", error); throw error; }
+  return data ?? { ok: false };
+}
+
 export async function venueUpdateClubSettings(venueToken, clubId, { idMandate = null, safeguardingConfig = null } = {}) {
   const { data, error } = await supabase.rpc("venue_update_club_settings", {
     p_venue_token: venueToken, p_club_id: clubId,
