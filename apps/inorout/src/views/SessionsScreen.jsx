@@ -1142,7 +1142,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                 const completedFx = fixtures.filter(fx => fx.status === "completed" && fx.home_score != null && fx.away_score != null);
                                 const standingsMap = {};
                                 activeTeams.forEach(tm => {
-                                  standingsMap[tm.competition_team_id] = { name: tm.team_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0 };
+                                  standingsMap[tm.competition_team_id] = { id: tm.competition_team_id, name: tm.team_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0 };
                                 });
                                 completedFx.forEach(fx => {
                                   const h = standingsMap[fx.home_team_id], a = standingsMap[fx.away_team_id];
@@ -1152,6 +1152,22 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                 const standings = Object.values(standingsMap).sort((a, b) => {
                                   const pa = a.W * 3 + a.D, pb = b.W * 3 + b.D;
                                   if (pa !== pb) return pb - pa;
+                                  const h2hFx = completedFx.filter(fx =>
+                                    (fx.home_team_id === a.id && fx.away_team_id === b.id) ||
+                                    (fx.away_team_id === a.id && fx.home_team_id === b.id)
+                                  );
+                                  const ha = { pts: 0, gd: 0, gf: 0 }, hb = { pts: 0, gd: 0, gf: 0 };
+                                  h2hFx.forEach(fx => {
+                                    const aIsHome = fx.home_team_id === a.id;
+                                    const ag = aIsHome ? fx.home_score : fx.away_score;
+                                    const bg = aIsHome ? fx.away_score : fx.home_score;
+                                    if (ag > bg) { ha.pts += 3; } else if (ag === bg) { ha.pts += 1; hb.pts += 1; } else { hb.pts += 3; }
+                                    ha.gd += ag - bg; hb.gd += bg - ag;
+                                    ha.gf += ag; hb.gf += bg;
+                                  });
+                                  if (ha.pts !== hb.pts) return hb.pts - ha.pts;
+                                  if (ha.gd !== hb.gd) return hb.gd - ha.gd;
+                                  if (ha.gf !== hb.gf) return hb.gf - ha.gf;
                                   const gda = a.GF - a.GA, gdb = b.GF - b.GA;
                                   if (gda !== gdb) return gdb - gda;
                                   return b.GF - a.GF;
