@@ -39,7 +39,7 @@ export default function SquadScreen({
   squadSize = 14,
 }) {
   /* ---- add form (guest-only; regulars self-onboard via invite link) ---- */
-  const [name,        setName]        = useState("");
+  const [guestRows,   setGuestRows]   = useState([""]);
   const [addLoading,  setAddLoading]  = useState(false);
   const [justAddedId, setJustAddedId] = useState(null);
 
@@ -108,22 +108,26 @@ export default function SquadScreen({
 
   /* ============================== handlers ============================== */
 
-  async function handleAdd() {
-    const trimmed = name.trim();
-    if (!trimmed || addLoading) return;
+  async function handleAddAll() {
+    const names = guestRows.map(r => r.trim()).filter(Boolean);
+    if (!names.length || addLoading) return;
     setAddLoading(true);
-    setName("");
-    try {
-      const player = await addPlayerToTeam(adminToken, trimmed, "guest", false);
-      setSquad(prev => [...prev, player]);
-      setJustAddedId(player.id);
-      nameInputRef.current?.focus();
-    } catch {
-      setErrorToast("Could not add guest");
-      setName(trimmed);
-    } finally {
-      setAddLoading(false);
+    let lastAdded = null;
+    let failed = [];
+    for (const n of names) {
+      try {
+        const player = await addPlayerToTeam(adminToken, n, "guest", false);
+        setSquad(prev => [...prev, player]);
+        lastAdded = player.id;
+      } catch {
+        failed.push(n);
+      }
     }
+    setAddLoading(false);
+    setGuestRows([""]);
+    if (lastAdded) setJustAddedId(lastAdded);
+    if (failed.length) setErrorToast(`Could not add: ${failed.join(", ")}`);
+    nameInputRef.current?.focus();
   }
 
   const handleCopyJoin = () => {
@@ -456,49 +460,88 @@ export default function SquadScreen({
       </FirstTimeHint>
       )}
 
-      {/* Add guest — secondary path for one-off players */}
+      {/* Add guests — multi-row form; one row per guest name */}
       <div style={{
         background: "var(--s2)", border: "0.5px solid var(--border-subtle)",
         borderRadius: "var(--r)", padding: "10px 12px", marginBottom: 14,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 10, letterSpacing: "0.12em",
-            color: "var(--t2)", whiteSpace: "nowrap",
-          }}>
-            + GUEST
-          </span>
-          <input
-            ref={nameInputRef}
-            className="ms-input"
-            type="text"
-            placeholder="One-off player name…"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
-            style={{
-              flex: 1, background: "transparent", border: "none",
-              fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "var(--t1)",
-              padding: "6px 4px",
-            }}
-          />
+        <span style={{
+          fontFamily: "'Bebas Neue', sans-serif", fontSize: 10, letterSpacing: "0.12em",
+          color: "var(--t2)", display: "block", marginBottom: 6,
+        }}>
+          + GUESTS
+        </span>
+        {guestRows.map((val, idx) => (
+          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: idx < guestRows.length - 1 ? 6 : 0 }}>
+            <input
+              ref={idx === 0 ? nameInputRef : null}
+              className="ms-input"
+              type="text"
+              placeholder="Guest name…"
+              value={val}
+              onChange={e => setGuestRows(rows => rows.map((r, i) => i === idx ? e.target.value : r))}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (idx === guestRows.length - 1) setGuestRows(rows => [...rows, ""]);
+                  else handleAddAll();
+                }
+              }}
+              style={{
+                flex: 1, background: "transparent", border: "none",
+                fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "var(--t1)",
+                padding: "6px 4px",
+              }}
+            />
+            {guestRows.length > 1 && (
+              <button
+                onClick={() => setGuestRows(rows => rows.filter((_, i) => i !== idx))}
+                className="ms-iconbtn"
+                aria-label="Remove row"
+                style={{
+                  width: 24, height: 24, borderRadius: 8, border: "none",
+                  background: "transparent", color: "var(--t3)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                <X size={13} weight="thin" />
+              </button>
+            )}
+          </div>
+        ))}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
           <button
-            onClick={handleAdd}
-            disabled={!name.trim() || addLoading}
-            className="ms-iconbtn"
-            aria-label="Add guest"
+            onClick={() => setGuestRows(rows => [...rows, ""])}
             style={{
-              width: 32, height: 32, borderRadius: 10,
-              border: name.trim() ? "0.5px solid var(--goldb)" : "0.5px solid var(--s3)",
-              background: name.trim() ? "var(--gold2)" : "var(--s3)",
-              color: name.trim() ? "var(--gold)" : "var(--t2)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: name.trim() && !addLoading ? "pointer" : "default",
-              boxShadow: name.trim() ? "0 0 10px rgba(232,160,32,0.20)" : "none",
+              background: "none", border: "none", padding: 0,
+              fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "var(--t2)",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
             }}
           >
-            <Plus size={16} weight="thin" />
+            <Plus size={11} weight="thin" /> add another
           </button>
+          {(() => {
+            const hasAny = guestRows.some(r => r.trim());
+            return (
+              <button
+                onClick={handleAddAll}
+                disabled={!hasAny || addLoading}
+                className="ms-iconbtn"
+                aria-label="Add guests"
+                style={{
+                  height: 28, paddingInline: 12, borderRadius: 10,
+                  border: hasAny ? "0.5px solid var(--goldb)" : "0.5px solid var(--s3)",
+                  background: hasAny ? "var(--gold2)" : "var(--s3)",
+                  color: hasAny ? "var(--gold)" : "var(--t2)",
+                  fontFamily: "'Bebas Neue', sans-serif", fontSize: 11, letterSpacing: "0.08em",
+                  cursor: hasAny && !addLoading ? "pointer" : "default",
+                  boxShadow: hasAny ? "0 0 10px rgba(232,160,32,0.20)" : "none",
+                }}
+              >
+                {addLoading ? "Adding…" : "Add"}
+              </button>
+            );
+          })()}
         </div>
       </div>
 
