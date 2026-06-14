@@ -4431,3 +4431,35 @@ export async function getChildLiveMatch(playerProfileId) {
   if (error) { console.error("[event-os] get_child_live_match failed", error); throw error; }
   return data;
 }
+
+export async function clubAdminCreateTournament(clubId, venueId, name, slug, eventDate, opts = {}) {
+  const { data, error } = await supabase.rpc("club_admin_create_tournament", {
+    p_club_id: clubId,
+    p_venue_id: venueId,
+    p_name: name,
+    p_slug: slug,
+    p_event_date: eventDate,
+    p_event_end_date: opts.eventEndDate ?? null,
+    p_entry_fee_pence: opts.entryFeePence ?? 0,
+    p_entry_fee_payer: opts.entryFeePayer ?? "per_team",
+    p_registration_deadline: opts.registrationDeadline ?? null,
+  });
+  if (error) { console.error("[event-os] club_admin_create_tournament failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminListTournaments(clubId) {
+  const { data, error } = await supabase.rpc("club_admin_list_tournaments", {
+    p_club_id: clubId,
+  });
+  if (error) { console.error("[event-os] club_admin_list_tournaments failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubAdminGetTournament(slug) {
+  const { data, error } = await supabase.rpc("club_admin_get_tournament", {
+    p_slug: slug,
+  });
+  if (error) { console.error("[event-os] club_admin_get_tournament failed", error); throw error; }
+  return data;
+}
