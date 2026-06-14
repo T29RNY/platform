@@ -2067,7 +2067,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 ### Build phases
 | Phase | Delivers | Status |
 |---|---|---|
-| 0 — Account relationship routing | Unified feed, parent home, adaptive nav | 🟡 RPCs shipped (mig 314), UI pending |
+| 0 — Account relationship routing | Unified feed, parent home, adaptive nav | ✅ Complete (mig 314 RPCs + UI s118) |
 | 1 — OS Container | `tournament_events` schema, club admin creates tournament, sport-configurable ref app | 🔲 Not started |
 | 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | 🔲 Not started |
 | 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | 🔲 Not started |
@@ -2078,10 +2078,8 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 
 **Phase 0 RPCs shipped (mig 314, session 117, commit 58f2d1f):** `get_user_relationships()` (routing oracle — squads/clubs/guardian_of/competitions/admin_roles), `get_unified_home_feed()` (14-day chronological feed), `get_guardian_home_feed()` (per-child session feed), `get_child_live_match(uuid)` (Follow Live with guardian ownership guard). All SECDEF/authenticated-only/anon revoked. JS wrappers `getUserRelationships`/`getUnifiedHomeFeed`/`getGuardianHomeFeed`/`getChildLiveMatch` added to packages/core. Security sweep 4/4 PASS. Build clean.
 
-**Phase 0 UI still owed (next session):**
-- `App.jsx` — call `getUserRelationships()` on auth, derive `homeScreenType` (squad_only | club_member | parent | multi), adaptive bottom nav
-- New `UnifiedFeedScreen.jsx` — multi-relationship chronological feed
-- New `ParentHomeScreen.jsx` — children list + next session per child + Follow Live CTA
-- New `FollowLiveView.jsx` — calls `getChildLiveMatch(playerProfileId)` + realtime match events
+**Phase 0 UI ✅ shipped (session 118, commit 5873d91):** App.jsx homeScreenType routing (derived const, null-guard = zero-footprint for squad-only users); 3 new screens: `UnifiedFeedScreen.jsx` (14-day chronological feed, live/upcoming sections, squad_game/club_session/child_event tap handlers), `ParentHomeScreen.jsx` (per-child ChildCard + next session + Follow Live CTA), `FollowLiveView.jsx` (getChildLiveMatch + venue_live realtime channel, ScoreBoard + EventRow). Zero-footprint confirmed: unauthenticated squad-only users unchanged.
 
-Next migration: 315. Phase 1 schema (tournament_events + performance tables + ALTERs on competitions/league_config/playing_areas).
+**Phase 1 schema (mig 315):** `rls_migrations/315_phase1_event_os_schema.sql` written + committed but **NOT yet applied in Supabase SQL editor** (Hard Rule #1). Apply before Phase 2 work. Tables: `tournament_events` (venue_id/club_id FK text, slug UNIQUE, status/entry_fee/schedule_config/branding/points_config), `performance_events` (FK to tournament, surface_id uuid→playing_areas, heats/attempts config), `performance_results` (athlete_id text→players, value numeric, attempt_number/heat_number, status pending|recorded|dns|dnf|disqualified). ALTERs: competitions.tournament_event_id, competition_teams.waitlist_position, league_config.ref_ui_config, playing_areas.sport_types[].
+
+Next migration: 316. Phase 1 RPCs (tournament management, club admin Tournaments tab, public tournament page).
