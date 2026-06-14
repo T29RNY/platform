@@ -4,6 +4,7 @@ import {
   memberListUpcomingSessions, memberRsvpSession, memberGetSessionRsvpBoard,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
+  clubManagerMarkAttendance,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -66,9 +67,14 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [createLoading, setCreateLoading]     = useState(false);
   const [teamMembers, setTeamMembers]         = useState([]);
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
-  const isCreatingRef    = useRef(false);
-  const isCancellingRef  = useRef(false);
-  const isGuestActingRef = useRef(false);
+  const isCreatingRef       = useRef(false);
+  const isCancellingRef     = useRef(false);
+  const isGuestActingRef    = useRef(false);
+  const isMarkingAttendanceRef = useRef(false);
+
+  // attendance state: { [sessionId]: { [profileId]: status } }
+  const [attendanceMaps, setAttendanceMaps] = useState({});
+  const [attendanceSaving, setAttendanceSaving] = useState(false);
 
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
@@ -255,6 +261,30 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     }
   };
 
+  const handleSetAttendance = (sessionId, profileId, status) => {
+    setAttendanceMaps(prev => ({
+      ...prev,
+      [sessionId]: { ...(prev[sessionId] ?? {}), [profileId]: status },
+    }));
+  };
+
+  const handleMarkAttendance = async (sessionId) => {
+    if (isMarkingAttendanceRef.current) return;
+    const map = attendanceMaps[sessionId] ?? {};
+    const attendances = Object.entries(map).map(([member_profile_id, status]) => ({ member_profile_id, status }));
+    if (attendances.length === 0) return;
+    isMarkingAttendanceRef.current = true;
+    setAttendanceSaving(true);
+    try {
+      await clubManagerMarkAttendance(sessionId, attendances);
+    } catch (e) {
+      console.error("[sessions] mark attendance failed", e);
+    } finally {
+      setAttendanceSaving(false);
+      isMarkingAttendanceRef.current = false;
+    }
+  };
+
   // ── Zero-footprint gates ──────────────────────────────────────────────────────
   if (loading) return (
     <div style={wrap}>
@@ -396,6 +426,10 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           onCancelSession={handleCancelSession}
           onAddGuest={handleAddGuest}
           onRemoveGuest={handleRemoveGuest}
+          attendanceMap={attendanceMaps[detailSession.session_id] ?? {}}
+          onSetAttendance={handleSetAttendance}
+          onMarkAttendance={handleMarkAttendance}
+          attendanceSaving={attendanceSaving}
         />
       )}
 
@@ -496,6 +530,7 @@ function SessionDetail({
   session, board, boardLoading, children, rsvpFor, onRsvpForChange,
   rsvpSaving, onRsvp, onClose, memberProfileId,
   isManagerOfSession, teamMembers, teamMembersLoading, onCancelSession, onAddGuest, onRemoveGuest,
+  attendanceMap, onSetAttendance, onMarkAttendance, attendanceSaving,
 }) {
   const typeStyle = TYPE_STYLE[session.session_type] ?? TYPE_STYLE.other;
 
@@ -677,6 +712,87 @@ function SessionDetail({
                     Cancel
                   </button>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Manager: Attendance section ──────────────────────── */}
+          {isManagerOfSession && !isFuture && (
+            <div style={{ marginTop: 20, marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "var(--t2)", marginBottom: 10, fontFamily: "var(--font-body)" }}>
+                Attendance
+              </div>
+
+              {teamMembersLoading && (
+                <p style={{ color: "var(--t2)", fontSize: 13, fontFamily: "var(--font-body)" }}>Loading…</p>
+              )}
+
+              {!teamMembersLoading && teamMembers.length === 0 && (
+                <p style={{ color: "var(--t2)", fontSize: 13, fontFamily: "var(--font-body)" }}>No team members.</p>
+              )}
+
+              {!teamMembersLoading && teamMembers.length > 0 && (
+                <>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+                    {teamMembers.map(m => {
+                      const current = attendanceMap[m.profile_id];
+                      return (
+                        <div key={m.profile_id} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "8px 12px",
+                          background: "rgba(255,255,255,0.04)",
+                          borderRadius: 8,
+                          gap: 10,
+                        }}>
+                          <span style={{ fontSize: 14, fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {[m.first_name, m.last_name].filter(Boolean).join(" ")}
+                          </span>
+                          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                            {[
+                              { key: "attended", label: "✓", color: "rgba(76,175,80,1)", bg: "rgba(76,175,80,0.15)" },
+                              { key: "late",     label: "~", color: "var(--amber)",       bg: "rgba(255,190,60,0.15)" },
+                              { key: "absent",   label: "✕", color: "#FF6060",            bg: "rgba(255,96,96,0.15)" },
+                            ].map(opt => {
+                              const active = current === opt.key;
+                              return (
+                                <button
+                                  key={opt.key}
+                                  onClick={() => onSetAttendance(session.session_id, m.profile_id, opt.key)}
+                                  style={{
+                                    width: 32, height: 32, borderRadius: 8,
+                                    border: `1px solid ${active ? opt.color : "var(--border)"}`,
+                                    background: active ? opt.bg : "transparent",
+                                    color: active ? opt.color : "var(--t2)",
+                                    fontSize: 14, fontWeight: 700,
+                                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                  }}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => onMarkAttendance(session.session_id)}
+                    disabled={attendanceSaving || Object.keys(attendanceMap).length === 0}
+                    style={{
+                      width: "100%", padding: "11px 0",
+                      borderRadius: "var(--r-button)",
+                      border: "none",
+                      background: "var(--amber)", color: "rgba(0,0,0,0.9)",
+                      fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)",
+                      cursor: (attendanceSaving || Object.keys(attendanceMap).length === 0) ? "not-allowed" : "pointer",
+                      opacity: (attendanceSaving || Object.keys(attendanceMap).length === 0) ? 0.5 : 1,
+                    }}
+                  >
+                    {attendanceSaving ? "Saving…" : "Save attendance"}
+                  </button>
+                </>
               )}
             </div>
           )}

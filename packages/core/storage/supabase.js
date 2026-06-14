@@ -4229,3 +4229,11 @@ export async function clubManagerRemoveSessionGuest(sessionId, guestProfileId) {
   if (error) { console.error("[club-manager] club_manager_remove_session_guest failed", error); throw error; }
   return data;
 }
+
+export async function clubManagerMarkAttendance(sessionId, attendances) {
+  const { data, error } = await supabase.rpc("club_manager_mark_attendance", {
+    p_session_id: sessionId, p_attendances: attendances,
+  });
+  if (error) { console.error("[club-manager] club_manager_mark_attendance failed", error); throw error; }
+  return data;
+}
