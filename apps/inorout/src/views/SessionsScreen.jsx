@@ -4,7 +4,7 @@ import {
   memberListUpcomingSessions, memberRsvpSession, memberGetSessionRsvpBoard,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
-  clubManagerMarkAttendance,
+  clubManagerMarkAttendance, clubManagerGetMemberDetail,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -75,6 +75,10 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   // attendance state: { [sessionId]: { [profileId]: status } }
   const [attendanceMaps, setAttendanceMaps] = useState({});
   const [attendanceSaving, setAttendanceSaving] = useState(false);
+
+  // medical detail: { [profileId]: detailObj | 'loading' | 'error' }
+  const [memberDetails, setMemberDetails] = useState({});
+  const isFetchingDetailRef = useRef(false);
 
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
@@ -261,6 +265,18 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     }
   };
 
+  const handleFetchMemberDetail = async (profileId) => {
+    if (memberDetails[profileId]) return;
+    setMemberDetails(prev => ({ ...prev, [profileId]: "loading" }));
+    try {
+      const detail = await clubManagerGetMemberDetail(profileId);
+      setMemberDetails(prev => ({ ...prev, [profileId]: detail }));
+    } catch (e) {
+      console.error("[sessions] get member detail failed", e);
+      setMemberDetails(prev => ({ ...prev, [profileId]: "error" }));
+    }
+  };
+
   const handleSetAttendance = (sessionId, profileId, status) => {
     setAttendanceMaps(prev => ({
       ...prev,
@@ -430,6 +446,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           onSetAttendance={handleSetAttendance}
           onMarkAttendance={handleMarkAttendance}
           attendanceSaving={attendanceSaving}
+          memberDetails={memberDetails}
+          onFetchMemberDetail={handleFetchMemberDetail}
         />
       )}
 
@@ -531,6 +549,7 @@ function SessionDetail({
   rsvpSaving, onRsvp, onClose, memberProfileId,
   isManagerOfSession, teamMembers, teamMembersLoading, onCancelSession, onAddGuest, onRemoveGuest,
   attendanceMap, onSetAttendance, onMarkAttendance, attendanceSaving,
+  memberDetails, onFetchMemberDetail,
 }) {
   const typeStyle = TYPE_STYLE[session.session_type] ?? TYPE_STYLE.other;
 
@@ -538,8 +557,11 @@ function SessionDetail({
   const [cancelReason, setCancelReason]   = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
+  const [expandedMedical, setExpandedMedical] = useState(null); // profileId of expanded card
 
   const isFuture = session.scheduled_at && new Date(session.scheduled_at) > new Date();
+  const msUntil  = session.scheduled_at ? new Date(session.scheduled_at) - new Date() : Infinity;
+  const within48h = msUntil > 0 && msUntil < 48 * 3600 * 1000;
   const canCancel = isManagerOfSession && session.status === "scheduled" && isFuture;
 
   const guests    = teamMembers.filter(m => m.is_session_guest);
@@ -793,6 +815,77 @@ function SessionDetail({
                     {attendanceSaving ? "Saving…" : "Save attendance"}
                   </button>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* ── Manager: Medical alerts (within 48h of future session) ── */}
+          {isManagerOfSession && within48h && teamMembers.length > 0 && (
+            <div style={{ marginTop: 20, marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "var(--t2)", marginBottom: 10, fontFamily: "var(--font-body)" }}>
+                Medical alerts
+              </div>
+              {teamMembers.filter(m => m.has_medical_notes).length === 0 ? (
+                <p style={{ color: "var(--t2)", fontSize: 13, fontFamily: "var(--font-body)" }}>No medical notes on record for this squad.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {teamMembers.filter(m => m.has_medical_notes).map(m => {
+                    const detail = memberDetails[m.profile_id];
+                    const isExpanded = expandedMedical === m.profile_id;
+                    return (
+                      <div key={m.profile_id} style={{
+                        background: "rgba(255,190,60,0.08)",
+                        border: "1px solid rgba(255,190,60,0.3)",
+                        borderRadius: 10, overflow: "hidden",
+                      }}>
+                        <div
+                          onClick={() => {
+                            if (!isExpanded) onFetchMemberDetail(m.profile_id);
+                            setExpandedMedical(isExpanded ? null : m.profile_id);
+                          }}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            padding: "10px 14px", cursor: "pointer",
+                          }}
+                        >
+                          <span style={{ fontSize: 14, fontFamily: "var(--font-body)", fontWeight: 600 }}>
+                            ⚠ {[m.first_name, m.last_name].filter(Boolean).join(" ")}
+                          </span>
+                          <span style={{ fontSize: 12, color: "var(--amber)", fontFamily: "var(--font-body)" }}>
+                            {isExpanded ? "Hide" : "View"}
+                          </span>
+                        </div>
+                        {isExpanded && (
+                          <div style={{ padding: "0 14px 12px", borderTop: "1px solid rgba(255,190,60,0.15)" }}>
+                            {detail === "loading" && (
+                              <p style={{ color: "var(--t2)", fontSize: 13, fontFamily: "var(--font-body)", marginTop: 10 }}>Loading…</p>
+                            )}
+                            {detail === "error" && (
+                              <p style={{ color: "#FF6060", fontSize: 13, fontFamily: "var(--font-body)", marginTop: 10 }}>Could not load details.</p>
+                            )}
+                            {detail && detail !== "loading" && detail !== "error" && (
+                              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                                {detail.medical_conditions && <MedRow label="Conditions" value={detail.medical_conditions} />}
+                                {detail.allergies          && <MedRow label="Allergies"  value={detail.allergies} />}
+                                {detail.medications        && <MedRow label="Medication" value={detail.medications} />}
+                                {detail.gp_details         && <MedRow label="GP"         value={detail.gp_details} />}
+                                {detail.send_notes         && <MedRow label="SEND"       value={detail.send_notes} />}
+                                {(detail.ec1_name || detail.ec1_phone) && (
+                                  <MedRow label="Emergency contact"
+                                    value={[detail.ec1_name, detail.ec1_relationship, detail.ec1_phone].filter(Boolean).join(" · ")} />
+                                )}
+                                {(detail.guardian_first_name || detail.guardian_phone) && (
+                                  <MedRow label="Parent / guardian"
+                                    value={[detail.guardian_first_name, detail.guardian_last_name, detail.guardian_phone].filter(Boolean).join(" ")} />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}
@@ -1291,6 +1384,15 @@ function Label({ children }) {
       color: "var(--t2)", fontFamily: "var(--font-body)",
     }}>
       {children}
+    </div>
+  );
+}
+
+function MedRow({ label, value }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", fontFamily: "var(--font-body)", textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
+      <span style={{ fontSize: 13, fontFamily: "var(--font-body)", lineHeight: 1.4 }}>{value}</span>
     </div>
   );
 }

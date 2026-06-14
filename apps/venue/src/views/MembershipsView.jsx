@@ -5,6 +5,7 @@ import {
   venueCreateCustomer, venueUpdateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
+  venueListClubStaff, venueAssignTeamManager, venueRemoveTeamManager, venueUpsertStaffDbs,
   venueCreatePolicyDocument, venuePublishPolicyVersion, venueListPolicyDocuments,
   venueListIdSubmissions, venueVerifyIdDocument, getMemberIdDocUrl,
 } from "@platform/core/storage/supabase.js";
@@ -106,7 +107,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["documents", "Documents"], ["iddocs", "ID docs"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["staff", "Staff"], ["documents", "Documents"], ["iddocs", "ID docs"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -116,6 +117,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
       {tab === "fees"    && <FeesTab venueToken={venueToken} />}
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
       {tab === "club"       && <ClubTab venueToken={venueToken} />}
+      {tab === "staff"      && <StaffTab venueToken={venueToken} />}
       {tab === "documents"  && <DocumentsTab venueToken={venueToken} />}
       {tab === "iddocs"     && <IdDocsTab venueToken={venueToken} />}
     </div>
@@ -1114,12 +1116,18 @@ function OfferModal({ venueToken, partner, onClose, onDone }) {
 // ── Club settings ─────────────────────────────────────────────────────────────
 // CPSU-standard safeguarding field toggles. Keys mirror safeguarding_config jsonb.
 const SAFEGUARDING_FIELDS = [
-  ["ec2",           "Second emergency contact"],
-  ["send",          "SEND / additional needs"],
-  ["dietary",       "Dietary requirements"],
-  ["emergency_tx",  "Consent to emergency medical treatment"],
-  ["administer_med","Consent to administer medication"],
-  ["leave_alone",   "May leave session unaccompanied + authorised collectors"],
+  ["ec2",                        "Second emergency contact"],
+  ["send",                       "SEND / additional needs"],
+  ["dietary",                    "Dietary requirements"],
+  ["emergency_tx",               "Consent to emergency medical treatment"],
+  ["administer_med",             "Consent to administer medication"],
+  ["leave_alone",                "May leave session unaccompanied + authorised collectors"],
+];
+
+const DBS_ROLE_FIELDS = [
+  ["dbs_required_manager",             "Require DBS check for managers"],
+  ["dbs_required_assistant_manager",   "Require DBS check for assistant managers"],
+  ["dbs_required_coach",               "Require DBS check for coaches"],
 ];
 
 function ClubTab({ venueToken }) {
@@ -1214,10 +1222,394 @@ function ClubTab({ venueToken }) {
               ))}
             </div>
 
+            <div style={head}>DBS requirements</div>
+            <p className="text-mute" style={{ fontSize: 12, marginBottom: 8 }}>
+              Staff with a required role must have a valid DBS record before they appear compliant in the Staff tab.
+            </p>
+            <div style={{ display: "grid", gap: 6 }}>
+              {DBS_ROLE_FIELDS.map(([key, label]) => (
+                <label key={key} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!sc[key]}
+                    disabled={saving === club.id + "." + key}
+                    onChange={() => toggleSafeguardingField(club, key)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+
             {saveErr && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{saveErr}</p>}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Staff ─────────────────────────────────────────────────────────────────────
+// Per-club team roster of managers/coaches with DBS status badges.
+// Assign/remove staff; record DBS check details.
+
+const DBS_STATUS_BADGE = {
+  valid:     { label: "Valid",     bg: "rgba(76,175,80,0.15)",   color: "rgba(76,175,80,1)" },
+  pending:   { label: "Pending",   bg: "rgba(255,190,60,0.15)",  color: "var(--amber)" },
+  expired:   { label: "Expired",   bg: "rgba(255,96,96,0.15)",   color: "var(--live)" },
+  withdrawn: { label: "Withdrawn", bg: "rgba(255,96,96,0.15)",   color: "var(--live)" },
+};
+
+const ROLE_LABEL = { manager: "Manager", assistant_manager: "Asst. Manager", coach: "Coach" };
+
+function DbsBadge({ status }) {
+  if (!status) {
+    return (
+      <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+        background: "rgba(255,255,255,0.06)", color: "var(--text-mute, #888)",
+        fontFamily: "var(--font-body, sans-serif)" }}>No DBS</span>
+    );
+  }
+  const b = DBS_STATUS_BADGE[status] ?? DBS_STATUS_BADGE.pending;
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+      background: b.bg, color: b.color,
+      fontFamily: "var(--font-body, sans-serif)" }}>{b.label}</span>
+  );
+}
+
+function StaffTab({ venueToken }) {
+  const [clubs,   setClubs]   = useState(null);
+  const [staff,   setStaff]   = useState({});   // { [clubId]: staffRow[] }
+  const [members, setMembers] = useState([]);
+  const [error,   setError]   = useState(null);
+
+  // assign modal state
+  const [assigning, setAssigning]   = useState(null); // club row being assigned to
+  const [assignTeamId, setAssignTeamId] = useState(null);
+  const [assignMemberId, setAssignMemberId] = useState(null);
+  const [assignRole, setAssignRole] = useState("coach");
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignErr, setAssignErr]   = useState(null);
+  const isAssigningRef = useRef(false);
+
+  // DBS modal state
+  const [dbsTarget, setDbsTarget]     = useState(null); // { member_profile_id, first_name, last_name, club_id, ...existing }
+  const [dbsCheckType, setDbsCheckType] = useState("enhanced");
+  const [dbsStatus, setDbsStatus]     = useState("pending");
+  const [dbsCertNum, setDbsCertNum]   = useState("");
+  const [dbsIssued, setDbsIssued]     = useState("");
+  const [dbsExpiry, setDbsExpiry]     = useState("");
+  const [dbsNotes, setDbsNotes]       = useState("");
+  const [dbsSaving, setDbsSaving]     = useState(false);
+  const [dbsErr, setDbsErr]           = useState(null);
+  const isDbsSavingRef = useRef(false);
+
+  const loadStaff = async (clubList) => {
+    const results = {};
+    await Promise.all((clubList || []).map(async (c) => {
+      try {
+        results[c.id] = await venueListClubStaff(venueToken, c.id);
+      } catch { results[c.id] = []; }
+    }));
+    setStaff(results);
+  };
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      venueListClubs(venueToken),
+      venueListMembers(venueToken),
+    ]).then(([cl, mb]) => {
+      if (!alive) return;
+      const clubList = cl || [];
+      setClubs(clubList);
+      setMembers(mb || []);
+      loadStaff(clubList);
+    }).catch((e) => { if (alive) setError(e?.message || String(e)); });
+    return () => { alive = false; };
+  }, [venueToken]);
+
+  const openAssign = (club) => {
+    const clubTeams = [...new Set((staff[club.id] || []).map(r => ({ id: r.team_id, name: r.team_name }))
+      .filter(t => t.id)
+      .reduce((m, t) => { if (!m.has(t.id)) m.set(t.id, t); return m; }, new Map()).values())];
+    setAssigning({ club, teams: clubTeams });
+    setAssignTeamId(clubTeams[0]?.id ?? null);
+    setAssignMemberId(null);
+    setAssignRole("coach");
+    setAssignErr(null);
+  };
+
+  const handleAssign = async () => {
+    if (isAssigningRef.current || !assignTeamId || !assignMemberId) return;
+    isAssigningRef.current = true;
+    setAssignSaving(true); setAssignErr(null);
+    try {
+      await venueAssignTeamManager(venueToken, assignTeamId, assignMemberId, assignRole);
+      setAssigning(null);
+      await loadStaff(clubs);
+    } catch (e) {
+      setAssignErr(e?.message || String(e));
+    } finally {
+      setAssignSaving(false);
+      isAssigningRef.current = false;
+    }
+  };
+
+  const handleRemove = async (teamId, memberProfileId, clubId) => {
+    try {
+      await venueRemoveTeamManager(venueToken, teamId, memberProfileId);
+      setStaff(prev => ({
+        ...prev,
+        [clubId]: (prev[clubId] || []).map(r =>
+          r.team_id === teamId && r.member_profile_id === memberProfileId
+            ? { ...r, is_active: false } : r
+        ),
+      }));
+    } catch (e) {
+      console.error("[staff] remove failed", e);
+    }
+  };
+
+  const openDbs = (row) => {
+    setDbsTarget(row);
+    setDbsCheckType(row.dbs_check_type || "enhanced");
+    setDbsStatus(row.dbs_status || "pending");
+    setDbsCertNum("");
+    setDbsIssued("");
+    setDbsExpiry(row.dbs_expiry_date ? row.dbs_expiry_date.slice(0, 10) : "");
+    setDbsNotes("");
+    setDbsErr(null);
+  };
+
+  const handleSaveDbs = async () => {
+    if (isDbsSavingRef.current || !dbsTarget) return;
+    isDbsSavingRef.current = true;
+    setDbsSaving(true); setDbsErr(null);
+    try {
+      await venueUpsertStaffDbs(venueToken, dbsTarget.member_profile_id, dbsTarget.club_id, {
+        checkType: dbsCheckType,
+        status: dbsStatus,
+        certificateNumber: dbsCertNum.trim() || null,
+        issuedDate: dbsIssued || null,
+        expiryDate: dbsExpiry || null,
+        notes: dbsNotes.trim() || null,
+      });
+      setDbsTarget(null);
+      await loadStaff(clubs);
+    } catch (e) {
+      setDbsErr(e?.message || String(e));
+    } finally {
+      setDbsSaving(false);
+      isDbsSavingRef.current = false;
+    }
+  };
+
+  const headStyle = { fontWeight: 600, fontSize: 11, textTransform: "uppercase",
+    letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 8px" };
+  const inputSt = {
+    width: "100%", boxSizing: "border-box",
+    background: "var(--bg-card, #1a1a1a)", border: "1px solid var(--border, #333)",
+    borderRadius: 8, color: "var(--text, #fff)",
+    fontSize: 13, padding: "8px 10px", marginTop: 4,
+  };
+
+  if (error) return <EmptyState title="Couldn't load staff" body={error} />;
+  if (!clubs) return <p className="text-mute" style={{ fontSize: 13, padding: "var(--gap-2)" }}>Loading…</p>;
+  if (clubs.length === 0) return <EmptyState title="No clubs linked" body="Link a club via the Club tab first." />;
+
+  return (
+    <div>
+      {clubs.map((club) => {
+        const rows = staff[club.id] || [];
+        const active = rows.filter(r => r.is_active);
+        const teams = [...new Map(active.map(r => [r.team_id, { id: r.team_id, name: r.team_name }])).values()];
+
+        return (
+          <div className="customer-card" key={club.id} style={{ marginBottom: "var(--gap-2)" }}>
+            <div className="cu-top">
+              <div className="cu-head-text">
+                <div className="cu-name">{club.name}</div>
+                <div className="cu-sub">{active.length} active staff member{active.length !== 1 ? "s" : ""}</div>
+              </div>
+              <button
+                className="chip"
+                onClick={() => openAssign(club)}
+                style={{ fontSize: 12 }}
+              >
+                + Assign staff
+              </button>
+            </div>
+
+            {teams.length === 0 && (
+              <p className="text-mute" style={{ fontSize: 13 }}>No staff assigned yet.</p>
+            )}
+
+            {teams.map((team) => {
+              const teamRows = active.filter(r => r.team_id === team.id);
+              return (
+                <div key={team.id} style={{ marginBottom: 12 }}>
+                  <div style={headStyle}>{team.name}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {teamRows.map((row) => (
+                      <div key={row.manager_id} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "8px 10px",
+                        background: "var(--bg-row, rgba(255,255,255,0.03))",
+                        borderRadius: 8, gap: 10,
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>
+                            {[row.first_name, row.last_name].filter(Boolean).join(" ")}
+                          </span>
+                          <span style={{ fontSize: 11, color: "var(--text-mute, #888)", marginLeft: 8 }}>
+                            {ROLE_LABEL[row.role] ?? row.role}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                          <DbsBadge status={row.dbs_status} />
+                          <button
+                            className="chip"
+                            style={{ fontSize: 11 }}
+                            onClick={() => openDbs({ ...row, club_id: club.id })}
+                          >
+                            DBS
+                          </button>
+                          <button
+                            className="chip"
+                            style={{ fontSize: 11, color: "var(--live, #f55)" }}
+                            onClick={() => handleRemove(row.team_id, row.member_profile_id, club.id)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      {/* ── Assign staff modal ─────────────────────────────────────────── */}
+      {assigning && (
+        <Modal title={`Assign staff — ${assigning.club.name}`} onClose={() => setAssigning(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "4px 0 8px" }}>
+
+            {assigning.teams.length > 0 && (
+              <div>
+                <div style={headStyle}>Team</div>
+                <select value={assignTeamId ?? ""} onChange={e => setAssignTeamId(e.target.value)} style={inputSt}>
+                  {assigning.teams.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <div style={headStyle}>Member</div>
+              <select value={assignMemberId ?? ""} onChange={e => setAssignMemberId(e.target.value || null)} style={inputSt}>
+                <option value="">— pick a member —</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {[m.first_name, m.last_name].filter(Boolean).join(" ")}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div style={headStyle}>Role</div>
+              <select value={assignRole} onChange={e => setAssignRole(e.target.value)} style={inputSt}>
+                <option value="manager">Manager</option>
+                <option value="assistant_manager">Assistant manager</option>
+                <option value="coach">Coach</option>
+              </select>
+            </div>
+
+            {assignErr && <p style={{ color: "var(--live)", fontSize: 12 }}>{assignErr}</p>}
+
+            <button
+              onClick={handleAssign}
+              disabled={assignSaving || !assignTeamId || !assignMemberId}
+              style={{
+                padding: "10px 0", borderRadius: 8, border: "none",
+                background: "var(--accent, #60A0FF)", color: "#fff",
+                fontSize: 14, fontWeight: 700, cursor: assignSaving ? "not-allowed" : "pointer",
+                opacity: (assignSaving || !assignTeamId || !assignMemberId) ? 0.5 : 1,
+              }}
+            >
+              {assignSaving ? "Saving…" : "Assign"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── DBS modal ──────────────────────────────────────────────────── */}
+      {dbsTarget && (
+        <Modal
+          title={`DBS — ${[dbsTarget.first_name, dbsTarget.last_name].filter(Boolean).join(" ")}`}
+          onClose={() => setDbsTarget(null)}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0 8px" }}>
+            <div>
+              <div style={headStyle}>Check type</div>
+              <select value={dbsCheckType} onChange={e => setDbsCheckType(e.target.value)} style={inputSt}>
+                <option value="basic">Basic</option>
+                <option value="standard">Standard</option>
+                <option value="enhanced">Enhanced</option>
+                <option value="enhanced_barred">Enhanced + barred list</option>
+              </select>
+            </div>
+            <div>
+              <div style={headStyle}>Status</div>
+              <select value={dbsStatus} onChange={e => setDbsStatus(e.target.value)} style={inputSt}>
+                <option value="pending">Pending</option>
+                <option value="valid">Valid</option>
+                <option value="expired">Expired</option>
+                <option value="withdrawn">Withdrawn</option>
+              </select>
+            </div>
+            <div>
+              <div style={headStyle}>Certificate number (optional)</div>
+              <input value={dbsCertNum} onChange={e => setDbsCertNum(e.target.value)}
+                placeholder="e.g. 001234567890" style={inputSt} />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={headStyle}>Issued date</div>
+                <input type="date" value={dbsIssued} onChange={e => setDbsIssued(e.target.value)} style={inputSt} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={headStyle}>Expiry date</div>
+                <input type="date" value={dbsExpiry} onChange={e => setDbsExpiry(e.target.value)} style={inputSt} />
+              </div>
+            </div>
+            <div>
+              <div style={headStyle}>Notes</div>
+              <textarea value={dbsNotes} onChange={e => setDbsNotes(e.target.value)}
+                rows={2} placeholder="Optional notes…"
+                style={{ ...inputSt, resize: "none" }} />
+            </div>
+            {dbsErr && <p style={{ color: "var(--live)", fontSize: 12 }}>{dbsErr}</p>}
+            <button
+              onClick={handleSaveDbs}
+              disabled={dbsSaving}
+              style={{
+                padding: "10px 0", borderRadius: 8, border: "none",
+                background: "var(--accent, #60A0FF)", color: "#fff",
+                fontSize: 14, fontWeight: 700, cursor: dbsSaving ? "not-allowed" : "pointer",
+                opacity: dbsSaving ? 0.5 : 1,
+              }}
+            >
+              {dbsSaving ? "Saving…" : "Save DBS record"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

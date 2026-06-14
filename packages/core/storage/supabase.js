@@ -4237,3 +4237,50 @@ export async function clubManagerMarkAttendance(sessionId, attendances) {
   if (error) { console.error("[club-manager] club_manager_mark_attendance failed", error); throw error; }
   return data;
 }
+
+export async function clubManagerGetMemberDetail(memberProfileId) {
+  const { data, error } = await supabase.rpc("club_manager_get_member_detail", {
+    p_member_profile_id: memberProfileId,
+  });
+  if (error) { console.error("[club-manager] club_manager_get_member_detail failed", error); throw error; }
+  return data;
+}
+
+export async function venueAssignTeamManager(venueToken, teamId, memberProfileId, role) {
+  const { data, error } = await supabase.rpc("venue_assign_team_manager", {
+    p_token: venueToken, p_team_id: teamId,
+    p_member_profile_id: memberProfileId, p_role: role,
+  });
+  if (error) { console.error("[club-staff] venue_assign_team_manager failed", error); throw error; }
+  return data;
+}
+
+export async function venueRemoveTeamManager(venueToken, teamId, memberProfileId) {
+  const { data, error } = await supabase.rpc("venue_remove_team_manager", {
+    p_token: venueToken, p_team_id: teamId, p_member_profile_id: memberProfileId,
+  });
+  if (error) { console.error("[club-staff] venue_remove_team_manager failed", error); throw error; }
+  return data;
+}
+
+export async function venueListClubStaff(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_list_club_staff", {
+    p_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[club-staff] venue_list_club_staff failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function venueUpsertStaffDbs(venueToken, memberProfileId, clubId, {
+  checkType, status, certificateNumber = null, issuedDate = null,
+  expiryDate = null, notes = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_upsert_staff_dbs", {
+    p_token: venueToken, p_member_profile_id: memberProfileId, p_club_id: clubId,
+    p_check_type: checkType, p_status: status,
+    p_certificate_number: certificateNumber, p_issued_date: issuedDate,
+    p_expiry_date: expiryDate, p_notes: notes,
+  });
+  if (error) { console.error("[club-staff] venue_upsert_staff_dbs failed", error); throw error; }
+  return data;
+}

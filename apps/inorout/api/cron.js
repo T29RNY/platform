@@ -193,6 +193,13 @@ module.exports = async function handler(req, res) {
     results.push(`advanceGameDate: error — ${e.message}`);
   }
 
+  // ── DBS expiry sweep (08:00 UK daily) ────────────────────────────────────
+  try {
+    await dbsExpiryJob(results);
+  } catch (e) {
+    results.push(`dbsExpiry: error — ${e.message}`);
+  }
+
   // ── Booking renewal holds + expiry (09:00 UK daily) ───────────────────────
   try {
     await renewalHoldsJob(base, results);
@@ -672,6 +679,17 @@ async function renewalHoldsJob(base, results) {
 // every due membership + fee subscription (idempotent — charges encode the period
 // in source_id, so re-running the same day is a no-op). All logic in the
 // service_role-only RPC; this is just the thin scheduler, like renewalHoldsJob.
+async function dbsExpiryJob(results) {
+  const uk = nowInUkParts();
+  if (uk.hours !== 8 || uk.minutes >= 15) { results.push("dbsExpiry: not 8am window"); return; }
+  const { data, error } = await supabase.rpc("expire_staff_dbs");
+  if (error) {
+    results.push(`dbsExpiry: error — ${error.message}`);
+  } else {
+    results.push(`dbsExpiry: ${data?.expired ?? 0} expired`);
+  }
+}
+
 async function membershipRenewalsJob(results) {
   const uk = nowInUkParts();
   if (uk.hours !== 9 || uk.minutes >= 15) { results.push("membershipRenewals: not 9am window"); return; }
