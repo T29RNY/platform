@@ -3759,3 +3759,35 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 **Next migration: 319.**
 
 **RPCS.md + FEATURES.md updated this session.**
+
+---
+
+## SESSION 122 — Event OS Phase 4 — Scheduling & Day Ops (mig 319)
+
+**Schema (mig 319):**
+- `fixtures.home_competition_team_id uuid REFERENCES competition_teams(id)` — nullable
+- `fixtures.away_competition_team_id uuid REFERENCES competition_teams(id)` — nullable
+- `fixtures.home_team_id` → nullable + `fixtures_home_identity CHECK (home_team_id IS NOT NULL OR home_competition_team_id IS NOT NULL)`
+
+**RPCs (mig 319, all SECDEF/authenticated-only/anon revoked):**
+- `club_admin_generate_schedule(p_tournament_event_id, p_competition_id, p_slot_minutes, p_start_time, p_start_date, p_playing_area_ids[])` — circle-method round-robin; odd-N bye; concurrent pitch cycling (modulo); INSERTs fixtures; audit `tournament_schedule_generated`. EV-covered.
+- `club_admin_get_schedule(p_tournament_event_id)` — full timetable: venue_playing_areas + competitions + fixtures (JOINs competition_teams + playing_areas).
+- `club_admin_assign_fixture_slot(p_fixture_id, p_scheduled_date?, p_kickoff_time?, p_playing_area_id?, p_slot_minutes?)` — COALESCE update; audit `tournament_fixture_slot_updated`. EV-covered.
+
+**UI (SessionsScreen.jsx):**
+- `loadTournamentDetail` → `Promise.all([clubAdminGetTournament, clubAdminGetSchedule])` in parallel.
+- `reloadDetail(slug, tournamentId)` — all 4 call sites updated.
+- Per-competition fixture timetable (grouped by round) below the active teams list.
+- "Generate schedule" button (shown when ≥2 active teams, no fixtures yet).
+- `GenerateScheduleModal` — date/time/slot-minutes/pitch multi-select picker.
+- Director "Full Timetable" section — all competitions sorted by kickoff_time.
+
+**EV: 7/7 PASS** (not_authenticated, not_enough_teams, 2-team schedule, fixture persisted, fixtures_already_exist, assign-slot, get-schedule). Leak-check: all zeros.
+
+**Security sweep: 3/3 PASS.** Casual-regression PASS (no casual surface modified).
+
+**Commit:** `fc46da1`
+
+**Next migration: 320.**
+
+**RPCS.md + FEATURES.md updated this session.**

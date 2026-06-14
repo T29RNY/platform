@@ -2069,8 +2069,8 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 |---|---|---|
 | 0 — Account relationship routing | Unified feed, parent home, adaptive nav | ✅ Complete (mig 314 RPCs + UI s118) |
 | 1 — OS Container | `tournament_events` schema, club admin creates tournament, sport-configurable ref app | ✅ Complete (migs 315+316 s119) |
-| 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | 🔲 Not started |
-| 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | 🔲 Not started |
+| 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | ✅ Complete (mig 317+318 s120+s121) |
+| 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | ✅ Complete (mig 319 s122) |
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | 🔲 Not started |
 | 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🔲 Not started |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
@@ -2095,4 +2095,10 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - Bug caught+fixed by EV: `gen_random_bytes` unavailable in `public,pg_temp` search_path (pgcrypto in `extensions` schema). Fixed to `extensions.gen_random_bytes()`.
 - EV: 11/11 PASS, leak-clean. Security sweep: 8/8 PASS.
 
-Next migration: 319.
+**Phase 4 (mig 319) ✅ COMPLETE (session 122):**
+- Schema: `fixtures.home_competition_team_id` + `away_competition_team_id` (uuid FK to competition_teams, nullable); `fixtures.home_team_id` dropped NOT NULL + identity CHECK (home_team_id OR home_competition_team_id must be non-null).
+- 3 RPCs: `club_admin_generate_schedule` (circle-method round-robin, concurrent pitch cycling, odd-N bye, audit_events), `club_admin_get_schedule` (full timetable + venue pitches), `club_admin_assign_fixture_slot` (COALESCE update, audit_events). All SECDEF/authenticated-only/anon revoked.
+- UI: SessionsScreen per-competition fixture timetable (grouped by round) + "Generate schedule" button (shown when ≥2 active teams, no fixtures yet) + `GenerateScheduleModal` (date/time/slot/pitch picker) + director "Full Timetable" section (all competitions sorted by kickoff).
+- EV: 7/7 PASS (not_authenticated, not_enough_teams, 2-team schedule, fixture persisted, fixtures_already_exist, assign-slot, get-schedule). Leak-check: all zeros. Security sweep: 3/3 PASS.
+
+Next migration: 320.
