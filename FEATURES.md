@@ -2067,7 +2067,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 ### Build phases
 | Phase | Delivers | Status |
 |---|---|---|
-| 0 — Account relationship routing | Unified feed, parent home, adaptive nav | 🔲 Not started |
+| 0 — Account relationship routing | Unified feed, parent home, adaptive nav | 🟡 RPCs shipped (mig 314), UI pending |
 | 1 — OS Container | `tournament_events` schema, club admin creates tournament, sport-configurable ref app | 🔲 Not started |
 | 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | 🔲 Not started |
 | 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | 🔲 Not started |
@@ -2076,4 +2076,12 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
-Next migration: 314. Phase 0 (mig 314) + Phase 1 (migs 315–316) in parallel.
+**Phase 0 RPCs shipped (mig 314, session 117, commit 58f2d1f):** `get_user_relationships()` (routing oracle — squads/clubs/guardian_of/competitions/admin_roles), `get_unified_home_feed()` (14-day chronological feed), `get_guardian_home_feed()` (per-child session feed), `get_child_live_match(uuid)` (Follow Live with guardian ownership guard). All SECDEF/authenticated-only/anon revoked. JS wrappers `getUserRelationships`/`getUnifiedHomeFeed`/`getGuardianHomeFeed`/`getChildLiveMatch` added to packages/core. Security sweep 4/4 PASS. Build clean.
+
+**Phase 0 UI still owed (next session):**
+- `App.jsx` — call `getUserRelationships()` on auth, derive `homeScreenType` (squad_only | club_member | parent | multi), adaptive bottom nav
+- New `UnifiedFeedScreen.jsx` — multi-relationship chronological feed
+- New `ParentHomeScreen.jsx` — children list + next session per child + Follow Live CTA
+- New `FollowLiveView.jsx` — calls `getChildLiveMatch(playerProfileId)` + realtime match events
+
+Next migration: 315. Phase 1 schema (tournament_events + performance tables + ALTERs on competitions/league_config/playing_areas).
