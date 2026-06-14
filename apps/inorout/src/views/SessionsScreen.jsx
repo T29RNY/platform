@@ -11,6 +11,7 @@ import {
   clubAdminGetTournament,
   clubAdminAddCompetition, clubAdminRegisterTeam,
   clubAdminSendTeamInvite, clubAdminApproveTeam, clubAdminRejectTeam,
+  clubAdminGenerateSchedule, clubAdminGetSchedule,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -134,6 +135,19 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   // approve/reject
   const isActingOnTeamRef = useRef(false);
 
+  // schedule data (from club_admin_get_schedule)
+  const [scheduleData, setScheduleData]       = useState(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+
+  // generate schedule modal
+  const [showGenModal, setShowGenModal]   = useState(false);
+  const [genCompId, setGenCompId]         = useState(null);
+  const [genForm, setGenForm]             = useState({ slotMinutes: 45, startTime: "09:00", startDate: "" });
+  const [genPitchIds, setGenPitchIds]     = useState([]);
+  const [genSaving, setGenSaving]         = useState(false);
+  const [genError, setGenError]           = useState(null);
+  const isGeneratingRef                   = useRef(false);
+
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
     if (memberProfileProp) {
@@ -237,25 +251,37 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     if (expandedTournamentId === t.tournament_id) {
       setExpandedTournamentId(null);
       setTournamentDetail(null);
+      setScheduleData(null);
       return;
     }
     setExpandedTournamentId(t.tournament_id);
     setTournamentDetail(null);
+    setScheduleData(null);
     setDetailLoading(true);
+    setScheduleLoading(true);
     try {
-      const detail = await clubAdminGetTournament(t.slug);
+      const [detail, schedule] = await Promise.all([
+        clubAdminGetTournament(t.slug),
+        clubAdminGetSchedule(t.tournament_id),
+      ]);
       setTournamentDetail(detail);
+      setScheduleData(schedule);
     } catch (e) {
       console.error("[sessions] tournament detail failed", e);
     } finally {
       setDetailLoading(false);
+      setScheduleLoading(false);
     }
   };
 
-  const reloadDetail = async (slug) => {
+  const reloadDetail = async (slug, tournamentId) => {
     try {
-      const detail = await clubAdminGetTournament(slug);
+      const [detail, schedule] = await Promise.all([
+        clubAdminGetTournament(slug),
+        clubAdminGetSchedule(tournamentId),
+      ]);
       setTournamentDetail(detail);
+      setScheduleData(schedule);
     } catch (e) {
       console.error("[sessions] reload detail failed", e);
     }
@@ -277,7 +303,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       );
       setShowAddComp(false);
       setCompForm({ name:"", type:"cup", format:"" });
-      await reloadDetail(tournamentDetail.slug);
+      await reloadDetail(tournamentDetail.slug, tournamentDetail.tournament_id);
     } catch (e) {
       console.error("[sessions] add competition failed", e);
       setCompError(e?.message ?? "Failed to add competition.");
@@ -298,7 +324,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       await clubAdminRegisterTeam(tournamentDetail.tournament_id, registerCompId, name);
       setRegisterCompId(null);
       setRegisterTeamName("");
-      await reloadDetail(tournamentDetail.slug);
+      await reloadDetail(tournamentDetail.slug, tournamentDetail.tournament_id);
     } catch (e) {
       console.error("[sessions] register team failed", e);
       setRegisterError(e?.message ?? "Failed to register team.");
@@ -330,7 +356,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     isActingOnTeamRef.current = true;
     try {
       await clubAdminApproveTeam(competitionTeamId);
-      await reloadDetail(tournamentDetail.slug);
+      await reloadDetail(tournamentDetail.slug, tournamentDetail.tournament_id);
     } catch (e) {
       console.error("[sessions] approve team failed", e);
     } finally {
@@ -343,11 +369,40 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     isActingOnTeamRef.current = true;
     try {
       await clubAdminRejectTeam(competitionTeamId);
-      await reloadDetail(tournamentDetail.slug);
+      await reloadDetail(tournamentDetail.slug, tournamentDetail.tournament_id);
     } catch (e) {
       console.error("[sessions] reject team failed", e);
     } finally {
       isActingOnTeamRef.current = false;
+    }
+  };
+
+  const handleGenerateSchedule = async () => {
+    if (isGeneratingRef.current || !tournamentDetail || !genCompId) return;
+    if (!genForm.startDate) { setGenError("Start date required."); return; }
+    isGeneratingRef.current = true;
+    setGenSaving(true);
+    setGenError(null);
+    try {
+      await clubAdminGenerateSchedule(
+        tournamentDetail.tournament_id,
+        genCompId,
+        Number(genForm.slotMinutes),
+        genForm.startTime,
+        genForm.startDate,
+        genPitchIds,
+      );
+      setShowGenModal(false);
+      setGenCompId(null);
+      setGenForm({ slotMinutes: 45, startTime: "09:00", startDate: "" });
+      setGenPitchIds([]);
+      await reloadDetail(tournamentDetail.slug, tournamentDetail.tournament_id);
+    } catch (e) {
+      console.error("[sessions] generate schedule failed", e);
+      setGenError(e?.message ?? "Failed to generate schedule.");
+    } finally {
+      setGenSaving(false);
+      isGeneratingRef.current = false;
     }
   };
 
@@ -904,9 +959,54 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                           </p>
                         )}
 
+                        {/* ── Director timetable ── */}
+                        {scheduleData && (() => {
+                          const allFixtures = (scheduleData.competitions ?? [])
+                            .flatMap(c => (c.fixtures ?? []).map(fx => ({ ...fx, comp_name: c.name })));
+                          if (allFixtures.length === 0) return null;
+                          const sorted = [...allFixtures].sort((a, b) => {
+                            const da = (a.scheduled_date || "") + (a.kickoff_time || "");
+                            const db = (b.scheduled_date || "") + (b.kickoff_time || "");
+                            return da < db ? -1 : da > db ? 1 : 0;
+                          });
+                          return (
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 8 }}>
+                                Full Timetable
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                {sorted.map(fx => (
+                                  <div key={fx.fixture_id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                    {fx.kickoff_time && (
+                                      <span style={{ fontSize: 11, color: "var(--amber)", fontFamily: "var(--font-body)", flexShrink: 0, width: 36 }}>{fx.kickoff_time.slice(0,5)}</span>
+                                    )}
+                                    <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {fx.home_team_name} vs {fx.away_team_name}
+                                    </span>
+                                    <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0 }}>{fx.comp_name}</span>
+                                    {fx.pitch_name && (
+                                      <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0 }}>· {fx.pitch_name}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {tournamentDetail.competitions.map(comp => {
                           const activeTeams  = comp.teams.filter(tm => tm.status === "active");
                           const pendingTeams = comp.teams.filter(tm => tm.status === "pending");
+                          const compSchedule = scheduleData?.competitions?.find(c => c.competition_id === comp.competition_id);
+                          const fixtures     = compSchedule?.fixtures ?? [];
+                          const pitches      = scheduleData?.venue_playing_areas ?? [];
+                          // Group fixtures by round for display
+                          const fixturesByRound = fixtures.reduce((acc, fx) => {
+                            const k = fx.round_name || `Round ${fx.round}`;
+                            if (!acc[k]) acc[k] = [];
+                            acc[k].push(fx);
+                            return acc;
+                          }, {});
                           return (
                             <div key={comp.competition_id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1016,6 +1116,43 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                   No teams yet.
                                 </p>
                               )}
+
+                              {/* ── Schedule section ──────────────────── */}
+                              {fixtures.length === 0 && activeTeams.length >= 2 && (
+                                <div style={{ marginTop: 8 }}>
+                                  <button
+                                    onClick={() => { setGenCompId(comp.competition_id); setGenForm({ slotMinutes: 45, startTime: "09:00", startDate: "" }); setGenPitchIds([]); setGenError(null); setShowGenModal(true); }}
+                                    style={{ fontSize: 12, fontWeight: 700, background: "rgba(96,160,255,0.12)", border: "1px solid rgba(96,160,255,0.3)", color: "#60A0FF", padding: "6px 14px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                                  >
+                                    Generate schedule
+                                  </button>
+                                </div>
+                              )}
+
+                              {fixtures.length > 0 && (
+                                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+                                  {Object.entries(fixturesByRound).map(([roundName, roundFixtures]) => (
+                                    <div key={roundName}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>{roundName}</div>
+                                      {roundFixtures.map(fx => (
+                                        <div key={fx.fixture_id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                          <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.home_team_name}</span>
+                                          <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0 }}>
+                                            {fx.home_score != null ? `${fx.home_score}–${fx.away_score}` : "vs"}
+                                          </span>
+                                          <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{fx.away_team_name}</span>
+                                          {fx.kickoff_time && (
+                                            <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>{fx.kickoff_time.slice(0,5)}</span>
+                                          )}
+                                          {fx.pitch_name && (
+                                            <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>· {fx.pitch_name}</span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1060,6 +1197,57 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
             <button onClick={handleAddCompetition} disabled={compSaving || !compForm.name.trim()} style={{ marginTop: 4, background: compSaving ? "rgba(255,255,255,0.1)" : "var(--amber)", color: compSaving ? "var(--t2)" : "rgba(0,0,0,0.9)", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, fontFamily: "var(--font-body)", cursor: compSaving ? "not-allowed" : "pointer", width: "100%" }}>
               {compSaving ? "Adding…" : "Add Competition"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Generate schedule modal ──────────────────────────────────────── */}
+      {showGenModal && tournamentDetail && genCompId && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+          onClick={() => setShowGenModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "var(--b2)", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: 540, padding: "24px 20px 40px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)" }}>Generate Schedule</div>
+
+            {genError && (
+              <div style={{ fontSize: 13, color: "#FF6060", background: "rgba(255,96,96,0.08)", padding: "8px 12px", borderRadius: 8, fontFamily: "var(--font-body)" }}>{genError}</div>
+            )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Start date</label>
+                <input type="date" value={genForm.startDate} onChange={e => setGenForm(f => ({ ...f, startDate: e.target.value }))} style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>First kick-off</label>
+                <input type="time" value={genForm.startTime} onChange={e => setGenForm(f => ({ ...f, startTime: e.target.value }))} style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, width: 80 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Slot (min)</label>
+                <input type="number" min="5" max="120" value={genForm.slotMinutes} onChange={e => setGenForm(f => ({ ...f, slotMinutes: e.target.value }))} style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }} />
+              </div>
+            </div>
+
+            {(scheduleData?.venue_playing_areas ?? []).length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Pitches (optional)</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {(scheduleData?.venue_playing_areas ?? []).map(pa => {
+                    const selected = genPitchIds.includes(pa.id);
+                    return (
+                      <button key={pa.id} onClick={() => setGenPitchIds(ids => selected ? ids.filter(x => x !== pa.id) : [...ids, pa.id])}
+                        style={{ fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", border: selected ? "1px solid rgba(96,160,255,0.6)" : "1px solid var(--border)", background: selected ? "rgba(96,160,255,0.15)" : "rgba(255,255,255,0.04)", color: selected ? "#60A0FF" : "var(--t2)" }}>
+                        {pa.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body)", margin: 0 }}>Select pitches to auto-assign. Leave blank for no pitch assignment.</p>
+              </div>
+            )}
+
+            <button onClick={handleGenerateSchedule} disabled={genSaving || !genForm.startDate} style={{ marginTop: 4, background: genSaving ? "rgba(255,255,255,0.1)" : "var(--amber)", color: genSaving ? "var(--t2)" : "rgba(0,0,0,0.9)", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, fontFamily: "var(--font-body)", cursor: genSaving ? "not-allowed" : "pointer", width: "100%" }}>
+              {genSaving ? "Generating…" : "Generate"}
             </button>
           </div>
         </div>

@@ -4537,3 +4537,36 @@ export async function tournamentJoinViaInvite(code, teamName) {
   if (error) { console.error("[event-os] tournament_join_via_invite failed", error); throw error; }
   return data;
 }
+
+export async function clubAdminGenerateSchedule(tournamentEventId, competitionId, slotMinutes, startTime, startDate, playingAreaIds = []) {
+  const { data, error } = await supabase.rpc("club_admin_generate_schedule", {
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id:      competitionId,
+    p_slot_minutes:        slotMinutes,
+    p_start_time:          startTime,
+    p_start_date:          startDate,
+    p_playing_area_ids:    playingAreaIds,
+  });
+  if (error) { console.error("[event-os] club_admin_generate_schedule failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminGetSchedule(tournamentEventId) {
+  const { data, error } = await supabase.rpc("club_admin_get_schedule", {
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] club_admin_get_schedule failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminAssignFixtureSlot(fixtureId, scheduledDate, kickoffTime, playingAreaId, slotMinutes) {
+  const { data, error } = await supabase.rpc("club_admin_assign_fixture_slot", {
+    p_fixture_id:      fixtureId,
+    p_scheduled_date:  scheduledDate,
+    p_kickoff_time:    kickoffTime,
+    p_playing_area_id: playingAreaId,
+    p_slot_minutes:    slotMinutes,
+  });
+  if (error) { console.error("[event-os] club_admin_assign_fixture_slot failed", error); throw error; }
+  return data;
+}

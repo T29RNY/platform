@@ -292,6 +292,9 @@ export {
   clubAdminApproveTeam,
   clubAdminRejectTeam,
   tournamentJoinViaInvite,
+  clubAdminGenerateSchedule,
+  clubAdminGetSchedule,
+  clubAdminAssignFixtureSlot,
 } from "./storage/supabase.js";
 export { generateRoundRobin } from "./engine/roundRobin.js";
 export { generateCupBracket } from "./engine/cupBracket.js";
