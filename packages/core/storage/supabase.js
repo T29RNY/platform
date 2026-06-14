@@ -4403,3 +4403,31 @@ export async function memberListMyPurchases(clubId = null) {
   if (error) { console.error("[merch] member_list_my_purchases failed", error); throw error; }
   return data?.purchases ?? [];
 }
+
+// ── Phase 0 — Event OS: Account Relationship Routing (mig 314) ───────────────
+
+export async function getUserRelationships() {
+  const { data, error } = await supabase.rpc("get_user_relationships");
+  if (error) { console.error("[event-os] get_user_relationships failed", error); throw error; }
+  return data;
+}
+
+export async function getUnifiedHomeFeed() {
+  const { data, error } = await supabase.rpc("get_unified_home_feed");
+  if (error) { console.error("[event-os] get_unified_home_feed failed", error); throw error; }
+  return data?.events ?? [];
+}
+
+export async function getGuardianHomeFeed() {
+  const { data, error } = await supabase.rpc("get_guardian_home_feed");
+  if (error) { console.error("[event-os] get_guardian_home_feed failed", error); throw error; }
+  return data?.children ?? [];
+}
+
+export async function getChildLiveMatch(playerProfileId) {
+  const { data, error } = await supabase.rpc("get_child_live_match", {
+    p_player_profile_id: playerProfileId,
+  });
+  if (error) { console.error("[event-os] get_child_live_match failed", error); throw error; }
+  return data;
+}
