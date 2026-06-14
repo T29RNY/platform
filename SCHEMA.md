@@ -731,7 +731,7 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
 
 **Venue Payments Ledger (mig 180 — V1, schema only; money OWED TO the venue):**
 - `venue_charges` — what's owed: `id`, `venue_id`→venues (denormalised), `source_type`
-  (booking|fixture|equipment — `equipment` added mig 255), `source_id` text, `team_id`→teams NULL, `competition_id`→competitions NULL,
+  (booking|fixture|equipment|fee|membership|merchandise — `equipment` added mig 255, `merchandise` added mig 309), `source_id` text, `team_id`→teams NULL, `competition_id`→competitions NULL,
   `amount_due_pence`, `status` (unpaid|partial|paid|refunded), `due_date`, `created_at`.
   UNIQUE(source_type, source_id, COALESCE(team_id,'')) — one charge per booking, one per team
   per fixture.
@@ -924,6 +924,37 @@ an internal id. All access via SECURITY DEFINER RPCs (`resolve_invite_link`,
 
 Index: `invite_links_entity_idx` on `(entity_type, entity_id)` — for the
 management panel's per-entity code list (slice 7).
+
+---
+
+## CLUB OS TABLES (migs 283–309)
+
+RLS enabled + REVOKE ALL from anon, authenticated on all tables. Access via SECURITY DEFINER RPCs only.
+
+- `member_profiles` — `id uuid PK`, `auth_user_id uuid FK→auth.users NULL` (NULL = unclaimed), `first_name`, `last_name`, CPSU superset (dob, gender, ec1/ec2, medical, photo_consent jsonb, safeguarding, allergies, medications, gp_details, may_leave_unaccompanied, authorised_collectors, send_notes, dietary_notes, consent_emergency_treatment, consent_administer_medication). `source_customer_id uuid NULL FK→venue_customers`.
+- `member_guardians` — `id uuid PK`, `guardian_profile_id uuid FK→member_profiles`, `child_profile_id uuid FK→member_profiles`. Household graph. UNIQUE(guardian_profile_id, child_profile_id).
+- `clubs` — `id text PK`, name, short_name, contact_name, contact_email, `id_mandate bool`, `safeguarding_config jsonb` (CPSU toggle flags).
+- `club_venues` — `venue_id text FK→venues`, `club_id text FK→clubs`. M:N link. PK (venue_id, club_id).
+- `club_cohorts` — `id uuid PK`, `club_id text FK→clubs`, name, description, active. Playing groups within a club.
+- `club_teams` — `id uuid PK`, `club_id text FK→clubs`, `name text`, `sport text NULL`, active. Club-domain playing teams (membership layer, not league layer). Unique per team_id in club.
+- `club_team_members` — `id uuid PK`, `team_id uuid FK→club_teams`, `member_profile_id uuid FK→member_profiles`, season, joined_at, left_at, is_active. PARTIAL UNIQUE(team_id, member_profile_id) WHERE is_active=true.
+- `club_team_managers` — `id uuid PK`, `team_id uuid FK→club_teams`, `member_profile_id uuid FK→member_profiles`, role (manager|assistant_manager|coach), is_active.
+- `club_staff_dbs` — `id uuid PK`, `member_profile_id uuid FK→member_profiles`, `club_id text FK→clubs`, check_type (basic|standard|enhanced|enhanced_barred), status (pending|valid|expired|withdrawn), certificate_number, issued_date, expiry_date, notes. UNIQUE(member_profile_id, club_id). mig 305.
+- `club_sessions` — `id uuid PK`, `club_id text`, `cohort_id uuid NULL FK→club_cohorts`, `team_id uuid NULL FK→club_teams`, session_type (training|match|friendly|other), title, scheduled_at, duration_mins, location, capacity NULL, notes, status (scheduled|cancelled), series_id uuid NULL FK→club_session_series, opponent_name/home_away/meet_time (match fields). migs 298+300.
+- `club_session_series` — `id uuid PK`, `club_id text`, cohort_id, team_id, title, session_type, day_of_week (0–6), start_time, duration_mins, location, start_date, end_date, notes. mig 302.
+- `club_session_rsvps` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, rsvp (in|out|maybe), for_profile_id (guardian child target). UNIQUE(session_id, member_profile_id).
+- `club_session_attendance` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, status (present|absent|late), recorded_at, recorded_by uuid FK→member_profiles. UNIQUE(session_id, member_profile_id). mig 304.
+- `club_session_guests` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, added_by uuid FK→member_profiles. UNIQUE(session_id, member_profile_id). mig 300.
+- `club_announcements` — `id uuid PK`, `club_id text`, `venue_id text`, `created_by uuid FK→auth.users`, title, body, audience (club|cohort|team), cohort_id NULL, team_id NULL, status (queued|sent|failed), email_sent_count, sent_at. mig 307.
+- `club_merchandise` — `id uuid PK`, `club_id text FK→clubs`, `venue_id text FK→venues`, name, description NULL, category (kit|accessories|equipment|other), price_pence int, stock_qty int NULL (NULL = unlimited), active bool, created_at. mig 309.
+- `club_purchases` — `id uuid PK`, `club_id text FK→clubs`, `venue_id text FK→venues`, `member_profile_id uuid FK→member_profiles`, `item_id uuid FK→club_merchandise`, quantity int, unit_price_pence int, status (pending_payment|pending|fulfilled|cancelled), notes NULL, stripe_payment_intent_id text NULL, created_at. mig 309. `pending_payment` = Stripe hook point (dormant until keys provided).
+- `venue_membership_tiers` — `id uuid PK`, `venue_id text`, name, benefits jsonb, active, audience (all|adult|junior|family), pricing_model (recurring|season), season_start/season_end date NULL.
+- `venue_tier_prices` — `id uuid PK`, `tier_id uuid FK→venue_membership_tiers`, period (monthly|quarterly|annual|season), price_type (standard|family|sibling), amount_pence, active.
+- `venue_memberships` — `id uuid PK`, `venue_id text`, `customer_id uuid NULL FK→venue_customers` (NULL for V2 pure-member path), `member_profile_id uuid NULL FK→member_profiles`, `payer_profile_id uuid NULL`, `tier_id uuid FK→venue_membership_tiers`, `club_id text NULL FK→clubs`, `cohort_id uuid NULL`, period, pricing_model, amount_pence, status (active|paused|ending|cancelled), started_at, renews_at, frozen_until NULL, cancel_at NULL, pass_token (m_… generated), stripe_subscription_id NULL, stripe_price_id NULL, payment_state (current|overdue|cancelled).
+- `policy_documents` — `id uuid PK`, `club_id text FK→clubs`, `venue_id text`, title, current_version_id uuid NULL FK→policy_document_versions, created_at. PARTIAL UNIQUE(club_id, title) WHERE current_version_id IS NOT NULL.
+- `policy_document_versions` — `id uuid PK`, `document_id uuid FK→policy_documents`, version_number, content text, published_at, published_by uuid FK→auth.users.
+- `consent_acceptances` — `id uuid PK`, `document_id uuid FK→policy_documents`, `member_profile_id uuid FK→member_profiles`, `document_version_id uuid`, typed_signature text, signed_ip text, signed_ua text, `signed_on_behalf_of uuid NULL` (guardian signing for child). UNIQUE(document_id, member_profile_id). ON DELETE RESTRICT (preserves audit trail).
+- `member_id_documents` — `id uuid PK`, `member_profile_id uuid FK→member_profiles`, `club_id text FK→clubs`, type (passport|driving_licence|birth_certificate|other), status (pending|verified|rejected), storage_path text, notes NULL, verified_by uuid NULL, verified_at timestamptz NULL.
 
 ---
 
