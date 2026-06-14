@@ -3838,6 +3838,25 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 
 **Commits:** `312ec78` (Phase 6 feature) · `ffa5742` (docs)
 
-**Next migration: 322.**
+---
+
+## SESSION 125 — Event OS Phase 7A — H2H Tiebreaker (mig 322)
+
+**RPCs (mig 322):**
+- `club_admin_get_standings(uuid, uuid)` REPLACED (CREATE OR REPLACE) — added `base_standings` + `h2h` CTEs. The `h2h` CTE self-joins `base_standings` to find opponents tied on points, inner-joins to fixtures between only those two teams. New ORDER BY: `pts DESC, h2h_pts DESC, h2h_gd DESC, h2h_gf DESC, gd DESC, gf DESC, team_name ASC`. SECURITY DEFINER, SET search_path, REVOKE anon, GRANT authenticated — unchanged.
+- `get_tournament_public(text)` REPLACED (CREATE OR REPLACE, 4th version, same anon+authenticated grant, same signature) — same H2H CTE pattern via `CROSS JOIN LATERAL` (needed so CTE can reference `comp.id` as a lateral parameter). The `fixtures[]` block unchanged. The `standings[].rows` now sorted H2H-first.
+
+**UI change:**
+- `apps/inorout/src/views/SessionsScreen.jsx` — director-view `standingsMap` entries now carry an `id` field (= `competition_team_id`). The `Object.values(standingsMap).sort()` comparator now runs a pairwise H2H loop over `completedFx` before falling back to overall GD/GF. Key insight: `club_admin_get_schedule` remaps `home_competition_team_id → home_team_id` in fixtures, so `fx.home_team_id === entry.id` works.
+
+**Architecture note:** `clubAdminGetStandings` is exported from `packages/core` but is never called by any UI component — the director view computes standings client-side from schedule fixtures. Both the RPC and the client-side sort were updated for consistency and future-proofing.
+
+**Correctness proof:** 4-team round-robin `BEGIN/ROLLBACK` test: Alpha (6pts, GD+5, lost to Gamma H2H), Gamma (6pts, GD+1, beat Alpha 1-0) → Gamma rank 1, Alpha rank 2. H2H correctly overrides overall GD advantage.
+
+**Security sweep:** SECDEF ✓, search_path ✓, overload_count=1 ✓ for both RPCs. Build PASS. Hygiene 7/7 PASS.
+
+**Commit:** `f26d7c9`.
+
+**Next migration: 323.**
 
 **FEATURES.md updated this session.**

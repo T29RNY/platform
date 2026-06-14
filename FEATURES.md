@@ -2071,8 +2071,8 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 | 1 — OS Container | `tournament_events` schema, club admin creates tournament, sport-configurable ref app | ✅ Complete (migs 315+316 s119) |
 | 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | ✅ Complete (mig 317+318 s120+s121) |
 | 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | ✅ Complete (mig 319 s122) |
-| 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | 🔲 Not started |
-| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🔲 Not started |
+| 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
+| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🟡 In progress — 7A H2H done (mig 322, s125); 7B cards pending |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
@@ -2122,8 +2122,17 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - Commit: `312ec78`. Next migration: 322.
 
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
-| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🔲 Not started |
+| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🟡 In progress — 7A H2H done (mig 322, s125); 7B cards pending |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
-Next migration: 322.
+**Phase 7A (mig 322) ✅ COMPLETE (session 125):**
+- H2H tiebreaker added to all three standings computation paths:
+  - `club_admin_get_standings(uuid, uuid)` — CTE-based: `base_standings` + `h2h` CTEs. The `h2h` CTE self-joins `base_standings` to find tied opponents (same pts), inner-joins to fixtures between only those two teams. New ORDER BY: `pts DESC, h2h_pts DESC, h2h_gd DESC, h2h_gf DESC, gd DESC, gf DESC, team_name ASC`.
+  - `get_tournament_public(text)` — identical H2H logic via `CROSS JOIN LATERAL` pattern (CTE references `comp.id` as a lateral parameter).
+  - `SessionsScreen.jsx` director client-side sort — pairwise H2H loop over `completedFx` array; `standingsMap` entries now carry an `id` field for the fixture lookup. Matches DB sort order exactly.
+- Proof: 4-team round-robin BEGIN/ROLLBACK test — Gamma (6pts, GD+1, beat Alpha H2H 1-0) ranks #1; Alpha (6pts, GD+5) ranks #2. H2H overrides overall GD advantage.
+- Security sweep: SECDEF ✓, search_path ✓, overload_count=1 ✓ for both RPCs. Build PASS. Hygiene 7/7 PASS.
+- Commit: `f26d7c9`. Next migration: 323.
+
+Next migration: 323.
