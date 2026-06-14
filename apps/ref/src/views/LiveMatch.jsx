@@ -22,6 +22,10 @@ import {
   refUndoEvent,
   refConfirmFullTime,
   refRecordKnockoutDecider,
+  refSetTournamentPeriod,
+  refRecordTournamentGoal,
+  refUndoTournamentGoal,
+  refConfirmTournamentMatch,
 } from "@platform/core/storage/supabase.js";
 import {
   enqueue,
@@ -355,6 +359,28 @@ function MatchLogSheet({ events, homeSquad, awaySquad, period, curAdded, onAddMi
   );
 }
 
+// ---------- tournament team section (no squad → big goal button) ----------
+function TournamentGoalButton({ team, locked, onGoal }) {
+  return (
+    <div className="team-sec">
+      <div className="team-head">
+        <SwatchBar c={team?.primary_colour} />
+        <span className="nm">{team?.name || "Team"}</span>
+      </div>
+      <div style={{ padding: "6px 0 14px" }}>
+        <button
+          className={"btn btn-primary btn-block" + (locked ? " disabled" : "")}
+          disabled={locked}
+          onClick={onGoal}
+          style={{ minHeight: 72, fontSize: 20, letterSpacing: 1 }}
+        >
+          <GoalDot s={20} /> GOAL
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
 // LiveMatch
 // ============================================================
@@ -373,11 +399,18 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
   const binDoneRef = useRef(new Set());
   const [, setTick] = useState(0);
 
+  const isTournament = !!props.fixture.home_competition_team_id;
+  const [tournamentPeriod, setTournamentPeriod] = useState(
+    isTournament ? (props.fixture.current_period || "1H") : "1H"
+  );
+
   const fixtureId = fixture.id;
   const home = props.home_team, away = props.away_team;
-  const period = derivePeriod(events);
+  const period = isTournament ? tournamentPeriod : derivePeriod(events);
   const locked = LOCKED_PERIODS.has(period);
-  const [hs, as] = deriveScore(events, fixture.home_team_id, fixture.away_team_id);
+  const [hs, as] = isTournament
+    ? [fixture.home_score ?? 0, fixture.away_score ?? 0]
+    : deriveScore(events, fixture.home_team_id, fixture.away_team_id);
   const paused = !!fixture.clock_paused_at;
   const isOffline = (typeof navigator !== "undefined" && !navigator.onLine);
   const minute = () => currentMinute(fixture);
@@ -515,10 +548,44 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
   }
   function setPeriod(p) {
     vibrate([30, 50, 30]);
+    if (isTournament) {
+      setTournamentPeriod(p);
+      setPeriodFx({ label: p === "HT" ? "HALF TIME" : "SECOND HALF", sub: p === "HT" ? "Events paused" : "Clock running", key: Date.now() });
+      const cid = uuid(), lt = nowISO();
+      (async () => {
+        try { await refSetTournamentPeriod(refToken, p, cid, lt); }
+        catch (e) { console.error("[ref] set_tournament_period failed", e); }
+      })();
+      return;
+    }
     const cid = uuid(), lt = nowISO();
     commitEvents([{ kind: "period", args: { period: p, clientEventId: cid, localTimestamp: lt }, optimistic: optEv({ client_event_id: cid, event_type: "period_change", minute: minute(), period: p, local_timestamp: lt }) }],
       { label: p === "HT" ? "Half time" : "Second half under way", icon: p === "HT" ? "pause" : "play", ids: [cid] });
     setPeriodFx({ label: p === "HT" ? "HALF TIME" : "SECOND HALF", sub: p === "HT" ? "Events paused" : "Clock running", key: Date.now() });
+  }
+
+  async function doTournamentGoal(side) {
+    vibrate(18);
+    const cid = uuid(), lt = nowISO(), m = minute();
+    const teamName = (side === "home" ? home?.name : away?.name) || "Team";
+    setFixture((f) => ({
+      ...f,
+      home_score: side === "home" ? (f.home_score ?? 0) + 1 : (f.home_score ?? 0),
+      away_score: side === "away" ? (f.away_score ?? 0) + 1 : (f.away_score ?? 0),
+    }));
+    setToast({ label: `Goal — ${teamName.split(" ")[0]}`, icon: "goal", key: Date.now(), tournamentSide: side });
+    try {
+      const result = await refRecordTournamentGoal(refToken, { side, minute: m, period, clientEventId: cid, localTimestamp: lt });
+      setFixture((f) => ({ ...f, home_score: result.home_score, away_score: result.away_score }));
+    } catch (e) {
+      console.error("[ref] tournament goal failed", e);
+      setFixture((f) => ({
+        ...f,
+        home_score: side === "home" ? Math.max(0, (f.home_score ?? 0) - 1) : (f.home_score ?? 0),
+        away_score: side === "away" ? Math.max(0, (f.away_score ?? 0) - 1) : (f.away_score ?? 0),
+      }));
+      window.alert("Goal not recorded — try again");
+    }
   }
 
   function doNote(text, player) {
@@ -540,7 +607,19 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
     await refreshPending();
     try { const fresh = await rpc.getFixtureStateByRefToken(); await reconcile(fresh.events); } catch (e) {}
   }
-  async function undoToast() { const t = toast; if (!t) return; await undoIds(t.ids || []); }
+  async function undoToast() {
+    const t = toast;
+    if (!t) return;
+    if (t.tournamentSide) {
+      setToast(null);
+      try {
+        const result = await refUndoTournamentGoal(refToken, t.tournamentSide);
+        setFixture((f) => ({ ...f, home_score: result.home_score, away_score: result.away_score }));
+      } catch (e) { console.error("[ref] undo_tournament_goal failed", e); }
+      return;
+    }
+    await undoIds(t.ids || []);
+  }
 
   // ---- clock pause (offline-safe: queued + replayed with the local timestamp) ----
   async function togglePause() {
@@ -617,9 +696,14 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
     vibrate([60, 40, 60, 40, 140]);
     setFtBusy(true);
     try {
-      const r = await rpc.refConfirmFullTime("tok");
-      if (r && r.needs_decider) { setFtBusy(false); setOverlay({ type: "decider", hs: r.home_score, as: r.away_score }); }
-      else { await onRefresh(); }
+      if (isTournament) {
+        await refConfirmTournamentMatch(refToken);
+        await onRefresh();
+      } else {
+        const r = await rpc.refConfirmFullTime("tok");
+        if (r && r.needs_decider) { setFtBusy(false); setOverlay({ type: "decider", hs: r.home_score, as: r.away_score }); }
+        else { await onRefresh(); }
+      }
     } catch (e) { setFtBusy(false); window.alert("Could not confirm full time. Try again."); }
   }
   async function saveDecider(payload) {
@@ -706,8 +790,12 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
       {/* body */}
       <div className="scroll">
         {locked && <div className="lock-note"><PauseIcon /> {period === "HT" ? "Half time — events paused" : "Full time"}</div>}
-        <TeamColumn team={home} squad={props.home_squad} events={events} locked={locked} fixture={fixture} onTapPlayer={(p) => setOverlay({ type: "actions", player: p })} />
-        <TeamColumn team={away} squad={props.away_squad} events={events} locked={locked} fixture={fixture} onTapPlayer={(p) => setOverlay({ type: "actions", player: p })} />
+        {props.home_squad.length > 0
+          ? <TeamColumn team={home} squad={props.home_squad} events={events} locked={locked} fixture={fixture} onTapPlayer={(p) => setOverlay({ type: "actions", player: p })} />
+          : <TournamentGoalButton team={home} locked={locked} onGoal={() => doTournamentGoal("home")} />}
+        {props.away_squad.length > 0
+          ? <TeamColumn team={away} squad={props.away_squad} events={events} locked={locked} fixture={fixture} onTapPlayer={(p) => setOverlay({ type: "actions", player: p })} />
+          : <TournamentGoalButton team={away} locked={locked} onGoal={() => doTournamentGoal("away")} />}
         <div style={{ height: 16 }} />
       </div>
 

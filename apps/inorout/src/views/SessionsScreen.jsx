@@ -981,11 +981,19 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                       <span style={{ fontSize: 11, color: "var(--amber)", fontFamily: "var(--font-body)", flexShrink: 0, width: 36 }}>{fx.kickoff_time.slice(0,5)}</span>
                                     )}
                                     <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                      {fx.home_team_name} vs {fx.away_team_name}
+                                      {fx.home_score != null ? `${fx.home_score}–${fx.away_score} ` : ""}{fx.home_team_name} vs {fx.away_team_name}
                                     </span>
                                     <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0 }}>{fx.comp_name}</span>
                                     {fx.pitch_name && (
                                       <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0 }}>· {fx.pitch_name}</span>
+                                    )}
+                                    {fx.ref_token && (
+                                      <button
+                                        onClick={() => navigator.clipboard.writeText(`https://platform-ref.vercel.app/?token=${fx.ref_token}`)}
+                                        style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
+                                      >
+                                        Ref
+                                      </button>
                                     )}
                                   </div>
                                 ))}
@@ -1129,30 +1137,80 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                 </div>
                               )}
 
-                              {fixtures.length > 0 && (
-                                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
-                                  {Object.entries(fixturesByRound).map(([roundName, roundFixtures]) => (
-                                    <div key={roundName}>
-                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>{roundName}</div>
-                                      {roundFixtures.map(fx => (
-                                        <div key={fx.fixture_id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: "1px solid var(--border-subtle)" }}>
-                                          <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.home_team_name}</span>
-                                          <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0 }}>
-                                            {fx.home_score != null ? `${fx.home_score}–${fx.away_score}` : "vs"}
-                                          </span>
-                                          <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{fx.away_team_name}</span>
-                                          {fx.kickoff_time && (
-                                            <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>{fx.kickoff_time.slice(0,5)}</span>
-                                          )}
-                                          {fx.pitch_name && (
-                                            <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>· {fx.pitch_name}</span>
-                                          )}
+                              {fixtures.length > 0 && (() => {
+                                // Compute standings from completed fixtures
+                                const completedFx = fixtures.filter(fx => fx.status === "completed" && fx.home_score != null && fx.away_score != null);
+                                const standingsMap = {};
+                                activeTeams.forEach(tm => {
+                                  standingsMap[tm.competition_team_id] = { name: tm.team_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0 };
+                                });
+                                completedFx.forEach(fx => {
+                                  const h = standingsMap[fx.home_team_id], a = standingsMap[fx.away_team_id];
+                                  if (h) { h.P++; h.GF += fx.home_score; h.GA += fx.away_score; if (fx.home_score > fx.away_score) h.W++; else if (fx.home_score === fx.away_score) h.D++; else h.L++; }
+                                  if (a) { a.P++; a.GF += fx.away_score; a.GA += fx.home_score; if (fx.away_score > fx.home_score) a.W++; else if (fx.home_score === fx.away_score) a.D++; else a.L++; }
+                                });
+                                const standings = Object.values(standingsMap).sort((a, b) => {
+                                  const pa = a.W * 3 + a.D, pb = b.W * 3 + b.D;
+                                  if (pa !== pb) return pb - pa;
+                                  const gda = a.GF - a.GA, gdb = b.GF - b.GA;
+                                  if (gda !== gdb) return gdb - gda;
+                                  return b.GF - a.GF;
+                                });
+                                return (
+                                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+                                    {Object.entries(fixturesByRound).map(([roundName, roundFixtures]) => (
+                                      <div key={roundName}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>{roundName}</div>
+                                        {roundFixtures.map(fx => (
+                                          <div key={fx.fixture_id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                            <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.home_team_name}</span>
+                                            <span style={{ fontSize: 10, color: fx.home_score != null ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, fontWeight: fx.home_score != null ? 700 : 400 }}>
+                                              {fx.home_score != null ? `${fx.home_score}–${fx.away_score}` : "vs"}
+                                            </span>
+                                            <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{fx.away_team_name}</span>
+                                            {fx.kickoff_time && (
+                                              <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>{fx.kickoff_time.slice(0,5)}</span>
+                                            )}
+                                            {fx.pitch_name && (
+                                              <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>· {fx.pitch_name}</span>
+                                            )}
+                                            {fx.ref_token && (
+                                              <button
+                                                onClick={() => navigator.clipboard.writeText(`https://platform-ref.vercel.app/?token=${fx.ref_token}`)}
+                                                style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
+                                              >
+                                                Ref
+                                              </button>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ))}
+
+                                    {/* Standings table — shown once any fixture is complete */}
+                                    {completedFx.length > 0 && (
+                                      <div style={{ marginTop: 4 }}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>Standings</div>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(6,28px)", gap: 0, fontSize: 10, fontFamily: "var(--font-body)" }}>
+                                          <span style={{ color: "var(--t3, #666)", padding: "2px 0" }}>Team</span>
+                                          {["P","W","D","L","GD","Pts"].map(h => (
+                                            <span key={h} style={{ color: "var(--t3, #666)", textAlign: "right", padding: "2px 0" }}>{h}</span>
+                                          ))}
+                                          {standings.map(row => {
+                                            const pts = row.W * 3 + row.D;
+                                            return [
+                                              <span key={row.name + "n"} style={{ color: "var(--t1)", padding: "3px 0", borderTop: "1px solid var(--border-subtle)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</span>,
+                                              ...[row.P, row.W, row.D, row.L, row.GF - row.GA, pts].map((v, i) => (
+                                                <span key={row.name + i} style={{ color: i === 5 ? "var(--t1)" : "var(--t2)", fontWeight: i === 5 ? 700 : 400, textAlign: "right", padding: "3px 0", borderTop: "1px solid var(--border-subtle)" }}>{v > 0 && i === 4 ? `+${v}` : v}</span>
+                                              ))
+                                            ];
+                                          })}
                                         </div>
-                                      ))}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           );
                         })}

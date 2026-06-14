@@ -2632,6 +2632,73 @@ export async function refSetAddedTime(refToken, { period, minutes, clientEventId
   return data;
 }
 
+// ── Tournament match-day RPCs (Phase 5 Event OS) ──────────────────────────────
+// Score tracked on fixtures.home_score/away_score directly — no match_events rows.
+// match_events.team_id FK to teams blocks tournament competition_team ids.
+
+export async function refStartTournamentMatch(refToken, clientEventId, localTimestamp) {
+  const { data, error } = await supabase.rpc("ref_start_tournament_match", {
+    p_ref_token:       refToken,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] start_tournament_match failed", error); throw error; }
+  return data;
+}
+
+export async function refSetTournamentPeriod(refToken, period, clientEventId, localTimestamp) {
+  const { data, error } = await supabase.rpc("ref_set_tournament_period", {
+    p_ref_token:       refToken,
+    p_period:          period,
+    p_client_event_id: clientEventId,
+    p_local_timestamp: localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] set_tournament_period failed", error); throw error; }
+  return data;
+}
+
+export async function refRecordTournamentGoal(refToken, { side, minute, period, clientEventId, playerId = null, playerNameOverride = null, ownGoal = false, localTimestamp }) {
+  const { data, error } = await supabase.rpc("ref_record_tournament_goal", {
+    p_ref_token:            refToken,
+    p_side:                 side,
+    p_minute:               minute,
+    p_period:               period,
+    p_client_event_id:      clientEventId,
+    p_player_id:            playerId,
+    p_player_name_override: playerNameOverride,
+    p_own_goal:             ownGoal,
+    p_local_timestamp:      localTimestamp ?? new Date().toISOString(),
+  });
+  if (error) { console.error("[ref] record_tournament_goal failed", error); throw error; }
+  return data;
+}
+
+export async function refUndoTournamentGoal(refToken, side) {
+  const { data, error } = await supabase.rpc("ref_undo_tournament_goal", {
+    p_ref_token: refToken,
+    p_side:      side,
+  });
+  if (error) { console.error("[ref] undo_tournament_goal failed", error); throw error; }
+  return data;
+}
+
+export async function refConfirmTournamentMatch(refToken) {
+  const { data, error } = await supabase.rpc("ref_confirm_tournament_match", {
+    p_ref_token: refToken,
+  });
+  if (error) { console.error("[ref] confirm_tournament_match failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminGetStandings(tournamentEventId, competitionId) {
+  const { data, error } = await supabase.rpc("club_admin_get_standings", {
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id:      competitionId,
+  });
+  if (error) { console.error("[club] get_standings failed", error); throw error; }
+  return data;
+}
+
 // Match-format config write — callable by a venue admin/staff token OR a super admin
 // (resolve_venue_caller handles both). league-tier of the layered match_format resolution.
 export async function updateLeagueConfig(token, leagueId, config) {

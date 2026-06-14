@@ -5,7 +5,7 @@
 // real refStartMatch wrapper.
 // ============================================================
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { refStartMatch } from "@platform/core/storage/supabase.js";
+import { refStartMatch, refStartTournamentMatch } from "@platform/core/storage/supabase.js";
 import { uuid, nowISO, hasLineup, isSuspended } from "../lib/engine.js";
 import { Swatch, RefreshIcon, PlayIcon, fmtKick } from "../components/ui.jsx";
 
@@ -154,9 +154,18 @@ export default function PreMatch({ state, refToken, onRefresh }) {
     .filter(Boolean).join(" · ");
   const kick = fmtKick(fixture.scheduled_date, fixture.kickoff_time);
 
+  const isTournament = !!fixture.home_competition_team_id;
+
   const start = async () => {
     if (busy) return; setBusy(true); setErr(null);
-    try { await refStartMatch(refToken, uuid(), nowISO()); await onRefresh(); }
+    try {
+      if (isTournament) {
+        await refStartTournamentMatch(refToken, uuid(), nowISO());
+      } else {
+        await refStartMatch(refToken, uuid(), nowISO());
+      }
+      await onRefresh();
+    }
     catch (e) { setErr(e?.message || "Could not start match"); setBusy(false); }
   };
 
