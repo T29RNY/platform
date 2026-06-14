@@ -14,6 +14,7 @@ import {
   linkPlayerToUser, updateUserProfile, claimMyAdminTeams,
   resetDemoData, updateDemoInteraction,
   memberGetSelf,
+  getUserRelationships,
 } from "@platform/core/storage/supabase.js";
 import { SEED_COVER } from "./seeds.js";
 import PlayerView    from "./views/PlayerView.jsx";
@@ -27,6 +28,9 @@ import InviteResolve        from "./views/InviteResolve.jsx";
 import MemberPass           from "./views/MemberPass.jsx";
 import MemberProfile        from "./views/MemberProfile.jsx";
 import SessionsScreen       from "./views/SessionsScreen.jsx";
+import UnifiedFeedScreen   from "./views/UnifiedFeedScreen.jsx";
+import ParentHomeScreen    from "./views/ParentHomeScreen.jsx";
+import FollowLiveView      from "./views/FollowLiveView.jsx";
 import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
 import JoinSuccess   from "./views/JoinSuccess.jsx";
 import AuthCallback  from "./views/AuthCallback.jsx";
@@ -87,6 +91,9 @@ function getRoute() {
   if (parts[0]==="m"             && parts[1]) return { type:"member",   token:parts[1] };
   if (parts[0]==="profile")                  return { type:"profile" };
   if (parts[0]==="sessions")                 return { type:"sessions" };
+  if (parts[0]==="parent-home")              return { type:"parent-home" };
+  if (parts[0]==="feed")                     return { type:"feed" };
+  if (parts[0]==="follow-live" && parts[1])  return { type:"follow-live", profileId:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
@@ -304,6 +311,24 @@ export default function App() {
   // (passed as prop to avoid a duplicate memberGetSelf() call) and by the
   // My Squads switcher to surface club membership entries.
   const [memberProfile, setMemberProfile] = useState(null);
+
+  // Phase 0 — routing oracle. Populated from get_user_relationships() when
+  // authUser resolves. Null until then — guarantees squad-only unauthenticated
+  // users are never affected.
+  const [relationships, setRelationships] = useState(null);
+
+  // Derived home-screen type. Only meaningful when authUser + relationships
+  // are both present. "squad_only" → no new screens; existing paths unchanged.
+  const homeScreenType = (() => {
+    if (!authUser || !relationships) return null;
+    const hasGuardian = (relationships.guardian_of?.length ?? 0) > 0;
+    const hasClubs    = (relationships.club_memberships?.length ?? 0) > 0;
+    const hasSquads   = (relationships.squads?.length ?? 0) > 0;
+    if (hasGuardian)           return hasSquads ? "multi" : "parent";
+    if (hasClubs && hasSquads) return "multi";
+    if (hasClubs)              return "club_member";
+    return "squad_only";
+  })();
 
   // Just-created overlay state. After useOnboarding finishes create_team it
   // hard-redirects to /admin/<token>?just_created=1 (so the inline manifest
@@ -653,6 +678,11 @@ export default function App() {
   useEffect(() => {
     if (!authUser) { setMemberProfile(null); return; }
     memberGetSelf().then(p => setMemberProfile(p?.found ? p : null)).catch(() => {});
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser) { setRelationships(null); return; }
+    getUserRelationships().then(r => setRelationships(r)).catch(() => {});
   }, [authUser]);
 
   // Full catch-up re-fetch. Single source of truth for the team_live broadcast
@@ -1134,12 +1164,29 @@ export default function App() {
     );
   }
 
-  // Pure parent — authenticated user with club memberships but no casual squad.
-  // The redirect bridge has already exhausted lastVisited, so they're genuinely
-  // at "/" with no home. Route them to /sessions.
-  if (route.type === "landing" && authReady && authUser && (memberProfile?.active_clubs?.length ?? 0) > 0) {
-    window.location.replace("/sessions");
-    return null;
+  if (route.type === "parent-home") {
+    if (!authUser) return <SignIn returnTo="/parent-home" />;
+    return <ParentHomeScreen authUser={authUser} />;
+  }
+
+  if (route.type === "feed") {
+    if (!authUser) return <SignIn returnTo="/feed" />;
+    return <UnifiedFeedScreen authUser={authUser} />;
+  }
+
+  if (route.type === "follow-live") {
+    if (!authUser) return <SignIn returnTo={`/follow-live/${route.profileId}`} />;
+    return <FollowLiveView profileId={route.profileId} />;
+  }
+
+  // Authenticated user at "/" — route to the correct home based on relationships.
+  // Only fires once relationships have loaded (null guard prevents a flash-redirect
+  // on the frame before the RPC resolves). Squad-only users never hit a branch
+  // (homeScreenType==='squad_only' or null) → fall through to the landing page.
+  if (route.type === "landing" && authReady && authUser && relationships) {
+    if (homeScreenType === "parent")      { window.location.replace("/parent-home"); return null; }
+    if (homeScreenType === "multi")       { window.location.replace("/feed");        return null; }
+    if (homeScreenType === "club_member") { window.location.replace("/sessions");    return null; }
   }
 
   if (route.type === "landing") return (
