@@ -2029,3 +2029,51 @@ fair-team suggestions.
 | 7+ | Team Impact card ✅ built |
 | 8+ | Nemesis, Best Partnership, Advanced Chemistry cards ✅ built |
 | 16+ | Legacy Insights ✅ built |
+
+---
+
+## EVENT OS — TOURNAMENT, LEAGUE & SPORTS DAY HOSTING (session 114 — planning complete)
+
+**Status: Planned. No code written. Full spec in `/Users/tarny/.claude/plans/what-happens-if-there-zesty-wreath.md`**
+
+### Strategic framing
+An Event OS — a time-bounded orchestration layer sitting above the existing platform stack (casual squad → competition → venue → club OS). Spins up for a tournament or sports day, coordinates resources across all layers simultaneously, then closes — leaving permanent data in every layer below. Competitive target: Tournify (€40–120/tournament). Platform makes hosting **free** for clubs; takes ~5% cut of entry fees collected via Stripe.
+
+### Architecture: `tournament_events` as the OS container
+```
+tournament_events
+├── competitions[]          (competition layer — match-based sports)
+├── performance_events[]    (new — athletics/performance model)
+├── playing_area_bookings[] (venue layer)
+├── participant_clubs[]     (club OS)
+├── schedule_config         (scheduling engine)
+├── branding_config         (public page identity)
+├── points_config           (cross-event standings aggregation)
+└── sponsors[]              (commercial layer)
+```
+
+### Sport-agnostic framework
+Built for sports days, works for any club sport. Adding judo, padel, cricket later = 1–2 sprints configuration, not a rebuild. Key: `ref_ui_config` on `league_config` makes the ref app sport-configurable (judo gets ippon buttons, not goal buttons); `sport_types[]` on `playing_areas` gates surfaces by sport.
+
+### Account relationship system (co-required — Phase 0)
+`get_user_relationships(uid)` determines which home screen to show. Four distinct home experiences:
+- **Squad player** (existing): current In or Out home, unchanged
+- **Club athlete**: next session / next fixture
+- **Parent / guardian**: child's schedule, Follow Live, notifications — zero squad mechanics
+- **Multi-relationship**: unified chronological feed across all active relationships
+
+Parent home screen is a first-class persona. Guardian links via existing Phase 10–12 consent RPCs; missing piece is the UI flow and parent-specific home screen + Follow Live view.
+
+### Build phases
+| Phase | Delivers | Status |
+|---|---|---|
+| 0 — Account relationship routing | Unified feed, parent home, adaptive nav | 🔲 Not started |
+| 1 — OS Container | `tournament_events` schema, club admin creates tournament, sport-configurable ref app | 🔲 Not started |
+| 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | 🔲 Not started |
+| 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | 🔲 Not started |
+| 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | 🔲 Not started |
+| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🔲 Not started |
+| 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
+| 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
+
+Next migration: 314. Phase 0 (mig 314) + Phase 1 (migs 315–316) in parallel.

@@ -3626,3 +3626,28 @@ customer-facing surfaces on top of this spine.
   player + wire to insert/update trigger on `player_match`. Phase 0D
   shipped only the schema + RPC; the backfill itself is Phase 2
   housekeeping (BUGS.md #2 has the detail).
+
+---
+
+## Session 114 — Event OS planning (2026-06-14)
+
+**Pure planning session. No code written. No migrations. No commits.**
+
+Planned the Event OS — a tournament, league, and sports day hosting platform built as an orchestration layer above the existing stack. Competitive target: Tournify (€40–120/tournament). Platform makes hosting free; takes ~5% of entry fees via Stripe.
+
+**Full spec:** `/Users/tarny/.claude/plans/what-happens-if-there-zesty-wreath.md`
+
+**Key decisions:**
+- `tournament_events` as the OS container grouping competitions + performance events
+- Club admins manage tournaments in the In or Out app (Tournaments tab), not the venue app
+- Public tournament page: `in-or-out.com/tournament/[slug]`
+- Sport-agnostic framework from day one (`ref_ui_config` on `league_config`, `sport_types[]` on `playing_areas`)
+- Performance events model (`performance_events` + `performance_results`) for athletics/swimming
+- Account relationship routing system (`get_user_relationships(uid)`) drives home screen
+- Parent / guardian as first-class persona with distinct home screen + Follow Live
+- Unified chronological feed for multi-relationship users
+- Full classification brackets (all positions), double-elimination, host-configurable card thresholds
+
+**Next session:** Run `skills/feature-plan.md`. Start Phase 0 (account relationship routing) and Phase 1 (OS container schema) in parallel. Next migration: 309.
+
+**FEATURES.md and DECISIONS.md updated this session.**

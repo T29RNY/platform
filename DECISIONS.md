@@ -2583,3 +2583,48 @@ it's about DASHBOARD VISIBILITY, not public joining, and requires schema
 casual create flow carries no venue context). It is a SEPARATE feature on
 its own cycle, after the pitch — explicitly out of QR-onboarding scope.
 Backlog row in FEATURES.md.
+
+---
+
+## EVENT OS ARCHITECTURE (session 114 — planning session, no code written)
+
+Full spec: `/Users/tarny/.claude/plans/what-happens-if-there-zesty-wreath.md`
+
+### Event OS as orchestration layer
+A `tournament_events` table acts as an OS container — a time-bounded orchestration layer sitting above casual squad, competition, venue, and club OS layers simultaneously. It borrows pitches from the venue layer, member records from the club OS, and existing competition/ref machinery from the competition layer. It does not replace any of those layers; it coordinates them for the duration of an event.
+
+### Club admins live in the In or Out app, not the venue app
+Confirmed: no `club_admin_token` exists. The venue app is venue-operator-only. Club admins use `auth.uid()` → club admin role (Phase 12) and access tournament management via a new Tournaments tab in the In or Out app's club manager section (alongside Sessions and Members). This avoids building a new app or giving club admins venue app access.
+
+### Public tournament URL: `in-or-out.com/tournament/[slug]`
+Public tournament pages live at this path. No login required. Supabase realtime powers live score updates. Printed schedule at `/schedule` suffix. This is the spectator and social-sharing surface; the reception display covers the venue screen.
+
+### Sport-agnostic from day one
+`ref_ui_config jsonb` on `league_config` (NULL = default football UI) makes the ref app sport-configurable without code changes per sport. `sport_types text[]` on `playing_areas` gates surfaces by sport. `match_events.event_type` is already open text (no CHECK). Any sport using match-based play (racquet, combat, team sports) works immediately. Performance-based sports (athletics, swimming) use a new `performance_events` + `performance_results` model.
+
+### Account relationship routing — four distinct home screen modes
+`get_user_relationships(uid)` runs on app load and determines home screen. Four modes:
+1. Squad-only player → current In or Out home, unchanged
+2. Parent/guardian-only → parent home screen (child schedule, Follow Live, notifications — no squad mechanics)
+3. Club athlete only → athlete home (next session, next fixture)
+4. Multiple active relationships → unified chronological feed
+
+Adaptive bottom navigation built from active relationship types. Existing squad-only users see zero change.
+
+### Parent / guardian as first-class persona
+Not a trimmed-down player view. A completely different emotional register — parenting, not participation. Distinct home screen, Follow Live real-time view during a child's match, notification types specific to parents (bout starting, score update, result). Guardian relationship uses existing Phase 10–12 consent RPCs; missing piece is UI flow and parent home screen.
+
+### Tournament hosting pricing model
+Free for clubs already on the platform. Platform takes ~5% of entry fees collected through Stripe (exact % TBC). Hosting club's own team entry waived by default (host-configurable). Completely undercuts Tournify (€40–120/tournament upfront).
+
+### Classification brackets: full position tree
+Not just 3rd/4th place — the full position bracket (5th/6th, 7th/8th etc). Host configures how many classification rounds to generate. Modelled in `cup_ties` with new `bracket_type CHECK ('main','classification','loser')` and `source_type = 'loser'` additions.
+
+### Double-elimination: build in full
+Added `source_type = 'loser'` to `cup_ties.home_source`/`away_source`. Loser's bracket as a parallel `cup_ties` tree under the same `competition_id`, with grand final and potential bracket reset.
+
+### Yellow card suspension threshold: host-configurable per competition
+Not platform-defined. Stored on `competition_teams` or `league_config` extension. Auto-trigger fires in `ref_confirm_full_time` cascade when threshold is hit.
+
+### "In or Out" brand stays as product name; platform identity question deferred
+The platform is growing beyond football casual squads. "In or Out" is the casual squad product. The platform name and product name are currently the same; they will eventually need to diverge (a judo parent doesn't relate to "In or Out"). This is a strategic/branding decision deferred — not a Phase 0–1 blocker.
