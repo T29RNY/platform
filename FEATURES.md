@@ -2068,7 +2068,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 | Phase | Delivers | Status |
 |---|---|---|
 | 0 — Account relationship routing | Unified feed, parent home, adaptive nav | ✅ Complete (mig 314 RPCs + UI s118) |
-| 1 — OS Container | `tournament_events` schema, club admin creates tournament, sport-configurable ref app | 🔲 Not started |
+| 1 — OS Container | `tournament_events` schema, club admin creates tournament, sport-configurable ref app | ✅ Complete (migs 315+316 s119) |
 | 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | 🔲 Not started |
 | 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | 🔲 Not started |
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | 🔲 Not started |
