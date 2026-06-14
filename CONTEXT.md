@@ -3686,3 +3686,37 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 **Next session:** Run `skills/feature-plan.md`. Start Phase 0 (account relationship routing) and Phase 1 (OS container schema) in parallel. Next migration: 309.
 
 **FEATURES.md and DECISIONS.md updated this session.**
+
+---
+
+## Sessions 115–119 — Event OS Phase 0 + Phase 1 (2026-06-14)
+
+*Not individually documented in CONTEXT.md — see git log for detail.*
+
+**Summary (from commits):**
+- Session 118: Phase 0 UI shipped (account relationship routing); mig 315 schema written (not yet applied)
+- Session 119: mig 315 applied to DB; mig 316 (3 RPCs: `club_admin_create_tournament`, `club_admin_list_tournaments`, `club_admin_get_tournament`) + Phase 1 UI (Tournaments tab in SessionsScreen + `/tournament/[slug]` public stub) shipped. Phase 1 marked complete in FEATURES.md.
+- Next migration heading into session 120: 317.
+
+---
+
+## Session 120 — Event OS Phase 2 (2026-06-14)
+
+**Migrations applied:** 317 (2 RPCs)
+
+**RPCs added:**
+- `get_tournament_public(p_slug)` — anon+authenticated. Public page read. JOINs tournament_events → clubs → venues. Returns `{ok:false, reason:'not_found'}` for unknown slug or status='draft'. Returns `{ok:true, name, slug, status, event_date, event_end_date, venue_name, club_name}` otherwise.
+- `club_admin_update_tournament_status(p_slug, p_status)` — authenticated only. Free lifecycle transitions across `draft/open/closed/live/completed`. Audits `tournament_status_changed`.
+
+**JS wrappers:** `getTournamentPublic(slug)` + `clubAdminUpdateTournamentStatus(slug, status)` in supabase.js + barrel-exported from index.js.
+
+**UI changes:**
+- `TournamentScreen.jsx`: full rewrite — fetches `get_tournament_public(slug)` on mount; loading / not-found / live states. Shows name, status badge, dates, venue name, club name.
+- `SessionsScreen.jsx` — create tournament modal: "Venue ID" text input replaced with a `<select>` populated from `memberProfile.active_clubs[i].venues` (data already present from `member_get_self` mig 308 — no new RPC needed). Auto-selects when club has exactly one venue.
+- `SessionsScreen.jsx` — tournament card: status badge replaced with a `<select>` that calls `clubAdminUpdateTournamentStatus`; optimistic update with revert on error.
+
+**Commits:** `a445457` (RPCS.md Phase 1 doc catch-up) · `986281c` (Phase 2 full)
+
+**Next migration: 318. Phase 3 TBD.**
+
+**RPCS.md + FEATURES.md updated this session.**
