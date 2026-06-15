@@ -108,6 +108,34 @@ async function dispatch(event, accountId, supabase) {
       }
       break;
     }
+    case "checkout.session.completed": {
+      const meta = obj.metadata || {};
+      const { invite_code, tier_id, period, member_profile_id, amount_pence } = meta;
+      // Only process sessions we originated (membership checkout has these keys)
+      if (!invite_code || !tier_id || !period || !member_profile_id) break;
+      const subscriptionId = obj.subscription || null;
+      const customerId     = obj.customer     || null;
+      // For subscription sessions, fetch the subscription to get the price_id
+      let stripePriceId = null;
+      if (subscriptionId) {
+        const sub = await stripe.subscriptions.retrieve(
+          subscriptionId,
+          accountId ? { stripeAccount: accountId } : undefined
+        );
+        stripePriceId = sub.items?.data?.[0]?.price?.id || null;
+      }
+      await supabase.rpc("stripe_complete_member_enrolment", {
+        p_invite_code:        invite_code,
+        p_subscription_id:    subscriptionId,
+        p_stripe_customer_id: customerId,
+        p_stripe_price_id:    stripePriceId,
+        p_tier_id:            tier_id,
+        p_period:             period,
+        p_member_profile_id:  member_profile_id,
+        p_amount_pence:       amount_pence ? parseInt(amount_pence, 10) : null,
+      });
+      break;
+    }
     case "account.updated": {
       const acct = await stripe.accounts.retrieve(obj.id);
       const status = acct.charges_enabled ? "active" : (acct.details_submitted ? "restricted" : "onboarding");

@@ -2671,3 +2671,73 @@ Not platform-defined. Stored on `competition_teams` or `league_config` extension
 
 ### "In or Out" brand stays as product name; platform identity question deferred
 The platform is growing beyond football casual squads. "In or Out" is the casual squad product. The platform name and product name are currently the same; they will eventually need to diverge (a judo parent doesn't relate to "In or Out"). This is a strategic/branding decision deferred — not a Phase 0–1 blocker.
+
+---
+
+## CLASSES + ROOM HIRE ARCHITECTURE (session 134, 2026-06-15)
+
+### venue_spaces is a distinct entity from playing_areas (pitches)
+
+`playing_areas` carries the wrong abstraction for bookable rooms/studios/halls — it has slot
+lengths, booking windows, prime-time bands, and sport assignment designed for pitch scheduling.
+A hireable room is simpler. New `venue_spaces` table: name, capacity, space_type, is_enquiry_only,
+enquiry_contact. Both class sessions AND room hires FK→venue_spaces.
+
+### Shared availability helper built before either product (_space_is_available)
+
+`_space_is_available(space_id, starts_at, ends_at)` is a non-SECDEF internal helper that checks
+for overlaps across BOTH `venue_class_sessions` AND `venue_room_hires`. Built in Phase 1 (mig 331)
+before either booking product exists. Both `venue_schedule_class_session` and `venue_confirm_room_hire`
+call it. Prevents double-booking across product types without needing a unified occupancy table.
+
+### Waitlist = notify-and-claim, not auto-promote
+
+Same pattern as the reserve spot notification (mig 230). On any cancellation, the next person on
+the waitlist gets a push notification with a time-limited claim window. They must actively claim
+the spot — it is not automatically confirmed for them. Rationale: auto-promote risks charging a
+member who no longer wants the spot; tap-to-claim keeps the member in control.
+
+### No-show counter on member_profiles, venue-configurable threshold
+
+`member_profiles.no_show_count int DEFAULT 0` incremented server-side on each no_show mark.
+`venues.no_show_suspension_threshold int NULL` — NULL means no policy at that venue. When set,
+`member_book_class_session` rejects with `booking_suspended_no_show_limit` when count >= threshold.
+Counter never decrements (permanent record of behaviour). Venues choose their own tolerance.
+
+### Classes are member-only; room hire is open to non-members
+
+Class sessions require an active `venue_memberships` row for the caller. Room hire does not —
+a non-member can request a private hire or enquire about a function space. Two different RPCs:
+`member_request_room_hire` (authenticated) and `public_enquire_room_hire` (anon, enquiry-only
+spaces only). Same space, different access model per product type.
+
+### Enquiry-only flag for large/premium spaces
+
+`venue_spaces.is_enquiry_only bool DEFAULT false`. When true, self-serve booking is blocked for
+ALL products on that space. Members see a contact form (enquiry_contact_name/email); the request
+lands in the venue's Room Hires inbox as `status='requested'` with `booker_type='non_member'`.
+Venue confirms manually with a price. Rationale: large spaces often need bespoke pricing and a
+human conversation before confirming.
+
+### Equipment hire links to room hires via room_hire_id column
+
+`equipment_bookings.room_hire_id uuid NULL FK→venue_room_hires ON DELETE SET NULL` (additive).
+`member_request_room_hire` accepts optional `equipment_ids[]` and creates the `equipment_bookings`
+rows linked to the hire. This reuses the entire existing inventory availability check
+(`_equipment_peak_committed`), charge recording, and equipment management UI. No new equipment
+infrastructure needed.
+
+### Stripe prepay stays dormant; door payment works from Phase 1
+
+`payment_mode` column exists on class sessions and room hires from day one but `member_book_class_session`
+returns `payment_method_unavailable` for `prepay` until `venue_integrations` row with
+`provider='stripe' AND status='connected'` exists. Door payment recorded via existing
+`venue_charges`/`venue_payments` ledger immediately. Same keyless-dormant pattern as merchandise
+(mig 309) and Stripe membership scaffold (mig 279).
+
+### Trial class: first_session_free on the class type, not a promo code
+
+`venue_class_types.first_session_free bool DEFAULT false`. When true, `member_book_class_session`
+checks whether the caller has ANY prior `venue_class_bookings` at that venue. If none, charge is
+waived (`payment_status='waived'`). Simple, no promo code infrastructure needed, one booking per
+member per venue. Venue enables it per class type (e.g. intro yoga free, circuit training not).

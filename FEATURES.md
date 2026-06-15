@@ -36,7 +36,8 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 3 | Competition & Team-Risk analytics (at-risk teams, fill rate, completion) | Backend+UI | 🔴 not started |
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
-| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟡 Phase 1 ✅ (mig 329, s132); Phase 2 blocked on operator Stripe creds |
+| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟡 Phase 1 ✅ (mig 329, s132); Phase 2 ✅ (mig 330, s133); Phase 3 ✅ (mig 331, s135) DORMANT — needs 4 Stripe env vars; Phase 4 next |
+| **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🔴 not started — plan locked session 134 |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
 | Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
 | Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
@@ -563,11 +564,20 @@ Platform never holds money. Each venue/club connects their own Stripe or GoCardl
 - **Env required (operator):** inorout Vercel: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_RETURN_URL`, `STRIPE_CONNECT_REFRESH_URL`. Venue Vercel: `VITE_INOROUT_API_URL=https://in-or-out.com`. Also add `STRIPE_CONNECT_ALLOWED_ORIGIN` if venue domain changes.
 - **Next mig = 331.**
 
-**Phase 3 — Stripe member enrolment + webhooks** 🔴 not started *(depends on Phase 2)*
-- On membership enrolment: create Stripe Customer + Subscription on venue's connected account (via `Stripe-Account` header)
-- `venue_memberships.payment_state` driven by Stripe subscription status
-- Failed payment → grace → suspended state machine (mig 279 logic activated)
-- Member sees payment status on member pass
+**Phase 3 — Stripe member enrolment + webhooks ✅ SHIPPED (mig 331, s135) — DORMANT until operator adds Stripe env vars**
+- `stripe_customer_id` on `venue_memberships` + UNIQUE partial index on `stripe_subscription_id`
+- `get_venue_signup_tiers`: returns `stripe_connected` bool (derived from `venue_integrations WHERE provider='stripe' AND status='active'`)
+- `get_member_pass`: returns `payment_state` (current/past_due/suspended)
+- New RPC `stripe_complete_member_enrolment` (service_role ONLY, idempotent on subscription_id, called by webhook)
+- New `api/stripe-member-checkout.js` — creates Stripe Customer + Checkout Session on venue's connected account, returns `checkout_url`
+- `api/stripe-webhook.js` extended with `checkout.session.completed` arm → calls `stripe_complete_member_enrolment`
+- `MembershipSignup.jsx` `StepEnrol` forks: paid + `stripe_connected` → Stripe Checkout redirect; `?checkout=done` on return sets step='done'
+- `MemberPass.jsx` adds `PaymentStateBanner` (amber past_due / red suspended, zero-footprint when current)
+- `supabase.js` adds `stripeInitMemberCheckout`; barrel export added
+- Season period = `mode:'payment'` (one-time); monthly/quarterly/annual = `mode:'subscription'`
+- All API routes env-guarded (503 when `STRIPE_SECRET_KEY` absent); UI fork activates only when `stripe_connected=true`
+- EV 7/7 PASS + leak=0, security sweep 3/3 PASS, hygiene 7/7 PASS, build PASS
+- **Blocked until operator:** adds 4 Stripe env vars to inor-out Vercel project + registers webhook `https://in-or-out.com/api/stripe-webhook`
 
 **Phase 4 — Stripe test lifecycle + go live** 🔴 not started *(depends on Phase 3)*
 - Full Stripe test clock: enrol → renewal → payment failure → grace → suspension → recovery
@@ -2252,4 +2262,65 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - EV: 13/13 PASS (name_required_rejected, add_sponsor, list_sponsors, remove_sponsor, list_sponsors_empty_after_remove, set_branding, set_player_of_tournament, get_equipment_for_tournament, invalid_window_rejected, book_equipment, list_bookings, cancel_booking, cannot_cancel_rejected). Leak-check: all zeros. Build: PASS.
 - Next migration: 328.
 
-Next migration: 328.
+Next migration: 331.
+
+---
+
+## CLASSES BOOKING + ROOM HIRE (planned session 134, 2026-06-15)
+
+Venue-led bookable classes for members + hireable spaces for private sessions and functions.
+Full plan: `~/.claude/plans/classes-and-room-hire.md`. Summary of 8 phases:
+
+**Phase 1 — Hireable Spaces foundation (mig 331)**
+New `venue_spaces` table (rooms/studios/halls/outdoor — distinct from `playing_areas` which has
+the wrong abstraction for non-pitch spaces). `_space_is_available(space_id, starts_at, ends_at)`
+internal helper checks across both `venue_class_sessions` AND `venue_room_hires` to prevent
+double-booking. 3 venue admin RPCs: `venue_create_space`/`venue_update_space`/`venue_list_spaces`.
+Venue UI: Spaces section in settings.
+
+**Phase 2 — Class types & scheduling (mig 332)**
+3 new tables: `venue_class_types` (template — name, category, duration, capacity, cutoff hours,
+`first_session_free` flag, space FK), `venue_class_series` (recurring schedule — DOW, time,
+instructor, price, payment_mode), `venue_class_sessions` (instances — status: scheduled/cancelled/
+completed; instructor FK→venue_admins). 12 venue admin RPCs covering CRUD, one-off + series
+scheduling, cancellation (with push to booked members), instructor reassignment, session detail
+with attendee list. `venue_charges.source_type` extended += `'class'`. Venue UI: full Classes tab.
+
+**Phase 3 — Member booking & timetable (mig 333)**
+New `venue_class_bookings` table (status: confirmed/waitlist/cancelled/no_show; payment_status:
+pending/paid/waived). New `member_profiles.no_show_count int DEFAULT 0` + `venues.no_show_suspension_threshold int NULL`. 4 member RPCs: `member_list_class_sessions` (public browse, auth required for booking state), `member_book_class_session` (membership gate + suspension check + tier benefit waiver + `first_session_free` check + waitlist on full), `member_cancel_class_booking` (cutoff enforcement + charge refund + waitlist promotion), `member_list_my_class_bookings`. Member UI: "What's on" timetable on VenueLanding, upcoming classes on MemberPass, history on MemberProfile.
+
+**Phase 4 — Waitlist (mig 334)**
+Notify-and-claim pattern (same as reserve spot, mig 230). On any cancellation, next waitlist
+member gets a push notification with a 30-minute claim window. `member_claim_waitlist_spot`
+RPC — atomic check-and-promote, graceful rejection if spot taken.
+
+**Phase 5 — Room hire (mig 335)**
+New `venue_room_hires` table (booker_type: member/non_member; status: requested/confirmed/cancelled;
+deposit_pence + deposit_status: none/held/returned/forfeited). `equipment_bookings.room_hire_id NULL FK`
+links equipment hire as an add-on. `venue_charges.source_type` += `'room_hire'`. 2 booking RPCs
+(`member_request_room_hire` authenticated, `public_enquire_room_hire` anon — enquiry-only spaces
+only). 4 venue admin RPCs: list/confirm/cancel hires + record deposit. Venue UI: Room Hires tab
+(requests inbox, confirm/decline, deposit tracking). Member UI: "Hire a space" section on VenueLanding
+(enquiry-only spaces show contact form, not booking flow).
+
+**Phase 6 — QR check-in (mig 336)**
+`venue_class_checkin(token, session_id, pass_token)` RPC — instructor-gated (assigned instructor
+or venue manager); scans member pass QR; marks booking confirmed; promotes waitlist slot if needed.
+Reuses BarcodeDetector already live on apps/display. Venue UI: per-session check-in scanner view.
+
+**Phase 7 — Class packages & trial classes (mig 337)**
+`venue_class_packages` + `venue_member_package_balances` tables. `member_purchase_class_package`
++ `member_get_package_balance` member RPCs. `member_book_class_session` extended: checks balance
+before tier pricing — valid package deducts one session instead of creating a charge. Trial class:
+`venue_class_types.first_session_free` waives charge for first booking at venue only.
+
+**Phase 8 — HQ analytics (mig 338)**
+`hq_get_utilisation` extended: class sessions + room hires count as used hours (prime-time class =
+prime-time utilisation). `hq_get_analytics` extended: new `classes` block (fill rate, revenue,
+instructor utilisation). New `hq_get_class_insights` RPC: waitlist intelligence (consistently full
+classes flagged), per-instructor utilisation, per-type revenue cross-venue. **Gaffer context source
+— recorded in RPCS.md per Hard Rule 14.**
+
+Stripe prepay dormant throughout — `payment_mode='prepay'` accepted by schema but booking RPC
+returns `payment_method_unavailable` until venue's Stripe Connect account is active.

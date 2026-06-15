@@ -4190,6 +4190,24 @@ export async function memberEnrolMembership(inviteCode, tierId, period, forProfi
   return data;
 }
 
+// Phase 3 Stripe: create a Checkout session on the venue's connected account.
+// Returns { checkout_url } which the caller redirects to via window.location.href.
+// Dormant (503) until STRIPE_SECRET_KEY is set server-side.
+export async function stripeInitMemberCheckout({ inviteCode, tierId, period, forProfileId = null }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("not_authenticated");
+  const res = await fetch("/api/stripe-member-checkout", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+    body:    JSON.stringify({ inviteCode, tierId, period, forProfileId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "checkout_failed");
+  }
+  return res.json();
+}
+
 // ── Phase 10 — Club Attendance admin RPCs (mig 298) ──────────────────────────
 
 export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null } = {}) {

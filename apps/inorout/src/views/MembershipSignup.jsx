@@ -4,7 +4,7 @@ import {
   memberListChildren, memberRegisterChild, memberUpdateChild,
   memberAcceptConsent,
   uploadMemberIdDoc, memberSubmitIdDocument,
-  memberEnrolMembership,
+  memberEnrolMembership, stripeInitMemberCheckout,
 } from "@platform/core/storage/supabase.js";
 
 // Phase 7 — /q membership signup wizard.
@@ -618,29 +618,46 @@ function StepIdUpload({ club, memberProfileId, onDone, onSkip }) {
 }
 
 // ── Step: enrol + done ────────────────────────────────────────────────────────
+// Forks at runtime: paid tier + stripe_connected venue → Stripe Checkout redirect;
+// free tier or no Stripe → direct memberEnrolMembership call.
 
-function StepEnrol({ code, tier, period, forProfileId, onDone }) {
+function StepEnrol({ code, tier, period, forProfileId, club, onDone }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const hasRun = useRef(false);
+
+  const useStripe = !tier?.is_free && !!club?.stripe_connected;
 
   useEffect(() => {
     if (hasRun.current) return;
     hasRun.current = true;
     setBusy(true);
-    memberEnrolMembership(code, tier.tier_id, period, forProfileId ?? null)
-      .then((r) => {
-        if (r?.ok) { onDone(r.pass_token); }
-        else { setErr("Enrolment failed — please try again."); setBusy(false); }
-      })
-      .catch((e) => {
-        console.error("[membership-signup] enrol failed", e);
-        setErr("Enrolment failed — please try again.");
-        setBusy(false);
-      });
+    if (useStripe) {
+      stripeInitMemberCheckout({ inviteCode: code, tierId: tier.tier_id, period, forProfileId: forProfileId ?? null })
+        .then((r) => {
+          if (r?.checkout_url) { window.location.href = r.checkout_url; }
+          else { setErr("Couldn't start payment — please try again."); setBusy(false); }
+        })
+        .catch((e) => {
+          console.error("[membership-signup] stripe checkout failed", e);
+          setErr("Couldn't start payment — please try again.");
+          setBusy(false);
+        });
+    } else {
+      memberEnrolMembership(code, tier.tier_id, period, forProfileId ?? null)
+        .then((r) => {
+          if (r?.ok) { onDone(r.pass_token); }
+          else { setErr("Enrolment failed — please try again."); setBusy(false); }
+        })
+        .catch((e) => {
+          console.error("[membership-signup] enrol failed", e);
+          setErr("Enrolment failed — please try again.");
+          setBusy(false);
+        });
+    }
   }, []);
 
-  if (busy) return <p style={{ color: "var(--t3)", fontSize: 14 }}>Setting up your membership…</p>;
+  if (busy) return <p style={{ color: "var(--t3)", fontSize: 14 }}>{useStripe ? "Redirecting to payment…" : "Setting up your membership…"}</p>;
   return (
     <>
       {err && <p className="ms-err">{err}</p>}
@@ -654,6 +671,12 @@ function StepEnrol({ code, tier, period, forProfileId, onDone }) {
 export default function MembershipSignup({ code, club, documents, tiers, onStart }) {
   const [step, setStep] = useState("idle");
   const [path, setPath] = useState(null);         // "adult" | "child"
+
+  // Detect Stripe Checkout return (?checkout=done) and jump to done state.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "done") setStep("done");
+  }, []);
   const [self, setSelf] = useState(null);         // memberGetSelf result
   const [children, setChildren] = useState([]);
   const [selectedChild, setSelectedChild] = useState(null);
@@ -795,6 +818,7 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
           tier={selectedTier}
           period={selectedPeriod}
           forProfileId={path === "child" ? selectedChild?.id : null}
+          club={club}
           onDone={(token) => { setPassToken(token); setStep("done"); }}
         />
       )}

@@ -190,6 +190,7 @@ export {
   venueVerifyIdDocument,
   memberSelfCreateProfile,
   memberEnrolMembership,
+  stripeInitMemberCheckout,
   clubCreate,
   venueListClubs,
   venueListClubVenues,

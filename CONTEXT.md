@@ -4092,3 +4092,47 @@ Venue app (prebuilt-static, no serverless) calls the inorout deployment's `api/s
 - Optional: `STRIPE_CONNECT_ALLOWED_ORIGIN=https://platform-venue.vercel.app` (has hardcoded fallback)
 
 **Security sweep:** 1/1 PASS. Both builds clean. EV 5/5 PASS. **Next mig = 331.**
+
+## SESSION 135 — Payment Infrastructure Phase 3: Stripe member enrolment + webhooks (mig 331)
+
+**Goal:** Ship the Stripe member enrolment + checkout flow, fully dormant until operator adds Stripe env vars.
+
+**Prerequisite check:** Confirmed zero Stripe env vars set in inor-out Vercel project. Proceeded — env-guard pattern returns 503 on all API routes when `STRIPE_SECRET_KEY` absent; UI fork only activates when `stripe_connected=true`.
+
+**Schema (mig 331):**
+- `ALTER TABLE venue_memberships ADD COLUMN IF NOT EXISTS stripe_customer_id text`
+- Dropped old non-unique `venue_memberships_stripe_sub_idx` (from mig 279); created `UNIQUE INDEX venue_memberships_stripe_sub_uniq ON venue_memberships (stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL` — enables idempotent `ON CONFLICT` for webhook deduplication
+- `get_venue_signup_tiers`: adds `stripe_connected` bool to club object (derived from `venue_integrations WHERE provider='stripe' AND status='active'`)
+- `get_member_pass`: adds `payment_state` to return shape
+- New RPC `stripe_complete_member_enrolment(p_invite_code, p_subscription_id, p_stripe_customer_id, p_stripe_price_id, p_tier_id, p_period, p_member_profile_id, p_amount_pence?)` — service_role ONLY (anon + authenticated REVOKED); idempotent on subscription_id; season = NULL subscription; validates tier + period; inserts venue_memberships with stripe_* fields + payment_state='current' + status='active'; best-effort audit (skipped for children with no auth account); returns `{ok, membership_id, pass_token}` or `{ok, already_enrolled:true}`
+
+**New file `apps/inorout/api/stripe-member-checkout.js`:**
+- Auth: `Authorization: Bearer <token>` → `supabase.auth.getUser(token)`
+- Body: `{ inviteCode, tierId, period, forProfileId? }`
+- Resolves venue from `invite_links`, gets Stripe `account_id` from `venue_integrations`
+- Season → `mode:'payment'` (one-time); monthly/quarterly/annual → `mode:'subscription'`
+- Creates Stripe Customer on connected account, creates Checkout Session with inline `price_data`
+- `success_url = {INOROUT_APP_URL}/q/{inviteCode}?checkout=done`
+- Returns `{ checkout_url }`
+
+**`apps/inorout/api/stripe-webhook.js` extended:**
+- New `checkout.session.completed` arm (before `account.updated`): extracts metadata, retrieves subscription to get `stripePriceId`, calls `stripe_complete_member_enrolment` RPC
+
+**`apps/inorout/src/views/MembershipSignup.jsx`:**
+- `StepEnrol` forks on `!tier.is_free && club.stripe_connected`: Stripe path → `stripeInitMemberCheckout` → `window.location.href = checkout_url`; free/non-Stripe path → existing `memberEnrolMembership`
+- `useEffect` on mount: `?checkout=done` → `setStep('done')` (shows existing passToken=null done state)
+
+**`apps/inorout/src/views/MemberPass.jsx`:**
+- `PaymentStateBanner` component: zero-footprint when `state='current'` or absent; amber for `past_due`, red (`#FF6060`) for `suspended`
+
+**`packages/core/storage/supabase.js`:** Added `stripeInitMemberCheckout` (fetch `/api/stripe-member-checkout`, Bearer token from session)
+
+**`packages/core/index.js`:** Barrel export added for `stripeInitMemberCheckout`
+
+**Verification:** EV 7/7 PASS + leak=0, rpc-security sweep 3/3 PASS (stripe_complete_member_enrolment: SECDEF ✓, search_path ✓, overload_count=1 ✓), hygiene 7/7 PASS, build PASS.
+
+**Operator still needs to (before Phase 3 activates):**
+- Add to inor-out Vercel project: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_RETURN_URL`, `STRIPE_CONNECT_REFRESH_URL`
+- Register webhook endpoint `https://in-or-out.com/api/stripe-webhook` in Stripe Dashboard for events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `account.updated`
+
+**Next mig = 332.**

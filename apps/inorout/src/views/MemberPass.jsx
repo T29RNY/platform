@@ -132,6 +132,8 @@ export default function MemberPass({ token }) {
             </div>
           </div>
 
+          <PaymentStateBanner state={pass.payment_state} />
+
           {/* valid venues */}
           {(pass.valid_venues || []).length > 1 ? (
             <ValidVenuesSection venues={pass.valid_venues} />
@@ -152,6 +154,27 @@ export default function MemberPass({ token }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PaymentStateBanner({ state }) {
+  if (!state || state === "current") return null;
+  const isPastDue = state === "past_due";
+  return (
+    <div style={{
+      margin: "12px 0 0",
+      padding: "10px 14px",
+      borderRadius: "var(--r)",
+      background: isPastDue ? "rgba(255,180,0,0.12)" : "rgba(255,96,96,0.12)",
+      border: `1px solid ${isPastDue ? "rgba(255,180,0,0.3)" : "rgba(255,96,96,0.3)"}`,
+      color: isPastDue ? "#FFB400" : "#FF6060",
+      fontSize: 13,
+      lineHeight: 1.4,
+    }}>
+      {isPastDue
+        ? "Payment overdue — your membership will be suspended if not resolved. Please update your payment method with the venue."
+        : "Membership suspended due to failed payment. Please contact the venue to reinstate."}
     </div>
   );
 }
