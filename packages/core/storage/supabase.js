@@ -4014,6 +4014,12 @@ export async function memberGetSelf() {
   return data;
 }
 
+export async function memberGetVenueMembershipPass(inviteCode) {
+  const { data, error } = await supabase.rpc("member_get_venue_membership_pass", { p_invite_code: inviteCode });
+  if (error) { console.error("[member] member_get_venue_membership_pass failed", error); throw error; }
+  return data;
+}
+
 export async function memberUpdateSelf(updates) {
   const { data, error } = await supabase.rpc("member_update_self", {
     p_updates: updates,

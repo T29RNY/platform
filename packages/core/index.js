@@ -170,6 +170,7 @@ export {
   memberCheckIn,
   memberSelfSignup,
   memberGetSelf,
+  memberGetVenueMembershipPass,
   memberClaimProfile,
   memberCreateProfile,
   memberUpdateSelf,

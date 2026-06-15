@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  memberGetSelf, memberSelfCreateProfile,
+  memberGetSelf, memberGetVenueMembershipPass, memberSelfCreateProfile,
   memberListChildren, memberRegisterChild, memberUpdateChild,
   memberAcceptConsent,
   uploadMemberIdDoc, memberSubmitIdDocument,
@@ -682,10 +682,18 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
   const [step, setStep] = useState("idle");
   const [path, setPath] = useState(null);         // "adult" | "child"
 
-  // Detect Stripe Checkout return (?checkout=done) and jump to done state.
+  // On mount: check if already enrolled (surfaces pass link for returning members),
+  // or detect Stripe Checkout return (?checkout=done) and fetch the pass token.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("checkout") === "done") setStep("done");
+    const isCheckoutReturn = params.get("checkout") === "done";
+    if (isCheckoutReturn) setStep("done");
+    memberGetVenueMembershipPass(code).then((r) => {
+      if (r?.found && r?.pass_token) {
+        setPassToken(r.pass_token);
+        setStep("done");
+      }
+    }).catch(() => {});
   }, []);
   const [self, setSelf] = useState(null);         // memberGetSelf result
   const [children, setChildren] = useState([]);
