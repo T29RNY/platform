@@ -2073,7 +2073,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 | 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | ✅ Complete (mig 319 s122) |
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
 | 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ ALL COMPLETE: 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) + 7C brackets (mig 324, s127) + 7D double-elim (mig 325, s128) |
-| 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
+| 6 — Performance Events | Athletics model, judge interface, overall sports day standings | ✅ Complete (mig 326, s129) |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
 **Phase 0 RPCs shipped (mig 314, session 117, commit 58f2d1f):** `get_user_relationships()` (routing oracle — squads/clubs/guardian_of/competitions/admin_roles), `get_unified_home_feed()` (14-day chronological feed), `get_guardian_home_feed()` (per-child session feed), `get_child_live_match(uuid)` (Follow Live with guardian ownership guard). All SECDEF/authenticated-only/anon revoked. JS wrappers `getUserRelationships`/`getUnifiedHomeFeed`/`getGuardianHomeFeed`/`getChildLiveMatch` added to packages/core. Security sweep 4/4 PASS. Build clean.
@@ -2123,7 +2123,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
 | 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ ALL COMPLETE: 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) + 7C brackets (mig 324, s127) + 7D double-elim (mig 325, s128) |
-| 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
+| 6 — Performance Events | Athletics model, judge interface, overall sports day standings | ✅ Complete (mig 326, s129) |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
 **Phase 7A (mig 322) ✅ COMPLETE (session 125):**
@@ -2166,4 +2166,14 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - EV 15/15 PASS. Leak check: all zeros. Security sweep PASS. Build PASS.
 - Commit: `ebe1972`. Next migration: 326.
 
-Next migration: 326.
+**Phase 6 (mig 326) ✅ COMPLETE (session 129):**
+- Schema fixes: `performance_results.athlete_id` made nullable (sports-day athletes are not casual squad players); `athlete_name text NOT NULL DEFAULT ''` + `competition_team_id uuid FK → competition_teams` added; UNIQUE constraint `perf_results_upsert_key (performance_event_id, competition_team_id, athlete_name, attempt_number)` added for judge re-entry UPSERT. `tournament_events.points_config` default changed to standard athletics 10-8-6-5-4-3-2-1; existing `{}` rows backfilled.
+- 6 new SECDEF RPCs (all authenticated-only, anon revoked): `club_admin_set_performance_config` (lock points table — blocks once any results exist), `club_admin_add_performance_event` (director creates a discipline), `club_admin_list_performance_events` (list with result counts), `club_admin_record_result` (judge upserts an attempt), `club_admin_get_performance_results` (ranked leaderboard, measurement_type determines sort direction), `club_admin_get_sports_day_standings` (team totals: points/gold/silver/bronze/events_entered).
+- `get_tournament_public` extended (4th CREATE OR REPLACE, same `p_slug text` signature): adds `performance_events[]` (per-event results with athlete/team/rank/value) and `performance_standings[]` (team totals derived from points_config).
+- 6 JS wrappers in `packages/core/storage/supabase.js` + 6 barrel exports in `packages/core/index.js`.
+- `SessionsScreen.jsx`: 6 new imports; performance events state (perfEvents/expandedEventId/eventResults/resultForm/sportsDayStandings); `loadTournamentDetail` + `reloadDetail` extended to also call `clubAdminListPerformanceEvents`; 3 new handlers (`handleAddPerformanceEvent`, `toggleEventExpand`, `handleRecordResult`); Performance Events section after competitions map (expandable event rows with leaderboard + result entry form); Overall Sports Day Standings section; Add Performance Event modal.
+- `TournamentScreen.jsx`: reads `performance_events` + `performance_standings` from the existing `getTournamentPublic` call (no new fetch); per-discipline results sections; team standings section.
+- Hygiene: 7/7 PASS (all 3 files). RPC security sweep: 6/6 PASS (SECDEF ✓ search_path ✓ overload_count=1 ✓). Casual-flow regression: PASS (no overlap with any casual surface). Build: PASS.
+- Commit: `bc46b7b`. Next migration: 327.
+
+Next migration: 327.
