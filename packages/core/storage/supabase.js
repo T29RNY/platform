@@ -4677,3 +4677,66 @@ export async function clubAdminAssignFixtureSlot(fixtureId, scheduledDate, kicko
   if (error) { console.error("[event-os] club_admin_assign_fixture_slot failed", error); throw error; }
   return data;
 }
+
+// ── Phase 6: Performance Events ────────────────────────────────────────────────
+
+export async function clubAdminSetPerformanceConfig(tournamentEventId, pointsConfig) {
+  const { data, error } = await supabase.rpc("club_admin_set_performance_config", {
+    p_tournament_event_id: tournamentEventId,
+    p_points_config:       pointsConfig,
+  });
+  if (error) { console.error("[event-os] club_admin_set_performance_config failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminAddPerformanceEvent(tournamentEventId, name, measurementType, unit, attemptsPerAthlete = 1, category = null, scheduledTime = null, displayOrder = null) {
+  const { data, error } = await supabase.rpc("club_admin_add_performance_event", {
+    p_tournament_event_id:  tournamentEventId,
+    p_name:                 name,
+    p_measurement_type:     measurementType,
+    p_unit:                 unit,
+    p_attempts_per_athlete: attemptsPerAthlete,
+    p_category:             category,
+    p_scheduled_time:       scheduledTime,
+    p_display_order:        displayOrder,
+  });
+  if (error) { console.error("[event-os] club_admin_add_performance_event failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminListPerformanceEvents(tournamentEventId) {
+  const { data, error } = await supabase.rpc("club_admin_list_performance_events", {
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] club_admin_list_performance_events failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminRecordResult(performanceEventId, athleteName, competitionTeamId, value, attemptNumber = 1, status = "recorded") {
+  const { data, error } = await supabase.rpc("club_admin_record_result", {
+    p_performance_event_id: performanceEventId,
+    p_athlete_name:         athleteName,
+    p_competition_team_id:  competitionTeamId,
+    p_value:                value,
+    p_attempt_number:       attemptNumber,
+    p_status:               status,
+  });
+  if (error) { console.error("[event-os] club_admin_record_result failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminGetPerformanceResults(performanceEventId) {
+  const { data, error } = await supabase.rpc("club_admin_get_performance_results", {
+    p_performance_event_id: performanceEventId,
+  });
+  if (error) { console.error("[event-os] club_admin_get_performance_results failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminGetSportsDayStandings(tournamentEventId) {
+  const { data, error } = await supabase.rpc("club_admin_get_sports_day_standings", {
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] club_admin_get_sports_day_standings failed", error); throw error; }
+  return data;
+}

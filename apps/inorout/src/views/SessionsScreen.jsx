@@ -14,6 +14,12 @@ import {
   clubAdminGenerateSchedule, clubAdminGetSchedule,
   clubAdminSeedKnockout,
   clubAdminSeedDoubleElimination,
+  clubAdminSetPerformanceConfig,
+  clubAdminAddPerformanceEvent,
+  clubAdminListPerformanceEvents,
+  clubAdminRecordResult,
+  clubAdminGetPerformanceResults,
+  clubAdminGetSportsDayStandings,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -154,6 +160,22 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [seedSaving, setSeedSaving]       = useState(false);
   const isSeedingRef                      = useRef(false);
 
+  // performance events (Phase 6)
+  const [perfEvents, setPerfEvents]             = useState([]);
+  const [perfEventsLoading, setPerfEventsLoading] = useState(false);
+  const [showAddEvent, setShowAddEvent]         = useState(false);
+  const [eventForm, setEventForm]               = useState({ name:"", measurementType:"distance", unit:"", attemptsPerAthlete:1, category:"", scheduledTime:"", displayOrder:"" });
+  const [eventSaving, setEventSaving]           = useState(false);
+  const [eventError, setEventError]             = useState(null);
+  const isEventSavingRef                        = useRef(false);
+  const [expandedEventId, setExpandedEventId]   = useState(null);
+  const [eventResults, setEventResults]         = useState({});
+  const [resultForm, setResultForm]             = useState({ athleteName:"", teamId:"", value:"", attemptNumber:1, status:"recorded" });
+  const [resultSaving, setResultSaving]         = useState(false);
+  const [resultError, setResultError]           = useState(null);
+  const isRecordingRef                          = useRef(false);
+  const [sportsDayStandings, setSportsDayStandings] = useState(null);
+
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
     if (memberProfileProp) {
@@ -258,36 +280,46 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       setExpandedTournamentId(null);
       setTournamentDetail(null);
       setScheduleData(null);
+      setPerfEvents([]);
+      setSportsDayStandings(null);
       return;
     }
     setExpandedTournamentId(t.tournament_id);
     setTournamentDetail(null);
     setScheduleData(null);
+    setPerfEvents([]);
+    setSportsDayStandings(null);
     setDetailLoading(true);
     setScheduleLoading(true);
+    setPerfEventsLoading(true);
     try {
-      const [detail, schedule] = await Promise.all([
+      const [detail, schedule, events] = await Promise.all([
         clubAdminGetTournament(t.slug),
         clubAdminGetSchedule(t.tournament_id),
+        clubAdminListPerformanceEvents(t.tournament_id),
       ]);
       setTournamentDetail(detail);
       setScheduleData(schedule);
+      setPerfEvents(Array.isArray(events) ? events : []);
     } catch (e) {
       console.error("[sessions] tournament detail failed", e);
     } finally {
       setDetailLoading(false);
       setScheduleLoading(false);
+      setPerfEventsLoading(false);
     }
   };
 
   const reloadDetail = async (slug, tournamentId) => {
     try {
-      const [detail, schedule] = await Promise.all([
+      const [detail, schedule, events] = await Promise.all([
         clubAdminGetTournament(slug),
         clubAdminGetSchedule(tournamentId),
+        clubAdminListPerformanceEvents(tournamentId),
       ]);
       setTournamentDetail(detail);
       setScheduleData(schedule);
+      setPerfEvents(Array.isArray(events) ? events : []);
     } catch (e) {
       console.error("[sessions] reload detail failed", e);
     }
@@ -439,6 +471,87 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     } finally {
       setSeedSaving(false);
       isSeedingRef.current = false;
+    }
+  };
+
+  const handleAddPerformanceEvent = async () => {
+    if (isEventSavingRef.current || !tournamentDetail) return;
+    const name = eventForm.name.trim();
+    if (!name) { setEventError("Event name required."); return; }
+    if (!eventForm.unit.trim()) { setEventError("Unit required (e.g. m, s, kg)."); return; }
+    isEventSavingRef.current = true;
+    setEventSaving(true);
+    setEventError(null);
+    try {
+      await clubAdminAddPerformanceEvent(
+        tournamentDetail.tournament_id,
+        name,
+        eventForm.measurementType,
+        eventForm.unit.trim(),
+        parseInt(eventForm.attemptsPerAthlete, 10) || 1,
+        eventForm.category.trim() || null,
+        eventForm.scheduledTime || null,
+        eventForm.displayOrder !== "" ? parseInt(eventForm.displayOrder, 10) : null,
+      );
+      setShowAddEvent(false);
+      setEventForm({ name:"", measurementType:"distance", unit:"", attemptsPerAthlete:1, category:"", scheduledTime:"", displayOrder:"" });
+      const events = await clubAdminListPerformanceEvents(tournamentDetail.tournament_id);
+      setPerfEvents(Array.isArray(events) ? events : []);
+    } catch (e) {
+      console.error("[sessions] add performance event failed", e);
+      setEventError(e?.message || "Failed to add event.");
+    } finally {
+      setEventSaving(false);
+      isEventSavingRef.current = false;
+    }
+  };
+
+  const toggleEventExpand = async (eventId) => {
+    if (expandedEventId === eventId) { setExpandedEventId(null); return; }
+    setExpandedEventId(eventId);
+    if (!eventResults[eventId]) {
+      try {
+        const results = await clubAdminGetPerformanceResults(eventId);
+        setEventResults(prev => ({ ...prev, [eventId]: Array.isArray(results) ? results : [] }));
+      } catch (e) {
+        console.error("[sessions] get performance results failed", e);
+      }
+    }
+    const stands = await clubAdminGetSportsDayStandings(tournamentDetail.tournament_id).catch(e => { console.error(e); return null; });
+    if (stands) setSportsDayStandings(Array.isArray(stands) ? stands : []);
+  };
+
+  const handleRecordResult = async () => {
+    if (isRecordingRef.current || !expandedEventId) return;
+    const name = resultForm.athleteName.trim();
+    if (!name) { setResultError("Athlete name required."); return; }
+    if (!resultForm.teamId) { setResultError("Team required."); return; }
+    if (resultForm.status === "recorded" && resultForm.value === "") { setResultError("Value required."); return; }
+    isRecordingRef.current = true;
+    setResultSaving(true);
+    setResultError(null);
+    try {
+      await clubAdminRecordResult(
+        expandedEventId,
+        name,
+        resultForm.teamId,
+        resultForm.status === "recorded" ? parseFloat(resultForm.value) : null,
+        parseInt(resultForm.attemptNumber, 10) || 1,
+        resultForm.status,
+      );
+      setResultForm({ athleteName:"", teamId: resultForm.teamId, value:"", attemptNumber:1, status:"recorded" });
+      const [results, stands] = await Promise.all([
+        clubAdminGetPerformanceResults(expandedEventId),
+        clubAdminGetSportsDayStandings(tournamentDetail.tournament_id),
+      ]);
+      setEventResults(prev => ({ ...prev, [expandedEventId]: Array.isArray(results) ? results : [] }));
+      if (stands) setSportsDayStandings(Array.isArray(stands) ? stands : []);
+    } catch (e) {
+      console.error("[sessions] record result failed", e);
+      setResultError(e?.message || "Failed to record result.");
+    } finally {
+      setResultSaving(false);
+      isRecordingRef.current = false;
     }
   };
 
@@ -1415,6 +1528,151 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                             </div>
                           );
                         })}
+
+                        {/* ── Performance Events (Phase 6 — sports day / athletics) ── */}
+                        <div style={{ marginTop: 20 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                              Performance Events
+                            </span>
+                            <button
+                              onClick={() => { setShowAddEvent(true); setEventError(null); setEventForm({ name:"", measurementType:"distance", unit:"", attemptsPerAthlete:1, category:"", scheduledTime:"", displayOrder:"" }); }}
+                              style={{ fontSize: 12, fontWeight: 700, background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--t1)", padding: "3px 10px", borderRadius: 16, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                            >
+                              + Add Event
+                            </button>
+                          </div>
+
+                          {perfEventsLoading && (
+                            <p style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body)", margin: 0 }}>Loading…</p>
+                          )}
+                          {!perfEventsLoading && perfEvents.length === 0 && (
+                            <p style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", margin: 0 }}>No events yet. Add disciplines (100m, long jump, etc.) to start recording results.</p>
+                          )}
+
+                          {perfEvents.map(ev => {
+                            const isOpen = expandedEventId === ev.event_id;
+                            const results = eventResults[ev.event_id] ?? [];
+                            const allTeams = (tournamentDetail.competitions ?? []).flatMap(c => (c.teams ?? []).filter(t => t.status === "active" || !t.status));
+                            const mtLabel = { time_asc: "Time (lower=better)", time_desc: "Time (higher=better)", distance: "Distance", height: "Height", weight: "Weight" }[ev.measurement_type] ?? ev.measurement_type;
+                            return (
+                              <div key={ev.event_id} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
+                                <div
+                                  onClick={() => toggleEventExpand(ev.event_id)}
+                                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", cursor: "pointer" }}
+                                >
+                                  <div>
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--t1)", fontFamily: "var(--font-body)" }}>{ev.name}</span>
+                                    {ev.category && <span style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body)", marginLeft: 8 }}>{ev.category}</span>}
+                                    <div style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body)", marginTop: 2 }}>{mtLabel} · {ev.unit} · {ev.attempts_per_athlete} attempt{ev.attempts_per_athlete !== 1 ? "s" : ""} · {ev.result_count} result{ev.result_count !== 1 ? "s" : ""}</div>
+                                  </div>
+                                  <span style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body)" }}>{isOpen ? "▲" : "▼"}</span>
+                                </div>
+
+                                {isOpen && (
+                                  <div style={{ padding: "0 12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
+                                    {/* Leaderboard */}
+                                    {results.length > 0 && (
+                                      <div>
+                                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "rgba(255,190,60,0.8)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 6 }}>Leaderboard</div>
+                                        {results.map((r, i) => (
+                                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--t3, #666)", fontFamily: "var(--font-body)", width: 20, flexShrink: 0 }}>{r.rank ?? "—"}</span>
+                                            <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.athlete_name}</span>
+                                            <span style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body)" }}>{r.team_name}</span>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--t1)", fontFamily: "var(--font-body)", flexShrink: 0 }}>
+                                              {r.status === "recorded" ? `${r.best_value} ${ev.unit}` : r.status?.toUpperCase()}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Record result form */}
+                                    <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Record Result</div>
+                                      {resultError && expandedEventId === ev.event_id && (
+                                        <div style={{ fontSize: 12, color: "#FF6060", fontFamily: "var(--font-body)" }}>{resultError}</div>
+                                      )}
+                                      <input
+                                        placeholder="Athlete name"
+                                        value={resultForm.athleteName}
+                                        onChange={e => setResultForm(f => ({ ...f, athleteName: e.target.value }))}
+                                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
+                                      />
+                                      <select
+                                        value={resultForm.teamId}
+                                        onChange={e => setResultForm(f => ({ ...f, teamId: e.target.value }))}
+                                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: resultForm.teamId ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", outline: "none" }}
+                                      >
+                                        <option value="">Select team</option>
+                                        {allTeams.map(t => (
+                                          <option key={t.competition_team_id} value={t.competition_team_id}>{t.team_name}</option>
+                                        ))}
+                                      </select>
+                                      <select
+                                        value={resultForm.status}
+                                        onChange={e => setResultForm(f => ({ ...f, status: e.target.value }))}
+                                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
+                                      >
+                                        <option value="recorded">Recorded</option>
+                                        <option value="dns">DNS (Did Not Start)</option>
+                                        <option value="dnf">DNF (Did Not Finish)</option>
+                                        <option value="disqualified">Disqualified</option>
+                                      </select>
+                                      {resultForm.status === "recorded" && (
+                                        <div style={{ display: "flex", gap: 8 }}>
+                                          <input
+                                            placeholder={`Value (${ev.unit})`}
+                                            value={resultForm.value}
+                                            onChange={e => setResultForm(f => ({ ...f, value: e.target.value }))}
+                                            type="number"
+                                            step="any"
+                                            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", flex: 1 }}
+                                          />
+                                          <input
+                                            placeholder="Attempt #"
+                                            value={resultForm.attemptNumber}
+                                            onChange={e => setResultForm(f => ({ ...f, attemptNumber: e.target.value }))}
+                                            type="number"
+                                            min="1"
+                                            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", width: 90, flexShrink: 0 }}
+                                          />
+                                        </div>
+                                      )}
+                                      <button
+                                        onClick={handleRecordResult}
+                                        disabled={resultSaving}
+                                        style={{ fontSize: 13, fontWeight: 700, background: "rgba(96,160,255,0.12)", border: "1px solid rgba(96,160,255,0.3)", color: "#60A0FF", padding: "8px 14px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: resultSaving ? "not-allowed" : "pointer" }}
+                                      >
+                                        {resultSaving ? "Saving…" : "Save Result"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* ── Overall Sports Day Standings ── */}
+                        {sportsDayStandings && sportsDayStandings.length > 0 && (
+                          <div style={{ marginTop: 20 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 8 }}>
+                              Sports Day Standings
+                            </div>
+                            {sportsDayStandings.map((row, i) => (
+                              <div key={row.competition_team_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--t3, #666)", fontFamily: "var(--font-body)", width: 20, flexShrink: 0 }}>{i + 1}</span>
+                                <span style={{ fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.team_name}</span>
+                                <span style={{ fontSize: 11, color: "rgba(255,215,0,0.8)", fontFamily: "var(--font-body)", flexShrink: 0 }}>🥇{row.gold}</span>
+                                <span style={{ fontSize: 11, color: "rgba(192,192,192,0.8)", fontFamily: "var(--font-body)", flexShrink: 0 }}>🥈{row.silver}</span>
+                                <span style={{ fontSize: 11, color: "rgba(205,127,50,0.8)", fontFamily: "var(--font-body)", flexShrink: 0 }}>🥉{row.bronze}</span>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--t1)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>{row.points} pts</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -1456,6 +1714,57 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
             <button onClick={handleAddCompetition} disabled={compSaving || !compForm.name.trim()} style={{ marginTop: 4, background: compSaving ? "rgba(255,255,255,0.1)" : "var(--amber)", color: compSaving ? "var(--t2)" : "rgba(0,0,0,0.9)", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, fontFamily: "var(--font-body)", cursor: compSaving ? "not-allowed" : "pointer", width: "100%" }}>
               {compSaving ? "Adding…" : "Add Competition"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Performance Event modal ──────────────────────────────────── */}
+      {showAddEvent && tournamentDetail && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+          onClick={() => setShowAddEvent(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "var(--b2)", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: 540, padding: "24px 20px 40px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)" }}>Add Performance Event</div>
+
+            {eventError && (
+              <div style={{ fontSize: 13, color: "#FF6060", background: "rgba(255,96,96,0.08)", padding: "8px 12px", borderRadius: 8, fontFamily: "var(--font-body)" }}>{eventError}</div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Name</label>
+              <input type="text" value={eventForm.name} onChange={e => setEventForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. 100m Sprint" style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", width: "100%", boxSizing: "border-box" }} />
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Measurement</label>
+                <select value={eventForm.measurementType} onChange={e => setEventForm(f => ({ ...f, measurementType: e.target.value }))} style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", appearance: "none" }}>
+                  <option value="time_asc">Time (lower wins)</option>
+                  <option value="time_desc">Time (higher wins)</option>
+                  <option value="distance">Distance (further wins)</option>
+                  <option value="height">Height (higher wins)</option>
+                  <option value="weight">Weight (heavier wins)</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, width: 90, flexShrink: 0 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Unit</label>
+                <input type="text" value={eventForm.unit} onChange={e => setEventForm(f => ({ ...f, unit: e.target.value }))} placeholder="m, s, kg" style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }} />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Attempts</label>
+                <input type="number" min="1" max="10" value={eventForm.attemptsPerAthlete} onChange={e => setEventForm(f => ({ ...f, attemptsPerAthlete: e.target.value }))} style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Category (opt)</label>
+                <input type="text" value={eventForm.category} onChange={e => setEventForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. U12, Open" style={{ background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }} />
+              </div>
+            </div>
+
+            <button onClick={handleAddPerformanceEvent} disabled={eventSaving || !eventForm.name.trim()} style={{ marginTop: 4, background: eventSaving ? "rgba(255,255,255,0.1)" : "var(--amber)", color: eventSaving ? "var(--t2)" : "rgba(0,0,0,0.9)", border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, fontFamily: "var(--font-body)", cursor: eventSaving ? "not-allowed" : "pointer", width: "100%" }}>
+              {eventSaving ? "Adding…" : "Add Event"}
             </button>
           </div>
         </div>

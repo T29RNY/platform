@@ -132,12 +132,16 @@ export default function TournamentScreen({ slug }) {
   }
 
   const statusStyle       = STATUS_STYLE[tournament.status] ?? STATUS_STYLE.draft;
-  const fixtures          = tournament.fixtures ?? [];
-  const knockoutFixtures  = tournament.knockout_fixtures ?? [];
-  const standings         = tournament.standings ?? [];
-  const hasFixtures       = fixtures.length > 0;
-  const hasKnockout       = knockoutFixtures.length > 0;
-  const hasStandings      = standings.some(s => s.rows?.some(r => r.played > 0));
+  const fixtures            = tournament.fixtures ?? [];
+  const knockoutFixtures    = tournament.knockout_fixtures ?? [];
+  const standings           = tournament.standings ?? [];
+  const perfEvents          = tournament.performance_events ?? [];
+  const perfStandings       = tournament.performance_standings ?? [];
+  const hasFixtures         = fixtures.length > 0;
+  const hasKnockout         = knockoutFixtures.length > 0;
+  const hasStandings        = standings.some(s => s.rows?.some(r => r.played > 0));
+  const hasPerfEvents       = perfEvents.length > 0;
+  const hasPerfStandings    = perfStandings.length > 0;
 
   return page(
     <>
@@ -288,6 +292,67 @@ export default function TournamentScreen({ slug }) {
           </section>
         );
       })}
+
+      {/* ── Performance Events (athletics / sports day) ───────────────────── */}
+      {hasPerfEvents && perfEvents.map(ev => {
+        const results = ev.results ?? [];
+        if (results.length === 0) return null;
+        const mtLabel = { time_asc: "s (lower=better)", time_desc: "s (higher=better)", distance: ev.unit, height: ev.unit, weight: ev.unit }[ev.measurement_type] ?? ev.unit;
+        return (
+          <section key={ev.event_id}>
+            <SectionHeading>{ev.name}{ev.category ? ` — ${ev.category}` : ""}</SectionHeading>
+            <Card noPad>
+              <div style={{ padding: "12px 16px" }}>
+                {results.map((r, i) => (
+                  <div key={i} style={{
+                    display: "grid", gridTemplateColumns: "24px 1fr auto auto", alignItems: "center", gap: 8,
+                    padding: "7px 0",
+                    borderBottom: i < results.length - 1 ? "1px solid var(--border-subtle, rgba(255,255,255,0.06))" : "none",
+                  }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: r.rank === 1 ? "rgba(255,215,0,0.9)" : r.rank === 2 ? "rgba(192,192,192,0.9)" : r.rank === 3 ? "rgba(205,127,50,0.9)" : "var(--t3, #666)", fontFamily: "var(--font-body, sans-serif)", textAlign: "center" }}>
+                      {r.rank}
+                    </span>
+                    <span style={{ fontSize: 13, color: "var(--t1, #fff)", fontFamily: "var(--font-body, sans-serif)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.athlete_name}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body, sans-serif)", flexShrink: 0 }}>
+                      {r.team_name}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--t1, #fff)", fontFamily: "var(--font-body, sans-serif)", flexShrink: 0 }}>
+                      {r.value} {mtLabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </section>
+        );
+      })}
+
+      {/* ── Sports Day Team Standings ──────────────────────────────────────── */}
+      {hasPerfStandings && (
+        <section>
+          <SectionHeading>Sports Day Standings</SectionHeading>
+          <Card noPad>
+            <div style={{ padding: "12px 16px" }}>
+              {perfStandings.map((row, i) => (
+                <div key={row.competition_team_id} style={{
+                  display: "grid", gridTemplateColumns: "24px 1fr repeat(3, 28px) 48px", alignItems: "center", gap: 6,
+                  padding: "8px 0",
+                  borderBottom: i < perfStandings.length - 1 ? "1px solid var(--border-subtle, rgba(255,255,255,0.06))" : "none",
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--t3, #666)", fontFamily: "var(--font-body, sans-serif)", textAlign: "center" }}>{i + 1}</span>
+                  <span style={{ fontSize: 13, color: "var(--t1, #fff)", fontFamily: "var(--font-body, sans-serif)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.team_name}</span>
+                  <span style={{ fontSize: 11, textAlign: "center", fontFamily: "var(--font-body, sans-serif)" }} title="Gold">{row.gold > 0 ? `${row.gold}🥇` : ""}</span>
+                  <span style={{ fontSize: 11, textAlign: "center", fontFamily: "var(--font-body, sans-serif)" }} title="Silver">{row.silver > 0 ? `${row.silver}🥈` : ""}</span>
+                  <span style={{ fontSize: 11, textAlign: "center", fontFamily: "var(--font-body, sans-serif)" }} title="Bronze">{row.bronze > 0 ? `${row.bronze}🥉` : ""}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--t1, #fff)", fontFamily: "var(--font-body, sans-serif)", textAlign: "right" }}>{row.points} pts</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </section>
+      )}
 
       <a href="/" className="print-hide" style={{
         fontSize: 13, color: "var(--t2, rgba(255,255,255,0.5))",

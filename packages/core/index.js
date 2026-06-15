@@ -305,6 +305,12 @@ export {
   clubAdminGenerateSchedule,
   clubAdminGetSchedule,
   clubAdminAssignFixtureSlot,
+  clubAdminSetPerformanceConfig,
+  clubAdminAddPerformanceEvent,
+  clubAdminListPerformanceEvents,
+  clubAdminRecordResult,
+  clubAdminGetPerformanceResults,
+  clubAdminGetSportsDayStandings,
 } from "./storage/supabase.js";
 export { generateRoundRobin } from "./engine/roundRobin.js";
 export { generateCupBracket } from "./engine/cupBracket.js";
