@@ -4203,7 +4203,7 @@ export async function stripeInitMemberCheckout({ inviteCode, tierId, period, for
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "checkout_failed");
+    throw new Error(err.detail || err.error || "checkout_failed");
   }
   return res.json();
 }
