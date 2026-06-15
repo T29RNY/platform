@@ -12,6 +12,7 @@ import {
   clubAdminAddCompetition, clubAdminRegisterTeam,
   clubAdminSendTeamInvite, clubAdminApproveTeam, clubAdminRejectTeam,
   clubAdminGenerateSchedule, clubAdminGetSchedule,
+  clubAdminSeedKnockout,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -147,6 +148,10 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [genSaving, setGenSaving]         = useState(false);
   const [genError, setGenError]           = useState(null);
   const isGeneratingRef                   = useRef(false);
+
+  // seed knockout
+  const [seedSaving, setSeedSaving]       = useState(false);
+  const isSeedingRef                      = useRef(false);
 
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
@@ -403,6 +408,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     } finally {
       setGenSaving(false);
       isGeneratingRef.current = false;
+    }
+  };
+
+  const handleSeedKnockout = async (competitionId) => {
+    if (isSeedingRef.current || !tournamentDetail) return;
+    isSeedingRef.current = true;
+    setSeedSaving(competitionId);
+    try {
+      await clubAdminSeedKnockout(tournamentDetail.tournament_id, competitionId);
+      await reloadDetail(tournamentDetail.slug, tournamentDetail.tournament_id);
+    } catch (e) {
+      console.error("[sessions] seed knockout failed", e);
+    } finally {
+      setSeedSaving(false);
+      isSeedingRef.current = false;
     }
   };
 
@@ -1008,13 +1028,6 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                           const compSchedule = scheduleData?.competitions?.find(c => c.competition_id === comp.competition_id);
                           const fixtures     = compSchedule?.fixtures ?? [];
                           const pitches      = scheduleData?.venue_playing_areas ?? [];
-                          // Group fixtures by round for display
-                          const fixturesByRound = fixtures.reduce((acc, fx) => {
-                            const k = fx.round_name || `Round ${fx.round}`;
-                            if (!acc[k]) acc[k] = [];
-                            acc[k].push(fx);
-                            return acc;
-                          }, {});
                           return (
                             <div key={comp.competition_id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1138,21 +1151,25 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                               )}
 
                               {fixtures.length > 0 && (() => {
-                                // Compute standings from completed fixtures
-                                const completedFx = fixtures.filter(fx => fx.status === "completed" && fx.home_score != null && fx.away_score != null);
+                                const groupFx    = fixtures.filter(fx => fx.group_label != null);
+                                const knockoutFx = fixtures.filter(fx => fx.group_label == null);
+                                // Standings from group-stage fixtures only
+                                const completedGroupFx = groupFx.filter(fx => fx.status === "completed" && fx.home_score != null && fx.away_score != null);
                                 const standingsMap = {};
                                 activeTeams.forEach(tm => {
-                                  standingsMap[tm.competition_team_id] = { id: tm.competition_team_id, name: tm.team_name, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0 };
+                                  standingsMap[tm.competition_team_id] = { id: tm.competition_team_id, name: tm.team_name, groupLabel: tm.group_label, groupRank: tm.group_rank, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0 };
                                 });
-                                completedFx.forEach(fx => {
+                                completedGroupFx.forEach(fx => {
                                   const h = standingsMap[fx.home_team_id], a = standingsMap[fx.away_team_id];
                                   if (h) { h.P++; h.GF += fx.home_score; h.GA += fx.away_score; if (fx.home_score > fx.away_score) h.W++; else if (fx.home_score === fx.away_score) h.D++; else h.L++; }
                                   if (a) { a.P++; a.GF += fx.away_score; a.GA += fx.home_score; if (fx.away_score > fx.home_score) a.W++; else if (fx.home_score === fx.away_score) a.D++; else a.L++; }
                                 });
-                                const standings = Object.values(standingsMap).sort((a, b) => {
+                                const allStandings = Object.values(standingsMap).sort((a, b) => {
+                                  if ((a.groupLabel ?? "") < (b.groupLabel ?? "")) return -1;
+                                  if ((a.groupLabel ?? "") > (b.groupLabel ?? "")) return 1;
                                   const pa = a.W * 3 + a.D, pb = b.W * 3 + b.D;
                                   if (pa !== pb) return pb - pa;
-                                  const h2hFx = completedFx.filter(fx =>
+                                  const h2hFx = completedGroupFx.filter(fx =>
                                     (fx.home_team_id === a.id && fx.away_team_id === b.id) ||
                                     (fx.away_team_id === a.id && fx.home_team_id === b.id)
                                   );
@@ -1172,13 +1189,39 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                   if (gda !== gdb) return gdb - gda;
                                   return b.GF - a.GF;
                                 });
+                                // Group fixtures by round (group-stage only)
+                                const groupFxByRound = groupFx.reduce((acc, fx) => {
+                                  const k = fx.round_name || `Round ${fx.round}`;
+                                  if (!acc[k]) acc[k] = [];
+                                  acc[k].push(fx);
+                                  return acc;
+                                }, {});
+                                // Knockout fixtures by round
+                                const knockoutFxByRound = knockoutFx.reduce((acc, fx) => {
+                                  const k = fx.round_name || `Round ${fx.round}`;
+                                  if (!acc[k]) acc[k] = [];
+                                  acc[k].push(fx);
+                                  return acc;
+                                }, {});
+                                // Check if knockout can be seeded
+                                const allGroupComplete = groupFx.length > 0 && groupFx.every(fx => fx.status === "completed");
+                                const canSeedKnockout  = allGroupComplete && !comp.knockout_seeded;
+                                // Group standings by group_label
+                                const standingsByGroup = {};
+                                allStandings.forEach(row => {
+                                  const g = row.groupLabel ?? "_";
+                                  if (!standingsByGroup[g]) standingsByGroup[g] = [];
+                                  standingsByGroup[g].push(row);
+                                });
                                 return (
                                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
-                                    {Object.entries(fixturesByRound).map(([roundName, roundFixtures]) => (
+                                    {/* Group-stage rounds */}
+                                    {Object.entries(groupFxByRound).map(([roundName, roundFixtures]) => (
                                       <div key={roundName}>
                                         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>{roundName}</div>
                                         {roundFixtures.map(fx => (
                                           <div key={fx.fixture_id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                            {fx.group_label && <span style={{ fontSize: 9, fontWeight: 700, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, letterSpacing: 0.5, textTransform: "uppercase" }}>{fx.group_label}</span>}
                                             <span style={{ fontSize: 12, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fx.home_team_name}</span>
                                             <span style={{ fontSize: 10, color: fx.home_score != null ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, fontWeight: fx.home_score != null ? 700 : 400 }}>
                                               {fx.home_score != null ? `${fx.home_score}–${fx.away_score}` : "vs"}
@@ -1203,25 +1246,84 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                       </div>
                                     ))}
 
-                                    {/* Standings table — shown once any fixture is complete */}
-                                    {completedFx.length > 0 && (
+                                    {/* Per-group standings — shown once any group fixture is complete */}
+                                    {completedGroupFx.length > 0 && (
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                        {Object.entries(standingsByGroup).map(([groupLabel, rows]) => (
+                                          <div key={groupLabel} style={{ marginTop: 4 }}>
+                                            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>
+                                              {groupLabel === "_" ? "Standings" : `Group ${groupLabel}`}
+                                            </div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(6,28px)", gap: 0, fontSize: 10, fontFamily: "var(--font-body)" }}>
+                                              <span style={{ color: "var(--t3, #666)", padding: "2px 0" }}>Team</span>
+                                              {["P","W","D","L","GD","Pts"].map(h => (
+                                                <span key={h} style={{ color: "var(--t3, #666)", textAlign: "right", padding: "2px 0" }}>{h}</span>
+                                              ))}
+                                              {rows.map(row => {
+                                                const pts = row.W * 3 + row.D;
+                                                const isAdvancing = comp.knockout_seeded && row.groupRank != null && row.groupRank <= 2;
+                                                return [
+                                                  <span key={row.name + "n"} style={{ color: "var(--t1)", padding: "3px 0", borderTop: "1px solid var(--border-subtle)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4 }}>
+                                                    {row.groupRank != null && <span style={{ fontSize: 9, fontWeight: 700, color: isAdvancing ? "rgba(76,175,80,0.8)" : "var(--t3, #666)", flexShrink: 0 }}>{row.groupRank}</span>}
+                                                    {row.name}
+                                                    {isAdvancing && <span style={{ fontSize: 9, color: "rgba(76,175,80,0.8)", fontWeight: 700, flexShrink: 0 }}>ADV</span>}
+                                                  </span>,
+                                                  ...[row.P, row.W, row.D, row.L, row.GF - row.GA, pts].map((v, i) => (
+                                                    <span key={row.name + i} style={{ color: i === 5 ? "var(--t1)" : "var(--t2)", fontWeight: i === 5 ? 700 : 400, textAlign: "right", padding: "3px 0", borderTop: "1px solid var(--border-subtle)" }}>{v > 0 && i === 4 ? `+${v}` : v}</span>
+                                                  ))
+                                                ];
+                                              })}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Advance to Knockout button */}
+                                    {canSeedKnockout && (
                                       <div style={{ marginTop: 4 }}>
-                                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>Standings</div>
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(6,28px)", gap: 0, fontSize: 10, fontFamily: "var(--font-body)" }}>
-                                          <span style={{ color: "var(--t3, #666)", padding: "2px 0" }}>Team</span>
-                                          {["P","W","D","L","GD","Pts"].map(h => (
-                                            <span key={h} style={{ color: "var(--t3, #666)", textAlign: "right", padding: "2px 0" }}>{h}</span>
-                                          ))}
-                                          {standings.map(row => {
-                                            const pts = row.W * 3 + row.D;
-                                            return [
-                                              <span key={row.name + "n"} style={{ color: "var(--t1)", padding: "3px 0", borderTop: "1px solid var(--border-subtle)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</span>,
-                                              ...[row.P, row.W, row.D, row.L, row.GF - row.GA, pts].map((v, i) => (
-                                                <span key={row.name + i} style={{ color: i === 5 ? "var(--t1)" : "var(--t2)", fontWeight: i === 5 ? 700 : 400, textAlign: "right", padding: "3px 0", borderTop: "1px solid var(--border-subtle)" }}>{v > 0 && i === 4 ? `+${v}` : v}</span>
-                                              ))
-                                            ];
-                                          })}
-                                        </div>
+                                        <button
+                                          onClick={() => handleSeedKnockout(comp.competition_id)}
+                                          disabled={seedSaving === comp.competition_id}
+                                          style={{ fontSize: 12, fontWeight: 700, background: "rgba(76,175,80,0.12)", border: "1px solid rgba(76,175,80,0.3)", color: "rgba(76,175,80,1)", padding: "6px 14px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: seedSaving === comp.competition_id ? "not-allowed" : "pointer" }}
+                                        >
+                                          {seedSaving === comp.competition_id ? "Seeding…" : "Advance to Knockout"}
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {/* Knockout rounds */}
+                                    {comp.knockout_seeded && knockoutFx.length > 0 && (
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "rgba(255,190,60,0.8)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Knockout Stage</div>
+                                        {Object.entries(knockoutFxByRound).map(([roundName, roundFixtures]) => (
+                                          <div key={roundName}>
+                                            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>{roundName}</div>
+                                            {roundFixtures.map(fx => (
+                                              <div key={fx.fixture_id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                                <span style={{ fontSize: 12, color: fx.home_team_name ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: fx.home_team_name ? "normal" : "italic" }}>{fx.home_team_name ?? "TBD"}</span>
+                                                <span style={{ fontSize: 10, color: fx.home_score != null ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, fontWeight: fx.home_score != null ? 700 : 400 }}>
+                                                  {fx.home_score != null ? `${fx.home_score}–${fx.away_score}` : "vs"}
+                                                </span>
+                                                <span style={{ fontSize: 12, color: fx.away_team_name ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right", fontStyle: fx.away_team_name ? "normal" : "italic" }}>{fx.away_team_name ?? "TBD"}</span>
+                                                {fx.kickoff_time && (
+                                                  <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>{fx.kickoff_time.slice(0,5)}</span>
+                                                )}
+                                                {fx.pitch_name && (
+                                                  <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>· {fx.pitch_name}</span>
+                                                )}
+                                                {fx.ref_token && (
+                                                  <button
+                                                    onClick={() => navigator.clipboard.writeText(`https://platform-ref.vercel.app/?token=${fx.ref_token}`)}
+                                                    style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
+                                                  >
+                                                    Ref
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ))}
                                       </div>
                                     )}
                                   </div>

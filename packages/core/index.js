@@ -100,6 +100,7 @@ export {
   refUndoTournamentGoal,
   refConfirmTournamentMatch,
   clubAdminGetStandings,
+  clubAdminSeedKnockout,
   refRecordTournamentCard,
   getTournamentSuspensionList,
   updateLeagueConfig,

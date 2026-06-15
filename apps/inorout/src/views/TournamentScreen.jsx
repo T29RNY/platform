@@ -131,11 +131,13 @@ export default function TournamentScreen({ slug }) {
     );
   }
 
-  const statusStyle     = STATUS_STYLE[tournament.status] ?? STATUS_STYLE.draft;
-  const fixtures        = tournament.fixtures ?? [];
-  const standings       = tournament.standings ?? [];
-  const hasFixtures     = fixtures.length > 0;
-  const hasStandings    = standings.some(s => s.rows?.some(r => r.played > 0));
+  const statusStyle       = STATUS_STYLE[tournament.status] ?? STATUS_STYLE.draft;
+  const fixtures          = tournament.fixtures ?? [];
+  const knockoutFixtures  = tournament.knockout_fixtures ?? [];
+  const standings         = tournament.standings ?? [];
+  const hasFixtures       = fixtures.length > 0;
+  const hasKnockout       = knockoutFixtures.length > 0;
+  const hasStandings      = standings.some(s => s.rows?.some(r => r.played > 0));
 
   return page(
     <>
@@ -209,16 +211,53 @@ export default function TournamentScreen({ slug }) {
         </section>
       )}
 
+      {/* ── Knockout Stage ─────────────────────────────────────────────── */}
+      {hasKnockout && (
+        <section>
+          <SectionHeading>Knockout Stage</SectionHeading>
+          <Card>
+            {groupByRound(knockoutFixtures).map((group, gi) => (
+              <div key={group.round ?? gi}>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase",
+                  color: "var(--t3, #666)", padding: "10px 0 6px",
+                  borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.06))",
+                  marginBottom: 4,
+                }}>
+                  {group.round}
+                </div>
+                {group.fixtures.map((fx, i) => (
+                  <FixtureRow key={fx.fixture_id} fx={fx} last={i === group.fixtures.length - 1 && gi === groupByRound(knockoutFixtures).length - 1} />
+                ))}
+              </div>
+            ))}
+          </Card>
+        </section>
+      )}
+
       {/* ── Standings ──────────────────────────────────────────────────── */}
       {hasStandings && standings.map(comp => {
         const rows = comp.rows ?? [];
         if (!rows.some(r => r.played > 0)) return null;
+        // Group rows by group_label
+        const byGroup = {};
+        rows.forEach(r => { const g = r.group_label ?? "_"; if (!byGroup[g]) byGroup[g] = []; byGroup[g].push(r); });
+        const groups = Object.entries(byGroup);
         return (
           <section key={comp.competition_id}>
             <SectionHeading>{comp.competition_name} — Standings</SectionHeading>
-            <Card noPad>
-              <StandingsTable rows={rows} />
-            </Card>
+            {groups.map(([groupLabel, groupRows]) => (
+              <div key={groupLabel} style={{ marginBottom: groups.length > 1 ? 12 : 0 }}>
+                {groups.length > 1 && (
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: "var(--t3, #666)", textTransform: "uppercase", marginBottom: 6 }}>
+                    Group {groupLabel}
+                  </div>
+                )}
+                <Card noPad>
+                  <StandingsTable rows={groupRows} showRank={comp.knockout_seeded} />
+                </Card>
+              </div>
+            ))}
           </section>
         );
       })}
@@ -255,6 +294,20 @@ function groupByDate(fixtures) {
     const d = fx.scheduled_date ?? null;
     if (!current || current.date !== d) {
       current = { date: d, fixtures: [] };
+      groups.push(current);
+    }
+    current.fixtures.push(fx);
+  }
+  return groups;
+}
+
+function groupByRound(fixtures) {
+  const groups = [];
+  let current = null;
+  for (const fx of fixtures) {
+    const r = fx.round_name ?? `Round ${fx.round}`;
+    if (!current || current.round !== r) {
+      current = { round: r, fixtures: [] };
       groups.push(current);
     }
     current.fixtures.push(fx);
@@ -308,7 +361,7 @@ function FixtureRow({ fx, last }) {
   );
 }
 
-function StandingsTable({ rows }) {
+function StandingsTable({ rows, showRank }) {
   const cols = ["P", "W", "D", "L", "GF", "GA", "GD", "Pts"];
   return (
     <div style={{ overflowX: "auto" }}>
@@ -323,22 +376,30 @@ function StandingsTable({ rows }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={r.team_id} style={{ borderTop: "1px solid var(--border-subtle, rgba(255,255,255,0.06))" }}>
-              <td style={{ ...tdStyle, paddingLeft: 16, color: "var(--t3, #666)" }}>{i + 1}</td>
-              <td style={{ ...tdStyle, fontWeight: 600 }}>{r.team_name}</td>
-              <td style={tdStyle}>{r.played}</td>
-              <td style={tdStyle}>{r.won}</td>
-              <td style={tdStyle}>{r.drawn}</td>
-              <td style={tdStyle}>{r.lost}</td>
-              <td style={tdStyle}>{r.gf}</td>
-              <td style={tdStyle}>{r.ga}</td>
-              <td style={{ ...tdStyle, color: r.gd > 0 ? "rgba(76,175,80,1)" : r.gd < 0 ? "#FF6060" : "var(--t2, rgba(255,255,255,0.5))" }}>
-                {r.gd > 0 ? `+${r.gd}` : r.gd}
-              </td>
-              <td style={{ ...tdStyle, fontWeight: 700, paddingRight: 16 }}>{r.pts}</td>
-            </tr>
-          ))}
+          {rows.map((r, i) => {
+            const isAdvancing = showRank && r.group_rank != null && r.group_rank <= 2;
+            return (
+              <tr key={r.team_id} style={{ borderTop: "1px solid var(--border-subtle, rgba(255,255,255,0.06))" }}>
+                <td style={{ ...tdStyle, paddingLeft: 16, color: "var(--t3, #666)" }}>{i + 1}</td>
+                <td style={{ ...tdStyle, fontWeight: 600 }}>
+                  {r.team_name}
+                  {isAdvancing && (
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(76,175,80,0.8)", marginLeft: 6, letterSpacing: 0.4, textTransform: "uppercase" }}>ADV</span>
+                  )}
+                </td>
+                <td style={tdStyle}>{r.played}</td>
+                <td style={tdStyle}>{r.won}</td>
+                <td style={tdStyle}>{r.drawn}</td>
+                <td style={tdStyle}>{r.lost}</td>
+                <td style={tdStyle}>{r.gf}</td>
+                <td style={tdStyle}>{r.ga}</td>
+                <td style={{ ...tdStyle, color: r.gd > 0 ? "rgba(76,175,80,1)" : r.gd < 0 ? "#FF6060" : "var(--t2, rgba(255,255,255,0.5))" }}>
+                  {r.gd > 0 ? `+${r.gd}` : r.gd}
+                </td>
+                <td style={{ ...tdStyle, fontWeight: 700, paddingRight: 16 }}>{r.pts}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -2699,6 +2699,15 @@ export async function clubAdminGetStandings(tournamentEventId, competitionId) {
   return data;
 }
 
+export async function clubAdminSeedKnockout(tournamentEventId, competitionId) {
+  const { data, error } = await supabase.rpc("club_admin_seed_knockout", {
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id:      competitionId,
+  });
+  if (error) { console.error("[club] seed_knockout failed", error); throw error; }
+  return data;
+}
+
 export async function refRecordTournamentCard(refToken, competitionTeamId, playerName, cardType, minuteVal, period) {
   const { data, error } = await supabase.rpc("ref_record_tournament_card", {
     p_ref_token:           refToken,
