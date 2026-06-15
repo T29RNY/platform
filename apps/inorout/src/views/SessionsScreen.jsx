@@ -20,6 +20,15 @@ import {
   clubAdminRecordResult,
   clubAdminGetPerformanceResults,
   clubAdminGetSportsDayStandings,
+  clubAdminAddSponsor,
+  clubAdminListSponsors,
+  clubAdminRemoveSponsor,
+  clubAdminSetBranding,
+  clubAdminSetPlayerOfTournament,
+  clubAdminGetEquipmentForTournament,
+  clubAdminBookEquipmentForTournament,
+  clubAdminListTournamentEquipmentBookings,
+  clubAdminCancelEquipmentBooking,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -176,6 +185,35 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const isRecordingRef                          = useRef(false);
   const [sportsDayStandings, setSportsDayStandings] = useState(null);
 
+  // Phase 7 Commercial — sponsors
+  const [sponsors, setSponsors]               = useState([]);
+  const [sponsorsLoading, setSponsorsLoading] = useState(false);
+  const [sponsorForm, setSponsorForm]         = useState({ name: "", logoUrl: "", websiteUrl: "", displayOrder: 0 });
+  const [sponsorSaving, setSponsorSaving]     = useState(false);
+  const [showAddSponsor, setShowAddSponsor]   = useState(false);
+  const isSponsorSavingRef                    = useRef(false);
+  const isRemovingSponsorRef                  = useRef(false);
+
+  // Phase 7 Commercial — branding
+  const [brandingForm, setBrandingForm]   = useState({ primaryColour: "", secondaryColour: "", customLogoUrl: "" });
+  const [brandingSaving, setBrandingSaving] = useState(false);
+  const isBrandingSavingRef               = useRef(false);
+
+  // Phase 7 Commercial — player of tournament
+  const [potName, setPotName]     = useState("");
+  const [potTeam, setPotTeam]     = useState("");
+  const [potSaving, setPotSaving] = useState(false);
+  const isPotSavingRef            = useRef(false);
+
+  // Phase 7 Commercial — equipment
+  const [equipmentItems, setEquipmentItems]     = useState([]);
+  const [equipmentLoading, setEquipmentLoading] = useState(false);
+  const [equipmentBookings, setEquipmentBookings] = useState([]);
+  const [bookingForm, setBookingForm]           = useState({ equipmentId: "", qty: 1, startAt: "", endAt: "", dueBackAt: "" });
+  const [bookingSaving, setBookingSaving]       = useState(false);
+  const [bookingError, setBookingError]         = useState(null);
+  const isBookingRef                            = useRef(false);
+
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
     if (memberProfileProp) {
@@ -282,6 +320,12 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       setScheduleData(null);
       setPerfEvents([]);
       setSportsDayStandings(null);
+      setSponsors([]);
+      setEquipmentBookings([]);
+      setEquipmentItems([]);
+      setBrandingForm({ primaryColour: "", secondaryColour: "", customLogoUrl: "" });
+      setPotName("");
+      setPotTeam("");
       return;
     }
     setExpandedTournamentId(t.tournament_id);
@@ -289,24 +333,39 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     setScheduleData(null);
     setPerfEvents([]);
     setSportsDayStandings(null);
+    setSponsors([]);
+    setEquipmentBookings([]);
+    setEquipmentItems([]);
     setDetailLoading(true);
     setScheduleLoading(true);
     setPerfEventsLoading(true);
+    setSponsorsLoading(true);
     try {
-      const [detail, schedule, events] = await Promise.all([
+      const [detail, schedule, events, sponsorList] = await Promise.all([
         clubAdminGetTournament(t.slug),
         clubAdminGetSchedule(t.tournament_id),
         clubAdminListPerformanceEvents(t.tournament_id),
+        clubAdminListSponsors(t.tournament_id),
       ]);
       setTournamentDetail(detail);
       setScheduleData(schedule);
       setPerfEvents(Array.isArray(events) ? events : []);
+      setSponsors(Array.isArray(sponsorList) ? sponsorList : []);
+      const br = detail?.branding ?? {};
+      setBrandingForm({
+        primaryColour:   br.primary_colour   ?? "",
+        secondaryColour: br.secondary_colour ?? "",
+        customLogoUrl:   br.custom_logo_url  ?? "",
+      });
+      setPotName(detail?.player_of_tournament_name ?? "");
+      setPotTeam(detail?.player_of_tournament_team ?? "");
     } catch (e) {
       console.error("[sessions] tournament detail failed", e);
     } finally {
       setDetailLoading(false);
       setScheduleLoading(false);
       setPerfEventsLoading(false);
+      setSponsorsLoading(false);
     }
   };
 
@@ -552,6 +611,139 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     } finally {
       setResultSaving(false);
       isRecordingRef.current = false;
+    }
+  };
+
+  const handleAddSponsor = async () => {
+    if (isSponsorSavingRef.current || !tournamentDetail) return;
+    const name = sponsorForm.name.trim();
+    if (!name) return;
+    isSponsorSavingRef.current = true;
+    setSponsorSaving(true);
+    try {
+      await clubAdminAddSponsor(
+        tournamentDetail.tournament_id,
+        name,
+        sponsorForm.logoUrl.trim() || null,
+        sponsorForm.websiteUrl.trim() || null,
+        Number(sponsorForm.displayOrder) || 0,
+      );
+      setSponsorForm({ name: "", logoUrl: "", websiteUrl: "", displayOrder: 0 });
+      setShowAddSponsor(false);
+      const list = await clubAdminListSponsors(tournamentDetail.tournament_id);
+      setSponsors(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.error("[sessions] add sponsor failed", e);
+    } finally {
+      setSponsorSaving(false);
+      isSponsorSavingRef.current = false;
+    }
+  };
+
+  const handleRemoveSponsor = async (sponsorId) => {
+    if (isRemovingSponsorRef.current || !tournamentDetail) return;
+    isRemovingSponsorRef.current = true;
+    try {
+      await clubAdminRemoveSponsor(sponsorId);
+      const list = await clubAdminListSponsors(tournamentDetail.tournament_id);
+      setSponsors(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.error("[sessions] remove sponsor failed", e);
+    } finally {
+      isRemovingSponsorRef.current = false;
+    }
+  };
+
+  const handleSaveBranding = async () => {
+    if (isBrandingSavingRef.current || !tournamentDetail) return;
+    isBrandingSavingRef.current = true;
+    setBrandingSaving(true);
+    try {
+      await clubAdminSetBranding(tournamentDetail.tournament_id, {
+        primaryColour:   brandingForm.primaryColour.trim()   || null,
+        secondaryColour: brandingForm.secondaryColour.trim() || null,
+        customLogoUrl:   brandingForm.customLogoUrl.trim()   || null,
+      });
+    } catch (e) {
+      console.error("[sessions] set branding failed", e);
+    } finally {
+      setBrandingSaving(false);
+      isBrandingSavingRef.current = false;
+    }
+  };
+
+  const handleSavePot = async () => {
+    if (isPotSavingRef.current || !tournamentDetail) return;
+    const name = potName.trim();
+    if (!name) return;
+    isPotSavingRef.current = true;
+    setPotSaving(true);
+    try {
+      await clubAdminSetPlayerOfTournament(tournamentDetail.tournament_id, name, potTeam.trim() || null);
+    } catch (e) {
+      console.error("[sessions] set player of tournament failed", e);
+    } finally {
+      setPotSaving(false);
+      isPotSavingRef.current = false;
+    }
+  };
+
+  const loadEquipment = async () => {
+    if (!tournamentDetail) return;
+    setEquipmentLoading(true);
+    try {
+      const [items, bookings] = await Promise.all([
+        clubAdminGetEquipmentForTournament(tournamentDetail.tournament_id),
+        clubAdminListTournamentEquipmentBookings(tournamentDetail.tournament_id),
+      ]);
+      setEquipmentItems(Array.isArray(items) ? items : []);
+      setEquipmentBookings(Array.isArray(bookings) ? bookings : []);
+    } catch (e) {
+      console.error("[sessions] load equipment failed", e);
+    } finally {
+      setEquipmentLoading(false);
+    }
+  };
+
+  const handleBookEquipment = async () => {
+    if (isBookingRef.current || !tournamentDetail) return;
+    if (!bookingForm.equipmentId) { setBookingError("Select an item."); return; }
+    if (!bookingForm.startAt || !bookingForm.endAt) { setBookingError("Start and end time required."); return; }
+    isBookingRef.current = true;
+    setBookingSaving(true);
+    setBookingError(null);
+    try {
+      await clubAdminBookEquipmentForTournament(
+        tournamentDetail.tournament_id,
+        bookingForm.equipmentId,
+        Number(bookingForm.qty) || 1,
+        bookingForm.startAt,
+        bookingForm.endAt,
+        bookingForm.dueBackAt || null,
+      );
+      setBookingForm({ equipmentId: "", qty: 1, startAt: "", endAt: "", dueBackAt: "" });
+      const bookings = await clubAdminListTournamentEquipmentBookings(tournamentDetail.tournament_id);
+      setEquipmentBookings(Array.isArray(bookings) ? bookings : []);
+    } catch (e) {
+      console.error("[sessions] book equipment failed", e);
+      setBookingError(e?.message ?? "Booking failed — check availability.");
+    } finally {
+      setBookingSaving(false);
+      isBookingRef.current = false;
+    }
+  };
+
+  const handleCancelEquipmentBooking = async (bookingId) => {
+    if (isBookingRef.current || !tournamentDetail) return;
+    isBookingRef.current = true;
+    try {
+      await clubAdminCancelEquipmentBooking(bookingId);
+      const bookings = await clubAdminListTournamentEquipmentBookings(tournamentDetail.tournament_id);
+      setEquipmentBookings(Array.isArray(bookings) ? bookings : []);
+    } catch (e) {
+      console.error("[sessions] cancel equipment booking failed", e);
+    } finally {
+      isBookingRef.current = false;
     }
   };
 
@@ -1673,6 +1865,248 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                             ))}
                           </div>
                         )}
+
+                        {/* ── Branding ── */}
+                        <div style={{ marginTop: 20 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 8 }}>
+                            Branding
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input
+                                placeholder="Primary colour (e.g. #1a73e8)"
+                                value={brandingForm.primaryColour}
+                                onChange={e => setBrandingForm(f => ({ ...f, primaryColour: e.target.value }))}
+                                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", flex: 1 }}
+                              />
+                              <input
+                                placeholder="Secondary colour"
+                                value={brandingForm.secondaryColour}
+                                onChange={e => setBrandingForm(f => ({ ...f, secondaryColour: e.target.value }))}
+                                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", flex: 1 }}
+                              />
+                            </div>
+                            <input
+                              placeholder="Custom logo URL (https://…)"
+                              value={brandingForm.customLogoUrl}
+                              onChange={e => setBrandingForm(f => ({ ...f, customLogoUrl: e.target.value }))}
+                              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", width: "100%", boxSizing: "border-box" }}
+                            />
+                            <button
+                              onClick={handleSaveBranding}
+                              disabled={brandingSaving}
+                              style={{ fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.08)", border: "1px solid var(--border)", color: "var(--t1)", padding: "8px 14px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: brandingSaving ? "not-allowed" : "pointer", alignSelf: "flex-start" }}
+                            >
+                              {brandingSaving ? "Saving…" : "Save branding"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* ── Sponsors ── */}
+                        <div style={{ marginTop: 20 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                              Sponsors
+                            </span>
+                            <button
+                              onClick={() => { setSponsorForm({ name: "", logoUrl: "", websiteUrl: "", displayOrder: 0 }); setShowAddSponsor(v => !v); }}
+                              style={{ fontSize: 12, fontWeight: 700, background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--t1)", padding: "3px 10px", borderRadius: 16, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                            >
+                              + Add
+                            </button>
+                          </div>
+
+                          {sponsorsLoading && <p style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body)", margin: 0 }}>Loading…</p>}
+
+                          {!sponsorsLoading && sponsors.length === 0 && !showAddSponsor && (
+                            <p style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", margin: 0 }}>No sponsors yet.</p>
+                          )}
+
+                          {sponsors.map(sp => (
+                            <div key={sp.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                              {sp.logo_url && (
+                                <img src={sp.logo_url} alt={sp.name} style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4, flexShrink: 0 }} />
+                              )}
+                              <span style={{ fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {sp.name}
+                              </span>
+                              {sp.website_url && (
+                                <span style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0 }}>↗</span>
+                              )}
+                              <button
+                                onClick={() => handleRemoveSponsor(sp.id)}
+                                style={{ fontSize: 11, background: "none", border: "1px solid var(--border)", color: "var(--t2)", padding: "2px 8px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+
+                          {showAddSponsor && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                              <input
+                                placeholder="Sponsor name *"
+                                value={sponsorForm.name}
+                                onChange={e => setSponsorForm(f => ({ ...f, name: e.target.value }))}
+                                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
+                              />
+                              <input
+                                placeholder="Logo URL (optional)"
+                                value={sponsorForm.logoUrl}
+                                onChange={e => setSponsorForm(f => ({ ...f, logoUrl: e.target.value }))}
+                                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
+                              />
+                              <input
+                                placeholder="Website URL (optional)"
+                                value={sponsorForm.websiteUrl}
+                                onChange={e => setSponsorForm(f => ({ ...f, websiteUrl: e.target.value }))}
+                                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
+                              />
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                  onClick={handleAddSponsor}
+                                  disabled={sponsorSaving || !sponsorForm.name.trim()}
+                                  style={{ fontSize: 12, fontWeight: 700, background: "rgba(76,175,80,0.12)", border: "1px solid rgba(76,175,80,0.3)", color: "rgba(76,175,80,1)", padding: "8px 14px", borderRadius: 8, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                                >
+                                  {sponsorSaving ? "Saving…" : "Add sponsor"}
+                                </button>
+                                <button
+                                  onClick={() => setShowAddSponsor(false)}
+                                  style={{ fontSize: 12, background: "none", border: "1px solid var(--border)", color: "var(--t2)", padding: "8px 10px", borderRadius: 8, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ── Player of Tournament ── */}
+                        <div style={{ marginTop: 20 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 8 }}>
+                            Player of Tournament
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input
+                                placeholder="Player name *"
+                                value={potName}
+                                onChange={e => setPotName(e.target.value)}
+                                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", flex: 2 }}
+                              />
+                              <input
+                                placeholder="Team (optional)"
+                                value={potTeam}
+                                onChange={e => setPotTeam(e.target.value)}
+                                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", flex: 1 }}
+                              />
+                            </div>
+                            <button
+                              onClick={handleSavePot}
+                              disabled={potSaving || !potName.trim()}
+                              style={{ fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,0.08)", border: "1px solid var(--border)", color: "var(--t1)", padding: "8px 14px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: potSaving ? "not-allowed" : "pointer", alignSelf: "flex-start" }}
+                            >
+                              {potSaving ? "Saving…" : "Save"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* ── Equipment ── */}
+                        <div style={{ marginTop: 20 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                              Equipment
+                            </span>
+                            {equipmentItems.length === 0 && !equipmentLoading && (
+                              <button
+                                onClick={loadEquipment}
+                                style={{ fontSize: 12, fontWeight: 700, background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--t2)", padding: "3px 10px", borderRadius: 16, fontFamily: "var(--font-body)", cursor: "pointer" }}
+                              >
+                                Load
+                              </button>
+                            )}
+                          </div>
+
+                          {equipmentLoading && <p style={{ fontSize: 12, color: "var(--t3, #666)", fontFamily: "var(--font-body)", margin: 0 }}>Loading…</p>}
+
+                          {!equipmentLoading && equipmentItems.length > 0 && (
+                            <>
+                              {/* Booking form */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                                {bookingError && (
+                                  <div style={{ fontSize: 12, color: "#FF6060", fontFamily: "var(--font-body)" }}>{bookingError}</div>
+                                )}
+                                <select
+                                  value={bookingForm.equipmentId}
+                                  onChange={e => setBookingForm(f => ({ ...f, equipmentId: e.target.value }))}
+                                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: bookingForm.equipmentId ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", outline: "none" }}
+                                >
+                                  <option value="">Select equipment item</option>
+                                  {equipmentItems.map(item => (
+                                    <option key={item.equipment_id} value={item.equipment_id}>
+                                      {item.name}{item.available_qty != null ? ` (${item.available_qty} avail)` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4, width: 70, flexShrink: 0 }}>
+                                    <label style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)" }}>Qty</label>
+                                    <input
+                                      type="number" min="1" value={bookingForm.qty}
+                                      onChange={e => setBookingForm(f => ({ ...f, qty: e.target.value }))}
+                                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
+                                    />
+                                  </div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+                                    <label style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)" }}>Start</label>
+                                    <input
+                                      type="datetime-local" value={bookingForm.startAt}
+                                      onChange={e => setBookingForm(f => ({ ...f, startAt: e.target.value }))}
+                                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
+                                    />
+                                  </div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+                                    <label style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)" }}>End</label>
+                                    <input
+                                      type="datetime-local" value={bookingForm.endAt}
+                                      onChange={e => setBookingForm(f => ({ ...f, endAt: e.target.value }))}
+                                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
+                                    />
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={handleBookEquipment}
+                                  disabled={bookingSaving}
+                                  style={{ fontSize: 13, fontWeight: 700, background: "rgba(96,160,255,0.12)", border: "1px solid rgba(96,160,255,0.3)", color: "#60A0FF", padding: "8px 14px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: bookingSaving ? "not-allowed" : "pointer", alignSelf: "flex-start" }}
+                                >
+                                  {bookingSaving ? "Booking…" : "Book equipment"}
+                                </button>
+                              </div>
+
+                              {/* Current bookings */}
+                              {equipmentBookings.length > 0 && (
+                                <div>
+                                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 6 }}>Current bookings</div>
+                                  {equipmentBookings.map(bk => (
+                                    <div key={bk.booking_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                      <span style={{ fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bk.equipment_name}</span>
+                                      <span style={{ fontSize: 11, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0 }}>×{bk.qty}</span>
+                                      <span style={{ fontSize: 11, color: "var(--t2)", fontFamily: "var(--font-body)", flexShrink: 0 }}>{bk.status}</span>
+                                      {bk.status !== "cancelled" && (
+                                        <button
+                                          onClick={() => handleCancelEquipmentBooking(bk.booking_id)}
+                                          style={{ fontSize: 11, background: "none", border: "1px solid var(--border)", color: "#FF6060", padding: "2px 8px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
+                                        >
+                                          Cancel
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>

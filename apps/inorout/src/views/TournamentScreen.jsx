@@ -137,20 +137,33 @@ export default function TournamentScreen({ slug }) {
   const standings           = tournament.standings ?? [];
   const perfEvents          = tournament.performance_events ?? [];
   const perfStandings       = tournament.performance_standings ?? [];
+  const sponsors            = tournament.sponsors ?? [];
+  const branding            = tournament.branding ?? {};
+  const primaryColour       = branding.primary_colour ?? null;
+  const customLogoUrl       = branding.custom_logo_url ?? null;
   const hasFixtures         = fixtures.length > 0;
   const hasKnockout         = knockoutFixtures.length > 0;
   const hasStandings        = standings.some(s => s.rows?.some(r => r.played > 0));
   const hasPerfEvents       = perfEvents.length > 0;
   const hasPerfStandings    = perfStandings.length > 0;
+  const hasPot              = !!tournament.player_of_tournament_name && tournament.status === "completed";
 
   return page(
     <>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <Card noPad>
+        {primaryColour && (
+          <div style={{ height: 4, background: primaryColour, borderRadius: "14px 14px 0 0" }} />
+        )}
         <div style={{ padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)", fontSize: 34, lineHeight: 1.05, color: "var(--t1, #fff)", flex: 1 }}>
-              {tournament.name}
+            <div style={{ flex: 1 }}>
+              {customLogoUrl && (
+                <img src={customLogoUrl} alt={tournament.name} style={{ maxHeight: 48, maxWidth: 160, objectFit: "contain", marginBottom: 10, display: "block" }} />
+              )}
+              <div style={{ fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)", fontSize: 34, lineHeight: 1.05, color: "var(--t1, #fff)" }}>
+                {tournament.name}
+              </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginTop: 4 }}>
               <span style={{
@@ -188,6 +201,30 @@ export default function TournamentScreen({ slug }) {
           </div>
         </div>
       </Card>
+
+      {/* ── Sponsor strip ──────────────────────────────────────────────── */}
+      {sponsors.length > 0 && (
+        <div style={{
+          display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap",
+          padding: "10px 0",
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: "var(--t3, #666)", textTransform: "uppercase", flexShrink: 0 }}>
+            Sponsors
+          </span>
+          {sponsors.map(sp => {
+            const inner = sp.logo_url ? (
+              <img src={sp.logo_url} alt={sp.name} style={{ height: 28, maxWidth: 80, objectFit: "contain", opacity: 0.85 }} />
+            ) : (
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--t2, rgba(255,255,255,0.5))", fontFamily: "var(--font-body, sans-serif)" }}>{sp.name}</span>
+            );
+            return sp.website_url ? (
+              <a key={sp.id} href={sp.website_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", opacity: 0.9 }}>{inner}</a>
+            ) : (
+              <span key={sp.id}>{inner}</span>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Schedule ───────────────────────────────────────────────────── */}
       {hasFixtures && (
@@ -349,6 +386,29 @@ export default function TournamentScreen({ slug }) {
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--t1, #fff)", fontFamily: "var(--font-body, sans-serif)", textAlign: "right" }}>{row.points} pts</span>
                 </div>
               ))}
+            </div>
+          </Card>
+        </section>
+      )}
+
+      {/* ── Player of Tournament ───────────────────────────────────────── */}
+      {hasPot && (
+        <section>
+          <SectionHeading>Player of the Tournament</SectionHeading>
+          <Card noPad>
+            <div style={{
+              padding: "20px 24px",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textAlign: "center",
+            }}>
+              <div style={{ fontSize: 36, lineHeight: 1 }}>🏆</div>
+              <div style={{ fontFamily: "var(--font-display, 'Bebas Neue', sans-serif)", fontSize: 28, color: "var(--t1, #fff)", lineHeight: 1.1 }}>
+                {tournament.player_of_tournament_name}
+              </div>
+              {tournament.player_of_tournament_team && (
+                <div style={{ fontSize: 13, color: "var(--t3, #666)", fontFamily: "var(--font-body, sans-serif)" }}>
+                  {tournament.player_of_tournament_team}
+                </div>
+              )}
             </div>
           </Card>
         </section>

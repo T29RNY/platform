@@ -2074,7 +2074,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
 | 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ ALL COMPLETE: 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) + 7C brackets (mig 324, s127) + 7D double-elim (mig 325, s128) |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | ✅ Complete (mig 326, s129) |
-| 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
+| 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | ✅ Complete (mig 327, s130) |
 
 **Phase 0 RPCs shipped (mig 314, session 117, commit 58f2d1f):** `get_user_relationships()` (routing oracle — squads/clubs/guardian_of/competitions/admin_roles), `get_unified_home_feed()` (14-day chronological feed), `get_guardian_home_feed()` (per-child session feed), `get_child_live_match(uuid)` (Follow Live with guardian ownership guard). All SECDEF/authenticated-only/anon revoked. JS wrappers `getUserRelationships`/`getUnifiedHomeFeed`/`getGuardianHomeFeed`/`getChildLiveMatch` added to packages/core. Security sweep 4/4 PASS. Build clean.
 
@@ -2124,7 +2124,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
 | 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ ALL COMPLETE: 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) + 7C brackets (mig 324, s127) + 7D double-elim (mig 325, s128) |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | ✅ Complete (mig 326, s129) |
-| 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
+| 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | ✅ Complete (mig 327, s130) |
 
 **Phase 7A (mig 322) ✅ COMPLETE (session 125):**
 - H2H tiebreaker added to all three standings computation paths:
@@ -2176,4 +2176,16 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - Hygiene: 7/7 PASS (all 3 files). RPC security sweep: 6/6 PASS (SECDEF ✓ search_path ✓ overload_count=1 ✓). Casual-flow regression: PASS (no overlap with any casual surface). Build: PASS.
 - Commit: `bc46b7b`. Next migration: 327.
 
-Next migration: 327.
+**Phase 7 Commercial (mig 327) ✅ COMPLETE (session 130):**
+- Schema: `tournament_events` + `player_of_tournament_name text`, `player_of_tournament_team text`; `equipment_bookings` + `tournament_event_id uuid FK → tournament_events ON DELETE SET NULL`; new table `tournament_sponsors` (id uuid PK, tournament_event_id FK, name text NOT NULL, logo_url, website_url, display_order int, active bool, RLS enabled, all direct access revoked).
+- 9 new SECDEF RPCs (all authenticated-only, anon revoked): `club_admin_add_sponsor`, `club_admin_list_sponsors`, `club_admin_remove_sponsor` (sponsor CRUD with ownership guard via club_team_managers chain); `club_admin_set_branding` (writes primary_colour/secondary_colour/custom_logo_url into existing `tournament_events.branding` jsonb); `club_admin_set_player_of_tournament` (sets POT name + team, name_required guard); `club_admin_get_equipment_for_tournament` (returns active equipment catalogue at tournament's venue); `club_admin_book_equipment_for_tournament` (confirmed booking at status='confirmed', availability check via `_equipment_peak_committed`); `club_admin_list_tournament_equipment_bookings` (active bookings for a tournament); `club_admin_cancel_equipment_booking` (cancel director-created bookings only, cannot_cancel guard for out/returned/cancelled).
+- `get_tournament_public` extended (5th CREATE OR REPLACE): adds `branding`, `sponsors[]`, `player_of_tournament_name`, `player_of_tournament_team`.
+- `club_admin_get_tournament` extended: adds `sponsors[]`, `player_of_tournament_name`, `player_of_tournament_team`.
+- 9 JS wrappers in `packages/core/storage/supabase.js` + 9 barrel exports in `packages/core/index.js`.
+- `SessionsScreen.jsx`: 9 new imports; Branding section (primary/secondary colour + custom logo URL form); Sponsors section (add/remove with logo/website URL); Player of Tournament section (name + team name); Equipment section (catalogue picker + book form with window + active bookings + cancel). All with double-fire guards.
+- `TournamentScreen.jsx`: branding applied as 4px coloured top border + optional custom logo in header; sponsor strip below header; POT trophy card after standings.
+- Bug caught by ephemeral-verify: all 6 write RPCs used old `audit_events` INSERT pattern missing `entity_type` and `entity_id` (both NOT NULL since mig 003). Fixed before commit — would have thrown NOT NULL constraint violation on every write at runtime.
+- EV: 13/13 PASS (name_required_rejected, add_sponsor, list_sponsors, remove_sponsor, list_sponsors_empty_after_remove, set_branding, set_player_of_tournament, get_equipment_for_tournament, invalid_window_rejected, book_equipment, list_bookings, cancel_booking, cannot_cancel_rejected). Leak-check: all zeros. Build: PASS.
+- Next migration: 328.
+
+Next migration: 328.

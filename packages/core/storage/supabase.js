@@ -4740,3 +4740,91 @@ export async function clubAdminGetSportsDayStandings(tournamentEventId) {
   if (error) { console.error("[event-os] club_admin_get_sports_day_standings failed", error); throw error; }
   return data;
 }
+
+// ── Phase 7 Commercial RPCs ────────────────────────────────────────────────────
+
+export async function clubAdminAddSponsor(tournamentEventId, name, logoUrl = null, websiteUrl = null, displayOrder = 0) {
+  const { data, error } = await supabase.rpc("club_admin_add_sponsor", {
+    p_tournament_event_id: tournamentEventId,
+    p_name:                name,
+    p_logo_url:            logoUrl,
+    p_website_url:         websiteUrl,
+    p_display_order:       displayOrder,
+  });
+  if (error) { console.error("[event-os] club_admin_add_sponsor failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminListSponsors(tournamentEventId) {
+  const { data, error } = await supabase.rpc("club_admin_list_sponsors", {
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] club_admin_list_sponsors failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubAdminRemoveSponsor(sponsorId) {
+  const { data, error } = await supabase.rpc("club_admin_remove_sponsor", {
+    p_sponsor_id: sponsorId,
+  });
+  if (error) { console.error("[event-os] club_admin_remove_sponsor failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminSetBranding(tournamentEventId, { primaryColour = null, secondaryColour = null, customLogoUrl = null } = {}) {
+  const { data, error } = await supabase.rpc("club_admin_set_branding", {
+    p_tournament_event_id: tournamentEventId,
+    p_primary_colour:      primaryColour,
+    p_secondary_colour:    secondaryColour,
+    p_custom_logo_url:     customLogoUrl,
+  });
+  if (error) { console.error("[event-os] club_admin_set_branding failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminSetPlayerOfTournament(tournamentEventId, name, teamName = null) {
+  const { data, error } = await supabase.rpc("club_admin_set_player_of_tournament", {
+    p_tournament_event_id: tournamentEventId,
+    p_name:                name,
+    p_team_name:           teamName,
+  });
+  if (error) { console.error("[event-os] club_admin_set_player_of_tournament failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminGetEquipmentForTournament(tournamentEventId) {
+  const { data, error } = await supabase.rpc("club_admin_get_equipment_for_tournament", {
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] club_admin_get_equipment_for_tournament failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubAdminBookEquipmentForTournament(tournamentEventId, equipmentId, qty, startAt, endAt, dueBackAt = null) {
+  const { data, error } = await supabase.rpc("club_admin_book_equipment_for_tournament", {
+    p_tournament_event_id: tournamentEventId,
+    p_equipment_id:        equipmentId,
+    p_qty:                 qty,
+    p_start_at:            startAt,
+    p_end_at:              endAt,
+    p_due_back_at:         dueBackAt,
+  });
+  if (error) { console.error("[event-os] club_admin_book_equipment_for_tournament failed", error); throw error; }
+  return data;
+}
+
+export async function clubAdminListTournamentEquipmentBookings(tournamentEventId) {
+  const { data, error } = await supabase.rpc("club_admin_list_tournament_equipment_bookings", {
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] club_admin_list_tournament_equipment_bookings failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubAdminCancelEquipmentBooking(bookingId) {
+  const { data, error } = await supabase.rpc("club_admin_cancel_equipment_booking", {
+    p_booking_id: bookingId,
+  });
+  if (error) { console.error("[event-os] club_admin_cancel_equipment_booking failed", error); throw error; }
+  return data;
+}

@@ -311,6 +311,15 @@ export {
   clubAdminRecordResult,
   clubAdminGetPerformanceResults,
   clubAdminGetSportsDayStandings,
+  clubAdminAddSponsor,
+  clubAdminListSponsors,
+  clubAdminRemoveSponsor,
+  clubAdminSetBranding,
+  clubAdminSetPlayerOfTournament,
+  clubAdminGetEquipmentForTournament,
+  clubAdminBookEquipmentForTournament,
+  clubAdminListTournamentEquipmentBookings,
+  clubAdminCancelEquipmentBooking,
 } from "./storage/supabase.js";
 export { generateRoundRobin } from "./engine/roundRobin.js";
 export { generateCupBracket } from "./engine/cupBracket.js";
