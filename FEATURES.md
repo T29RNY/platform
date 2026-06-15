@@ -2072,7 +2072,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 | 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | ✅ Complete (mig 317+318 s120+s121) |
 | 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | ✅ Complete (mig 319 s122) |
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
-| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) both complete |
+| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ ALL COMPLETE: 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) + 7C brackets (mig 324, s127) + 7D double-elim (mig 325, s128) |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
@@ -2122,7 +2122,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - Commit: `312ec78`. Next migration: 322.
 
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
-| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) both complete |
+| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ ALL COMPLETE: 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) + 7C brackets (mig 324, s127) + 7D double-elim (mig 325, s128) |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
@@ -2156,4 +2156,14 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - Security sweep: `club_admin_seed_knockout` SECDEF ✓ search_path ✓ overload_count=1 ✓ authenticated-only. `_advance_tournament_winner` SECDEF ✓ search_path ✓ overload_count=1 ✓ postgres+service_role only. Build PASS.
 - Commit: `6f40e11`. Next migration: 325.
 
-Next migration: 325.
+**Phase 7D (mig 325) ✅ COMPLETE (session 128):**
+- Schema: `fixtures` gains `de_bracket text CHECK ('winners','losers','grand_final')`, `de_loser_to_fixture_id uuid FK → fixtures`, `de_loser_to_slot text CHECK ('home','away')`. `fixtures_home_identity` CHECK widened: `OR (de_bracket IS NOT NULL)` (LB fixtures start with NULL teams).
+- `_advance_tournament_double_elim(uuid)` — internal SECDEF helper (REVOKED from PUBLIC/anon/authenticated). Routes winner forward via feeder mechanism; routes loser via `de_loser_to_fixture_id`/`de_loser_to_slot`. Draws = no-op.
+- `club_admin_seed_double_elimination(p_tournament_event_id, p_competition_id)` — director call. Power-of-2 guard (4/8/16). WB R1: seeded pairs (seed[0] vs seed[n-1] etc.), status=scheduled. LB R1: pairs WB R1 losers (first loser → home, second → away), status=allocated. Loop WB R2..k: drop round (LB survivor meets WB loser, home_feeder=LB consolidation winner, away_feeder=WB loser's de_loser_to_fixture_id) + consolidation round (LB survivors face each other, home/away feeders), except after final WB round. Grand Final: home=WB Final winner, away=LB Final winner. Sets `competitions.config.knockout_seeded=true`. Audit `tournament_de_seeded`.
+- `ref_confirm_tournament_match` REPLACED — branches: `IF v_fixture.de_bracket IS NOT NULL THEN _advance_tournament_double_elim ELSE _advance_tournament_winner END IF`.
+- `club_admin_get_schedule` + `get_tournament_public` REPLACED — expose `de_bracket` field in fixture shape.
+- Frontend: `SessionsScreen` — DE seed button (format=double_elimination, ≥4 active teams, !knockout_seeded); WB/LB/Grand Final display sections replace single knockout block for DE comps. `TournamentScreen` — same three-section split for public view.
+- EV 15/15 PASS. Leak check: all zeros. Security sweep PASS. Build PASS.
+- Commit: `ebe1972`. Next migration: 326.
+
+Next migration: 326.

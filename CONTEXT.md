@@ -3920,3 +3920,34 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 **Next migration: 325.**
 
 **FEATURES.md and BUGS.md updated this session.**
+
+---
+
+## SESSION 128 — Event OS Phase 7D — Double Elimination (mig 325)
+
+**Goal:** Support double-elimination format competitions where a team must lose twice to be eliminated. WB + LB + Grand Final. No bracket reset (LB winner beats WB winner = champion).
+
+**Schema (mig 325):**
+- `fixtures` gains `de_bracket text CHECK('winners','losers','grand_final')`, `de_loser_to_fixture_id uuid REFERENCES fixtures(id)`, `de_loser_to_slot text CHECK('home','away')`.
+- `fixtures_home_identity` CHECK widened: `OR (de_bracket IS NOT NULL)` — LB fixtures are created with NULL teams (filled in as bracket progresses).
+
+**RPCs (mig 325):**
+- `_advance_tournament_double_elim(uuid)` — internal SECDEF, REVOKED from PUBLIC/anon/authenticated. Routes winner forward via feeder mechanism; routes loser to LB via `de_loser_to_fixture_id`/`de_loser_to_slot`. Draw = no-op.
+- `club_admin_seed_double_elimination(uuid, uuid)` — SECDEF, authenticated only. Power-of-2 guard (4/8/16 teams). WB R1: seeded pairs + loser wiring to LB R1. Loop WB R2..k: drop round (LB survivor meets WB loser, home reserved via feeder, WB loser → away) + consolidation round (LB drop winners face each other). Grand Final: home=WB Final winner, away=LB Final winner. Sets `knockout_seeded=true`. Audit `tournament_de_seeded`.
+- Three REPLACE'd: `ref_confirm_tournament_match` branches on `de_bracket IS NOT NULL`; `club_admin_get_schedule` + `get_tournament_public` expose `de_bracket` on fixture objects.
+
+**Frontend:**
+- `SessionsScreen`: DE seed button (format=double_elimination, ≥4 active teams, !knockout_seeded). WB/Losers Bracket/Grand Final display sections replace single knockout block for DE comps.
+- `TournamentScreen`: same three-section split on the public page.
+
+**Ephemeral verify:** 15/15 PASS (not_enough_teams; already_seeded; return-shape; fixture-count=6; bracket-dist WB=3/LB=2/GF=1; WB-R1-scheduled; LB-R1-allocated-TBD; WB-R1-loser-routing; GF-feeder-wiring; knockout_seeded-flag; audit-event; adv-T1-to-WBF-home; adv-T4-to-LBR1-home; WBF-scheduled-T1-vs-T2; LBR1-scheduled-T4-vs-T3). Leak check: all zeros.
+
+**Security sweep:** Both RPCs SECDEF ✓ search_path ✓ overload_count=1 ✓. `club_admin_seed_double_elimination` authenticated-only. `_advance_tournament_double_elim` postgres+service_role only.
+
+**EV obstacles resolved:** (1) `member_profiles.auth_user_id` has FK to `auth.users` — EV must insert auth.users row first. (2) `tournament_events.status` CHECK only accepts 'draft'/'open'/'closed'/'live'/'completed' (not 'active'). (3) `competitions.type` CHECK only accepts 'league'/'cup'/'playoff' (not 'knockout').
+
+**Commit:** `ebe1972`.
+
+**Next migration: 326.**
+
+**FEATURES.md and RPCS.md updated this session.**
