@@ -650,7 +650,7 @@ function StepEnrol({ code, tier, period, forProfileId, club, onDone }) {
         })
         .catch((e) => {
           console.error("[membership-signup] stripe checkout failed", e);
-          setErr("Couldn't start payment — please try again.");
+          setErr(`Payment failed [${e?.message || "unknown"}] — please try again.`);
           setBusy(false);
         });
     } else {
