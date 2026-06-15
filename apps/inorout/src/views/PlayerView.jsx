@@ -261,7 +261,7 @@ export default function PlayerView({
   const [activeTab,   setActiveTab]   = useState(startTab || "my-view");
   const [showNoResp,  setShowNoResp]  = useState(false);
   const [cashPending,       setCashPending]       = useState(false);
-  const [guestCashPending,  setGuestCashPending]  = useState(false);
+  const [guestCashPending,  setGuestCashPending]  = useState(() => new Set());
   const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
   // Status confirmation messages (Locked in / We'll keep a spot / etc)
   // start hidden so a page refresh doesn't resurrect them. setStatus
@@ -314,10 +314,11 @@ export default function PlayerView({
   const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
   const canPush      = "PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone);
 
-  // Persistent guests (S1): only an ACTIVE guest (status !== 'none') counts as
-  // "my +1 this week". A dormant guest row left over from last week must NOT
+  // Persistent guests (S1): only ACTIVE guests (status !== 'none') count as
+  // "my +1s this week". A dormant guest row left over from last week must NOT
   // block the Plus One button — it's available again via the returning picker.
-  const myGuest       = squad.find(p => p.isGuest && p.guestOf === myId && p.status !== "none");
+  const myGuests      = squad.filter(p => p.isGuest && p.guestOf === myId && p.status !== "none");
+  const myGuest       = myGuests[0] ?? null;
   const canRemoveGuest = !schedule.isDraft;
   // Persistent guests S2: the team's dormant past guests, offered in the Plus One
   // picker so a host can bring one back (re-activate) instead of re-typing a name.
@@ -454,7 +455,7 @@ export default function PlayerView({
   const setStatus = (s) => {
     if (needsSelfAuth) { promptSignIn(); return; }
     setCashPending(false);
-    setGuestCashPending(false);
+    setGuestCashPending(new Set());
     setClearDebtExpanded(false);
     clearTimeout(confirmationTimer.current);
     setHideConfirmation(false);
@@ -566,12 +567,12 @@ export default function PlayerView({
     setShowPlusOneForm(false);
   };
 
-  const removeMyGuest = async () => {
-    if (!myGuest || removingGuest) return;
+  const removeMyGuest = async (guestId) => {
+    if (removingGuest) return;
     setRemovingGuest(true);
     try {
-      await removeGuestPlayer(me.token, myGuest.id);
-      setSquad(squad.filter(p => p.id !== myGuest.id));
+      await removeGuestPlayer(me.token, guestId);
+      setSquad(sq => sq.filter(p => p.id !== guestId));
     } catch(e) {
       console.error("Failed to remove guest:", e);
     } finally {
@@ -1149,12 +1150,12 @@ export default function PlayerView({
                   </button>
                 </div>
               )}
-              {/* Guest payment row — inside card, gold-tinted bg */}
-              {myGuest && (() => {
-                const gps      = getGuestPaymentState(myGuest, guestCashPending);
+              {/* Guest payment rows — one per active guest, inside card, gold-tinted bg */}
+              {myGuests.map(g => {
+                const gps      = getGuestPaymentState(g, guestCashPending.has(g.id));
                 const price    = schedule.pricePerPlayer || 0;
                 const payMode  = 'both';
-                const guestName = myGuest.name.charAt(0).toUpperCase() + myGuest.name.slice(1);
+                const gName    = g.name.charAt(0).toUpperCase() + g.name.slice(1);
                 const ts = (extra) => ({
                   height:32, borderRadius:"var(--r-pill)",
                   fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
@@ -1168,9 +1169,9 @@ export default function PlayerView({
                 if (gps === 'paid_stripe') {
                   right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>✓ Stripe</span>;
                 } else if (gps === 'paid_cash') {
-                  const label = myGuest.paidBy === 'host'  ? "✓ You paid"
-                              : myGuest.paidBy === 'admin' ? "✓ Admin confirmed"
-                              : `✓ ${guestName} paid`;
+                  const label = g.paidBy === 'host'  ? "✓ You paid"
+                              : g.paidBy === 'admin' ? "✓ Admin confirmed"
+                              : `✓ ${gName} paid`;
                   right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>{label}</span>;
                 } else if (gps === 'cash_pending') {
                   right = (
@@ -1178,9 +1179,9 @@ export default function PlayerView({
                       <button onClick={async () => {
                         setPayError(null);
                         try {
-                          await handleGuestCashPayment(me?.token, myGuest.id, 'host');
-                          setSquad(sq => sq.map(p => p.id === myGuest.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
-                          setGuestCashPending(false);
+                          await handleGuestCashPayment(me?.token, g.id, 'host');
+                          setSquad(sq => sq.map(p => p.id === g.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
+                          setGuestCashPending(prev => { const s = new Set(prev); s.delete(g.id); return s; });
                         } catch {
                           setPayError("Something went wrong — try again");
                         }
@@ -1190,7 +1191,7 @@ export default function PlayerView({
                       {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"right", fontWeight:300 }}>{payError}</div>}
                     </div>
                   );
-                } else if (myGuest.selfPaid) {
+                } else if (g.selfPaid) {
                   right = <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>Paid</span>;
                 } else {
                   right = (
@@ -1201,7 +1202,7 @@ export default function PlayerView({
                         </button>
                       )}
                       {payMode !== 'stripe_only' && (
-                        <button onClick={() => setGuestCashPending(true)} style={ts({ background:"var(--gold)", color:"var(--black)" })}>
+                        <button onClick={() => setGuestCashPending(prev => new Set([...prev, g.id]))} style={ts({ background:"var(--gold)", color:"var(--black)" })}>
                           Paid
                         </button>
                       )}
@@ -1210,17 +1211,17 @@ export default function PlayerView({
                 }
 
                 return (
-                  <div style={{
+                  <div key={g.id} style={{
                     padding:"10px 16px",
                     borderTop:"0.5px solid var(--b2)",
                     background:"rgba(232,160,32,0.04)",
                     display:"flex", alignItems:"center", justifyContent:"space-between",
                   }}>
-                    <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>👤 {guestName}</div>
+                    <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>👤 {gName}</div>
                     {right}
                   </div>
                 );
-              })()}
+              })}
             </>
           </div>
 
@@ -1229,32 +1230,43 @@ export default function PlayerView({
 
             {/* Plus One — always visible */}
             {schedule.gameIsLive && (
-              myGuest ? (
-                /* Guest card */
+              myGuests.length > 0 ? (
+                /* Guest card — lists all active guests + Add another CTA */
                 <div style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
                   border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
-                  display:"flex", flexDirection:"column", gap:6 }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
-                      <div>
-                        <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>{myGuest.name}</div>
-                        <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>your +1</div>
+                  display:"flex", flexDirection:"column", gap:8 }}>
+                  {myGuests.map(g => (
+                    <div key={g.id} style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>{g.name}</div>
+                            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>your +1</div>
+                          </div>
+                        </div>
+                        {canRemoveGuest && (
+                          <button onClick={() => removeMyGuest(g.id)} disabled={removingGuest} style={{
+                            padding:"5px 10px", borderRadius:6,
+                            border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                            color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11,
+                            cursor:"pointer", flexShrink:0 }}>
+                            {removingGuest ? "..." : "Remove"}
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                        {g.selfPaid ? "Paid" : "You're covering payment"}
                       </div>
                     </div>
-                    {canRemoveGuest && (
-                      <button onClick={removeMyGuest} disabled={removingGuest} style={{
-                        padding:"5px 10px", borderRadius:6,
-                        border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
-                        color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11,
-                        cursor:"pointer", flexShrink:0 }}>
-                        {removingGuest ? "..." : "Remove"}
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
-                    {myGuest.selfPaid ? "Paid" : "You're covering payment"}
-                  </div>
+                  ))}
+                  {!showPlusOneForm && (
+                    <button onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
+                      style={{ background:"none", border:"none", color:"var(--green)", fontFamily:"var(--font-body)",
+                        fontSize:11, fontWeight:600, cursor:"pointer", textAlign:"left", padding:"2px 0 0" }}>
+                      + Add another
+                    </button>
+                  )}
                 </div>
               ) : !showPlusOneForm ? (
                 <button
