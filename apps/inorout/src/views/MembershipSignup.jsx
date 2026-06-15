@@ -429,6 +429,7 @@ function StepTierSelect({ tiers, path, onDone, onBack }) {
   const filtered = tiers.filter((t) => allowed.includes(t.audience));
   const [tierId, setTierId] = useState(filtered.length === 1 ? filtered[0].tier_id : "");
   const [period, setPeriod] = useState("");
+  const [err, setErr] = useState(null);
 
   const selectedTier = filtered.find((t) => t.tier_id === tierId) ?? null;
 
@@ -441,7 +442,9 @@ function StepTierSelect({ tiers, path, onDone, onBack }) {
   const price = selectedTier ? tierPrice(selectedTier, period) : null;
 
   const submit = () => {
-    if (!tierId || !period) return;
+    if (!tierId) { setErr("Please select a membership."); return; }
+    if (!period) { setErr("Please select a billing period."); return; }
+    setErr(null);
     onDone({ tier: selectedTier, period });
   };
 
