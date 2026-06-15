@@ -4012,3 +4012,41 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 **Next migration: 328.**
 
 **FEATURES.md and RPCS.md updated this session.**
+
+## SESSION 131 — Planning: Payment Infrastructure + Native App decisions
+
+**Goal:** Lock the payment infrastructure approach and settle two platform-level decisions before building.
+
+**Decisions made:**
+
+- **Payment infrastructure:** Stripe Connect + GoCardless for Platforms, both offered simultaneously. Platform never holds money — each venue connects their own account, money flows club↔member directly. 8-phase build plan written into FEATURES.md + DECISIONS.md. `venue_integrations` table identified as the shared credential foundation (Phase 1). Phase 2+ blocked on operator getting Stripe platform account + test keys.
+- **Native app:** Capacitor chosen for iOS/Android wrapping (access to APNs/FCM for native push). WhatsApp/SMS via Twilio ruled out — native push makes it unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only.
+- **Use case mapping settled:** memberships → Stripe or GoCardless (member's choice); match fees / tournament entries / equipment deposits → Stripe only (one-off, card/Apple Pay).
+
+**No migrations this session. Decisions locked into DECISIONS.md. Next mig = 329.**
+
+## SESSION 132 — Payment Infrastructure Phase 1: venue_integrations (mig 329)
+
+**Goal:** Build the `venue_integrations` foundation table and wire the Integrations tab in the venue dashboard.
+
+**Schema (mig 329):**
+- New table `venue_integrations`: `id uuid PK`, `venue_id`→venues CASCADE, `provider` IN ('stripe','gocardless'), `status` IN ('pending','connected','disconnected'), `account_id text`, `access_token text` (server-side only, never returned to client), `config jsonb DEFAULT '{}'`, `connected_at`, `disconnected_at`, `created_at`, `updated_at`. UNIQUE(venue_id, provider). RLS enabled, REVOKE anon/authenticated.
+- DROPped four dormant `venues` stripe columns added by mig 279 (`stripe_connect_account_id`, `stripe_connect_status`, `stripe_charges_enabled`, `stripe_details_submitted`) — no live data, now canonical home is `venue_integrations`.
+- `venue_memberships`/`venue_customers` stripe columns untouched (per-membership operational state, not credentials).
+
+**RPCs (mig 329):**
+- `set_venue_connect_state` rewritten — now upserts into `venue_integrations` (provider='stripe') instead of writing to `venues.*stripe_*`. Maps Stripe account status (none/onboarding/active/restricted) → integration status (pending/connected). service_role only.
+- `venue_get_billing_status` rewritten — now reads from `venue_integrations` for both providers, returns `{ok, stripe:{connected,status,account_id,config,connected_at,disconnected_at}, gocardless:{connected,status,...}, members:{total,on_stripe,current,past_due,suspended}}`. anon+authenticated, gated `manage_memberships`.
+
+**Bug caught by verify scan:** Three dormant Stripe API files (`api/cron.js`, `api/stripe-connect.js`, `api/stripe-webhook.js`) still referenced `venues.stripe_connect_account_id`. Fixed to read from `venue_integrations` instead. All three files remain fully dormant (no Stripe keys).
+
+**Frontend:**
+- `venueGetBillingStatus` wrapper + barrel export.
+- New `IntegrationsView.jsx` — two provider cards (Stripe, GoCardless), both "NOT CONNECTED".
+- New **Integrations** group + tab in venue Dashboard nav (Settings group, icon: settings).
+
+**Security sweep:** 2/2 PASS. Both builds clean. Next mig = 330.
+
+**Phase 2 blocked on:** operator Stripe platform account + test keys. Phase 5 blocked on: GoCardless for Platforms account. Nothing to build until credentials arrive.
+
+**FEATURES.md, SCHEMA.md, RPCS.md updated this session.**
