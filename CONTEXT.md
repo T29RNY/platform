@@ -3893,4 +3893,30 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 
 **Next migration: 324.**
 
+---
+
+## SESSION 127 — Event OS Phase 7C — Classification Brackets (mig 324)
+
+**Goal:** Director triggers "advance to knockouts" after group stage completes. System generates a seeded knockout bracket from group finishers and auto-advances winners as each match confirms.
+
+**Schema (mig 324):**
+- `fixtures` gains `knockout_home_feeder_id uuid REFERENCES fixtures(id)` + `knockout_away_feeder_id uuid REFERENCES fixtures(id)`.
+- `competition_teams` gains `group_rank int` (stamped by `club_admin_seed_knockout`).
+- `fixtures_home_identity` CHECK widened: was `home_team_id IS NOT NULL OR home_competition_team_id IS NOT NULL`; now also allows `knockout_home_feeder_id IS NOT NULL` so allocated future-round bracket slots (NULL teams) pass the constraint.
+
+**RPCs (mig 324):**
+- `_advance_tournament_winner(uuid)` — internal SECDEF, REVOKED from PUBLIC/anon/authenticated. Slots winner into next-round feeder slot; promotes to `scheduled` once both slots filled. Draw = no-op.
+- `club_admin_seed_knockout(uuid, uuid)` — SECDEF, authenticated only. Stamps group_rank (H2H Phase 7A CTE). Serpentine seeding (seed[i] vs seed[n-i+1]). Round-1 fixtures: teams + `scheduled`. Future rounds: NULL teams + feeder IDs + `allocated`. Sets `competitions.config.knockout_seeded=true`. Power-of-2 guard.
+- Five REPLACE'd RPCs: `ref_confirm_tournament_match` calls `_advance_tournament_winner` on knockout FT; `club_admin_get_standings` / `get_tournament_public` filter standings to group-stage fixtures only (prevents KO contamination) + add group_label/group_rank + knockout_seeded; `club_admin_get_schedule` adds group_label + knockout_seeded; `club_admin_get_tournament` adds group_label/group_rank + knockout_seeded.
+
+**Ephemeral verify:** 10/10 PASS (not_authenticated; incomplete_group_fixtures; bracket_size_not_supported; happy-path ok=true; total_qualifiers=4; knockout_rounds=2; knockout_fixtures=3; group_ranks=1,1; bracket_advance_wiring; knockout_already_seeded). Leak check: all zeros.
+
+**Security sweep:** `club_admin_seed_knockout` SECDEF ✓ search_path ✓ overload_count=1 ✓ authenticated-only. `_advance_tournament_winner` SECDEF ✓ search_path ✓ overload_count=1 ✓ postgres+service_role only.
+
+**EV obstacle resolved:** `fixtures_home_identity` CHECK blocked 'allocated' knockout slots (NULL home/away teams). Fixed by widening the constraint in the same migration commit.
+
+**Commit:** `6f40e11`.
+
+**Next migration: 325.**
+
 **FEATURES.md and BUGS.md updated this session.**

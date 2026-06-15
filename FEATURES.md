@@ -2146,4 +2146,14 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - Security sweep: SECDEF ✓, search_path ✓, overload_count=1 ✓ for all 4 RPCs. Build PASS.
 - Commit: `926f561`. Next migration: 324.
 
-Next migration: 324.
+**Phase 7C (mig 324) ✅ COMPLETE (session 127):**
+- Schema: `fixtures` gains `knockout_home_feeder_id` + `knockout_away_feeder_id` (uuid, self-ref FK). `competition_teams` gains `group_rank int`. `fixtures_home_identity` CHECK widened to also allow `knockout_home_feeder_id IS NOT NULL` (future-round bracket slots have NULL teams).
+- `_advance_tournament_winner(uuid)` — internal SECDEF helper (REVOKED from PUBLIC/anon/authenticated). Called from `ref_confirm_tournament_match` on every knockout FT confirm. Slotted winner into next-round feeder slot; promotes fixture to `scheduled` when both slots filled. Draw = no-op.
+- `club_admin_seed_knockout(p_tournament_event_id, p_competition_id)` — director call. Stamps `group_rank` via H2H tiebreaker (Phase 7A CTE). Collects top 2 per group, pairs serpentine (seed[i] vs seed[n-i+1]), creating cross-group R1. Round-1: teams populated + `scheduled`. Future rounds: teams NULL + feeder IDs + `allocated`. Sets `competitions.config.knockout_seeded=true`. Power-of-2 guard.
+- Five RPCs updated (`ref_confirm_tournament_match`, `club_admin_get_standings`, `club_admin_get_schedule`, `get_tournament_public`, `club_admin_get_tournament`): group-label filtering on standings, knockout fixtures surface added, `knockout_seeded` flag threaded through.
+- Frontend: `SessionsScreen` — per-group standings with ADV chips + "Advance to Knockout" button (gated on all-groups-complete + !knockout_seeded) + knockout rounds display. `TournamentScreen` — knockout bracket section + grouped standings with ADV chips.
+- EV 10/10 PASS (not_authenticated; incomplete_group_fixtures; bracket_size_not_supported; happy-path ok=true; total_qualifiers=4; knockout_rounds=2; knockout_fixtures=3; group_ranks=1,1; bracket_advance_wiring; knockout_already_seeded). Leak check: all zeros.
+- Security sweep: `club_admin_seed_knockout` SECDEF ✓ search_path ✓ overload_count=1 ✓ authenticated-only. `_advance_tournament_winner` SECDEF ✓ search_path ✓ overload_count=1 ✓ postgres+service_role only. Build PASS.
+- Commit: `6f40e11`. Next migration: 325.
+
+Next migration: 325.
