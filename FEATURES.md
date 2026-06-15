@@ -555,12 +555,13 @@ Platform never holds money. Each venue/club connects their own Stripe or GoCardl
 - `venueGetBillingStatus` wrapper + barrel. `IntegrationsView.jsx` + Integrations nav tab in venue dashboard (two provider cards, both "NOT CONNECTED"). Security sweep 2/2 PASS. Both builds clean.
 - **Next mig = 330.**
 
-**Phase 2 — Stripe Connect (venue side)** 🔴 not started *(depends on Phase 1 + operator Stripe platform credentials)*
-- "Connect Stripe" button → OAuth redirect to Stripe
-- Callback: exchange code → store connected account ID in `venue_integrations`
-- Activate dormant `api/_stripe.js` + `api/stripe-webhook.js` (mig 279 scaffolding)
-- Venue Settings: connected state (account name, disconnect button)
-- EV + security sweep
+**Phase 2 — Stripe Connect (venue side)** ✅ shipped s133 (mig 330, commit 69cdf65)
+- `venue_stripe_disconnect(p_venue_token text)` RPC — SECDEF, anon+authenticated, idempotent. EV 5/5 PASS, leak-clean. Security sweep PASS.
+- `api/stripe-connect.js` activated: CORS for `platform-venue.vercel.app`, OPTIONS preflight. Handles `action='onboard'` (Express account + account link) and `action='refresh'` (fetch-fresh from Stripe + update `venue_integrations`).
+- `IntegrationsView.jsx`: Connect Stripe button → `POST /api/stripe-connect {action:'onboard'}` → redirect; return URL handler (`?connect=done/refresh` → refresh + reload); disconnect button → `venueStripeDisconnect` RPC. Graceful 503 if keys absent.
+- `Dashboard.jsx`: auto-switches to Integrations tab on `?connect=*` return URL.
+- **Env required (operator):** inorout Vercel: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_RETURN_URL`, `STRIPE_CONNECT_REFRESH_URL`. Venue Vercel: `VITE_INOROUT_API_URL=https://in-or-out.com`. Also add `STRIPE_CONNECT_ALLOWED_ORIGIN` if venue domain changes.
+- **Next mig = 331.**
 
 **Phase 3 — Stripe member enrolment + webhooks** 🔴 not started *(depends on Phase 2)*
 - On membership enrolment: create Stripe Customer + Subscription on venue's connected account (via `Stripe-Account` header)
