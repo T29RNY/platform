@@ -1,0 +1,2 @@
+-- Down: restore add_guest_player without squad-full guard (mig 268 version)
+-- Re-apply rls_migrations/268_lineup_lock_and_team_integrity.sql section 5.

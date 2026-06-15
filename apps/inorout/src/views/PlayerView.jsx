@@ -254,6 +254,7 @@ export default function PlayerView({
   const [guestName,       setGuestName]       = useState("");
   const [guestSelfPaid,   setGuestSelfPaid]   = useState(false);
   const [addingGuest,     setAddingGuest]     = useState(false);
+  const [guestAddError,   setGuestAddError]   = useState(null);
   const [pickerPlayer,    setPickerPlayer]    = useState(null);
   const [removingGuest,   setRemovingGuest]   = useState(false);
 
@@ -523,6 +524,7 @@ export default function PlayerView({
     if (!guestName.trim() || addingGuest) return;
     if (needsSelfAuth) { promptSignIn(); return; }
     setAddingGuest(true);
+    setGuestAddError(null);
     try {
       const guest = await addGuestPlayer(me?.token, guestName.trim());
       setSquad([...squad, guest]);
@@ -533,6 +535,8 @@ export default function PlayerView({
       onMidFlowChange?.(false);
     } catch(e) {
       console.error("Failed to add guest:", e);
+      const msg = e?.message || "";
+      setGuestAddError(msg === "squad_full" ? "The squad is full — no more spots left." : "Something went wrong. Try again.");
     } finally {
       setAddingGuest(false);
     }
@@ -1389,6 +1393,9 @@ export default function PlayerView({
                   </button>
                 ))}
               </div>
+              {guestAddError && (
+                <div style={{ fontSize:12, color:"var(--red)", fontWeight:300, marginBottom:8 }}>{guestAddError}</div>
+              )}
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={submitGuest} disabled={!guestName.trim() || addingGuest} style={{
                   flex:1, padding:"10px 0", borderRadius:8, border:"none",

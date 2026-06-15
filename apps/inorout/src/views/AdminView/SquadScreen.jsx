@@ -861,6 +861,24 @@ export default function SquadScreen({
                         <MenuItem icon={<PencilSimple size={14} weight="thin" />} onClick={() => startEdit(p)}>
                           Rename
                         </MenuItem>
+                        {isGuest && !isDormant && (
+                          <MenuItem
+                            icon={<X size={14} weight="thin" color="var(--red)" />}
+                            onClick={async () => {
+                              setOpenMenuId(null);
+                              try {
+                                await adminSetPlayerStatus(adminToken, p.id, 'none');
+                                setSquad(prev => prev.map(x => x.id === p.id ? { ...x, status: 'none' } : x));
+                              } catch(e) {
+                                console.error(e);
+                                setErrorToast("Couldn't remove guest");
+                              }
+                            }}
+                            subtitle="Drops them from this week only"
+                          >
+                            Remove from this match
+                          </MenuItem>
+                        )}
                         {isGuest && (
                           <MenuItem
                             icon={<ShieldCheck size={14} weight="thin" color="var(--green)" />}
