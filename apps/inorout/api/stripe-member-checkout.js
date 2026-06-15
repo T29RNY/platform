@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
     .select("account_id")
     .eq("venue_id", venueId)
     .eq("provider", "stripe")
-    .eq("status", "active")
+    .eq("status", "connected")
     .maybeSingle();
   if (!stripeInt?.account_id) return res.status(400).json({ error: "stripe_not_connected" });
   const accountId = stripeInt.account_id;

@@ -1,0 +1,3 @@
+-- Down: revert get_venue_signup_tiers to the mig-331 body (with the 'active' bug)
+-- In practice this should never be needed; the fix is to restore 'connected'.
+-- Reapply mig 331's version of get_venue_signup_tiers if rollback is required.

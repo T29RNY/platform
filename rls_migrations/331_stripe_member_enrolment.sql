@@ -62,7 +62,7 @@ BEGIN
   -- Stripe: venue has an active connected account (charges_enabled)
   SELECT EXISTS (
     SELECT 1 FROM public.venue_integrations vi
-    WHERE vi.venue_id = v_venue_id AND vi.provider = 'stripe' AND vi.status = 'active'
+    WHERE vi.venue_id = v_venue_id AND vi.provider = 'stripe' AND vi.status = 'connected'
   ) INTO v_stripe_active;
 
   -- Tiers with audience + price_type per price row
