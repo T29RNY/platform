@@ -18,6 +18,7 @@ import MembershipsView from "./MembershipsView.jsx";
 import SessionsView from "./SessionsView.jsx";
 import AccessView from "./AccessView.jsx";
 import InvitesView from "./InvitesView.jsx";
+import IntegrationsView from "./IntegrationsView.jsx";
 import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import { poundsRound } from "../lib/format.js";
@@ -44,12 +45,16 @@ const TABS = [
     { id: "table",  label: "Table",   icon: "table" },
     { id: "cups",   label: "Cups",    icon: "cups", cupOnly: true },
   ]},
+  { group: "Settings", items: [
+    { id: "integrations", label: "Integrations", icon: "settings" },
+  ]},
 ];
 
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
   customers: "Customers", memberships: "Memberships", sessions: "Sessions", teams: "Teams", players: "Players", staff: "Staff",
   access: "Access", invites: "QR codes", league: "Leagues", table: "Standings", cups: "Cups",
+  integrations: "Integrations",
 };
 
 // manage_logins capability for the signed-in caller (token backdoor = full owner).
@@ -142,6 +147,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "league" && <LeagueView state={state} onNewSeason={() => setWizardOpen(true)} />}
           {view === "table" && <LeagueTable state={state} venueToken={venueToken} />}
           {view === "cups" && <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
+          {view === "integrations" && <IntegrationsView venueToken={venueToken} />}
         </main>
       </div>
 

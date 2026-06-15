@@ -234,6 +234,7 @@ export {
   venueMarkEquipmentOut,
   venueMarkEquipmentReturned,
   venueEquipmentInsights,
+  venueGetBillingStatus,
   venueLogIncident,
   venueResolveIncident,
   confirmRenewal,

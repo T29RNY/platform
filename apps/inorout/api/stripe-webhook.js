@@ -111,12 +111,12 @@ async function dispatch(event, accountId, supabase) {
     case "account.updated": {
       const acct = await stripe.accounts.retrieve(obj.id);
       const status = acct.charges_enabled ? "active" : (acct.details_submitted ? "restricted" : "onboarding");
-      // Resolve the venue that owns this connected account (service role bypasses RLS).
+      // Resolve the venue that owns this connected account via venue_integrations.
       const { data: vrow } = await supabase
-        .from("venues").select("id").eq("stripe_connect_account_id", acct.id).limit(1).maybeSingle();
-      if (vrow?.id) {
+        .from("venue_integrations").select("venue_id").eq("provider", "stripe").eq("account_id", acct.id).limit(1).maybeSingle();
+      if (vrow?.venue_id) {
         await supabase.rpc("set_venue_connect_state", {
-          p_venue_id: vrow.id,
+          p_venue_id: vrow.venue_id,
           p_account_id: acct.id,
           p_status: status,
           p_charges_enabled: !!acct.charges_enabled,

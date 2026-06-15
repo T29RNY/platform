@@ -43,14 +43,17 @@ module.exports = async function handler(req, res) {
 
   // current state
   const { data: venue } = await supabase
-    .from("venues").select("id, name, contact_email, stripe_connect_account_id").eq("id", venueId).maybeSingle();
+    .from("venues").select("id, name, contact_email").eq("id", venueId).maybeSingle();
   if (!venue) return res.status(404).json({ error: "venue_not_found" });
+
+  const { data: stripeInt } = await supabase
+    .from("venue_integrations").select("account_id").eq("venue_id", venueId).eq("provider", "stripe").maybeSingle();
 
   const RETURN_URL = process.env.STRIPE_CONNECT_RETURN_URL || "https://platform-venue.vercel.app/?connect=done";
   const REFRESH_URL = process.env.STRIPE_CONNECT_REFRESH_URL || "https://platform-venue.vercel.app/?connect=refresh";
 
   try {
-    let accountId = venue.stripe_connect_account_id;
+    let accountId = stripeInt?.account_id ?? null;
 
     if (action === "refresh") {
       if (!accountId) return res.status(200).json({ ok: true, status: "none" });

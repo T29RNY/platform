@@ -3509,6 +3509,12 @@ export async function venueEquipmentInsights(venueToken, { from = null, to = nul
   return data;
 }
 
+export async function venueGetBillingStatus(venueToken) {
+  const { data, error } = await supabase.rpc("venue_get_billing_status", { p_venue_token: venueToken });
+  if (error) { console.error("[integrations] venue_get_billing_status failed", error); throw error; }
+  return data;
+}
+
 export async function venueRecordPayment(venueToken, chargeId, amountPence, method, { externalRef = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("venue_record_payment", {
     p_venue_token: venueToken, p_charge_id: chargeId, p_amount_pence: amountPence,

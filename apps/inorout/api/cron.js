@@ -814,8 +814,8 @@ async function membershipReconciliationJob(results) {
   if (!subs?.length) { results.push("membershipReconciliation: none on stripe"); return; }
 
   const venueIds = [...new Set(subs.map((s) => s.venue_id))];
-  const { data: venues } = await supabase.from("venues").select("id, stripe_connect_account_id").in("id", venueIds);
-  const acctByVenue = Object.fromEntries((venues || []).map((v) => [v.id, v.stripe_connect_account_id]));
+  const { data: integrations } = await supabase.from("venue_integrations").select("venue_id, account_id").eq("provider", "stripe").eq("status", "connected").in("venue_id", venueIds);
+  const acctByVenue = Object.fromEntries((integrations || []).map((vi) => [vi.venue_id, vi.account_id]));
 
   let checked = 0;
   for (const m of subs) {
