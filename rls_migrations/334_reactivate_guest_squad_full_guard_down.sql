@@ -1,0 +1,2 @@
+-- Down: restore reactivate_guest_player without squad-full guard (mig 217 version)
+-- Re-apply rls_migrations/217_reactivate_guest_player.sql

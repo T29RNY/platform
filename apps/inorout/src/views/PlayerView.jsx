@@ -546,6 +546,7 @@ export default function PlayerView({
     if (addingGuest) return;
     if (needsSelfAuth) { promptSignIn(); return; }
     setAddingGuest(true);
+    setGuestAddError(null);
     try {
       const guest = await reactivateGuestPlayer(me?.token, guestId);
       // Swap the dormant squad row for the now-active one (it's already in squad).
@@ -557,6 +558,8 @@ export default function PlayerView({
       onMidFlowChange?.(false);
     } catch(e) {
       console.error("Failed to reactivate guest:", e);
+      const msg = e?.message || "";
+      setGuestAddError(msg === "squad_full" ? "The squad is full — no more spots left." : "Something went wrong. Try again.");
     } finally {
       setAddingGuest(false);
     }
