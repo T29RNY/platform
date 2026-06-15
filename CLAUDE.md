@@ -14,6 +14,58 @@ This file is the operating contract.
 
 ---
 
+## MONOREPO STRUCTURE
+
+**Apps** (8 Vite + React applications, all depend on `@platform/core` and `@platform/ui`):
+- `apps/inorout` — player availability, squad management, POTM, casual match flow (main consumer app)
+- `apps/venue` — venue operator dashboard, staff, bookings, leagues
+- `apps/display` — reception display, rotating ads, live match info (port 5181)
+- `apps/hq` — HQ intelligence / operator analytics (port 5177)
+- `apps/clubmanager` — club OS: memberships, tournaments, Event OS brackets
+- `apps/ref` — referee interface
+- `apps/league` — league management
+- `apps/superadmin` — platform-level analytics and ops
+
+**Packages:**
+- `packages/core` (`@platform/core`) — ALL Supabase calls for every app live here. The single source of truth for data access: `storage/supabase.js` (194KB) exports every DB wrapper. Never call `supabase.rpc()` or `supabase.from()` outside this file.
+- `packages/ui` (`@platform/ui`) — shared React component library
+
+**Tooling:** Turbo monorepo (`turbo.json`), npm workspaces, Vercel deployments per app.
+
+---
+
+## COMMANDS
+
+```bash
+# Build a specific app (most common — required after every execute step)
+cd apps/inorout && npm run build
+cd apps/venue && npm run build
+cd apps/clubmanager && npm run build
+
+# Dev server for a specific app
+cd apps/inorout && npm run dev
+cd apps/display && npm run dev    # port 5181
+cd apps/hq && npm run dev         # port 5177
+
+# Build all apps via Turbo (from monorepo root)
+npm run build
+
+# Reinstall after dependency changes
+npm install && cd apps/inorout && npm run build
+
+# Deterministic check scripts (always call these, never reinvent them inline)
+bash skills/scripts/check-build.sh
+bash skills/scripts/check-hygiene.sh <file>
+bash skills/scripts/check-rpc-security.sh <rpc_name>
+bash skills/scripts/check-rpc-columns.sh <rpc_name>
+bash skills/scripts/check-db-schema.sh <table_name>
+bash skills/scripts/check-schema-column.sh <table> <col>
+bash skills/scripts/check-references.sh "<term>" [--removed|--rpc]
+bash skills/scripts/check-workspace-deps.sh
+```
+
+---
+
 ## OPERATOR PROFILE
 
 The developer is non-technical on tooling. They understand
