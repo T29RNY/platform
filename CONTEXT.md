@@ -4136,3 +4136,56 @@ Venue app (prebuilt-static, no serverless) calls the inorout deployment's `api/s
 - Register webhook endpoint `https://in-or-out.com/api/stripe-webhook` in Stripe Dashboard for events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `account.updated`
 
 **Next mig = 332.**
+
+## SESSION 136 — Payment Infrastructure Phase 3: End-to-end Stripe test (migs 332, 335, 336)
+
+**Goal:** Full E2E test of the Stripe member enrolment flow using a real Stripe test account. All env vars were already set in Vercel from s135. The test found and fixed 4 bugs before the flow completed end-to-end.
+
+**Stripe test account setup:**
+- Connected Express account: `acct_1TiiBMETFLuZs6P2` (In or Out sandbox)
+- Onboarded via Stripe-hosted Account Link flow (`POST /v1/account_links type=account_onboarding`)
+- `charges_enabled: true` confirmed after onboarding completion
+- `venue_integrations` row: `venue_id=demo_venue, provider=stripe, account_id=acct_1TiiBMETFLuZs6P2, status=connected`
+
+**Bug 1 — mig 332 (s135, documented s136): get_venue_signup_tiers status='active'**
+`stripe_connected` was always false because the check used `status='active'`; correct value is `'connected'`.
+Fixed mig 332 applied previous session. This session: tier picker correctly showed Stripe fork.
+
+**Bug 2 — Stripe webhook not a Connect webhook:**
+Checkout Sessions created with `{ stripeAccount: accountId }` — events fire on the connected account.
+Platform webhook was `Events from: This account only`. Events were never delivered.
+Fix: recreated webhook endpoint (new ID `we_1TijTvItB74m1maHXKvkibM7`), toggled "Connected accounts"
+in Stripe Dashboard. Updated `STRIPE_WEBHOOK_SECRET` in Vercel (inor-out project) with new signing secret.
+Note: `connect=true` flag in Stripe REST API (`POST /v1/webhook_endpoints`) is silently ignored —
+Dashboard-only toggle. See DECISIONS.md.
+
+**Bug 3 — mig 335: stripe_complete_member_enrolment actor_type='member':**
+Same pattern as mig 297. Fixed `'member'` → `'player'`. First webhook delivery after fix: RPC called directly
+via Supabase MCP with real session data (webhook missed the s135 payment; replayed manually).
+
+**Bug 4 — mig 336: post-redirect pass link never rendered:**
+`MembershipSignup` re-mounts fresh after Stripe redirect; `passToken=null` so the membership pass link
+was absent. New RPC `member_get_venue_membership_pass(p_invite_code)` called on mount — returns
+`{found, pass_token, membership_id, status}` for the caller's active membership at the venue.
+Wrapper `memberGetVenueMembershipPass` in supabase.js + barrel export + mount effect in MembershipSignup.
+
+**E2E verified (session 136):**
+Invite link → tier picker (Full Adult £40/month) → Stripe Checkout (real test card 4242...) →
+redirect back → "You're in! Open your membership pass →" → membership pass (TARNBIR ATHWAL, Full Adult,
+Active, Renews 15 Jul 2026, £40/monthly, QR code, scan-at-reception). Full flow confirmed working.
+
+**Commits this session:** `c538706` (mig 335 + 336 + supabase.js + index.js + MembershipSignup.jsx), `44de259` (revert diagnostic catch block)
+
+**Stripe webhook endpoint (current):**
+- ID: `we_1TijTvItB74m1maHXKvkibM7`
+- URL: `https://in-or-out.com/api/stripe-webhook`
+- Events from: Connected accounts ✓
+- Events: checkout.session.completed, customer.subscription.*, invoice.paid, invoice.payment_failed, account.updated
+- Secret: stored in Vercel `STRIPE_WEBHOOK_SECRET` (inor-out project, production)
+
+**Phase 3 status: E2E VERIFIED with test Stripe account. DORMANT for production until operator provides live Stripe keys.**
+
+**Phase 4 next:** Stripe test clock lifecycle — enrol → renewal → payment failure → grace → suspension → recovery.
+Requires Stripe test clocks API. No code changes needed; pure Stripe-side test.
+
+**Next mig = 337.**

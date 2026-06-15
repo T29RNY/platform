@@ -36,7 +36,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 3 | Competition & Team-Risk analytics (at-risk teams, fill rate, completion) | Backend+UI | 🔴 not started |
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
-| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟡 Phase 1 ✅ (mig 329, s132); Phase 2 ✅ (mig 330, s133); Phase 3 ✅ (mig 331, s135) DORMANT — needs 4 Stripe env vars; Phase 4 next |
+| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟡 Phase 1 ✅ (mig 329, s132); Phase 2 ✅ (mig 330, s133); Phase 3 ✅ E2E VERIFIED s136 (migs 332+335+336); DORMANT for live until operator adds live Stripe keys; Phase 4 next |
 | **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🔴 not started — plan locked session 134 |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
 | Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
@@ -564,9 +564,9 @@ Platform never holds money. Each venue/club connects their own Stripe or GoCardl
 - **Env required (operator):** inorout Vercel: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_RETURN_URL`, `STRIPE_CONNECT_REFRESH_URL`. Venue Vercel: `VITE_INOROUT_API_URL=https://in-or-out.com`. Also add `STRIPE_CONNECT_ALLOWED_ORIGIN` if venue domain changes.
 - **Next mig = 331.**
 
-**Phase 3 — Stripe member enrolment + webhooks ✅ SHIPPED (mig 331, s135) — DORMANT until operator adds Stripe env vars**
+**Phase 3 — Stripe member enrolment + webhooks ✅ SHIPPED (mig 331, s135) — E2E VERIFIED s136 (4 bugs found+fixed: migs 332+335+336 + webhook Connect toggle). DORMANT for production until operator provides live Stripe keys.**
 - `stripe_customer_id` on `venue_memberships` + UNIQUE partial index on `stripe_subscription_id`
-- `get_venue_signup_tiers`: returns `stripe_connected` bool (derived from `venue_integrations WHERE provider='stripe' AND status='active'`)
+- `get_venue_signup_tiers`: returns `stripe_connected` bool (derived from `venue_integrations WHERE provider='stripe' AND status='connected'` — mig 332 fixes original `'active'` which never matched)
 - `get_member_pass`: returns `payment_state` (current/past_due/suspended)
 - New RPC `stripe_complete_member_enrolment` (service_role ONLY, idempotent on subscription_id, called by webhook)
 - New `api/stripe-member-checkout.js` — creates Stripe Customer + Checkout Session on venue's connected account, returns `checkout_url`

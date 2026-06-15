@@ -2741,3 +2741,33 @@ returns `payment_method_unavailable` for `prepay` until `venue_integrations` row
 checks whether the caller has ANY prior `venue_class_bookings` at that venue. If none, charge is
 waived (`payment_status='waived'`). Simple, no promo code infrastructure needed, one booking per
 member per venue. Venue enables it per class type (e.g. intro yoga free, circuit training not).
+
+### Stripe Connect webhooks must be registered as Connect webhooks (Events from: Connected accounts)
+
+Checkout Sessions are created with `{ stripeAccount: accountId }` — the charge happens directly on the
+connected account. Events for those sessions (`checkout.session.completed`, `customer.subscription.*`,
+`invoice.*`) fire on the connected account, NOT on the platform account. A platform-only webhook
+(the default) never receives these events.
+
+**Rule:** The Stripe webhook endpoint for this platform (`in-or-out.com/api/stripe-webhook`) MUST be
+registered with "Listen to events on Connected accounts" enabled. This flag is Dashboard-only and
+cannot be set via the REST API — `connect=true` in `POST /v1/webhook_endpoints` is silently ignored.
+Verified during Phase 3 E2E test (session 136).
+
+**Implication for new webhooks:** If we ever add a second webhook endpoint (e.g. for GoCardless or a
+separate environment), it must also be toggled via the Stripe Dashboard, not the API.
+
+### Post-Stripe-redirect UX: fetch passToken from DB on mount, not from state
+
+After Stripe Checkout completes, the browser is redirected back to `/q/{code}?checkout=done`. React
+state is fully wiped on this redirect — any token from the enrolment flow is lost. The `MembershipSignup`
+component detects the URL param and shows the "done" step, but `passToken` is null, so the
+"Open your membership pass" link never renders.
+
+**Solution (mig 336):** Call `member_get_venue_membership_pass(invite_code)` on every `MembershipSignup`
+mount. If the user is already enrolled at this venue, the RPC returns their `pass_token` and the
+component jumps straight to the done state with the link rendered. This handles both the post-redirect
+case and returning already-enrolled members hitting the invite link again.
+
+**Pattern:** Never rely on in-memory state surviving an external redirect. Always re-derive from the DB
+on mount for anything that matters post-payment.
