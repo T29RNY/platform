@@ -13,6 +13,7 @@ import {
   clubAdminSendTeamInvite, clubAdminApproveTeam, clubAdminRejectTeam,
   clubAdminGenerateSchedule, clubAdminGetSchedule,
   clubAdminSeedKnockout,
+  clubAdminSeedDoubleElimination,
 } from "@platform/core/storage/supabase.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
@@ -420,6 +421,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       await reloadDetail(tournamentDetail.slug, tournamentDetail.tournament_id);
     } catch (e) {
       console.error("[sessions] seed knockout failed", e);
+    } finally {
+      setSeedSaving(false);
+      isSeedingRef.current = false;
+    }
+  };
+
+  const handleSeedDoubleElimination = async (competitionId) => {
+    if (isSeedingRef.current || !tournamentDetail) return;
+    isSeedingRef.current = true;
+    setSeedSaving(competitionId);
+    try {
+      await clubAdminSeedDoubleElimination(tournamentDetail.tournament_id, competitionId);
+      await reloadDetail(tournamentDetail.slug, tournamentDetail.tournament_id);
+    } catch (e) {
+      console.error("[sessions] seed DE failed", e);
     } finally {
       setSeedSaving(false);
       isSeedingRef.current = false;
@@ -1139,13 +1155,25 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                               )}
 
                               {/* ── Schedule section ──────────────────── */}
-                              {fixtures.length === 0 && activeTeams.length >= 2 && (
+                              {fixtures.length === 0 && activeTeams.length >= 2 && comp.format !== "double_elimination" && (
                                 <div style={{ marginTop: 8 }}>
                                   <button
                                     onClick={() => { setGenCompId(comp.competition_id); setGenForm({ slotMinutes: 45, startTime: "09:00", startDate: "" }); setGenPitchIds([]); setGenError(null); setShowGenModal(true); }}
                                     style={{ fontSize: 12, fontWeight: 700, background: "rgba(96,160,255,0.12)", border: "1px solid rgba(96,160,255,0.3)", color: "#60A0FF", padding: "6px 14px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer" }}
                                   >
                                     Generate schedule
+                                  </button>
+                                </div>
+                              )}
+
+                              {fixtures.length === 0 && comp.format === "double_elimination" && activeTeams.length >= 4 && !comp.knockout_seeded && (
+                                <div style={{ marginTop: 8 }}>
+                                  <button
+                                    onClick={() => handleSeedDoubleElimination(comp.competition_id)}
+                                    disabled={seedSaving === comp.competition_id}
+                                    style={{ fontSize: 12, fontWeight: 700, background: "rgba(76,175,80,0.12)", border: "1px solid rgba(76,175,80,0.3)", color: "rgba(76,175,80,1)", padding: "6px 14px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: seedSaving === comp.competition_id ? "not-allowed" : "pointer" }}
+                                  >
+                                    {seedSaving === comp.competition_id ? "Seeding…" : "Seed double elimination"}
                                   </button>
                                 </div>
                               )}
@@ -1292,8 +1320,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                       </div>
                                     )}
 
-                                    {/* Knockout rounds */}
-                                    {comp.knockout_seeded && knockoutFx.length > 0 && (
+                                    {/* Knockout / DE bracket rounds */}
+                                    {comp.knockout_seeded && knockoutFx.length > 0 && comp.format !== "double_elimination" && (
                                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "rgba(255,190,60,0.8)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Knockout Stage</div>
                                         {Object.entries(knockoutFxByRound).map(([roundName, roundFixtures]) => (
@@ -1326,6 +1354,61 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                         ))}
                                       </div>
                                     )}
+
+                                    {/* Double-elimination bracket: WB / LB / Grand Final sections */}
+                                    {comp.knockout_seeded && knockoutFx.length > 0 && comp.format === "double_elimination" && (() => {
+                                      const wbFx = knockoutFx.filter(fx => fx.de_bracket === "winners");
+                                      const lbFx = knockoutFx.filter(fx => fx.de_bracket === "losers");
+                                      const gfFx = knockoutFx.filter(fx => fx.de_bracket === "grand_final");
+                                      const wbByRound = wbFx.reduce((acc, fx) => { const k = fx.round_name || `Round ${fx.round}`; if (!acc[k]) acc[k] = []; acc[k].push(fx); return acc; }, {});
+                                      const lbByRound = lbFx.reduce((acc, fx) => { const k = fx.round_name || `Round ${fx.round}`; if (!acc[k]) acc[k] = []; acc[k].push(fx); return acc; }, {});
+                                      const deFxRow = (fx) => (
+                                        <div key={fx.fixture_id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+                                          <span style={{ fontSize: 12, color: fx.home_team_name ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: fx.home_team_name ? "normal" : "italic" }}>{fx.home_team_name ?? "TBD"}</span>
+                                          <span style={{ fontSize: 10, color: fx.home_score != null ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, fontWeight: fx.home_score != null ? 700 : 400 }}>
+                                            {fx.home_score != null ? `${fx.home_score}–${fx.away_score}` : "vs"}
+                                          </span>
+                                          <span style={{ fontSize: 12, color: fx.away_team_name ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right", fontStyle: fx.away_team_name ? "normal" : "italic" }}>{fx.away_team_name ?? "TBD"}</span>
+                                          {fx.kickoff_time && <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>{fx.kickoff_time.slice(0,5)}</span>}
+                                          {fx.pitch_name && <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>· {fx.pitch_name}</span>}
+                                          {fx.ref_token && (
+                                            <button onClick={() => navigator.clipboard.writeText(`https://platform-ref.vercel.app/?token=${fx.ref_token}`)} style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}>Ref</button>
+                                          )}
+                                        </div>
+                                      );
+                                      return (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                          {wbFx.length > 0 && (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "rgba(255,190,60,0.8)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Winners Bracket</div>
+                                              {Object.entries(wbByRound).map(([roundName, roundFixtures]) => (
+                                                <div key={roundName}>
+                                                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>{roundName}</div>
+                                                  {roundFixtures.map(deFxRow)}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                          {lbFx.length > 0 && (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "rgba(255,120,60,0.8)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Losers Bracket</div>
+                                              {Object.entries(lbByRound).map(([roundName, roundFixtures]) => (
+                                                <div key={roundName}>
+                                                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "var(--t3, #666)", fontFamily: "var(--font-body)", textTransform: "uppercase", marginBottom: 4 }}>{roundName}</div>
+                                                  {roundFixtures.map(deFxRow)}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                          {gfFx.length > 0 && (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: "rgba(255,215,0,0.9)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Grand Final</div>
+                                              {gfFx.map(deFxRow)}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                 );
                               })()}

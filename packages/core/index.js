@@ -101,6 +101,7 @@ export {
   refConfirmTournamentMatch,
   clubAdminGetStandings,
   clubAdminSeedKnockout,
+  clubAdminSeedDoubleElimination,
   refRecordTournamentCard,
   getTournamentSuspensionList,
   updateLeagueConfig,

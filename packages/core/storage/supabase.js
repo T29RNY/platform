@@ -2708,6 +2708,15 @@ export async function clubAdminSeedKnockout(tournamentEventId, competitionId) {
   return data;
 }
 
+export async function clubAdminSeedDoubleElimination(tournamentEventId, competitionId) {
+  const { data, error } = await supabase.rpc("club_admin_seed_double_elimination", {
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id:      competitionId,
+  });
+  if (error) { console.error("[club] seed_double_elimination failed", error); throw error; }
+  return data;
+}
+
 export async function refRecordTournamentCard(refToken, competitionTeamId, playerName, cardType, minuteVal, period) {
   const { data, error } = await supabase.rpc("ref_record_tournament_card", {
     p_ref_token:           refToken,

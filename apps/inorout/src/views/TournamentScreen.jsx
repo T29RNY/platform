@@ -211,29 +211,56 @@ export default function TournamentScreen({ slug }) {
         </section>
       )}
 
-      {/* ── Knockout Stage ─────────────────────────────────────────────── */}
-      {hasKnockout && (
-        <section>
-          <SectionHeading>Knockout Stage</SectionHeading>
-          <Card>
-            {groupByRound(knockoutFixtures).map((group, gi) => (
-              <div key={group.round ?? gi}>
-                <div style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase",
-                  color: "var(--t3, #666)", padding: "10px 0 6px",
-                  borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.06))",
-                  marginBottom: 4,
-                }}>
-                  {group.round}
-                </div>
-                {group.fixtures.map((fx, i) => (
-                  <FixtureRow key={fx.fixture_id} fx={fx} last={i === group.fixtures.length - 1 && gi === groupByRound(knockoutFixtures).length - 1} />
-                ))}
-              </div>
+      {/* ── Knockout Stage / DE Brackets ───────────────────────────────── */}
+      {hasKnockout && (() => {
+        const singleElimFx = knockoutFixtures.filter(fx => fx.de_bracket == null);
+        const wbFx         = knockoutFixtures.filter(fx => fx.de_bracket === "winners");
+        const lbFx         = knockoutFixtures.filter(fx => fx.de_bracket === "losers");
+        const gfFx         = knockoutFixtures.filter(fx => fx.de_bracket === "grand_final");
+        const renderRounds = (fxList) => groupByRound(fxList).map((group, gi) => (
+          <div key={group.round ?? gi}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase",
+              color: "var(--t3, #666)", padding: "10px 0 6px",
+              borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.06))",
+              marginBottom: 4,
+            }}>
+              {group.round}
+            </div>
+            {group.fixtures.map((fx, i) => (
+              <FixtureRow key={fx.fixture_id} fx={fx} last={i === group.fixtures.length - 1 && gi === groupByRound(fxList).length - 1} />
             ))}
-          </Card>
-        </section>
-      )}
+          </div>
+        ));
+        return (
+          <>
+            {singleElimFx.length > 0 && (
+              <section>
+                <SectionHeading>Knockout Stage</SectionHeading>
+                <Card>{renderRounds(singleElimFx)}</Card>
+              </section>
+            )}
+            {wbFx.length > 0 && (
+              <section>
+                <SectionHeading>Winners Bracket</SectionHeading>
+                <Card>{renderRounds(wbFx)}</Card>
+              </section>
+            )}
+            {lbFx.length > 0 && (
+              <section>
+                <SectionHeading>Losers Bracket</SectionHeading>
+                <Card>{renderRounds(lbFx)}</Card>
+              </section>
+            )}
+            {gfFx.length > 0 && (
+              <section>
+                <SectionHeading>Grand Final</SectionHeading>
+                <Card>{renderRounds(gfFx)}</Card>
+              </section>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── Standings ──────────────────────────────────────────────────── */}
       {hasStandings && standings.map(comp => {
