@@ -616,14 +616,20 @@ makes renewals idempotent.
   due memberships + fee subscriptions, advances dates. Driven by
   `apps/inorout/api/cron.js membershipRenewalsJob` (09:00 UK). Freeze: `status`
   paused + `renews_at` pushed by the freeze length (frozen window never billed).
-- **Phase 7 Stripe scaffolding (mig 279, DORMANT)** — `venues` +
-  `stripe_connect_account_id`, `stripe_connect_status` (none|onboarding|active|restricted),
-  `stripe_charges_enabled`, `stripe_details_submitted`; `venue_customers` +
+- **Payment Infrastructure foundation (mig 329, s132)** — `venue_integrations` table:
+  `id uuid PK`, `venue_id`→venues, `provider` IN ('stripe','gocardless'), `status` IN
+  ('pending','connected','disconnected'), `account_id text` (Stripe account ID or GC
+  partner ID), `access_token text` (per-venue secret — never returned to client, SECDEF-only),
+  `config jsonb` (e.g. `{charges_enabled, details_submitted}`), `connected_at`, `disconnected_at`,
+  `created_at`, `updated_at`. UNIQUE(venue_id, provider). RLS-walled, REVOKE anon/authenticated.
+  The four `stripe_connect_*` columns mig 279 added to `venues` are DROPPED (moved here).
+- **Phase 7 Stripe scaffolding (mig 279, DORMANT)** — `venue_customers` +
   `stripe_customer_id`; `venue_memberships` + `stripe_subscription_id`, `stripe_price_id`,
   `payment_state` (current|past_due|suspended — Stripe-driven, separate from `status`);
   `billing_events` (mig 055) gains entity scope `membership` + lifecycle `status`
   (received|processed|failed|ignored) + `processed_at` + `payload jsonb` (the persist-then-
-  process webhook store; UNIQUE `stripe_event_id` = idempotency key).
+  process webhook store; UNIQUE `stripe_event_id` = idempotency key). NOTE: `venues` stripe
+  columns removed — provider credentials now live in `venue_integrations`.
 - `venue_member_checkins` (mig 274, Phase 5) — reception attendance log. `venue_id`,
   `membership_id`→venue_memberships, `customer_id`→venue_customers, `checked_in_at`,
   `source` (`display_qr`). RLS-walled, definer-only (REVOKE anon/authenticated).

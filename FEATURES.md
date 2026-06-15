@@ -36,7 +36,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 3 | Competition & Team-Risk analytics (at-risk teams, fill rate, completion) | Backend+UI | 🔴 not started |
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
-| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🔴 Phase 1 not started |
+| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟡 Phase 1 ✅ (mig 329, s132); Phase 2 blocked on operator Stripe creds |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
 | Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
 | Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
@@ -547,11 +547,13 @@ with the apps/venue Payments screen.
 
 Platform never holds money. Each venue/club connects their own Stripe or GoCardless account. Money flows club↔member directly. Platform orchestrates via API (`Stripe-Account` header / GoCardless for Platforms access token). Full decision rationale: DECISIONS.md "Payment infrastructure" entry.
 
-**Phase 1 — Foundation** 🔴 not started
-- `venue_integrations` table (`venue_id`, `provider` CHECK IN ('stripe','gocardless'), `status` CHECK IN ('pending','connected','disconnected'), `account_id`, `access_token` encrypted, `config jsonb`, `connected_at`, `disconnected_at`)
-- Refactor mig 279 — migrate Stripe-specific columns off `venues`/`venue_memberships` into `venue_integrations`
-- Venue Settings → new "Payments" tab: two provider cards (Stripe, GoCardless), both showing "not connected"
-- EV + security sweep. **Next mig = 329.**
+**Phase 1 — Foundation** ✅ shipped s132 (mig 329, commit 5968af7)
+- `venue_integrations` table: `venue_id`, `provider` IN ('stripe','gocardless'), `status` IN ('pending','connected','disconnected'), `account_id`, `access_token`, `config jsonb`, `connected_at`, `disconnected_at`, UNIQUE(venue_id, provider). RLS-walled, REVOKE anon/authenticated.
+- Dropped dormant stripe_* columns from `venues` (mig 279 scaffolding, no live data). `venue_memberships`/`venue_customers` stripe columns untouched (per-membership state, not credentials).
+- Rewrote `set_venue_connect_state` (now upserts into `venue_integrations`) and `venue_get_billing_status` (now reads both providers from `venue_integrations`; returns `stripe` + `gocardless` objects). Both SECDEF ✓, search_path ✓, overload=1 ✓.
+- Fixed stale `stripe_connect_account_id` refs in `api/cron.js`, `api/stripe-connect.js`, `api/stripe-webhook.js` (all dormant Stripe scaffolding).
+- `venueGetBillingStatus` wrapper + barrel. `IntegrationsView.jsx` + Integrations nav tab in venue dashboard (two provider cards, both "NOT CONNECTED"). Security sweep 2/2 PASS. Both builds clean.
+- **Next mig = 330.**
 
 **Phase 2 — Stripe Connect (venue side)** 🔴 not started *(depends on Phase 1 + operator Stripe platform credentials)*
 - "Connect Stripe" button → OAuth redirect to Stripe
