@@ -3860,3 +3860,37 @@ Planned the Event OS — a tournament, league, and sports day hosting platform b
 **Next migration: 323.**
 
 **FEATURES.md updated this session.**
+
+---
+
+## SESSION 126 — Event OS Phase 7B — Card Tracking + Auto-Suspension (mig 323)
+
+**New table:**
+- `tournament_cards` — `(id uuid, fixture_id, competition_id, competition_team_id, player_name text, card_type CHECK IN ('yellow','red'), minute int, period text, auto_suspended bool, recorded_by_ref_token text, created_at)`. RLS enabled, REVOKE ALL on anon+authenticated.
+
+**RPCs (mig 323):**
+- `ref_record_tournament_card(p_ref_token, p_competition_team_id uuid, p_player_name text, p_card_type text, p_minute int, p_period text)` → jsonb — SECURITY DEFINER, GRANT anon+authenticated. Resolves fixture via `_ref_resolve_fixture`, validates tournament+in_progress+team_in_fixture+non-blank-name+valid-type. Auto-suspension: 2nd yellow in same (competition_id, competition_team_id, player_name) = `auto_suspended=true`; any red = `auto_suspended=true`. Returns `{ok, card_id, is_suspended, player_name, card_type}`. Audit event per card.
+- `get_tournament_suspension_list(p_tournament_event_id uuid, p_competition_id uuid)` → jsonb — SECURITY DEFINER, REVOKE anon, GRANT authenticated. Auth: `auth.uid() → member_profiles → club_team_managers`. Returns `{ok, suspensions: [{competition_team_id, team_name, player_name, yellow_count, red_count}]}` for all `auto_suspended=true` rows in the competition.
+- `ref_start_tournament_match(text, uuid, timestamptz)` REPLACED — identical logic to mig 320 but now queries `tournament_cards` post-UPDATE to return `suspensions[]` of known-suspended players on either team. Return shape: `{ok, fixture_id, status, suspensions}`. Same grants.
+- `club_admin_get_standings(uuid, uuid)` REPLACED — **bug fix**: removed join on non-existent `public.club_admins` table (runtime crash since mig 320). Now uses `club_team_managers` guard (correct Phase 1-3 pattern). H2H standings logic from mig 322 preserved exactly.
+
+**JS wrappers (packages/core/storage/supabase.js):**
+- `refRecordTournamentCard(refToken, competitionTeamId, playerName, cardType, minuteVal, period)`
+- `getTournamentSuspensionList(tournamentEventId, competitionId)`
+- Both exported from `packages/core/index.js`.
+
+**UI changes:**
+- `apps/ref/src/views/LiveMatch.jsx` — imported `refRecordTournamentCard`. `TournamentGoalButton` gains secondary CARD button + `onCard` prop. New `TournamentCardModal` component (player name input + yellow/red toggle, confirm button). New `doTournamentCard(side, playerName, cardType)` handler: calls RPC, shows toast with suspension flag if `result.is_suspended`. Overlay system: `{ type: "tournament-card", side, team }`.
+- `apps/ref/src/views/PreMatch.jsx` — `start()` now reads `result.suspensions` from `refStartTournamentMatch`; if non-empty, shows `SuspensionWarningModal` (lists suspended players) before calling `onRefresh()`.
+
+**Ephemeral verify:** 8/8 PASS (blank-name-rejected, invalid-card-type-rejected, team-not-in-fixture-rejected, first-yellow-not-suspended, second-yellow-suspended, red-always-suspended, card-count=3, suspension-count=2). Leak check: venues=0, clubs=0, cards=0, audit_rows=0.
+
+**Security sweep:** All 4 RPCs SECDEF ✓, search_path ✓, overload_count=1 ✓. Grants: ref_ RPCs = anon+authenticated; director/standings RPCs = authenticated only.
+
+**Bug fixed:** `club_admin_get_standings` was dead since mig 320 (session 122) — `club_admins` table never existed. Fixed in same commit. See BUGS.md session 126.
+
+**Commit:** `926f561`.
+
+**Next migration: 324.**
+
+**FEATURES.md and BUGS.md updated this session.**

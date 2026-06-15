@@ -2072,7 +2072,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 | 2 — Invitations & Registration | External clubs join, pay entry fee, waitlist | ✅ Complete (mig 317+318 s120+s121) |
 | 3 — Scheduling & Day Ops | Auto-schedule, drag-drop grid, director command view | ✅ Complete (mig 319 s122) |
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
-| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🟡 In progress — 7A H2H done (mig 322, s125); 7B cards pending |
+| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) both complete |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
@@ -2122,7 +2122,7 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
 - Commit: `312ec78`. Next migration: 322.
 
 | 4 — Public Page | `in-or-out.com/tournament/[slug]`, live bracket, printed schedule | ✅ Complete (mig 321, s124) |
-| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | 🟡 In progress — 7A H2H done (mig 322, s125); 7B cards pending |
+| 5 — Correctness | H2H tiebreaker, classification brackets, double-elim, card auto-suspension | ✅ 7A H2H (mig 322, s125) + 7B cards (mig 323, s126) both complete |
 | 6 — Performance Events | Athletics model, judge interface, overall sports day standings | 🔲 Not started |
 | 7 — Commercial | Sponsors, branding, Player of Tournament, equipment hire bundle | 🔲 Not started |
 
@@ -2133,6 +2133,17 @@ Parent home screen is a first-class persona. Guardian links via existing Phase 1
   - `SessionsScreen.jsx` director client-side sort — pairwise H2H loop over `completedFx` array; `standingsMap` entries now carry an `id` field for the fixture lookup. Matches DB sort order exactly.
 - Proof: 4-team round-robin BEGIN/ROLLBACK test — Gamma (6pts, GD+1, beat Alpha H2H 1-0) ranks #1; Alpha (6pts, GD+5) ranks #2. H2H overrides overall GD advantage.
 - Security sweep: SECDEF ✓, search_path ✓, overload_count=1 ✓ for both RPCs. Build PASS. Hygiene 7/7 PASS.
-- Commit: `f26d7c9`. Next migration: 323.
+- Commit: `f26d7c9`.
 
-Next migration: 323.
+**Phase 7B (mig 323) ✅ COMPLETE (session 126):**
+- New table `tournament_cards` (competition-scoped, FK to fixtures + competition_teams).
+- `ref_record_tournament_card` RPC — ref records yellow/red per player (free-text name); 2nd yellow in same competition = `auto_suspended=true`; any red = `auto_suspended=true`. Full audit_events trail.
+- `get_tournament_suspension_list` RPC — authenticated, club_team_managers guard; returns all suspended players per competition for the director view.
+- `ref_start_tournament_match` updated — returns `suspensions[]` of players known-suspended on either team; `PreMatch.jsx` shows `SuspensionWarningModal` if the array is non-empty, requiring acknowledgement before `onRefresh()` transitions to LiveMatch.
+- Ref UI: `TournamentGoalButton` gains a secondary CARD button; `TournamentCardModal` (player name input + yellow/red toggle) opens via the overlay system; `doTournamentCard()` calls the RPC and shows a toast ("Yellow — Alice Smith — SUSPENDED" if triggered).
+- **Bug fixed in same commit**: `club_admin_get_standings` previously joined `public.club_admins` (table that has never existed) — runtime crash on every call since mig 320. Replaced with `club_team_managers` guard (the correct Phase 1-3 pattern).
+- EV 8/8 PASS (3 error-paths + first-yellow-not-suspended + second-yellow-suspended + red-always-suspended + card-count=3 + suspension-count=2). Leak check: all zeros.
+- Security sweep: SECDEF ✓, search_path ✓, overload_count=1 ✓ for all 4 RPCs. Build PASS.
+- Commit: `926f561`. Next migration: 324.
+
+Next migration: 324.
