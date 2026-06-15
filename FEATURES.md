@@ -36,9 +36,9 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 3 | Competition & Team-Risk analytics (at-risk teams, fill rate, completion) | Backend+UI | 🔴 not started |
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
-| Payments | Venue Ledger **V5** — online card payments (Stripe Connect + Apple/Google Pay) | Backend/New | 🔴 deferred (cash/transfer tracked now) |
+| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🔴 Phase 1 not started |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
-| Operational | SMS/WhatsApp real-delivery once `TWILIO_*` env set | Test/Config | 🟢 owed (no-ops until keys set) |
+| Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
 | Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
 | Operational | Real-iPhone passes: persistent guests, cups player view, reserve/injured (session 73) | Test | 🟢 owed |
 
@@ -540,6 +540,67 @@ with the apps/venue Payments screen.
   apps/hq build clean (84 modules, exit 0). **Operator owes:** logged-in HQ browser pass.
 - **Next:** HQ-I Phase 3 (Competition & Team Risk), or V3.1 (per-fixture charge add/void +
   payment_link), or V5 (Stripe Connect online rails).
+
+---
+
+## PAYMENT INFRASTRUCTURE — STRIPE CONNECT + GOCARDLESS FOR PLATFORMS (session 131)
+
+Platform never holds money. Each venue/club connects their own Stripe or GoCardless account. Money flows club↔member directly. Platform orchestrates via API (`Stripe-Account` header / GoCardless for Platforms access token). Full decision rationale: DECISIONS.md "Payment infrastructure" entry.
+
+**Phase 1 — Foundation** 🔴 not started
+- `venue_integrations` table (`venue_id`, `provider` CHECK IN ('stripe','gocardless'), `status` CHECK IN ('pending','connected','disconnected'), `account_id`, `access_token` encrypted, `config jsonb`, `connected_at`, `disconnected_at`)
+- Refactor mig 279 — migrate Stripe-specific columns off `venues`/`venue_memberships` into `venue_integrations`
+- Venue Settings → new "Payments" tab: two provider cards (Stripe, GoCardless), both showing "not connected"
+- EV + security sweep. **Next mig = 329.**
+
+**Phase 2 — Stripe Connect (venue side)** 🔴 not started *(depends on Phase 1 + operator Stripe platform credentials)*
+- "Connect Stripe" button → OAuth redirect to Stripe
+- Callback: exchange code → store connected account ID in `venue_integrations`
+- Activate dormant `api/_stripe.js` + `api/stripe-webhook.js` (mig 279 scaffolding)
+- Venue Settings: connected state (account name, disconnect button)
+- EV + security sweep
+
+**Phase 3 — Stripe member enrolment + webhooks** 🔴 not started *(depends on Phase 2)*
+- On membership enrolment: create Stripe Customer + Subscription on venue's connected account (via `Stripe-Account` header)
+- `venue_memberships.payment_state` driven by Stripe subscription status
+- Failed payment → grace → suspended state machine (mig 279 logic activated)
+- Member sees payment status on member pass
+
+**Phase 4 — Stripe test lifecycle + go live** 🔴 not started *(depends on Phase 3)*
+- Full Stripe test clock: enrol → renewal → payment failure → grace → suspension → recovery
+- Drop webhook deliberately → confirm reconciliation cron self-heals
+- Operator signs off DECISIONS.md MONEY-FLOW GATE
+- Live Stripe keys added to Vercel env
+
+**Phase 5 — GoCardless connect (venue side)** 🔴 not started *(depends on Phase 1 + operator GoCardless for Platforms account)*
+- `api/_gocardless.js` — GoCardless client, parameterised per venue access token
+- `api/gocardless-connect.js` — OAuth flow + callback → writes `venue_integrations`
+- "Connect GoCardless" button in venue Settings
+- Venue Settings: connected state
+
+**Phase 6 — GoCardless member mandate + webhooks** 🔴 not started *(depends on Phase 5)*
+- On membership enrolment: redirect member to GoCardless hosted redirectflow (member authorises DD mandate on GoCardless's own page)
+- Callback confirms mandate active, stored against member record
+- `api/gocardless-webhook.js`: handles `payment_created`, `payment_paid_out`, `payment_failed`, `mandate_cancelled`
+- Same `payment_state` machine as Stripe (current → past_due → suspended)
+- Reconciliation cron for stuck mandates
+- EV + security sweep
+
+**Phase 7 — GoCardless test lifecycle + go live** 🔴 not started *(depends on Phase 6)*
+- Full GoCardless sandbox: mandate setup → first payment → renewal → failure → retry → recovery
+- Cancel mandate deliberately → confirm reconciliation handles it
+- Operator sign-off
+- Live GoCardless keys added to Vercel env
+
+**Phase 8 — Member payment choice** 🔴 not started *(depends on Phases 4 + 7 — both providers live)*
+- At enrolment: venue has both connected → member sees "Pay by card" (Stripe) or "Pay by Direct Debit" (GoCardless)
+- Venue has one provider only → no choice shown, that provider used automatically
+- Member sees their payment method on their member pass
+- Failed payment recovery: re-authorise mandate (GoCardless) or update card (Stripe)
+
+**Use case mapping (settled):** memberships → either provider (member's choice if both connected); match fees / tournament entries / equipment deposits → Stripe only (one-off, card/Apple Pay).
+
+**Build dependency:** Phases 1–4 ship and go live independently of 5–7. Phase 8 requires both.
 
 ---
 

@@ -1,10 +1,53 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 13 2026 (session 90 — MY VIEW has ONE header. The old `HeroCard` green pitch banner is gone; the floodlit pitch is now the *background* of the single `PageHeader` (via `PitchCanvas.jsx`), which carries the wordmark + one fixture line (day · venue · time · £price) + a thin admins line. The day is printed once. Do NOT re-introduce a separate "this week" hero/banner block above or below the header. session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
+*Last updated: Jun 15 2026 (session 131 — Native app = Capacitor; WhatsApp/SMS ruled out; payment infrastructure = Stripe Connect + GoCardless for Platforms, 8-phase plan, `venue_integrations` foundation. session 90 — MY VIEW has ONE header. The old `HeroCard` green pitch banner is gone; the floodlit pitch is now the *background* of the single `PageHeader` (via `PitchCanvas.jsx`), which carries the wordmark + one fixture line (day · venue · time · £price) + a thin admins line. The day is printed once. Do NOT re-introduce a separate "this week" hero/banner block above or below the header. session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## Native app = Capacitor; WhatsApp/SMS ruled out in favour of native push (session 131)
+
+**Capacitor** is the native app wrapper for `apps/inorout`. Maximum code reuse — existing Vite/React codebase unchanged; only the push notification layer is replaced. App Store launch (iOS + Android) targeting ~2 weeks from session 131 for the first pilot.
+
+**Push channel migration required before Capacitor ships:**
+- `register_push_subscription` needs a `platform` discriminator (`ios`/`android`/`web`) + raw device token column alongside the existing VAPID endpoint
+- `/api/notify` server sender rewritten to branch on platform: APNs (iOS), FCM (Android), Web Push (web fallback)
+- Apple Developer account + APNs Auth Key (`.p8`) — provision immediately, can't be parallelised with code
+- Firebase project + `GoogleService-Info.plist` (iOS) + `google-services.json` (Android) — 15 minutes, do alongside APNs
+
+**WhatsApp/SMS ruled out.** PWA push unreliability was the only real driver for WhatsApp Business API. With Capacitor + APNs/FCM, push delivery goes from ~60% (PWA) to 95%+. WhatsApp adds per-message cost, per-venue Twilio credential management, and removes the incentive to install the app. `_sms.js` stays dormant indefinitely. `pickChannel` routing simplifies to: **push → email only**. Do NOT re-open WhatsApp unless a real pilot tells us members are not installing the app.
+
+## Payment infrastructure — Stripe Connect + GoCardless for Platforms, both offered (session 131)
+
+**Platform never holds money.** Each venue/club connects their own Stripe or GoCardless account. Money flows club↔member directly. Platform orchestrates via API (`Stripe-Account` header for Stripe; per-venue access token for GoCardless). Platform bears zero transaction cost and zero liability.
+
+**Both providers offered** — they solve different problems:
+- **Stripe**: card / Apple Pay / Google Pay — one-off and recurring subscriptions. Best for match fees, tournament entries, equipment deposits, and members who prefer card.
+- **GoCardless**: Direct Debit from bank account — much lower recurring failure rate (bank accounts don't expire), cheaper per-transaction, and UK sports clubs have collected membership fees via DD for decades. Parents expect it for club memberships.
+
+A venue can connect **both simultaneously**. If both are connected, the member chooses at enrolment. If only one is connected, it is used automatically with no choice shown.
+
+**`venue_integrations` table** is the shared foundation for all third-party credentials (provider, status, account_id, access_token encrypted, config jsonb). Replaces Stripe-specific columns scattered across `venues`/`venue_memberships` in mig 279.
+
+**8-phase build plan (full detail: FEATURES.md — Payment Infrastructure section):**
+
+| Phase | What | Dependency |
+|---|---|---|
+| 1 | `venue_integrations` table + venue Settings Payments UI | Nothing |
+| 2 | Stripe Connect — venue OAuth flow | Phase 1 + Stripe platform creds |
+| 3 | Stripe member enrolment + webhooks | Phase 2 |
+| 4 | Stripe test lifecycle → live keys | Phase 3 + operator sign-off |
+| 5 | GoCardless connect — venue OAuth flow | Phase 1 + GoCardless for Platforms account |
+| 6 | GoCardless member mandate + webhooks + reconciliation | Phase 5 |
+| 7 | GoCardless test lifecycle → live keys | Phase 6 + operator sign-off |
+| 8 | Member payment choice UI (both connected) | Phases 4 + 7 |
+
+Phases 1–4 ship and go live independently of 5–7. Phase 8 requires both.
+
+**Use case mapping (settled):** memberships → either provider; match fees / tournament entries / equipment deposits → Stripe only (one-off, card/Apple Pay).
+
+**Operator actions required before Phase 2:** Stripe platform account + test keys. Before Phase 5: GoCardless for Platforms account.
 
 ## `clubs` is the SINGLE canonical club entity — league, membership & attendance all hang off it (session 92, Membership V2 Phase-1 audit)
 
