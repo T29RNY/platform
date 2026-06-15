@@ -5,6 +5,7 @@ import {
   memberAcceptConsent,
   uploadMemberIdDoc, memberSubmitIdDocument,
   memberEnrolMembership, stripeInitMemberCheckout,
+  supabase,
 } from "@platform/core/storage/supabase.js";
 
 // Phase 7 — /q membership signup wizard.
@@ -13,7 +14,7 @@ import {
 //        documents (policy_documents[]), tiers (tier[]), onDone (cb).
 
 const PERIOD_LABEL = { monthly: "month", quarterly: "quarter", annual: "year", season: "season" };
-const AUDIENCE_FOR_PATH = { adult: ["adult", "family"], child: ["junior", "child", "family"] };
+const AUDIENCE_FOR_PATH = { adult: ["adult", "all", "family"], child: ["junior", "child", "all", "family"] };
 const ID_DOC_TYPES = [
   { value: "passport",         label: "Passport" },
   { value: "driving_licence",  label: "Driving licence" },
@@ -150,6 +151,12 @@ function StepCreateProfile({ onDone, onError }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) setF((p) => ({ ...p, email: p.email || session.user.email }));
+    }).catch(() => {});
+  }, []);
 
   const submit = async () => {
     if (!f.first.trim()) { setErr("First name is required."); return; }
