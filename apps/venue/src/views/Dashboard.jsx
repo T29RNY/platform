@@ -68,7 +68,10 @@ function canManageLogins(me) {
 }
 
 export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, refreshing, membershipTick = 0 }) {
-  const [view, setView] = useState("ops");
+  const [view, setView] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has("connect") ? "integrations" : "ops";
+  });
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
 

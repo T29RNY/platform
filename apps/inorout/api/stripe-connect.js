@@ -1,5 +1,8 @@
 // POST /api/stripe-connect — venue Stripe Connect onboarding for memberships.
 //
+// Called cross-origin from apps/venue (platform-venue.vercel.app). CORS is locked
+// to that origin via STRIPE_CONNECT_ALLOWED_ORIGIN env var.
+//
 // DORMANT until STRIPE_SECRET_KEY is set (returns 503). Authorises the caller by
 // venue token (must hold `manage_memberships`), then:
 //   action 'onboard' → create the venue's Express connected account if absent +
@@ -11,6 +14,14 @@
 
 const { createClient } = require("@supabase/supabase-js");
 const { stripe, isConfigured } = require("./_stripe");
+
+const CORS_ORIGIN = process.env.STRIPE_CONNECT_ALLOWED_ORIGIN || "https://platform-venue.vercel.app";
+
+function setCors(res) {
+  res.setHeader("Access-Control-Allow-Origin", CORS_ORIGIN);
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
 
 // Mirrors _venue_has_cap (mig 237) for the endpoint-side authorisation gate.
 function hasCap(caller, cap) {
@@ -24,6 +35,8 @@ function hasCap(caller, cap) {
 }
 
 module.exports = async function handler(req, res) {
+  setCors(res);
+  if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
   if (!isConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(503).json({ error: "stripe_not_configured" });

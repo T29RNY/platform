@@ -3515,6 +3515,12 @@ export async function venueGetBillingStatus(venueToken) {
   return data;
 }
 
+export async function venueStripeDisconnect(venueToken) {
+  const { data, error } = await supabase.rpc("venue_stripe_disconnect", { p_venue_token: venueToken });
+  if (error) { console.error("[integrations] venue_stripe_disconnect failed", error); throw error; }
+  return data;
+}
+
 export async function venueRecordPayment(venueToken, chargeId, amountPence, method, { externalRef = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("venue_record_payment", {
     p_venue_token: venueToken, p_charge_id: chargeId, p_amount_pence: amountPence,
