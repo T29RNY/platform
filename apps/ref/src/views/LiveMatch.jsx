@@ -26,6 +26,7 @@ import {
   refRecordTournamentGoal,
   refUndoTournamentGoal,
   refConfirmTournamentMatch,
+  refRecordTournamentCard,
 } from "@platform/core/storage/supabase.js";
 import {
   enqueue,
@@ -359,8 +360,55 @@ function MatchLogSheet({ events, homeSquad, awaySquad, period, curAdded, onAddMi
   );
 }
 
-// ---------- tournament team section (no squad → big goal button) ----------
-function TournamentGoalButton({ team, locked, onGoal }) {
+// ---------- tournament team section (no squad → big goal + card buttons) ----------
+function TournamentCardModal({ team, onConfirm, onClose }) {
+  const [name, setName] = useState("");
+  const [cardType, setCardType] = useState("yellow");
+  const busyRef = useRef(false);
+  return (
+    <div className="overlay-sheet">
+      <div className="os-head">
+        <span className="nm">{team?.name || "Team"} — Record Card</span>
+        <button className="close-btn" onClick={onClose}>✕</button>
+      </div>
+      <div style={{ padding: "16px 16px 8px" }}>
+        <input
+          className="txt-input"
+          placeholder="Player name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+          style={{ width: "100%", marginBottom: 14 }}
+        />
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <button
+            className={"btn btn-block" + (cardType === "yellow" ? " btn-primary" : " btn-ghost")}
+            style={{ flex: 1, background: cardType === "yellow" ? "var(--yellow)" : undefined, color: cardType === "yellow" ? "#000" : undefined }}
+            onClick={() => setCardType("yellow")}
+          >Yellow</button>
+          <button
+            className={"btn btn-block" + (cardType === "red" ? " btn-primary" : " btn-ghost")}
+            style={{ flex: 1, background: cardType === "red" ? "var(--red)" : undefined }}
+            onClick={() => setCardType("red")}
+          >Red</button>
+        </div>
+        <button
+          className={"btn btn-primary btn-block" + (!name.trim() ? " disabled" : "")}
+          disabled={!name.trim()}
+          style={{ height: 52 }}
+          onClick={() => {
+            if (!name.trim() || busyRef.current) return;
+            busyRef.current = true;
+            onConfirm(name.trim(), cardType);
+          }}
+        >Record Card</button>
+        <button className="btn btn-ghost btn-block" style={{ height: 46, marginTop: 8 }} onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function TournamentGoalButton({ team, locked, onGoal, onCard }) {
   return (
     <div className="team-sec">
       <div className="team-head">
@@ -376,6 +424,12 @@ function TournamentGoalButton({ team, locked, onGoal }) {
         >
           <GoalDot s={20} /> GOAL
         </button>
+        <button
+          className={"btn btn-ghost btn-block" + (locked ? " disabled" : "")}
+          disabled={locked}
+          onClick={onCard}
+          style={{ marginTop: 8, height: 44 }}
+        >CARD</button>
       </div>
     </div>
   );
@@ -588,6 +642,22 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
     }
   }
 
+  async function doTournamentCard(side, playerName, cardType) {
+    vibrate(14);
+    const m = minute();
+    const compTeamId = side === "home" ? props.fixture.home_competition_team_id : props.fixture.away_competition_team_id;
+    closeOverlay();
+    try {
+      const result = await refRecordTournamentCard(refToken, compTeamId, playerName, cardType, m, period);
+      const icon = cardType === "red" ? "red" : "yellow";
+      const suspendedNote = result.is_suspended ? " — SUSPENDED" : "";
+      setToast({ label: `${cardType === "red" ? "Red" : "Yellow"} — ${playerName}${suspendedNote}`, icon, key: Date.now() });
+    } catch (e) {
+      console.error("[ref] tournament card failed", e);
+      window.alert("Card not recorded — try again");
+    }
+  }
+
   function doNote(text, player) {
     const cid = uuid(), m = minute(), lt = nowISO(), tid = player ? teamIdOf(player.id) : null;
     commitEvents([{ kind: "note", args: { text, playerId: player ? player.id : null, minute: m, period, clientEventId: cid, localTimestamp: lt },
@@ -792,10 +862,10 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
         {locked && <div className="lock-note"><PauseIcon /> {period === "HT" ? "Half time — events paused" : "Full time"}</div>}
         {props.home_squad.length > 0
           ? <TeamColumn team={home} squad={props.home_squad} events={events} locked={locked} fixture={fixture} onTapPlayer={(p) => setOverlay({ type: "actions", player: p })} />
-          : <TournamentGoalButton team={home} locked={locked} onGoal={() => doTournamentGoal("home")} />}
+          : <TournamentGoalButton team={home} locked={locked} onGoal={() => doTournamentGoal("home")} onCard={() => setOverlay({ type: "tournament-card", side: "home", team: home })} />}
         {props.away_squad.length > 0
           ? <TeamColumn team={away} squad={props.away_squad} events={events} locked={locked} fixture={fixture} onTapPlayer={(p) => setOverlay({ type: "actions", player: p })} />
-          : <TournamentGoalButton team={away} locked={locked} onGoal={() => doTournamentGoal("away")} />}
+          : <TournamentGoalButton team={away} locked={locked} onGoal={() => doTournamentGoal("away")} onCard={() => setOverlay({ type: "tournament-card", side: "away", team: away })} />}
         <div style={{ height: 16 }} />
       </div>
 
@@ -846,6 +916,9 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
       )}
       {overlay?.type === "note" && (
         <NoteComposer player={overlay.player || null} onSave={(t) => doNote(t, overlay.player || null)} onClose={closeOverlay} />
+      )}
+      {overlay?.type === "tournament-card" && (
+        <TournamentCardModal team={overlay.team} onConfirm={(n, c) => doTournamentCard(overlay.side, n, c)} onClose={closeOverlay} />
       )}
       {periodFx && (
         <div className="period-fx" key={periodFx.key}>

@@ -143,12 +143,37 @@ function TerminalBanner({ state, onRefresh }) {
   );
 }
 
+function SuspensionWarningModal({ suspensions, onContinue }) {
+  return (
+    <div className="overlay-sheet">
+      <div className="os-head">
+        <span className="nm">Suspended Players</span>
+      </div>
+      <div style={{ padding: "12px 16px 8px" }}>
+        <p style={{ color: "var(--txt2)", marginBottom: 14, fontSize: 14 }}>
+          The following players are suspended and should not play in this match:
+        </p>
+        {suspensions.map((s, i) => (
+          <div key={i} style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between" }}>
+            <span>{s.player_name}</span>
+            <span style={{ color: "var(--txt3)", fontSize: 13 }}>{s.team_name}</span>
+          </div>
+        ))}
+        <button className="btn btn-primary btn-block" style={{ height: 52, marginTop: 18 }} onClick={onContinue}>
+          Acknowledged — Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function PreMatch({ state, refToken, onRefresh }) {
   const { fixture, venue, competition, pitch, official, home_team, away_team, home_squad, away_squad } = state;
   const isBye = !away_team;
   const terminal = ["completed", "void", "postponed", "walkover", "forfeit"].includes(fixture.status);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [suspensions, setSuspensions] = useState(null);
 
   const eyebrow = [venue?.name, competition?.name, fixture.week_number != null ? `Week ${fixture.week_number}` : null, fixture.round_name]
     .filter(Boolean).join(" · ");
@@ -160,7 +185,12 @@ export default function PreMatch({ state, refToken, onRefresh }) {
     if (busy) return; setBusy(true); setErr(null);
     try {
       if (isTournament) {
-        await refStartTournamentMatch(refToken, uuid(), nowISO());
+        const result = await refStartTournamentMatch(refToken, uuid(), nowISO());
+        if (result?.suspensions?.length > 0) {
+          setSuspensions(result.suspensions);
+          setBusy(false);
+          return;
+        }
       } else {
         await refStartMatch(refToken, uuid(), nowISO());
       }
@@ -200,6 +230,9 @@ export default function PreMatch({ state, refToken, onRefresh }) {
         <SquadCard team={away_team} squad={away_squad} isBye={isBye} />
         <div style={{ height: 24 }} />
       </div>
+      {suspensions && (
+        <SuspensionWarningModal suspensions={suspensions} onContinue={() => { setSuspensions(null); onRefresh(); }} />
+      )}
     </div>
   );
 }

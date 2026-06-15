@@ -2699,6 +2699,28 @@ export async function clubAdminGetStandings(tournamentEventId, competitionId) {
   return data;
 }
 
+export async function refRecordTournamentCard(refToken, competitionTeamId, playerName, cardType, minuteVal, period) {
+  const { data, error } = await supabase.rpc("ref_record_tournament_card", {
+    p_ref_token:           refToken,
+    p_competition_team_id: competitionTeamId,
+    p_player_name:         playerName,
+    p_card_type:           cardType,
+    p_minute:              minuteVal,
+    p_period:              period,
+  });
+  if (error) { console.error("[ref] record_tournament_card failed", error); throw error; }
+  return data;
+}
+
+export async function getTournamentSuspensionList(tournamentEventId, competitionId) {
+  const { data, error } = await supabase.rpc("get_tournament_suspension_list", {
+    p_tournament_event_id: tournamentEventId,
+    p_competition_id:      competitionId,
+  });
+  if (error) { console.error("[club] get_suspension_list failed", error); throw error; }
+  return data;
+}
+
 // Match-format config write — callable by a venue admin/staff token OR a super admin
 // (resolve_venue_caller handles both). league-tier of the layered match_format resolution.
 export async function updateLeagueConfig(token, leagueId, config) {
