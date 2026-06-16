@@ -307,6 +307,13 @@ module.exports = async function handler(req, res) {
     results.push(`classReminders: error — ${e.message}`);
   }
 
+  // ── Room hire notifications (request ack / confirm / cancel drain) ─────────
+  try {
+    await roomHireNotificationsJob(results);
+  } catch (e) {
+    results.push(`roomHire: error — ${e.message}`);
+  }
+
   // ── HQ weekly digest (per-company, Monday 08:00 UK) ───────────────────────
   try {
     await weeklyDigestJob(results);
@@ -1284,6 +1291,53 @@ async function classRemindersJob(results) {
     }
   }
   results.push(`classReminders: ${sent} reminder(s)`);
+}
+
+// ── Room hire notifications (Phase 5, mig 342) ───────────────────────────────
+// Drains queued room_hire_* rows (channel IS NULL, sent_at IS NULL). Self-contained:
+// every display field is carried in queued_payload by the RPCs (members are EMAIL-only;
+// non-member enquirers have only booker_email), so no per-row DB lookup is needed.
+// No-ops cleanly until RESEND_API_KEY is set.
+async function roomHireNotificationsJob(results) {
+  const DRAIN_TYPES = ["room_hire_requested", "room_hire_confirmed", "room_hire_cancelled"];
+  const { data: queued, error } = await supabase
+    .from("notification_log")
+    .select("id, type, recipient, queued_payload")
+    .in("type", DRAIN_TYPES)
+    .is("channel", null)
+    .is("sent_at", null)
+    .lte("queued_for", new Date().toISOString())
+    .limit(200);
+  if (error) { results.push(`roomHire: drain error — ${error.message}`); return; }
+
+  let sent = 0;
+  for (const row of queued || []) {
+    const p = row.queued_payload || {};
+    if (!row.recipient || !p.starts_at) {
+      await supabase.from("notification_log").update({ sent_at: new Date().toISOString(), channel: "email" }).eq("id", row.id);
+      continue;
+    }
+    const when = new Date(p.starts_at);
+    const ctx = {
+      venueName: p.venue_name || "the venue",
+      spaceName: p.space_name || "the space",
+      purpose: p.purpose || "",
+      reason: p.reason || "",
+      price_pence: p.price_pence || 0,
+      deposit_pence: p.deposit_pence || 0,
+      dateLabel: fmtUkDate(p.starts_at),
+      timeLabel: when.toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" }),
+    };
+    const r = await sendTemplated(row.type, row.recipient, ctx);
+    if (r?.skipped === "no_api_key") { results.push("roomHire: skipped (RESEND_API_KEY unset)"); return; }
+    if (r?.id || r?.skipped === "no_template") {
+      await supabase.from("notification_log").update({ sent_at: new Date().toISOString(), channel: "email" }).eq("id", row.id);
+      if (r?.id) sent++;
+    } else if (r?.error) {
+      results.push(`roomHire: send failed (${row.recipient}) — ${r.error}`);
+    }
+  }
+  results.push(`roomHire: ${sent} sent`);
 }
 
 // ── Onboarding & ops emails (Phase 9 Cycle 9.1) ──────────────────────────────

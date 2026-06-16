@@ -7,6 +7,7 @@ import useRequireAuth from "../hooks/useRequireAuth.js";
 import AuthGateModal from "../components/AuthGateModal.jsx";
 import MembershipSignup from "./MembershipSignup.jsx";
 import ClassesTimetable from "./ClassesTimetable.jsx";
+import HireSpace from "./HireSpace.jsx";
 
 // /q/<venue_code> (action venue_landing) — public "what's on at this venue".
 // Shows venue branding + registerable competitions (setup/active) with their
@@ -215,6 +216,9 @@ export default function VenueLanding({ venueId, code }) {
 
         {/* Public "What's on" class timetable — zero footprint when no classes (mig 340) */}
         <ClassesTimetable venueId={venueId} requireAuth={requireAuth} />
+
+        {/* "Hire a space" — zero footprint when the venue has no hireable spaces (mig 342) */}
+        <HireSpace venueId={venueId} requireAuth={requireAuth} />
 
         {/* Become a member — Phase 7 wizard (mig 296) */}
         <div className="vl-comp">

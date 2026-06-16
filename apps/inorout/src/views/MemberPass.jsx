@@ -3,6 +3,7 @@ import QRCode from "react-qr-code";
 import {
   getMemberPass, memberGetSelf, redeemMemberOffer,
   memberListMyClassBookings, memberCancelClassBooking, memberClaimWaitlistSpot,
+  memberListMyRoomHires,
 } from "@platform/core/storage/supabase.js";
 import { supabase } from "@platform/core/storage/supabase.js";
 
@@ -139,6 +140,7 @@ export default function MemberPass({ token }) {
 
           {/* upcoming classes — owner only, zero footprint when none (mig 340) */}
           {isOwner && <UpcomingClasses />}
+          {isOwner && <UpcomingRoomHires />}
 
           {/* valid venues */}
           {(pass.valid_venues || []).length > 1 ? (
@@ -287,6 +289,55 @@ function UpcomingClasses() {
                   Cancel
                 </button>
               )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Room hires the member has requested/confirmed (Room Hire Phase 5, mig 342).
+// Read-only on the pass — confirm/cancel/deposit are venue-side. Zero footprint
+// when the member has no upcoming hires.
+function UpcomingRoomHires() {
+  const [rows, setRows] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    memberListMyRoomHires()
+      .then((all) => (all || []).filter((h) => h.is_upcoming))
+      .catch((e) => { console.error("[memberpass] room hires load failed", e); return []; })
+      .then((up) => { if (alive) setRows(up); });
+    return () => { alive = false; };
+  }, []);
+
+  if (!rows || rows.length === 0) return null;
+
+  const fmt = (d) => {
+    try {
+      return new Date(d).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+    } catch { return d; }
+  };
+  const STATUS_LABEL = { requested: "Awaiting confirmation", confirmed: "Confirmed" };
+  const poundsOpt = (p) => (p == null ? null : "£" + (p % 100 ? (p / 100).toFixed(2) : (p / 100).toString()));
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Room hires</div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {rows.map((h) => {
+          const confirmed = h.status === "confirmed";
+          return (
+            <div key={h.hire_id} style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "10px 14px" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>{h.space_name}</div>
+              <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                {fmt(h.starts_at)}{h.purpose ? ` · ${h.purpose}` : ""}
+              </div>
+              <div style={{ fontSize: 12, color: confirmed ? "#60A0FF" : "var(--t2)", marginTop: 2 }}>
+                {STATUS_LABEL[h.status] || h.status}
+                {confirmed && poundsOpt(h.price_pence) ? ` · ${poundsOpt(h.price_pence)}` : ""}
+              </div>
             </div>
           );
         })}

@@ -155,6 +155,44 @@ const TEMPLATES = {
       `<p>Can't make it? Cancel from your membership pass so someone on the waitlist can take your spot.</p>`
     ),
   }),
+  // ── Room hire — Phase 5 booker-facing emails (mig 342) ────────────────────
+  room_hire_requested: (c) => ({
+    subject: `Enquiry received — ${c.spaceName} at ${c.venueName}`,
+    text:
+      `Thanks — we've received your enquiry to hire ${c.spaceName} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel}` +
+      (c.purpose ? ` (${c.purpose})` : "") + `.\n\nThe venue will be in touch to confirm availability and price.`,
+    html: wrap(
+      `<p>Thanks — we've received your enquiry to hire <b>${esc(c.spaceName)}</b> at <b>${esc(c.venueName)}</b> ` +
+      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>` +
+      (c.purpose ? ` (${esc(c.purpose)})` : "") + `.</p>` +
+      `<p>The venue will be in touch to confirm availability and price.</p>`
+    ),
+  }),
+  room_hire_confirmed: (c) => ({
+    subject: `Confirmed — ${c.spaceName} at ${c.venueName}`,
+    text:
+      `Good news — your hire of ${c.spaceName} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} is confirmed` +
+      (c.price_pence > 0 ? `. Fee: £${(c.price_pence / 100).toFixed(c.price_pence % 100 ? 2 : 0)}` : "") +
+      (c.deposit_pence > 0 ? `, deposit £${(c.deposit_pence / 100).toFixed(c.deposit_pence % 100 ? 2 : 0)}` : "") + `.`,
+    html: wrap(
+      `<p>Good news — your hire of <b>${esc(c.spaceName)}</b> at <b>${esc(c.venueName)}</b> ` +
+      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> is <b>confirmed</b>.</p>` +
+      (c.price_pence > 0 ? `<p>Fee: <b>£${(c.price_pence / 100).toFixed(c.price_pence % 100 ? 2 : 0)}</b>` +
+        (c.deposit_pence > 0 ? ` · deposit <b>£${(c.deposit_pence / 100).toFixed(c.deposit_pence % 100 ? 2 : 0)}</b>` : "") + `.</p>` : "")
+    ),
+  }),
+  room_hire_cancelled: (c) => ({
+    subject: `Hire cancelled — ${c.spaceName} at ${c.venueName}`,
+    text:
+      `Your hire of ${c.spaceName} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} has been cancelled` +
+      (c.reason ? ` (${c.reason})` : "") + `. Any charge has been refunded.`,
+    html: wrap(
+      `<p>Your hire of <b>${esc(c.spaceName)}</b> at <b>${esc(c.venueName)}</b> ` +
+      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> has been cancelled` +
+      (c.reason ? ` — ${esc(c.reason)}` : "") + `.</p>` +
+      `<p>Any charge has been refunded.</p>`
+    ),
+  }),
   team_approved: (c) => ({
     subject: `You're in — ${c.competitionName} approved`,
     text:

@@ -2350,14 +2350,27 @@ not promotes), rpc-security-sweep + hygiene 7/7 + inorout build PASS, casual-reg
 surface touched; core additive-only). **Owed: real-iPhone PWA walk (Hard Rule #13) — folds with Phase 3's
 owed walk.**
 
-**Phase 5 — Room hire (mig 342)**
-New `venue_room_hires` table (booker_type: member/non_member; status: requested/confirmed/cancelled;
-deposit_pence + deposit_status: none/held/returned/forfeited). `equipment_bookings.room_hire_id NULL FK`
-links equipment hire as an add-on. `venue_charges.source_type` += `'room_hire'`. 2 booking RPCs
-(`member_request_room_hire` authenticated, `public_enquire_room_hire` anon — enquiry-only spaces
-only). 4 venue admin RPCs: list/confirm/cancel hires + record deposit. Venue UI: Room Hires tab
-(requests inbox, confirm/decline, deposit tracking). Member UI: "Hire a space" section on VenueLanding
-(enquiry-only spaces show contact form, not booking flow).
+**Phase 5 — Room hire (mig 342) — ✅ SHIPPED (session 142, 2026-06-16)**
+New `venue_room_hires` table (RLS-on + REVOKE; venue_id denormalized; booker_type member/non_member;
+status requested/confirmed/cancelled; deposit_pence + deposit_status none/held/returned/forfeited;
+`CHECK(ends_at>starts_at)`). `equipment_bookings.room_hire_id NULL FK ON DELETE SET NULL` links
+equipment hire as an add-on (additive, no mapper breakage). `venue_charges.source_type` += `'room_hire'`.
+**Landing the table ACTIVATED the room-hire arm of `_space_is_available` (mig 338) — re-proven live under
+EV (a class session AND a live hire each block an overlapping request).** 8 RPCs: `member_request_room_hire`
+(authenticated; `_space_is_available`; links equipment add-ons; per-member throttle), `public_enquire_room_hire`
+(**first anon WRITE in this epic** — enquiry-only spaces only, no charge, length caps, per-email throttle,
+audited `actor_type='system'`), `venue_list_room_hires`/`venue_confirm_room_hire` (prices + raises a
+`room_hire` charge + confirms add-ons + notifies)/`venue_cancel_room_hire` (refunds + returns held deposit +
+cancels add-ons)/`venue_record_hire_deposit` (lifecycle), plus 2 public reads the member surface needs
+(`member_list_hireable_spaces` anon, `member_list_my_room_hires` auth). Notifications EMAIL-only (members)
+/ booker_email (non-members): 3 `room_hire_*` mailer templates + `roomHireNotificationsJob` cron drain.
+Venue UI: new **Room hire** tab (Facilities group) — requests inbox (confirm-with-price modal / decline),
+confirmed-hires list, equipment add-ons, deposit chips + record control. Member UI: "Hire a space" on
+VenueLanding (`HireSpace.jsx`, zero-footprint; self-serve = request flow login-gated, enquiry-only = contact
+form anon) + "Room hires" section on MemberPass. EV 13/13 + leak 0, rpc-security-sweep (8) + hygiene 7/7 +
+both builds PASS, casual-regression PASS (no casual surface; core additive-only). Stripe prepay N/A (hire
+fees are door/invoice via `venue_charges`). **Owed: real-iPhone PWA walk (Hard Rule #13) — folds with the
+Phase 3 + 4 owed member-surface walks.**
 
 **Phase 6 — QR check-in (mig 343)**
 `venue_class_checkin(token, session_id, pass_token)` RPC — instructor-gated (assigned instructor

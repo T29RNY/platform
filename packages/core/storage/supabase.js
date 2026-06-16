@@ -3469,6 +3469,41 @@ export async function venueUpdateSpace(venueToken, spaceId, updates = {}) {
   return data;
 }
 
+// ── Room hire (mig 342, Classes+Room-Hire Phase 5) ───────────────────────────
+// Venue-side: list requests/hires, confirm (prices + charges), cancel, record deposit.
+export async function venueListRoomHires(venueToken, status = null) {
+  const { data, error } = await supabase.rpc("venue_list_room_hires", {
+    p_venue_token: venueToken, p_status: status });
+  if (error) { console.error("[roomhire] venue_list_room_hires failed", error); throw error; }
+  return data;
+}
+
+// Confirm a requested hire: price it (pence) + optional deposit. Creates a 'room_hire'
+// charge (if price > 0) and notifies the booker. Returns { ok, hire_id, charge_id }.
+export async function venueConfirmRoomHire(venueToken, hireId, pricePence, depositPence = null) {
+  const { data, error } = await supabase.rpc("venue_confirm_room_hire", {
+    p_venue_token: venueToken, p_hire_id: hireId, p_price_pence: pricePence, p_deposit_pence: depositPence });
+  if (error) { console.error("[roomhire] venue_confirm_room_hire failed", error); throw error; }
+  return data;
+}
+
+// Cancel a hire: refunds its charge, cancels equipment add-ons, returns a held deposit,
+// notifies the booker. Returns { ok, refunded, deposit_status }.
+export async function venueCancelRoomHire(venueToken, hireId, reason = null) {
+  const { data, error } = await supabase.rpc("venue_cancel_room_hire", {
+    p_venue_token: venueToken, p_hire_id: hireId, p_reason: reason });
+  if (error) { console.error("[roomhire] venue_cancel_room_hire failed", error); throw error; }
+  return data;
+}
+
+// Transition the deposit lifecycle: none|held|returned|forfeited. Returns { ok, deposit_status }.
+export async function venueRecordHireDeposit(venueToken, hireId, depositStatus) {
+  const { data, error } = await supabase.rpc("venue_record_hire_deposit", {
+    p_venue_token: venueToken, p_hire_id: hireId, p_deposit_status: depositStatus });
+  if (error) { console.error("[roomhire] venue_record_hire_deposit failed", error); throw error; }
+  return data;
+}
+
 // ── Classes (mig 339, Classes+Room-Hire Phase 2) — class catalogue + scheduling ──
 // Class types (catalogue): list returns each type + upcoming_session_count + space_name.
 export async function venueListClassTypes(venueToken) {
@@ -4720,6 +4755,40 @@ export async function memberClaimWaitlistSpot(sessionId) {
   const { data, error } = await supabase.rpc("member_claim_waitlist_spot", { p_session_id: sessionId });
   if (error) { console.error("[classes] member_claim_waitlist_spot failed", error); throw error; }
   return data;
+}
+
+// ── Room hire (mig 342, Phase 5) — member/public surface ─────────────────────
+// Public read of hireable spaces for the "Hire a space" cards (no login needed).
+export async function memberListHireableSpaces(venueId) {
+  const { data, error } = await supabase.rpc("member_list_hireable_spaces", { p_venue_id: venueId });
+  if (error) { console.error("[roomhire] member_list_hireable_spaces failed", error); return []; }
+  return data ?? [];
+}
+
+// Self-serve hire request (authenticated). equipmentIds optional add-ons.
+// Returns { ok:true, hire_id } or { ok:false, reason:'space_unavailable'|'too_many_requests' }.
+export async function memberRequestRoomHire(spaceId, { startsAt, endsAt, purpose, attendeeCount = null, equipmentIds = null } = {}) {
+  const { data, error } = await supabase.rpc("member_request_room_hire", {
+    p_space_id: spaceId, p_starts_at: startsAt, p_ends_at: endsAt, p_purpose: purpose,
+    p_attendee_count: attendeeCount, p_equipment_ids: equipmentIds });
+  if (error) { console.error("[roomhire] member_request_room_hire failed", error); throw error; }
+  return data;
+}
+
+// Anon enquiry for an enquiry-only space (works logged-out or in). Returns { ok, hire_id }.
+export async function publicEnquireRoomHire(spaceId, { name, email, phone = null, startsAt, endsAt, purpose, attendeeCount = null } = {}) {
+  const { data, error } = await supabase.rpc("public_enquire_room_hire", {
+    p_space_id: spaceId, p_name: name, p_email: email, p_phone: phone,
+    p_starts_at: startsAt, p_ends_at: endsAt, p_purpose: purpose, p_attendee_count: attendeeCount });
+  if (error) { console.error("[roomhire] public_enquire_room_hire failed", error); throw error; }
+  return data;
+}
+
+// The caller's room hires (upcoming + history). Returns [] when no member profile.
+export async function memberListMyRoomHires(venueId = null) {
+  const { data, error } = await supabase.rpc("member_list_my_room_hires", { p_venue_id: venueId });
+  if (error) { console.error("[roomhire] member_list_my_room_hires failed", error); return []; }
+  return data ?? [];
 }
 
 // ── Phase 0 — Event OS: Account Relationship Routing (mig 314) ───────────────
