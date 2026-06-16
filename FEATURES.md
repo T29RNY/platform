@@ -36,7 +36,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 3 | Competition & Team-Risk analytics (at-risk teams, fill rate, completion) | Backend+UI | 🔴 not started |
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
-| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟡 Phase 1 ✅ (mig 329, s132); Phase 2 ✅ (mig 330, s133); Phase 3 ✅ E2E VERIFIED s136 (migs 332+335+336); Phase 4 ✅ LIFECYCLE PROVEN s137 (all 5 state-machine scenarios + reconciliation cron live-proven); DORMANT for live until operator signs MONEY-FLOW GATE + swaps live keys in platform-clubmanager Vercel; Phase 5 (GoCardless) next |
+| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟢 **ALL 8 PHASES BUILT (migs 329–337, next mig=338).** Stripe P1–4 ✅ (P4 LIFECYCLE PROVEN s137); GoCardless P5–6+8 ✅ BUILT s138 (mig 337) DORMANT. **Remaining = operator-gated only:** (a) Stripe go-live — sign MONEY-FLOW GATE + swap live keys in platform-clubmanager Vercel; (b) GoCardless P7 — operator applies for GC for Platforms + adds env vars, then sandbox lifecycle proof (GC code unverified against a real GC env). |
 | **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🔴 not started — plan locked session 134 |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
 | Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
@@ -592,35 +592,34 @@ Platform never holds money. Each venue/club connects their own Stripe or GoCardl
 - **Vercel project finding:** `platform-clubmanager` (not `inorout`) is the live serving project with full env vars (STRIPE_SECRET_KEY + SUPABASE_SERVICE_ROLE_KEY); both mapped to in-or-out.com
 - **STILL OWED (go-live gate):** Operator signs off DECISIONS.md MONEY-FLOW GATE + swaps test keys for live keys in `platform-clubmanager` Vercel project (not `inorout`)
 
-**Phase 5 — GoCardless connect (venue side)** 🔴 not started *(depends on Phase 1 + operator GoCardless for Platforms account)*
-- `api/_gocardless.js` — GoCardless client, parameterised per venue access token
-- `api/gocardless-connect.js` — OAuth flow + callback → writes `venue_integrations`
-- "Connect GoCardless" button in venue Settings
-- Venue Settings: connected state
+**Phase 5 — GoCardless connect (venue side)** ✅ BUILT s138 (mig 337, commit dc38596) — DORMANT until operator GC credentials
+- `api/_gocardless.js` — GoCardless client (fetch-based, no SDK dep), per-venue access token; `isGcConfigured`/`gcClient`/`buildOAuthUrl`/`exchangeOAuthCode`/`verifyWebhookSignature` (HMAC-SHA256 via Node `crypto`)
+- `api/gocardless-connect.js` — Partner OAuth: POST initiates consent (cap-gated `manage_memberships`), GET callback exchanges code → `set_venue_gc_connect_state` → redirect. CORS-locked, 503 when keys absent.
+- `set_venue_gc_connect_state` + `venue_gc_disconnect` RPCs (SECDEF, search_path ✓, overload=1 ✓)
+- IntegrationsView "Connect GoCardless"/disconnect button + `?gc_connect=done/error` return handler
 
-**Phase 6 — GoCardless member mandate + webhooks** 🔴 not started *(depends on Phase 5)*
-- On membership enrolment: redirect member to GoCardless hosted redirectflow (member authorises DD mandate on GoCardless's own page)
-- Callback confirms mandate active, stored against member record
-- `api/gocardless-webhook.js`: handles `payment_created`, `payment_paid_out`, `payment_failed`, `mandate_cancelled`
-- Same `payment_state` machine as Stripe (current → past_due → suspended)
-- Reconciliation cron for stuck mandates
-- EV + security sweep
+**Phase 6 — GoCardless member mandate + webhooks** ✅ BUILT s138 (mig 337, commit dc38596) — DORMANT until operator GC credentials
+- `api/gocardless-mandate.js` — POST creates redirect flow on venue's account (auth via Supabase Bearer, guardian check for child enrolments) → returns hosted URL; GET callback completes flow (mandate confirmed synchronously) → `gc_complete_member_enrolment` → redirect to pass
+- `api/gocardless-webhook.js` — persist-then-process: `verifyWebhookSignature` → `record_gc_event` (idempotent, partial unique index on `gc_event_id`) → dispatch `apply_gc_payment_status` for payment/mandate events → `mark_gc_event_processed`. Always 200.
+- `apply_gc_payment_status` state machine: `payments.confirmed/paid_out → current`, `payments.failed/charged_back → past_due`, `mandates.cancelled/expired/failed → suspended + status='cancelled'` — same vocabulary as Stripe
+- `gcMembershipReconciliationJob` (cron.js, 04:15 UK — 15 min after Stripe) fetches live mandate status per active membership, re-applies via synthetic event, self-heals dropped webhooks
+- RPCs: `gc_complete_member_enrolment`, `apply_gc_payment_status`, `record_gc_event`, `mark_gc_event_processed` (all SECDEF service_role-only, sweep 7/7 PASS). Schema: `venue_memberships.gc_mandate_id`/`gc_customer_id`, `billing_events.gc_event_id` + partial unique index.
+- ⚠️ **NOT yet run against any real GC environment** — code structurally mirrors the proven Stripe path but GC API shapes (redirect-flow completion, event `links` resolution, `webhook-signature` header) are assumptions until Phase 7 sandbox proof.
 
-**Phase 7 — GoCardless test lifecycle + go live** 🔴 not started *(depends on Phase 6)*
-- Full GoCardless sandbox: mandate setup → first payment → renewal → failure → retry → recovery
-- Cancel mandate deliberately → confirm reconciliation handles it
-- Operator sign-off
-- Live GoCardless keys added to Vercel env
+**Phase 7 — GoCardless test lifecycle + go live** ⏳ DORMANT — the one real engineering task remaining *(blocked on operator GC for Platforms approval)*
+- Operator applies for GoCardless for Platforms (approval can take days; can be rejected)
+- Add env: `GC_CLIENT_ID`, `GC_CLIENT_SECRET`, `GC_WEBHOOK_SECRET`, `GC_ENVIRONMENT` to **platform-clubmanager** Vercel; register webhook → `https://in-or-out.com/api/gocardless-webhook`
+- Full sandbox lifecycle proof (GC equivalent of Phase 4 Stripe test clock): venue OAuth connect → member mandate → first payment → failure → recovery → deliberate mandate cancel → confirm reconciliation heals each state
+- Operator sign-off → live keys
 
-**Phase 8 — Member payment choice** 🔴 not started *(depends on Phases 4 + 7 — both providers live)*
-- At enrolment: venue has both connected → member sees "Pay by card" (Stripe) or "Pay by Direct Debit" (GoCardless)
-- Venue has one provider only → no choice shown, that provider used automatically
-- Member sees their payment method on their member pass
-- Failed payment recovery: re-authorise mandate (GoCardless) or update card (Stripe)
+**Phase 8 — Member payment choice** ✅ BUILT s138 (mig 337, commit dc38596)
+- `get_venue_signup_tiers` now returns both `stripe_connected` and `gc_connected`
+- `MembershipSignup.jsx`: `StepPaymentChoice` (card vs Direct Debit) shown when both connected + paid tier; auto-routes when only one provider; free tier bypasses. `StepGcEnrol` drives the GC redirect. `?gc=done/error` return handling.
+- ⏳ Live behaviour unproven until Phase 7 (both providers active in one venue)
 
 **Use case mapping (settled):** memberships → either provider (member's choice if both connected); match fees / tournament entries / equipment deposits → Stripe only (one-off, card/Apple Pay).
 
-**Build dependency:** Phases 1–4 ship and go live independently of 5–7. Phase 8 requires both.
+**Build dependency:** Phases 1–4 ship and go live independently of 5–7. Phase 8 requires both. **All 8 phases now BUILT in code (next mig = 338); what remains is operator-gated activation + the Phase 7 GoCardless sandbox lifecycle proof.**
 
 ---
 
