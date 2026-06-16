@@ -597,6 +597,27 @@ model. Settled so the number stays meaningful:
 Additive return-shape: `health_score`, `health_reason`, `health_axes` per venue (existing
 `health` retained). Consumer: apps/hq VenueHealthGrid. See [[project_hq_intelligence]].
 
+## Classes/room-hire analytics: spaces are a SEPARATE utilisation track, and class revenue sums charges not sessions (session 145, Classes+Room-Hire Phase 8, mig 345)
+
+Two rules locked when Phase 8 wired classes + room hire into HQ analytics, so the numbers can't
+drift as the activities products grow:
+
+- **`venue_spaces` activity is NOT folded into pitch `used_hours`.** `hq_get_utilisation` is a
+  pitch-availability model (30-min buckets from `playing_areas.booking_windows`). `venue_spaces`
+  have only capacity — no availability windows — so there is no honest denominator to merge them
+  into the pitch %. Class sessions + confirmed room hires are reported in a SEPARATE company-level
+  `spaces` block (`class_hours`/`class_sessions`/`room_hire_hours`/`room_hires`/`activity_hours`),
+  hours-only. Any future "venue activity" metric must keep the two tracks distinct. (The company
+  object is an aggregate query → still 1 row with 0 pitches, so a classes-only venue still reports
+  its spaces block.)
+- **Class revenue sums CHARGES, never sessions.** A `class_package` purchase = one `class_package`
+  charge (revenue once); a session booked against that pass deducts a credit and creates NO charge.
+  So `class_revenue_pence` = Σ(`class`)+Σ(`class_package`) charges counts each pound exactly once —
+  a pass-funded booking is automatically excluded because it has no charge. Per-type/insights revenue
+  is `class`-source only (packages span types). The existing company `revenue` block (sums all
+  source_types) is the single company total and is left untouched — `classes` is a drill-down, never
+  additive to it. EV 15/15 proved the guard (pass-funded booking counted in fill, absent from revenue).
+
 ## Utilisation is measured on a clipped 30-min bucket grid (session 62, HQ-I Phase 1 Cycle 2)
 
 `hq_get_utilisation` (mig 178) computes pitch utilisation. Settled rules so the numbers can't
