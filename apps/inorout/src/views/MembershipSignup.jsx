@@ -4,7 +4,7 @@ import {
   memberListChildren, memberRegisterChild, memberUpdateChild,
   memberAcceptConsent,
   uploadMemberIdDoc, memberSubmitIdDocument,
-  memberEnrolMembership, stripeInitMemberCheckout,
+  memberEnrolMembership, stripeInitMemberCheckout, gcInitMemberMandate,
   supabase,
 } from "@platform/core/storage/supabase.js";
 
@@ -627,6 +627,58 @@ function StepIdUpload({ club, memberProfileId, onDone, onSkip }) {
   );
 }
 
+// ── Step: payment method choice (Phase 8) ────────────────────────────────────
+// Shown only when venue has BOTH Stripe and GoCardless connected and the tier is paid.
+
+function StepPaymentChoice({ onStripe, onGc }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 360 }}>
+      <p style={{ margin: "0 0 4px", fontSize: 14, color: "var(--t3)" }}>How would you like to pay?</p>
+      <button className="ms-btn" onClick={onStripe} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 20 }}>💳</span>
+        <span>Card / Apple Pay</span>
+      </button>
+      <button className="ms-btn ms-btn--secondary" onClick={onGc} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 20 }}>🏦</span>
+        <span>Direct Debit</span>
+      </button>
+    </div>
+  );
+}
+
+// ── Step: GoCardless redirect enrol ──────────────────────────────────────────
+// Creates a GC redirect flow and redirects the browser to the GC hosted page.
+// On return, the mandate callback creates the membership row server-side.
+
+function StepGcEnrol({ code, tier, period, forProfileId }) {
+  const [busy, setBusy] = useState(true);
+  const [err, setErr] = useState(null);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+    gcInitMemberMandate({ inviteCode: code, tierId: tier.tier_id, period, forProfileId: forProfileId ?? null })
+      .then((r) => {
+        if (r?.redirect_url) { window.location.href = r.redirect_url; }
+        else { setErr("Couldn't start Direct Debit setup — please try again."); setBusy(false); }
+      })
+      .catch((e) => {
+        console.error("[membership-signup] gc mandate failed", e);
+        setErr("Couldn't start Direct Debit setup — please try again.");
+        setBusy(false);
+      });
+  }, []);
+
+  if (busy) return <p style={{ color: "var(--t3)", fontSize: 14 }}>Redirecting to Direct Debit setup…</p>;
+  return (
+    <>
+      {err && <p className="ms-err">{err}</p>}
+      {err && <button className="ms-btn" onClick={() => { hasRun.current = false; setErr(null); setBusy(true); }}>Try again</button>}
+    </>
+  );
+}
+
 // ── Step: enrol + done ────────────────────────────────────────────────────────
 // Forks at runtime: paid tier + stripe_connected venue → Stripe Checkout redirect;
 // free tier or no Stripe → direct memberEnrolMembership call.
@@ -683,11 +735,14 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
   const [path, setPath] = useState(null);         // "adult" | "child"
 
   // On mount: check if already enrolled (surfaces pass link for returning members),
-  // or detect Stripe Checkout return (?checkout=done) and fetch the pass token.
+  // or detect Stripe Checkout return (?checkout=done) / GC mandate return (?gc=done).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const isCheckoutReturn = params.get("checkout") === "done";
-    if (isCheckoutReturn) setStep("done");
+    const isGcDone  = params.get("gc") === "done";
+    const isGcError = params.get("gc") === "error";
+    if (isCheckoutReturn || isGcDone) setStep("done");
+    if (isGcError) setStep("gcError");
     memberGetVenueMembershipPass(code).then((r) => {
       if (r?.found && r?.pass_token) {
         setPassToken(r.pass_token);
@@ -705,6 +760,13 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
   const loadedRef = useRef(false);
 
   const docs = Array.isArray(documents) ? documents : [];
+
+  // When both Stripe and GoCardless are connected and tier is paid, show choice.
+  const nextPaymentStep = (tier) => {
+    if (tier?.is_free) return "enrol";
+    if (club?.stripe_connected && club?.gc_connected) return "paymentChoice";
+    return "enrol";
+  };
 
   const loadMemberData = async () => {
     if (loadedRef.current) return;
@@ -806,7 +868,7 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
           onDone={({ tier, period }) => {
             setSelectedTier(tier);
             setSelectedPeriod(period);
-            setStep(docs.length > 0 ? "consent" : club?.id_mandate ? "idUpload" : "enrol");
+            setStep(docs.length > 0 ? "consent" : club?.id_mandate ? "idUpload" : nextPaymentStep(tier));
           }}
           onBack={() => {
             if (path === "child") setStep(selectedChild ? "childDetails" : "pickChild");
@@ -818,7 +880,7 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
         <StepConsent
           documents={docs}
           forProfileId={path === "child" ? selectedChild?.id : null}
-          onDone={() => setStep(club?.id_mandate ? "idUpload" : "enrol")}
+          onDone={() => setStep(club?.id_mandate ? "idUpload" : nextPaymentStep(selectedTier))}
           onBack={() => setStep("tierSelect")}
         />
       )}
@@ -826,9 +888,29 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
         <StepIdUpload
           club={club}
           memberProfileId={self?.id}
-          onDone={() => setStep("enrol")}
-          onSkip={() => setStep("enrol")}
+          onDone={() => setStep(nextPaymentStep(selectedTier))}
+          onSkip={() => setStep(nextPaymentStep(selectedTier))}
         />
+      )}
+      {step === "paymentChoice" && (
+        <StepPaymentChoice
+          onStripe={() => setStep("enrol")}
+          onGc={() => setStep("gcEnrol")}
+        />
+      )}
+      {step === "gcEnrol" && (
+        <StepGcEnrol
+          code={code}
+          tier={selectedTier}
+          period={selectedPeriod}
+          forProfileId={path === "child" ? selectedChild?.id : null}
+        />
+      )}
+      {step === "gcError" && (
+        <div>
+          <p className="ms-err">Direct Debit setup was not completed. Please try again.</p>
+          <button className="ms-btn" onClick={() => setStep("gcEnrol")}>Try again</button>
+        </div>
       )}
       {step === "enrol" && (
         <StepEnrol

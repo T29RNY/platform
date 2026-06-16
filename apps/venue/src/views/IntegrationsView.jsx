@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { venueGetBillingStatus, venueStripeDisconnect } from "@platform/core/storage/supabase.js";
+import { venueGetBillingStatus, venueStripeDisconnect, venueGcDisconnect } from "@platform/core/storage/supabase.js";
 import { SectionHead } from "./atoms.jsx";
 
 const API_BASE = import.meta.env.VITE_INOROUT_API_URL ?? "";
+
+async function callGcConnect(venueToken) {
+  const res = await fetch(`${API_BASE}/api/gocardless-connect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ venueToken }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "gc_api_error");
+  return json;
+}
 
 async function callStripeConnect(venueToken, action) {
   const res = await fetch(`${API_BASE}/api/stripe-connect`, {
@@ -29,7 +40,7 @@ function StatusBadge({ connected }) {
   );
 }
 
-function ProviderCard({ label, logo, description, status, accountId, connectedAt, onConnect, onDisconnect, connecting, disconnecting, error, actionAvailable }) {
+function ProviderCard({ label, logo, description, status, accountId, connectedAt, onConnect, onDisconnect, connecting, disconnecting, error, actionAvailable, connectLabel, connectingLabel }) {
   const isConnected = status === "connected";
 
   return (
@@ -75,7 +86,7 @@ function ProviderCard({ label, logo, description, status, accountId, connectedAt
               disabled={connecting}
               style={{ fontSize: 13, padding: "8px 16px" }}
             >
-              {connecting ? "Redirecting to Stripe…" : "Connect Stripe"}
+              {connecting ? (connectingLabel ?? "Redirecting…") : (connectLabel ?? "Connect")}
             </button>
           )}
           {isConnected && onDisconnect && (
@@ -112,6 +123,10 @@ export default function IntegrationsView({ venueToken }) {
   const [stripeDisconnecting, setStripeDisconnecting] = useState(false);
   const [stripeRefreshing, setStripeRefreshing] = useState(false);
   const [stripeError, setStripeError] = useState(null);
+
+  const [gcConnecting, setGcConnecting] = useState(false);
+  const [gcDisconnecting, setGcDisconnecting] = useState(false);
+  const [gcError, setGcError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -187,6 +202,52 @@ export default function IntegrationsView({ venueToken }) {
     }
   };
 
+  // Handle return from GoCardless OAuth (?gc_connect=done or ?gc_connect=error)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gcParam = params.get("gc_connect");
+    if (!gcParam) return;
+    window.history.replaceState({}, "", window.location.pathname);
+    if (gcParam === "done") {
+      load();
+    } else {
+      setGcError("GoCardless connection was not completed. Please try again.");
+    }
+  }, [venueToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleGcConnect = async () => {
+    setGcConnecting(true);
+    setGcError(null);
+    try {
+      const json = await callGcConnect(venueToken);
+      if (!json.url) throw new Error("no_url_returned");
+      window.location.href = json.url;
+    } catch (err) {
+      console.error("[integrations] gc connect failed", err);
+      if (err?.message === "gc_not_configured") {
+        setGcError("GoCardless is not yet configured on this platform. Contact your administrator.");
+      } else {
+        setGcError(err?.message || "connect_failed");
+      }
+      setGcConnecting(false);
+    }
+  };
+
+  const handleGcDisconnect = async () => {
+    if (!window.confirm("Disconnect GoCardless? Direct Debit collection will stop for any members using this mandate. Your GoCardless account will not be deleted.")) return;
+    setGcDisconnecting(true);
+    setGcError(null);
+    try {
+      await venueGcDisconnect(venueToken);
+      await load();
+    } catch (err) {
+      console.error("[integrations] gc disconnect failed", err);
+      setGcError(err?.message || "disconnect_failed");
+    } finally {
+      setGcDisconnecting(false);
+    }
+  };
+
   if (loading && !billing) {
     return <div className="view-body"><div className="text-mute">Loading…</div></div>;
   }
@@ -219,6 +280,8 @@ export default function IntegrationsView({ venueToken }) {
         disconnecting={stripeDisconnecting}
         error={stripeError}
         actionAvailable={isStripeConfigured}
+        connectLabel="Connect Stripe"
+        connectingLabel="Redirecting to Stripe…"
       />
       <ProviderCard
         label="GoCardless"
@@ -227,7 +290,14 @@ export default function IntegrationsView({ venueToken }) {
         status={gc.status ?? "pending"}
         accountId={gc.account_id}
         connectedAt={gc.connected_at}
-        actionAvailable={false}
+        onConnect={handleGcConnect}
+        onDisconnect={handleGcDisconnect}
+        connecting={gcConnecting}
+        disconnecting={gcDisconnecting}
+        error={gcError}
+        actionAvailable={isStripeConfigured}
+        connectLabel="Connect GoCardless"
+        connectingLabel="Redirecting to GoCardless…"
       />
     </div>
   );

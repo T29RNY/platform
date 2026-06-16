@@ -5,6 +5,7 @@ const { createClient } = require("@supabase/supabase-js");
 const { sendTemplated } = require("./_mailer");
 const { sendTemplated: sendSmsTemplated, pickChannel } = require("./_sms");
 const { stripe: stripeClient, isConfigured: stripeConfigured } = require("./_stripe");
+const { isGcConfigured, gcClient } = require("./_gocardless");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -226,6 +227,13 @@ module.exports = async function handler(req, res) {
     await membershipReconciliationJob(results);
   } catch (e) {
     results.push(`membershipReconciliation: error — ${e.message}`);
+  }
+
+  // ── GoCardless reconciliation (04:15 UK daily — DORMANT until keys exist) ──
+  try {
+    await gcMembershipReconciliationJob(results);
+  } catch (e) {
+    results.push(`gcMembershipReconciliation: error — ${e.message}`);
   }
 
   // ── Superseded-booking displacement push (every tick) ─────────────────────
@@ -830,6 +838,71 @@ async function membershipReconciliationJob(results) {
     }
   }
   results.push(`membershipReconciliation: ${checked} reconciled`);
+}
+
+// ── GoCardless reconciliation (Phase 8) ──────────────────────────────────────
+// Webhooks are for speed; THIS is for truth. For each active GC mandate, fetches
+// the mandate status from the GC API and re-applies it via apply_gc_payment_status,
+// repairing any drift from a dropped or out-of-order webhook.
+// DORMANT (clean no-op) until GC_CLIENT_ID is set.
+async function gcMembershipReconciliationJob(results) {
+  const uk = nowInUkParts();
+  if (uk.hours !== 4 || uk.minutes < 15 || uk.minutes >= 30) {
+    results.push("gcMembershipReconciliation: not 4:15am window");
+    return;
+  }
+  if (!isGcConfigured()) {
+    results.push("gcMembershipReconciliation: gc not configured");
+    return;
+  }
+
+  const { data: mems, error } = await supabase
+    .from("venue_memberships")
+    .select("id, gc_mandate_id, venue_id")
+    .not("gc_mandate_id", "is", null)
+    .neq("status", "cancelled");
+
+  if (error) { results.push(`gcMembershipReconciliation: query error — ${error.message}`); return; }
+  if (!mems?.length) { results.push("gcMembershipReconciliation: none on gc"); return; }
+
+  const venueIds = [...new Set(mems.map((m) => m.venue_id))];
+  const { data: integrations } = await supabase
+    .from("venue_integrations")
+    .select("venue_id, access_token")
+    .eq("provider", "gocardless")
+    .eq("status", "connected")
+    .in("venue_id", venueIds);
+
+  const tokenByVenue = Object.fromEntries((integrations || []).map((vi) => [vi.venue_id, vi.access_token]));
+
+  let checked = 0;
+  for (const m of mems) {
+    const token = tokenByVenue[m.venue_id];
+    if (!token) continue;
+    try {
+      const gc       = gcClient(token);
+      const mandate  = await gc.get(`/mandates/${m.gc_mandate_id}`);
+      const gcStatus = mandate.mandates?.status;
+
+      // Map GC mandate status → our event-type vocabulary
+      let syntheticEvent = null;
+      if (gcStatus === "active")           syntheticEvent = "payments.confirmed";
+      else if (gcStatus === "cancelled")   syntheticEvent = "mandates.cancelled";
+      else if (gcStatus === "expired")     syntheticEvent = "mandates.expired";
+      else if (gcStatus === "failed")      syntheticEvent = "mandates.failed";
+
+      if (syntheticEvent) {
+        await supabase.rpc("apply_gc_payment_status", {
+          p_mandate_id:    m.gc_mandate_id,
+          p_gc_event_type: syntheticEvent,
+        });
+        checked++;
+      }
+    } catch (e) {
+      results.push(`gcMembershipReconciliation: mandate ${m.gc_mandate_id} — ${e.message}`);
+    }
+  }
+  results.push(`gcMembershipReconciliation: ${checked} reconciled`);
 }
 
 // ── Superseded-booking displacement push (every tick) ────────────────────────

@@ -238,6 +238,8 @@ export {
   venueEquipmentInsights,
   venueGetBillingStatus,
   venueStripeDisconnect,
+  venueGcDisconnect,
+  gcInitMemberMandate,
   venueLogIncident,
   venueResolveIncident,
   confirmRenewal,

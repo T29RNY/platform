@@ -4864,3 +4864,26 @@ export async function clubAdminCancelEquipmentBooking(bookingId) {
   if (error) { console.error("[event-os] club_admin_cancel_equipment_booking failed", error); throw error; }
   return data;
 }
+
+// ── GoCardless Phases 5–8 (mig 337) ──────────────────────────────────────────
+
+export async function venueGcDisconnect(venueToken) {
+  const { data, error } = await supabase.rpc("venue_gc_disconnect", { p_venue_token: venueToken });
+  if (error) { console.error("[integrations] venue_gc_disconnect failed", error); throw error; }
+  return data;
+}
+
+export async function gcInitMemberMandate({ inviteCode, tierId, period, forProfileId = null }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("not_authenticated");
+  const res = await fetch("/api/gocardless-mandate", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+    body:    JSON.stringify({ inviteCode, tierId, period, forProfileId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || err.error || "gc_mandate_failed");
+  }
+  return res.json();
+}
