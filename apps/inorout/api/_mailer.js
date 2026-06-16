@@ -55,6 +55,93 @@ const wrap = (bodyHtml) =>
   `<p style="font-size:12px;color:#888">In or Out · league football, sorted</p></div>`;
 
 const TEMPLATES = {
+  // ── Classes Booking — Phase 3 member-facing emails (mig 340) ──────────────
+  class_booking_confirmation: (c) => ({
+    subject: `You're booked — ${c.className} on ${c.dateLabel}`,
+    text:
+      `Hi ${c.firstName},\n\nYou're booked into ${c.className} at ${c.venueName}` +
+      (c.spaceName ? ` (${c.spaceName})` : "") + ` on ${c.dateLabel} at ${c.timeLabel}.` +
+      `\n\nSee you there. To cancel, open your membership pass.`,
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p>You're booked into <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b>` +
+      (c.spaceName ? ` (${esc(c.spaceName)})` : "") +
+      ` on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>.</p>` +
+      `<p>See you there. You can cancel from your membership pass if your plans change.</p>`
+    ),
+  }),
+  class_waitlist_joined: (c) => ({
+    subject: `You're on the waitlist — ${c.className}`,
+    text:
+      `Hi ${c.firstName},\n\n${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} is full, ` +
+      `so you're on the waitlist` + (c.waitlistPosition ? ` (position ${c.waitlistPosition})` : "") +
+      `. We'll let you know if a spot opens up.`,
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p><b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> is full, ` +
+      `so you're on the waitlist` + (c.waitlistPosition ? ` (position <b>${esc(c.waitlistPosition)}</b>)` : "") + `.</p>` +
+      `<p>We'll email you if a spot opens up.</p>`
+    ),
+  }),
+  class_waitlist_promoted: (c) => ({
+    subject: `A spot opened — you're in for ${c.className}`,
+    text:
+      `Good news — a spot opened in ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel}, ` +
+      `and you're now confirmed. See you there.`,
+    html: wrap(
+      `<p>Good news — a spot opened in <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
+      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>, and you're now <b>confirmed</b>.</p>` +
+      `<p>See you there.</p>`
+    ),
+  }),
+  class_booking_cancelled: (c) => ({
+    subject: `Booking cancelled — ${c.className}`,
+    text:
+      `Your booking for ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} has been cancelled. ` +
+      `Any prepaid charge has been refunded.`,
+    html: wrap(
+      `<p>Your booking for <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
+      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> has been cancelled.</p>` +
+      `<p>Any prepaid charge has been refunded.</p>`
+    ),
+  }),
+  class_cancelled: (c) => ({
+    subject: `Class cancelled — ${c.className} on ${c.dateLabel}`,
+    text:
+      `Unfortunately ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} has been cancelled` +
+      (c.reason ? ` (${c.reason})` : "") + `. Any prepaid charge has been refunded.`,
+    html: wrap(
+      `<p>Unfortunately <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
+      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> has been cancelled` +
+      (c.reason ? ` — ${esc(c.reason)}` : "") + `.</p>` +
+      `<p>Any prepaid charge has been refunded. Sorry for the inconvenience.</p>`
+    ),
+  }),
+  class_instructor_changed: (c) => ({
+    subject: `Instructor change — ${c.className} on ${c.dateLabel}`,
+    text:
+      `Heads up: the instructor for ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel} has changed. ` +
+      `Your booking is unaffected.`,
+    html: wrap(
+      `<p>Heads up: the instructor for <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
+      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b> has changed.</p>` +
+      `<p>Your booking is unaffected — see you there.</p>`
+    ),
+  }),
+  class_reminder: (c) => ({
+    subject: `Tomorrow: ${c.className} at ${c.timeLabel}`,
+    text:
+      `Hi ${c.firstName},\n\nReminder — you're booked into ${c.className} at ${c.venueName}` +
+      (c.spaceName ? ` (${c.spaceName})` : "") + ` on ${c.dateLabel} at ${c.timeLabel}.` +
+      `\n\nCan't make it? Cancel from your membership pass so someone on the waitlist can take your spot.`,
+    html: wrap(
+      `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
+      `<p>Reminder — you're booked into <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b>` +
+      (c.spaceName ? ` (${esc(c.spaceName)})` : "") +
+      ` on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>.</p>` +
+      `<p>Can't make it? Cancel from your membership pass so someone on the waitlist can take your spot.</p>`
+    ),
+  }),
   team_approved: (c) => ({
     subject: `You're in — ${c.competitionName} approved`,
     text:

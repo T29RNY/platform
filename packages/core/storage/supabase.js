@@ -4683,6 +4683,36 @@ export async function memberListMyPurchases(clubId = null) {
   return data?.purchases ?? [];
 }
 
+// ── Classes Booking — Phase 3 member booking & timetable (mig 340) ────────────
+// member_list_class_sessions is callable by anon (public "What's on" timetable);
+// the rest are authenticated-only. All raw RPC names appear here exclusively.
+
+export async function memberListClassSessions(venueId, { from = null, to = null } = {}) {
+  const { data, error } = await supabase.rpc("member_list_class_sessions", {
+    p_venue_id: venueId, p_from: from, p_to: to,
+  });
+  if (error) { console.error("[classes] member_list_class_sessions failed", error); return []; }
+  return data ?? [];
+}
+
+export async function memberBookClassSession(sessionId) {
+  const { data, error } = await supabase.rpc("member_book_class_session", { p_session_id: sessionId });
+  if (error) { console.error("[classes] member_book_class_session failed", error); throw error; }
+  return data;
+}
+
+export async function memberCancelClassBooking(bookingId) {
+  const { data, error } = await supabase.rpc("member_cancel_class_booking", { p_booking_id: bookingId });
+  if (error) { console.error("[classes] member_cancel_class_booking failed", error); throw error; }
+  return data;
+}
+
+export async function memberListMyClassBookings(venueId = null) {
+  const { data, error } = await supabase.rpc("member_list_my_class_bookings", { p_venue_id: venueId });
+  if (error) { console.error("[classes] member_list_my_class_bookings failed", error); return []; }
+  return data ?? [];
+}
+
 // ── Phase 0 — Event OS: Account Relationship Routing (mig 314) ───────────────
 
 export async function getUserRelationships() {

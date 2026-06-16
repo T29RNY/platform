@@ -285,6 +285,20 @@ module.exports = async function handler(req, res) {
     results.push(`clubBroadcast: error — ${e.message}`);
   }
 
+  // ── Class booking notifications (confirm/waitlist/cancel drain, every tick) ─
+  try {
+    await classNotificationsJob(results);
+  } catch (e) {
+    results.push(`classNotifications: error — ${e.message}`);
+  }
+
+  // ── Class reminders (~24h before a booked class) ──────────────────────────
+  try {
+    await classRemindersJob(results);
+  } catch (e) {
+    results.push(`classReminders: error — ${e.message}`);
+  }
+
   // ── HQ weekly digest (per-company, Monday 08:00 UK) ───────────────────────
   try {
     await weeklyDigestJob(results);
@@ -1056,6 +1070,198 @@ async function bookingConfirmEmailJob(results) {
     }
   }
   results.push(`bookingConfirmEmail: ${sent} email(s)`);
+}
+
+// ── Class booking notifications (Classes Phase 3, mig 340) ───────────────────
+// Two passes, EMAIL-only (members have no push-subscription plumbing yet — same
+// posture as membershipRemindersJob). No-ops cleanly until RESEND_API_KEY is set.
+//   (A) New bookings created in the last 20 min → class_booking_confirmation
+//       (confirmed) or class_waitlist_joined (waitlist), deduped per booking id.
+//   (B) Drains queued notification_log rows (channel IS NULL, sent_at IS NULL):
+//       class_cancelled / class_instructor_changed (venue-side, mig 339) and
+//       class_waitlist_promoted / class_booking_cancelled (member-side, mig 340).
+// Session display fields are resolved once per id via small caches.
+async function classNotificationsJob(results) {
+  // Per-tick lookup caches.
+  const sessionCache = {}, venueCache = {}, ctypeCache = {}, spaceCache = {};
+  async function sessionInfo(id) {
+    if (!id) return null;
+    if (sessionCache[id] !== undefined) return sessionCache[id];
+    const { data } = await supabase
+      .from("venue_class_sessions")
+      .select("id, venue_id, class_type_id, space_id, starts_at, price_pence")
+      .eq("id", id).single();
+    sessionCache[id] = data || null;
+    return sessionCache[id];
+  }
+  async function venueName(id) {
+    if (venueCache[id] === undefined) {
+      const { data } = await supabase.from("venues").select("name").eq("id", id).single();
+      venueCache[id] = data?.name || "the venue";
+    }
+    return venueCache[id];
+  }
+  async function className(id) {
+    if (ctypeCache[id] === undefined) {
+      const { data } = await supabase.from("venue_class_types").select("name").eq("id", id).single();
+      ctypeCache[id] = data?.name || "your class";
+    }
+    return ctypeCache[id];
+  }
+  async function spaceName(id) {
+    if (spaceCache[id] === undefined) {
+      const { data } = await supabase.from("venue_spaces").select("name").eq("id", id).single();
+      spaceCache[id] = data?.name || "";
+    }
+    return spaceCache[id];
+  }
+  async function ctxForSession(sess) {
+    if (!sess) return null;
+    const when = new Date(sess.starts_at);
+    return {
+      venueName: await venueName(sess.venue_id),
+      className: await className(sess.class_type_id),
+      spaceName: await spaceName(sess.space_id),
+      dateLabel: fmtUkDate(sess.starts_at),
+      timeLabel: when.toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" }),
+    };
+  }
+
+  let noApiKey = false, confSent = 0, drainSent = 0;
+
+  // (A) New bookings in the last 20 min.
+  const since = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+  const { data: fresh, error: freshErr } = await supabase
+    .from("venue_class_bookings")
+    .select("id, session_id, member_profile_id, status, booked_at")
+    .in("status", ["confirmed", "waitlist"])
+    .gt("booked_at", since);
+  if (freshErr) { results.push(`classNotifications: bookings error — ${freshErr.message}`); }
+  for (const bk of fresh || []) {
+    const type = bk.status === "waitlist" ? "class_waitlist_joined" : "class_booking_confirmation";
+    const { data: mp } = await supabase.from("member_profiles").select("email, first_name").eq("id", bk.member_profile_id).single();
+    if (!mp?.email) continue;
+    if (await alreadyNotified(type, bk.id, mp.email, "email")) continue;
+    const base = await ctxForSession(await sessionInfo(bk.session_id));
+    if (!base) continue;
+    const wpos = bk.status === "waitlist"
+      ? (await supabase.from("venue_class_bookings").select("waitlist_position").eq("id", bk.id).single()).data?.waitlist_position
+      : null;
+    const r = await sendTemplated(type, mp.email, { ...base, firstName: mp.first_name || "there", waitlistPosition: wpos });
+    if (r?.skipped === "no_api_key") { noApiKey = true; break; }
+    if (r?.id) {
+      await supabase.from("notification_log").insert({ type, entity_id: bk.id, recipient: mp.email, channel: "email" });
+      confSent++;
+    } else if (r?.error) {
+      results.push(`classNotifications: send failed (${mp.email}) — ${r.error}`);
+    }
+  }
+
+  // (B) Drain queued class notification rows.
+  if (!noApiKey) {
+    const DRAIN_TYPES = ["class_cancelled", "class_instructor_changed", "class_waitlist_promoted", "class_booking_cancelled"];
+    const { data: queued, error: qErr } = await supabase
+      .from("notification_log")
+      .select("id, type, entity_id, recipient, queued_payload")
+      .in("type", DRAIN_TYPES)
+      .is("channel", null)
+      .is("sent_at", null)
+      .lte("queued_for", new Date().toISOString())
+      .limit(200);
+    if (qErr) { results.push(`classNotifications: drain error — ${qErr.message}`); }
+    for (const row of queued || []) {
+      if (!row.recipient) {
+        await supabase.from("notification_log").update({ sent_at: new Date().toISOString(), channel: "email" }).eq("id", row.id);
+        continue;
+      }
+      const sessId = row.queued_payload?.session_id || row.entity_id;
+      const base = await ctxForSession(await sessionInfo(sessId));
+      if (!base) {
+        await supabase.from("notification_log").update({ sent_at: new Date().toISOString(), channel: "email" }).eq("id", row.id);
+        continue;
+      }
+      const r = await sendTemplated(row.type, row.recipient, { ...base, reason: row.queued_payload?.reason || "" });
+      if (r?.skipped === "no_api_key") { noApiKey = true; break; }
+      if (r?.id || r?.skipped === "no_template") {
+        await supabase.from("notification_log").update({ sent_at: new Date().toISOString(), channel: "email" }).eq("id", row.id);
+        if (r?.id) drainSent++;
+      } else if (r?.error) {
+        results.push(`classNotifications: drain send failed (${row.recipient}) — ${r.error}`);
+      }
+    }
+  }
+
+  if (noApiKey) { results.push("classNotifications: skipped (RESEND_API_KEY unset)"); return; }
+  results.push(`classNotifications: ${confSent} confirm/waitlist, ${drainSent} drained`);
+}
+
+// ── Class reminders (~24h before a booked class, Classes Phase 3, mig 340) ───
+// Mirrors the league fixture-reminder shape: a 15-min slice of sessions starting
+// ~24h out, reminding every confirmed member once (deduped per session+member via
+// notification_log). Routed via pickChannel (push→email); members have no push
+// contacts yet, so it falls back to email. No-ops cleanly until RESEND_API_KEY set.
+async function classRemindersJob(results) {
+  const now = Date.now();
+  const fromISO = new Date(now + 24 * 60 * 60 * 1000).toISOString();
+  const toISO   = new Date(now + 24 * 60 * 60 * 1000 + 15 * 60 * 1000).toISOString();
+  const { data: sessions, error } = await supabase
+    .from("venue_class_sessions")
+    .select("id, venue_id, class_type_id, space_id, starts_at")
+    .eq("status", "scheduled")
+    .gte("starts_at", fromISO)
+    .lt("starts_at", toISO);
+  if (error) { results.push(`classReminders: error — ${error.message}`); return; }
+  if (!sessions?.length) { results.push("classReminders: none due"); return; }
+
+  const venueCache = {}, ctypeCache = {}, spaceCache = {};
+  let sent = 0;
+  for (const sess of sessions) {
+    const { data: bookings } = await supabase
+      .from("venue_class_bookings")
+      .select("member_profile_id")
+      .eq("session_id", sess.id)
+      .eq("status", "confirmed");
+    if (!bookings?.length) continue;
+
+    if (venueCache[sess.venue_id] === undefined) {
+      const { data } = await supabase.from("venues").select("name").eq("id", sess.venue_id).single();
+      venueCache[sess.venue_id] = data?.name || "the venue";
+    }
+    if (ctypeCache[sess.class_type_id] === undefined) {
+      const { data } = await supabase.from("venue_class_types").select("name").eq("id", sess.class_type_id).single();
+      ctypeCache[sess.class_type_id] = data?.name || "your class";
+    }
+    if (spaceCache[sess.space_id] === undefined) {
+      const { data } = await supabase.from("venue_spaces").select("name").eq("id", sess.space_id).single();
+      spaceCache[sess.space_id] = data?.name || "";
+    }
+    const when = new Date(sess.starts_at);
+    const ctx = {
+      venueName: venueCache[sess.venue_id],
+      className: ctypeCache[sess.class_type_id],
+      spaceName: spaceCache[sess.space_id],
+      dateLabel: fmtUkDate(sess.starts_at),
+      timeLabel: when.toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" }),
+    };
+
+    for (const b of bookings) {
+      const { data: mp } = await supabase.from("member_profiles").select("email, first_name").eq("id", b.member_profile_id).single();
+      if (!mp?.email) continue;
+      const dedupKey = `${sess.id}:${b.member_profile_id}`;
+      if (await alreadyNotified("class_reminder", dedupKey, mp.email, "email")) continue;
+      const channel = pickChannel("push", { email: mp.email });
+      if (channel !== "email") continue; // push not wired for members yet
+      const r = await sendTemplated("class_reminder", mp.email, { ...ctx, firstName: mp.first_name || "there" });
+      if (r?.skipped === "no_api_key") { results.push("classReminders: skipped (RESEND_API_KEY unset)"); return; }
+      if (r?.id) {
+        await supabase.from("notification_log").insert({ type: "class_reminder", entity_id: dedupKey, recipient: mp.email, channel: "email" });
+        sent++;
+      } else if (r?.error) {
+        results.push(`classReminders: send failed (${mp.email}) — ${r.error}`);
+      }
+    }
+  }
+  results.push(`classReminders: ${sent} reminder(s)`);
 }
 
 // ── Onboarding & ops emails (Phase 9 Cycle 9.1) ──────────────────────────────

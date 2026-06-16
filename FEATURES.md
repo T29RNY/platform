@@ -37,7 +37,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
 | Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟢 **ALL 8 PHASES BUILT (migs 329–337, next mig=338).** Stripe P1–4 ✅ (P4 LIFECYCLE PROVEN s137); GoCardless P5–6+8 ✅ BUILT s138 (mig 337) DORMANT. **Remaining = operator-gated only:** (a) Stripe go-live — sign MONEY-FLOW GATE + swap live keys in platform-clubmanager Vercel; (b) GoCardless P7 — operator applies for GC for Platforms + adds env vars, then sandbox lifecycle proof (GC code unverified against a real GC env). |
-| **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🟡 in progress — Phase 1 (mig 338) + Phase 2 (mig 339) ✅ shipped; next = Phase 3 (mig 340) member booking |
+| **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🟡 in progress — Phase 1 (mig 338) + Phase 2 (mig 339) + Phase 3 (mig 340) ✅ shipped; next = Phase 4 (mig 341) waitlist claim-window |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
 | Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
 | Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
@@ -2306,9 +2306,26 @@ un-checked-in confirmed bookings → `no_show` + bumps `no_show_count` (runtime-
 from Phase 6 + `no_show_count` from Phase 3). EV 19/19 + leak 0, rpc-security-sweep (11 RPCs) +
 hygiene PASS, venue build clean. Casual-regression N/A (no apps/inorout surface).
 
-**Phase 3 — Member booking & timetable (mig 340)**
+**Phase 3 — Member booking & timetable (mig 340) — ✅ SHIPPED (session 140, 2026-06-16)**
 New `venue_class_bookings` table (status: confirmed/waitlist/cancelled/no_show; payment_status:
-pending/paid/waived). New `member_profiles.no_show_count int DEFAULT 0` + `venues.no_show_suspension_threshold int NULL`. 4 member RPCs: `member_list_class_sessions` (public browse, auth required for booking state), `member_book_class_session` (membership gate + suspension check + tier benefit waiver + `first_session_free` check + waitlist on full), `member_cancel_class_booking` (cutoff enforcement + charge refund + waitlist promotion), `member_list_my_class_bookings`. Member UI: "What's on" timetable on VenueLanding, upcoming classes on MemberPass, history on MemberProfile.
+pending/paid/waived; payment_method: prepay/door/not_yet; UNIQUE(session,member)). New
+`member_profiles.no_show_count int DEFAULT 0` + `venues.no_show_suspension_threshold int NULL` —
+**landing these ACTIVATED both Phase-2 forward-guarded cascades** (re-proven live under EV). 4 member
+RPCs + 1 internal helper `_apply_class_booking_charge` (single source of truth for waive-vs-charge,
+reused by book + waitlist-promote): `member_list_class_sessions` (anon-callable public timetable;
+auth populates per-caller booking state), `member_book_class_session` (membership gate → suspension
+gate → prepay-dormancy gate → capacity/waitlist → tier `discount_pct`/`included_sessions` +
+`first_session_free` waiver → charge as `source_type='class'`/`source_id=booking_id::text` matching
+mig-339 cascade), `member_cancel_class_booking` (cutoff enforcement + refund + auto-promote next
+waitlist — Phase 4 swaps to notify-and-claim), `member_list_my_class_bookings`. supabase.js wrappers
++ barrel. Cron: `classNotificationsJob` (confirm/waitlist + drain venue-side queued rows) +
+`classRemindersJob` (~24h) + 7 mailer templates — EMAIL-only (members have no push plumbing yet),
+no-op without RESEND_API_KEY. Member UI: public "What's on" weekly timetable on VenueLanding
+(zero-footprint, shareable club-site wedge), "Upcoming classes" + inline cancel on MemberPass (owner
+only), "My class history" on MemberProfile. EV 11/11 + leak 0 (incl. re-proof of both Phase-2
+cascades), rpc-security-sweep (5) + hygiene + inorout build PASS, casual-regression PASS
+(no casual surface touched; core additive-only). **Owed: real-iPhone PWA walk (Hard Rule #13).**
+Stripe prepay stays DORMANT (`payment_method_unavailable` until a stripe/connected venue_integrations row).
 
 **Phase 4 — Waitlist (mig 341)**
 Notify-and-claim pattern (same as reserve spot, mig 230). On any cancellation, next waitlist

@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import QRCode from "react-qr-code";
-import { getMemberPass, memberGetSelf, redeemMemberOffer } from "@platform/core/storage/supabase.js";
+import {
+  getMemberPass, memberGetSelf, redeemMemberOffer,
+  memberListMyClassBookings, memberCancelClassBooking,
+} from "@platform/core/storage/supabase.js";
 import { supabase } from "@platform/core/storage/supabase.js";
 
 // MemberPass — the member-facing PWA pass at /m/<pass_token> (Membership Phase 5,
@@ -134,6 +137,9 @@ export default function MemberPass({ token }) {
 
           <PaymentStateBanner state={pass.payment_state} />
 
+          {/* upcoming classes — owner only, zero footprint when none (mig 340) */}
+          {isOwner && <UpcomingClasses />}
+
           {/* valid venues */}
           {(pass.valid_venues || []).length > 1 ? (
             <ValidVenuesSection venues={pass.valid_venues} />
@@ -153,6 +159,81 @@ export default function MemberPass({ token }) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Upcoming class bookings for the pass owner, with inline cancel (Classes Phase 3,
+// mig 340). Renders nothing until it has at least one upcoming booking, so it's
+// invisible for members who don't use classes.
+function UpcomingClasses() {
+  const [rows, setRows] = useState(null); // null=loading, []=none
+  const [err, setErr] = useState(null);
+  const cancelling = useRef(new Set());
+
+  useEffect(() => {
+    let alive = true;
+    memberListMyClassBookings()
+      .then((all) => { if (alive) setRows((all || []).filter((b) => b.is_upcoming)); })
+      .catch((e) => { console.error("[memberpass] class bookings load failed", e); if (alive) setRows([]); });
+    return () => { alive = false; };
+  }, []);
+
+  const cancel = async (bookingId) => {
+    if (cancelling.current.has(bookingId)) return;
+    cancelling.current.add(bookingId);
+    setErr(null);
+    const prev = rows;
+    setRows((r) => r.filter((b) => b.booking_id !== bookingId)); // optimistic
+    try {
+      const res = await memberCancelClassBooking(bookingId);
+      if (!res?.ok) { setRows(prev); setErr("Couldn't cancel that booking."); }
+    } catch (e) {
+      console.error("[memberpass] cancel failed", e);
+      setRows(prev);
+      setErr(e?.message === "cutoff_passed"
+        ? "Too late to cancel this class — the cancellation window has passed."
+        : "Couldn't cancel that booking. Please try again.");
+    } finally {
+      cancelling.current.delete(bookingId);
+    }
+  };
+
+  if (!rows || rows.length === 0) return null;
+
+  const fmt = (d) => {
+    try {
+      return new Date(d).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+    } catch { return d; }
+  };
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Upcoming classes</div>
+      {err && <div style={{ color: "#FF6060", fontSize: 12, marginBottom: 8 }}>{err}</div>}
+      <div style={{ display: "grid", gap: 8 }}>
+        {rows.map((b) => (
+          <div key={b.booking_id} style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>{b.class_name}</div>
+              <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                {fmt(b.starts_at)}{b.space_name ? ` · ${b.space_name}` : ""}
+              </div>
+              {b.status === "waitlist" && (
+                <div style={{ fontSize: 12, color: "#60A0FF", marginTop: 2 }}>
+                  Waitlisted{b.waitlist_position ? ` · position ${b.waitlist_position}` : ""}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => cancel(b.booking_id)}
+              style={{ flexShrink: 0, background: "transparent", color: "var(--t2)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-button)", padding: "6px 12px", fontSize: 13, cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

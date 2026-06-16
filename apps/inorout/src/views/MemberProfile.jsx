@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChild, memberUpdateChild,
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
-         memberListMyPurchases } from "@platform/core/storage/supabase.js";
+         memberListMyPurchases, memberListMyClassBookings } from "@platform/core/storage/supabase.js";
 
 // MemberProfile — the member's own account profile at /profile.
 // Authenticated gate is enforced by App.jsx before mounting.
@@ -52,6 +52,7 @@ export default function MemberProfile({ authUser }) {
 
   const [idDocuments,    setIdDocuments]    = useState([]);   // member's own submissions
   const [myOrders,       setMyOrders]       = useState([]);
+  const [myClasses,      setMyClasses]      = useState([]);   // class booking history (mig 340)
   const [idUploadClub,   setIdUploadClub]   = useState(null); // club being uploaded for
   const [idDocType,      setIdDocType]      = useState("passport");
   const [idFile,         setIdFile]         = useState(null);
@@ -68,7 +69,8 @@ export default function MemberProfile({ authUser }) {
       memberListConsents().catch(() => null),
       memberListIdDocuments().catch(() => null),
       memberListMyPurchases().catch(() => null),
-    ]).then(([selfResult, childrenResult, pendingResult, signedResult, idDocsResult, ordersResult]) => {
+      memberListMyClassBookings().catch(() => null),
+    ]).then(([selfResult, childrenResult, pendingResult, signedResult, idDocsResult, ordersResult, classesResult]) => {
       if (!alive) return;
       setProfile(selfResult?.found ? selfResult : null);
       setChildren(childrenResult?.children ?? []);
@@ -76,6 +78,7 @@ export default function MemberProfile({ authUser }) {
       setSignedConsents(signedResult?.consents ?? []);
       setIdDocuments(idDocsResult?.documents ?? []);
       setMyOrders(ordersResult?.purchases ?? []);
+      setMyClasses(Array.isArray(classesResult) ? classesResult : []);
     }).catch((e) => {
       console.error("[member-profile] load failed", e);
       if (alive) setProfile(null);
@@ -864,6 +867,40 @@ export default function MemberProfile({ authUser }) {
                 </span>
               </div>
             ))}
+          </Section>
+        )}
+
+        {/* ── My class history (mig 340) ───────────────────────────── */}
+        {myClasses.length > 0 && (
+          <Section title="My class history">
+            {myClasses.map((b, i) => {
+              const label = b.status === "confirmed" ? (b.is_upcoming ? "Booked" : "Attended")
+                : b.status === "waitlist" ? "Waitlisted"
+                : b.status === "no_show" ? "Missed"
+                : "Cancelled";
+              const tone = b.status === "confirmed" ? { bg: "rgba(76,175,80,0.15)", fg: "rgba(76,175,80,1)" }
+                : b.status === "waitlist" ? { bg: "rgba(96,160,255,0.15)", fg: "#60A0FF" }
+                : b.status === "no_show" ? { bg: "rgba(255,96,96,0.15)", fg: "#FF6060" }
+                : { bg: "rgba(255,255,255,0.06)", fg: "var(--t2)" };
+              return (
+                <div key={b.booking_id} style={{
+                  padding: "10px 0",
+                  borderTop: i > 0 ? "1px solid var(--border-subtle)" : "none",
+                  display: "flex", alignItems: "flex-start", gap: 12,
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>{b.class_name}</div>
+                    <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                      {b.venue_name}{b.space_name ? ` · ${b.space_name}` : ""}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--t3, #666)", marginTop: 3 }}>{fmtDate(b.starts_at)}</div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: tone.bg, color: tone.fg }}>
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
           </Section>
         )}
 
