@@ -245,6 +245,7 @@ export {
   venueCancelClassSeries,
   venueReassignClassInstructor,
   venueMarkClassCompleted,
+  venueClassCheckin,
   venueListEquipment,
   venueUpsertEquipment,
   getEquipmentAvailability,

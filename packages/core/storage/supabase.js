@@ -3610,6 +3610,19 @@ export async function venueMarkClassCompleted(venueToken, sessionId) {
   return data;
 }
 
+// QR check-in (Phase 6, mig 343). passToken is the scanned member-pass value — the
+// full "/m/<token>" URL or the bare token; the RPC normalises either. Stamps the
+// member's booking checked_in_at (and promotes a waitlist/offered slot to confirmed).
+// Returns graceful { ok:false, reason } for per-scan misses (pass_not_found,
+// wrong_venue, not_booked, booking_cancelled, no_token) and { ok:true,
+// already_checked_in, member_name, status, promoted } on success.
+export async function venueClassCheckin(venueToken, sessionId, passToken) {
+  const { data, error } = await supabase.rpc("venue_class_checkin", {
+    p_venue_token: venueToken, p_session_id: sessionId, p_pass_token: passToken });
+  if (error) { console.error("[classes] venue_class_checkin failed", error); throw error; }
+  return data;
+}
+
 // ── Equipment Hire flow (mig 257, Cycle 2) — quantity-aware availability + hires ──
 // Free units for each active item across a window (peak-concurrent aware). from/to ISO.
 export async function getEquipmentAvailability(venueToken, from, to, category = null) {

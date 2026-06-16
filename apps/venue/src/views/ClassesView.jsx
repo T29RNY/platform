@@ -17,6 +17,7 @@ import {
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
 import { EmptyState } from "./atoms.jsx";
+import ClassCheckinScanner from "./ClassCheckinScanner.jsx";
 
 // Classes — Phase 2 of CLASSES_ROOM_HIRE_PLAN (mig 339). The venue-operator
 // surface: the class catalogue (types) + the schedule (one-off + recurring
@@ -542,6 +543,7 @@ function SessionDetailModal({ venueToken, sessionId, instructors, onClose, onCha
   const [reason, setReason] = useState("");
   const [confirm, setConfirm] = useState(null); // 'cancel' | 'cancelSeries' | 'complete'
   const [reassignOpen, setReassignOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const savingRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -607,6 +609,7 @@ function SessionDetailModal({ venueToken, sessionId, instructors, onClose, onCha
           {/* Actions */}
           {scheduled && (
             <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button className="btn btn-sm btn-primary" onClick={() => setScanning(true)} disabled={busy}>Check in</button>
               <button className="btn btn-sm" onClick={() => setReassignOpen(true)} disabled={busy}>Change instructor</button>
               <button className="btn btn-sm" onClick={() => run(() => venueMarkClassCompleted(venueToken, sessionId))} disabled={busy}>Mark completed</button>
               <span style={{ flex: 1 }} />
@@ -645,6 +648,11 @@ function SessionDetailModal({ venueToken, sessionId, instructors, onClose, onCha
               onPick={(id) => run(() => venueReassignClassInstructor(venueToken, sessionId, id)).then(() => setReassignOpen(false))} />
           )}
         </div>
+      )}
+
+      {scanning && (
+        <ClassCheckinScanner venueToken={venueToken} sessionId={sessionId} className={s?.class_name}
+          onClose={() => { setScanning(false); onChanged(); load(); }} />
       )}
     </Modal>
   );
