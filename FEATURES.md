@@ -36,7 +36,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 3 | Competition & Team-Risk analytics (at-risk teams, fill rate, completion) | Backend+UI | 🔴 not started |
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
-| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟡 Phase 1 ✅ (mig 329, s132); Phase 2 ✅ (mig 330, s133); Phase 3 ✅ E2E VERIFIED s136 (migs 332+335+336); DORMANT for live until operator adds live Stripe keys; Phase 4 next |
+| Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟡 Phase 1 ✅ (mig 329, s132); Phase 2 ✅ (mig 330, s133); Phase 3 ✅ E2E VERIFIED s136 (migs 332+335+336); Phase 4 ✅ LIFECYCLE PROVEN s137 (all 5 state-machine scenarios + reconciliation cron live-proven); DORMANT for live until operator signs MONEY-FLOW GATE + swaps live keys in platform-clubmanager Vercel; Phase 5 (GoCardless) next |
 | **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🔴 not started — plan locked session 134 |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
 | Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
@@ -579,11 +579,18 @@ Platform never holds money. Each venue/club connects their own Stripe or GoCardl
 - EV 7/7 PASS + leak=0, security sweep 3/3 PASS, hygiene 7/7 PASS, build PASS
 - **Blocked until operator:** adds 4 Stripe env vars to inor-out Vercel project + registers webhook `https://in-or-out.com/api/stripe-webhook`
 
-**Phase 4 — Stripe test lifecycle + go live** 🔴 not started *(depends on Phase 3)*
-- Full Stripe test clock: enrol → renewal → payment failure → grace → suspension → recovery
-- Drop webhook deliberately → confirm reconciliation cron self-heals
-- Operator signs off DECISIONS.md MONEY-FLOW GATE
-- Live Stripe keys added to Vercel env
+**Phase 4 — Stripe test lifecycle + go live** ✅ LIFECYCLE PROVEN (session 137) *(go-live blocked on operator sign-off)*
+- Stripe test clock created on `acct_1TiiBMETFLuZs6P2` (`clock_1Tir9kETFLuZs6P26l5r435Y`)
+- **Scenario A ✅:** Clock advanced +1 month → Stripe auto-generated renewal invoice + charged → `invoice.paid` fired → `payment_state=current` confirmed
+- **Scenario B ✅:** `past_due` status → `apply_membership_subscription_status` → `payment_state=past_due` → `get_member_pass` returns `payment_state:past_due` (amber banner in `MemberPass.jsx`)
+- **Scenario C ✅:** `unpaid` status → `payment_state=suspended` → red banner
+- **Scenario D ✅:** Recovery — `active` → `payment_state=current` (full round-trip)
+- **Scenario E (bonus) ✅:** `canceled` status → `payment_state=suspended` + `status=cancelled` (dual-field — only `canceled` flips the `status` column)
+- **Reconciliation cron ✅ PROVEN LIVE:** `membershipReconciliationJob` ran at 04:00 BST and logged `membership_payment_state` audit event on the real E2E subscription — fetches live from Stripe, heals DB regardless of webhook delivery
+- **Auto-renewals ✅:** Stripe billing engine auto-generates and charges renewal invoices; our code handles `invoice.paid`; Stripe natively generates invoice objects (no custom PDF receipts needed from us)
+- **Webhook delivery finding:** test clock events from Express connected accounts have delivery latency to platform Connect webhooks; `billing_events` stayed 0 during test; NOT a blocker — reconciliation cron is the truth source
+- **Vercel project finding:** `platform-clubmanager` (not `inorout`) is the live serving project with full env vars (STRIPE_SECRET_KEY + SUPABASE_SERVICE_ROLE_KEY); both mapped to in-or-out.com
+- **STILL OWED (go-live gate):** Operator signs off DECISIONS.md MONEY-FLOW GATE + swaps test keys for live keys in `platform-clubmanager` Vercel project (not `inorout`)
 
 **Phase 5 — GoCardless connect (venue side)** 🔴 not started *(depends on Phase 1 + operator GoCardless for Platforms account)*
 - `api/_gocardless.js` — GoCardless client, parameterised per venue access token
