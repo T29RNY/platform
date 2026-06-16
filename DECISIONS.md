@@ -1,10 +1,39 @@
 # In or Out — Key Decisions Log
-*Last updated: Jun 15 2026 (session 131 — Native app = Capacitor; WhatsApp/SMS ruled out; payment infrastructure = Stripe Connect + GoCardless for Platforms, 8-phase plan, `venue_integrations` foundation. session 90 — MY VIEW has ONE header. The old `HeroCard` green pitch banner is gone; the floodlit pitch is now the *background* of the single `PageHeader` (via `PitchCanvas.jsx`), which carries the wordmark + one fixture line (day · venue · time · £price) + a thin admins line. The day is printed once. Do NOT re-introduce a separate "this week" hero/banner block above or below the header. session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
+*Last updated: Jun 17 2026 (session 138 — URL & accounts architecture decided (NOT yet started): move consumer app `apps/inorout` off the apex onto `app.in-or-out.com`; `in-or-out.com` becomes the marketing landing page with a catch-all 301 of all non-marketing paths → `app.`; other apps to subdomains later; move account ownership (Vercel/Supabase/GitHub/Stripe/Anthropic) off personal Gmail to a company identity. Pre-Capacitor-wrap. Full detailed phased runbook in `DOMAIN_MIGRATION.md`. Critical invariant: payment webhooks + the 7 live pg_cron jobs + 2 DB fns MUST repoint to `app.` BEFORE the apex flip (POSTs don't follow 301s). Phase 1 (GoDaddy `app` CNAME + Vercel attach) is next. session 131 — Native app = Capacitor; WhatsApp/SMS ruled out; payment infrastructure = Stripe Connect + GoCardless for Platforms, 8-phase plan, `venue_integrations` foundation. session 90 — MY VIEW has ONE header. The old `HeroCard` green pitch banner is gone; the floodlit pitch is now the *background* of the single `PageHeader` (via `PitchCanvas.jsx`), which carries the wordmark + one fixture line (day · venue · time · £price) + a thin admins line. The day is printed once. Do NOT re-introduce a separate "this week" hero/banner block above or below the header. session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.
 
 ---
+
+## URL architecture: consumer app → `app.in-or-out.com`, apex → marketing (session 138)
+
+**Decision (planned, not yet executed).** Before the Capacitor native wrap (which bakes
+the app's URL in ~permanently), restructure URLs once: the consumer app `apps/inorout`
+moves off the apex onto **`app.in-or-out.com`** (its own stable origin, where iOS/Android
+deep-link files will live); **`in-or-out.com` becomes the marketing landing page**
+(`marketing/index.html` consumer + `marketing/venues.html` operator) with a **catch-all
+301** of all non-marketing paths → `app.`; the other apps move to subdomains
+(`venue. club. league. ref. display. hq. admin.`) later. Separately, move account
+ownership (Vercel/Supabase/GitHub/Stripe/Anthropic) off the personal Gmail to a company
+identity (`founder@in-or-out.com`).
+
+**Why subdomains not paths:** lowest risk, each app stays its own deployment, and the
+consumer app needs a single clean origin for native deep-linking.
+
+**Hard invariants (audited this session):**
+- Additive until ONE stateful cutover (the apex flip). Reversible the whole way.
+- **Payment webhooks + the 7 live `pg_cron` jobs + 2 DB fns (`notify_spot_opened`,
+  `get_display_landing_code`) MUST be repointed to `app.` BEFORE the apex flip** — they're
+  POSTs and do NOT follow 301s; miss one and that background job goes silent. (The live
+  `cron.job` table is authoritative; migration files were incomplete — only 1 of 7 was in
+  them.) Rotate the weak shared cron bearer (`Liverp00l123?!!*`) while rewriting.
+- **0 schema/RLS/token change.** Roles/access derive from JWT/tokens, not domain. Join
+  codes/tokens are domain-independent. One re-login per origin.
+- Repoint callers of `in-or-out.com/api` (venue `VITE_INOROUT_API_URL`) — never 301 `/api`.
+
+**Full step-by-step phased runbook: `DOMAIN_MIGRATION.md` (repo root).** Status: NOT
+started — Phase 1 (GoDaddy `app` CNAME + attach to `inor-out` in Vercel) is the next action.
 
 ## Native app = Capacitor; WhatsApp/SMS ruled out in favour of native push (session 131)
 
