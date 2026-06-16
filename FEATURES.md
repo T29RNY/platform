@@ -37,7 +37,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
 | Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟢 **ALL 8 PHASES BUILT (migs 329–337, next mig=338).** Stripe P1–4 ✅ (P4 LIFECYCLE PROVEN s137); GoCardless P5–6+8 ✅ BUILT s138 (mig 337) DORMANT. **Remaining = operator-gated only:** (a) Stripe go-live — sign MONEY-FLOW GATE + swap live keys in platform-clubmanager Vercel; (b) GoCardless P7 — operator applies for GC for Platforms + adds env vars, then sandbox lifecycle proof (GC code unverified against a real GC env). |
-| **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🔴 not started — plan locked session 134 |
+| **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🟡 in progress — Phase 1 (mig 338) + Phase 2 (mig 339) ✅ shipped; next = Phase 3 (mig 340) member booking |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
 | Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
 | Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
@@ -2289,13 +2289,22 @@ Phase 1 before either table exists, then self-enforces once they land. 3 venue a
 guard). Venue UI: new **Facilities** nav group → Spaces CRUD (SpacesView). EV 14/14 + leak 0,
 rpc-security-sweep + hygiene PASS, venue build clean.
 
-**Phase 2 — Class types & scheduling (mig 339)**
+**Phase 2 — Class types & scheduling (mig 339) — ✅ SHIPPED (session 139, 2026-06-16)**
 3 new tables: `venue_class_types` (template — name, category, duration, capacity, cutoff hours,
 `first_session_free` flag, space FK), `venue_class_series` (recurring schedule — DOW, time,
 instructor, price, payment_mode), `venue_class_sessions` (instances — status: scheduled/cancelled/
-completed; instructor FK→venue_admins). 12 venue admin RPCs covering CRUD, one-off + series
-scheduling, cancellation (with push to booked members), instructor reassignment, session detail
-with attendee list. `venue_charges.source_type` extended += `'class'`. Venue UI: full Classes tab.
+completed; instructor FK→venue_admins). 11 venue admin RPCs covering CRUD, one-off + series
+scheduling (series mirrors `club_create_session_series`, skips space conflicts), cancellation,
+instructor reassignment, list/detail. `venue_charges.source_type` extended += `'class'`. Venue UI:
+new **Classes** tab in the Facilities group (Schedule + Class-types sub-tabs; day-grouped session
+cards with fill-rate pills; one-off/recurring create modal mirroring SessionsView; session detail
+sheet with reassign / mark-completed / cancel / cancel-series).
+**Two load-bearing cascades built forward-guarded** (`to_regclass venue_class_bookings`, no-op until
+Phase 3, self-upgrade with no later edit): (1) `venue_cancel_class_session/_series` VOID+REFUND
+prepaid class charges + cancel bookings + queue notify; (2) `venue_mark_class_completed` flips
+un-checked-in confirmed bookings → `no_show` + bumps `no_show_count` (runtime-probes `checked_in_at`
+from Phase 6 + `no_show_count` from Phase 3). EV 19/19 + leak 0, rpc-security-sweep (11 RPCs) +
+hygiene PASS, venue build clean. Casual-regression N/A (no apps/inorout surface).
 
 **Phase 3 — Member booking & timetable (mig 340)**
 New `venue_class_bookings` table (status: confirmed/waitlist/cancelled/no_show; payment_status:

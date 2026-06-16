@@ -3469,6 +3469,112 @@ export async function venueUpdateSpace(venueToken, spaceId, updates = {}) {
   return data;
 }
 
+// ── Classes (mig 339, Classes+Room-Hire Phase 2) — class catalogue + scheduling ──
+// Class types (catalogue): list returns each type + upcoming_session_count + space_name.
+export async function venueListClassTypes(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_class_types", { p_venue_token: venueToken });
+  if (error) { console.error("[classes] venue_list_class_types failed", error); throw error; }
+  return data;
+}
+
+// Create a class type. category ∈ fitness|yoga|dance|martial_arts|other. Returns { ok, class_type_id }.
+export async function venueCreateClassType(venueToken, {
+  name, spaceId, durationMinutes, defaultCapacity, category,
+  cancellationCutoffHours = 2, firstSessionFree = false, description = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_create_class_type", {
+    p_venue_token: venueToken, p_name: name, p_space_id: spaceId,
+    p_duration_minutes: durationMinutes, p_default_capacity: defaultCapacity, p_category: category,
+    p_cancellation_cutoff_hours: cancellationCutoffHours, p_first_session_free: firstSessionFree,
+    p_description: description });
+  if (error) { console.error("[classes] venue_create_class_type failed", error); throw error; }
+  return data;
+}
+
+// Partial update via a jsonb patch (only supplied keys change). Returns { ok, class_type_id }.
+export async function venueUpdateClassType(venueToken, classTypeId, updates = {}) {
+  const { data, error } = await supabase.rpc("venue_update_class_type", {
+    p_venue_token: venueToken, p_class_type_id: classTypeId, p_updates: updates });
+  if (error) { console.error("[classes] venue_update_class_type failed", error); throw error; }
+  return data;
+}
+
+// Sessions: list within an optional window. booked_count/waitlist_count are 0 until Phase 3.
+export async function venueListClassSessions(venueToken, { from = null, to = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_list_class_sessions", {
+    p_venue_token: venueToken, p_from: from, p_to: to });
+  if (error) { console.error("[classes] venue_list_class_sessions failed", error); throw error; }
+  return data;
+}
+
+// Single session detail + attendee list (attendees empty until Phase 3). Returns an object.
+export async function venueGetClassSessionDetail(venueToken, sessionId) {
+  const { data, error } = await supabase.rpc("venue_get_class_session_detail", {
+    p_venue_token: venueToken, p_session_id: sessionId });
+  if (error) { console.error("[classes] venue_get_class_session_detail failed", error); throw error; }
+  return data;
+}
+
+// Schedule a one-off session. payment_mode ∈ prepay|door|both. Rejects on space conflict
+// ('space_unavailable'). Returns { ok, session_id, ends_at }.
+export async function venueScheduleClassSession(venueToken, {
+  classTypeId, instructorId, startsAt, pricePence, paymentMode,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_schedule_class_session", {
+    p_venue_token: venueToken, p_class_type_id: classTypeId, p_instructor_id: instructorId,
+    p_starts_at: startsAt, p_price_pence: pricePence, p_payment_mode: paymentMode });
+  if (error) { console.error("[classes] venue_schedule_class_session failed", error); throw error; }
+  return data;
+}
+
+// Pre-generate a recurring block. day_of_week 0=Sun…6=Sat. Conflicting slots are skipped.
+// Returns { ok, series_id, sessions_created, sessions_skipped }.
+export async function venueCreateClassSeries(venueToken, {
+  classTypeId, instructorId, dayOfWeek, startTime, seriesStart, seriesEnd = null, pricePence, paymentMode,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_create_class_series", {
+    p_venue_token: venueToken, p_class_type_id: classTypeId, p_instructor_id: instructorId,
+    p_day_of_week: dayOfWeek, p_start_time: startTime, p_series_start: seriesStart,
+    p_series_end: seriesEnd, p_price_pence: pricePence, p_payment_mode: paymentMode });
+  if (error) { console.error("[classes] venue_create_class_series failed", error); throw error; }
+  return data;
+}
+
+// Cancel a single session — no cutoff (venue-side). Voids/refunds prepaid charges + notifies
+// booked members (both no-ops until Phase 3). Returns { ok, session_id, refunded, notified }.
+export async function venueCancelClassSession(venueToken, sessionId, reason = null) {
+  const { data, error } = await supabase.rpc("venue_cancel_class_session", {
+    p_venue_token: venueToken, p_session_id: sessionId, p_reason: reason });
+  if (error) { console.error("[classes] venue_cancel_class_session failed", error); throw error; }
+  return data;
+}
+
+// Cancel all remaining future scheduled sessions of a series; same refund+notify cascade.
+// Returns { ok, series_id, sessions_cancelled, refunded }.
+export async function venueCancelClassSeries(venueToken, seriesId, reason = null) {
+  const { data, error } = await supabase.rpc("venue_cancel_class_series", {
+    p_venue_token: venueToken, p_series_id: seriesId, p_reason: reason });
+  if (error) { console.error("[classes] venue_cancel_class_series failed", error); throw error; }
+  return data;
+}
+
+// Reassign a scheduled session's instructor. Returns { ok, session_id, instructor_id }.
+export async function venueReassignClassInstructor(venueToken, sessionId, newInstructorId) {
+  const { data, error } = await supabase.rpc("venue_reassign_class_instructor", {
+    p_venue_token: venueToken, p_session_id: sessionId, p_new_instructor_id: newInstructorId });
+  if (error) { console.error("[classes] venue_reassign_class_instructor failed", error); throw error; }
+  return data;
+}
+
+// Mark a session completed. Flips un-checked-in confirmed bookings → no_show + bumps no_show_count
+// (both no-ops until Phase 3). Returns { ok, session_id, no_show_count }.
+export async function venueMarkClassCompleted(venueToken, sessionId) {
+  const { data, error } = await supabase.rpc("venue_mark_class_completed", {
+    p_venue_token: venueToken, p_session_id: sessionId });
+  if (error) { console.error("[classes] venue_mark_class_completed failed", error); throw error; }
+  return data;
+}
+
 // ── Equipment Hire flow (mig 257, Cycle 2) — quantity-aware availability + hires ──
 // Free units for each active item across a window (peak-concurrent aware). from/to ISO.
 export async function getEquipmentAvailability(venueToken, from, to, category = null) {
