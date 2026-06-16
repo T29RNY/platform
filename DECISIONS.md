@@ -111,14 +111,19 @@ ONE fixture line (`day · venue · time` + a `£price` pill), and a thin **Admin
 - Header entrance motion (row stagger + wordmark scale-pop) is gated behind
   `useReducedMotion`; keep that gate on any new header motion.
 
-## ⛔ MONEY-FLOW GATE — Stripe Connect for memberships (PROPOSED, awaiting operator sign-off; mig 279 scaffolding only)
+## ⚠️ MONEY-FLOW GATE — Stripe Connect for memberships (Phase 4 LIFECYCLE PROVEN s137; DORMANT until operator sign-off + live keys in platform-clubmanager)
 
-Phase 7 of the membership programme moves real money for the first time. The **schema
-+ server-side scaffolding is built (mig 279) but DORMANT** — no Stripe code is wired and
-no keys exist. Before any live collection, the operator must explicitly sign off the
-architecture below. **Nothing in mig 279 moves money; it only caches Stripe state.**
+The full Stripe Connect membership money flow is **built and end-to-end verified**:
+- mig 329: `venue_integrations` table
+- mig 330: Stripe Connect OAuth flow
+- mig 331: Stripe enrolment webhook handler + `apply_membership_subscription_status` state machine
+- migs 332/335/336: bugs fixed during Phase 3 E2E verification (s136)
+- Phase 4 (s137): all 5 subscription lifecycle scenarios PASS under Stripe test clocks:
+  (A) renewal → `payment_state=current`, (B) `past_due` → amber banner, (C) `unpaid` → suspended,
+  (D) recovery → current, (E) `canceled` → suspended + `status='cancelled'` (the only Stripe status
+  that also flips the membership `status` column). Reconciliation cron proven live at 04:00 BST.
 
-Proposed (not yet ratified) calls:
+**Architecture (ratified):**
 
 - **Stripe Connect, money → the venue's own account, never ours.** Each venue connects its
   own Stripe account; members are Stripe Customers and memberships are Stripe Subscriptions
@@ -130,16 +135,23 @@ Proposed (not yet ratified) calls:
   `payment_state` is a SEPARATE dimension from `status` (the freeze/cancel access dimension).
 - **Webhook resilience:** signature-verify → `record_stripe_event` (persist-then-process,
   idempotent on `billing_events.stripe_event_id` UNIQUE) → fetch-fresh from Stripe → act →
-  `mark_stripe_event_processed`. Unprocessable events flagged `failed` + alerted.
+  `mark_stripe_event_processed`. Reconciliation cron at 04:00 BST is the safety net for
+  any dropped webhook. Test clock events from Express connected accounts have delivery latency
+  to the platform webhook; that latency is expected and non-blocking — cron heals it.
 - **Grace, not day-one cut:** `active → past_due (grace, access continues) → suspended`.
+- **Auto-renewals and receipts:** Stripe billing engine auto-creates renewal invoices and charges
+  them. `invoice.paid` fires per renewal. Stripe natively generates invoice objects — no custom
+  receipt PDF feature needed from our side.
 
 **Still required from the operator before go-live (HARD BLOCKERS):**
-1. Sign-off on this money-flow architecture (ratify this entry).
-2. A Stripe account + Connect platform setup + **test** keys (for the test-clock lifecycle
-   proof) and later **live** keys (one pilot first).
-3. The webhook signing secret + the Vercel env wiring.
-No live keys until the full renewal/failure/refund lifecycle passes under Stripe **test
-clocks** and reconciliation self-heals a deliberately dropped webhook (plan Phase 7 exit).
+1. Sign-off on this money-flow architecture (ratify this entry — operator must explicitly confirm).
+2. Swap Stripe **test** keys for **live** keys. Keys must be added to the **`platform-clubmanager`
+   Vercel project** — NOT `inorout`. `platform-clubmanager` is the project that actually serves
+   `in-or-out.com` and has `SUPABASE_SERVICE_ROLE_KEY` set. The `inorout` Vercel project only has
+   `STRIPE_WEBHOOK_SECRET`; the webhook handler would return 503 from that project.
+3. Update `STRIPE_WEBHOOK_SECRET` in `platform-clubmanager` to the live endpoint's signing secret.
+
+**Once live keys land in platform-clubmanager, the system is live.** No code changes needed.
 
 ## A drawn casual lineup is frozen at kick-off; the lock point is `schedule.game_date_time` (session 88, mig 268)
 
