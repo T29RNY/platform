@@ -3,7 +3,7 @@ import QRCode from "react-qr-code";
 import {
   getMemberPass, memberGetSelf, redeemMemberOffer,
   memberListMyClassBookings, memberCancelClassBooking, memberClaimWaitlistSpot,
-  memberListMyRoomHires,
+  memberGetPackageBalance, memberListMyRoomHires,
 } from "@platform/core/storage/supabase.js";
 import { supabase } from "@platform/core/storage/supabase.js";
 
@@ -139,6 +139,7 @@ export default function MemberPass({ token }) {
           <PaymentStateBanner state={pass.payment_state} />
 
           {/* upcoming classes — owner only, zero footprint when none (mig 340) */}
+          {isOwner && <ClassPasses />}
           {isOwner && <UpcomingClasses />}
           {isOwner && <UpcomingRoomHires />}
 
@@ -341,6 +342,44 @@ function UpcomingRoomHires() {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Class-pass balances for the pass owner (Class Packages Phase 7, mig 344).
+// Read-only; each row = remaining credits + expiry at a venue. Zero footprint when
+// the member holds no active passes.
+function ClassPasses() {
+  const [rows, setRows] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    memberGetPackageBalance(null)
+      .catch((e) => { console.error("[memberpass] package balance load failed", e); return []; })
+      .then((all) => { if (alive) setRows(Array.isArray(all) ? all : []); });
+    return () => { alive = false; };
+  }, []);
+
+  if (!rows || rows.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Class passes</div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {rows.map((b) => (
+          <div key={b.balance_id} style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "10px 14px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)", flex: 1, minWidth: 0 }}>{b.package_name}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "#60A0FF", lineHeight: 1 }}>{b.sessions_remaining}</div>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+              {b.sessions_remaining} class{b.sessions_remaining === 1 ? "" : "es"} left
+              {b.venue_name ? ` · ${b.venue_name}` : ""}
+              {b.expires_at ? ` · expires ${fmtDate(b.expires_at)}` : ""}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -11,6 +11,8 @@ import {
   venueCancelClassSeries,
   venueReassignClassInstructor,
   venueMarkClassCompleted,
+  venueCreateClassPackage,
+  venueListClassPackages,
   venueListSpaces,
   venueListAdmins,
 } from "@platform/core/storage/supabase.js";
@@ -72,7 +74,7 @@ function fillPill(booked, capacity) {
 }
 
 export default function ClassesView({ venueToken }) {
-  const [tab, setTab] = useState("schedule"); // "schedule" | "types"
+  const [tab, setTab] = useState("schedule"); // "schedule" | "types" | "packages"
   const [types, setTypes] = useState(null);
   const [spaces, setSpaces] = useState([]);
   const [instructors, setInstructors] = useState([]);
@@ -105,6 +107,7 @@ export default function ClassesView({ venueToken }) {
       <div className="chips" style={{ marginBottom: "var(--gap-2, 16px)" }}>
         <button className="chip" aria-pressed={tab === "schedule"} onClick={() => setTab("schedule")}>Schedule</button>
         <button className="chip" aria-pressed={tab === "types"} onClick={() => setTab("types")}>Class types</button>
+        <button className="chip" aria-pressed={tab === "packages"} onClick={() => setTab("packages")}>Packages</button>
       </div>
 
       {tab === "types" && (
@@ -120,7 +123,155 @@ export default function ClassesView({ venueToken }) {
           onGoToTypes={() => setTab("types")}
         />
       )}
+      {tab === "packages" && <PackagesPanel venueToken={venueToken} />}
     </div>
+  );
+}
+
+// ── Packages tab (Phase 7, mig 344) ──────────────────────────────────────────
+// Class passes (N sessions for a price, optional expiry) + per-member balances.
+
+function PackagesPanel({ venueToken }) {
+  const [packages, setPackages] = useState(null); // null=loading, []=none
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const savingRef = useRef(false);
+
+  const load = useCallback(async () => {
+    if (!venueToken) return;
+    try { setPackages(await venueListClassPackages(venueToken)); }
+    catch (e) { setErr(e?.message || String(e)); }
+  }, [venueToken]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const onCreate = async (form) => {
+    if (savingRef.current) return;
+    savingRef.current = true; setBusy(true); setErr(null);
+    try {
+      await venueCreateClassPackage(venueToken, form);
+      setCreating(false);
+      load();
+    } catch (e) { setErr(e?.message || String(e)); }
+    finally { setBusy(false); savingRef.current = false; }
+  };
+
+  const list = Array.isArray(packages) ? packages : [];
+
+  return (
+    <div>
+      <div className="dt-card">
+        <div className="dt-toolbar">
+          <strong style={{ fontSize: 15 }}>Class passes</strong>
+          {list.length > 0 && <span className="text-mute">{list.length}</span>}
+          <span style={{ flex: 1 }} />
+          <button className="btn btn-sm btn-primary" onClick={() => setCreating(true)}>
+            <Icon name="plus" size={14} /> Add pass
+          </button>
+        </div>
+
+        {err && <p style={{ color: "var(--live)", fontSize: 13, padding: "0 16px" }}>{err}</p>}
+
+        {packages === null ? (
+          <div style={{ padding: 32 }}><span className="text-mute">Loading…</span></div>
+        ) : list.length === 0 ? (
+          <div style={{ padding: 32 }}>
+            <EmptyState title="No class passes yet" body="A pass is a prepaid bundle — e.g. ‘10 classes for £80’. Members buy it, then each class booking spends one credit instead of paying per class. Add an optional expiry in days." />
+          </div>
+        ) : (
+          <table className="dt">
+            <thead>
+              <tr><th>Pass</th><th className="num">Sessions</th><th className="num">Price</th><th>Expiry</th><th className="num">Active members</th><th /></tr>
+            </thead>
+            <tbody>
+              {list.map((p) => (
+                <PackageRow key={p.id} pkg={p} />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {creating && <PackageModal busy={busy} onClose={() => setCreating(false)} onSubmit={onCreate} />}
+    </div>
+  );
+}
+
+function PackageRow({ pkg }) {
+  const [open, setOpen] = useState(false);
+  const balances = Array.isArray(pkg.balances) ? pkg.balances : [];
+  return (
+    <>
+      <tr style={pkg.is_active ? undefined : { opacity: 0.5 }}>
+        <td>
+          <strong>{pkg.name}</strong>
+          {!pkg.is_active && <span className="text-mute"> · inactive</span>}
+        </td>
+        <td className="num">{pkg.session_count}</td>
+        <td className="num">{fmtMoney(pkg.price_pence)}</td>
+        <td className="text-mute">{pkg.valid_days ? `${pkg.valid_days} days` : "No expiry"}</td>
+        <td className="num">{balances.length}</td>
+        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+          {balances.length > 0 && (
+            <button className="btn btn-xs" onClick={() => setOpen((v) => !v)}>{open ? "Hide" : "Balances"}</button>
+          )}
+        </td>
+      </tr>
+      {open && balances.map((b) => (
+        <tr key={b.balance_id} style={{ background: "var(--surface-2, rgba(255,255,255,0.02))" }}>
+          <td style={{ paddingLeft: 24 }} className="text-mute">{b.member_name || b.member_email || "Member"}</td>
+          <td className="num text-mute">{b.sessions_remaining} left</td>
+          <td className="text-mute" colSpan={2}>{b.member_email}</td>
+          <td className="text-mute" colSpan={2}>{b.expires_at ? `Expires ${fmtDt(b.expires_at)}` : "No expiry"}</td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function PackageModal({ busy, onClose, onSubmit }) {
+  const [name, setName] = useState("");
+  const [sessionCount, setSessionCount] = useState("10");
+  const [price, setPrice] = useState("0.00");
+  const [validDays, setValidDays] = useState("");
+
+  const canSave = name.trim().length > 0 && parseInt(sessionCount, 10) > 0;
+
+  const submit = () => {
+    if (!canSave) return;
+    onSubmit({
+      name: name.trim(),
+      sessionCount: parseInt(sessionCount, 10),
+      pricePence: poundsToPence(price),
+      validDays: validDays.trim() ? parseInt(validDays, 10) : null,
+    });
+  };
+
+  return (
+    <Modal onClose={onClose} title="Add class pass"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={submit} disabled={!canSave || busy}>{busy ? "Saving…" : "Create pass"}</button>
+      </>}>
+      <label className="field-label">Name</label>
+      <input className="input" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 10-class pass" autoFocus style={{ marginBottom: 12 }} />
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Sessions</label>
+          <input className="input" type="number" min="1" value={sessionCount} onChange={(e) => setSessionCount(e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field-label">Price (£)</label>
+          <input className="input" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </div>
+      </div>
+
+      <label className="field-label">Valid for (days, optional)</label>
+      <input className="input" type="number" min="1" value={validDays} onChange={(e) => setValidDays(e.target.value)} placeholder="Leave blank for no expiry" />
+    </Modal>
   );
 }
 

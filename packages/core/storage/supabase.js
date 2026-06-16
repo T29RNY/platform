@@ -3623,6 +3623,25 @@ export async function venueClassCheckin(venueToken, sessionId, passToken) {
   return data;
 }
 
+// ── Class packages (Phase 7, mig 344) — venue admin surface ──────────────────
+// Create a purchasable class pass (N sessions for a price; optional valid_days
+// expiry). Returns { ok:true, package_id }.
+export async function venueCreateClassPackage(venueToken, { name, sessionCount, pricePence, validDays = null }) {
+  const { data, error } = await supabase.rpc("venue_create_class_package", {
+    p_venue_token: venueToken, p_name: name, p_session_count: sessionCount,
+    p_price_pence: pricePence, p_valid_days: validDays });
+  if (error) { console.error("[classes] venue_create_class_package failed", error); throw error; }
+  return data;
+}
+
+// Packages for the venue, each with a nested `balances` array of active member
+// balances (member_name/email, sessions_remaining, expires_at) for the UI.
+export async function venueListClassPackages(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_class_packages", { p_venue_token: venueToken });
+  if (error) { console.error("[classes] venue_list_class_packages failed", error); return []; }
+  return data ?? [];
+}
+
 // ── Equipment Hire flow (mig 257, Cycle 2) — quantity-aware availability + hires ──
 // Free units for each active item across a window (peak-concurrent aware). from/to ISO.
 export async function getEquipmentAvailability(venueToken, from, to, category = null) {
@@ -4768,6 +4787,32 @@ export async function memberClaimWaitlistSpot(sessionId) {
   const { data, error } = await supabase.rpc("member_claim_waitlist_spot", { p_session_id: sessionId });
   if (error) { console.error("[classes] member_claim_waitlist_spot failed", error); throw error; }
   return data;
+}
+
+// ── Class packages (Phase 7, mig 344) — member surface ───────────────────────
+// Public menu of a venue's active passes (no login). Drives the "Buy a class pass"
+// sheet; purchase itself is auth-gated.
+export async function memberListClassPackages(venueId) {
+  const { data, error } = await supabase.rpc("member_list_class_packages", { p_venue_id: venueId });
+  if (error) { console.error("[classes] member_list_class_packages failed", error); return []; }
+  return data ?? [];
+}
+
+// Buy a pass (authenticated). Grants the balance immediately + raises an unpaid
+// class_package charge. Returns { ok:true, balance_id, sessions_remaining, ... } or
+// { ok:false, reason:'membership_required' }.
+export async function memberPurchaseClassPackage(packageId) {
+  const { data, error } = await supabase.rpc("member_purchase_class_package", { p_package_id: packageId });
+  if (error) { console.error("[classes] member_purchase_class_package failed", error); throw error; }
+  return data;
+}
+
+// The caller's active (unexpired, non-empty) class-pass balances. venueId=null
+// returns all venues (member pass); a venue id scopes to one (timetable).
+export async function memberGetPackageBalance(venueId = null) {
+  const { data, error } = await supabase.rpc("member_get_package_balance", { p_venue_id: venueId });
+  if (error) { console.error("[classes] member_get_package_balance failed", error); return []; }
+  return data ?? [];
 }
 
 // ── Room hire (mig 342, Phase 5) — member/public surface ─────────────────────
