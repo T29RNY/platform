@@ -121,6 +121,7 @@ export default function UtilisationPanel({ companyId }) {
   const range = data.range || {};
   const assumed = data.assumptions?.assumed_pitches || 0;
   const cfg = c.prime_configured;
+  const sp = c.spaces || {};
 
   return (
     <div className="analytics">
@@ -139,6 +140,14 @@ export default function UtilisationPanel({ companyId }) {
           {chip(c.requested_hours > 0 ? hrs(c.requested_hours) : "—", "Requested")}
         </div>
         <Bar value={c.overall_pct} />
+        {(sp.activity_hours > 0 || sp.class_sessions > 0 || sp.room_hires > 0) && (
+          <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+            Spaces activity (classes + room hire, not pitch-based):
+            {" "}<b className="mono">{hrs(sp.activity_hours)}</b>
+            {" · "}{sp.class_sessions ?? 0} classes (<b className="mono">{hrs(sp.class_hours)}</b>)
+            {" · "}{sp.room_hires ?? 0} room hires (<b className="mono">{hrs(sp.room_hire_hours)}</b>)
+          </div>
+        )}
       </div>
 
       {!cfg && (

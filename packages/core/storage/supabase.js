@@ -2193,6 +2193,20 @@ export async function hqGetUtilisation(companyId, dateFrom = null, dateTo = null
   return data;
 }
 
+// Classes + Room Hire Phase 8 (mig 345). Waitlist intelligence (class types
+// consistently >90% full), instructor utilisation, and revenue per class type
+// across the company's venues. Authenticated, resolve_company_caller-gated,
+// region-scoped. Also a Gaffer/Phase-7 AI context source (Hard Rule #14).
+export async function hqGetClassInsights(companyId) {
+  if (!companyId) return null;
+  const { data, error } = await supabase.rpc("hq_get_class_insights", { p_company_id: companyId });
+  if (error) {
+    console.error("[hq] get_class_insights failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // Membership health rolled up across the company's venues (Phase 6, mig 278).
 // Returns {ok, venues:[{venue_id, venue_name, region, active, paused, ending,
 // due_soon, mrr_pence, cancelled_30d, pending_requests}], total:{…}}.

@@ -2383,12 +2383,24 @@ Reuses BarcodeDetector already live on apps/display. Venue UI: per-session check
 before tier pricing — valid package deducts one session instead of creating a charge. Trial class:
 `venue_class_types.first_session_free` waives charge for first booking at venue only.
 
-**Phase 8 — HQ analytics (mig 345)**
-`hq_get_utilisation` extended: class sessions + room hires count as used hours (prime-time class =
-prime-time utilisation). `hq_get_analytics` extended: new `classes` block (fill rate, revenue,
-instructor utilisation). New `hq_get_class_insights` RPC: waitlist intelligence (consistently full
-classes flagged), per-instructor utilisation, per-type revenue cross-venue. **Gaffer context source
-— recorded in RPCS.md per Hard Rule 14.**
+**Phase 8 — HQ analytics (mig 345) — ✅ SHIPPED (session 145, 2026-06-16) — FINAL CYCLE**
+apps/hq only; no new tables/columns. `hq_get_utilisation` extended with a COMPANY-level `spaces` block
+(`class_hours`/`class_sessions`/`room_hire_hours`/`room_hires`/`activity_hours` from class sessions +
+confirmed room hires) — kept SEPARATE from pitch `used_hours` because venue_spaces have no availability
+windows (folding in would corrupt the pitch denominator). `hq_get_analytics` extended with a `classes`
+drill-down (sessions, avg fill, class + room-hire revenue, busiest session, per-type fill/revenue,
+instructor utilisation). New `hq_get_class_insights(company_id)` RPC: waitlist intelligence (class types
+avg ≥90% full over ≥2 sessions flagged), per-instructor utilisation, per-type revenue cross-venue —
+**Gaffer/Phase-7 AI context source, recorded in RPCS.md per Hard Rule #14.** **Double-count guard proven:**
+class revenue sums `class`+`class_package` CHARGES (never sessions), so a pass-funded booking is counted
+once; `by_type`/insights revenue is `class`-source only. UI: new "Classes" card in AnalyticsView (headline
+chips + by-type/instructor tables + side-loaded "Waitlist pressure" strip) + activity chips on UtilCard &
+UtilisationPanel. EV 15/15 + leak 0 (aggregation + double-count guard), rpc-security-sweep (3) + hygiene
+7/7 + hq build PASS, casual-regression PASS (core additive-only, no inorout surface touched). No real-iPhone
+walk owed (no PWA surface). **⛔ Member-surface real-iPhone PWA walks for Phases 3/4/5/7 + the Phase 6
+scanner-camera walk are STILL OWED (Hard Rule #13).**
 
 Stripe prepay dormant throughout — `payment_mode='prepay'` accepted by schema but booking RPC
 returns `payment_method_unavailable` until venue's Stripe Connect account is active.
+
+**🏁 CLASSES + ROOM HIRE EPIC COMPLETE — all 8 phases shipped (migs 338–345), all on main.**

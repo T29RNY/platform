@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { hqGetAnalytics, hqGetUtilisation, hqGetMembershipRollup, hqSetDashboardConfig } from "@platform/core/storage/supabase.js";
+import { hqGetAnalytics, hqGetUtilisation, hqGetClassInsights, hqGetMembershipRollup, hqSetDashboardConfig } from "@platform/core/storage/supabase.js";
 
-const ALL_CARDS = ["overview", "venue_comparison", "top_scorers", "discipline", "incidents", "billing", "utilisation", "revenue", "memberships"];
+const ALL_CARDS = ["overview", "venue_comparison", "top_scorers", "discipline", "incidents", "billing", "utilisation", "revenue", "memberships", "classes"];
 const CARD_TITLES = {
   overview: "Overview",
   venue_comparison: "Venue comparison",
@@ -12,10 +12,11 @@ const CARD_TITLES = {
   utilisation: "Utilisation",
   revenue: "Revenue",
   memberships: "Memberships",
+  classes: "Classes",
 };
 const PRESETS = {
   operations: ["overview", "venue_comparison", "incidents"],
-  commercial: ["overview", "revenue", "memberships", "billing", "venue_comparison"],
+  commercial: ["overview", "revenue", "memberships", "classes", "billing", "venue_comparison"],
   performance: ["overview", "top_scorers", "discipline"],
 };
 const DEFAULT_PRESET = "operations";
@@ -24,6 +25,7 @@ export default function AnalyticsView({ companyId }) {
   const [data, setData] = useState(null);
   const [util, setUtil] = useState(null);
   const [mem, setMem] = useState(null);
+  const [insights, setInsights] = useState(null);
   const [err, setErr] = useState(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState([]);
@@ -50,6 +52,8 @@ export default function AnalyticsView({ companyId }) {
       catch (e) { console.error("[hq] utilisation load failed", e); }
       try { const m = await hqGetMembershipRollup(companyId); if (!cancelled) setMem(m); }
       catch (e) { console.error("[hq] membership rollup load failed", e); }
+      try { const ci = await hqGetClassInsights(companyId); if (!cancelled) setInsights(ci); }
+      catch (e) { console.error("[hq] class insights load failed", e); }
     })();
     return () => { cancelled = true; };
   }, [companyId]);
@@ -134,14 +138,14 @@ export default function AnalyticsView({ companyId }) {
             </div>
           )}
           <h3>{CARD_TITLES[key] || key}</h3>
-          <CardBody cardKey={key} a={a} util={util} mem={mem} />
+          <CardBody cardKey={key} a={a} util={util} mem={mem} insights={insights} />
         </div>
       ))}
     </div>
   );
 }
 
-function CardBody({ cardKey, a, util, mem }) {
+function CardBody({ cardKey, a, util, mem, insights }) {
   if (cardKey === "overview") return <Overview o={a.overview || {}} />;
   if (cardKey === "venue_comparison") return <VenueComparison rows={a.venue_comparison || []} />;
   if (cardKey === "top_scorers") return <TopScorers rows={a.top_scorers || []} />;
@@ -151,7 +155,84 @@ function CardBody({ cardKey, a, util, mem }) {
   if (cardKey === "utilisation") return <UtilCard u={util} />;
   if (cardKey === "revenue") return <Revenue r={a.revenue || {}} />;
   if (cardKey === "memberships") return <Memberships m={mem} />;
+  if (cardKey === "classes") return <Classes c={a.classes || {}} insights={insights} />;
   return null;
+}
+
+function Classes({ c, insights }) {
+  const types = c.by_type || [];
+  const instructors = c.instructors || [];
+  const flags = insights?.flags || [];
+  const busiest = c.busiest_session;
+  const fillPct = (n) => (n == null ? "—" : n + "%");
+  return (
+    <>
+      <div className="chips">
+        {Chip(c.sessions ?? 0, "Sessions")}
+        {Chip(fillPct(c.avg_fill_pct), "Avg fill")}
+        {Chip(gbp(c.class_revenue_pence), "Class revenue")}
+        {Chip(gbp(c.room_hire_revenue_pence), "Room-hire revenue")}
+      </div>
+      {busiest && busiest.class && (
+        <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          Busiest: {busiest.class} · {busiest.when} · {fillPct(busiest.fill_pct)} full
+        </div>
+      )}
+
+      {flags.length > 0 && (
+        <div className="acard" style={{ borderLeft: "3px solid var(--warn)", marginTop: 10 }}>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Waitlist pressure — consistently &gt;90% full</div>
+          <table className="atable">
+            <thead><tr><th>Class</th><th>Venue</th><th>Avg fill</th><th>Sessions</th><th>Waiting</th></tr></thead>
+            <tbody>
+              {flags.map((f, i) => (
+                <tr key={i}>
+                  <td>{f.type}</td>
+                  <td className="muted">{f.venue || "—"}</td>
+                  <td className="num">{fillPct(f.avg_fill_pct)}</td>
+                  <td className="num">{f.sessions}</td>
+                  <td className="num">{f.total_waiting}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {types.length === 0 ? (
+        <div className="empty">No classes scheduled in range.</div>
+      ) : (
+        <table className="atable" style={{ marginTop: 10 }}>
+          <thead><tr><th>Class type</th><th>Sessions</th><th>Fill</th><th>Revenue</th></tr></thead>
+          <tbody>
+            {types.map((t, i) => (
+              <tr key={i}>
+                <td>{t.type}</td>
+                <td className="num">{t.sessions}</td>
+                <td className="num">{fillPct(t.fill_pct)}</td>
+                <td className="num">{gbp(t.revenue_pence)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {instructors.length > 0 && (
+        <table className="atable" style={{ marginTop: 10 }}>
+          <thead><tr><th>Instructor</th><th>Sessions</th><th>Hours</th></tr></thead>
+          <tbody>
+            {instructors.map((ins, i) => (
+              <tr key={i}>
+                <td>{ins.instructor}</td>
+                <td className="num">{ins.sessions}</td>
+                <td className="num">{ins.hours == null ? "—" : ins.hours + "h"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
 }
 
 function Memberships({ m }) {
@@ -238,6 +319,7 @@ function UtilCard({ u }) {
   if (!u) return <div className="empty">Loading utilisation…</div>;
   const c = u.company || {};
   const cfg = c.prime_configured;
+  const sp = c.spaces || {};
   const p = (n) => (n == null ? "—" : n + "%");
   const peak = (o) => (o && o.pct != null ? `${o.day || o.slot} · ${o.pct}%` : "—");
   return (
@@ -247,9 +329,11 @@ function UtilCard({ u }) {
         {Chip(cfg ? p(c.prime_pct) : "—", "Prime")}
         {Chip(cfg ? p(c.offpeak_pct) : "—", "Off-peak")}
         {Chip(cfg ? (c.empty_prime_hours == null ? "—" : c.empty_prime_hours + "h") : "—", "Empty prime")}
+        {Chip(sp.activity_hours == null ? "—" : sp.activity_hours + "h", "Activity hours")}
       </div>
       <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
         Busiest {peak(c.best_slot)} · Quietest {peak(c.worst_slot)}
+        {" · "}{sp.class_sessions ?? 0} classes / {sp.room_hires ?? 0} room hires
       </div>
     </>
   );
