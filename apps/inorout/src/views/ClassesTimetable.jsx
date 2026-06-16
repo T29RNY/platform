@@ -124,6 +124,7 @@ export default function ClassesTimetable({ venueId, requireAuth }) {
             const full = s.spots_left <= 0;
             const booked = s.my_status === "confirmed";
             const waitlisted = s.my_status === "waitlist";
+            const offered = s.my_status === "offered";
             return (
               <div className="ct-card" key={s.session_id}>
                 <div className="ct-time">{new Date(s.starts_at).toLocaleTimeString("en-GB", TIME_FMT)}</div>
@@ -139,6 +140,8 @@ export default function ClassesTimetable({ venueId, requireAuth }) {
                 <div className="ct-act">
                   {booked ? (
                     <span className="ct-badge">Booked</span>
+                  ) : offered ? (
+                    <span className="ct-badge">Spot offered — claim on your pass</span>
                   ) : waitlisted ? (
                     <span className="ct-badge">Waitlisted{s.my_waitlist_position ? ` #${s.my_waitlist_position}` : ""}</span>
                   ) : (

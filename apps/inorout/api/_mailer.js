@@ -83,6 +83,19 @@ const TEMPLATES = {
       `<p>We'll email you if a spot opens up.</p>`
     ),
   }),
+  class_spot_offered: (c) => ({
+    subject: `A spot opened — claim your place in ${c.className}`,
+    text:
+      `Good news — a spot just opened in ${c.className} at ${c.venueName} on ${c.dateLabel} at ${c.timeLabel}. ` +
+      `It's being held for you for a short while — open your membership pass and tap "Claim spot" to take it ` +
+      `before it rolls to the next person on the waitlist.`,
+    html: wrap(
+      `<p>Good news — a spot just opened in <b>${esc(c.className)}</b> at <b>${esc(c.venueName)}</b> ` +
+      `on <b>${esc(c.dateLabel)}</b> at <b>${esc(c.timeLabel)}</b>.</p>` +
+      `<p>It's being held for you for a short while. Open your membership pass and tap <b>Claim spot</b> ` +
+      `to take it before it rolls to the next person on the waitlist.</p>`
+    ),
+  }),
   class_waitlist_promoted: (c) => ({
     subject: `A spot opened — you're in for ${c.className}`,
     text:

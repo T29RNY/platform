@@ -37,7 +37,7 @@ At-a-glance of everything left, across all surfaces. Status: 🔴 not started ·
 | HQ Intelligence — Phase 4 | Weekly HQ Brief (auto-written) — depends on Phase 7 | New feature | 🔴 blocked on Phase 7 |
 | HQ Intelligence — Phase 5 | "The Moat" (migration maps, dynamic pricing, etc.) | New feature | 🔴 far future |
 | Payments | **Stripe Connect + GoCardless for Platforms** — 8-phase plan locked session 131. `venue_integrations` foundation → Stripe Connect activation (mig 279 scaffolding) → Stripe test lifecycle → GoCardless connect → GoCardless mandate + webhooks → GoCardless test lifecycle → member payment choice. Platform never holds money — each venue connects their own account. Full plan: FEATURES.md Payment Infrastructure section. | Backend/New | 🟢 **ALL 8 PHASES BUILT (migs 329–337, next mig=338).** Stripe P1–4 ✅ (P4 LIFECYCLE PROVEN s137); GoCardless P5–6+8 ✅ BUILT s138 (mig 337) DORMANT. **Remaining = operator-gated only:** (a) Stripe go-live — sign MONEY-FLOW GATE + swap live keys in platform-clubmanager Vercel; (b) GoCardless P7 — operator applies for GC for Platforms + adds env vars, then sandbox lifecycle proof (GC code unverified against a real GC env). |
-| **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🟡 in progress — Phase 1 (mig 338) + Phase 2 (mig 339) + Phase 3 (mig 340) ✅ shipped; next = Phase 4 (mig 341) waitlist claim-window |
+| **Classes + Room Hire** | 8-phase plan: hireable spaces → class scheduling → member booking + waitlist → room hire → QR check-in → packages & trials → HQ analytics. Member-only classes, self-serve + enquiry-only room hire, equipment add-on, no-show tracking. Full plan: `~/.claude/plans/classes-and-room-hire.md`. | Backend+UI | 🟡 in progress — Phases 1–4 (migs 338–341) ✅ shipped; next = Phase 5 (mig 342) room hire |
 | Billing — Phase 8 | Self-serve SaaS subscriptions/billing | New feature | 🔴 deferred to year 2 |
 | Operational | SMS/WhatsApp — **RULED OUT (session 131).** Native push via Capacitor (APNs/FCM) makes WhatsApp unnecessary. `_sms.js` stays dormant. `pickChannel` = push → email only. | Cancelled | ✅ decision made |
 | Operational | Monday HQ digest delivery eyeball once `RESEND_API_KEY` live | Test/Config | 🟢 owed |
@@ -2327,10 +2327,28 @@ cascades), rpc-security-sweep (5) + hygiene + inorout build PASS, casual-regress
 (no casual surface touched; core additive-only). **Owed: real-iPhone PWA walk (Hard Rule #13).**
 Stripe prepay stays DORMANT (`payment_method_unavailable` until a stripe/connected venue_integrations row).
 
-**Phase 4 — Waitlist (mig 341)**
-Notify-and-claim pattern (same as reserve spot, mig 230). On any cancellation, next waitlist
-member gets a push notification with a 30-minute claim window. `member_claim_waitlist_spot`
-RPC — atomic check-and-promote, graceful rejection if spot taken.
+**Phase 4 — Waitlist claim-window (mig 341) — ✅ SHIPPED (session 141, 2026-06-16)**
+Notify-and-claim, replacing Phase-3's straight auto-promote (same pattern as reserve spot, mig 230).
+Schema delta: `venue_class_bookings.status` += `'offered'` + new `offer_expires_at timestamptz`;
+`venues.class_claim_window_minutes int DEFAULT 30` (per-venue window). An `offered` booking **reserves
+the seat** (counts toward capacity exactly like `confirmed` while the window is live) — so the claim is
+atomic and a new booker can't steal a held seat; the charge is applied on CLAIM, never on offer.
+New internal helper `_offer_next_waitlist_spot(session_id)` (single source for "freed seat → offer the
+front waitlister", queues `class_spot_offered`). `member_cancel_class_booking` rewired: freed confirmed
+seat now OFFERS (not promotes); an `offered` booking is itself cancellable (decline → rolls onward);
+return field `promoted`→`offered`. New `member_claim_waitlist_spot(session_id)` (authenticated; row-locked
+check-and-promote; graceful `{ok:false, reason:'spot_taken'}` on expiry/gone). `member_book_class_session`
++ `member_list_class_sessions` updated to count live offers toward capacity / `spots_left`;
+`member_list_my_class_bookings` + the timetable expose `offer_expires_at` and `'offered'` state. Cron:
+new `classWaitlistExpiryJob` ticks `expire_class_waitlist_offers()` (service_role) — expired offers roll
+to the back of the waitlist and the next person is re-offered; `class_spot_offered` added to the notify
+drain + a new mailer template. Member UI (MemberPass): live **mm:ss countdown** to the claim window on an
+offered booking + a "Claim spot" button (optimistic + revert + `isSavingRef`) + graceful "spot taken"
+state; timetable shows a "Spot offered — claim on your pass" badge. EV 8/8 + leak 0 (claim happy-path,
+claim-after-expiry → spot_taken, cron re-offer to next waitlister, AND re-proof that cancel now OFFERS
+not promotes), rpc-security-sweep + hygiene 7/7 + inorout build PASS, casual-regression PASS (no casual
+surface touched; core additive-only). **Owed: real-iPhone PWA walk (Hard Rule #13) — folds with Phase 3's
+owed walk.**
 
 **Phase 5 — Room hire (mig 342)**
 New `venue_room_hires` table (booker_type: member/non_member; status: requested/confirmed/cancelled;

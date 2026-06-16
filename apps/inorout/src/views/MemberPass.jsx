@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import QRCode from "react-qr-code";
 import {
   getMemberPass, memberGetSelf, redeemMemberOffer,
-  memberListMyClassBookings, memberCancelClassBooking,
+  memberListMyClassBookings, memberCancelClassBooking, memberClaimWaitlistSpot,
 } from "@platform/core/storage/supabase.js";
 import { supabase } from "@platform/core/storage/supabase.js";
 
@@ -170,13 +170,18 @@ export default function MemberPass({ token }) {
 function UpcomingClasses() {
   const [rows, setRows] = useState(null); // null=loading, []=none
   const [err, setErr] = useState(null);
+  const [taken, setTaken] = useState(new Set()); // session_ids whose offer lapsed/gone
   const cancelling = useRef(new Set());
+  const claiming = useRef(new Set());
+
+  const reload = () =>
+    memberListMyClassBookings()
+      .then((all) => (all || []).filter((b) => b.is_upcoming))
+      .catch((e) => { console.error("[memberpass] class bookings load failed", e); return []; });
 
   useEffect(() => {
     let alive = true;
-    memberListMyClassBookings()
-      .then((all) => { if (alive) setRows((all || []).filter((b) => b.is_upcoming)); })
-      .catch((e) => { console.error("[memberpass] class bookings load failed", e); if (alive) setRows([]); });
+    reload().then((up) => { if (alive) setRows(up); });
     return () => { alive = false; };
   }, []);
 
@@ -200,6 +205,33 @@ function UpcomingClasses() {
     }
   };
 
+  const claim = async (b) => {
+    if (claiming.current.has(b.booking_id)) return;
+    claiming.current.add(b.booking_id);
+    setErr(null);
+    const prev = rows;
+    // optimistic: flip the offered row to confirmed
+    setRows((r) => r.map((x) => (x.booking_id === b.booking_id ? { ...x, status: "confirmed", offer_expires_at: null } : x)));
+    try {
+      const res = await memberClaimWaitlistSpot(b.session_id);
+      if (!res?.ok) {
+        // spot gone — mark it taken and refresh from the server
+        setTaken((t) => new Set(t).add(b.session_id));
+        const up = await reload();
+        setRows(up);
+      } else {
+        const up = await reload();
+        setRows(up);
+      }
+    } catch (e) {
+      console.error("[memberpass] claim failed", e);
+      setRows(prev);
+      setErr("Couldn't claim that spot. Please try again.");
+    } finally {
+      claiming.current.delete(b.booking_id);
+    }
+  };
+
   if (!rows || rows.length === 0) return null;
 
   const fmt = (d) => {
@@ -213,30 +245,69 @@ function UpcomingClasses() {
       <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Upcoming classes</div>
       {err && <div style={{ color: "#FF6060", fontSize: 12, marginBottom: 8 }}>{err}</div>}
       <div style={{ display: "grid", gap: 8 }}>
-        {rows.map((b) => (
-          <div key={b.booking_id} style={{ border: "1px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>{b.class_name}</div>
-              <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
-                {fmt(b.starts_at)}{b.space_name ? ` · ${b.space_name}` : ""}
-              </div>
-              {b.status === "waitlist" && (
-                <div style={{ fontSize: 12, color: "#60A0FF", marginTop: 2 }}>
-                  Waitlisted{b.waitlist_position ? ` · position ${b.waitlist_position}` : ""}
+        {rows.map((b) => {
+          const offerLive = b.status === "offered" && b.offer_expires_at && new Date(b.offer_expires_at) > new Date();
+          return (
+            <div key={b.booking_id} style={{ border: offerLive ? "1px solid #60A0FF" : "1px solid var(--border-subtle)", borderRadius: "var(--r)", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, background: offerLive ? "rgba(96,160,255,0.08)" : "transparent" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>{b.class_name}</div>
+                <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                  {fmt(b.starts_at)}{b.space_name ? ` · ${b.space_name}` : ""}
                 </div>
+                {b.status === "waitlist" && (
+                  <div style={{ fontSize: 12, color: "#60A0FF", marginTop: 2 }}>
+                    Waitlisted{b.waitlist_position ? ` · position ${b.waitlist_position}` : ""}
+                  </div>
+                )}
+                {offerLive && (
+                  <div style={{ fontSize: 12, color: "#60A0FF", marginTop: 2, fontWeight: 600 }}>
+                    A spot opened — claim it · <ClaimCountdown expiresAt={b.offer_expires_at} />
+                  </div>
+                )}
+                {b.status === "offered" && !offerLive && (
+                  <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>This offer has expired.</div>
+                )}
+                {taken.has(b.session_id) && b.status !== "confirmed" && (
+                  <div style={{ fontSize: 12, color: "#FF6060", marginTop: 2 }}>Sorry — that spot was taken.</div>
+                )}
+              </div>
+              {offerLive ? (
+                <button
+                  onClick={() => claim(b)}
+                  disabled={claiming.current.has(b.booking_id)}
+                  style={{ flexShrink: 0, background: "#60A0FF", color: "#fff", border: "none", borderRadius: "var(--r-button)", padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Claim spot
+                </button>
+              ) : (
+                <button
+                  onClick={() => cancel(b.booking_id)}
+                  style={{ flexShrink: 0, background: "transparent", color: "var(--t2)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-button)", padding: "6px 12px", fontSize: 13, cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
               )}
             </div>
-            <button
-              onClick={() => cancel(b.booking_id)}
-              style={{ flexShrink: 0, background: "transparent", color: "var(--t2)", border: "1px solid var(--border-subtle)", borderRadius: "var(--r-button)", padding: "6px 12px", fontSize: 13, cursor: "pointer" }}
-            >
-              Cancel
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
+}
+
+// Live mm:ss countdown to a claim-window expiry. Re-renders once a second; shows
+// "expired" when the window lapses so the surrounding card can fall back gracefully.
+function ClaimCountdown({ expiresAt }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const ms = new Date(expiresAt).getTime() - now;
+  if (ms <= 0) return <span>expired</span>;
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.floor((ms % 60000) / 1000);
+  return <span>{mins}:{String(secs).padStart(2, "0")} left</span>;
 }
 
 function PaymentStateBanner({ state }) {

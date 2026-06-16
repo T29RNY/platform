@@ -4713,6 +4713,15 @@ export async function memberListMyClassBookings(venueId = null) {
   return data ?? [];
 }
 
+// Phase 4 (mig 341): claim a waitlist spot the caller has been offered. Atomic —
+// returns { ok:false, reason:'spot_taken' } if the claim window lapsed or the seat
+// was taken; { ok:true, status:'confirmed', ... } on success.
+export async function memberClaimWaitlistSpot(sessionId) {
+  const { data, error } = await supabase.rpc("member_claim_waitlist_spot", { p_session_id: sessionId });
+  if (error) { console.error("[classes] member_claim_waitlist_spot failed", error); throw error; }
+  return data;
+}
+
 // ── Phase 0 — Event OS: Account Relationship Routing (mig 314) ───────────────
 
 export async function getUserRelationships() {

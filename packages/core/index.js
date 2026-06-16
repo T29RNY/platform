@@ -311,6 +311,7 @@ export {
   memberBookClassSession,
   memberCancelClassBooking,
   memberListMyClassBookings,
+  memberClaimWaitlistSpot,
   getUserRelationships,
   getUnifiedHomeFeed,
   getGuardianHomeFeed,

@@ -285,6 +285,14 @@ module.exports = async function handler(req, res) {
     results.push(`clubBroadcast: error — ${e.message}`);
   }
 
+  // ── Class waitlist offer expiry (Phase 4, mig 341) — runs BEFORE the notify
+  // drain so any fresh re-offer rows are emailed in the same tick. ────────────
+  try {
+    await classWaitlistExpiryJob(results);
+  } catch (e) {
+    results.push(`classWaitlistExpiry: error — ${e.message}`);
+  }
+
   // ── Class booking notifications (confirm/waitlist/cancel drain, every tick) ─
   try {
     await classNotificationsJob(results);
@@ -1072,6 +1080,20 @@ async function bookingConfirmEmailJob(results) {
   results.push(`bookingConfirmEmail: ${sent} email(s)`);
 }
 
+// ── Class waitlist offer expiry (Classes Phase 4, mig 341) ───────────────────
+// Drains 'offered' bookings whose claim window lapsed: each rolls to the back of
+// its session's waitlist and the next waitlister is re-offered (which queues a
+// fresh class_spot_offered notification_log row, drained later this tick by
+// classNotificationsJob). All the work happens inside the SECURITY DEFINER RPC so
+// it's atomic; this job just ticks it and logs the counts.
+async function classWaitlistExpiryJob(results) {
+  const { data, error } = await supabase.rpc("expire_class_waitlist_offers");
+  if (error) { results.push(`classWaitlistExpiry: error — ${error.message}`); return; }
+  const expired = data?.expired || 0;
+  const reoffered = data?.reoffered || 0;
+  results.push(`classWaitlistExpiry: ${expired} expired, ${reoffered} re-offered`);
+}
+
 // ── Class booking notifications (Classes Phase 3, mig 340) ───────────────────
 // Two passes, EMAIL-only (members have no push-subscription plumbing yet — same
 // posture as membershipRemindersJob). No-ops cleanly until RESEND_API_KEY is set.
@@ -1159,7 +1181,7 @@ async function classNotificationsJob(results) {
 
   // (B) Drain queued class notification rows.
   if (!noApiKey) {
-    const DRAIN_TYPES = ["class_cancelled", "class_instructor_changed", "class_waitlist_promoted", "class_booking_cancelled"];
+    const DRAIN_TYPES = ["class_cancelled", "class_instructor_changed", "class_waitlist_promoted", "class_booking_cancelled", "class_spot_offered"];
     const { data: queued, error: qErr } = await supabase
       .from("notification_log")
       .select("id, type, entity_id, recipient, queued_payload")
