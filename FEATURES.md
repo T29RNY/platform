@@ -2275,16 +2275,21 @@ Next migration: 331.
 ## CLASSES BOOKING + ROOM HIRE (planned session 134, 2026-06-15)
 
 Venue-led bookable classes for members + hireable spaces for private sessions and functions.
-Full plan: `~/.claude/plans/classes-and-room-hire.md`. Summary of 8 phases:
+Full plan: `~/.claude/plans/classes-and-room-hire.md`. Summary of 8 phases.
+**Migrations RENUMBERED +7 (Jun 16 2026): payments epic consumed 329–337, so this epic runs
+338–345, not 331–338.**
 
-**Phase 1 — Hireable Spaces foundation (mig 331)**
+**Phase 1 — Hireable Spaces foundation (mig 338) — ✅ SHIPPED (session 138, 2026-06-16)**
 New `venue_spaces` table (rooms/studios/halls/outdoor — distinct from `playing_areas` which has
 the wrong abstraction for non-pitch spaces). `_space_is_available(space_id, starts_at, ends_at)`
-internal helper checks across both `venue_class_sessions` AND `venue_room_hires` to prevent
-double-booking. 3 venue admin RPCs: `venue_create_space`/`venue_update_space`/`venue_list_spaces`.
-Venue UI: Spaces section in settings.
+internal helper (STABLE, definer-only) checks across both `venue_class_sessions` AND
+`venue_room_hires` to prevent double-booking — references `to_regclass`-guarded so it builds in
+Phase 1 before either table exists, then self-enforces once they land. 3 venue admin RPCs:
+`venue_create_space`/`venue_update_space`/`venue_list_spaces` (counts self-upgrade via the same
+guard). Venue UI: new **Facilities** nav group → Spaces CRUD (SpacesView). EV 14/14 + leak 0,
+rpc-security-sweep + hygiene PASS, venue build clean.
 
-**Phase 2 — Class types & scheduling (mig 332)**
+**Phase 2 — Class types & scheduling (mig 339)**
 3 new tables: `venue_class_types` (template — name, category, duration, capacity, cutoff hours,
 `first_session_free` flag, space FK), `venue_class_series` (recurring schedule — DOW, time,
 instructor, price, payment_mode), `venue_class_sessions` (instances — status: scheduled/cancelled/
@@ -2292,16 +2297,16 @@ completed; instructor FK→venue_admins). 12 venue admin RPCs covering CRUD, one
 scheduling, cancellation (with push to booked members), instructor reassignment, session detail
 with attendee list. `venue_charges.source_type` extended += `'class'`. Venue UI: full Classes tab.
 
-**Phase 3 — Member booking & timetable (mig 333)**
+**Phase 3 — Member booking & timetable (mig 340)**
 New `venue_class_bookings` table (status: confirmed/waitlist/cancelled/no_show; payment_status:
 pending/paid/waived). New `member_profiles.no_show_count int DEFAULT 0` + `venues.no_show_suspension_threshold int NULL`. 4 member RPCs: `member_list_class_sessions` (public browse, auth required for booking state), `member_book_class_session` (membership gate + suspension check + tier benefit waiver + `first_session_free` check + waitlist on full), `member_cancel_class_booking` (cutoff enforcement + charge refund + waitlist promotion), `member_list_my_class_bookings`. Member UI: "What's on" timetable on VenueLanding, upcoming classes on MemberPass, history on MemberProfile.
 
-**Phase 4 — Waitlist (mig 334)**
+**Phase 4 — Waitlist (mig 341)**
 Notify-and-claim pattern (same as reserve spot, mig 230). On any cancellation, next waitlist
 member gets a push notification with a 30-minute claim window. `member_claim_waitlist_spot`
 RPC — atomic check-and-promote, graceful rejection if spot taken.
 
-**Phase 5 — Room hire (mig 335)**
+**Phase 5 — Room hire (mig 342)**
 New `venue_room_hires` table (booker_type: member/non_member; status: requested/confirmed/cancelled;
 deposit_pence + deposit_status: none/held/returned/forfeited). `equipment_bookings.room_hire_id NULL FK`
 links equipment hire as an add-on. `venue_charges.source_type` += `'room_hire'`. 2 booking RPCs
@@ -2310,18 +2315,18 @@ only). 4 venue admin RPCs: list/confirm/cancel hires + record deposit. Venue UI:
 (requests inbox, confirm/decline, deposit tracking). Member UI: "Hire a space" section on VenueLanding
 (enquiry-only spaces show contact form, not booking flow).
 
-**Phase 6 — QR check-in (mig 336)**
+**Phase 6 — QR check-in (mig 343)**
 `venue_class_checkin(token, session_id, pass_token)` RPC — instructor-gated (assigned instructor
 or venue manager); scans member pass QR; marks booking confirmed; promotes waitlist slot if needed.
 Reuses BarcodeDetector already live on apps/display. Venue UI: per-session check-in scanner view.
 
-**Phase 7 — Class packages & trial classes (mig 337)**
+**Phase 7 — Class packages & trial classes (mig 344)**
 `venue_class_packages` + `venue_member_package_balances` tables. `member_purchase_class_package`
 + `member_get_package_balance` member RPCs. `member_book_class_session` extended: checks balance
 before tier pricing — valid package deducts one session instead of creating a charge. Trial class:
 `venue_class_types.first_session_free` waives charge for first booking at venue only.
 
-**Phase 8 — HQ analytics (mig 338)**
+**Phase 8 — HQ analytics (mig 345)**
 `hq_get_utilisation` extended: class sessions + room hires count as used hours (prime-time class =
 prime-time utilisation). `hq_get_analytics` extended: new `classes` block (fill rate, revenue,
 instructor utilisation). New `hq_get_class_insights` RPC: waitlist intelligence (consistently full

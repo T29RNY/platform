@@ -630,6 +630,17 @@ makes renewals idempotent.
   (received|processed|failed|ignored) + `processed_at` + `payload jsonb` (the persist-then-
   process webhook store; UNIQUE `stripe_event_id` = idempotency key). NOTE: `venues` stripe
   columns removed — provider credentials now live in `venue_integrations`.
+- **Hireable Spaces (mig 338, Classes+Room-Hire Phase 1)** — `venue_spaces` table:
+  `id uuid PK`, `venue_id`→venues (ON DELETE CASCADE), `name text NOT NULL`,
+  `description text`, `capacity int NOT NULL`, `space_type` IN ('studio','room','hall','outdoor'),
+  `is_enquiry_only bool DEFAULT false` (large/premium → enquiry-form only, no self-serve),
+  `enquiry_contact_name`, `enquiry_contact_email`, `is_active bool DEFAULT true`, `created_at`.
+  Index on `venue_id`. RLS-walled, REVOKE anon/authenticated — access only via
+  `venue_create_space`/`venue_update_space`/`venue_list_spaces`. The bookable facility
+  distinct from `playing_areas` (pitches carry the wrong abstraction). Shipped alongside the
+  internal `_space_is_available(space_id, starts_at, ends_at)` overlap guard (STABLE, definer-
+  only) that Phase 2 class-session + Phase 5 room-hire booking RPCs both call; its references to
+  the not-yet-existing `venue_class_sessions`/`venue_room_hires` are `to_regclass`-guarded.
 - `venue_member_checkins` (mig 274, Phase 5) — reception attendance log. `venue_id`,
   `membership_id`→venue_memberships, `customer_id`→venue_customers, `checked_in_at`,
   `source` (`display_qr`). RLS-walled, definer-only (REVOKE anon/authenticated).

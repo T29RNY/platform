@@ -3439,6 +3439,36 @@ export async function venueUpsertEquipment(venueToken, {
   return data;
 }
 
+// ── Hireable Spaces (mig 338, Classes+Room-Hire Phase 1) — bookable facilities ──
+// venue_list_spaces: caller's spaces + upcoming_session_count/upcoming_hire_count
+// (counts are 0 until Phases 2/5 land their tables). Returns a jsonb array.
+export async function venueListSpaces(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_spaces", { p_venue_token: venueToken });
+  if (error) { console.error("[spaces] venue_list_spaces failed", error); throw error; }
+  return data;
+}
+
+// Create a space. space_type ∈ studio|room|hall|outdoor. Returns { ok, space_id }.
+export async function venueCreateSpace(venueToken, {
+  name, capacity, spaceType, description = null,
+  isEnquiryOnly = false, enquiryContactName = null, enquiryContactEmail = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_create_space", {
+    p_venue_token: venueToken, p_name: name, p_capacity: capacity, p_space_type: spaceType,
+    p_description: description, p_is_enquiry_only: isEnquiryOnly,
+    p_enquiry_contact_name: enquiryContactName, p_enquiry_contact_email: enquiryContactEmail });
+  if (error) { console.error("[spaces] venue_create_space failed", error); throw error; }
+  return data;
+}
+
+// Partial update via a jsonb patch (only supplied keys change). Returns { ok, space_id }.
+export async function venueUpdateSpace(venueToken, spaceId, updates = {}) {
+  const { data, error } = await supabase.rpc("venue_update_space", {
+    p_venue_token: venueToken, p_space_id: spaceId, p_updates: updates });
+  if (error) { console.error("[spaces] venue_update_space failed", error); throw error; }
+  return data;
+}
+
 // ── Equipment Hire flow (mig 257, Cycle 2) — quantity-aware availability + hires ──
 // Free units for each active item across a window (peak-concurrent aware). from/to ISO.
 export async function getEquipmentAvailability(venueToken, from, to, category = null) {

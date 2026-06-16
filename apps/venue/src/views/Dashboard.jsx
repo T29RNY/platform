@@ -6,6 +6,7 @@ import SeasonWizard from "./SeasonWizard.jsx";
 import BookingsView from "./BookingsView.jsx";
 import PaymentsView from "./PaymentsView.jsx";
 import EquipmentView from "./EquipmentView.jsx";
+import SpacesView from "./SpacesView.jsx";
 import BracketView from "./BracketView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
 import TeamsView from "./TeamsView.jsx";
@@ -40,6 +41,9 @@ const TABS = [
     { id: "invites",   label: "QR codes",  icon: "settings" },
     { id: "access",    label: "Access",    icon: "settings", adminOnly: true },
   ]},
+  { group: "Facilities", items: [
+    { id: "spaces", label: "Spaces", icon: "spaces" },
+  ]},
   { group: "Competition", items: [
     { id: "league", label: "Leagues", icon: "league" },
     { id: "table",  label: "Table",   icon: "table" },
@@ -53,7 +57,7 @@ const TABS = [
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
   customers: "Customers", memberships: "Memberships", sessions: "Sessions", teams: "Teams", players: "Players", staff: "Staff",
-  access: "Access", invites: "QR codes", league: "Leagues", table: "Standings", cups: "Cups",
+  access: "Access", invites: "QR codes", spaces: "Spaces", league: "Leagues", table: "Standings", cups: "Cups",
   integrations: "Integrations",
 };
 
@@ -139,6 +143,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           )}
           {view === "payments" && <PaymentsView state={state} venueToken={venueToken} />}
           {view === "equipment" && <EquipmentView venueToken={venueToken} state={state} />}
+          {view === "spaces" && <SpacesView venueToken={venueToken} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
           {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} />}
           {view === "sessions" && <SessionsView venueToken={venueToken} />}
