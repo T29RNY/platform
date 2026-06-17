@@ -174,7 +174,7 @@ export default function MemberPass({ token }) {
         </div>
       </div>
       {isOwner && <Tour tourKey="io_tour_club_pass" enabled={clubToursEnabled()} />}
-      {isOwner && <ClubNavBar active="pass" passToken={token} />}
+      {isOwner && <ClubNavBar active="pass" passToken={token} clubEntry={pass.club_id ? { club_id: pass.club_id } : null} />}
     </div>
   );
 }
