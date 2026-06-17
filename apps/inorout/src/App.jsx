@@ -1429,13 +1429,15 @@ export default function App() {
   // squads (player_get_teams returns token + is_team_admin per squad, so every
   // squad routes to /p/<token> where admins still get the Admin tab — covers
   // admins who used to hit the multi-team landing block).
-  const openSwitcher = useCallback(() => {
+  // Plain function (NOT useCallback) — this lives after the component's early
+  // returns, so it must not be a hook (Rules of Hooks).
+  const openSwitcher = () => {
     setShowSwitcher(true);
     getPlayerTeams()
       .then(rows => setSwitcherSquads((rows || []).filter(r => !r.disabled)
         .map(r => ({ id: r.team_id, name: r.team_name, token: r.token, isAdmin: r.is_team_admin }))))
       .catch(() => { /* anon / not linked — switcher still shows clubs + feed */ });
-  }, []);
+  };
 
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
