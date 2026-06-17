@@ -225,7 +225,7 @@ export default function ClassesTimetable({ venueId, requireAuth }) {
                 <div className="ct-meta">
                   <div className="ct-name">{s.class_name}</div>
                   <div className="ct-info">
-                    {CATEGORY_LABEL[s.category] || "Class"}{s.space_name ? ` · ${s.space_name}` : ""} · {priceLabel(s.price_pence)}
+                    {s.is_sparring ? "Sparring · open mat" : (CATEGORY_LABEL[s.category] || "Class")}{s.space_name ? ` · ${s.space_name}` : ""} · {priceLabel(s.price_pence)}
                   </div>
                   <div className={"ct-spots" + (full ? " ct-spots--low" : "")}>
                     {full ? `Full · ${s.waitlist_count} on waitlist` : `${s.spots_left} spot${s.spots_left === 1 ? "" : "s"} left`}

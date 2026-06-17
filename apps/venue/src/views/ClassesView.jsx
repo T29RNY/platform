@@ -331,6 +331,7 @@ function ClassTypesPanel({ venueToken, types, spaces, onChanged }) {
                 <tr key={t.id} style={t.is_active ? undefined : { opacity: 0.5 }}>
                   <td>
                     <strong>{t.name}</strong>
+                    {t.is_sparring && <span className="pill pill-warn" style={{ marginLeft: 8 }}>Sparring</span>}
                     {t.first_session_free && <span className="pill pill-info" style={{ marginLeft: 8 }}>1st free</span>}
                     {!t.is_active && <span className="text-mute"> · inactive</span>}
                     {t.description && <div className="text-mute" style={{ fontSize: 12 }}>{t.description}</div>}
@@ -367,6 +368,7 @@ function ClassTypeModal({ classType, spaces, busy, onClose, onSubmit }) {
   const [capacity, setCapacity] = useState(String(classType.default_capacity ?? 12));
   const [cutoff, setCutoff] = useState(String(classType.cancellation_cutoff_hours ?? 2));
   const [firstFree, setFirstFree] = useState(classType.first_session_free ?? false);
+  const [isSparring, setIsSparring] = useState(classType.is_sparring ?? false);
   const [description, setDescription] = useState(classType.description ?? "");
   const [isActive, setIsActive] = useState(classType.is_active ?? true);
 
@@ -379,14 +381,15 @@ function ClassTypeModal({ classType, spaces, busy, onClose, onSubmit }) {
       onSubmit({
         name: name.trim(), spaceId, durationMinutes: dur, defaultCapacity: cap,
         category, cancellationCutoffHours: Number.isFinite(cut) ? cut : 2,
-        firstSessionFree: firstFree, description: description.trim() || null,
+        firstSessionFree: firstFree, isSparring, description: description.trim() || null,
       });
     } else {
       onSubmit({
         id: classType.id, name: name.trim(), space_id: spaceId,
         duration_minutes: dur, default_capacity: cap, category,
         cancellation_cutoff_hours: Number.isFinite(cut) ? cut : 2,
-        first_session_free: firstFree, description: description.trim() || null, is_active: isActive,
+        first_session_free: firstFree, is_sparring: isSparring,
+        description: description.trim() || null, is_active: isActive,
       });
     }
   };
@@ -437,6 +440,11 @@ function ClassTypeModal({ classType, spaces, busy, onClose, onSubmit }) {
       <label className="row-check" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
         <input type="checkbox" checked={firstFree} onChange={(e) => setFirstFree(e.target.checked)} />
         <span>First session free — waives the charge on a member’s first booking here</span>
+      </label>
+
+      <label className="row-check" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 8 }}>
+        <input type="checkbox" checked={isSparring} onChange={(e) => setIsSparring(e.target.checked)} />
+        <span>Sparring / open-mat session — members book In/Out; shows on their Classes timetable as a sparring night, not a technical class</span>
       </label>
 
       {!isNew && (

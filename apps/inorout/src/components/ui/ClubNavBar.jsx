@@ -1,4 +1,4 @@
-import { Chats, IdentificationCard, User } from "@phosphor-icons/react";
+import { Chats, CalendarCheck, IdentificationCard, User } from "@phosphor-icons/react";
 import NavBar from "./NavBar.jsx";
 import { deriveClubContext } from "../../lib/deriveContext.js";
 import { getDisciplineLabels } from "../../lib/disciplineLabels.js";
@@ -10,7 +10,7 @@ import { getDisciplineLabels } from "../../lib/disciplineLabels.js";
 // /classes route exists — a no-op tab would read as broken.)
 //
 // Props:
-//   active    — "sessions" | "pass" | "profile"
+//   active    — "sessions" | "classes" | "pass" | "profile"
 //   passToken — selected club's venue_membership pass token (from active_clubs);
 //               when absent the Pass tab is hidden rather than dead.
 //   clubEntry — optional active_clubs entry. Drives the descriptor AND, when it
@@ -30,6 +30,15 @@ export default function ClubNavBar({ active, passToken = null, clubEntry = null 
   const tabs = [
     { id: "sessions", label: labels.sessionsTab, Icon: Chats, active: active === "sessions", onSelect: () => go(withClub("/sessions")) },
   ];
+  // Classes tab (gym/boxing Phase 1, mig 356) — lit only for non-football disciplines,
+  // where venue classes / sparring nights live. Football clubs keep the original tab set
+  // (Sessions · Pass · Profile), byte-identical to before, so the casual flow is untouched.
+  if (ctx.discipline && ctx.discipline !== "football") {
+    tabs.push({
+      id: "classes", label: labels.classesTab, Icon: CalendarCheck,
+      active: active === "classes", onSelect: () => go(withClub("/classes")),
+    });
+  }
   if (passToken) {
     tabs.push({
       id: "pass", label: "Pass", Icon: IdentificationCard,
