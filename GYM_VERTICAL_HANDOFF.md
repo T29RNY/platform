@@ -90,7 +90,22 @@ do different jobs and this is deliberate:
   text[]` later — cheap, additive, reversible, exactly as the venue side did in mig 269. Do NOT
   pre-build it; decide the shape against a real sports-centre customer.
 
-## Phase 1 — Sparring / open-mat availability  *(mig 356; highest reuse)*
+## Phase 1 — Sparring / open-mat availability  *(mig 356; highest reuse)* — ✅ SHIPPED session 145
+**Status (s145):** built + verified on branch `gym-vertical-phase1`. `venue_class_types.is_sparring`
+applied (mig 356, additive bool DEFAULT false). NO new write RPC — threaded `p_is_sparring` through
+`venue_create_class_type` (signature change: old 9-arg DROPped + re-granted) + `venue_update_class_type`
+(jsonb patch) + `is_sparring` added to `venue_list_class_types`/`member_list_class_sessions` (badges) +
+`discipline` added to `get_member_pass` (Pass-surface nav consistency). Operator toggle in
+`ClassesView` ClassTypeModal (create + edit) + types-table "Sparring" pill. Member surface = new
+`/classes` route → new `ClassesScreen.jsx` (club + venue picker) rendering the reused
+`ClassesTimetable` (now sparring-badged); `ClubNavBar` Classes tab lit for non-football disciplines
+(football byte-identical). EV 5/5 + leak 0, rpc-security PASS (both write RPCs: SECDEF + search_path +
+1 overload + anon/auth grants), casual-regression PASS (additive diff proof — no casual surface
+touched), build (inorout+venue) + hygiene clean, Playwright boot smoke of `/classes` (renders SignIn,
+0 console errors). ⛔ **real-iPhone PWA walk OWED** (Hard Rule #13 — new route + NavBar tab; needs an
+authed member on a non-football club). **Next free mig = 357.** Decision (sparring = class-type flag,
+not a new entity) recorded in DECISIONS s145.
+
 **Goal.** "Who's in for Thursday sparring?" — members book In/Out on a session.
 **Decision:** reuse the class-session booking model wholesale; do NOT reuse `players.status`
 (that presupposes a football squad/rollover; a sparring night *is* a class session with

@@ -6,6 +6,24 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## Sparring is a class-type flag, not a new entity (session 145, Gym/Boxing Phase 1)
+
+**Decision (operator-confirmed s145).** A sparring / open-mat night is modelled as a
+`venue_class_types.is_sparring boolean` flag — NOT a separate sessions system and NOT a reuse
+of `players.status` (that presupposes a football squad with rollover). A class type is **either**
+a technical class **or** a sparring session; the operator picks which when creating the type.
+Incidental sparring inside a technical class is just mentioned in the session description, never
+flagged. The "who's in for Thursday sparring?" In/Out booking reuses the class-session model
+**wholesale** — capacity, waitlist, QR check-in, no-show, charges — so Phase 1 added **no new
+write RPC**, only threaded `is_sparring` through `venue_create_class_type` (set at create) +
+`venue_update_class_type` (jsonb patch) + the two read RPCs for badges. The member surface is a
+new `/classes` route (`ClassesScreen`) rendering the existing `ClassesTimetable` for the selected
+club's venue, lighting the dormant `ClubNavBar` Classes tab. The Classes tab shows for **non-football
+disciplines only** — football clubs keep Sessions·Pass·Profile byte-identical, so the casual flow is
+untouched. Where a club spans multiple venues (the s144 sports-centre model), a venue picker appears.
+Reasoning: maximum reuse, zero new tables, zero footprint on football. See `GYM_VERTICAL_HANDOFF.md`
+Phase 1. Next free mig = 357.
+
 ## URL architecture: consumer app → `app.in-or-out.com`, apex → marketing (session 138)
 
 **Decision (planned, not yet executed).** Before the Capacitor native wrap (which bakes

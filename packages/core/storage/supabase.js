@@ -3577,16 +3577,18 @@ export async function venueListClassTypes(venueToken) {
   return data;
 }
 
-// Create a class type. category ∈ fitness|yoga|dance|martial_arts|other. Returns { ok, class_type_id }.
+// Create a class type. category ∈ fitness|yoga|dance|martial_arts|other.
+// isSparring marks a sparring/open-mat session (gym/boxing Phase 1, mig 356) —
+// a class type is EITHER a technical class OR a sparring session. Returns { ok, class_type_id }.
 export async function venueCreateClassType(venueToken, {
   name, spaceId, durationMinutes, defaultCapacity, category,
-  cancellationCutoffHours = 2, firstSessionFree = false, description = null,
+  cancellationCutoffHours = 2, firstSessionFree = false, description = null, isSparring = false,
 } = {}) {
   const { data, error } = await supabase.rpc("venue_create_class_type", {
     p_venue_token: venueToken, p_name: name, p_space_id: spaceId,
     p_duration_minutes: durationMinutes, p_default_capacity: defaultCapacity, p_category: category,
     p_cancellation_cutoff_hours: cancellationCutoffHours, p_first_session_free: firstSessionFree,
-    p_description: description });
+    p_description: description, p_is_sparring: isSparring });
   if (error) { console.error("[classes] venue_create_class_type failed", error); throw error; }
   return data;
 }
