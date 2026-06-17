@@ -115,7 +115,29 @@ capacity, booking, waitlist, QR check-in, no-show).
 - **Operator UI:** `apps/venue/.../ClassesView.jsx` — "sparring/open-mat?" toggle.
 - **Member UI + NEW route:** add `/classes` to `apps/inorout/src/App.jsx` → render `ClassesTimetable.jsx` for the selected club. This lights the dormant `ClubNavBar` "Classes" tab. Boxing tab set → Sessions / Classes / Pass / Profile.
 
-## Phase 2 — Grading / belt progression  *(mig 357; new tables, reuses club/consent/caps)*
+## Phase 2 — Grading / belt progression  *(mig 357; new tables, reuses club/consent/caps)* — ✅ SHIPPED session 146
+**Status (s146):** built + verified on branch `gym-vertical-phase2`. mig 357 applied: 3 RLS-walled
+tables (`venue_grading_schemes` / `venue_grades` / `member_grades` append-only). Decisions (operator,
+this session): **1A** — `venue_award_grade` gated on existing `manage_facility` cap (no dedicated
+`award_grades` cap in v1; add later if coach-delegation needed). **2B + research** — grade ladder is
+ordered named grades + `colour_hex` + per-grade `max_stripes`; the award carries a capped `stripes`
+count (BJJ stripes / dan degrees); age-banded ladders are **separate schemes** (`age_band`
+juniors/adults/all) because real kids vs adults ladders differ (BJJ kids grey→green can't get blue
+till 16; TKD poom vs dan). Write RPCs (gated+audited): `venue_create_grading_scheme`,
+`venue_add_grade`, `venue_award_grade`; reads `venue_list_grading_schemes`, `member_get_grade_history`;
+`get_member_pass` extended with current `grades[]` (latest per scheme); `venue_list_members` extended
+with `club_id`+`discipline` (additive) to drive the per-member Award action. **member_grades has a
+monotonic `awarded_seq` identity column** — EV caught that within one txn `now()` is constant so two
+awards tie on `awarded_at`; "current = latest" orders by `awarded_at DESC, awarded_seq DESC`. Operator:
+new **Grading** sub-tab in `MembershipsView` (per-club scheme+grade setup, gated to martial-arts clubs)
++ **Award grade** action on member cards. Member: **rank chip** on `MemberPass` + **Progression**
+history on `MemberProfile`, gated on `disciplineLabels.hasGrading` (martial_arts only). EV 11/11 +
+leak 0, rpc-security PASS (6 RPCs), casual-regression PASS (additive-diff: every new inorout render
+gated on hasGrading → casual football byte-identical; Playwright boot smoke 0 app errors), build
+(inorout+venue) + hygiene clean. ⛔ **real-iPhone PWA walk OWED** (Hard Rule #13 — Pass chip + Profile
+history; needs an authed member on a martial-arts club). **Next free mig = 358.** Phase 3 (PT booking)
+is next.
+
 **Goal.** Per-club, per-discipline grading scheme; current grade + history; on Pass/Profile.
 - **Schema:** `venue_grading_schemes` (club_id, discipline, name, active); `venue_grades` (scheme_id, name, rank_order, colour_hex, UNIQUE(scheme_id, rank_order)); `member_grades` (append-only award log → "current" = latest per member+scheme; mirrors consent_acceptances).
 - **RPCs:** `venue_create_grading_scheme`, `venue_add_grade`, `venue_list_grading_schemes`, `venue_award_grade` (gated `manage_facility` OR a new `award_grades` cap via `_venue_has_cap`), `member_get_grade_history`; extend `member_get_venue_membership_pass` to include current rank.
