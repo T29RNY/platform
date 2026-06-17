@@ -30,6 +30,29 @@ correction needed (features built, not yet used by a live venue).
 LESSON: never `(date + time)::timestamptz` for a UK local wall-clock; always
 `(date + time) AT TIME ZONE 'Europe/London'`. The DB session runs in UTC.
 
+## SESSION 142 — RESOLVED (no mig): multi-club residual club[0] sites (Bug #2 follow-up)
+
+**Found by the pre-build audit.** The s141 multi-club selection fix wired `?club=<id>`
+into `SessionsScreen` but missed two render sites, so a member in **more than one club**
+could still be pushed to the wrong club:
+1. `MemberProfile.jsx` hardcoded `active_clubs[0].pass_token` on its `ClubNavBar`, so the
+   **Pass** tab from /profile always pointed at the first club.
+2. `ClubNavBar.jsx`'s **Sessions** and **Profile** tabs navigated to bare `/sessions` /
+   `/profile`, dropping the `?club=` selection when moving between club screens.
+
+Fix (front-end only, no DB): `MemberProfile` now derives `selectedClub` from `?club=`
+(validated against `active_clubs`, falls back to `[0]` — prior behaviour when no/unknown
+param) and passes both `passToken` and `clubEntry`; `ClubNavBar` threads
+`?club=<club_id>` into the Sessions/Profile hrefs when it knows the club. Single-club
+members are unaffected. Build clean; hygiene 7/7 both files.
+
+REMAINING (minor, deferred): `MemberPass.jsx` renders `ClubNavBar` without a `clubEntry`
+(the `get_member_pass` RPC doesn't return `club_id`), so the Sessions/Profile tabs *from
+the pass screen* still fall back to club[0]/auto-select. Fully fixing it needs a
+`get_member_pass` return-shape addition (`club_id`) + mapper — a small separate cycle, not
+worth a migration the day before the pilot. The Pass tab itself is always correct (it's
+keyed by the club-specific pass token).
+
 ## SESSION 136 — RESOLVED (mig 335): stripe_complete_member_enrolment actor_type='member'
 
 **Found during live Phase 3 E2E test.** `stripe_complete_member_enrolment` (mig 331) had `actor_type='member'`
