@@ -89,6 +89,7 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
   return (
     <div
       onClick={onClose}
+      data-tour-suppress="auth-gate"
       style={{
         position: "fixed", inset: 0, zIndex: 9999,
         background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",

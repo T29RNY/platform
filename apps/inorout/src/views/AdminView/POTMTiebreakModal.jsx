@@ -37,6 +37,7 @@ export default function POTMTiebreakModal({ match, squad, teamId, adminToken, on
   return (
     <div
       onClick={onClose}
+      data-tour-suppress="potm-tiebreak"
       style={{
         position: "fixed", inset: 0, zIndex: 200,
         background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)",

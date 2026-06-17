@@ -5,7 +5,6 @@ import {
 } from "@phosphor-icons/react";
 import PlayerLeagueTable from "./PlayerLeagueTable.jsx";
 import HeadToHead        from "./HeadToHead.jsx";
-import FirstTimeHint     from "../components/FirstTimeHint.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -526,12 +525,10 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
         {totalGames > 0 && (
           <>
             {/* 0. Player League Table */}
-            <FirstTimeHint
-              storageKey="ioo_hint_stats_h2h"
-              placement="bottom"
-              title="HEAD-TO-HEAD HIDDEN HERE"
-              body="Tap any player's name to see how you stack up — goals, wins and POTM against them."
-            >
+            {/* The H2H nudge is now the Stats spotlight-tour step (targets
+                data-tour="stats-league-table"); the marker also drives the
+                competitive Stats tour. */}
+            <div data-tour="stats-league-table">
               <PlayerLeagueTable
                 data={tableData}
                 loading={tableLoading}
@@ -545,7 +542,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                   if (them) setH2hPlayer(them);
                 }}
               />
-            </FirstTimeHint>
+            </div>
 
             {/* 1. Player Form (accordion) */}
             <button onClick={() => setShowPlayerForm(v => !v)} style={{

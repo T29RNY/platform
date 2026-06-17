@@ -154,7 +154,7 @@ export default function CompetitionFixturesCard({ playerToken, currentTeamId, fi
   );
 
   return (
-    <div style={{ marginTop: 16 }}>
+    <div style={{ marginTop: 16 }} data-tour="fixtures-card">
       <div
         onClick={() => setOpen(o => !o)}
         style={{

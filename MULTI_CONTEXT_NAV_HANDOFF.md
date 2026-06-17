@@ -515,3 +515,65 @@ render-order or wrong-column-in-RPC bugs — run the app.**
 > browser** (Playwright dev-server smoke — the Phase 1 lesson: render-order bugs only show at runtime);
 > **PWA Hard Rule #13 real-iPhone walk** for the spotlight/auto-advance on a home-screen install. Update
 > `FEATURES.md`, `CONTEXT.md`, and the project memory. Commit Phase 2 as its own unit via a branch + PR.
+
+---
+
+## PHASE 2 — SHIPPED (session 142, branch `multi-context-nav-phase2`)
+
+**Status: built + verified, on its own branch/PR. Ships DARK** — squad tours behind
+the per-team `multi_context_nav` flag; club/guardian tours behind the
+`localStorage.ioo_tours_preview` switch (default off). Flag-off = byte-identical
+casual app (verified live). Real-iPhone PWA walk still OWED (Hard Rule #13).
+
+What exists now:
+- **`components/Tour.jsx`** — the spotlight tour engine. Full screen-dim + glow-ring
+  spotlight from `getBoundingClientRect`; poll-until-mounted target resolution
+  (skips a step gracefully after ~4s if its target never appears — e.g. competition
+  cards between seasons, or +1/injured when not rendered); recompute on
+  scroll/resize/orientation (rAF-throttled); scroll-into-view; `prefers-reduced-motion`;
+  auto-advance on tap of the highlighted control (disabled per-tour via `advanceOnTap:false`
+  for the admin tiles, which navigate away on tap → walk via Next); Skip + Next + step
+  counter; **seen-on-show** (marks the key on first SHOW, so abandonment never re-nags);
+  **suppressed while any `[data-tour-suppress]` overlay is open** and resumes when it clears
+  (gives SquadReady → install → tour ordering for free). Portals to `document.body`, iOS
+  safe-area covered by the full-screen dim.
+- **`lib/tourRegistry.js`** — `TOURS` keyed by the namespaced storage keys + `tourKeyFor(type,screen)`
+  + `clubToursEnabled()`. Tours: casual/comp myview + stats, admin dash (4 tiles),
+  club sessions/classes/pass/profile, guardian home, switcher.
+- **`components/TourProvider.jsx`** — context gate carrying `multi_context_nav` to the
+  inline `FirstTimeHint` coachmarks without prop-threading.
+- **`components/FirstTimeHint.jsx`** — REVIVED from the no-op stub to the original inline
+  coachmark (git `0a1e759`), gated behind the flag via TourProvider. Lights the deep-screen
+  one-off nudges (TeamsScreen ×3, BibsScreen, PaymentsScreen, SquadScreen, PlayerProfile,
+  HistoryView, admin live-toggle). The two tour-covered sites (PlayerView status, StatsView
+  H2H) were converted to plain markers so they don't double-cover with the spotlight tour.
+- **`data-tour` markers** on: injured-toggle, my-squads-toggle, header-avatar, standings-card,
+  fixtures-card, stats-league-table, the 4 admin tiles (via a `tourId` param on `tile()`),
+  session-card, qr-code, membership-perks, profile-personal, follow-live-link. Reuses the
+  existing `data-gaffer-target="status-buttons"` / `"add-plus-one"`.
+- **`data-tour-suppress`** on AuthGateModal, POTMVotingModal, POTMTiebreakModal, SquadReady.
+  (InstallBanner deliberately NOT marked — it carries pre-existing hardcoded-hex hygiene
+  debt; touching it would block the commit. The other four cover the blocking overlays.)
+- **Mounts:** PlayerView (myview/stats tours + the avatar step that doubles as the switcher
+  guide), AdminView dashboard (admin_dash, dashboard screen only), SessionsScreen, MemberPass
+  (owner-only), MemberProfile, ParentHomeScreen.
+
+Decisions taken at build time (confirm if you'd have them differently):
+1. **Switcher guide folded into the casual/comp myview tour's final avatar step** rather than
+   mounted as a separate `io_tour_switcher` — two tours both targeting the header avatar would
+   collide (two overlays). `io_tour_switcher` stays registered for a future `/feed`-avatar mount.
+2. **Club/guardian tours gate on `localStorage.ioo_tours_preview` (default off)** — club/guardian
+   routes have no per-team flag loaded, so this keeps the whole Phase 2 experience dark and
+   testable until a club-level flag exists. (Recommended; confirm with operator.)
+3. **Inline coachmarks re-show only on flag-ON teams** (gated via TourProvider), not to all
+   current users — the safer reading of the Q-old-hints decision for an active pilot.
+
+Verified (session 142): inorout build clean; hygiene 7/7 on all 20 changed files; Playwright
+dev-server smoke proved the engine end-to-end (spotlight + glow-ring, graceful skip past absent
+targets, centred card, Next advance, seen-on-show survives reload, suppression hides+resumes on a
+modal marker) AND that flag-OFF renders zero change (no tour, no coachmark) on the casual surface.
+A framer-motion transform-clobber bug (card pushed off-screen because `y` animation overrode
+`translateX(-50%)`) was caught and fixed in the browser pass — the Phase 1 lesson holds.
+
+Owed: real-iPhone PWA walk (spotlight/auto-advance on a home-screen install) before enabling for
+any team; mounting `io_tour_switcher` on `/feed` if/when that hub grows a header avatar.

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
+import Tour from "../components/Tour.jsx";
+import { clubToursEnabled } from "../lib/tourRegistry.js";
 import {
   memberGetSelf, memberListChildren,
   memberListUpcomingSessions, memberRsvpSession, memberGetSessionRsvpBoard,
@@ -2412,6 +2414,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
         />
       )}
 
+      <Tour tourKey="io_tour_club_sessions" enabled={clubToursEnabled()} />
       <ClubNavBar active="sessions" passToken={selectedClub?.pass_token} clubEntry={selectedClub} />
     </div>
   );
@@ -2424,6 +2427,7 @@ function SessionCard({ session, onOpen }) {
 
   return (
     <div
+      data-tour="session-card"
       onClick={onOpen}
       style={{
         background: "var(--b2)",

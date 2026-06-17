@@ -25,6 +25,7 @@ import {
   Bell, TShirt, Users, Link as LinkIcon, Money, ClipboardText,
 } from "@phosphor-icons/react";
 import NavBar      from "../../components/ui/NavBar.jsx";
+import Tour        from "../../components/Tour.jsx";
 import FirstTimeHint from "../../components/FirstTimeHint.jsx";
 import TeamsScreen    from "./TeamsScreen.jsx";
 import ScoreScreen    from "./ScoreScreen.jsx";
@@ -73,6 +74,7 @@ export default function AdminView({
   screen, setScreen, onGoPlayer, onGoStats, onGoHistory, onGoMyIO,
   isDemoMode = false, onResetDemo, isViceCaptain = false, me = null,
   adminToken = null,
+  multiContextNav = false,
 }) {
   const [showCancel,       setShowCancel]       = useState(false);
   const [demoResetState,   setDemoResetState]   = useState(null);
@@ -637,8 +639,8 @@ export default function AdminView({
     );
   };
 
-  const tile = ({ icon: Icon, iconColor, bg, border, title, sub, status, badge, onClick: act }) => (
-    <div onClick={act} style={{ background:bg, border:`0.5px solid ${border}`,
+  const tile = ({ icon: Icon, iconColor, bg, border, title, sub, status, badge, onClick: act, tourId }) => (
+    <div onClick={act} data-tour={tourId} style={{ background:bg, border:`0.5px solid ${border}`,
       borderRadius:"var(--r)", padding:14, display:"flex", flexDirection:"column",
       gap:6, cursor:"pointer", position:"relative", overflow:"hidden",
       WebkitTapHighlightColor:"transparent" }}>
@@ -936,14 +938,14 @@ export default function AdminView({
             border:"rgba(96,160,255,0.25)",
             title:"Make Teams", sub:"Split squad into A and B",
             status:{ ok:teamsSet, label: teamsSet ? "Teams confirmed ✓" : "Not confirmed" },
-            badge:0, onClick:() => setScreen("teams"),
+            badge:0, onClick:() => setScreen("teams"), tourId:"make-teams",
           })}
           {tile({
             icon:FlagCheckered, iconColor:"var(--green)",
             bg:"linear-gradient(135deg,rgba(61,220,106,0.14) 0%,rgba(61,220,106,0.03) 60%,rgba(10,10,8,0.5) 100%)",
             border:"rgba(61,220,106,0.25)",
             title:"Input Result", sub:"Score, scorers, POTM, bibs",
-            badge:pendingResults, onClick:() => setScreen("score"),
+            badge:pendingResults, onClick:() => setScreen("score"), tourId:"input-result",
           })}
         </div>
 
@@ -1093,7 +1095,7 @@ export default function AdminView({
             border:"var(--greenb)",
             title:"Payments",
             sub:`£${totalOwed} outstanding`,
-            badge:0, onClick:() => setScreen("payments"),
+            badge:0, onClick:() => setScreen("payments"), tourId:"payments",
           })}
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
@@ -1111,7 +1113,7 @@ export default function AdminView({
             border:"rgba(176,96,240,0.25)",
             title:"Match Settings",
             sub:[schedule.dayOfWeek, schedule.venue, schedule.pricePerPlayer != null ? `£${schedule.pricePerPlayer}` : null].filter(Boolean).join(" · ") || "Not configured",
-            badge:0, onClick:() => setScreen("schedule"),
+            badge:0, onClick:() => setScreen("schedule"), tourId:"match-settings",
           })}
           {tile({
             icon:Bell, iconColor:"var(--amber)",
@@ -1184,6 +1186,11 @@ export default function AdminView({
           onClose={() => setShowAnnounce(false)}
         />
       )}
+
+      {/* Admin dashboard guided tour (Match Settings → Make Teams → Input
+          Result → Payments). The live-toggle stays its own in-context coachmark.
+          Gated by the per-team flag; only fires on the dashboard screen. */}
+      <Tour tourKey="io_tour_admin_dash" enabled={multiContextNav} />
 
       {/* NavBar */}
       <NavBar

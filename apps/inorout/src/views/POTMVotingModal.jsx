@@ -178,6 +178,7 @@ export default function POTMVotingModal({
   return (
     <div
       onClick={onClose}
+      data-tour-suppress="potm-vote"
       style={{
         position: "fixed", inset: 0, zIndex: 100,
         background: "rgba(0,0,0,0.75)",

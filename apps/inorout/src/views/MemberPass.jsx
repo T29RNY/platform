@@ -7,6 +7,8 @@ import {
 } from "@platform/core/storage/supabase.js";
 import { supabase } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
+import Tour from "../components/Tour.jsx";
+import { clubToursEnabled } from "../lib/tourRegistry.js";
 
 // MemberPass — the member-facing PWA pass at /m/<pass_token> (Membership Phase 5,
 // mig 272). Public read keyed by the secret token. Shows tier, perks, status,
@@ -101,7 +103,7 @@ export default function MemberPass({ token }) {
         </div>
 
         {/* member + tier */}
-        <div style={{ padding: 20 }}>
+        <div data-tour="membership-perks" style={{ padding: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 30, lineHeight: 1 }}>{[pass.first_name, pass.last_name].filter(Boolean).join(" ")}</div>
@@ -135,7 +137,7 @@ export default function MemberPass({ token }) {
           <div style={{ marginTop: 20, textAlign: "center" }}>
             <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>Scan at reception to check in</div>
             {passUrl ? (
-              <div style={{ display: "inline-block", background: "var(--white)", padding: 14, borderRadius: "var(--r)" }}>
+              <div data-tour="qr-code" style={{ display: "inline-block", background: "var(--white)", padding: 14, borderRadius: "var(--r)" }}>
                 <QRCode value={passUrl} size={172} level="M" />
               </div>
             ) : null}
@@ -171,6 +173,7 @@ export default function MemberPass({ token }) {
           )}
         </div>
       </div>
+      {isOwner && <Tour tourKey="io_tour_club_pass" enabled={clubToursEnabled()} />}
       {isOwner && <ClubNavBar active="pass" passToken={token} />}
     </div>
   );
