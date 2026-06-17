@@ -1,174 +1,222 @@
 import { useState, useEffect } from "react";
 import { colors as C } from "@platform/core";
-import { getGuardianHomeFeed } from "@platform/core/storage/supabase.js";
+import { guardianListChildrenSessions, memberRsvpSession } from "@platform/core/storage/supabase.js";
 import { Chats, User, House } from "@phosphor-icons/react";
+import NavBar from "../components/ui/NavBar.jsx";
+import { deriveGuardianContext } from "../lib/deriveContext.js";
 
-function formatDate(isoString) {
+function formatWhen(isoString) {
   if (!isoString) return "";
   const d = new Date(isoString);
   return d.toLocaleDateString("en-GB", {
-    weekday:"short", day:"numeric", month:"short",
-    hour:"2-digit", minute:"2-digit",
+    weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit",
   });
 }
 
-function ChildCard({ child }) {
-  const session = child.next_session;
+const RSVP = [
+  { key: "in",    label: "In",    on: C.green },
+  { key: "maybe", label: "Maybe", on: C.amber },
+  { key: "out",   label: "Out",   on: C.red },
+];
+
+function isMatch(t) {
+  return t === "match" || t === "friendly";
+}
+
+function SessionRow({ session, childId, onRsvp, saving }) {
+  const match = isMatch(session.session_type);
+  const heading = match
+    ? `${session.home_away === "away" ? "Away" : "Home"} vs ${session.opponent_name || "TBC"}`
+    : session.title;
+  const when = formatWhen(session.meet_time || session.scheduled_at);
 
   return (
     <div style={{
-      background: C.surface,
-      border: `1px solid ${C.border}`,
-      borderRadius: 12,
-      padding: "18px 18px 16px",
-      marginBottom: 14,
+      background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
+      padding: "12px 14px", marginBottom: 10,
     }}>
-      <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
-        color:C.amber, letterSpacing:2, marginBottom:8 }}>
-        {child.first_name} {child.last_name}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase",
+          color: match ? C.amber : C.muted,
+          border: `1px solid ${C.border}`, borderRadius: 6, padding: "2px 6px",
+        }}>
+          {match ? "Match" : (session.session_type || "Training")}
+        </span>
+        <span style={{ fontSize: 13, color: C.text, fontWeight: 600 }}>{heading}</span>
       </div>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>
+        {session.club_name}{session.cohort_name ? ` · ${session.cohort_name}` : ""}
+      </div>
+      {when && <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>{when}</div>}
 
-      {session ? (
-        <div>
-          <div style={{ fontSize:11, fontWeight:700, color:C.muted,
-            letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>
-            NEXT SESSION
-          </div>
-          <div style={{ fontSize:14, color:C.text, fontWeight:600, marginBottom:2 }}>
-            {session.title}
-          </div>
-          <div style={{ fontSize:12, color:C.muted, marginBottom:2 }}>
-            {session.club_name}
-          </div>
-          {session.location && (
-            <div style={{ fontSize:12, color:C.muted, marginBottom:2 }}>
-              {session.location}
-            </div>
-          )}
-          <div style={{ fontSize:12, color:C.muted, marginBottom:12 }}>
-            {formatDate(session.scheduled_at)}
-          </div>
-          {session.own_rsvp && (
-            <div style={{ display:"inline-block", fontSize:11, fontWeight:700,
-              letterSpacing:1, textTransform:"uppercase",
-              color: session.own_rsvp === "attending" ? C.green : C.muted,
-              background: C.bg, border:`1px solid ${C.border}`,
-              borderRadius:6, padding:"3px 8px", marginBottom:12 }}>
-              {session.own_rsvp === "attending" ? "✓ Going"
-                : session.own_rsvp === "not_attending" ? "Not going"
-                : session.own_rsvp === "maybe" ? "Maybe"
-                : session.own_rsvp}
-            </div>
-          )}
-          <div style={{ display:"flex", gap:8 }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        {RSVP.map(({ key, label, on }) => {
+          const active = session.own_rsvp_status === key;
+          return (
             <button
-              onClick={() => window.location.href = "/sessions"}
-              style={{ flex:1, padding:"10px 0", borderRadius:8, border:`1px solid ${C.border}`,
-                background:C.bg, color:C.text, fontFamily:"Inter,sans-serif",
-                fontSize:13, fontWeight:700, cursor:"pointer" }}>
-              Sessions
+              key={key}
+              disabled={saving}
+              onClick={() => onRsvp(session.session_id, childId, key)}
+              style={{
+                flex: 1, padding: "8px 0", borderRadius: 8, cursor: saving ? "default" : "pointer",
+                border: `1px solid ${active ? on : C.border}`,
+                background: active ? on : C.surface,
+                color: active ? C.black : C.text,
+                fontFamily: "Inter,sans-serif", fontSize: 12, fontWeight: 700,
+                opacity: saving ? 0.6 : 1,
+              }}
+            >
+              {label}
             </button>
-            <button
-              onClick={() => window.location.href = `/follow-live/${child.profile_id}`}
-              style={{ flex:1, padding:"10px 0", borderRadius:8, border:"none",
-                background:C.amber, color:C.black, fontFamily:"Inter,sans-serif",
-                fontSize:13, fontWeight:800, cursor:"pointer" }}>
-              Follow Live →
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div style={{ fontSize:13, color:C.muted, marginBottom:12 }}>
-            No upcoming sessions in the next two weeks.
-          </div>
-          <button
-            onClick={() => window.location.href = `/follow-live/${child.profile_id}`}
-            style={{ width:"100%", padding:"10px 0", borderRadius:8, border:"none",
-              background:C.amber, color:C.black, fontFamily:"Inter,sans-serif",
-              fontSize:13, fontWeight:800, cursor:"pointer" }}>
-            Follow Live →
-          </button>
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function BottomNav({ active }) {
-  const items = [
-    { key:"home",     label:"Home",     href:"/parent-home", Icon:House },
-    { key:"sessions", label:"Sessions", href:"/sessions",    Icon:Chats },
-    { key:"profile",  label:"Profile",  href:"/profile",     Icon:User  },
-  ];
+function ChildBlock({ child, onRsvp, savingKey }) {
+  const sessions = child.sessions || [];
   return (
-    <div style={{
-      position:"fixed", bottom:0, left:0, right:0,
-      background:C.bg, borderTop:`1px solid ${C.border}`,
-      display:"flex", maxWidth:430, margin:"0 auto",
-      paddingBottom:"env(safe-area-inset-bottom,0)",
-    }}>
-      {items.map(({ key, label, href, Icon }) => (
-        <a key={key} href={href} style={{
-          flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-          padding:"10px 0", textDecoration:"none",
-          color: active === key ? C.amber : C.muted,
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: 22, color: C.amber, letterSpacing: 2 }}>
+          {child.first_name} {child.last_name}
+        </div>
+        <a href={`/follow-live/${child.profile_id}`} style={{
+          fontSize: 12, color: C.amber, fontWeight: 700, textDecoration: "none",
         }}>
-          <Icon size={22} weight="thin" />
-          <span style={{ fontFamily:"Inter,sans-serif", fontSize:10,
-            fontWeight:600, marginTop:3, letterSpacing:0.5 }}>{label}</span>
+          Follow live →
         </a>
-      ))}
+      </div>
+      {sessions.length === 0 ? (
+        <div style={{ fontSize: 13, color: C.muted, padding: "4px 2px 6px" }}>
+          No upcoming training or matches.
+        </div>
+      ) : (
+        sessions.map((s) => (
+          <SessionRow
+            key={s.session_id}
+            session={s}
+            childId={child.profile_id}
+            onRsvp={onRsvp}
+            saving={savingKey === `${s.session_id}:${child.profile_id}`}
+          />
+        ))
+      )}
     </div>
   );
 }
 
 export default function ParentHomeScreen() {
   const [children, setChildren] = useState([]);
-  const [loading,  setLoading]  = useState(true);
+  const [loading, setLoading]   = useState(true);
+  const [activeChild, setActiveChild] = useState("all");
+  const [savingKey, setSavingKey] = useState(null);
 
   useEffect(() => {
-    getGuardianHomeFeed()
-      .then(c => setChildren(c))
-      .catch(err => console.error("[parent-home] load failed", err))
+    guardianListChildrenSessions()
+      .then((c) => setChildren(c || []))
+      .catch((err) => console.error("[parent-home] load failed", err))
       .finally(() => setLoading(false));
   }, []);
 
+  // Optimistic RSVP on behalf of a child (member_rsvp_session is guardian-aware).
+  const handleRsvp = async (sessionId, childId, status) => {
+    const key = `${sessionId}:${childId}`;
+    const prev = children;
+    setSavingKey(key);
+    setChildren((cs) => cs.map((c) => c.profile_id !== childId ? c : {
+      ...c,
+      sessions: (c.sessions || []).map((s) =>
+        s.session_id === sessionId ? { ...s, own_rsvp_status: status } : s),
+    }));
+    try {
+      await memberRsvpSession(sessionId, status, { forProfileId: childId });
+    } catch (err) {
+      console.error("[parent-home] rsvp failed", err);
+      setChildren(prev); // revert
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const go = (href) => { window.location.href = href; };
+  const guardianTabs = (() => {
+    deriveGuardianContext(); // descriptor (Phase 1 — single guardian context)
+    return [
+      { id: "home",     label: "Home",     Icon: House, active: true,  onSelect: () => {} },
+      { id: "sessions", label: "Sessions", Icon: Chats, active: false, onSelect: () => go("/sessions") },
+      { id: "profile",  label: "Profile",  Icon: User,  active: false, onSelect: () => go("/profile") },
+    ];
+  })();
+
+  const visible = activeChild === "all"
+    ? children
+    : children.filter((c) => c.profile_id === activeChild);
+
   return (
-    <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif",
-      paddingBottom:72 }}>
-      <div style={{ padding:"20px 18px 12px", borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
-          color:C.amber, letterSpacing:3 }}>IN OR OUT</div>
-        <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>Your children's activity</div>
+    <div style={{ background: C.bg, minHeight: "100dvh", color: C.text,
+      maxWidth: 430, margin: "0 auto", fontFamily: "Inter,sans-serif", paddingBottom: 90 }}>
+      <div style={{ padding: "20px 18px 12px", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: 28, color: C.amber, letterSpacing: 3 }}>
+          IN OR OUT
+        </div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+          Set your children's availability
+        </div>
       </div>
 
-      <div style={{ padding:"18px 18px 0" }}>
+      {children.length > 1 && (
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "12px 18px 0" }}>
+          {[{ profile_id: "all", first_name: "All" }, ...children].map((c) => {
+            const active = activeChild === c.profile_id;
+            return (
+              <button
+                key={c.profile_id}
+                onClick={() => setActiveChild(c.profile_id)}
+                style={{
+                  flexShrink: 0, padding: "6px 14px", borderRadius: 999, cursor: "pointer",
+                  border: `1px solid ${active ? C.amber : C.border}`,
+                  background: active ? C.amber : C.surface,
+                  color: active ? C.black : C.text,
+                  fontSize: 12, fontWeight: 700,
+                }}
+              >
+                {c.first_name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ padding: "18px 18px 0" }}>
         {loading && (
-          <div style={{ color:C.muted, fontSize:13, textAlign:"center", paddingTop:40 }}>
-            Loading...
+          <div style={{ color: C.muted, fontSize: 13, textAlign: "center", paddingTop: 40 }}>
+            Loading…
           </div>
         )}
 
         {!loading && children.length === 0 && (
-          <div style={{ textAlign:"center", paddingTop:60 }}>
-            <div style={{ fontSize:36, marginBottom:12 }}>👶</div>
-            <div style={{ fontSize:14, color:C.muted }}>
+          <div style={{ textAlign: "center", paddingTop: 60 }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>👶</div>
+            <div style={{ fontSize: 14, color: C.muted }}>
               No children linked to your account yet.
             </div>
-            <div style={{ fontSize:12, color:C.muted, marginTop:8 }}>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>
               Ask your club to link your child's membership.
             </div>
           </div>
         )}
 
-        {!loading && children.map(child => (
-          <ChildCard key={child.profile_id} child={child} />
+        {!loading && visible.map((child) => (
+          <ChildBlock key={child.profile_id} child={child} onRsvp={handleRsvp} savingKey={savingKey} />
         ))}
       </div>
 
-      <BottomNav active="home" />
+      <NavBar tabs={guardianTabs} />
     </div>
   );
 }

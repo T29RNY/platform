@@ -1355,3 +1355,46 @@ workarounds — they do not block onboarding a new squad:
   manifest + PWAWelcome polymorphic paste box as escape hatch
 
 See `BUGS.md` "LOW — Known workarounds exist" for full notes.
+
+---
+
+## 16. SESSION 141 — MULTI-CONTEXT NAV PHASE 1 (migs 349–351)
+
+**Issue class:** the new context-aware nav reshapes the most-used app
+(PlayerView / NavBar / App.jsx routing) during an active pilot. It ships
+**dark** behind `teams.multi_context_nav` (default `false`), so with the flag
+OFF the footballer's app must be byte-identical to today. The club/guardian nav
+is additive (those users were previously stranded). These checks cannot be seen
+by build/hygiene/grep — they are real-device behaviour (Hard Rule #13).
+
+**Pre-flight checks — run on a real iPhone, installed from the Home Screen:**
+
+1. **Flag OFF — casual squad unchanged.** Open a normal `/p/<token>` on a casual
+   team (flag off). Expected: nav = My View · Stats · Results · My IO; tapping the
+   header avatar opens the **Player Profile** (NOT the switcher); In/Out, Stats,
+   Results, My IO all behave exactly as before. No new layout, no console errors.
+2. **Flag OFF — admin unchanged.** Open `/admin/<token>`. Expected: identical
+   admin dashboard + nav as today.
+3. **Flag ON (enable on a test team: `UPDATE teams SET multi_context_nav=true
+   WHERE id='<test team>'`).** Reopen `/p/<token>`: header avatar now opens the
+   **ContextSwitcher** sheet listing Your games / Your clubs / (Family) / Feed.
+   Tap another squad → lands on `/p/<that token>` (admins get the Admin tab).
+4. **Flag ON — multi-team admin.** An admin with >1 team who used to hit the
+   multi-team landing block now lands on **`/feed`**. Confirm no dead end.
+5. **Club member.** Sign in as a club member, open `/sessions`: a bottom nav
+   (Sessions · Pass · Profile) is present; **Pass** opens the membership card at
+   `/m/<pass_token>`; **Profile** opens `/profile` (which also has the nav).
+   Content is not hidden behind the bar (bottom padding correct).
+6. **Multi-club member.** Tap a specific club (switcher / `/sessions?club=<id>`):
+   it shows **that** club's sessions, not always the first.
+7. **Guardian.** Open `/parent-home`: each child lists upcoming training + matches
+   across all their clubs; In / Maybe / Out per fixture saves (member_rsvp_session
+   on behalf of the child); child filter chips appear when >1 child; "Follow live"
+   link present.
+8. **Install target.** From `/feed` (or a club/guardian route), Add to Home
+   Screen → reopen from the icon → it launches `/feed`, not `/`.
+
+**Expected outcome:** with the flag off, zero observable change for the
+footballer. With the flag on, the switcher + club/guardian nav work and no
+casual surface regresses. If any tap does nothing or content hides behind the
+nav bar, STOP and escalate before enabling the flag on the pilot team.

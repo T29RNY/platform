@@ -3,6 +3,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings } from "@platform/core/storage/supabase.js";
+import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 
 // MemberProfile — the member's own account profile at /profile.
 // Authenticated gate is enforced by App.jsx before mounting.
@@ -238,7 +239,8 @@ export default function MemberProfile({ authUser }) {
     background: "var(--bg)",
     color: "var(--t1)",
     fontFamily: "var(--font-body)",
-    padding: "0 0 48px",
+    // room for the fixed ClubNavBar (multi-context nav, Phase 1)
+    padding: "0 0 calc(80px + env(safe-area-inset-bottom,0))",
   };
 
   if (profile === undefined) return (
@@ -927,6 +929,7 @@ export default function MemberProfile({ authUser }) {
           </div>
         )}
       </div>
+      <ClubNavBar active="profile" passToken={profile.active_clubs?.[0]?.pass_token ?? null} />
     </div>
   );
 }
