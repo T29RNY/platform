@@ -279,6 +279,7 @@ function dbToMatch(r) {
     scorers: r.scorers || {}, motm: r.motm,
     bibHolder: r.bib_holder, payments: r.payments || {},
     cancelled: r.cancelled, cancelReason: r.cancel_reason,
+    resultNote: r.result_note || null,
     votingOpen: r.voting_open || false,
     votingClosesAt: r.voting_closes_at || null,
     voteCount: r.vote_count || 0,
@@ -784,6 +785,7 @@ export async function saveMatchResult(adminToken, match) {
     p_last_goal_scorer: match.lastGoalScorer || null,
     p_bib_holder:       match.bibHolder || null,
     p_team_switches:    match.teamSwitches || null,
+    p_result_note:      match.resultNote ?? null,
   });
   if (error) throw error;
 }

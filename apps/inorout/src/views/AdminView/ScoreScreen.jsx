@@ -136,6 +136,7 @@ export default function ScoreScreen({
   const [bibEligible,  setBibEligible]  = useState(null); // null until fetched at stage4Done
 
   // Save
+  const [noteText, setNoteText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false); // synchronous guard — prevents double-fire before state update lands
   const [saved, setSaved]       = useState(false);
@@ -196,6 +197,12 @@ export default function ScoreScreen({
   const potmMatch = schedule?.activeMatchId
     ? matchHistory.find(m => m.id === schedule.activeMatchId)
     : null;
+
+  // Pre-fill the note when editing a result that already has one, so a re-save
+  // (which sends the textbox value) preserves it rather than wiping it.
+  useEffect(() => {
+    if (potmMatch?.resultNote) setNoteText(potmMatch.resultNote);
+  }, [potmMatch?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const origTeamAPlayers = inPlayers.filter(p => p.team === "A");
   const origTeamBPlayers = inPlayers.filter(p => p.team === "B");
@@ -316,6 +323,7 @@ export default function ScoreScreen({
         lastGoalScorer: lastGoalChoice === "yes" ? lastGoalPlayerId : null,
         bibHolder:      bibPlayerId,
         teamSwitches:   switches.length > 0 ? switches : null,
+        resultNote:     noteText.trim() || null,
       });
 
       setSaved(true);
@@ -778,6 +786,29 @@ export default function ScoreScreen({
           </StageCard>
         );
       })()}
+
+      {/* ── Match note (optional) ───────────────────────────────────────────── */}
+      {canSave && !saved && (
+        <StageCard>
+          <StageLbl>MATCH NOTE (OPTIONAL)</StageLbl>
+          <textarea
+            value={noteText}
+            onChange={e => setNoteText(e.target.value.slice(0, 280))}
+            placeholder="e.g. Abandoned early due to injury — declared a draw"
+            rows={2}
+            style={{
+              width: "100%", boxSizing: "border-box", resize: "vertical",
+              padding: "10px 12px", borderRadius: 8,
+              border: "0.5px solid var(--border-subtle)", background: "var(--s3)",
+              color: "var(--t1)", fontFamily: "var(--font-body)", fontSize: 13,
+              outline: "none",
+            }}
+          />
+          <div style={{ fontSize: 11, color: "var(--t2)", fontWeight: 300, marginTop: 6 }}>
+            Shown on the result for everyone. {noteText.length}/280
+          </div>
+        </StageCard>
+      )}
 
       {/* ── STAGE 7 — SAVE ──────────────────────────────────────────────────── */}
       {canSave && !saved && (

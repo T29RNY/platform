@@ -2423,3 +2423,23 @@ casual-regression static PASS (all new logic gated on `pendingApproval`/`isPendi
 MySquads/StatsView). **⛔ real-iPhone PWA walk OWED (Hard Rule #13 — PlayerView + AdminView touched):
 walk the add-+1 → "waiting" → admin approve/decline/reserve loop on a home-screen install before relying
 on it for a live squad.**
+
+---
+
+## MATCH RESULT NOTE + POTM MODAL FIX (mig 347, session 139)
+
+**Match result note (mig 347):** admins can attach an optional free-text note when saving a match
+result — e.g. "abandoned early due to injury, declared a draw". New `matches.result_note` column;
+`admin_save_match_result` gains `p_result_note` (15th arg, old signature dropped); optional "Match note"
+textarea (280-char) on ScoreScreen Stage 7, pre-filled when editing an existing result; shown on the
+HistoryView result card to everyone (📝). Player-route state RPC returns it via `to_jsonb`; admin route's
+explicit match shape updated. EV 4/4 + leak 0, rpc-security-sweep PASS, hygiene 7/7, build PASS.
+
+**POTM modal reappearance fix (no mig):** the voting modal now reappears on every app open while voting
+is live UNTIL the player casts a vote, then never again. Previously a `localStorage` "seen" flag (added
+s80) killed it permanently the first time it was dismissed without voting — tapping away to open the admin
+panel meant it never returned. Now gated purely on server-truth `voted`.
+
+**⛔ real-iPhone PWA walk OWED (Hard Rule #13 — PlayerView/ScoreScreen/HistoryView touched):** save a
+result with a note → confirm it shows on the result card; abandon-without-voting the POTM modal → reopen
+the app → confirm it reappears → vote → confirm it never returns.

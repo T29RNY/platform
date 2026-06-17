@@ -378,15 +378,14 @@ export default function PlayerView({
           setPotmExistingVote(existingVote || myVote?.nominee_id || null);
           if (voted) fetchPotmTally(); // already voted → pull the live tally
           const amEligible = eligible.some(p => p.id === myId);
-          // One-time per match per device. prevVotingOpen resets to false on
-          // every mount, so without a persistent flag the modal re-popped on
-          // every app open while voting was live — even after the player had
-          // already voted. Suppress if they've voted OR already seen it; they
-          // can still vote via the persistent top banner.
-          const seenKey = `ioo_potm_seen_${matchId}`;
-          const alreadySeen = voted || localStorage.getItem(seenKey) === '1';
-          if (amEligible && !alreadySeen) {
-            localStorage.setItem(seenKey, '1');
+          // Reappear on every app open while voting is live UNTIL the player
+          // actually casts a vote — then never again. `voted` is server-truth
+          // (votes/existingVote), so once they vote it stays suppressed across
+          // reloads. Within a session the nowOpen && !wasOpen gate above keeps
+          // it from re-popping after a dismissal. (Previously a localStorage
+          // "seen" flag was set on first show, so dismissing without voting
+          // killed it permanently — the bug this replaces.)
+          if (amEligible && !voted) {
             setShowPOTMModal(true);
           }
         })

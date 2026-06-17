@@ -307,6 +307,18 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
         </div>
       )}
 
+      {/* Result note — admin-attached, visible to everyone (e.g. "abandoned early") */}
+      {m.resultNote && (
+        <div style={{
+          borderTop: "0.5px solid var(--b2)", padding: "8px 12px 8px 14px",
+          display: "flex", alignItems: "flex-start", gap: 6,
+          fontSize: 11, color: "var(--t2)", fontWeight: 300,
+        }}>
+          <span style={{ flexShrink: 0 }}>📝</span>
+          <span>{m.resultNote}</span>
+        </div>
+      )}
+
       {/* Expanded drill-down */}
       {expanded && (
         <div
