@@ -9,6 +9,7 @@ import { supabase } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
+import { getDisciplineLabels } from "../lib/disciplineLabels.js";
 
 // MemberPass — the member-facing PWA pass at /m/<pass_token> (Membership Phase 5,
 // mig 272). Public read keyed by the secret token. Shows tier, perks, status,
@@ -66,6 +67,8 @@ export default function MemberPass({ token }) {
 
   const st = STATUS[pass.status] || STATUS.active;
   const accent = pass.primary_colour || "#60A0FF";
+  const labels = getDisciplineLabels(pass.discipline);
+  const grades = labels.hasGrading ? (pass.grades || []) : [];
   const discount = pass.benefits?.discount_pct;
   const isFree = pass.benefits?.is_free || pass.amount_pence === 0;
   // QR encodes this pass's own URL — reception scans it, parses the token, checks the member in.
@@ -125,6 +128,23 @@ export default function MemberPass({ token }) {
               </>
             )}
           </div>
+
+          {/* current grade / belt (martial-arts clubs only) */}
+          {grades.length > 0 && (
+            <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
+              {grades.map((g) => (
+                <div key={g.scheme_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: "1px solid var(--border-subtle)", borderRadius: "var(--r)" }}>
+                  <span style={{ width: 22, height: 22, borderRadius: 5, background: g.colour_hex || "var(--t2)", border: "1px solid var(--border-subtle)", flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, color: "var(--t2)", textTransform: "uppercase", letterSpacing: 0.4 }}>{labels.rankWord || "Grade"}{g.age_band && g.age_band !== "all" ? ` · ${g.age_band}` : ""}</div>
+                    <div style={{ fontFamily: "var(--font-display)", fontSize: 20, lineHeight: 1.1 }}>
+                      {g.grade_name}{g.stripes > 0 ? ` · ${g.stripes} stripe${g.stripes === 1 ? "" : "s"}` : ""}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* perks */}
           {discount ? (

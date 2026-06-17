@@ -2,10 +2,19 @@ import React, { useEffect, useRef, useState } from "react";
 import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChild, memberUpdateChild,
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
-         memberListMyPurchases, memberListMyClassBookings } from "@platform/core/storage/supabase.js";
+         memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
+import { getDisciplineLabels } from "../lib/disciplineLabels.js";
+
+// Which active club drives discipline-gated surfaces (grade history): honour
+// ?club=<id> for a multi-club member, else the first club — mirrors selectedClub.
+const pickActiveClub = (clubs) => {
+  if (!Array.isArray(clubs) || clubs.length === 0) return null;
+  const urlClub = (typeof window !== "undefined") ? new URLSearchParams(window.location.search).get("club") : null;
+  return (urlClub ? clubs.find((c) => c.club_id === urlClub) : null) ?? clubs[0] ?? null;
+};
 
 // MemberProfile — the member's own account profile at /profile.
 // Authenticated gate is enforced by App.jsx before mounting.
@@ -56,6 +65,7 @@ export default function MemberProfile({ authUser }) {
   const [idDocuments,    setIdDocuments]    = useState([]);   // member's own submissions
   const [myOrders,       setMyOrders]       = useState([]);
   const [myClasses,      setMyClasses]      = useState([]);   // class booking history (mig 340)
+  const [gradeHistory,   setGradeHistory]   = useState([]);   // belt/grade award log (mig 357, grading disciplines only)
   const [idUploadClub,   setIdUploadClub]   = useState(null); // club being uploaded for
   const [idDocType,      setIdDocType]      = useState("passport");
   const [idFile,         setIdFile]         = useState(null);
@@ -88,6 +98,18 @@ export default function MemberProfile({ authUser }) {
     });
     return () => { alive = false; };
   }, []);
+
+  // Belt/grade history for the active grading club (martial-arts only). Keyed on
+  // profile so it loads once active_clubs arrives; no-op for non-grading clubs.
+  useEffect(() => {
+    const club = pickActiveClub(profile?.active_clubs);
+    if (!club?.pass_token || !getDisciplineLabels(club.discipline).hasGrading) { setGradeHistory([]); return; }
+    let alive = true;
+    memberGetGradeHistory(club.pass_token)
+      .then((r) => { if (alive) setGradeHistory(r?.history ?? []); })
+      .catch(() => { if (alive) setGradeHistory([]); });
+    return () => { alive = false; };
+  }, [profile]);
 
   const startEdit = () => {
     setForm({
@@ -267,6 +289,7 @@ export default function MemberProfile({ authUser }) {
   const selectedClub =
     (_urlClub ? _activeClubs.find((c) => c.club_id === _urlClub) : null)
     ?? _activeClubs[0] ?? null;
+  const gradingLabels = getDisciplineLabels(selectedClub?.discipline);
 
   return (
     <div style={wrap}>
@@ -881,6 +904,31 @@ export default function MemberProfile({ authUser }) {
                 }}>
                   {o.status === "pending_payment" ? "Pending" : o.status === "fulfilled" ? "Fulfilled" : o.status === "cancelled" ? "Cancelled" : o.status}
                 </span>
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {/* ── Progression (belts / grades, mig 357 — grading clubs only) ── */}
+        {gradingLabels.hasGrading && gradeHistory.length > 0 && (
+          <Section title="Progression">
+            {gradeHistory.map((g, i) => (
+              <div key={g.award_id} style={{
+                padding: "10px 0",
+                borderTop: i > 0 ? "1px solid var(--border-subtle)" : "none",
+                display: "flex", alignItems: "center", gap: 12,
+              }}>
+                <span style={{ width: 22, height: 22, borderRadius: 5, background: g.colour_hex || "var(--t2)", border: "1px solid var(--border-subtle)", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>
+                    {g.grade_name}{g.stripes > 0 ? ` · ${g.stripes} stripe${g.stripes === 1 ? "" : "s"}` : ""}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                    {g.scheme_name}{g.note ? ` · ${g.note}` : ""}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--t3, #666)", marginTop: 3 }}>{fmtDate(g.awarded_at)}</div>
+                </div>
+                {i === 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(76,175,80,0.15)", color: "rgba(76,175,80,1)" }}>Current</span>}
               </div>
             ))}
           </Section>

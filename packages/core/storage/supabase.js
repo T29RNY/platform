@@ -4219,6 +4219,48 @@ export async function venueSetClubDiscipline(venueToken, clubId, discipline) {
   return data;
 }
 
+// ── Grading / belts (Gym vertical Phase 2, mig 357) ──────────────────────────
+export async function venueCreateGradingScheme(venueToken, clubId, name, ageBand = "all", discipline = null) {
+  const { data, error } = await supabase.rpc("venue_create_grading_scheme", {
+    p_venue_token: venueToken, p_club_id: clubId, p_name: name,
+    p_age_band: ageBand, p_discipline: discipline,
+  });
+  if (error) { console.error("[venue] venue_create_grading_scheme failed", error); throw error; }
+  return data;
+}
+
+export async function venueAddGrade(venueToken, schemeId, name, rankOrder, colourHex = null, maxStripes = 0) {
+  const { data, error } = await supabase.rpc("venue_add_grade", {
+    p_venue_token: venueToken, p_scheme_id: schemeId, p_name: name,
+    p_rank_order: rankOrder, p_colour_hex: colourHex, p_max_stripes: maxStripes,
+  });
+  if (error) { console.error("[venue] venue_add_grade failed", error); throw error; }
+  return data;
+}
+
+export async function venueAwardGrade(venueToken, membershipId, gradeId, stripes = 0, note = null) {
+  const { data, error } = await supabase.rpc("venue_award_grade", {
+    p_venue_token: venueToken, p_membership_id: membershipId, p_grade_id: gradeId,
+    p_stripes: stripes, p_note: note,
+  });
+  if (error) { console.error("[venue] venue_award_grade failed", error); throw error; }
+  return data;
+}
+
+export async function venueListGradingSchemes(venueToken, clubId) {
+  const { data, error } = await supabase.rpc("venue_list_grading_schemes", {
+    p_venue_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[venue] venue_list_grading_schemes failed", error); throw error; }
+  return data ?? { ok: false, schemes: [] };
+}
+
+export async function memberGetGradeHistory(passToken) {
+  const { data, error } = await supabase.rpc("member_get_grade_history", { p_token: passToken });
+  if (error) { console.error("[membership] member_get_grade_history failed", error); throw error; }
+  return data ?? { ok: false, history: [] };
+}
+
 export async function venueListClubVenues(venueToken, clubId) {
   const { data, error } = await supabase.rpc("venue_list_club_venues", {
     p_venue_token: venueToken, p_club_id: clubId,

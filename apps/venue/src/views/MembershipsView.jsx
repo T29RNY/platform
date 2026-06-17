@@ -5,6 +5,7 @@ import {
   venueCreateCustomer, venueUpdateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
+  venueCreateGradingScheme, venueAddGrade, venueAwardGrade, venueListGradingSchemes,
   venueListClubVenues, venueAddClubVenue, venueRemoveClubVenue, venueSearch,
   venueListClubStaff, venueAssignTeamManager, venueRemoveTeamManager, venueUpsertStaffDbs,
   clubSendAnnouncement,
@@ -31,6 +32,11 @@ const M_STATUS = {
   cancelled: { label: "Cancelled", cls: "pill-muted" },
 };
 const CADENCES = [["monthly", "Monthly"], ["quarterly", "Quarterly"], ["annual", "Annual"]];
+// Disciplines that use belt/grade progression (mirrors disciplineLabels.hasGrading
+// in the member app — martial_arts only today). The Grading tab + per-member
+// "Award grade" action only surface for clubs of these disciplines.
+const GRADING_DISCIPLINES = ["martial_arts"];
+const AGE_BANDS = [["all", "All ages"], ["juniors", "Juniors"], ["adults", "Adults"]];
 const FEE_PERIODS = [["weekly", "Weekly"], ["monthly", "Monthly"], ["quarterly", "Quarterly"], ["annual", "Annual"]];
 
 const toPence = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? Math.round(n * 100) : null; };
@@ -111,7 +117,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["grading", "Grading"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -121,6 +127,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
       {tab === "fees"    && <FeesTab venueToken={venueToken} />}
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
       {tab === "club"       && <ClubTab venueToken={venueToken} />}
+      {tab === "grading"    && <GradingTab venueToken={venueToken} />}
       {tab === "staff"          && <StaffTab venueToken={venueToken} />}
       {tab === "announcements"  && <AnnouncementsTab venueToken={venueToken} />}
       {tab === "documents"      && <DocumentsTab venueToken={venueToken} />}
@@ -143,6 +150,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
   const [copiedId, setCopiedId] = useState(null);   // membership id whose pass link was just copied
   const [enrolReq, setEnrolReq] = useState(null);   // pending person being approved-and-enrolled
   const [profileFor, setProfileFor] = useState(null); // member whose full registration is open
+  const [gradeFor, setGradeFor] = useState(null);     // member being awarded a grade/belt
 
   // The member pass lives on the casual app (in-or-out.com), not the venue console.
   const copyPassLink = async (m) => {
@@ -258,6 +266,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
                   )}
                   <span style={{ flex: 1 }} />
                   {m.customer_id && <button className="btn btn-xs" onClick={() => setProfileFor(m)} title="View / edit registration details"><Icon name="customers" size={13} /> Details</button>}
+                  {m.club_id && GRADING_DISCIPLINES.includes(m.discipline) && <button className="btn btn-xs" onClick={() => setGradeFor(m)} title="Award a belt / grade"><Icon name="cups" size={13} /> Award grade</button>}
                   {m.status === "active" && <button className="btn btn-xs" onClick={() => setFreezeFor(m)}><Icon name="clock" size={13} /> Freeze</button>}
                   {m.status !== "cancelled" && <button className="btn btn-xs" onClick={() => setCancelFor(m)}><Icon name="x" size={13} /> Cancel</button>}
                 </div>
@@ -268,10 +277,224 @@ function MembersTab({ venueToken, liveTick = 0 }) {
       )}
 
       {profileFor && <ProfileModal venueToken={venueToken} customerId={profileFor.customer_id} name={fullName(profileFor)} onClose={() => setProfileFor(null)} onDone={() => { setProfileFor(null); reload(); }} />}
+      {gradeFor && <GradeModal venueToken={venueToken} member={gradeFor} onClose={() => setGradeFor(null)} onDone={() => setGradeFor(null)} />}
       {enrolReq && <ApproveEnrolModal venueToken={venueToken} person={enrolReq} onClose={() => setEnrolReq(null)} onDone={() => { setEnrolReq(null); reload(); }} />}
       {enrolOpen && <EnrolModal venueToken={venueToken} onClose={() => setEnrolOpen(false)} onDone={() => { setEnrolOpen(false); reload(); }} />}
       {freezeFor && <FreezeModal venueToken={venueToken} member={freezeFor} onClose={() => setFreezeFor(null)} onDone={() => { setFreezeFor(null); reload(); }} />}
       {cancelFor && <CancelModal venueToken={venueToken} member={cancelFor} onClose={() => setCancelFor(null)} onDone={() => { setCancelFor(null); reload(); }} />}
+    </div>
+  );
+}
+
+// ── Award grade (per-member, from the Members roster) ────────────────────────
+function GradeModal({ venueToken, member, onClose, onDone }) {
+  const [schemes, setSchemes] = useState(null);
+  const [schemeId, setSchemeId] = useState("");
+  const [gradeId, setGradeId] = useState("");
+  const [stripes, setStripes] = useState(0);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(null); // result jsonb after a successful award
+  const isSavingRef = useRef(false);
+
+  useEffect(() => {
+    let a = true;
+    venueListGradingSchemes(venueToken, member.club_id)
+      .then((r) => { if (a) setSchemes((r?.schemes) || []); })
+      .catch((e) => { if (a) setError(e?.message || String(e)); });
+    return () => { a = false; };
+  }, [venueToken, member.club_id]);
+
+  const scheme = (schemes || []).find((s) => s.scheme_id === schemeId);
+  const grade = scheme?.grades?.find((g) => g.grade_id === gradeId);
+  const maxStripes = grade?.max_stripes || 0;
+
+  const submit = async () => {
+    if (isSavingRef.current || !gradeId) return;
+    isSavingRef.current = true; setSaving(true); setError(null);
+    try {
+      const r = await venueAwardGrade(venueToken, member.membership_id, gradeId, Number(stripes) || 0, note.trim() || null);
+      setDone(r);
+    } catch (e) {
+      setError(e?.message === "grade_club_mismatch" ? "That grade belongs to a different club." : "Couldn’t award the grade — try again.");
+    } finally { isSavingRef.current = false; setSaving(false); }
+  };
+
+  return (
+    <Modal title={`Award grade — ${fullName(member) || "member"}`} onClose={onClose} foot={
+      done
+        ? <button className="btn btn-primary" onClick={onDone}>Done</button>
+        : <>
+            <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" disabled={saving || !gradeId} onClick={submit}>{saving ? "Awarding…" : "Award grade"}</button>
+          </>
+    }>
+      {done ? (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div className="pill pill-ok" style={{ width: "fit-content" }}>Awarded {grade?.name}{Number(stripes) > 0 ? ` · ${stripes} stripe${Number(stripes) === 1 ? "" : "s"}` : ""}</div>
+          {done.at_max && <p className="text-mute" style={{ fontSize: 13 }}>This grade is at its maximum stripes — the member is ready to be promoted to the next grade.</p>}
+        </div>
+      ) : schemes === null ? (
+        <p className="text-mute">Loading grading schemes…</p>
+      ) : schemes.length === 0 ? (
+        <EmptyState title="No grading schemes yet" body="Set up a scheme and grades in the Grading tab first." />
+      ) : (
+        <div style={{ display: "grid", gap: 14 }}>
+          <div>
+            <label className="field-label">Scheme</label>
+            <select className="input" value={schemeId} onChange={(e) => { setSchemeId(e.target.value); setGradeId(""); setStripes(0); }}>
+              <option value="">Choose a scheme…</option>
+              {schemes.map((s) => <option key={s.scheme_id} value={s.scheme_id}>{s.name}{s.age_band !== "all" ? ` (${s.age_band})` : ""}</option>)}
+            </select>
+          </div>
+          {scheme && (
+            <div>
+              <label className="field-label">Grade</label>
+              <select className="input" value={gradeId} onChange={(e) => { setGradeId(e.target.value); setStripes(0); }}>
+                <option value="">Choose a grade…</option>
+                {(scheme.grades || []).map((g) => <option key={g.grade_id} value={g.grade_id}>{g.name}</option>)}
+              </select>
+            </div>
+          )}
+          {grade && maxStripes > 0 && (
+            <div>
+              <label className="field-label">Stripes (0–{maxStripes})</label>
+              <input className="input" type="number" min={0} max={maxStripes} value={stripes}
+                onChange={(e) => setStripes(Math.max(0, Math.min(maxStripes, Number(e.target.value) || 0)))} />
+            </div>
+          )}
+          <div>
+            <label className="field-label">Note (optional)</label>
+            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. graded at summer camp" />
+          </div>
+          {error && <p style={{ color: "var(--live)", fontSize: 13 }}>{error}</p>}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ── Grading schemes setup (operator: per-club belt/grade ladders) ────────────
+function GradingTab({ venueToken }) {
+  const [clubs, setClubs] = useState(null);
+  const [clubId, setClubId] = useState(null);
+  const [schemes, setSchemes] = useState(null);
+  const [error, setError] = useState(null);
+  const [newScheme, setNewScheme] = useState({ name: "", ageBand: "all" });
+  const [addGradeFor, setAddGradeFor] = useState(null); // scheme_id
+  const [gradeForm, setGradeForm] = useState({ name: "", colour: "#3030FF", maxStripes: 0 });
+  const isSavingRef = useRef(false);
+
+  useEffect(() => {
+    let a = true;
+    venueListClubs(venueToken)
+      .then((cs) => {
+        if (!a) return;
+        const grad = (cs || []).filter((c) => GRADING_DISCIPLINES.includes(c.discipline));
+        setClubs(grad);
+        if (grad.length) setClubId(grad[0].id);
+      })
+      .catch(() => { if (a) setClubs([]); });
+    return () => { a = false; };
+  }, [venueToken]);
+
+  const loadSchemes = (cid) => {
+    if (!cid) return;
+    setSchemes(null);
+    venueListGradingSchemes(venueToken, cid)
+      .then((r) => setSchemes((r?.schemes) || []))
+      .catch((e) => setError(e?.message || String(e)));
+  };
+  useEffect(() => { if (clubId) loadSchemes(clubId); }, [clubId]);
+
+  const createScheme = async () => {
+    if (isSavingRef.current || !newScheme.name.trim()) return;
+    isSavingRef.current = true; setError(null);
+    try {
+      await venueCreateGradingScheme(venueToken, clubId, newScheme.name.trim(), newScheme.ageBand);
+      setNewScheme({ name: "", ageBand: "all" });
+      loadSchemes(clubId);
+    } catch (e) { setError("Couldn’t create the scheme — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  const addGrade = async (schemeId, nextRank) => {
+    if (isSavingRef.current || !gradeForm.name.trim()) return;
+    isSavingRef.current = true; setError(null);
+    try {
+      await venueAddGrade(venueToken, schemeId, gradeForm.name.trim(), nextRank, gradeForm.colour, Number(gradeForm.maxStripes) || 0);
+      setGradeForm({ name: "", colour: "#3030FF", maxStripes: 0 });
+      setAddGradeFor(null);
+      loadSchemes(clubId);
+    } catch (e) { setError(e?.message === "rank_order_taken" ? "That position is taken — try again." : "Couldn’t add the grade — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  if (!clubs) return <p className="text-mute" style={{ padding: 24 }}>Loading…</p>;
+  if (!clubs.length) return <EmptyState title="No grading clubs" body="Grading applies to martial-arts clubs. Set a club’s discipline to Martial arts in the Club tab first." />;
+
+  return (
+    <div>
+      {clubs.length > 1 && (
+        <div style={{ marginBottom: 16 }}>
+          <label className="field-label" style={{ marginRight: 8 }}>Club</label>
+          <select className="input" style={{ width: "auto" }} value={clubId || ""} onChange={(e) => setClubId(e.target.value)}>
+            {clubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+        <strong style={{ display: "block", marginBottom: 8 }}>New grading scheme</strong>
+        <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>One scheme per ladder — e.g. a Juniors ladder and an Adults ladder are two schemes.</p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input className="input" placeholder="Scheme name (e.g. Adult belts)" value={newScheme.name} onChange={(e) => setNewScheme((s) => ({ ...s, name: e.target.value }))} style={{ flex: 1, minWidth: 180 }} />
+          <select className="input" style={{ width: "auto" }} value={newScheme.ageBand} onChange={(e) => setNewScheme((s) => ({ ...s, ageBand: e.target.value }))}>
+            {AGE_BANDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <button className="btn btn-primary" onClick={createScheme}><Icon name="plus" size={14} /> Create</button>
+        </div>
+      </div>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 13 }}>{error}</p>}
+      {schemes === null && <p className="text-mute">Loading schemes…</p>}
+      {schemes && schemes.length === 0 && <EmptyState title="No schemes yet" body="Create a grading scheme above, then add its grades in order (lowest first)." />}
+
+      {schemes && schemes.map((s) => {
+        const nextRank = (s.grades || []).reduce((mx, g) => Math.max(mx, g.rank_order), 0) + 1;
+        return (
+          <div className="customer-card" key={s.scheme_id} style={{ marginBottom: "var(--gap-2)" }}>
+            <div className="cu-top">
+              <div className="cu-head-text">
+                <div className="cu-name">{s.name}</div>
+                <div className="cu-sub">{AGE_BANDS.find(([v]) => v === s.age_band)?.[1] || s.age_band} · {(s.grades || []).length} grade{(s.grades || []).length === 1 ? "" : "s"}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "8px 0" }}>
+              {(s.grades || []).map((g) => (
+                <span key={g.grade_id} className="pill" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, background: g.colour_hex || "#888", border: "1px solid var(--border)" }} />
+                  {g.name}{g.max_stripes > 0 ? ` · ${g.max_stripes}★` : ""}
+                </span>
+              ))}
+              {(s.grades || []).length === 0 && <span className="text-mute" style={{ fontSize: 13 }}>No grades yet — add the lowest grade first.</span>}
+            </div>
+            {addGradeFor === s.scheme_id ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input className="input" placeholder={`Grade name (position ${nextRank})`} value={gradeForm.name} onChange={(e) => setGradeForm((f) => ({ ...f, name: e.target.value }))} style={{ flex: 1, minWidth: 140 }} />
+                <input type="color" value={gradeForm.colour} onChange={(e) => setGradeForm((f) => ({ ...f, colour: e.target.value }))} title="Belt / grade colour" style={{ width: 40, height: 34, padding: 2, border: "1px solid var(--border)", borderRadius: 6 }} />
+                <label className="field-label" style={{ margin: 0 }}>Max stripes</label>
+                <input className="input" type="number" min={0} max={10} value={gradeForm.maxStripes} onChange={(e) => setGradeForm((f) => ({ ...f, maxStripes: Math.max(0, Number(e.target.value) || 0) }))} style={{ width: 70 }} />
+                <button className="btn btn-xs btn-primary" onClick={() => addGrade(s.scheme_id, nextRank)}>Add</button>
+                <button className="btn btn-xs btn-ghost" onClick={() => { setAddGradeFor(null); setGradeForm({ name: "", colour: "#3030FF", maxStripes: 0 }); }}>Cancel</button>
+              </div>
+            ) : (
+              <button className="btn btn-xs" onClick={() => setAddGradeFor(s.scheme_id)}><Icon name="plus" size={13} /> Add grade</button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
