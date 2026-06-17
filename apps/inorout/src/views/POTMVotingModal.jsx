@@ -208,7 +208,24 @@ export default function POTMVotingModal({
           borderBottom: "0.5px solid rgba(255,255,255,0.08)",
           textAlign: "center",
           flexShrink: 0,
+          position: "relative",
         }}>
+          {/* Always-visible close — guarantees an escape regardless of modal
+              height or how much backdrop is tappable. */}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              position: "absolute", top: 8, right: 8,
+              width: 36, height: 36, borderRadius: 18,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "var(--s3)", border: "0.5px solid var(--border-subtle)",
+              color: "var(--t1)", fontSize: 16, lineHeight: 1, cursor: "pointer",
+              WebkitTapHighlightColor: "transparent", zIndex: 2,
+            }}
+          >
+            ✕
+          </button>
           <div style={{
             fontFamily: "var(--font-display)", fontSize: 28, color: "var(--gold)",
             letterSpacing: "0.05em", lineHeight: 1,
@@ -224,7 +241,7 @@ export default function POTMVotingModal({
 
         {/* Content — the only scrolling region; header + footer stay pinned so
             the skip/close button is always reachable on small screens. */}
-        <div style={{ padding: "16px 20px", flex: 1, minHeight: 0, overflowY: "auto" }}>
+        <div style={{ padding: "16px 20px", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
 
           {/* Already voted — read only */}
           {hasVoted && !isResult && (
