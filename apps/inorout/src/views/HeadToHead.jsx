@@ -156,7 +156,7 @@ function SkeletonBars() {
   );
 }
 
-export default function HeadToHead({ me, them, teamId, adminToken = null, tableData, onClose, initialPeriod = 'season' }) {
+export default function HeadToHead({ me, them, teamId, adminToken = null, playerToken = null, tableData, onClose, initialPeriod = 'season' }) {
   const [period,         setPeriod]         = useState(initialPeriod);
   const [h2hData,        setH2hData]        = useState(null);
   const [loading,        setLoading]        = useState(true);
@@ -167,7 +167,7 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, tableD
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const result = await getHeadToHead(me.id, them.id, teamId, period, adminToken);
+      const result = await getHeadToHead(me.id, them.id, teamId, period, adminToken, playerToken);
       if (!cancelled) {
         setH2hData(result);
         setLoading(false);
@@ -180,7 +180,7 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, tableD
     if (!teamId) return;
     let cancelled = false;
     (async () => {
-      const { players } = await getPlayerLeagueTable(teamId, period, adminToken);
+      const { players } = await getPlayerLeagueTable(teamId, period, adminToken, playerToken);
       if (!cancelled) setModalTableData(players);
     })();
     return () => { cancelled = true; };

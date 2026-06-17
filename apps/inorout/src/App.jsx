@@ -1403,7 +1403,8 @@ export default function App() {
         schedule={schedule}
         myId={myId}
         stats={statsRaw}
-        adminToken={isAdmin ? (route.token || "admin_demo") : null}/>}
+        adminToken={isAdmin ? (route.token || "admin_demo") : null}
+        playerToken={route.type === "player" ? route.token : null}/>}
       {view==="history" && <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule}/>}
       {view==="admin"   && (isAdmin || isViceCaptain) && (
         <AdminView

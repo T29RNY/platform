@@ -1528,17 +1528,19 @@ export async function adminReorderReserves(adminToken, reserveIds) {
 // ─── League table ─────────────────────────────────────────────────────────────
 // period: 'all' | 'month' | 'season'
 // Returns players sorted: ranked (played>=3) by points/goals/winRate/potm, then unranked by name.
-export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = null) {
+export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = null, playerToken = null) {
   try {
-    // Data source — admin-token path routes via SECURITY DEFINER RPC so
-    // /demoadmin and any anon admin route can read past RLS. Same pattern
-    // as getHeadToHead (migration 041 / 042).
+    // Data source — token paths route via SECURITY DEFINER RPC so anon-context
+    // routes can read past RLS. adminToken covers admin / /demoadmin (mig 041 /
+    // 042); playerToken covers /p/<token> player routes (mig 348). Same RLS gap
+    // as getHeadToHead — player_match has no anon/authenticated select policy.
     let matches, pmRows, allTimeData, allTeamMatchDates, playerMap;
-    if (adminToken) {
-      const { data: raw, error: rpcErr } = await supabase.rpc(
-        'get_player_league_table_raw_by_admin_token',
-        { p_admin_token: adminToken, p_period: period }
-      );
+    if (adminToken || playerToken) {
+      const { data: raw, error: rpcErr } = adminToken
+        ? await supabase.rpc('get_player_league_table_raw_by_admin_token',
+            { p_admin_token: adminToken, p_period: period })
+        : await supabase.rpc('get_player_league_table_raw_by_player_token',
+            { p_token: playerToken, p_period: period });
       if (rpcErr) throw rpcErr;
       matches = raw?.period_matches || [];
       if (!matches.length) return { players: [], totalGamesInPeriod: 0 };
@@ -1716,19 +1718,30 @@ export async function getPlayerLeagueTable(teamId, period = 'all', adminToken = 
   }
 }
 
-export async function getHeadToHead(meId, themId, teamId, period = 'all', adminToken = null) {
+export async function getHeadToHead(meId, themId, teamId, period = 'all', adminToken = null, playerToken = null) {
   try {
     const cutoff = periodCutoff(period);
 
-    // Data source — when an adminToken is provided, route the three reads
-    // through a SECURITY DEFINER RPC. This fixes /demoadmin and any other
-    // anon-context admin route, where direct .from() reads are RLS-blocked
-    // and silently return zero rows.
+    // Data source — both token paths route the three reads through a
+    // SECURITY DEFINER RPC, because player_match has RLS enabled with no
+    // select policy/grant for anon or authenticated, so direct .from() reads
+    // return zero rows for every non-admin caller. adminToken covers admin /
+    // /demoadmin routes (migration 041); playerToken covers /p/<token> player
+    // routes (migration 348) — without it H2H always shows the empty state.
     let allTimeMatchData, matchData, pmData;
     if (adminToken) {
       const { data: raw, error: rpcErr } = await supabase.rpc(
         'get_head_to_head_raw_by_admin_token',
         { p_admin_token: adminToken, p_me_id: meId, p_them_id: themId, p_period: period }
+      );
+      if (rpcErr) throw rpcErr;
+      allTimeMatchData = raw?.all_time_matches  || [];
+      matchData        = raw?.period_matches    || [];
+      pmData           = raw?.player_match_rows || [];
+    } else if (playerToken) {
+      const { data: raw, error: rpcErr } = await supabase.rpc(
+        'get_head_to_head_raw_by_player_token',
+        { p_token: playerToken, p_me_id: meId, p_them_id: themId, p_period: period }
       );
       if (rpcErr) throw rpcErr;
       allTimeMatchData = raw?.all_time_matches  || [];

@@ -187,7 +187,7 @@ const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--draw)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule, myId, stats, adminToken = null }) {
+export default function StatsView({ teamId, squad, bibHistory = [], matchHistory = [], settings, schedule, myId, stats, adminToken = null, playerToken = null }) {
   const [showPlayerForm,     setShowPlayerForm]     = useState(false);
   const [period,             setPeriod]             = useState("season");
   const [tableData,          setTableData]          = useState([]);
@@ -940,6 +940,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
             them={h2hPlayer}
             teamId={teamId}
             adminToken={adminToken}
+            playerToken={playerToken}
             tableData={tableData}
             initialPeriod={period}
             onClose={() => setH2hPlayer(null)}
