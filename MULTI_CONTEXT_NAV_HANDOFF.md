@@ -182,3 +182,124 @@ A dedicated guide on the switcher control, regardless of context:
 > Methodology: AUDIT → EXECUTE → VERIFY → COMMIT per `CLAUDE.md`. Casual-regression skill is
 > mandatory (touches `apps/inorout/src`). PWA Hard Rule #13 — real-iPhone walk owed before commit
 > for any PlayerView/NavBar/App.jsx routing change.
+
+---
+
+## LOCKED PLAN (session 141 — audit complete, decisions resolved)
+
+*The five handoff questions + three follow-ups are now resolved with the operator. This section is
+the authoritative spec; the DRAFT tables above remain as background. No code written this session —
+audit + plan only. Build runs next session from this section.*
+
+### Audit findings that reshaped the plan (verified against live code + DB)
+1. **Casual nav barely changes.** Casual squads already have My View / Stats / Results / My IO and
+   the Stats/IO screens already handle 0 games (`UnlockBar`, `JourneyStartsHere`). The only nav that
+   is static-and-wrong is the **club member's** (they have *no* bottom bar at all). This de-risks the
+   casual-regression gate: we add menus + content, we don't rebuild the footballer's.
+2. **Anonymous players can't drive the descriptor from `get_player_teams_by_token`** — it throws on
+   any token not linked to an auth user and only returns teams for a linked user
+   (`rls_migrations/153_*.sql:34-65`). Most casual players are anon. ⇒ the active-team descriptor
+   **must** come from the team-state RPC (the migration below). Confirmed essential.
+3. **Two switchers exist.** Working: the `MY SQUADS` accordion in PlayerView (`MySquads.jsx`,
+   → `/p/<token>`). Half-built + off-theme: the `App.jsx:1313-1380` "YOUR GAMES / YOUR CLUBS"
+   landing block (its games list never populates — wrong field names + auth-only — and it uses the
+   old Inter/Bebas/hardcoded-`C.amber` theme, not tokens.css).
+4. **Club + parent users are stranded** — `SessionsScreen` has no nav bar; `ParentHomeScreen` has a
+   hardcoded Home/Sessions/Profile bar with no route back to football or the switcher
+   (`ParentHomeScreen.jsx:98-123`). No way from `/sessions` back to `/p/<token>` except editing the URL.
+5. **Guardian is thinner than drafted** — tapping a child → `/follow-live/<id>` (live-match
+   spectator), not child-availability management (`ParentHomeScreen.jsx:72`). Copy must match reality.
+6. Confirmed available: **framer-motion ^12.40** in the bundle; the recovered `FirstTimeHint`
+   (git `0a1e759`) already has a **`prerequisite` chaining** mechanism + a cross-component dismiss
+   event — a ready spine for sequenced tours.
+
+### Resolved decisions (locked)
+- **Q1 — context types:** four confirmed — `casual_squad` / `competitive_squad` / `club_membership`
+  / `guardian`. Design rule: **`deriveContext` takes the *selected context entry*, never the person.**
+  The switcher's two lists (YOUR GAMES = squads, YOUR CLUBS = clubs) disambiguate squad-vs-club before
+  any flag is read. A club-affiliated competitive squad still resolves to `competitive_squad`; its
+  club membership, if any, is always a *separate* `active_clubs` entry. Person-level `homeScreenType`
+  stays as the landing-router + switcher-populator.
+- **Q2 / isLeague rule:** **tab presence keyed on `team_type==='competitive'`** (stable — no
+  off-season flicker); **content keyed on `is_competitive`** (active registration → real standings/
+  fixtures vs a calm "no active competition" state).
+- **Q3 / spotlight:** **full screen-dim spotlight + glow-ring on every tour**, auto-advance when the
+  user taps the highlighted control, plus a small **Skip** link. (Operator chose full spotlight
+  uniformly — heavier than the original "gentle hints" intent for the casual six; accepted.)
+- **Q4 / switcher trigger:** fires the first time the user has **>1 context**.
+- **Q5 / data gap:** **return-shape addition, not a new RPC** — see migration below. Full system,
+  future-proofed (operator: "everything required for a full system").
+- **Q-competition gating:** gate only the **competition** surfaces on `isLeague`; the in-squad
+  `PlayerLeagueTable` (within-squad ranking) **stays for everyone**.
+- **Q-switcher:** **scrap** the dead off-theme `App.jsx:1313-1380` block; **unify** to one themed
+  switcher, reached from the header avatar, with `/feed` as the cross-context home hub.
+- **Q-way-back:** the **header avatar** (top corner) opens the unified switcher, on every context.
+- **Q-old hints:** accept the **one-time** re-show of the ~12 already-wired coachmarks to current users.
+- **Q-scope:** **fix both pre-existing bugs** in this work — multi-club selection + stranded users.
+
+### Phase 1 — context foundation
+1. **Migration (next free number)** — add `team_type`, `is_competitive`, `club_id`, `club_name` to
+   the return shapes of `get_team_state_by_player_token` **and** `get_team_state_by_admin_token`.
+   Same-commit mapper updates in `packages/core/storage/supabase.js` (Hard Rule #12); record
+   multi-consumer note in `RPCS.md` (Hard Rule #14). Write `.sql` + `_down.sql` source same commit
+   (Hard Rule #11). Ephemeral-verify runs (RPC modified) — read-shape change, seed-own-fixture.
+2. **`deriveContext(activeEntity)`** — pure function in a small shared module →
+   `{ type, hasMatches, isLeague, isClub, clubId, clubName }`. Fed per route: `/p|/admin/<token>`
+   from team-state fields; `/sessions|/classes|/m|/profile` from the selected `active_clubs` entry;
+   `/parent-home` → guardian. Stable "resolving" state so the bar never flashes the wrong tabs;
+   anon fallback uses team-state alone.
+3. **Config-driven `NavBar`** — dumb renderer of `tabs:[{ id, label, Icon, active, onSelect }]`.
+   Squad tabs wire `onSelect→setActiveTab` (unchanged behaviour); club tabs wire `onSelect→route nav`.
+   Preserve AdminView's active-Admin-tab state + the MY-IO custom label. Touches PlayerView **and**
+   AdminView render → both in casual-regression scope.
+4. **Shared NavBar onto membership routes** (Sessions/Classes/Pass/Profile); replace
+   ParentHomeScreen's bespoke bar with the unified one.
+5. **Header-avatar switcher** on every context (closes the stranding); retire the dead App.jsx block;
+   route to the unified themed switcher / `/feed`.
+6. **Surface gating** — competition standings/fixtures cards + league-table-in-Stats on `isLeague`;
+   membership tabs on `isClub`. In-squad `PlayerLeagueTable` ungated.
+7. **Bug fixes:** (a) **multi-club selection** — pass/remember the tapped `club_id` (URL param or
+   stored) so `/sessions` shows the chosen club, not always the first (`SessionsScreen.jsx:218-236`);
+   (b) **stranding** — resolved by #5.
+
+**Per-context tab sets (locked spec):**
+| Context | Tabs |
+|---|---|
+| `casual_squad` | My View · Stats · Results · My IO  (+ Admin if admin) |
+| `competitive_squad` | My View (+ standings/fixtures cards) · Stats (league table + H2H on) · Results · My IO  (+ Admin) |
+| `club_membership` | Sessions · Classes · Pass · Profile |
+| `guardian` | Home · Sessions · Profile |
+All contexts: header avatar → unified switcher.
+
+### Phase 2 — context-aware guided tour
+- **Engine** (revive + upgrade `FirstTimeHint`): full dim + spotlight + glow-ring from
+  `getBoundingClientRect`; **poll-until-mounted** target resolution (async lists); recompute on
+  scroll/resize/orientation/tab-change, rAF-throttled; **scroll target into view** before highlight;
+  **no-op gracefully** when target absent (e.g. competition card between seasons); respect
+  `prefers-reduced-motion`; auto-advance on tap of the highlighted control; **Skip** link; reuse the
+  original **`prerequisite` chaining** to sequence steps. iOS safe-area: overlay covers notch + nav.
+- **Registry — one tour per `(type, screen)`, namespaced storage keys, fire once / re-fire once on
+  entering a new context type:**
+  | Key | Fires on | Steps |
+  |---|---|---|
+  | `io_tour_casual_myview` | casual My View, first run | In/Out → +1 guest → mark injured → change teams (MySquads) → tap avatar for H2H (sequenced) |
+  | `io_tour_casual_stats` | casual Stats, first open | what Stats shows |
+  | `io_tour_admin_dash` | admin dashboard, first load | Match Settings → Make Teams → Input Result → Payments (spotlight over the live tiles; live-toggle excluded — its in-context coachmark at `AdminView/index.jsx:897` covers that one-off) |
+  | `io_tour_comp_myview` | competitive My View | league position + next fixtures (no-op between seasons) |
+  | `io_tour_comp_stats` | competitive Stats | league table → tap a player for H2H |
+  | `io_tour_club_sessions` | club Sessions | RSVP · tap a session to see who's going |
+  | `io_tour_club_classes` | club Classes | book · join waitlist · your passes |
+  | `io_tour_club_pass` | club Pass | show QR at the door · membership & perks |
+  | `io_tour_club_profile` | club Profile | account · children · consents |
+  | `io_tour_guardian_home` | guardian Home | follow your children's live games |
+  | `io_tour_switcher` | first time user has >1 context | header avatar → switch squads/clubs/memberships |
+- The six casual hints + admin orientation fold in here (the cozy-eagle subset); the ~12 wired call
+  sites get real copy; four missing spots (guest, injured, MySquads link, avatar) get wrappers.
+
+### Build sequence + gates
+- Ship **Phase 1** and **Phase 2** as separate, independently-shippable commits.
+- Every step AUDIT → EXECUTE → VERIFY → COMMIT. **Casual-regression skill mandatory** (touches
+  `apps/inorout/src`). **Ephemeral-verify** on the Phase 1 migration. **PWA Hard Rule #13** — real-
+  iPhone walk owed before commit on both phases (NavBar / PlayerView / App.jsx routing in scope).
+- Update `BUGS.md` (two pre-existing bugs resolved), `RPCS.md` (return-shape additions + consumers),
+  `GO_LIVE_ISSUES.md` (device checks), `CONTEXT.md` session entry.
