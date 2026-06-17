@@ -28,7 +28,7 @@ export default function CompetitionStandingsCard({ playerToken, currentTeamId })
   const headNum = { ...cellNum, color: "var(--t2)", fontSize: 11, letterSpacing: "0.04em" };
 
   return (
-    <div style={{ marginTop: 24 }}>
+    <div style={{ marginTop: 24 }} data-tour="standings-card">
       <div
         onClick={() => setOpen(o => !o)}
         style={{

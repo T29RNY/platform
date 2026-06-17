@@ -258,7 +258,7 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
   return (
     <>
       <SquadReadyStyles />
-      <main className="squad-ready-shell">
+      <main className="squad-ready-shell" data-tour-suppress="squad-ready">
         <div className="squad-ready-orb squad-ready-orb--green" />
         <div className="squad-ready-orb squad-ready-orb--gold" />
 

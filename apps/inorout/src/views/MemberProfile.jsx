@@ -4,6 +4,8 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
+import Tour from "../components/Tour.jsx";
+import { clubToursEnabled } from "../lib/tourRegistry.js";
 
 // MemberProfile — the member's own account profile at /profile.
 // Authenticated gate is enforced by App.jsx before mounting.
@@ -274,7 +276,7 @@ export default function MemberProfile({ authUser }) {
         )}
       </div>
 
-      <div style={{ padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 24 }}>
+      <div data-tour="profile-personal" style={{ padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 24 }}>
 
         {/* ── Personal ─────────────────────────────────────────────── */}
         <Section title="Personal">
@@ -929,6 +931,7 @@ export default function MemberProfile({ authUser }) {
           </div>
         )}
       </div>
+      <Tour tourKey="io_tour_club_profile" enabled={clubToursEnabled()} />
       <ClubNavBar active="profile" passToken={profile.active_clubs?.[0]?.pass_token ?? null} />
     </div>
   );

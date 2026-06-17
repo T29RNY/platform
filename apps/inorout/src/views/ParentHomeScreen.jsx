@@ -3,7 +3,9 @@ import { colors as C } from "@platform/core";
 import { guardianListChildrenSessions, memberRsvpSession } from "@platform/core/storage/supabase.js";
 import { Chats, User, House } from "@phosphor-icons/react";
 import NavBar from "../components/ui/NavBar.jsx";
+import Tour from "../components/Tour.jsx";
 import { deriveGuardianContext } from "../lib/deriveContext.js";
+import { clubToursEnabled } from "../lib/tourRegistry.js";
 
 function formatWhen(isoString) {
   if (!isoString) return "";
@@ -85,7 +87,7 @@ function ChildBlock({ child, onRsvp, savingKey }) {
         <div style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: 22, color: C.amber, letterSpacing: 2 }}>
           {child.first_name} {child.last_name}
         </div>
-        <a href={`/follow-live/${child.profile_id}`} style={{
+        <a data-tour="follow-live-link" href={`/follow-live/${child.profile_id}`} style={{
           fontSize: 12, color: C.amber, fontWeight: 700, textDecoration: "none",
         }}>
           Follow live →
@@ -216,6 +218,7 @@ export default function ParentHomeScreen() {
         ))}
       </div>
 
+      <Tour tourKey="io_tour_guardian_home" enabled={clubToursEnabled()} />
       <NavBar tabs={guardianTabs} />
     </div>
   );

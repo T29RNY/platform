@@ -20,6 +20,7 @@ import {
 import { deriveSquadContext } from "./lib/deriveContext.js";
 import { writeLastContext, readLastContext } from "./lib/lastContext.js";
 import ContextSwitcher from "./components/ContextSwitcher.jsx";
+import { TourProvider } from "./components/TourProvider.jsx";
 import { SEED_COVER } from "./seeds.js";
 import PlayerView    from "./views/PlayerView.jsx";
 import StatsView     from "./views/StatsView.jsx";
@@ -1455,6 +1456,7 @@ export default function App() {
   };
 
   return (
+    <TourProvider enabled={multiContextNav}>
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
@@ -1534,5 +1536,6 @@ export default function App() {
       )}
       <AuthGateModal {...joinAuthGate.gateProps} />
     </div>
+    </TourProvider>
   );
 }

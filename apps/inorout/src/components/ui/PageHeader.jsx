@@ -86,6 +86,7 @@ export default function PageHeader({
               {showAvatar && (
                 <motion.div
                   layoutId="me-avatar"
+                  data-tour="header-avatar"
                   onClick={onAvatarTap}
                   role="button"
                   aria-label="Open profile"

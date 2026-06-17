@@ -26,6 +26,8 @@ import MySquads     from "./MySquads";
 import CompetitionStandingsCard from "./CompetitionStandingsCard";
 import CompetitionFixturesCard from "./CompetitionFixturesCard";
 import PlayerProfile from "./PlayerProfile.jsx";
+import Tour from "../components/Tour.jsx";
+import { tourKeyFor } from "../lib/tourRegistry.js";
 import { AnimatePresence } from "framer-motion";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -183,6 +185,7 @@ export default function PlayerView({
   isAdmin = false, onGoAdmin,
   startTab = null,
   stats = null,
+  context = null,
   multiContextNav = false, onSwitcherOpen = null,
 }) {
   const me = squad.find(p => p.id === myId);
@@ -1040,12 +1043,10 @@ export default function PlayerView({
                     100% { box-shadow: 0 0 0 0   var(--flash-color, rgba(61,220,106,0)); }
                   }
                 `}</style>
-                <FirstTimeHint
-                  storageKey="ioo_hint_player_status"
-                  placement="top"
-                  title="TAP YOUR STATUS"
-                  body="It's live instantly. If the squad fills, your In becomes Reserve automatically."
-                >
+                {/* Status is step 1 of the My View spotlight tour (targets
+                    data-gaffer-target="status-buttons"); the wrapper stays for
+                    layout parity with the original. */}
+                <FirstTimeHint>
                 <div data-gaffer-target="status-buttons"
                   style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
                     gap:8, padding:"10px 12px",
@@ -1320,7 +1321,7 @@ export default function PlayerView({
 
             {/* Injured tile */}
             {me?.injured ? (
-              <button onClick={toggleInjury} style={{
+              <button data-tour="injured-toggle" onClick={toggleInjury} style={{
                 flex:1, padding:"11px 12px",
                 background:"var(--red2)", border:"0.5px solid var(--redb)",
                 borderRadius:"var(--rs)", boxShadow:"0 0 10px rgba(255,64,64,0.15)",
@@ -1333,7 +1334,7 @@ export default function PlayerView({
                 </div>
               </button>
             ) : (
-              <button onClick={toggleInjury} style={{
+              <button data-tour="injured-toggle" onClick={toggleInjury} style={{
                 flex:1, padding:"11px 12px", background:"var(--s1)",
                 border:"0.5px solid var(--border-subtle)",
                 borderRadius:"var(--rs)",
@@ -1650,6 +1651,14 @@ export default function PlayerView({
       {activeTab === "my-io" && (
         <MyIOView player={me} teamId={teamId} teamName={settings?.groupName} stats={stats} />
       )}
+
+      {/* Context-aware guided tour for the current tab (gated by the per-team
+          flag; no-ops when no tour is registered for this context+tab). */}
+      <Tour
+        tourKey={tourKeyFor(context?.type, activeTab === "my-view" ? "myview" : activeTab === "stats" ? "stats" : null)}
+        enabled={multiContextNav}
+        active={activeTab === "my-view" || activeTab === "stats"}
+      />
 
       {/* 4 ── NAVBAR */}
       <NavBar activeTab={activeTab} onTabChange={setActiveTab} onAdminClick={isAdmin ? onGoAdmin : undefined} />

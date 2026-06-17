@@ -37,6 +37,7 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
 
       {/* Accordion header */}
       <div
+        data-tour="my-squads-toggle"
         onClick={() => setOpen(o => !o)}
         style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
