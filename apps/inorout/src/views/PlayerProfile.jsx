@@ -11,6 +11,7 @@ import {
   setPlayerNickname, resetPlayerToken,
   insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
   deletePlayer, getMyContact, setPlayerContact,
+  adminSetPlayerStatus,
 } from "@platform/core/storage/supabase.js";
 import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
@@ -283,6 +284,7 @@ export default function PlayerProfile({
   const [removeConfirming, setRemoveConfirming] = useState(false);
   const [removing,    setRemoving]    = useState(false);
   const [adminError,  setAdminError]  = useState(null);
+  const [statusSaving, setStatusSaving] = useState(false);
 
   // Reset Leave / Remove two-tap confirm after 4s if not actioned
   useEffect(() => {
@@ -413,6 +415,25 @@ export default function PlayerProfile({
     } catch (e) {
       console.error(e);
       setAdminError("Couldn't clear injury — try again.");
+    }
+  };
+
+  // Admin override of a player's availability (reuses admin_set_player_status,
+  // same RPC as the Squad screen's ⋮ menu — surfaced here so it's reachable
+  // straight from the player's profile).
+  const handleAdminSetStatus = async (next) => {
+    if (statusSaving || me?.status === next) return;
+    setStatusSaving(true); setAdminError(null);
+    const prevStatus = me?.status;
+    setSquad?.(sq => sq.map(s => s.id === me.id ? { ...s, status: next } : s));
+    try {
+      await adminSetPlayerStatus(adminToken, me.id, next);
+    } catch (e) {
+      console.error(e);
+      setSquad?.(sq => sq.map(s => s.id === me.id ? { ...s, status: prevStatus } : s));
+      setAdminError("Couldn't update availability — try again.");
+    } finally {
+      setStatusSaving(false);
     }
   };
 
@@ -714,6 +735,37 @@ export default function PlayerProfile({
               border:"0.5px solid var(--border-subtle)",
               borderRadius:"var(--r)", overflow:"hidden", marginBottom:10,
             }}>
+              {/* Set availability — admin override (same RPC as Squad ⋮ menu) */}
+              <div style={{ padding:"12px 16px", borderBottom:"0.5px solid var(--b2)" }}>
+                <div style={{ fontSize:13, color:"var(--t1)", marginBottom:10,
+                  display:"flex", alignItems:"center", gap:10 }}>
+                  <BellSimple size={16} weight="thin" color="var(--t2)"/>
+                  Set availability
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {[
+                    { v:"in",      label:"In",      color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)" },
+                    { v:"out",     label:"Out",     color:"var(--red)",    bg:"var(--red2)",    border:"var(--redb)" },
+                    { v:"maybe",   label:"Maybe",   color:"var(--amber)",  bg:"var(--amber2)",  border:"var(--amberb)" },
+                    { v:"reserve", label:"Reserve", color:"var(--purple)", bg:"var(--purple2)", border:"var(--purpleb)" },
+                  ].map(({ v, label, color, bg, border }) => {
+                    const active = me?.status === v;
+                    return (
+                      <button key={v} onClick={() => handleAdminSetStatus(v)} disabled={statusSaving}
+                        style={{ flex:1, padding:"8px 0", borderRadius:"var(--rs)",
+                          border:`0.5px solid ${active ? border : "var(--border-subtle)"}`,
+                          background: active ? bg : "transparent",
+                          color: active ? color : "var(--t2)",
+                          fontFamily:"var(--font-body)", fontSize:12, fontWeight: active ? 600 : 400,
+                          cursor: statusSaving ? "not-allowed" : "pointer",
+                          WebkitTapHighlightColor:"transparent" }}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Rename */}
               {editingNick ? (
                 <div style={{ padding:"12px 16px", borderBottom:"0.5px solid var(--b2)" }}>
