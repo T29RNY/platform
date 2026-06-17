@@ -4189,3 +4189,41 @@ Active, Renews 15 Jul 2026, £40/monthly, QR code, scan-at-reception). Full flow
 Requires Stripe test clocks API. No code changes needed; pure Stripe-side test.
 
 **Next mig = 337.**
+
+---
+
+## Session 139 — Plus-one approvals, match note, POTM modal fixes, draw colours (2026-06-17)
+
+Casual-app (apps/inorout) feature + fix session. All shipped to main.
+
+- **Plus-one approvals (mig 346).** Player-added +1s now enter PENDING (`players.pending_approval`,
+  status='none' — no squad spot, hidden from board) until an admin approves. `add_guest_player`
+  gained optional `p_admin_token` (admin-add auto-approves; old 2-arg signature dropped); new
+  `admin_approve_guest` (squad-full → reserve) + `admin_decline_guest` (→ dormant). State RPCs +
+  `dbToPlayer` expose `pending_approval`; `isPendingGuest` helper. Top-of-AdminView approvals
+  banner (live via `notify_team_change`); PlayerView "waiting for approval" + cancel; returning-
+  guest picker excludes pending. Push (`/api/notify` type `guestPendingApproval`) targets admins,
+  DORMANT until push enabled. EV 8/8 + leak 0, rpc-security-sweep (4) PASS.
+- **Admin status control in PlayerProfile.** Surfaced IN/OUT/MAYBE/RESERVE in the admin
+  PlayerProfile (reuses `admin_set_player_status`; the control already existed only on the Squad ⋮
+  menu) — pure UI, no new RPC.
+- **Match result note (mig 347).** New `matches.result_note`; `admin_save_match_result` gained
+  `p_result_note` (15th arg, old 14-arg dropped, grants re-applied); admin state-RPC match shape +
+  `dbToMatch.resultNote` updated (player route auto via to_jsonb). Optional note box on ScoreScreen
+  (pre-fills on edit); shown on HistoryView result card. EV 4/4 + leak 0. Live note set on Footy
+  Tuesdays 16-Jun match: "Game stopped due to injury to Sav".
+- **Results draw rendering + colours.** Fixed a draw (`winner='D'`) mis-rendering in the expanded
+  drill-down ("Won by ?" / "Team D won"). Split "pending" (unplayed, winner NULL) out from "draw"
+  in `getResult` — unplayed now shows neutral grey "NOT PLAYED YET" instead of an amber 0–0. Real
+  draws use a new teal `--draw` token (HistoryView + StatsView + league-table pill; tokenised the
+  pre-existing medal hexes in PlayerLeagueTable to do it cleanly).
+- **POTM modals.** Player `POTMVotingModal`: reappears each app open until the player votes, then
+  never again (was permanently suppressed by a localStorage "seen" flag after any dismissal); plus
+  capped/scrollable + ✕ + backdrop close. Admin `AdminView/POTMTiebreakModal` (the one that trapped
+  two admins incl. Rocky — no escape at all): capped to `calc(100dvh - 40px)` flex column,
+  always-visible ✕, tap-backdrop-to-close, "Decide later" (→ `onClose`, client-only dismiss; tie
+  re-surfaces until a winner is locked via `admin_close_potm_voting`). NB: two distinct POTM modals
+  — admin "too big/can't dismiss" complaints = the tiebreak one.
+
+Owed: real-iPhone PWA walks per GO_LIVE_ISSUES §15. Parallel session shipped a Head-to-Head
+player-token fix (mig 348) — **next free mig = 349.**

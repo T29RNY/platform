@@ -1301,6 +1301,46 @@ present) → `vercel deploy --prebuilt --prod` → verify the live bundle greps 
 
 ---
 
+## 15. SESSION 139 — PLUS-ONE APPROVALS, MATCH NOTE, POTM MODAL TRAP, DRAW COLOURS
+
+**15a. POTM tiebreak modal trapped admins (PRODUCTION — two admins hit it, incl. Rocky).**
+The admin-side `POTMTiebreakModal` ("POTM TIE — YOUR CALL", AdminView, zIndex 200) had NO
+escape — no ✕, no backdrop tap, no scroll, no height cap. The only exit was to lock in a
+winner, so any admin caught by a vote tie was stuck behind it and couldn't reach the admin
+panel. Fixed: capped to `calc(100dvh - 40px)` flex column (header + footer pinned, candidate
+list scrolls), always-visible ✕, tap-backdrop-to-close, "Decide later" — all wired to a new
+`onClose`. Dismiss is client-only (sets `tiebreakDismissed`); the tie re-surfaces next admin-
+screen mount until someone picks a winner (the only resolver: `admin_close_potm_voting`).
+*(NB there are TWO POTM modals — the player `POTMVotingModal` got the same robust treatment
++ a fix so it reappears each open until the player votes, then never again.)*
+**Device check:** on a real iPhone home-screen install, with a team whose last game ended in
+a POTM tie, open the admin panel → confirm the "POTM TIE" modal shows a ✕, scrolls if the
+candidate list is long, closes on ✕ / tap-outside / "Decide later", and that locking in a
+winner makes it never return.
+
+**15b. Plus-one approvals (mig 346).** A player's +1 now enters PENDING (no squad spot) until
+an admin approves via the top-of-AdminView "🙋 PLUS-ONE APPROVALS" banner (approve → in, or
+reserve if full; decline → dormant). Admin-added guests auto-approve. Host sees "waiting for
+approval" + can cancel. Push to admins plumbed but DORMANT until admins enable notifications.
+**Device check:** on a real install, player adds a +1 → confirm it does NOT take a spot and
+shows "waiting"; admin sees the banner live, approve/decline/reserve each work; admin-added
+guest skips approval.
+
+**15c. Match result note (mig 347).** Optional free-text note on a saved result (e.g.
+"abandoned early due to injury, declared a draw"), shown on the HistoryView result card to
+everyone. **Device check:** save a result with a note → confirm it shows on the card; edit the
+result later → confirm the note pre-fills and isn't wiped.
+
+**15d. Results draw rendering + colours.** A draw (`winner='D'`) was mis-rendered in the
+expanded result drill-down ("Won by ?", "Team D won"); and an UNPLAYED match (winner NULL) was
+classed as a draw, so this week's not-yet-played fixture showed as an amber 0–0 draw. Fixed:
+draws render correctly across all 3 score types; "pending" split from "draw" (unplayed shows
+neutral grey "NOT PLAYED YET"); real draws use a dedicated teal `--draw` token (distinct from
+amber). **Device check:** open Results → this week's unplayed game reads grey "NOT PLAYED YET",
+a real draw reads teal "D", and the expanded view of a draw shows no "Team D won".
+
+---
+
 ## SCOPE OUT
 
 These known issues exist but are LOW priority with documented
