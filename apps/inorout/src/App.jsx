@@ -18,6 +18,7 @@ import {
   getTeamFeatureFlags,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
+import { writeLastContext, readLastContext } from "./lib/lastContext.js";
 import ContextSwitcher from "./components/ContextSwitcher.jsx";
 import { SEED_COVER } from "./seeds.js";
 import PlayerView    from "./views/PlayerView.jsx";
@@ -118,6 +119,16 @@ function getRoute() {
       }
       // Expired — remove it but fall through to lastVisited
       localStorage.removeItem("ioo_redirect_to");
+    }
+
+    // Context-aware resume (multi-context nav): prefer the structured last-context
+    // — written on every resumable context route, so a club/guardian member resumes
+    // where they actually were, not on a dormant squad. Falls back to the legacy
+    // squad-only breadcrumb for users who predate the structured key.
+    const lastContext = readLastContext();
+    if (lastContext) {
+      window.location.replace(lastContext);
+      return { type:"redirecting" };
     }
 
     const last = localStorage.getItem("ioo_last_visited");
@@ -860,18 +871,22 @@ export default function App() {
     }
   }, [teamId, authUser?.id, myPlayer?.token, isAdmin, settings?.groupName]);
 
-  // Multi-context nav (Phase 1): load the per-team kill-switch and remember this
-  // as the last active context (so multi-context users can reopen where they left
-  // off). Squad routes only; flag fails safe to off.
+  // Multi-context nav (Phase 1): load the per-team kill-switch on squad routes.
+  // Flag fails safe to off.
   useEffect(() => {
     if (!teamId || (route.type !== "player" && route.type !== "admin")) return;
     getTeamFeatureFlags(teamId).then(setFeatureFlags).catch(() => setFeatureFlags(null));
-    try {
-      localStorage.setItem("ioo_last_context", JSON.stringify({
-        kind: "squad", route: route.type, token: route.token || null, teamId,
-      }));
-    } catch (e) { /* localStorage unavailable (private mode) — non-fatal */ }
-  }, [teamId, route.type, route.token]);
+  }, [teamId, route.type]);
+
+  // Remember the current context as the resume point, so a multi-context user
+  // reopens where they actually left off (their club / guardian home / squad),
+  // not on a dormant squad. Written for every resumable surface; the full path
+  // (incl. ?club=<id>) is stored so resume lands on the exact context.
+  useEffect(() => {
+    const RESUMABLE = new Set(["player", "admin", "sessions", "profile", "member", "parent-home", "feed"]);
+    if (!RESUMABLE.has(route.type)) return;
+    writeLastContext(window.location.pathname + window.location.search);
+  }, [route.type, route.token]);
 
   // Realtime subscriptions
   const isFetchingPlayers = useRef(false);

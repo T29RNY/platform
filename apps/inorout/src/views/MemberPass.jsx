@@ -6,6 +6,7 @@ import {
   memberGetPackageBalance, memberListMyRoomHires,
 } from "@platform/core/storage/supabase.js";
 import { supabase } from "@platform/core/storage/supabase.js";
+import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 
 // MemberPass — the member-facing PWA pass at /m/<pass_token> (Membership Phase 5,
 // mig 272). Public read keyed by the secret token. Shows tier, perks, status,
@@ -68,8 +69,15 @@ export default function MemberPass({ token }) {
   // QR encodes this pass's own URL — reception scans it, parses the token, checks the member in.
   const passUrl = typeof window !== "undefined" ? `${window.location.origin}/m/${token}` : "";
 
+  // Only the account-holder gets the club nav bar — a reception scan / shared-link
+  // view (non-owner) shows the pass alone, no member navigation. When present, the
+  // fixed bar needs bottom clearance so the card never sits behind it.
+  const ownerWrap = isOwner
+    ? { ...wrap, paddingBottom: "calc(80px + env(safe-area-inset-bottom,0))" }
+    : wrap;
+
   return (
-    <div style={wrap}>
+    <div style={ownerWrap}>
       <div style={{ width: "100%", maxWidth: 420, border: "1px solid var(--border-subtle)", borderRadius: "var(--r)", overflow: "hidden", background: "var(--b2)" }}>
         {/* brand header */}
         <div style={{ background: accent, color: "var(--white)", padding: "18px 20px", display: "flex", alignItems: "center", gap: 12 }}>
@@ -163,6 +171,7 @@ export default function MemberPass({ token }) {
           )}
         </div>
       </div>
+      {isOwner && <ClubNavBar active="pass" passToken={token} />}
     </div>
   );
 }
