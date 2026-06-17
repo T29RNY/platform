@@ -432,3 +432,86 @@ migration changes `BASE_URL` there.
 > the NavBar/PlayerView/App.jsx routing changes (Vercel preview → Add to Home Screen → force-quit →
 > reopen). Update `BUGS.md` (bugs resolved), `RPCS.md`, `GO_LIVE_ISSUES.md`, `CONTEXT.md`. Commit
 > Phase 1 as its own unit; Phase 2 (tours) is next session.
+
+---
+
+## PHASE 1 — SHIPPED (session 141, PR #8 merged to `main`)
+
+**Status: DONE and merged. Ships dark behind `teams.multi_context_nav` (default `false`).**
+Only the on-device PWA install walk is still owed (GO_LIVE_ISSUES.md §16) — non-blocking
+because everything is flag-gated off.
+
+What exists now (Phase 2 builds ON these — do not rebuild):
+- **`apps/inorout/src/lib/deriveContext.js`** — `CONTEXT_TYPES` + `deriveContext(entity)` /
+  `deriveSquadContext` / `deriveClubContext` / `deriveGuardianContext`. Returns
+  `{ type, hasMatches, isLeague, isClub, clubId, clubName, cohortId }`.
+- **`NavBar.jsx`** — now a config-driven dumb renderer: pass `tabs:[{id,label,Icon,myio?,active,onSelect}]`,
+  OR omit `tabs` and pass the legacy `activeTab`/`onTabChange`/`onAdminClick` props to get the
+  unchanged squad bar (the casual-safe fallback).
+- **`components/ContextSwitcher.jsx`** — header-avatar overlay (squad routes, flag-gated). Opened via
+  `onSwitcherOpen` prop threaded App.jsx → PlayerView avatar (flag-off keeps Profile).
+- **`components/ui/ClubNavBar.jsx`** — Sessions·Pass·Profile, on SessionsScreen + MemberProfile.
+- **`ParentHomeScreen.jsx`** — child-first guardian Home on `guardian_list_children_sessions`.
+- **App.jsx** — loads `getTeamFeatureFlags(teamId)` into `featureFlags`; derives `squadContext`;
+  passes `context` + `multiContextNav` to PlayerView/AdminView; `openSwitcher` (a PLAIN function — it
+  sits after early returns, must NOT be a hook); writes `localStorage.ioo_last_context`.
+- **DB:** migs 349 (team-state context fields), 350 (`guardian_list_children_sessions`), 351
+  (`teams.multi_context_nav` + `get_team_feature_flags` + `member_get_self.active_clubs[].pass_token`),
+  352 (fix `get_user_relationships` squad join — was 400ing for every authed user). **Next free mig = 353.**
+- **`FirstTimeHint.jsx`** is still the no-op stub (the Phase 2 revive target). framer-motion ^12.40 present.
+
+Browser smoke test (Playwright, dev server) verified squad routes both ways, guardian
+`/parent-home` (incl. In/Out persistence), `/sessions`, and the Pass deep-link — and caught + fixed
+a hooks-order crash and mig 352 before merge. **Lesson for Phase 2: build/hygiene/EV will not catch
+render-order or wrong-column-in-RPC bugs — run the app.**
+
+---
+
+## PHASE 2 BUILD PROMPT (paste this to start the next session)
+
+> Read `MULTI_CONTEXT_NAV_HANDOFF.md` §LOCKED PLAN → "Phase 2 — context-aware guided tour" + the
+> "PHASE 1 — SHIPPED" status above, then `~/.claude/plans/the-app-has-a-cozy-eagle.md` (the casual
+> hints subset to fold in). Phase 1 (context foundation + switcher + club/guardian nav) is MERGED and
+> ships dark behind `teams.multi_context_nav`. We're building **Phase 2 — the context-aware guided
+> tours** for `apps/inorout`. The plan is LOCKED — build it, don't re-litigate.
+>
+> Methodology per `CLAUDE.md`: **AUDIT → EXECUTE → VERIFY → COMMIT**, one logical unit per step.
+> Re-AUDIT live code first: `components/FirstTimeHint.jsx` (currently a no-op stub; original recovered
+> from git `0a1e759` has a `prerequisite` chaining mechanism + cross-component dismiss event — the
+> spine for sequenced tours); its ~12 wired call sites across AdminView/PlayerView/StatsView/
+> HistoryView/PlayerProfile; `lib/deriveContext.js` (gives `type` to key tours on); how `context` +
+> `multiContextNav` already reach PlayerView/AdminView; the existing first-run overlays to sequence
+> behind (SquadReady, InstallBanner, AuthGateModal, both POTM modals).
+>
+> Then build:
+> 1. **Tour engine** — revive + upgrade `FirstTimeHint` into a per-screen guided tour: full screen-dim
+>    spotlight + **glow-ring** on the live target from `getBoundingClientRect`; **poll-until-mounted**
+>    target resolution (async lists); recompute on scroll/resize/orientation/tab-change, rAF-throttled;
+>    **scroll target into view** before highlight; **no-op gracefully** when the target is absent (e.g.
+>    competition card between seasons); respect `prefers-reduced-motion`; **auto-advance on tap** of the
+>    highlighted control; small **Skip** link; reuse the `prerequisite` chaining to sequence steps;
+>    iOS safe-area: overlay covers notch + bottom nav.
+> 2. **Registry** — one tour per `(type, screen)` with namespaced storage keys (the table in §LOCKED
+>    PLAN Phase 2: `io_tour_casual_myview`, `io_tour_casual_stats`, `io_tour_admin_dash`,
+>    `io_tour_comp_myview`, `io_tour_comp_stats`, `io_tour_club_sessions`, `io_tour_club_classes`,
+>    `io_tour_club_pass`, `io_tour_club_profile`, `io_tour_guardian_home`, `io_tour_switcher`). Key the
+>    active tour off `deriveContext().type` + the current screen. **Mark a tour "seen" on first SHOW,
+>    not completion** (so abandonment never nags). Fire once; re-fire once on entering a NEW context type.
+> 3. **Suppression + ordering** — tour suppressed while ANY modal/overlay is open; first-run order
+>    SquadReady → install prompt → tour.
+> 4. **Switcher guide** — `io_tour_switcher` fires the first time the user has >1 context (points at the
+>    header avatar).
+> 5. **Fold in cozy-eagle** — the six casual player hints (In/Out, +1 guest, mark injured, change teams
+>    via MySquads, Stats, tap-avatar→H2H) + the 4-line admin welcome (Match Settings → Make Teams →
+>    Input Result → Payments; live-toggle excluded — its in-context coachmark at `AdminView/index.jsx`
+>    ~897 covers that one-off). Give the ~12 wired call sites real copy; add wrappers for the 4 missing
+>    spots (guest, injured, MySquads link, avatar).
+> 6. **Gate behind the flag** — recommend keying tour activation on `multiContextNav` too so the whole
+>    Phase 2 experience ships dark and enables per team alongside Phase 1 (confirm with operator).
+>
+> Phase 2 is **localStorage-only → likely NO migration** (tour analytics is a named deferred follow-on).
+> VERIFY before commit: build clean; `check-hygiene.sh` on every changed file; **casual-regression skill
+> (MANDATORY** — touches `apps/inorout/src`, and tours overlay the casual surfaces); **run the app in a
+> browser** (Playwright dev-server smoke — the Phase 1 lesson: render-order bugs only show at runtime);
+> **PWA Hard Rule #13 real-iPhone walk** for the spotlight/auto-advance on a home-screen install. Update
+> `FEATURES.md`, `CONTEXT.md`, and the project memory. Commit Phase 2 as its own unit via a branch + PR.
