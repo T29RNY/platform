@@ -20,7 +20,7 @@ export const CONTEXT_TYPES = {
 };
 
 // Returned descriptor shape:
-//   { type, hasMatches, isLeague, isClub, clubId, clubName, cohortId }
+//   { type, hasMatches, isLeague, isClub, clubId, clubName, cohortId, discipline }
 
 // Squad route (/p/<token> or /admin/<token>) — fed from the team-state RPC
 // fields mapped in @platform/core (teamType, isCompetitive, clubId, clubName)
@@ -55,6 +55,9 @@ export function deriveClubContext(clubEntry = {}) {
     clubId: clubEntry?.club_id ?? null,
     clubName: clubEntry?.club_name ?? null,
     cohortId: clubEntry?.cohort_id ?? null,
+    // discipline (mig 355) drives member-facing vocabulary via disciplineLabels.
+    // Absent → 'football', so the default label set (= pre-vertical wording) applies.
+    discipline: clubEntry?.discipline ?? "football",
   };
 }
 

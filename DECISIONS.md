@@ -2570,6 +2570,41 @@ extending the session-40 posture from one-sport-per-venue to a venue's text[]:
   values — same self-identified convention, no FK (optional belt-and-braces
   CHECK only if ever wanted, per the session-84 reasoning).
 
+## CLUB DISCIPLINE — text + CHECK pick-list, not a config engine (Gym/Boxing vertical Phase 0, mig 355, session 144)
+
+The gym/boxing vertical needs a club to declare *what it is* so the member app
+shows the right vocabulary (tab labels, booking CTA, rank word). Settled call:
+**`clubs.discipline text NOT NULL DEFAULT 'football'` with an 8-value CHECK**
+(`football|gym|boxing|martial_arts|yoga|dance|fitness|other`). This is the
+session-40/84 posture applied to clubs — self-identified text, fixed list, no
+lookup table, no FKs.
+
+Considered and rejected at the operator's prompting (s144):
+- **A generic "build-any-sport" config engine** (operator defines sport +
+  resource + schedule + progression scheme themselves). Rejected as a no-code
+  platform-builder — a far larger, speculative bet designed blind before a real
+  second-sport customer. The *engine* (bookable sessions, resources, capacity,
+  waitlist, QR, charges) already exists generically and is reused; only the
+  thin per-discipline *identity* is added here. Reversibility asymmetry
+  (session-84): text→engine later is a clean refactor; engine-now risks the
+  wrong shape. Defer.
+- **A `sports`/`disciplines` lookup table** — same rejection as session 84.
+  `discipline` is written only by `venue_set_club_discipline` (SECURITY
+  DEFINER, validated) with a default, so the CHECK is sufficient; a FK locks a
+  door no one can reach.
+
+Why CHECK over a Postgres `enum`: a CHECK is a one-line swap migration to
+extend; an enum needs `ALTER TYPE ADD VALUE` (can't drop, ordering baked in) —
+the wrong kind of rigidity for a list expected to grow.
+
+Why labels in code, not the DB: the member-facing words (`disciplineLabels.js`)
+are pure UX copy, not data — never queried, aggregated, or per-tenant. Reporting
+keys off the `discipline` column (in the DB, fully reportable); labels are
+display dressing, so they live where wording is a code edit not a migration.
+Boxing has NO grading (its progression is a fight record, Phase 4); grades/belts
+are martial-arts only — captured by `hasGrading`/`hasFightRecord` flags in the
+label map.
+
 Why this is NOT a session-84 reversal: the rejection was of a *global `sports`
 lookup table with FKs* whose only justification would be sport-level metadata.
 Membership needs sport purely as a **tag/scope** — no metadata `league_config`

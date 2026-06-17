@@ -478,7 +478,7 @@ arrive in Phase 2+. All currently empty.
 
 ### Phase 1 — Club layer
 
-- `clubs` — text PK. name, short_name, founded_year.
+- `clubs` — text PK. name, short_name, founded_year. **`discipline` (mig 355)** `text NOT NULL DEFAULT 'football' CHECK IN (football|gym|boxing|martial_arts|yoga|dance|fitness|other)` — gym/boxing vertical identity (Phase 0); fixed pick-list, NOT a lookup table (session-84 posture). Drives member-app vocabulary via `apps/inorout/src/lib/disciplineLabels.js`; surfaced on `member_get_self.active_clubs[]` + `venue_list_clubs`; set via `venue_set_club_discipline`.
 
 ### Phase 1 — Venue layer
 
@@ -950,7 +950,7 @@ RLS enabled + REVOKE ALL from anon, authenticated on all tables. Access via SECU
 
 - `member_profiles` — `id uuid PK`, `auth_user_id uuid FK→auth.users NULL` (NULL = unclaimed), `first_name`, `last_name`, CPSU superset (dob, gender, ec1/ec2, medical, photo_consent jsonb, safeguarding, allergies, medications, gp_details, may_leave_unaccompanied, authorised_collectors, send_notes, dietary_notes, consent_emergency_treatment, consent_administer_medication). `source_customer_id uuid NULL FK→venue_customers`.
 - `member_guardians` — `id uuid PK`, `guardian_profile_id uuid FK→member_profiles`, `child_profile_id uuid FK→member_profiles`. Household graph. UNIQUE(guardian_profile_id, child_profile_id).
-- `clubs` — `id text PK`, name, short_name, contact_name, contact_email, `id_mandate bool`, `safeguarding_config jsonb` (CPSU toggle flags).
+- `clubs` — `id text PK`, name, short_name, contact_name, contact_email, `id_mandate bool`, `safeguarding_config jsonb` (CPSU toggle flags), `discipline text NOT NULL DEFAULT 'football'` (mig 355, CHECK IN football|gym|boxing|martial_arts|yoga|dance|fitness|other — vertical identity).
 - `club_venues` — `venue_id text FK→venues`, `club_id text FK→clubs`. M:N link. PK (venue_id, club_id).
 - `club_cohorts` — `id uuid PK`, `club_id text FK→clubs`, name, description, active. Playing groups within a club.
 - `club_teams` — `id uuid PK`, `club_id text FK→clubs`, `name text`, `sport text NULL`, active. Club-domain playing teams (membership layer, not league layer). Unique per team_id in club.

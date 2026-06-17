@@ -195,6 +195,7 @@ export {
   stripeInitMemberCheckout,
   clubCreate,
   venueListClubs,
+  venueSetClubDiscipline,
   venueListClubVenues,
   venueAddClubVenue,
   venueRemoveClubVenue,

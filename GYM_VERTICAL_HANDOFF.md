@@ -51,7 +51,16 @@ of the pilot. Phase 0 first; each phase is independently shippable.
 
 ---
 
-## Phase 0 — Vertical identity / labelling  *(mig 355; config-only, near-zero build)*
+## Phase 0 — Vertical identity / labelling  *(mig 355; config-only, near-zero build)* — ✅ SHIPPED session 144
+**Status (s144):** built + verified on branch `gym-vertical-phase0`. `clubs.discipline`
+applied (mig 355, text+CHECK pick-list); `member_get_self`/`venue_list_clubs` extended;
+`venue_set_club_discipline` (gated `manage_facility`, audited) + `venueSetClubDiscipline`
+wrapper; `disciplineLabels.js` (boxing→fight-record, grades→martial_arts) threaded through
+`deriveClubContext`→`ClubNavBar`. EV 7/7 + leak 0, rpc-security PASS, casual-regression PASS,
+build+hygiene clean. NO operator UI control yet (set via RPC) — wire alongside Phase 1.
+⛔ real-iPhone PWA walk OWED. **Next free mig = 356.** Scope confirmed with operator:
+discipline-as-pick-list, NOT a generic config engine (see DECISIONS s144).
+
 **Goal.** A club declares a `discipline` so the member app reads "Boxing"/"Gym"/"Yoga" and
 shows the right tab set. No new theme (gold/green/red tokens unchanged).
 - **Schema:** `ALTER TABLE clubs ADD COLUMN discipline text NOT NULL DEFAULT 'football' CHECK (discipline IN ('football','gym','boxing','martial_arts','yoga','dance','fitness','other'))`.
