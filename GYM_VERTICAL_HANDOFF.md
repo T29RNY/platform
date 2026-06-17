@@ -165,3 +165,63 @@ BUGS) → commit → merge promptly (cloud-session discipline) → confirm main 
 1. Scope — all 5 phases, or only generic-gym (0–1, maybe 3) and defer boxing-specific (2,4)?
 2. PT model — dedicated appointments (recommended) vs capacity=1 classes.
 3. Boxing depth — is grading + fight-record wanted now, or split into a "martial-arts add-on"?
+
+---
+
+## NEXT SESSION PROMPT — Phase 2 (grading / belt progression, mig 357)
+
+*Paste the block below to start the next session. Phases 0 (mig 355) + 1 (mig 356) are shipped
+on main. Next free mig = 357.*
+
+```
+Continue the GYM / BOXING CLUB vertical — Phase 2 (grading / belt progression), mig 357.
+Phases 0–1 are shipped — see CONTEXT.md SESSIONS 144–145 and GYM_VERTICAL_HANDOFF.md.
+
+First run skills/session-start.md. Then read GYM_VERTICAL_HANDOFF.md "Phase 2" in full plus
+the s144 "Modelling note" (sports centre = one venue, many single-discipline clubs — don't
+break that). Phase 2 introduces NEW tables (it can't be pure reuse like Phase 1) but must
+still reuse the club/consent/caps primitives: gate writes via resolve_venue_caller +
+_venue_has_cap, audit every write (Hard Rule #9), mirror the append-only consent_acceptances
+shape for the award log.
+
+CONFLICT GUARD: before branching, confirm git is on main, tree clean, zero open PRs. If not,
+STOP and report.
+
+Scope for Phase 2 (mig 357):
+  - Schema (3 new tables, RLS-walled, REVOKE anon/authenticated):
+      venue_grading_schemes (club_id, discipline, name, active)
+      venue_grades (scheme_id, name, rank_order, colour_hex, UNIQUE(scheme_id, rank_order))
+      member_grades (APPEND-ONLY award log → "current grade" = latest per member+scheme;
+                     mirrors consent_acceptances; never UPDATE/DELETE a past award)
+  - Write RPCs (gated + audited): venue_create_grading_scheme, venue_add_grade,
+      venue_award_grade. Member read: member_get_grade_history. Extend the member-pass RPC
+      (get_member_pass or member_get_venue_membership_pass) to include current rank per scheme.
+  - Operator UI: new "Grading" sub-tab in apps/venue MembershipsView.jsx (already multi-sub-tab)
+      + an "Award grade" action on a member.
+  - Member UI: MemberPass.jsx rank chip + MemberProfile.jsx "Progression" history. Rank word
+      from disciplineLabels (rankWord). Renders ONLY for grading disciplines — gate on
+      disciplineLabels hasGrading (currently TRUE for martial_arts only; gym/yoga/dance/fitness
+      carry a rankWord but hasGrading=false; boxing = fight-record in Phase 4, NOT grading).
+
+Run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT cycle for PHASE 2 ONLY:
+  - AUDIT in plan mode first (no edits) — confirm MembershipsView's sub-tab pattern + how a
+    member is selected there; pull the live member-pass RPC body you'll extend; confirm
+    disciplineLabels.hasGrading is the right gate; confirm the append-only "current = latest"
+    read shape.
+  - Apply SQL to Supabase first, land _up/_down source same commit (Hard Rule #11).
+  - GATES (mandatory): rpc-security-sweep + ephemeral-verify (NEW write RPCs — seed an _e2e_
+    club/scheme/member fixture, award a grade, assert current=latest, award a second, assert
+    it supersedes, leak-check 0); casual-regression (apps/inorout MemberPass/MemberProfile
+    touched — prove the casual squad path byte-identical); real-iPhone PWA walk (Hard Rule #13
+    — pass chip + profile history on a martial-arts club); build/hygiene.
+  - Then docs (FEATURES/RPCS/SCHEMA/DECISIONS/BUGS/CONTEXT/handoff + memory), commit, merge
+    promptly, confirm main clean.
+
+Confirm with me BEFORE building:
+  1. award authority — reuse the existing `manage_facility` cap to gate venue_award_grade, or
+     add a dedicated `award_grades` cap (so a head coach can award belts without full facility
+     management)? Recommend manage_facility for v1 unless you want coach-level delegation now.
+  2. grade ladder shape — is a per-scheme ordered list of named grades with a colour_hex each
+     (e.g. White→Yellow→…→Black) the right model, or do you need sub-levels / stripes (e.g.
+     "Blue belt, 2 stripes") in v1?
+```
