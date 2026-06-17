@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { closePOTMVoting } from "@platform/core/storage/supabase.js";
 
-export default function POTMTiebreakModal({ match, squad, teamId, adminToken, onDecide }) {
+export default function POTMTiebreakModal({ match, squad, teamId, adminToken, onDecide, onClose }) {
   const [selected,   setSelected]   = useState(null);
   const [phase,      setPhase]      = useState("idle");
   const [submitting, setSubmitting] = useState(false);
@@ -35,18 +35,40 @@ export default function POTMTiebreakModal({ match, squad, teamId, adminToken, on
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 200,
-      background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)",
-      WebkitBackdropFilter: "blur(12px)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    }}>
-      <div style={{
-        width: "100%", maxWidth: 380, background: "var(--s1)", borderRadius: 20,
-        boxShadow: "0 0 0 1px var(--goldb), 0 0 60px rgba(232,160,32,0.2)",
-        overflow: "hidden",
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        overflowY: "auto",
       }}>
-        <div style={{ padding: "20px 20px 16px", textAlign: "center", borderBottom: "0.5px solid rgba(255,255,255,0.08)" }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 380, maxHeight: "calc(100dvh - 40px)",
+          display: "flex", flexDirection: "column",
+          background: "var(--s1)", borderRadius: 20,
+          boxShadow: "0 0 0 1px var(--goldb), 0 0 60px rgba(232,160,32,0.2)",
+          overflow: "hidden",
+        }}>
+        <div style={{ padding: "20px 20px 16px", textAlign: "center", borderBottom: "0.5px solid rgba(255,255,255,0.08)", flexShrink: 0, position: "relative" }}>
+          {/* Always-visible close so the admin is never trapped behind the modal. */}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              position: "absolute", top: 8, right: 8,
+              width: 36, height: 36, borderRadius: 18,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "var(--s3)", border: "0.5px solid var(--border-subtle)",
+              color: "var(--t1)", fontSize: 16, lineHeight: 1, cursor: "pointer",
+              WebkitTapHighlightColor: "transparent", zIndex: 2,
+            }}
+          >
+            ✕
+          </button>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "var(--gold)", letterSpacing: "0.05em" }}>
             POTM TIE — YOUR CALL
           </div>
@@ -54,7 +76,7 @@ export default function POTMTiebreakModal({ match, squad, teamId, adminToken, on
             The lads couldn't decide. You pick.
           </div>
         </div>
-        <div style={{ padding: "16px 20px 20px" }}>
+        <div style={{ padding: "16px 20px 20px", flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
           {candidates.map(player => {
             const isSel = selected?.id === player.id;
             const isConf = isSel && phase === "confirming";
@@ -95,6 +117,17 @@ export default function POTMTiebreakModal({ match, squad, teamId, adminToken, on
             );
           })}
           {error && <div style={{ fontSize: 12, color: "var(--red)", textAlign: "center", marginTop: 8 }}>{error}</div>}
+        </div>
+        <div style={{ padding: "12px 20px 20px", borderTop: "0.5px solid rgba(255,255,255,0.06)", textAlign: "center", flexShrink: 0 }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)",
+            }}
+          >
+            Decide later
+          </button>
         </div>
       </div>
     </div>

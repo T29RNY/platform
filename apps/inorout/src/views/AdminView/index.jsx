@@ -672,6 +672,7 @@ export default function AdminView({
           teamId={teamId}
           adminToken={adminToken}
           onDecide={() => setTiebreakDismissed(true)}
+          onClose={() => setTiebreakDismissed(true)}
         />
       )}
 
