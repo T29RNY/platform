@@ -69,6 +69,27 @@ shows the right tab set. No new theme (gold/green/red tokens unchanged).
 - **New member config:** `apps/inorout/src/lib/disciplineLabels.js` — `LABEL_MAPS[discipline]` → `{classesTab, bookCta, rankWord, ...}`. Pure copy.
 - **Threading:** add `discipline` to `deriveClubContext()`; `ClubNavBar` reads it for tab labels.
 
+### Modelling note — multi-sport sports centres (operator Q, s144)
+`discipline` is **one per club** by design — the club's *primary* identity, mirroring how a
+**venue** has a primary `sport` plus an offered-set `sports text[]` (mig 269). The two entities
+do different jobs and this is deliberate:
+- **A sports centre = one VENUE containing several CLUBS, one discipline each.** `club_venues`
+  is many-to-many and `venue_list_clubs` already returns every club at a venue. A leisure centre
+  doing boxing + yoga + a gym floor is a Boxing club, a Yoga club, and a Gym club under one venue —
+  separate memberships, fees, schedules, grading. The member sees the right vocabulary per club,
+  and the multi-context switcher (s141/s143) lets a two-sport member flip between their two
+  `active_clubs[]` entries. **This is already supported — nothing to build.**
+- **A member who does two sports at the same centre = two memberships** (two clubs / two
+  `active_clubs[]` entries), NOT one multi-sport club.
+- **The one gap discipline-per-club can't express:** a *single* club the member treats as one
+  multi-sport thing. Handle via existing layers, not a club-level change: a "one fee, everything"
+  product is a **membership tier with `sports_included text[]`** (already exists) and the club is
+  tagged `'fitness'`/`'other'`; sport-by-sport booking is just classes/sessions (sport-agnostic,
+  tagged at session/class-type level).
+- **Extension path IF a true single-multi-sport-club ever appears:** add `clubs.disciplines
+  text[]` later — cheap, additive, reversible, exactly as the venue side did in mig 269. Do NOT
+  pre-build it; decide the shape against a real sports-centre customer.
+
 ## Phase 1 — Sparring / open-mat availability  *(mig 356; highest reuse)*
 **Goal.** "Who's in for Thursday sparring?" — members book In/Out on a session.
 **Decision:** reuse the class-session booking model wholesale; do NOT reuse `players.status`
