@@ -795,6 +795,36 @@ local tableData with form + reliability from the RPC. Commit
 screen. For any player with ≥3 matches played, the form chips must
 be populated and reliability % must be a real number.
 
+### 8.4 H2H + Stats comparison empty on the PLAYER route (8.1/8.2 only fixed admin)
+**Symptom:** Head-to-Head shows "you haven't played in the same
+game yet" for EVERY player — but only when the app is opened via a
+player link `/p/<token>` (the normal installed-PWA experience),
+including for admins who use their own player link day-to-day. The
+`/admin/<token>` route worked fine, which is why it went unnoticed
+for ~5 months (8.1/8.2 were only ever tested on /admin).
+**Root cause:** migrations 041/042 added SECURITY DEFINER RPCs for
+the ADMIN token only. `getHeadToHead`/`getPlayerLeagueTable` fell
+back to direct `.from()` reads on every non-admin path. On a player
+route `isAdmin` is false → `adminToken` is null → the dead direct
+path ran; `player_match` has RLS on with no anon/authenticated
+select policy → 0 rows → empty H2H. The Stats league table itself
+still rendered because it's derived client-side from match history,
+which masked the gap.
+**Fix:** migration 348 — `get_head_to_head_raw_by_player_token` +
+`get_player_league_table_raw_by_player_token` (resolve team from
+`players.token`→`team_players`). `playerToken` threaded through.
+NOTE: the first commit only patched the standalone `view==="stats"`
+StatsView; the Stats screen users actually reach is the Stats TAB
+inside PlayerView (`PlayerView.jsx`), which needed the same prop —
+fixed in commit `28821af`. Lesson: grep `<StatsView` and patch
+every render site.
+**Pre-flight check:** on a real iPhone, open the app via a PLAYER
+link `/p/<token>` (not /admin), go to Stats, tap a player you've
+shared ≥1 match with. The H2H must show a real record (against-only
+matchups appear under "When you play against each other", with the
+"play together" section at zero). Re-test as both an ordinary
+player and as an admin using their player link.
+
 ### 8.3 BibsScreen standalone bib assignment broken (known workaround)
 **Symptom:** admin tries to assign bibs from the standalone
 BibsScreen — write silently fails (RLS-blocked).
