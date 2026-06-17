@@ -4328,3 +4328,10 @@ PR #14 (d3b6dcc), PR #15 (daccf38). Next free mig = 355.
 **OWED:** real-iPhone Home-Screen walk for the nav changes (Hard Rule #13) — flag-gated
 (`multi_context_nav`, dark) so safe on main, but owed before enabling the flag for a live
 squad (shared with the s141/Phase-2 owed device walk).
+
+**NEXT SESSION → Gym / Boxing Club vertical (Phase 0).** Full build plan in
+`GYM_VERTICAL_HANDOFF.md`. A `club_membership` context (not a new app/theme); ~80% reuses
+the existing club/membership/classes/payments/equipment stack. Start at Phase 0 (mig 355,
+`clubs.discipline` + label maps) and run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT
+cycle per phase. DORMANT-friendly / post-pilot per STRATEGY.md. Confirm the 3 open scope
+decisions in the handoff with the operator before building. Next free mig = 355.
