@@ -4227,3 +4227,49 @@ Casual-app (apps/inorout) feature + fix session. All shipped to main.
 
 Owed: real-iPhone PWA walks per GO_LIVE_ISSUES §15. Parallel session shipped a Head-to-Head
 player-token fix (mig 348) — **next free mig = 349.**
+
+## Session 140–141 — Multi-context nav + guided tours: design → plan locked (2026-06-17)
+
+Planning/documentation only — NO feature code. s140 wrote the design handoff; s141 ran a deep
+audit, resolved every open question, corrected the guardian model, and locked the build spec.
+Authoritative spec = `MULTI_CONTEXT_NAV_HANDOFF.md` §LOCKED PLAN.
+
+- **The epic:** make apps/inorout nav, stats/IO surfaces, and first-run tours relevant to whichever
+  context the switcher shows — casual squad / competitive squad / club membership / guardian — via
+  ONE `deriveContext(selectedEntry)` descriptor (`type` + `hasMatches`/`isLeague`/`isClub`). The
+  descriptor reads the SELECTED CONTEXT, never the person; the switcher is the multiplexer.
+- **Audit findings:** casual nav barely changes (only club members lack a bottom bar — de-risks
+  casual regression); anon players can't use `getPlayerTeamsByToken` (throws on unlinked token, mig
+  153) so the descriptor MUST come from the team-state RPC; two switchers exist (working MySquads
+  accordion + a DEAD off-theme `App.jsx:1313-1380` block); club/parent users are stranded (no nav
+  back); framer-motion ^12.40 present; recovered `FirstTimeHint` (git 0a1e759) already has a
+  `prerequisite` chaining mechanism = ready tour spine.
+- **Locked decisions:** 4 contexts; `isLeague` = tab-presence on `team_type` + content on
+  `is_competitive`; full screen-dim spotlight on every tour + auto-advance-on-tap + Skip; switcher
+  guide at >1 context; gate only competition surfaces (in-squad league table stays for all); scrap the
+  dead switcher, unify to one themed switcher reached from the header avatar (= the way-back on every
+  context); one-time re-show of ~12 wired hints accepted; fix 2 pre-existing bugs (multi-club picker,
+  stranding).
+- **Guardian corrected:** a match IS a `club_sessions` row (`session_type` training/match/friendly +
+  opponent/meet_time, mig 300); the RSVP write is ALREADY guardian-aware (`member_rsvp_session` checks
+  `member_guardians` + the CHILD's membership, not the guardian's, mig 299:100-122). Gap is READING —
+  adds mig B `guardian_list_children_sessions` (all kids × all clubs, training+matches, +rsvp) + a
+  child-first guardian Home with In/Out per fixture. Injured deferred (out+note suffices).
+- **Cross-cutting:** land multi-context users on `/feed` + remember last context; make `/feed` the
+  installable PWA home; tours suppressed while any modal open + first-run order
+  SquadReady→install→tour; tour 'seen' on first SHOW; In/Out wording everywhere; empty states per
+  surface; per-team feature flag (ship dark, instant rollback).
+- **Deferred follow-ons (named):** guardian/child push notifications (next epic, biggest value-add);
+  distinct child 'injured' status; coach context (`managed_teams` already in `memberGetSelf`); teen
+  self-graduation; tour analytics (tours are localStorage-only = unmeasured).
+- **Domain coordination:** nav epic ships FIRST (domain-independent bar one constant). Single
+  touch-point = `api/manifest.js` (nav adds `start_url:/feed`, domain changes `BASE_URL`); build the
+  `/feed` install BASE_URL-relative so it inherits the new domain. Follow-on handoff recorded in
+  `DOMAIN_MIGRATION.md` → "Follow-on tasks from the multi-context nav epic" + inline at Phase 2.1/6.1.
+  Never edit `manifest.js` in two parallel sessions (Cloud Session Discipline).
+- **Build approach:** 2 migrations (A team-state fields on `get_team_state_by_player_token` +
+  `_admin_token`; B guardian feed) + screens; Phase 1 (foundation+bugs) then Phase 2 (tours), separate
+  commits; casual-regression + ephemeral-verify (migs) + real-iPhone walk (Hard Rule #13) per commit.
+
+Commits: bca59bd (s140 handoff), d623bf4 + 47ae048 (s141 plan lock + guardian/cross-cutting),
+36c61c0 (domain coordination). **Next free mig = 349.**

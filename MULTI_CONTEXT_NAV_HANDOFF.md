@@ -381,3 +381,54 @@ migration changes `BASE_URL` there.
   (shared-file collision per Cloud Session Discipline). Nav merges first, then domain.
 - Follow-on handoffs (manifest repoint, `/feed` CTA deep-link, `/feed` install re-test on `app.`) are
   recorded in `DOMAIN_MIGRATION.md` → "Follow-on tasks from the multi-context nav epic".
+
+---
+
+## PHASE 1 BUILD PROMPT (paste this to start the build session)
+
+> Read `MULTI_CONTEXT_NAV_HANDOFF.md` §LOCKED PLAN in full (and the s140 design above for context).
+> The plan is LOCKED — do not re-litigate decisions; build it. We're building **Phase 1 — context
+> foundation + the two pre-existing bug fixes** for `apps/inorout`. Phase 2 (the guided tours) is a
+> separate later session.
+>
+> Work the methodology per `CLAUDE.md`: **AUDIT → EXECUTE → VERIFY → COMMIT**, one logical unit per
+> execute step. Start by re-AUDITING against live code/DB (signatures may have moved since s141):
+> `get_team_state_by_player_token` + `_admin_token` return shapes & mappers; `NavBar.jsx` props;
+> `App.jsx` routing + `homeScreenType`; `SessionsScreen.jsx` multi-club selection; the dead
+> `App.jsx:1313-1380` switcher block; `member_rsvp_session` (mig 299) + `member_guardians` for the
+> guardian feed.
+>
+> Then build, in order:
+> 1. **Migration A** (next free # — check `list_migrations`, currently 349): add `team_type`,
+>    `is_competitive`, `club_id`, `club_name` to `get_team_state_by_player_token` AND
+>    `get_team_state_by_admin_token` return shapes; update the mappers in
+>    `packages/core/storage/supabase.js` SAME commit (Hard Rule #12); write `.sql` + `_down.sql` (HR
+>    #11); record consumers in `RPCS.md` (HR #14). Run **ephemeral-verify** (seed-own-fixture).
+> 2. **Migration B**: `guardian_list_children_sessions` (SECURITY DEFINER) — for every child of the
+>    caller via `member_guardians`, all upcoming training + matches across all the child's clubs/
+>    cohorts/teams (matches carry opponent + meet time) + that child's RSVP status. Gate guardian→child
+>    + child→membership (mirror mig 299, NO guardian-own-membership requirement). **Grant anon +
+>    authenticated** (parity-sweep discipline). Wrapper + barrel + `RPCS.md`. Ephemeral-verify.
+> 3. **`deriveContext()`** pure module → `{ type, hasMatches, isLeague, isClub, clubId, clubName }`,
+>    fed from the active route's loaded entity; stable "resolving" state; anon fallback = team-state.
+> 4. **Config-driven `NavBar`** (`tabs:[{id,label,Icon,active,onSelect}]`); preserve AdminView's
+>    active-Admin-tab + MY-IO label + casual behaviour exactly.
+> 5. **Shared NavBar on the membership routes** + the **header-avatar switcher** (retire the dead
+>    `App.jsx:1313-1380` block; route to one themed switcher / `/feed`); **last-context memory**;
+>    multi-context users land on `/feed`.
+> 6. **Surface gating** (competition surfaces on `isLeague`; membership tabs on `isClub`; in-squad
+>    league table ungated) + **per-team feature flag** (ship dark).
+> 7. **Child-first guardian Home** wired to `guardian_list_children_sessions` + In/Out per fixture via
+>    the existing `member_rsvp_session(forProfileId=child)`; child filter chips.
+> 8. **Bug fix:** multi-club selection — carry the tapped `club_id` into `/sessions` (URL param or
+>    stored) so it shows the chosen club, not always the first.
+> 9. **`/feed` install BASE_URL-relative** (do NOT hardcode a domain) — see the domain-coordination
+>    note above.
+> 10. **Empty states** per new surface.
+>
+> VERIFY before commit: build clean; `check-hygiene.sh` on every changed file; grep all NavBar call
+> sites; **casual-regression skill (MANDATORY** — touches `apps/inorout/src`); ephemeral-verify on
+> both migrations + leak-check = 0. **PWA Hard Rule #13: a real-iPhone walk is OWED before commit** for
+> the NavBar/PlayerView/App.jsx routing changes (Vercel preview → Add to Home Screen → force-quit →
+> reopen). Update `BUGS.md` (bugs resolved), `RPCS.md`, `GO_LIVE_ISSUES.md`, `CONTEXT.md`. Commit
+> Phase 1 as its own unit; Phase 2 (tours) is next session.
