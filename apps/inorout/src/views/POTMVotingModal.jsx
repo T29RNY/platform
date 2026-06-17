@@ -176,20 +176,26 @@ export default function POTMVotingModal({
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 100,
-      background: "rgba(0,0,0,0.75)",
-      backdropFilter: "blur(12px)",
-      WebkitBackdropFilter: "blur(12px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "20px",
-    }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(0,0,0,0.75)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "20px",
+        overflowY: "auto",
+      }}>
       <motion.div
+        onClick={e => e.stopPropagation()}
         initial={{ opacity: 0, scale: 0.92, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 28 }}
         style={{
           width: "100%", maxWidth: 380,
+          maxHeight: "calc(100dvh - 40px)",
+          display: "flex", flexDirection: "column",
           background: "var(--s1)",
           borderRadius: 20,
           border: "1px solid var(--gold)",
@@ -201,6 +207,7 @@ export default function POTMVotingModal({
           padding: "20px 20px 16px",
           borderBottom: "0.5px solid rgba(255,255,255,0.08)",
           textAlign: "center",
+          flexShrink: 0,
         }}>
           <div style={{
             fontFamily: "var(--font-display)", fontSize: 28, color: "var(--gold)",
@@ -215,8 +222,9 @@ export default function POTMVotingModal({
           )}
         </div>
 
-        {/* Content */}
-        <div style={{ padding: "16px 20px", maxHeight: "60vh", overflowY: "auto" }}>
+        {/* Content — the only scrolling region; header + footer stay pinned so
+            the skip/close button is always reachable on small screens. */}
+        <div style={{ padding: "16px 20px", flex: 1, minHeight: 0, overflowY: "auto" }}>
 
           {/* Already voted — read only */}
           {hasVoted && !isResult && (
@@ -414,6 +422,7 @@ export default function POTMVotingModal({
             padding: "12px 20px 20px",
             borderTop: "0.5px solid rgba(255,255,255,0.06)",
             textAlign: "center",
+            flexShrink: 0,
           }}>
             {!hasVoted && phase !== "locked" && (
               <button
@@ -442,7 +451,7 @@ export default function POTMVotingModal({
           </div>
         )}
         {isResult && (
-          <div style={{ padding: "12px 20px 20px", textAlign: "center" }}>
+          <div style={{ padding: "12px 20px 20px", textAlign: "center", flexShrink: 0 }}>
             <button
               onClick={onClose}
               style={{

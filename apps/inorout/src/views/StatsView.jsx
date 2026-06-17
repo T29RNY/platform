@@ -183,7 +183,7 @@ const RecordTile = ({ label, value, sub, color }) => (
   </div>
 );
 
-const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--amber)" };
+const DOT_C = { w: "var(--green)", l: "var(--red)", d: "var(--draw)" };
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -600,7 +600,7 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                       <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--green)", lineHeight: 1 }}>W{p.wins || 0}</span>
                       <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--red)", lineHeight: 1 }}>L{p.losses || 0}</span>
-                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--amber)", lineHeight: 1 }}>D{p.draws || 0}</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--draw)", lineHeight: 1 }}>D{p.draws || 0}</span>
                     </div>
                   </div>
                 );

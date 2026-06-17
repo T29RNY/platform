@@ -44,6 +44,15 @@
   --purple2: rgba(176,96,240,0.13);
   --purpleb: rgba(176,96,240,0.35);
 
+  /* ── Draw (teal) ──
+     Result colour for an actual DRAW. Deliberately distinct from --amber
+     (which also reads as "maybe"/"won by") and from the neutral grey used for
+     an unplayed/pending fixture, so a real draw can't be confused with this
+     week's not-yet-played 0–0. */
+  --draw:  #14B8A6;
+  --draw2: rgba(20,184,166,0.13);
+  --drawb: rgba(20,184,166,0.35);
+
   /* ── Radii ── */
   --r:      16px;
   --rs:     10px;

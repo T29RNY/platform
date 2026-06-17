@@ -9,7 +9,8 @@ const MONTH_ABBR = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT",
 
 function getResult(m) {
   if (m.cancelled) return "cancelled";
-  if (!m.winner || m.winner === "D") return "draw";
+  if (m.winner === "D") return "draw";
+  if (!m.winner) return "pending";   // scheduled/not played yet — NOT a draw
   return m.winner === "A" ? "win" : "loss";
 }
 
@@ -27,20 +28,23 @@ const HERO_IMG = "https://images.unsplash.com/photo-1522778119026-d647f0596c20?w
 const RESULT_STYLES = {
   win:       { border: "0.5px solid rgba(61,220,106,0.35)",  shadow: "0 0 14px rgba(61,220,106,0.08)"  },
   loss:      { border: "0.5px solid rgba(255,64,64,0.35)",   shadow: "0 0 14px rgba(255,64,64,0.08)"   },
-  draw:      { border: "0.5px solid rgba(255,176,32,0.35)",  shadow: "0 0 14px rgba(255,176,32,0.08)"  },
+  draw:      { border: "0.5px solid rgba(20,184,166,0.35)",  shadow: "0 0 14px rgba(20,184,166,0.08)"  },
+  pending:   { border: "0.5px solid var(--border-subtle)",   shadow: "none"                            },
   cancelled: { border: "0.5px solid rgba(255,64,64,0.2)",    shadow: "none"                            },
 };
 
 const BADGE = {
-  win:  { bg: "var(--green2)", border: "var(--greenb)", color: "var(--green)", label: "WIN"  },
-  loss: { bg: "var(--red2)",   border: "var(--redb)",   color: "var(--red)",   label: "LOSS" },
-  draw: { bg: "var(--amber2)", border: "var(--amberb)", color: "var(--amber)", label: "DRAW" },
+  win:     { bg: "var(--green2)", border: "var(--greenb)", color: "var(--green)", label: "WIN"  },
+  loss:    { bg: "var(--red2)",   border: "var(--redb)",   color: "var(--red)",   label: "LOSS" },
+  draw:    { bg: "var(--draw2)",  border: "var(--drawb)",  color: "var(--draw)",  label: "DRAW" },
+  pending: { bg: "var(--s2)",     border: "var(--border-subtle)", color: "var(--t2)", label: "TBC" },
 };
 
 const SCORE_C = {
-  win:  { A: "var(--green)", B: "var(--red)"   },
-  loss: { A: "var(--red)",   B: "var(--green)" },
-  draw: { A: "var(--amber)", B: "var(--amber)" },
+  win:     { A: "var(--green)", B: "var(--red)"   },
+  loss:    { A: "var(--red)",   B: "var(--green)" },
+  draw:    { A: "var(--draw)",  B: "var(--draw)"  },
+  pending: { A: "var(--t2)",    B: "var(--t2)"    },
 };
 
 const SCORE_TYPE_PILL = {
@@ -148,7 +152,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
   };
 
   const buildShareText = () => {
-    const resEmoji   = result === "win" ? "🟢" : result === "draw" ? "🟡" : result === "loss" ? "🔴" : "❌";
+    const resEmoji   = result === "win" ? "🟢" : result === "draw" ? "🟡" : result === "loss" ? "🔴" : result === "pending" ? "⏳" : "❌";
     const scorersStr = scorersList.map(([n, g]) => `${displayName(n)} (${g})`).join(", ");
     return [
       `⚽ ${groupName || "Match"} · ${dayOfWeek} ${m.matchDate ? new Date(m.matchDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : ""}`,
@@ -237,7 +241,10 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
           ].map(({ team, label, score, color, weight }) => {
             const isWinner = m.winner === team;
             let right = null;
-            if (scoreType === "declared") {
+            if (result === "pending") {
+              // Not played yet — neutral dash, never a W/L/D or a "0".
+              right = <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t2)", lineHeight: 1 }}>–</span>;
+            } else if (scoreType === "declared") {
               if (result === "draw") right = <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color, lineHeight: 1 }}>D</span>;
               else if (isWinner)    right = <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color, lineHeight: 1 }}>W</span>;
               else                  right = <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t2)", lineHeight: 1 }}>L</span>;
@@ -331,9 +338,13 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
         >
           {/* Score display + last goal scorer */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 14, paddingBottom: 12, borderBottom: "0.5px solid var(--b2)" }}>
-            {scoreType === "margin" ? (
+            {result === "pending" ? (
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t2)", letterSpacing: "0.06em", lineHeight: 1 }}>
+                NOT PLAYED YET
+              </span>
+            ) : scoreType === "margin" ? (
               result === "draw" ? (
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "var(--amber)", lineHeight: 1 }}>D</span>
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "var(--draw)", lineHeight: 1 }}>D</span>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <ScoreTypePill type="margin" />
@@ -344,7 +355,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
               )
             ) : scoreType === "declared" ? (
               <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, lineHeight: 1,
-                color: result === "win" ? "var(--green)" : result === "loss" ? "var(--red)" : "var(--amber)" }}>
+                color: result === "win" ? "var(--green)" : result === "loss" ? "var(--red)" : "var(--draw)" }}>
                 {result === "win" ? "W" : result === "loss" ? "L" : "D"}
               </span>
             ) : (
