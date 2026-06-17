@@ -46,12 +46,13 @@ param) and passes both `passToken` and `clubEntry`; `ClubNavBar` threads
 `?club=<club_id>` into the Sessions/Profile hrefs when it knows the club. Single-club
 members are unaffected. Build clean; hygiene 7/7 both files.
 
-REMAINING (minor, deferred): `MemberPass.jsx` renders `ClubNavBar` without a `clubEntry`
-(the `get_member_pass` RPC doesn't return `club_id`), so the Sessions/Profile tabs *from
-the pass screen* still fall back to club[0]/auto-select. Fully fixing it needs a
-`get_member_pass` return-shape addition (`club_id`) + mapper — a small separate cycle, not
-worth a migration the day before the pilot. The Pass tab itself is always correct (it's
-keyed by the club-specific pass token).
+THIRD SITE — RESOLVED (mig 354): `MemberPass.jsx` rendered `ClubNavBar` without a
+`clubEntry` (the `get_member_pass` RPC didn't return `club_id`), so the Sessions/Profile
+tabs *from the pass screen* fell back to club[0]/auto-select. Fixed by adding `club_id` to
+the `get_member_pass` return shape (the function already loaded `m.club_id`; just surfaced
+it — `getMemberPass` returns the payload raw, no mapper) and passing `clubEntry={{club_id}}`
+from MemberPass. Runtime-verified the payload carries a non-null `club_id`; build clean,
+hygiene 7/7. All three multi-club nav sites now thread the selected club.
 
 ## SESSION 136 — RESOLVED (mig 335): stripe_complete_member_enrolment actor_type='member'
 
