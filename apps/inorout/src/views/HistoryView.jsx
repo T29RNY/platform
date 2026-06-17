@@ -332,12 +332,16 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
           {/* Score display + last goal scorer */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 14, paddingBottom: 12, borderBottom: "0.5px solid var(--b2)" }}>
             {scoreType === "margin" ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <ScoreTypePill type="margin" />
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "var(--green)", lineHeight: 1 }}>
-                  {m.winner === "A" ? m.scoreA : m.winner === "B" ? m.scoreB : "?"}
-                </span>
-              </div>
+              result === "draw" ? (
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, color: "var(--amber)", lineHeight: 1 }}>D</span>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <ScoreTypePill type="margin" />
+                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "var(--green)", lineHeight: 1 }}>
+                    {m.winner === "A" ? m.scoreA : m.winner === "B" ? m.scoreB : "?"}
+                  </span>
+                </div>
+              )
             ) : scoreType === "declared" ? (
               <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, lineHeight: 1,
                 color: result === "win" ? "var(--green)" : result === "loss" ? "var(--red)" : "var(--amber)" }}>
@@ -359,16 +363,16 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
                 with the Group Balancer flag on, so existing matches stay quiet. */}
             {m.predictedWinner && (() => {
               const pred = m.predictedWinner;
-              const actual = m.winner;
+              // A draw is stored as winner='D'; getResult() classifies it as
+              // "draw". Key off that so 'D' is never rendered as a team name.
+              const isDrawResult = result === "draw";
               const predLabel = pred === "draw"
                 ? "Draw"
                 : pred === "A" ? "Team A" : "Team B";
-              const correct =
-                pred === actual ||
-                (pred === "draw" && !actual);
-              const resultLabel = actual
-                ? `Team ${actual} won`
-                : "Draw";
+              const correct = isDrawResult ? pred === "draw" : pred === m.winner;
+              const resultLabel = isDrawResult
+                ? "Draw"
+                : m.winner ? `Team ${m.winner} won` : "Pending";
               return (
                 <div style={{
                   fontSize: 11, color: "var(--t2)", fontWeight: 300, marginTop: 4,
