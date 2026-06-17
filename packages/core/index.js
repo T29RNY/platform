@@ -331,6 +331,8 @@ export {
   getUnifiedHomeFeed,
   getGuardianHomeFeed,
   getChildLiveMatch,
+  guardianListChildrenSessions,
+  getTeamFeatureFlags,
   clubAdminCreateTournament,
   clubAdminListTournaments,
   clubAdminGetTournament,

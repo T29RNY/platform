@@ -27,6 +27,12 @@ module.exports = function handler(req, res) {
   const adminParam  = typeof req.query?.admin  === "string" ? req.query.admin  : null;
   const playerParam = typeof req.query?.player === "string" ? req.query.player : null;
 
+  // Multi-context nav (Phase 1): non-squad users (guardians / club-only members)
+  // have no squad token, so ?feed=1 makes /feed the installable home. start_url
+  // stays domain-relative — it inherits BASE_URL's host automatically, so this
+  // works on www.in-or-out.com today and app.in-or-out.com after the domain move.
+  const feedParam = typeof req.query?.feed === "string" ? req.query.feed : null;
+
   // Admin takes precedence over player if (somehow) both are passed.
   // Invalid / missing → safe default of "/".
   let startUrl = "/";
@@ -34,6 +40,8 @@ module.exports = function handler(req, res) {
     startUrl = `/admin/${adminParam}`;
   } else if (playerParam && PLAYER_TOKEN_RE.test(playerParam)) {
     startUrl = `/p/${playerParam}`;
+  } else if (feedParam === "1" || feedParam === "true") {
+    startUrl = "/feed";
   }
 
   const manifest = {

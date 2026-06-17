@@ -495,6 +495,11 @@ export async function getTeamStateByPlayerToken(token) {
     } : null,
     coverPool:      data.cover_pool || [],
     liveChannelKey: data.live_channel_key,
+    // Context descriptor fields (mig 349) — drives deriveContext()
+    teamType:       data.team_type ?? null,
+    isCompetitive:  data.is_competitive ?? false,
+    clubId:         data.club_id ?? null,
+    clubName:       data.club_name ?? null,
     stats: data.stats ? {
       matchStats: {
         games:    data.stats.match_stats?.games    || 0,
@@ -567,6 +572,11 @@ export async function getTeamStateByAdminToken(token) {
     } : null,
     coverPool:      data.cover_pool || [],
     liveChannelKey: data.live_channel_key,
+    // Context descriptor fields (mig 349) — drives deriveContext()
+    teamType:       data.team_type ?? null,
+    isCompetitive:  data.is_competitive ?? false,
+    clubId:         data.club_id ?? null,
+    clubName:       data.club_name ?? null,
   };
 }
 
@@ -4930,6 +4940,24 @@ export async function getChildLiveMatch(playerProfileId) {
   });
   if (error) { console.error("[event-os] get_child_live_match failed", error); throw error; }
   return data;
+}
+
+// Per-team feature flags (mig 351). Returns { multi_context_nav } — the
+// kill-switch for the new context-aware nav on squad routes. Fails safe to
+// flags-off so a failed lookup never enables a half-built path.
+export async function getTeamFeatureFlags(teamId) {
+  if (!teamId) return { multi_context_nav: false };
+  const { data, error } = await supabase.rpc("get_team_feature_flags", { p_team_id: teamId });
+  if (error) { console.error("[nav] get_team_feature_flags failed", error); return { multi_context_nav: false }; }
+  return data ?? { multi_context_nav: false };
+}
+
+// Guardian: every child's upcoming training + matches across ALL their clubs
+// (mig 350). Returns [{ profile_id, first_name, last_name, sessions:[...] }].
+export async function guardianListChildrenSessions() {
+  const { data, error } = await supabase.rpc("guardian_list_children_sessions");
+  if (error) { console.error("[event-os] guardian_list_children_sessions failed", error); throw error; }
+  return data?.children ?? [];
 }
 
 export async function clubAdminCreateTournament(clubId, venueId, name, slug, eventDate, opts = {}) {

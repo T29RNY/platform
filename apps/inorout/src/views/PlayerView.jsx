@@ -183,6 +183,7 @@ export default function PlayerView({
   isAdmin = false, onGoAdmin,
   startTab = null,
   stats = null,
+  multiContextNav = false, onSwitcherOpen = null,
 }) {
   const me = squad.find(p => p.id === myId);
 
@@ -686,7 +687,7 @@ export default function PlayerView({
             squadSize={schedule.squadSize || 14}
             gameIsLive={schedule.gameIsLive}
             me={me}
-            onAvatarTap={() => setShowProfile(true)}
+            onAvatarTap={multiContextNav && onSwitcherOpen ? onSwitcherOpen : () => setShowProfile(true)}
             shareUrl={schedule ? `https://wa.me/?text=${encodeURIComponent(buildTeamSheetText({
               teamName: settings?.groupName,
               schedule,

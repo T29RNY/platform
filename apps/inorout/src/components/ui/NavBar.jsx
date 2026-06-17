@@ -52,10 +52,26 @@ function MyIOLabel() {
   );
 }
 
-export default function NavBar({ activeTab, onTabChange, onAdminClick }) {
-  const tabs = onAdminClick
+// Build the squad (footballer) tab set from the legacy props — the unchanged
+// casual/competitive behaviour. Kept as a builder so the render path below is a
+// single dumb renderer over a tabs array (multi-context nav, Phase 1).
+function buildSquadTabs({ activeTab, onTabChange, onAdminClick }) {
+  const base = onAdminClick
     ? [...BASE_TABS, MY_IO_TAB, { id:"admin", label:"Admin", Icon:Gear }]
     : [...BASE_TABS, MY_IO_TAB];
+  return base.map((t) => ({
+    ...t,
+    active: activeTab === t.id,
+    onSelect: t.id === "admin" ? onAdminClick : () => onTabChange?.(t.id),
+  }));
+}
+
+// Config-driven NavBar. Pass an explicit `tabs` array
+// ([{ id, label, Icon, myio?, active, onSelect }]) for club/guardian contexts;
+// omit it and pass the legacy activeTab/onTabChange/onAdminClick props to get
+// the unchanged squad bar.
+export default function NavBar({ tabs, activeTab, onTabChange, onAdminClick }) {
+  const resolvedTabs = tabs ?? buildSquadTabs({ activeTab, onTabChange, onAdminClick });
 
   return (
     <nav style={{
@@ -74,16 +90,14 @@ export default function NavBar({ activeTab, onTabChange, onAdminClick }) {
         pointerEvents:"none",
       }} />
 
-      {tabs.map(({ id, label, Icon, myio }) => {
-        const active = activeTab === id;
+      {resolvedTabs.map(({ id, label, Icon, myio, active, onSelect }) => {
         const glow = active ? { filter:"drop-shadow(0 0 5px rgba(232,160,32,0.75)) drop-shadow(0 0 12px rgba(232,160,32,0.35))" } : undefined;
-        const handleClick = id === "admin" ? onAdminClick : () => onTabChange?.(id);
         const TabIcon = myio ? Brain : Icon;
         return (
           <div
             key={id}
             className={`ioo-ni${active ? " active" : ""}`}
-            onClick={handleClick}
+            onClick={onSelect}
           >
             <TabIcon size={22} weight="thin" color={active ? "var(--gold)" : "var(--t2)"} style={glow} />
             {myio ? <MyIOLabel /> : (

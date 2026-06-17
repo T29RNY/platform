@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import {
   memberGetSelf, memberListChildren,
   memberListUpcomingSessions, memberRsvpSession, memberGetSessionRsvpBoard,
@@ -216,9 +217,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
   // Load profile + children on mount (skip profile fetch if prop provided)
   useEffect(() => {
+    // Honour a ?club=<id> deep-link (from the switcher / a tapped club card) so
+    // multi-club members land on the club they chose, not always the first.
+    // Falls back to single-club auto-select. (Multi-context nav, Phase 1 bug fix.)
+    const urlClub = (typeof window !== "undefined")
+      ? new URLSearchParams(window.location.search).get("club")
+      : null;
+    const pickClub = (clubs) => {
+      if (urlClub && clubs.some(c => c.club_id === urlClub)) return urlClub;
+      if (clubs.length === 1) return clubs[0].club_id;
+      return null;
+    };
     if (memberProfileProp) {
       const clubs = memberProfileProp.active_clubs ?? [];
-      if (clubs.length === 1) setSelectedClubId(clubs[0].club_id);
+      const sel = pickClub(clubs);
+      if (sel) setSelectedClubId(sel);
       memberListChildren().then(r => setChildren(r?.children ?? [])).catch(() => {});
       return;
     }
@@ -233,7 +246,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       setChildren(childrenResult?.children ?? []);
       if (p) {
         const clubs = p.active_clubs ?? [];
-        if (clubs.length === 1) setSelectedClubId(clubs[0].club_id);
+        const sel = pickClub(clubs);
+        if (sel) setSelectedClubId(sel);
       }
     }).catch(e => {
       console.error("[sessions] load failed", e);
@@ -2397,6 +2411,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           onClose={() => setShowCreateModal(false)}
         />
       )}
+
+      <ClubNavBar active="sessions" passToken={selectedClub?.pass_token} clubEntry={selectedClub} />
     </div>
   );
 }
@@ -3360,6 +3376,8 @@ const wrap = {
   fontFamily: "var(--font-body)",
   display: "flex",
   flexDirection: "column",
+  // room for the fixed ClubNavBar (multi-context nav, Phase 1)
+  paddingBottom: "calc(80px + env(safe-area-inset-bottom,0))",
 };
 
 function ShopItemRow({ item, isFirst, onOrder }) {

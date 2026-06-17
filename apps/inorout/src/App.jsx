@@ -15,7 +15,10 @@ import {
   resetDemoData, updateDemoInteraction,
   memberGetSelf,
   getUserRelationships,
+  getTeamFeatureFlags,
 } from "@platform/core/storage/supabase.js";
+import { deriveSquadContext } from "./lib/deriveContext.js";
+import ContextSwitcher from "./components/ContextSwitcher.jsx";
 import { SEED_COVER } from "./seeds.js";
 import PlayerView    from "./views/PlayerView.jsx";
 import StatsView     from "./views/StatsView.jsx";
@@ -321,6 +324,14 @@ export default function App() {
   // users are never affected.
   const [relationships, setRelationships] = useState(null);
 
+  // Multi-context nav (Phase 1). squadCtxInputs = the team-state context fields
+  // captured on load; featureFlags = the per-team kill-switch (default off →
+  // everything below ships dark). Both are plumbing only until the flag is on.
+  const [squadCtxInputs, setSquadCtxInputs] = useState(null);
+  const [featureFlags,   setFeatureFlags]   = useState(null);
+  const [showSwitcher,   setShowSwitcher]   = useState(false);
+  const [switcherSquads, setSwitcherSquads] = useState([]);
+
   // Derived home-screen type. Only meaningful when authUser + relationships
   // are both present. "squad_only" → no new screens; existing paths unchanged.
   const homeScreenType = (() => {
@@ -409,6 +420,10 @@ export default function App() {
       link.setAttribute('href', `/api/manifest?admin=${encodeURIComponent(route.token)}`);
     } else if (route.type === "player" && route.token && /^p_[A-Za-z0-9_-]+$/.test(route.token)) {
       link.setAttribute('href', `/api/manifest?player=${encodeURIComponent(route.token)}`);
+    } else if (route.type === "feed" || route.type === "sessions" || route.type === "parent-home" || route.type === "profile") {
+      // Multi-context nav (Phase 1): non-squad users (guardians / club-only
+      // members) install /feed as their home. Path-relative — inherits BASE_URL.
+      link.setAttribute('href', '/api/manifest?feed=1');
     } else {
       link.setAttribute('href', '/manifest.json');
     }
@@ -558,6 +573,7 @@ export default function App() {
             setSettingsRaw(state.settings || DEFAULT_SETTINGS);
             setCoverPoolRaw(state.coverPool);
             setLiveChannelKey(state.liveChannelKey || null);
+            setSquadCtxInputs({ teamType: state.teamType, isCompetitive: state.isCompetitive, clubId: state.clubId, clubName: state.clubName });
             // Resolve the admin's own player row. Migration 070 marks the
             // admin's row with is_self=true (auth.uid() match) and exposes
             // every row's token so the admin can share /p/<token> links.
@@ -638,6 +654,7 @@ export default function App() {
           setSettingsRaw(state.settings || DEFAULT_SETTINGS);
           setCoverPoolRaw(state.coverPool);
           setLiveChannelKey(state.liveChannelKey || null);
+          setSquadCtxInputs({ teamType: state.teamType, isCompetitive: state.isCompetitive, clubId: state.clubId, clubName: state.clubName });
           {
             const intel = computeDeeperIntel(player.id, buildPlayerSquad(player, state.squad), state.matches);
             setStatsRaw({ ...(state.stats || {}), ...intel });
@@ -842,6 +859,19 @@ export default function App() {
       console.error("posthog identify error:", e);
     }
   }, [teamId, authUser?.id, myPlayer?.token, isAdmin, settings?.groupName]);
+
+  // Multi-context nav (Phase 1): load the per-team kill-switch and remember this
+  // as the last active context (so multi-context users can reopen where they left
+  // off). Squad routes only; flag fails safe to off.
+  useEffect(() => {
+    if (!teamId || (route.type !== "player" && route.type !== "admin")) return;
+    getTeamFeatureFlags(teamId).then(setFeatureFlags).catch(() => setFeatureFlags(null));
+    try {
+      localStorage.setItem("ioo_last_context", JSON.stringify({
+        kind: "squad", route: route.type, token: route.token || null, teamId,
+      }));
+    } catch (e) { /* localStorage unavailable (private mode) — non-fatal */ }
+  }, [teamId, route.type, route.token]);
 
   // Realtime subscriptions
   const isFetchingPlayers = useRef(false);
@@ -1313,7 +1343,11 @@ export default function App() {
 
   // Multi-team / club-membership switcher
   const clubEntries = memberProfile?.active_clubs ?? [];
-  if (route.type==="player" && myPlayer && (playerTeams.length > 1 || clubEntries.length > 0) && !selectedTeam) return (
+  if (route.type==="player" && myPlayer && (playerTeams.length > 1 || clubEntries.length > 0) && !selectedTeam) {
+    // Multi-context nav ON: retire this legacy block — send to the /feed hub
+    // (covers admins + players who hit this multi-team landing). OFF: unchanged.
+    if (featureFlags?.multi_context_nav) { window.location.replace("/feed"); return null; }
+    return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
@@ -1356,7 +1390,7 @@ export default function App() {
             </div>
             {clubEntries.map(club => (
               <div key={`${club.club_id}:${club.cohort_id}`}
-                onClick={() => window.location.href = "/sessions"}
+                onClick={() => window.location.href = `/sessions?club=${club.club_id}`}
                 style={{ background:C.surface, border:`1px solid ${C.border}`,
                   borderRadius:12, padding:20, marginBottom:14, cursor:"pointer" }}
                 onMouseEnter={e => e.currentTarget.style.borderColor=C.amber}
@@ -1377,21 +1411,56 @@ export default function App() {
         )}
       </div>
     </div>
-  );
+    );
+  }
 
   const myId        = myPlayer?.id || (isAdmin ? squad[0]?.id : null);
   const sharedProps = { squad, setSquad, schedule, setSchedule, settings, setSettings };
+
+  // Multi-context nav (Phase 1) — derived descriptor + per-team kill-switch.
+  // Passed to PlayerView/AdminView for surface gating; both ship dark until the
+  // team's multi_context_nav flag is on.
+  const multiContextNav = !!featureFlags?.multi_context_nav;
+  const squadContext    = squadCtxInputs
+    ? deriveSquadContext({ ...squadCtxInputs, matchCount: matchHistory?.length || 0 })
+    : null;
+
+  // Open the unified switcher (header avatar). Best-effort fetch of the person's
+  // squads (player_get_teams returns token + is_team_admin per squad, so every
+  // squad routes to /p/<token> where admins still get the Admin tab — covers
+  // admins who used to hit the multi-team landing block).
+  // Plain function (NOT useCallback) — this lives after the component's early
+  // returns, so it must not be a hook (Rules of Hooks).
+  const openSwitcher = () => {
+    setShowSwitcher(true);
+    getPlayerTeams()
+      .then(rows => setSwitcherSquads((rows || []).filter(r => !r.disabled)
+        .map(r => ({ id: r.team_id, name: r.team_name, token: r.token, isAdmin: r.is_team_admin }))))
+      .catch(() => { /* anon / not linked — switcher still shows clubs + feed */ });
+  };
 
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
       <InstallBanner/>
+      <ContextSwitcher
+        open={showSwitcher}
+        onClose={() => setShowSwitcher(false)}
+        currentName={myPlayer?.name || null}
+        squads={switcherSquads}
+        clubs={clubEntries}
+        hasGuardian={(relationships?.guardian_of?.length ?? 0) > 0}
+        currentTeamId={teamId}
+        onSelectSquad={(s) => { if (s?.token) window.location.href = `/p/${s.token}`; }}
+      />
       {view==="player"  && (
         <PlayerView  {...sharedProps} myId={myId} teamId={teamId} adminToken={isAdmin ? (route.token || "admin_demo") : null}
           onMidFlowChange={setIsActionBlocked}
           isAdmin={isAdmin || isViceCaptain} onGoAdmin={() => setView("admin")}
           matchHistory={matchHistory} bibHistory={bibHistory}
           startTab={playerStartTabRef.current}
+          context={squadContext} multiContextNav={multiContextNav}
+          onSwitcherOpen={openSwitcher}
           stats={statsRaw}/>
       )}
       {view==="stats" && <StatsView
@@ -1415,6 +1484,8 @@ export default function App() {
           teamId={teamId}
           liveChannelKey={liveChannelKey}
           me={_me}
+          context={squadContext} multiContextNav={multiContextNav}
+          onSwitcherOpen={openSwitcher}
           adminToken={(isAdmin || isViceCaptain) ? (route.token || "admin_demo") : null}
           isViceCaptain={isViceCaptain}
           screen={adminScreen}        setScreen={setAdminScreen}
