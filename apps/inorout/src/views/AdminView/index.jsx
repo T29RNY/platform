@@ -7,6 +7,7 @@ import {
   goLive,
   sortByReservePriority,
   isDormantGuest,
+  isPendingGuest,
   getTeamNextFixtureLineup,
 } from "@platform/core";
 import {
@@ -15,6 +16,8 @@ import {
   getRecentNotification,
   adminSetPlayerStatus,
   adminReorderReserves,
+  adminApproveGuest,
+  adminDeclineGuest,
 } from "@platform/core/storage/supabase.js";
 import {
   CaretRight, CaretUp, CaretDown, Megaphone, XCircle, PaperPlaneTilt,
@@ -80,6 +83,8 @@ export default function AdminView({
   const [dragId,           setDragId]           = useState(null);
   const [dismissedOrphans, setDismissedOrphans] = useState(new Set());
   const [orphanErrors,     setOrphanErrors]     = useState({});
+  const [approvalBusy,     setApprovalBusy]     = useState(new Set());
+  const [approvalErrors,   setApprovalErrors]   = useState({});
   const [selectedPlayer,   setSelectedPlayer]   = useState(null);
   const [openSections,     setOpenSections]     = useState(
     { in:true, reserve:true, maybe:true, out:false, injured:false, noResp:false }
@@ -155,6 +160,9 @@ export default function AdminView({
     !dismissedOrphans.has(p.id)
   );
   const selfPaidPending = inPlayers.filter(p => p.selfPaid === true && p.paid !== true);
+  // Plus-ones added by players awaiting admin approval (mig 346). Take no squad
+  // spot until approved; surfaced as a top-of-page banner.
+  const pendingGuests = squad.filter(isPendingGuest);
 
   const handleDemoReset = async () => {
     setDemoResetState("resetting");
@@ -194,6 +202,52 @@ export default function AdminView({
         msg.includes("invalid_admin_token")  ? "Couldn't update — your admin link may be out of date. Pull to refresh."
       :                                        "Couldn't update. Tap again or try later.";
       setOrphanErrors(prev => ({ ...prev, [id]: friendly }));
+    }
+  };
+
+  // ── Plus-one approvals (mig 346) ──────────────────────────────────────────
+  const setApprovalBusyId = (id, on) => setApprovalBusy(prev => {
+    const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n;
+  });
+  const clearApprovalError = (id) =>
+    setApprovalErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+  const approvalErr = (e) => {
+    const msg = String(e?.message || "").toLowerCase();
+    return msg.includes("invalid_admin_token")
+      ? "Couldn't update — your admin link may be out of date. Pull to refresh."
+      : "Couldn't update. Tap again or try later.";
+  };
+  // Approve: server places the guest IN, or on RESERVE if the squad is full.
+  // We swap in the server's returned (mapped) row so the resulting status is real.
+  const approveGuest = async (id) => {
+    if (approvalBusy.has(id)) return;
+    clearApprovalError(id);
+    setApprovalBusyId(id, true);
+    try {
+      const updated = await adminApproveGuest(adminToken, id);
+      setSquad(sq => sq.map(p => p.id === id ? updated : p));
+    } catch (e) {
+      console.error(e);
+      setApprovalErrors(prev => ({ ...prev, [id]: approvalErr(e) }));
+    } finally {
+      setApprovalBusyId(id, false);
+    }
+  };
+  // Decline: guest goes dormant (recoverable). Optimistic drop from the banner.
+  const declineGuest = async (id) => {
+    if (approvalBusy.has(id)) return;
+    clearApprovalError(id);
+    setApprovalBusyId(id, true);
+    const prev = squad;
+    setSquad(sq => sq.map(p => p.id === id ? { ...p, pendingApproval:false, status:"none", team:null } : p));
+    try {
+      await adminDeclineGuest(adminToken, id);
+    } catch (e) {
+      console.error(e);
+      setSquad(prev);
+      setApprovalErrors(p => ({ ...p, [id]: approvalErr(e) }));
+    } finally {
+      setApprovalBusyId(id, false);
     }
   };
 
@@ -720,6 +774,61 @@ export default function AdminView({
             </div>
           );
         })}
+
+        {pendingGuests.length > 0 && (
+          <>
+            <style>{`@keyframes ioo-green-pulse{0%{box-shadow:0 0 0px var(--greenb)}50%{box-shadow:0 0 16px var(--greenb)}100%{box-shadow:0 0 0px var(--greenb)}}`}</style>
+            <div style={{
+              background:"var(--green2)", border:"0.5px solid var(--greenb)",
+              borderLeft:"3px solid var(--green)",
+              borderRadius:"var(--r)", padding:"12px 14px", marginBottom:8,
+              animation:"ioo-green-pulse 2s ease-in-out infinite",
+            }}>
+              <div style={{ fontFamily:"var(--font-display)", fontSize:15,
+                letterSpacing:"0.08em", color:"var(--green)", marginBottom:8 }}>
+                🙋 PLUS-ONE APPROVALS · {pendingGuests.length}
+              </div>
+              {pendingGuests.map((g, i) => {
+                const host = squad.find(h => h.id === g.guestOf);
+                const busy = approvalBusy.has(g.id);
+                return (
+                  <div key={g.id} style={{ paddingTop: i === 0 ? 0 : 8,
+                    borderTop: i === 0 ? "none" : "0.5px solid rgba(96,224,128,0.2)" }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                      <div style={{ fontSize:13, color:"var(--t1)", fontWeight:400, flex:1, minWidth:0 }}>
+                        👤 {g.name}
+                        <span style={{ color:"var(--t2)", fontWeight:300 }}>
+                          {host ? ` · added by ${host.nickname || host.name}` : ""}
+                        </span>
+                      </div>
+                      <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                        <button onClick={() => approveGuest(g.id)} disabled={busy} style={{
+                          padding:"5px 12px", borderRadius:"var(--r-pill)", border:"none",
+                          background:"var(--green)", color:"var(--black)",
+                          fontFamily:"var(--font-display)", fontSize:13, letterSpacing:"0.06em",
+                          cursor: busy ? "not-allowed" : "pointer" }}>
+                          {busy ? "…" : "APPROVE ✓"}
+                        </button>
+                        <button onClick={() => declineGuest(g.id)} disabled={busy} style={{
+                          padding:"5px 12px", borderRadius:"var(--r-pill)",
+                          border:"0.5px solid var(--redb)", background:"var(--red2)",
+                          color:"var(--red)", fontFamily:"var(--font-body)", fontSize:12,
+                          fontWeight:500, cursor: busy ? "not-allowed" : "pointer" }}>
+                          Decline ✕
+                        </button>
+                      </div>
+                    </div>
+                    {approvalErrors[g.id] && (
+                      <div style={{ marginTop:6, fontSize:11, color:"var(--red)", fontWeight:400 }}>
+                        {approvalErrors[g.id]}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {selfPaidPending.length > 0 && (
           <>

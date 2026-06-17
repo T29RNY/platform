@@ -81,6 +81,26 @@ async function pushToSubs(subs, payload, type, teamId, gameDate) {
   );
 }
 
+// Resolve the player_ids of a team's active admins (team_admins → players by
+// user_id). Used to target admin-only notifications (e.g. plus-one approvals).
+// Returns [] when no admin has a linked player row — the push is then a no-op.
+async function getAdminPlayerIds(teamId) {
+  const { data: admins } = await supabase
+    .from('team_admins')
+    .select('user_id')
+    .eq('team_id', teamId)
+    .is('revoked_at', null);
+  const userIds = (admins || []).map(a => a.user_id).filter(Boolean);
+  if (!userIds.length) return [];
+
+  const { data: tps } = await supabase
+    .from('team_players').select('player_id').eq('team_id', teamId);
+  const { data: players } = await supabase
+    .from('players').select('id, user_id')
+    .in('id', (tps || []).map(t => t.player_id));
+  return (players || []).filter(p => userIds.includes(p.user_id)).map(p => p.id);
+}
+
 async function getSubsForPlayers(teamId, playerIds) {
   let q = supabase
     .from('push_subscriptions')
@@ -313,11 +333,19 @@ module.exports = async function handler(req, res) {
   const quietEnd   = rc.quietEnd   || '08:00';
   const quiet      = isQuietHours(quietStart, quietEnd);
 
+  // guestPendingApproval: target the team's admins (no playerIds supplied).
+  // Dormant in practice until admins register push subscriptions.
+  let resolvedPlayerIds = playerIds;
+  if (type === 'guestPendingApproval' && !playerIds?.length) {
+    resolvedPlayerIds = await getAdminPlayerIds(teamId);
+    if (!resolvedPlayerIds.length) return res.status(200).json({ sent: 0 });
+  }
+
   // Filter out injured players before sending
-  let targetIds = playerIds;
-  if (playerIds?.length) {
+  let targetIds = resolvedPlayerIds;
+  if (resolvedPlayerIds?.length) {
     const { data: ps } = await supabase
-      .from('players').select('id, injured').in('id', playerIds);
+      .from('players').select('id, injured').in('id', resolvedPlayerIds);
     targetIds = (ps || []).filter(p => !p.injured).map(p => p.id);
   }
 

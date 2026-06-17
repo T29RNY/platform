@@ -36,6 +36,7 @@ export const TEMPLATES = {
   fixture_reminder:     (data) => `Reminder: ${data.team} vs ${data.opponent} tonight at ${data.time}, Pitch ${data.pitch}, ${data.venue}`,
   result_confirmed:     (data) => `${data.team_a} ${data.score_a} - ${data.score_b} ${data.team_b}. Full time confirmed.`,
   squad_availability:   (data) => `Who's in for ${data.fixture}? Confirm here: ${data.link}`,
+  guest_pending_approval:(data) => `${data.host} added ${data.guest} as a plus-one — approve or decline: ${data.link}`,
 };
 
 const CHANNELS = ["push", "whatsapp", "sms", "email"];

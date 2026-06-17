@@ -238,6 +238,7 @@ function dbToPlayer(r) {
     token: r.token,
     isGuest: r.is_guest || false,
     guestOf: r.guest_of || null,
+    pendingApproval: r.pending_approval || false,
     injured: r.injured || false,
     injuredSince: r.injured_since || null,
     nickname: r.nickname || null,
@@ -601,13 +602,38 @@ export async function addPlayerToTeam(adminToken, name, type = 'regular', priori
 }
 
 // ─── Guest players ────────────────────────────────────────────────────────────
-export async function addGuestPlayer(hostToken, guestName) {
+// adminToken: pass the admin token when an admin adds a guest from an /admin
+// route — the guest is approved straight in. Player-added guests (no admin
+// token) enter pending_approval and take no squad spot until an admin approves.
+export async function addGuestPlayer(hostToken, guestName, adminToken = null) {
   const { data, error } = await supabase.rpc('add_guest_player', {
-    p_token:      hostToken,
-    p_guest_name: guestName,
+    p_token:       hostToken,
+    p_guest_name:  guestName,
+    p_admin_token: adminToken,
   });
   if (error) throw error;
   return dbToPlayer(data);
+}
+
+// Admin approves a pending plus-one. Squad-full → guest placed on reserve,
+// otherwise in. Returns the updated guest (mapped).
+export async function adminApproveGuest(adminToken, guestId) {
+  const { data, error } = await supabase.rpc('admin_approve_guest', {
+    p_admin_token: adminToken,
+    p_guest_id:    guestId,
+  });
+  if (error) throw error;
+  return dbToPlayer(data);
+}
+
+// Admin declines a pending plus-one → guest goes dormant (recoverable).
+export async function adminDeclineGuest(adminToken, guestId) {
+  const { data, error } = await supabase.rpc('admin_decline_guest', {
+    p_admin_token: adminToken,
+    p_guest_id:    guestId,
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function removeGuestPlayer(hostToken, guestId) {

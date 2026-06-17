@@ -2833,3 +2833,29 @@ case and returning already-enrolled members hitting the invite link again.
 
 **Pattern:** Never rely on in-memory state surviving an external redirect. Always re-derive from the DB
 on mount for anything that matters post-payment.
+
+### Plus-one approvals: player-added +1s require admin sign-off (mig 346, session 139)
+
+Previously any player could add a plus-one that joined the lineup immediately. Operators asked for a
+gate: a player's +1 now enters a PENDING state and takes no squad spot until an admin approves it.
+
+Settled choices:
+- **Pending takes no spot.** A pending guest is `status='none', pending_approval=true` — invisible to
+  the board (same mechanism as a dormant guest) and excluded from every `status='in'` count. The
+  squad-full guard is therefore evaluated at APPROVAL time, not add time. Rationale: a flood of
+  unapproved +1s must never lock real players out of the squad.
+- **Approve-when-full → reserve, not reject.** If the squad is at `squad_size` when an admin approves,
+  the guest is placed on RESERVE rather than refused — the admin's intent was "yes", capacity is a
+  separate concern handled by the reserve queue.
+- **Admin-added guests auto-approve.** When the add carries a valid admin token (`/admin` route), the
+  +1 goes straight in — the admin is the approver, so self-approval is redundant. Distinguished at the
+  RPC via the new optional `p_admin_token` arg, not a separate RPC.
+- **Decline = dormant, not delete.** Reuses the persistent-guest model so a declined +1 is recoverable
+  via the returning-guest picker. Host-cancel of a pending +1 (`remove_guest_player`) also clears
+  `pending_approval` so it leaves the admin queue.
+- **Notification: in-app now, push plumbed-dormant.** The realtime `notify_team_change` broadcast
+  surfaces the top-of-admin approvals banner live (works today). A `guestPendingApproval` push type was
+  added to `/api/notify` targeting the team's admins — dormant until admins register push subscriptions.
+
+This is a deliberate behaviour change to the casual +1 flow (operator-approved), not a competitive-mode
+leak — the "casual flow is sacred" constraint guards against unintended changes, not requested features.

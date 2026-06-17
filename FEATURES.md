@@ -2404,3 +2404,22 @@ Stripe prepay dormant throughout — `payment_mode='prepay'` accepted by schema 
 returns `payment_method_unavailable` until venue's Stripe Connect account is active.
 
 **🏁 CLASSES + ROOM HIRE EPIC COMPLETE — all 8 phases shipped (migs 338–345), all on main.**
+
+---
+
+## PLUS-ONE APPROVALS (mig 346, session 139)
+
+Player-added plus-ones now require admin approval before they join the lineup. A non-admin's +1 enters
+PENDING (`players.pending_approval=true`, `status='none'`) — takes NO squad spot, hidden from the board.
+An admin approves (→ in, or → reserve if squad full) or declines (→ dormant, recoverable) via a
+top-of-AdminView "🙋 PLUS-ONE APPROVALS" banner (mirrors the self-paid gold banner, surfaces live via the
+existing `notify_team_change` realtime broadcast). Admin-added guests (valid admin token on `/admin`)
+auto-approve straight in. The host sees "⏳ Waiting for admin approval" on their own pending +1 and can
+Cancel it. RPCs: `add_guest_player` (now 3-arg, optional `p_admin_token`), NEW `admin_approve_guest` /
+`admin_decline_guest`, `remove_guest_player` clears pending. State RPCs + `dbToPlayer` expose
+`pendingApproval`. Push: `/api/notify` type `guestPendingApproval` targets the team's admins — DORMANT
+until admins enable push. Gates: EV 8/8 + leak 0, rpc-security-sweep (4), hygiene 7/7, inorout build PASS,
+casual-regression static PASS (all new logic gated on `pendingApproval`/`isPendingGuest`, no leak into
+MySquads/StatsView). **⛔ real-iPhone PWA walk OWED (Hard Rule #13 — PlayerView + AdminView touched):
+walk the add-+1 → "waiting" → admin approve/decline/reserve loop on a home-screen install before relying
+on it for a live squad.**

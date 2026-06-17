@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
   getPaymentState, getGuestPaymentState,
   handleCashPayment, handleGuestCashPayment,
-  resolveMotm, isDormantGuest } from "@platform/core";
+  resolveMotm, isDormantGuest, isPendingGuest } from "@platform/core";
 import { savePushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
   getPOTMVotingState, getPOTMTallyPublic, setMyNickname,
   resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
@@ -318,13 +318,17 @@ export default function PlayerView({
   // Persistent guests (S1): only ACTIVE guests (status !== 'none') count as
   // "my +1s this week". A dormant guest row left over from last week must NOT
   // block the Plus One button — it's available again via the returning picker.
-  const myGuests      = squad.filter(p => p.isGuest && p.guestOf === myId && p.status !== "none");
+  // A pending plus-one (mig 346) has status='none' but pendingApproval=true — it
+  // still counts as "my +1 this week" so the host sees it (waiting for approval)
+  // and can't silently add another while one is queued.
+  const myGuests      = squad.filter(p => p.isGuest && p.guestOf === myId && (p.status !== "none" || p.pendingApproval));
   const myGuest       = myGuests[0] ?? null;
   const canRemoveGuest = !schedule.isDraft;
   // Persistent guests S2: the team's dormant past guests, offered in the Plus One
   // picker so a host can bring one back (re-activate) instead of re-typing a name.
+  // Exclude pending-approval guests — they aren't a returnable past guest yet.
   const pastGuests    = squad
-    .filter(isDormantGuest)
+    .filter(p => isDormantGuest(p) && !isPendingGuest(p))
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
   const inPlayers        = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
@@ -526,8 +530,27 @@ export default function PlayerView({
     setAddingGuest(true);
     setGuestAddError(null);
     try {
-      const guest = await addGuestPlayer(me?.token, guestName.trim());
+      // adminToken is set only on /admin routes — an admin's own +1 is approved
+      // straight in; a player's +1 (adminToken null) enters pending approval.
+      const guest = await addGuestPlayer(me?.token, guestName.trim(), adminToken);
       setSquad([...squad, guest]);
+      // Notify admins a plus-one needs approval (push; dormant until admins
+      // enable notifications). Fire-and-forget — never blocks the add.
+      if (guest?.pendingApproval && teamId) {
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "guestPendingApproval",
+            teamId,
+            payload: {
+              title: "Plus-one to approve 🙋",
+              body: `${me?.name || "A player"} added ${guestName.trim()} — approve or decline.`,
+              icon: "/icons/icon-192.png",
+            },
+          }),
+        }).catch(() => {});
+      }
       setGuestName("");
       setGuestSelfPaid(false);
       setPickerPlayer(null);
@@ -1249,7 +1272,9 @@ export default function PlayerView({
                           <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
                           <div>
                             <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>{g.name}</div>
-                            <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>your +1</div>
+                            <div style={{ fontSize:11, color: g.pendingApproval ? "var(--amber)" : "var(--t2)", fontWeight:300 }}>
+                              {g.pendingApproval ? "⏳ Waiting for admin approval" : "your +1"}
+                            </div>
                           </div>
                         </div>
                         {canRemoveGuest && (
@@ -1258,13 +1283,15 @@ export default function PlayerView({
                             border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
                             color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11,
                             cursor:"pointer", flexShrink:0 }}>
-                            {removingGuest ? "..." : "Remove"}
+                            {removingGuest ? "..." : g.pendingApproval ? "Cancel" : "Remove"}
                           </button>
                         )}
                       </div>
-                      <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
-                        {g.selfPaid ? "Paid" : "You're covering payment"}
-                      </div>
+                      {!g.pendingApproval && (
+                        <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                          {g.selfPaid ? "Paid" : "You're covering payment"}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {!showPlusOneForm && (

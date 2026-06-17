@@ -38,6 +38,15 @@ export function isDormantGuest(p) {
   return p?.isGuest === true && p?.status === STATUS.NONE;
 }
 
+// A plus-one added by a player that is awaiting admin approval. Takes no squad
+// spot and is hidden from the board (status='none', so isDormantGuest is also
+// true for it) — surfaced only in the admin approvals banner and as a
+// "waiting for approval" state on the host's own view. Distinct from a dormant
+// (previously-removed) guest, which has pending_approval false.
+export function isPendingGuest(p) {
+  return p?.isGuest === true && p?.pendingApproval === true;
+}
+
 export function groupByStatus(players) {
   const visible = players.filter(p => !isDormantGuest(p));
   return {
