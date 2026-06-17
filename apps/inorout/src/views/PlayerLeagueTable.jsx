@@ -7,12 +7,12 @@ function initials(name) {
     : (name || "?").slice(0, 2).toUpperCase();
 }
 
-const RANK_COLOR = { 1: "#E8A020", 2: "#A0A0A0", 3: "#CD7F32" };
+const RANK_COLOR = { 1: "var(--gold)", 2: "var(--silver)", 3: "var(--bronze)" };
 const ROW_BG     = { 1: "rgba(232,160,32,0.15)", 2: "rgba(160,160,160,0.10)", 3: "rgba(205,127,50,0.12)" };
-const STICKY_BG  = { 1: "#2A2114",              2: "#1D1D1B",               3: "#261E15"               };
+const STICKY_BG  = { 1: "var(--rank-gold-bg)", 2: "var(--rank-silver-bg)", 3: "var(--rank-bronze-bg)" };
 const FORM_S     = {
   W: { bg: "var(--green2)", color: "var(--green)" },
-  D: { bg: "var(--amber2)", color: "var(--amber)" },
+  D: { bg: "var(--draw2)",  color: "var(--draw)"  },
   L: { bg: "var(--red2)",   color: "var(--red)"   },
 };
 

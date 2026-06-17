@@ -53,6 +53,15 @@
   --draw2: rgba(20,184,166,0.13);
   --drawb: rgba(20,184,166,0.35);
 
+  /* ── Podium / rank medals (league-table top 3) ──
+     Rank 1 reuses --gold. Silver + bronze and their dark row tints get their
+     own tokens so the league table carries no hardcoded hex. */
+  --silver:        #A0A0A0;
+  --bronze:        #CD7F32;
+  --rank-gold-bg:   #2A2114;
+  --rank-silver-bg: #1D1D1B;
+  --rank-bronze-bg: #261E15;
+
   /* ── Radii ── */
   --r:      16px;
   --rs:     10px;
