@@ -190,60 +190,84 @@ BUGS) → commit → merge promptly (cloud-session discipline) → confirm main 
 
 ---
 
-## NEXT SESSION PROMPT — Phase 2 (grading / belt progression, mig 357)
+## NEXT SESSION PROMPT — Phase 3 (PT / 1-on-1 appointment booking, mig 358)
 
-*Paste the block below to start the next session. Phases 0 (mig 355) + 1 (mig 356) are shipped
-on main. Next free mig = 357.*
+*Paste the block below to start the next session. Phases 0 (mig 355) + 1 (mig 356) + 2 (mig 357)
+are shipped on main. Next free mig = 358.*
+
+**⏱ TIMING GATE — read before starting.** STRATEGY.md defers the "real build" (Phases 3–4) until
+**after the football pilot (18 Jun 2026) proves the wedge**. Phases 0–2 were the low-risk, bankable
+identity/grading layer; Phase 3 is the largest build of the vertical. At session start, CONFIRM with
+the operator that the pilot has happened / they want to proceed before doing any execute work. If
+they say hold, stop after the audit.
 
 ```
-Continue the GYM / BOXING CLUB vertical — Phase 2 (grading / belt progression), mig 357.
-Phases 0–1 are shipped — see CONTEXT.md SESSIONS 144–145 and GYM_VERTICAL_HANDOFF.md.
+Continue the GYM / BOXING CLUB vertical — Phase 3 (PT / 1-on-1 appointment booking), mig 358.
+Phases 0–2 are shipped — see CONTEXT.md SESSIONS 144–146 and GYM_VERTICAL_HANDOFF.md.
 
-First run skills/session-start.md. Then read GYM_VERTICAL_HANDOFF.md "Phase 2" in full plus
-the s144 "Modelling note" (sports centre = one venue, many single-discipline clubs — don't
-break that). Phase 2 introduces NEW tables (it can't be pure reuse like Phase 1) but must
-still reuse the club/consent/caps primitives: gate writes via resolve_venue_caller +
-_venue_has_cap, audit every write (Hard Rule #9), mirror the append-only consent_acceptances
-shape for the award log.
+First run skills/session-start.md. Then read GYM_VERTICAL_HANDOFF.md "Phase 3" in full plus the
+s144 "Modelling note". This is the LARGEST build of the vertical but still reuses every
+cross-cutting primitive: gate writes via resolve_venue_caller + _venue_has_cap, audit every
+write (Hard Rule #9), write money to the existing venue_charges ledger (do NOT invent a new
+charge path), reuse the QR pass_token check-in bridge, mirror venue_class_series recurrence
+shape for availability.
+
+TIMING GATE: STRATEGY.md defers Phases 3–4 to post-pilot (pilot = 18 Jun 2026). CONFIRM the
+operator wants to proceed before any execute work — if they say hold, stop after the audit.
 
 CONFLICT GUARD: before branching, confirm git is on main, tree clean, zero open PRs. If not,
 STOP and report.
 
-Scope for Phase 2 (mig 357):
-  - Schema (3 new tables, RLS-walled, REVOKE anon/authenticated):
-      venue_grading_schemes (club_id, discipline, name, active)
-      venue_grades (scheme_id, name, rank_order, colour_hex, UNIQUE(scheme_id, rank_order))
-      member_grades (APPEND-ONLY award log → "current grade" = latest per member+scheme;
-                     mirrors consent_acceptances; never UPDATE/DELETE a past award)
-  - Write RPCs (gated + audited): venue_create_grading_scheme, venue_add_grade,
-      venue_award_grade. Member read: member_get_grade_history. Extend the member-pass RPC
-      (get_member_pass or member_get_venue_membership_pass) to include current rank per scheme.
-  - Operator UI: new "Grading" sub-tab in apps/venue MembershipsView.jsx (already multi-sub-tab)
-      + an "Award grade" action on a member.
-  - Member UI: MemberPass.jsx rank chip + MemberProfile.jsx "Progression" history. Rank word
-      from disciplineLabels (rankWord). Renders ONLY for grading disciplines — gate on
-      disciplineLabels hasGrading (currently TRUE for martial_arts only; gym/yoga/dance/fitness
-      carry a rankWord but hasGrading=false; boxing = fight-record in Phase 4, NOT grading).
+Scope for Phase 3 (mig 358) — dedicated appointments model, NOT capacity=1 classes (decision
+locked in the handoff: capacity=1 classes would force pre-creating every slot, give no bookable
+trainer identity, and break waitlist/no-show semantics):
+  - Schema (RLS-walled, REVOKE anon/authenticated; SECURITY DEFINER RPCs only):
+      venue_trainers (admin_id → venue_admins; display_name, bio, default_session_minutes,
+                      price_pence, active)
+      venue_trainer_availability (recurring windows; mirror the venue_class_series shape)
+      venue_appointments (trainer_id, member_profile_id, starts_at, ends_at,
+                          status confirmed|cancelled|completed|no_show, price_pence,
+                          payment_mode, checked_in_at, charge_id;
+                          partial UNIQUE(trainer_id, starts_at) WHERE status<>'cancelled')
+  - Operator RPCs (gated + audited): venue_upsert_trainer, venue_set_trainer_availability,
+      venue_list_trainers, venue_list_appointments.
+  - Member RPCs: member_list_trainers, member_list_trainer_slots (availability minus booked),
+      member_book_appointment (writes venue_charges source_type='pt'),
+      member_cancel_appointment; venue_pt_checkin (clone of venue_class_checkin);
+      venue_mark_appointment_completed (no-show bumps member_profiles.no_show_count).
+  - Operator UI: new apps/venue/src/views/TrainersView.jsx (reuse Icon/tab-chip/.dt/Modal +
+      generalise ClassCheckinScanner).
+  - Member UI + NEW route: /book → new apps/inorout/src/views/BookPT.jsx; a "Train" tab on
+      ClubNavBar, gated to PT disciplines AND ≥1 active trainer (keep casual football
+      byte-identical — gate the same way Phase 1/2 gated /classes and grading).
+  - Money: venue_charges rows written but settlement stays DORMANT until live Stripe keys;
+      'door' (pay-in-person) is the live path.
 
-Run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT cycle for PHASE 2 ONLY:
-  - AUDIT in plan mode first (no edits) — confirm MembershipsView's sub-tab pattern + how a
-    member is selected there; pull the live member-pass RPC body you'll extend; confirm
-    disciplineLabels.hasGrading is the right gate; confirm the append-only "current = latest"
-    read shape.
+Run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT cycle for PHASE 3 ONLY:
+  - AUDIT in plan mode first (no edits): pull venue_class_checkin + venue_create_class_series
+    (recurrence) + the venue_charges write path bodies live; confirm venue_admins shape for the
+    trainer link; confirm how ClubNavBar gates a tab by discipline (Phase 1/2 pattern); confirm
+    the slot-availability read (availability windows minus booked appointments) shape.
   - Apply SQL to Supabase first, land _up/_down source same commit (Hard Rule #11).
-  - GATES (mandatory): rpc-security-sweep + ephemeral-verify (NEW write RPCs — seed an _e2e_
-    club/scheme/member fixture, award a grade, assert current=latest, award a second, assert
-    it supersedes, leak-check 0); casual-regression (apps/inorout MemberPass/MemberProfile
+  - GATES (mandatory): rpc-security-sweep (every new write RPC); ephemeral-verify (seed an
+    _e2e_ venue/club/trainer/member fixture, set availability, list slots, book one → assert a
+    venue_charges row + slot removed from availability, double-book same slot → assert the
+    partial-unique rejects it, cancel → assert slot frees, mark no-show → assert no_show_count
+    bumps, leak-check 0); casual-regression (apps/inorout App.jsx new route + ClubNavBar
     touched — prove the casual squad path byte-identical); real-iPhone PWA walk (Hard Rule #13
-    — pass chip + profile history on a martial-arts club); build/hygiene.
+    — /book route + Train tab on a PT-discipline club); build/hygiene.
   - Then docs (FEATURES/RPCS/SCHEMA/DECISIONS/BUGS/CONTEXT/handoff + memory), commit, merge
     promptly, confirm main clean.
 
 Confirm with me BEFORE building:
-  1. award authority — reuse the existing `manage_facility` cap to gate venue_award_grade, or
-     add a dedicated `award_grades` cap (so a head coach can award belts without full facility
-     management)? Recommend manage_facility for v1 unless you want coach-level delegation now.
-  2. grade ladder shape — is a per-scheme ordered list of named grades with a colour_hex each
-     (e.g. White→Yellow→…→Black) the right model, or do you need sub-levels / stripes (e.g.
-     "Blue belt, 2 stripes") in v1?
+  1. trainer identity — is a trainer always a venue_admins staff login (managed in the Staff
+     tab), or do you also want lightweight "trainer profile, no login" records (a freelance PT
+     who never logs in)? Recommend staff-login-backed for v1 (admin_id → venue_admins) unless
+     you want no-login trainer cards now.
+  2. which disciplines get PT — gate the Train tab to which set? Recommend gym + martial_arts +
+     fitness (anything non-football with ≥1 active trainer); confirm or narrow.
+  3. cancellation / no-show policy — is there a cancellation cut-off window (e.g. no free cancel
+     within 24h), and should a no-show still record/keep the venue_charges row? Recommend free
+     cancel any time in v1 (door payment only) + no-show keeps the charge + bumps no_show_count;
+     confirm.
 ```
