@@ -4204,6 +4204,19 @@ export async function venueListClubs(venueToken) {
   return data ?? [];
 }
 
+export async function venueSetClubDiscipline(venueToken, clubId, discipline) {
+  const { data, error } = await supabase.rpc("venue_set_club_discipline", {
+    p_venue_token: venueToken,
+    p_club_id: clubId,
+    p_discipline: discipline,
+  });
+  if (error) {
+    console.error("[venue] set_club_discipline failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function venueListClubVenues(venueToken, clubId) {
   const { data, error } = await supabase.rpc("venue_list_club_venues", {
     p_venue_token: venueToken, p_club_id: clubId,
