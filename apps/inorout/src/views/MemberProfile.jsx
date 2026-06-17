@@ -256,6 +256,18 @@ export default function MemberProfile({ authUser }) {
 
   const displayName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
 
+  // Honour ?club=<id> so a multi-club member's nav targets the club they arrived
+  // from (Pass tab → that club's pass; Sessions tab keeps the selection) rather
+  // than always the first club. Falls back to club[0] when no/unknown ?club=, the
+  // prior behaviour. (Multi-context nav, Phase 1 bug fix — mirrors SessionsScreen.)
+  const _activeClubs = profile.active_clubs ?? [];
+  const _urlClub = (typeof window !== "undefined")
+    ? new URLSearchParams(window.location.search).get("club")
+    : null;
+  const selectedClub =
+    (_urlClub ? _activeClubs.find((c) => c.club_id === _urlClub) : null)
+    ?? _activeClubs[0] ?? null;
+
   return (
     <div style={wrap}>
       {/* header */}
@@ -932,7 +944,7 @@ export default function MemberProfile({ authUser }) {
         )}
       </div>
       <Tour tourKey="io_tour_club_profile" enabled={clubToursEnabled()} />
-      <ClubNavBar active="profile" passToken={profile.active_clubs?.[0]?.pass_token ?? null} />
+      <ClubNavBar active="profile" passToken={selectedClub?.pass_token ?? null} clubEntry={selectedClub} />
     </div>
   );
 }
