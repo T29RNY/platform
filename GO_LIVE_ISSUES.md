@@ -1398,3 +1398,29 @@ by build/hygiene/grep — they are real-device behaviour (Hard Rule #13).
 footballer. With the flag on, the switcher + club/guardian nav work and no
 casual surface regresses. If any tap does nothing or content hides behind the
 nav bar, STOP and escalate before enabling the flag on the pilot team.
+
+## 17. SESSION 142 — RECURRING-SESSION TIMES STORED IN UTC NOT UK LOCAL (mig 353)
+
+**Issue class:** recurring-session generators stored the operator's entered time
+as UTC, so during **British Summer Time** every recurring class / club-training
+session displayed and triggered **one hour late**. Affected
+`venue_create_class_series`, `club_create_session_series`,
+`club_manager_create_session_series`. Fixed by interpreting the wall-clock
+`AT TIME ZONE 'Europe/London'` (mig 353). One-off sessions were never affected.
+No historical rows needed correcting (0 future series rows existed at fix time).
+
+**Device check — run before onboarding any venue that uses classes or club training
+(do this DURING BST to catch the bug; in winter the symptom is invisible):**
+
+1. In the venue dashboard (Classes → Schedule), create a **recurring** class at a
+   known time, e.g. **18:00**, for a future weekday. Confirm every generated session
+   in the timetable reads **18:00**, not 19:00.
+2. Open the member app timetable for that class — confirm it also reads **18:00**.
+3. Repeat for a **club training series** (club manager / venue club session series):
+   create at 18:00, confirm sessions read 18:00 on both the manager and member views.
+4. Spot-check a **one-off** class at 18:00 still reads 18:00 (regression guard — the
+   one-off path was always correct and must stay correct).
+
+**Expected outcome:** entered time === displayed time for recurring sessions, in
+both summer and winter. If a recurring session shows an hour late, the
+`AT TIME ZONE 'Europe/London'` fix has regressed — STOP.

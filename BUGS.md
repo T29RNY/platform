@@ -3,6 +3,33 @@
 
 ---
 
+## SESSION 142 — RESOLVED (mig 353): recurring-session generators stored UTC, not UK local (BST off-by-one-hour)
+
+**Found by the pre-build audit of the club/membership system.** All three recurring-session
+generators built their timestamp with a bare cast: `(v_cursor + p_start_time)::timestamptz`.
+`(date + time)` yields a `timestamp WITHOUT time zone` (a wall-clock value); the bare cast then
+interprets it in the DB session timezone, which is **UTC**. So an operator who entered **18:00**
+got every session stored as **18:00 UTC**. During British Summer Time (late Mar–late Oct) the
+venue/member UI renders in UK local time, so every recurring session displayed **19:00** — one
+hour late — and booking cutoffs, QR check-in windows and `_space_is_available` conflict detection
+were all an hour off. Winter (GMT) was unaffected. One-off creators
+(`venue_schedule_class_session`, `club_create_session`, `club_manager_create_session`) take a
+client-supplied `timestamptz` and were already correct.
+
+Same bug class as the mig-207 game-time BST fix; the correct `AT TIME ZONE 'Europe/London'`
+pattern was already in use in migs 143/181. Fixed all three —
+`venue_create_class_series`, `club_create_session_series`, `club_manager_create_session_series` —
+`(v_cursor + p_start_time) AT TIME ZONE 'Europe/London'`. Bodies otherwise byte-identical
+(grants/security preserved via CREATE OR REPLACE; security sweep PASS 3/3).
+
+Verified by pure-expression proof (BST 18:00→17:00Z displays back 18:00 ✅; GMT 18:00→18:00Z
+displays 18:00 ✅, no winter regression). Read-only sanity count of already-generated future
+series rows = **0** in both `venue_class_sessions` and `club_sessions` — no historical data
+correction needed (features built, not yet used by a live venue).
+
+LESSON: never `(date + time)::timestamptz` for a UK local wall-clock; always
+`(date + time) AT TIME ZONE 'Europe/London'`. The DB session runs in UTC.
+
 ## SESSION 136 — RESOLVED (mig 335): stripe_complete_member_enrolment actor_type='member'
 
 **Found during live Phase 3 E2E test.** `stripe_complete_member_enrolment` (mig 331) had `actor_type='member'`
