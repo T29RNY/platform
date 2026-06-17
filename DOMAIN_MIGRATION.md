@@ -143,6 +143,10 @@ cutover (Phase 5), reversible the whole way.
 
 ### 2.1 [Claude] Repoint `apps/inorout` API files
 - `api/manifest.js`: `BASE_URL` → `https://app.in-or-out.com` (fixes manifest icon URLs).
+  ⚠️ **Multi-context nav epic addendum:** by the time this runs, `manifest.js` ALSO emits
+  `start_url: /feed` for club/guardian/multi-context users (built BASE_URL-relative, so it
+  already inherits this domain change automatically). When changing `BASE_URL`, leave the
+  `/feed` start_url logic intact — do NOT revert it. See the follow-on section below.
 - `api/cron.js`: line ~113 internal `base` (self-call to `/api/notify`) → `app.`;
   line ~775 (`/m/` email link) → `app.`; line ~1633 (`/p/` email link) → `app.`.
 - `api/notify.js`: lines ~62 & ~336 (push payload `/p/` URLs) → `app.`.
@@ -316,6 +320,9 @@ serves `/api` until Phase 5).
 ### 6.1 [You] Real-device PWA test
 - On iPhone Safari: open `app.in-or-out.com` → Share → Add to Home Screen → force-quit
   Safari → open from the icon → confirm standalone launch + push opt-in (Hard Rule #13).
+- **Multi-context nav epic addendum:** also install + open as a **club member / guardian**
+  (not just an admin/squad) → confirm the app launches to `/feed` and the `start_url: /feed`
+  manifest resolves on `app.` (the nav epic's installable home for non-squad users).
 
 ### 6.2 [You] Migrate the ~2 existing installs
 - Reinstall In or Out from `app.in-or-out.com` on the 2 phones; re-enable notifications
@@ -349,6 +356,24 @@ Order & extras:
 - **8.3** Real-device test: tapping a `/p/` link opens the native app; PWA install still works.
 
 ---
+
+## Follow-on tasks from the multi-context nav epic (`MULTI_CONTEXT_NAV_HANDOFF.md`)
+The context-aware-nav + guided-tours epic is built BEFORE this migration (it's domain-
+independent except for one constant). It deliberately builds its PWA-install piece
+**BASE_URL-relative** so it works on today's domain and inherits `app.` automatically. When
+this migration runs, pick up these handoffs — there is nothing to *finish*, only to repoint
+and re-verify:
+1. **`api/manifest.js` (Phase 2.1)** — the nav epic added `start_url: /feed` for club/
+   guardian/multi-context users alongside the existing `/admin/<token>` + `/` cases. Changing
+   `BASE_URL` is the ONLY edit needed; the `/feed` logic inherits it. Do not run a manifest-
+   touching nav session and this migration in parallel (shared-file collision — Cloud Session
+   Discipline). Sequence: nav epic merged first, then this.
+2. **`/feed` deep-link target (Phase 5.1 CTAs)** — the marketing apex's "Get the app" CTA and
+   the catch-all 301 should land authenticated users on `app.in-or-out.com/feed` (the unified
+   cross-context home + switcher the nav epic introduces).
+3. **PWA install re-test (Phase 6.1)** — verify the `/feed` installable home for a club member
+   AND a guardian on `app.`, not just the admin/squad install (Hard Rule #13).
+4. **No new env, cron, webhook, or DB repoint** — the nav epic touches none of Phases 3–4.
 
 ## Repoint inventory (reference)
 - **Code (Phase 2):** `apps/inorout/api/{manifest,cron,notify,gocardless-mandate,

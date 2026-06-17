@@ -367,3 +367,17 @@ availability for each. Verified facts:
 Two new migrations: **(A)** team-state fields onto `get_team_state_by_player_token` + `_admin_token`
 (+ mappers); **(B)** `guardian_list_children_sessions` read RPC. Grab the next free numbers at build
 time; one session start-to-finish to avoid the parallel-number collision.
+
+### Ordering vs the domain migration (`DOMAIN_MIGRATION.md`)
+**This nav epic ships FIRST.** It is domain-independent except for one constant (`BASE_URL` in
+`api/manifest.js`), and the domain migration hasn't started + carries operational risk (7 crons,
+webhooks, OAuth). No hard conflict between the two — different layers (in-app UX vs hosting). The
+single touch-point is `api/manifest.js`: the nav epic adds `start_url: /feed` there; the domain
+migration changes `BASE_URL` there.
+- **Build the `/feed` install BASE_URL-relative** (reference the existing constant, do NOT hardcode a
+  domain) — so it works on today's `www.in-or-out.com` AND auto-inherits `app.in-or-out.com` later.
+  The "deferred" part is then only a re-test, not unfinished work.
+- **Never run a manifest-touching nav session and a manifest-touching domain session in parallel**
+  (shared-file collision per Cloud Session Discipline). Nav merges first, then domain.
+- Follow-on handoffs (manifest repoint, `/feed` CTA deep-link, `/feed` install re-test on `app.`) are
+  recorded in `DOMAIN_MIGRATION.md` → "Follow-on tasks from the multi-context nav epic".
