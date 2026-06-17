@@ -1399,7 +1399,7 @@ footballer. With the flag on, the switcher + club/guardian nav work and no
 casual surface regresses. If any tap does nothing or content hides behind the
 nav bar, STOP and escalate before enabling the flag on the pilot team.
 
-## 17. SESSION 142 — RECURRING-SESSION TIMES STORED IN UTC NOT UK LOCAL (mig 353)
+## 17. SESSION 143 — RECURRING-SESSION TIMES STORED IN UTC NOT UK LOCAL (mig 353)
 
 **Issue class:** recurring-session generators stored the operator's entered time
 as UTC, so during **British Summer Time** every recurring class / club-training
