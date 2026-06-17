@@ -303,3 +303,67 @@ All contexts: header avatar → unified switcher.
   iPhone walk owed before commit on both phases (NavBar / PlayerView / App.jsx routing in scope).
 - Update `BUGS.md` (two pre-existing bugs resolved), `RPCS.md` (return-shape additions + consumers),
   `GO_LIVE_ISSUES.md` (device checks), `CONTEXT.md` session entry.
+
+### Guardian context — CORRECTED spec (session 141, after operator review)
+A child is *on a team*; that team has both training and matches, and the guardian must set
+availability for each. Verified facts:
+- A **match is just a `club_sessions` row** with `session_type IN ('training','match','friendly','other')`
+  carrying `opponent_name` / `home_away` / `meet_time` (mig 300:78-79). So "in for training" and
+  "in for the match" are the **same action** on two sessions.
+- The **write is already solved and guardian-aware**: `member_rsvp_session(sessionId, status,
+  {forProfileId: child})` checks `member_guardians` (you're the guardian) + the **child's** active
+  membership — NOT the guardian's (mig 299:100-122). So a parent can RSVP any child in any club the
+  *child* belongs to, even one the parent isn't a member of. Many kids, multi-club, same-team-two-kids:
+  all handled, one RSVP per (session, child).
+- **The gap is reading/discovery.** `SessionsScreen` is single-club and requires the *guardian's own*
+  membership → a kid in a club the parent isn't in is **invisible**. Guardian Home shows only the one
+  *next* session per child (mig 314:264-324). **No RPC returns all children's sessions across all clubs.**
+
+**Locked guardian build (adds one migration):**
+- **New read RPC `guardian_list_children_sessions`** (SECURITY DEFINER) — for every child of the caller
+  (via `member_guardians`), all upcoming **training + matches** across **all** the child's clubs/cohorts/
+  teams (matches carry opponent + meet time), with that child's current RSVP status. Gated guardian→child
+  + child→membership (mirrors mig 299; no guardian-own-membership requirement). Grants both anon +
+  authenticated per [[vc_parity_sweep_grants]] discipline.
+- **Child-first guardian Home** — each child listed with their upcoming fixtures; **In / Out** control
+  per item wired to the existing `member_rsvp_session(forProfileId=child)`; child filter chips when there
+  are several; two kids on one match = two rows. Follow-live stays for games in progress.
+- **Guardian stays a single context**; children are content/filter *within* it, never separate switcher
+  entries. The parent's own squads/clubs remain separate entries.
+- **Injured: out of scope for now** — sessions have in/maybe/out only; "out (+ optional note)" covers an
+  injury report. A distinct child "injured" state is a deferred follow-on.
+
+### Cross-cutting decisions (Tier 1–2, locked session 141)
+1. **Landing + last-context memory** — multi-context users land on `/feed` (the hub); store a
+   "last active context" so the app reopens where the user left off, not on a dormant squad.
+2. **PWA install for non-squad users** — make `/feed` the canonical installable home (today the
+   `api/manifest` + index.html inline-script install story is squad-token-only; guardians/club-only
+   members have no install target). **Verify the manifest path for `/feed` + club/guardian routes during
+   build — Hard Rule #13 real-device walk applies.**
+3. **Tour vs existing overlays** — the spotlight tour is **suppressed while any modal/overlay is open**
+   (SquadReady, InstallBanner, AuthGateModal, both POTM modals per [[reference_two_potm_modals]]).
+   First-run order: SquadReady → install prompt → tour.
+4. **Tour abandonment** — mark a tour **"seen" on first SHOW, not on completion**, so it never nags even
+   if abandoned mid-way.
+5. **Terminology** — keep the **In / Out** brand language across every context; surface "maybe" only where
+   the data supports it (club sessions), quietly.
+6. **Empty states** — spec one per new surface: guardian with no upcoming sessions (off-season), club
+   member with no classes, competitive team between seasons.
+7. **Feature flag / kill-switch** — gate the new context-aware nav behind a simple per-team flag so it can
+   ship dark, enable per team, and roll back instantly. (This reshapes the most-used app during an active
+   pilot — see [[project_pilot_venue]].)
+
+### Deferred follow-ons (named, NOT in this epic)
+- **Guardian/child notifications** — "remind me to RSVP [child] for Saturday." The single biggest value
+  add for the guardian case; push is per-device/token today with no guardian/child path. Next epic.
+- **Distinct child "injured" status** on match availability (needs a new session status).
+- **Coach/manager context** — `memberGetSelf` already returns `managed_teams`; a latent consumer context
+  not modelled here.
+- **Teen self-graduation** from a managed child profile to their own login.
+- **Tour analytics** — tours are localStorage-only, so adoption is unmeasured; a small server trace would
+  be additive.
+
+### Migration count for this epic (sequence per CLOUD SESSION DISCIPLINE)
+Two new migrations: **(A)** team-state fields onto `get_team_state_by_player_token` + `_admin_token`
+(+ mappers); **(B)** `guardian_list_children_sessions` read RPC. Grab the next free numbers at build
+time; one session start-to-finish to avoid the parallel-number collision.
