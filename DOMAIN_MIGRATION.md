@@ -22,11 +22,20 @@ old Phase 5.3 (which said "remove the apex from `platform-clubmanager`" — woul
 prod) has been reversed. See §2 "Confirmed facts" for the corrected project map.
 
 **Done:** Phase 1 (operator) + **Phase 2 (code repoint, commit `70b74cc` on main — 17 files,
-27 link/auth constants → `app.`).** Auto-deployed to `platform-clubmanager`.
+27 link/auth constants → `app.`)** + **Phase 4 (DB cron/fns, mig 361, s150).** All on
+`platform-clubmanager`.
 
-**Still to do (Claude):** Phase 4 (cron/fns, mig 361+) → Phase 5.1 (marketing 301).
-⚠️ Phase 4 is BLOCKED until the operator sets the new `CRON_SECRET` on `platform-clubmanager`
-(Phase 3) and gives Claude the value — the 7 cron jobs must send it or they 401.
+**Phase 4 DONE (mig 361, s150):** all 7 pg_cron jobs repointed `www`→`app.in-or-out.com` +
+`CRON_SECRET` ROTATED lockstep (old weak `Liverp00l123?!!*` → strong 32-byte secret on the
+`platform-clubmanager` env + redeployed); `notify_spot_opened()` (direct push, no bearer) +
+`get_display_landing_code()` (`/q/` url) repointed to `app.`. Live sweep clean: 7/7 jobs on
+`app.` + new bearer, 0 apex refs in both fn bodies, security sweep PASS (both SECDEF +
+search_path + single overload + grants intact). Verified live: `app./api/cron` + `/api/notify`
+401 the old bearer, 200 the new; the 13:30 scheduled tick produced 8× HTTP 200 from `app.`,
+zero 401s. **Zero apex references remain in the database.**
+
+**Still to do (Claude):** Phase 5.1 (marketing catch-all 301 `vercel.json`, repo-only, no live
+effect until 5.2 deploy).
 
 **Still to do (operator):** Phase 3 env (incl. new `CRON_SECRET`), Phase 2.5 Supabase Auth,
 Phase 5.2–5.4 apex flip + dead-`inor-out` cleanup, Phase 6 real-iPhone PWA.
