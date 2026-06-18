@@ -2,8 +2,10 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
+    { "source": "/venues", "destination": "/venue", "permanent": true },
+    { "source": "/venues.html", "destination": "/venue", "permanent": true },
     {
-      "source": "/((?!venues|index\\.html|favicon\\.ico|assets/).+)",
+      "source": "/((?!casual|venue|club|index\\.html|favicon\\.ico|robots\\.txt|sitemap\\.xml|assets/).+)",
       "destination": "https://app.in-or-out.com/$1",
       "permanent": true
     }

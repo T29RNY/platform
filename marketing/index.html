@@ -3,11 +3,26 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>In or Out — The casual football organiser</title>
-<meta name="description" content="One tap to commit. Teams, fees and stats sorted before kickoff. The football organiser that kills the group-chat chaos." />
+<title>In or Out — From one match to your whole club, run in one place</title>
+<meta name="description" content="It started as one tap — are you in, or out? Now it runs whole clubs and venues: availability, memberships, classes, leagues, payments and live match-day. One platform." />
+<link rel="canonical" href="https://in-or-out.com/" />
+<meta property="og:title" content="In or Out — from one match to your whole club" />
+<meta property="og:description" content="The casual football organiser that grew into a full club & venue operating system." />
+<meta property="og:type" content="website" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "In or Out",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web, iOS, Android",
+  "description": "From a one-tap casual football organiser to a full club and venue operating system — availability, memberships, classes, leagues, payments and live match-day in one platform.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" }
+}
+</script>
 <style>
 /* ============================================================
    TOKENS — mirrors apps/inorout/src/styles/tokens.css
@@ -29,36 +44,16 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{
-  background:var(--bg);color:var(--text);font-family:var(--font-body);
-  font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
-  overflow-x:hidden;
-}
-/* grain overlay */
-body::before{
-  content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.035;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 a{color:inherit;text-decoration:none}
 h1,h2,h3,h4{font-family:var(--font-display);font-weight:400;letter-spacing:.02em;line-height:.92}
-.display{font-family:var(--font-display);letter-spacing:.02em;line-height:.9}
-.eyebrow{
-  font-family:var(--font-body);font-weight:600;font-size:12px;letter-spacing:.22em;
-  text-transform:uppercase;color:var(--accent);
-}
+.eyebrow{font-family:var(--font-body);font-weight:600;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
 .muted{color:var(--text-2)}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
 .accent{color:var(--accent)}
 
-/* ============================================================
-   BUTTONS
-   ============================================================ */
-.btn{
-  display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);
-  font-weight:600;font-size:15px;border-radius:var(--radius-full);
-  padding:14px 26px;cursor:pointer;border:1px solid transparent;
-  transition:transform .2s var(--ease-spring),background .2s,box-shadow .2s;
-}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:15px;border-radius:var(--radius-full);padding:14px 26px;cursor:pointer;border:1px solid transparent;transition:transform .2s var(--ease-spring),background .2s,box-shadow .2s}
 .btn:active{transform:scale(.96)}
 .btn-primary{background:var(--accent);color:#0A0A08;box-shadow:var(--shadow-accent)}
 .btn-primary:hover{background:var(--accent-press);box-shadow:0 6px 28px rgba(232,160,32,.4);transform:translateY(-2px)}
@@ -66,76 +61,63 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:400;letter-spacing:.02em
 .btn-ghost:hover{background:var(--surface-2);border-color:var(--text-3)}
 .btn-sm{padding:10px 18px;font-size:14px}
 
-/* ============================================================
-   NAV
-   ============================================================ */
-nav{
-  position:fixed;top:0;left:0;right:0;z-index:100;
-  transition:background .3s,border-color .3s,backdrop-filter .3s;
-  border-bottom:1px solid transparent;
-}
-nav.scrolled{
-  background:rgba(10,10,11,.72);backdrop-filter:blur(18px) saturate(140%);
-  border-bottom:1px solid var(--hairline);
-}
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;transition:background .3s,border-color .3s,backdrop-filter .3s;border-bottom:1px solid transparent}
+nav.scrolled{background:rgba(10,10,11,.72);backdrop-filter:blur(18px) saturate(140%);border-bottom:1px solid var(--hairline)}
 .nav-inner{display:flex;align-items:center;justify-content:space-between;height:68px}
 .logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:24px;letter-spacing:.04em}
 .logo .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+.logo .wm{display:inline}.logo .b-in{color:var(--positive)}.logo .b-or{color:var(--text-2)}.logo .b-out{color:var(--negative)}
 .nav-links{display:flex;gap:34px;align-items:center}
 .nav-links a{font-size:14px;color:var(--text-2);font-weight:500;transition:color .2s}
 .nav-links a:hover{color:var(--text)}
 .nav-cta{display:flex;gap:12px;align-items:center}
-@media(max-width:820px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
+@media(max-width:880px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
 
 /* ============================================================
-   HERO
+   CINEMATIC HERO (full-bleed video bg, poster-first)
    ============================================================ */
-.hero{position:relative;padding:160px 0 90px;overflow:hidden}
-.hero-glow{
-  position:absolute;top:-180px;left:50%;transform:translateX(-50%);
-  width:900px;height:620px;border-radius:50%;pointer-events:none;
-  background:radial-gradient(closest-side,rgba(232,160,32,.18),rgba(232,160,32,.04) 55%,transparent 72%);
-  filter:blur(20px);
-}
-.hero-grid{
-  display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;position:relative;z-index:2;
-}
-.hero h1{font-size:clamp(64px,9.5vw,148px);margin:18px 0 0;text-transform:uppercase}
-.hero h1 .in{color:var(--positive)}
-.hero h1 .out{
-  -webkit-text-stroke:2px var(--negative);color:transparent;
-}
-.hero-sub{font-size:19px;color:var(--text-2);max-width:480px;margin:24px 0 32px;line-height:1.55}
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;overflow:hidden;padding:140px 0 90px}
+.hero-bg{position:absolute;inset:0;z-index:0;overflow:hidden;
+  background:radial-gradient(ellipse 80% 70% at 50% 30%,rgba(232,160,32,.12),transparent 60%),var(--bg)}
+.hero-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s var(--ease-out)}
+.hero-bg video.loaded{opacity:.55}
+/* legibility scrim */
+.hero-bg::after{content:"";position:absolute;inset:0;background:
+  linear-gradient(180deg,rgba(10,10,8,.55) 0%,rgba(10,10,8,.25) 35%,rgba(10,10,8,.7) 100%),
+  radial-gradient(ellipse 70% 60% at 30% 50%,transparent 0%,rgba(10,10,8,.45) 100%)}
+.hero .wrap{position:relative;z-index:2}
+.hero-inner{max-width:760px}
+.hero .eyebrow{display:inline-block;margin-bottom:18px}
+.hero h1{font-size:clamp(52px,8vw,116px);text-transform:uppercase;margin:0 0 6px}
+.io-pre{display:block;font-size:.4em;color:var(--text);letter-spacing:.04em;opacity:.92;margin-bottom:.04em}
+.io-toggle{display:inline-flex;align-items:baseline;gap:.24em;position:relative}
+.io-word{transition:opacity .6s var(--ease-out),text-shadow .6s var(--ease-out)}
+.w-in{color:var(--positive)}
+.w-out{-webkit-text-stroke:2px var(--negative);color:transparent}
+.io-or{font-size:.3em;color:var(--text-3);letter-spacing:.04em;align-self:center;transform:translateY(-.06em);text-transform:lowercase}
+.io-toggle.on-in .w-out,.io-toggle.on-out .w-in{opacity:.4}
+.io-toggle.on-in .w-in{text-shadow:0 0 44px rgba(61,220,106,.6)}
+.io-toggle.on-out .w-out{text-shadow:0 0 44px rgba(255,64,64,.55)}
+.hero-sub{font-size:clamp(17px,2.2vw,21px);color:var(--text-2);max-width:560px;margin:24px 0 34px;line-height:1.55}
 .hero-cta{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-.hero-meta{display:flex;gap:26px;margin-top:36px;flex-wrap:wrap}
-.hero-meta .m-num{font-family:var(--font-display);font-size:38px;color:var(--text);line-height:1}
+.hero-meta{display:flex;gap:30px;margin-top:46px;flex-wrap:wrap}
+.hero-meta .m-num{font-family:var(--font-display);font-size:40px;line-height:1}
 .hero-meta .m-lab{font-size:12px;color:var(--text-3);letter-spacing:.04em;margin-top:4px}
-@media(max-width:880px){
-  .hero-grid{grid-template-columns:1fr;gap:56px}
-  .hero{padding:128px 0 60px}
-}
+.scrollcue{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:2;font-size:11px;letter-spacing:.2em;color:var(--text-3);text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:8px}
+.scrollcue .ln{width:1px;height:38px;background:linear-gradient(var(--accent),transparent);animation:cue 2s ease-in-out infinite}
+@keyframes cue{0%,100%{opacity:.3;transform:scaleY(.6)}50%{opacity:1;transform:scaleY(1)}}
+@media(max-width:880px){.hero{min-height:auto;padding:120px 0 70px}.scrollcue{display:none}}
 
-/* ============================================================
-   PHONE MOCKUP
-   ============================================================ */
-.phone{
-  width:300px;border-radius:42px;background:#000;padding:11px;
-  border:1px solid var(--border-2);
-  box-shadow:0 40px 90px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.03),0 20px 60px rgba(232,160,32,.07);
-  position:relative;margin:0 auto;
-}
-.phone::before{content:"";position:absolute;top:20px;left:50%;transform:translateX(-50%);width:96px;height:26px;background:#000;border-radius:14px;z-index:5}
-.phone-screen{
-  background:var(--bg);border-radius:32px;overflow:hidden;height:600px;position:relative;
-  border:1px solid var(--hairline);
-}
-.app-top{padding:46px 18px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hairline)}
-.app-title{font-family:var(--font-display);font-size:22px;letter-spacing:.03em}
-.app-pill{font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-dim);padding:5px 10px;border-radius:var(--radius-full)}
-.app-body{padding:16px 16px 20px}
+/* shared section heads */
+.sec{padding:110px 0;position:relative}
+.sec-head{max-width:720px;margin-bottom:60px}
+.sec-head h2{font-size:clamp(40px,6vw,84px);text-transform:uppercase;margin:14px 0 0}
+.sec-head p{font-size:18px;color:var(--text-2);margin-top:18px;line-height:1.55}
+.center{text-align:center;margin-left:auto;margin-right:auto}
 
-/* match card inside phone */
-.match-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px}
+/* match card (shared) */
+.match-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px}
 .mc-date{font-family:var(--font-display);font-size:26px;letter-spacing:.03em}
 .mc-venue{font-size:12px;color:var(--text-2);margin-top:2px}
 .mc-count{display:flex;gap:14px;margin:14px 0;font-size:12px}
@@ -146,105 +128,57 @@ nav.scrolled{
 .io-in{background:var(--positive);color:#0A0A08;border-color:transparent}
 .io-out{background:rgba(255,64,64,.12);color:var(--negative);border-color:rgba(255,64,64,.3)}
 
-/* squad rows */
-.squad-row{display:flex;align-items:center;gap:11px;padding:10px 4px;border-bottom:1px solid var(--hairline)}
-.av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:14px;color:#0A0A08}
-.sr-name{flex:1;font-size:13px;font-weight:500}
-.sr-tag{font-size:10px;font-weight:600;padding:4px 8px;border-radius:var(--radius-full)}
-.t-paid{color:var(--positive);background:rgba(61,220,106,.12)}
-.t-due{color:var(--warning);background:rgba(255,176,32,.12)}
-.t-in{color:var(--accent);background:var(--accent-dim)}
+/* =========== PINNED SET-PIECE: chaos → clarity (Act 1) =========== */
+.pin{height:340vh;position:relative}
+.pin-stage{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center}
+.pin-kicker{position:absolute;top:15%;left:0;right:0;font-family:var(--font-body);font-weight:600;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--text-3);will-change:opacity}
+.pin-chaos{position:absolute;inset:0;pointer-events:none}
+.cb{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 17px;font-size:15px;color:var(--text-2);white-space:nowrap;box-shadow:var(--shadow-md);will-change:transform,opacity}
+.pin-order{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:26px;opacity:0;will-change:transform,opacity}
+.pin-order .match-card{width:300px;text-align:left;box-shadow:var(--shadow-lg),0 0 60px rgba(232,160,32,.1)}
+.pin-glow{position:absolute;width:520px;height:520px;border-radius:50%;left:50%;top:42%;transform:translate(-50%,-50%) scale(.4);background:radial-gradient(closest-side,rgba(232,160,32,.22),rgba(232,160,32,.05) 55%,transparent 72%);opacity:0;pointer-events:none;z-index:-1;filter:blur(8px)}
+@keyframes kenburns{0%{transform:scale(1.02)}100%{transform:scale(1.12)}}
+.pin-line{font-family:var(--font-display);font-size:clamp(40px,7vw,96px);text-transform:uppercase;line-height:.9}
+.pin-line .g{color:var(--positive)}
+@media(max-width:600px){.pin-order .match-card{width:260px}}
 
-/* ============================================================
-   MARQUEE
-   ============================================================ */
-.marquee{border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);padding:22px 0;overflow:hidden;background:var(--surface)}
-.marquee-track{display:flex;gap:56px;white-space:nowrap;animation:scroll 32s linear infinite;width:max-content}
-.marquee-track span{font-family:var(--font-display);font-size:26px;letter-spacing:.05em;color:var(--text-3)}
-.marquee-track span .accent{color:var(--accent)}
-@keyframes scroll{to{transform:translateX(-50%)}}
+/* =========== THREE DOORS =========== */
+.doors{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.door{position:relative;border-radius:var(--radius-xl);border:1px solid var(--border);background:var(--surface);padding:34px 30px 30px;overflow:hidden;transition:transform .35s var(--ease-out),border-color .35s;display:flex;flex-direction:column;min-height:300px}
+.door:hover{transform:translateY(-6px);border-color:var(--border-2)}
+.door::before{content:"";position:absolute;inset:0;opacity:0;transition:opacity .35s;pointer-events:none}
+.door.d-casual::before{background:radial-gradient(circle 260px at var(--mx,50%) var(--my,0%),rgba(61,220,106,.16),transparent 60%)}
+.door.d-venue::before{background:radial-gradient(circle 260px at var(--mx,50%) var(--my,0%),rgba(232,160,32,.18),transparent 60%)}
+.door.d-club::before{background:radial-gradient(circle 260px at var(--mx,50%) var(--my,0%),rgba(96,160,255,.18),transparent 60%)}
+.door:hover::before{opacity:1}
+.door .dk{font-family:var(--font-body);font-weight:600;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--text-3)}
+.door h3{font-size:clamp(30px,3.4vw,42px);text-transform:uppercase;margin:14px 0 12px}
+.door p{font-size:15px;color:var(--text-2);line-height:1.55;flex:1}
+.door .go{margin-top:22px;font-family:var(--font-body);font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px}
+.door.d-casual .go{color:var(--positive)} .door.d-venue .go{color:var(--accent)} .door.d-club .go{color:var(--info)}
+.door .go .ar{transition:transform .3s var(--ease-spring)}
+.door:hover .go .ar{transform:translateX(5px)}
+@media(max-width:820px){.doors{grid-template-columns:1fr}}
 
-/* ============================================================
-   SECTIONS
-   ============================================================ */
-section{position:relative}
-.sec{padding:110px 0}
-.sec-head{max-width:680px;margin-bottom:64px}
-.sec-head h2{font-size:clamp(40px,6vw,82px);text-transform:uppercase;margin:14px 0 0}
-.sec-head p{font-size:18px;color:var(--text-2);margin-top:18px;line-height:1.55}
+/* =========== ACT-2 ZOOM-OUT: the operating system =========== */
+.scenes{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.scene{position:relative;border-radius:var(--radius-xl);overflow:hidden;border:1px solid var(--border);background:var(--surface-2);min-height:280px;display:flex;flex-direction:column;justify-content:flex-end}
+.scene.tall{grid-row:span 2}
+.scene .media{position:absolute;inset:0;z-index:0;background:#0d0d0b}
+.scene .media video,.scene .media img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s var(--ease-out)}
+.scene .media video.loaded,.scene .media img.loaded{opacity:.78;animation:kenburns 22s ease-in-out infinite alternate}
+.scene::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,transparent 35%,rgba(10,10,8,.55) 70%,rgba(10,10,8,.92) 100%)}
+.scene .cap{position:relative;z-index:2;padding:26px}
+.scene .cap .k{font-family:var(--font-body);font-weight:600;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.scene .cap h4{font-size:clamp(24px,2.6vw,34px);text-transform:uppercase;margin:8px 0 6px}
+.scene .cap p{font-size:14px;color:var(--text-2);line-height:1.5;max-width:380px}
+@media(max-width:820px){.scenes{grid-template-columns:1fr}.scene.tall{grid-row:auto}}
 
-/* problem split */
-.split{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.split-card{border-radius:var(--radius-xl);padding:38px;border:1px solid var(--border)}
-.split-bad{background:var(--surface)}
-.split-good{background:linear-gradient(160deg,rgba(232,160,32,.10),rgba(232,160,32,.02));border-color:rgba(232,160,32,.22)}
-.split-card h3{font-size:30px;text-transform:uppercase;margin-bottom:20px}
-.chat-line{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;font-size:14px}
-.chat-line .nm{font-weight:600;color:var(--text-3);min-width:60px;font-size:12px}
-.chat-line .tx{color:var(--text-2)}
-.good-list{list-style:none}
-.good-list li{display:flex;gap:12px;align-items:center;padding:11px 0;font-size:15px;border-bottom:1px solid var(--hairline)}
-.good-list li:last-child{border:none}
-.tick{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#0A0A08;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-@media(max-width:760px){.split{grid-template-columns:1fr}}
-
-/* feature rows */
-.feat{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;padding:80px 0}
-.feat:nth-child(even) .feat-media{order:2}
-.feat-num{font-family:var(--font-display);font-size:18px;color:var(--accent);letter-spacing:.1em}
-.feat h3{font-size:clamp(34px,4.6vw,60px);text-transform:uppercase;margin:12px 0 18px}
-.feat p{font-size:17px;color:var(--text-2);line-height:1.6;max-width:440px}
-.feat-list{margin-top:24px;display:flex;flex-direction:column;gap:14px}
-.feat-list .fl{display:flex;gap:12px;align-items:flex-start;font-size:15px;color:var(--text)}
-.feat-list .fl .ico{color:var(--accent);flex-shrink:0;margin-top:2px}
-.feat-media{display:flex;justify-content:center}
-@media(max-width:860px){
-  .feat{grid-template-columns:1fr;gap:40px;padding:48px 0}
-  .feat:nth-child(even) .feat-media{order:0}
-}
-
-/* mini app panels for feature media */
-.panel{width:340px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:22px;box-shadow:var(--shadow-lg)}
-.panel-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-.panel-h .t{font-family:var(--font-display);font-size:22px;letter-spacing:.03em}
-
-/* team split mock */
-.teams{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.team-col{border-radius:var(--radius-md);padding:14px;border:1px solid var(--border)}
-.team-col h5{font-family:var(--font-display);font-size:20px;letter-spacing:.04em;margin-bottom:12px;text-align:center}
-.team-a h5{color:var(--teamA)} .team-b h5{color:var(--teamB)}
-.tp{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 0;color:var(--text-2)}
-.tp .pdot{width:8px;height:8px;border-radius:50%}
-.team-a .pdot{background:var(--teamA)} .team-b .pdot{background:var(--teamB)}
-
-/* reliability ring */
-.ring-wrap{display:flex;align-items:center;gap:20px}
-.ring{position:relative;width:108px;height:108px;flex-shrink:0}
-.ring svg{transform:rotate(-90deg)}
-.ring .rv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.ring .rv b{font-family:var(--font-display);font-size:34px;line-height:1}
-.ring .rv small{font-size:10px;color:var(--text-3);letter-spacing:.08em}
-.stat-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--hairline);font-size:13px}
-.stat-row b{font-family:var(--font-display);font-size:18px}
-
-/* bento */
-.bento{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.bento .b{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:30px;transition:transform .3s var(--ease-out),border-color .3s}
-.bento .b:hover{transform:translateY(-5px);border-color:var(--border-2)}
-.bento .b.tall{grid-row:span 2}
-.bento .b.wide{grid-column:span 2}
-.b-ico{width:46px;height:46px;border-radius:var(--radius-md);background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:18px}
-.bento .b h4{font-size:24px;text-transform:uppercase;margin-bottom:10px}
-.bento .b p{font-size:14px;color:var(--text-2);line-height:1.55}
-.b-big{font-family:var(--font-display);font-size:64px;color:var(--accent);line-height:1;margin-bottom:6px}
-@media(max-width:820px){.bento{grid-template-columns:1fr 1fr}.bento .b.wide,.bento .b.tall{grid-column:auto;grid-row:auto}}
-@media(max-width:520px){.bento{grid-template-columns:1fr}}
-
-/* stat band */
+/* STAT BAND */
 .statband{background:var(--surface);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
 .statband .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding:64px 24px}
 .sb{text-align:center}
-.sb b{font-family:var(--font-display);font-size:clamp(48px,7vw,84px);color:var(--text);display:block;line-height:1}
+.sb b{font-family:var(--font-display);font-size:clamp(44px,6.5vw,80px);color:var(--text);display:block;line-height:1}
 .sb b .accent{color:var(--accent)}
 .sb span{font-size:13px;color:var(--text-3);letter-spacing:.06em}
 @media(max-width:720px){.statband .wrap{grid-template-columns:1fr 1fr;gap:40px 24px}}
@@ -252,76 +186,38 @@ section{position:relative}
 /* CTA */
 .cta{padding:130px 0;text-align:center;position:relative;overflow:hidden}
 .cta-glow{position:absolute;inset:0;background:radial-gradient(ellipse 60% 70% at 50% 100%,rgba(232,160,32,.16),transparent 70%);pointer-events:none}
-.cta h2{font-size:clamp(56px,11vw,160px);text-transform:uppercase;position:relative;z-index:2}
-.cta p{font-size:19px;color:var(--text-2);margin:18px auto 36px;max-width:460px;position:relative;z-index:2}
+.cta h2{font-size:clamp(50px,10vw,150px);text-transform:uppercase;position:relative;z-index:2}
+.cta p{font-size:19px;color:var(--text-2);margin:18px auto 36px;max-width:480px;position:relative;z-index:2}
 .cta .hero-cta{justify-content:center;position:relative;z-index:2}
 
-/* footer */
+/* FOOTER */
 footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
 .foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px;margin-bottom:48px}
 .foot-grid h5{font-family:var(--font-body);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:18px}
 .foot-grid a{display:block;color:var(--text-2);font-size:14px;padding:6px 0;transition:color .2s}
 .foot-grid a:hover{color:var(--accent)}
-.foot-blurb{font-size:14px;color:var(--text-2);max-width:280px;margin-top:14px;line-height:1.6}
+.foot-blurb{font-size:14px;color:var(--text-2);max-width:300px;margin-top:14px;line-height:1.6}
 .foot-bot{display:flex;justify-content:space-between;align-items:center;padding-top:28px;border-top:1px solid var(--hairline);font-size:13px;color:var(--text-3)}
 .foot-bot .pill-link{display:flex;gap:10px}
 .foot-bot .pill-link a{padding:7px 14px;border:1px solid var(--border);border-radius:var(--radius-full);font-size:12px;color:var(--text-2)}
 @media(max-width:720px){.foot-grid{grid-template-columns:1fr 1fr}.foot-bot{flex-direction:column;gap:18px}}
 
-/* reveal animation */
+/* reveal + scroll progress */
 .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
 .reveal.in{opacity:1;transform:none}
-/* =====================================================
-   MOTION & WOW LAYER
-   ===================================================== */
-.scroll-progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:300;
-  background:linear-gradient(90deg,var(--accent),var(--positive));
-  box-shadow:0 0 14px rgba(232,160,32,.7);will-change:width}
-
-/* hero phone life — the IN button breathes green */
-@keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(61,220,106,0)}
-  50%{box-shadow:0 0 26px 2px rgba(61,220,106,.55)}}
-.hero .io-in{animation:breathe 2.8s ease-in-out infinite}
-.phone{will-change:transform}
-.btn-primary{will-change:transform}
-
-/* count pop */
-@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.22)}100%{transform:scale(1)}}
-.pop{display:inline-block;animation:pop .5s var(--ease-spring)}
-
-/* staggered reveal children */
-.stagger>*{opacity:0;transform:translateY(24px);
-  transition:opacity .65s var(--ease-out),transform .65s var(--ease-out)}
+.stagger>*{opacity:0;transform:translateY(24px);transition:opacity .65s var(--ease-out),transform .65s var(--ease-out)}
 .stagger.in>*{opacity:1;transform:none}
-
-/* reliability ring draws itself */
-.ring circle:last-child{transition:stroke-dashoffset 1.3s var(--ease-out)}
-
-/* =========== PINNED SET-PIECE: chaos → clarity =========== */
-.pin{height:340vh;position:relative}
-.pin-stage{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;overflow:hidden;text-align:center}
-.pin-kicker{position:absolute;top:15%;left:0;right:0;font-family:var(--font-body);
-  font-weight:600;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--text-3);will-change:opacity}
-.pin-chaos{position:absolute;inset:0;pointer-events:none}
-.cb{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  background:var(--surface);border:1px solid var(--border);border-radius:14px;
-  padding:12px 17px;font-size:15px;color:var(--text-2);white-space:nowrap;
-  box-shadow:var(--shadow-md);will-change:transform,opacity}
-.pin-order{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;
-  gap:26px;opacity:0;will-change:transform,opacity}
-.pin-order .match-card{width:300px;text-align:left;margin:0;box-shadow:var(--shadow-lg),0 0 60px rgba(232,160,32,.1)}
-.pin-line{font-family:var(--font-display);font-size:clamp(40px,7vw,96px);text-transform:uppercase;line-height:.9}
-.pin-line .g{color:var(--positive)}
-@media(max-width:600px){.pin-order .match-card{width:260px}}
+.scroll-progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:300;background:linear-gradient(90deg,var(--accent),var(--positive));box-shadow:0 0 14px rgba(232,160,32,.7);will-change:width}
 
 @media(prefers-reduced-motion:reduce){
   .reveal{opacity:1;transform:none;transition:none}
-  .marquee-track{animation:none}
   .stagger>*{opacity:1;transform:none}
-  .hero .io-in{animation:none}
   .pin{height:auto}.pin-stage{position:static;height:auto;padding:80px 0}
   .pin-chaos{display:none}.pin-order{opacity:1}
+  .scrollcue{display:none}
+  .hero{min-height:auto;padding:120px 0 70px}
+  .hero-bg video{opacity:.5}
+  .scene .media video{opacity:.78}
 }
 </style>
 </head>
@@ -331,15 +227,14 @@ footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
 <!-- NAV -->
 <nav id="nav">
   <div class="wrap nav-inner">
-    <div class="logo"><span class="dot"></span>IN OR OUT</div>
+    <a href="index.html" class="logo"><span class="dot"></span><span class="wm"><span class="b-in">IN</span> <span class="b-or">OR</span> <span class="b-out">OUT</span></span></a>
     <div class="nav-links">
-      <a href="#problem">Why</a>
-      <a href="#features">Features</a>
-      <a href="#organisers">For organisers</a>
-      <a href="venues.html">For venues →</a>
+      <a href="casual.html">For players</a>
+      <a href="venue.html">For venues</a>
+      <a href="club.html">For clubs</a>
     </div>
     <div class="nav-cta">
-      <a href="#features" class="btn btn-ghost btn-sm">How it works</a>
+      <a href="#doors" class="btn btn-ghost btn-sm">Where do I fit?</a>
       <a href="https://app.in-or-out.com" class="btn btn-primary btn-sm">Get the app</a>
     </div>
   </div>
@@ -347,116 +242,58 @@ footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
 
 <!-- HERO -->
 <header class="hero">
-  <div class="hero-glow"></div>
-  <div class="wrap hero-grid">
-    <div class="reveal in">
-      <span class="eyebrow">For players &amp; organisers</span>
-      <h1>Are you<br/><span class="in">in</span>, or <span class="out">out</span>?</h1>
-      <p class="hero-sub">The casual football organiser that kills the group-chat chaos. One tap to commit — teams, fees and stats sorted before kickoff.</p>
+  <div class="hero-bg">
+    <video muted loop playsinline preload="none" poster="assets/hero-poster.jpg" aria-hidden="true">
+      <source data-src="assets/hero-loop.mp4" type="video/mp4" />
+    </video>
+  </div>
+  <div class="wrap">
+    <div class="hero-inner">
+      <span class="eyebrow">One platform · from a kickabout to a club</span>
+      <h1 class="io-head"><span class="io-pre">It starts with</span><span class="io-toggle" data-toggle><span class="io-word w-in">IN</span><span class="io-or">or</span><span class="io-word w-out">OUT</span></span></h1>
+      <p class="hero-sub">It began as one tap to sort the Tuesday-night match. It grew into a full operating system for clubs and venues — availability, memberships, classes, leagues, payments and live match-day, all in one place.</p>
       <div class="hero-cta">
-        <a href="https://app.in-or-out.com" class="btn btn-primary">Get In or Out</a>
-        <a href="#features" class="btn btn-ghost">See how it works</a>
+        <a href="https://app.in-or-out.com" class="btn btn-primary">Get the app — free</a>
+        <a href="#doors" class="btn btn-ghost">See where you fit</a>
       </div>
       <div class="hero-meta">
-        <div><div class="m-num">12k+</div><div class="m-lab">MATCHES ORGANISED</div></div>
-        <div><div class="m-num">98%</div><div class="m-lab">KICK OFF FULL</div></div>
+        <div><div class="m-num">12k+</div><div class="m-lab">PLAYERS IN THE NETWORK</div></div>
+        <div><div class="m-num accent">8</div><div class="m-lab">APPS, ONE PLATFORM</div></div>
         <div><div class="m-num">3s</div><div class="m-lab">TO SAY YOU'RE IN</div></div>
       </div>
     </div>
-    <div class="reveal in">
-      <!-- PHONE: match card -->
-      <div class="phone">
-        <div class="phone-screen">
-          <div class="app-top">
-            <span class="app-title">NEXT MATCH</span>
-            <span class="app-pill">● LIVE</span>
-          </div>
-          <div class="app-body">
-            <div class="match-card">
-              <div class="mc-date">TUE · 7:00PM</div>
-              <div class="mc-venue">Powerleague Shoreditch · 6-a-side</div>
-              <div class="mc-count">
-                <div class="c-in"><b>11</b>IN</div>
-                <div class="c-mb"><b>4</b>MAYBE</div>
-                <div class="c-out"><b>2</b>OUT</div>
-              </div>
-              <div class="mc-btns">
-                <div class="io-btn io-in">I'M IN</div>
-                <div class="io-btn io-out">OUT</div>
-              </div>
-            </div>
-            <div class="squad-row">
-              <div class="av" style="background:var(--accent)">MJ</div>
-              <span class="sr-name">Marcus J.</span>
-              <span class="sr-tag t-paid">PAID</span>
-            </div>
-            <div class="squad-row">
-              <div class="av" style="background:#60A0FF">DK</div>
-              <span class="sr-name">Dan K.</span>
-              <span class="sr-tag t-in">IN</span>
-            </div>
-            <div class="squad-row">
-              <div class="av" style="background:#FFB020">SP</div>
-              <span class="sr-name">Sam P.</span>
-              <span class="sr-tag t-due">FEE DUE</span>
-            </div>
-            <div class="squad-row">
-              <div class="av" style="background:#FF4040">TR</div>
-              <span class="sr-name">Tom R.</span>
-              <span class="sr-tag t-paid">PAID</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
+  <div class="scrollcue"><span>Scroll</span><span class="ln"></span></div>
 </header>
 
-<!-- MARQUEE -->
-<div class="marquee">
-  <div class="marquee-track">
-    <span>TUESDAY 5-A-SIDE <span class="accent">·</span></span>
-    <span>SUNDAY LEAGUE <span class="accent">·</span></span>
-    <span>THE OFFICE XI <span class="accent">·</span></span>
-    <span>POWERLEAGUE REGULARS <span class="accent">·</span></span>
-    <span>WEDNESDAY CASUALS <span class="accent">·</span></span>
-    <span>FRIDAY 6S <span class="accent">·</span></span>
-    <span>TUESDAY 5-A-SIDE <span class="accent">·</span></span>
-    <span>SUNDAY LEAGUE <span class="accent">·</span></span>
-    <span>THE OFFICE XI <span class="accent">·</span></span>
-    <span>POWERLEAGUE REGULARS <span class="accent">·</span></span>
-    <span>WEDNESDAY CASUALS <span class="accent">·</span></span>
-    <span>FRIDAY 6S <span class="accent">·</span></span>
-  </div>
-</div>
-
-<!-- PINNED SET-PIECE: group-chat chaos dissolves into one clean card -->
+<!-- ACT 1: PINNED SET-PIECE — group-chat chaos dissolves into one clean card -->
 <section class="pin" id="dissolve" aria-label="From group-chat chaos to one-tap clarity">
   <div class="pin-stage">
     <p class="pin-kicker" data-kicker>The Tuesday-night group chat</p>
     <div class="pin-chaos" data-chaos>
       <span class="cb" data-x="-460" data-y="-230" data-r="-8" data-op="1" style="font-size:16px">Anyone for Tuesday??</span>
       <span class="cb" data-x="470" data-y="-255" data-r="7" data-op="1" style="font-size:15px">Maybe, lemme check 👍</span>
-      <span class="cb" data-x="-540" data-y="-40" data-r="-5" data-op=".9" style="font-size:14px">Out this week, sorry lads</span>
+      <span class="cb" data-io="out" data-x="-540" data-y="-40" data-r="-5" data-op=".9" style="font-size:14px">Out this week, sorry lads</span>
       <span class="cb" data-x="510" data-y="35" data-r="9" data-op="1" style="font-size:16px">who's actually paid??</span>
       <span class="cb" data-x="-390" data-y="195" data-r="5" data-op=".85" style="font-size:14px">what time again?</span>
       <span class="cb" data-x="430" data-y="220" data-r="-7" data-op="1" style="font-size:24px">😩</span>
-      <span class="cb" data-x="-150" data-y="-320" data-r="4" data-op="1" style="font-size:18px">+1</span>
+      <span class="cb" data-io="in" data-x="-150" data-y="-320" data-r="4" data-op="1" style="font-size:18px">+1</span>
       <span class="cb" data-x="185" data-y="-345" data-r="-6" data-op=".8" style="font-size:13px">can someone bring a ball</span>
       <span class="cb" data-x="-290" data-y="315" data-r="8" data-op=".9" style="font-size:15px">I'm a maybe tbh</span>
-      <span class="cb" data-x="305" data-y="335" data-r="-5" data-op="1" style="font-size:16px">need a goalie!!</span>
+      <span class="cb" data-io="in" data-x="305" data-y="335" data-r="-5" data-op="1" style="font-size:16px">need a goalie!!</span>
       <span class="cb" data-x="-620" data-y="120" data-r="6" data-op=".8" style="font-size:14px">🤕 done my hamstring</span>
       <span class="cb" data-x="615" data-y="145" data-r="-8" data-op=".75" style="font-size:13px">is it 6 or 7pm</span>
       <span class="cb" data-x="-110" data-y="350" data-r="-4" data-op=".9" style="font-size:14px">down to 8 now</span>
-      <span class="cb" data-x="130" data-y="-160" data-r="7" data-op=".95" style="font-size:15px">John's out again 🙄</span>
+      <span class="cb" data-io="out" data-x="130" data-y="-160" data-r="7" data-op=".95" style="font-size:15px">John's out again 🙄</span>
       <span class="cb" data-x="-575" data-y="-135" data-r="-6" data-op=".7" style="font-size:13px">anyone driving?</span>
       <span class="cb" data-x="575" data-y="-115" data-r="9" data-op="1" style="font-size:20px">🙄</span>
       <span class="cb" data-x="-235" data-y="-95" data-r="5" data-op=".9" style="font-size:14px">still short 2 lads</span>
-      <span class="cb" data-x="250" data-y="120" data-r="-7" data-op=".85" style="font-size:15px">WHO IS ACTUALLY IN</span>
+      <span class="cb" data-io="in" data-x="250" data-y="120" data-r="-7" data-op=".85" style="font-size:15px">WHO IS ACTUALLY IN</span>
       <span class="cb" data-x="-30" data-y="-260" data-r="3" data-op=".8" style="font-size:13px">sub for me?</span>
       <span class="cb" data-x="55" data-y="285" data-r="-5" data-op=".85" style="font-size:14px">😅 forgot my boots</span>
     </div>
     <div class="pin-order" data-order>
+      <div class="pin-glow" data-glow></div>
       <div class="match-card">
         <div class="mc-date">TUE · 7:00PM</div>
         <div class="mc-venue">Powerleague Shoreditch · 6-a-side</div>
@@ -475,163 +312,68 @@ footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
   </div>
 </section>
 
-<!-- PROBLEM -->
-<section class="sec" id="problem">
+<!-- THREE DOORS -->
+<section class="sec" id="doors">
   <div class="wrap">
-    <div class="sec-head reveal">
-      <span class="eyebrow">The Tuesday-night nightmare</span>
-      <h2>"Who's actually<br/>playing this week?"</h2>
-      <p>Forty unread messages. Three maybes. A no-show at kickoff and a striker short. The group chat was never built to organise a match. In or Out is.</p>
+    <div class="sec-head center reveal">
+      <span class="eyebrow">Where do you fit?</span>
+      <h2>One engine.<br/>Three ways in.</h2>
+      <p>The same availability primitive that sorts a kickabout runs a multi-venue estate and a multi-age club. Start where you are.</p>
     </div>
-    <div class="split reveal">
-      <div class="split-card split-bad">
-        <h3 class="muted">The group chat</h3>
-        <div class="chat-line"><span class="nm">Dave</span><span class="tx">Anyone for Tuesday??</span></div>
-        <div class="chat-line"><span class="nm">Mike</span><span class="tx">Maybe, will let you know 👍</span></div>
-        <div class="chat-line"><span class="nm">Jay</span><span class="tx">Out this week sorry lads</span></div>
-        <div class="chat-line"><span class="nm">Dave</span><span class="tx">So that's… 6? 7? who's paid?</span></div>
-        <div class="chat-line"><span class="nm">Sam</span><span class="tx">Sorry what time again</span></div>
-        <div class="chat-line"><span class="nm">Dave</span><span class="tx">😩</span></div>
-      </div>
-      <div class="split-card split-good">
-        <h3>In or Out</h3>
-        <ul class="good-list">
-          <li><span class="tick">✓</span> One tap — in, out, or maybe</li>
-          <li><span class="tick">✓</span> Live headcount, always accurate</li>
-          <li><span class="tick">✓</span> Teams picked automatically</li>
-          <li><span class="tick">✓</span> Who's paid, who hasn't — at a glance</li>
-          <li><span class="tick">✓</span> Reminders that nudge the maybes</li>
-          <li><span class="tick">✓</span> Stats and reliability, every week</li>
-        </ul>
-      </div>
+    <div class="doors reveal">
+      <a class="door d-casual" href="casual.html">
+        <span class="dk">Players &amp; organisers · free</span>
+        <h3>I organise<br/>a squad</h3>
+        <p>The casual football organiser. One tap to commit, teams picked for you, fees settled, stats that end the debates. Always free.</p>
+        <span class="go">Explore the player app <span class="ar">→</span></span>
+      </a>
+      <a class="door d-venue" href="venue.html">
+        <span class="dk">Venue operators</span>
+        <h3>I run<br/>a venue</h3>
+        <p>Bookings, leagues, reception display, referee match-day and payments — fill every pitch and look elite doing it.</p>
+        <span class="go">See the venue platform <span class="ar">→</span></span>
+      </a>
+      <a class="door d-club" href="club.html">
+        <span class="dk">Clubs &amp; gyms · any sport</span>
+        <h3>I run<br/>a club</h3>
+        <p>Memberships, training attendance, classes, coaching, grading and payments — every age group and discipline in one place.</p>
+        <span class="go">See the club platform <span class="ar">→</span></span>
+      </a>
     </div>
   </div>
 </section>
 
-<!-- FEATURES -->
-<section class="sec" id="features" style="padding-top:40px">
+<!-- ACT 2: THE OPERATING SYSTEM -->
+<section class="sec" style="padding-top:30px">
   <div class="wrap">
     <div class="sec-head reveal">
-      <span class="eyebrow">How it works</span>
-      <h2>Sorted before<br/>the whistle</h2>
-      <p>Everything a casual side needs, in one place. No spreadsheets, no chasing, no chaos.</p>
+      <span class="eyebrow">It didn't stop at one match</span>
+      <h2>The whole club,<br/>running itself.</h2>
+      <p>Pull the camera back from that single match and the same platform is running the reception screen, the referee's clock, the league table and the membership book — live, in sync, everywhere at once.</p>
     </div>
-
-    <!-- F1 -->
-    <div class="feat reveal">
-      <div>
-        <span class="feat-num">01 — COMMIT</span>
-        <h3>One tap.<br/>In or out.</h3>
-        <p>The whole app starts with a single decision. Players get the next match and answer in seconds. The headcount updates live for everyone, instantly.</p>
-        <div class="feat-list">
-          <div class="fl"><span class="ico">●</span> In, out or maybe — no typing required</div>
-          <div class="fl"><span class="ico">●</span> Live count syncs across every phone</div>
-          <div class="fl"><span class="ico">●</span> Waitlist auto-promotes when a spot opens</div>
+    <div class="scenes reveal">
+      <div class="scene tall" data-scene>
+        <div class="media"><video muted loop playsinline preload="none" poster="assets/scene-reception-poster.jpg" aria-hidden="true"><source data-src="assets/scene-reception.mp4" type="video/mp4" /></video></div>
+        <div class="cap">
+          <span class="k">Reception display</span>
+          <h4>Your venue,<br/>on the wall</h4>
+          <p>Live fixtures, scores, leaderboards and QR check-in — the big screen that makes a venue feel like a stadium.</p>
         </div>
       </div>
-      <div class="feat-media">
-        <div class="panel">
-          <div class="panel-h"><span class="t">TUE · 7:00PM</span><span class="app-pill">11 IN</span></div>
-          <div class="mc-btns" style="margin-bottom:16px">
-            <div class="io-btn io-in">I'M IN</div>
-            <div class="io-btn io-out">OUT</div>
-            <div class="io-btn" style="flex:.7;background:var(--surface-2);color:var(--warning)">?</div>
-          </div>
-          <div class="squad-row"><div class="av" style="background:var(--accent)">MJ</div><span class="sr-name">Marcus J.</span><span class="sr-tag t-in">IN</span></div>
-          <div class="squad-row"><div class="av" style="background:#60A0FF">DK</div><span class="sr-name">Dan K.</span><span class="sr-tag t-in">IN</span></div>
-          <div class="squad-row"><div class="av" style="background:#FFB020">SP</div><span class="sr-name">Sam P.</span><span class="sr-tag t-due">MAYBE</span></div>
+      <div class="scene" data-scene>
+        <div class="media"><video muted loop playsinline preload="none" poster="assets/scene-ref-poster.jpg" aria-hidden="true"><source data-src="assets/scene-ref.mp4" type="video/mp4" /></video></div>
+        <div class="cap">
+          <span class="k">Referee · live</span>
+          <h4>Match-day, broadcast</h4>
+          <p>Clock, score, sin-bin and cards — straight from the ref to every screen in under a second.</p>
         </div>
       </div>
-    </div>
-
-    <!-- F2 -->
-    <div class="feat reveal">
-      <div>
-        <span class="feat-num">02 — BALANCE</span>
-        <h3>Fair teams,<br/>picked for you</h3>
-        <p>Hit the whistle and In or Out splits everyone into balanced sides using reliability and form — or shuffle them yourself. No more captains arguing over who gets the ringer.</p>
-        <div class="feat-list">
-          <div class="fl"><span class="ico">●</span> Auto-balanced by ability &amp; attendance</div>
-          <div class="fl"><span class="ico">●</span> Drag to rebalance in a tap</div>
-          <div class="fl"><span class="ico">●</span> Bibs assigned so everyone knows their side</div>
-        </div>
-      </div>
-      <div class="feat-media">
-        <div class="panel">
-          <div class="panel-h"><span class="t">TEAMS</span><span class="app-pill">AUTO-PICKED</span></div>
-          <div class="teams">
-            <div class="team-col team-a">
-              <h5>BLUES</h5>
-              <div class="tp"><span class="pdot"></span>Marcus J.</div>
-              <div class="tp"><span class="pdot"></span>Sam P.</div>
-              <div class="tp"><span class="pdot"></span>Leo M.</div>
-              <div class="tp"><span class="pdot"></span>Aaron T.</div>
-            </div>
-            <div class="team-col team-b">
-              <h5>REDS</h5>
-              <div class="tp"><span class="pdot"></span>Dan K.</div>
-              <div class="tp"><span class="pdot"></span>Tom R.</div>
-              <div class="tp"><span class="pdot"></span>Will H.</div>
-              <div class="tp"><span class="pdot"></span>Niko P.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- F3 -->
-    <div class="feat reveal">
-      <div>
-        <span class="feat-num">03 — SETTLE</span>
-        <h3>Fees, sorted.<br/>No chasing.</h3>
-        <p>Every player sees what they owe and marks themselves paid. Organisers get a clean ledger — who's settled, who's due, and the running pot — without sending a single "mate, the £5?" message.</p>
-        <div class="feat-list">
-          <div class="fl"><span class="ico">●</span> Per-match pitch fee split automatically</div>
-          <div class="fl"><span class="ico">●</span> Paid / due status at a glance</div>
-          <div class="fl"><span class="ico">●</span> Running balance for the season pot</div>
-        </div>
-      </div>
-      <div class="feat-media">
-        <div class="panel">
-          <div class="panel-h"><span class="t">THE POT</span><span class="app-pill">£55 COLLECTED</span></div>
-          <div class="stat-row"><span>Marcus J.</span><span class="sr-tag t-paid">PAID £5</span></div>
-          <div class="stat-row"><span>Dan K.</span><span class="sr-tag t-paid">PAID £5</span></div>
-          <div class="stat-row"><span>Sam P.</span><span class="sr-tag t-due">DUE £5</span></div>
-          <div class="stat-row"><span>Tom R.</span><span class="sr-tag t-paid">PAID £5</span></div>
-          <div class="stat-row" style="border:none"><span>Will H.</span><span class="sr-tag t-due">DUE £5</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- F4 -->
-    <div class="feat reveal">
-      <div>
-        <span class="feat-num">04 — TRACK</span>
-        <h3>Stats that<br/>settle debates</h3>
-        <p>Goals, appearances, Player of the Match votes and an all-time reliability score for everyone. The receipts are in. The banter writes itself.</p>
-        <div class="feat-list">
-          <div class="fl"><span class="ico">●</span> Reliability — your all-time turn-up rate</div>
-          <div class="fl"><span class="ico">●</span> Goals, assists &amp; appearances logged</div>
-          <div class="fl"><span class="ico">●</span> Player of the Match, voted after full-time</div>
-        </div>
-      </div>
-      <div class="feat-media">
-        <div class="panel">
-          <div class="panel-h"><span class="t">MARCUS J.</span><span class="app-pill">★ POTM x4</span></div>
-          <div class="ring-wrap" style="margin-bottom:18px">
-            <div class="ring">
-              <svg width="108" height="108">
-                <circle cx="54" cy="54" r="46" stroke="var(--surface-3)" stroke-width="10" fill="none"/>
-                <circle cx="54" cy="54" r="46" stroke="var(--accent)" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="35"/>
-              </svg>
-              <div class="rv"><b>88%</b><small>RELIABLE</small></div>
-            </div>
-            <div style="flex:1">
-              <div class="stat-row"><span>Appearances</span><b>34</b></div>
-              <div class="stat-row"><span>Goals</span><b>21</b></div>
-              <div class="stat-row" style="border:none"><span>POTM</span><b>4</b></div>
-            </div>
-          </div>
+      <div class="scene" data-scene>
+        <div class="media"><video muted loop playsinline preload="none" poster="assets/scene-club-poster.jpg" aria-hidden="true"><source data-src="assets/scene-club.mp4" type="video/mp4" /></video></div>
+        <div class="cap">
+          <span class="k">Clubs · any sport</span>
+          <h4>Every age group,<br/>every discipline</h4>
+          <p>Football to boxing — memberships, attendance, grading and payments under one roof.</p>
         </div>
       </div>
     </div>
@@ -641,99 +383,22 @@ footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
 <!-- STAT BAND -->
 <div class="statband">
   <div class="wrap reveal">
-    <div class="sb"><b>12<span class="accent">k</span></b><span>MATCHES SORTED</span></div>
-    <div class="sb"><b>40<span class="accent">%</span></b><span>FEWER NO-SHOWS</span></div>
-    <div class="sb"><b>0</b><span>SPREADSHEETS NEEDED</span></div>
-    <div class="sb"><b>£0</b><span>CHASED BY HAND</span></div>
+    <div class="sb"><b>1</b><span>TAP TO COMMIT</span></div>
+    <div class="sb"><b>8</b><span>CONNECTED APPS</span></div>
+    <div class="sb"><b>12<span class="accent">k</span></b><span>PLAYERS IN NETWORK</span></div>
+    <div class="sb"><b>0</b><span>SPREADSHEETS</span></div>
   </div>
 </div>
 
-<!-- BENTO -->
-<section class="sec">
-  <div class="wrap">
-    <div class="sec-head reveal">
-      <span class="eyebrow">More in the kit bag</span>
-      <h2>Built for the<br/>way you play</h2>
-    </div>
-    <div class="bento reveal">
-      <div class="b tall">
-        <div class="b-ico">🔔</div>
-        <h4>Smart reminders</h4>
-        <p>Auto-nudges the maybes 24 hours out, then again on the morning. The fence-sitters commit — without you sending a word.</p>
-        <div class="b-big" style="margin-top:30px">−40%</div>
-        <p>no-shows once reminders are on.</p>
-      </div>
-      <div class="b">
-        <div class="b-ico">👥</div>
-        <h4>Guest players</h4>
-        <p>Short a man? Add a guest in one tap and they're in the count and the fee split.</p>
-      </div>
-      <div class="b">
-        <div class="b-ico">🩹</div>
-        <h4>Injury list</h4>
-        <p>Mark yourself crocked — out of selection, still in the squad.</p>
-      </div>
-      <div class="b wide">
-        <div class="b-ico">⚡</div>
-        <h4>Real-time everything</h4>
-        <p>Someone drops out, the waitlist promotes, the count updates, and every phone in the squad sees it the same second. No refresh, no "did you get my message?"</p>
-      </div>
-      <div class="b">
-        <div class="b-ico">🏆</div>
-        <h4>POTM votes</h4>
-        <p>Vote after full-time. Bragging rights, officially logged.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ORGANISERS -->
-<section class="sec" id="organisers" style="background:var(--surface);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)">
-  <div class="wrap">
-    <div class="feat reveal" style="padding-top:20px">
-      <div>
-        <span class="eyebrow">For the one who runs it</span>
-        <h3 style="margin-top:14px">You run the<br/>side. We run<br/>the admin.</h3>
-        <p>If you're the one herding cats every week, In or Out is your assistant manager. Open the next match, watch it fill, pick the teams, settle the pot — in the time it takes to lace your boots.</p>
-        <div class="feat-list">
-          <div class="fl"><span class="ico">●</span> Open next week's match in one tap</div>
-          <div class="fl"><span class="ico">●</span> Approve guests &amp; manage the waitlist</div>
-          <div class="fl"><span class="ico">●</span> Full fee ledger, no chasing</div>
-          <div class="fl"><span class="ico">●</span> Hand the armband over any time</div>
-        </div>
-        <div style="margin-top:32px"><a href="https://app.in-or-out.com" class="btn btn-primary">Start your squad</a></div>
-      </div>
-      <div class="feat-media">
-        <div class="phone">
-          <div class="phone-screen">
-            <div class="app-top"><span class="app-title">ADMIN</span><span class="app-pill">ORGANISER</span></div>
-            <div class="app-body">
-              <div class="match-card">
-                <div class="mc-date">OPEN NEXT WEEK</div>
-                <div class="mc-venue">Tap to publish to the squad</div>
-                <div class="mc-btns" style="margin-top:14px"><div class="io-btn io-in">PUBLISH MATCH</div></div>
-              </div>
-              <div class="stat-row"><span>In</span><b style="color:var(--positive)">11</b></div>
-              <div class="stat-row"><span>Waitlist</span><b style="color:var(--warning)">3</b></div>
-              <div class="stat-row"><span>Pot collected</span><b class="accent">£55</b></div>
-              <div class="stat-row" style="border:none"><span>Fees outstanding</span><b style="color:var(--negative)">£10</b></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- CTA -->
-<section class="cta" id="cta">
+<section class="cta">
   <div class="cta-glow"></div>
   <div class="wrap">
-    <h2 class="reveal">Next match.<br/>In or out?</h2>
-    <p class="reveal">Free to start. Set up your squad in two minutes and never chase a reply again.</p>
+    <h2 class="reveal">In, or out?</h2>
+    <p class="reveal">Free for players, forever. Built to grow with you — from one match to your whole club.</p>
     <div class="hero-cta reveal">
-      <a href="https://app.in-or-out.com" class="btn btn-primary">Get In or Out</a>
-      <a href="venues.html" class="btn btn-ghost">Run a venue? →</a>
+      <a href="https://app.in-or-out.com" class="btn btn-primary">Get the app</a>
+      <a href="venue.html" class="btn btn-ghost">Run a venue or club? →</a>
     </div>
   </div>
 </section>
@@ -743,20 +408,20 @@ footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <div class="logo"><span class="dot"></span>IN OR OUT</div>
-        <p class="foot-blurb">The casual football organiser that kills the group-chat chaos. Commit, pick teams, settle up — sorted before kickoff.</p>
+        <div class="logo"><span class="dot"></span><span class="wm"><span class="b-in">IN</span> <span class="b-or">OR</span> <span class="b-out">OUT</span></span></div>
+        <p class="foot-blurb">From one tap — in, or out? — to a full operating system for clubs and venues. One engine, every level of the game.</p>
       </div>
       <div>
-        <h5>Product</h5>
-        <a href="#features">Features</a>
-        <a href="#organisers">For organisers</a>
-        <a href="#problem">Why In or Out</a>
+        <h5>The platform</h5>
+        <a href="casual.html">For players</a>
+        <a href="venue.html">For venues</a>
+        <a href="club.html">For clubs</a>
       </div>
       <div>
         <h5>For business</h5>
-        <a href="venues.html">For venues</a>
-        <a href="venues.html#hq">HQ Intelligence</a>
-        <a href="venues.html#cta">Book a demo</a>
+        <a href="venue.html#leagues">Leagues</a>
+        <a href="venue.html#hq">HQ Intelligence</a>
+        <a href="venue.html#cta">Book a demo</a>
       </div>
       <div>
         <h5>Company</h5>
@@ -766,7 +431,7 @@ footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
       </div>
     </div>
     <div class="foot-bot">
-      <span>© 2026 In or Out. Made for the Tuesday-nighters.</span>
+      <span>© 2026 In or Out. One engine, every level of the game.</span>
       <div class="pill-link">
         <a href="#">App Store</a>
         <a href="#">Google Play</a>
@@ -791,84 +456,43 @@ function onScroll(){
 addEventListener('scroll',onScroll,{passive:true});onScroll();
 
 /* reveal + staggered children */
-document.querySelectorAll('.bento,.good-list,.feat-list,.statband .wrap').forEach(e=>e.classList.add('stagger'));
-document.querySelectorAll('.stagger').forEach(s=>{
-  [...s.children].forEach((c,i)=>c.style.transitionDelay=(i*70)+'ms');
-});
-const io=new IntersectionObserver((es)=>es.forEach(e=>{
-  if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}
-}),{threshold:.12});
+document.querySelectorAll('.doors,.scenes,.statband .wrap').forEach(e=>e.classList.add('stagger'));
+document.querySelectorAll('.stagger').forEach(s=>{[...s.children].forEach((c,i)=>c.style.transitionDelay=(i*70)+'ms');});
+const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});
 document.querySelectorAll('.reveal:not(.in),.stagger').forEach(el=>io.observe(el));
 
 /* count-up numbers */
 function countUp(el){
   if(el.dataset.done)return;el.dataset.done=1;
-  const raw=el.textContent.trim();
-  const m=raw.match(/[\d.,]+/);
-  if(!m){return;}
-  const numStr=m[0].replace(/,/g,'');
-  const target=parseFloat(numStr);
-  if(isNaN(target)){return;}
-  const dec=(numStr.split('.')[1]||'').length;
-  const pre=raw.slice(0,m.index),suf=raw.slice(m.index+m[0].length);
-  if(RM)return;
-  const dur=1300,t0=performance.now();
-  function step(t){
-    const p=clamp((t-t0)/dur,0,1),v=target*ease(p);
+  const raw=el.textContent.trim();const m=raw.match(/[\d.,]+/);if(!m)return;
+  const numStr=m[0].replace(/,/g,'');const target=parseFloat(numStr);if(isNaN(target))return;
+  const dec=(numStr.split('.')[1]||'').length;const pre=raw.slice(0,m.index),suf=raw.slice(m.index+m[0].length);
+  if(RM)return;const dur=1300,t0=performance.now();
+  function step(t){const p=clamp((t-t0)/dur,0,1),v=target*ease(p);
     el.textContent=pre+v.toLocaleString('en-GB',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;
-    if(p<1)requestAnimationFrame(step);else el.textContent=raw;
-  }
+    if(p<1)requestAnimationFrame(step);else el.textContent=raw;}
   requestAnimationFrame(step);
 }
-const cio=new IntersectionObserver((es)=>es.forEach(e=>{
-  if(e.isIntersecting){countUp(e.target);cio.unobserve(e.target);}
-}),{threshold:.6});
-document.querySelectorAll('.m-num,.sb b,.b-big').forEach(el=>cio.observe(el));
+const cio=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){countUp(e.target);cio.unobserve(e.target);}}),{threshold:.6});
+document.querySelectorAll('.m-num,.sb b').forEach(el=>cio.observe(el));
 
-/* reliability ring draws on view */
+/* lazy-load + fade-in videos (poster-first, never render-blocking) */
+function activateVideo(v){
+  if(v.dataset.on)return;v.dataset.on=1;
+  const s=v.querySelector('source[data-src]');
+  if(s){s.src=s.dataset.src;v.load();}
+  const show=()=>v.classList.add('loaded');
+  v.addEventListener('loadeddata',show,{once:true});
+  const p=v.play&&v.play();if(p&&p.catch)p.catch(()=>{});
+  setTimeout(show,1400); // fall back to showing even if loadeddata is slow
+}
 if(!RM){
-  const rio=new IntersectionObserver((es)=>es.forEach(e=>{
-    if(e.isIntersecting){const c=e.target,off=c.getAttribute('stroke-dashoffset');
-      c.setAttribute('stroke-dashoffset','289');
-      requestAnimationFrame(()=>requestAnimationFrame(()=>c.setAttribute('stroke-dashoffset',off)));
-      rio.unobserve(c);}
-  }),{threshold:.6});
-  document.querySelectorAll('.ring circle:last-child').forEach(c=>rio.observe(c));
+  const vio=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){activateVideo(e.target);vio.unobserve(e.target);}}),{rootMargin:'200px'});
+  // hero loads immediately after first paint; scenes load on approach
+  const hero=document.querySelector('.hero-bg video');
+  if(hero)requestAnimationFrame(()=>requestAnimationFrame(()=>activateVideo(hero)));
+  document.querySelectorAll('.scene video').forEach(v=>vio.observe(v));
 }
-
-/* orchestrated hero load */
-if(!RM){
-  [...document.querySelectorAll('.hero-grid > div:first-child > *')].forEach((el,i)=>
-    el.animate([{opacity:0,transform:'translateY(34px)'},{opacity:1,transform:'none'}],
-      {duration:850,delay:120*i,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'}));
-  const ph=document.querySelector('.hero .phone');
-  if(ph)ph.animate([{opacity:0,transform:'translateY(54px) scale(.95)'},{opacity:1,transform:'none'}],
-    {duration:1000,delay:340,easing:'cubic-bezier(.16,1,.3,1)',fill:'backwards'});
-}
-
-/* hero phone — 3D tilt to cursor + idle float */
-const phone=document.querySelector('.hero .phone');
-if(phone&&!RM){
-  const fine=matchMedia('(pointer:fine)').matches;
-  let mx=0,my=0,tx=0,ty=0,started=false;
-  if(fine){
-    addEventListener('pointermove',e=>{mx=(e.clientX/innerWidth-.5)*2;my=(e.clientY/innerHeight-.5)*2;});
-    setTimeout(()=>started=true,1350);
-  }
-  (function loop(t){
-    if(started){tx+=(mx-tx)*.06;ty+=(my-ty)*.06;}
-    const iy=Math.sin(t/2200)*4, ix=Math.cos(t/2600)*3, fl=Math.sin(t/1500)*10;
-    phone.style.transform=`perspective(850px) rotateY(${iy+tx*16}deg) rotateX(${ix-ty*13}deg) translateY(${fl}px)`;
-    requestAnimationFrame(loop);
-  })(0);
-}
-
-/* magnetic primary CTAs */
-if(!RM&&matchMedia('(pointer:fine)').matches)document.querySelectorAll('.btn-primary').forEach(b=>{
-  b.addEventListener('pointermove',e=>{const r=b.getBoundingClientRect();
-    b.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.25}px,${(e.clientY-r.top-r.height/2)*.4}px)`;});
-  b.addEventListener('pointerleave',()=>b.style.transform='');
-});
 
 /* PINNED SET-PIECE scrub: chat flies apart, card assembles */
 const pin=document.querySelector('.pin');
@@ -876,24 +500,62 @@ if(pin&&!RM){
   const chaos=[...pin.querySelectorAll('.cb')];
   const order=pin.querySelector('.pin-order');
   const kicker=pin.querySelector('[data-kicker]');
-  const scl=Math.min(1,innerWidth/1200);
+  const glow=pin.querySelector('[data-glow]');
+  // Each bubble keeps a CONTAINED rest spot (always on-screen) and an absorption
+  // turn, so the cluster gets eaten into the card in cascading waves — outermost
+  // (loudest) first. No element ever flies off the page.
+  let layout;
+  function relayout(){
+    const halfW=Math.min(innerWidth*0.40,440), halfH=Math.min(innerHeight*0.30,250);
+    layout=chaos.map(cb=>{
+      const rx=(+cb.dataset.x)/640, ry=(+cb.dataset.y)/360;            // -1..1 of original design
+      const x=clamp(rx,-1,1)*halfW, y=clamp(ry,-1,1)*halfH;
+      const dist=Math.hypot(rx,ry);                                    // 0 centre .. ~1.4 edge
+      return {cb,x,y,r:+cb.dataset.r,op:+cb.dataset.op||1,turn:clamp(1-dist/1.25,0,1)};
+    });
+  }
+  relayout();
   function scrub(){
     const total=pin.offsetHeight-innerHeight;
     const p=clamp(-pin.getBoundingClientRect().top/total,0,1);
-    const o=clamp(p/0.5,0,1),oe=ease(o);
-    const f=0.30+oe*0.95;
-    chaos.forEach(cb=>{
-      const x=(+cb.dataset.x)*scl,y=(+cb.dataset.y)*scl,r=(+cb.dataset.r);
-      cb.style.transform=`translate(calc(-50% + ${x*f}px), calc(-50% + ${y*f}px)) rotate(${r*(0.3+oe)}deg) scale(${0.9+0.55*oe})`;
-      cb.style.opacity=(1-o)*(+cb.dataset.op||1);
+    // hold the cluster still & readable until ~20% in, then absorb in waves to ~95%
+    layout.forEach(L=>{
+      const lp=clamp((p - 0.20 - L.turn*0.45)/0.34,0,1), e=ease(lp);
+      const tx=L.x*(1-e), ty=L.y*(1-e);                                // pulled to centre
+      L.cb.style.transform=`translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${L.r*(1-e)}deg) scale(${1-0.82*e})`;
+      L.cb.style.opacity=(1-e*e)*L.op;                                 // lingers, then fades into the card
+      const io=L.cb.dataset.io;
+      if(io){const a=0.55+0.45*e,b=0.3+0.6*e;
+        if(io==='in'){L.cb.style.color=`rgba(61,220,106,${a})`;L.cb.style.borderColor=`rgba(61,220,106,${b})`;}
+        else{L.cb.style.color=`rgba(255,64,64,${a})`;L.cb.style.borderColor=`rgba(255,64,64,${b})`;}}
     });
-    if(kicker)kicker.style.opacity=1-o;
-    const i=ease(clamp((p-0.45)/0.5,0,1));
-    order.style.opacity=i;
-    order.style.transform=`translateY(${(1-i)*50}px) scale(${0.9+0.1*i})`;
+    if(kicker)kicker.style.opacity=clamp(1-p*3.4,0,1);
+    const cp=ease(clamp((p-0.34)/0.6,0,1));                            // card crystallises once the noise starts clearing
+    order.style.opacity=cp;
+    order.style.transform=`translateY(${(1-cp)*34}px) scale(${0.9+0.1*cp})`;
+    if(glow){glow.style.opacity=cp*0.95;glow.style.transform=`translate(-50%,-50%) scale(${0.4+0.8*cp})`;}
   }
-  addEventListener('scroll',scrub,{passive:true});addEventListener('resize',scrub);scrub();
+  addEventListener('scroll',scrub,{passive:true});
+  addEventListener('resize',()=>{relayout();scrub();});scrub();
 }
+
+/* hero IN / OUT living toggle */
+const tog=document.querySelector('[data-toggle]');
+if(tog){tog.classList.add('on-in');
+  if(!RM){let on=true;setInterval(()=>{on=!on;tog.classList.toggle('on-in',on);tog.classList.toggle('on-out',!on);},2600);}}
+
+/* doors — glow follows the cursor */
+if(!RM&&matchMedia('(pointer:fine)').matches)document.querySelectorAll('.door').forEach(d=>{
+  d.addEventListener('pointermove',e=>{const r=d.getBoundingClientRect();
+    d.style.setProperty('--mx',(e.clientX-r.left)+'px');d.style.setProperty('--my',(e.clientY-r.top)+'px');});
+});
+
+/* magnetic primary CTAs */
+if(!RM&&matchMedia('(pointer:fine)').matches)document.querySelectorAll('.btn-primary').forEach(b=>{
+  b.addEventListener('pointermove',e=>{const r=b.getBoundingClientRect();
+    b.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.25}px,${(e.clientY-r.top-r.height/2)*.4}px)`;});
+  b.addEventListener('pointerleave',()=>b.style.transform='');
+});
 </script>
 </body>
 </html>
