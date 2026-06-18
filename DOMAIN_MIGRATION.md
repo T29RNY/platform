@@ -7,6 +7,77 @@ before wrapping the app.
 
 ---
 
+## 0bis. STATUS — parked session 149 (2026-06-18), execution NOT started
+
+**BLOCKED on the operator's Phase 1 (GoDaddy DNS + Vercel attach) — the one critical-path
+step Claude cannot do.** Verified live this session: `app.in-or-out.com` returns **NXDOMAIN**
+(does not exist); apex `in-or-out.com` still resolves to Vercel and serves the consumer app.
+Nothing in Phases 1–6 has been started.
+
+**Why Claude can't run ahead:** repointing the code (Phase 2), the 7 cron jobs + 2 DB
+functions (Phase 4), or the marketing apex flip (Phase 5) to `app.` *before* that domain
+resolves would point every live player/invite link at a dead host and make the timed cron
+POSTs 401 silently (they don't follow 301s). So Phase 1 (operator) MUST land first.
+
+**Operator's two unblocking steps (do these to start):**
+1. GoDaddy → in-or-out.com → DNS → Add Record: **CNAME**, Name **`app`**, Value
+   **`cname.vercel-dns.com`**, TTL default.
+2. Vercel → project **`inor-out`** → Settings → Domains → add `app.in-or-out.com`; if Vercel
+   shows a different CNAME target, match it in GoDaddy; wait for "Valid Configuration" + SSL.
+Then confirm "app is live" → Claude runs Phases 2 + 4 + 5.1 in one sweep.
+
+**Deltas since the runbook was written (fold in when executing):**
+- **Next free migration = 361** (Classes open-access shipped as mig 360 this session; the gym
+  vertical took 355–359). Phase 4's cron/function migration files take **361+**.
+- **Multi-context-nav epic is MERGED** (the `manifest.js` `/feed` start_url + guided tours are
+  on main) → the Phase 2.1 / 5.1 / 6.1 nav addenda are now safe to act on; no parallel-session
+  collision risk remains. Phase 2.1 = change `BASE_URL` only, leave `/feed` logic intact.
+- **`apps/inorout/.env.production` is now TRACKED** (was "untracked-and-unignored" when the
+  runbook's Phase 0.5 was written). Inspected this session: it holds only Vercel build-env vars
+  (`VERCEL_GIT_*`, `VERCEL_OIDC_TOKEN` — a short-lived build token) + the two PUBLIC `VITE_`
+  client vars (`VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, both baked into the client bundle
+  by design). NO server secret (no service_role / sk_ / whsec). It's build clutter, not a leak —
+  optional cleanup (`git rm --cached` + gitignore), NOT blocking and NOT a security issue.
+- **App-store submission is downstream of this** (Phase 8 bakes `https://app.in-or-out.com` as
+  the native wrapper's load URL) → the domain must be live + proven before the wrap is built.
+  Phase 0 (company-identity ownership + App Store Connect / Google Play / Stripe / Anthropic
+  accounts on `founder@in-or-out.com`) is a prerequisite for the app store and can run in
+  parallel with the DNS work.
+
+### NEXT-SESSION PROMPT — Domain migration, Phases 2 + 4 + 5.1 (Claude's half)
+```
+Resume the DOMAIN MIGRATION (DOMAIN_MIGRATION.md). Read it in full first, especially the
+"0bis. STATUS" banner and the Phase 2 / 4 / 5 sections.
+
+GATE FIRST: run `nslookup app.in-or-out.com` (or curl it). If it still returns NXDOMAIN /
+doesn't serve the app, STOP and tell me — the operator hasn't done Phase 1 (GoDaddy CNAME + Vercel
+attach) yet and nothing downstream is safe. Only proceed once app.in-or-out.com resolves AND
+serves the consumer app.
+
+Once app. is live, run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT cycle for CLAUDE'S
+half (the operator owns the dashboard steps — surface those for me to do, one at a time):
+  - Phase 2 (code): repoint every link + auth SSR-fallback constant to https://app.in-or-out.com
+    across the Repoint Inventory files (apps/inorout/api/{manifest,cron,notify,gocardless-mandate,
+    gocardless-connect,stripe-member-checkout}.js; apps/inorout/src/{onboarding/steps/SquadReady,
+    views/AdminView/SquadScreen,views/JoinSuccess,views/PWAWelcome,views/SignIn,
+    views/EmailCaptureOverlay,views/JoinTeam}.jsx; apps/venue/src/views/{InvitesView,
+    MembershipsView}.jsx; apps/superadmin/src/views/{CreateSquad,TeamDetail,Activity}.jsx).
+    Leave manifest.js /feed start_url logic intact. Build inorout+venue+superadmin; grep
+    `www.in-or-out.com` / `in-or-out.com` in those trees → only comments remain; commit.
+  - Phase 4 (DB, CRITICAL): rotate CRON_SECRET; re-schedule all 7 pg_cron jobs + CREATE OR
+    REPLACE notify_spot_opened() + get_display_landing_code() to app.; write the migration
+    file(s) at mig 361+ in the SAME commit (Hard Rule #11); re-sweep `cron.job` + function
+    bodies live → zero apex refs. rpc-security-sweep on the two functions.
+  - Phase 5.1 (repo): build the marketing catch-all 301 vercel.json (denylist /, /venues,
+    favicon, assets; 301 everything else → app., preserving path+query; "Get the app" CTA →
+    app., operator CTA → venue.).
+
+Then hand me the operator dashboard steps in order: Phase 3 (Vercel env on inor-out +
+platform-venue; Stripe + GoCardless webhook/return URLs), Phase 2.5 (Supabase Auth Site +
+Redirect URLs + email templates), then the Phase 5.2–5.4 apex flip, then Phase 6 real-iPhone
+PWA verify. Do NOT run two PRs against main at once (Cloud Session Discipline).
+```
+
 ## 1. Why now
 Wrapping the consumer app natively bakes its URL in ~permanently, and customers/payments
 are coming. Fix URL structure + account ownership once, now: **1 pilot team, ~2 PWA
