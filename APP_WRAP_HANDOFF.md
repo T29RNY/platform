@@ -5,6 +5,9 @@ Android apps for the App Store / Google Play.** Parked at end of session 150 —
 migration that this depends on is now COMPLETE, so the wrap can start whenever the operator is
 ready. This doc is the self-contained pickup point.
 
+**→ The full ordered, dependency-correct submission checklist lives in `APP_STORE_CHECKLIST.md`
+(session 151).** This doc holds the locked decisions + the owed real-device walk list it references.
+
 ---
 
 ## STATUS — parked session 150 (2026-06-18)
