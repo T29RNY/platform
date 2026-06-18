@@ -34,6 +34,7 @@ import MemberPass           from "./views/MemberPass.jsx";
 import MemberProfile        from "./views/MemberProfile.jsx";
 import SessionsScreen       from "./views/SessionsScreen.jsx";
 import ClassesScreen        from "./views/ClassesScreen.jsx";
+import BookPT               from "./views/BookPT.jsx";
 import UnifiedFeedScreen   from "./views/UnifiedFeedScreen.jsx";
 import ParentHomeScreen    from "./views/ParentHomeScreen.jsx";
 import TournamentScreen    from "./views/TournamentScreen.jsx";
@@ -100,6 +101,7 @@ function getRoute() {
   if (parts[0]==="profile")                  return { type:"profile" };
   if (parts[0]==="sessions")                 return { type:"sessions" };
   if (parts[0]==="classes")                  return { type:"classes" };
+  if (parts[0]==="book")                     return { type:"book" };
   if (parts[0]==="parent-home")              return { type:"parent-home" };
   if (parts[0]==="feed")                     return { type:"feed" };
   if (parts[0]==="follow-live" && parts[1])  return { type:"follow-live", profileId:parts[1] };
@@ -886,7 +888,7 @@ export default function App() {
   // not on a dormant squad. Written for every resumable surface; the full path
   // (incl. ?club=<id>) is stored so resume lands on the exact context.
   useEffect(() => {
-    const RESUMABLE = new Set(["player", "admin", "sessions", "classes", "profile", "member", "parent-home", "feed"]);
+    const RESUMABLE = new Set(["player", "admin", "sessions", "classes", "book", "profile", "member", "parent-home", "feed"]);
     if (!RESUMABLE.has(route.type)) return;
     writeLastContext(window.location.pathname + window.location.search);
   }, [route.type, route.token]);
@@ -1178,6 +1180,17 @@ export default function App() {
     );
     if (!authUser) return <SignIn returnTo="/classes" />;
     return <ClassesScreen authUser={authUser} memberProfile={memberProfile} />;
+  }
+
+  if (route.type === "book") {
+    if (!authReady) return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        alignItems:"center", justifyContent:"center" }}>
+        <div style={{ fontSize:48 }}>⚽</div>
+      </div>
+    );
+    if (!authUser) return <SignIn returnTo="/book" />;
+    return <BookPT authUser={authUser} memberProfile={memberProfile} />;
   }
 
   if (route.type === "create") {

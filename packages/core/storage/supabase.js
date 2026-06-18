@@ -4937,6 +4937,118 @@ export async function memberGetPackageBalance(venueId = null) {
   return data ?? [];
 }
 
+// ── PT / 1-on-1 appointment booking (Phase 3 gym/boxing vertical, mig 358) ───
+// A trainer is a bookable resource with recurring weekly availability; a member
+// books a single slot; money rides the shared venue_charges ledger (source_type
+// 'pt', door path). Two independent levers decide who can book: an account is
+// ALWAYS required (auth.uid); members_only adds the paid-membership requirement.
+
+// Operator: create or edit a trainer. trainerId=null creates; otherwise edits.
+// adminId optionally links a venue_admins staff login (null = no-login card).
+// Returns { ok:true, trainer_id }.
+export async function venueUpsertTrainer(venueToken, {
+  trainerId = null, displayName, bio = null, adminId = null, defaultSessionMinutes = 60,
+  pricePence = 0, cancelCutoffHours = 0, membersOnly = true, active = true,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_upsert_trainer", {
+    p_venue_token: venueToken, p_trainer_id: trainerId, p_display_name: displayName,
+    p_bio: bio, p_admin_id: adminId, p_default_session_minutes: defaultSessionMinutes,
+    p_price_pence: pricePence, p_cancel_cutoff_hours: cancelCutoffHours,
+    p_members_only: membersOnly, p_active: active });
+  if (error) { console.error("[pt] venue_upsert_trainer failed", error); throw error; }
+  return data;
+}
+
+// Operator: replace ALL recurring availability windows for a trainer. windows is
+// an array of { dayOfWeek, startTime, endTime, slotMinutes, seriesStart, seriesEnd }.
+// Returns { ok:true, trainer_id, windows }.
+export async function venueSetTrainerAvailability(venueToken, trainerId, windows = []) {
+  const p_windows = (windows ?? []).map((w) => ({
+    day_of_week: w.dayOfWeek, start_time: w.startTime, end_time: w.endTime,
+    slot_minutes: w.slotMinutes ?? 60, series_start: w.seriesStart ?? null, series_end: w.seriesEnd ?? null,
+  }));
+  const { data, error } = await supabase.rpc("venue_set_trainer_availability", {
+    p_venue_token: venueToken, p_trainer_id: trainerId, p_windows });
+  if (error) { console.error("[pt] venue_set_trainer_availability failed", error); throw error; }
+  return data;
+}
+
+// Operator: trainers + nested availability + upcoming appointment counts.
+export async function venueListTrainers(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_trainers", { p_venue_token: venueToken });
+  if (error) { console.error("[pt] venue_list_trainers failed", error); return { ok: false, trainers: [] }; }
+  return data ?? { ok: false, trainers: [] };
+}
+
+// Operator: appointments in a time range (joined trainer + member names).
+export async function venueListAppointments(venueToken, { from = null, to = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_list_appointments", {
+    p_venue_token: venueToken, p_from: from, p_to: to });
+  if (error) { console.error("[pt] venue_list_appointments failed", error); return { ok: false, appointments: [] }; }
+  return data ?? { ok: false, appointments: [] };
+}
+
+// Operator: QR check-in for a PT appointment (clone of venueClassCheckin). passToken
+// is the scanned "/m/<token>" URL or bare token. Returns graceful { ok:false, reason }
+// for per-scan misses and { ok:true, member_name } on success.
+export async function venuePtCheckin(venueToken, appointmentId, passToken) {
+  const { data, error } = await supabase.rpc("venue_pt_checkin", {
+    p_venue_token: venueToken, p_appointment_id: appointmentId, p_pass_token: passToken });
+  if (error) { console.error("[pt] venue_pt_checkin failed", error); throw error; }
+  return data;
+}
+
+// Operator: mark a confirmed appointment completed, or a no-show (bumps the member's
+// no_show_count + keeps the charge). Returns { ok, status, no_show_count }.
+export async function venueMarkAppointmentCompleted(venueToken, appointmentId, noShow = false) {
+  const { data, error } = await supabase.rpc("venue_mark_appointment_completed", {
+    p_venue_token: venueToken, p_appointment_id: appointmentId, p_no_show: noShow });
+  if (error) { console.error("[pt] venue_mark_appointment_completed failed", error); throw error; }
+  return data;
+}
+
+// Member: active trainers at a venue + whether the caller can book each (bookable
+// = open trainer OR caller holds an active membership). Returns { ok, is_member, trainers }.
+export async function memberListTrainers(venueId) {
+  const { data, error } = await supabase.rpc("member_list_trainers", { p_venue_id: venueId });
+  if (error) { console.error("[pt] member_list_trainers failed", error); return { ok: false, trainers: [] }; }
+  return data ?? { ok: false, trainers: [] };
+}
+
+// Member: bookable slots for a trainer between two dates (availability minus booked,
+// future only, capped 62 days). Returns { ok, slots:[{starts_at, ends_at, ...}] }.
+export async function memberListTrainerSlots(trainerId, { from = null, to = null } = {}) {
+  const { data, error } = await supabase.rpc("member_list_trainer_slots", {
+    p_trainer_id: trainerId, p_from: from, p_to: to });
+  if (error) { console.error("[pt] member_list_trainer_slots failed", error); return { ok: false, slots: [] }; }
+  return data ?? { ok: false, slots: [] };
+}
+
+// Member: book a slot (writes a venue_charges 'pt' row when priced). Returns
+// { ok:true, appointment_id, ... } or graceful { ok:false, reason:'slot_taken'|'suspended' }.
+export async function memberBookAppointment(trainerId, startsAt) {
+  const { data, error } = await supabase.rpc("member_book_appointment", {
+    p_trainer_id: trainerId, p_starts_at: startsAt });
+  if (error) { console.error("[pt] member_book_appointment failed", error); throw error; }
+  return data;
+}
+
+// Member: cancel own appointment (honours the trainer's cutoff window, refunds the
+// charge, frees the slot). Returns { ok:true, refunded }.
+export async function memberCancelAppointment(appointmentId) {
+  const { data, error } = await supabase.rpc("member_cancel_appointment", { p_appointment_id: appointmentId });
+  if (error) { console.error("[pt] member_cancel_appointment failed", error); throw error; }
+  return data;
+}
+
+// Member: the caller's own upcoming/recent appointments (from yesterday on),
+// optionally scoped to one venue. Returns { ok, appointments:[...] }.
+export async function memberListMyAppointments(venueId = null) {
+  const { data, error } = await supabase.rpc("member_list_my_appointments", { p_venue_id: venueId });
+  if (error) { console.error("[pt] member_list_my_appointments failed", error); return { ok: false, appointments: [] }; }
+  return data ?? { ok: false, appointments: [] };
+}
+
 // ── Room hire (mig 342, Phase 5) — member/public surface ─────────────────────
 // Public read of hireable spaces for the "Hire a space" cards (no login needed).
 export async function memberListHireableSpaces(venueId) {
