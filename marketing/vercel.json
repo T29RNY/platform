@@ -1,0 +1,11 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/((?!venues|index\\.html|favicon\\.ico|assets/).+)",
+      "destination": "https://app.in-or-out.com/$1",
+      "permanent": true
+    }
+  ]
+}

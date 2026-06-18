@@ -34,8 +34,17 @@ search_path + single overload + grants intact). Verified live: `app./api/cron` +
 401 the old bearer, 200 the new; the 13:30 scheduled tick produced 8× HTTP 200 from `app.`,
 zero 401s. **Zero apex references remain in the database.**
 
-**Still to do (Claude):** Phase 5.1 (marketing catch-all 301 `vercel.json`, repo-only, no live
-effect until 5.2 deploy).
+**Phase 5.1 DONE (repo only, s150):** `marketing/vercel.json` created — `cleanUrls`+catch-all
+301 `source: /((?!venues|index\.html|favicon\.ico|assets/).+)` → `https://app.in-or-out.com/$1`
+(preserves path+query; `/` + `/venues` served, everything else 301s into the app). Consumer
+"Get the app"/"Get In or Out"/"Start your squad" CTAs (×4 in `marketing/index.html`, incl. the
+previously-dead `href="#"` button) → `app.in-or-out.com`; "Run a venue? →" stays → `venues.html`.
+⚠️ NO live effect until the operator deploys `marketing` + moves the apex (Phase 5.2).
+⚠️ Operator-app CTA → `venue.` deliberately NOT wired: `venue.in-or-out.com` is Phase 7
+(deferred, not live); venues.html "Book a demo" demo-funnel left as-is.
+
+**Claude's repo work for this migration is COMPLETE (Phases 2, 4, 5.1).** Everything remaining
+is operator dashboard work — see the ordered checklist below.
 
 **Still to do (operator):** Phase 3 env (incl. new `CRON_SECRET`), Phase 2.5 Supabase Auth,
 Phase 5.2–5.4 apex flip + dead-`inor-out` cleanup, Phase 6 real-iPhone PWA.
