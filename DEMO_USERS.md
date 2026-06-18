@@ -9,19 +9,23 @@ All anchored to the existing **`demo_venue`** ("Demo Sports Centre"). Re-runnabl
 
 | | User 1 — **Alex Demo** | User 2 — **Sam Carter** |
 |---|---|---|
-| Email | `demo@in-or-out.com` | `family@in-or-out.com` |
+| Email | `tarny+demo@lettrack.co.uk` | `tarny+family@lettrack.co.uk` |
 | Password | `DemoBoss1!` | `DemoFam2!` |
 | Covers | platform superadmin · HQ company super-admin · venue **owner** · squad admin · casual + competitive player · club member of **both** combat clubs (fight record + grading via multi-context) | plain member (**paused**) · **guardian** of a junior · venue **staff** (booking caps only) · plain casual player |
 
-> ⚠️ **Sign-in method differs by app.** The **venue** and **HQ** apps accept
-> **email + password** (these credentials work directly). The **consumer app
-> (inorout)** signs in with **email OTP or Google only — no password**. To sign
-> into the consumer app as these users you need the OTP code emailed to the
-> address, so the consumer-app login only works if `in-or-out.com` mail is
-> deliverable to these inboxes. If not, repoint the two emails to addresses you
-> control (e.g. Gmail `+demo`/`+family`) and re-run mig 364 — see "Switching the
-> demo emails" below. The seeded DATA still renders on every screen regardless;
-> only the consumer-app *login method* is affected.
+Both emails are `+`-aliases of `tarny@lettrack.co.uk` (Google Workspace), so every
+OTP code lands in that one inbox. (Repointed from the original `@in-or-out.com` in
+mig 365 — same user UUIDs, all role links intact.)
+
+> **Sign-in method per app:**
+> - **Venue + HQ apps** → email + **password** (works directly).
+> - **Consumer app (inorout)** → **email OTP** or Google only (no password). Pick
+>   the **email-code** option (NOT the Google button — Google only works for the
+>   bare `tarny@lettrack.co.uk` and resolves to your real identity, not the demo
+>   roles), enter the `+demo`/`+family` address, and read the code from your
+>   `tarny@lettrack.co.uk` inbox. (OTP delivery depends on Supabase Auth SMTP /
+>   rate limits — the request returns 200; if a code doesn't arrive, that's the
+>   Supabase email provider, not the account.)
 
 ## Token-only entry points (no login — hand these out for demos)
 - **Venue console backdoor:** `…/?token=demo_venue_token_DO_NOT_USE_IN_PROD`
@@ -38,11 +42,10 @@ All anchored to the existing **`demo_venue`** ("Demo Sports Centre"). Re-runnabl
 - **Belt ladders** (adult + junior) + award history; **fight records** (wins/losses/draws + sparring) for several boxers incl. a junior.
 - **`venue_charges`** for paid items so **Payments + HQ analytics** show class/package/PT/room-hire/membership revenue.
 
-## Switching the demo emails (consumer-app OTP)
-If you want consumer-app sign-in too, change the two emails in `364_demo_signin_users.sql`
-(both the `auth.users` and `auth.identities` `identity_data`, plus the `member_profiles.email`)
-to inboxes you control, then re-apply. The role links key on the fixed user UUIDs, so
-nothing else changes.
+## Switching the demo emails
+Done in **mig 365** (repointed to `tarny+…@lettrack.co.uk`). To change again, edit the
+`auth.users` email + `auth.identities` `identity_data` email + `member_profiles.email`
+in a new migration — the role links key on the fixed user UUIDs, so nothing else changes.
 
 ## Teardown
-Run `364_demo_signin_users_down.sql` then `363_demo_features_seed_down.sql`.
+Run `365…_down.sql` (revert emails) → `364…_down.sql` (users + links) → `363…_down.sql` (feature data).
