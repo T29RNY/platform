@@ -213,10 +213,11 @@ BUGS) → commit → merge promptly (cloud-session discipline) → confirm main 
 
 ---
 
-## NEXT SESSION PROMPT — Phase 3 (PT / 1-on-1 appointment booking, mig 358)
+## ~~NEXT SESSION PROMPT — Phase 3 (PT / 1-on-1 appointment booking, mig 358)~~ ✅ DONE s147
 
-*Paste the block below to start the next session. Phases 0 (mig 355) + 1 (mig 356) + 2 (mig 357)
-are shipped on main. Next free mig = 358.*
+*✅ SHIPPED session 147 (mig 358, PR #25). The block below is kept for the record — DO NOT re-run it.
+For the next session use the **Phase 4** prompt at the very bottom of this file. Phases 0–3 are
+shipped on main; next free mig = 359.*
 
 **⏱ TIMING GATE — read before starting.** STRATEGY.md defers the "real build" (Phases 3–4) until
 **after the football pilot (18 Jun 2026) proves the wedge**. Phases 0–2 were the low-risk, bankable
@@ -293,4 +294,87 @@ Confirm with me BEFORE building:
      within 24h), and should a no-show still record/keep the venue_charges row? Recommend free
      cancel any time in v1 (door payment only) + no-show keeps the charge + bumps no_show_count;
      confirm.
+```
+
+*Operator answers as built (s147): (1) BOTH — `venue_trainers.admin_id` nullable = staff login OR
+no-login coach card. (2) DYNAMIC off `disciplineLabels.hasPT` (gym/boxing/martial_arts/fitness). (3)
+"A, but B for trials/one-offs" → per-trainer `members_only` (false + price 0 = free open session);
+per-trainer `cancel_cutoff_hours` (0 = free cancel); no-show keeps the charge + bumps no_show_count.*
+
+---
+
+## NEXT SESSION PROMPT — Phase 4 (Bout / fight record + sparring stats, mig 359) — THE LAST PHASE
+
+*Paste the block below to start the next session. Phases 0 (mig 355) + 1 (mig 356) + 2 (mig 357) +
+3 (mig 358) are shipped on main. Next free mig = 359. This is the FINAL phase of the vertical.*
+
+**⏱ TIMING GATE — read before starting.** STRATEGY.md deferred Phases 3–4 to post-pilot; the operator
+confirmed proceed for Phase 3 on the pilot day (18 Jun 2026, s147). Re-confirm the operator still wants
+to proceed with Phase 4 before any execute work — if they say hold, stop after the audit.
+
+```
+Continue the GYM / BOXING CLUB vertical — Phase 4 (Bout / fight record + sparring stats), mig 359.
+This is the LAST phase. Phases 0–3 are shipped — see CONTEXT.md SESSIONS 144–147 and
+GYM_VERTICAL_HANDOFF.md.
+
+First run skills/session-start.md. Then read GYM_VERTICAL_HANDOFF.md "Phase 4" in full. This phase
+is boxing-specific and must be ZERO breaking change to football: it realises the documented (dormant)
+player_match.sport_stats jsonb pattern AND stores boxing data in a dedicated member_bouts table keyed
+on member_profile_id (football's player_match keys on a football players row — keep them separate).
+
+TIMING GATE: re-confirm the operator wants to proceed with Phase 4 before any execute work — if they
+say hold, stop after the audit.
+
+CONFLICT GUARD: before branching, confirm git is on main, tree clean, zero open PRs. If not, STOP
+and report.
+
+Scope for Phase 4 (mig 359):
+  - Schema:
+      ALTER player_match ADD COLUMN sport_stats jsonb;  -- additive-NULLABLE, DORMANT realisation
+      ALTER matches      ADD COLUMN sport_stats jsonb;  -- additive-NULLABLE, DORMANT realisation
+      member_bouts (RLS-walled, SECURITY DEFINER RPCs only): id, member_profile_id → member_profiles,
+        club_id → clubs, bout_date, opponent_name, event_name, result win|loss|draw|no_contest,
+        method (text, e.g. KO/TKO/decision/submission), rounds, is_sparring bool, stats jsonb,
+        recorded_by, recorded_by_actor_type, created_at.
+  - Operator RPCs (gated manage_facility + audited, Hard Rule #9): venue_record_bout / venue_update_bout
+      / venue_delete_bout (or a soft-delete — confirm). Reuse resolve_venue_caller + _venue_has_cap.
+  - Member/staff read: member_get_fight_record (derived W-L-D-NC, bouts list; staff reads audited per
+      Hard Rule #9). Decide pass_token vs auth.uid identity (grading used pass_token; PT used auth.uid).
+  - Operator UI: "Record bout" — a sub-tab in MembershipsView (sibling of the Phase 2 Grading sub-tab,
+      gated to boxing/MMA clubs via disciplineLabels.hasFightRecord) OR on TrainersView. Per-member
+      bout list + add/edit.
+  - Member UI: MemberProfile.jsx "Fight record" section, gated on disciplineLabels.hasFightRecord
+      (boxing today; martial_arts could opt in — confirm). Keep casual football byte-identical.
+
+  HEADLINE GATE: the player_match / matches sport_stats ADD COLUMN must be additive-NULLABLE and every
+  football read/write path (admin_save_match_result, all state RPCs, mappers) must be byte-unchanged —
+  nothing writes or reads sport_stats yet. Prove this in casual-regression.
+
+Run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT cycle for PHASE 4 ONLY:
+  - AUDIT in plan mode first (no edits): confirm disciplineLabels.hasFightRecord (boxing=true already);
+    pull the Phase 2 grading RPC bodies (venue_award_grade / member_get_grade_history) as the closest
+    pattern to clone; confirm member_profiles + clubs shapes; confirm the MembershipsView sub-tab wiring
+    (how the Grading sub-tab is gated/rendered) for the Record-bout sibling; check player_match/matches
+    columns so the dormant ALTER is genuinely additive.
+  - Apply SQL to Supabase first, land _up/_down source same commit (Hard Rule #11). The sport_stats
+    ALTERs and member_bouts can be one migration.
+  - GATES (mandatory): rpc-security-sweep (every new write RPC); ephemeral-verify (seed an _e2e_
+    venue/club/member fixture, record 2 bouts (1 win 1 loss + a sparring row) → assert member_get_fight_record
+    returns W-L-D derived correctly, update one, delete one, leak-check 0); casual-regression (PROVE
+    football byte-identical — the sport_stats ALTER touches player_match/matches which the casual result
+    cascade writes; assert admin_save_match_result + state RPCs unchanged); real-iPhone PWA walk
+    (Hard Rule #13 — MemberProfile Fight record section on a boxing club); build/hygiene.
+  - Then docs (FEATURES/RPCS/SCHEMA/DECISIONS/BUGS/CONTEXT/handoff + memory — mark the vertical COMPLETE),
+    commit, merge promptly, confirm main clean.
+
+Confirm with me BEFORE building:
+  1. record authority — who logs a bout: manage_facility only (like grading awards, recommended), or
+     also the trainer's own login (like PT check-in)? Recommend manage_facility for v1.
+  2. fight-record visibility — MemberProfile section for the member + staff only (recommended), or also
+     a chip on the public/Pass surface? And does martial_arts opt in to fight records too, or boxing only?
+     Recommend boxing-only + private-to-member/staff for v1.
+  3. delete semantics + sparring depth — hard delete a bout or soft-delete/void (keeps history)? And for
+     sparring rows: just a flagged member_bouts row (is_sparring=true, recommended), or a richer
+     per-round stats capture? Recommend soft-void + is_sparring flag (no extra table) for v1.
+```
 ```
