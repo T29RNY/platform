@@ -102,6 +102,7 @@ function getRoute() {
   if (parts[0]==="sessions")                 return { type:"sessions" };
   if (parts[0]==="classes")                  return { type:"classes" };
   if (parts[0]==="book")                     return { type:"book" };
+  if (parts[0]==="signin")                   return { type:"signin" };
   if (parts[0]==="parent-home")              return { type:"parent-home" };
   if (parts[0]==="feed")                     return { type:"feed" };
   if (parts[0]==="follow-live" && parts[1])  return { type:"follow-live", profileId:parts[1] };
@@ -1204,6 +1205,20 @@ export default function App() {
     return <Onboarding authUser={authUser} />;
   }
 
+  // Sign-in entry for returning users. After auth, returnTo="/" hands off to the
+  // landing routing oracle below, which sends them to their squad/chooser/home.
+  if (route.type === "signin") {
+    if (loading) return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        alignItems:"center", justifyContent:"center" }}>
+        <div style={{ fontSize:48 }}>⚽</div>
+      </div>
+    );
+    if (!authUser) return <SignIn returnTo="/" />;
+    window.location.replace("/");
+    return null;
+  }
+
   if (route.type === "join") {
     if (loading) return (
       <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
@@ -1266,12 +1281,55 @@ export default function App() {
 
   // Authenticated user at "/" — route to the correct home based on relationships.
   // Only fires once relationships have loaded (null guard prevents a flash-redirect
-  // on the frame before the RPC resolves). Squad-only users never hit a branch
-  // (homeScreenType==='squad_only' or null) → fall through to the landing page.
+  // on the frame before the RPC resolves). Squad-only with exactly one squad →
+  // straight into that squad's player view; with 2+ squads → fall through to the
+  // "Your squads" chooser rendered below; with 0 squads (brand-new) → welcome page.
   if (route.type === "landing" && authReady && authUser && relationships) {
     if (homeScreenType === "parent")      { window.location.replace("/parent-home"); return null; }
     if (homeScreenType === "multi")       { window.location.replace("/feed");        return null; }
     if (homeScreenType === "club_member") { window.location.replace("/sessions");    return null; }
+    if (homeScreenType === "squad_only") {
+      const sq = relationships.squads || [];
+      if (sq.length === 1 && sq[0].player_token) {
+        window.location.replace(`/p/${sq[0].player_token}`); return null;
+      }
+    }
+  }
+
+  // Squad-only user on 2+ squads → "Your squads" chooser (reliable list from the
+  // relationships oracle; /feed is event-driven so unsuitable as a pure picker).
+  if (route.type === "landing" && authReady && authUser && relationships
+      && homeScreenType === "squad_only" && (relationships.squads?.length ?? 0) > 1) {
+    return (
+      <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
+        display:"flex", flexDirection:"column", alignItems:"center",
+        justifyContent:"center", padding:24, fontFamily:"Inter,sans-serif" }}>
+        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:44,
+          color:C.amber, letterSpacing:4, marginBottom:8, textAlign:"center" }}>
+          YOUR SQUADS
+        </div>
+        <div style={{ fontSize:13, color:C.muted, textAlign:"center",
+          marginBottom:28 }}>Pick a team to open.</div>
+        <div style={{ width:"100%", maxWidth:340 }}>
+          {relationships.squads.map(sq => (
+            <a key={sq.team_id} href={`/p/${sq.player_token}`}
+              style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                width:"100%", padding:"16px 18px", marginBottom:10, borderRadius:10,
+                border:`1px solid ${sq.game_is_live ? C.amber : C.border}`,
+                background:C.surface, textDecoration:"none", color:C.text }}>
+              <span style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:20,
+                letterSpacing:1, color: sq.game_is_live ? C.amber : C.text }}>{sq.name}</span>
+              <span style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
+                letterSpacing:1, color: sq.game_is_live ? C.amber : C.muted }}>
+                {sq.game_is_live ? "● LIVE" : "OPEN →"}</span>
+            </a>
+          ))}
+        </div>
+        <a href="/create" style={{ marginTop:18, fontFamily:"Inter,sans-serif",
+          fontSize:13, color:C.muted, textDecoration:"underline",
+          textDecorationStyle:"dotted" }}>Create / Join another team</a>
+      </div>
+    );
   }
 
   if (route.type === "landing") return (
@@ -1294,6 +1352,11 @@ export default function App() {
           cursor:"pointer", letterSpacing:0.5 }}>
           Create / Join Team →
         </button>
+      </a>
+      <a href="/signin" style={{ marginTop:16, fontFamily:"Inter,sans-serif",
+        fontSize:14, color:C.amber, textDecoration:"none", fontWeight:600,
+        textAlign:"center" }}>
+        Already have a team? Sign in →
       </a>
       <div style={{ marginTop:20, textAlign:"center" }}>
         {!showLinkInput ? (
