@@ -171,7 +171,7 @@ export default function ClassesTimetable({ venueId, requireAuth }) {
     <div className="ct-wrap">
       <Styles />
       <h2 className="ct-head">What's on</h2>
-      <p className="ct-sub">Classes this week — members can book a spot.</p>
+      <p className="ct-sub">Classes this week — book a spot. Open classes are marked; the rest are members only.</p>
 
       {(credits > 0 || packages.length > 0) && (
         <div className="ct-passbar">
@@ -225,7 +225,7 @@ export default function ClassesTimetable({ venueId, requireAuth }) {
                 <div className="ct-meta">
                   <div className="ct-name">{s.class_name}</div>
                   <div className="ct-info">
-                    {s.is_sparring ? "Sparring · open mat" : (CATEGORY_LABEL[s.category] || "Class")}{s.space_name ? ` · ${s.space_name}` : ""} · {priceLabel(s.price_pence)}
+                    {s.is_sparring ? "Sparring · open mat" : (CATEGORY_LABEL[s.category] || "Class")}{s.space_name ? ` · ${s.space_name}` : ""} · {priceLabel(s.price_pence)}{s.members_only === false ? " · Open to all" : ""}
                   </div>
                   <div className={"ct-spots" + (full ? " ct-spots--low" : "")}>
                     {full ? `Full · ${s.waitlist_count} on waitlist` : `${s.spots_left} spot${s.spots_left === 1 ? "" : "s"} left`}
