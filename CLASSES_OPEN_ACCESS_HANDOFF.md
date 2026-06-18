@@ -1,8 +1,20 @@
 # Classes — Open / Free / Trial access (members_only + price-0 levers) — Build Handoff
 
-*Created session 148 (2026-06-18). Status: PLANNED, not started. This is the OPT-IN follow-up
-logged in BUGS.md after the gym/boxing vertical Phase 3 (PT booking, s147). Next free migration at
-time of writing = **360**.*
+*Created session 148 (2026-06-18). Status: ✅ SHIPPED session 149 (2026-06-18) as mig 360.
+Next free migration = **361**.*
+
+> **SHIPPED s149.** Built exactly as scoped with three operator decisions: (1) class PACKS stay
+> member-only (`member_purchase_class_package` UNCHANGED); (2) priced open class supports BOTH door
+> (live) + Stripe prepay (dormant); (3) flag is per class-TYPE. **Audit correction to the plan below:**
+> the live `member_claim_waitlist_spot` body has NO membership check (it only validates the existing
+> `offered` row, which inherited the booking gate), so it needed NO change — the only gate site that
+> actually changed was `member_book_class_session` (membership EXISTS wrapped in
+> `IF COALESCE(members_only,true)`). Schema: `venue_class_types.members_only boolean NOT NULL DEFAULT
+> true`. Flag plumbed through venue_create/update/list_class_type (new 11th arg on create, old 10-arg
+> DROPped) + member_list_class_sessions. Operator toggle + "Open" pill in ClassesView; member
+> "Open to all"/Free label in ClassesTimetable. Gates: rpc-security PASS (5 RPCs), EV 5/5 + leak 0,
+> casual-regression PASS (additive-diff), boot smoke clean, build inorout+venue + hygiene 7/7.
+> ⛔ real-iPhone PWA walk OWED. The original plan is preserved below for reference.
 
 ---
 
