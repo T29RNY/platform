@@ -3,6 +3,17 @@
 
 ---
 
+## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
+
+The unauthenticated root (`/`) welcome screen in [`apps/inorout/src/App.jsx`](apps/inorout/src/App.jsx)
+(~line 1280: "IN OR OUT" / "The fastest way to organise your weekly football game" / Create-Join
++ player-link) uses **ad-hoc inline styles** (`Bebas Neue` wordmark as plain amber text, `Inter`
+body, hand-rolled button) that **do NOT match the actual In or Out design system** (tokens.css
+vars, the real logo mark, Phosphor icons). Spotted during the domain-migration Phase 6 real-iPhone
+PWA walk on `app.in-or-out.com`. No functional impact — links work. Fix later: restyle to the
+brand system + drop in the proper logo. (Same screen's CTA was relabelled "Create Your Team →" →
+"Create / Join Team →" this session, since it fronts both create AND sign-in/join.)
+
 ## SESSION 143 — RESOLVED (mig 353): recurring-session generators stored UTC, not UK local (BST off-by-one-hour)
 
 **Found by the pre-build audit of the club/membership system.** All three recurring-session

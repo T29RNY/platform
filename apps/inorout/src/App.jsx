@@ -1292,7 +1292,7 @@ export default function App() {
           border:"none", background:C.amber, color:C.black,
           fontFamily:"Inter,sans-serif", fontSize:16, fontWeight:800,
           cursor:"pointer", letterSpacing:0.5 }}>
-          Create Your Team →
+          Create / Join Team →
         </button>
       </a>
       <div style={{ marginTop:20, textAlign:"center" }}>
