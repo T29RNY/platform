@@ -754,7 +754,8 @@ function SessionDetailModal({ venueToken, sessionId, instructors, onClose, onCha
             <p className="text-mute" style={{ fontSize: 13, margin: 0 }}>Reason: {s.cancellation_reason}</p>
           )}
 
-          {/* Attendees — populated once member booking lands (Phase 3) */}
+          {/* Attendees — ordered status, then youngest-first, so coaches can
+              group a mixed-age club session by age on the day (mig 362). */}
           <div>
             <div className="rail-nav-label" style={{ marginBottom: 8 }}>Attendees</div>
             {(s.attendees?.length ?? 0) === 0 ? (
@@ -764,6 +765,7 @@ function SessionDetailModal({ venueToken, sessionId, instructors, onClose, onCha
                 {s.attendees.map((a) => (
                   <div key={a.booking_id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
                     <span style={{ flex: 1 }}>{a.member_name || "Member"}</span>
+                    {a.age != null && <span className="pill pill-muted">Age {a.age}</span>}
                     <span className="pill pill-muted">{a.status}</span>
                     <span className="text-mute">{a.payment_status}</span>
                   </div>

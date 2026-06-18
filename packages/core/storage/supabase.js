@@ -3612,7 +3612,8 @@ export async function venueListClassSessions(venueToken, { from = null, to = nul
   return data;
 }
 
-// Single session detail + attendee list (attendees empty until Phase 3). Returns an object.
+// Single session detail + attendee list. Each attendee carries dob + age (mig 362),
+// ordered status then youngest-first for age-grouping a club session. Returns an object.
 export async function venueGetClassSessionDetail(venueToken, sessionId) {
   const { data, error } = await supabase.rpc("venue_get_class_session_detail", {
     p_venue_token: venueToken, p_session_id: sessionId });
