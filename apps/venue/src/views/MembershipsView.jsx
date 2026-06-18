@@ -6,6 +6,7 @@ import {
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
   venueCreateGradingScheme, venueAddGrade, venueAwardGrade, venueListGradingSchemes,
+  venueRecordBout, venueUpdateBout, venueDeleteBout, venueListMemberBouts,
   venueListClubVenues, venueAddClubVenue, venueRemoveClubVenue, venueSearch,
   venueListClubStaff, venueAssignTeamManager, venueRemoveTeamManager, venueUpsertStaffDbs,
   clubSendAnnouncement,
@@ -36,6 +37,11 @@ const CADENCES = [["monthly", "Monthly"], ["quarterly", "Quarterly"], ["annual",
 // in the member app — martial_arts only today). The Grading tab + per-member
 // "Award grade" action only surface for clubs of these disciplines.
 const GRADING_DISCIPLINES = ["martial_arts"];
+// Disciplines that track a fight record (mirrors disciplineLabels.hasFightRecord
+// in the member app — boxing only today). The per-member "Fight record" action
+// only surfaces for clubs of these disciplines.
+const FIGHT_RECORD_DISCIPLINES = ["boxing"];
+const BOUT_RESULTS = [["win", "Win"], ["loss", "Loss"], ["draw", "Draw"], ["no_contest", "No contest"]];
 const AGE_BANDS = [["all", "All ages"], ["juniors", "Juniors"], ["adults", "Adults"]];
 const FEE_PERIODS = [["weekly", "Weekly"], ["monthly", "Monthly"], ["quarterly", "Quarterly"], ["annual", "Annual"]];
 
@@ -151,6 +157,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
   const [enrolReq, setEnrolReq] = useState(null);   // pending person being approved-and-enrolled
   const [profileFor, setProfileFor] = useState(null); // member whose full registration is open
   const [gradeFor, setGradeFor] = useState(null);     // member being awarded a grade/belt
+  const [boutsFor, setBoutsFor] = useState(null);     // member whose fight record is open
 
   // The member pass lives on the casual app (in-or-out.com), not the venue console.
   const copyPassLink = async (m) => {
@@ -267,6 +274,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
                   <span style={{ flex: 1 }} />
                   {m.customer_id && <button className="btn btn-xs" onClick={() => setProfileFor(m)} title="View / edit registration details"><Icon name="customers" size={13} /> Details</button>}
                   {m.club_id && GRADING_DISCIPLINES.includes(m.discipline) && <button className="btn btn-xs" onClick={() => setGradeFor(m)} title="Award a belt / grade"><Icon name="cups" size={13} /> Award grade</button>}
+                  {m.club_id && FIGHT_RECORD_DISCIPLINES.includes(m.discipline) && <button className="btn btn-xs" onClick={() => setBoutsFor(m)} title="View / record bouts"><Icon name="cups" size={13} /> Fight record</button>}
                   {m.status === "active" && <button className="btn btn-xs" onClick={() => setFreezeFor(m)}><Icon name="clock" size={13} /> Freeze</button>}
                   {m.status !== "cancelled" && <button className="btn btn-xs" onClick={() => setCancelFor(m)}><Icon name="x" size={13} /> Cancel</button>}
                 </div>
@@ -278,6 +286,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
 
       {profileFor && <ProfileModal venueToken={venueToken} customerId={profileFor.customer_id} name={fullName(profileFor)} onClose={() => setProfileFor(null)} onDone={() => { setProfileFor(null); reload(); }} />}
       {gradeFor && <GradeModal venueToken={venueToken} member={gradeFor} onClose={() => setGradeFor(null)} onDone={() => setGradeFor(null)} />}
+      {boutsFor && <BoutsModal venueToken={venueToken} member={boutsFor} onClose={() => setBoutsFor(null)} />}
       {enrolReq && <ApproveEnrolModal venueToken={venueToken} person={enrolReq} onClose={() => setEnrolReq(null)} onDone={() => { setEnrolReq(null); reload(); }} />}
       {enrolOpen && <EnrolModal venueToken={venueToken} onClose={() => setEnrolOpen(false)} onDone={() => { setEnrolOpen(false); reload(); }} />}
       {freezeFor && <FreezeModal venueToken={venueToken} member={freezeFor} onClose={() => setFreezeFor(null)} onDone={() => { setFreezeFor(null); reload(); }} />}
@@ -368,6 +377,129 @@ function GradeModal({ venueToken, member, onClose, onDone }) {
             <label className="field-label">Note (optional)</label>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. graded at summer camp" />
           </div>
+          {error && <p style={{ color: "var(--live)", fontSize: 13 }}>{error}</p>}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ── Fight record (per-member, from the Members roster; boxing clubs) ─────────
+function BoutsModal({ venueToken, member, onClose }) {
+  const [data, setData] = useState(null);      // { record, bouts } or null while loading
+  const [error, setError] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ boutDate: isoPlusDays(0), result: "win", opponentName: "", eventName: "", method: "", rounds: "", isSparring: false, note: "" });
+  const isSavingRef = useRef(false);
+
+  const load = () => {
+    venueListMemberBouts(venueToken, member.membership_id)
+      .then((r) => setData({ record: r?.record || {}, bouts: r?.bouts || [] }))
+      .catch((e) => setError(e?.message || String(e)));
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [venueToken, member.membership_id]);
+
+  const submit = async () => {
+    if (isSavingRef.current || !form.boutDate || !form.result) return;
+    isSavingRef.current = true; setError(null);
+    try {
+      await venueRecordBout(venueToken, member.membership_id, {
+        boutDate: form.boutDate, result: form.result,
+        opponentName: form.opponentName.trim() || null, eventName: form.eventName.trim() || null,
+        method: form.method.trim() || null, rounds: form.rounds === "" ? null : Number(form.rounds),
+        isSparring: form.isSparring, note: form.note.trim() || null,
+      });
+      setForm({ boutDate: isoPlusDays(0), result: "win", opponentName: "", eventName: "", method: "", rounds: "", isSparring: false, note: "" });
+      setAdding(false);
+      setData(null); load();
+    } catch (e) { setError("Couldn’t record the bout — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  const toggleVoid = async (b) => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true; setError(null);
+    try { await venueDeleteBout(venueToken, b.bout_id, !b.voided); setData(null); load(); }
+    catch (e) { setError("Couldn’t update the bout — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  const rec = data?.record || {};
+  const recLabel = `${rec.wins || 0}-${rec.losses || 0}-${rec.draws || 0}${rec.no_contests ? ` (${rec.no_contests} NC)` : ""}`;
+
+  return (
+    <Modal title={`Fight record — ${fullName(member) || "member"}`} onClose={onClose} foot={
+      <button className="btn btn-primary" onClick={onClose}>Done</button>
+    }>
+      {data === null ? <p className="text-mute">Loading…</p> : (
+        <div style={{ display: "grid", gap: 14 }}>
+          <div className="pill pill-info" style={{ width: "fit-content" }}>Record (bouts): {recLabel}</div>
+
+          {!adding && <button className="btn btn-sm" onClick={() => setAdding(true)}><Icon name="plus" size={13} /> Record a bout</button>}
+
+          {adding && (
+            <div style={{ display: "grid", gap: 10, padding: 12, border: "1px solid var(--border)", borderRadius: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 130 }}>
+                  <label className="field-label">Date</label>
+                  <input className="input" type="date" value={form.boutDate} onChange={(e) => setForm((f) => ({ ...f, boutDate: e.target.value }))} />
+                </div>
+                <div style={{ flex: 1, minWidth: 110 }}>
+                  <label className="field-label">Result</label>
+                  <select className="input" value={form.result} onChange={(e) => setForm((f) => ({ ...f, result: e.target.value }))}>
+                    {BOUT_RESULTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="field-label">Opponent (optional)</label>
+                <input className="input" value={form.opponentName} onChange={(e) => setForm((f) => ({ ...f, opponentName: e.target.value }))} placeholder="e.g. J. Smith" />
+              </div>
+              <div>
+                <label className="field-label">Event (optional)</label>
+                <input className="input" value={form.eventName} onChange={(e) => setForm((f) => ({ ...f, eventName: e.target.value }))} placeholder="e.g. Regional ABA semi-final" />
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 130 }}>
+                  <label className="field-label">Method (optional)</label>
+                  <input className="input" value={form.method} onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))} placeholder="KO / TKO / decision" />
+                </div>
+                <div style={{ width: 90 }}>
+                  <label className="field-label">Rounds</label>
+                  <input className="input" type="number" min={0} value={form.rounds} onChange={(e) => setForm((f) => ({ ...f, rounds: e.target.value }))} />
+                </div>
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                <input type="checkbox" checked={form.isSparring} onChange={(e) => setForm((f) => ({ ...f, isSparring: e.target.checked }))} />
+                Sparring (excluded from the headline record)
+              </label>
+              <div>
+                <label className="field-label">Note (optional)</label>
+                <input className="input" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-sm btn-primary" disabled={!form.boutDate} onClick={submit}>Save bout</button>
+                <button className="btn btn-sm btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {data.bouts.length === 0 ? (
+            <EmptyState title="No bouts yet" body="Record a bout to start this member’s fight record." />
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {data.bouts.map((b) => (
+                <div key={b.bout_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, opacity: b.voided ? 0.5 : 1 }}>
+                  <span className={"pill " + (b.result === "win" ? "pill-ok" : b.result === "loss" ? "pill-warn" : "pill-muted")}>{(BOUT_RESULTS.find((r) => r[0] === b.result) || [, b.result])[1]}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14 }}>{b.opponent_name || "Opponent —"}{b.is_sparring ? " · sparring" : ""}</div>
+                    <div className="text-mute" style={{ fontSize: 12 }}>{b.bout_date}{b.event_name ? ` · ${b.event_name}` : ""}{b.method ? ` · ${b.method}` : ""}{b.rounds != null ? ` · ${b.rounds}r` : ""}{b.voided ? " · voided" : ""}</div>
+                  </div>
+                  <button className="btn btn-xs btn-ghost" onClick={() => toggleVoid(b)}>{b.voided ? "Restore" : "Void"}</button>
+                </div>
+              ))}
+            </div>
+          )}
           {error && <p style={{ color: "var(--live)", fontSize: 13 }}>{error}</p>}
         </div>
       )}

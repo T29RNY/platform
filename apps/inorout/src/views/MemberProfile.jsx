@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChild, memberUpdateChild,
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
-         memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory } from "@platform/core/storage/supabase.js";
+         memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
+         memberGetFightRecord } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
@@ -66,6 +67,7 @@ export default function MemberProfile({ authUser }) {
   const [myOrders,       setMyOrders]       = useState([]);
   const [myClasses,      setMyClasses]      = useState([]);   // class booking history (mig 340)
   const [gradeHistory,   setGradeHistory]   = useState([]);   // belt/grade award log (mig 357, grading disciplines only)
+  const [fightRecord,    setFightRecord]    = useState(null); // { record, bouts } (mig 359, boxing only)
   const [idUploadClub,   setIdUploadClub]   = useState(null); // club being uploaded for
   const [idDocType,      setIdDocType]      = useState("passport");
   const [idFile,         setIdFile]         = useState(null);
@@ -108,6 +110,18 @@ export default function MemberProfile({ authUser }) {
     memberGetGradeHistory(club.pass_token)
       .then((r) => { if (alive) setGradeHistory(r?.history ?? []); })
       .catch(() => { if (alive) setGradeHistory([]); });
+    return () => { alive = false; };
+  }, [profile]);
+
+  // Fight record for the active boxing club (mig 359). Keyed on profile like the
+  // grade history above; no-op for non-fight-record clubs.
+  useEffect(() => {
+    const club = pickActiveClub(profile?.active_clubs);
+    if (!club?.pass_token || !getDisciplineLabels(club.discipline).hasFightRecord) { setFightRecord(null); return; }
+    let alive = true;
+    memberGetFightRecord(club.pass_token)
+      .then((r) => { if (alive) setFightRecord(r?.ok ? r : null); })
+      .catch(() => { if (alive) setFightRecord(null); });
     return () => { alive = false; };
   }, [profile]);
 
@@ -931,6 +945,52 @@ export default function MemberProfile({ authUser }) {
                 {i === 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(76,175,80,0.15)", color: "rgba(76,175,80,1)" }}>Current</span>}
               </div>
             ))}
+          </Section>
+        )}
+
+        {/* ── Fight record (bouts, mig 359 — boxing clubs only) ── */}
+        {gradingLabels.hasFightRecord && fightRecord && (
+          <Section title="Fight record">
+            <div style={{ display: "flex", gap: 14, padding: "4px 0 12px", flexWrap: "wrap" }}>
+              {[["W", fightRecord.record?.wins, "rgba(76,175,80,1)"],
+                ["L", fightRecord.record?.losses, "#FF6060"],
+                ["D", fightRecord.record?.draws, "var(--t2)"],
+                ...(fightRecord.record?.no_contests ? [["NC", fightRecord.record.no_contests, "var(--t2)"]] : [])
+              ].map(([k, v, col]) => (
+                <div key={k} style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 30, lineHeight: 1, color: col }}>{v || 0}</div>
+                  <div style={{ fontSize: 11, color: "var(--t3, #666)", marginTop: 2 }}>{k}</div>
+                </div>
+              ))}
+              {fightRecord.record?.sparring_count > 0 && (
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 30, lineHeight: 1, color: "var(--t2)" }}>{fightRecord.record.sparring_count}</div>
+                  <div style={{ fontSize: 11, color: "var(--t3, #666)", marginTop: 2 }}>Sparring</div>
+                </div>
+              )}
+            </div>
+            {(fightRecord.bouts || []).map((b, i) => {
+              const tone = b.result === "win" ? { bg: "rgba(76,175,80,0.15)", fg: "rgba(76,175,80,1)" }
+                : b.result === "loss" ? { bg: "rgba(255,96,96,0.15)", fg: "#FF6060" }
+                : { bg: "rgba(255,255,255,0.06)", fg: "var(--t2)" };
+              const label = b.is_sparring ? "Sparring" : b.result === "win" ? "Win" : b.result === "loss" ? "Loss" : b.result === "draw" ? "Draw" : "NC";
+              return (
+                <div key={b.bout_id} style={{
+                  padding: "10px 0",
+                  borderTop: i > 0 ? "1px solid var(--border-subtle)" : "none",
+                  display: "flex", alignItems: "flex-start", gap: 12,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>{b.opponent_name || "Opponent —"}</div>
+                    <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                      {b.event_name || ""}{b.method ? `${b.event_name ? " · " : ""}${b.method}` : ""}{b.rounds != null ? ` · ${b.rounds}r` : ""}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--t3, #666)", marginTop: 3 }}>{fmtDate(b.bout_date)}</div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: tone.bg, color: tone.fg }}>{label}</span>
+                </div>
+              );
+            })}
           </Section>
         )}
 
