@@ -4274,6 +4274,50 @@ Authoritative spec = `MULTI_CONTEXT_NAV_HANDOFF.md` §LOCKED PLAN.
 Commits: bca59bd (s140 handoff), d623bf4 + 47ae048 (s141 plan lock + guardian/cross-cutting),
 36c61c0 (domain coordination). **Next free mig = 349.**
 
+## SESSION 148 — Gym/Boxing vertical Phase 4: bout / fight record + sparring stats (mig 359) — VERTICAL COMPLETE (2026-06-18)
+
+**Shipped on branch `gym-vertical-phase4`.** The LAST phase of the gym/boxing vertical. Boxing's
+progression is a fight record (not a belt ladder) — recorded by the operator against a member, shown
+on the member's profile as a derived W-L-D-NC + bout list. Clones the Phase 2 grading shape almost
+1:1 (operator writes gated `manage_facility` + audited; member read via pass_token).
+
+**Two pieces:**
+1. **DORMANT `sport_stats`** — `ALTER player_match/matches ADD COLUMN sport_stats jsonb` (additive-
+   NULLABLE). Realises the long-documented dormant pattern (DECISIONS.md) so a future non-football
+   sport can hang per-appearance stats off the existing match spine without another migration.
+   Nothing reads or writes it (verified: 0 pg_proc refs) → the football result cascade is byte-
+   unchanged. Proven in casual-regression.
+2. **`member_bouts`** — dedicated RLS-walled table keyed on `member_profile_id` (football's
+   `player_match` keys on a football `players` row — kept separate by design). SOFT-VOID via
+   `voided` (never hard delete; members never see voided rows, operator can restore). `is_sparring`
+   rows are EXCLUDED from the headline W-L-D-NC and surfaced as a separate `sparring_count`.
+
+**5 RPCs:** `venue_record_bout` / `venue_update_bout` / `venue_delete_bout` (soft-void) — gated
+`manage_facility`, audited; `venue_list_member_bouts` (operator read, includes voided + derived
+record); `member_get_fight_record` (member read via pass_token, excludes voided). All SECURITY
+DEFINER, search_path public/pg_temp, single overload, granted anon+authenticated. Wrappers +
+barrel: venueRecordBout/venueUpdateBout/venueDeleteBout/venueListMemberBouts/memberGetFightRecord.
+
+**UI:** operator → per-member "Fight record" modal in `MembershipsView` (record/void/restore, list,
+derived record), gated by `FIGHT_RECORD_DISCIPLINES=['boxing']`. Member → "Fight record" section on
+`MemberProfile` (W-L-D-NC stat row + sparring count + bout list), gated on
+`disciplineLabels.hasFightRecord` (boxing only; martial_arts stays grading-only).
+
+**Operator decisions (three recommended defaults confirmed "sure. proceed"):** (1) record authority =
+existing `manage_facility` cap (not the trainer's login); (2) visibility = member + staff only, NO
+public/Pass chip, boxing only; (3) SOFT-VOID not hard delete + `is_sparring` flag on the same table
+(no separate sparring table / per-round capture). The STRATEGY.md post-pilot timing gate for Phases
+3–4 is RETIRED (operator confirmed proceed). The classes free/trial `members_only`+price-0 retrofit
+stays an OPT-IN follow-up in BUGS.md — operator chose Phase-4-only this session.
+
+**Gates:** rpc-security PASS (5 RPCs); EV 10/10 + leak 0 — EV caught + fixed (pre-commit, folded as
+359b) a consistency gap where the member headline W-L-D counted sparring while the operator list
+excluded it; casual-regression PASS (additive-diff — only MemberProfile touched + gated on
+hasFightRecord, sport_stats invisible to all RPCs, no casual football surface touched); Playwright
+boot smoke 0 app errors; build inorout+venue + hygiene clean. ⛔ real-iPhone PWA walk OWED
+(MemberProfile Fight record section; needs an authed member on a boxing club). **Next free mig = 360.**
+**🏁 GYM/BOXING VERTICAL COMPLETE — Phases 0 (355) · 1 (356) · 2 (357) · 3 (358) · 4 (359).**
+
 ## SESSION 146 — Gym/Boxing vertical Phase 2: grading / belt progression (mig 357) (2026-06-17)
 
 **Shipped on branch `gym-vertical-phase2`.** Per-club, per-discipline belt/grade progression for

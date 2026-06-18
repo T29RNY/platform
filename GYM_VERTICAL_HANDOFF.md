@@ -179,7 +179,26 @@ semantics). Reuse every cross-cutting primitive instead.
 - **Member UI + NEW route:** `/book` → new `apps/inorout/src/views/BookPT.jsx`. "Train" tab on ClubNavBar, gated to PT disciplines AND ≥1 active trainer.
 - **Money:** `venue_charges` rows written but settlement stays DORMANT until live keys; `door` mode is the live path.
 
-## Phase 4 — Bout / fight record + sparring stats  *(mig 359; boxing-specific, last)*
+## Phase 4 — Bout / fight record + sparring stats  *(mig 359; boxing-specific, last)* — ✅ SHIPPED session 148 — 🏁 VERTICAL COMPLETE
+**Status (s148):** built + verified on branch `gym-vertical-phase4`. mig 359 applied: DORMANT
+`player_match.sport_stats`/`matches.sport_stats jsonb` (additive-NULLABLE, 0 pg_proc refs → football
+cascade byte-unchanged) + ONE RLS-walled table `member_bouts` (member_profile_id + club_id, result
+win|loss|draw|no_contest, method/rounds/event/opponent, `is_sparring`, **`voided` SOFT-DELETE**; W-L-D-NC
+derived over non-voided non-sparring rows, sparring → separate `sparring_count`). 5 RPCs (writes gated
+`manage_facility` + audited): `venue_record_bout` / `venue_update_bout` / `venue_delete_bout` (soft-void) +
+reads `venue_list_member_bouts` (operator, incl voided) / `member_get_fight_record` (member via pass_token,
+excludes voided). Operator: per-member **Fight record** modal in `MembershipsView`
+(`FIGHT_RECORD_DISCIPLINES=['boxing']`). Member: **Fight record** section on `MemberProfile` (W-L-D-NC +
+sparring count + bout list), gated on `disciplineLabels.hasFightRecord` (boxing only). **Operator decisions
+(3 recommended defaults confirmed):** manage_facility authority; member+staff visibility, boxing-only;
+soft-void + is_sparring flag (no separate sparring table). EV 10/10 + leak 0 (EV caught + fixed a
+sparring/headline consistency gap pre-commit, folded as 359b), rpc-security PASS (5 RPCs), casual-regression
+PASS (additive-diff — sport_stats invisible to all RPCs), Playwright boot smoke 0 app errors, build
+inorout+venue + hygiene clean. ⛔ **real-iPhone PWA walk OWED** (MemberProfile Fight record; needs an authed
+member on a boxing club). The STRATEGY.md post-pilot timing gate for Phases 3–4 is RETIRED. The classes
+free/trial `members_only`+price-0 retrofit stays an OPT-IN follow-up in BUGS.md — NOT built. **Next free mig
+= 360.** **🏁 GYM/BOXING VERTICAL COMPLETE — Phases 0 (355) · 1 (356) · 2 (357) · 3 (358) · 4 (359).**
+
 **Goal.** Capture a bout/sparring record on MemberProfile. Zero breaking changes to football.
 **Decision:** realise the documented `player_match.sport_stats jsonb` pattern (additive,
 dormant) AND store boxing data in a dedicated `member_bouts` table keyed on

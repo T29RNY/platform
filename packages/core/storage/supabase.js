@@ -4261,6 +4261,55 @@ export async function memberGetGradeHistory(passToken) {
   return data ?? { ok: false, history: [] };
 }
 
+// ── Fight record / bouts (gym/boxing vertical, Phase 4, mig 359) ─────────────
+export async function venueRecordBout(venueToken, membershipId, {
+  boutDate, result, opponentName = null, eventName = null, method = null,
+  rounds = null, isSparring = false, stats = null, note = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_record_bout", {
+    p_venue_token: venueToken, p_membership_id: membershipId, p_bout_date: boutDate,
+    p_result: result, p_opponent_name: opponentName, p_event_name: eventName,
+    p_method: method, p_rounds: rounds, p_is_sparring: isSparring, p_stats: stats, p_note: note,
+  });
+  if (error) { console.error("[venue] venue_record_bout failed", error); throw error; }
+  return data;
+}
+
+export async function venueUpdateBout(venueToken, boutId, {
+  boutDate = null, result = null, opponentName = null, eventName = null, method = null,
+  rounds = null, isSparring = null, stats = null, note = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("venue_update_bout", {
+    p_venue_token: venueToken, p_bout_id: boutId, p_bout_date: boutDate,
+    p_result: result, p_opponent_name: opponentName, p_event_name: eventName,
+    p_method: method, p_rounds: rounds, p_is_sparring: isSparring, p_stats: stats, p_note: note,
+  });
+  if (error) { console.error("[venue] venue_update_bout failed", error); throw error; }
+  return data;
+}
+
+export async function venueDeleteBout(venueToken, boutId, voidIt = true) {
+  const { data, error } = await supabase.rpc("venue_delete_bout", {
+    p_venue_token: venueToken, p_bout_id: boutId, p_void: voidIt,
+  });
+  if (error) { console.error("[venue] venue_delete_bout failed", error); throw error; }
+  return data;
+}
+
+export async function venueListMemberBouts(venueToken, membershipId) {
+  const { data, error } = await supabase.rpc("venue_list_member_bouts", {
+    p_venue_token: venueToken, p_membership_id: membershipId,
+  });
+  if (error) { console.error("[venue] venue_list_member_bouts failed", error); throw error; }
+  return data ?? { ok: false, bouts: [] };
+}
+
+export async function memberGetFightRecord(passToken) {
+  const { data, error } = await supabase.rpc("member_get_fight_record", { p_token: passToken });
+  if (error) { console.error("[membership] member_get_fight_record failed", error); throw error; }
+  return data ?? { ok: false, bouts: [] };
+}
+
 export async function venueListClubVenues(venueToken, clubId) {
   const { data, error } = await supabase.rpc("venue_list_club_venues", {
     p_venue_token: venueToken, p_club_id: clubId,
