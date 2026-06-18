@@ -7,7 +7,7 @@ before wrapping the app.
 
 ---
 
-## 0bis. STATUS — session 150 (2026-06-18): Phases 1–5 DONE & LIVE; only housekeeping + PWA owed
+## 0bis. STATUS — session 150 (2026-06-18): Phases 1–6 DONE & LIVE (squad path); only 5.3/5.4 housekeeping owed
 
 **Phase 1 COMPLETE + a critical project-identity correction.** `app.in-or-out.com` now
 resolves and serves the live consumer build (bundle parity with `www`: `index-D6SVS9w3.js`,
@@ -66,16 +66,31 @@ still works, defer.
 
 **Claude's work for this migration is COMPLETE (Phases 2, 4, 5.1, 5.2 deploy+relink).**
 
+**Phase 2.5 sign-in PROVEN (s150):** operator completed a Google sign-in round-trip on
+`app.in-or-out.com` on a real iPhone → landed signed-in + routed. Supabase Auth redirect config
+confirmed working on the new domain.
+
+**Phase 6 squad/admin path VERIFIED on real iPhone (s150):** standalone PWA launch + Google
+sign-in + post-auth routing all confirmed (Hard Rule #13 satisfied for the squad path).
+Club-member/guardian `/feed` install path still UNVERIFIED (operator isn't a club member — N/A
+for now; verify if/when a club-member account exists).
+
+**SIGN-IN ROUTING GAP — FOUND & FIXED during the Phase 6 walk (commit `05157aa`, real-device
+verified):** a signed-in squad-only user landing on `/` fell through to the Create/Join welcome
+page (the relationship oracle in App.jsx only branched parent/multi/club_member — squad-only had
+no branch). Fixed additively: squad-only + 1 squad → `/p/<player_token>`; + 2+ squads → new
+"Your squads" chooser (from `relationships.squads`); new `/signin` route + "Already have a team?
+Sign in →" entry on the welcome page. Casual `/p/` + `/admin/` token flows byte-untouched.
+(Operator's account: admin of demo `Competitive FC` + PLAYER on real `Footy Tuesdays` — Footy's
+admin is `rockybram@gmail.com`; both kept linked per operator. Zero-tap Footy default = install
+PWA from `/p/p_0imvDLsGMdQhV-Aba5I`.) Welcome-screen styling/logo is off-brand → BUGS.md s150.
+
 **OUTSTANDING — deferred housekeeping (NOT on the critical path, do anytime):**
 - **5.3** — Vercel → dead `inor-out` project: remove any stale `in-or-out.com`/`www` domain
   claims (should NOT show `app.`), then **delete the project**. Safe; local `.vercel` already
   re-linked so no CLI-deploy risk. Pure tidiness.
 - **5.4** — Supabase → Auth → URL Configuration → Redirect URLs: drop the temporary apex/`www`
   entry (keep the `app.` ones). Do after a day or two of stable `app.`.
-- **Phase 6** — real-iPhone PWA install on `app.` (admin/squad AND a club member/guardian →
-  confirm `/feed` standalone launch + push); reinstall the ~2 existing apex installs from `app.`
-  Hard Rule #13 — IN PROGRESS (operator checking now).
-- **Phase 2.5 owed** — sign-in round-trip test on `app.` (above).
 
 ---
 
