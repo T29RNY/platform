@@ -21,9 +21,18 @@ Every env/cron/domain instruction below has been re-pointed to `platform-clubman
 old Phase 5.3 (which said "remove the apex from `platform-clubmanager`" — would have killed
 prod) has been reversed. See §2 "Confirmed facts" for the corrected project map.
 
-**Still to do (Claude):** Phase 2 (code repoint) → Phase 4 (cron/fns, mig 361+) → Phase 5.1
-(marketing 301). **Still to do (operator):** Phase 3 env, Phase 2.5 Supabase Auth, Phase
-5.2–5.4 apex flip + dead-project cleanup, Phase 6 real-iPhone PWA.
+**Done:** Phase 1 (operator) + **Phase 2 (code repoint, commit `70b74cc` on main — 17 files,
+27 link/auth constants → `app.`).** Auto-deployed to `platform-clubmanager`.
+
+**Still to do (Claude):** Phase 4 (cron/fns, mig 361+) → Phase 5.1 (marketing 301).
+⚠️ Phase 4 is BLOCKED until the operator sets the new `CRON_SECRET` on `platform-clubmanager`
+(Phase 3) and gives Claude the value — the 7 cron jobs must send it or they 401.
+
+**Still to do (operator):** Phase 3 env (incl. new `CRON_SECRET`), Phase 2.5 Supabase Auth,
+Phase 5.2–5.4 apex flip + dead-`inor-out` cleanup, Phase 6 real-iPhone PWA.
+
+**Sticking to the order:** next action is operator Phase 3. Phase 5.1 is deliberately NOT run
+ahead of Phase 4 (keep the sequence DB-before-apex-flip clean and one PR at a time).
 
 ---
 
@@ -61,44 +70,50 @@ Then confirm "app is live" → Claude runs Phases 2 + 4 + 5.1 in one sweep.
   accounts on `founder@in-or-out.com`) is a prerequisite for the app store and can run in
   parallel with the DNS work.
 
-### NEXT-SESSION PROMPT — Domain migration, Phases 2 + 4 + 5.1 (Claude's half)
+### NEXT-SESSION PROMPT — Domain migration, Phase 4 (DB cron/fns) + Phase 5.1 (marketing 301)
 ```
 Resume the DOMAIN MIGRATION (DOMAIN_MIGRATION.md). Read it in full first, especially the
-"0bis. STATUS" banner and the Phase 2 / 4 / 5 sections.
+"0bis. STATUS" banner, §2 Confirmed facts (the project-identity correction), and the
+Phase 4 / 5 sections.
 
-GATE FIRST: run `nslookup app.in-or-out.com` (or curl it). If it still returns NXDOMAIN /
-doesn't serve the app, STOP and tell me these two operator steps (the only thing blocking this
-— Claude cannot do them), then end the session:
-  1. GoDaddy → in-or-out.com → DNS → Add Record: CNAME, Name `app`, Value `cname.vercel-dns.com`,
-     TTL default.
-  2. Vercel → project `inor-out` → Settings → Domains → add `app.in-or-out.com`; if Vercel shows
-     a different CNAME target, match it in GoDaddy; wait for "Valid Configuration" + SSL.
-Do NOT repoint any code, cron job, or DB function to app. until it resolves AND serves the
-consumer app — doing so breaks live player links and silently 401s the timed cron POSTs. Only
-proceed past this gate once app.in-or-out.com resolves AND serves the app.
+CONTEXT: Phase 1 (app.in-or-out.com live) + Phase 2 (code repoint, commit 70b74cc on main)
+are DONE. ⚠️ The LIVE consumer app is Vercel project `platform-clubmanager` (root dir
+apps/inorout) — NOT `inor-out` (a dead project). ALL env/cron/domain ops target
+platform-clubmanager.
 
-Once app. is live, run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT cycle for CLAUDE'S
-half (the operator owns the dashboard steps — surface those for me to do, one at a time):
-  - Phase 2 (code): repoint every link + auth SSR-fallback constant to https://app.in-or-out.com
-    across the Repoint Inventory files (apps/inorout/api/{manifest,cron,notify,gocardless-mandate,
-    gocardless-connect,stripe-member-checkout}.js; apps/inorout/src/{onboarding/steps/SquadReady,
-    views/AdminView/SquadScreen,views/JoinSuccess,views/PWAWelcome,views/SignIn,
-    views/EmailCaptureOverlay,views/JoinTeam}.jsx; apps/venue/src/views/{InvitesView,
-    MembershipsView}.jsx; apps/superadmin/src/views/{CreateSquad,TeamDetail,Activity}.jsx).
-    Leave manifest.js /feed start_url logic intact. Build inorout+venue+superadmin; grep
-    `www.in-or-out.com` / `in-or-out.com` in those trees → only comments remain; commit.
-  - Phase 4 (DB, CRITICAL): rotate CRON_SECRET; re-schedule all 7 pg_cron jobs + CREATE OR
-    REPLACE notify_spot_opened() + get_display_landing_code() to app.; write the migration
-    file(s) at mig 361+ in the SAME commit (Hard Rule #11); re-sweep `cron.job` + function
-    bodies live → zero apex refs. rpc-security-sweep on the two functions.
+GATE FIRST (two checks — if either fails, STOP and surface the blocker, don't run ahead):
+  1. Confirm app. still serves the live build with parity to www:
+       curl -s -o /dev/null -w "%{http_code}" https://app.in-or-out.com/api/cron   → 401 (not 404)
+       curl -s -o /dev/null -w "%{http_code}" https://app.in-or-out.com/api/manifest → 200
+     (404s mean app. drifted off the live deployment — stop, re-check the Vercel domain.)
+  2. Confirm the operator has completed Phase 3 on `platform-clubmanager`: INOROUT_APP_URL +
+     GC_CONNECT_REDIRECT_URI set, and a NEW CRON_SECRET set + redeployed — AND has given you
+     the new CRON_SECRET value. Phase 4 CANNOT run without it (the 7 cron jobs must send the
+     exact new bearer or every /api/notify + /api/cron POST 401s). If you don't have the
+     value, STOP and ask for it.
+
+Once both pass, run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT cycle (proceed with
+caution; checkpoint before the live-DB apply):
+  - Phase 4 (DB, CRITICAL — mutates the live DB): re-schedule all 7 pg_cron jobs
+    (notif-flush-queue, notif-game-day-9am, notif-one-hr-before, notif-debt-reminder,
+    notif-bibs-24hr, notif-bibs-45min → /api/notify; inorout-cron-main → /api/cron) with
+    url → https://app.in-or-out.com/... and the NEW CRON_SECRET bearer, same schedules; then
+    CREATE OR REPLACE notify_spot_opened() (net.http_post URL → app./api/notify) and
+    get_display_landing_code() (returned URL → app./q/). AUDIT the live cron.job table +
+    both function bodies first (live is truth over migration files). Write the migration
+    file(s) at mig 361+ in the SAME commit (Hard Rule #11) + matching _down. Re-sweep live:
+    SELECT jobid,jobname,command FROM cron.job → all 7 show app.; function bodies → zero apex
+    refs. rpc-security-sweep on the two functions. Then verify a cron tick lands on app.
   - Phase 5.1 (repo): build the marketing catch-all 301 vercel.json (denylist /, /venues,
     favicon, assets; 301 everything else → app., preserving path+query; "Get the app" CTA →
-    app., operator CTA → venue.).
+    app., operator CTA → venue.). No live effect until Phase 5.2 deploy.
 
-Then hand me the operator dashboard steps in order: Phase 3 (Vercel env on inor-out +
-platform-venue; Stripe + GoCardless webhook/return URLs), Phase 2.5 (Supabase Auth Site +
-Redirect URLs + email templates), then the Phase 5.2–5.4 apex flip, then Phase 6 real-iPhone
-PWA verify. Do NOT run two PRs against main at once (Cloud Session Discipline).
+Then hand me the remaining operator dashboard steps in order, ONE at a time: Phase 3 finish
+(Stripe + GoCardless webhook/return URLs → app.), Phase 2.5 (Supabase Auth Site + Redirect
+URLs + email templates → app.), Phase 5.2–5.4 (deploy marketing + move apex off
+platform-clubmanager onto marketing; clean up the dead inor-out project + re-link local
+.vercel), Phase 6 real-iPhone PWA verify (incl. /feed install for a club member/guardian).
+Do NOT run two PRs against main at once (Cloud Session Discipline).
 ```
 
 ## 1. Why now
@@ -275,7 +290,8 @@ cutover (Phase 5), reversible the whole way.
 ### 2.4 [Claude] Build, verify, commit
 - `cd apps/inorout && npm run build` (and venue/superadmin builds).
 - `grep -rn "www.in-or-out.com" apps/inorout/src apps/inorout/api` → only comments remain.
-- Commit + push (auto-deploys `inor-out`, `platform-venue` if applicable).
+- Commit + push (auto-deploys `platform-clubmanager` = the consumer app; `platform-venue` if
+  applicable). [DONE — commit `70b74cc`.]
 
 ### 2.5 [You] Supabase Auth URL Configuration
 1. Supabase → **Authentication → URL Configuration**.
@@ -424,7 +440,8 @@ serves `/api` until Phase 5).
 - Payments, cron, push all still running on `app.`.
 - ✅ Apex = marketing; all old links forward correctly.
 
-**Rollback:** move `in-or-out.com` back onto `inor-out` (app reappears on the apex instantly).
+**Rollback:** move `in-or-out.com` back onto **`platform-clubmanager`** (the live consumer-app
+project — NOT `inor-out`, which is dead) → app reappears on the apex instantly.
 
 ---
 
@@ -450,7 +467,7 @@ serves `/api` until Phase 5).
 Per app, same additive loop: GoDaddy CNAME → attach in Vercel → add to Supabase Redirect
 URLs *if it has sign-in* → repoint inbound links/env → verify → 301 the old `.vercel.app`.
 Order & extras:
-- **7.1 Venue → `venue.`** — also set `inor-out` env `GC_CONNECT_ALLOWED_ORIGIN` +
+- **7.1 Venue → `venue.`** — also set `platform-clubmanager` env `GC_CONNECT_ALLOWED_ORIGIN` +
   `STRIPE_CONNECT_ALLOWED_ORIGIN` → `venue.` (CORS), and Stripe/GC venue return URLs → `venue.`
 - **7.2 Display → `display.`** — set venue env `VITE_DISPLAY_APP_URL` → `display.`
 - **7.3 Ref → `ref.`** — fix its ERRORED deploy first; repoint
