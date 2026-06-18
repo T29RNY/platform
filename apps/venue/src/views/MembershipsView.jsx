@@ -162,7 +162,7 @@ function MembersTab({ venueToken, liveTick = 0 }) {
   // The member pass lives on the casual app (in-or-out.com), not the venue console.
   const copyPassLink = async (m) => {
     if (!m.pass_token) return;
-    const url = `https://www.in-or-out.com/m/${m.pass_token}`;
+    const url = `https://app.in-or-out.com/m/${m.pass_token}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(m.membership_id);

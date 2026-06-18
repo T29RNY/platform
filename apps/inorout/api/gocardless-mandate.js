@@ -17,7 +17,7 @@
 const { createClient } = require("@supabase/supabase-js");
 const { isGcConfigured, gcClient } = require("./_gocardless");
 
-const APP_URL = process.env.INOROUT_APP_URL || "https://in-or-out.com";
+const APP_URL = process.env.INOROUT_APP_URL || "https://app.in-or-out.com";
 
 module.exports = async function handler(req, res) {
   if (!isGcConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {

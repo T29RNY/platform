@@ -110,7 +110,7 @@ module.exports = async function handler(req, res) {
   // which is gated by Vercel Deployment Protection and 401s every
   // internal fetch — same family as the pg_cron host-redirect bug
   // fixed in GO_LIVE_ISSUES.md 6.1.
-  const base = "https://www.in-or-out.com";
+  const base = "https://app.in-or-out.com";
 
   const callNotify = async (cronType) => {
     try {
@@ -772,7 +772,7 @@ async function membershipRemindersJob(results) {
       amountPence: r.amount_pence,
       period: r.period,
       dateLabel: fmtUkDate(r.date_label),
-      passUrl: r.pass_token ? `https://www.in-or-out.com/m/${r.pass_token}` : "",
+      passUrl: r.pass_token ? `https://app.in-or-out.com/m/${r.pass_token}` : "",
     };
     const res = await sendTemplated(type, r.email, ctx);
     if (res?.skipped === "no_api_key") { results.push("membershipReminders: skipped (RESEND_API_KEY unset)"); return; }
@@ -1630,7 +1630,7 @@ async function dispatchReminder(base, teamId, type, players, ctx, payload, gameD
     const ch = pickChannel(pref, contacts);
     if (ch === "push") { pushIds.push(p.id); counts.push++; continue; }
     if (!ch) { counts.none++; continue; }
-    const link = p.token ? `https://www.in-or-out.com/p/${p.token}` : "";
+    const link = p.token ? `https://app.in-or-out.com/p/${p.token}` : "";
     const tctx = { ...ctx, link };
     let r;
     if (ch === "email") r = await sendTemplated(type, contacts.email, tctx);

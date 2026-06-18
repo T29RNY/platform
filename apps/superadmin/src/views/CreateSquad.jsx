@@ -5,7 +5,7 @@ import { superadminCreateTeam } from "@platform/core/storage/supabase.js";
 // shell (team + schedule + settings + admin_token) — no members. Hands back an admin URL
 // (/admin/<admin_token>) to give the new operator, plus a join link for players.
 
-const CASUAL_BASE = "https://www.in-or-out.com";
+const CASUAL_BASE = "https://app.in-or-out.com";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function copyToClipboard(text) {

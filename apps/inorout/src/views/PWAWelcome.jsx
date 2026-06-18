@@ -78,7 +78,7 @@ export default function PWAWelcome() {
           autoFocus
           onChange={e => { setLink(e.target.value); setLinkError(null); }}
           onKeyDown={e => e.key === "Enter" && handleLinkSubmit()}
-          placeholder="https://in-or-out.com/p/p_..."
+          placeholder="https://app.in-or-out.com/p/p_..."
           style={{ width:"100%", padding:"13px 14px", borderRadius:6,
             border:`1.5px solid ${link ? C.amber : C.border}`,
             background:C.bg, color:C.text,

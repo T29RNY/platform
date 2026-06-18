@@ -24,7 +24,7 @@ function fmtMoney(n) {
   return "£" + Number(n).toFixed(2);
 }
 
-const CASUAL_BASE = "https://www.in-or-out.com";
+const CASUAL_BASE = "https://app.in-or-out.com";
 function copyToClipboard(text) {
   if (!text || typeof navigator === "undefined" || !navigator.clipboard) return;
   navigator.clipboard.writeText(text).catch((err) => console.error("[teamdetail] copy failed", err));
@@ -215,7 +215,7 @@ export default function TeamDetail({ teamId }) {
                 <td className="num">{p.owes > 0 ? fmtMoney(p.owes) : "—"}</td>
                 <td>
                   {p.token ? (
-                    <a href={`https://www.in-or-out.com/p/${p.token}`} target="_blank" rel="noopener noreferrer" className="mono">
+                    <a href={`https://app.in-or-out.com/p/${p.token}`} target="_blank" rel="noopener noreferrer" className="mono">
                       /p/{p.token.slice(0, 8)}…
                     </a>
                   ) : <span className="badge danger">missing</span>}

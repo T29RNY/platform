@@ -15,7 +15,7 @@ const {
 } = require("./_gocardless");
 
 const CORS_ORIGIN = process.env.GC_CONNECT_ALLOWED_ORIGIN || "https://platform-venue.vercel.app";
-const REDIRECT_URI = process.env.GC_CONNECT_REDIRECT_URI || "https://in-or-out.com/api/gocardless-connect";
+const REDIRECT_URI = process.env.GC_CONNECT_REDIRECT_URI || "https://app.in-or-out.com/api/gocardless-connect";
 const VENUE_APP_URL = process.env.GC_CONNECT_RETURN_URL   || "https://platform-venue.vercel.app/?gc_connect=done";
 
 function setCors(res) {

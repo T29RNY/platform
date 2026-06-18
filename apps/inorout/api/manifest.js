@@ -21,7 +21,7 @@
 
 const ADMIN_TOKEN_RE  = /^admin_[A-Za-z0-9_-]+$/;
 const PLAYER_TOKEN_RE = /^p_[A-Za-z0-9_-]+$/;
-const BASE_URL = "https://www.in-or-out.com";
+const BASE_URL = "https://app.in-or-out.com";
 
 module.exports = function handler(req, res) {
   const adminParam  = typeof req.query?.admin  === "string" ? req.query.admin  : null;

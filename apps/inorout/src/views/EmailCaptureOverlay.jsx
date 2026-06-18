@@ -3,7 +3,7 @@ import { supabase } from "@platform/core/storage/supabase.js";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
-  : "https://www.in-or-out.com";
+  : "https://app.in-or-out.com";
 
 const GOOGLE_SVG = (
   <svg width="18" height="18" viewBox="0 0 18 18">

@@ -4,7 +4,7 @@ import { EnvelopeSimple, PaperPlaneTilt, User } from "@phosphor-icons/react";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
-  : "https://www.in-or-out.com";
+  : "https://app.in-or-out.com";
 
 function JoinStyles() {
   return (

@@ -81,7 +81,7 @@ export default function SquadScreen({
     return () => { cancelled = true; };
   }, [adminToken]);
 
-  const joinUrl     = joinCode ? `https://www.in-or-out.com/join/${joinCode}` : "";
+  const joinUrl     = joinCode ? `https://app.in-or-out.com/join/${joinCode}` : "";
   const activeCount = squad.filter(p => !p.disabled).length;
   const inCount     = squad.filter(p => p.status === "in" && !p.disabled).length;
   const showSearch  = squad.length >= 6;
@@ -139,7 +139,7 @@ export default function SquadScreen({
   };
 
   const handleCopyPlayer = (p) => {
-    const url = `https://www.in-or-out.com/p/${p.token || p.id}`;
+    const url = `https://app.in-or-out.com/p/${p.token || p.id}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopiedId(p.id);
       setTimeout(() => setCopiedId(id => id === p.id ? null : id), 1800);
@@ -292,7 +292,7 @@ export default function SquadScreen({
     try {
       const tok = await resetPlayerToken(adminToken, p.id);
       setSquad(prev => prev.map(x => x.id === p.id ? { ...x, token: tok } : x));
-      setResetToken({ playerId: p.id, url: `https://www.in-or-out.com/p/${tok}` });
+      setResetToken({ playerId: p.id, url: `https://app.in-or-out.com/p/${tok}` });
     } catch (e) {
       console.error(e);
       setErrorToast("Couldn't reset link");
@@ -450,7 +450,7 @@ export default function SquadScreen({
               color: copied ? "var(--green)" : "var(--t2)",
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>
-              {copied ? "Copied to clipboard" : `in-or-out.com/join/${joinCode}`}
+              {copied ? "Copied to clipboard" : `app.in-or-out.com/join/${joinCode}`}
             </div>
           </div>
           {copied

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { WhatsappLogo, CopySimple, ArrowRight } from "@phosphor-icons/react";
 import InstallSection, { detectPlatform } from "../../components/InstallSection.jsx";
 
-const BASE_URL = "https://www.in-or-out.com";
+const BASE_URL = "https://app.in-or-out.com";
 
 function SquadReadyStyles() {
   return (

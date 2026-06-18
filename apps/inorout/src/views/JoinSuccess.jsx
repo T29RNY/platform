@@ -3,7 +3,7 @@ import InstallSection, { detectPlatform } from "../components/InstallSection.jsx
 
 export default function JoinSuccess({ player, team }) {
   const playerUrl = player?.token ? `/p/${player.token}` : "/";
-  const joinUrl   = `https://www.in-or-out.com/join/${team?.join_code || team?.id || ""}`;
+  const joinUrl   = `https://app.in-or-out.com/join/${team?.join_code || team?.id || ""}`;
   const platform  = detectPlatform();
 
   useEffect(() => {

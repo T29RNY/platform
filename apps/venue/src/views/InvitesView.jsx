@@ -10,7 +10,7 @@ import InviteLinkForm from "./InviteLinkForm.jsx";
 // link management (mig 254): create / deactivate / re-point + an all-codes list
 // with scan counts. Render as scannable QR with copy + print. Slices 4-5 + 7.
 
-const BASE = "https://in-or-out.com";
+const BASE = "https://app.in-or-out.com";
 
 const ACTION_LABEL = { join_team: "Join team", venue_landing: "Venue", match_checkin: "Check-in" };
 

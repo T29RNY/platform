@@ -137,7 +137,7 @@ module.exports = async function handler(req, res) {
 
     const isSeason  = period === "season";
     const recurring = PERIOD_INTERVALS[period] ?? null;
-    const appUrl    = process.env.INOROUT_APP_URL || "https://in-or-out.com";
+    const appUrl    = process.env.INOROUT_APP_URL || "https://app.in-or-out.com";
     const successUrl = `${appUrl}/q/${encodeURIComponent(inviteCode)}?checkout=done`;
     const cancelUrl  = `${appUrl}/q/${encodeURIComponent(inviteCode)}`;
 

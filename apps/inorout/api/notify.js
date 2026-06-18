@@ -59,7 +59,7 @@ async function pushToSubs(subs, payload, type, teamId, gameDate) {
       const playerToken = sub.players?.token || '';
       const pushPayload = JSON.stringify({
         ...payload,
-        url: `https://in-or-out.com/p/${playerToken}`,
+        url: `https://app.in-or-out.com/p/${playerToken}`,
       });
       try {
         await webpush.sendNotification(sub.subscription, pushPayload);
@@ -361,7 +361,7 @@ module.exports = async function handler(req, res) {
       game_date: gameDate || null,
       sent_at: null,
       queued_for: queuedFor,
-      queued_payload: { ...payload, url: `https://in-or-out.com/p/${s.players?.token || ''}` },
+      queued_payload: { ...payload, url: `https://app.in-or-out.com/p/${s.players?.token || ''}` },
     }));
     await supabase.from('notification_log').insert(logs);
     return res.status(200).json({ queued: subs.length });
