@@ -7,7 +7,7 @@ before wrapping the app.
 
 ---
 
-## 0bis. STATUS — session 150 (2026-06-18): Phase 1 DONE; Phase 2/4/5.1 in progress
+## 0bis. STATUS — session 150 (2026-06-18): Phases 1–5 DONE & LIVE; only housekeeping + PWA owed
 
 **Phase 1 COMPLETE + a critical project-identity correction.** `app.in-or-out.com` now
 resolves and serves the live consumer build (bundle parity with `www`: `index-D6SVS9w3.js`,
@@ -43,14 +43,39 @@ previously-dead `href="#"` button) → `app.in-or-out.com`; "Run a venue? →" s
 ⚠️ Operator-app CTA → `venue.` deliberately NOT wired: `venue.in-or-out.com` is Phase 7
 (deferred, not live); venues.html "Book a demo" demo-funnel left as-is.
 
-**Claude's repo work for this migration is COMPLETE (Phases 2, 4, 5.1).** Everything remaining
-is operator dashboard work — see the ordered checklist below.
+**Phase 3 DONE (no-op, s150):** env (`INOROUT_APP_URL`, `GC_CONNECT_REDIRECT_URI`) set on
+`platform-clubmanager`; Stripe/GoCardless have NO accounts/webhooks/keys yet (dormant infra) →
+no dashboards to repoint. ⚠️ When those accounts ARE created later, register the `app.` URLs
+(`https://app.in-or-out.com/api/...`) from the start — code fallbacks already default to `app.`.
 
-**Still to do (operator):** Phase 3 env (incl. new `CRON_SECRET`), Phase 2.5 Supabase Auth,
-Phase 5.2–5.4 apex flip + dead-`inor-out` cleanup, Phase 6 real-iPhone PWA.
+**Phase 2.5 DONE (s150):** Supabase Auth Site URL = `https://app.in-or-out.com`; Redirect URLs
+add `app.` + `app./**` (apex entry kept for now). All 3 email templates (confirm/magic/reset)
+use default `{{ .ConfirmationURL }}`/`{{ .Token }}` — no hardcoded domain, no edit needed.
+⛔ OWED: sign-in round-trip test on `app.` (Google + magic link) — not yet run.
 
-**Sticking to the order:** next action is operator Phase 3. Phase 5.1 is deliberately NOT run
-ahead of Phase 4 (keep the sequence DB-before-apex-flip clean and one PR at a time).
+**Phase 5.2 DONE + VERIFIED LIVE (s150):** fresh `marketing` build deployed via Vercel CLI
+(`dpl_CMKq…`, it's a MANUAL-CLI project — NOT git-connected, so `git push` does NOT redeploy
+it; re-run `vercel deploy --prod` from `marketing/` for future marketing changes). Apex + `www`
+MOVED off `platform-clubmanager` → `marketing` (app. stays on platform-clubmanager). Verified:
+`in-or-out.com/`+`www/` → 200 marketing; `/p/`,`/q/`,`/join?q=`,`/tournament/join/` → 307/308
+into `app.` with path+query intact (apex 2-hops via www-primary 307→ then 308; www is 1-hop);
+`app./api/manifest`→200 + `/api/cron`→401 (app untouched). Local `apps/inorout/.vercel` RE-LINKED
+to `platform-clubmanager` (`prj_yZFOHJbHmn64RhyTGw4fMUDAvn9h`) so a stray CLI deploy can't hit
+dead `inor-out`. Vercel "DNS Change Recommended" (apex A → 216.150.1.1) is OPTIONAL — old IP
+still works, defer.
+
+**Claude's work for this migration is COMPLETE (Phases 2, 4, 5.1, 5.2 deploy+relink).**
+
+**OUTSTANDING — deferred housekeeping (NOT on the critical path, do anytime):**
+- **5.3** — Vercel → dead `inor-out` project: remove any stale `in-or-out.com`/`www` domain
+  claims (should NOT show `app.`), then **delete the project**. Safe; local `.vercel` already
+  re-linked so no CLI-deploy risk. Pure tidiness.
+- **5.4** — Supabase → Auth → URL Configuration → Redirect URLs: drop the temporary apex/`www`
+  entry (keep the `app.` ones). Do after a day or two of stable `app.`.
+- **Phase 6** — real-iPhone PWA install on `app.` (admin/squad AND a club member/guardian →
+  confirm `/feed` standalone launch + push); reinstall the ~2 existing apex installs from `app.`
+  Hard Rule #13 — IN PROGRESS (operator checking now).
+- **Phase 2.5 owed** — sign-in round-trip test on `app.` (above).
 
 ---
 
