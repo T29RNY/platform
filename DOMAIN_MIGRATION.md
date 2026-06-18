@@ -50,9 +50,15 @@ Resume the DOMAIN MIGRATION (DOMAIN_MIGRATION.md). Read it in full first, especi
 "0bis. STATUS" banner and the Phase 2 / 4 / 5 sections.
 
 GATE FIRST: run `nslookup app.in-or-out.com` (or curl it). If it still returns NXDOMAIN /
-doesn't serve the app, STOP and tell me — the operator hasn't done Phase 1 (GoDaddy CNAME + Vercel
-attach) yet and nothing downstream is safe. Only proceed once app.in-or-out.com resolves AND
-serves the consumer app.
+doesn't serve the app, STOP and tell me these two operator steps (the only thing blocking this
+— Claude cannot do them), then end the session:
+  1. GoDaddy → in-or-out.com → DNS → Add Record: CNAME, Name `app`, Value `cname.vercel-dns.com`,
+     TTL default.
+  2. Vercel → project `inor-out` → Settings → Domains → add `app.in-or-out.com`; if Vercel shows
+     a different CNAME target, match it in GoDaddy; wait for "Valid Configuration" + SSL.
+Do NOT repoint any code, cron job, or DB function to app. until it resolves AND serves the
+consumer app — doing so breaks live player links and silently 401s the timed cron POSTs. Only
+proceed past this gate once app.in-or-out.com resolves AND serves the app.
 
 Once app. is live, run a full AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT cycle for CLAUDE'S
 half (the operator owns the dashboard steps — surface those for me to do, one at a time):
