@@ -138,6 +138,29 @@ gated on hasGrading → casual football byte-identical; Playwright boot smoke 0 
 history; needs an authed member on a martial-arts club). **Next free mig = 358.** Phase 3 (PT booking)
 is next.
 
+### Phase 3 — PT / 1-on-1 appointment booking — ✅ SHIPPED s147 (mig 358)
+Dedicated appointments model (NOT capacity=1 classes). 3 RLS-walled tables (`venue_trainers` —
+`admin_id` nullable so a trainer is an optional staff login OR a no-login coach card;
+`venue_trainer_availability` recurring weekly windows sliced into slots; `venue_appointments` with a
+partial-unique `(trainer_id, starts_at) WHERE status<>'cancelled'` = one live booking per slot). 11
+RPCs: operator `venue_upsert_trainer` / `venue_set_trainer_availability` / `venue_list_trainers` /
+`venue_list_appointments` / `venue_pt_checkin` (clone of venue_class_checkin) /
+`venue_mark_appointment_completed` (no-show bumps `member_profiles.no_show_count`, keeps charge);
+member `member_list_trainers` / `member_list_trainer_slots` (availability minus booked) /
+`member_book_appointment` (writes `venue_charges` source_type='pt', door path) /
+`member_cancel_appointment` (honours per-trainer cutoff) / `member_list_my_appointments`. **Two levers
+(operator s147 "A, but B for trials/one-offs"):** an account is ALWAYS required (auth.uid →
+member_profiles); per-trainer `members_only` adds the active-membership requirement — `members_only=false`
++ price 0 = a free open session. Operator: new `apps/venue/.../TrainersView.jsx` (Trainers +
+Appointments tabs; `ClassCheckinScanner` generalised with an optional `checkin` cb). Member: new
+`/book` route + `BookPT.jsx` + ClubNavBar **Train** tab, gated on `disciplineLabels.hasPT`
+(gym/boxing/martial_arts/fitness) → casual football byte-identical. Also extended
+`venue_charges_source_type_check` to allow `'pt'` (mig 358b). EV 9/9 + leak 0, rpc-security PASS (11
+RPCs), casual-regression PASS (additive-diff), Playwright /book boot smoke 0 errors, build+hygiene
+clean. ⛔ **real-iPhone PWA walk OWED** (Hard Rule #13). **Next free mig = 359.** Phase 4 (fight record)
+is the last phase. OPT-IN follow-up: retrofit `members_only`+price-0 to the classes epic (free/trial
+classes) if the operator wants it — not bundled into 358.
+
 **Goal.** Per-club, per-discipline grading scheme; current grade + history; on Pass/Profile.
 - **Schema:** `venue_grading_schemes` (club_id, discipline, name, active); `venue_grades` (scheme_id, name, rank_order, colour_hex, UNIQUE(scheme_id, rank_order)); `member_grades` (append-only award log → "current" = latest per member+scheme; mirrors consent_acceptances).
 - **RPCs:** `venue_create_grading_scheme`, `venue_add_grade`, `venue_list_grading_schemes`, `venue_award_grade` (gated `manage_facility` OR a new `award_grades` cap via `_venue_has_cap`), `member_get_grade_history`; extend `member_get_venue_membership_pass` to include current rank.

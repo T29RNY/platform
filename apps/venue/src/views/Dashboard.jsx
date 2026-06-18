@@ -8,6 +8,7 @@ import PaymentsView from "./PaymentsView.jsx";
 import EquipmentView from "./EquipmentView.jsx";
 import SpacesView from "./SpacesView.jsx";
 import ClassesView from "./ClassesView.jsx";
+import TrainersView from "./TrainersView.jsx";
 import RoomHiresView from "./RoomHiresView.jsx";
 import BracketView from "./BracketView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
@@ -46,6 +47,7 @@ const TABS = [
   { group: "Facilities", items: [
     { id: "spaces",  label: "Spaces",  icon: "spaces" },
     { id: "classes", label: "Classes", icon: "classes" },
+    { id: "trainers", label: "Trainers", icon: "staff" },
     { id: "roomhire", label: "Room hire", icon: "roomhire" },
   ]},
   { group: "Competition", items: [
@@ -61,7 +63,7 @@ const TABS = [
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
   customers: "Customers", memberships: "Memberships", sessions: "Sessions", teams: "Teams", players: "Players", staff: "Staff",
-  access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", roomhire: "Room hire", league: "Leagues", table: "Standings", cups: "Cups",
+  access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room hire", league: "Leagues", table: "Standings", cups: "Cups",
   integrations: "Integrations",
 };
 
@@ -149,6 +151,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "equipment" && <EquipmentView venueToken={venueToken} state={state} />}
           {view === "spaces" && <SpacesView venueToken={venueToken} />}
           {view === "classes" && <ClassesView venueToken={venueToken} />}
+          {view === "trainers" && <TrainersView venueToken={venueToken} />}
           {view === "roomhire" && <RoomHiresView venueToken={venueToken} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
           {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} />}

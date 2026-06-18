@@ -17,6 +17,7 @@ function flashFor(r) {
     if (reason === "wrong_venue")       return { tone: "warn", title: "Different venue", sub: "That pass belongs to another venue." };
     if (reason === "pass_not_found")    return { tone: "warn", title: "Pass not recognised", sub: "Try again or check the member." };
     if (reason === "not_booked")        return { tone: "warn", title: r.member_name ? `${r.member_name} isn't booked` : "Not booked", sub: "No booking for this class." };
+    if (reason === "wrong_member")      return { tone: "warn", title: r.member_name ? `${r.member_name} — wrong session` : "Wrong member", sub: "This pass isn't for this appointment." };
     if (reason === "booking_cancelled") return { tone: "warn", title: r.member_name ? `${r.member_name} — cancelled` : "Booking cancelled", sub: "This booking was cancelled." };
     return { tone: "warn", title: "Couldn't read that code", sub: "Hold the QR steady, or enter the code." };
   }
@@ -25,7 +26,10 @@ function flashFor(r) {
   return { tone: "ok", title: `${name} checked in`, sub: r.promoted ? "Promoted from the waitlist." : "Welcome to the class." };
 }
 
-export default function ClassCheckinScanner({ venueToken, sessionId, className, onClose }) {
+// Generalised (Phase 3, mig 358): pass an optional `checkin(value) => result` to
+// reuse the scanner for any QR check-in (e.g. PT appointments via venue_pt_checkin).
+// Defaults to the class check-in when omitted, so existing call sites are unchanged.
+export default function ClassCheckinScanner({ venueToken, sessionId, className, onClose, checkin = null }) {
   const [supported] = useState(() => typeof window !== "undefined" && "BarcodeDetector" in window);
   const [manual, setManual] = useState(!supported);
   const [manualVal, setManualVal] = useState("");
@@ -41,7 +45,7 @@ export default function ClassCheckinScanner({ venueToken, sessionId, className, 
     lockRef.current = true;
     setBusy(true);
     try {
-      const r = await venueClassCheckin(venueToken, sessionId, value);
+      const r = checkin ? await checkin(value) : await venueClassCheckin(venueToken, sessionId, value);
       setResult(r);
       if (r?.ok && !r.already_checked_in) setCount((c) => c + 1);
     } catch (e) {

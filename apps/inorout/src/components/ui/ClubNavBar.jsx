@@ -1,4 +1,4 @@
-import { Chats, CalendarCheck, IdentificationCard, User } from "@phosphor-icons/react";
+import { Chats, CalendarCheck, Barbell, IdentificationCard, User } from "@phosphor-icons/react";
 import NavBar from "./NavBar.jsx";
 import { deriveClubContext } from "../../lib/deriveContext.js";
 import { getDisciplineLabels } from "../../lib/disciplineLabels.js";
@@ -37,6 +37,16 @@ export default function ClubNavBar({ active, passToken = null, clubEntry = null 
     tabs.push({
       id: "classes", label: labels.classesTab, Icon: CalendarCheck,
       active: active === "classes", onSelect: () => go(withClub("/classes")),
+    });
+  }
+  // Train tab (gym/boxing Phase 3, mig 358) — lit only for PT disciplines
+  // (gym/boxing/martial_arts/fitness via labels.hasPT) → /book, the 1-on-1
+  // appointment booking surface. Football (hasPT=false) never renders it, so the
+  // casual nav stays byte-identical.
+  if (labels.hasPT) {
+    tabs.push({
+      id: "book", label: labels.trainTab, Icon: Barbell,
+      active: active === "book", onSelect: () => go(withClub("/book")),
     });
   }
   if (passToken) {

@@ -12,70 +12,57 @@
 //     so the casual football experience is untouched.
 //   • Boxing has NO grading — its progression is a fight record (hasFightRecord),
 //     realised in Phase 4. Belts/grades are a martial-arts thing (hasGrading).
+//   • hasPT (Phase 3, mig 358) lights the member-app "Train" tab → /book, the PT /
+//     1-on-1 appointment booking surface. PT disciplines = gym, boxing,
+//     martial_arts, fitness. football is false so the casual nav is byte-identical.
 //   • Unknown / 'other' disciplines fall through to DEFAULT_LABELS rather than
 //     crashing, which is what keeps the fixed pick-list safely extensible.
 //
 // Shape:
-//   { sessionsTab, classesTab, bookCta, rankWord, hasGrading, hasFightRecord }
+//   { sessionsTab, classesTab, trainTab, bookCta, rankWord,
+//     hasGrading, hasFightRecord, hasPT }
 
 export const DEFAULT_LABELS = {
   sessionsTab: "Sessions",
   classesTab: "Classes",
+  trainTab: "Train",
   bookCta: "Book",
   rankWord: null,
   hasGrading: false,
   hasFightRecord: false,
+  hasPT: false,
 };
 
 export const LABEL_MAPS = {
   football: { ...DEFAULT_LABELS },
   gym: {
-    sessionsTab: "Sessions",
-    classesTab: "Classes",
-    bookCta: "Book",
+    ...DEFAULT_LABELS,
     rankWord: "Level",
-    hasGrading: false,
-    hasFightRecord: false,
+    hasPT: true,
   },
   boxing: {
-    sessionsTab: "Sessions",
-    classesTab: "Classes",
-    bookCta: "Book",
-    rankWord: null,
-    hasGrading: false,
+    ...DEFAULT_LABELS,
     hasFightRecord: true,
+    hasPT: true,
   },
   martial_arts: {
-    sessionsTab: "Sessions",
-    classesTab: "Classes",
-    bookCta: "Book",
+    ...DEFAULT_LABELS,
     rankWord: "Grade",
     hasGrading: true,
-    hasFightRecord: false,
+    hasPT: true,
   },
   yoga: {
-    sessionsTab: "Sessions",
-    classesTab: "Classes",
-    bookCta: "Book",
+    ...DEFAULT_LABELS,
     rankWord: "Level",
-    hasGrading: false,
-    hasFightRecord: false,
   },
   dance: {
-    sessionsTab: "Sessions",
-    classesTab: "Classes",
-    bookCta: "Book",
+    ...DEFAULT_LABELS,
     rankWord: "Level",
-    hasGrading: false,
-    hasFightRecord: false,
   },
   fitness: {
-    sessionsTab: "Sessions",
-    classesTab: "Classes",
-    bookCta: "Book",
+    ...DEFAULT_LABELS,
     rankWord: "Level",
-    hasGrading: false,
-    hasFightRecord: false,
+    hasPT: true,
   },
   other: { ...DEFAULT_LABELS },
 };
