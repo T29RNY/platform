@@ -5,6 +5,11 @@ the marketing landing page, move account ownership off the personal Gmail, and l
 URL structure clean enough to wrap as a native app.** This is the last critical step
 before wrapping the app.
 
+> **DONE (s150).** The migration is complete and live (squad path real-device verified). The
+> native wrap it unblocks (Phase 8) now has its own self-contained roadmap + next-session
+> prompt: **`APP_WRAP_HANDOFF.md`**. Only deferred housekeeping (5.3 delete dead `inor-out`,
+> 5.4 drop the temp apex entry from Supabase Auth) remains here — both off the critical path.
+
 ---
 
 ## 0bis. STATUS — session 150 (2026-06-18): Phases 1–6 DONE & LIVE (squad path); only 5.3/5.4 housekeeping owed
