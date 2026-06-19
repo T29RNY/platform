@@ -298,25 +298,27 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
       it + a note explaining the token-link model and IAP-exempt real-world payments.
 
 ## STAGE 5 — Build, sign, final E2E + real-device test (👤 device + 🤖 fixes)
-- [ ] 5.1 🤖 **Final E2E Playwright pass** of the live consumer surfaces (web) — the gate this
-      epic builds toward. Catches render/route regressions before wrapping. **AUDIT done s159 — harness
-      is ready, run it next session:**
-      - Suite lives in `e2e/` (root): `e2e/playwright.config.mjs`, specs in `e2e/specs/`, helpers in
-        `e2e/lib/auth.mjs`, `e2e/global-setup.mjs`. Run via root script `npm run e2e` or
-        `npx playwright test --config e2e/playwright.config.mjs --project=<name>`.
-      - **Consumer-surface projects** (= the wrap, `apps/inorout` only): `inorout-alex`, `inorout-sam`
-        (also runs the `guardian.*` specs per testMatch), `tokens` (no-auth public/memberpass).
-        The operator-app projects (venue/hq/superadmin/display/ref) are OUT of 5.1 scope.
-      - **ORIGINS point at LOCAL dev servers** (`e2e/lib/auth.mjs`): inorout = `http://localhost:5173`.
-        So FIRST `cd apps/inorout && npm run dev` (boots — `.env.local` present), THEN run the projects.
-        Suite tests local dev code against the LIVE Supabase DB (`ktvpzpnqbwhooiaqrigm`).
-      - **Auth:** `mintSession` uses the GoTrue password grant with the embedded ANON_KEY + demo users
-        `alex` (`tarny+demo@lettrack.co.uk` / `DemoBoss1!`) and `sam` (`tarny+family@lettrack.co.uk` /
-        `DemoFam2!`) — NO service-role key needed; `global-setup` re-mints + writes `e2e/.auth/*.json`
-        (cached copies already present). Needs network to live Supabase.
-      - ⚠️ s159 attempt was interrupted before the run (deferred to a fresh session by operator).
-        Kill any leftover `vite` dev server first. This is a READ-ONLY baseline (no writes/EV needed) —
-        run → triage failures → fix render/route regressions → commit. If green, just record the pass.
+- [x] 5.1 ✅ **Final E2E Playwright pass** of the live consumer surfaces (web) — DONE s160.
+      **Result: 27/27 GREEN — zero render/route regressions.** Ran local dev code (`apps/inorout`
+      on :5173) against the LIVE Supabase DB (`ktvpzpnqbwhooiaqrigm`):
+      - `inorout-alex` 16/16 · `inorout-sam` 7/7 (incl. all `guardian.*` specs) · `tokens` 4/4.
+        Operator-app projects (venue/hq/superadmin/display/ref) were OUT of 5.1 scope — not run.
+      - ⚠️ **Harness gotcha found + documented (NOT an app bug):** running the authed projects
+        chained/back-to-back produced FALSE failures on Sam's auth-gated routes (parent-home /
+        profile fell to the SignIn screen). Root cause: global-setup mints ONE refresh token per
+        user; every app boot force-refreshes (App.jsx:511, intentional PWA token recovery), rotating
+        that single-use token. Playwright re-injects the SAME token into each fresh test context, so
+        contexts reuse an already-rotated token — Supabase tolerates reuse only within a ~10s grace
+        window, and chaining pushes later reuses past it → refresh 400 → supabase-js signs out. Each
+        project passes 100% when run COLD/ALONE (all reuses land inside the grace window).
+      - **Fixes committed (harness only, no app code touched):** (1) `e2e/global-setup.mjs` now mints
+        only the user(s) the selected `--project` needs (keeps per-project cold runs lean + under the
+        GoTrue limit; full `npm run e2e` still mints both); (2) `e2e/playwright.config.mjs` header
+        documents the rotation constraint + the canonical 5.1 command = three SEPARATE cold
+        invocations (`--project=inorout-alex`, then `inorout-sam`, then `tokens`).
+      - A fully deterministic single-command run would need App.jsx:511 gated behind a test env —
+        out of scope for this read-only baseline (PWA auth path, Hard Rule #13). The surfaces are
+        proven regression-free regardless. casual flow untouched (no `apps/inorout/src` edits).
 - [ ] 5.2 👤+🤖 Real-iPhone walk on the wrapped build — burn down the ~20 owed verification
       walks (grouped by club type; see APP_WRAP_HANDOFF.md): deep link opens app, push opt-in +
       delivery, Google + Apple sign-in, payments redirect→return, PWA still installs.
@@ -445,44 +447,52 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
 - **All console/code work that needs no Mac is now DONE.** The epic is gated on the build machine
   (Mac + Xcode) for 3.7 signing + the native `cap add` scaffold. Remaining operator-only: 0.4 Play
   Console, 3.2 Firebase, 3.7 certs/keystore/SHA-256.
+
+## STAGE 5.1 E2E BASELINE DONE (s160)
+- **5.1 PASS — 27/27 green, zero render/route regressions.** `inorout-alex` 16/16, `inorout-sam`
+  7/7 (incl. all `guardian.*` specs), `tokens` 4/4 — local dev (`apps/inorout` :5173) vs the LIVE
+  Supabase DB. Full detail + the harness gotcha on item 5.1 above.
+- **Harness fix committed (no app code touched):** `e2e/global-setup.mjs` mints only the user(s) a
+  selected `--project` needs; `e2e/playwright.config.mjs` header documents the refresh-token-rotation
+  constraint. Canonical 5.1 command = three SEPARATE cold invocations (chaining produces FALSE
+  auth-gate failures via single-use-token reuse past Supabase's ~10s grace window — see item 5.1).
+- **Remaining 🤖-solo work = Stage 4 listing paperwork only** (4.3 copy, 4.2 Play graphics, 4.4
+  privacy labels from the 1.4 data audit, 4.6 reviewer note). Everything else waits on the build
+  machine → 5.2 device walks → submit. No live epic branch — start Stage 4 fresh off `main`.
 - No live epic branch. Working tree clean on `main` at end of s159. Next free mig still = 369.
 
-## NEXT-SESSION PROMPT — Stage 5.1 (final E2E Playwright baseline)
+## NEXT-SESSION PROMPT — Stage 4 (listing paperwork — the last 🤖-solo work)
 ```
-Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — through s159, EVERY console/code
+Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — through s160, EVERY console/code
 item that needs no Mac is DONE: Stages 1, 2; 3.1 (APNs live), 3.3-iOS, 3.4, 3.5, 3.6 (code + Apple
-provider live). The epic is now gated on the build machine (Mac+Xcode) for 3.7 signing + native
-`cap add`. No live epic branch; start fresh off `main`. Run ONE session only; check no other Claude
-session is live in /Users/tarny/platform before starting and advise.
+provider live); and 5.1 (E2E baseline 27/27 GREEN — see the "STAGE 5.1 E2E BASELINE DONE (s160)"
+section + item 5.1). The epic is now gated on the build machine (Mac+Xcode) for 3.7 signing + native
+`cap add`, and on the operator for 0.4 / 3.2 / 3.7 creds. No live epic branch; start fresh off `main`.
+Run ONE session only; check no other Claude session is live in /Users/tarny/platform before starting
+and advise.
 
-Run Stage 5.1 — the final E2E Playwright baseline of the consumer surfaces — as a full
-AUDIT → EXECUTE → VERIFY → COMMIT cycle. The harness AUDIT is already baked into item 5.1 of the
-checklist (READ IT FIRST). Mechanics:
-  • Suite = e2e/ (root): config e2e/playwright.config.mjs, specs e2e/specs/, helpers e2e/lib/auth.mjs.
-  • Consumer projects only (the wrap = apps/inorout): inorout-alex, inorout-sam (incl guardian specs),
-    tokens. Skip venue/hq/superadmin/display/ref — out of 5.1 scope.
-  • ORIGINS point at LOCAL dev servers → FIRST `cd apps/inorout && npm run dev` (port 5173; .env.local
-    present), THEN `npx playwright test --config e2e/playwright.config.mjs --project=inorout-alex
-    --project=inorout-sam --project=tokens`. Tests local dev code vs the LIVE Supabase DB.
-  • Auth: mintSession (GoTrue password grant, embedded ANON_KEY, demo users alex tarny+demo@lettrack.co.uk
-    /DemoBoss1! + sam tarny+family@lettrack.co.uk/DemoFam2!); global-setup re-mints e2e/.auth/*.json.
-    No service-role key needed. Needs network to live Supabase.
-  • READ-ONLY baseline (no writes/EV). Kill any leftover vite first. AUDIT: run + read results.
-    EXECUTE: if failures are real render/route regressions, fix them (one logical unit each, build +
-    hygiene per fix). VERIFY: re-run green; casual-regression if apps/inorout/src touched. COMMIT.
-    If all green first pass, just record the 5.1 PASS in the checklist + commit that.
+Do Stage 4 — App Store / Play listing paperwork — the ONLY remaining 🤖-solo work. All doc-only, no
+code/build/device needed. As an AUDIT → EXECUTE → VERIFY → COMMIT cycle per item:
+  • 4.3 store listing COPY (App Store + Play): name/subtitle/description/keywords/promo text. Pull
+    positioning from STRATEGY.md + the marketing site; lead with the 4.2-defence story (native push +
+    deep links + offline shell, not "just a website"). Reserved App Store name = "In or Out - Book & Play".
+  • 4.2 Play feature graphic + screenshots spec (sizes/copy overlays); 🤖 writes the spec + copy, the
+    actual image assets can ride the design skills or be operator-produced.
+  • 4.4 privacy / data-safety LABELS — the App Privacy (Apple) + Data Safety (Google) answers. The
+    underlying data audit incl. PostHog is ALREADY banked in item 1.4 — convert it to each store's
+    questionnaire format. No new audit needed; cross-check 1.4.
+  • 4.6 reviewer demo-account NOTE — stable demo squad/login (the DEMO_USERS.md accounts) + a short
+    note explaining the token-link model and that real-world payments are IAP-exempt.
+  Write each as a doc under the repo (e.g. APP_STORE_LISTING.md) so the operator can paste into App
+  Store Connect / Play Console. Doc-only cycle — no migration, no build gate beyond hygiene.
 
 Still BLOCKED on operator (👤): 0.4 Google Play Console (personal acct hits the 12-tester/14-day
-closed-test gate — start it only if you want a simultaneous Android launch); 3.2 Firebase
-google-services.json; 3.7 iOS dist cert + provisioning profile (easiest via Xcode automatic signing)
-+ Android upload keystore + SHA-256 (Google's app-signing SHA-256, read from Play Console AFTER the
-first upload, unblocks the Android half of 3.3 assetlinks.json). The native cap-add scaffold + 3.6
-scheme registration also need the Mac.
-
-After 5.1: the only remaining 🤖-solo work is Stage 4 listing paperwork (4.3 copy, 4.2 Play graphics,
-4.4 privacy labels — data-safety answers already banked in 1.4, 4.6 reviewer note). Everything else
-waits on the build machine → 5.2 device walks → submit. Item 1.5 (off-brand welcome) stays on the
-MARKETING branch. Next free mig = 369.
+closed-test gate — start only for a simultaneous Android launch); 3.2 Firebase google-services.json;
+3.7 iOS dist cert + provisioning profile (Xcode automatic signing) + Android upload keystore + SHA-256
+(Google's app-signing SHA-256, read from Play Console AFTER first upload — unblocks the Android half of
+3.3 assetlinks.json). Native cap-add scaffold + 3.6 scheme registration also need the Mac. After Stage 4
++ the build machine → 5.2 device walks → submit. Item 1.5 (off-brand welcome) stays on the MARKETING
+branch. Next free mig = 369.
 ```
 
 ## NEXT-SESSION PROMPT (SUPERSEDED) — Stage 3.6 — ✅ COMPLETE (code s159 / operator config s159)
