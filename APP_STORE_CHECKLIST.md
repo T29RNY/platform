@@ -45,6 +45,58 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 
 ---
 
+## REMAINING ROADMAP — ordered, with ETAs (locked s161)
+
+Everything bot-solo without a Mac is DONE. What's left, in execution order. ETA = active hands-on
+time (Apple's review wait is calendar time, not effort). Owner: 🤖 me · 👤 operator · 🍎 Apple.
+Full step detail for Phases 1–4 lives in **`APP_STORE_BUILD_RUNBOOK.md`**.
+
+**▶ NEXT SESSION = #1 (welcome-screen fix). Prompt at the foot of this file.**
+
+### Phase 0 — Before the Mac (bot-solo, do now)
+| # | Task | Owner | ETA |
+|---|------|-------|-----|
+| 1 | Fix off-brand welcome screen (item 1.5; `App.jsx` ~1280 → brand tokens + real logo + Phosphor) | 🤖 | 30–60 min |
+| 2 | Export a crisp 1024×1024 `assets/icon.png` (replace upscaled placeholder) | 👤 | 10–20 min |
+
+### Phase 1 — Mac: scaffold + configure + first build (~1.5–2.5 h, Runbook §A–C)
+| # | Task | Owner | ETA |
+|---|------|-------|-----|
+| 3 | Install prereqs (Xcode, CocoaPods, Apple ID in Xcode) — one-time | 👤 | 20–40 min |
+| 4 | Scaffold: `npm run build` → `cap add ios` → `capacitor-assets generate` → `cap sync` | 🤖+👤 | 15–30 min |
+| 5 | Xcode automatic signing (closes 3.7 cert + profile) | 👤 | 10 min |
+| 6 | Capabilities (Push/Assoc-Domains/Apple) + URL scheme + encryption flag (closes last of 3.6) | 🤖+👤 | 15 min |
+| 7 | Build to a real iPhone, confirm launch | 👤 | 10–20 min |
+
+### Phase 2 — The 5.2 device walk ⭐ approval insurance (~1–1.5 h, Runbook §D–E)
+| # | Task | Owner | ETA |
+|---|------|-------|-----|
+| 8 | Walk the 10-item checklist (deep links, push delivery, Apple+Google sign-in, offline, splash, safe areas, deletion, PWA, DNT) | 👤+🤖 | 45–90 min |
+| 9 | Capture 5–6 screenshots during the walk (needs #1 done) | 👤 | 20–30 min |
+| 10 | Fix anything surfaced; rebuild; re-walk (5.3) — the wildcard | 🤖+👤 | 0–3 h |
+
+### Phase 3 — Listing entry + upload (~1–1.5 h, Runbook §F)
+| # | Task | Owner | ETA |
+|---|------|-------|-----|
+| 11 | Paste 4.3 copy into App Store Connect | 👤 | 15 min |
+| 12 | Click through App Privacy 4.4 + age rating 4.5 (answers banked) | 👤 | 20–30 min |
+| 13 | Paste 4.6 reviewer note; verify demo token links resolve | 👤 | 10 min |
+| 14 | Archive → upload build → Apple processing | 👤 | 20–40 min |
+| 15 | TestFlight dress rehearsal (spot-check sign-in + push) | 👤 | 20–30 min |
+
+### Phase 4 — Submit & review
+| # | Task | Owner | ETA |
+|---|------|-------|-----|
+| 16 | Submit for review | 👤 | 5 min |
+| 17 | **Apple review** (calendar wait) | 🍎 | ~24–48 h typical |
+| 18 | Handle feedback if rejected (most likely Guideline 4.2 — note pre-empts it) | 🤖+👤 | 0–1 day if it happens |
+| 19 | Release (manual or phased) | 👤 | 5 min |
+
+**Totals:** ~5–8 h active work over 2–3 Mac sittings; ~3–5 days calendar to live (most of it Apple's
+queue). Only real schedule risks = #10 (what the walk breaks) and #18 (a 4.2 rejection).
+
+---
+
 ## STAGE 0 — Commercial identity & accounts (👤 — START NOW, runs in parallel; long pole)
 - [x] 0.1 👤 ✅ DECIDED — **Apple = Individual enrolment** (order placed s151). Seller name on
       the App Store listing will be the **personal name**, not a company. Conversion to an
@@ -503,7 +555,37 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
   morning `--resume`). This was doc-only on files that session was not touching, so no clash — but
   per Cloud Session Discipline, prefer one session at a time on this repo.
 
-## NEXT-SESSION PROMPT — build machine (Mac + Xcode required; no more 🤖-solo work)
+## ▶ NEXT-SESSION PROMPT — #1 off-brand welcome screen (bot-solo, Phase 0)
+```
+Continue the APP STORE epic. Read APP_STORE_CHECKLIST.md first (esp. the "REMAINING ROADMAP" table
+— we're on Phase 0 #1) + BUGS.md "SESSION 150 — consumer welcome screen styling + logo off-brand".
+This is the last bot-solo item before the Mac build; it blocks the Stage 4.1 screenshot shoot.
+Run ONE session only; check no other Claude session is live in /Users/tarny/platform and advise.
+
+TASK (item 1.5): restyle the unauthenticated root (`/`) welcome screen — apps/inorout/src/App.jsx
+~line 1280 ("IN OR OUT" wordmark / "The fastest way to organise your weekly football game" /
+Create-Join CTA + player-link). Today it uses ad-hoc inline styles (Bebas Neue as plain amber text,
+Inter body, hand-rolled button) that don't match the design system. Bring it onto brand: tokens.css
+vars (no stray hex beyond the two allowed), the real In or Out logo mark, Phosphor icons weight=thin,
+Bebas Neue headings / DM Sans body. Functional behaviour (the Create/Join CTA + player-link routing)
+must stay byte-identical — restyle only.
+
+⚠️ SCOPE DECISION TO CONFIRM AT AUDIT (one question): this is a FOCUSED brand-token restyle on a
+fresh branch off `main` (app-store track) — NOT resurrecting the full cinematic marketing redesign
+(that's a separate heavy epic; its WIP is parked in `stash@{0}` on `marketing-cinematic-redesign`
+and owes its own device walk). Recommendation: focused restyle now to unblock screenshots; the
+cinematic redesign stays its own later epic. Confirm before EXECUTE.
+
+CYCLE: AUDIT (read App.jsx welcome block in full — exact styles, the logo asset path used elsewhere
+in the app, which tokens/components to reuse; no edits) → EXECUTE (restyle only) →
+cd apps/inorout && npm run build → VERIFY (hygiene PASS on App.jsx; grep no new hex; confirm CTA/
+link routing unchanged; Playwright boot smoke of `/` renders on-brand) → COMMIT + push.
+⚠️ Hard Rule #13: App.jsx is PWA-affecting → real-iPhone home-screen walk is OWED; fold it into the
+Stage 5.2 device-walk burn-down (don't block the commit on it — note it). Then mark 1.5 done in
+BUGS.md + the checklist in the same commit. Next free mig = 369 (no migration expected).
+```
+
+## NEXT-SESSION PROMPT (after #1) — build machine (Mac + Xcode required; no more 🤖-solo work)
 **▶ Pure-execution runbook: `APP_STORE_BUILD_RUNBOOK.md`** — exact commands for scaffold → Xcode
 config → build-to-iPhone → the Stage 5.2 device walk (tickable) → TestFlight → submit. Follow that;
 the prose below is the summary.
