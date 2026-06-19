@@ -12,3 +12,8 @@ dist
 # Playwright MCP scratch output + ad-hoc verification screenshots (not for the repo)
 .playwright-mcp/
 verify-*.png
+
+# e2e harness: minted sessions + generated reports (never commit)
+e2e/.auth/
+e2e/report/
+test-results/

@@ -3,6 +3,44 @@
 
 ---
 
+## SESSION 153 — EXHAUSTIVE E2E SWEEP (Playwright) + 1 seed fix (mig 366) + 3 low-pri findings
+
+Wrote a full per-app × per-role Playwright suite against the live demo seed (migs
+363–365) using the existing session-injection harness. **60 specs across 9 projects,
+all passing.** Coverage table + run guide in `E2E_HANDOFF.md`. Seed verified unmutated
+after the run (e2e-leak count 0; booking/appointment/bout/membership counts match the
+seed exactly — every spec is read-only or a non-submitting form render).
+
+**RESOLVED (mig 366, additive seed) — combat clubs were never linked to demo_venue.**
+mig 363 created `club_demo_box` (boxing) + `club_demo_ma` (martial_arts) with belt
+ladders + fight records, but inserted **no `club_venues` rows**. Effect in the venue
+console: Memberships → **Club** tab showed only Finbar's FC, and Memberships →
+**Grading** tab showed "No grading clubs" — the seeded schemes were unmanageable from
+the operator UI. The consumer `/classes` screen also rendered "No venue linked to this
+club yet" because `member_get_self.active_clubs[].venues` is built from `club_venues`.
+Member-level Fight-record / Award-grade buttons already worked (they key off the
+membership row). Fixed by mig 366 (idempotent `WHERE NOT EXISTS` insert of the two
+club→demo_venue links). Verified: Grading tab now lists Adult + Junior Belt Systems,
+Club tab lists both combat clubs, `/classes` timetable renders once a club is selected.
+**Next free mig = 367.**
+
+**FINDINGS (low priority, NOT fixed — logged for a later cycle):**
+1. **Consumer `/classes`, multi-club no-selection copy.** A member of 2+ clubs with no
+   `?club=` param sees "No venue linked to this club yet." That's the *no-club-selected*
+   state (the club chips are the selector), but the copy reads like a data error. Should
+   prompt "pick a club" instead. `apps/inorout/src/views/ClassesScreen.jsx` (pickClub
+   returns null for 2+ clubs without the param).
+2. **Paused membership pass shows "Frozen until 1 Jan 1970."** Sam's paused boxing
+   membership has no freeze-until date, so the pass renders the epoch. Seed sets
+   `status='paused'` directly with no freeze record; the pass UI should hide the date
+   when absent. `MemberPass`/`get_member_pass`.
+3. **"My Squads" switcher omits the 2nd squad.** On the consumer home, Alex (admin of
+   5-a-Side FC, player of Competitive FC) sees "Not part of any other squads yet" even
+   though `get_user_relationships` AND `player_get_teams` both return BOTH squads. Data
+   is correct; the client switcher isn't surfacing the second squad. Observed on the
+   uncommitted `marketing-cinematic-redesign` App.jsx — verify against `main` before
+   chasing.
+
 ## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
 
 The unauthenticated root (`/`) welcome screen in [`apps/inorout/src/App.jsx`](apps/inorout/src/App.jsx)

@@ -2,7 +2,34 @@
 
 Reusable Playwright suite for full end-to-end testing across all apps and every
 user type, using the two cross-role demo accounts (see `DEMO_USERS.md`).
-**Built + verified session 152.** Next session: write the deep per-scenario specs.
+**Built + verified session 152. Deep per-scenario specs written + all passing
+session 153 — see "Coverage (session 153)" at the bottom.**
+
+## Coverage (session 153) — 60 specs, 9 projects, all green
+
+Run a project with its dev server up (ports in the table below):
+`cd apps/<app> && npm run dev` then `npm run e2e -- --project=<name>`.
+
+| Project | App · role | Specs | Surfaces proven |
+|---|---|---|---|
+| `venue-alex` | venue · **owner** | 21 | Operations, Payments (totals + class/PT charges), Classes (schedule, **age roster youngest-first**, check-in, packages), Memberships (members + **Grading belt ladders** + **Club** tabs), Trainers + Appointments, Room hire (enquiry + held deposit), Spaces, Bookings + cancellations, Customers, Staff, Access (capability matrix), Equipment, Leagues/Table, QR |
+| `venue-sam` | venue · **staff** | 5 | GATE: Access nav hidden, **class mgmt server-denied (`insufficient_role`)**; booking surfaces available; membership read OK |
+| `inorout-alex` | consumer · admin+player+member | 12 | squad home, **admin panel**, Stats, Results, multi-context (both clubs), **classes timetable + pass credits**, **fight record (W-L-D, sparring excluded)**, **grading/belts**, safeguarding/consents, **PT /book**, **membership pass** |
+| `inorout-sam` | consumer · guardian | 7 | squad home, **guardian /parent-home → Charlie**, child link + consents, **child safeguarding edit (medical/allergies/collectors)**, child pass (Junior·Active), **paused membership → Frozen** |
+| `hq-alex` | hq · super_admin | 4 | Dashboard (2 venues, venue health), Utilisation (**classes feed the spaces-activity block**), Analytics (venue comparison, incidents) |
+| `superadmin-alex` | superadmin · platform_admin | 6 | gate passes, Activity feed, Engagement, Health funnel + reach, Teams directory, Create-squad form (not submitted) |
+| `display-token` | display · token-only | 1 | token + PIN 1234 → live Matchday Wall |
+| `ref-token` | ref · token-only | 1 | fixture ref_token → pre-match + both squads |
+| `tokens` | inorout · anon | 3 | `/p/` player token, `/m/` pass (no login), NEGATIVE `/classes` gates a signed-out visitor |
+
+**Mutation policy:** every spec is read-only or renders a non-submitting form. The
+Create-squad, class-book, PT-book and money actions are asserted to *exist* but never
+fired. Post-run seed leak-check = 0; seed row counts unchanged (only the intentional
+additive mig 366).
+
+**One fix shipped:** mig 366 linked the two combat clubs to demo_venue via
+`club_venues` (the seed gap that blanked the venue Grading/Club tabs + the consumer
+`/classes` venue). 3 low-priority cosmetic findings logged in `BUGS.md` (SESSION 153).
 
 ## How auth works (the key trick)
 Every app uses one Supabase client with default persistence, so a session lives in
