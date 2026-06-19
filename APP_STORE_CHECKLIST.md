@@ -51,12 +51,14 @@ Everything bot-solo without a Mac is DONE. What's left, in execution order. ETA 
 time (Apple's review wait is calendar time, not effort). Owner: 🤖 me · 👤 operator · 🍎 Apple.
 Full step detail for Phases 1–4 lives in **`APP_STORE_BUILD_RUNBOOK.md`**.
 
-**▶ NEXT SESSION = #1 (welcome-screen fix). Prompt at the foot of this file.**
+**▶ #1 (welcome-screen fix) ✅ DONE s162 — the last bot-solo Phase 0 item.** Remaining Phase 0 = #2
+(👤 export crisp 1024×1024 icon). After that the epic is gated on the Mac build (Phase 1+) — pure
+execution from `APP_STORE_BUILD_RUNBOOK.md`. No bot-solo work remains.
 
 ### Phase 0 — Before the Mac (bot-solo, do now)
 | # | Task | Owner | ETA |
 |---|------|-------|-----|
-| 1 | Fix off-brand welcome screen (item 1.5; `App.jsx` ~1280 → brand tokens + real logo + Phosphor) | 🤖 | 30–60 min |
+| 1 | ✅ DONE (s162) — off-brand welcome screen restyled on-brand (item 1.5; green/red lockup + DM Sans + thin Phosphor; behaviour byte-identical) | 🤖 | done |
 | 2 | Export a crisp 1024×1024 `assets/icon.png` (replace upscaled placeholder) | 👤 | 10–20 min |
 
 ### Phase 1 — Mac: scaffold + configure + first build (~1.5–2.5 h, Runbook §A–C)
@@ -161,9 +163,18 @@ queue). Only real schedule risks = #10 (what the walk breaks) and #18 (a 4.2 rej
       parties; **NOT** used for ads or tracking across other companies' apps/sites; collection is
       "optional" for users via DNT/GPC + email opt-out; processor = PostHog (EU-hosted). No
       advertising ID collected.
-- [ ] 1.5 🤖 DEFERRED — off-brand welcome screen (BUGS.md s150) **overlaps the marketing
-      cinematic redesign** (same entry screens; WIP stashed — see branch state below). Fold into
-      the marketing redesign, not Stage 1. Still must precede the screenshot shoot (4.1).
+- [x] 1.5 🤖 ✅ DONE (s162, no mig, branch `appstore-welcome-restyle`) — off-brand welcome screen
+      (BUGS.md s150) restyled on-brand as a **focused brand-token restyle on the app-store track**
+      (NOT the cinematic marketing redesign, which stays parked in `stash@{0}`). `App.jsx`
+      `route.type === "landing"` block: flat-amber "IN OR OUT" → the real brand lockup (IN `C.green`
+      · OR `C.text` · OUT `C.red`, matching `PageHeader.jsx`/marketing — the wordmark IS the logo,
+      no image asset exists); dead `"Inter"` body → `"DM Sans"` (the loaded brand body font); literal
+      `→` → Phosphor `ArrowRight`/`LinkSimple` `weight="thin"`; stray `#000` → `C.black`; CTA anchor
+      underline killed. **Behaviour byte-identical** (`/create`,`/signin`,`/legal`,mailto hrefs +
+      `showLinkInput` toggle + `/\/p\/…/` paste-navigate all preserved). Build clean, hygiene 7/7,
+      no new hex; Playwright render of live `/` confirms on-brand (view via `127.0.0.1` — `localhost`
+      hits the App.jsx:114 dev backdoor). ⛔ Hard Rule #13 real-iPhone walk OWED → Stage 5.2.
+      **Unblocks the 4.1 screenshot shoot.**
 - [x] 1.6 🤖 ✅ DONE (Phase C, s154). Offline fallback for the remote-URL wrap + installed PWA.
       `apps/inorout/public/offline.html` = self-contained branded page (zero network deps:
       no Google Font/JS/analytics; IN-green/OR/OUT-red lockup, "You're offline" + Try-again

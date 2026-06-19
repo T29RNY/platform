@@ -97,16 +97,32 @@ seeded paused pass (`m_8289db16b6ef4386abaf39c294a828cd`, paid £30/monthly, fro
 null). Deterministic Playwright regression added (`e2e/specs/tokens.memberpass-frozen.spec.js`,
 no-auth /m/ route — FAILS pre-fix, PASSES post-fix). ⛔ real-iPhone PWA walk OWED.
 
-## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
+## SESSION 162 — RESOLVED (no mig, app-store item 1.5): consumer welcome screen restyled on-brand
 
 The unauthenticated root (`/`) welcome screen in [`apps/inorout/src/App.jsx`](apps/inorout/src/App.jsx)
-(~line 1280: "IN OR OUT" / "The fastest way to organise your weekly football game" / Create-Join
-+ player-link) uses **ad-hoc inline styles** (`Bebas Neue` wordmark as plain amber text, `Inter`
-body, hand-rolled button) that **do NOT match the actual In or Out design system** (tokens.css
-vars, the real logo mark, Phosphor icons). Spotted during the domain-migration Phase 6 real-iPhone
-PWA walk on `app.in-or-out.com`. No functional impact — links work. Fix later: restyle to the
-brand system + drop in the proper logo. (Same screen's CTA was relabelled "Create Your Team →" →
-"Create / Join Team →" this session, since it fronts both create AND sign-in/join.)
+(`route.type === "landing"` block) is now on the design system. **Before:** ad-hoc inline styles —
+flat-amber `Bebas Neue` "IN OR OUT" wordmark, dead `"Inter"` body font (not loaded → system
+fallback), hand-rolled button with a literal `→`, one stray `"#000"` hex. **After (focused
+brand-token restyle, behaviour byte-identical):**
+- Wordmark is now the **real brand lockup** — `IN` in `C.green` · ` OR ` neutral `C.text` · `OUT`
+  in `C.red`, matching the canonical treatment in `PageHeader.jsx` and the marketing site (the
+  wordmark *is* the logo mark — there is no SVG/image logo asset).
+- Body + CTA switched from the dead `"Inter"` to **`"DM Sans"`** (actually loaded in `index.html`
+  per the Bebas/DM Sans brand pair).
+- Literal `→` arrows replaced with **Phosphor `ArrowRight` / `LinkSimple` `weight="thin"`** icons.
+- Stray `"#000"` → `C.black`; wrapping `<a>` underline killed on the primary CTA.
+- **Functional surface unchanged:** `/create`, `/signin`, `/legal`, mailto hrefs; the
+  `showLinkInput` toggle; the `/\/p\/([a-zA-Z0-9_-]+)/` paste→navigate (refactored into
+  `goToLink`/`linkValid` helpers, logic identical).
+
+Verified: `inorout` build clean, hygiene 7/7 PASS, grep no new hex, all routing/hrefs/regex intact;
+Playwright render of the live `/` landing confirms the green/red lockup + DM Sans + thin icons (note:
+`localhost` hits the [App.jsx:114](apps/inorout/src/App.jsx) dev backdoor → `admin/local`, so the
+landing must be viewed via `127.0.0.1`, not `localhost`). Unblocks the Stage 4.1 App Store screenshot
+shoot. ⛔ Hard Rule #13: App.jsx is PWA-affecting → real-iPhone home-screen walk OWED — folded into
+the Stage 5.2 device-walk burn-down (not a commit blocker). This was app-store checklist item **1.5**,
+done as a focused restyle on the app-store track — NOT the separate cinematic marketing redesign
+(still parked in `stash@{0}` on `marketing-cinematic-redesign`).
 
 ## SESSION 143 — RESOLVED (mig 353): recurring-session generators stored UTC, not UK local (BST off-by-one-hour)
 
