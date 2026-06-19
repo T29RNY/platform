@@ -2700,6 +2700,62 @@ export async function refSetAddedTime(refToken, { period, minutes, clientEventId
   return data;
 }
 
+// ── watchOS companion — identity layer (mig 369) ─────────────────────────────
+// Net-new ref/official identity. The watch (supabase-swift) calls these RPCs
+// directly; these JS wrappers exist for the web admin surfaces (casual ref-slot
+// toggle in inorout, official-link + cohort-official in the venue dashboard) and
+// to keep raw RPC names confined to this file. See RPCS.md (consumer = watchOS).
+
+// Resolver — auth.uid() → next relevant game across league + casual (+ ref_token).
+// Shape: { ok, game_count, next: <game|null>, games: [<game>...] }.
+export async function getMyNextAssignment(roleFilter = null) {
+  const { data, error } = await supabase.rpc("get_my_next_assignment", {
+    p_role_filter: roleFilter,
+  });
+  if (error) { console.error("[watch] get_my_next_assignment failed", error); throw error; }
+  return data;
+}
+
+// Ref self-claims every match_officials card matching their verified auth email.
+export async function refLinkSelfToOfficial() {
+  const { data, error } = await supabase.rpc("ref_link_self_to_official", {});
+  if (error) { console.error("[watch] ref_link_self_to_official failed", error); throw error; }
+  return data;
+}
+
+// Operator binds an official card to whichever auth user owns p_email.
+export async function venueLinkOfficialToUser(venueToken, officialId, email) {
+  const { data, error } = await supabase.rpc("venue_link_official_to_user", {
+    p_venue_token: venueToken,
+    p_official_id: officialId,
+    p_email:       email,
+  });
+  if (error) { console.error("[watch] venue_link_official_to_user failed", error); throw error; }
+  return data;
+}
+
+// Assign (or clear, playerId=null) a squad member as the active casual match's ref.
+export async function assignCasualMatchRef(adminToken, matchId, playerId) {
+  const { data, error } = await supabase.rpc("assign_casual_match_ref", {
+    p_admin_token: adminToken,
+    p_match_id:    matchId,
+    p_player_id:   playerId,
+  });
+  if (error) { console.error("[watch] assign_casual_match_ref failed", error); throw error; }
+  return data;
+}
+
+// Set (or clear, officialId=null) a club cohort's default official.
+export async function clubAdminAssignCohortOfficial(venueToken, cohortId, officialId) {
+  const { data, error } = await supabase.rpc("club_admin_assign_cohort_official", {
+    p_venue_token: venueToken,
+    p_cohort_id:   cohortId,
+    p_official_id: officialId,
+  });
+  if (error) { console.error("[watch] club_admin_assign_cohort_official failed", error); throw error; }
+  return data;
+}
+
 // ── Tournament match-day RPCs (Phase 5 Event OS) ──────────────────────────────
 // Score tracked on fixtures.home_score/away_score directly — no match_events rows.
 // match_events.team_id FK to teams blocks tournament competition_team ids.

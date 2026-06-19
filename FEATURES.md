@@ -5,9 +5,22 @@
 
 ## WATCHOS COMPANION APP — REF MODE ON THE WRIST + HEALTHKIT (PLANNED + SCOPE-LOCKED, session 161)
 
-**Status: 🟡 PLANNED — full plan locked s161; build starts AFTER iOS App Store approval.**
+**Status: 🟢 PHASE 1 BACKEND SHIPPED (s162, mig 369) — rest 🟡 PLANNED.** Operator s162: build
+everything that doesn't need an approved App Store listing, ahead of approval. Phase 1 (identity
+layer) is pure additive backend with no device dependency, so it landed early.
 Full phased plan: `~/.claude/plans/once-the-ios-app-dapper-marshmallow.md`. Design brief:
-`WATCH_DESIGN_BRIEF.md`. Locked decisions: DECISIONS.md s161.
+`WATCH_DESIGN_BRIEF.md` (handoff in progress → `WATCH_DESIGN_HANDOFF.md`). Locked decisions: DECISIONS.md s161.
+
+**✅ Phase 1 — identity layer (mig 369, s162).** Two identity arms, one resolver. SCHEMA: `match_officials.user_id`,
+`club_cohorts.primary_official_id`, `matches.ref_player_id`+`ref_token` (additive/nullable). 5 SECDEF RPCs:
+`get_my_next_assignment` (resolver, LOCKED shape, authenticated-only) + `ref_link_self_to_official` (email
+self-claim, authed-only) + `venue_link_official_to_user` (operator-bind) + `assign_casual_match_ref` (per-game
+casual ref slot) + `club_admin_assign_cohort_official` (default-official binding). JS wrappers + barrel added (unused
+in inorout yet — additive-diff). **Verified:** rpc-security PASS (anon revoked on the 2 account-scoped fns),
+ephemeral-verify 9/9 groups + leak 0 (incl. in-progress precedence + role filters + 6 error paths), inorout build
+clean, casual-regression PASS (additive-diff, 0 deletions). KEY DESIGN: casual ≠ league — casual reuses the
+existing `players.user_id` claim (no new claim RPC); club-cohort officiating folds into the fixture arm (cohort =
+default-official convenience; `club_sessions` refereeing stays Phase 6). Next free mig = **370**.
 
 **What it is:** a native **SwiftUI watchOS** app — the only native code in the repo — added as a
 target inside the existing Capacitor iOS Xcode project (`apps/inorout/ios`). The iPhone app stays

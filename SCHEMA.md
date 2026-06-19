@@ -156,6 +156,10 @@ balance_score numeric(4,2),         ← duplicate of predicted_confidence at con
                                        (separate column so semantics stay distinct in future)
 match_type text NOT NULL DEFAULT 'casual',  ← casual | competitive — Phase 0B (migration 051)
                                        sport-agnostic; sport identity lives on league_config.sport
+ref_player_id text FK → players.id,  ← mig 369 (watchOS): squad member assigned as this game's ref
+ref_token text UNIQUE,               ← mig 369: minted on first ref assignment; reserved driver for
+                                       Phase-5 casual ref-writes (drives nothing yet). Partial-unique
+                                       index matches_ref_token_uniq WHERE ref_token IS NOT NULL
 created_at timestamptz
 ```
 **Group Balancer fields:** `predicted_winner`/`predicted_confidence`/`balance_score`
@@ -485,7 +489,7 @@ arrive in Phase 2+. All currently empty.
 - `venues` — text PK. company_id (nullable — independent venues allowed). venue_admin_token. display_pin. Stripe columns. sport DEFAULT 'football'. **Phase 4 (mig 164):** `display_token text NOT NULL DEFAULT gen_random_uuid()::text` (UNIQUE — per-venue READ-ONLY public token for the reception big-screen `/display/TOKEN`; NOT the venue_admin_token) + `display_config jsonb` (panel/layout config: `{zones[],mode,interval_secs,custom_message}`; NULL = app default). White-label `logo_url`/`primary_colour`/`secondary_colour` already existed.
 - `venue_admins` — user_id ↔ venue_id. Roles: owner / manager / staff (migs 237–240). `caps_grant`/`caps_deny text[]` constrained by `venue_admins_caps_known` CHECK to the known gated keys: reverse_money, booking_settings, manage_facility, staff_directory, manage_logins, **manage_memberships** (added mig 269). `_venue_has_cap`: owner+manager pass by default, staff only if granted.
 - `playing_areas` — venue_id, name, surface, capacity, **sport text NULL** (mig 269; NULL = inherit venue primary sport). (Multi-sport rename of `pitches`.)
-- `match_officials` — venue_id, name, contact channels, preferred_channel. (Multi-sport rename of `referees`.)
+- `match_officials` — venue_id, name, contact channels, preferred_channel. (Multi-sport rename of `referees`.) `user_id uuid FK→auth.users` (mig 369, watchOS): links an official card to a real auth identity (self-claim by verified email or operator-bind) → the league/club-fixture arm of `get_my_next_assignment`.
 
 ### Phase 1 — League / Season / Competition layer
 
@@ -953,7 +957,7 @@ RLS enabled + REVOKE ALL from anon, authenticated on all tables. Access via SECU
 - `clubs` — `id text PK`, name, short_name, contact_name, contact_email, `id_mandate bool`, `safeguarding_config jsonb` (CPSU toggle flags), `discipline text NOT NULL DEFAULT 'football'` (mig 355, CHECK IN football|gym|boxing|martial_arts|yoga|dance|fitness|other — vertical identity).
 - `venue_class_types.is_sparring bool NOT NULL DEFAULT false` (mig 356, Gym/Boxing Phase 1) — a class type is EITHER a technical class OR a sparring/open-mat session. Additive + nullable-safe (every existing type incl. football defaults false → zero footprint). Set at create (`venue_create_class_type` `p_is_sparring`) or edit (jsonb patch); surfaced by `venue_list_class_types` (operator badge) + `member_list_class_sessions` (member timetable badge). Booking reuses the class-session model wholesale — no new write RPC.
 - `club_venues` — `venue_id text FK→venues`, `club_id text FK→clubs`. M:N link. PK (venue_id, club_id).
-- `club_cohorts` — `id uuid PK`, `club_id text FK→clubs`, name, description, active. Playing groups within a club.
+- `club_cohorts` — `id uuid PK`, `club_id text FK→clubs`, name, description, active, `primary_official_id uuid FK→match_officials` (mig 369, watchOS): default official for the cohort's fixtures (convenience binding; folds into the fixture arm of `get_my_next_assignment` — no separate resolver arm). Playing groups within a club.
 - `club_teams` — `id uuid PK`, `club_id text FK→clubs`, `name text`, `sport text NULL`, active. Club-domain playing teams (membership layer, not league layer). Unique per team_id in club.
 - `club_team_members` — `id uuid PK`, `team_id uuid FK→club_teams`, `member_profile_id uuid FK→member_profiles`, season, joined_at, left_at, is_active. PARTIAL UNIQUE(team_id, member_profile_id) WHERE is_active=true.
 - `club_team_managers` — `id uuid PK`, `team_id uuid FK→club_teams`, `member_profile_id uuid FK→member_profiles`, role (manager|assistant_manager|coach), is_active.
