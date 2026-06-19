@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["JCC44FW6XR.uk.inorout.app"],
+        "components": [
+          { "/": "/p/*", "comment": "player token links" },
+          { "/": "/admin/*", "comment": "admin token links" },
+          { "/": "/m/*", "comment": "member token links" }
+        ]
+      }
+    ]
+  }
+}

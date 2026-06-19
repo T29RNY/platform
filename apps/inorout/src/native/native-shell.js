@@ -2,9 +2,10 @@
 // On the web (PWA / browser) every call here is a guarded no-op, so this
 // module is safe to import unconditionally from main.jsx.
 //
-// Responsibilities (Stage 2 of the app-store epic):
+// Responsibilities:
 //   2.2  status bar style/colour + hide the splash once the WebView is up
 //   2.4  Android hardware back button → WebView history (exit at the root)
+//   3.4  appUrlOpen deep links → route the opened path into the remote app
 //
 // The status-bar / splash background is the shared app-shell near-black,
 // pulled from the @platform/core palette (the only hygiene-exempt home for
@@ -49,4 +50,33 @@ export function initNativeShell() {
       }
     }).catch(console.error);
   }
+
+  // --- Deep links: appUrlOpen → route the opened path into the WebView ----
+  // 3.4. When the OS hands a universal/app link (or our custom scheme) to the
+  // wrapped app — e.g. /p/<token>, /admin/<token>, /m/<token>, /signin — the
+  // WebView is already pinned to https://app.in-or-out.com (server.url), so we
+  // just navigate it to the path the link carried. The app re-reads
+  // window.location.pathname on load (App.jsx) and routes itself from there,
+  // exactly as it does for every other window.location.href navigation.
+  //
+  // Both transports land here with the right path: a universal/app link parses
+  // as https://app.in-or-out.com/p/<token> (pathname = /p/<token>); the custom
+  // scheme parses as uk.inorout.app:///p/<token> (same pathname). We take
+  // pathname+search+hash from either and ignore the origin.
+  App.addListener('appUrlOpen', ({ url }) => {
+    if (!url) return;
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return; // unparseable — nothing safe to route to
+    }
+    const path = parsed.pathname + parsed.search + parsed.hash;
+    // Bare host / empty path: let the app keep whatever it's showing.
+    if (!path || path === '/') return;
+    // Already on that exact path: don't trigger a needless reload.
+    const current = window.location.pathname + window.location.search + window.location.hash;
+    if (path === current) return;
+    window.location.href = path;
+  }).catch(console.error);
 }
