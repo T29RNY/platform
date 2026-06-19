@@ -79,9 +79,20 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 - [ ] 1.5 🤖 DEFERRED — off-brand welcome screen (BUGS.md s150) **overlaps the marketing
       cinematic redesign** (same entry screens; WIP stashed — see branch state below). Fold into
       the marketing redesign, not Stage 1. Still must precede the screenshot shoot (4.1).
-- [ ] 1.6 🤖 **(Phase C — NEXT SESSION)** Add an offline fallback page so a no-connection launch
-      of the remote-URL wrap doesn't render blank (Apple rejection risk). Audit SW
-      (`public/sw.js` — currently has NO fetch handler) + `index.html` load path first.
+- [x] 1.6 🤖 ✅ DONE (Phase C, s154). Offline fallback for the remote-URL wrap + installed PWA.
+      `apps/inorout/public/offline.html` = self-contained branded page (zero network deps:
+      no Google Font/JS/analytics; IN-green/OR/OUT-red lockup, "You're offline" + Try-again
+      reload; safe-area padded; brand hex literals hardcoded — same precedent as the inline
+      `<style>` in index.html). `sw.js` bumped `ioo-v1`→`ioo-v2`: precaches `/offline.html`
+      on install; adds a **network-first fetch handler for navigations ONLY** —
+      `fetch(req).catch(() => caches.match('/offline.html'))`. App shell is deliberately NOT
+      cached, so the always-fresh update model (close+reopen) is unchanged; non-navigation
+      requests (assets, /api/*, push) pass straight through untouched. Build clean; offline.html
+      rendered + verified in a real browser (only console msg = harmless favicon 404).
+      ⚠️ Stage 2 follow-on: when Capacitor is scaffolded (2.1), also set
+      `server.errorPath = 'offline.html'` (or bundle the file in webDir) as belt-and-braces in
+      case the native WebView doesn't run the SW for the remote URL — the SW path covers the
+      PWA today regardless.
 
 ## STAGE 2 — Capacitor scaffold (🤖 — no external dependency)
 - [ ] 2.1 🤖 Add Capacitor to `apps/inorout` (`@capacitor/core`,`/cli`,`/ios`,`/android`);
