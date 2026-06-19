@@ -27,13 +27,15 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 - ⚠️ **No Sign in with Apple anywhere** — confirmed absent. New build (Stage 3.6).
 - ⚠️ **Push stores web-push subs only** — `push_subscriptions(id, player_id, player_token,
   team_id, subscription)`; `subscription` is the VAPID jsonb. No platform/token-type column.
-  Native APNs/FCM tokens are a different transport → schema + send-path change (migration 362).
+  Native APNs/FCM tokens are a different transport → schema + send-path change (migration 368).
   Biggest code lump in the epic.
 - ✅ **Payments are exempt from Apple IAP** — pitch booking / gym membership / PT / classes are
   real-world services (Guideline 3.1.3(e)/3.1.5(a)). Stripe + GoCardless already use hosted
   redirect→return (`api/stripe-member-checkout.js`, `api/gocardless-mandate.js`) into
   `app.in-or-out.com`. No rule problem; DORMANT; not a launch blocker.
-- Next free migration = **363** (362 = native-push platform column, shipped s157).
+- Next free migration = **369** (368 = native-push platform column, shipped s157 — renumbered
+  from 362, which had already been taken on `main` by `class_session_roster_age` + the s152 demo
+  seed; 362–367 are all used).
 
 ---
 
@@ -169,7 +171,7 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       (no placeholders).
 - [ ] 3.4 🤖 Capacitor `appUrlOpen` handler — route opened `/p/<token>`, `/admin/<token>`,
       `/m/<token>` into the webview at the right path.
-- [x] 3.5 🤖 ✅ DONE (s157, mig 362, own PR). **Native push bridge.** Schema: `push_subscriptions`
+- [x] 3.5 🤖 ✅ DONE (s157, mig 368 — renumbered from 362, own PR). **Native push bridge.** Schema: `push_subscriptions`
       gains `platform` ('web'|'ios'|'android', DEFAULT 'web', CHECK); uniqueness widened
       `(player_id)` → `(player_id, platform)` so a player holds a web AND a native sub at once.
       `register_push_subscription` gains `p_platform` (DEFAULT 'web' → web call sites unchanged;
@@ -231,7 +233,7 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 - **Stage 1 is 100% unblocked** — code prep can begin immediately, no accounts needed.
 - **Stage 3.3** (deep-link files) blocked on Stage 0 + 3.7 identifiers — don't commit placeholder
   AASA/assetlinks; they fail verification.
-- **Stage 3.5** (native push) is the biggest code lump and the only migration (362).
+- **Stage 3.5** (native push) is the biggest code lump and the only migration (368).
 - **Stage 5.1 (Playwright)** can run as a baseline NOW; the real-device walk (5.2) needs the
   wrapped build, which needs Stages 2–3.
 - One PR at a time (Cloud Session Discipline). Real-device test before commit for anything
@@ -240,7 +242,7 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 ---
 
 ## Branch & WIP state at end of session 157 (READ FIRST next session)
-- **Stage 3.5 (native push, mig 362) merged via PR #39 — see the "STAGE 3.5 COMPLETE" section
+- **Stage 3.5 (native push, mig 368) merged via PR #39 — see the "STAGE 3.5 COMPLETE" section
   below for the current state.** No live epic branch — start 3.4 fresh off `main`.
 - **Stage 2 is COMPLETE on `main`** (Capacitor 8 scaffold, items 2.1–2.5, merged via its own PR
   s156). No live epic branch — start Stage 3 fresh off `main`. Touched only `apps/inorout/*`
@@ -265,7 +267,7 @@ real-device). Dependencies are called out so nothing is built before its inputs 
   second Claude session was live in the SAME folder. Run ONE session at a time on this repo.
 
 ## STAGE 3.5 COMPLETE (s157) + STAGE 0 IDs LANDED (s157)
-- **Stage 3.5 native push bridge merged via PR #39** (commit `fc0c4aa`). Mig 362 (the epic's only
+- **Stage 3.5 native push bridge merged via PR #39** (commit `fc0c4aa`). Mig 368 (the epic's only
   migration) is LIVE on prod DB. See item 3.5 above for the full summary. Bundle ID = `uk.inorout.app`.
 - **Stage 0 IDs are in (s157):** Apple **Team ID `JCC44FW6XR`** (0.5 ✅); **App ID `uk.inorout.app`**
   registered with Push + Associated Domains + Sign in with Apple (3.1 ✅, only the APNs .p8 key still
@@ -277,7 +279,7 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 ## NEXT-SESSION PROMPT — Stage 3.4 (deep-link routing) — ✅ UNBLOCKED
 ```
 Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stages 1, 2 and 3.5 are
-COMPLETE on `main` (3.5 native push merged PR #39 s157; mig 362 live; no live epic branch). Run
+COMPLETE on `main` (3.5 native push merged PR #39 s157; mig 368 live; no live epic branch). Run
 ONE session only. Check no other Claude session is live in /Users/tarny/platform before starting
 and advise.
 
@@ -299,5 +301,5 @@ Android SHA-256, the APNs .p8 key (un-dormants iOS push), Apple service ID for S
 
 OWED real-iPhone walks (offline fallback, PostHog index.html, Stage-2 viewport-fit, native push
 DELIVERY once the .p8 lands) — fold into the Stage 5.2 device-walk burn-down. Item 1.5 (off-brand
-welcome) stays on the MARKETING branch. Next free mig = 363.
+welcome) stays on the MARKETING branch. Next free mig = 369.
 ```

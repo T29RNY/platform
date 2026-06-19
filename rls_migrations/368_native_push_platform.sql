@@ -1,5 +1,13 @@
--- 362_native_push_platform.sql
+-- 368_native_push_platform.sql
 -- Stage 3.5 of the app-store epic — native push bridge.
+--
+-- ⚠️ Numbering note: applied to the live DB while the checklist still said
+-- "next free = 362", but 362–367 had already merged to main (class_session_
+-- roster_age + the s152 demo seed). Renumbered to 368 (next truly-free) here.
+-- The live supabase_migrations ledger records this under the name
+-- "362_native_push_platform" at timestamp 20260619144316 (latest); the ledger
+-- is keyed by timestamp so the apply is correct — only this source label was
+-- corrected (Cloud Session Discipline rule 5: leave the live DB, fix the source).
 --
 -- push_subscriptions previously stored exactly ONE web-push (VAPID) sub per
 -- player. Native APNs (iOS) / FCM (Android) device tokens are a DIFFERENT

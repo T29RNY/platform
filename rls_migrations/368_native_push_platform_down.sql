@@ -1,4 +1,4 @@
--- 362_native_push_platform_down.sql — reverse of 362.
+-- 368_native_push_platform_down.sql — reverse of 368 (renumbered from 362; see up file).
 -- Restores the single-web-sub-per-player model and the 2-arg RPC (mig 122).
 
 DROP FUNCTION IF EXISTS public.register_push_subscription(text, jsonb, text);
