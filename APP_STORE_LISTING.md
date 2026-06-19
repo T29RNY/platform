@@ -159,11 +159,22 @@ every type below.
 |---|---|---|---|---|
 | **Contact Info** | Email Address | Linked | No | App Functionality (sign-in / account) |
 | **Contact Info** | Name | Linked | No | App Functionality (squad identity) |
+| **Contact Info** | Phone Number | Linked | No | App Functionality (club/gym membership signup) |
+| **Contact Info** | Physical Address | Linked | No | App Functionality (club/gym membership signup) |
+| **Contact Info** | Other User Contact Info | Linked | No | App Functionality (emergency contact name/relationship) |
 | **Identifiers** | User ID | Linked | No | App Functionality; Analytics |
 | **Identifiers** | Device ID | Linked | No | App Functionality (push token); Analytics |
 | **Usage Data** | Product Interaction | Linked | No | Analytics |
 | **Purchases** | Purchase History | Linked | No | App Functionality (fees owed/paid, booking status) |
 | **User Content** | Other User Content | Linked | No | App Functionality (availability responses + notes) |
+| **Other Data** | Other Data Types | Linked | No | App Functionality (date of birth + gender, membership signup) |
+
+> **Why the membership fields are here:** the consumer app's club/gym **membership signup**
+> (`MembershipSignup.jsx`) + member profile (`MemberProfile.jsx`) collect **phone, date of birth,
+> physical address, gender and an emergency contact**. These surfaces only appear when a club/gym
+> the user joins runs membership — but the data CAN be collected by the app binary, so Apple
+> requires them declared. (Verified in source s161 — corrects the earlier "phone probably not
+> collected" note.)
 
 ### Data types to declare as NOT COLLECTED (by this app)
 
@@ -181,14 +192,15 @@ every type below.
   audit lists only "App activity / app interactions" + "Device or other IDs", so the conservative,
   accurate answer is not-collected. (👤 confirm if that changes.)
 
-### ⚠️ One operator confirmation before submitting
+### ⚠️ Operator note before submitting
 
-- **Phone Number.** The in-app "What We Collect" list does **not** include phone numbers, and the
-  wrapped **consumer** app collects name + email only. Twilio appears as a subprocessor for
-  "text-message notifications, where used" — but that is operator-surface SMS, not consumer data
-  collection. **Recommendation: do NOT declare Phone Number as collected** for this app. If the
-  operator knows a consumer surface captures a phone number, add it as Contact Info → Phone Number,
-  Linked, No tracking, App Functionality.
+- **Membership data is declared (resolved s161).** Source check found the consumer app DOES collect
+  phone, DOB, physical address, gender and an emergency contact via the club/gym membership signup —
+  all now in the COLLECTED table above. The earlier "phone probably not collected" recommendation is
+  withdrawn. No further confirmation needed unless a surface is removed.
+- **Sensitive Info stays UNticked.** DOB + gender are declared under "Other Data", not Apple's
+  "Sensitive Info" bucket (which is racial/ethnic origin, sexual orientation, health, religious/
+  political belief, biometrics, etc. — none collected). Keep Sensitive Info = not collected.
 
 ### Per-type questionnaire answers (the exact clicks)
 

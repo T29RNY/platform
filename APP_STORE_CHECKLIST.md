@@ -515,6 +515,10 @@ On a Mac with Xcode (operator + Claude on that machine):
     upscaled assets/icon.png with a crisp 1024 export first — item 2.2).
   • Register the uk.inorout.app:// scheme in the iOS project (CFBundleURLTypes) for the 3.6 OAuth
     return; confirm Associated Domains + Push + Sign-in-with-Apple capabilities are on.
+  • Info.plist hygiene: set ITSAppUsesNonExemptEncryption=false (standard HTTPS only — skips the
+    export-compliance question on every upload). NO camera/photo-library usage strings needed —
+    source-verified s161 the consumer app has no <input type=file>/getUserMedia (QR scanner lives in
+    the venue app, not inorout). Push needs no usage string.
   • 👤 3.7: iOS distribution cert + provisioning profile (easiest = Xcode automatic signing).
   • Stage 5.2 real-iPhone walk: deep-link open, push opt-in + DELIVERY, Google + Apple sign-in
     return, payments redirect→return, PWA still installs, offline shell, viewport-fit. Capture the
