@@ -691,10 +691,13 @@ export async function getCoverPool(teamId) {
 }
 
 // ─── Push subscriptions ───────────────────────────────────────────────────────
-export async function savePushSubscription(playerToken, subscription) {
+// platform: 'web' (browser/PWA VAPID sub, default) | 'ios' | 'android' (native
+// APNs/FCM device token). For native, `subscription` is { token: '<device>' }.
+export async function savePushSubscription(playerToken, subscription, platform = 'web') {
   const { error } = await supabase.rpc('register_push_subscription', {
     p_token:        playerToken,
     p_subscription: subscription,
+    p_platform:     platform,
   });
   if (error) throw error;
 }

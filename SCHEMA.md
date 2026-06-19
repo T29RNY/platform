@@ -227,13 +227,13 @@ created_at timestamptz
 
 ### push_subscriptions
 ```
-id text PK,
-player_id text,
-player_token text,
+id uuid PK DEFAULT gen_random_uuid(),
+player_id text  FK → players(id) ON DELETE CASCADE,
 team_id text,
-subscription jsonb,
+subscription jsonb NOT NULL,   -- web: VAPID endpoint object; native: { token: '<device>' }
+platform text NOT NULL DEFAULT 'web'  CHECK (platform IN ('web','ios','android')),  -- mig 362
 created_at timestamptz DEFAULT now(),
-UNIQUE on player_id
+UNIQUE (player_id, platform)   -- mig 362: web + native coexist per player
 ```
 
 ### notification_log

@@ -10,6 +10,8 @@
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL, CRON_SECRET
 
 const webpush = require('web-push');
+const http2 = require('http2');
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
@@ -22,6 +24,176 @@ webpush.setVapidDetails(
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
+
+// ── Native push transports (Stage 3.5) ─────────────────────────────────────────
+// DORMANT until the operator supplies signing creds (epic Stage 3.1/3.2). Each
+// transport no-ops cleanly ({ ok:false, skipped:true }) when its env is absent,
+// so web-push is never affected. Mirrors the Stripe/GoCardless "live keys → on"
+// pattern used elsewhere in this codebase. Both paths use Node built-ins only
+// (no new dependency). NOT runnable in EV / on-device until creds land — first
+// real exercise is the Stage 5.2 device walk.
+
+function b64url(buf) {
+  return Buffer.from(buf).toString('base64')
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+// --- APNs (iOS): HTTP/2 to Apple, ES256 JWT signed with the .p8 auth key ------
+// env: APNS_KEY_P8 (PEM contents), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID,
+//      APNS_PRODUCTION ('true' → api.push.apple.com, else sandbox)
+let _apnsJwt = null;
+let _apnsJwtAt = 0;
+function apnsConfigured() {
+  return !!(process.env.APNS_KEY_P8 && process.env.APNS_KEY_ID &&
+            process.env.APNS_TEAM_ID && process.env.APNS_BUNDLE_ID);
+}
+function apnsToken() {
+  // Apple rejects tokens older than 1h; refresh every ~50 min.
+  const now = Date.now();
+  if (_apnsJwt && now - _apnsJwtAt < 50 * 60 * 1000) return _apnsJwt;
+  const header  = b64url(JSON.stringify({ alg: 'ES256', kid: process.env.APNS_KEY_ID }));
+  const iat     = Math.floor(now / 1000);
+  const payload = b64url(JSON.stringify({ iss: process.env.APNS_TEAM_ID, iat }));
+  const signer  = crypto.createSign('SHA256');
+  signer.update(`${header}.${payload}`);
+  const sig = b64url(signer.sign({
+    key: process.env.APNS_KEY_P8.replace(/\\n/g, '\n'),
+    dsaEncoding: 'ieee-p1363', // ES256 raw r||s, not DER
+  }));
+  _apnsJwt = `${header}.${payload}.${sig}`;
+  _apnsJwtAt = now;
+  return _apnsJwt;
+}
+function deliverApns(sub, payloadObj) {
+  return new Promise((resolve) => {
+    if (!apnsConfigured()) return resolve({ ok: false, skipped: true });
+    const deviceToken = sub.subscription?.token;
+    if (!deviceToken) return resolve({ ok: false });
+    const host = process.env.APNS_PRODUCTION === 'true'
+      ? 'https://api.push.apple.com' : 'https://api.sandbox.push.apple.com';
+    let client;
+    try { client = http2.connect(host); } catch { return resolve({ ok: false }); }
+    client.on('error', () => { try { client.close(); } catch {} resolve({ ok: false }); });
+    const body = JSON.stringify({
+      aps: { alert: { title: payloadObj.title, body: payloadObj.body }, sound: 'default' },
+      url: payloadObj.url,
+    });
+    const req = client.request({
+      ':method': 'POST',
+      ':path': `/3/device/${deviceToken}`,
+      authorization: `bearer ${apnsToken()}`,
+      'apns-topic': process.env.APNS_BUNDLE_ID,
+      'apns-push-type': 'alert',
+      'content-type': 'application/json',
+    });
+    let status = 0;
+    let data = '';
+    req.on('response', (h) => { status = h[':status']; });
+    req.on('data', (c) => { data += c; });
+    req.on('end', () => {
+      try { client.close(); } catch {}
+      if (status === 200) return resolve({ ok: true });
+      // 410 = unregistered; 400 BadDeviceToken = stale → prune.
+      const gone = status === 410 || (status === 400 && /BadDeviceToken/.test(data));
+      if (!gone) console.error('APNs send failed:', status, data);
+      resolve({ ok: false, gone });
+    });
+    req.on('error', () => { try { client.close(); } catch {} resolve({ ok: false }); });
+    req.end(body);
+  });
+}
+
+// --- FCM (Android): HTTP v1 with an OAuth token from the service account -------
+// env: FCM_SERVICE_ACCOUNT (service-account JSON string), FCM_PROJECT_ID (optional
+//      — falls back to project_id inside the service account)
+let _fcmToken = null;
+let _fcmTokenAt = 0;
+function fcmServiceAccount() {
+  if (!process.env.FCM_SERVICE_ACCOUNT) return null;
+  try { return JSON.parse(process.env.FCM_SERVICE_ACCOUNT); } catch { return null; }
+}
+async function fcmAccessToken(sa) {
+  const now = Date.now();
+  if (_fcmToken && now - _fcmTokenAt < 50 * 60 * 1000) return _fcmToken;
+  const iat = Math.floor(now / 1000);
+  const header  = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = b64url(JSON.stringify({
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat, exp: iat + 3600,
+  }));
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(`${header}.${payload}`);
+  const assertion = `${header}.${payload}.${b64url(signer.sign(sa.private_key))}`;
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+  const json = await res.json();
+  if (!json.access_token) throw new Error('FCM token exchange failed');
+  _fcmToken = json.access_token;
+  _fcmTokenAt = now;
+  return _fcmToken;
+}
+async function deliverFcm(sub, payloadObj) {
+  const sa = fcmServiceAccount();
+  if (!sa) return { ok: false, skipped: true };
+  const deviceToken = sub.subscription?.token;
+  if (!deviceToken) return { ok: false };
+  const projectId = process.env.FCM_PROJECT_ID || sa.project_id;
+  try {
+    const accessToken = await fcmAccessToken(sa);
+    const res = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: {
+            token: deviceToken,
+            notification: { title: payloadObj.title, body: payloadObj.body },
+            data: { url: payloadObj.url || '' },
+          },
+        }),
+      }
+    );
+    if (res.ok) return { ok: true };
+    const txt = await res.text();
+    const gone = res.status === 404 || /UNREGISTERED|INVALID_ARGUMENT/.test(txt);
+    if (!gone) console.error('FCM send failed:', res.status, txt);
+    return { ok: false, gone };
+  } catch (e) {
+    console.error('FCM send error:', e.message);
+    return { ok: false };
+  }
+}
+
+// --- Web (PWA / browser): VAPID web-push (the live transport) ------------------
+async function deliverWeb(sub, payloadObj) {
+  try {
+    await webpush.sendNotification(sub.subscription, JSON.stringify(payloadObj));
+    return { ok: true };
+  } catch (err) {
+    if (err.statusCode === 410 || err.statusCode === 404) return { ok: false, gone: true };
+    console.error('webpush.sendNotification failed:', err.statusCode, err.body || err.message);
+    return { ok: false };
+  }
+}
+
+// Platform dispatcher. `payloadObj` is the fully-built notification (title, body,
+// icon, url). Returns { ok, gone } so the caller can prune dead subscriptions.
+async function deliverPush(sub, payloadObj) {
+  switch (sub.platform || 'web') {
+    case 'ios':     return deliverApns(sub, payloadObj);
+    case 'android': return deliverFcm(sub, payloadObj);
+    default:        return deliverWeb(sub, payloadObj);
+  }
+}
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -57,12 +229,12 @@ async function pushToSubs(subs, payload, type, teamId, gameDate) {
   await Promise.allSettled(
     subs.map(async sub => {
       const playerToken = sub.players?.token || '';
-      const pushPayload = JSON.stringify({
+      const payloadObj = {
         ...payload,
         url: `https://app.in-or-out.com/p/${playerToken}`,
-      });
-      try {
-        await webpush.sendNotification(sub.subscription, pushPayload);
+      };
+      const res = await deliverPush(sub, payloadObj);
+      if (res.ok) {
         await supabase.from('notification_log').insert({
           team_id: teamId,
           player_id: sub.player_id,
@@ -70,12 +242,8 @@ async function pushToSubs(subs, payload, type, teamId, gameDate) {
           game_date: gameDate || null,
           sent_at: new Date().toISOString(),
         });
-      } catch (err) {
-        if (err.statusCode === 410) {
-          await supabase.from('push_subscriptions').delete().eq('id', sub.id);
-        } else {
-          console.error('webpush.sendNotification failed:', err.statusCode, err.body || err.message);
-        }
+      } else if (res.gone) {
+        await supabase.from('push_subscriptions').delete().eq('id', sub.id);
       }
     })
   );
@@ -104,7 +272,7 @@ async function getAdminPlayerIds(teamId) {
 async function getSubsForPlayers(teamId, playerIds) {
   let q = supabase
     .from('push_subscriptions')
-    .select('id, player_id, team_id, subscription, players(token)')
+    .select('id, player_id, team_id, subscription, platform, players(token)')
     .eq('team_id', teamId);
   if (playerIds?.length) q = q.in('player_id', playerIds);
   const { data } = await q;
@@ -129,12 +297,9 @@ async function handleCron(cronType) {
       (queued || []).map(async log => {
         const subs = await getSubsForPlayers(log.team_id, [log.player_id]);
         for (const sub of subs) {
-          try {
-            await webpush.sendNotification(sub.subscription, JSON.stringify(log.queued_payload));
-          } catch (err) {
-            if (err.statusCode === 410) {
-              await supabase.from('push_subscriptions').delete().eq('id', sub.id);
-            }
+          const res = await deliverPush(sub, log.queued_payload);
+          if (res.gone) {
+            await supabase.from('push_subscriptions').delete().eq('id', sub.id);
           }
         }
         await supabase

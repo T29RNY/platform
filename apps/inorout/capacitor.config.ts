@@ -33,7 +33,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * They are gitignored (see apps/inorout/.gitignore) — regenerate, don't commit.
  */
 const config: CapacitorConfig = {
-  appId: 'com.inorout.app',
+  // Bundle ID / applicationId. `com.inorout.app` was unavailable on the Apple
+  // Developer account, so the registered identifier is `uk.inorout.app`. This
+  // exact string must match the App ID created in 3.1, the APNs topic, the AASA
+  // / assetlinks files (3.3), and the package name when `npx cap add ios/android`
+  // first runs (Capacitor bakes it into the native projects at creation time).
+  appId: 'uk.inorout.app',
   appName: 'In or Out',
   webDir: 'dist',
   backgroundColor: '#0A0A08',
