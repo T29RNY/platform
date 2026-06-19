@@ -122,9 +122,18 @@ export default function MemberPass({ token }) {
             ) : (
               <>
                 <span style={{ color: "var(--t2)" }}>
-                  {pass.status === "paused" ? "Frozen until" : pass.status === "ending" ? "Access until" : "Renews"}
+                  {pass.status === "paused"
+                    ? (pass.frozen_until ? "Frozen until" : "Frozen")
+                    : pass.status === "ending" ? "Access until" : "Renews"}
                 </span>
-                <strong>{fmtDate(pass.status === "paused" ? pass.frozen_until : pass.renews_at)}{isFree ? "" : ` · ${money(pass.amount_pence)}/${pass.period}`}</strong>
+                <strong>{(() => {
+                  // A paused pass often has no freeze end date (indefinite hold); show
+                  // no date rather than fmtDate(null) → the 1 Jan 1970 epoch.
+                  const dateVal = pass.status === "paused" ? pass.frozen_until : pass.renews_at;
+                  const datePart = dateVal ? fmtDate(dateVal) : "";
+                  const pricePart = isFree ? "" : `${datePart ? " · " : ""}${money(pass.amount_pence)}/${pass.period}`;
+                  return `${datePart}${pricePart}` || "—";
+                })()}</strong>
               </>
             )}
           </div>

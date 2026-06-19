@@ -78,6 +78,15 @@ ClassesTimetable; club selected + no venue → the original no-venue copy. Casua
 Deterministic Playwright regression added (`e2e/specs/inorout.classes-no-club.spec.js` —
 FAILS pre-fix, PASSES post-fix). ⛔ real-iPhone PWA walk OWED.
 
+**RESOLVED (no mig) — finding #2: paused MemberPass showed "Frozen until 1 Jan 1970".**
+`MemberPass.jsx` L125-127 rendered `fmtDate(pass.frozen_until)` for a paused pass; an
+indefinite hold has `frozen_until = null` so `fmtDate(null)` → `new Date(null)` → the Unix
+epoch. **Fix:** label drops to "Frozen" (from "Frozen until") when there's no freeze date,
+and the value omits the date entirely (price-only for a paid pass). Confirmed against Sam's
+seeded paused pass (`m_8289db16b6ef4386abaf39c294a828cd`, paid £30/monthly, frozen_until
+null). Deterministic Playwright regression added (`e2e/specs/tokens.memberpass-frozen.spec.js`,
+no-auth /m/ route — FAILS pre-fix, PASSES post-fix). ⛔ real-iPhone PWA walk OWED.
+
 ## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
 
 The unauthenticated root (`/`) welcome screen in [`apps/inorout/src/App.jsx`](apps/inorout/src/App.jsx)
