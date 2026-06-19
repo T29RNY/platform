@@ -18,4 +18,9 @@ export const colors = {
   faint:    "#333",
   black:    "#000",
   white:    "#fff",
+  // Native shell chrome — status bar + splash background. Matches the
+  // index.html theme-color and offline.html so the native app, the PWA
+  // and the offline fallback share one near-black. Consumed by the
+  // Capacitor native bridge (apps/inorout/src/native/native-shell.js).
+  appShell: "#0A0A08",
 };
