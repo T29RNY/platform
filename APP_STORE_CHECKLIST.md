@@ -111,17 +111,43 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       case the native WebView doesn't run the SW for the remote URL — the SW path covers the
       PWA today regardless.
 
-## STAGE 2 — Capacitor scaffold (🤖 — no external dependency)
-- [ ] 2.1 🤖 Add Capacitor to `apps/inorout` (`@capacitor/core`,`/cli`,`/ios`,`/android`);
-      `capacitor.config.ts` with `server.url = https://app.in-or-out.com`, appId
-      `com.inorout.app` (confirm), appName "In or Out". Verify wrap = consumer app ONLY.
-- [ ] 2.2 🤖 Native icon + splash from 1024×1024 master (`@capacitor/assets`); add
-      `@capacitor/splash-screen` + `@capacitor/status-bar` (style `#0A0A08`).
-- [ ] 2.3 🤖 Safe-area insets — `viewport-fit=cover` + `env(safe-area-inset-*)` so content
-      clears notch / Dynamic Island / home indicator in the native shell.
-- [ ] 2.4 🤖 Android hardware back-button → webview history (`@capacitor/app`).
-- [ ] 2.5 🤖 Verify monorepo build: Capacitor wraps the Vite build but loads remote; ensure
-      `webDir` + `@platform/*` workspace deps don't break `npx cap sync`.
+## STAGE 2 — Capacitor scaffold (🤖 — ✅ COMPLETE s156, PR — Capacitor 8, no external dependency)
+- [x] 2.1 🤖 ✅ DONE — Capacitor 8 added to `apps/inorout` (`@capacitor/core` dep;
+      `@capacitor/cli`+`/ios`+`/android` devDeps). `capacitor.config.ts` at the app root:
+      appId `com.inorout.app`, appName "In or Out", `webDir: 'dist'`,
+      `server.url = https://app.in-or-out.com`, `server.cleartext: false`. Wrap = CONSUMER app
+      ONLY (apps/inorout → Vercel `platform-clubmanager`), documented in the config header.
+      Belt-and-braces (Phase C): `server.errorPath = 'offline.html'` — offline.html is copied
+      public/→dist/ by the Vite build so it is always present in webDir as the WebView fallback.
+- [x] 2.2 🤖 ✅ DONE — added `@capacitor/splash-screen` + `@capacitor/status-bar` (deps) and
+      `@capacitor/assets` (devDep). SplashScreen (`#0A0A08`, `launchAutoHide:false`, no spinner)
+      + StatusBar (`style:'DARK'` = light icons, `backgroundColor:'#0A0A08'`) configured in
+      `capacitor.config.ts`; runtime applied + splash hidden after first paint by
+      `src/native/native-shell.js`. Icon/splash MASTERS staged in `apps/inorout/assets/`
+      (icon.png 1024, splash.png + splash-dark.png 2732, README + generate cmd). ⚠️ masters were
+      upscaled from the 512 brand mark — **replace icon.png with a crisp 1024 export before the
+      Stage 4.1 screenshot shoot.** Actual `capacitor-assets generate` runs on the build machine
+      (writes into ios/android, which don't exist here).
+- [x] 2.3 🤖 ✅ DONE — added `viewport-fit=cover` to the `index.html` viewport meta. The app
+      ALREADY uses `env(safe-area-inset-*)` across ~16 surfaces, but without viewport-fit those
+      insets resolved to 0 — this one flag activates all the existing safe-area code in the
+      native shell (notch / Dynamic Island / home indicator).
+- [x] 2.4 🤖 ✅ DONE — `@capacitor/app` `backButton` listener in `native-shell.js`: Android back
+      → `window.history.back()` while there's history, `App.exitApp()` at the root. iOS/web no-op.
+- [x] 2.5 🤖 ✅ DONE — `npx cap sync` runs clean: it parsed `capacitor.config.ts` and resolved
+      the dep graph incl. the `@platform/core`/`@platform/ui` workspace SYMLINKS without choking
+      (copy+update web, 0 errors). Monorepo build passes (`cd apps/inorout && npm run build` —
+      Capacitor web shims bundle fine). `check-workspace-deps` PASS. Boot smoke (Playwright on
+      built dist): bundle parses, no Capacitor/native-shell error, `window.Capacitor` undefined
+      on web → bridge no-ops; `viewport-fit=cover` confirmed live. (The lone `supabaseUrl is
+      required` console error is the pre-existing missing-`.env` local-preview limit, not a
+      regression.)
+      ⚠️ Native `ios/`+`android/` projects are **gitignored, not generated here** (no Xcode /
+      CocoaPods / JDK / Android SDK on this machine — CLT only). They're generated on the
+      operator's build machine: `npm run build && npx cap add ios && npx cap add android &&
+      npx capacitor-assets generate && npx cap sync`. See `apps/inorout/assets/README.md`.
+      ⚠️ OWED (Hard Rule #13): real-iPhone home-screen walk for the index.html viewport change —
+      fold into the Stage 5.2 device-walk burn-down (alongside the offline + PostHog walks).
 
 ## STAGE 3 — Native capabilities (🤖 code + 👤 certs/console — needs Stage 0 IDs)
 - [ ] 3.1 👤 Apple Developer: create App ID + **Bundle ID**; enable **Associated Domains** +
@@ -191,13 +217,17 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 
 ---
 
-## Branch & WIP state at end of session 155 (READ FIRST next session)
+## Branch & WIP state at end of session 156 (READ FIRST next session)
+- **Stage 2 is COMPLETE on `main`** (Capacitor 8 scaffold, items 2.1–2.5, merged via its own PR
+  s156). No live epic branch — start Stage 3 fresh off `main`. Touched only `apps/inorout/*`
+  (package.json, capacitor.config.ts, index.html viewport, src/main.jsx, src/native/, assets/,
+  .gitignore) + `packages/core/constants/colors.js` (new `appShell` token) + root lockfile. No
+  migration. Native `ios/`/`android/` projects are gitignored (generated on the build machine).
 - **Stage 1 is COMPLETE on `main`.** Phase D (1.4, PostHog legitimate-interest + DNT opt-out)
   merged via its own PR (s155). Phases A + C merged earlier via PR #35 (`8e5545a`): store-grade
   Legal (1.1), in-app deletion verified (1.2), age 13+/guardian (1.3), offline fallback (1.6).
-  All Stage 1 working branches are merged + deleted. **There is no live epic branch — start the
-  next stage fresh off `main`.** Only 1.5 (off-brand welcome) remains, and it lives on the
-  MARKETING branch, not this track.
+  All Stage 1 working branches are merged + deleted. Only 1.5 (off-brand welcome) remains, and it
+  lives on the MARKETING branch, not this track.
 - `main` also has: the marketing rebuild (PR #33, `marketing/` only), the exhaustive e2e
   Playwright suite, and the s154 e2e follow-up fixes (PR #34, mig 367).
 - **Marketing WIP is parked in a git stash, NOT on a branch** (local-only — not pushed):
@@ -210,26 +240,38 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 - ⚠️ **Single-session discipline matters here** — s151 hit repeated branch-clobbering because a
   second Claude session was live in the SAME folder. Run ONE session at a time on this repo.
 
-## NEXT-SESSION PROMPT — Stage 2 (Capacitor scaffold, items 2.1–2.5)
+## NEXT-SESSION PROMPT — Stage 3 (native capabilities) — ⚠️ PARTLY BLOCKED on Stage 0 IDs
 ```
-Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stage 1 is COMPLETE on
-`main` (Phase D / PostHog merged s155; no live epic branch). Run ONE session only. Check no
-other Claude session is live in /Users/tarny/platform before starting and advise.
+Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stages 1 + 2 are COMPLETE
+on `main` (Stage 2 Capacitor 8 scaffold merged s156; no live epic branch). Run ONE session only.
+Check no other Claude session is live in /Users/tarny/platform before starting and advise.
 
-Do Stage 2 — Capacitor scaffold (items 2.1–2.5), fully unblocked (no external accounts needed).
-Branch fresh off `main`. 2.1 add Capacitor to apps/inorout (@capacitor/core,/cli,/ios,/android),
-capacitor.config.ts with server.url = https://app.in-or-out.com, appId com.inorout.app, appName
-"In or Out" — verify the wrap targets the CONSUMER app ONLY. Belt-and-braces from Phase C: also
-set server.errorPath = 'offline.html' (or bundle apps/inorout/public/offline.html in webDir) in
-case the native WebView doesn't run the SW for the remote URL. 2.2 icon/splash + status-bar
-(#0A0A08). 2.3 safe-area insets (viewport-fit=cover + env(safe-area-inset-*)). 2.4 Android back
-button → webview history. 2.5 verify `npx cap sync` doesn't choke on the @platform/* workspace
-deps. Full cycle AUDIT → EXECUTE → VERIFY (build) → COMMIT → ONE PR, MERGE it.
+Stage 3 = native capabilities. Sequencing matters — most of it is BLOCKED on Stage 0 outputs:
+  • 3.1/3.2/3.7 are 👤 console/cert work (Apple App ID + APNs .p8, Firebase google-services.json,
+    signing certs/keystore) — operator, can't be done in code.
+  • 3.3 (deep-link files apple-app-site-association + assetlinks.json) is BLOCKED until the Apple
+    Team ID (0.5) + Bundle ID + Android SHA-256 (3.7) exist. DO NOT commit placeholder AASA/
+    assetlinks — they fail verification. Skip until the IDs land.
+  • 3.6 Sign in with Apple needs the Apple service ID (👤).
+
+  ✅ UNBLOCKED, can build NOW (no external accounts):
+  • 3.5 NATIVE PUSH BRIDGE — the biggest code lump + the only migration (362). Add
+    `@capacitor/push-notifications`; capture APNs/FCM device token; add a `platform`/`token_type`
+    column to `push_subscriptions` + `register_push_subscription`; branch the send-path
+    (api/notify.js, api/cron.js) so native tokens go via APNs/FCM and web subs stay on web-push.
+    Follow Hard Rules #9 (audit_events), #10 (realtime sub parity), #11 (migration source +
+    down in same commit), #12 (return-shape mapper). EV (ephemeral-verify) + rpc-security-sweep
+    are MANDATORY for the new write RPC. Next free mig = 362.
+  • 3.4 `appUrlOpen` deep-link ROUTING handler (Capacitor) — route opened /p/<token>,
+    /admin/<token>, /m/<token> into the webview at the right path. The handler is buildable now
+    even though the .well-known files (3.3) that make links open the app are blocked.
+
+Recommend: do 3.5 (push, mig 362) as its own session/PR — it's large and carries the migration —
+then 3.4 separately. Leave 3.1/3.2/3.3/3.6/3.7 for when Stage 0 IDs land.
 
 Context: Stage 0.3 (Apple Dev, Individual) awaiting Apple approval — once approved, grab the Team
-ID (0.5) + reserve "In or Out — Football Organiser" in App Store Connect (0.6). Stage 3 (native
-push mig 362, Sign in with Apple, deep links) needs those IDs, so Stage 2 first. Item 1.5
-(off-brand welcome) stays on the MARKETING branch, not this track. Owed across Stage 1+: real-
-iPhone home-screen walks (offline fallback + the PostHog index.html change) — fold into the
-Stage 5.2 device-walk burn-down.
+ID (0.5) + reserve "In or Out — Football Organiser" in App Store Connect (0.6). Item 1.5
+(off-brand welcome) stays on the MARKETING branch, not this track. OWED real-iPhone home-screen
+walks (offline fallback, PostHog index.html, Stage-2 viewport-fit) — fold into the Stage 5.2
+device-walk burn-down.
 ```

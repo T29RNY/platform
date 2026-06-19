@@ -1,1 +1,7 @@
 .vercel
+
+# Capacitor — generated native projects. Built on a machine with Xcode +
+# Android Studio via `npx cap add ios` / `npx cap add android`. Regenerate,
+# don't commit (config lives in capacitor.config.ts; masters in assets/).
+/ios
+/android
