@@ -298,17 +298,26 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
 - [ ] 3.8 🤖 Payments (only when un-dormanted): swap checkout open-calls to
       `@capacitor/browser`; return rides the 3.3 deep-link files. No rule change. NOT a blocker.
 
-## STAGE 4 — Store listing assets (🤖 produce + 👤 upload)
-- [ ] 4.1 🤖 Screenshots (captured during Stage 5 device walks): iPhone 6.7" (1290×2796) +
-      Play phone shots (min 2). Off-brand welcome (1.5) MUST be fixed first.
-- [ ] 4.2 🤖 Play-only graphics: 512×512 icon + 1024×500 feature graphic.
-- [ ] 4.3 🤖 Listing copy: name, subtitle, description, keywords/ASO, promo text,
-      category (Sports), support URL, marketing URL (`in-or-out.com`).
-- [ ] 4.4 👤 App Privacy nutrition labels (Apple) + Data Safety form (Google) — 🤖 supplies
-      exact answers from the data audit (incl. PostHog).
-- [ ] 4.5 👤 Age-rating questionnaires (Apple + Google IARC) per the 1.3 decision.
-- [ ] 4.6 👤+🤖 Reviewer demo account — stable test squad/login in App Review notes; 🤖 prepares
-      it + a note explaining the token-link model and IAP-exempt real-world payments.
+## STAGE 4 — Store listing assets (🤖 produce + 👤 upload) — APPLE COPY DONE s161 → `APP_STORE_LISTING.md`
+- [~] 4.1 🤖 ✅ SPEC DONE (s161, `APP_STORE_LISTING.md`) — Apple 6.7"/6.9" **1290×2796** portrait,
+      5–6 shot list + captions + framing rules. ⏳ ASSETS owed: shot on the wrapped build at Stage
+      5.2; off-brand welcome (1.5) MUST be fixed first; replace upscaled icon.png (2.2) before icon gen.
+- [ ] 4.2 🤖 ⏸️ PARKED (Play) — Play-only graphics: 512×512 icon + 1024×500 feature graphic.
+- [x] 4.3 🤖 ✅ DONE (s161, `APP_STORE_LISTING.md`) — name `In or Out - Book & Play` (23), subtitle
+      `Who's in for the match?` (23), promo (143), keywords (96, comma-no-space), full description
+      (~1.75k, "NATIVE NOT JUST A WEBSITE" block = on-listing 4.2 evidence), What's New, category
+      Sports, support/marketing/privacy URLs. All under Apple field limits (counted).
+- [x] 4.4 🤖 ✅ ANSWERS DONE (s161, `APP_STORE_LISTING.md`) — Apple App Privacy questionnaire mapped
+      from the 1.4 audit: global "Data NOT Used to Track You"; COLLECTED = Email, Name, User ID,
+      Device ID, Product Interaction, Purchase History, User Content (all Linked, no tracking,
+      App-Functionality/Analytics purposes); Financial/Payment Info NOT collected (Stripe/GC hosted);
+      Location/Health/Contacts/Browsing/Sensitive/Diagnostics NOT collected. ⚠️ 👤 to confirm Phone
+      Number = not collected (recommended) + click through ASC. (Google Data Safety skipped — parked.)
+- [ ] 4.5 👤 Apple age-rating questionnaire = 13+ per item 1.3 (Google IARC ⏸️ PARKED).
+- [x] 4.6 🤖 ✅ DONE (s161, `APP_STORE_LISTING.md`) — paste-ready App Review note: token-link model
+      (no-sign-in player/admin/member links `p_demo_alex_token`/`admin_demo`/member pass), full
+      sign-in demo accounts (`tarny+demo@` all-roles via email OTP, `tarny+family@` guardian+staff),
+      IAP-exempt real-world payments (3.1.3(e)/3.1.5(a)), and the Guideline-4.2 native defence.
 
 ## STAGE 5 — Build, sign, final E2E + real-device test (👤 device + 🤖 fixes)
 - [x] 5.1 ✅ **Final E2E Playwright pass** of the live consumer surfaces (web) — DONE s160.
@@ -474,7 +483,47 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
   machine → 5.2 device walks → submit. No live epic branch — start Stage 4 fresh off `main`.
 - No live epic branch. Working tree clean on `main` at end of s159. Next free mig still = 369.
 
-## NEXT-SESSION PROMPT — Stage 4 (Apple listing paperwork — the last 🤖-solo work)
+## STAGE 4 DONE (s161) — Apple listing paperwork complete → `APP_STORE_LISTING.md`
+- **The last 🤖-solo work in the epic is done.** New repo doc `APP_STORE_LISTING.md` holds, ready
+  for the operator to paste into App Store Connect: **4.3** listing copy (all fields verified under
+  Apple limits), **4.4** App Privacy questionnaire answers (mapped from the 1.4 audit; global "not
+  used to track"), **4.6** the paste-ready App Review demo note (token-link model + demo accounts +
+  IAP-exemption + Guideline-4.2 native defence), and the **4.1** screenshot spec (sizes/shot
+  list/captions; assets still owed at 5.2). Doc-only — no migration, no code, no build change.
+- **One 👤 confirmation flagged in 4.4:** Phone Number recommended as "not collected" for the
+  consumer app (Twilio SMS is an operator surface, not consumer collection) — operator to confirm
+  while clicking through the ASC questionnaire.
+- **Everything 🤖 can do without a Mac is now COMPLETE.** The epic is fully gated on the build
+  machine + operator console: 3.7 iOS dist cert + provisioning profile, the native `cap add ios`
+  scaffold + 3.6 scheme registration, then the Stage 5.2 real-iPhone device walks (which also
+  capture the 4.1 screenshots), then submit (Stage 6). PARKED behind Apple approval: all Android/Play.
+- Working tree was clean on `main` at start; this session touched only `APP_STORE_LISTING.md` (new)
+  + `APP_STORE_CHECKLIST.md`. No live epic branch. Next free mig still = **369**.
+- ⚠️ Session note: a second Claude session was live in `/Users/tarny/platform` during s161 (a
+  morning `--resume`). This was doc-only on files that session was not touching, so no clash — but
+  per Cloud Session Discipline, prefer one session at a time on this repo.
+
+## NEXT-SESSION PROMPT — build machine (Mac + Xcode required; no more 🤖-solo work)
+```
+The APP STORE epic (APP_STORE_CHECKLIST.md) has NO remaining bot-solo work — every console/code item
+that needs no Mac is DONE through s161 (Stages 1, 2; 3.1, 3.3-iOS, 3.4, 3.5, 3.6 code+provider; 5.1
+E2E baseline; and Stage 4 Apple listing paperwork in APP_STORE_LISTING.md). The epic is now gated on
+the build machine + operator console. iOS-first; Google Play PARKED until after Apple approval.
+
+On a Mac with Xcode (operator + Claude on that machine):
+  • npx cap add ios && npx capacitor-assets generate && npx cap sync (apps/inorout; replace the
+    upscaled assets/icon.png with a crisp 1024 export first — item 2.2).
+  • Register the uk.inorout.app:// scheme in the iOS project (CFBundleURLTypes) for the 3.6 OAuth
+    return; confirm Associated Domains + Push + Sign-in-with-Apple capabilities are on.
+  • 👤 3.7: iOS distribution cert + provisioning profile (easiest = Xcode automatic signing).
+  • Stage 5.2 real-iPhone walk: deep-link open, push opt-in + DELIVERY, Google + Apple sign-in
+    return, payments redirect→return, PWA still installs, offline shell, viewport-fit. Capture the
+    4.1 screenshots here (1290×2796) AFTER the 1.5 off-brand welcome fix lands from the marketing branch.
+  • Stage 5.3: resolve anything 5.1/5.2 surfaced; rebuild. Stage 6: upload + submit to Apple.
+Next free mig = 369.
+```
+
+## NEXT-SESSION PROMPT (SUPERSEDED) — Stage 4 (Apple listing paperwork — the last 🤖-solo work)
 ```
 Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — through s160, EVERY console/code
 item that needs no Mac is DONE: Stages 1, 2; 3.1 (APNs live), 3.3-iOS, 3.4, 3.5, 3.6 (code + Apple
