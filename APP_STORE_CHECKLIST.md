@@ -164,9 +164,10 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       losing it = revoke + new key). Vercel env values supplied for `platform-clubmanager`
       (Production+Preview): `APNS_KEY_ID=9KPP827P4U`, `APNS_TEAM_ID=JCC44FW6XR`,
       `APNS_BUNDLE_ID=uk.inorout.app`, `APNS_PRODUCTION=true`, `APNS_KEY_P8` = full PEM contents
-      (notify.js handles real or `\n`-escaped newlines). ⏳ Operator pastes APNS_KEY_P8 + REDEPLOYS
-      to activate (env changes need a redeploy). This un-dormants the SERVER side of iOS push;
-      end-to-end DELIVERY still needs a native build capturing real APNs device tokens (5.2).
+      (notify.js handles real or `\n`-escaped newlines). ✅ Env pasted + **REDEPLOYED LIVE (s159)** —
+      post-deploy health check: app root 200, AASA 200/json (deep links intact). SERVER side of iOS
+      push now ACTIVE; end-to-end DELIVERY still needs a native build capturing real APNs device
+      tokens → verified in the 5.2 device walk.
 - [ ] 3.2 👤 Create **Firebase project** → `google-services.json` (Android push impossible
       without it). (blocks 3.5)
 - [~] 3.3 🤖 **iOS half DONE (s158).** `apps/inorout/public/.well-known/apple-app-site-association`
