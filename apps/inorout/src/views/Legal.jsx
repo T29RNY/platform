@@ -156,7 +156,7 @@ export default function Legal() {
           <p style={S.p}>{COMPANY} is intended for people aged 13 and over. If you are under 18, you may only use the app if a parent or guardian has set it up for you and supervises your use. We do not knowingly collect personal data from children under 13. If you believe a child under 13 has given us personal data, contact us and we will delete it.</p>
 
           <h2 style={S.h2}>Cookies and Analytics</h2>
-          <p style={S.p}>We use cookies and similar storage that are essential for signing you in and keeping the app working, and analytics storage to understand usage. We do not use advertising cookies. Where required, analytics relies on your consent, which you can withdraw at any time.</p>
+          <p style={S.p}>We use storage that is strictly necessary for signing you in and keeping the app working. We also use privacy-first usage analytics (PostHog), hosted in the EU, to understand how the app is used and to improve it. We do not use advertising cookies, do not sell your data, and do not track you across other sites. We rely on our legitimate interests for this analytics; if your browser or device signals “Do Not Track” or a Global Privacy Control, we automatically exclude you from analytics. You can also object to analytics at any time by contacting us at <a href={`mailto:${CONTACT_EMAIL}`} style={{color:C.amber}}>{CONTACT_EMAIL}</a>.</p>
 
           <h2 style={S.h2}>Complaints</h2>
           <p style={S.p}>If you are in the UK and you are unhappy with how we have handled your personal data, you can complain to the Information Commissioner’s Office (ICO) at <a href="https://ico.org.uk" style={{color:C.amber}}>ico.org.uk</a>. We would appreciate the chance to address your concerns first.</p>
