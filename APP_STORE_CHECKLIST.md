@@ -38,13 +38,16 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 ---
 
 ## STAGE 0 — Commercial identity & accounts (👤 — START NOW, runs in parallel; long pole)
-- [ ] 0.1 👤 Decide legal entity/identity. Use a **company identity + `founder@in-or-out.com`**
-      (an org Google Play account skips the 12-tester / 14-day closed-test gate; personal
-      accounts don't).
+- [x] 0.1 👤 ✅ DECIDED — **Apple = Individual enrolment** (order placed s151). Seller name on
+      the App Store listing will be the **personal name**, not a company. Conversion to an
+      Organization later is awkward → revisit only if branding demands it.
+      ⚠️ The Play decision (0.4) is still open and independent — a **personal** Play account
+      DOES hit the 12-tester / 14-day closed-test gate; an org account avoids it.
 - [x] 0.2 👤 ✅ DONE. Listing support email = **`support@in-or-out.com`**. (Legal page currently
       lists `hello@in-or-out.com` — optionally align to `support@` in 1.1.)
-- [ ] 0.3 👤 IN PROGRESS — enrol in **Apple Developer Program** ($99/yr). Company → needs
-      D-U-N-S number. Can take days–weeks → this is why Stage 0 starts first.
+- [x] 0.3 👤 ✅ ORDER PLACED (s151) — **Apple Developer Program, Individual, $99/yr.**
+      Awaiting Apple approval (usually fast for Individual). Once approved → record Team ID (0.5)
+      and these unlock: Push, Associated Domains/deep links, Sign in with Apple, TestFlight.
 - [ ] 0.4 👤 IN PROGRESS — enrol in **Google Play Console** ($25 one-off).
 - [ ] 0.5 👤 DEFERRED until after Stage 5.1 E2E — enable 2FA on both; record the
       **Apple Team ID** (feeds 3.3).
