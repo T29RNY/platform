@@ -16,6 +16,7 @@ import { App } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { colors } from '@platform/core';
+import { supabase } from '@platform/core/storage/supabase.js';
 
 export function initNativeShell() {
   // Web build: nothing to bridge. Bail before touching any native plugin.
@@ -63,7 +64,7 @@ export function initNativeShell() {
   // as https://app.in-or-out.com/p/<token> (pathname = /p/<token>); the custom
   // scheme parses as uk.inorout.app:///p/<token> (same pathname). We take
   // pathname+search+hash from either and ignore the origin.
-  App.addListener('appUrlOpen', ({ url }) => {
+  App.addListener('appUrlOpen', async ({ url }) => {
     if (!url) return;
     let parsed;
     try {
@@ -71,6 +72,32 @@ export function initNativeShell() {
     } catch {
       return; // unparseable — nothing safe to route to
     }
+
+    // 3.6. OAuth / Sign-in-with-Apple return. The provider redirected to our
+    // custom scheme uk.inorout.app://auth/callback?code=… (or ?error=…). The
+    // custom-scheme form parses with host='auth', pathname='/callback'; a
+    // universal-link form would be host='app.in-or-out.com',
+    // pathname='/auth/callback' — both normalise to …auth/callback.
+    const hostPath = `${parsed.host}${parsed.pathname}`.replace(/\/+$/, '');
+    const isAuthReturn = hostPath.endsWith('auth/callback') &&
+      (parsed.searchParams.has('code') || parsed.searchParams.has('error'));
+    if (isAuthReturn) {
+      // Dismiss the system browser, then finish the PKCE exchange HERE — the
+      // verifier never left this webview's localStorage. exchangeCodeForSession
+      // wants the bare auth code (it POSTs it as auth_code), not the URL.
+      // onAuthStateChange (App.jsx) then adopts the new session; we deliberately
+      // do NOT window.location-navigate (that's only right for /p,/admin,/m).
+      try {
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.close().catch(() => {});
+        const code = parsed.searchParams.get('code');
+        if (code) await supabase.auth.exchangeCodeForSession(code);
+      } catch (e) {
+        console.error(e);
+      }
+      return;
+    }
+
     const path = parsed.pathname + parsed.search + parsed.hash;
     // Bare host / empty path: let the app keep whatever it's showing.
     if (!path || path === '/') return;

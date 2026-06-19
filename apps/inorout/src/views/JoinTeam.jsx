@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { EnvelopeSimple, PaperPlaneTilt, User } from "@phosphor-icons/react";
+import { startOAuth } from "../native/native-auth.js";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
@@ -146,6 +147,31 @@ function JoinStyles() {
 
       .join-google-btn:active  { transform: scale(0.98); }
       .join-google-btn:disabled { opacity: 0.48; cursor: not-allowed; }
+
+      /* Apple — HIG: ≥ as prominent as Google. Solid near-white fill (vs the
+         Google button's surface fill + amber hairline), placed first. */
+      .join-apple-btn {
+        width: 100%;
+        min-height: 56px;
+        margin-bottom: 12px;
+        border-radius: 14px;
+        border: none;
+        background: var(--t1);
+        color: var(--bg);
+        font-family: "DM Sans", sans-serif;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 160ms ease, opacity 160ms ease;
+      }
+      .join-apple-btn:active  { transform: scale(0.98); }
+      .join-apple-btn:disabled { opacity: 0.48; cursor: not-allowed; }
 
       .join-divider {
         display: flex;
@@ -393,7 +419,7 @@ function CheckingState() {
   );
 }
 
-function SignInStep({ team, onGoogle }) {
+function SignInStep({ team, onGoogle, onApple }) {
   const [email,     setEmail]     = useState("");
   const [emailOpen, setEmailOpen] = useState(false);
   const [sent,      setSent]      = useState(false);
@@ -450,6 +476,15 @@ function SignInStep({ team, onGoogle }) {
           </div>
         ) : (
           <>
+            <button
+              type="button"
+              className="join-apple-btn"
+              onClick={onApple}>
+              <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M17.05 12.04c-.03-2.86 2.34-4.23 2.44-4.3-1.33-1.95-3.41-2.21-4.15-2.24-1.77-.18-3.45 1.04-4.35 1.04-.89 0-2.27-1.01-3.74-.99-1.92.03-3.69 1.12-4.68 2.84-2 3.46-.51 8.58 1.43 11.39.95 1.38 2.08 2.92 3.56 2.87 1.43-.06 1.97-.92 3.7-.92 1.72 0 2.21.92 3.72.89 1.54-.03 2.51-1.4 3.45-2.79 1.09-1.6 1.54-3.15 1.56-3.23-.03-.02-2.99-1.15-3.02-4.55zM14.2 4.38c.79-.96 1.32-2.29 1.18-3.62-1.14.05-2.52.76-3.33 1.72-.73.85-1.37 2.21-1.2 3.51 1.27.1 2.57-.65 3.35-1.61z"/>
+              </svg>
+              Continue with Apple
+            </button>
             <button
               type="button"
               className="join-google-btn"
@@ -600,11 +635,15 @@ export default function JoinTeam({
 
   const handleGoogleSignIn = async () => {
     const returnTo = encodeURIComponent(window.location.href);
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}`
-      }
+    await startOAuth("google", {
+      redirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}`,
+    });
+  };
+
+  const handleAppleSignIn = async () => {
+    const returnTo = encodeURIComponent(window.location.href);
+    await startOAuth("apple", {
+      redirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}`,
     });
   };
 
@@ -623,7 +662,7 @@ export default function JoinTeam({
   if (!effectiveAuthUser) return (
     <>
       <JoinStyles />
-      <SignInStep team={team} onGoogle={handleGoogleSignIn} />
+      <SignInStep team={team} onGoogle={handleGoogleSignIn} onApple={handleAppleSignIn} />
     </>
   );
 

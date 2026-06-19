@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
+import { startOAuth } from "../native/native-auth.js";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
@@ -14,6 +15,13 @@ const GOOGLE_SVG = (
   </svg>
 );
 
+// Apple logo — currentColor inherits the button's text colour (no hex).
+const APPLE_SVG = (
+  <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="currentColor" d="M17.05 12.04c-.03-2.86 2.34-4.23 2.44-4.3-1.33-1.95-3.41-2.21-4.15-2.24-1.77-.18-3.45 1.04-4.35 1.04-.89 0-2.27-1.01-3.74-.99-1.92.03-3.69 1.12-4.68 2.84-2 3.46-.51 8.58 1.43 11.39.95 1.38 2.08 2.92 3.56 2.87 1.43-.06 1.97-.92 3.7-.92 1.72 0 2.21.92 3.72.89 1.54-.03 2.51-1.4 3.45-2.79 1.09-1.6 1.54-3.15 1.56-3.23-.03-.02-2.99-1.15-3.02-4.55zM14.2 4.38c.79-.96 1.32-2.29 1.18-3.62-1.14.05-2.52.76-3.33 1.72-.73.85-1.37 2.21-1.2 3.51 1.27.1 2.57-.65 3.35-1.61z"/>
+  </svg>
+);
+
 export default function EmailCaptureOverlay({ conflictMessage }) {
   const [email,     setEmail]     = useState("");
   const [sent,      setSent]      = useState(false);
@@ -23,9 +31,14 @@ export default function EmailCaptureOverlay({ conflictMessage }) {
   const returnTo = encodeURIComponent(window.location.pathname);
 
   const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}` },
+    await startOAuth("google", {
+      redirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}`,
+    });
+  };
+
+  const signInWithApple = async () => {
+    await startOAuth("apple", {
+      redirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}`,
     });
   };
 
@@ -99,6 +112,19 @@ export default function EmailCaptureOverlay({ conflictMessage }) {
           }}>
             Add your email to access your stats on any device
           </div>
+
+          {/* Apple — HIG: ≥ as prominent as Google. Solid near-white fill,
+              placed first. */}
+          <button onClick={signInWithApple} style={{
+            width: "100%", padding: "14px 0", borderRadius: 8, marginBottom: 12,
+            border: "none", background: "var(--t1)",
+            color: "var(--bg)", fontFamily: "'DM Sans', sans-serif", fontSize: 14,
+            fontWeight: 500, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}>
+            {APPLE_SVG}
+            Continue with Apple
+          </button>
 
           <button onClick={signInWithGoogle} style={{
             width: "100%", padding: "14px 0", borderRadius: 8, marginBottom: 12,
