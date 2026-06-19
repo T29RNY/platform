@@ -33,7 +33,7 @@ real-device). Dependencies are called out so nothing is built before its inputs 
   real-world services (Guideline 3.1.3(e)/3.1.5(a)). Stripe + GoCardless already use hosted
   redirect→return (`api/stripe-member-checkout.js`, `api/gocardless-mandate.js`) into
   `app.in-or-out.com`. No rule problem; DORMANT; not a launch blocker.
-- Next free migration = **362**.
+- Next free migration = **363** (362 = native-push platform column, shipped s157).
 
 ---
 
@@ -114,7 +114,10 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 ## STAGE 2 — Capacitor scaffold (🤖 — ✅ COMPLETE s156, PR — Capacitor 8, no external dependency)
 - [x] 2.1 🤖 ✅ DONE — Capacitor 8 added to `apps/inorout` (`@capacitor/core` dep;
       `@capacitor/cli`+`/ios`+`/android` devDeps). `capacitor.config.ts` at the app root:
-      appId `com.inorout.app`, appName "In or Out", `webDir: 'dist'`,
+      appId `uk.inorout.app` (⚠️ changed from `com.inorout.app` s157 — that Bundle ID was
+      unavailable on the Apple account; `uk.inorout.app` is the registered one and must match
+      the App ID, APNs topic, AASA/assetlinks, and `cap add ios/android`), appName "In or Out",
+      `webDir: 'dist'`,
       `server.url = https://app.in-or-out.com`, `server.cleartext: false`. Wrap = CONSUMER app
       ONLY (apps/inorout → Vercel `platform-clubmanager`), documented in the config header.
       Belt-and-braces (Phase C): `server.errorPath = 'offline.html'` — offline.html is copied
@@ -160,10 +163,23 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       no redirect. (needs 3.1 + 3.7 values)
 - [ ] 3.4 🤖 Capacitor `appUrlOpen` handler — route opened `/p/<token>`, `/admin/<token>`,
       `/m/<token>` into the webview at the right path.
-- [ ] 3.5 🤖 **Native push bridge (migration 362 — biggest code item):**
-      `@capacitor/push-notifications`; capture APNs/FCM device token; add `platform`/`token_type`
-      column to `push_subscriptions` + `register_push_subscription`; branch the send-path
-      (`api/notify.js`, `api/cron.js`) — APNs/FCM for native tokens, `web-push` for web subs.
+- [x] 3.5 🤖 ✅ DONE (s157, mig 362, own PR). **Native push bridge.** Schema: `push_subscriptions`
+      gains `platform` ('web'|'ios'|'android', DEFAULT 'web', CHECK); uniqueness widened
+      `(player_id)` → `(player_id, platform)` so a player holds a web AND a native sub at once.
+      `register_push_subscription` gains `p_platform` (DEFAULT 'web' → web call sites unchanged;
+      old 2-arg overload DROPped); validates VAPID `endpoint` for web vs `{token}` for native;
+      audit records platform. Client: `@capacitor/push-notifications` + `src/native/native-push.js`
+      captures the APNs/FCM device token and registers it; `PlayerView.handleSubscribe` branches
+      native-first, falls through to the unchanged web-push flow on web. Send-path: `api/notify.js`
+      `getSubsForPlayers` selects `platform`; a `deliverPush` dispatcher routes web→web-push (LIVE,
+      unchanged), ios→APNs (HTTP/2 + ES256 JWT), android→FCM (HTTP v1 + service-account OAuth) —
+      both native transports **DORMANT** (env-guarded, no-op cleanly) until operator creds land
+      (3.1/3.2); both use Node built-ins only, no new server dep. `api/cron.js` needed NO send
+      change — it never sends push directly, always POSTs `/api/notify`. Gates: EV 11/11 + leak 0
+      (web+ios coexist, upsert, audit×3, all error paths); rpc-security PASS (SECDEF, search_path,
+      single overload, anon+authenticated); hygiene PASS; build clean; boot smoke clean (only the
+      known no-env `supabaseUrl` error). ⚠️ OWED (Hard Rule #13): real-iPhone walk for actual push
+      DELIVERY can't happen until APNs/FCM creds exist — folds into Stage 5.2.
 - [ ] 3.6 🤖+👤 Auth-in-webview fix: route Google `signInWithOAuth` through
       `@capacitor/browser` / native auth + deep-link return (plain webview is blocked by
       Google). **Add Sign in with Apple** (Apple requires it once any social login exists):

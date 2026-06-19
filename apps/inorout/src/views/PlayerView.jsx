@@ -16,6 +16,7 @@ import useRequireAuth from "../hooks/useRequireAuth.js";
 import PageHeader  from "../components/ui/PageHeader.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
+import { registerNativePush } from "../native/native-push.js";
 import Tile        from "../components/ui/Tile.jsx";
 import Avatar      from "../components/ui/Avatar.jsx";
 import NavBar      from "../components/ui/NavBar.jsx";
@@ -441,6 +442,20 @@ export default function PlayerView({
     if (needsSelfAuth) { promptSignIn(); return; }
     setNotifState("asking");
     try {
+      // Native wrapper (iOS/Android): use APNs/FCM via the Capacitor bridge.
+      // Returns false on the web so we fall through to the web-push flow.
+      const native = await registerNativePush(me?.token);
+      if (native === "subscribed") {
+        localStorage.setItem(`notif_${myId}`, "subscribed");
+        setNotifState("subscribed");
+        return;
+      }
+      if (native === "denied") {
+        localStorage.setItem(`notif_${myId}`, "denied");
+        setNotifState("denied");
+        return;
+      }
+
       const perm = await Notification.requestPermission();
       if (perm !== "granted") {
         localStorage.setItem(`notif_${myId}`, "denied");
