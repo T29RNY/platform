@@ -156,11 +156,17 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       fold into the Stage 5.2 device-walk burn-down (alongside the offline + PostHog walks).
 
 ## STAGE 3 — Native capabilities (🤖 code + 👤 certs/console — needs Stage 0 IDs)
-- [~] 3.1 👤 ✅ MOSTLY DONE (s157) — App ID **`uk.inorout.app`** registered with **Push** +
-      **Associated Domains** + **Sign in with Apple** capabilities enabled. ⏳ REMAINING: create
-      the **APNs auth key (.p8)** + note its Key ID — that's the last input that un-dormants the
-      iOS push send-path in 3.5 (`APNS_KEY_P8` / `APNS_KEY_ID` / `APNS_TEAM_ID=JCC44FW6XR` /
-      `APNS_BUNDLE_ID=uk.inorout.app` env on Vercel `platform-clubmanager`).
+- [x] 3.1 👤 ✅ DONE (s159) — App ID **`uk.inorout.app`** registered with **Push** +
+      **Associated Domains** + **Sign in with Apple** (s157). **APNs auth key created (s159):**
+      name "In or Out APNs", **Key ID `9KPP827P4U`**, Environment **Sandbox & Production**,
+      restriction **Team Scoped (All Topics)**; key file `AuthKey_9KPP827P4U.p8` on operator's
+      machine (`~/Downloads/` s159 — keep safe; APNs keys do NOT expire, no renewal needed, but
+      losing it = revoke + new key). Vercel env values supplied for `platform-clubmanager`
+      (Production+Preview): `APNS_KEY_ID=9KPP827P4U`, `APNS_TEAM_ID=JCC44FW6XR`,
+      `APNS_BUNDLE_ID=uk.inorout.app`, `APNS_PRODUCTION=true`, `APNS_KEY_P8` = full PEM contents
+      (notify.js handles real or `\n`-escaped newlines). ⏳ Operator pastes APNS_KEY_P8 + REDEPLOYS
+      to activate (env changes need a redeploy). This un-dormants the SERVER side of iOS push;
+      end-to-end DELIVERY still needs a native build capturing real APNs device tokens (5.2).
 - [ ] 3.2 👤 Create **Firebase project** → `google-services.json` (Android push impossible
       without it). (blocks 3.5)
 - [~] 3.3 🤖 **iOS half DONE (s158).** `apps/inorout/public/.well-known/apple-app-site-association`
