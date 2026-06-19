@@ -67,6 +67,17 @@ stubs is_self off + both team-list RPCs — FAILS pre-fix, PASSES post-fix), cas
 PASS (anon walk: token path only, 0 auth-RPC leak, MySquads renders), build + hygiene clean.
 ⛔ real-iPhone PWA walk OWED (hard-rule #13 — PlayerView/App touched).
 
+**RESOLVED (no mig) — finding #1: `/classes` no-club-selected copy.** A member of 2+
+clubs opening `/classes` with no `?club=` param has `selectedClubId === null` (the chips
+are the selector), which left `selectedVenueId` null and rendered "No venue linked to this
+club yet." — conflating no-selection with a club that genuinely has no venue. **Fix
+(`ClassesScreen.jsx` L142):** branch on `selectedClubId` first — `!selectedClubId` →
+"Select a club above to see its class timetable."; club selected + venue →
+ClassesTimetable; club selected + no venue → the original no-venue copy. Casual-only users
+(no clubs) still return null at the activeClubs gate — casual flow byte-identical.
+Deterministic Playwright regression added (`e2e/specs/inorout.classes-no-club.spec.js` —
+FAILS pre-fix, PASSES post-fix). ⛔ real-iPhone PWA walk OWED.
+
 ## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
 
 The unauthenticated root (`/`) welcome screen in [`apps/inorout/src/App.jsx`](apps/inorout/src/App.jsx)
