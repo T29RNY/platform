@@ -24,22 +24,22 @@ club→demo_venue links). Verified: Grading tab now lists Adult + Junior Belt Sy
 Club tab lists both combat clubs, `/classes` timetable renders once a club is selected.
 **Next free mig = 367.**
 
-**FINDINGS (low priority, NOT fixed — logged for a later cycle):**
-1. **Consumer `/classes`, multi-club no-selection copy.** A member of 2+ clubs with no
-   `?club=` param sees "No venue linked to this club yet." That's the *no-club-selected*
-   state (the club chips are the selector), but the copy reads like a data error. Should
-   prompt "pick a club" instead. `apps/inorout/src/views/ClassesScreen.jsx` (pickClub
-   returns null for 2+ clubs without the param).
-2. **Paused membership pass shows "Frozen until 1 Jan 1970."** Sam's paused boxing
-   membership has no freeze-until date, so the pass renders the epoch. Seed sets
-   `status='paused'` directly with no freeze record; the pass UI should hide the date
-   when absent. `MemberPass`/`get_member_pass`.
-3. **"My Squads" switcher omits the 2nd squad.** On the consumer home, Alex (admin of
-   5-a-Side FC, player of Competitive FC) sees "Not part of any other squads yet" even
-   though `get_user_relationships` AND `player_get_teams` both return BOTH squads. Data
-   is correct; the client switcher isn't surfacing the second squad. Observed on the
-   uncommitted `marketing-cinematic-redesign` App.jsx — verify against `main` before
-   chasing.
+**FINDINGS — queued for NEXT session, fully scoped in `E2E_FOLLOWUP_HANDOFF.md`:**
+1. **(cosmetic) `/classes` multi-club no-selection copy.** A member of 2+ clubs with no
+   `?club=` param sees "No venue linked to this club yet." — really the *no-club-selected*
+   state (chips are the selector). `ClassesScreen.jsx` L26 (`pickClub` → null for 2+ clubs)
+   + L145 (the `venues.length===0` branch conflates no-selection with no-venue).
+2. **(cosmetic) Paused pass shows "Frozen until 1 Jan 1970."** `MemberPass.jsx:125-127` —
+   `status==='paused'` renders `fmtDate(pass.frozen_until)`; seed sets `paused` with no
+   freeze date so `fmtDate(null)` → epoch. Hide the date when `frozen_until` is null.
+3. **(REAL BUG, not cosmetic) "My Squads" hides other squads when sign-ups aren't open.**
+   `PlayerView.jsx:1622` derives `currentToken={myId && squad.find(p=>p.id===myId)?.token}`
+   from *this week's matchday squad*. When sign-ups aren't open that squad is **empty** →
+   `currentToken` falsy → `MySquads` early-returns → "Not part of any other squads yet."
+   Data is fine (`player_get_teams_by_token` returns both squads); the token must come from
+   the player's own identity, not the empty squad. Reproduces as Alex (2 squads, current
+   week not open). Confirmed against `main` — App.jsx switcher code is byte-identical to
+   `main`, so this is pre-existing, not a marketing-branch artifact.
 
 ## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
 

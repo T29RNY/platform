@@ -29,7 +29,9 @@ additive mig 366).
 
 **One fix shipped:** mig 366 linked the two combat clubs to demo_venue via
 `club_venues` (the seed gap that blanked the venue Grading/Club tabs + the consumer
-`/classes` venue). 3 low-priority cosmetic findings logged in `BUGS.md` (SESSION 153).
+`/classes` venue). **3 follow-up fixes queued for next session — scoped with file:line
++ a paste-ready prompt in `E2E_FOLLOWUP_HANDOFF.md`** (#3 is a real bug: My Squads
+hides other squads when the matchday squad is empty; #1/#2 are cosmetic).
 
 ## How auth works (the key trick)
 Every app uses one Supabase client with default persistence, so a session lives in
