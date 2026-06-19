@@ -38,16 +38,25 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 ---
 
 ## STAGE 0 — Commercial identity & accounts (👤 — START NOW, runs in parallel; long pole)
-- [ ] 0.1 👤 Decide legal entity/identity. Use a **company identity + `founder@in-or-out.com`**
-      (an org Google Play account skips the 12-tester / 14-day closed-test gate; personal
-      accounts don't).
-- [ ] 0.2 👤 Stand up + monitor mailboxes `hello@in-or-out.com` (already in Legal) and
-      `founder@in-or-out.com` — both must actually receive mail (store listings require it).
-- [ ] 0.3 👤 Enrol in **Apple Developer Program** ($99/yr). Company → needs D-U-N-S number.
-      Can take days–weeks → this is why Stage 0 starts first.
-- [ ] 0.4 👤 Enrol in **Google Play Console** ($25 one-off).
-- [ ] 0.5 👤 Enable 2FA on both. Record the **Apple Team ID** (feeds 3.3).
-- [ ] 0.6 👤 Confirm app name "In or Out" available on both stores + trademark sanity-check.
+- [x] 0.1 👤 ✅ DECIDED — **Apple = Individual enrolment** (order placed s151). Seller name on
+      the App Store listing will be the **personal name**, not a company. Conversion to an
+      Organization later is awkward → revisit only if branding demands it.
+      ⚠️ The Play decision (0.4) is still open and independent — a **personal** Play account
+      DOES hit the 12-tester / 14-day closed-test gate; an org account avoids it.
+- [x] 0.2 👤 ✅ DONE. Listing support email = **`support@in-or-out.com`**. (Legal page currently
+      lists `hello@in-or-out.com` — optionally align to `support@` in 1.1.)
+- [x] 0.3 👤 ✅ ORDER PLACED (s151) — **Apple Developer Program, Individual, $99/yr.**
+      Awaiting Apple approval (usually fast for Individual). Once approved → record Team ID (0.5)
+      and these unlock: Push, Associated Domains/deep links, Sign in with Apple, TestFlight.
+- [ ] 0.4 👤 IN PROGRESS — enrol in **Google Play Console** ($25 one-off).
+- [ ] 0.5 👤 DEFERRED until after Stage 5.1 E2E — enable 2FA on both; record the
+      **Apple Team ID** (feeds 3.3).
+- [x] 0.6 👤 ✅ CHECKED (s151): no exact "In or Out" name clash found in the football/team
+      category on either store (competitors exist — Footsapp/Spond/Teamer/etc — but no name
+      collision). Web search is not authoritative — **reserve the exact name in App Store
+      Connect the moment 0.3 lands.** "In or Out" is a generic phrase (weak trademark) →
+      **list as "In or Out — Football Organiser"** (dodges exact-name conflict + helps ASO);
+      the app stays "In or Out".
 
 ## STAGE 1 — Pre-wrap code prep (🤖 — fully unblocked, can start immediately)
 - [ ] 1.1 🤖 Upgrade in-app Privacy + Terms (`Legal.jsx`) to store-grade: data collected (auth

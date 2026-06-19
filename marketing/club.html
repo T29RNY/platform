@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>In or Out for Clubs — Membership, attendance & class management software</title>
+<meta name="description" content="Run your whole sports club in one place — memberships and subscriptions, training attendance, classes and coaching, grading and fight records, DBS and safeguarding. Football to boxing, every age group." />
+<link rel="canonical" href="https://in-or-out.com/club" />
+<meta property="og:title" content="In or Out for Clubs — run your whole club in one place" />
+<meta property="og:description" content="Memberships, attendance, classes, coaching, grading and safeguarding — any sport, every age group." />
+<meta property="og:type" content="website" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"In or Out for Clubs","applicationCategory":"BusinessApplication","operatingSystem":"Web, iOS, Android","description":"Club operating system: memberships and subscriptions, training attendance, classes and coaching, grading, fight records, DBS and safeguarding across any sport.","offers":{"@type":"Offer","price":"0","priceCurrency":"GBP"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0A0A08; --surface:#141412; --surface-2:#1C1C19; --surface-3:#222220;
+  --text:#F2F0EA; --text-2:#D0CCC2; --text-3:#8A867C;
+  --accent:#E8A020; --accent-press:#D89015; --accent-dim:rgba(232,160,32,0.14);
+  --info:#60A0FF; --info-dim:rgba(96,160,255,.14);
+  --positive:#3DDC6A; --negative:#FF4040; --warning:#FFB020;
+  --border:rgba(255,255,255,0.08); --border-2:rgba(255,255,255,0.12); --hairline:rgba(255,255,255,0.06);
+  --font-display:'Bebas Neue',Impact,sans-serif;
+  --font-body:'DM Sans',-apple-system,system-ui,sans-serif;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:16px; --radius-xl:24px; --radius-full:9999px;
+  --shadow-md:0 4px 12px rgba(0,0,0,.5); --shadow-lg:0 12px 32px rgba(0,0,0,.6);
+  --shadow-accent:0 4px 20px rgba(232,160,32,.25);
+  --ease-out:cubic-bezier(.16,1,.3,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --maxw:1180px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:400;letter-spacing:.02em;line-height:.92}
+.eyebrow{font-family:var(--font-body);font-weight:600;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--text-2)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.accent{color:var(--accent)} .blue{color:var(--info)}
+
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:15px;border-radius:var(--radius-full);padding:14px 26px;cursor:pointer;border:1px solid transparent;transition:transform .2s var(--ease-spring),background .2s,box-shadow .2s}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--accent);color:#0A0A08;box-shadow:var(--shadow-accent)}
+.btn-primary:hover{background:var(--accent-press);box-shadow:0 6px 28px rgba(232,160,32,.4);transform:translateY(-2px)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--surface-2);border-color:var(--text-3)}
+.btn-sm{padding:10px 18px;font-size:14px}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;transition:background .3s,border-color .3s,backdrop-filter .3s;border-bottom:1px solid transparent}
+nav.scrolled{background:rgba(10,10,11,.72);backdrop-filter:blur(18px) saturate(140%);border-bottom:1px solid var(--hairline)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:68px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:24px;letter-spacing:.04em}
+.logo .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+.logo .wm{display:inline}.logo .b-in{color:var(--positive)}.logo .b-or{color:var(--text-2)}.logo .b-out{color:var(--negative)}
+.logo .sub{font-size:11px;font-family:var(--font-body);font-weight:600;letter-spacing:.14em;color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius-full);padding:3px 9px;margin-left:4px}
+.nav-links{display:flex;gap:30px;align-items:center}
+.nav-links a{font-size:14px;color:var(--text-2);font-weight:500;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{display:flex;gap:12px;align-items:center}
+@media(max-width:980px){.nav-links{display:none}.nav-cta .btn-ghost{display:none}}
+
+/* HERO */
+.hero{position:relative;min-height:96vh;display:flex;align-items:center;overflow:hidden;padding:150px 0 90px}
+.hero-bg{position:absolute;inset:0;z-index:0;overflow:hidden;background:radial-gradient(ellipse 80% 70% at 60% 40%,rgba(232,160,32,.10),transparent 60%),var(--bg)}
+.hero-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s var(--ease-out)}
+.hero-bg video.loaded{opacity:.5}
+.hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,10,8,.85) 0%,rgba(10,10,8,.55) 50%,rgba(10,10,8,.3) 100%)}
+.hero .wrap{position:relative;z-index:2}
+.hero-inner{max-width:680px}
+.hero h1{font-size:clamp(50px,7.6vw,116px);margin:14px 0 0;text-transform:uppercase}
+.hero h1 .rot{color:var(--accent)}
+.hero-sub{font-size:19px;color:var(--text-2);max-width:520px;margin:24px 0 32px;line-height:1.55}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hero-meta{display:flex;gap:28px;margin-top:40px;flex-wrap:wrap}
+.hero-meta .m-num{font-family:var(--font-display);font-size:38px;line-height:1}
+.hero-meta .m-lab{font-size:12px;color:var(--text-3);letter-spacing:.04em;margin-top:4px}
+@media(max-width:880px){.hero{min-height:auto;padding:120px 0 60px}}
+
+/* DISCIPLINE STRIP */
+.disc{border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);background:var(--surface);padding:26px 0}
+.disc .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center}
+.chip{font-family:var(--font-display);font-size:22px;letter-spacing:.04em;color:var(--text-2);padding:6px 18px;border:1px solid var(--border);border-radius:var(--radius-full);transition:color .3s,border-color .3s}
+.chip.on{color:#0A0A08;background:var(--accent);border-color:transparent}
+.disc .lead{font-size:13px;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;margin-right:6px}
+
+/* SECTIONS */
+.sec{padding:110px 0;position:relative}
+.sec-head{max-width:720px;margin-bottom:60px}
+.sec-head h2{font-size:clamp(40px,6vw,82px);text-transform:uppercase;margin:14px 0 0}
+.sec-head p{font-size:18px;color:var(--text-2);margin-top:18px;line-height:1.55}
+
+/* FEATURE ROWS */
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;padding:74px 0}
+.feat:nth-child(even) .feat-media{order:2}
+.feat-num{font-family:var(--font-display);font-size:18px;letter-spacing:.1em}
+.feat h3{font-size:clamp(34px,4.6vw,56px);text-transform:uppercase;margin:12px 0 18px}
+.feat p{font-size:17px;color:var(--text-2);line-height:1.6;max-width:450px}
+.feat-list{margin-top:24px;display:flex;flex-direction:column;gap:13px}
+.feat-list .fl{display:flex;gap:12px;align-items:flex-start;font-size:15px}
+.feat-list .fl .ico{flex-shrink:0;margin-top:2px}
+.feat-media{display:flex;justify-content:center}
+@media(max-width:860px){.feat{grid-template-columns:1fr;gap:40px;padding:48px 0}.feat:nth-child(even) .feat-media{order:0}}
+
+/* generic card / panel */
+.panel{width:360px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:22px;box-shadow:var(--shadow-lg)}
+.panel-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-h .t{font-family:var(--font-display);font-size:22px;letter-spacing:.03em}
+.app-pill{font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-dim);padding:5px 10px;border-radius:var(--radius-full)}
+.row-li{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--hairline);font-size:13px}
+.row-li:last-child{border:none}
+.av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px;color:#0A0A08}
+.tag{font-size:10px;font-weight:600;padding:4px 8px;border-radius:var(--radius-full);margin-left:auto}
+.t-in{color:var(--positive);background:rgba(61,220,106,.12)} .t-out{color:var(--negative);background:rgba(255,64,64,.12)} .t-mb{color:var(--warning);background:rgba(255,176,32,.12)}
+
+/* member pass card */
+.pass{width:330px;max-width:100%;border-radius:var(--radius-xl);padding:24px;background:linear-gradient(155deg,rgba(232,160,32,.16),rgba(20,20,18,.6));border:1px solid rgba(232,160,32,.3);box-shadow:var(--shadow-lg)}
+.pass .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px}
+.pass .club{font-family:var(--font-display);font-size:24px;letter-spacing:.03em}
+.pass .tier{font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
+.pass .qr{width:54px;height:54px;border-radius:10px;background:repeating-linear-gradient(45deg,#0A0A08,#0A0A08 3px,#F2F0EA 3px,#F2F0EA 6px);opacity:.85}
+.pass .nm{font-family:var(--font-display);font-size:34px;line-height:1}
+.pass .meta{display:flex;gap:20px;margin-top:14px;font-size:12px;color:var(--text-2)}
+.pass .meta b{display:block;font-family:var(--font-display);font-size:18px;color:var(--text);font-weight:400}
+
+/* belt ladder */
+.ladder{display:flex;flex-direction:column;gap:8px;width:340px;max-width:100%}
+.belt{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-2);font-size:14px}
+.belt .sw{width:34px;height:14px;border-radius:4px;flex-shrink:0;border:1px solid rgba(255,255,255,.15)}
+.belt.done{opacity:.55}
+.belt.now{border-color:var(--accent);background:var(--accent-dim)}
+.belt .st{margin-left:auto;font-size:11px;color:var(--text-3)}
+
+/* record (fight W-L-D) */
+.record{display:flex;gap:10px;width:340px;max-width:100%}
+.rc{flex:1;text-align:center;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px 6px}
+.rc b{font-family:var(--font-display);font-size:38px;display:block;line-height:1}
+.rc span{font-size:11px;color:var(--text-3);letter-spacing:.08em}
+.rc.w b{color:var(--positive)} .rc.l b{color:var(--negative)} .rc.d b{color:var(--text-2)}
+
+/* dims */
+.dims{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.dim{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xl);padding:30px;transition:transform .3s var(--ease-out),border-color .3s}
+.dim:hover{transform:translateY(-5px);border-color:var(--border-2)}
+.dim .b-ico{width:46px;height:46px;border-radius:var(--radius-md);background:var(--accent-dim);color:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:22px}
+.dim h4{font-size:24px;text-transform:uppercase;margin:0 0 10px}
+.dim p{font-size:14px;color:var(--text-2);line-height:1.55}
+@media(max-width:820px){.dims{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.dims{grid-template-columns:1fr}}
+
+/* cinematic scene */
+.scene{position:relative;border-radius:var(--radius-xl);overflow:hidden;border:1px solid var(--border);background:var(--surface-2);min-height:360px;display:flex;flex-direction:column;justify-content:flex-end}
+.scene .media{position:absolute;inset:0;z-index:0;background:#0d0d0b}
+.scene .media video{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s var(--ease-out)}
+.scene .media video.loaded{opacity:.82}
+.scene::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,transparent 30%,rgba(10,10,8,.55) 65%,rgba(10,10,8,.92) 100%)}
+.scene .cap{position:relative;z-index:2;padding:34px;max-width:560px}
+.scene .cap .k{font-family:var(--font-body);font-weight:600;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.scene .cap h4{font-size:clamp(28px,3.4vw,46px);text-transform:uppercase;margin:8px 0 8px}
+.scene .cap p{font-size:15px;color:var(--text-2);line-height:1.55}
+
+/* STAT BAND */
+.statband{background:var(--surface);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+.statband .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding:64px 24px}
+.sb{text-align:center}
+.sb b{font-family:var(--font-display);font-size:clamp(44px,6.5vw,80px);display:block;line-height:1}
+.sb span{font-size:13px;color:var(--text-3);letter-spacing:.06em}
+@media(max-width:720px){.statband .wrap{grid-template-columns:1fr 1fr;gap:40px 24px}}
+
+/* CTA + FOOTER */
+.cta{padding:130px 0;text-align:center;position:relative;overflow:hidden}
+.cta-glow{position:absolute;inset:0;background:radial-gradient(ellipse 60% 70% at 50% 100%,rgba(232,160,32,.16),transparent 70%);pointer-events:none}
+.cta h2{font-size:clamp(46px,8.5vw,132px);text-transform:uppercase;position:relative;z-index:2}
+.cta p{font-size:19px;color:var(--text-2);margin:18px auto 36px;max-width:480px;position:relative;z-index:2}
+.cta .hero-cta{justify-content:center;position:relative;z-index:2}
+footer{border-top:1px solid var(--hairline);padding:64px 0 40px}
+.foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px;margin-bottom:48px}
+.foot-grid h5{font-family:var(--font-body);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin-bottom:18px}
+.foot-grid a{display:block;color:var(--text-2);font-size:14px;padding:6px 0;transition:color .2s}
+.foot-grid a:hover{color:var(--accent)}
+.foot-blurb{font-size:14px;color:var(--text-2);max-width:300px;margin-top:14px;line-height:1.6}
+.foot-bot{display:flex;justify-content:space-between;align-items:center;padding-top:28px;border-top:1px solid var(--hairline);font-size:13px;color:var(--text-3)}
+@media(max-width:720px){.foot-grid{grid-template-columns:1fr 1fr}.foot-bot{flex-direction:column;gap:18px}}
+
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+.reveal.in{opacity:1;transform:none}
+.stagger>*{opacity:0;transform:translateY(24px);transition:opacity .65s var(--ease-out),transform .65s var(--ease-out)}
+.stagger.in>*{opacity:1;transform:none}
+.scroll-progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:300;background:linear-gradient(90deg,var(--accent),var(--info));box-shadow:0 0 14px rgba(232,160,32,.6);will-change:width}
+
+@media(prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;transition:none}.stagger>*{opacity:1;transform:none}
+  .hero{min-height:auto}.hero-bg video{opacity:.5}.scene .media video{opacity:.82}
+}
+</style>
+</head>
+<body>
+<div class="scroll-progress"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="wrap nav-inner">
+    <a href="index.html" class="logo"><span class="dot"></span><span class="wm"><span class="b-in">IN</span> <span class="b-or">OR</span> <span class="b-out">OUT</span></span><span class="sub">CLUBS</span></a>
+    <div class="nav-links">
+      <a href="#members">Membership</a>
+      <a href="#attendance">Attendance</a>
+      <a href="#classes">Classes &amp; coaching</a>
+      <a href="#progress">Grading</a>
+    </div>
+    <div class="nav-cta">
+      <a href="venue.html" class="btn btn-ghost btn-sm">Run a venue?</a>
+      <a href="#cta" class="btn btn-primary btn-sm">Book a demo</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-bg">
+    <video muted loop playsinline preload="none" poster="assets/scene-club-poster.jpg" aria-hidden="true"><source data-src="assets/scene-club.mp4" type="video/mp4" /></video>
+  </div>
+  <div class="wrap">
+    <div class="hero-inner">
+      <span class="eyebrow">The operating system for sports clubs</span>
+      <h1>Run your club.<br/>Whatever your <span class="rot" data-rotate>sport</span>.</h1>
+      <p class="hero-sub">Memberships, training attendance, classes, coaching, grading and payments — every age group and every discipline, from football to boxing, in one place. The same one-tap availability that sorts a kickabout now runs your whole club.</p>
+      <div class="hero-cta">
+        <a href="#cta" class="btn btn-primary">Book a demo</a>
+        <a href="#members" class="btn btn-ghost">See the platform</a>
+      </div>
+      <div class="hero-meta">
+        <div><div class="m-num">1</div><div class="m-lab">PLACE FOR EVERY AGE GROUP</div></div>
+        <div><div class="m-num accent">∞</div><div class="m-lab">DISCIPLINES SUPPORTED</div></div>
+        <div><div class="m-num blue">0</div><div class="m-lab">SPREADSHEETS</div></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- DISCIPLINE STRIP -->
+<div class="disc">
+  <div class="wrap row">
+    <span class="lead">Built for</span>
+    <span class="chip on" data-disc>Football</span>
+    <span class="chip" data-disc>Boxing</span>
+    <span class="chip" data-disc>Martial arts</span>
+    <span class="chip" data-disc>Gym &amp; fitness</span>
+    <span class="chip" data-disc>Whatever you run</span>
+  </div>
+</div>
+
+<!-- MEMBERSHIP -->
+<section class="sec" id="members">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Membership &amp; subscriptions</span>
+      <h2>Every member,<br/>every household.</h2>
+      <p>Tiered memberships, recurring subscriptions and a digital member pass — with parent-and-children households built in. Sign-ups, renewals and reminders run themselves; members carry their pass on their phone.</p>
+    </div>
+    <div class="feat reveal">
+      <div>
+        <span class="feat-num accent">01 — BELONG</span>
+        <h3>Memberships<br/>that renew<br/>themselves</h3>
+        <p>Free or paid tiers, monthly to annual, per-person or per-family. Auto-renewal, freezes, welcome and renewal reminders — and a QR member pass for instant check-in on the door.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico accent">●</span> Tiered &amp; family memberships, any billing period</div>
+          <div class="fl"><span class="ico accent">●</span> Auto-renewal, freezes &amp; reminders</div>
+          <div class="fl"><span class="ico accent">●</span> Digital member pass + QR check-in</div>
+          <div class="fl"><span class="ico accent">●</span> Parent → children households built in</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div class="pass">
+          <div class="top">
+            <div><div class="club">FINBAR'S ABC</div><div class="tier">Full member · Adult</div></div>
+            <div class="qr"></div>
+          </div>
+          <div class="nm">MARCUS J.</div>
+          <div class="meta">
+            <div>Renews<b>1 SEP</b></div>
+            <div>Member since<b>2024</b></div>
+            <div>Check-ins<b>148</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ATTENDANCE -->
+<section class="sec" id="attendance" style="padding-top:10px;background:var(--surface);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)">
+  <div class="wrap">
+    <div class="feat reveal">
+      <div>
+        <span class="feat-num blue">02 — TURN UP</span>
+        <h3>"Who's at<br/>training?"<br/>Answered.</h3>
+        <p>The sharpest daily pain in any club isn't admin — it's knowing who's actually coming. The same In or Out tap that sorts a match now runs your training sessions: a parent declares their child in or out, coaches see the roster fill, attendance is marked in a tap.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico blue">●</span> Recurring sessions, RSVP in / out / maybe</div>
+          <div class="fl"><span class="ico blue">●</span> Parents declare for their children</div>
+          <div class="fl"><span class="ico blue">●</span> Coaches mark attendance, see it by age</div>
+          <div class="fl"><span class="ico blue">●</span> The WhatsApp group, finally retired</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div class="panel">
+          <div class="panel-h"><span class="t">TUE · JUNIORS</span><span class="app-pill">14 IN</span></div>
+          <div class="row-li"><div class="av" style="background:var(--accent)">LM</div><span>Leo M. <span style="color:var(--text-3)">· age 9</span></span><span class="tag t-in">IN</span></div>
+          <div class="row-li"><div class="av" style="background:#60A0FF">AH</div><span>Aisha H. <span style="color:var(--text-3)">· age 10</span></span><span class="tag t-in">IN</span></div>
+          <div class="row-li"><div class="av" style="background:#FFB020">JP</div><span>Jonah P. <span style="color:var(--text-3)">· age 9</span></span><span class="tag t-mb">MAYBE</span></div>
+          <div class="row-li"><div class="av" style="background:#FF4040">TR</div><span>Tia R. <span style="color:var(--text-3)">· age 11</span></span><span class="tag t-out">OUT</span></div>
+          <div class="row-li"><div class="av" style="background:var(--positive)">SK</div><span>Sam K. <span style="color:var(--text-3)">· age 10</span></span><span class="tag t-in">IN</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLASSES & COACHING -->
+<section class="sec" id="classes">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Classes &amp; coaching</span>
+      <h2>Timetables,<br/>booked &amp; paid.</h2>
+      <p>Run a class timetable, take member bookings with waitlists, sell class packages, and let members book one-to-one sessions with a coach or PT — all charged to the same ledger, all checked in by QR.</p>
+    </div>
+    <div class="feat reveal">
+      <div>
+        <span class="feat-num accent">03 — TRAIN</span>
+        <h3>Classes, packages<br/>&amp; 1-to-1s</h3>
+        <p>Open classes or members-only, free trials or paid drop-ins, with waitlists that auto-promote. Personal training and 1-to-1 coaching slots book against a trainer's live availability — no double-bookings, no clipboard.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico accent">●</span> Class timetable, capacity &amp; auto-waitlist</div>
+          <div class="fl"><span class="ico accent">●</span> Free / trial / members-only, packages &amp; passes</div>
+          <div class="fl"><span class="ico accent">●</span> 1-to-1 PT booking against live availability</div>
+          <div class="fl"><span class="ico accent">●</span> QR check-in &amp; no-show tracking</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div class="panel">
+          <div class="panel-h"><span class="t">THIS WEEK</span><span class="app-pill">TIMETABLE</span></div>
+          <div class="row-li"><div style="font-family:var(--font-display);font-size:18px;color:var(--accent);min-width:54px">MON</div><span>Boxing technical · 7pm</span><span class="tag t-in">12/16</span></div>
+          <div class="row-li"><div style="font-family:var(--font-display);font-size:18px;color:var(--accent);min-width:54px">TUE</div><span>Juniors football · 5pm</span><span class="tag t-in">14/20</span></div>
+          <div class="row-li"><div style="font-family:var(--font-display);font-size:18px;color:var(--warning);min-width:54px">WED</div><span>Sparring · 8pm</span><span class="tag t-mb">FULL · WL 3</span></div>
+          <div class="row-li"><div style="font-family:var(--font-display);font-size:18px;color:var(--accent);min-width:54px">THU</div><span>PT · Coach Dan · 6pm</span><span class="tag t-in">BOOKED</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROGRESS: GRADING + FIGHT RECORD -->
+<section class="sec" id="progress" style="padding-top:10px;background:var(--surface);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Progression — built per discipline</span>
+      <h2>Belts, grades<br/>&amp; fight records.</h2>
+      <p>This is where one sport stops looking like the next. A martial-arts club grades belts; a boxing gym keeps a fight record. In or Out shows the right thing for the right discipline — automatically.</p>
+    </div>
+    <div class="feat reveal">
+      <div>
+        <span class="feat-num accent">04 — GRADE</span>
+        <h3>Grading ladders,<br/>by age band</h3>
+        <p>Build a grading scheme with named grades, colours and stripes — separate ladders for juniors and adults. Award a grade and it's logged forever, shown on the member's pass and progression history.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico accent">●</span> Custom grades, colours &amp; stripes</div>
+          <div class="fl"><span class="ico accent">●</span> Separate junior &amp; adult ladders</div>
+          <div class="fl"><span class="ico accent">●</span> Award log + rank on the member pass</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div class="ladder">
+          <div class="belt done"><span class="sw" style="background:#F2F0EA"></span>White belt<span class="st">Awarded 2023</span></div>
+          <div class="belt done"><span class="sw" style="background:#3DDC6A"></span>Green belt<span class="st">Awarded 2024</span></div>
+          <div class="belt now"><span class="sw" style="background:#60A0FF"></span>Blue belt · II<span class="st">Current</span></div>
+          <div class="belt"><span class="sw" style="background:#8A4FE0"></span>Purple belt<span class="st">Next</span></div>
+          <div class="belt"><span class="sw" style="background:#E8A020"></span>Brown belt<span class="st">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="feat reveal">
+      <div>
+        <span class="feat-num accent">05 — FIGHT</span>
+        <h3>A fight record<br/>that's actually<br/>kept</h3>
+        <p>For a boxing or combat gym: log every bout — win, loss, draw — with method, rounds and opponent. Sparring is counted separately, never muddying the headline record. Void and restore without losing the history.</p>
+        <div class="feat-list">
+          <div class="fl"><span class="ico accent">●</span> W–L–D headline, method &amp; rounds per bout</div>
+          <div class="fl"><span class="ico accent">●</span> Sparring counted apart from competitive bouts</div>
+          <div class="fl"><span class="ico accent">●</span> On the member's profile, shown for boxing only</div>
+        </div>
+      </div>
+      <div class="feat-media">
+        <div style="display:flex;flex-direction:column;gap:14px;align-items:flex-start">
+          <div class="record">
+            <div class="rc w"><b>9</b><span>WINS</span></div>
+            <div class="rc l"><b>2</b><span>LOSSES</span></div>
+            <div class="rc d"><b>1</b><span>DRAWS</span></div>
+          </div>
+          <div style="font-size:13px;color:var(--text-3)">+ 34 sparring sessions logged separately</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST: DBS / SAFEGUARDING / MULTI -->
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Run it properly</span>
+      <h2>Safeguarding,<br/>handled.</h2>
+    </div>
+    <div class="dims reveal">
+      <div class="dim"><div class="b-ico">🛡️</div><h4>DBS tracking</h4><p>Every coach's DBS check, type and expiry — tracked, with expiry warnings before they lapse. Managers gated on a valid check.</p></div>
+      <div class="dim"><div class="b-ico">📋</div><h4>Safeguarding fields</h4><p>Capture emergency contacts, medical notes and guardian consent for under-18s — configurable per club, full audit trail.</p></div>
+      <div class="dim"><div class="b-ico">👥</div><h4>Multi-team &amp; venue</h4><p>Every age group, squad and discipline under one club — across as many venues as you run, with role-based access.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CINEMATIC SCENE -->
+<section class="sec" style="padding-top:0">
+  <div class="wrap">
+    <div class="scene reveal">
+      <div class="media"><video muted loop playsinline preload="none" poster="assets/scene-club-poster.jpg" aria-hidden="true"><source data-src="assets/scene-club.mp4" type="video/mp4" /></video></div>
+      <div class="cap">
+        <span class="k">One engine · any sport</span>
+        <h4>The same tap.<br/>A different game.</h4>
+        <p>From a Tuesday-night five-a-side to a boxing gym's grading night — it's the same platform underneath. Built football-first, ready for whatever your club does next.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STAT BAND -->
+<div class="statband">
+  <div class="wrap reveal">
+    <div class="sb"><b class="accent">1</b><span>CLUB, EVERY AGE GROUP</span></div>
+    <div class="sb"><b>4+</b><span>DISCIPLINES SUPPORTED</span></div>
+    <div class="sb"><b class="blue">100%</b><span>SAFEGUARDING TRACKED</span></div>
+    <div class="sb"><b>0</b><span>SPREADSHEETS</span></div>
+  </div>
+</div>
+
+<!-- CTA -->
+<section class="cta" id="cta">
+  <div class="cta-glow"></div>
+  <div class="wrap">
+    <h2 class="reveal">Run your<br/>whole club.</h2>
+    <p class="reveal">Book a 20-minute walkthrough. We'll set up your club — every age group, discipline, membership and class — and show you it running in one place.</p>
+    <div class="hero-cta reveal">
+      <a href="#" class="btn btn-primary">Book a demo</a>
+      <a href="venue.html" class="btn btn-ghost">Run a venue? →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <div class="logo"><span class="dot"></span><span class="wm"><span class="b-in">IN</span> <span class="b-or">OR</span> <span class="b-out">OUT</span></span><span class="sub">CLUBS</span></div>
+        <p class="foot-blurb">The operating system for sports clubs. Memberships, attendance, classes, grading and safeguarding — any sport, every age group, one place.</p>
+      </div>
+      <div>
+        <h5>Platform</h5>
+        <a href="#members">Membership</a>
+        <a href="#attendance">Attendance</a>
+        <a href="#classes">Classes &amp; coaching</a>
+        <a href="#progress">Grading &amp; records</a>
+      </div>
+      <div>
+        <h5>Also on In or Out</h5>
+        <a href="casual.html">For players</a>
+        <a href="venue.html">For venues</a>
+        <a href="index.html">The platform</a>
+      </div>
+      <div>
+        <h5>Company</h5>
+        <a href="#cta">Book a demo</a>
+        <a href="#">Privacy</a>
+        <a href="#">Contact</a>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 In or Out. The operating system for sports clubs.</span>
+      <span>Any sport. Every age group.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fine = matchMedia('(pointer:fine)').matches;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const ease=t=>1-Math.pow(1-t,3);
+
+const nav=document.getElementById('nav');
+const prog=document.querySelector('.scroll-progress');
+function onScroll(){nav.classList.toggle('scrolled',scrollY>20);const h=document.documentElement.scrollHeight-innerHeight;if(prog)prog.style.width=(h>0?clamp(scrollY/h,0,1)*100:0)+'%';}
+addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+document.querySelectorAll('.dims,.feat-list,.statband .wrap').forEach(e=>e.classList.add('stagger'));
+document.querySelectorAll('.stagger').forEach(s=>{[...s.children].forEach((c,i)=>c.style.transitionDelay=(i*70)+'ms');});
+const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});
+document.querySelectorAll('.reveal:not(.in),.stagger').forEach(el=>io.observe(el));
+
+function countUp(el){if(el.dataset.done)return;el.dataset.done=1;const raw=el.textContent.trim();const m=raw.match(/[\d.,]+/);if(!m)return;const numStr=m[0].replace(/,/g,'');const target=parseFloat(numStr);if(isNaN(target))return;const dec=(numStr.split('.')[1]||'').length;const pre=raw.slice(0,m.index),suf=raw.slice(m.index+m[0].length);if(RM)return;const dur=1300,t0=performance.now();function step(t){const p=clamp((t-t0)/dur,0,1),v=target*ease(p);el.textContent=pre+v.toLocaleString('en-GB',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;if(p<1)requestAnimationFrame(step);else el.textContent=raw;}requestAnimationFrame(step);}
+const cio=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){countUp(e.target);cio.unobserve(e.target);}}),{threshold:.55});
+document.querySelectorAll('.m-num,.sb b,.rc b').forEach(el=>cio.observe(el));
+
+/* discipline chip rotator (also drives hero word) */
+const chips=[...document.querySelectorAll('[data-disc]')];
+const heroWord=document.querySelector('[data-rotate]');
+const words=['sport','club','gym','game'];
+if(chips.length&&!RM){
+  let ci=0,wi=0;
+  setInterval(()=>{chips.forEach(c=>c.classList.remove('on'));ci=(ci+1)%chips.length;chips[ci].classList.add('on');},1800);
+  if(heroWord)setInterval(()=>{wi=(wi+1)%words.length;heroWord.style.opacity='0';setTimeout(()=>{heroWord.textContent=words[wi];heroWord.style.opacity='1';},220);},2600);
+}
+if(heroWord){heroWord.style.transition='opacity .22s var(--ease-out)';}
+
+/* lazy-load videos (poster-first) */
+function activateVideo(v){if(v.dataset.on)return;v.dataset.on=1;const s=v.querySelector('source[data-src]');if(s){s.src=s.dataset.src;v.load();}const show=()=>v.classList.add('loaded');v.addEventListener('loadeddata',show,{once:true});const p=v.play&&v.play();if(p&&p.catch)p.catch(()=>{});setTimeout(show,1400);}
+if(!RM){
+  const vio=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){activateVideo(e.target);vio.unobserve(e.target);}}),{rootMargin:'200px'});
+  const hero=document.querySelector('.hero-bg video');if(hero)requestAnimationFrame(()=>requestAnimationFrame(()=>activateVideo(hero)));
+  document.querySelectorAll('.scene video').forEach(v=>vio.observe(v));
+}
+
+if(!RM&&fine)document.querySelectorAll('.btn-primary').forEach(b=>{b.addEventListener('pointermove',e=>{const r=b.getBoundingClientRect();b.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.25}px,${(e.clientY-r.top-r.height/2)*.4}px)`;});b.addEventListener('pointerleave',()=>b.style.transform='');});
+</script>
+</body>
+</html>

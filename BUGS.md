@@ -3,6 +3,44 @@
 
 ---
 
+## SESSION 153 — EXHAUSTIVE E2E SWEEP (Playwright) + 1 seed fix (mig 366) + 3 low-pri findings
+
+Wrote a full per-app × per-role Playwright suite against the live demo seed (migs
+363–365) using the existing session-injection harness. **60 specs across 9 projects,
+all passing.** Coverage table + run guide in `E2E_HANDOFF.md`. Seed verified unmutated
+after the run (e2e-leak count 0; booking/appointment/bout/membership counts match the
+seed exactly — every spec is read-only or a non-submitting form render).
+
+**RESOLVED (mig 366, additive seed) — combat clubs were never linked to demo_venue.**
+mig 363 created `club_demo_box` (boxing) + `club_demo_ma` (martial_arts) with belt
+ladders + fight records, but inserted **no `club_venues` rows**. Effect in the venue
+console: Memberships → **Club** tab showed only Finbar's FC, and Memberships →
+**Grading** tab showed "No grading clubs" — the seeded schemes were unmanageable from
+the operator UI. The consumer `/classes` screen also rendered "No venue linked to this
+club yet" because `member_get_self.active_clubs[].venues` is built from `club_venues`.
+Member-level Fight-record / Award-grade buttons already worked (they key off the
+membership row). Fixed by mig 366 (idempotent `WHERE NOT EXISTS` insert of the two
+club→demo_venue links). Verified: Grading tab now lists Adult + Junior Belt Systems,
+Club tab lists both combat clubs, `/classes` timetable renders once a club is selected.
+**Next free mig = 367.**
+
+**FINDINGS — queued for NEXT session, fully scoped in `E2E_FOLLOWUP_HANDOFF.md`:**
+1. **(cosmetic) `/classes` multi-club no-selection copy.** A member of 2+ clubs with no
+   `?club=` param sees "No venue linked to this club yet." — really the *no-club-selected*
+   state (chips are the selector). `ClassesScreen.jsx` L26 (`pickClub` → null for 2+ clubs)
+   + L145 (the `venues.length===0` branch conflates no-selection with no-venue).
+2. **(cosmetic) Paused pass shows "Frozen until 1 Jan 1970."** `MemberPass.jsx:125-127` —
+   `status==='paused'` renders `fmtDate(pass.frozen_until)`; seed sets `paused` with no
+   freeze date so `fmtDate(null)` → epoch. Hide the date when `frozen_until` is null.
+3. **(REAL BUG, not cosmetic) "My Squads" hides other squads when sign-ups aren't open.**
+   `PlayerView.jsx:1622` derives `currentToken={myId && squad.find(p=>p.id===myId)?.token}`
+   from *this week's matchday squad*. When sign-ups aren't open that squad is **empty** →
+   `currentToken` falsy → `MySquads` early-returns → "Not part of any other squads yet."
+   Data is fine (`player_get_teams_by_token` returns both squads); the token must come from
+   the player's own identity, not the empty squad. Reproduces as Alex (2 squads, current
+   week not open). Confirmed against `main` — App.jsx switcher code is byte-identical to
+   `main`, so this is pre-existing, not a marketing-branch artifact.
+
 ## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
 
 The unauthenticated root (`/`) welcome screen in [`apps/inorout/src/App.jsx`](apps/inorout/src/App.jsx)

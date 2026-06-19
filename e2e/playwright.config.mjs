@@ -31,10 +31,14 @@ export default defineConfig({
     actionTimeout: 15_000,
   },
   projects: [
-    { name: 'venue-alex', use: { baseURL: ORIGINS.venue, storageState: auth('alex') }, testMatch: /venue\..*\.spec\.js/ },
+    { name: 'venue-alex', use: { baseURL: ORIGINS.venue, storageState: auth('alex') }, testMatch: /venue\.(?!sam).*\.spec\.js/ },
+    { name: 'venue-sam', use: { baseURL: ORIGINS.venue, storageState: auth('sam') }, testMatch: /venue\.sam\..*\.spec\.js/ },
     { name: 'hq-alex', use: { baseURL: ORIGINS.hq, storageState: auth('alex') }, testMatch: /hq\..*\.spec\.js/ },
     { name: 'superadmin-alex', use: { baseURL: ORIGINS.superadmin, storageState: auth('alex') }, testMatch: /superadmin\..*\.spec\.js/ },
     { name: 'inorout-alex', use: { baseURL: ORIGINS.inorout, storageState: auth('alex') }, testMatch: /inorout\..*\.spec\.js/ },
-    { name: 'inorout-sam', use: { baseURL: ORIGINS.inorout, storageState: auth('sam') }, testMatch: /guardian\..*\.spec\.js/ },
+    { name: 'inorout-sam', use: { baseURL: ORIGINS.inorout, storageState: auth('sam') }, testMatch: /(guardian|inorout-sam)\..*\.spec\.js/ },
+    { name: 'display-token', use: { baseURL: ORIGINS.display }, testMatch: /display\..*\.spec\.js/ },
+    { name: 'ref-token', use: { baseURL: ORIGINS.ref }, testMatch: /ref\..*\.spec\.js/ },
+    { name: 'tokens', use: { baseURL: ORIGINS.inorout }, testMatch: /tokens\..*\.spec\.js/ },
   ],
 });
