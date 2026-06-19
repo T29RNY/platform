@@ -171,9 +171,12 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       today). `vercel.json` adds a `Content-Type: application/json` header on the AASA path; no
       redirect (served at the exact path). ⏳ REMAINING (Android): `assetlinks.json` (package +
       SHA-256 fingerprint from 3.7) — NOT created (no placeholders; needs the 3.7 keystore).
-      ⚠️ OWED: verify the live URL serves 200 + `application/json` + no redirect after deploy
-      (`curl -i https://app.in-or-out.com/.well-known/apple-app-site-association`), and Apple's
-      CDN picks it up — fold into Stage 5.2.
+      ✅ **LIVE-VERIFIED (s158, post-deploy):** origin `https://app.in-or-out.com/.well-known/
+      apple-app-site-association` → HTTP 200, `content-type: application/json`, no `location`
+      redirect, correct body. Apple's CDN has fetched + accepted it:
+      `https://app-site-association.cdn-apple.com/a/v1/app.in-or-out.com` → 200,
+      `Apple-Origin-Format: json`, `Apple-From:` the origin URL, body matches. Only the
+      real-device tap-the-link test remains (needs the signed iOS build → Stage 5.2).
 - [x] 3.4 🤖 ✅ DONE (s158). Capacitor `appUrlOpen` handler in `native-shell.js`: when the OS
       hands a universal/app link (or the `uk.inorout.app://` custom scheme) to the wrapped app,
       it parses the URL, takes `pathname+search+hash`, and `window.location.href`-navigates the
@@ -316,7 +319,7 @@ assetlinks.json); the APNs .p8 key (un-dormants iOS push send in 3.5); Apple ser
 Sign in with Apple's web leg. Payments (3.8) only when un-dormanted.
 
 OWED real-iPhone walks (offline fallback, PostHog index.html, Stage-2 viewport-fit, deep-link
-OPEN routing from 3.4, native push DELIVERY once the .p8 lands, AASA live-URL 200/json/no-redirect
-check) — fold into the Stage 5.2 device-walk burn-down. Item 1.5 (off-brand welcome) stays on the
-MARKETING branch. Next free mig = 369.
+OPEN routing from 3.4, native push DELIVERY once the .p8 lands) — fold into the Stage 5.2
+device-walk burn-down. (AASA live-URL + Apple-CDN check already DONE & passed s158.) Item 1.5
+(off-brand welcome) stays on the MARKETING branch. Next free mig = 369.
 ```
