@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A0A08" />
+    <title>In or Out — Offline</title>
+    <!--
+      Self-contained offline fallback. Served by the service worker (sw.js)
+      when a navigation request fails (no connection). MUST work with zero
+      network: no external fonts, no JS modules, no analytics. All styling is
+      inline and all colours are hardcoded brand literals because this page
+      cannot import tokens.css when offline. Brand reference:
+      bg #0A0A08, text #F2F0EA, IN green #3DDC6A, OUT red #FF4040.
+    -->
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body {
+        height: 100%;
+        background: #0A0A08;
+        color: #F2F0EA;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 32px calc(24px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+      }
+      .lockup {
+        font-weight: 800;
+        font-size: 40px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 28px;
+      }
+      .lockup .in  { color: #3DDC6A; }
+      .lockup .or  { color: #F2F0EA; opacity: 0.55; margin: 0 0.14em; }
+      .lockup .out { color: #FF4040; }
+      h1 {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        margin-bottom: 12px;
+      }
+      p {
+        font-size: 15px;
+        line-height: 1.5;
+        color: #D0CCC2;
+        max-width: 320px;
+        margin-bottom: 32px;
+      }
+      button {
+        appearance: none;
+        border: none;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        font-size: 16px;
+        color: #0A0A08;
+        background: #3DDC6A;
+        padding: 14px 32px;
+        border-radius: 12px;
+      }
+      button:active { opacity: 0.85; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="lockup"><span class="in">IN</span><span class="or">or</span><span class="out">OUT</span></div>
+      <h1>You're offline</h1>
+      <p>In or Out needs a connection to load your squad. Check your internet and try again.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </div>
+  </body>
+</html>
