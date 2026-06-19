@@ -205,11 +205,20 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       known no-env `supabaseUrl` error). ⚠️ OWED (Hard Rule #13): real-iPhone walk for actual push
       DELIVERY can't happen until APNs/FCM creds exist — folds into Stage 5.2.
 - [~] 3.6 🤖 ✅ CODE LEG DONE (s159) — see "STAGE 3.6 CODE LEG COMPLETE" below. Auth-in-webview
-      fix + Sign in with Apple wired, web path byte-identical, native path DORMANT.
-      ⏳ REMAINING (👤): allowlist `uk.inorout.app://auth/callback` in Supabase Auth → URL
-      Configuration → Redirect URLs; configure the Apple Service ID + key in Supabase Auth (Apple
-      web leg); native build must register the `uk.inorout.app` scheme (CFBundleURLTypes /
-      intent-filter — build machine). **AUDIT done s158 — see "3.6 AUDIT" below.**
+      fix + Sign in with Apple wired, web path byte-identical.
+      ✅ 👤 OPERATOR CONFIG DONE (s159): `uk.inorout.app://auth/callback` allowlisted in Supabase
+      Auth → URL Configuration → Redirect URLs; **Apple provider configured + ENABLED** in Supabase
+      Auth (Client ID `uk.inorout.app.signin`, OAuth client-secret JWT installed). The Apple WEB
+      leg is now LIVE; the native deep-link return is ready server-side.
+      ⏳ REMAINING (build machine only): native build must register the `uk.inorout.app` scheme
+      (iOS `CFBundleURLTypes` / Android intent-filter) for the native OAuth return — rides the
+      `cap add` step. **AUDIT done s158 — see "3.6 AUDIT" below.**
+      ⏰ **APPLE CLIENT-SECRET RENEWAL — expires 2026-12-16** (Apple caps these at ~6 months; sign-in
+      goes dark silently when it lapses). Regenerate from the `.p8` with the same Node one-liner
+      (s159). Inputs: Team ID `JCC44FW6XR`, Service ID `uk.inorout.app.signin`, Key ID
+      `GH33Y95P4W`, signing key `.p8` = `AuthKey_GH33Y95P4W.p8` (operator's machine,
+      `~/Downloads/` s159 — keep it safe; lose it → revoke + new key in Apple console). Paste the
+      new JWT into Supabase → Auth → Providers → Apple → Secret Key (for OAuth).
 
 ### 3.6 AUDIT (s158 — read before building 3.6)
 **Call sites (all 3 call `supabase.auth.signInWithOAuth` DIRECTLY in the view — auth calls are
@@ -379,9 +388,11 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
     **"Continue with Apple"** button placed ABOVE Google, solid near-white fill (`C.text`/`var(--t1)`
     bg, `C.bg`/`var(--bg)` text — existing tokens, zero new hex; Apple logo `fill="currentColor"`),
     so it's ≥ as prominent as the bordered Google button. No raw `signInWithOAuth` remains in any view.
-- **DORMANT until 👤:** allowlist `uk.inorout.app://auth/callback` in Supabase Auth Redirect URLs;
-  configure Apple Service ID + key in Supabase Auth (Apple web leg); native build registers the
-  scheme. Same dormancy model as 3.5's APNs/FCM — web sign-in is unchanged today.
+- **👤 OPERATOR CONFIG DONE (s159):** redirect URL `uk.inorout.app://auth/callback` allowlisted +
+  Apple provider configured & ENABLED in Supabase Auth (Client ID `uk.inorout.app.signin`, OAuth
+  client-secret JWT minted from the `.p8` via Node, **expires 2026-12-16** — renewal noted on item
+  3.6). Apple WEB leg LIVE; native return ready server-side. Only remaining piece = the native
+  build registering the `uk.inorout.app` scheme (build machine, rides `cap add`).
 - **Verify:** build clean (inorout); hygiene 7/7 PASS on all 5 touched source files; grep confirms
   all 3 call sites hit `startOAuth` for google+apple and no direct `signInWithOAuth` in views;
   Playwright web boot smoke — `window.Capacitor` undefined (native branch no-ops), `/signin`
