@@ -41,6 +41,32 @@ Club tab lists both combat clubs, `/classes` timetable renders once a club is se
    week not open). Confirmed against `main` — App.jsx switcher code is byte-identical to
    `main`, so this is pre-existing, not a marketing-branch artifact.
 
+## SESSION 154 — E2E FOLLOW-UP FIXES (apps/inorout only, no mig)
+
+**RESOLVED (no mig) — finding #3: "My Squads" hid every other squad.** Root cause was
+sharper than the finding's "empty matchday squad" framing. On the **admin route**
+(`/admin/<token>`, e.g. Alex viewing his own squad as admin) the matchday squad is NOT
+empty (`buildPlayerSquad` always injects the viewer's own row on the *player* route, which
+is why it never reproduced there) — but the admin's `is_self` row only resolves when
+`auth.uid()` matches, and on a token route it often doesn't. `myId` then falls back to
+`squad[0]`, so `currentToken` (PlayerView L1622, `squad.find(p=>p.id===myId)?.token`)
+became the WRONG player's token. `MySquads` loaded squad[0]'s squads (or, when sign-ups
+weren't open and the roster was genuinely empty, bailed) → "Not part of any other squads
+yet." **Fix (`MySquads.jsx`):** a signed-in viewer's list now comes from `auth.uid()` via
+`player_get_teams` (NOT the matchday-squad token), and the CURRENT pill is matched by
+`currentTeamId` (reliable on every route) instead of the roster-derived token. Anonymous
+token-only viewers are byte-identical (still `player_get_teams_by_token(currentToken)`; the
+auth RPC never fires for anon — verified). Threaded the authoritative `authUserId`
+(App `authUser.id`) → PlayerView → MySquads `userId`. **MINOR FOLLOW-UP (cosmetic):** the
+auth path's `player_get_teams` RPC doesn't return `is_competitive`, so the **LEAGUE** pill
+no longer renders in MySquads for signed-in multi-squad users (never affects casual-only
+users, so "casual is sacred" holds). Restoring it needs an additive `is_competitive` column
+on `player_get_teams` (a migration) — deferred, out of this no-RPC cycle's scope. Gates:
+deterministic Playwright regression added (`e2e/specs/inorout.mysquads-empty-roster.spec.js`,
+stubs is_self off + both team-list RPCs — FAILS pre-fix, PASSES post-fix), casual-regression
+PASS (anon walk: token path only, 0 auth-RPC leak, MySquads renders), build + hygiene clean.
+⛔ real-iPhone PWA walk OWED (hard-rule #13 — PlayerView/App touched).
+
 ## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
 
 The unauthenticated root (`/`) welcome screen in [`apps/inorout/src/App.jsx`](apps/inorout/src/App.jsx)
