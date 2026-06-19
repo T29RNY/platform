@@ -49,14 +49,13 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       Awaiting Apple approval (usually fast for Individual). Once approved → record Team ID (0.5)
       and these unlock: Push, Associated Domains/deep links, Sign in with Apple, TestFlight.
 - [ ] 0.4 👤 IN PROGRESS — enrol in **Google Play Console** ($25 one-off).
-- [ ] 0.5 👤 DEFERRED until after Stage 5.1 E2E — enable 2FA on both; record the
-      **Apple Team ID** (feeds 3.3).
-- [x] 0.6 👤 ✅ CHECKED (s151): no exact "In or Out" name clash found in the football/team
-      category on either store (competitors exist — Footsapp/Spond/Teamer/etc — but no name
-      collision). Web search is not authoritative — **reserve the exact name in App Store
-      Connect the moment 0.3 lands.** "In or Out" is a generic phrase (weak trademark) →
-      **list as "In or Out — Football Organiser"** (dodges exact-name conflict + helps ASO);
-      the app stays "In or Out".
+- [x] 0.5 👤 ✅ DONE (s157) — **Apple Team ID = `JCC44FW6XR`** (feeds the AASA file in 3.3).
+- [x] 0.6 👤 ✅ DONE (s157) — **App Store name reserved as "In or Out - Book & Play"**
+      (broadened from the football-specific "In or Out — Football Organiser" so it covers the
+      venue/club/booking surfaces too; still dodges the exact-name clash + helps ASO). The app
+      itself stays "In or Out". **App record created in App Store Connect.** Original s151 check:
+      no exact "In or Out" clash in the football/team category on either store (Footsapp/Spond/
+      Teamer exist but no collision); "In or Out" is a generic phrase / weak trademark.
 
 ## STAGE 1 — Pre-wrap code prep (🤖 — 1.1/1.2/1.3/1.6 merged via PR #35 s154; 1.4 DONE Phase D s155; 1.5 deferred to marketing)
 - [x] 1.1 🤖 ✅ DONE (Phase A, s151) — store-grade Privacy + Terms in `Legal.jsx`. UK sole-trader
@@ -153,14 +152,21 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       fold into the Stage 5.2 device-walk burn-down (alongside the offline + PostHog walks).
 
 ## STAGE 3 — Native capabilities (🤖 code + 👤 certs/console — needs Stage 0 IDs)
-- [ ] 3.1 👤 Apple Developer: create App ID + **Bundle ID**; enable **Associated Domains** +
-      **Push**; create **APNs auth key (.p8)**. (blocks 3.3, 3.5)
+- [~] 3.1 👤 ✅ MOSTLY DONE (s157) — App ID **`uk.inorout.app`** registered with **Push** +
+      **Associated Domains** + **Sign in with Apple** capabilities enabled. ⏳ REMAINING: create
+      the **APNs auth key (.p8)** + note its Key ID — that's the last input that un-dormants the
+      iOS push send-path in 3.5 (`APNS_KEY_P8` / `APNS_KEY_ID` / `APNS_TEAM_ID=JCC44FW6XR` /
+      `APNS_BUNDLE_ID=uk.inorout.app` env on Vercel `platform-clubmanager`).
 - [ ] 3.2 👤 Create **Firebase project** → `google-services.json` (Android push impossible
       without it). (blocks 3.5)
 - [ ] 3.3 🤖 Deep-link files served by `platform-clubmanager` under
       `apps/inorout/public/.well-known/`: `apple-app-site-association` (Team ID + Bundle ID)
       and `assetlinks.json` (package + SHA-256 fingerprint from 3.7). Correct content-type,
-      no redirect. (needs 3.1 + 3.7 values)
+      no redirect. **iOS half now UNBLOCKED (s157):** AASA inputs both exist — Team ID
+      `JCC44FW6XR` + Bundle ID `uk.inorout.app` (appID = `JCC44FW6XR.uk.inorout.app`). The
+      `assetlinks.json` (Android) still needs the SHA-256 from 3.7. Could ship AASA now and add
+      assetlinks when 3.7 lands, OR do both together — but each file must be valid when committed
+      (no placeholders).
 - [ ] 3.4 🤖 Capacitor `appUrlOpen` handler — route opened `/p/<token>`, `/admin/<token>`,
       `/m/<token>` into the webview at the right path.
 - [x] 3.5 🤖 ✅ DONE (s157, mig 362, own PR). **Native push bridge.** Schema: `push_subscriptions`
@@ -233,7 +239,9 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 
 ---
 
-## Branch & WIP state at end of session 156 (READ FIRST next session)
+## Branch & WIP state at end of session 157 (READ FIRST next session)
+- **Stage 3.5 (native push, mig 362) merged via PR #39 — see the "STAGE 3.5 COMPLETE" section
+  below for the current state.** No live epic branch — start 3.4 fresh off `main`.
 - **Stage 2 is COMPLETE on `main`** (Capacitor 8 scaffold, items 2.1–2.5, merged via its own PR
   s156). No live epic branch — start Stage 3 fresh off `main`. Touched only `apps/inorout/*`
   (package.json, capacitor.config.ts, index.html viewport, src/main.jsx, src/native/, assets/,
@@ -256,38 +264,40 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 - ⚠️ **Single-session discipline matters here** — s151 hit repeated branch-clobbering because a
   second Claude session was live in the SAME folder. Run ONE session at a time on this repo.
 
-## NEXT-SESSION PROMPT — Stage 3 (native capabilities) — ⚠️ PARTLY BLOCKED on Stage 0 IDs
+## STAGE 3.5 COMPLETE (s157) + STAGE 0 IDs LANDED (s157)
+- **Stage 3.5 native push bridge merged via PR #39** (commit `fc0c4aa`). Mig 362 (the epic's only
+  migration) is LIVE on prod DB. See item 3.5 above for the full summary. Bundle ID = `uk.inorout.app`.
+- **Stage 0 IDs are in (s157):** Apple **Team ID `JCC44FW6XR`** (0.5 ✅); **App ID `uk.inorout.app`**
+  registered with Push + Associated Domains + Sign in with Apple (3.1 ✅, only the APNs .p8 key still
+  to create); **App Store name "In or Out - Book & Play"** reserved + App record created (0.6 ✅).
+- These unblock the iOS half of **3.3** (AASA: appID = `JCC44FW6XR.uk.inorout.app`) and most of **3.6**.
+  Still blocked: Android (3.2 Firebase, 3.7 SHA-256), the APNs .p8 (to un-dormant iOS push send),
+  and Apple service ID for Sign in with Apple's web leg.
+
+## NEXT-SESSION PROMPT — Stage 3.4 (deep-link routing) — ✅ UNBLOCKED
 ```
-Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stages 1 + 2 are COMPLETE
-on `main` (Stage 2 Capacitor 8 scaffold merged s156; no live epic branch). Run ONE session only.
-Check no other Claude session is live in /Users/tarny/platform before starting and advise.
+Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stages 1, 2 and 3.5 are
+COMPLETE on `main` (3.5 native push merged PR #39 s157; mig 362 live; no live epic branch). Run
+ONE session only. Check no other Claude session is live in /Users/tarny/platform before starting
+and advise.
 
-Stage 3 = native capabilities. Sequencing matters — most of it is BLOCKED on Stage 0 outputs:
-  • 3.1/3.2/3.7 are 👤 console/cert work (Apple App ID + APNs .p8, Firebase google-services.json,
-    signing certs/keystore) — operator, can't be done in code.
-  • 3.3 (deep-link files apple-app-site-association + assetlinks.json) is BLOCKED until the Apple
-    Team ID (0.5) + Bundle ID + Android SHA-256 (3.7) exist. DO NOT commit placeholder AASA/
-    assetlinks — they fail verification. Skip until the IDs land.
-  • 3.6 Sign in with Apple needs the Apple service ID (👤).
+Build NOW (no further external inputs needed):
+  • 3.4 `appUrlOpen` deep-link ROUTING handler (Capacitor @capacitor/app) in
+    apps/inorout/src/native/native-shell.js — when the wrapped app is opened via a universal/app
+    link, route the opened path (/p/<token>, /admin/<token>, /m/<token>, /signin, etc.) into the
+    React app at the right place. Web/PWA = no-op. No migration. The handler is buildable now even
+    though the .well-known files (3.3) that make the OS hand links to the app come next.
 
-  ✅ UNBLOCKED, can build NOW (no external accounts):
-  • 3.5 NATIVE PUSH BRIDGE — the biggest code lump + the only migration (362). Add
-    `@capacitor/push-notifications`; capture APNs/FCM device token; add a `platform`/`token_type`
-    column to `push_subscriptions` + `register_push_subscription`; branch the send-path
-    (api/notify.js, api/cron.js) so native tokens go via APNs/FCM and web subs stay on web-push.
-    Follow Hard Rules #9 (audit_events), #10 (realtime sub parity), #11 (migration source +
-    down in same commit), #12 (return-shape mapper). EV (ephemeral-verify) + rpc-security-sweep
-    are MANDATORY for the new write RPC. Next free mig = 362.
-  • 3.4 `appUrlOpen` deep-link ROUTING handler (Capacitor) — route opened /p/<token>,
-    /admin/<token>, /m/<token> into the webview at the right path. The handler is buildable now
-    even though the .well-known files (3.3) that make links open the app are blocked.
+Then, if appetite (these now have their inputs — Team ID JCC44FW6XR + Bundle ID uk.inorout.app):
+  • 3.3 (iOS half) — serve apps/inorout/public/.well-known/apple-app-site-association
+    (appID `JCC44FW6XR.uk.inorout.app`, paths /p/* /admin/* /m/*), correct content-type, no
+    redirect. Add assetlinks.json only once the Android SHA-256 (3.7) exists — no placeholders.
 
-Recommend: do 3.5 (push, mig 362) as its own session/PR — it's large and carries the migration —
-then 3.4 separately. Leave 3.1/3.2/3.3/3.6/3.7 for when Stage 0 IDs land.
+Still BLOCKED on operator (👤): 3.2 Firebase google-services.json, 3.7 signing certs/keystore +
+Android SHA-256, the APNs .p8 key (un-dormants iOS push), Apple service ID for Sign in with Apple
+(3.6). Payments (3.8) only when un-dormanted.
 
-Context: Stage 0.3 (Apple Dev, Individual) awaiting Apple approval — once approved, grab the Team
-ID (0.5) + reserve "In or Out — Football Organiser" in App Store Connect (0.6). Item 1.5
-(off-brand welcome) stays on the MARKETING branch, not this track. OWED real-iPhone home-screen
-walks (offline fallback, PostHog index.html, Stage-2 viewport-fit) — fold into the Stage 5.2
-device-walk burn-down.
+OWED real-iPhone walks (offline fallback, PostHog index.html, Stage-2 viewport-fit, native push
+DELIVERY once the .p8 lands) — fold into the Stage 5.2 device-walk burn-down. Item 1.5 (off-brand
+welcome) stays on the MARKETING branch. Next free mig = 363.
 ```
