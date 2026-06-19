@@ -163,16 +163,27 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       `APNS_BUNDLE_ID=uk.inorout.app` env on Vercel `platform-clubmanager`).
 - [ ] 3.2 👤 Create **Firebase project** → `google-services.json` (Android push impossible
       without it). (blocks 3.5)
-- [ ] 3.3 🤖 Deep-link files served by `platform-clubmanager` under
-      `apps/inorout/public/.well-known/`: `apple-app-site-association` (Team ID + Bundle ID)
-      and `assetlinks.json` (package + SHA-256 fingerprint from 3.7). Correct content-type,
-      no redirect. **iOS half now UNBLOCKED (s157):** AASA inputs both exist — Team ID
-      `JCC44FW6XR` + Bundle ID `uk.inorout.app` (appID = `JCC44FW6XR.uk.inorout.app`). The
-      `assetlinks.json` (Android) still needs the SHA-256 from 3.7. Could ship AASA now and add
-      assetlinks when 3.7 lands, OR do both together — but each file must be valid when committed
-      (no placeholders).
-- [ ] 3.4 🤖 Capacitor `appUrlOpen` handler — route opened `/p/<token>`, `/admin/<token>`,
-      `/m/<token>` into the webview at the right path.
+- [~] 3.3 🤖 **iOS half DONE (s158).** `apps/inorout/public/.well-known/apple-app-site-association`
+      shipped: `appIDs: ["JCC44FW6XR.uk.inorout.app"]`, modern `components` format matching
+      `/p/*`, `/admin/*`, `/m/*`. Served by `platform-clubmanager`: Vite copies the dot-prefixed
+      `public/.well-known/` straight to `dist/` (confirmed in the build), so the file is a static
+      asset that takes precedence over the SPA catch-all rewrite (same as manifest.json/sw.js
+      today). `vercel.json` adds a `Content-Type: application/json` header on the AASA path; no
+      redirect (served at the exact path). ⏳ REMAINING (Android): `assetlinks.json` (package +
+      SHA-256 fingerprint from 3.7) — NOT created (no placeholders; needs the 3.7 keystore).
+      ⚠️ OWED: verify the live URL serves 200 + `application/json` + no redirect after deploy
+      (`curl -i https://app.in-or-out.com/.well-known/apple-app-site-association`), and Apple's
+      CDN picks it up — fold into Stage 5.2.
+- [x] 3.4 🤖 ✅ DONE (s158). Capacitor `appUrlOpen` handler in `native-shell.js`: when the OS
+      hands a universal/app link (or the `uk.inorout.app://` custom scheme) to the wrapped app,
+      it parses the URL, takes `pathname+search+hash`, and `window.location.href`-navigates the
+      WebView to it. The app re-reads `window.location.pathname` on load (App.jsx:75) and routes
+      itself — same model as every other in-app navigation, so `/p/<token>`, `/admin/<token>`,
+      `/m/<token>`, `/signin` all land correctly. Guards: bare-host/`/` ignored, same-path skipped
+      (no needless reload), unparseable URL ignored. Web/PWA = no-op (whole module behind
+      `Capacitor.isNativePlatform()`). Build clean; hygiene PASS; no migration.
+      ⚠️ OWED (Hard Rule #13): real-iPhone deep-link-open walk (can't be exercised in a browser —
+      native-only path) → Stage 5.2.
 - [x] 3.5 🤖 ✅ DONE (s157, mig 368 — renumbered from 362, own PR). **Native push bridge.** Schema: `push_subscriptions`
       gains `platform` ('web'|'ios'|'android', DEFAULT 'web', CHECK); uniqueness widened
       `(player_id)` → `(player_id, platform)` so a player holds a web AND a native sub at once.
@@ -278,30 +289,34 @@ real-device). Dependencies are called out so nothing is built before its inputs 
   Still blocked: Android (3.2 Firebase, 3.7 SHA-256), the APNs .p8 (to un-dormant iOS push send),
   and Apple service ID for Sign in with Apple's web leg.
 
-## NEXT-SESSION PROMPT — Stage 3.4 (deep-link routing) — ✅ UNBLOCKED
+## STAGE 3.4 + 3.3-iOS COMPLETE (s158)
+- **3.4 deep-link routing + 3.3 iOS AASA shipped together** (one PR off `main`). Three files,
+  no migration: `apps/inorout/src/native/native-shell.js` (appUrlOpen handler),
+  `apps/inorout/public/.well-known/apple-app-site-association` (new), `apps/inorout/vercel.json`
+  (Content-Type header for the AASA path). See items 3.4 + 3.3 above for the full state.
+- No live epic branch after merge — start the next item fresh off `main`.
+
+## NEXT-SESSION PROMPT — Stage 3.6 / 3.3-Android / certs — ⏳ MOSTLY OPERATOR-BLOCKED
 ```
-Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stages 1, 2 and 3.5 are
-COMPLETE on `main` (3.5 native push merged PR #39 s157; mig 368 live; no live epic branch). Run
-ONE session only. Check no other Claude session is live in /Users/tarny/platform before starting
-and advise.
+Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stages 1, 2, 3.4, 3.5 and
+the iOS half of 3.3 are COMPLETE on `main` (s158); no live epic branch. Run ONE session only;
+check no other Claude session is live in /Users/tarny/platform before starting and advise.
 
-Build NOW (no further external inputs needed):
-  • 3.4 `appUrlOpen` deep-link ROUTING handler (Capacitor @capacitor/app) in
-    apps/inorout/src/native/native-shell.js — when the wrapped app is opened via a universal/app
-    link, route the opened path (/p/<token>, /admin/<token>, /m/<token>, /signin, etc.) into the
-    React app at the right place. Web/PWA = no-op. No migration. The handler is buildable now even
-    though the .well-known files (3.3) that make the OS hand links to the app come next.
+Buildable NOW (no new external inputs):
+  • 3.6 (Sign in with Apple — code leg): wire provider:'apple' signInWithOAuth + an Apple
+    sign-in button into SignIn.jsx, EmailCaptureOverlay.jsx, JoinTeam.jsx (Apple requires it
+    once any social login exists). The Apple service ID (👤) is still needed to make it work
+    end-to-end, but the client wiring + button can land now behind the existing OAuth pattern.
+    ALSO 3.6 Google-in-webview: route signInWithOAuth({provider:'google'}) through
+    @capacitor/browser + deep-link return (the 3.3 AASA + 3.4 handler now exist to catch it).
 
-Then, if appetite (these now have their inputs — Team ID JCC44FW6XR + Bundle ID uk.inorout.app):
-  • 3.3 (iOS half) — serve apps/inorout/public/.well-known/apple-app-site-association
-    (appID `JCC44FW6XR.uk.inorout.app`, paths /p/* /admin/* /m/*), correct content-type, no
-    redirect. Add assetlinks.json only once the Android SHA-256 (3.7) exists — no placeholders.
+Still BLOCKED on operator (👤): 3.2 Firebase google-services.json; 3.7 iOS dist cert +
+provisioning profile + Android keystore/SHA-256 (the SHA-256 unblocks the Android half of 3.3 —
+assetlinks.json); the APNs .p8 key (un-dormants iOS push send in 3.5); Apple service ID for
+Sign in with Apple's web leg. Payments (3.8) only when un-dormanted.
 
-Still BLOCKED on operator (👤): 3.2 Firebase google-services.json, 3.7 signing certs/keystore +
-Android SHA-256, the APNs .p8 key (un-dormants iOS push), Apple service ID for Sign in with Apple
-(3.6). Payments (3.8) only when un-dormanted.
-
-OWED real-iPhone walks (offline fallback, PostHog index.html, Stage-2 viewport-fit, native push
-DELIVERY once the .p8 lands) — fold into the Stage 5.2 device-walk burn-down. Item 1.5 (off-brand
-welcome) stays on the MARKETING branch. Next free mig = 369.
+OWED real-iPhone walks (offline fallback, PostHog index.html, Stage-2 viewport-fit, deep-link
+OPEN routing from 3.4, native push DELIVERY once the .p8 lands, AASA live-URL 200/json/no-redirect
+check) — fold into the Stage 5.2 device-walk burn-down. Item 1.5 (off-brand welcome) stays on the
+MARKETING branch. Next free mig = 369.
 ```
