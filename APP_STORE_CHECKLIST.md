@@ -47,9 +47,11 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       DOES hit the 12-tester / 14-day closed-test gate; an org account avoids it.
 - [x] 0.2 👤 ✅ DONE. Listing support email = **`support@in-or-out.com`**. (Legal page currently
       lists `hello@in-or-out.com` — optionally align to `support@` in 1.1.)
-- [x] 0.3 👤 ✅ ORDER PLACED (s151) — **Apple Developer Program, Individual, $99/yr.**
-      Awaiting Apple approval (usually fast for Individual). Once approved → record Team ID (0.5)
-      and these unlock: Push, Associated Domains/deep links, Sign in with Apple, TestFlight.
+- [x] 0.3 👤 ✅ APPROVED (s157) — **Apple Developer Program, Individual, $99/yr.** Enrolment is
+      live; Team ID `JCC44FW6XR` recorded (0.5). Already drawn from it: App ID + capabilities
+      (3.1), App Store name reservation (0.6). Still to draw: APNs .p8 key (un-dormants iOS push),
+      Apple service ID for Sign in with Apple (3.6), distribution cert + provisioning profile
+      (3.7), TestFlight.
 - [ ] 0.4 👤 IN PROGRESS — enrol in **Google Play Console** ($25 one-off).
 - [x] 0.5 👤 ✅ DONE (s157) — **Apple Team ID = `JCC44FW6XR`** (feeds the AASA file in 3.3).
 - [x] 0.6 👤 ✅ DONE (s157) — **App Store name reserved as "In or Out - Book & Play"**
