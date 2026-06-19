@@ -299,7 +299,24 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
 
 ## STAGE 5 — Build, sign, final E2E + real-device test (👤 device + 🤖 fixes)
 - [ ] 5.1 🤖 **Final E2E Playwright pass** of the live consumer surfaces (web) — the gate this
-      epic builds toward. Catches render/route regressions before wrapping. Can run now as a baseline.
+      epic builds toward. Catches render/route regressions before wrapping. **AUDIT done s159 — harness
+      is ready, run it next session:**
+      - Suite lives in `e2e/` (root): `e2e/playwright.config.mjs`, specs in `e2e/specs/`, helpers in
+        `e2e/lib/auth.mjs`, `e2e/global-setup.mjs`. Run via root script `npm run e2e` or
+        `npx playwright test --config e2e/playwright.config.mjs --project=<name>`.
+      - **Consumer-surface projects** (= the wrap, `apps/inorout` only): `inorout-alex`, `inorout-sam`
+        (also runs the `guardian.*` specs per testMatch), `tokens` (no-auth public/memberpass).
+        The operator-app projects (venue/hq/superadmin/display/ref) are OUT of 5.1 scope.
+      - **ORIGINS point at LOCAL dev servers** (`e2e/lib/auth.mjs`): inorout = `http://localhost:5173`.
+        So FIRST `cd apps/inorout && npm run dev` (boots — `.env.local` present), THEN run the projects.
+        Suite tests local dev code against the LIVE Supabase DB (`ktvpzpnqbwhooiaqrigm`).
+      - **Auth:** `mintSession` uses the GoTrue password grant with the embedded ANON_KEY + demo users
+        `alex` (`tarny+demo@lettrack.co.uk` / `DemoBoss1!`) and `sam` (`tarny+family@lettrack.co.uk` /
+        `DemoFam2!`) — NO service-role key needed; `global-setup` re-mints + writes `e2e/.auth/*.json`
+        (cached copies already present). Needs network to live Supabase.
+      - ⚠️ s159 attempt was interrupted before the run (deferred to a fresh session by operator).
+        Kill any leftover `vite` dev server first. This is a READ-ONLY baseline (no writes/EV needed) —
+        run → triage failures → fix render/route regressions → commit. If green, just record the pass.
 - [ ] 5.2 👤+🤖 Real-iPhone walk on the wrapped build — burn down the ~20 owed verification
       walks (grouped by club type; see APP_WRAP_HANDOFF.md): deep link opens app, push opt-in +
       delivery, Google + Apple sign-in, payments redirect→return, PWA still installs.
@@ -409,7 +426,66 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
 - No live epic branch after merge — start the next item fresh off `main`. Next free mig still = 369
   (3.6 added no migration).
 
-## NEXT-SESSION PROMPT — Stage 3.6 (auth-in-webview + Sign in with Apple) — ✅ CODE LEG COMPLETE s159
+## STAGE 3.6 OPERATOR CONFIG + 3.1 APNs DONE (s159)
+- **3.6 operator config DONE** (commit `b4aa264`): `uk.inorout.app://auth/callback` allowlisted in
+  Supabase Auth → URL Configuration → Redirect URLs; **Apple provider configured + ENABLED** (Client
+  ID `uk.inorout.app.signin`; OAuth client-secret JWT minted locally from the `.p8` via Node ES256;
+  Apple Services ID `uk.inorout.app.signin` → Primary App ID `uk.inorout.app`, domain
+  `ktvpzpnqbwhooiaqrigm.supabase.co`, return `https://ktvpzpnqbwhooiaqrigm.supabase.co/auth/v1/callback`).
+  Apple WEB leg LIVE. ⏰ **Client secret EXPIRES 2026-12-16** — renewal scheduled as a cloud routine
+  (`trig_019JDdvrTJ1bgFDUKoxxbiMq`, fires 2026-12-09) + recorded on item 3.6. Key file
+  `AuthKey_GH33Y95P4W.p8` (operator `~/Downloads/`). Only 3.6 piece left = native scheme registration
+  (build machine, rides `cap add`).
+- **3.1 APNs DONE** (commits `4bc25a4`, `cee2f8b`): APNs key "In or Out APNs" created (**Key ID
+  `9KPP827P4U`**, Sandbox & Production, Team Scoped); key file `AuthKey_9KPP827P4U.p8` (operator
+  `~/Downloads/`; APNs keys DON'T expire). Vercel `platform-clubmanager` env set + **REDEPLOYED LIVE**
+  (`APNS_KEY_ID=9KPP827P4U`, `APNS_TEAM_ID=JCC44FW6XR`, `APNS_BUNDLE_ID=uk.inorout.app`,
+  `APNS_PRODUCTION=true`, `APNS_KEY_P8`=full PEM); post-deploy health 200/200. SERVER side of iOS push
+  now ACTIVE; end-to-end DELIVERY still needs a native build with real device tokens (5.2).
+- **All console/code work that needs no Mac is now DONE.** The epic is gated on the build machine
+  (Mac + Xcode) for 3.7 signing + the native `cap add` scaffold. Remaining operator-only: 0.4 Play
+  Console, 3.2 Firebase, 3.7 certs/keystore/SHA-256.
+- No live epic branch. Working tree clean on `main` at end of s159. Next free mig still = 369.
+
+## NEXT-SESSION PROMPT — Stage 5.1 (final E2E Playwright baseline)
+```
+Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — through s159, EVERY console/code
+item that needs no Mac is DONE: Stages 1, 2; 3.1 (APNs live), 3.3-iOS, 3.4, 3.5, 3.6 (code + Apple
+provider live). The epic is now gated on the build machine (Mac+Xcode) for 3.7 signing + native
+`cap add`. No live epic branch; start fresh off `main`. Run ONE session only; check no other Claude
+session is live in /Users/tarny/platform before starting and advise.
+
+Run Stage 5.1 — the final E2E Playwright baseline of the consumer surfaces — as a full
+AUDIT → EXECUTE → VERIFY → COMMIT cycle. The harness AUDIT is already baked into item 5.1 of the
+checklist (READ IT FIRST). Mechanics:
+  • Suite = e2e/ (root): config e2e/playwright.config.mjs, specs e2e/specs/, helpers e2e/lib/auth.mjs.
+  • Consumer projects only (the wrap = apps/inorout): inorout-alex, inorout-sam (incl guardian specs),
+    tokens. Skip venue/hq/superadmin/display/ref — out of 5.1 scope.
+  • ORIGINS point at LOCAL dev servers → FIRST `cd apps/inorout && npm run dev` (port 5173; .env.local
+    present), THEN `npx playwright test --config e2e/playwright.config.mjs --project=inorout-alex
+    --project=inorout-sam --project=tokens`. Tests local dev code vs the LIVE Supabase DB.
+  • Auth: mintSession (GoTrue password grant, embedded ANON_KEY, demo users alex tarny+demo@lettrack.co.uk
+    /DemoBoss1! + sam tarny+family@lettrack.co.uk/DemoFam2!); global-setup re-mints e2e/.auth/*.json.
+    No service-role key needed. Needs network to live Supabase.
+  • READ-ONLY baseline (no writes/EV). Kill any leftover vite first. AUDIT: run + read results.
+    EXECUTE: if failures are real render/route regressions, fix them (one logical unit each, build +
+    hygiene per fix). VERIFY: re-run green; casual-regression if apps/inorout/src touched. COMMIT.
+    If all green first pass, just record the 5.1 PASS in the checklist + commit that.
+
+Still BLOCKED on operator (👤): 0.4 Google Play Console (personal acct hits the 12-tester/14-day
+closed-test gate — start it only if you want a simultaneous Android launch); 3.2 Firebase
+google-services.json; 3.7 iOS dist cert + provisioning profile (easiest via Xcode automatic signing)
++ Android upload keystore + SHA-256 (Google's app-signing SHA-256, read from Play Console AFTER the
+first upload, unblocks the Android half of 3.3 assetlinks.json). The native cap-add scaffold + 3.6
+scheme registration also need the Mac.
+
+After 5.1: the only remaining 🤖-solo work is Stage 4 listing paperwork (4.3 copy, 4.2 Play graphics,
+4.4 privacy labels — data-safety answers already banked in 1.4, 4.6 reviewer note). Everything else
+waits on the build machine → 5.2 device walks → submit. Item 1.5 (off-brand welcome) stays on the
+MARKETING branch. Next free mig = 369.
+```
+
+## NEXT-SESSION PROMPT (SUPERSEDED) — Stage 3.6 — ✅ COMPLETE (code s159 / operator config s159)
 ```
 Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stages 1, 2, 3.4, 3.5 and
 the iOS half of 3.3 are COMPLETE on `main` (s158); 3.6 has a full AUDIT in the checklist (the
