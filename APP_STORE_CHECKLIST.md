@@ -58,7 +58,7 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       **list as "In or Out — Football Organiser"** (dodges exact-name conflict + helps ASO);
       the app stays "In or Out".
 
-## STAGE 1 — Pre-wrap code prep (🤖 — IN PROGRESS on branch `app-store-stage1`, s151)
+## STAGE 1 — Pre-wrap code prep (🤖 — 1.1/1.2/1.3/1.6 MERGED to main via PR #35 s154; 1.4 = Phase D next; 1.5 deferred to marketing)
 - [x] 1.1 🤖 ✅ DONE (Phase A, s151) — store-grade Privacy + Terms in `Legal.jsx`. UK sole-trader
       controller; contact `support@in-or-out.com`; full subprocessor list (Supabase, Vercel,
       Google, PostHog, Resend, Twilio, Stripe, GoCardless); push-token + payment-data
@@ -174,11 +174,14 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 
 ---
 
-## Branch & WIP state at end of session 151 (READ FIRST next session)
-- **Working branch for this epic = `app-store-stage1`** (pushed to origin). Contains the docs +
-  Phase A (`Legal.jsx` store-grade, commit `2745618`). Continue Stage 1 here. It branches off
-  `main` (`3151d09`), which already has the checklist, the e2e suite, and the marketing rebuild
-  (PR #33 merge — marketing rebuild touched ONLY `marketing/`, not the consumer app).
+## Branch & WIP state at end of session 154 (READ FIRST next session)
+- **Stage 1 Phases A + C are MERGED TO MAIN** (PR #35, squash `8e5545a`): store-grade Legal
+  (1.1), in-app deletion verified (1.2), age 13+/guardian decided (1.3), offline fallback (1.6).
+  The `app-store-stage1` working branch and the redundant `app-store-stage1-docs-s151` branch
+  are both DELETED (local + remote). **There is no live epic branch — start Phase D fresh off
+  `main`.**
+- `main` also has: the marketing rebuild (PR #33, `marketing/` only), the exhaustive e2e
+  Playwright suite, and the s154 e2e follow-up fixes (PR #34, mig 367).
 - **Marketing WIP is parked in a git stash, NOT on a branch** (local-only — not pushed):
   `stash@{0}` = "MARKETING-WIP: cinematic entry-screen backdrops — owes real-iPhone walk".
   `stash@{1}` = an older full safety backup. To resume marketing later:
@@ -189,18 +192,24 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 - ⚠️ **Single-session discipline matters here** — s151 hit repeated branch-clobbering because a
   second Claude session was live in the SAME folder. Run ONE session at a time on this repo.
 
-## NEXT-SESSION PROMPT — Stage 1 Phase C (offline fallback)
+## NEXT-SESSION PROMPT — Stage 1 Phase D (PostHog consent, item 1.4)
 ```
-Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — note the s151 branch state.
-Check out `app-store-stage1` (Stage 1 lives here; Phase A + B done). Run ONE session only.
+Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — note the s154 branch state
+(Stage 1 Phases A + C are MERGED TO MAIN via PR #35; no live epic branch). Run ONE session only.
+Check no other session is active before starting and advise.
 
-Do Stage 1 Phase C — offline fallback for the Capacitor remote-URL wrap, so a no-connection
-launch never shows a blank white screen (Apple 4.2 rejection risk). Full cycle:
-AUDIT (public/sw.js has NO fetch handler; index.html load path; how the wrap will load
-https://app.in-or-out.com) → VERIFY → EXECUTE → VERIFY (build: cd apps/inorout && npm run build)
-→ COMMIT on app-store-stage1. Real-device test owed before any PWA/native claim (Hard Rule #13).
+Do Stage 1 Phase D — item 1.4: PostHog analytics consent. Branch fresh off `main`. Full cycle:
+AUDIT (the PostHog init is inline in apps/inorout/index.html lines ~64-70, fired unconditionally
+at page load; check what events it captures, where person_profiles is set, and the UK/EU consent
+expectation the data-safety form (4.4) + the store-grade Legal page (already says PostHog is a
+subprocessor) will need) → decide gate-behind-consent vs documented legitimate-interest basis
+(make a recommendation) → EXECUTE → VERIFY (build: cd apps/inorout && npm run build; real-browser
+smoke that analytics only fires post-consent if gated) → COMMIT, then open ONE PR and MERGE it
+(don't leave it open — Cloud Session Discipline). Hard Rule #13: real-device test owed for any
+index.html change before claiming the PWA path works.
 
-Then optionally Phase D (1.4 PostHog consent). Stage 0.3 (Apple Dev, Individual) is awaiting
-Apple approval — once approved, grab the Team ID (0.5) and reserve the app name in App Store
-Connect (0.6). Stage 1.5 (welcome screen) is DEFERRED to the marketing branch, not here.
+Context: Stage 0.3 (Apple Dev, Individual) is awaiting Apple approval — once approved, grab the
+Team ID (0.5) and reserve the app name "In or Out — Football Organiser" in App Store Connect (0.6).
+Item 1.5 (off-brand welcome screen) stays DEFERRED to the marketing branch, NOT this track.
+After Stage 1 completes → Stage 2 (Capacitor scaffold), which is fully unblocked.
 ```
