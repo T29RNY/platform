@@ -566,8 +566,27 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
   morning `--resume`). This was doc-only on files that session was not touching, so no clash — but
   per Cloud Session Discipline, prefer one session at a time on this repo.
 
-## ▶ NEXT-SESSION PROMPT — #1 off-brand welcome screen (bot-solo, Phase 0)
+## SESSION 162 STATE (read before resuming) — Phase 0 #1 (item 1.5) ✅ DONE
+- **Off-brand welcome screen RESTYLED + MERGED** (PR #44, commit `da2a7db`, branch deleted). Focused
+  brand-token restyle of the `apps/inorout/src/App.jsx` `route.type === "landing"` block — NOT the
+  cinematic marketing redesign (still parked in `stash@{0}`). Wordmark flat-amber → real brand lockup
+  (IN `C.green` · OR `C.text` · OUT `C.red`, matching `PageHeader.jsx`); dead `"Inter"` → `"DM Sans"`;
+  literal `→` → Phosphor `ArrowRight`/`LinkSimple` `weight="thin"`; stray `#000` → `C.black`; CTA
+  underline killed. Behaviour byte-identical (all hrefs + `showLinkInput` toggle + `/\/p\/…/`
+  paste-navigate preserved). Build clean, hygiene 7/7, no new hex; Playwright-confirmed on-brand.
+  ⚠️ To Playwright the real unauth `/` landing, serve with `--host` + hit **`127.0.0.1`** — `localhost`
+  hits the App.jsx:114 dev backdoor (`→ admin/local`).
+- ⛔ **OWED (HR #13):** real-iPhone home-screen walk of the welcome screen → folded into Stage 5.2.
+- **THE LAST 🤖-SOLO ITEM IS DONE.** Everything remaining is gated on the **build machine (Mac + Xcode)**
+  + operator console. Next session = the BUILD-MACHINE prompt below (pure execution from
+  `APP_STORE_BUILD_RUNBOOK.md`). Remaining Phase 0 = #2 (👤 export a crisp 1024×1024 `assets/icon.png`).
+- ⚠️ s162 had two other Claude sessions live in `/Users/tarny/platform` (one scope-locking the watchOS
+  epic — FEATURES.md/DECISIONS.md). Kept edits in separate files; a stray `git add -A` briefly absorbed
+  FEATURES.md and was backed out before the final commit. **RUN ONE SESSION ONLY.**
+
+## ▶ NEXT-SESSION PROMPT — ✅ SUPERSEDED (item 1.5 done s162, PR #44) — use the BUILD-MACHINE prompt below
 ```
+[HISTORICAL — #1 is DONE. Kept for the record. The live next-session prompt is the BUILD-MACHINE one.]
 Continue the APP STORE epic. Read APP_STORE_CHECKLIST.md first (esp. the "REMAINING ROADMAP" table
 — we're on Phase 0 #1) + BUGS.md "SESSION 150 — consumer welcome screen styling + logo off-brand".
 This is the last bot-solo item before the Mac build; it blocks the Stage 4.1 screenshot shoot.
