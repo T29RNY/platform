@@ -58,7 +58,7 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       **list as "In or Out — Football Organiser"** (dodges exact-name conflict + helps ASO);
       the app stays "In or Out".
 
-## STAGE 1 — Pre-wrap code prep (🤖 — 1.1/1.2/1.3/1.6 MERGED to main via PR #35 s154; 1.4 = Phase D next; 1.5 deferred to marketing)
+## STAGE 1 — Pre-wrap code prep (🤖 — 1.1/1.2/1.3/1.6 merged via PR #35 s154; 1.4 DONE Phase D s155; 1.5 deferred to marketing)
 - [x] 1.1 🤖 ✅ DONE (Phase A, s151) — store-grade Privacy + Terms in `Legal.jsx`. UK sole-trader
       controller; contact `support@in-or-out.com`; full subprocessor list (Supabase, Vercel,
       Google, PostHog, Resend, Twilio, Stripe, GoCardless); push-token + payment-data
@@ -74,8 +74,25 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 - [x] 1.3 🤖 ✅ DECIDED (s151) — **Option A: 13+, under-18s only via a parent/guardian who
       supervises; no under-13s.** Already written into `Legal.jsx`. Use this for the age-rating
       forms (4.5) + data-safety (4.4).
-- [ ] 1.4 🤖 (Phase D) PostHog consent — gate analytics init in `index.html` behind consent (or
-      document legitimate-interest basis) for UK/EU + the data-safety form.
+- [x] 1.4 🤖 ✅ DONE (Phase D, s155). **Route chosen: documented legitimate interest (UK GDPR
+      Art. 6(1)(f)), implemented defensibly — no blocking consent banner.** Changes (2 files):
+      `index.html` PostHog `init` gains `respect_dnt: true` (browsers signalling Do Not Track /
+      Global Privacy Control are auto-excluded — the real, honoured opt-out) alongside the
+      existing privacy-first config (EU residency `eu.i.posthog.com`, `person_profiles:
+      "identified_only"` → no profile for anonymous visitors). Capture volume UNCHANGED
+      (autocapture left on — operator's data, out of scope to cut). `Legal.jsx` Cookies &
+      Analytics paragraph reconciled: states legitimate-interest basis, EU hosting, no
+      ads/no-sale/no-cross-site, DNT auto-exclude + email opt-out (`support@…`) — replaces the
+      stale "analytics relies on your consent, which you can withdraw at any time" line that
+      promised a mechanism the code didn't honour. **Real-browser smoke (Playwright on the built
+      `dist`): DNT off → 1 capture POST to `eu.i.posthog.com/e/` 200 (fires normally); DNT on →
+      `has_opted_out_capturing()`=true, ZERO capture requests (opt-out path proven real).**
+      Build clean. ⚠️ Hard Rule #13: real-iPhone home-screen walk OWED (index.html touched).
+      **Data-safety form (4.4) answers banked:** Analytics data type = "App activity / app
+      interactions" + "Device or other IDs"; purpose = Analytics; **NOT** sold/shared with third
+      parties; **NOT** used for ads or tracking across other companies' apps/sites; collection is
+      "optional" for users via DNT/GPC + email opt-out; processor = PostHog (EU-hosted). No
+      advertising ID collected.
 - [ ] 1.5 🤖 DEFERRED — off-brand welcome screen (BUGS.md s150) **overlaps the marketing
       cinematic redesign** (same entry screens; WIP stashed — see branch state below). Fold into
       the marketing redesign, not Stage 1. Still must precede the screenshot shoot (4.1).
@@ -174,12 +191,13 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 
 ---
 
-## Branch & WIP state at end of session 154 (READ FIRST next session)
-- **Stage 1 Phases A + C are MERGED TO MAIN** (PR #35, squash `8e5545a`): store-grade Legal
-  (1.1), in-app deletion verified (1.2), age 13+/guardian decided (1.3), offline fallback (1.6).
-  The `app-store-stage1` working branch and the redundant `app-store-stage1-docs-s151` branch
-  are both DELETED (local + remote). **There is no live epic branch — start Phase D fresh off
-  `main`.**
+## Branch & WIP state at end of session 155 (READ FIRST next session)
+- **Stage 1 is COMPLETE on `main`.** Phase D (1.4, PostHog legitimate-interest + DNT opt-out)
+  merged via its own PR (s155). Phases A + C merged earlier via PR #35 (`8e5545a`): store-grade
+  Legal (1.1), in-app deletion verified (1.2), age 13+/guardian (1.3), offline fallback (1.6).
+  All Stage 1 working branches are merged + deleted. **There is no live epic branch — start the
+  next stage fresh off `main`.** Only 1.5 (off-brand welcome) remains, and it lives on the
+  MARKETING branch, not this track.
 - `main` also has: the marketing rebuild (PR #33, `marketing/` only), the exhaustive e2e
   Playwright suite, and the s154 e2e follow-up fixes (PR #34, mig 367).
 - **Marketing WIP is parked in a git stash, NOT on a branch** (local-only — not pushed):
@@ -192,24 +210,26 @@ real-device). Dependencies are called out so nothing is built before its inputs 
 - ⚠️ **Single-session discipline matters here** — s151 hit repeated branch-clobbering because a
   second Claude session was live in the SAME folder. Run ONE session at a time on this repo.
 
-## NEXT-SESSION PROMPT — Stage 1 Phase D (PostHog consent, item 1.4)
+## NEXT-SESSION PROMPT — Stage 2 (Capacitor scaffold, items 2.1–2.5)
 ```
-Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — note the s154 branch state
-(Stage 1 Phases A + C are MERGED TO MAIN via PR #35; no live epic branch). Run ONE session only.
-Check no other session is active before starting and advise.
+Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stage 1 is COMPLETE on
+`main` (Phase D / PostHog merged s155; no live epic branch). Run ONE session only. Check no
+other Claude session is live in /Users/tarny/platform before starting and advise.
 
-Do Stage 1 Phase D — item 1.4: PostHog analytics consent. Branch fresh off `main`. Full cycle:
-AUDIT (the PostHog init is inline in apps/inorout/index.html lines ~64-70, fired unconditionally
-at page load; check what events it captures, where person_profiles is set, and the UK/EU consent
-expectation the data-safety form (4.4) + the store-grade Legal page (already says PostHog is a
-subprocessor) will need) → decide gate-behind-consent vs documented legitimate-interest basis
-(make a recommendation) → EXECUTE → VERIFY (build: cd apps/inorout && npm run build; real-browser
-smoke that analytics only fires post-consent if gated) → COMMIT, then open ONE PR and MERGE it
-(don't leave it open — Cloud Session Discipline). Hard Rule #13: real-device test owed for any
-index.html change before claiming the PWA path works.
+Do Stage 2 — Capacitor scaffold (items 2.1–2.5), fully unblocked (no external accounts needed).
+Branch fresh off `main`. 2.1 add Capacitor to apps/inorout (@capacitor/core,/cli,/ios,/android),
+capacitor.config.ts with server.url = https://app.in-or-out.com, appId com.inorout.app, appName
+"In or Out" — verify the wrap targets the CONSUMER app ONLY. Belt-and-braces from Phase C: also
+set server.errorPath = 'offline.html' (or bundle apps/inorout/public/offline.html in webDir) in
+case the native WebView doesn't run the SW for the remote URL. 2.2 icon/splash + status-bar
+(#0A0A08). 2.3 safe-area insets (viewport-fit=cover + env(safe-area-inset-*)). 2.4 Android back
+button → webview history. 2.5 verify `npx cap sync` doesn't choke on the @platform/* workspace
+deps. Full cycle AUDIT → EXECUTE → VERIFY (build) → COMMIT → ONE PR, MERGE it.
 
-Context: Stage 0.3 (Apple Dev, Individual) is awaiting Apple approval — once approved, grab the
-Team ID (0.5) and reserve the app name "In or Out — Football Organiser" in App Store Connect (0.6).
-Item 1.5 (off-brand welcome screen) stays DEFERRED to the marketing branch, NOT this track.
-After Stage 1 completes → Stage 2 (Capacitor scaffold), which is fully unblocked.
+Context: Stage 0.3 (Apple Dev, Individual) awaiting Apple approval — once approved, grab the Team
+ID (0.5) + reserve "In or Out — Football Organiser" in App Store Connect (0.6). Stage 3 (native
+push mig 362, Sign in with Apple, deep links) needs those IDs, so Stage 2 first. Item 1.5
+(off-brand welcome) stays on the MARKETING branch, not this track. Owed across Stage 1+: real-
+iPhone home-screen walks (offline fallback + the PostHog index.html change) — fold into the
+Stage 5.2 device-walk burn-down.
 ```
