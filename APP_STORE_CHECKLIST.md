@@ -208,7 +208,61 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       `@capacitor/browser` / native auth + deep-link return (plain webview is blocked by
       Google). **Add Sign in with Apple** (Apple requires it once any social login exists):
       👤 enable capability + Apple service ID; 🤖 wire `provider:'apple'` + button in
-      `SignIn` / `EmailCaptureOverlay` / `JoinTeam`.
+      `SignIn` / `EmailCaptureOverlay` / `JoinTeam`. **AUDIT done s158 — see "3.6 AUDIT" below.**
+
+### 3.6 AUDIT (s158 — read before building 3.6)
+**Call sites (all 3 call `supabase.auth.signInWithOAuth` DIRECTLY in the view — auth calls are
+exempt from the core-only hygiene rule, established pattern; do NOT move them into supabase.js):**
+- `apps/inorout/src/views/SignIn.jsx:24` `signInWithGoogle` → `provider:"google"`,
+  `redirectTo: ${BASE_URL}/auth/callback`. Also has `signInWithOtp` (magic link) + a Google button
+  (lines 100-114) — the Apple button slots in here next to it.
+- `apps/inorout/src/views/EmailCaptureOverlay.jsx:25` `signInWithGoogle` →
+  `redirectTo: ${BASE_URL}/auth/callback?returnTo=${returnTo}`. Shares the `GOOGLE_SVG` const.
+- `apps/inorout/src/views/JoinTeam.jsx:601` `handleGoogleSignIn` → same shape.
+- `BASE_URL` in each = `window.location.protocol//host` (so it's `https://app.in-or-out.com` in the
+  wrap). Return always lands on `apps/inorout/src/views/AuthCallback.jsx`, which calls
+  `getSession()` and redirects to `auth_return_to`/`returnTo`.
+
+**Why the native fix is needed + how it works:**
+- Google blocks `signInWithOAuth`'s full-page redirect inside an embedded WebView
+  (`disallowed_useragent`). Fix = open the provider URL in the SYSTEM browser, return via deep link.
+- The Supabase client (`packages/core/storage/supabase.js:6`) uses **default auth config →
+  PKCE flow, `detectSessionInUrl:true`, localStorage persistence**. On WEB the redirect back to
+  `/auth/callback?code=…` is auto-exchanged by `detectSessionInUrl` before `AuthCallback`'s
+  `getSession()` runs. On NATIVE: call `signInWithOAuth({ provider, options:{ redirectTo: <deep
+  link>, skipBrowserRedirect:true } })` → it stores the PKCE **verifier in the WEBVIEW's
+  localStorage** and returns `data.url` → open `data.url` with `@capacitor/browser`
+  (`Browser.open`). Google auth happens in the system browser; on success it redirects to the deep
+  link, the OS hands it to the app, **3.4's `appUrlOpen` handler fires**. Because the verifier
+  never left the webview, the webview can finish the exchange.
+- ⚠️ **3.6 must EXTEND the 3.4 `appUrlOpen` handler in `native-shell.js`**: when the opened URL is
+  the auth-callback path AND carries `?code=` (or `?error=`), call `Browser.close()` +
+  `supabase.auth.exchangeCodeForSession(url)` and let `onAuthStateChange` (App.jsx:696) take over —
+  do NOT just `window.location.href`-navigate (the plain-navigate path is only right for
+  `/p`,`/admin`,`/m`). This is the one place 3.4 and 3.6 couple.
+
+**Inputs / what's buildable now vs blocked:**
+- `@capacitor/browser` is **NOT installed** (only `@capacitor/app` + `@capacitor/core`) → add it,
+  pin to the `@capacitor/* ^8` line.
+- Deep-link return target: **recommend the custom scheme `uk.inorout.app://auth/callback`**
+  (conventional + reliable for OAuth return; universal-link `/auth/callback` would also need adding
+  to the AASA `components`). EITHER way: 👤 must add the chosen redirect URL to **Supabase Auth →
+  URL Configuration → Redirect URLs** allowlist, and the native build must register the scheme
+  (CFBundleURLTypes / intent-filter — build machine). Until both exist the native path is DORMANT,
+  exactly like 3.5's APNs/FCM — **so the code leg is safe to build + merge NOW** (web path stays
+  byte-identical, native branch only runs in the wrap).
+- **Sign in with Apple** web leg (`provider:'apple'`) is **operator-blocked** on the Apple Service
+  ID + key being configured in Supabase Auth — but the button + `provider:'apple'` wiring can land
+  now (dormant). Apple HIG: the Apple button must be ≥ as prominent as the Google one. Simplest
+  defensible path = the SAME browser-based OAuth flow with `provider:'apple'`; a fully-native
+  `ASAuthorization` sheet (`@capacitor-community/apple-sign-in` + `signInWithIdToken`) is a heavier
+  possible upgrade, not required for v1.
+- Magic-link (`signInWithOtp`) return ALSO lands on `/auth/callback` via an email link that opens
+  in Safari — returning to the wrapped app would need `/auth/callback` covered by the AASA. Note it;
+  may justify adding `/auth/callback` to the AASA `components` regardless of the OAuth scheme choice.
+- **Suggested shape:** a shared `apps/inorout/src/native/native-auth.js` exporting one
+  `startOAuth(provider, opts)` that does the web full-redirect vs native browser-flow branch, so all
+  3 call sites collapse to one call (DRY, matches the native-shell co-location). Execute-time call.
 - [ ] 3.7 👤/🤖 Signing: 👤 iOS distribution cert + provisioning profile; 👤/🤖 Android upload
       keystore + read SHA-256 (feeds 3.3).
 - [ ] 3.8 🤖 Payments (only when un-dormanted): swap checkout open-calls to
@@ -299,27 +353,41 @@ real-device). Dependencies are called out so nothing is built before its inputs 
   (Content-Type header for the AASA path). See items 3.4 + 3.3 above for the full state.
 - No live epic branch after merge — start the next item fresh off `main`.
 
-## NEXT-SESSION PROMPT — Stage 3.6 / 3.3-Android / certs — ⏳ MOSTLY OPERATOR-BLOCKED
+## NEXT-SESSION PROMPT — Stage 3.6 (auth-in-webview + Sign in with Apple) — ✅ CODE LEG UNBLOCKED
 ```
 Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — Stages 1, 2, 3.4, 3.5 and
-the iOS half of 3.3 are COMPLETE on `main` (s158); no live epic branch. Run ONE session only;
-check no other Claude session is live in /Users/tarny/platform before starting and advise.
+the iOS half of 3.3 are COMPLETE on `main` (s158); 3.6 has a full AUDIT in the checklist (the
+"3.6 AUDIT (s158)" section) — READ THAT FIRST, it has the exact call sites, the PKCE/native-exchange
+mechanism, and the 3.4↔3.6 coupling. No live epic branch. Run ONE session only; check no other
+Claude session is live in /Users/tarny/platform before starting and advise.
 
-Buildable NOW (no new external inputs):
-  • 3.6 (Sign in with Apple — code leg): wire provider:'apple' signInWithOAuth + an Apple
-    sign-in button into SignIn.jsx, EmailCaptureOverlay.jsx, JoinTeam.jsx (Apple requires it
-    once any social login exists). The Apple service ID (👤) is still needed to make it work
-    end-to-end, but the client wiring + button can land now behind the existing OAuth pattern.
-    ALSO 3.6 Google-in-webview: route signInWithOAuth({provider:'google'}) through
-    @capacitor/browser + deep-link return (the 3.3 AASA + 3.4 handler now exist to catch it).
+Build the 3.6 CODE LEG (safe to merge now — native path stays DORMANT until the operator adds the
+redirect URL to Supabase + the native build registers the scheme, exactly like 3.5's APNs/FCM; the
+web path must stay byte-identical):
+  • Add @capacitor/browser (pin to the @capacitor/* ^8 line).
+  • Google-in-webview: branch signInWithOAuth on Capacitor.isNativePlatform(). Native =
+    skipBrowserRedirect:true + redirectTo the custom scheme uk.inorout.app://auth/callback, open
+    data.url with Browser.open. Web = unchanged full redirect. Suggest a shared
+    apps/inorout/src/native/native-auth.js startOAuth(provider, opts) so SignIn.jsx,
+    EmailCaptureOverlay.jsx, JoinTeam.jsx all call one helper.
+  • EXTEND the 3.4 appUrlOpen handler in native-shell.js: if the opened URL is the auth-callback
+    path with ?code= (or ?error=), Browser.close() + supabase.auth.exchangeCodeForSession(url)
+    and let onAuthStateChange (App.jsx:696) take over — NOT a plain window.location.href navigate.
+  • Sign in with Apple: add provider:'apple' + a HIG-compliant Apple button (≥ prominence of the
+    Google button) to all 3 views, reusing the same startOAuth helper. Dormant until 👤 configures
+    the Apple Service ID + key in Supabase Auth.
+  • Consider adding /auth/callback to the AASA components (magic-link + universal-link return).
 
-Still BLOCKED on operator (👤): 3.2 Firebase google-services.json; 3.7 iOS dist cert +
-provisioning profile + Android keystore/SHA-256 (the SHA-256 unblocks the Android half of 3.3 —
-assetlinks.json); the APNs .p8 key (un-dormants iOS push send in 3.5); Apple service ID for
-Sign in with Apple's web leg. Payments (3.8) only when un-dormanted.
+VERIFY: build clean; hygiene PASS; grep all 3 call sites hit the helper; web OAuth path unchanged;
+Playwright web boot smoke (native branch can't run in a browser — real-iPhone walk is OWED → 5.2).
 
-OWED real-iPhone walks (offline fallback, PostHog index.html, Stage-2 viewport-fit, deep-link
-OPEN routing from 3.4, native push DELIVERY once the .p8 lands) — fold into the Stage 5.2
-device-walk burn-down. (AASA live-URL + Apple-CDN check already DONE & passed s158.) Item 1.5
-(off-brand welcome) stays on the MARKETING branch. Next free mig = 369.
+Still BLOCKED on operator (👤): add uk.inorout.app://auth/callback to Supabase Auth Redirect URLs;
+Apple Service ID + key in Supabase (Apple web leg); 3.2 Firebase google-services.json; 3.7 iOS dist
+cert + provisioning profile + Android keystore/SHA-256 (SHA-256 unblocks the Android half of 3.3 —
+assetlinks.json); APNs .p8 key (un-dormants iOS push in 3.5). Payments (3.8) only when un-dormanted.
+
+OWED real-iPhone walks (offline fallback, PostHog index.html, Stage-2 viewport-fit, deep-link OPEN
+routing from 3.4, Google+Apple sign-in return, native push DELIVERY once the .p8 lands) — fold into
+the Stage 5.2 device-walk burn-down. (AASA live-URL + Apple-CDN check already DONE & passed s158.)
+Item 1.5 (off-brand welcome) stays on the MARKETING branch. Next free mig = 369.
 ```
