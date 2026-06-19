@@ -5,9 +5,15 @@ live at `https://app.in-or-out.com`, Vercel project `platform-clubmanager`) wrap
 Capacitor and submitted to the App Store + Google Play. Companion to `APP_WRAP_HANDOFF.md`
 (which holds the locked decisions and the owed real-device walk list).
 
-**Plan of attack:** work this list top-to-bottom → run a final E2E Playwright pass (Stage 5.1)
-→ resolve everything it + the device walks surface (Stage 5.3) → submit. After this epic ships,
-the product is done.
+**⏸️ APPLE-FIRST (operator decision s160):** ship the **iOS App Store first**; **Google Play is
+PARKED until after Apple approval.** The wrap stays cross-platform in code — only the Play-console /
+Android-build work is deferred (0.4, 3.2, the Android half of 3.3, 3.7 keystore/SHA-256, 4.2 Play
+graphics, 4.5 IARC, the `.aab` in 5.4, Play's half of Stage 6). Read Android items as "do AFTER iOS
+launch." See item 0.4 + DECISIONS.md s160.
+
+**Plan of attack:** work this list top-to-bottom (iOS path) → run a final E2E Playwright pass
+(Stage 5.1 ✅ DONE s160) → resolve everything it + the device walks surface (Stage 5.3) → submit to
+Apple. Google Play follows after Apple approval. After the iOS launch ships, the core product is done.
 
 Owner tags: 🤖 = me (code/config, lands in `apps/inorout`); 👤 = operator (console / account /
 real-device). Dependencies are called out so nothing is built before its inputs exist.
@@ -52,7 +58,14 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       (3.1), App Store name reservation (0.6). Still to draw: APNs .p8 key (un-dormants iOS push),
       Apple service ID for Sign in with Apple (3.6), distribution cert + provisioning profile
       (3.7), TestFlight.
-- [ ] 0.4 👤 IN PROGRESS — enrol in **Google Play Console** ($25 one-off).
+- [ ] 0.4 👤 ⏸️ **PARKED (operator decision s160) — Google Play enrolment + the entire Android leg
+      are deferred until AFTER Apple App Store approval.** Ship iOS first, then circle back to Play.
+      The Capacitor wrap stays cross-platform in CODE (nothing to undo); only the Play-console /
+      Android-build work waits. Deferred-behind-iOS items: 0.4 (this), 3.2 Firebase
+      `google-services.json`, the Android half of 3.3 (`assetlinks.json` + SHA-256), 3.7 Android
+      upload keystore, 4.2 Play graphics, 4.5 Google IARC age rating, the Android `.aab` in 5.4, and
+      Play's half of Stage 6. When resumed, note: a **personal** Play account hits the
+      12-tester/14-day closed-test gate — an org account avoids it. See DECISIONS.md s160.
 - [x] 0.5 👤 ✅ DONE (s157) — **Apple Team ID = `JCC44FW6XR`** (feeds the AASA file in 3.3).
 - [x] 0.6 👤 ✅ DONE (s157) — **App Store name reserved as "In or Out - Book & Play"**
       (broadened from the football-specific "In or Out — Football Organiser" so it covers the
@@ -461,38 +474,41 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
   machine → 5.2 device walks → submit. No live epic branch — start Stage 4 fresh off `main`.
 - No live epic branch. Working tree clean on `main` at end of s159. Next free mig still = 369.
 
-## NEXT-SESSION PROMPT — Stage 4 (listing paperwork — the last 🤖-solo work)
+## NEXT-SESSION PROMPT — Stage 4 (Apple listing paperwork — the last 🤖-solo work)
 ```
 Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — through s160, EVERY console/code
 item that needs no Mac is DONE: Stages 1, 2; 3.1 (APNs live), 3.3-iOS, 3.4, 3.5, 3.6 (code + Apple
 provider live); and 5.1 (E2E baseline 27/27 GREEN — see the "STAGE 5.1 E2E BASELINE DONE (s160)"
-section + item 5.1). The epic is now gated on the build machine (Mac+Xcode) for 3.7 signing + native
-`cap add`, and on the operator for 0.4 / 3.2 / 3.7 creds. No live epic branch; start fresh off `main`.
-Run ONE session only; check no other Claude session is live in /Users/tarny/platform before starting
-and advise.
+section + item 5.1). ⏸️ APPLE-FIRST (operator s160): iOS App Store ships FIRST; Google Play is PARKED
+until after Apple approval — SKIP all Android/Play work (0.4, 3.2, Android half of 3.3, Android keystore,
+4.2 Play graphics, 4.5 IARC, .aab) this session. The epic is now gated on the build machine (Mac+Xcode)
+for 3.7 iOS signing + native `cap add`. No live epic branch; start fresh off `main`. Run ONE session
+only; check no other Claude session is live in /Users/tarny/platform before starting and advise.
 
-Do Stage 4 — App Store / Play listing paperwork — the ONLY remaining 🤖-solo work. All doc-only, no
-code/build/device needed. As an AUDIT → EXECUTE → VERIFY → COMMIT cycle per item:
-  • 4.3 store listing COPY (App Store + Play): name/subtitle/description/keywords/promo text. Pull
-    positioning from STRATEGY.md + the marketing site; lead with the 4.2-defence story (native push +
-    deep links + offline shell, not "just a website"). Reserved App Store name = "In or Out - Book & Play".
-  • 4.2 Play feature graphic + screenshots spec (sizes/copy overlays); 🤖 writes the spec + copy, the
-    actual image assets can ride the design skills or be operator-produced.
-  • 4.4 privacy / data-safety LABELS — the App Privacy (Apple) + Data Safety (Google) answers. The
-    underlying data audit incl. PostHog is ALREADY banked in item 1.4 — convert it to each store's
-    questionnaire format. No new audit needed; cross-check 1.4.
+Do Stage 4 — APPLE App Store listing paperwork — the ONLY remaining 🤖-solo work. All doc-only, no
+code/build/device needed. As an AUDIT → EXECUTE → VERIFY → COMMIT cycle:
+  • 4.3 App Store listing COPY: name/subtitle/description/keywords/promo text. Pull positioning from
+    STRATEGY.md + the marketing site; lead with the Guideline-4.2 defence story (native push + deep
+    links + offline shell, not "just a website"). Reserved App Store name = "In or Out - Book & Play".
+  • 4.4 App Privacy LABELS (Apple's questionnaire). The underlying data audit incl. PostHog is ALREADY
+    banked in item 1.4 — convert it to App Store Connect's App Privacy format. No new audit needed.
+    (Skip Google Data Safety — Play parked.)
   • 4.6 reviewer demo-account NOTE — stable demo squad/login (the DEMO_USERS.md accounts) + a short
     note explaining the token-link model and that real-world payments are IAP-exempt.
+  • (Apple screenshot spec for 4.1 can ride here too — sizes/copy; assets shot on the wrapped build at
+    5.2. SKIP 4.2 Play feature graphic — parked.)
   Write each as a doc under the repo (e.g. APP_STORE_LISTING.md) so the operator can paste into App
-  Store Connect / Play Console. Doc-only cycle — no migration, no build gate beyond hygiene.
+  Store Connect. Doc-only cycle — no migration, no build gate beyond hygiene.
 
-Still BLOCKED on operator (👤): 0.4 Google Play Console (personal acct hits the 12-tester/14-day
-closed-test gate — start only for a simultaneous Android launch); 3.2 Firebase google-services.json;
-3.7 iOS dist cert + provisioning profile (Xcode automatic signing) + Android upload keystore + SHA-256
-(Google's app-signing SHA-256, read from Play Console AFTER first upload — unblocks the Android half of
-3.3 assetlinks.json). Native cap-add scaffold + 3.6 scheme registration also need the Mac. After Stage 4
-+ the build machine → 5.2 device walks → submit. Item 1.5 (off-brand welcome) stays on the MARKETING
-branch. Next free mig = 369.
+Still BLOCKED on operator (👤, iOS path): 3.7 iOS dist cert + provisioning profile (easiest via Xcode
+automatic signing); the native cap-add scaffold + 3.6 scheme registration (build machine). After Stage 4
++ the build machine → 5.2 real-iPhone device walks → submit to Apple. PARKED behind Apple approval
+(do NOT start): 0.4 Play Console, 3.2 Firebase, Android keystore/SHA-256, 4.2/4.5, the .aab.
+
+FUTURE EPIC (not now): a watchOS companion app — ref view on the wrist + a lightweight football
+workout tracker (metrics TBD) — is logged in FEATURES.md "## WATCHOS COMPANION APP" + DECISIONS.md
+s160; it starts AFTER Apple approval as its own epic. Item 1.5 (off-brand welcome) stays on the
+MARKETING branch. Next free mig = 369.
 ```
 
 ## NEXT-SESSION PROMPT (SUPERSEDED) — Stage 3.6 — ✅ COMPLETE (code s159 / operator config s159)
