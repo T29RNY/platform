@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { ArrowRight, LinkSimple } from "@phosphor-icons/react";
 import { colors as C, computeDeeperIntel, sortByReservePriority } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import {
@@ -1332,39 +1333,52 @@ export default function App() {
     );
   }
 
-  if (route.type === "landing") return (
+  if (route.type === "landing") {
+    const linkValid = /\/p\/[a-zA-Z0-9_-]+/.test(linkInput);
+    const goToLink = () => {
+      const m = linkInput.match(/\/p\/([a-zA-Z0-9_-]+)/);
+      if (m) window.location.href = `/p/${m[1]}`;
+    };
+    return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       display:"flex", flexDirection:"column", alignItems:"center",
-      justifyContent:"center", padding:24, fontFamily:"Inter,sans-serif" }}>
-      <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:52,
-        color:C.amber, letterSpacing:4, marginBottom:8, textAlign:"center" }}>
-        IN OR OUT
+      justifyContent:"center", padding:24, fontFamily:"'DM Sans',sans-serif" }}>
+      {/* Brand lockup — IN green · OR neutral · OUT red (matches PageHeader). */}
+      <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:60,
+        lineHeight:0.9, letterSpacing:4, marginBottom:14, textAlign:"center" }}>
+        <span style={{ color:C.green }}>IN</span>
+        <span style={{ color:C.text }}> OR </span>
+        <span style={{ color:C.red }}>OUT</span>
       </div>
       <div style={{ fontSize:14, color:C.muted, textAlign:"center",
         marginBottom:40, lineHeight:1.6, maxWidth:300 }}>
         The fastest way to organise your weekly football game.<br/>
         No apps. No accounts. Just tap and go.
       </div>
-      <a href="/create" style={{ display:"block", width:"100%", maxWidth:320 }}>
+      <a href="/create" style={{ display:"block", width:"100%", maxWidth:320, textDecoration:"none" }}>
         <button style={{ width:"100%", padding:"16px 0", borderRadius:8,
           border:"none", background:C.amber, color:C.black,
-          fontFamily:"Inter,sans-serif", fontSize:16, fontWeight:800,
-          cursor:"pointer", letterSpacing:0.5 }}>
-          Create / Join Team →
+          fontFamily:"'DM Sans',sans-serif", fontSize:16, fontWeight:700,
+          cursor:"pointer", letterSpacing:0.3, display:"flex",
+          alignItems:"center", justifyContent:"center", gap:8 }}>
+          Create / Join Team
+          <ArrowRight size={18} weight="thin" />
         </button>
       </a>
-      <a href="/signin" style={{ marginTop:16, fontFamily:"Inter,sans-serif",
+      <a href="/signin" style={{ marginTop:16, fontFamily:"'DM Sans',sans-serif",
         fontSize:14, color:C.amber, textDecoration:"none", fontWeight:600,
         textAlign:"center" }}>
-        Already have a team? Sign in →
+        Already have a team? Sign in
       </a>
       <div style={{ marginTop:20, textAlign:"center" }}>
         {!showLinkInput ? (
           <button onClick={() => setShowLinkInput(true)} style={{
             background:"none", border:"none", padding:0, cursor:"pointer",
-            fontFamily:"Inter,sans-serif", fontSize:13,
-            color:C.muted, textDecoration:"underline", textDecorationStyle:"dotted",
+            fontFamily:"'DM Sans',sans-serif", fontSize:13,
+            color:C.muted, display:"inline-flex", alignItems:"center", gap:6,
+            textDecoration:"underline", textDecorationStyle:"dotted",
           }}>
+            <LinkSimple size={15} weight="thin" />
             Already have a player link?
           </button>
         ) : (
@@ -1373,36 +1387,30 @@ export default function App() {
               autoFocus
               value={linkInput}
               onChange={e => setLinkInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key !== "Enter") return;
-                const m = linkInput.match(/\/p\/([a-zA-Z0-9_-]+)/);
-                if (m) window.location.href = `/p/${m[1]}`;
-              }}
+              onKeyDown={e => { if (e.key === "Enter") goToLink(); }}
               placeholder="Paste your link here"
               style={{ width:"100%", padding:"12px 14px", borderRadius:6,
                 border:`1.5px solid ${linkInput ? C.amber : C.border}`,
                 background:C.bg, color:C.text,
-                fontFamily:"Inter,sans-serif", fontSize:14,
+                fontFamily:"'DM Sans',sans-serif", fontSize:14,
                 outline:"none", boxSizing:"border-box", marginBottom:8 }}
             />
             <button
-              onClick={() => {
-                const m = linkInput.match(/\/p\/([a-zA-Z0-9_-]+)/);
-                if (m) window.location.href = `/p/${m[1]}`;
-              }}
+              onClick={goToLink}
               style={{ width:"100%", padding:"12px 0", borderRadius:6,
                 border:"none",
-                background: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? C.amber : C.border,
-                color: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? "#000" : C.muted,
-                fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700,
-                cursor: linkInput.match(/\/p\/[a-zA-Z0-9_-]+/) ? "pointer" : "not-allowed",
-              }}>
-              Go →
+                background: linkValid ? C.amber : C.border,
+                color: linkValid ? C.black : C.muted,
+                fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:700,
+                cursor: linkValid ? "pointer" : "not-allowed",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+              Go
+              <ArrowRight size={16} weight="thin" />
             </button>
           </div>
         )}
       </div>
-      <div style={{ marginTop:40, fontFamily:"Inter,sans-serif", fontSize:11,
+      <div style={{ marginTop:40, fontFamily:"'DM Sans',sans-serif", fontSize:11,
         color:C.faint, textAlign:"center", display:"flex", gap:16,
         justifyContent:"center" }}>
         <a href="/legal" style={{ color:C.faint, textDecoration:"none" }}>Terms</a>
@@ -1410,7 +1418,8 @@ export default function App() {
         <a href="mailto:hello@in-or-out.com" style={{ color:C.faint, textDecoration:"none" }}>Contact</a>
       </div>
     </div>
-  );
+    );
+  }
 
   if (loading) return (
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
