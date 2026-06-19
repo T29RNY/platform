@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { colors as C } from "@platform/core";
 
-const EFFECTIVE_DATE = "10 May 2026";
-const CONTACT_EMAIL = "hello@in-or-out.com";
+const EFFECTIVE_DATE = "19 June 2026";
+const CONTACT_EMAIL = "support@in-or-out.com";
 const COMPANY = "In or Out";
 
 export default function Legal() {
@@ -18,15 +18,15 @@ export default function Legal() {
       letterSpacing:2, marginBottom:4 },
     h2: { fontFamily:"Inter,sans-serif", fontSize:16, fontWeight:800,
       color:C.text, margin:"24px 0 8px" },
-    p: { fontFamily:"Inter,sans-serif", fontSize:14, color:"#aaa",
+    p: { fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted,
       lineHeight:1.7, marginBottom:12 },
-    ul: { fontFamily:"Inter,sans-serif", fontSize:14, color:"#aaa",
+    ul: { fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted,
       lineHeight:1.7, marginBottom:12, paddingLeft:20 },
     tab: (active) => ({
       padding:"10px 20px", borderRadius:6, border:"none", cursor:"pointer",
       fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
       background: active ? C.amber : "transparent",
-      color: active ? "#000" : C.muted,
+      color: active ? C.black : C.muted,
     }),
   };
 
@@ -54,80 +54,118 @@ export default function Legal() {
       {tab === "terms" && (
         <div>
           <h2 style={S.h2}>1. About In or Out</h2>
-          <p style={S.p}>In or Out is a web application that helps people organise recurring casual sports games. By using the app you agree to these terms.</p>
+          <p style={S.p}>{COMPANY} is an app that helps people organise recurring casual sports games — tracking availability, squads, payments between players, and stats. The service is operated by an individual (a sole trader) based in the United Kingdom, trading as “{COMPANY}”. By using the app you agree to these Terms.</p>
 
-          <h2 style={S.h2}>2. Using the App</h2>
-          <p style={S.p}>You must be 13 or older to use In or Out. You are responsible for any content you submit, including your name and any notes you add. You agree not to misuse the service or attempt to access it in unauthorised ways.</p>
+          <h2 style={S.h2}>2. Eligibility and Age</h2>
+          <p style={S.p}>You must be at least 13 years old to use {COMPANY}. If you are under 18, you may only use the app if a parent or guardian has set it up for you and supervises your use. We do not knowingly collect personal data from children under 13. If you believe a child under 13 has provided us with data, contact us and we will delete it.</p>
 
-          <h2 style={S.h2}>3. Your Data</h2>
-          <p style={S.p}>We store your name, email address (if you sign in), and your game-related activity such as availability responses, payments, and statistics. See our Privacy Policy for full details.</p>
+          <h2 style={S.h2}>3. Your Account and Responsibilities</h2>
+          <p style={S.p}>You are responsible for the information you provide (such as your name and any notes) and for activity that takes place through your access link or sign-in. Keep your sign-in details and any personal team links private. You agree not to misuse the service, disrupt it, or attempt to access it in unauthorised ways.</p>
 
-          <h2 style={S.h2}>4. Service Availability</h2>
-          <p style={S.p}>We aim to keep In or Out available at all times but cannot guarantee uninterrupted access. We may update, suspend or discontinue the service with reasonable notice.</p>
+          <h2 style={S.h2}>4. Your Data</h2>
+          <p style={S.p}>How we handle your personal data is explained in our Privacy Policy (see the tab above). Please read it before using the app.</p>
 
           <h2 style={S.h2}>5. Payments</h2>
-          <p style={S.p}>In or Out tracks game fee payments between players as a convenience tool. We do not process payments ourselves and are not responsible for any financial disputes between players and organisers.</p>
+          <p style={S.p}>{COMPANY} can help organisers collect game fees, memberships and bookings for real-world activities (such as pitch hire, club membership or sessions). Where payment collection is enabled, payments are processed by our payment providers (Stripe and/or GoCardless) — not by us directly. Organisers set their own fees, and any refund or financial dispute is between you and the organiser. We are not a party to those arrangements and are not responsible for them.</p>
 
-          <h2 style={S.h2}>6. Limitation of Liability</h2>
-          <p style={S.p}>In or Out is provided as-is. We are not liable for any loss or damage arising from your use of the service.</p>
+          <h2 style={S.h2}>6. Acceptable Use</h2>
+          <p style={S.p}>You agree not to upload unlawful, abusive or infringing content, impersonate others, or use the app in a way that harms other users or the service. We may suspend or remove access that breaches these Terms.</p>
 
-          <h2 style={S.h2}>7. Changes</h2>
-          <p style={S.p}>We may update these terms. Continued use of the app after changes means you accept the new terms.</p>
+          <h2 style={S.h2}>7. Service Availability</h2>
+          <p style={S.p}>We aim to keep {COMPANY} available at all times but cannot guarantee uninterrupted access. We may update, suspend or discontinue features or the service with reasonable notice.</p>
 
-          <h2 style={S.h2}>8. Contact</h2>
-          <p style={S.p}>Questions? Email us at <a href={`mailto:${CONTACT_EMAIL}`}
+          <h2 style={S.h2}>8. Limitation of Liability</h2>
+          <p style={S.p}>{COMPANY} is provided “as is”. To the extent permitted by law, we are not liable for any loss or damage arising from your use of, or inability to use, the service. Nothing in these Terms excludes liability that cannot be excluded under UK law.</p>
+
+          <h2 style={S.h2}>9. Deleting Your Account</h2>
+          <p style={S.p}>You can delete your account at any time from within the app, on your profile screen — this removes your personal account and associated personal data. You can also email us at <a href={`mailto:${CONTACT_EMAIL}`} style={{ color:C.amber }}>{CONTACT_EMAIL}</a> to request deletion. See the Privacy Policy for what is removed and what may be retained.</p>
+
+          <h2 style={S.h2}>10. Changes to These Terms</h2>
+          <p style={S.p}>We may update these Terms from time to time. If we make material changes we will update the effective date above. Continued use of the app after changes means you accept the updated Terms.</p>
+
+          <h2 style={S.h2}>11. Governing Law</h2>
+          <p style={S.p}>These Terms are governed by the laws of England and Wales, and any disputes are subject to the courts of England and Wales.</p>
+
+          <h2 style={S.h2}>12. Contact</h2>
+          <p style={S.p}>Questions about these Terms? Email us at <a href={`mailto:${CONTACT_EMAIL}`}
             style={{ color:C.amber }}>{CONTACT_EMAIL}</a></p>
         </div>
       )}
 
       {tab === "privacy" && (
         <div>
+          <h2 style={S.h2}>Who We Are</h2>
+          <p style={S.p}>{COMPANY} is operated by an individual (a sole trader) based in the United Kingdom, trading as “{COMPANY}”, who is the data controller for the personal data described here. You can contact the data controller at <a href={`mailto:${CONTACT_EMAIL}`} style={{color:C.amber}}>{CONTACT_EMAIL}</a>. This policy explains what we collect, why, and your rights under UK data protection law (UK GDPR).</p>
+
           <h2 style={S.h2}>What We Collect</h2>
-          <p style={S.p}>We collect the following information when you use In or Out:</p>
           <ul style={S.ul}>
-            <li>Your name (provided by you when joining a team)</li>
-            <li>Your email address (if you sign in with Google or email)</li>
-            <li>Your availability responses (in, out, maybe)</li>
-            <li>Game statistics (goals, attendance, payments)</li>
+            <li>Your name (provided when you join a team or squad)</li>
+            <li>Your email address (if you sign in with Google or by email)</li>
+            <li>Your availability responses (in, out, maybe) and squad activity</li>
+            <li>Game and membership data (attendance, stats, fees owed/paid, bookings)</li>
+            <li>Payment-related information processed by our payment providers (we do not store full card or bank details — see Payments below)</li>
+            <li>Push notification tokens, if you choose to enable notifications</li>
             <li>Usage data (pages visited, actions taken) via PostHog analytics</li>
-            <li>Device type and browser (collected automatically)</li>
+            <li>Device type and browser, collected automatically</li>
           </ul>
 
-          <h2 style={S.h2}>How We Use It</h2>
+          <h2 style={S.h2}>How We Use It and Our Legal Basis</h2>
           <ul style={S.ul}>
-            <li>To provide the app — showing your availability, stats, and team info</li>
-            <li>To identify you across multiple games if you sign in</li>
-            <li>To improve the app using anonymised usage analytics</li>
-            <li>To help organisers manage their teams</li>
+            <li><strong style={{color:C.text}}>To provide the app</strong> — showing availability, stats, squads, bookings and payments (legal basis: performance of our contract with you)</li>
+            <li><strong style={{color:C.text}}>To identify you</strong> across multiple games if you sign in (performance of contract)</li>
+            <li><strong style={{color:C.text}}>To keep the service secure and improve it</strong> using usage analytics (legal basis: our legitimate interests, and your consent for analytics where required)</li>
+            <li><strong style={{color:C.text}}>To send notifications</strong> you have opted into (legal basis: your consent)</li>
           </ul>
 
           <h2 style={S.h2}>Who Can See Your Data</h2>
           <ul style={S.ul}>
-            <li>Your team organiser can see your name, availability, and payment status</li>
+            <li>Your team organiser can see your name, availability, payment status and stats</li>
             <li>Other players in your team can see your name and availability</li>
             <li>Your email address is never visible to other players or organisers</li>
-            <li>We do not sell your data to third parties</li>
+            <li>We do not sell your personal data to anyone</li>
           </ul>
 
-          <h2 style={S.h2}>Third Party Services</h2>
+          <h2 style={S.h2}>Payments</h2>
+          <p style={S.p}>Where an organiser collects fees, memberships or bookings, payments are handled by <strong style={{color:C.text}}>Stripe</strong> and/or <strong style={{color:C.text}}>GoCardless</strong>. Your card or bank details are entered with, and held by, those providers under their own privacy policies — we do not receive or store full payment-instrument details. We receive confirmation of payment status so the app can show what has been paid.</p>
+
+          <h2 style={S.h2}>Push Notifications</h2>
+          <p style={S.p}>If you enable notifications, we store a notification token for your device so we can send reminders (for example, when availability is needed or a game is on). You can turn notifications off at any time in your device or browser settings, and we will stop sending them.</p>
+
+          <h2 style={S.h2}>Service Providers</h2>
+          <p style={S.p}>We use trusted providers to run the service. Each only processes data needed for its role:</p>
           <ul style={S.ul}>
-            <li><strong style={{color:C.text}}>Supabase</strong> — our database provider, stores your data securely</li>
-            <li><strong style={{color:C.text}}>Google OAuth</strong> — used for sign in if you choose it</li>
-            <li><strong style={{color:C.text}}>PostHog</strong> — anonymised usage analytics</li>
-            <li><strong style={{color:C.text}}>Vercel</strong> — hosts the application</li>
+            <li><strong style={{color:C.text}}>Supabase</strong> — secure database and authentication</li>
+            <li><strong style={{color:C.text}}>Vercel</strong> — hosting of the application</li>
+            <li><strong style={{color:C.text}}>Google</strong> — Google sign-in, if you choose it</li>
+            <li><strong style={{color:C.text}}>PostHog</strong> — usage analytics</li>
+            <li><strong style={{color:C.text}}>Resend</strong> — sending transactional emails</li>
+            <li><strong style={{color:C.text}}>Twilio</strong> — sending text-message notifications, where used</li>
+            <li><strong style={{color:C.text}}>Stripe</strong> and <strong style={{color:C.text}}>GoCardless</strong> — payment processing, where enabled</li>
           </ul>
+
+          <h2 style={S.h2}>International Transfers</h2>
+          <p style={S.p}>Some of our providers are based outside the UK (for example in the EU or the United States). Where your data is transferred outside the UK, we rely on appropriate safeguards such as the UK International Data Transfer Agreement, UK Addendum to the EU Standard Contractual Clauses, or an equivalent approved mechanism.</p>
 
           <h2 style={S.h2}>Data Retention</h2>
-          <p style={S.p}>We keep your data for as long as your team exists on the platform. You can request deletion at any time by emailing us.</p>
+          <p style={S.p}>We keep your personal data for as long as your account or team remains active on the platform, and for a short period afterwards as needed for legal, security or accounting purposes. When you delete your account, your personal data is removed; some records may be retained in anonymised or aggregated form, or where we are legally required to keep them.</p>
 
           <h2 style={S.h2}>Your Rights</h2>
-          <p style={S.p}>You have the right to access, correct or delete your personal data. Email us at <a href={`mailto:${CONTACT_EMAIL}`} style={{color:C.amber}}>{CONTACT_EMAIL}</a> and we will respond within 30 days.</p>
+          <p style={S.p}>Under UK data protection law you have the right to access, correct, delete, restrict or object to the processing of your personal data, and to data portability. You can delete your account directly in the app on your profile screen. For any other request, email us at <a href={`mailto:${CONTACT_EMAIL}`} style={{color:C.amber}}>{CONTACT_EMAIL}</a> and we will respond within 30 days.</p>
 
-          <h2 style={S.h2}>Cookies</h2>
-          <p style={S.p}>We use minimal cookies required for authentication and analytics. No advertising cookies are used.</p>
+          <h2 style={S.h2}>Children’s Privacy</h2>
+          <p style={S.p}>{COMPANY} is intended for people aged 13 and over. If you are under 18, you may only use the app if a parent or guardian has set it up for you and supervises your use. We do not knowingly collect personal data from children under 13. If you believe a child under 13 has given us personal data, contact us and we will delete it.</p>
+
+          <h2 style={S.h2}>Cookies and Analytics</h2>
+          <p style={S.p}>We use cookies and similar storage that are essential for signing you in and keeping the app working, and analytics storage to understand usage. We do not use advertising cookies. Where required, analytics relies on your consent, which you can withdraw at any time.</p>
+
+          <h2 style={S.h2}>Complaints</h2>
+          <p style={S.p}>If you are in the UK and you are unhappy with how we have handled your personal data, you can complain to the Information Commissioner’s Office (ICO) at <a href="https://ico.org.uk" style={{color:C.amber}}>ico.org.uk</a>. We would appreciate the chance to address your concerns first.</p>
+
+          <h2 style={S.h2}>Changes to This Policy</h2>
+          <p style={S.p}>We may update this Privacy Policy from time to time. If we make material changes we will update the effective date shown above.</p>
 
           <h2 style={S.h2}>Contact</h2>
-          <p style={S.p}>For any privacy questions or data requests: <a href={`mailto:${CONTACT_EMAIL}`} style={{color:C.amber}}>{CONTACT_EMAIL}</a></p>
+          <p style={S.p}>For any privacy question or data request: <a href={`mailto:${CONTACT_EMAIL}`} style={{color:C.amber}}>{CONTACT_EMAIL}</a></p>
         </div>
       )}
     </div>
