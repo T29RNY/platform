@@ -231,9 +231,9 @@ id uuid PK DEFAULT gen_random_uuid(),
 player_id text  FK → players(id) ON DELETE CASCADE,
 team_id text,
 subscription jsonb NOT NULL,   -- web: VAPID endpoint object; native: { token: '<device>' }
-platform text NOT NULL DEFAULT 'web'  CHECK (platform IN ('web','ios','android')),  -- mig 362
+platform text NOT NULL DEFAULT 'web'  CHECK (platform IN ('web','ios','android')),  -- mig 368
 created_at timestamptz DEFAULT now(),
-UNIQUE (player_id, platform)   -- mig 362: web + native coexist per player
+UNIQUE (player_id, platform)   -- mig 368: web + native coexist per player
 ```
 
 ### notification_log
