@@ -504,6 +504,9 @@ exempt from the core-only hygiene rule, established pattern; do NOT move them in
   per Cloud Session Discipline, prefer one session at a time on this repo.
 
 ## NEXT-SESSION PROMPT — build machine (Mac + Xcode required; no more 🤖-solo work)
+**▶ Pure-execution runbook: `APP_STORE_BUILD_RUNBOOK.md`** — exact commands for scaffold → Xcode
+config → build-to-iPhone → the Stage 5.2 device walk (tickable) → TestFlight → submit. Follow that;
+the prose below is the summary.
 ```
 The APP STORE epic (APP_STORE_CHECKLIST.md) has NO remaining bot-solo work — every console/code item
 that needs no Mac is DONE through s161 (Stages 1, 2; 3.1, 3.3-iOS, 3.4, 3.5, 3.6 code+provider; 5.1
