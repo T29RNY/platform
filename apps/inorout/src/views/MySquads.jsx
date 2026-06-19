@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getPlayerTeamsByToken } from "@platform/core";
+import { getPlayerTeams, getPlayerTeamsByToken } from "@platform/core";
 import { CaretDown, CaretUp, Plus } from "@phosphor-icons/react";
 
 // Pull a join code out of a pasted invite link (or accept a bare code).
@@ -23,14 +23,28 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
   const joinCode = parseJoinCode(joinInput);
   const goJoin = () => { if (joinCode) window.location.href = `/join/${joinCode}`; };
 
+  // Load the viewer's squads keyed on WHO the viewer is, not the matchday squad.
+  // Signed-in viewers (incl. admins on /admin/<token> routes, where no squad row
+  // reliably resolves to the viewer, and any route where the matchday squad is
+  // empty) get the authoritative list from auth.uid() via player_get_teams — no
+  // token fallback, because the matchday-squad-derived token can resolve to the
+  // WRONG player (e.g. squad[0] on an admin route) and would list that player's
+  // squads. Anonymous token-only viewers use the per-token RPC. Deriving the
+  // list from the matchday-squad token was the bug that hid every other squad.
   useEffect(() => {
-    if (!currentToken) return;
+    let cancelled = false;
     setLoading(true);
-    getPlayerTeamsByToken(currentToken)
-      .then(data => setSquads(data || []))
-      .catch(e => { console.error(e); setSquads([]); })
-      .finally(() => setLoading(false));
-  }, [currentToken]);
+    (async () => {
+      let rows = [];
+      try {
+        rows = userId
+          ? await getPlayerTeams()
+          : (currentToken ? await getPlayerTeamsByToken(currentToken) : []);
+      } catch (e) { console.error(e); rows = []; }
+      if (!cancelled) setSquads(rows || []);
+    })().finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [userId, currentToken, currentTeamId]);
 
   return (
     <div style={{ marginTop: 24, paddingBottom: 40 }}>
@@ -86,7 +100,11 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
             </div>
 
           ) : squads.map(squad => {
-            const isCurrent  = squad.token === currentToken;
+            // currentTeamId is reliable on every route; currentToken is not
+            // (it's derived from the matchday squad, which can be empty or, on
+            // admin routes, resolve to the wrong row). Fall back to token only
+            // when no team id is available.
+            const isCurrent  = currentTeamId ? squad.team_id === currentTeamId : squad.token === currentToken;
             const isDisabled = squad.disabled;
             const displayName = squad.player_nickname || squad.player_name;
 

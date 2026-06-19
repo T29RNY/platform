@@ -138,11 +138,15 @@ export default function ClassesScreen({ authUser, memberProfile: memberProfilePr
         )}
       </div>
 
-      {/* Timetable — reused ClassesTimetable, zero-footprint when the venue has no classes */}
+      {/* Timetable — reused ClassesTimetable, zero-footprint when the venue has no classes.
+          Distinguish the no-club-selected state (multi-club member, no ?club= param — the
+          chips above are the selector) from a selected club that genuinely has no venue. */}
       <div style={{ flex: 1, padding: "0 20px 20px" }}>
-        {selectedVenueId
-          ? <ClassesTimetable key={selectedVenueId} venueId={selectedVenueId} requireAuth={requireAuth} />
-          : <p style={{ color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 24 }}>No venue linked to this club yet.</p>}
+        {!selectedClubId
+          ? <p style={{ color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 24 }}>Select a club above to see its class timetable.</p>
+          : selectedVenueId
+            ? <ClassesTimetable key={selectedVenueId} venueId={selectedVenueId} requireAuth={requireAuth} />
+            : <p style={{ color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 24 }}>No venue linked to this club yet.</p>}
       </div>
 
       <ClubNavBar active="classes" passToken={selectedClub?.pass_token ?? null} clubEntry={selectedClub} />

@@ -187,6 +187,7 @@ export default function PlayerView({
   stats = null,
   context = null,
   multiContextNav = false, onSwitcherOpen = null,
+  authUserId = null,
 }) {
   const me = squad.find(p => p.id === myId);
 
@@ -1620,7 +1621,7 @@ export default function PlayerView({
           <MySquads
             currentTeamId={teamId}
             currentToken={myId && squad.find(p => p.id === myId)?.token}
-            userId={me?.userId || null}
+            userId={authUserId || me?.userId || null}
           />
 
           <CompetitionStandingsCard

@@ -58,22 +58,30 @@ real-device). Dependencies are called out so nothing is built before its inputs 
       **list as "In or Out — Football Organiser"** (dodges exact-name conflict + helps ASO);
       the app stays "In or Out".
 
-## STAGE 1 — Pre-wrap code prep (🤖 — fully unblocked, can start immediately)
-- [ ] 1.1 🤖 Upgrade in-app Privacy + Terms (`Legal.jsx`) to store-grade: data collected (auth
-      email, push token, availability/match data, PostHog analytics, payment data), named
-      subprocessors (Supabase, Vercel, Resend, PostHog, Stripe, GoCardless, Twilio), retention,
-      deletion, UK GDPR basis, children's-data stance.
-- [ ] 1.2 🤖 Confirm the account-deletion entry (`PlayerProfile.jsx`) is clearly labelled +
-      easy to find, with copy meeting Apple's account-deletion requirement. (Exists — verify, don't rebuild.)
-- [ ] 1.3 🤖 **PRODUCT CALL NEEDED** — under-18 stance (guardian/`/m/<token>` flow exists).
-      Either set age rating 13+/17+ and gate, or commit to UK Children's Code / families
-      compliance. Decide before age-rating forms (4.5) + data-safety (4.4).
-- [ ] 1.4 🤖 PostHog consent — gate analytics init in `index.html` behind consent (or document
-      legitimate-interest basis) for UK/EU + the data-safety form.
-- [ ] 1.5 🤖 Fix the off-brand welcome screen (BUGS.md s150) — **must precede the screenshot
-      shoot (4.1), since screenshots = the store listing.**
-- [ ] 1.6 🤖 Add an offline fallback page so a no-connection launch of the remote-URL wrap
-      doesn't render blank (Apple rejection risk).
+## STAGE 1 — Pre-wrap code prep (🤖 — IN PROGRESS on branch `app-store-stage1`, s151)
+- [x] 1.1 🤖 ✅ DONE (Phase A, s151) — store-grade Privacy + Terms in `Legal.jsx`. UK sole-trader
+      controller; contact `support@in-or-out.com`; full subprocessor list (Supabase, Vercel,
+      Google, PostHog, Resend, Twilio, Stripe, GoCardless); push-token + payment-data
+      disclosures; UK GDPR legal bases; international transfers; in-app deletion; ICO complaint
+      route; age 13+ w/ under-18 guardian supervision. Colours via tokens. Effective 19 Jun 2026.
+- [x] 1.2 🤖 ✅ VERIFIED, no change (Phase B, s151) — in-app deletion already meets Apple's bar:
+      red "Delete my account" button in the profile "Account" section
+      (`PlayerProfile.jsx:944`), typed-DELETE + 6-digit auth-code confirm modal, real deletion
+      (anonymises, signs out everywhere) → `deleteMyAccount` → `api/delete-account.js`.
+      ⚠️ 2 minor real-device checks: button is gated `{!isAdminView}` (confirm a pure
+      admin/operator account also has a deletion path); point Apple's reviewer at a player
+      account that shows it.
+- [x] 1.3 🤖 ✅ DECIDED (s151) — **Option A: 13+, under-18s only via a parent/guardian who
+      supervises; no under-13s.** Already written into `Legal.jsx`. Use this for the age-rating
+      forms (4.5) + data-safety (4.4).
+- [ ] 1.4 🤖 (Phase D) PostHog consent — gate analytics init in `index.html` behind consent (or
+      document legitimate-interest basis) for UK/EU + the data-safety form.
+- [ ] 1.5 🤖 DEFERRED — off-brand welcome screen (BUGS.md s150) **overlaps the marketing
+      cinematic redesign** (same entry screens; WIP stashed — see branch state below). Fold into
+      the marketing redesign, not Stage 1. Still must precede the screenshot shoot (4.1).
+- [ ] 1.6 🤖 **(Phase C — NEXT SESSION)** Add an offline fallback page so a no-connection launch
+      of the remote-URL wrap doesn't render blank (Apple rejection risk). Audit SW
+      (`public/sw.js` — currently has NO fetch handler) + `index.html` load path first.
 
 ## STAGE 2 — Capacitor scaffold (🤖 — no external dependency)
 - [ ] 2.1 🤖 Add Capacitor to `apps/inorout` (`@capacitor/core`,`/cli`,`/ios`,`/android`);
@@ -152,3 +160,36 @@ real-device). Dependencies are called out so nothing is built before its inputs 
   wrapped build, which needs Stages 2–3.
 - One PR at a time (Cloud Session Discipline). Real-device test before commit for anything
   PWA/native (Hard Rule #13).
+
+---
+
+## Branch & WIP state at end of session 151 (READ FIRST next session)
+- **Working branch for this epic = `app-store-stage1`** (pushed to origin). Contains the docs +
+  Phase A (`Legal.jsx` store-grade, commit `2745618`). Continue Stage 1 here. It branches off
+  `main` (`3151d09`), which already has the checklist, the e2e suite, and the marketing rebuild
+  (PR #33 merge — marketing rebuild touched ONLY `marketing/`, not the consumer app).
+- **Marketing WIP is parked in a git stash, NOT on a branch** (local-only — not pushed):
+  `stash@{0}` = "MARKETING-WIP: cinematic entry-screen backdrops — owes real-iPhone walk".
+  `stash@{1}` = an older full safety backup. To resume marketing later:
+  `git checkout marketing-cinematic-redesign && git stash apply stash@{0}`. ⚠️ It only exists
+  locally — don't wipe the local clone without restoring/committing it first.
+- **`marketing-cinematic-redesign` = `f084f79`** (marketing-only, matches origin). The off-brand
+  welcome fix (1.5) belongs here, not in the app-store track.
+- ⚠️ **Single-session discipline matters here** — s151 hit repeated branch-clobbering because a
+  second Claude session was live in the SAME folder. Run ONE session at a time on this repo.
+
+## NEXT-SESSION PROMPT — Stage 1 Phase C (offline fallback)
+```
+Continue the APP STORE epic (APP_STORE_CHECKLIST.md). Read it first — note the s151 branch state.
+Check out `app-store-stage1` (Stage 1 lives here; Phase A + B done). Run ONE session only.
+
+Do Stage 1 Phase C — offline fallback for the Capacitor remote-URL wrap, so a no-connection
+launch never shows a blank white screen (Apple 4.2 rejection risk). Full cycle:
+AUDIT (public/sw.js has NO fetch handler; index.html load path; how the wrap will load
+https://app.in-or-out.com) → VERIFY → EXECUTE → VERIFY (build: cd apps/inorout && npm run build)
+→ COMMIT on app-store-stage1. Real-device test owed before any PWA/native claim (Hard Rule #13).
+
+Then optionally Phase D (1.4 PostHog consent). Stage 0.3 (Apple Dev, Individual) is awaiting
+Apple approval — once approved, grab the Team ID (0.5) and reserve the app name in App Store
+Connect (0.6). Stage 1.5 (welcome screen) is DEFERRED to the marketing branch, not here.
+```

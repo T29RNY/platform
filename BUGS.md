@@ -41,6 +41,62 @@ Club tab lists both combat clubs, `/classes` timetable renders once a club is se
    week not open). Confirmed against `main` — App.jsx switcher code is byte-identical to
    `main`, so this is pre-existing, not a marketing-branch artifact.
 
+## SESSION 154 — E2E FOLLOW-UP FIXES (apps/inorout only, no mig)
+
+**RESOLVED (no mig) — finding #3: "My Squads" hid every other squad.** Root cause was
+sharper than the finding's "empty matchday squad" framing. On the **admin route**
+(`/admin/<token>`, e.g. Alex viewing his own squad as admin) the matchday squad is NOT
+empty (`buildPlayerSquad` always injects the viewer's own row on the *player* route, which
+is why it never reproduced there) — but the admin's `is_self` row only resolves when
+`auth.uid()` matches, and on a token route it often doesn't. `myId` then falls back to
+`squad[0]`, so `currentToken` (PlayerView L1622, `squad.find(p=>p.id===myId)?.token`)
+became the WRONG player's token. `MySquads` loaded squad[0]'s squads (or, when sign-ups
+weren't open and the roster was genuinely empty, bailed) → "Not part of any other squads
+yet." **Fix (`MySquads.jsx`):** a signed-in viewer's list now comes from `auth.uid()` via
+`player_get_teams` (NOT the matchday-squad token), and the CURRENT pill is matched by
+`currentTeamId` (reliable on every route) instead of the roster-derived token. Anonymous
+token-only viewers are byte-identical (still `player_get_teams_by_token(currentToken)`; the
+auth RPC never fires for anon — verified). Threaded the authoritative `authUserId`
+(App `authUser.id`) → PlayerView → MySquads `userId`. **MINOR FOLLOW-UP — RESOLVED (mig
+367):** the auth path's `player_get_teams` RPC didn't return `is_competitive`, so the
+**LEAGUE** pill stopped rendering in MySquads for signed-in multi-squad users (never affected
+casual-only users, so "casual is sacred" held). Mig 367 brings `player_get_teams` to parity
+with `player_get_teams_by_token` — adds `is_competitive` sourced IDENTICALLY (EXISTS over
+active league `competition_teams`). Adding an OUT column changes the row type → DROP+CREATE
+(zero-arg signature otherwise unchanged); grants restored to auth-only + service_role (the
+DROP re-triggered an `ALTER DEFAULT PRIVILEGES` anon grant — explicitly REVOKEd). No
+MySquads.jsx change (pill JSX already reads `squad.is_competitive`); wrapper `getPlayerTeams`
+returns data raw → no mapper (Hard Rule #12 N/A). Gates: rpc-security PASS (overload=1/SECDEF/
+search_path=public/grants), PostgREST cache flushed; Playwright spec extended — asserts
+LEAGUE + ADMIN + CURRENT pills on the auth path AND a 2nd test pins the pill as column-driven
+(pre-367 shape w/o `is_competitive` → no LEAGUE), both PASS. Read RPC → ephemeral-verify not
+required. ⛔ real-iPhone PWA walk STILL OWED. Restoring it needs an additive `is_competitive`
+column on `player_get_teams` (done). Original-cycle gates:
+deterministic Playwright regression added (`e2e/specs/inorout.mysquads-empty-roster.spec.js`,
+stubs is_self off + both team-list RPCs — FAILS pre-fix, PASSES post-fix), casual-regression
+PASS (anon walk: token path only, 0 auth-RPC leak, MySquads renders), build + hygiene clean.
+⛔ real-iPhone PWA walk OWED (hard-rule #13 — PlayerView/App touched).
+
+**RESOLVED (no mig) — finding #1: `/classes` no-club-selected copy.** A member of 2+
+clubs opening `/classes` with no `?club=` param has `selectedClubId === null` (the chips
+are the selector), which left `selectedVenueId` null and rendered "No venue linked to this
+club yet." — conflating no-selection with a club that genuinely has no venue. **Fix
+(`ClassesScreen.jsx` L142):** branch on `selectedClubId` first — `!selectedClubId` →
+"Select a club above to see its class timetable."; club selected + venue →
+ClassesTimetable; club selected + no venue → the original no-venue copy. Casual-only users
+(no clubs) still return null at the activeClubs gate — casual flow byte-identical.
+Deterministic Playwright regression added (`e2e/specs/inorout.classes-no-club.spec.js` —
+FAILS pre-fix, PASSES post-fix). ⛔ real-iPhone PWA walk OWED.
+
+**RESOLVED (no mig) — finding #2: paused MemberPass showed "Frozen until 1 Jan 1970".**
+`MemberPass.jsx` L125-127 rendered `fmtDate(pass.frozen_until)` for a paused pass; an
+indefinite hold has `frozen_until = null` so `fmtDate(null)` → `new Date(null)` → the Unix
+epoch. **Fix:** label drops to "Frozen" (from "Frozen until") when there's no freeze date,
+and the value omits the date entirely (price-only for a paid pass). Confirmed against Sam's
+seeded paused pass (`m_8289db16b6ef4386abaf39c294a828cd`, paid £30/monthly, frozen_until
+null). Deterministic Playwright regression added (`e2e/specs/tokens.memberpass-frozen.spec.js`,
+no-auth /m/ route — FAILS pre-fix, PASSES post-fix). ⛔ real-iPhone PWA walk OWED.
+
 ## SESSION 150 — OPEN (tech debt, low priority): consumer welcome screen styling + logo off-brand
 
 The unauthenticated root (`/`) welcome screen in [`apps/inorout/src/App.jsx`](apps/inorout/src/App.jsx)
