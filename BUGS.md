@@ -57,11 +57,21 @@ yet." **Fix (`MySquads.jsx`):** a signed-in viewer's list now comes from `auth.u
 `currentTeamId` (reliable on every route) instead of the roster-derived token. Anonymous
 token-only viewers are byte-identical (still `player_get_teams_by_token(currentToken)`; the
 auth RPC never fires for anon — verified). Threaded the authoritative `authUserId`
-(App `authUser.id`) → PlayerView → MySquads `userId`. **MINOR FOLLOW-UP (cosmetic):** the
-auth path's `player_get_teams` RPC doesn't return `is_competitive`, so the **LEAGUE** pill
-no longer renders in MySquads for signed-in multi-squad users (never affects casual-only
-users, so "casual is sacred" holds). Restoring it needs an additive `is_competitive` column
-on `player_get_teams` (a migration) — deferred, out of this no-RPC cycle's scope. Gates:
+(App `authUser.id`) → PlayerView → MySquads `userId`. **MINOR FOLLOW-UP — RESOLVED (mig
+367):** the auth path's `player_get_teams` RPC didn't return `is_competitive`, so the
+**LEAGUE** pill stopped rendering in MySquads for signed-in multi-squad users (never affected
+casual-only users, so "casual is sacred" held). Mig 367 brings `player_get_teams` to parity
+with `player_get_teams_by_token` — adds `is_competitive` sourced IDENTICALLY (EXISTS over
+active league `competition_teams`). Adding an OUT column changes the row type → DROP+CREATE
+(zero-arg signature otherwise unchanged); grants restored to auth-only + service_role (the
+DROP re-triggered an `ALTER DEFAULT PRIVILEGES` anon grant — explicitly REVOKEd). No
+MySquads.jsx change (pill JSX already reads `squad.is_competitive`); wrapper `getPlayerTeams`
+returns data raw → no mapper (Hard Rule #12 N/A). Gates: rpc-security PASS (overload=1/SECDEF/
+search_path=public/grants), PostgREST cache flushed; Playwright spec extended — asserts
+LEAGUE + ADMIN + CURRENT pills on the auth path AND a 2nd test pins the pill as column-driven
+(pre-367 shape w/o `is_competitive` → no LEAGUE), both PASS. Read RPC → ephemeral-verify not
+required. ⛔ real-iPhone PWA walk STILL OWED. Restoring it needs an additive `is_competitive`
+column on `player_get_teams` (done). Original-cycle gates:
 deterministic Playwright regression added (`e2e/specs/inorout.mysquads-empty-roster.spec.js`,
 stubs is_self off + both team-list RPCs — FAILS pre-fix, PASSES post-fix), casual-regression
 PASS (anon walk: token path only, 0 auth-RPC leak, MySquads renders), build + hygiene clean.
