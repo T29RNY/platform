@@ -43,6 +43,12 @@ storage/surfacing (~1–2d) · 5 Casual ref (~2–3d) · 6 Club cohorts (~1–2d
 (~1–2d + Apple review). **Wall-clock: MVP ~1–2 wks · full app ~2–4 wks** + review. Migrations from
 **369**. Design runs in parallel with Phase 1.
 
+**Phase 0 gotcha:** `apps/inorout/ios` is currently gitignored (`/ios`) + regenerated via `npx cap
+sync` — fine for a thin webview wrap, but a hand-written watch target would be WIPED by a sync.
+Phase 0 must un-ignore the native project and TRACK the Xcode project + watch source (still
+ignoring `Pods/`/`build/`/`App/public/`); commit it once. No new repo / Vercel / App Store record
+— one folder flips from disposable to tracked.
+
 **Lessons baked in** (from the In or Out build): real-device walks are first-class (Hard Rule #13);
 typed Swift `CodingKeys` + RPCS.md consumers (Hard Rule #12/#14); port the offline/idempotency
 engine verbatim; resolver disambiguation for multi-role same-day games; health data = UK-GDPR
