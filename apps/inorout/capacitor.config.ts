@@ -11,12 +11,20 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * server.url      — the native WebView loads the live site directly, so the
  *                   app and the wrapped build never drift. Updates ship the
  *                   instant Vercel deploys, same as the PWA.
- * server.errorPath— belt-and-braces offline fallback (Stage 1.6 / Phase C):
- *                   if a navigation fails and the service worker hasn't run
- *                   for the remote origin inside the WebView, Capacitor serves
- *                   this file from the bundled webDir instead of a blank/native
- *                   error page. offline.html is copied from public/ into dist/
- *                   by the Vite build, so it is always present in webDir.
+ * server.errorPath— REMOVED in Stage 5.3 (finding F5). It was a belt-and-braces
+ *                   offline fallback (Stage 1.6 / Phase C), but Capacitor fires
+ *                   it on ANY provisional-navigation failure — including
+ *                   NSURLErrorCancelled (-999), which is NOT an offline state.
+ *                   App.jsx's launch redirect bridge calls window.location.replace
+ *                   synchronously during the first render (resume to last context /
+ *                   ioo_last_visited), which cancels the in-flight load → -999 →
+ *                   Capacitor swapped in offline.html EVEN WHEN FULLY ONLINE,
+ *                   stranding every launch on "You're offline". A remote-URL wrap
+ *                   that does early client-side redirects is fundamentally
+ *                   incompatible with errorPath (it can't tell cancelled from
+ *                   failed). Genuine-offline UX belongs at the app level (React
+ *                   can read navigator.onLine + failed fetches), not here.
+ *                   offline.html stays in public/ for potential app-level reuse.
  * webDir          — the Vite build output. With server.url set its contents
  *                   are not served as the app shell; it exists so cap can copy
  *                   a bundle (and the errorPath fallback) into the native
@@ -45,7 +53,7 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://app.in-or-out.com',
     cleartext: false,
-    errorPath: 'offline.html',
+    // errorPath removed — see the server.errorPath note above (finding F5).
   },
   plugins: {
     SplashScreen: {

@@ -16,7 +16,6 @@ import { App } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { colors } from '@platform/core';
-import { supabase } from '@platform/core/storage/supabase.js';
 
 export function initNativeShell() {
   // Web build: nothing to bridge. Bail before touching any native plugin.
@@ -73,28 +72,34 @@ export function initNativeShell() {
       return; // unparseable — nothing safe to route to
     }
 
-    // 3.6. OAuth / Sign-in-with-Apple return. The provider redirected to our
-    // custom scheme uk.inorout.app://auth/callback?code=… (or ?error=…). The
-    // custom-scheme form parses with host='auth', pathname='/callback'; a
-    // universal-link form would be host='app.in-or-out.com',
-    // pathname='/auth/callback' — both normalise to …auth/callback.
+    // 3.6 / F4. OAuth / Sign-in-with-Apple return. The provider redirected to our
+    // custom scheme uk.inorout.app://auth/callback with the session as EITHER a
+    // ?code= query (PKCE) OR a #access_token=… hash (implicit). Apple/Supabase
+    // returns the HASH form here (verified s164 device walk), which the old
+    // code-only handler missed. Rather than exchange tokens in this listener,
+    // route the WebView into the REAL web callback /auth/callback carrying the
+    // original query AND hash: supabase's detectSessionInUrl + the AuthCallback
+    // screen then establish the session and redirect to auth_return_to —
+    // IDENTICAL to the proven web sign-in flow. Custom-scheme parse: host='auth',
+    // pathname='/callback' (and a universal-link form would be
+    // host='app.in-or-out.com', pathname='/auth/callback') — both normalise to
+    // …auth/callback; we always rebuild the canonical '/auth/callback' path since
+    // the WebView is already pinned to app.in-or-out.com (server.url).
+    const hash = parsed.hash || '';
+    const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
     const hostPath = `${parsed.host}${parsed.pathname}`.replace(/\/+$/, '');
     const isAuthReturn = hostPath.endsWith('auth/callback') &&
-      (parsed.searchParams.has('code') || parsed.searchParams.has('error'));
+      (parsed.searchParams.has('code') || parsed.searchParams.has('error') ||
+       hashParams.has('access_token') || hashParams.has('error'));
     if (isAuthReturn) {
-      // Dismiss the system browser, then finish the PKCE exchange HERE — the
-      // verifier never left this webview's localStorage. exchangeCodeForSession
-      // wants the bare auth code (it POSTs it as auth_code), not the URL.
-      // onAuthStateChange (App.jsx) then adopts the new session; we deliberately
-      // do NOT window.location-navigate (that's only right for /p,/admin,/m).
+      // Dismiss the system browser, then hand the response to the web callback.
       try {
         const { Browser } = await import('@capacitor/browser');
         await Browser.close().catch(() => {});
-        const code = parsed.searchParams.get('code');
-        if (code) await supabase.auth.exchangeCodeForSession(code);
       } catch (e) {
         console.error(e);
       }
+      window.location.replace('/auth/callback' + parsed.search + hash);
       return;
     }
 
