@@ -59,23 +59,23 @@ execution from `APP_STORE_BUILD_RUNBOOK.md`. No bot-solo work remains.
 | # | Task | Owner | ETA |
 |---|------|-------|-----|
 | 1 | ✅ DONE (s162) — off-brand welcome screen restyled on-brand (item 1.5; green/red lockup + DM Sans + thin Phosphor; behaviour byte-identical) | 🤖 | done |
-| 2 | Export a crisp 1024×1024 `assets/icon.png` (replace upscaled placeholder) | 👤 | 10–20 min |
+| 2 | ✅ DONE (s163) — crisp 1024×1024 `assets/icon.png`: extracted the real brand artwork from the 1254px source, composited the IO mark **full-bleed on `#0A0A08`** (no baked squircle → iOS masks cleanly), no alpha. Propagated into ios AppIcon 1024 slot. | 🤖 | done |
 
-### Phase 1 — Mac: scaffold + configure + first build (~1.5–2.5 h, Runbook §A–C)
+### Phase 1 — Mac: scaffold + configure + first build ✅ DONE s163
 | # | Task | Owner | ETA |
 |---|------|-------|-----|
-| 3 | Install prereqs (Xcode, CocoaPods, Apple ID in Xcode) — one-time | 👤 | 20–40 min |
-| 4 | Scaffold: `npm run build` → `cap add ios` → `capacitor-assets generate` → `cap sync` | 🤖+👤 | 15–30 min |
-| 5 | Xcode automatic signing (closes 3.7 cert + profile) | 👤 | 10 min |
-| 6 | Capabilities (Push/Assoc-Domains/Apple) + URL scheme + encryption flag (closes last of 3.6) | 🤖+👤 | 15 min |
-| 7 | Build to a real iPhone, confirm launch | 👤 | 10–20 min |
+| 3 | ✅ DONE (s163) — Xcode 26.5 + iOS 26.5 SDK installed & selected; CocoaPods 1.16.2 (⚠️ Capacitor 8 iOS uses **SPM, not pods** — `App.xcodeproj`, no `.xcworkspace`; pods unused but harmless). | 👤 | done |
+| 4 | ✅ DONE (s163) — `npm run build` → `cap add ios` → `capacitor-assets generate` (13 ios assets) → `cap sync`. `ios/` gitignored, not committed. | 🤖 | done |
+| 5 | ✅ DONE (s163) — automatic signing, Team "Tarnbir Athwal" (`JCC44FW6XR`), cert "Apple Development", Xcode Managed Profile. Device registered. **Closes 3.7.** | 👤 | done |
+| 6 | ✅ DONE (s163) — capabilities Push + Associated Domains (`applinks:app.in-or-out.com`) + Sign in with Apple added; `uk.inorout.app://` URL scheme + `ITSAppUsesNonExemptEncryption=NO` set via PlistBuddy. **Closes last of 3.6.** | 🤖+👤 | done |
+| 7 | ✅ DONE (s163) — built & launched on a real iPhone (iPhone18,2 / iOS 26.6); wrap loads `app.in-or-out.com`, all native bridges fired. (Needed: Developer Mode ON on device.) | 👤 | done |
 
-### Phase 2 — The 5.2 device walk ⭐ approval insurance (~1–1.5 h, Runbook §D–E)
+### Phase 2 — The 5.2 device walk ⭐ approval insurance — ⏸️ PARTIAL (s163), 4 findings → 5.3
 | # | Task | Owner | ETA |
 |---|------|-------|-----|
-| 8 | Walk the 10-item checklist (deep links, push delivery, Apple+Google sign-in, offline, splash, safe areas, deletion, PWA, DNT) | 👤+🤖 | 45–90 min |
-| 9 | Capture 5–6 screenshots during the walk (needs #1 done) | 👤 | 20–30 min |
-| 10 | Fix anything surfaced; rebuild; re-walk (5.3) — the wildcard | 🤖+👤 | 0–3 h |
+| 8 | ⏸️ PARTIAL (s163) — **Test 1 deep-links = PASS** (link → opens app, routes to player screen). Walk then **blocked by F1–F4** (see `STAGE_5_2_FINDINGS.md`): F1 safe-area inset missing → status bar covers header + **blocks profile tap** (gates push/deletion); F2 **cold-launch splash HANG** (blocker); F3 sign-in wordmark off-brand (cosmetic); F4 **Sign in with Apple doesn't return to app** (blocker — Supabase redirect allowlist). Re-walk after 5.3. | 👤+🤖 | resume |
+| 9 | Capture 5–6 screenshots during the **re**-walk (device confirmed = 1320×2868, store-perfect) | 👤 | 20–30 min |
+| 10 | ▶ NEXT — fix F1–F4, rebuild/redeploy, re-walk (5.3) | 🤖+👤 | 1–3 h |
 
 ### Phase 3 — Listing entry + upload (~1–1.5 h, Runbook §F)
 | # | Task | Owner | ETA |

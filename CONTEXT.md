@@ -1,5 +1,21 @@
 # IN OR OUT — Project Context & Session History
 
+**Session 163 (Jun 20 2026) — APP STORE EPIC: Mac build Phase 0+1 DONE; Stage 5.2 device walk started.**
+First real iOS build on a Mac with Xcode 26.5 + iOS 26.5 SDK. Done this session:
+**Phase 0 #2** — crisp 1024×1024 `assets/icon.png` (extracted real brand artwork from the 1254px
+favicon source, composited the IO mark full-bleed on `#0A0A08`, no squircle/no alpha → iOS masks
+cleanly). **Phase 1** — `npm run build` → `cap add ios` → `capacitor-assets generate` → `cap sync`
+(⚠️ Capacitor 8 iOS = **SPM, not CocoaPods**: `App.xcodeproj`, no `.xcworkspace`); Xcode automatic
+signing (Team `JCC44FW6XR` "Tarnbir Athwal", cert + Xcode-managed profile, device registered →
+**closes 3.7**); capabilities Push + Associated Domains (`applinks:app.in-or-out.com`) + Sign in with
+Apple; `uk.inorout.app://` URL scheme + `ITSAppUsesNonExemptEncryption=NO` via PlistBuddy
+(**closes last of 3.6**); built & launched on a real iPhone (iPhone18,2 / iOS 26.6, Developer Mode on).
+`ios/` is gitignored (regenerated, never committed). **Stage 5.2 device walk: Test 1 deep-links =
+PASS**; then 4 findings (F1 safe-area/profile-blocked, F2 splash hang, F3 wordmark, F4 Apple
+sign-in no-return) → all OPEN, full detail + Stage 5.3 fix plan in **`STAGE_5_2_FINDINGS.md`**,
+summarised in BUGS.md s163. Next: fix F1–F4, redeploy/rebuild, re-walk, screenshots, submit.
+Next free mig = 369 (unused; none expected for 5.3).
+
 **Session 162 (Jun 19 2026) — WATCHOS COMPANION PHASE 1 IDENTITY BACKEND SHIPPED (mig 369).**
 Operator directive: build everything that doesn't need an approved App Store listing, ahead of
 Apple approval. Two non-gated tracks started: (1) design handoff (`WATCH_DESIGN_BRIEF.md` → Claude

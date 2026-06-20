@@ -3,6 +3,24 @@
 
 ---
 
+## SESSION 163 — APP STORE wrap: Phase 0+1 DONE; Stage 5.2 device walk surfaced 4 findings (OPEN)
+iOS native build now runs on a real iPhone (iPhone18,2 / iOS 26.6). Deep-link test PASSED
+(universal link → opens app, routes to player screen). The device walk then surfaced 4 findings,
+all OPEN, tracked in full (symptom + cause + fix) in **`STAGE_5_2_FINDINGS.md`**:
+- **F1 (blocker)** — casual player shell missing `env(safe-area-inset-*)`: status bar covers the
+  PageHeader AND blocks the profile tap target (gates push opt-in + account deletion). Deployed-site
+  fix (`PageHeader.jsx` / PlayerView tab headers / `NavBar.jsx`). Touches apps/inorout/src →
+  casual-regression + HR#13 re-walk.
+- **F2 (blocker)** — cold-launch splash HANGS forever: `capacitor.config.ts`
+  `SplashScreen.launchAutoHide:false` + the only hide is the remote bundle's 400ms timeout; no
+  native fallback. Fix = `launchAutoHide:true` + `launchShowDuration:2500` (native only, no deploy).
+- **F3 (cosmetic)** — SignIn screen still uses the old amber wordmark (item 1.5 only restyled the
+  landing welcome block). Folds into F1's deploy.
+- **F4 (blocker, Apple-required)** — Sign in with Apple authenticates (Face ID OK) then stalls on a
+  blank `appleid.apple.com`; never returns to `uk.inorout.app://auth/callback`. Cause = custom-scheme
+  redirect not allowlisted in Supabase Auth (and/or Apple provider Service ID/key). 👤 Supabase
+  dashboard fix; same gate blocks Google return. Stage 5.3 fix plan = in the findings doc.
+
 ## SESSION 153 — EXHAUSTIVE E2E SWEEP (Playwright) + 1 seed fix (mig 366) + 3 low-pri findings
 
 Wrote a full per-app × per-role Playwright suite against the live demo seed (migs
