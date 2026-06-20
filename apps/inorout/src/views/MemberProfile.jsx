@@ -287,8 +287,37 @@ export default function MemberProfile({ authUser }) {
     </div>
   );
 
-  // Zero-footprint: casual player with no member_profile — render nothing.
-  if (profile === null) return null;
+  // No member_profile (a signed-in user with no club/squad membership reaching
+  // /profile) — empty state, NOT a blank page (mirrors SessionsScreen F7 fix).
+  if (profile === null) return (
+    <div style={{ ...wrap, display: "flex", flexDirection: "column" }}>
+      <div style={{
+        background: "var(--b2)",
+        borderBottom: "1px solid var(--border-subtle)",
+        padding: "calc(20px + env(safe-area-inset-top)) 20px 16px",
+      }}>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 26, lineHeight: 1 }}>
+          Profile
+        </div>
+      </div>
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", flex: 1, gap: 12, padding: "40px 24px",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 40 }}>👤</div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)" }}>
+          Nothing here yet
+        </div>
+        <p style={{
+          color: "var(--t2)", fontFamily: "var(--font-body)", fontSize: 14,
+          lineHeight: 1.5, maxWidth: 280, margin: 0,
+        }}>
+          Your profile fills in once you join a club or a squad.
+        </p>
+      </div>
+    </div>
+  );
 
   const displayName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
 

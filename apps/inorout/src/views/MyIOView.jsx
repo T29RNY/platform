@@ -823,7 +823,7 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
   if (isGuest) {
     return (
       <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"0 0 110px" }}>
-        <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--bg)", padding:"12px 16px" }}>
+        <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--bg)", padding:"calc(12px + env(safe-area-inset-top)) 16px 12px" }}>
           <IOBrandHeader />
         </div>
         <div style={{ position:"sticky", top:48, zIndex:15, background:"var(--bg)", padding:"0 16px" }}>
@@ -840,7 +840,7 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
     <div style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)", padding:"0 0 110px" }}>
 
       {/* IO brand header — sticky at top:0 */}
-      <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--bg)", padding:"12px 16px" }}>
+      <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--bg)", padding:"calc(12px + env(safe-area-inset-top)) 16px 12px" }}>
         <IOBrandHeader />
       </div>
 
