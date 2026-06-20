@@ -1170,6 +1170,11 @@ export default function App() {
       </div>
     );
     if (!authUser) return <SignIn returnTo="/sessions" />;
+    // Squad-resume trap guard: a squad-only user (no clubs/guardian) must never
+    // be stranded on the club Sessions screen — e.g. resumed here via a stale
+    // lastContext. Once relationships are known, bounce to "/" so the landing
+    // router sends them to their real home (squad chooser / player view).
+    if (relationships && homeScreenType === "squad_only") { window.location.replace("/"); return null; }
     return <SessionsScreen authUser={authUser} memberProfile={memberProfile} hasFeed={homeScreenType === "multi"} />;
   }
 
@@ -1258,11 +1263,17 @@ export default function App() {
 
   if (route.type === "parent-home") {
     if (!authUser) return <SignIn returnTo="/parent-home" />;
+    // Squad-resume trap guard (see /sessions) — a squad-only user resumed onto
+    // the guardian home has no children context; route them to their real home.
+    if (relationships && homeScreenType === "squad_only") { window.location.replace("/"); return null; }
     return <ParentHomeScreen authUser={authUser} />;
   }
 
   if (route.type === "feed") {
     if (!authUser) return <SignIn returnTo="/feed" />;
+    // Squad-resume trap guard (see /sessions) — the feed is the multi-context
+    // hub; a squad-only user resumed here gets bounced to their real home.
+    if (relationships && homeScreenType === "squad_only") { window.location.replace("/"); return null; }
     return <UnifiedFeedScreen authUser={authUser} />;
   }
 
