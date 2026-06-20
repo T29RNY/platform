@@ -3,7 +3,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
-         memberGetFightRecord } from "@platform/core/storage/supabase.js";
+         memberGetFightRecord, signOut } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
@@ -315,6 +315,17 @@ export default function MemberProfile({ authUser }) {
         }}>
           Your profile fills in once you join a club or a squad.
         </p>
+        <button
+          onClick={async () => { try { await signOut(); } catch (e) { console.error(e); } window.location.replace("/"); }}
+          style={{
+            marginTop: 8, padding: "12px 22px", borderRadius: "var(--r)",
+            background: "transparent", border: "1px solid var(--border-subtle)",
+            color: "var(--t2)", fontFamily: "var(--font-body)", fontSize: 14,
+            cursor: "pointer", WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          Sign out
+        </button>
       </div>
       <ClubNavBar active="profile" />
     </div>
@@ -1080,6 +1091,16 @@ export default function MemberProfile({ authUser }) {
             </button>
           </div>
         )}
+
+        {/* ── Account ───────────────────────────────────────────────── */}
+        <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={async () => { try { await signOut(); } catch (e) { console.error(e); } window.location.replace("/"); }}
+            style={btnStyle("transparent", "var(--t2)", true, "1px solid var(--border-subtle)")}
+          >
+            Sign out
+          </button>
+        </div>
       </div>
       <Tour tourKey="io_tour_club_profile" enabled={clubToursEnabled()} />
       <ClubNavBar active="profile" passToken={selectedClub?.pass_token ?? null} clubEntry={selectedClub} />
