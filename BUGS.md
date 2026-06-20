@@ -56,14 +56,19 @@ bundle-id + topic all accepted). Getting there unpicked **five** bugs:
    "Save" on the push channel now also triggers registration (commit b380708) and
    reports the real async outcome.
 
-**DIAGNOSED — not yet code-fixed — squad-resume trap.** A signed-in squad-only user
-(2 squads, 0 clubs) landed on the club "No clubs yet" Sessions screen with no escape
-(only Sessions + Profile tabs). Root cause: `readLastContext()` (App.jsx:135) restores
-a stale `/sessions` path on launch WITHOUT validating the user still belongs to a club
-context; once there, `writeLastContext` re-saves it → self-reinforcing trap. Deleting +
-reinstalling clears the stale localStorage (which is how the test proceeded). FIX OWED:
-validate the restored path against `get_user_relationships` before redirecting (a
-squad-only user must never resume onto `/sessions`/`/feed`). Overlaps s164 fast-follow #3.
+**RESOLVED (commit cd4e3ef, remote bundle) — squad-resume trap.** A signed-in
+squad-only user (2 squads, 0 clubs) landed on the club "No clubs yet" Sessions screen
+with no escape (only Sessions + Profile tabs). Root cause: `readLastContext()`
+(App.jsx:135) restores a stale `/sessions` path on launch WITHOUT validating the user
+still belongs to a club context; once there, `writeLastContext` re-saves it →
+self-reinforcing trap. Fix: guard the three club/guardian home routes
+(`/sessions` `/feed` `/parent-home`) — once `relationships` is loaded, a
+`homeScreenType==='squad_only'` user is bounced to `/` where the landing router routes
+them to their real home (squad chooser / player view); the squad home then overwrites
+the stale lastContext (self-heals). Casual-safe: casual token flows are unauth +
+`route.type==='player'` (untouched), and a signed-in casual squad user IS squad_only so
+is correctly sent to their squad home. **Closes s164 fast-follow #3.** Website fix — no
+App Store resubmission.
 
 **TECH DEBT found — `/api/notify` direct mode is UNAUTHENTICATED.** Only `cronType`
 mode checks `CRON_SECRET`; direct mode sends to a team's subscribers given just
