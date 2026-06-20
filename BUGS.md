@@ -3,6 +3,76 @@
 
 ---
 
+## SESSION 165 — ✅ NATIVE iOS PUSH PROVEN END-TO-END (closes the s164 OWED delivery test). 5 bugs fixed + 1 diagnosed.
+
+Real-device push delivery test on the operator's iPhone. **Native APNs push now
+works end to end** — a test push fired from the server landed on the lock screen
+**and mirrored to Apple Watch**; APNs returned HTTP 200 (the server writes a
+`notification_log.sent_at` ONLY on a successful send, and it did). Server creds
+independently proven first via a new `apnsDiag` probe (Apple returned
+400/BadDeviceToken to a dummy token = JWT signing + .p8 + key-id + team-id +
+bundle-id + topic all accepted). Getting there unpicked **five** bugs:
+
+1. **RESOLVED (commit 09721c3, remote bundle) — push opt-in invisible on native.**
+   `PlayerView` gated the Enable prompt on `canPush = "PushManager" in window &&
+   "serviceWorker" in navigator` — both ABSENT in the iOS Capacitor WKWebView, so
+   the button never rendered and `registerNativePush` could never run. Native push
+   uses the `@capacitor/push-notifications` plugin, not the web APIs. Fix: treat a
+   `Capacitor.isNativePlatform()` build as push-capable regardless of the web
+   checks. Web path byte-identical (`isNativeApp` is false on web).
+
+2. **RESOLVED (THE root cause — native `ios/App/App/AppDelegate.swift`).** iOS
+   delivered the device token to the AppDelegate, but the AppDelegate had NONE of
+   the APNs-forwarding methods, so `@capacitor/push-notifications`' `'registration'`
+   event never fired → token vanished. Symptom: `register()` called, then total
+   silence (no token, no error) — the textbook signature. Added
+   `didRegisterForRemoteNotificationsWithDeviceToken` +
+   `didFailToRegisterForRemoteNotificationsWithError` (post the
+   `.capacitorDidRegister*` notifications). `cap add ios` does NOT generate these;
+   `ios/` is gitignored → the two hand-edited native files
+   (`AppDelegate.swift` + `App.entitlements`, `aps-environment` now `production`
+   for TestFlight) are now **force-tracked in git** and documented in
+   `APP_STORE_CHECKLIST.md` so a regenerate can't silently lose them.
+
+3. **RESOLVED (commit a8f027d, remote bundle) — premature "subscribed" flag.**
+   `registerNativePush` returned 'subscribed' the instant `register()` was called,
+   so `handleSubscribe` persisted `notif_<id>='subscribed'` and hid the Enable
+   prompt BEFORE any token arrived. When the token never came (bug #2) the prompt
+   was hidden forever with no retry. Now `registerNativePush` returns 'registering'
+   and fires `onRegistered`/`onError` callbacks on the ACTUAL async outcome — mark
+   subscribed only when a token lands + saves; reset to idle on failure so the
+   prompt returns. Also `removeAllListeners()` before re-adding (no stacking).
+
+4. **RESOLVED (commit a8f027d, remote bundle) — back button under the status bar.**
+   `PlayerProfile` + `HeadToHead` sticky `top:0` headers had no safe-area inset, so
+   the back arrow + title sat under the notch/Dynamic Island and were untappable on
+   the native build. Added `calc(12px + env(safe-area-inset-top))` top padding.
+
+5. **RESOLVED (commit 05b2a53, remote bundle) — no confirmation feedback.** The
+   push prompt only rendered while `notifState==='idle'`, so it vanished the instant
+   Enable was tapped — no subscribed/pending/error state, leaving the user unsure it
+   worked. Now renders for every state except dismissed: green "Notifications on"
+   confirmation, "Turning on…" pending, Settings hint when blocked. `PlayerProfile`
+   "Save" on the push channel now also triggers registration (commit b380708) and
+   reports the real async outcome.
+
+**DIAGNOSED — not yet code-fixed — squad-resume trap.** A signed-in squad-only user
+(2 squads, 0 clubs) landed on the club "No clubs yet" Sessions screen with no escape
+(only Sessions + Profile tabs). Root cause: `readLastContext()` (App.jsx:135) restores
+a stale `/sessions` path on launch WITHOUT validating the user still belongs to a club
+context; once there, `writeLastContext` re-saves it → self-reinforcing trap. Deleting +
+reinstalling clears the stale localStorage (which is how the test proceeded). FIX OWED:
+validate the restored path against `get_user_relationships` before redirecting (a
+squad-only user must never resume onto `/sessions`/`/feed`). Overlaps s164 fast-follow #3.
+
+**TECH DEBT found — `/api/notify` direct mode is UNAUTHENTICATED.** Only `cronType`
+mode checks `CRON_SECRET`; direct mode sends to a team's subscribers given just
+`teamId` + `payload` (used here to fire the test push). Anyone could POST spam to a
+team's own subscribers. Limited blast radius (a team's own players) but should be
+gated. NOT fixed (changing it must not break the in-app event triggers that call it).
+
+No migration this session (all code/native; no schema change). **Next free mig = 371.**
+
 ## SESSION 164 — ✅ APP SUBMITTED TO APPLE (1.0 build 2, Waiting for Review). Stage 5.3 device-walk burndown + 4 fast-follow items OPEN
 
 **iOS app SUBMITTED** (Submission ID `f45149a8-18ed-4b09-87b2-83e19dd14548`, manual
