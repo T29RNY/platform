@@ -17,6 +17,7 @@ import PageHeader  from "../components/ui/PageHeader.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import { registerNativePush } from "../native/native-push.js";
+import { Capacitor } from "@capacitor/core";
 import Tile        from "../components/ui/Tile.jsx";
 import Avatar      from "../components/ui/Avatar.jsx";
 import NavBar      from "../components/ui/NavBar.jsx";
@@ -319,7 +320,14 @@ export default function PlayerView({
   // ── existing derived ── (unchanged)
   const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-  const canPush      = "PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone);
+  // Native (Capacitor) push goes through the APNs/FCM plugin, NOT the web
+  // PushManager/serviceWorker APIs — which don't exist in the iOS WKWebView.
+  // So treat a native build as push-capable regardless of those web checks;
+  // otherwise the "Enable" opt-in never renders on the App Store / TestFlight
+  // build and no device token is ever captured.
+  const isNativeApp  = Capacitor.isNativePlatform();
+  const canPush      = isNativeApp ||
+    ("PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone));
 
   // Persistent guests (S1): only ACTIVE guests (status !== 'none') count as
   // "my +1s this week". A dormant guest row left over from last week must NOT
