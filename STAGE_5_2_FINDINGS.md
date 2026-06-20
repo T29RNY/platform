@@ -2,6 +2,34 @@
 Device: iPhone18,2 (iOS 26.6), wrap loads remote https://app.in-or-out.com.
 NOTE: fixes must DEPLOY to app.in-or-out.com (wrap loads remote), then re-walk.
 
+## ✅ STAGE 5.3 DEVICE-WALK OUTCOMES (s164) — ALL CLEARED
+Rebuilt ios/ (existing project, scheme + caps intact), redeployed remote bundle.
+- **F1 safe-area** ✅ device-confirmed (headers clear the Dynamic Island).
+- **F2 splash hang** ✅ device-confirmed — auto-hide safety net fires (the in-app
+  SplashScreen.hide() proved unreliable in the wrap; 2.5s net catches it, no hang).
+- **F3 sign-in wordmark** ✅ device-confirmed (green/red lockup).
+- **F4 Apple/Google return** ✅ device-confirmed — SIGNED IN via Face ID. Root
+  cause was NOT the allowlist (already correct) NOR a missing scheme NOR
+  SFSafariViewController handoff: the deep link DOES return (appUrlOpen fires), but
+  Supabase sends the session as a `#access_token=` HASH (implicit), which the old
+  `?code=`-only handler ignored. Fix = native-shell appUrlOpen now routes the
+  WebView into the real web `/auth/callback` carrying query+hash, reusing the
+  proven web flow. The ASWebAuthenticationSession plugin is therefore NOT needed —
+  left DORMANT in native-auth.js + ios-plugins/AuthSession/ as insurance only.
+- **F5 false "You're offline"** ✅ device-confirmed — REMOVED capacitor.config
+  errorPath: App.jsx's launch redirect bridge fires window.location.replace during
+  first render → -999 (cancelled) → Capacitor mis-served offline.html on every
+  online launch. (NEW finding, s164.)
+- **F6 multi-context headers** ✅ — UnifiedFeed/ParentHome amber wordmark → green/
+  red lockup; safe-area-top added to Feed/Parent/Sessions/MemberProfile headers
+  (every top-level header missed in F1's first pass). (NEW finding, s164.)
+- **F7 Sessions blank screen** ✅ device-confirmed — SessionsScreen returned null
+  for a signed-in user with no club membership → all-black page; now a "No clubs
+  yet" empty state. (NEW finding, s164.)
+Commits: 38cbbe4 (F1/F2/F3), f44b76d (F4 re-diagnosis + dormant authsession),
+2b4b909 (F5 + F4 hash handler), c43a205 (F6 + F7). NEXT: capture 4.1 screenshots
+(1320×2868) on the corrected layout, then Stage 6 upload + submit.
+
 ## F1 — Safe-area top inset not applied on casual player shell (Test 1)
 Symptom: status bar / Dynamic Island overlaps the green PageHeader on the
 player "my-view" screen.
