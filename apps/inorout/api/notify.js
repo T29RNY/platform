@@ -103,6 +103,53 @@ function deliverApns(sub, payloadObj) {
   });
 }
 
+// Diagnostic: send to a DUMMY device token to prove the JWT/creds/topic are
+// accepted by Apple WITHOUT needing a real device. Returns Apple's raw status +
+// reason. Expected when creds are correct: 400 / "BadDeviceToken" (auth OK, token
+// bad). A 403 "InvalidProviderToken"/"ExpiredProviderToken" means the .p8/key-id/
+// team-id/signing is wrong. A 400 "TopicDisallowed"/"BadTopic" means APNS_BUNDLE_ID
+// is wrong. Used by the `apnsDiag` cron branch. Never delivers a real push.
+function apnsHandshakeProbe() {
+  return new Promise((resolve) => {
+    if (!apnsConfigured()) return resolve({ configured: false });
+    const host = process.env.APNS_PRODUCTION === 'true'
+      ? 'https://api.push.apple.com' : 'https://api.sandbox.push.apple.com';
+    let client;
+    try { client = http2.connect(host); }
+    catch (e) { return resolve({ configured: true, error: e.message }); }
+    client.on('error', (e) => { try { client.close(); } catch {} resolve({ configured: true, error: e.message }); });
+    const req = client.request({
+      ':method': 'POST',
+      ':path': `/3/device/${'a'.repeat(64)}`,
+      authorization: `bearer ${apnsToken()}`,
+      'apns-topic': process.env.APNS_BUNDLE_ID,
+      'apns-push-type': 'alert',
+      'content-type': 'application/json',
+    });
+    let status = 0, data = '';
+    req.on('response', (h) => { status = h[':status']; });
+    req.on('data', (c) => { data += c; });
+    req.on('end', () => {
+      try { client.close(); } catch {}
+      let reason = data;
+      try { reason = JSON.parse(data).reason || data; } catch {}
+      const credsOk = status === 400 && reason === 'BadDeviceToken';
+      resolve({
+        configured: true,
+        production: process.env.APNS_PRODUCTION === 'true',
+        bundleId: process.env.APNS_BUNDLE_ID,
+        status, reason,
+        credsAccepted: credsOk,
+        verdict: credsOk
+          ? 'APNs creds/signing/topic all accepted by Apple (dummy token rejected as expected).'
+          : `Unexpected — investigate: status=${status} reason=${reason}`,
+      });
+    });
+    req.on('error', (e) => { try { client.close(); } catch {} resolve({ configured: true, error: e.message }); });
+    req.end(JSON.stringify({ aps: { alert: { title: 'probe', body: 'probe' }, sound: 'default' } }));
+  });
+}
+
 // --- FCM (Android): HTTP v1 with an OAuth token from the service account -------
 // env: FCM_SERVICE_ACCOUNT (service-account JSON string), FCM_PROJECT_ID (optional
 //      — falls back to project_id inside the service account)
@@ -283,6 +330,12 @@ async function getSubsForPlayers(teamId, playerIds) {
 
 async function handleCron(cronType) {
   const now = new Date();
+
+  // apnsDiag — prove APNs creds/signing/topic are accepted by Apple without a
+  // real device. Guarded by the CRON_SECRET check in the handler. Sends nothing.
+  if (cronType === 'apnsDiag') {
+    return apnsHandshakeProbe();
+  }
 
   // flushQueue — send any notifications queued during quiet hours
   if (cronType === 'flushQueue') {
