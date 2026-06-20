@@ -311,7 +311,7 @@ export default function MemberProfile({ authUser }) {
       <div style={{
         background: "var(--b2)",
         borderBottom: "1px solid var(--border-subtle)",
-        padding: "20px 20px 16px",
+        padding: "calc(20px + env(safe-area-inset-top)) 20px 16px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",

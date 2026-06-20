@@ -952,10 +952,39 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     </div>
   );
 
-  if (!memberProfile) return null;
-
-  const activeClubs = memberProfile.active_clubs ?? [];
-  if (activeClubs.length === 0) return null;
+  const activeClubs = memberProfile?.active_clubs ?? [];
+  // No member profile / no active clubs → empty state, NOT a blank page. A
+  // signed-in user with the multi-context nav but no club membership lands here
+  // (e.g. fresh OAuth identity); returning null rendered an all-black screen.
+  if (!memberProfile || activeClubs.length === 0) return (
+    <div style={wrap}>
+      <div style={{
+        background: "var(--b2)",
+        borderBottom: "1px solid var(--border-subtle)",
+        padding: "calc(20px + env(safe-area-inset-top)) 20px 16px",
+      }}>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 26, lineHeight: 1 }}>
+          Sessions
+        </div>
+      </div>
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", flex: 1, gap: 12, padding: "40px 24px",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: 40 }}>🎟️</div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 22, color: "var(--t1)" }}>
+          No clubs yet
+        </div>
+        <p style={{
+          color: "var(--t2)", fontFamily: "var(--font-body)", fontSize: 14,
+          lineHeight: 1.5, maxWidth: 280, margin: 0,
+        }}>
+          When you join a club, its training sessions, tournaments and bookings show up here.
+        </p>
+      </div>
+    </div>
+  );
 
   const selectedClub = activeClubs.find(c => c.club_id === selectedClubId) ?? null;
   const isManager = (memberProfile.managed_teams ?? []).some(t => t.club_id === selectedClubId);
@@ -969,7 +998,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       <div style={{
         background: "var(--b2)",
         borderBottom: "1px solid var(--border-subtle)",
-        padding: "20px 20px 16px",
+        padding: "calc(20px + env(safe-area-inset-top)) 20px 16px",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 26, lineHeight: 1 }}>

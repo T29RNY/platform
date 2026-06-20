@@ -131,9 +131,13 @@ export default function UnifiedFeedScreen() {
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif",
       paddingBottom: 72 }}>
-      <div style={{ padding:"20px 18px 12px", borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
-          color:C.amber, letterSpacing:3 }}>IN OR OUT</div>
+      <div style={{ padding:"calc(20px + env(safe-area-inset-top)) 18px 12px", borderBottom:`1px solid ${C.border}` }}>
+        {/* Brand lockup — IN green · OR neutral · OUT red (matches PageHeader). */}
+        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28, letterSpacing:3 }}>
+          <span style={{ color:C.green }}>IN</span>
+          <span style={{ color:C.text }}> OR </span>
+          <span style={{ color:C.red }}>OUT</span>
+        </div>
         <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>What's coming up</div>
       </div>
 
