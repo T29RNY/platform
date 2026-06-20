@@ -20,12 +20,17 @@
 import { Capacitor } from '@capacitor/core';
 import { savePushSubscription } from '@platform/core/storage/supabase.js';
 
+// `callbacks` (optional): { onRegistered(), onError(err) } — fire on the ACTUAL
+// async outcome so the caller can mark "subscribed" only when a token truly
+// landed (not the moment registration is kicked off — which optimistically
+// hid the Enable prompt forever when the token never arrived).
+//
 // Returns:
-//   'subscribed'   — permission granted, registration kicked off, token will be
-//                    saved by the listener
-//   'denied'       — user declined the OS permission prompt
-//   false          — not a native platform (caller should use the web flow)
-export async function registerNativePush(playerToken) {
+//   'registering' — permission granted, register() called; the real result
+//                   arrives later via callbacks.onRegistered / onError
+//   'denied'      — user declined the OS permission prompt
+//   false         — not a native platform (caller should use the web flow)
+export async function registerNativePush(playerToken, callbacks = {}) {
   if (!Capacitor.isNativePlatform()) return false;
   if (!playerToken) return false;
 
@@ -40,22 +45,28 @@ export async function registerNativePush(playerToken) {
   }
   if (perm.receive !== 'granted') return 'denied';
 
+  // Avoid stacking duplicate listeners across repeated subscribe taps.
+  try { await PushNotifications.removeAllListeners(); } catch { /* noop */ }
+
   // One-shot token capture. Listeners persist for the app's lifetime; we only
   // need the first token, but re-registers (token rotation) re-fire this and
   // upsert harmlessly via the (player_id, platform) unique key.
   await PushNotifications.addListener('registration', async (token) => {
     try {
       await savePushSubscription(playerToken, { token: token.value }, platform);
+      callbacks.onRegistered?.();
     } catch (e) {
       console.error('native push: save token failed', e);
+      callbacks.onError?.(e);
     }
   });
 
   await PushNotifications.addListener('registrationError', (err) => {
     console.error('native push: registration error', err);
+    callbacks.onError?.(err);
   });
 
   // Triggers APNs/FCM registration; the OS replies on the 'registration' event.
   await PushNotifications.register();
-  return 'subscribed';
+  return 'registering';
 }

@@ -528,7 +528,10 @@ export default function PlayerProfile({
       {/* Sticky back header */}
       <div style={{
         position:"sticky", top:0, zIndex:50, background:"var(--bg)",
-        borderBottom:"0.5px solid var(--b2)", padding:"12px 16px",
+        borderBottom:"0.5px solid var(--b2)",
+        // Pad for the status bar / notch so the back arrow + title aren't
+        // tucked under it on a native (Capacitor) build or notched PWA.
+        padding:"calc(12px + env(safe-area-inset-top)) 16px 12px",
         display:"flex", alignItems:"center", gap:12,
       }}>
         <div onClick={onBack} style={{

@@ -452,10 +452,23 @@ export default function PlayerView({
     try {
       // Native wrapper (iOS/Android): use APNs/FCM via the Capacitor bridge.
       // Returns false on the web so we fall through to the web-push flow.
-      const native = await registerNativePush(me?.token);
-      if (native === "subscribed") {
-        localStorage.setItem(`notif_${myId}`, "subscribed");
-        setNotifState("subscribed");
+      const native = await registerNativePush(me?.token, {
+        // Mark subscribed ONLY when a device token actually lands and saves.
+        onRegistered: () => {
+          localStorage.setItem(`notif_${myId}`, "subscribed");
+          setNotifState("subscribed");
+        },
+        // Token never arrived / save failed → reset to idle so the Enable
+        // prompt comes back and the user can retry (no permanent stuck state).
+        onError: () => {
+          localStorage.removeItem(`notif_${myId}`);
+          setNotifState("idle");
+        },
+      });
+      if (native === "registering") {
+        // Registration kicked off — stay in a pending state until the callback
+        // fires. Do NOT optimistically persist "subscribed".
+        setNotifState("asking");
         return;
       }
       if (native === "denied") {

@@ -207,7 +207,9 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
         {/* Top bar */}
         <div style={{
           position: "sticky", top: 0, zIndex: 10,
-          background: "var(--bg)", padding: "12px 0",
+          background: "var(--bg)",
+          // Clear the status bar / notch so the back arrow isn't tucked under it.
+          padding: "calc(12px + env(safe-area-inset-top)) 0 12px",
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
           <button onClick={onClose} style={{
