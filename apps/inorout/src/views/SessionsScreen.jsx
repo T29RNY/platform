@@ -72,7 +72,7 @@ const fmtTime = (iso) => {
   } catch { return ""; }
 };
 
-export default function SessionsScreen({ authUser, memberProfile: memberProfileProp }) {
+export default function SessionsScreen({ authUser, memberProfile: memberProfileProp, hasFeed = false }) {
   const [memberProfile, setMemberProfile] = useState(memberProfileProp ?? undefined);
   const [children, setChildren]           = useState([]);
   const [loading, setLoading]             = useState(!memberProfileProp);
@@ -983,7 +983,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           When you join a club, its training sessions, tournaments and bookings show up here.
         </p>
       </div>
-      <ClubNavBar active="sessions" />
+      <ClubNavBar active="sessions" hasFeed={hasFeed} />
     </div>
   );
 
@@ -2445,7 +2445,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       )}
 
       <Tour tourKey="io_tour_club_sessions" enabled={clubToursEnabled()} />
-      <ClubNavBar active="sessions" passToken={selectedClub?.pass_token} clubEntry={selectedClub} />
+      <ClubNavBar active="sessions" passToken={selectedClub?.pass_token} clubEntry={selectedClub} hasFeed={hasFeed} />
     </div>
   );
 }

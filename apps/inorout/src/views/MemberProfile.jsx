@@ -34,7 +34,7 @@ const PHOTO_USES = [
   { key: "marketing",label: "Marketing materials" },
 ];
 
-export default function MemberProfile({ authUser }) {
+export default function MemberProfile({ authUser, hasFeed = false }) {
   const [profile, setProfile] = useState(undefined); // undefined=loading, null=no profile
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(null);
@@ -359,7 +359,7 @@ export default function MemberProfile({ authUser }) {
           Delete my account
         </button>
       </div>
-      <ClubNavBar active="profile" />
+      <ClubNavBar active="profile" hasFeed={hasFeed} />
     </div>
   );
 
@@ -1135,7 +1135,7 @@ export default function MemberProfile({ authUser }) {
         </div>
       </div>
       <Tour tourKey="io_tour_club_profile" enabled={clubToursEnabled()} />
-      <ClubNavBar active="profile" passToken={selectedClub?.pass_token ?? null} clubEntry={selectedClub} />
+      <ClubNavBar active="profile" passToken={selectedClub?.pass_token ?? null} clubEntry={selectedClub} hasFeed={hasFeed} />
     </div>
   );
 }

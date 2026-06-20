@@ -1159,7 +1159,7 @@ export default function App() {
       </div>
     );
     if (!authUser) return <SignIn returnTo="/profile" />;
-    return <MemberProfile authUser={authUser} />;
+    return <MemberProfile authUser={authUser} hasFeed={homeScreenType === "multi"} />;
   }
 
   if (route.type === "sessions") {
@@ -1170,7 +1170,7 @@ export default function App() {
       </div>
     );
     if (!authUser) return <SignIn returnTo="/sessions" />;
-    return <SessionsScreen authUser={authUser} memberProfile={memberProfile} />;
+    return <SessionsScreen authUser={authUser} memberProfile={memberProfile} hasFeed={homeScreenType === "multi"} />;
   }
 
   if (route.type === "classes") {

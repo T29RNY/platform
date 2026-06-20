@@ -1,4 +1,4 @@
-import { Chats, CalendarCheck, Barbell, IdentificationCard, User } from "@phosphor-icons/react";
+import { Chats, CalendarCheck, Barbell, IdentificationCard, User, House } from "@phosphor-icons/react";
 import NavBar from "./NavBar.jsx";
 import { deriveClubContext } from "../../lib/deriveContext.js";
 import { getDisciplineLabels } from "../../lib/disciplineLabels.js";
@@ -18,7 +18,7 @@ import { getDisciplineLabels } from "../../lib/disciplineLabels.js";
 //               hrefs so a multi-club member keeps the club they're viewing when
 //               moving between club screens via the bottom nav (Phase 1 bug fix —
 //               without it those tabs dropped the selection and reset to club[0]).
-export default function ClubNavBar({ active, passToken = null, clubEntry = null }) {
+export default function ClubNavBar({ active, passToken = null, clubEntry = null, hasFeed = false }) {
   const ctx = deriveClubContext(clubEntry || {}); // descriptor (Phase 1 — club context)
   // Tab wording comes from the club's discipline (mig 355). Absent → 'football'
   // defaults, so the casual/football nav label set is byte-identical to before.
@@ -27,9 +27,15 @@ export default function ClubNavBar({ active, passToken = null, clubEntry = null 
   const clubId = clubEntry?.club_id ?? null;
   const withClub = (path) => clubId ? `${path}?club=${encodeURIComponent(clubId)}` : path;
 
-  const tabs = [
-    { id: "sessions", label: labels.sessionsTab, Icon: Chats, active: active === "sessions", onSelect: () => go(withClub("/sessions")) },
-  ];
+  const tabs = [];
+  // Feed tab — only for multi-context users (homeScreenType "multi"), whose home
+  // IS the unified Feed. Without it, navigating Feed→Sessions stranded them away
+  // from Feed (this bar had no Feed tab). Club-only members (no Feed home) never
+  // get it, so their nav is byte-identical to before.
+  if (hasFeed) {
+    tabs.push({ id: "feed", label: "Feed", Icon: House, active: active === "feed", onSelect: () => go("/feed") });
+  }
+  tabs.push({ id: "sessions", label: labels.sessionsTab, Icon: Chats, active: active === "sessions", onSelect: () => go(withClub("/sessions")) });
   // Classes tab (gym/boxing Phase 1, mig 356) — lit only for non-football disciplines,
   // where venue classes / sparring nights live. Football clubs keep the original tab set
   // (Sessions · Pass · Profile), byte-identical to before, so the casual flow is untouched.
