@@ -1193,29 +1193,50 @@ export default function PlayerView({
                 </div>
               )}
 
-              {/* Push subscription prompt — gameIsLive only */}
-              {schedule.gameIsLive && me?.status && me.status !== "none" && canPush && notifState === "idle" && (
+              {/* Push subscription prompt — gameIsLive only. Renders for every
+                  notif state EXCEPT dismissed, so the user always gets feedback:
+                  a clear "on" confirmation on success, a pending label while
+                  registering, and a Settings hint if they've blocked it. */}
+              {schedule.gameIsLive && me?.status && me.status !== "none" && canPush && notifState !== "dismissed" && (
                 <div style={{ margin:"0 12px 12px", padding:"10px 14px", borderRadius:"var(--rs)",
-                  background:"var(--s2)", border:"0.5px solid var(--border-subtle)",
+                  background: notifState === "subscribed" ? "color-mix(in srgb, var(--green) 12%, var(--s2))" : "var(--s2)",
+                  border:`0.5px solid ${notifState === "subscribed" ? "color-mix(in srgb, var(--green) 40%, var(--border-subtle))" : "var(--border-subtle)"}`,
                   display:"flex", alignItems:"center", gap:10 }}>
-                  <Bell size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
-                  <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
-                    Get notified when a spot opens or squad fills up
-                  </div>
-                  <button onClick={handleSubscribe} style={{
-                    background:"var(--gold)", color:"var(--black)", border:"none", borderRadius:7,
-                    padding:"7px 12px", fontSize:12, fontWeight:500,
-                    fontFamily:"var(--font-body)", cursor:"pointer", flexShrink:0 }}>
-                    {notifState === "asking" ? "..." : "Enable"}
-                  </button>
-                  <button onClick={() => {
-                    localStorage.setItem(`notif_${myId}`, "dismissed");
-                    setNotifState("dismissed");
-                  }} style={{ fontSize:12, color:"var(--t2)", background:"none", border:"none",
-                    fontFamily:"var(--font-body)", cursor:"pointer", padding:"7px 4px",
-                    flexShrink:0, fontWeight:300 }}>
-                    Not now
-                  </button>
+                  <Bell size={20} weight="thin"
+                    color={notifState === "subscribed" ? "var(--green)" : "var(--t1)"} style={{ flexShrink:0 }} />
+
+                  {notifState === "subscribed" ? (
+                    <div style={{ flex:1, fontSize:12, color:"var(--t1)", fontWeight:400, lineHeight:1.4 }}>
+                      Notifications on — we'll ping you when a spot opens or the squad fills up.
+                    </div>
+                  ) : notifState === "denied" ? (
+                    <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
+                      Notifications are off. Turn them on in <strong style={{ color:"var(--t1)" }}>Settings → In or Out → Notifications</strong>.
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
+                        {notifState === "asking"
+                          ? "Turning on notifications…"
+                          : "Get notified when a spot opens or squad fills up"}
+                      </div>
+                      <button onClick={handleSubscribe} disabled={notifState === "asking"} style={{
+                        background:"var(--gold)", color:"var(--black)", border:"none", borderRadius:7,
+                        padding:"7px 12px", fontSize:12, fontWeight:500,
+                        fontFamily:"var(--font-body)", cursor: notifState === "asking" ? "default" : "pointer",
+                        opacity: notifState === "asking" ? 0.6 : 1, flexShrink:0 }}>
+                        {notifState === "asking" ? "…" : "Enable"}
+                      </button>
+                      <button onClick={() => {
+                        localStorage.setItem(`notif_${myId}`, "dismissed");
+                        setNotifState("dismissed");
+                      }} style={{ fontSize:12, color:"var(--t2)", background:"none", border:"none",
+                        fontFamily:"var(--font-body)", cursor:"pointer", padding:"7px 4px",
+                        flexShrink:0, fontWeight:300 }}>
+                        Not now
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
               {/* Guest payment rows — one per active guest, inside card, gold-tinted bg */}

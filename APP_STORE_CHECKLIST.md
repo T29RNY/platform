@@ -35,6 +35,25 @@ real-device). Dependencies are called out so nothing is built before its inputs 
   team_id, subscription)`; `subscription` is the VAPID jsonb. No platform/token-type column.
   Native APNs/FCM tokens are a different transport → schema + send-path change (migration 368).
   Biggest code lump in the epic.
+- 🚨 **NATIVE PUSH REQUIRES MANUAL `ios/` EDITS — re-apply on every regeneration**
+  (`ios/` is gitignored; `npx cap add ios` does NOT add these). Proven on-device s165:
+  without them `register()` fires but iOS returns **no token and no error** (silent fail).
+  1. **`ios/App/App/AppDelegate.swift`** — add the two APNs-forwarding methods, or the
+     `@capacitor/push-notifications` `'registration'` event never fires and no token is
+     ever captured:
+     ```swift
+     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+         NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+     }
+     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+     }
+     ```
+  2. **`ios/App/App/App.entitlements`** — `aps-environment` MUST be `production` for
+     TestFlight / App Store builds (server runs `APNS_PRODUCTION=true`). Use `development`
+     ONLY for a debug run straight from Xcode (sandbox token). A dev token will NOT deliver
+     via the production server and gets pruned as `BadDeviceToken`.
+  3. **Xcode → App target → Signing & Capabilities** must list **Push Notifications** (it does).
 - ✅ **Payments are exempt from Apple IAP** — pitch booking / gym membership / PT / classes are
   real-world services (Guideline 3.1.3(e)/3.1.5(a)). Stripe + GoCardless already use hosted
   redirect→return (`api/stripe-member-checkout.js`, `api/gocardless-mandate.js`) into

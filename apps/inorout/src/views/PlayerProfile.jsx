@@ -258,6 +258,7 @@ export default function PlayerProfile({
   const [contactSaving,  setContactSaving]  = useState(false);
   const [contactSaved,   setContactSaved]   = useState(false);
   const [contactError,   setContactError]   = useState(null);
+  const [pushMsg,        setPushMsg]        = useState(null); // native push register feedback
 
   // Leave-squad — two-tap confirm, inline error
   const [leaveConfirming, setLeaveConfirming] = useState(false);
@@ -354,10 +355,19 @@ export default function PlayerProfile({
       await setPlayerContact(me.token, contactPhone, contactChannel);
       // When the user picks in-app push, register the device for native
       // (APNs/FCM) push too — otherwise choosing "Push notification (this app)"
-      // saves the preference but never captures a device token (the inline
-      // Enable prompt was the only path before). No-ops on web (returns false).
+      // saves the preference but never captures a device token. The result is
+      // async (the token arrives via a listener), so report the real outcome
+      // via callbacks. No-ops on web (returns false → no message).
       if (contactChannel === "push") {
-        try { await registerNativePush(me.token); } catch { /* best-effort */ }
+        setPushMsg(null);
+        const r = await registerNativePush(me.token, {
+          onRegistered: () => setPushMsg({ ok:true,  text:"Push notifications are on ✓" }),
+          onError:      () => setPushMsg({ ok:false, text:"Couldn't turn on push — check Settings → In or Out → Notifications." }),
+        });
+        if (r === "registering") setPushMsg({ ok:true, text:"Turning on push…" });
+        else if (r === "denied") setPushMsg({ ok:false, text:"Notifications are blocked. Enable them in Settings → In or Out → Notifications." });
+      } else {
+        setPushMsg(null);
       }
       setContactSaved(true);
       setTimeout(() => setContactSaved(false), 2000);
@@ -684,6 +694,10 @@ export default function PlayerProfile({
 
                   {contactError && (
                     <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{contactError}</div>
+                  )}
+                  {pushMsg && (
+                    <div style={{ fontSize:11, fontWeight:400, marginTop:6,
+                      color: pushMsg.ok ? "var(--green)" : "var(--red)" }}>{pushMsg.text}</div>
                   )}
                   <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
                     Used for league fixture reminders. Push is the default.
