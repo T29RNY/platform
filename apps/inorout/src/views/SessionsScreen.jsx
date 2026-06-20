@@ -983,6 +983,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           When you join a club, its training sessions, tournaments and bookings show up here.
         </p>
       </div>
+      <ClubNavBar active="sessions" />
     </div>
   );
 

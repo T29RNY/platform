@@ -316,6 +316,7 @@ export default function MemberProfile({ authUser }) {
           Your profile fills in once you join a club or a squad.
         </p>
       </div>
+      <ClubNavBar active="profile" />
     </div>
   );
 
