@@ -9,7 +9,13 @@
 everything that doesn't need an approved App Store listing, ahead of approval. Phase 1 (identity
 layer) is pure additive backend with no device dependency, so it landed early.
 Full phased plan: `~/.claude/plans/once-the-ios-app-dapper-marshmallow.md`. Design brief:
-`WATCH_DESIGN_BRIEF.md` (handoff in progress → `WATCH_DESIGN_HANDOFF.md`). Locked decisions: DECISIONS.md s161.
+`WATCH_DESIGN_BRIEF.md` → **✅ design handoff DONE `WATCH_DESIGN_HANDOFF.md`** (s162, commit `17674e7`:
+all screens + tokens + SwiftUI stubs + interaction/haptic map + complication/Live Activity + a11y;
+Bebas→SF-Compressed for watch legibility; 5 engineer open-questions). Locked decisions: DECISIONS.md s161.
+**NEXT non-gated cycle** (operator s162): Phase 4 health-storage backend (`match_health_sessions` +
+`save_match_health_summary` + delete-account cascade + fitness surfacing) **+** the casual ref-assignment
+admin toggle in inorout (wires `assignCasualMatchRef`). Migrations from **370**. Paste-ready next-session
+prompt at the top of the plan file.
 
 **✅ Phase 1 — identity layer (mig 369, s162).** Two identity arms, one resolver. SCHEMA: `match_officials.user_id`,
 `club_cohorts.primary_official_id`, `matches.ref_player_id`+`ref_token` (additive/nullable). 5 SECDEF RPCs:
