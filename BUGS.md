@@ -3,6 +3,40 @@
 
 ---
 
+## SESSION 164 — ✅ APP SUBMITTED TO APPLE (1.0 build 2, Waiting for Review). Stage 5.3 device-walk burndown + 4 fast-follow items OPEN
+
+**iOS app SUBMITTED** (Submission ID `f45149a8-18ed-4b09-87b2-83e19dd14548`, manual
+release → won't go live until operator presses release after approval). Build is
+**iPhone-only** (TARGETED_DEVICE_FAMILY 1,2→1, build 1→2) to avoid the iPad-screenshot
+requirement + Apple iPad-design rejection (app renders as a narrow column on iPad).
+DSA/EU skipped (sells everywhere except EU; add trader info later, no resubmit).
+
+**Stage 5.3 fixes shipped + verified this session (all on `main`, deployed):**
+F1 safe-area insets on every top-level header; F2 splash auto-hide net; F3 sign-in
+green/red lockup; F4 Apple+Google sign-in (Supabase returns `#access_token` HASH not
+`?code` → native-shell appUrlOpen routes WebView into web /auth/callback); F5 removed
+Capacitor `errorPath` (App.jsx launch redirect → -999 cancelled-nav → mis-served
+offline.html ONLINE); F6 multi-context headers lockup+insets; F7 Sessions/Profile
+blank `return null` → empty states; F8 Feed tab vanished from ClubNavBar after leaving
+Feed (gated `hasFeed` = homeScreenType 'multi'); **mig 370 `delete_my_account_auth()`
+= account deletion for auth-only signed-in users (Apple 5.1.1(v)), EV 2/2+leak0,
+device-verified end-to-end**; Sign Out added to multi-context MemberProfile.
+
+**OPEN — fast-follow tech debt (all remote/website-side, deploy with NO App Store
+resubmission; none block launch; none affect the casual football flow):**
+1. **Guided-Tour popup overlays badly** on the squad screen in the installed app
+   (standalone-only, couldn't reproduce in a browser — needs a device screenshot to fix).
+2. **Signed-in user tapping a casual `/p/<token>` link** is bounced to their own home
+   instead of that squad (App.jsx homeScreenType redirect overrides the token route).
+3. **Brand-new sign-in lands on an empty "No clubs yet" Sessions** screen instead of a
+   clear create/join onboarding.
+4. **`delete_my_account_auth` admin-edge**: NO ACTION FKs (team_admins/venue_admins.user_id)
+   can leave a residual auth login for users who are also admins; their PII is still
+   scrubbed. Pure consumers delete cleanly.
+
+⛔ OWED: **real-device native-push DELIVERY test** (web push LIVE for PWA; native APNs
+wired + server-configured but unverified end-to-end) — **= NEXT SESSION**. **Next free mig = 371.**
+
 ## SESSION 163 — APP STORE wrap: Phase 0+1 DONE; Stage 5.2 device walk surfaced 4 findings (OPEN)
 iOS native build now runs on a real iPhone (iPhone18,2 / iOS 26.6). Deep-link test PASSED
 (universal link → opens app, routes to player screen). The device walk then surfaced 4 findings,

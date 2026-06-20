@@ -2,6 +2,30 @@
 Device: iPhone18,2 (iOS 26.6), wrap loads remote https://app.in-or-out.com.
 NOTE: fixes must DEPLOY to app.in-or-out.com (wrap loads remote), then re-walk.
 
+---
+
+## ✅ s164: APP SUBMITTED TO APPLE — Waiting for Review (1.0 build 2, iPhone-only, manual release)
+All Stage 5.3 findings (F1–F8) + account deletion (mig 370) shipped, deployed and
+device-verified. Submission ID `f45149a8-18ed-4b09-87b2-83e19dd14548`. Fast-follow
+tech debt (all remote, no-resubmit) logged in BUGS.md SESSION 164.
+
+## ▶ NEXT SESSION (s165) — native-push DELIVERY test (the one unverified piece)
+Web push is LIVE for PWA users. Native iOS push (APNs) is fully wired + server-configured
+(mig 368 push_subscriptions.platform; native-push.js captures the APNs token;
+api/notify.js `deliverPush` ios→APNs path; Vercel env APNS_KEY_ID=9KPP827P4U /
+APNS_TEAM_ID=JCC44FW6XR / APNS_BUNDLE_ID=uk.inorout.app / APNS_PRODUCTION=true /
+APNS_KEY_P8 live) but **end-to-end delivery has NEVER been verified on a real device.**
+
+Paste-ready next-session prompt:
+> Run the native-push delivery test for the iOS wrap. On the operator's real iPhone
+> (TestFlight build 1.0(2) or the released app): grant notification permission, confirm
+> native-push.js registers an APNs device token (check push_subscriptions has a row with
+> platform='ios' for that player), then trigger a notification (an availability nudge /
+> match-on alert, or a direct /api/notify call) and confirm it arrives as a real iOS push.
+> AUDIT the APNs path in api/notify.js + native-push.js first; report what's verified vs
+> assumed; fix anything broken; commit. APNS_PRODUCTION=true means the build must be the
+> TestFlight/App Store one (sandbox APNs won't match a production token). One session only.
+
 ## ✅ STAGE 5.3 DEVICE-WALK OUTCOMES (s164) — ALL CLEARED
 Rebuilt ios/ (existing project, scheme + caps intact), redeployed remote bundle.
 - **F1 safe-area** ✅ device-confirmed (headers clear the Dynamic Island).
