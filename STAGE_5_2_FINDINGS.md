@@ -77,6 +77,25 @@ Diagnostic still wanted: Xcode console lines around the tap (appUrlOpen? error?)
 After all three: **re-walk Tests 2,3,4,5,6,7,8,9,10** on the rebuilt app; capture
 the 4.1 screenshots (1320×2868) on the corrected layout. Then Stage 6 (upload+submit).
 
+## STAGE 5.3 STATUS (code fixes shipped)
+
+- **F2 ✅ CODE DONE** — `capacitor.config.ts` SplashScreen now `launchAutoHide:true`
+  + `launchShowDuration:2500` (native safety net; JS 400ms hide still wins on
+  success). ⛔ OWED (Mac/Xcode): `npx cap sync` → rebuild → cold-launch ×3.
+- **F1 ✅ CODE DONE + DEPLOYS** — `env(safe-area-inset-*)` added to: PageHeader
+  top pad, NavBar bottom (`max(26px, env(safe-area-inset-bottom))`), StatsView +
+  HistoryView sticky hero tops, PlayerView POTM fixed banner top. Build clean,
+  hygiene 7/7, additive-only.
+- **F3 ✅ CODE DONE + DEPLOYS** — SignIn header wordmark = green/red brand lockup
+  (IN `C.green` · OR `C.text` · OUT `C.red`, matches PageHeader/welcome) + the
+  header now carries the safe-area-top inset too (F1 on the sign-in screen).
+- **F4 ⛔ OWED (👤 Supabase dashboard)** — no code; add
+  `uk.inorout.app://auth/callback` to Auth → Redirect URLs + confirm Apple
+  Service ID/key, then re-test Apple AND Google return.
+- ⛔ HR#13 real-device re-walk OWED on the rebuilt app (Playwright MCP was not
+  connected this session, so the browser smoke was not auto-run — additive CSS
+  insets resolve to 0 on desktop; only the SignIn wordmark is visible there).
+
 State at end of s163: Phase 0+1 DONE. ios/ is gitignored (regenerate with
 `npm run build && npx cap add ios && npx capacitor-assets generate && npx cap sync`).
 Bundle uk.inorout.app, Team JCC44FW6XR, signing+caps done in Xcode (persist in the

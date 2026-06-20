@@ -680,7 +680,7 @@ export default function PlayerView({
       {potmBanner && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 90,
-          background: "var(--gold)", padding: "14px 20px",
+          background: "var(--gold)", padding: "calc(14px + env(safe-area-inset-top)) 20px 14px",
           textAlign: "center", fontFamily: "var(--font-body)",
         }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: "var(--bg)" }}>

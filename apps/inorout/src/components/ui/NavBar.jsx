@@ -79,7 +79,11 @@ export default function NavBar({ tabs, activeTab, onTabChange, onAdminClick }) {
       width:"100%", maxWidth:430,
       background:"rgba(8,8,6,0.97)",
       backdropFilter:"blur(30px)", WebkitBackdropFilter:"blur(30px)",
-      display:"flex", padding:"10px 0 26px",
+      display:"flex",
+      paddingTop:10, paddingLeft:0, paddingRight:0,
+      // Home-indicator clearance: 26px floor on non-notch, grows to the device
+      // safe-area inset on devices that have one (Stage 5.2 finding F1).
+      paddingBottom:"max(26px, env(safe-area-inset-bottom))",
       zIndex:100,
       borderTop:"0.5px solid rgba(255,255,255,0.1)",
     }}>

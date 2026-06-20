@@ -49,9 +49,14 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      // Held until the remote WebView has loaded, then hidden manually by the
-      // native bridge (native-shell.js) so users never see a white flash.
-      launchAutoHide: false,
+      // The native bridge (native-shell.js) hides the splash at ~400ms once the
+      // remote bundle's initNativeShell runs — that still wins on a normal launch.
+      // launchAutoHide + launchShowDuration is the NATIVE safety net: if the
+      // remote JS never executes (offline.html fallback has no Capacitor JS, or a
+      // load hiccup) the splash auto-hides after 2.5s instead of hanging forever.
+      // A launch hang is a hard App Review reject (Stage 5.2 finding F2).
+      launchAutoHide: true,
+      launchShowDuration: 2500,
       backgroundColor: '#0A0A08',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',

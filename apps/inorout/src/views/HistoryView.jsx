@@ -625,7 +625,7 @@ export default function HistoryView({ matchHistory = [], players = [], settings,
         .heroGlassStatValue{position:relative;z-index:1;font-size:26px;line-height:0.9;font-weight:700;letter-spacing:-0.04em;color:rgba(255,255,255,0.96);text-shadow:0 2px 10px rgba(0,0,0,0.28),0 0 24px rgba(255,255,255,0.08)}
         .heroGlassStatLabel{position:relative;z-index:1;margin-top:4px;font-size:9px;line-height:1;font-weight:400;letter-spacing:-0.01em;color:rgba(255,255,255,0.72);white-space:nowrap}
       `}</style>
-      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "0 16px" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--bg)", padding: "env(safe-area-inset-top) 16px 0" }}>
         <div style={{ position: "relative", borderRadius: "var(--r)", overflow: "hidden", height: 110 }}>
           <img
             src={HERO_IMG} alt=""

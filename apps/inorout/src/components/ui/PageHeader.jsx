@@ -57,7 +57,7 @@ export default function PageHeader({
   );
 
   return (
-    <div style={{ padding:"8px 12px 10px" }}>
+    <div style={{ padding:"calc(8px + env(safe-area-inset-top)) 12px 10px" }}>
       <motion.div
         variants={container}
         initial="hidden"

@@ -70,10 +70,14 @@ export default function SignIn({ teamName, onBack, returnTo }) {
       display:"flex", flexDirection:"column" }}>
 
       {/* Header */}
-      <div style={{ padding:"24px 24px 20px", background:C.bg,
+      <div style={{ padding:"calc(24px + env(safe-area-inset-top)) 24px 20px", background:C.bg,
         borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
-          color:C.amber, letterSpacing:3 }}>IN OR OUT</div>
+        {/* Brand lockup — IN green · OR neutral · OUT red (matches PageHeader / welcome). */}
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:28, letterSpacing:3 }}>
+          <span style={{ color:C.green }}>IN</span>
+          <span style={{ color:C.text }}> OR </span>
+          <span style={{ color:C.red }}>OUT</span>
+        </div>
         {teamName && (
           <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
             color:C.muted, marginTop:4 }}>
