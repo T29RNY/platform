@@ -31,6 +31,28 @@ import { supabase } from '@platform/core/storage/supabase.js';
 // scheme the native build registers and the Supabase Auth redirect allowlist.
 export const NATIVE_AUTH_REDIRECT = 'uk.inorout.app://auth/callback';
 
+// Custom URL scheme half of NATIVE_AUTH_REDIRECT — used by the authsession opener.
+const NATIVE_AUTH_SCHEME = 'uk.inorout.app';
+
+// Which iOS opener finishes the OAuth round-trip. DORMANT FALLBACK (Stage 5.3 /
+// F4). Two values:
+//   'browser'     — @capacitor/browser (SFSafariViewController). Default; the
+//                   return relies on the OS routing uk.inorout.app://auth/callback
+//                   to the app → native-shell's appUrlOpen → exchangeCodeForSession.
+//   'authsession' — ASWebAuthenticationSession via the custom `AuthSession`
+//                   native plugin (apps/inorout/ios-plugins/AuthSession/). The
+//                   session returns the callback URL STRAIGHT to JS, so the code
+//                   exchange happens here and DOES NOT depend on appUrlOpen /
+//                   SFSafariViewController handing back a custom-scheme redirect.
+//
+// Why this exists: F4 re-diagnosis (s164) — web Apple sign-in works, so Apple +
+// Supabase are correct; the only break is SFSafariViewController not reliably
+// returning the custom-scheme *redirect* to the app. If a device rebuild with the
+// scheme registered STILL shows no appUrlOpen in the Xcode console, flip this to
+// 'authsession' and add the AuthSession plugin to the Xcode target. The web path
+// is untouched either way.
+const NATIVE_OAUTH_VIA = 'browser';
+
 // startOAuth(provider, options)
 //   provider — 'google' | 'apple'
 //   options  — the exact options object the caller would pass to
@@ -45,8 +67,12 @@ export async function startOAuth(provider, options = {}) {
     return supabase.auth.signInWithOAuth({ provider, options });
   }
 
-  // NATIVE — open the provider URL in the system browser, return via deep link.
-  // Lazy import: @capacitor/browser is a native plugin; keep it off the web path.
+  // NATIVE — fallback opener takes the whole round-trip (open + return + exchange).
+  if (NATIVE_OAUTH_VIA === 'authsession') return startOAuthViaAuthSession(provider, options);
+
+  // NATIVE (default) — open the provider URL in the system browser, return via
+  // deep link. Lazy import: @capacitor/browser is a native plugin; keep it off
+  // the web path. The return is handled by native-shell's appUrlOpen listener.
   const { Browser } = await import('@capacitor/browser');
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
@@ -54,4 +80,42 @@ export async function startOAuth(provider, options = {}) {
   });
   if (!error && data?.url) await Browser.open({ url: data.url });
   return { data, error };
+}
+
+// DORMANT (Stage 5.3 / F4 fallback). Open the provider URL in
+// ASWebAuthenticationSession via the custom `AuthSession` native plugin, which
+// resolves with the final callback URL (uk.inorout.app://auth/callback?code=…)
+// DIRECTLY — no reliance on appUrlOpen or SFSafariViewController returning a
+// custom-scheme redirect. The PKCE verifier was stored in THIS webview by
+// signInWithOAuth(skipBrowserRedirect:true), so exchangeCodeForSession succeeds
+// here exactly as it does in native-shell's appUrlOpen path. Activate by setting
+// NATIVE_OAUTH_VIA='authsession' above + adding the plugin to the Xcode target
+// (see apps/inorout/ios-plugins/AuthSession/README.md). Never reached on web.
+async function startOAuthViaAuthSession(provider, options) {
+  const { registerPlugin } = await import('@capacitor/core');
+  const AuthSession = registerPlugin('AuthSession');
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { ...options, redirectTo: NATIVE_AUTH_REDIRECT, skipBrowserRedirect: true },
+  });
+  if (error) return { data, error };
+  if (!data?.url) return { data, error: new Error('No provider URL from signInWithOAuth') };
+
+  try {
+    // Native plugin opens ASWebAuthenticationSession and resolves once the OS
+    // captures the callbackURLScheme redirect. { url } is the full callback URL.
+    const { url: callbackUrl } = await AuthSession.start({
+      url: data.url,
+      scheme: NATIVE_AUTH_SCHEME,
+    });
+    const parsed = new URL(callbackUrl);
+    const errParam = parsed.searchParams.get('error');
+    if (errParam) return { data, error: new Error(errParam) };
+    const code = parsed.searchParams.get('code');
+    if (code) await supabase.auth.exchangeCodeForSession(code);
+    return { data, error: null };
+  } catch (e) {
+    return { data, error: e };
+  }
 }

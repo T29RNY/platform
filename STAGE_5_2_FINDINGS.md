@@ -43,14 +43,10 @@ Flow (native/native-auth.js): signInWithOAuth({provider, redirectTo:
 'uk.inorout.app://auth/callback', skipBrowserRedirect:true}) → Browser.open(url)
 → provider → Supabase callback → SHOULD redirect to uk.inorout.app://auth/callback
 → native-shell.js:67 appUrlOpen → exchangeCodeForSession.
-Likely cause (per native-auth.js:22 "DORMANT until allowlist"):
-  1. uk.inorout.app://auth/callback NOT in Supabase Auth → Redirect URLs allowlist.
-  2. and/or Apple provider Service ID (uk.inorout.app.signin) return URL / Apple
-     "Sign in with Apple" key not fully configured in Supabase Auth providers.
-Owner: 👤 Supabase dashboard (Auth → URL Config → Redirect URLs add the custom
-scheme; Auth → Providers → Apple verify Service ID + key). Then re-test.
-Same allowlist gap will also break Google return (Test 4) — test after fix.
-Diagnostic still wanted: Xcode console lines around the tap (appUrlOpen? error?).
+⚠️ ORIGINAL CAUSE (allowlist gap) DISPROVEN s164 — see the STAGE 5.3 STATUS F4
+entry below for the re-diagnosis. Short version: web Apple sign-in WORKS, so
+Apple/Supabase are correct; F4 is the native SFSafariViewController custom-scheme
+return only. Diagnostic that decides it: Xcode console — does appUrlOpen fire?
 
 ---
 
@@ -69,10 +65,13 @@ Diagnostic still wanted: Xcode console lines around the tap (appUrlOpen? error?)
    Then: build → **casual-regression (MANDATORY, touches apps/inorout/src)** →
    commit → push → confirm Vercel deploy live → wrap reload picks it up.
    ⛔ Hard Rule #13 re-walk owed.
-3. **F4 (👤 Supabase dashboard)** — Auth → URL Configuration → Redirect URLs:
-   add `uk.inorout.app://auth/callback`. Auth → Providers → Apple: confirm
-   Service ID `uk.inorout.app.signin` + the Apple sign-in key are set. Then
-   re-test Apple AND Google return (same allowlist gates both).
+3. **F4 (native deep-link — re-diagnosed s164, NOT Supabase).** Supabase + Apple
+   are PROVEN correct (web Apple sign-in works). Rebuild the current `ios/` (URL
+   scheme `uk.inorout.app` already registered) and re-test Apple, WATCHING the
+   Xcode console for `appUrlOpen`. If it never fires → activate the DORMANT
+   ASWebAuthenticationSession opener: set `NATIVE_OAUTH_VIA='authsession'` in
+   `native-auth.js` + add the `AuthSession` plugin (`apps/inorout/ios-plugins/
+   AuthSession/`) to the Xcode target. No Supabase/Apple dashboard change needed.
 
 After all three: **re-walk Tests 2,3,4,5,6,7,8,9,10** on the rebuilt app; capture
 the 4.1 screenshots (1320×2868) on the corrected layout. Then Stage 6 (upload+submit).
@@ -89,9 +88,30 @@ the 4.1 screenshots (1320×2868) on the corrected layout. Then Stage 6 (upload+s
 - **F3 ✅ CODE DONE + DEPLOYS** — SignIn header wordmark = green/red brand lockup
   (IN `C.green` · OR `C.text` · OUT `C.red`, matches PageHeader/welcome) + the
   header now carries the safe-area-top inset too (F1 on the sign-in screen).
-- **F4 ⛔ OWED (👤 Supabase dashboard)** — no code; add
-  `uk.inorout.app://auth/callback` to Auth → Redirect URLs + confirm Apple
-  Service ID/key, then re-test Apple AND Google return.
+- **F4 ⛔ OWED — but cause RE-DIAGNOSED s164 (NOT the Supabase allowlist).**
+  The s163 finding blamed a missing `uk.inorout.app://auth/callback` redirect-URL
+  allowlist entry. WRONG: operator confirmed s164 that entry + the Apple provider
+  (Service ID `uk.inorout.app.signin`, secret, callback) were ALREADY present and
+  unchanged when the walk failed. DECISIVE TEST s164: **Apple sign-in on the WEB
+  (`app.in-or-out.com` in plain Safari) WORKS** — signs in, Supabase redirects,
+  lands on the "Your Squads" chooser. Web uses the SAME Service ID + SAME Supabase
+  callback as native, so Apple Developer Center + the secret + the Supabase Apple
+  provider are all PROVEN correct. ⇒ F4 is **native-deep-link-only**. The CFBundle
+  URL scheme `uk.inorout.app` IS registered in the current `ios/` Info.plist
+  (`CFBundleURLSchemes`), and `native-shell.js:67` appUrlOpen→exchangeCodeForSession
+  is correct. The only divergence is the final hop: Supabase 302s to
+  `uk.inorout.app://auth/callback` INSIDE the SFSafariViewController that
+  `@capacitor/browser` opens, and SFSafariViewController does not reliably hand a
+  custom-scheme *redirect* (vs a user tap) back to the app — leaving the blank
+  Apple `form_post` page on screen. NEXT: rebuild the current `ios/` (scheme now
+  present) and re-test, WATCHING the Xcode console — does `appUrlOpen` fire?
+    • fires (exchangeCodeForSession runs) → s163 build simply lacked the scheme; FIXED.
+    • never fires (still blank) → SFSafariViewController handoff confirmed; activate
+      the ASWebAuthenticationSession opener (pre-written + DORMANT in native-auth.js,
+      `NATIVE_OAUTH_VIA='authsession'`; needs the AuthSession native plugin in
+      `apps/inorout/ios-plugins/AuthSession/` added to the Xcode target). It returns
+      the callback URL straight to JS, bypassing appUrlOpen/SFSafariViewController.
+  Same path gates Google native (shares the scheme). No Supabase/Apple change needed.
 - ⛔ HR#13 real-device re-walk OWED on the rebuilt app (Playwright MCP was not
   connected this session, so the browser smoke was not auto-run — additive CSS
   insets resolve to 0 on desktop; only the SignIn wordmark is visible there).
