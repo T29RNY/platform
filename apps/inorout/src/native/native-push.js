@@ -46,22 +46,13 @@ export async function registerNativePush(playerToken) {
   await PushNotifications.addListener('registration', async (token) => {
     try {
       await savePushSubscription(playerToken, { token: token.value }, platform);
-      // TEMP on-device diagnostic (push delivery test, session 165): confirm the
-      // full path succeeded without needing Xcode/Console. Remove once verified.
-      if (typeof alert === 'function') alert(`Push registered ✓\nToken saved (${platform}).`);
     } catch (e) {
       console.error('native push: save token failed', e);
-      if (typeof alert === 'function') alert(`Push: token received but SAVE failed.\n${e?.message || e}`);
     }
   });
 
   await PushNotifications.addListener('registrationError', (err) => {
     console.error('native push: registration error', err);
-    // TEMP on-device diagnostic — surfaces the real APNs error (e.g. missing
-    // aps-environment / provisioning) instead of swallowing it. Remove once verified.
-    if (typeof alert === 'function') {
-      alert(`Push registration FAILED (Apple/APNs).\n${err?.error || err?.message || JSON.stringify(err)}`);
-    }
   });
 
   // Triggers APNs/FCM registration; the OS replies on the 'registration' event.
