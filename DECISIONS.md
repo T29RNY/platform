@@ -2995,3 +2995,36 @@ Settled choices:
 
 This is a deliberate behaviour change to the casual +1 flow (operator-approved), not a competitive-mode
 leak — the "casual flow is sacred" constraint guards against unintended changes, not requested features.
+
+---
+
+## Canonical person spine (migration 371 — Phase 0a of the Unified Identity & Sync Spine)
+
+The platform had **four disconnected identity silos** — `players.user_id`,
+`member_profiles.auth_user_id`, `match_officials.user_id`, and the admin tables — each keyed only
+to `auth.uid()` with no links between them. The same human could be several unlinked rows
+(duplicate players; a player row and a member-profile that never connect; email-change drift).
+This is the foundation for the multi-role human (player + parent + coach + ref + member) to be
+one identity across every surface, phone and watch, with no crossovers.
+
+Settled choices:
+- **Canonical `people` layer with soft links, NOT a silo merge.** A new `people` table owns one
+  row per auth user; each silo gets a nullable `person_id`. The silos stay separate and intact
+  (nothing breaks) — `people` just gives them a single owner. Chosen for simplicity, best-practice,
+  futureproofing and "no crossovers" — the operator's overriding design rules.
+- **`people` holds linkage only — no PII (yet).** Storing just `auth_user_id` means deferring the
+  delete-account scrub leaves nothing to leak. `canonical_email`/`canonical_name` land later,
+  together with the scrub.
+- **Auto-maintenance by triggers, not by editing each claim/link RPC.** A BEFORE trigger on every
+  silo fills `person_id` whenever a row is linked to an auth user — catching all current and future
+  paths (claim, admin grant, etc.) with one mechanism. DRY, can't be forgotten, no RPC surface to
+  re-sweep, and it avoids touching the (separately-owned) delete-account functions.
+- **DEFERRED to backlog (operator timing): the delete-account person-scrub.** Extending
+  `delete_my_account` / `delete_my_account_auth` to scrub the `people` row on account deletion is
+  NOT part of this epic's actions. Reason: migration 370 (`delete_my_account_auth`) was created by
+  the parallel App-Store session; those functions soft-delete (detach `user_id`/`auth_user_id`,
+  never delete `auth.users`), so an FK cascade can't substitute — the scrub must edit those
+  functions and would collide. It will be built on top of their merged version. **Must land before
+  production/pilot** (until then, a deleted account would leave no `people` PII because `people`
+  holds none — the scrub is for detaching the link cleanly).
+- **Migration numbering:** 370 was taken by the App-Store session; this spine epic starts at 371.
