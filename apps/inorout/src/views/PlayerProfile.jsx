@@ -17,6 +17,7 @@ import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import AuthGateModal from "../components/AuthGateModal.jsx";
 import useRequireAuth from "../hooks/useRequireAuth.js";
+import { registerNativePush } from "../native/native-push.js";
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -351,6 +352,13 @@ export default function PlayerProfile({
     setContactSaving(true); setContactError(null); setContactSaved(false);
     try {
       await setPlayerContact(me.token, contactPhone, contactChannel);
+      // When the user picks in-app push, register the device for native
+      // (APNs/FCM) push too — otherwise choosing "Push notification (this app)"
+      // saves the preference but never captures a device token (the inline
+      // Enable prompt was the only path before). No-ops on web (returns false).
+      if (contactChannel === "push") {
+        try { await registerNativePush(me.token); } catch { /* best-effort */ }
+      }
       setContactSaved(true);
       setTimeout(() => setContactSaved(false), 2000);
     } catch (e) {
