@@ -942,6 +942,43 @@ export async function deleteMyAccount(token) {
   return body;
 }
 
+// Authenticated account deletion (no token) — for a signed-in user who has no
+// player token (a fresh Sign-in-with-Apple identity, or a club-member-only
+// account). delete_my_account_auth() (mig 370) anonymises any linked player +
+// member_profile PII and removes the user_profile via auth.uid(); then the
+// service-role API deletes the auth.users row, verifying identity from the
+// caller's own access token (never a client-supplied id). Throws
+// { code:'last_admin', teamIds } when blocked by the last-admin guard.
+export async function deleteMyAccountAuth() {
+  const { data, error } = await supabase.rpc('delete_my_account_auth');
+  if (error) {
+    const msg = error.message || '';
+    if (msg.startsWith('last_admin:')) {
+      const e = new Error('last_admin');
+      e.code = 'last_admin';
+      e.teamIds = msg.slice('last_admin:'.length).split(',').filter(Boolean);
+      throw e;
+    }
+    const e = new Error(msg || 'delete_failed');
+    e.code = msg || 'delete_failed';
+    throw e;
+  }
+  // Data is anonymised. Delete the auth.users row server-side (service role).
+  const { data: sess } = await supabase.auth.getSession();
+  const accessToken = sess?.session?.access_token;
+  try {
+    await fetch('/api/delete-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken }),
+    });
+  } catch (e) {
+    console.error('[deleteMyAccountAuth] auth-row delete request failed', e);
+  }
+  try { await supabase.auth.signOut(); } catch (e) { console.error(e); }
+  return data;
+}
+
 // ─── Demo data helpers ────────────────────────────────────────────────────────
 const DEMO_BASELINE = [
   { id:"p_demo_01", goals:18, motm:6, attended:20, w:13, l:5, d:2, bib_count:2, pay_count:20, late_dropouts:1, owes:0, injured:false },

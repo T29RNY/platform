@@ -3,7 +3,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
-         memberGetFightRecord, signOut } from "@platform/core/storage/supabase.js";
+         memberGetFightRecord, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
@@ -281,6 +281,27 @@ export default function MemberProfile({ authUser }) {
     padding: "0 0 calc(80px + env(safe-area-inset-bottom,0))",
   };
 
+  // Account deletion (Apple Guideline 5.1.1(v)) — auth.uid()-scoped, works even
+  // when the signed-in user has no squad/player token. Defined before the early
+  // returns so both the full profile and the empty state can use it.
+  const handleSignOut = async () => {
+    try { await signOut(); } catch (e) { console.error(e); }
+    window.location.replace("/");
+  };
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Permanently delete your account? This removes your sign-in and personal details and can't be undone.")) return;
+    try {
+      await deleteMyAccountAuth();
+      window.location.replace("/");
+    } catch (e) {
+      if (e?.code === "last_admin") {
+        window.alert("You're the last admin of a team. Hand over admin (or remove the team) before deleting your account.");
+      } else {
+        window.alert("Couldn't delete your account just now. Please try again, or email support@in-or-out.com.");
+      }
+    }
+  };
+
   if (profile === undefined) return (
     <div style={{ ...wrap, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <p style={{ color: "var(--t2)" }}>Loading…</p>
@@ -316,7 +337,7 @@ export default function MemberProfile({ authUser }) {
           Your profile fills in once you join a club or a squad.
         </p>
         <button
-          onClick={async () => { try { await signOut(); } catch (e) { console.error(e); } window.location.replace("/"); }}
+          onClick={handleSignOut}
           style={{
             marginTop: 8, padding: "12px 22px", borderRadius: "var(--r)",
             background: "transparent", border: "1px solid var(--border-subtle)",
@@ -325,6 +346,17 @@ export default function MemberProfile({ authUser }) {
           }}
         >
           Sign out
+        </button>
+        <button
+          onClick={handleDeleteAccount}
+          style={{
+            padding: "12px 22px", borderRadius: "var(--r)",
+            background: "transparent", border: "0.5px solid var(--redb)",
+            color: "var(--red)", fontFamily: "var(--font-body)", fontSize: 14,
+            cursor: "pointer", WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          Delete my account
         </button>
       </div>
       <ClubNavBar active="profile" />
@@ -1094,11 +1126,11 @@ export default function MemberProfile({ authUser }) {
 
         {/* ── Account ───────────────────────────────────────────────── */}
         <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            onClick={async () => { try { await signOut(); } catch (e) { console.error(e); } window.location.replace("/"); }}
-            style={btnStyle("transparent", "var(--t2)", true, "1px solid var(--border-subtle)")}
-          >
+          <button onClick={handleSignOut} style={btnStyle("transparent", "var(--t2)", true, "1px solid var(--border-subtle)")}>
             Sign out
+          </button>
+          <button onClick={handleDeleteAccount} style={btnStyle("transparent", "var(--red)", true, "0.5px solid var(--redb)")}>
+            Delete my account
           </button>
         </div>
       </div>

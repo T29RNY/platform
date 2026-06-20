@@ -19,8 +19,8 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ error: 'method_not_allowed' });
     }
 
-    const { token } = req.body || {};
-    if (!token) return res.status(400).json({ error: 'missing_token' });
+    const { token, accessToken } = req.body || {};
+    if (!token && !accessToken) return res.status(400).json({ error: 'missing_token' });
 
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.error('[delete-account] Supabase env vars missing');
@@ -32,6 +32,24 @@ module.exports = async function handler(req, res) {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { persistSession: false } }
     );
+
+    // Authenticated (no-token) path: the client already anonymised the user's
+    // data via the delete_my_account_auth() RPC (auth.uid()-scoped). All that's
+    // left is deleting the auth.users row, which needs the service role. We
+    // resolve the user id by VERIFYING the caller's own access token (never a
+    // client-supplied id), so a caller can only delete their own auth account.
+    if (!token && accessToken) {
+      const { data: u, error: uErr } = await supabase.auth.getUser(accessToken);
+      if (uErr || !u?.user?.id) {
+        return res.status(401).json({ error: 'invalid_session' });
+      }
+      const { error: aErr } = await supabase.auth.admin.deleteUser(u.user.id);
+      if (aErr) {
+        console.error('[delete-account] auth deletion failed (auth path):', aErr.message);
+        return res.status(200).json({ ok: true, authDeleted: false });
+      }
+      return res.status(200).json({ ok: true, authDeleted: true });
+    }
 
     // Stage 1 — anonymise + detach via RPC
     const { data, error } = await supabase.rpc('delete_my_account', {
