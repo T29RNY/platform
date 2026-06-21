@@ -69,6 +69,20 @@ export default function AuthCallback() {
         }
         localStorage.removeItem("auth_return_to");
 
+        // Hardening (unified login): a generic sign-in (no explicit deep-link, so
+        // returnTo defaulted to "/") must land on the fresh account landing — NOT
+        // resume a stale breadcrumb left in localStorage (e.g. a demo /p/ link
+        // opened earlier, which otherwise bounces the user around after sign-in).
+        // Explicit destinations (pending route/join, ?returnTo=) are honoured and
+        // never cleared.
+        if (returnTo === "/") {
+          try {
+            localStorage.removeItem("ioo_redirect_to");
+            localStorage.removeItem("ioo_last_visited");
+            localStorage.removeItem("ioo_last_context");
+          } catch (e) { /* storage unavailable — non-fatal */ }
+        }
+
         setStatus("success");
         setTimeout(() => {
           window.location.replace(returnTo);
