@@ -3057,3 +3057,41 @@ Settled choices:
 - **Nothing wired into inorout yet.** 0b ships the backend only; Phase 0c does the UI wiring in
   `App.jsx`/`ContextSwitcher`/`deriveContext`, which is why 0c is held until the App-Store session's
   edits to those files merge.
+
+### Phase 0c — nav unification: every hat in one switcher (JS-only, no migration)
+
+The hold cleared — the App-Store session's `App.jsx`/`PlayerView.jsx`/`PlayerProfile.jsx` edits are
+all on `main` (latest `cd4e3ef`), zero open PRs — so 0c proceeded. It wires `get_my_world()` (mig
+372) into the multi-context hub. No migration; the resolver already exists.
+
+Settled choices:
+- **`get_my_world()` is the single source for the context switcher.** `App.jsx` loads it once auth
+  resolves (and refreshes on switcher-open, since referee assignments + conflicts are time-sensitive)
+  and feeds `ContextSwitcher`: club memberships, each guarded child, referee assignments, club-team
+  coaching, and conflicts. The squad rows still come from `player_get_teams` (it carries the per-squad
+  `token` the switcher navigates with, which `get_my_world` does not), now tagged League/Casual from
+  its `is_competitive` flag. The old three-source patchwork (`getPlayerTeams` + `memberProfile.active_clubs`
+  + `getUserRelationships`) is retired for the switcher; `get_user_relationships` stays only for the
+  Event-OS landing/`homeScreenType` routing it already drives.
+- **Taxonomy 1–9 mapped to switcher entries by the locked clean-UX rule** (a switcher entry = an
+  identity/role or a top-level membership you switch *between*; sub-surfaces stay INSIDE their context):
+  casual squad (1) + league squad (2) = squad rows with a League/Casual badge; tournament (3) stays a
+  view inside the squad (no peer); club (4) + gym/MA (5) = one club row each, disciplines inside;
+  classes/PT (6) = sub-surfaces, no peer; guardian (7) = **one row per child** (was a single "Family"
+  entry); referee (8) = one "Referee" entry deep-linking to `apps/ref` (`platform-ref.vercel.app/?token=…`,
+  the next assignment); team-manager/captain (9) = the same-domain hat is the squad's Manager badge
+  (`team_admins` → Admin tab), and the cross-app club-OS `coaching[]` (`club_team_managers`) is surfaced
+  **read-only** ("in the club app") until Phase 0e can deep-link carrying the session.
+- **Switching is full-page navigation — the stale-realtime-on-switch guard.** Every switcher
+  destination uses `window.location.href`, so the browser tears down the whole React tree and the
+  realtime WebSocket on each switch; no React state and no subscription can bleed across contexts
+  (satisfies the "switching roles must not bleed state" gate). The realtime effects also `removeChannel`
+  on `teamId` change. The one in-app swap left — the legacy multi-team landing's `loadTeamData` (reached
+  only when the flag is OFF; flag-ON redirects to `/feed`) — changed `teamId` but not `liveChannelKey`,
+  leaving `team_live` pinned to the previous team; 0c clears `liveChannelKey` on swap so the stale
+  broadcast channel is torn down (postgres_changes re-keys on `teamId` and keeps authed realtime flowing).
+- **Conflicts surfaced as an overlap warning** at the top of the switcher (red-tinted, `--red` tokens),
+  reading the `conflicts[]` the resolver computes (play-vs-ref within 2h).
+- **Casual flow untouched by construction.** The switcher only renders behind the per-team
+  `multi_context_nav` flag; a casual-only user's avatar tap still opens the profile. All new App.jsx
+  state/effects are gated on `authUser`. Casual-regression = additive-diff PASS.

@@ -16,6 +16,7 @@ import {
   resetDemoData, updateDemoInteraction,
   memberGetSelf,
   getUserRelationships,
+  getMyWorld,
   getTeamFeatureFlags,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
@@ -341,6 +342,13 @@ export default function App() {
   // authUser resolves. Null until then — guarantees squad-only unauthenticated
   // users are never affected.
   const [relationships, setRelationships] = useState(null);
+
+  // Phase 0c — Unified Identity & Sync Spine. The get_my_world() resolver
+  // (mig 372) is the single source for the context switcher: every hat the
+  // signed-in person holds (squads, clubs, each child, referee assignments,
+  // club-team coaching) plus play-vs-ref conflicts. Loaded once auth resolves;
+  // null for anon/squad-only users so they are never affected.
+  const [myWorld, setMyWorld] = useState(null);
 
   // Multi-context nav (Phase 1). squadCtxInputs = the team-state context fields
   // captured on load; featureFlags = the per-team kill-switch (default off →
@@ -724,6 +732,13 @@ export default function App() {
     getUserRelationships().then(r => setRelationships(r)).catch(() => {});
   }, [authUser]);
 
+  // Phase 0c — load the unified "my world" resolver for the context switcher.
+  // Best-effort: a failure just leaves the switcher to its squad rows.
+  useEffect(() => {
+    if (!authUser) { setMyWorld(null); return; }
+    getMyWorld().then(w => setMyWorld(w?.ok ? w : null)).catch(() => {});
+  }, [authUser]);
+
   // Full catch-up re-fetch. Single source of truth for the team_live broadcast
   // handler AND the PWA-resume handler. Re-fetches all team state via the
   // existing wrappers and replays it into the raw setters, branching by route
@@ -837,6 +852,14 @@ export default function App() {
 
   const loadTeamData = async (tId) => {
     setLoading(true);
+    // Stale-realtime-on-switch guard (Phase 0c): an in-app team swap changes
+    // teamId but not liveChannelKey, which would leave the team_live broadcast
+    // subscribed to the PREVIOUS team. Drop the key so the old broadcast channel
+    // is torn down and not recreated for the wrong team; the postgres_changes
+    // channels re-key on teamId and keep authed realtime flowing. (The switcher
+    // itself navigates full-page, so this only hardens the legacy multi-team
+    // landing path.)
+    setLiveChannelKey(null);
     try {
       const [players, matches, bibs, sched, setts, cover] = await Promise.all([
         getPlayers(tId), getMatches(tId), getBibHistory(tId),
@@ -1560,9 +1583,26 @@ export default function App() {
     setShowSwitcher(true);
     getPlayerTeams()
       .then(rows => setSwitcherSquads((rows || []).filter(r => !r.disabled)
-        .map(r => ({ id: r.team_id, name: r.team_name, token: r.token, isAdmin: r.is_team_admin }))))
+        .map(r => ({
+          id: r.team_id, name: r.team_name, token: r.token,
+          isAdmin: r.is_team_admin,
+          type: r.is_competitive ? "league" : "casual",
+        }))))
       .catch(() => { /* anon / not linked — switcher still shows clubs + feed */ });
+    // Refresh the unified world each open so referee assignments + conflicts
+    // (time-sensitive) are current. Best-effort; the auth-load value stands in.
+    getMyWorld().then(w => setMyWorld(w?.ok ? w : null)).catch(() => {});
   };
+
+  // Switcher data — the get_my_world() resolver is the single source for clubs,
+  // children, referee and coaching. Clubs fall back to the member profile's
+  // active_clubs for users resolved before the world load returns.
+  const switcherClubs = (myWorld?.club_memberships?.length ?? 0) > 0
+    ? myWorld.club_memberships.map(m => ({
+        club_id: m.club_id, club_name: m.name,
+        cohort_id: m.cohort_id, cohort_name: m.cohort_name,
+      }))
+    : clubEntries;
 
   return (
     <TourProvider enabled={multiContextNav}>
@@ -1574,8 +1614,11 @@ export default function App() {
         onClose={() => setShowSwitcher(false)}
         currentName={myPlayer?.name || null}
         squads={switcherSquads}
-        clubs={clubEntries}
-        hasGuardian={(relationships?.guardian_of?.length ?? 0) > 0}
+        clubs={switcherClubs}
+        guardianChildren={myWorld?.guardian_of ?? []}
+        refAssignments={myWorld?.ref_assignments ?? []}
+        coaching={myWorld?.coaching ?? []}
+        conflicts={myWorld?.conflicts ?? []}
         currentTeamId={teamId}
         onSelectSquad={(s) => { if (s?.token) window.location.href = `/p/${s.token}`; }}
       />
