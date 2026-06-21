@@ -1424,6 +1424,49 @@ export default function App() {
     );
   }
 
+  // Apple "Hide My Email" safety net (Option A): a signed-in user on a private
+  // relay address with zero teams/clubs/children almost certainly already has a
+  // real account under their usual login (Google / email) — Apple's relay created
+  // a separate empty one. Guide them back instead of dropping them on Create/Join
+  // (which risks an accidental duplicate team). Scoped to relay emails ONLY, so
+  // genuinely-new normal users still get the standard welcome below.
+  if (route.type === "landing" && authReady && authUser && relationships && myAdminTeams !== null
+      && homeScreenType === "squad_only"
+      && (relationships.squads?.length ?? 0) === 0
+      && myAdminTeams.length === 0
+      && (authUser.email || "").toLowerCase().endsWith("@privaterelay.appleid.com")) {
+    const signOutRetry = async () => {
+      try { await supabase.auth.signOut(); } catch (e) { console.error("sign out failed", e); }
+      window.location.replace("/signin");
+    };
+    return (
+      <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
+        display:"flex", flexDirection:"column", alignItems:"center",
+        justifyContent:"center", padding:24, fontFamily:"'DM Sans',sans-serif" }}>
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:40,
+          color:C.amber, letterSpacing:3, marginBottom:12, textAlign:"center" }}>
+          NEW ACCOUNT
+        </div>
+        <div style={{ fontSize:14, color:C.muted, textAlign:"center",
+          marginBottom:28, lineHeight:1.6, maxWidth:320 }}>
+          You signed in with Apple's <b>Hide My Email</b>, which creates a separate
+          account — so it has no teams yet.<br/><br/>
+          If you already have a team, sign back in the way you used before
+          (Google or email), or open your team's link.
+        </div>
+        <button onClick={signOutRetry} style={{ width:"100%", maxWidth:320,
+          padding:"16px 0", borderRadius:8, border:"none", background:C.amber,
+          color:C.black, fontFamily:"'DM Sans',sans-serif", fontSize:16,
+          fontWeight:700, cursor:"pointer", letterSpacing:0.3 }}>
+          Sign in a different way
+        </button>
+        <a href="/create" style={{ marginTop:18, fontFamily:"Inter,sans-serif",
+          fontSize:13, color:C.muted, textDecoration:"underline",
+          textDecorationStyle:"dotted" }}>I'm new — create / join a team</a>
+      </div>
+    );
+  }
+
   if (route.type === "landing") {
     const linkValid = /\/p\/[a-zA-Z0-9_-]+/.test(linkInput);
     const goToLink = () => {
