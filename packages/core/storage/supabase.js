@@ -2745,11 +2745,22 @@ export async function refSetAddedTime(refToken, { period, minutes, clientEventId
 
 // Resolver — auth.uid() → next relevant game across league + casual (+ ref_token).
 // Shape: { ok, game_count, next: <game|null>, games: [<game>...] }.
+// Thin wrapper over get_my_assignments (mig 372); Swift-locked shape preserved.
 export async function getMyNextAssignment(roleFilter = null) {
   const { data, error } = await supabase.rpc("get_my_next_assignment", {
     p_role_filter: roleFilter,
   });
   if (error) { console.error("[watch] get_my_next_assignment failed", error); throw error; }
+  return data;
+}
+
+// Shared ref-assignment list (mig 372) — the ONE source both apps/ref and watchOS consume.
+// Shape: { ok, game_count, games: [<game>...] }. Same per-game shape as getMyNextAssignment.
+export async function getMyAssignments(roleFilter = null) {
+  const { data, error } = await supabase.rpc("get_my_assignments", {
+    p_role_filter: roleFilter,
+  });
+  if (error) { console.error("[spine] get_my_assignments failed", error); throw error; }
   return data;
 }
 
@@ -5237,6 +5248,16 @@ export async function memberListMyRoomHires(venueId = null) {
 export async function getUserRelationships() {
   const { data, error } = await supabase.rpc("get_user_relationships");
   if (error) { console.error("[event-os] get_user_relationships failed", error); throw error; }
+  return data;
+}
+
+// ── Phase 0b — Unified Identity & Sync Spine: one "my world" resolver (mig 372) ──
+// Everything for the signed-in person in one call: player_fixtures {league, casual},
+// ref_assignments, club_memberships, guardian_of (+ children's sessions), admin_roles,
+// coaching, and conflicts (playing vs reffing within 2h). Consumer = apps/inorout hub.
+export async function getMyWorld() {
+  const { data, error } = await supabase.rpc("get_my_world");
+  if (error) { console.error("[spine] get_my_world failed", error); throw error; }
   return data;
 }
 
