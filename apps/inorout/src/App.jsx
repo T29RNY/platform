@@ -16,7 +16,7 @@ import {
   resetDemoData, updateDemoInteraction,
   memberGetSelf,
   getUserRelationships,
-  getMyWorld, claimTeamAdmin, getMyAdminTeams,
+  getMyWorld, claimTeamAdmin,
   getTeamFeatureFlags,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
@@ -342,13 +342,6 @@ export default function App() {
   // authUser resolves. Null until then — guarantees squad-only unauthenticated
   // users are never affected.
   const [relationships, setRelationships] = useState(null);
-
-  // Unified login (Step 2). Teams the signed-in account is a verified admin of,
-  // each with its admin_token (mig 376 get_my_admin_teams). Lets the landing send
-  // an admin straight into their admin view from a plain login — no /admin/<token>
-  // URL needed. null = not loaded yet (landing waits on it so a player+admin is
-  // never briefly sent to their player view before admin status is known).
-  const [myAdminTeams, setMyAdminTeams] = useState(null);
 
   // Phase 0c — Unified Identity & Sync Spine. The get_my_world() resolver
   // (mig 372) is the single source for the context switcher: every hat the
@@ -741,15 +734,6 @@ export default function App() {
   useEffect(() => {
     if (!authUser) { setRelationships(null); return; }
     getUserRelationships().then(r => setRelationships(r)).catch(() => {});
-  }, [authUser]);
-
-  // Unified login (Step 2) — load the teams this account admins (with tokens).
-  // Best-effort: a failure leaves an empty list, so the landing falls back to the
-  // existing player-only routing. [] (not null) once resolved so the landing knows
-  // it can act; reset to null while logged out.
-  useEffect(() => {
-    if (!authUser) { setMyAdminTeams(null); return; }
-    getMyAdminTeams().then(a => setMyAdminTeams(a || [])).catch(() => setMyAdminTeams([]));
   }, [authUser]);
 
   // Phase 0c — load the unified "my world" resolver for the context switcher.
@@ -1339,81 +1323,44 @@ export default function App() {
   // on the frame before the RPC resolves). Squad-only with exactly one squad →
   // straight into that squad's player view; with 2+ squads → fall through to the
   // "Your squads" chooser rendered below; with 0 squads (brand-new) → welcome page.
-  if (route.type === "landing" && authReady && authUser && relationships && myAdminTeams !== null) {
+  if (route.type === "landing" && authReady && authUser && relationships) {
     if (homeScreenType === "parent")      { window.location.replace("/parent-home"); return null; }
     if (homeScreenType === "multi")       { window.location.replace("/feed");        return null; }
     if (homeScreenType === "club_member") { window.location.replace("/sessions");    return null; }
     if (homeScreenType === "squad_only") {
-      // Unified login (Step 2): a squad-only person's destinations = squads they
-      // play in + any team they admin but don't play in. Exactly one destination →
-      // straight in: the admin view if they're an admin of it (player view lives as
-      // a tab inside), otherwise the player view. Old token links unchanged.
       const sq = relationships.squads || [];
-      const adminTok = (teamId) => (myAdminTeams.find(a => a.teamId === teamId) || {}).adminToken || null;
-      const adminOnly = myAdminTeams.filter(a => !sq.some(s => s.team_id === a.teamId));
-      if (sq.length + adminOnly.length === 1) {
-        if (sq.length === 1) {
-          const tok = adminTok(sq[0].team_id);
-          if (tok)                { window.location.replace(`/admin/${tok}`); return null; }
-          if (sq[0].player_token) { window.location.replace(`/p/${sq[0].player_token}`); return null; }
-        } else if (adminOnly.length === 1) {
-          window.location.replace(`/admin/${adminOnly[0].adminToken}`); return null;
-        }
+      if (sq.length === 1 && sq[0].player_token) {
+        window.location.replace(`/p/${sq[0].player_token}`); return null;
       }
     }
   }
 
-  // Squad-only user with 2+ destinations → "Your teams" chooser. Destinations =
-  // squads they play in + any team they admin but don't play in (unified login,
-  // Step 2). Admin teams open the admin view (Manager tag); plain squads open the
-  // player view. Reliable list from the relationships oracle + get_my_admin_teams.
+  // Squad-only user on 2+ squads → "Your squads" chooser (reliable list from the
+  // relationships oracle; /feed is event-driven so unsuitable as a pure picker).
   if (route.type === "landing" && authReady && authUser && relationships
-      && myAdminTeams !== null && homeScreenType === "squad_only"
-      && ((relationships.squads?.length ?? 0)
-          + (myAdminTeams.filter(a => !(relationships.squads || []).some(s => s.team_id === a.teamId)).length))
-         > 1) {
-    const sq = relationships.squads || [];
-    const adminTok = (teamId) => (myAdminTeams.find(a => a.teamId === teamId) || {}).adminToken || null;
-    const rows = [
-      ...sq.map(s => {
-        const tok = adminTok(s.team_id);
-        return { key: s.team_id, name: s.name, live: s.game_is_live,
-                 isAdmin: !!tok, href: tok ? `/admin/${tok}` : `/p/${s.player_token}` };
-      }),
-      ...myAdminTeams
-        .filter(a => !sq.some(s => s.team_id === a.teamId))
-        .map(a => ({ key: a.teamId, name: a.teamName, live: false,
-                     isAdmin: true, href: `/admin/${a.adminToken}` })),
-    ];
+      && homeScreenType === "squad_only" && (relationships.squads?.length ?? 0) > 1) {
     return (
       <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
         display:"flex", flexDirection:"column", alignItems:"center",
         justifyContent:"center", padding:24, fontFamily:"Inter,sans-serif" }}>
         <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:44,
           color:C.amber, letterSpacing:4, marginBottom:8, textAlign:"center" }}>
-          YOUR TEAMS
+          YOUR SQUADS
         </div>
         <div style={{ fontSize:13, color:C.muted, textAlign:"center",
           marginBottom:28 }}>Pick a team to open.</div>
         <div style={{ width:"100%", maxWidth:340 }}>
-          {rows.map(r => (
-            <a key={r.key} href={r.href}
+          {relationships.squads.map(sq => (
+            <a key={sq.team_id} href={`/p/${sq.player_token}`}
               style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
                 width:"100%", padding:"16px 18px", marginBottom:10, borderRadius:10,
-                border:`1px solid ${r.live ? C.amber : C.border}`,
+                border:`1px solid ${sq.game_is_live ? C.amber : C.border}`,
                 background:C.surface, textDecoration:"none", color:C.text }}>
-              <span style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:20,
-                  letterSpacing:1, color: r.live ? C.amber : C.text }}>{r.name}</span>
-                {r.isAdmin && (
-                  <span style={{ fontFamily:"Inter,sans-serif", fontSize:9, fontWeight:700,
-                    letterSpacing:1, color:C.muted, border:`1px solid ${C.border}`,
-                    borderRadius:4, padding:"2px 5px" }}>MANAGER</span>
-                )}
-              </span>
+              <span style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:20,
+                letterSpacing:1, color: sq.game_is_live ? C.amber : C.text }}>{sq.name}</span>
               <span style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
-                letterSpacing:1, color: r.live ? C.amber : C.muted }}>
-                {r.live ? "● LIVE" : "OPEN →"}</span>
+                letterSpacing:1, color: sq.game_is_live ? C.amber : C.muted }}>
+                {sq.game_is_live ? "● LIVE" : "OPEN →"}</span>
             </a>
           ))}
         </div>
