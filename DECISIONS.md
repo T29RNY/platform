@@ -3095,3 +3095,18 @@ Settled choices:
 - **Casual flow untouched by construction.** The switcher only renders behind the per-team
   `multi_context_nav` flag; a casual-only user's avatar tap still opens the profile. All new App.jsx
   state/effects are gated on `authUser`. Casual-regression = additive-diff PASS.
+
+#### Phase 0c follow-up — paused memberships shown-but-restricted (mig 373)
+
+Operator feedback after 0c shipped: a **paused (frozen)** club membership was being *hidden* from the
+switcher (the resolver filtered `status IN ('active','ending')`). Decision: **show it, don't hide it —
+but restrict access.** A member should see the club is paused and have a path to renew; hiding it just
+looks like the membership vanished.
+- **`get_my_world().club_memberships` includes `paused`** (mig 373; `cancelled` still excluded). The arm
+  already returned `status`, so no shape change — only more rows.
+- **Switcher** badges the paused row "Paused" + "Frozen — renew to reactivate", muted; it still opens
+  the club view (so the member can renew), because a fully-inert row would strand them.
+- **Access restriction is enforced where it matters, not by hiding the row:** `member_book_class_session`
+  already blocked paused (members-only classes), and `MemberPass.jsx` now withholds the QR + reception
+  code for paused (shows a "Membership frozen" notice). This is the rule going forward: a lapsed/paused
+  role stays *visible and explained*, with its capabilities gated at the action, not erased from the UI.

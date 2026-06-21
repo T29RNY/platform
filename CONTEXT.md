@@ -1,5 +1,17 @@
 # IN OR OUT — Project Context & Session History
 
+**Session 167b (Jun 21 2026) — 0c FOLLOW-UP: paused club memberships SHOWN-but-restricted (mig 373).**
+Operator feedback after 0c: a paused (frozen) club membership was hidden from the switcher entirely.
+Now it's SHOWN and access-restricted. **mig 373** = `get_my_world().club_memberships` includes `paused`
+(was active/ending only; `cancelled` still excluded) — one-line CTE change, full fn reproduced for
+CREATE OR REPLACE. **ContextSwitcher** renders a paused club row badged "Paused" + "Frozen — renew to
+reactivate", muted (still opens the club so the member can renew). **MemberPass.jsx** hides the QR +
+reception code for paused, showing a "Membership frozen" notice instead (booking was already blocked
+server-side by `member_book_class_session`). Gates: build PASS, hygiene 7/7 (3 files), rpc-security PASS
+(SECDEF/STABLE/search_path/single-overload/anon-revoked preserved), live read-proof (Sam = paused Demo
+Boxing Club resolves), **Playwright authed walk PASS** (Sam's switcher shows the Paused-badged club +
+the member pass shows the frozen notice with no QR). No EV (read-only resolver). Next free mig = **374**.
+
 **Session 167 (Jun 21 2026) — UNIFIED IDENTITY & SYNC SPINE: Phase 0c SHIPPED (nav unification).**
 The 0c hold cleared — the App-Store session's `App.jsx`/`PlayerView.jsx`/`PlayerProfile.jsx` edits are
 all on `main` (latest `cd4e3ef`), zero open PRs. 0c is **JS-only, no migration**: it wires
