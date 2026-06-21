@@ -16,7 +16,7 @@ import {
   resetDemoData, updateDemoInteraction,
   memberGetSelf,
   getUserRelationships,
-  getMyWorld,
+  getMyWorld, claimTeamAdmin,
   getTeamFeatureFlags,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
@@ -593,6 +593,10 @@ export default function App() {
             const state = await getTeamStateByAdminToken(route.token);
             if (!state) { setError("Invalid admin link."); setLoading(false); return; }
             setIsAdmin(true);
+            // Unified login (Step 1b): a signed-in visitor to a valid admin link is
+            // enrolled as a real account-admin so their LOGIN alone grants admin
+            // access from then on. Fire-and-forget — must never block admin entry.
+            if (session?.user) claimTeamAdmin(route.token);
             setTeamId(state.teamId);           setSelectedTeam(state.teamId);
             setSquadRaw(state.squad);          setMatchHistRaw(state.matches);
             setBibHistRaw(state.bibHistory);   setScheduleRaw(state.schedule || DEFAULT_SCHEDULE);

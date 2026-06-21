@@ -5382,6 +5382,21 @@ export async function getMyAdminTeams() {
   }));
 }
 
+// ── Unified Login (Step 1b — Option A auto-enrol, mig 377) ──
+// Call when a signed-in user opens a valid /admin/<token> link: records them as a
+// real account-admin so their LOGIN alone grants admin access from then on. No-op
+// if already an admin or not signed in. Fire-and-forget — never blocks admin entry.
+export async function claimTeamAdmin(adminToken) {
+  try {
+    const { data, error } = await supabase.rpc("claim_team_admin", { p_admin_token: adminToken });
+    if (error) { console.error("claimTeamAdmin failed", error); return null; }
+    return data;
+  } catch (e) {
+    console.error("claimTeamAdmin threw", e);
+    return null;
+  }
+}
+
 export async function getUnifiedHomeFeed() {
   const { data, error } = await supabase.rpc("get_unified_home_feed");
   if (error) { console.error("[event-os] get_unified_home_feed failed", error); throw error; }

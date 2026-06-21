@@ -365,6 +365,7 @@ export {
   getUserRelationships,
   getMyWorld,
   getMyAdminTeams,
+  claimTeamAdmin,
   getUnifiedHomeFeed,
   getGuardianHomeFeed,
   getChildLiveMatch,
