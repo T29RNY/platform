@@ -5367,6 +5367,21 @@ export async function getMyWorld() {
   return data;
 }
 
+// ── Unified Login (Step 1 — account → admin bridge, mig 376) ──
+// Every team the signed-in account is a verified admin of, WITH its admin_token,
+// so the account-based landing can open the admin view without the user pasting
+// the secret /admin/<token> URL. Server-side the RPC only returns a token to a
+// caller already recorded as that team's admin (team_admins.user_id = auth.uid()).
+export async function getMyAdminTeams() {
+  const { data, error } = await supabase.rpc("get_my_admin_teams");
+  if (error) { console.error("getMyAdminTeams failed", error); return []; }
+  return (data || []).map((r) => ({
+    teamId: r.team_id,
+    teamName: r.team_name,
+    adminToken: r.admin_token,
+  }));
+}
+
 export async function getUnifiedHomeFeed() {
   const { data, error } = await supabase.rpc("get_unified_home_feed");
   if (error) { console.error("[event-os] get_unified_home_feed failed", error); throw error; }

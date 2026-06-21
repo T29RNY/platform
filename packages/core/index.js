@@ -364,6 +364,7 @@ export {
   memberListMyRoomHires,
   getUserRelationships,
   getMyWorld,
+  getMyAdminTeams,
   getUnifiedHomeFeed,
   getGuardianHomeFeed,
   getChildLiveMatch,
