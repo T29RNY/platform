@@ -1601,6 +1601,7 @@ export default function App() {
     ? myWorld.club_memberships.map(m => ({
         club_id: m.club_id, club_name: m.name,
         cohort_id: m.cohort_id, cohort_name: m.cohort_name,
+        status: m.status,
       }))
     : clubEntries;
 

@@ -198,15 +198,24 @@ export default function ContextSwitcher({
         {clubs.length > 0 && (
           <>
             <SectionLabel>Your clubs</SectionLabel>
-            {clubs.map((c) => (
-              <Row
-                key={`${c.club_id}:${c.cohort_id ?? ""}`}
-                Icon={Users}
-                title={c.club_name}
-                subtitle={c.cohort_name || null}
-                onClick={() => go(`/sessions?club=${c.club_id}`)}
-              />
-            ))}
+            {clubs.map((c) => {
+              // A paused (frozen) membership is SHOWN but access-restricted: it is
+              // badged "Paused" and muted. Booking is blocked server-side and the
+              // member pass hides the QR until it's reactivated. It still opens the
+              // club view so the member can see it / renew.
+              const paused = c.status === "paused";
+              return (
+                <Row
+                  key={`${c.club_id}:${c.cohort_id ?? ""}`}
+                  Icon={Users}
+                  title={c.club_name}
+                  subtitle={paused ? "Frozen — renew to reactivate" : (c.cohort_name || null)}
+                  badges={paused ? ["Paused"] : []}
+                  muted={paused}
+                  onClick={() => go(`/sessions?club=${c.club_id}`)}
+                />
+              );
+            })}
           </>
         )}
 

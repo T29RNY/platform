@@ -162,18 +162,32 @@ export default function MemberPass({ token }) {
             </div>
           ) : null}
 
-          {/* check-in */}
-          <div style={{ marginTop: 20, textAlign: "center" }}>
-            <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>Scan at reception to check in</div>
-            {passUrl ? (
-              <div data-tour="qr-code" style={{ display: "inline-block", background: "var(--white)", padding: 14, borderRadius: "var(--r)" }}>
-                <QRCode value={passUrl} size={172} level="M" />
+          {/* check-in — a frozen (paused) membership cannot check in: the QR and
+              the reception code are withheld until it's reactivated. Booking is
+              already blocked server-side; this closes the QR/check-in path too. */}
+          {pass.status === "paused" ? (
+            <div style={{ marginTop: 20, textAlign: "center", padding: "18px 16px",
+              background: "var(--amber2)", border: "1px solid var(--amberb)", borderRadius: "var(--r)" }}>
+              <div style={{ color: "var(--amber)", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                Membership frozen
               </div>
-            ) : null}
-            <div style={{ marginTop: 10, fontFamily: "monospace", fontSize: 13, letterSpacing: 1, color: "var(--t2)" }}>
-              {pass.check_in_code}
+              <div style={{ color: "var(--t2)", fontSize: 13, lineHeight: 1.4 }}>
+                Your check-in pass is paused. Reactivate your membership to use it at reception again.
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ marginTop: 20, textAlign: "center" }}>
+              <div style={{ color: "var(--t2)", fontSize: 12, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>Scan at reception to check in</div>
+              {passUrl ? (
+                <div data-tour="qr-code" style={{ display: "inline-block", background: "var(--white)", padding: 14, borderRadius: "var(--r)" }}>
+                  <QRCode value={passUrl} size={172} level="M" />
+                </div>
+              ) : null}
+              <div style={{ marginTop: 10, fontFamily: "monospace", fontSize: 13, letterSpacing: 1, color: "var(--t2)" }}>
+                {pass.check_in_code}
+              </div>
+            </div>
+          )}
 
           <PaymentStateBanner state={pass.payment_state} />
 
