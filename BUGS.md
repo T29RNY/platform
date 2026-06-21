@@ -3,6 +3,38 @@
 
 ---
 
+## SESSION 170 — ✅ PR #52 MERGED + 0e switch-on AUDITED (no code change; switch-on operator-blocked). No new bugs.
+
+Picked up Phase 0e switch-on. Per cloud-session discipline, **merged PR #52 first**
+(squash `e13d0011` → main; branch `spine-phase-0e-cross-app-sso` deleted). `main` now
+carries `packages/core/storage/cookieAuthStorage.js`.
+
+- **PR #52's failing `platform-ref` Vercel check is NOT a 0e bug** — it's a pre-existing
+  project-config issue: *"No Output Directory named 'dist' found"*. The PR doesn't touch
+  apps/ref; turbo built all 8 apps successfully (8/8, incl. `ref:build`) and ref builds
+  clean locally. platform-ref's Vercel project looks for `dist` at the repo root while the
+  monorepo emits `apps/ref/dist`. ⚠️ **This setting must be fixed before `ref.in-or-out.com`
+  will serve** (same class as the s89 ref root-dir gotcha).
+- **AUDIT of the live switch-on state (read-only):**
+  1. **Domains NOT attached.** DNS: only `app.in-or-out.com` resolves + serves (HTTPS 200).
+     `venue./ref./display./admin./club.in-or-out.com` have **no DNS record** (no response).
+     venue/ref/display/superadmin still on `*.vercel.app`.
+  2. Supabase redirect URLs — moot/unverifiable until the subdomains exist (operator-confirm).
+  3. Env vars not engaged; `VITE_AUTH_COOKIE_DOMAIN` is downstream of the domains anyway.
+  4. **Native guard CONFIRMED holds** — `cookieAuthStorage.js` `isNative()`
+     (`window.Capacitor?.isNativePlatform?.()===true`) forces localStorage in the wrap;
+     the app-store F4 `#access_token`→/auth/callback flow is untouched.
+- **Conclusion: SSO stays DARK and cannot be turned on or verified until the operator
+  attaches the subdomains** (DNS CNAMEs → Vercel attach → Supabase redirect URLs → the env
+  vars, per `PHASE_0E_SSO_RUNBOOK.md`). The cross-app cookie path + the s169-deferred
+  Playwright walk both require ≥2 live `*.in-or-out.com` apps, which don't exist yet.
+- **Still OWED (untouched s170):** 0d enforcement flip + phone+watch rehearsal + apps/ref
+  ⌚CTRL real-iPhone walk; watchOS Phase 4 real-iPhone walk; delete-account **person-scrub**
+  (must land before pilot/production); 0e real-device cross-app walk (operator, never fake).
+  **Next free mig = 376.**
+
+---
+
 ## SESSION 169 — ✅ PHASE 0e SHIPPED (cross-app SSO + unified shell, NO migration, ships DARK). No new bugs.
 
 Unified Identity & Sync Spine **Phase 0e** — make ONE sign-in + ONE switcher work
