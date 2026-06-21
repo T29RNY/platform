@@ -2737,6 +2737,63 @@ export async function refSetAddedTime(refToken, { period, minutes, clientEventId
   return data;
 }
 
+// ─── Phase 0d (mig 374) — live-match single-writer clock-owner lock ───────────
+// Among the devices holding the SAME ref_token (phone apps/ref + the future
+// watch), only ONE owns the clock at a time (lease-based, 30s). Replaces today's
+// last-write-wins jitter. SHIPS DORMANT: the clock-write RPCs do not yet REJECT a
+// non-owner — these wrappers drive the ⌚CTRL badge + auto-claim; server-side
+// enforcement is flipped on after the real phone+watch concurrency rehearsal.
+// CONSUMERS (Hard Rule #14): apps/ref (now) + watchOS companion (later).
+
+export async function refClaimClock(refToken, deviceId, deviceKind = "ref", force = false) {
+  const { data, error } = await supabase.rpc("ref_claim_clock", {
+    p_ref_token:   refToken,
+    p_device_id:   deviceId,
+    p_device_kind: deviceKind, // 'phone' | 'watch' | 'ref'
+    p_force:       force,       // explicit "take control" from another device
+  });
+  if (error) { console.error("[ref] claim_clock failed", error); throw error; }
+  return data; // { ok, granted, owner: { owner_id, owner_kind, claimed_at, expires_at, is_live } }
+}
+
+export async function refHeartbeatClock(refToken, deviceId) {
+  const { data, error } = await supabase.rpc("ref_heartbeat_clock", {
+    p_ref_token: refToken,
+    p_device_id: deviceId,
+  });
+  if (error) { console.error("[ref] heartbeat_clock failed", error); throw error; }
+  return data; // { ok, granted, owner }  — granted=false means this device lost control
+}
+
+export async function refReleaseClock(refToken, deviceId) {
+  const { data, error } = await supabase.rpc("ref_release_clock", {
+    p_ref_token: refToken,
+    p_device_id: deviceId,
+  });
+  if (error) { console.error("[ref] release_clock failed", error); throw error; }
+  return data; // { ok, released, owner }
+}
+
+export async function refCheckClockOwner(refToken, deviceId = null) {
+  const { data, error } = await supabase.rpc("ref_check_clock_owner", {
+    p_ref_token: refToken,
+    p_device_id: deviceId,
+  });
+  if (error) { console.error("[ref] check_clock_owner failed", error); throw error; }
+  return data; // { ok, owner, has_live_owner, is_owner }
+}
+
+// Casual-ref activation validator (mig 374) — lists casual refs assigned
+// (matches.ref_player_id) whose player account is not yet linked, so an operator
+// can chase activation. Admin-token-scoped, read-only. Consumer: inorout admin.
+export async function validateCasualRefActivations(adminToken) {
+  const { data, error } = await supabase.rpc("validate_casual_ref_activations", {
+    p_admin_token: adminToken,
+  });
+  if (error) { console.error("[admin] validate_casual_ref_activations failed", error); throw error; }
+  return data; // { ok, team_id, unactivated_count, unactivated: [...] }
+}
+
 // ── watchOS companion — identity layer (mig 369) ─────────────────────────────
 // Net-new ref/official identity. The watch (supabase-swift) calls these RPCs
 // directly; these JS wrappers exist for the web admin surfaces (casual ref-slot

@@ -3,6 +3,30 @@
 
 ---
 
+## SESSION 167 — ✅ PHASE 0d SHIPPED (mig 374): watch↔phone live-match single-writer lock (DORMANT). No new bugs.
+
+Unified Identity & Sync Spine **Phase 0d** — fixture-scoped, lease-based **clock-owner
+election** replaces the old last-write-wins clock jitter when two devices (phone `apps/ref`
++ the future watch) hold the same `ref_token`. New `fixtures.clock_owner_*` columns + four
+ref RPCs (`ref_claim_clock`/`ref_heartbeat_clock`/`ref_release_clock`/`ref_check_clock_owner`)
++ a casual-ref activation validator (`validate_casual_ref_activations`). `apps/ref` auto-claims,
+heartbeats, releases, and shows a ⌚CTRL badge (tap-to-take-control when another device holds it).
+Also fixed a **Hard Rule #10 publisher gap** — `ref_set_clock` + `ref_set_added_time` were
+venue-channel-only; now notify team+venue like every other live-match write. Gates: EV 11/11 +
+leak 0, rpc-security PASS (8 SECDEF fns single-overload/search_path/grants), casual-regression PASS
+(additive-diff — core +62/−0, zero inorout views), cross-role RLS audit clean (proven live on
+tarny+demo + tarny+family), build inorout+ref + hygiene 7/7.
+
+**⛔ OWED to the operator (cannot be done bot-solo):**
+1. **Real phone+watch concurrency rehearsal** — two real devices on one live match, confirm the
+   ⌚CTRL badge + handoff hold and the clock doesn't jitter. This is the precondition for #2.
+2. **Enforcement flip ("switch on the blocking")** — the lock SHIPS DORMANT: the clock-write RPCs
+   (`ref_set_clock`/`ref_record_goal`/…) do NOT yet reject a non-owner. After the rehearsal, a
+   follow-up migration wires `ref_check_clock_owner` + a `p_device_id` arg into those write RPCs so
+   a non-owning device is rejected server-side. Until then the lock is advisory (badge + auto-claim).
+3. **Real-iPhone PWA walk of `apps/ref`** (Hard Rule #13 — `apps/ref` LiveMatch touched): badge
+   renders, take-control works, release-on-exit frees the clock.
+
 ## SESSION 165 — ✅ NATIVE iOS PUSH PROVEN END-TO-END (closes the s164 OWED delivery test). 5 bugs fixed + 1 diagnosed.
 
 Real-device push delivery test on the operator's iPhone. **Native APNs push now

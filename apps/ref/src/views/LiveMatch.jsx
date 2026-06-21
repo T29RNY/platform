@@ -35,6 +35,7 @@ import {
   isPending,
   fireQueued,
 } from "../lib/offlineQueue.js";
+import { useClockOwner } from "../lib/clockOwner.js";
 import {
   uuid, nowISO, derivePeriod, deriveScore, hasLineup, isSuspended,
   playerStatus, sinBinRemaining, vibrate, elapsedMs, fmtClock,
@@ -453,6 +454,10 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
   const binDoneRef = useRef(new Set());
   const [, setTick] = useState(0);
 
+  // Phase 0d — single-writer clock lock. Mounted only while in_progress, so claim
+  // for the duration. DORMANT: badge + handoff only; writes are not yet blocked.
+  const clockOwner = useClockOwner(refToken, true);
+
   const isTournament = !!props.fixture.home_competition_team_id;
   const [tournamentPeriod, setTournamentPeriod] = useState(
     isTournament ? (props.fixture.current_period || "1H") : "1H"
@@ -815,6 +820,14 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
           </span>
           <div className="sb-right">
             <DaylightToggle />
+            {clockOwner.isOwner && (
+              <span className="chip" style={{ height: 20, color: "var(--txt3)", background: "rgba(255,255,255,0.06)" }} title="This device controls the clock">⌚ CTRL</span>
+            )}
+            {!clockOwner.isOwner && clockOwner.owner?.is_live && (
+              <button className="chip" style={{ height: 20, color: "var(--amber)", background: "rgba(244,162,58,0.13)", border: "none", cursor: "pointer" }} title="Another device controls the clock — tap to take control here" onClick={clockOwner.takeControl}>
+                ⌚ {(clockOwner.owner.owner_kind || "other").toUpperCase()} · TAKE
+              </button>
+            )}
             <button className="sb-logbtn" onClick={() => setOverlay({ type: "log" })}><ListGlyph s={12} /> LOG{pendingCount > 0 ? ` · ${pendingCount}` : ""}</button>
             <span className="live-pill"><span className="live-dot" /> {paused ? "PAUSED" : "LIVE"}</span>
           </div>
