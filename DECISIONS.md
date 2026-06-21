@@ -1,5 +1,38 @@
 # In or Out — Key Decisions Log
 
+## SESSION 171 — Unified login (one-account sign-in for admins AND players)
+*2026-06-21.*
+
+**Decision: admin identity reuses the EXISTING `team_admins.user_id` table — no new
+admin system.** Admin WRITE RPCs are unchanged (still authorise via `p_admin_token`); the
+account landing simply fetches that token for verified admins via `get_my_admin_teams`
+(a "bridge"). Minimal, reuses every existing admin write path, and old token links keep
+working as a web fallback.
+
+**Decision: Option A auto-enrol.** Holding the admin link already grants admin power, so
+opening it while signed in enrols you as a real account-admin (`claim_team_admin`). Chosen
+over requiring an existing admin to grant access.
+
+**Decision: the account landing only changes the `squad_only` path.** multi/parent/
+club_member home types are unchanged (still route to `/feed` etc). Non-admin routing is
+byte-identical to before (empty admin list → existing `/p/<token>` path).
+
+**Decision: sign-in determinism — clear stale resume breadcrumbs on a generic sign-in.**
+AuthCallback now clears the resume breadcrumbs (`ioo_redirect_to` / `ioo_last_visited` /
+`ioo_last_context`) when `returnTo` defaults to `"/"` (generic sign-in, no explicit
+deep-link), so a fresh sign-in always lands on the account landing instead of resuming a
+stale page. Explicit deep-links (pending route/join, `?returnTo=`) are honoured untouched.
+
+**Decision: Apple "Hide My Email" — Option A safety net.** Supabase auto-links identities by
+email across providers (verified: tarnysingh@gmail.com has apple+google merged; 0
+duplicate-email accounts across 27 users), so real-email Apple/Google/email sign-ins collapse
+to one account. The only fragmentation vector is Apple's "Hide My Email" relay
+(`@privaterelay.appleid.com`), which can't be disabled app-side. Mitigation shipped: a signed-in
+user on a relay email with zero teams/clubs/children sees a "NEW ACCOUNT — sign in the way you
+did before / open your team link" screen (one-tap sign-out-and-retry) instead of Create/Join,
+scoped to relay emails only. A full "is this you? link accounts" flow is DEFERRED until
+Hide-My-Email duplicates actually occur (none so far).
+
 ## SESSION 169 — Phase 0e cross-app SSO architecture (shared-domain cookie)
 
 **Decision: cross-app single-sign-on via a shared `.in-or-out.com` cookie, NOT a

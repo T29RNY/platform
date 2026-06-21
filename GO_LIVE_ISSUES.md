@@ -1424,3 +1424,30 @@ No historical rows needed correcting (0 future series rows existed at fix time).
 **Expected outcome:** entered time === displayed time for recurring sessions, in
 both summer and winter. If a recurring session shows an hour late, the
 `AT TIME ZONE 'Europe/London'` fix has regressed — STOP.
+
+---
+
+## 18. SESSION 171 — UNIFIED LOGIN: STALE SAFARI BREADCRUMB LOOPS BACK TO AN OLD PAGE AFTER SIGN-IN (migs 376–377)
+
+**Issue class:** after signing in, the page refreshes several times and dumps the
+user back at the login screen (a "login loop"). Seen on a real iPhone after Google
+sign-in. NOT a code regression — root cause is a **stale Safari "resume"
+breadcrumb**: an earlier `/p/<token>` (or other deep) link opened in the same Safari
+session writes `ioo_redirect_to` / `ioo_last_visited`, and after sign-in the App.jsx
+redirect bridge bounces to that stale page. **Deleting the home-screen PWA does NOT
+clear Safari's localStorage** — only clearing Safari → "History and Website Data"
+does. Hardened in code (AuthCallback now clears the resume breadcrumbs on a generic
+sign-in so a fresh sign-in always lands on the account landing), but a pre-existing
+stale breadcrumb on a real device can still surface it until cleared.
+
+**Device check — run when signing in on iOS Safari:**
+
+1. After signing in on iOS Safari, confirm you land on **your team / account
+   screen** — not a resumed stale page (e.g. an old demo `/p/` link).
+2. If a test device gets stuck looping back to an old page after sign-in, clear
+   Safari → **History and Website Data** (deleting the home-screen icon is NOT
+   enough), then sign in again.
+
+**Expected outcome:** a fresh sign-in lands on your team/account landing. Admins land
+straight in the admin view; multi-team people see the "YOUR TEAMS" chooser; nobody is
+looped back to a stale page or logged out.

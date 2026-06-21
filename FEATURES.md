@@ -1,5 +1,39 @@
 # In or Out — Feature Tracker
 
+## SESSION 171 — UNIFIED LOGIN SHIPPED (one-account sign-in for admins AND players)
+
+**Unified login** — one account sign-in for admins AND players, **LIVE on main / production**.
+Before, the same person reached the app via three token-in-URL routes
+(`/admin/<admin_token>`, `/p/<player_token>`, `/join/<code>`). Now: **sign in once → land
+straight in your team** (admin powers on if you're an admin); a **"YOUR TEAMS"** chooser
+appears only for people in multiple teams. **Old token links still work as a web fallback;
+nobody is logged out by the change.**
+
+Migrations **376–377** (next free mig = 378). Two new authenticated-only SECDEF RPCs:
+`get_my_admin_teams()` (mig 376, read-only — every team the account is a verified admin of,
+WITH its admin_token, so the landing opens the admin view without the secret `/admin/<token>`
+URL) and `claim_team_admin(p_admin_token)` (mig 377 — auto-enrols a signed-in admin-link
+holder as a real account-admin; idempotent; audited). Mig 377 also adds the partial unique
+index `team_admins_team_user_active_uniq`. Admin identity **reuses the existing
+`team_admins.user_id` table** — admin WRITE RPCs are unchanged (still authorise via
+`p_admin_token`); the landing just bridges the token for verified admins.
+
+Account landing changes ONLY the `squad_only` path; multi/parent/club_member home types are
+unchanged. Non-admin routing is byte-identical (empty admin list → existing `/p/<token>` path).
+Sign-in determinism hardened (AuthCallback clears stale resume breadcrumbs on a generic
+sign-in). Apple "Hide My Email" safety net shipped (relay-email + no-team user sees a
+"sign in the way you did before" screen, not Create/Join). Footy Tuesdays' four vice-captain
+admins pre-enrolled (one-off backfill). Commits `28b71d9` / `31fb00d` / `22a15c2`
+(reverted `5962813` then re-applied `46807eb`) / `57d563e` / `7a228a8`.
+
+**Verified:** persona walk on a Footy-Tuesdays-shaped throwaway mirror (real logins, torn down,
+leak 0) — single-squad admin+player → admin view; vice-captain-not-enrolled → player view then
+auto-enrol on admin-link-open → admin view next login; plain player → player view; multi-team →
+"YOUR TEAMS" chooser (admin row → /admin with MANAGER tag, player row → /p). EV for
+`claim_team_admin` 7/7 + leak 0. Apple safety net: relay+no-team → safety screen, normal+no-team →
+standard welcome. ⛔ OWED: native-app real-device walk of the launch/landing/auth path before the
+next App Store build. See RPCS.md "Unified Login RPCs", DECISIONS.md s171, BUGS.md s171.
+
 ## SESSION 169 — Phase 0e (cross-app SSO + unified shell) SHIPPED, DARK
 
 Unified Identity & Sync Spine **Phase 0e** — one sign-in + one switcher across the
