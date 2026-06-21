@@ -151,29 +151,35 @@ for you."
 classes/PT booking, the league fixtures + standings, **ref → reception-TV live updates**,
 tournament bracket page, and the **one-login switch**.
 
-**Avoid or pre-test (known rough edges — see §6):**
-- The **"My Squads" multi-squad list can show empty** when sign-ups for the week aren't open
-  (real bug) — risky during the multi-role moment. **Test with your demo account first**, or let
-  me fix it tonight.
-- A **paused** membership pass shows *"Frozen until 1 Jan 1970"* (cosmetic) — Sam's boxing pass.
-- Landing on **Classes** with no club picked shows a confusing "no venue linked" message.
+**Already fixed (verified s172 — the earlier "bug list" was stale from s153, ignore it):**
+- My Squads multi-squad list (now loads from your account, not the matchday squad).
+- Paused-pass "1 Jan 1970" freeze date (guarded; Sam's live data is clean/null).
+- Classes "no venue linked" message (now shows a proper "pick a club" prompt).
+
+**Avoid or pre-test:**
 - **Casual-match ref assignment** has no button yet — use a **league/tournament** fixture's ref
   token for the ref demo (those work fully).
-- Don't pitch **3v3** as a built feature — the league engine is format-agnostic but no 3v3
-  league is seeded (see §6).
+- **Tournaments:** the bracket engine + public page + ref scoring + reception TV are strong, BUT
+  there's **no deployed "Create Tournament" button** (creation is club-admin/clubmanager, not
+  deployed) and **no tournament is seeded**. To demo it, seed a demo event first (see §6). Don't
+  pitch self-service "any organiser creates their own event" — not there yet.
+- **Sports-day / athletics result entry** is unbuilt (football/match-scored only).
+- Don't pitch **3v3** as a distinct built feature — the league engine is format-agnostic but no
+  3v3 league is seeded yet (see §6).
 
 ---
 
-## 6. PRE-DEMO CHECKLIST (decide tonight)
+## 6. PRE-DEMO CHECKLIST (tomorrow morning, before the demo)
 
-- [ ] **3v3 branding:** if you want the reception TV to literally say "3v3 League", I can seed a
-      3v3-labelled league + a few live fixtures (~30 min). Otherwise we show the seeded
-      competitive league as "live league data".
-- [ ] **Fix the My Squads empty-list bug** (recommended — it sits on your centrepiece multi-role
-      moment). Small, targeted fix.
-- [ ] **Fix the two cosmetics** (1970 freeze date, Classes message) — optional, quick.
+- [ ] **Seed a 3v3 league** + a few live fixtures, so the reception TV literally shows live 3v3.
+- [ ] **Seed a demo tournament** (group stage → knockout, a few played fixtures + one live) so
+      the Event OS bracket can be shown end-to-end (nothing is seeded today).
+- [ ] *(Optional, bigger)* wire a **"Create Tournament" entry into the venue app** to show the
+      creation flow live rather than pre-seeded — scope on request.
 - [ ] **Dry-run** Acts 2–4 once with the real accounts so nothing surprises you live.
-- [ ] Confirm OTP inbox access (`tarny@lettrack.co.uk`) in case SSO sign-in needs a fallback.
+- [ ] Confirm OTP inbox access (`tarny@lettrack.co.uk`) as an SSO sign-in fallback.
+
+*(The three s153 "bugs" are already fixed — verified s172. No action needed.)*
 
 ---
 
