@@ -9,6 +9,7 @@ import {
   saveTeamsDraft, confirmTeams,
   generateBalancedTeams,
   setPlayerGroup, clearAllGroups, saveGroupLabels,
+  assignCasualMatchRef,
 } from "@platform/core";
 
 // Group Balancer thresholds passed to generateBalancedTeams for disclaimer
@@ -389,6 +390,85 @@ function GroupPanel({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Casual ref-slot toggle (watchOS Phase 1 / mig 369). Assigns ONE squad member as
+// the referee for the live casual match — they get ref mode + match-fitness tracking
+// on the watch. Reuses the shipped assign_casual_match_ref RPC; no new backend.
+function RefAssignCard({ adminToken, matchId, squad, currentRefId }) {
+  const [refId, setRefId] = useState(currentRefId || null);
+  const savingRef = useRef(false);
+
+  useEffect(() => { setRefId(currentRefId || null); }, [currentRefId, matchId]);
+
+  const cardStyle = {
+    marginTop: 24, padding: 16, borderRadius: 12,
+    background: "var(--s2)", border: "0.5px solid var(--b2)",
+  };
+  const heading = {
+    fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "0.04em",
+    color: "var(--gold)", marginBottom: 8,
+  };
+
+  if (!matchId) {
+    return (
+      <div style={cardStyle}>
+        <div style={heading}>MATCH REFEREE</div>
+        <div style={{ color: "var(--t2)", fontSize: 13, fontFamily: "DM Sans, sans-serif" }}>
+          Go live with a match to assign a referee.
+        </div>
+      </div>
+    );
+  }
+
+  const eligible = (squad || []).filter(p => p && !p.isGuest && !p.disabled);
+
+  async function assign(playerId) {
+    if (savingRef.current) return;
+    const next = playerId === refId ? null : playerId; // tap selected = clear
+    savingRef.current = true;
+    const prev = refId;
+    setRefId(next); // optimistic
+    try {
+      await assignCasualMatchRef(adminToken, matchId, next);
+    } catch (e) {
+      console.error("[teams] assign casual ref failed", e);
+      setRefId(prev); // revert
+    } finally {
+      savingRef.current = false;
+    }
+  }
+
+  return (
+    <div style={cardStyle}>
+      <div style={heading}>MATCH REFEREE</div>
+      <div style={{ color: "var(--t2)", fontSize: 12, fontFamily: "DM Sans, sans-serif", marginBottom: 12 }}>
+        Assign one squad member to referee this game — they get ref mode and match-fitness tracking on the watch. Tap again to clear.
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {eligible.map(p => {
+          const selected = p.id === refId;
+          return (
+            <button
+              key={p.id}
+              onClick={() => assign(p.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 12px", borderRadius: 20, cursor: "pointer",
+                fontSize: 13, fontFamily: "DM Sans, sans-serif",
+                background: selected ? "var(--green2)" : "var(--s3)",
+                border: selected ? "0.5px solid var(--green)" : "0.5px solid var(--b2)",
+                color: selected ? "var(--green)" : "var(--t1)",
+              }}
+            >
+              {selected && <CheckCircle size={14} weight="thin" />}
+              {p.name}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1610,6 +1690,14 @@ export default function TeamsScreen({
         </button>
         </FirstTimeHint>
       </div>
+
+      {/* Casual ref-slot toggle (watchOS Phase 1) */}
+      <RefAssignCard
+        adminToken={adminToken}
+        matchId={matchId}
+        squad={squad}
+        currentRefId={matchHistory?.find(m => m.id === matchId)?.refPlayerId || null}
+      />
 
     </div>
   );

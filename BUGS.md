@@ -3,6 +3,33 @@
 
 ---
 
+## SESSION 168 — ✅ WATCHOS PHASE 4 SHIPPED (mig 375): match-health storage + casual ref toggle. No new bugs.
+
+watchOS companion **Phase 4** (non-gated backend + web). New RLS-walled `match_health_sessions`
+(summary-only health data) + 2 authenticated-only SECDEF RPCs (`save_match_health_summary`
+idempotent upsert / `get_my_match_health` read-back) + **mandatory same-migration GDPR cascade**
+(both `delete_my_account` + `delete_my_account_auth` purge the table; EV-proven). (B) Casual ref
+toggle wired: `dbToMatch.refPlayerId` + `RefAssignCard` in `AdminView/TeamsScreen` (reuses the
+mig-369 `assignCasualMatchRef` — NO new backend) + self-hiding "Your match fitness" section in
+`MyIOView`. Gates: rpc-security PASS, **EV 9/9 + leak 0** (incl. GDPR-cascade purge, idempotent
+upsert, casual team-derive, league-uuid fallback, bad-context reject), hygiene 7/7, build clean,
+casual-regression additive-diff PASS + Playwright authed walk on team_demo (RefAssignCard renders;
+populated + empty MatchFitness both proven; new RPC 200 authed; 0 console errors from changed files).
+
+**⛔ OWED to the operator (cannot be done bot-solo):**
+1. **Real-iPhone PWA walk** (Hard Rule #13) — MyIOView "Your match fitness" section + the admin
+   TeamsScreen ref-assign toggle, on a real home-screen install.
+
+**Carry-forward — 0d OWED list (still open, do NOT lose):**
+1. **Real phone+watch concurrency rehearsal** — two real devices on one live match; confirm the
+   ⌚CTRL badge + handoff hold and the clock doesn't jitter. Precondition for #2.
+2. **0d enforcement flip** — the clock lock SHIPS DORMANT; a follow-up migration must wire
+   `ref_check_clock_owner` + a `p_device_id` arg into the clock-write RPCs to reject a non-owner.
+   Do ONLY after the rehearsal AND once the native watch exists.
+3. **Real-iPhone apps/ref PWA walk** of the ⌚CTRL badge (renders, take-control, release-on-exit).
+
+**Next free mig = 376.**
+
 ## SESSION 167 — ✅ PHASE 0d SHIPPED (mig 374): watch↔phone live-match single-writer lock (DORMANT). No new bugs.
 
 Unified Identity & Sync Spine **Phase 0d** — fixture-scoped, lease-based **clock-owner

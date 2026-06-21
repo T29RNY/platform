@@ -106,6 +106,8 @@ export {
   venueLinkOfficialToUser,
   assignCasualMatchRef,
   clubAdminAssignCohortOfficial,
+  saveMatchHealthSummary,
+  getMyMatchHealth,
   refStartTournamentMatch,
   refSetTournamentPeriod,
   refRecordTournamentGoal,

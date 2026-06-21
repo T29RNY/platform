@@ -6,6 +6,13 @@
 //   2. If auth_user_id present, deletes auth.users via admin API
 //      (only possible with service-role key — runs server-side).
 //
+// GDPR note (mig 375): both delete_my_account (token path) and
+// delete_my_account_auth (auth path) explicitly purge match_health_sessions
+// — special-category health data from the watchOS ref workout summary. The
+// table also has user_id → auth.users ON DELETE CASCADE as a second safety
+// net, so deleting the auth.users row in stage 2 (or via the auth path)
+// removes any straggler rows too.
+//
 // Body:    { token: string }
 // Response: { ok: true } | { error: 'last_admin', teamIds: [...] } | { error: '...' }
 //

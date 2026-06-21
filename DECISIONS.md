@@ -6,6 +6,20 @@ Read this before building new features to avoid re-litigating settled questions.
 
 ---
 
+## watchOS Phase 4 — match-health storage = new table, not sport_stats jsonb (session 168, mig 375)
+
+**Decision (s168).** The health-summary storage built this session uses a **dedicated RLS-walled
+`match_health_sessions` table**, NOT the dormant `player_match.sport_stats` / `matches.sport_stats`
+jsonb (the s148 gym-vertical pattern). Reasons: (1) health data is **UK-GDPR special category** and
+deserves physical isolation with its own purge path + `auth.users ON DELETE CASCADE`, not a column
+buried in the football match spine; (2) the ref is identified by **`auth.uid()`**, which spans all
+three contexts (league/casual/cohort) — keying on `player_match` (a football `players` row) wouldn't
+cover league/cohort officials; (3) `UNIQUE(user_id, client_session_id)` gives free offline-replay
+idempotency. Both RPCs are **authenticated-only** (mirrors mig 369's account-scoped fns). The GDPR
+cascade ships in the SAME migration that creates the table (executes s161 decision #6 — non-negotiable).
+The casual ref-assignment UI (B) reuses the mig-369 `assign_casual_match_ref` RPC verbatim — no new
+backend (reuse-over-new-systems). Native phases stay App-Store-gated. Next free mig = 376.
+
 ## watchOS companion app — ref mode + HealthKit, scope-locked (session 161)
 
 **Decisions (operator, s161).** The watchOS companion (logged-only s160) is now fully planned.

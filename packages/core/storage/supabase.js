@@ -294,6 +294,7 @@ function dbToMatch(r) {
     predictedWinner: r.predicted_winner ?? null,
     predictedConfidence: r.predicted_confidence ?? null,
     balanceScore: r.balance_score ?? null,
+    refPlayerId: r.ref_player_id || null,   // mig 369 casual ref slot; surfaced for the admin ref-assign toggle
   };
 }
 
@@ -2858,6 +2859,43 @@ export async function clubAdminAssignCohortOfficial(venueToken, cohortId, offici
     p_official_id: officialId,
   });
   if (error) { console.error("[watch] club_admin_assign_cohort_official failed", error); throw error; }
+  return data;
+}
+
+// ── watchOS companion — Phase 4 match-health storage (mig 375) ────────────────
+// The watch posts an Apple "Outdoor Football" workout SUMMARY (never the raw stream —
+// UK-GDPR special category) on Full Time; inorout reads it back for the fitness surface.
+// Both RPCs are authenticated-only (auth.uid()). Consumers: watchOS (writer) + inorout (reader).
+
+// Watch → DB. Idempotent upsert keyed on (auth.uid(), clientSessionId) so an offline
+// replay never double-writes. matchContext ∈ 'league'|'casual'|'cohort'. Returns { ok, id, updated }.
+export async function saveMatchHealthSummary({
+  matchContext, matchRef, clientSessionId,
+  durationSeconds = null, activeEnergyKcal = null, distanceMeters = null,
+  avgHr = null, maxHr = null, hrZones = null, startedAt = null, endedAt = null,
+}) {
+  const { data, error } = await supabase.rpc("save_match_health_summary", {
+    p_match_context:      matchContext,
+    p_match_ref:          matchRef,
+    p_client_session_id:  clientSessionId,
+    p_duration_seconds:   durationSeconds,
+    p_active_energy_kcal: activeEnergyKcal,
+    p_distance_meters:    distanceMeters,
+    p_avg_hr:             avgHr,
+    p_max_hr:             maxHr,
+    p_hr_zones:           hrZones,
+    p_started_at:         startedAt,
+    p_ended_at:           endedAt,
+  });
+  if (error) { console.error("[watch] save_match_health_summary failed", error); throw error; }
+  return data;
+}
+
+// Read-back for the inorout "Your match fitness" surface. Returns { ok, sessions:[…], totals:{…} };
+// empty for a non-signed-in / token-only caller (so the surface self-hides).
+export async function getMyMatchHealth() {
+  const { data, error } = await supabase.rpc("get_my_match_health", {});
+  if (error) { console.error("[watch] get_my_match_health failed", error); throw error; }
   return data;
 }
 
