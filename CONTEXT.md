@@ -1,5 +1,27 @@
 # IN OR OUT — Project Context & Session History
 
+**Session 166 (Jun 21 2026) — UNIFIED IDENTITY & SYNC SPINE: Phases 0a + 0b SHIPPED + MERGED.**
+The foundation epic beneath the Panjab Athletic youth 3v3 pilot + the one-identity-across-all-roles
+requirement (one human = player + parent + coach + referee + member, resolved to ONE identity on
+phone and watch). **0a (mig 371, PR #45, commit `2738b80`)** — canonical `people` table (one row per
+auth user, linkage-only, no PII) + nullable `person_id` soft links on all five identity silos
+(`players`, `member_profiles`, `match_officials`, `team_admins`, `venue_admins`) + `ensure_person()`
+helper + BEFORE triggers that auto-fill `person_id` on any auth-link path. Silos stay separate; the
+backfill linked 23 people. **0b (mig 372, PR #46, commit `03d92d9`)** — three read-only, person-keyed
+resolvers: **`get_my_world()`** (one call → player fixtures league+casual, ref assignments, club
+memberships, guardian_of + children's sessions, admin roles team+venue, coaching, and play-vs-ref
+**conflict warnings** within a 2h window); **`get_my_assignments()`** (THE shared ref list both
+`apps/ref` and watchOS will read from); **`get_my_next_assignment()`** rewritten as a thin wrapper
+(`next = games[0]`) with its Swift-locked shape byte-preserved. JS wrappers `getMyWorld` /
+`getMyAssignments` added; `getMyNextAssignment` unchanged. Gates: EV PASS (ref arm + conflict on an
+`_e2e_` fixture, rollback, leak 0) + `get_my_world` read-proven against the real demo multi-role user;
+rpc-security PASS; casual-regression PASS (additive-diff, no casual surface touched); build PASS.
+**Nothing wired into inorout yet — 0c does the UI.** NEXT = Phase 0c (App.jsx ContextSwitcher driven
+by `get_my_world()`), **HELD** until the parallel App-Store session's App.jsx/PlayerView/PlayerProfile
+edits merge. Delete-account person-scrub DEFERRED (backlog). watchOS session PARKED until 0b + 0d land.
+Next free migration = **373**. Full plan: `~/.claude/plans/compiled-exploring-sonnet.md`; decisions in
+DECISIONS.md "Canonical person spine" section; RPCs in RPCS.md "Phase 0b resolvers (mig 372)".
+
 **Session 163 (Jun 20 2026) — APP STORE EPIC: Mac build Phase 0+1 DONE; Stage 5.2 device walk started.**
 First real iOS build on a Mac with Xcode 26.5 + iOS 26.5 SDK. Done this session:
 **Phase 0 #2** — crisp 1024×1024 `assets/icon.png` (extracted real brand artwork from the 1254px

@@ -3028,3 +3028,32 @@ Settled choices:
   production/pilot** (until then, a deleted account would leave no `people` PII because `people`
   holds none — the scrub is for detaching the link cleanly).
 - **Migration numbering:** 370 was taken by the App-Store session; this spine epic starts at 371.
+
+### Phase 0b — one "my world" resolver + shared ref-assignments (migration 372)
+
+With the person spine in place, the two old resolvers (`get_user_relationships` for roles +
+`get_my_next_assignment` for the ref's next game) never combined — so there was no single "my
+world" and no way to spot a person playing one game while assigned to referee another.
+
+Settled choices:
+- **One resolver, `get_my_world()`, person-keyed.** Returns everything for the signed-in person in
+  one call: player fixtures (league + casual), referee assignments, club memberships, the children
+  they guard *and each child's upcoming sessions*, admin roles (team + venue), coaching roles, and
+  **conflict warnings** (playing vs reffing within a 2-hour window). Supersedes the
+  `get_user_relationships` + `get_my_next_assignment` split for the inorout phone hub.
+- **One shared ref list, `get_my_assignments()`.** Both `apps/ref` (a logged-in "my fixtures" list,
+  replacing the per-token-only entry) and watchOS read from THIS, ending the divergent ref paths.
+  It lifts mig 369's two arms (league OFFICIAL + casual PLAYER) unchanged in logic, now keyed on
+  `person_id` instead of raw `user_id`.
+- **`get_my_next_assignment` becomes a thin wrapper** (`next = games[0]`) over `get_my_assignments`.
+  Its return shape is byte-preserved so the watch's Swift `CodingKeys` cannot break (Hard Rule #12).
+- **person-keyed = equivalent-or-better, zero risk.** `people.auth_user_id` is UNIQUE, so
+  `person_id` maps 1:1 to `auth.uid()`; person-keyed joins return the same rows as the old
+  user_id joins today, and resolve empty (never error) for a user with no `people` row. The payoff
+  is futureproofing — when email-change drift or duplicate identities are merged onto one person,
+  every resolver follows automatically.
+- **All three are read-only (STABLE), authenticated-only, anon REVOKED.** No writes, no
+  `audit_events` (Hard Rule #9 applies to fire-and-forget writes, not resolvers).
+- **Nothing wired into inorout yet.** 0b ships the backend only; Phase 0c does the UI wiring in
+  `App.jsx`/`ContextSwitcher`/`deriveContext`, which is why 0c is held until the App-Store session's
+  edits to those files merge.
