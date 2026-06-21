@@ -1,9 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 import { hasGoalData, resolveDominantType, periodCutoff } from "../engine/scoring.js";
+import { cookieAuthStorage } from "./cookieAuthStorage.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    // Phase 0e cross-app SSO. Custom storage that writes the auth session to a
+    // cookie scoped to the shared parent domain when VITE_AUTH_COOKIE_DOMAIN is
+    // set, so one sign-in carries across every *.in-or-out.com app. When the env
+    // is unset it transparently delegates to localStorage → behaviour is byte-
+    // identical to the supabase-js default (safe to merge dark). See
+    // cookieAuthStorage.js. (storageKey is left to the SDK default —
+    // `sb-<ref>-auth-token`, already identical across all apps.)
+    storage: cookieAuthStorage,
+  },
   realtime: {
     // iOS suspends the PWA and tears down the realtime WebSocket when
     // backgrounded. A short, capped backoff gets the socket rejoined fast on

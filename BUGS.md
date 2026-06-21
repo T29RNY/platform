@@ -3,6 +3,50 @@
 
 ---
 
+## SESSION 169 — ✅ PHASE 0e SHIPPED (cross-app SSO + unified shell, NO migration, ships DARK). No new bugs.
+
+Unified Identity & Sync Spine **Phase 0e** — make ONE sign-in + ONE switcher work
+across the separately-deployed apps. AUDIT verified live: all 8 apps share ONE
+Supabase project (`ktvpzpnqbwhooiaqrigm`, same anon key) and the SAME default
+storageKey; the only barrier to SSO was per-origin localStorage. **No SQL / no
+RPC** — `get_my_world()` (mig 372) already returns every role. JS-only:
+- **Shared-cookie auth adapter** `packages/core/storage/cookieAuthStorage.js` wired
+  into the core supabase client. Writes the session to a cookie scoped to
+  `.in-or-out.com` when `VITE_AUTH_COOKIE_DOMAIN` is set; **delegates to
+  localStorage (byte-identical to today) when unset** → ships DARK, flips on with
+  an env var (0c precedent). Chunked (>4KB sessions), native-guarded (Capacitor
+  forced onto localStorage so the app-store F4 flow is untouched), migrates an
+  existing localStorage session on first read.
+- **Cross-app switcher** — env-driven app bases (`VITE_REF/VENUE/CLUB_APP_URL`,
+  fall back to current `*.vercel.app`); coaching rows now deep-link to the club
+  app; new "Operator" section from `admin_roles` (venue_admin → venue console).
+- **Venue auth parity** — Apple + email magic-link added alongside Google/password.
+- **Operator runbook** `PHASE_0E_SSO_RUNBOOK.md` (DNS + Vercel + Supabase + env).
+
+Gates: build inorout+venue clean, hygiene 7/7 (core+inorout files), cookie
+chunk/encode/round-trip unit-proven (incl >4KB + stale-chunk clear + remove),
+casual-regression PASS via additive-diff (core change behaviorally identical when
+flag unset; no scoring/result/gameplay code touched), Playwright boot smoke clean
+(consumer boots with new adapter, NO spurious cookies on localhost = localStorage
+mode confirmed; venue sign-in renders all 4 methods). No EV / no rpc-security-sweep
+(no write RPC). **Cookie/CSRF security review done** (Bearer-header auth → no
+classic CSRF; XSS blast-radius widened across subdomains = the documented trade-off).
+
+**⛔ OWED to the operator (cannot be done bot-solo):**
+1. **Domain attach + env flip** — DNS CNAMEs, attach `venue./ref./…in-or-out.com`
+   in Vercel, add Supabase redirect URLs, set `VITE_AUTH_COOKIE_DOMAIN=.in-or-out.com`
+   + the `VITE_*_APP_URL` vars per `PHASE_0E_SSO_RUNBOOK.md`. SSO is dark until this.
+2. **Real-device cross-app walk** (HR#13) — sign in on app., open venue./ref.,
+   confirm already-signed-in; sign out on one clears the other. Flag, never fake.
+
+**Carry-forward — still OWED (do NOT lose):**
+- watchOS Phase 4 real-iPhone walk (MyIO fitness + admin ref toggle).
+- 0d enforcement flip + phone+watch concurrency rehearsal + apps/ref ⌚CTRL walk.
+- **Delete-account person-scrub** (deferred backlog) — `people` row not yet scrubbed
+  on deletion; MUST land before pilot/production.
+
+**Next free mig = 376** (0e used none).
+
 ## SESSION 168 — ✅ WATCHOS PHASE 4 SHIPPED (mig 375): match-health storage + casual ref toggle. No new bugs.
 
 watchOS companion **Phase 4** (non-gated backend + web). New RLS-walled `match_health_sessions`

@@ -1619,6 +1619,7 @@ export default function App() {
         guardianChildren={myWorld?.guardian_of ?? []}
         refAssignments={myWorld?.ref_assignments ?? []}
         coaching={myWorld?.coaching ?? []}
+        adminRoles={myWorld?.admin_roles ?? []}
         conflicts={myWorld?.conflicts ?? []}
         currentTeamId={teamId}
         onSelectSquad={(s) => { if (s?.token) window.location.href = `/p/${s.token}`; }}
