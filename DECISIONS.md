@@ -3110,3 +3110,29 @@ looks like the membership vanished.
   already blocked paused (members-only classes), and `MemberPass.jsx` now withholds the QR + reception
   code for paused (shows a "Membership frozen" notice). This is the rule going forward: a lapsed/paused
   role stays *visible and explained*, with its capabilities gated at the action, not erased from the UI.
+
+## Phase 0d — Watch ↔ phone live-match sync integrity (mig 374, session 167)
+
+- **Single-writer over last-write-wins.** Two devices on the SAME `ref_token` (phone `apps/ref` +
+  the future watch) could both write the live clock; `client_event_id` only dedups one device's tap
+  retries, so concurrent devices produced last-write-wins jitter. The fix is a fixture-scoped,
+  lease-based **clock-owner election** (`fixtures.clock_owner_*`, 30s lease; claim/heartbeat/release/
+  check RPCs). The lock is keyed to the **device**, not `person_id` — a token-only casual ref may have
+  no account, so person-keying would exclude them.
+- **Ships DORMANT (operator decision — "Option A").** The lock infra + auto-claim + the ⌚CTRL badge
+  land now, but the clock-write RPCs are NOT modified to reject a non-owner. Hard enforcement (wiring
+  `ref_check_clock_owner` + a `p_device_id` into the write RPCs) is the deferred "flip the switch"
+  step, done WITH the real phone+watch concurrency rehearsal — which cannot be tested bot-solo and is
+  OWED to the operator. Until then live-match behaviour is byte-identical. Rationale: matches this
+  codebase's "ship dormant until real-device proof" pattern (Stripe, push, watchOS Phase 1); a
+  premature hard lock could trap the live league ref tool on a refresh/reconnect/offline-replay.
+- **Hard Rule #10 publisher normalisation.** `ref_set_clock` + `ref_set_added_time` published to the
+  venue channel only; every other clock/scoring write notified team+venue. Normalised so a future
+  watch/phone realtime listener has ONE consistent fixture feed (team_live + venue_live on every
+  live-match write).
+- **Cross-role least-privilege re-audit (clean).** With one person accruing roles: `get_my_world`/
+  `get_my_assignments` are strictly `auth.uid()→people`-keyed (proven live — tarny+demo and
+  tarny+family each resolve only their own person_id, guardian scoped to own children, admin to own
+  entities); `fixtures` + `match_events` are RLS-on with **0 policies** (all access via SECDEF RPCs
+  gated on `ref_token`/team membership); the new clock RPCs are `ref_token`-scoped to a single fixture
+  (no player PII); the validator is admin-token-scoped to one team. No privilege bleed introduced.
