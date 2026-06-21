@@ -1,5 +1,21 @@
 # IN OR OUT — Project Context & Session History
 
+**Session 168 (Jun 21 2026) — watchOS PHASE 4: match-health storage + casual ref toggle (mig 375).**
+First non-gated cycle after 0d. **mig 375** = new RLS-walled `match_health_sessions` (summary-only
+health data; `UNIQUE(user_id, client_session_id)` offline-idempotency; `user_id → auth.users ON DELETE
+CASCADE`) + 2 authenticated-only SECDEF RPCs `save_match_health_summary` (idempotent upsert, the watch
+posts on Full Time; audit + team-derive) and `get_my_match_health` (read-back; empty for
+unauthenticated → surface self-hides) + **mandatory same-mig GDPR cascade** (both `delete_my_account`
+and `delete_my_account_auth` purge the table; EV-proven). **(B) casual ref toggle:** `dbToMatch.refPlayerId`
++ `RefAssignCard` in `AdminView/TeamsScreen` (reuses the mig-369 `assignCasualMatchRef` — NO new
+backend) + self-hiding "Your match fitness" section in `MyIOView`. Source: `rls_migrations/375_match_health_sessions.sql`
+(+ `_down.sql`). Gates: rpc-security PASS, **EV 9/9 + leak 0** (idempotent upsert, casual team-derive,
+league-uuid fallback, bad-context reject, **GDPR-cascade purge**), hygiene 7/7, build clean,
+casual-regression additive-diff PASS + **Playwright authed walk** on team_demo (RefAssignCard renders;
+populated + empty MatchFitness both proven; new RPC 200 authed; 0 console errors from changed files).
+⛔ OWED: real-iPhone PWA walk (MyIO fitness + admin ref toggle). Carry-forward 0d OWED list still open
+(phone+watch rehearsal, enforcement flip, apps/ref ⌚CTRL walk). **Next free mig = 376.**
+
 **Session 167b (Jun 21 2026) — 0c FOLLOW-UP: paused club memberships SHOWN-but-restricted (mig 373).**
 Operator feedback after 0c: a paused (frozen) club membership was hidden from the switcher entirely.
 Now it's SHOWN and access-restricted. **mig 373** = `get_my_world().club_memberships` includes `paused`

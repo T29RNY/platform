@@ -5,9 +5,9 @@
 
 ## WATCHOS COMPANION APP — REF MODE ON THE WRIST + HEALTHKIT (PLANNED + SCOPE-LOCKED, session 161)
 
-**Status: 🟢 PHASE 1 BACKEND SHIPPED (s162, mig 369) — rest 🟡 PLANNED.** Operator s162: build
+**Status: 🟢 PHASE 1 + PHASE 4 BACKEND SHIPPED (s162 mig 369; s168 mig 375) — native phases 🟡 PLANNED (App-Store-gated).** Operator s162: build
 everything that doesn't need an approved App Store listing, ahead of approval. Phase 1 (identity
-layer) is pure additive backend with no device dependency, so it landed early.
+layer) + Phase 4 (health storage + casual ref toggle) are pure additive backend/web with no device dependency, so they landed early.
 Full phased plan: `~/.claude/plans/once-the-ios-app-dapper-marshmallow.md`. Design brief:
 `WATCH_DESIGN_BRIEF.md` → **✅ design handoff DONE `WATCH_DESIGN_HANDOFF.md`** (s162, commit `17674e7`:
 all screens + tokens + SwiftUI stubs + interaction/haptic map + complication/Live Activity + a11y;
@@ -27,6 +27,21 @@ ephemeral-verify 9/9 groups + leak 0 (incl. in-progress precedence + role filter
 clean, casual-regression PASS (additive-diff, 0 deletions). KEY DESIGN: casual ≠ league — casual reuses the
 existing `players.user_id` claim (no new claim RPC); club-cohort officiating folds into the fixture arm (cohort =
 default-official convenience; `club_sessions` refereeing stays Phase 6). Next free mig = **370**.
+
+**✅ Phase 4 — health-summary storage + casual ref toggle (mig 375, s168).** Backend + web, no device dependency.
+SCHEMA: new RLS-walled `match_health_sessions` (summary only — duration/energy/distance/avg+max HR/HR-zones jsonb;
+`UNIQUE(user_id, client_session_id)` offline-idempotency key; user_id → auth.users ON DELETE CASCADE). 2 SECDEF
+authenticated-only RPCs: `save_match_health_summary` (idempotent upsert, the watch posts on Full Time; audit + team
+derive) + `get_my_match_health` (read-back; empty for unauthenticated → surface self-hides). **GDPR cascade (same
+mig, mandatory):** both `delete_my_account` + `delete_my_account_auth` purge the table (DECISIONS.md s161 #6).
+**(B) casual ref toggle wired:** `dbToMatch` now maps `refPlayerId`; new `RefAssignCard` in `AdminView/TeamsScreen`
+(squad-member picker → existing `assignCasualMatchRef`, mig-369 RPC — NO new backend); self-hiding "Your match
+fitness" section in `MyIOView`. **Verified:** rpc-security PASS (2 new RPCs anon-revoked/SECDEF/search_path/single-
+overload; delete RPCs posture unchanged), EV 9/9 + leak 0 (incl. idempotent upsert, casual team-derive, league-uuid
+fallback, bad-context reject, **GDPR-cascade purge**), hygiene 7/7, build clean, casual-regression additive-diff PASS
++ Playwright authed walk on team_demo (RefAssignCard renders; populated + empty MatchFitness both proven; new RPC
+200 authed; 0 console errors from changed files). ⛔ **OWED: real-iPhone PWA walk** (MyIO fitness + admin ref toggle).
+Next free mig = **376**. Native phases 0/2/3/5/6/7 remain App-Store-gated (Mac + paired Apple Watch).
 
 **What it is:** a native **SwiftUI watchOS** app — the only native code in the repo — added as a
 target inside the existing Capacitor iOS Xcode project (`apps/inorout/ios`). The iPhone app stays

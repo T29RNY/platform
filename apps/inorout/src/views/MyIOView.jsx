@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Trophy, SoccerBall, ChartBar, Lock, Star, Lightning,
   UsersThree, Crosshair, ChartLineUp, Users,
 } from "@phosphor-icons/react";
 import useIOIntelligence from "../hooks/useIOIntelligence.js";
+import { getMyMatchHealth } from "@platform/core";
 
 // ── Inject once at module load ────────────────────────────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("io-intel-styles")) {
@@ -772,6 +773,42 @@ function GuestCard() {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
+// ── Match fitness (watchOS Phase 4 / mig 375) ────────────────────────────────
+// Renders the Apple "Outdoor Football" workout summary the watch posts when this
+// user refereed a game. Caller only mounts this when sessions exist, so it never
+// shows an empty state (invisible until the watch posts data).
+function MatchFitness({ totals, sessions }) {
+  const km = (totals?.distance || 0) >= 1000
+    ? `${(totals.distance / 1000).toFixed(1)} km`
+    : `${totals?.distance || 0} m`;
+  const stat = (label, value) => (
+    <div style={{ flex: "1 1 0", minWidth: 72 }}>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: "var(--gold)", lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 4 }}>{label}</div>
+    </div>
+  );
+  return (
+    <div style={{ padding: 16, borderRadius: 12, background: "var(--s2)", border: "0.5px solid var(--b2)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <Lightning size={20} weight="thin" color="var(--gold)" />
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em", color: "var(--t1)" }}>
+          YOUR MATCH FITNESS
+        </div>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 4 }}>
+        {stat("Games reffed", totals?.games || 0)}
+        {stat("Minutes", totals?.minutes || 0)}
+        {stat("Calories", totals?.kcal || 0)}
+        {stat("Distance", km)}
+        {stat("Avg HR", totals?.avg_hr ? `${totals.avg_hr}` : "—")}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 10, fontFamily: "DM Sans, sans-serif" }}>
+        Across {sessions?.length || 0} refereed {sessions?.length === 1 ? "match" : "matches"}, tracked on your watch.
+      </div>
+    </div>
+  );
+}
+
 export default function MyIOView({ player, teamId, teamName, stats: statsProp }) {
   const gamesPlayed = player?.attended || 0;
   const isGuest     = player?.isGuest || false;
@@ -779,6 +816,23 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
 
   const sectionRefs = useRef([]);
   const secRef = (i) => (el) => { sectionRefs.current[i] = el; };
+
+  // Match fitness — watchOS-posted workout summaries (mig 375). Auth-only RPC, so
+  // it returns empty for guests / token-only players → the section self-hides.
+  const [health, setHealth] = useState(null);
+  useEffect(() => {
+    if (isGuest || !player?.id) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await getMyMatchHealth();
+        if (alive) setHealth(res);
+      } catch (e) {
+        console.error("[myio] match health load failed", e);
+      }
+    })();
+    return () => { alive = false; };
+  }, [player?.id, isGuest]);
 
   // Scroll reveal
   useEffect(() => {
@@ -879,6 +933,12 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
             </div>
           )}
         </>
+      )}
+
+      {health?.sessions?.length > 0 && (
+        <div ref={secRef(7)} className="io-section" style={{ marginTop: 16 }}>
+          <MatchFitness totals={health.totals} sessions={health.sessions} />
+        </div>
       )}
       </div>
     </div>

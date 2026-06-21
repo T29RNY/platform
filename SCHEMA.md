@@ -1012,3 +1012,19 @@ to ONE person, with no duplicate identities and no crossovers.
   (claim/link RPCs, admin grants, future code) attaches the person with no per-RPC edits. The
   triggers no-op when `user_id`/`auth_user_id` is NULL or `person_id` is already set, so casual
   writes (which never touch `user_id`) are unaffected.
+
+## WATCHOS MATCH HEALTH (migration 375 — Phase 4)
+
+- `match_health_sessions` — one Apple "Outdoor Football" workout SUMMARY per ref, per match
+  (special-category health data; summary only, never the raw stream — UK-GDPR data minimisation).
+  - `id uuid PK`, `user_id uuid NOT NULL FK→auth.users ON DELETE CASCADE`,
+    `match_context text NOT NULL CHECK (league|casual|cohort)`, `match_ref text NOT NULL`
+    (casual = `matches.id`; league/cohort = `fixtures.id`), `client_session_id text NOT NULL`,
+    `duration_seconds int`, `active_energy_kcal numeric`, `distance_meters numeric`,
+    `avg_hr int`, `max_hr int`, `hr_zones jsonb` (watchOS-27 HR-zone breakdown), `started_at`/
+    `ended_at timestamptz`, `created_at timestamptz DEFAULT now()`.
+  - `UNIQUE (user_id, client_session_id)` — the offline-idempotency key (replay never double-writes).
+  - **RLS ON, NO policies** — access only via the two SECDEF RPCs (`save_match_health_summary`,
+    `get_my_match_health`), mirroring the `people` spine table.
+  - **GDPR cascade (same migration):** purged by BOTH `delete_my_account` (token path, guarded) and
+    `delete_my_account_auth` (auth path) + the `ON DELETE CASCADE` belt. See RPCS.md + DECISIONS.md s161 #6.
