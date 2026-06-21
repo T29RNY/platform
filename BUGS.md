@@ -3,6 +3,59 @@
 
 ---
 
+## SESSION 172 — ✅ PHASE 0E CROSS-APP SSO SWITCHED ON (venue + ref live & proven; consumer-app flip). No migration, no new bugs.
+
+The operator attached the role-app subdomains, so the 0e switch-on that was blocked
+since s170 is now done. **No code change, no migration** — it's all DNS + Vercel +
+Supabase + env vars (the 0e adapter shipped dark in e13d0011).
+
+**Operator console work done this session:** DNS CNAMEs for `venue`/`ref`/`display`/`admin`
+.in-or-out.com (123 Reg — per-domain `*.vercel-dns-016.com` targets, NOT the generic
+`cname.vercel-dns.com`); domains attached in Vercel (platform-venue, platform-ref,
+platform-superadmin); Supabase redirect URLs added for venue/ref/admin origins.
+
+**Bot work done this session:**
+- Set `VITE_AUTH_COOKIE_DOMAIN=.in-or-out.com` (Production scope) on platform-clubmanager,
+  platform-venue, platform-ref; `VITE_REF_APP_URL` / `VITE_VENUE_APP_URL` / `VITE_CLUB_APP_URL`
+  on platform-clubmanager (consumer switcher deep-links). ⚠️ GOTCHA: `vercel env add` reads
+  the value from stdin and needs a NEWLINE — `printf 'x'` (no `\n`) silently stores empty;
+  use `echo 'x' |`. Also: these are Type=Sensitive, so `vercel env pull` masks them as `""` —
+  you CANNOT verify the value via pull; grep the live bundle instead.
+- venue + ref deploy via **local prebuilt static** (remote `npm install` fails on the monorepo
+  workspace — see [[project_venue_deploy]]). Prebuilt bakes from each app's gitignored
+  `.env.local`, NOT the Vercel-dashboard vars — so `VITE_AUTH_COOKIE_DOMAIN=.in-or-out.com`
+  was added to `apps/venue/.env.local` + `apps/ref/.env.local` and the recipe re-run. Live
+  bundles confirmed to contain `.in-or-out.com`.
+- **Fixed platform-ref's `rootDirectory`** (was `apps/ref`, caused the prebuilt deploy to
+  resolve `apps/ref/apps/ref` → "path does not exist"; this is the "No dist directory" build
+  issue the plan flagged). Cleared to null via the Vercel API → ref now deploys clean like venue.
+
+**REAL cross-app SSO walk — PROVEN (Playwright, the test impossible until tonight):** signed
+into venue.in-or-out.com with password (tarny+demo@lettrack.co.uk) → session written to the
+shared `sb-ktvpzpnqbwhooiaqrigm-auth-token` **cookie** on `.in-or-out.com`, localStorage EMPTY
+of supabase auth → opened ref.in-or-out.com (same browser) → same auth cookie present
+(cross-subdomain share works) → returned to venue, still signed in from the cookie (no
+re-login) → signed out on venue → cookie cleared on venue AND gone on ref (sign-out clears
+across apps). NOTE: ref's UI shows its token-entry screen, not a signed-in view — EXPECTED,
+not a bug: the referee app is gated by a ref *token*, not the Supabase session; the cookie
+crosses to it but ref doesn't consume it for its UI.
+
+**Consumer app (app.in-or-out.com / platform-clubmanager):** env vars set; flips onto cookie
+SSO on its next production deploy (auto-deploys on every push to main — no ignored-build-step).
+Operator chose to flip it (Option B) and re-test unified login. ⛔ Hard Rule #13: real-iPhone
+auth walk OWED — stacks on s171's unified-login auth-landing changes which ALSO owe a device walk.
+
+**Superadmin (admin.in-or-out.com): deliberately EXCLUDED from shared cookie** (no
+`VITE_AUTH_COOKIE_DOMAIN` on platform-superadmin) — internal ops console kept session-isolated
+from public subdomains (XSS blast-radius). Sign-in works on the branded URL; it just won't
+auto-carry. Display has no auth (N/A).
+
+⛔ OWED to operator (bot-solo impossible): real-device cross-app walk on a real iPhone (sign in
+on one app → already-signed-in on a second → sign out clears) + consumer-app unified-login
+re-test. Next free mig = 378.
+
+---
+
 ## SESSION 171 — ✅ UNIFIED LOGIN SHIPPED (migs 376–377). One login-loop scare RESOLVED (stale Safari breadcrumb, not a code regression).
 
 **Unified login** — one account sign-in for admins AND players, LIVE on main. See FEATURES.md /

@@ -1,5 +1,15 @@
 # Phase 0e — Cross-app SSO operator runbook
 
+> **✅ SWITCHED ON — session 172 (Jun 21 2026).** venue.in-or-out.com + ref.in-or-out.com
+> are live on the shared `.in-or-out.com` cookie and the cross-app SSO walk is proven
+> (sign in on venue → ref reads the same session → sign out clears across). admin +
+> display attached too (admin deliberately NOT in the shared cookie — internal ops, kept
+> isolated). Consumer app (app.in-or-out.com) flips on its next production deploy. The
+> per-domain CNAME target was `*.vercel-dns-016.com` (read it from the Vercel Add-Domain
+> dialog, NOT the generic `cname.vercel-dns.com` below). platform-ref's Root Directory was
+> cleared (`apps/ref`→empty) so it deploys like venue. ⛔ Real-iPhone cross-app walk still
+> owed. Steps below kept for reference / future apps.
+
 The code for cross-app single-sign-on shipped **dark** (session 169). One sign-in
 will carry across every In or Out app the moment you complete the steps below. No
 further code change is needed to switch it on — it's all DNS + Vercel + Supabase +
