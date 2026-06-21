@@ -1,5 +1,23 @@
 # IN OR OUT — Project Context & Session History
 
+**Session 167 (Jun 21 2026) — UNIFIED IDENTITY & SYNC SPINE: Phase 0c SHIPPED (nav unification).**
+The 0c hold cleared — the App-Store session's `App.jsx`/`PlayerView.jsx`/`PlayerProfile.jsx` edits are
+all on `main` (latest `cd4e3ef`), zero open PRs. 0c is **JS-only, no migration**: it wires
+`get_my_world()` (mig 372) into the multi-context switcher. `App.jsx` loads the resolver once auth
+resolves (refreshes on switcher-open) and feeds `ContextSwitcher` the full hat set — squads tagged
+League/Casual, club/gym memberships, **one row per guarded child** (was a single "Family" entry), a
+"Referee" entry deep-linking to `apps/ref`, read-only club-OS coaching rows ("in the club app", until
+0e), and a **play-vs-ref conflict warning** banner. Taxonomy items 1–9 mapped by the locked clean-UX
+rule (peers = identities/roles; tournament/classes/PT/grading stay inside their context). Stale-realtime
+-on-switch handled by full-page navigation on every switch (tears down React tree + WebSocket) + a
+`liveChannelKey` reset in the legacy `loadTeamData` swap so `team_live` can't stay pinned to the previous
+team. Gates: build PASS, hygiene 7/7 PASS (3 files), browser boot smoke clean (no new console errors),
+casual-regression = additive-diff PASS (switcher renders only behind the per-team `multi_context_nav`
+flag; casual avatar tap still opens the profile). **OWED: real-iPhone PWA walk (Hard Rule #13) + an
+authed multi-role switcher walk on a flag-ON team.** Next free migration still **373** (0c used none).
+Decisions in DECISIONS.md "Phase 0c — nav unification". NEXT in the epic: 0e (cross-app session) → 0d
+(watch live-sync) → feature phases 1–5.
+
 **Session 166 (Jun 21 2026) — UNIFIED IDENTITY & SYNC SPINE: Phases 0a + 0b SHIPPED + MERGED.**
 The foundation epic beneath the Panjab Athletic youth 3v3 pilot + the one-identity-across-all-roles
 requirement (one human = player + parent + coach + referee + member, resolved to ONE identity on

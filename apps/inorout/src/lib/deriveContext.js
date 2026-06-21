@@ -17,6 +17,12 @@ export const CONTEXT_TYPES = {
   COMPETITIVE: "competitive_squad",
   CLUB: "club_membership",
   GUARDIAN: "guardian",
+  // Phase 0c — every hat the get_my_world() resolver surfaces. Referee and
+  // team-manager are switcher peers (an identity/role you switch *between*),
+  // not sub-surfaces. Tournament/classes/PT/grading/fight-record stay INSIDE
+  // their squad/club context, never as switcher peers (locked clean-UX rule).
+  REFEREE: "referee",
+  TEAM_MANAGER: "team_manager",
 };
 
 // Returned descriptor shape:
@@ -75,6 +81,43 @@ export function deriveGuardianContext() {
   };
 }
 
+// Referee context (item 8) — league + casual-assigned + cohort assignments
+// resolve together via get_my_world().ref_assignments (mig 372, both arms).
+// The officiating surface itself lives in apps/ref (+ watchOS); inside inorout
+// this descriptor exists so the taxonomy is complete and the switcher can mark
+// the hat. `count` = number of upcoming/in-progress assignments.
+export function deriveRefereeContext({ count = 0 } = {}) {
+  return {
+    type: CONTEXT_TYPES.REFEREE,
+    hasMatches: false,
+    isLeague: false,
+    isClub: false,
+    clubId: null,
+    clubName: null,
+    cohortId: null,
+    count: count || 0,
+  };
+}
+
+// Team-manager / captain context (item 9) — one per managed team. Same-domain
+// squad management is the team_admins hat (already reachable as the Admin tab
+// on the squad's own /admin route); the club-OS club_team_managers hat
+// (get_my_world().coaching[]) is surfaced read-only until the cross-app session
+// (Phase 0e) can deep-link into the club app carrying the session.
+export function deriveTeamManagerContext(entry = {}) {
+  return {
+    type: CONTEXT_TYPES.TEAM_MANAGER,
+    hasMatches: false,
+    isLeague: false,
+    isClub: false,
+    clubId: entry?.club_id ?? null,
+    clubName: null,
+    cohortId: null,
+    teamName: entry?.team_name ?? null,
+    role: entry?.role ?? null,
+  };
+}
+
 // Unified dispatcher over a tagged entity. Returns null when the entity is not
 // yet resolved, so callers can render a stable "resolving" bar rather than
 // flashing the wrong tabs.
@@ -87,6 +130,10 @@ export function deriveContext(entity) {
       return deriveClubContext(entity.club);
     case "guardian":
       return deriveGuardianContext();
+    case "referee":
+      return deriveRefereeContext(entity);
+    case "team-manager":
+      return deriveTeamManagerContext(entity.team);
     default:
       return null;
   }
