@@ -1,6 +1,6 @@
 import {
   X, SoccerBall, Users, Baby, SquaresFour, CaretRight,
-  FlagCheckered, ClipboardText, Warning,
+  FlagCheckered, ClipboardText, Warning, Buildings,
 } from "@phosphor-icons/react";
 
 // Unified context switcher (multi-context nav). Opened from the header avatar on
@@ -25,11 +25,21 @@ import {
 //   guardianChildren — guardian_of [{ child_profile_id, first_name, last_name }]
 //   refAssignments — get_my_world().ref_assignments [{ ref_token, ... }]
 //   coaching       — get_my_world().coaching [{ club_team_id, club_id, team_name, role }]
+//   adminRoles     — get_my_world().admin_roles [{ type, entity_id, name, role }]
 //   conflicts      — get_my_world().conflicts [{ kind, message, ... }]
 //   currentTeamId  — marks the squad you're already in
 //   onSelectSquad  — (squad) => void  (caller decides in-app load vs navigate)
 
-const REF_APP_BASE = "https://platform-ref.vercel.app";
+// Cross-app base URLs (Phase 0e). Operator sets these to the *.in-or-out.com
+// subdomains in each Vercel project once the domains are attached; until then they
+// fall back to the live *.vercel.app deployments so deep-links never break. With
+// the shared-cookie SSO on (VITE_AUTH_COOKIE_DOMAIN set), navigating to any of
+// these carries the signed-in session — one sign-in, every hat. Off, the target
+// app simply shows its own (now auth-parity) sign-in.
+const REF_APP_BASE   = import.meta.env.VITE_REF_APP_URL   || "https://platform-ref.vercel.app";
+const VENUE_APP_BASE = import.meta.env.VITE_VENUE_APP_URL || "https://platform-venue.vercel.app";
+// Club OS (coach / club-admin) currently lives inside the venue console.
+const CLUB_APP_BASE  = import.meta.env.VITE_CLUB_APP_URL  || VENUE_APP_BASE;
 
 function Row({ Icon, title, subtitle, badges = [], onClick, muted = false }) {
   const clickable = typeof onClick === "function";
@@ -95,9 +105,13 @@ function SectionLabel({ children }) {
 export default function ContextSwitcher({
   open, onClose, currentName,
   squads = [], clubs = [], guardianChildren = [],
-  refAssignments = [], coaching = [], conflicts = [],
+  refAssignments = [], coaching = [], adminRoles = [], conflicts = [],
   currentTeamId = null, onSelectSquad,
 }) {
+  // Operator hats from get_my_world().admin_roles. team_admin is already shown as
+  // a "Manager" badge on the squad row, so only venue_admin (the venue/club
+  // operator console) is surfaced here as a distinct cross-app context.
+  const venueRoles = (adminRoles || []).filter((r) => r.type === "venue_admin");
   if (!open) return null;
 
   const go = (href) => { window.location.href = href; };
@@ -253,14 +267,32 @@ export default function ContextSwitcher({
           <>
             <SectionLabel>Coaching &amp; management</SectionLabel>
             {coaching.map((t) => (
-              // Cross-app (club OS) — surfaced read-only so the hat is visible;
-              // deep-link carrying the session arrives with Phase 0e.
+              // Cross-app (club OS, in the venue console). Phase 0e: now a real
+              // deep-link — the shared-cookie session carries across when SSO is
+              // on; otherwise the target app shows its own sign-in.
               <Row
                 key={t.club_team_id}
                 Icon={ClipboardText}
                 title={t.team_name || "Team"}
-                subtitle={`${t.role ? t.role[0].toUpperCase() + t.role.slice(1) : "Manager"} · in the club app`}
-                muted
+                subtitle={`${t.role ? t.role[0].toUpperCase() + t.role.slice(1) : "Manager"} · open the club app`}
+                onClick={() => go(`${CLUB_APP_BASE}/?club=${t.club_id}`)}
+              />
+            ))}
+          </>
+        )}
+
+        {venueRoles.length > 0 && (
+          <>
+            <SectionLabel>Operator</SectionLabel>
+            {venueRoles.map((r) => (
+              // Cross-app (venue console). Deep-links carrying the session under
+              // Phase 0e shared-cookie SSO.
+              <Row
+                key={r.entity_id}
+                Icon={Buildings}
+                title={r.name || "Your venue"}
+                subtitle="Open the venue console"
+                onClick={() => go(VENUE_APP_BASE)}
               />
             ))}
           </>

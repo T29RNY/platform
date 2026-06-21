@@ -1,5 +1,20 @@
 # IN OR OUT — Project Context & Session History
 
+## SESSION 169 — Phase 0e cross-app SSO (dark)
+
+Shipped Phase 0e of the Unified Identity & Sync Spine. AUDIT confirmed live: all 8
+apps share ONE Supabase project (`ktvpzpnqbwhooiaqrigm`) + the SAME default
+storageKey; only per-origin localStorage blocked SSO. Deployed domains: inorout =
+`app.in-or-out.com` (platform-clubmanager); venue/ref/display/superadmin on
+`*.vercel.app`; hq/clubmanager/league not separately deployed; marketing = apex.
+Fix (JS-only, no mig): custom cookie storage adapter (`cookieAuthStorage.js`) gated
+by `VITE_AUTH_COOKIE_DOMAIN` (dark when unset = localStorage), native-guarded,
+chunked; cross-app switcher env-driven deep-links + operator section; venue auth
+parity (Apple + magic-link). Operator switch-on runbook = `PHASE_0E_SSO_RUNBOOK.md`.
+OWED: operator domain attach + env flip; real-device cross-app walk. Next mig = 376.
+
+
+
 **Session 168 (Jun 21 2026) — watchOS PHASE 4: match-health storage + casual ref toggle (mig 375).**
 First non-gated cycle after 0d. **mig 375** = new RLS-walled `match_health_sessions` (summary-only
 health data; `UNIQUE(user_id, client_session_id)` offline-idempotency; `user_id → auth.users ON DELETE

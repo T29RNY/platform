@@ -1928,6 +1928,19 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   font-weight: 600;
 }
 .btn-google:hover { background: var(--bg-4); }
+/* Apple sign-in — HIG: at least as prominent as Google, solid near-white fill. */
+.btn-apple {
+  width: 100%;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 0;
+  margin-bottom: 10px;
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  color: var(--bg-1);
+  font-weight: 600;
+}
+.btn-apple:hover { background: var(--ink-2); border-color: var(--ink-2); }
 .auth-divider {
   display: flex; align-items: center; gap: 12px;
   margin: 16px 0;
