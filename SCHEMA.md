@@ -985,3 +985,29 @@ RLS enabled + REVOKE ALL from anon, authenticated on all tables. Access via SECU
 | Bucket | Public | Limits | Write access |
 |---|---|---|---|
 | `venue-media` | yes (objects served via `/object/public/…`) | 5 MB; image/png, jpeg, webp, gif, svg+xml | `authenticated` venue staff only, object path must start with their `venue_id` folder (`<venue_id>/…`), checked against an active `venue_admins` row. Used for reception-display sponsor creative; public URL saved into `venues.display_config.sponsor_image_url` via `venue_update_display_config` (mig 245). |
+
+---
+
+## IDENTITY SPINE (migration 371 — Phase 0a)
+
+One canonical person per human; soft links from every identity silo. Built so a single human
+who is at once a player, parent/guardian, coach, referee, team-manager and club member resolves
+to ONE person, with no duplicate identities and no crossovers.
+
+- `people` — `id uuid PK`, `auth_user_id uuid UNIQUE FK→auth.users ON DELETE CASCADE`, `created_at`.
+  **Linkage only — deliberately holds NO PII** (canonical_email/canonical_name are deferred to land
+  with the delete-account person-scrub; see DECISIONS.md / backlog). RLS enabled, NO policies —
+  reachable only via SECURITY DEFINER functions / table owner (deny-by-default for anon+authenticated).
+- `person_id uuid NULL FK→people(id) ON DELETE SET NULL` added to: `players`, `member_profiles`,
+  `match_officials`, `team_admins`, `venue_admins` (each indexed). Unclaimed rows (guests, unclaimed
+  members/officials) keep `person_id NULL` until the person signs in/claims; orphaned silo rows whose
+  auth user was deleted also stay NULL.
+- `ensure_person(uuid)` — SECDEF helper, upserts one `people` row per auth user, returns its id.
+  Not client-callable (grants: postgres+service_role only).
+- Auto-maintenance via **BEFORE INSERT/UPDATE triggers** (`trg_*_person_id`) on all five tables —
+  `tg_set_person_id_from_user_id()` (players/match_officials/team_admins/venue_admins, keyed on
+  `user_id`) and `tg_set_person_id_from_auth_user_id()` (member_profiles, keyed on `auth_user_id`).
+  Whenever a row is linked to an auth user, `person_id` is filled automatically — so every path
+  (claim/link RPCs, admin grants, future code) attaches the person with no per-RPC edits. The
+  triggers no-op when `user_id`/`auth_user_id` is NULL or `person_id` is already set, so casual
+  writes (which never touch `user_id`) are unaffected.
