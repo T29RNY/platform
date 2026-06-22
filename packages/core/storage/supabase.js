@@ -4807,10 +4807,10 @@ export async function stripeInitMemberCheckout({ inviteCode, tierId, period, for
 
 // ── Phase 10 — Club Attendance admin RPCs (mig 298) ──────────────────────────
 
-export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null } = {}) {
+export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null, category = null } = {}) {
   const { data, error } = await supabase.rpc("club_create_cohort", {
     p_venue_token: venueToken, p_club_id: clubId, p_name: name,
-    p_description: description, p_min_age: minAge, p_max_age: maxAge,
+    p_description: description, p_min_age: minAge, p_max_age: maxAge, p_category: category,
   });
   if (error) { console.error("[club] club_create_cohort failed", error); throw error; }
   return data;
@@ -4824,12 +4824,47 @@ export async function clubListCohorts(venueToken, clubId, includeInactive = fals
   return data;
 }
 
-export async function clubUpdateCohort(venueToken, cohortId, { name = null, description = null, minAge = null, maxAge = null, active = null } = {}) {
+export async function clubUpdateCohort(venueToken, cohortId, { name = null, description = null, minAge = null, maxAge = null, active = null, category = null } = {}) {
   const { data, error } = await supabase.rpc("club_update_cohort", {
     p_venue_token: venueToken, p_cohort_id: cohortId, p_name: name,
-    p_description: description, p_min_age: minAge, p_max_age: maxAge, p_active: active,
+    p_description: description, p_min_age: minAge, p_max_age: maxAge, p_active: active, p_category: category,
   });
   if (error) { console.error("[club] club_update_cohort failed", error); throw error; }
+  return data;
+}
+
+// ── Club Structure — team RPCs (mig 389) ─────────────────────────────────────
+export async function clubCreateTeam(venueToken, clubId, { cohortId, name, gender = null, priorityRank = null } = {}) {
+  const { data, error } = await supabase.rpc("club_create_team", {
+    p_venue_token: venueToken, p_club_id: clubId, p_cohort_id: cohortId,
+    p_name: name, p_gender: gender, p_priority_rank: priorityRank,
+  });
+  if (error) { console.error("[club] club_create_team failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdateTeam(venueToken, teamId, { name = null, gender = null, priorityRank = null, cohortId = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_team", {
+    p_venue_token: venueToken, p_team_id: teamId, p_name: name,
+    p_gender: gender, p_priority_rank: priorityRank, p_cohort_id: cohortId,
+  });
+  if (error) { console.error("[club] club_update_team failed", error); throw error; }
+  return data;
+}
+
+export async function clubListTeams(venueToken, clubId, includeArchived = false) {
+  const { data, error } = await supabase.rpc("club_list_teams", {
+    p_venue_token: venueToken, p_club_id: clubId, p_include_archived: includeArchived,
+  });
+  if (error) { console.error("[club] club_list_teams failed", error); throw error; }
+  return data;
+}
+
+export async function clubArchiveTeam(venueToken, teamId) {
+  const { data, error } = await supabase.rpc("club_archive_team", {
+    p_venue_token: venueToken, p_team_id: teamId,
+  });
+  if (error) { console.error("[club] club_archive_team failed", error); throw error; }
   return data;
 }
 

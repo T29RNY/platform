@@ -5,6 +5,8 @@ import {
   venueCreateCustomer, venueUpdateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
+  clubListCohorts, clubCreateCohort, clubUpdateCohort,
+  clubCreateTeam, clubUpdateTeam, clubListTeams, clubArchiveTeam,
   venueCreateGradingScheme, venueAddGrade, venueAwardGrade, venueListGradingSchemes,
   venueRecordBout, venueUpdateBout, venueDeleteBout, venueListMemberBouts,
   venueListClubVenues, venueAddClubVenue, venueRemoveClubVenue, venueSearch,
@@ -123,7 +125,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["grading", "Grading"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["structure", "Structure"], ["grading", "Grading"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -133,6 +135,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
       {tab === "fees"    && <FeesTab venueToken={venueToken} />}
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
       {tab === "club"       && <ClubTab venueToken={venueToken} />}
+      {tab === "structure"  && <StructureTab venueToken={venueToken} />}
       {tab === "grading"    && <GradingTab venueToken={venueToken} />}
       {tab === "staff"          && <StaffTab venueToken={venueToken} />}
       {tab === "announcements"  && <AnnouncementsTab venueToken={venueToken} />}
@@ -1180,6 +1183,7 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
 
       <label className="field-label">Plan name</label>
       <input className="input" placeholder="e.g. Junior Gold" value={name} onChange={(e) => setName(e.target.value)} />
+      <FieldHelp>What members see when they pick a plan. Examples: <em>Junior Gold</em>, <em>Adult Monthly</em>, <em>Family</em>.</FieldHelp>
 
       <div style={head}>Audience</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1776,6 +1780,310 @@ function ClubTab({ venueToken }) {
         );
       })}
     </div>
+  );
+}
+
+// ── Club Structure (mig 389) ────────────────────────────────────────────────
+// Org chart: club → age group (cohort, with youth/adult/mixed category) → team
+// (girls/boys/mixed + priority rank). Create/edit/archive in place. Every input
+// carries helper text + a worked example.
+
+const CATEGORY_OPTS = [["youth", "Youth"], ["adult", "Adult"], ["mixed", "Mixed"]];
+const GENDER_OPTS   = [["girls", "Girls"], ["boys", "Boys"], ["mixed", "Mixed"]];
+const CATEGORY_BADGE = {
+  youth: { label: "Youth", bg: "rgba(96,160,255,0.15)",  color: "rgba(96,160,255,1)" },
+  adult: { label: "Adult", bg: "rgba(76,175,80,0.15)",   color: "rgba(76,175,80,1)" },
+  mixed: { label: "Mixed", bg: "rgba(255,190,60,0.15)",  color: "var(--amber)" },
+};
+const GENDER_BADGE = {
+  girls: { label: "Girls", bg: "rgba(255,96,96,0.13)",  color: "var(--live)" },
+  boys:  { label: "Boys",  bg: "rgba(96,160,255,0.13)", color: "rgba(96,160,255,1)" },
+  mixed: { label: "Mixed", bg: "rgba(255,190,60,0.13)", color: "var(--amber)" },
+};
+
+// Helper text + example shown under a form input.
+function FieldHelp({ children }) {
+  return <p className="text-mute" style={{ fontSize: 12, margin: "3px 0 12px", lineHeight: 1.4 }}>{children}</p>;
+}
+
+function Badge({ spec }) {
+  if (!spec) return null;
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4,
+      padding: "2px 8px", borderRadius: 999, background: spec.bg, color: spec.color }}>
+      {spec.label}
+    </span>
+  );
+}
+
+function StructureTab({ venueToken }) {
+  const [clubs,   setClubs]   = useState(null);
+  const [clubId,  setClubId]  = useState(null);
+  const [cohorts, setCohorts] = useState([]);
+  const [teams,   setTeams]   = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+  const [modal,   setModal]   = useState(null); // {type:'cohort'|'team', cohort?, team?, presetCohortId?}
+
+  useEffect(() => {
+    let a = true;
+    venueListClubs(venueToken)
+      .then((r) => { if (!a) return; setClubs(r || []); if ((r || []).length) setClubId(r[0].id); })
+      .catch((e) => { if (a) setError(e?.message || String(e)); });
+    return () => { a = false; };
+  }, [venueToken]);
+
+  const load = async (cid) => {
+    if (!cid) return;
+    setLoading(true); setError(null);
+    try {
+      const [co, te] = await Promise.all([
+        clubListCohorts(venueToken, cid, true),
+        clubListTeams(venueToken, cid, false),
+      ]);
+      setCohorts(co || []);
+      setTeams(te || []);
+    } catch (e) { setError(e?.message || String(e)); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (clubId) load(clubId); /* eslint-disable-line */ }, [clubId, venueToken]);
+
+  const teamsByCohort = useMemo(() => {
+    const m = {};
+    for (const t of teams) (m[t.cohort_id] ||= []).push(t);
+    return m;
+  }, [teams]);
+
+  const onSaved = () => { setModal(null); load(clubId); };
+
+  const archiveTeam = async (t) => {
+    if (!window.confirm(`Archive "${t.name}"? It will be hidden from the structure but its history is kept.`)) return;
+    try { await clubArchiveTeam(venueToken, t.team_id); load(clubId); }
+    catch (e) { setError(e?.message || String(e)); }
+  };
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 6px" };
+
+  if (error && !clubs) return <EmptyState title="Couldn’t load structure" body={error} />;
+  if (!clubs) return <p className="text-mute" style={{ fontSize: 13, padding: "var(--gap-2)" }}>Loading…</p>;
+  if (clubs.length === 0) return (
+    <EmptyState title="No clubs linked" body="This venue has no clubs configured. Contact support to link a club." />
+  );
+
+  const club = clubs.find((c) => c.id === clubId) || clubs[0];
+
+  return (
+    <div>
+      <p className="text-mute" style={{ fontSize: 13, margin: "0 0 12px", lineHeight: 1.45 }}>
+        Your club’s shape: <strong>age groups</strong> (e.g. U7s, Adults) each holding one or more
+        <strong> teams</strong> (e.g. U7 Lions, U7 Tigers). Set a team’s priority to mark your strongest side.
+      </p>
+
+      {clubs.length > 1 && (
+        <div className="chips" style={{ marginBottom: 12 }}>
+          {clubs.map((c) => (
+            <button key={c.id} className="chip" aria-pressed={c.id === clubId} onClick={() => setClubId(c.id)}>{c.name}</button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <div style={{ fontWeight: 700, fontSize: 16 }}>{club.name}</div>
+        <span className="spacer" style={{ flex: 1 }} />
+        <button className="btn btn-primary" onClick={() => setModal({ type: "cohort" })}>+ Age group</button>
+      </div>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginBottom: 8 }}>{error}</p>}
+      {loading && <p className="text-mute" style={{ fontSize: 13 }}>Loading…</p>}
+
+      {!loading && cohorts.length === 0 && (
+        <EmptyState
+          title="No age groups yet"
+          body="Start by adding an age group — for example “Under 7s” (Youth) or “First Team” (Adult). You can add teams to it next."
+        />
+      )}
+
+      {!loading && cohorts.map((co) => {
+        const cts = teamsByCohort[co.cohort_id] || [];
+        const ageStr = co.min_age != null || co.max_age != null
+          ? `${co.min_age ?? "?"}–${co.max_age ?? "?"} yrs` : null;
+        return (
+          <div className="customer-card" key={co.cohort_id} style={{ marginBottom: "var(--gap-2)", opacity: co.active ? 1 : 0.6 }}>
+            <div className="cu-top" style={{ alignItems: "center" }}>
+              <div className="cu-head-text">
+                <div className="cu-name" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {co.name}
+                  <Badge spec={CATEGORY_BADGE[co.category]} />
+                  {!co.active && <span className="text-mute" style={{ fontSize: 12 }}>(inactive)</span>}
+                </div>
+                <div className="cu-sub">{[ageStr, co.description].filter(Boolean).join(" · ") || "No age range set"}</div>
+              </div>
+              <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setModal({ type: "cohort", cohort: co })}>Edit</button>
+            </div>
+
+            <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
+              {cts.length === 0 && (
+                <p className="text-mute" style={{ fontSize: 12, margin: 0 }}>No teams in this age group yet.</p>
+              )}
+              {cts.map((t) => (
+                <div key={t.team_id} style={{ display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8 }}>
+                  {t.priority_rank != null && (
+                    <span title={`Priority ${t.priority_rank}`} style={{ fontSize: 13 }}>
+                      {t.priority_rank === 1 ? "⭐" : `#${t.priority_rank}`}
+                    </span>
+                  )}
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</span>
+                  <Badge spec={GENDER_BADGE[t.gender]} />
+                  <span className="text-mute" style={{ fontSize: 12 }}>{t.member_count} member{t.member_count !== 1 ? "s" : ""}</span>
+                  <span className="spacer" style={{ flex: 1 }} />
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setModal({ type: "team", team: t })}>Edit</button>
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => archiveTeam(t)}>Archive</button>
+                </div>
+              ))}
+              <button className="btn btn-ghost" style={{ fontSize: 13, justifySelf: "start", marginTop: 2 }}
+                onClick={() => setModal({ type: "team", presetCohortId: co.cohort_id })}>+ Add team to {co.name}</button>
+            </div>
+          </div>
+        );
+      })}
+
+      {modal?.type === "cohort" && (
+        <CohortModal venueToken={venueToken} clubId={clubId} cohort={modal.cohort} onClose={() => setModal(null)} onSaved={onSaved} />
+      )}
+      {modal?.type === "team" && (
+        <TeamModal venueToken={venueToken} clubId={clubId} cohorts={cohorts} team={modal.team}
+          presetCohortId={modal.presetCohortId} onClose={() => setModal(null)} onSaved={onSaved} />
+      )}
+    </div>
+  );
+}
+
+function CohortModal({ venueToken, clubId, cohort, onClose, onSaved }) {
+  const editing = !!cohort;
+  const [name,     setName]     = useState(cohort?.name || "");
+  const [category, setCategory] = useState(cohort?.category || null);
+  const [minAge,   setMinAge]   = useState(cohort?.min_age ?? "");
+  const [maxAge,   setMaxAge]   = useState(cohort?.max_age ?? "");
+  const [active,   setActive]   = useState(cohort?.active ?? true);
+  const [busy,     setBusy]     = useState(false);
+  const [error,    setError]    = useState(null);
+  const savingRef = useRef(false);
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "16px 0 6px" };
+
+  const submit = async () => {
+    if (savingRef.current) return;
+    if (!name.trim()) { setError("Give the age group a name."); return; }
+    savingRef.current = true; setBusy(true); setError(null);
+    const payload = {
+      name: name.trim(), category,
+      minAge: minAge === "" ? null : Number(minAge),
+      maxAge: maxAge === "" ? null : Number(maxAge),
+    };
+    try {
+      if (editing) await clubUpdateCohort(venueToken, cohort.cohort_id, { ...payload, active });
+      else         await clubCreateCohort(venueToken, clubId, payload);
+      onSaved();
+    } catch (e) { setError(e?.message || String(e)); }
+    finally { savingRef.current = false; setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={editing ? `Edit age group — ${cohort.name}` : "New age group"} foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Create age group"}</button></>
+    }>
+      <label className="field-label">Name</label>
+      <input className="input" placeholder="e.g. Under 7s" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+      <FieldHelp>The age band as parents know it. Examples: <em>Under 7s</em>, <em>U12s</em>, <em>First Team</em>, <em>Veterans</em>.</FieldHelp>
+
+      <div style={head}>Type</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {CATEGORY_OPTS.map(([v, l]) => (
+          <button key={v} type="button" className="charge-opt" onClick={() => setCategory(v)}
+            style={{ borderColor: category === v ? "var(--accent)" : "var(--border)", padding: "6px 16px", fontSize: 13 }}>{l}</button>
+        ))}
+      </div>
+      <FieldHelp><strong>Youth</strong> for junior age groups (under-18s), <strong>Adult</strong> for senior sides, <strong>Mixed</strong> if it spans both. Drives the badge on the org chart.</FieldHelp>
+
+      <div style={head}>Age range <span className="text-mute" style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <input className="input" type="number" min="0" max="120" placeholder="Min" value={minAge} onChange={(e) => setMinAge(e.target.value)} style={{ width: 90 }} />
+        <span className="text-mute">to</span>
+        <input className="input" type="number" min="0" max="120" placeholder="Max" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} style={{ width: 90 }} />
+      </div>
+      <FieldHelp>Optional age limits, used to guide sign-ups. Example: an Under 12s group is <em>10 to 12</em>. Leave blank for an open group like a First Team.</FieldHelp>
+
+      {editing && (
+        <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer", marginTop: 6 }}>
+          <input type="checkbox" checked={active} onChange={() => setActive((a) => !a)} />
+          <span>Active (uncheck to hide from filters without deleting)</span>
+        </label>
+      )}
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+function TeamModal({ venueToken, clubId, cohorts, team, presetCohortId, onClose, onSaved }) {
+  const editing = !!team;
+  const [name,     setName]     = useState(team?.name || "");
+  const [cohortId, setCohortId] = useState(team?.cohort_id || presetCohortId || cohorts[0]?.cohort_id || null);
+  const [gender,   setGender]   = useState(team?.gender || null);
+  const [rank,     setRank]     = useState(team?.priority_rank ?? "");
+  const [busy,     setBusy]     = useState(false);
+  const [error,    setError]    = useState(null);
+  const savingRef = useRef(false);
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "16px 0 6px" };
+
+  const submit = async () => {
+    if (savingRef.current) return;
+    if (!name.trim()) { setError("Give the team a name."); return; }
+    if (!cohortId)     { setError("Pick an age group for this team."); return; }
+    savingRef.current = true; setBusy(true); setError(null);
+    const rankVal = rank === "" ? null : Number(rank);
+    try {
+      if (editing) await clubUpdateTeam(venueToken, team.team_id, { name: name.trim(), gender, priorityRank: rankVal, cohortId });
+      else         await clubCreateTeam(venueToken, clubId, { cohortId, name: name.trim(), gender, priorityRank: rankVal });
+      onSaved();
+    } catch (e) { setError(e?.message || String(e)); }
+    finally { savingRef.current = false; setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={editing ? `Edit team — ${team.name}` : "New team"} foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Create team"}</button></>
+    }>
+      <label className="field-label">Team name</label>
+      <input className="input" placeholder="e.g. U7 Lions" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+      <FieldHelp>The team’s own name. Examples: <em>U7 Lions</em>, <em>U7 Tigers</em>, <em>First Team</em>, <em>Development XI</em>.</FieldHelp>
+
+      <div style={head}>Age group</div>
+      <select className="input" value={cohortId || ""} onChange={(e) => setCohortId(e.target.value)}>
+        <option value="">— pick an age group —</option>
+        {cohorts.filter((c) => c.active).map((c) => <option key={c.cohort_id} value={c.cohort_id}>{c.name}</option>)}
+      </select>
+      <FieldHelp>Which age group this team sits under. Example: <em>U7 Lions</em> sits under <em>Under 7s</em>.</FieldHelp>
+
+      <div style={head}>Gender / stream</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {GENDER_OPTS.map(([v, l]) => (
+          <button key={v} type="button" className="charge-opt" onClick={() => setGender(v)}
+            style={{ borderColor: gender === v ? "var(--accent)" : "var(--border)", padding: "6px 16px", fontSize: 13 }}>{l}</button>
+        ))}
+      </div>
+      <FieldHelp>So one age group can run a girls’ and a boys’ side side by side. Pick <strong>Mixed</strong> if it isn’t split. Example: <em>U7 Lions</em> = Boys, <em>U7 Roses</em> = Girls.</FieldHelp>
+
+      <div style={head}>Priority <span className="text-mute" style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></div>
+      <input className="input" type="number" min="1" max="99" placeholder="e.g. 1" value={rank} onChange={(e) => setRank(e.target.value)} style={{ width: 110 }} />
+      <FieldHelp>Rank within the age group — <strong>1 = top side</strong> (shows a ⭐). Example: an A team is <em>1</em>, the B team is <em>2</em>. Leave blank if you don’t rank them.</FieldHelp>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
   );
 }
 

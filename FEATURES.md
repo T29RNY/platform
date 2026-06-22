@@ -7,12 +7,26 @@ Positioned as a **replacement for 360Player + MatchDay Admin + Tournify**. Wider
 demo ~2026-06-29. Full feedback, prioritised backlog table, competitor pricing and the FA
 Full-Time feasibility verdict live in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
-**Working through the 17 asks one-by-one. NEXT = #2 Org/team structure (youth + adult under
-one club).** Audit must scope what already exists — `clubs` (text PK), `club_cohorts`
-(playing groups within a club, `primary_official_id`), `club_teams` (club_id ↔ team name,
-UNIQUE per team_id), `teams.club_id` (league layer), `venue_membership_tiers.audience`
-(all|adult|junior|family) — vs the gap (clear youth/adult age-group categorisation surfaced
-in the UI for one club running both). See next-session prompt handed to the operator.
+**Working through the 17 asks one-by-one. #2 Org/team structure — Phase 1 SHIPPED (mig 389).**
+Remaining phases (join link/QR, membership-gated join, manager comms, pro-rating) tracked in
+**CLUB_STRUCTURE_HANDOFF.md**.
+
+### #2 Org/team structure — Phase 1: Structure (venue console) — SHIPPED (mig 389)
+The club's org chart, editable in the venue console. **Migration 389** (additive):
+- `club_cohorts.category` (youth|adult|mixed) — the explicit age-group type, drives a badge.
+- `club_teams.gender` (girls|boys|mixed) + `priority_rank int` (1 = top side, ⭐) +
+  `archived_at` (soft-archive).
+- Six venue-token SECURITY DEFINER RPCs: new `club_create_team` / `club_update_team` /
+  `club_list_teams` / `club_archive_team`; `club_create_cohort` + `club_update_cohort`
+  extended with `p_category`; `club_list_cohorts` return shape gains `category`. All follow
+  the `resolve_venue_caller` → `manage_memberships` cap pattern + audit_events insert.
+- Venue UI: new **Structure** tab in MembershipsView — org-chart tree (club → age group →
+  team) with create/edit age groups (type + optional ages) and teams (gender + ⭐ priority),
+  helper text + a worked example on every input. Membership-plan form gained helper text too.
+- Gates: rpc-security PASS (7 RPCs, all SECDEF/search_path/single-overload, anon+auth grant
+  intentional, public REVOKEd), EV 11/11 + leak 0, build clean, no new hygiene violations.
+  Venue app only → casual-regression not required. Demo `club_demo` cohorts/teams backfilled.
+  ⛔ real-device venue walk owed.
 
 ## SESSION 173 — ADMIN QUICK-ACTION ON MY VIEW SHIPPED (migs 381; PRs #55, #56, LIVE on main)
 
