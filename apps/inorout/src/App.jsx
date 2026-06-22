@@ -1326,7 +1326,7 @@ export default function App() {
   }
 
   if (route.type === "tournament") {
-    return <TournamentScreen slug={route.slug} />;
+    return <TournamentScreen slug={route.slug} signedIn={!!authUser} />;
   }
 
   if (route.type === "tournament_join") {

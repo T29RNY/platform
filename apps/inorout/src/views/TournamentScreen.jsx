@@ -50,7 +50,7 @@ function useCountdown(targetIso) {
   return { d, h, m, done: target <= now };
 }
 
-export default function TournamentScreen({ slug }) {
+export default function TournamentScreen({ slug, signedIn = false }) {
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [notFound, setNotFound]     = useState(false);
@@ -181,7 +181,9 @@ export default function TournamentScreen({ slug }) {
         {activeTab === "info" && <InfoTab t={t} info={info} accent={accent} />}
       </div>
 
-      <a href="/" className="th-back print-hide">← Back to home</a>
+      {signedIn
+        ? <a href="/" className="th-back print-hide">← Back to In or Out</a>
+        : <a href="https://in-or-out.com" className="th-back print-hide">Powered by In or Out · Get the app →</a>}
 
       {openFixture && <MatchSheet fixture={openFixture} accent={accent} onClose={() => setOpenFixtureId(null)} />}
       {showShare && <SharePosterSheet t={t} accent={accent} heroUrl={heroUrl} info={info} shareUrl={shareUrl} onClose={() => setShowShare(false)} />}
@@ -770,7 +772,7 @@ function NotFound() {
     <div className="th-notfound">
       <div className="th-nf-h">Tournament not found</div>
       <div className="th-note">This tournament doesn't exist or isn't open yet.</div>
-      <a href="/" className="th-link">← Back to home</a>
+      <a href="https://in-or-out.com" className="th-link">Go to In or Out →</a>
     </div>
   );
 }
