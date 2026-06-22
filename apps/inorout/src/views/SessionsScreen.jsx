@@ -8,6 +8,7 @@ import {
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
+  clubManagerSendAnnouncement,
   memberListClubAnnouncements,
   memberGetMerchandise, memberPurchaseMerchandise,
   clubAdminListTournaments, clubAdminCreateTournament, clubAdminUpdateTournamentStatus,
@@ -108,6 +109,13 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [announcements, setAnnouncements]             = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
+
+  // manager → team message composer (Phase 4)
+  const [composeTeamId, setComposeTeamId] = useState("");
+  const [composeTitle,  setComposeTitle]  = useState("");
+  const [composeBody,   setComposeBody]   = useState("");
+  const [composeStatus, setComposeStatus] = useState(null); // null | 'sent' | 'error'
+  const composeSavingRef = useRef(false);
 
   // shop
   const [shopItems,    setShopItems]    = useState([]);
@@ -282,6 +290,10 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     setAnnouncementsLoading(true);
     setAnnouncements([]);
     setShowAllAnnouncements(false);
+    setComposeTeamId("");
+    setComposeTitle("");
+    setComposeBody("");
+    setComposeStatus(null);
     setShopItems([]);
     setShopOrdered(null);
     memberListClubAnnouncements(selectedClubId)
@@ -982,6 +994,24 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     }
   };
 
+  const handleSendTeamMessage = async () => {
+    if (composeSavingRef.current) return;
+    if (!composeTeamId || !composeTitle.trim() || !composeBody.trim()) return;
+    composeSavingRef.current = true;
+    setComposeStatus(null);
+    try {
+      await clubManagerSendAnnouncement(composeTeamId, composeTitle.trim(), composeBody.trim());
+      setComposeTitle("");
+      setComposeBody("");
+      setComposeStatus("sent");
+    } catch (e) {
+      console.error("[sessions] send team message failed", e);
+      setComposeStatus("error");
+    } finally {
+      composeSavingRef.current = false;
+    }
+  };
+
   // ── Zero-footprint gates ──────────────────────────────────────────────────────
   if (loading) return (
     <div style={wrap}>
@@ -1173,6 +1203,90 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           </div>
         </div>
       )}
+
+      {/* ── Manager → team message composer (Phase 4) ───────────────────── */}
+      {isManager && selectedClubId && activeTab === "sessions" && managedTeamsForClub.length > 0 && (() => {
+        const effectiveTeamId = composeTeamId || managedTeamsForClub[0].team_id;
+        const canSend = !!effectiveTeamId && composeTitle.trim() && composeBody.trim();
+        return (
+          <div style={{ padding: "12px 20px 0" }}>
+            <div style={{
+              background: "var(--b2)", border: "1px solid var(--border-subtle)",
+              borderRadius: 10, overflow: "hidden",
+            }}>
+              <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-subtle)" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                  Message your team
+                </span>
+              </div>
+              <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <p style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", margin: 0, lineHeight: 1.4 }}>
+                  Sends an email to this team's players and their guardians. Example: a kick-off
+                  time change or a kit reminder.
+                </p>
+                {managedTeamsForClub.length > 1 && (
+                  <select
+                    value={effectiveTeamId}
+                    onChange={e => setComposeTeamId(e.target.value)}
+                    style={{
+                      fontSize: 14, fontFamily: "var(--font-body)", color: "var(--t1)",
+                      background: "var(--b1)", border: "1px solid var(--border)",
+                      borderRadius: 8, padding: "9px 11px",
+                    }}
+                  >
+                    {managedTeamsForClub.map(t => (
+                      <option key={t.team_id} value={t.team_id}>{t.team_name}</option>
+                    ))}
+                  </select>
+                )}
+                <input
+                  type="text"
+                  value={composeTitle}
+                  onChange={e => { setComposeTitle(e.target.value); setComposeStatus(null); }}
+                  placeholder="Title — e.g. Saturday kick-off moved to 10am"
+                  maxLength={120}
+                  style={{
+                    fontSize: 14, fontFamily: "var(--font-body)", color: "var(--t1)",
+                    background: "var(--b1)", border: "1px solid var(--border)",
+                    borderRadius: 8, padding: "9px 11px",
+                  }}
+                />
+                <textarea
+                  value={composeBody}
+                  onChange={e => { setComposeBody(e.target.value); setComposeStatus(null); }}
+                  placeholder="Message — e.g. Please arrive 15 minutes early to warm up. Bring both kits."
+                  rows={4}
+                  style={{
+                    fontSize: 14, fontFamily: "var(--font-body)", color: "var(--t1)",
+                    background: "var(--b1)", border: "1px solid var(--border)",
+                    borderRadius: 8, padding: "9px 11px", resize: "vertical",
+                  }}
+                />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <span style={{ fontSize: 12, fontFamily: "var(--font-body)" }}>
+                    {composeStatus === "sent" && <span style={{ color: "var(--green)" }}>Message sent — it'll email shortly.</span>}
+                    {composeStatus === "error" && <span style={{ color: "#FF6060" }}>Couldn't send — please try again.</span>}
+                  </span>
+                  <button
+                    onClick={handleSendTeamMessage}
+                    disabled={!canSend}
+                    style={{
+                      fontSize: 13, fontWeight: 700, fontFamily: "var(--font-body)",
+                      background: canSend ? "var(--amber)" : "rgba(255,255,255,0.08)",
+                      color: canSend ? "rgba(0,0,0,0.9)" : "var(--t2)",
+                      border: `1px solid ${canSend ? "var(--amber)" : "var(--border)"}`,
+                      padding: "8px 16px", borderRadius: 20,
+                      cursor: canSend ? "pointer" : "default",
+                    }}
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Shop ────────────────────────────────────────────────────────── */}
       {selectedClubId && activeTab === "sessions" && shopItems.length > 0 && (

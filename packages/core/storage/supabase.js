@@ -5127,6 +5127,17 @@ export async function clubSendAnnouncement(venueToken, clubId, title, body, audi
   return data;
 }
 
+// Team-manager-scoped announcement (Phase 4). Authenticated manager-of-team only;
+// queues a club_announcements row delivered to the team's players + accepted guardians
+// by the existing club-broadcast cron.
+export async function clubManagerSendAnnouncement(teamId, title, body) {
+  const { data, error } = await supabase.rpc("club_manager_send_announcement", {
+    p_team_id: teamId, p_title: title, p_body: body,
+  });
+  if (error) { console.error("[club-manager] club_manager_send_announcement failed", error); throw error; }
+  return data;
+}
+
 export async function memberListClubAnnouncements(clubId) {
   const { data, error } = await supabase.rpc("member_list_club_announcements", {
     p_club_id: clubId,

@@ -3,6 +3,32 @@
 
 ---
 
+## SESSION 176 — ✅ CLUB STRUCTURE Phase 4 SHIPPED (mig 392). Team-manager comms. No new bugs.
+
+Pilot backlog #2, Phase 4 — a team manager can message their own team's players + guardians
+from the consumer app; the club-wide broadcast stays the venue-admin tool (see
+CLUB_STRUCTURE_HANDOFF.md + FEATURES.md). **Migration 392** (additive): new authenticated RPC
+`club_manager_send_announcement(p_team_id, p_title, p_body)` — manager-of-team check mirrors
+the mig-304 `club_manager_*` pattern (`auth.uid()→member_profiles→club_team_managers is_active`,
+else `not_manager`); **reuses the comms spine** by inserting a queued `club_announcements` row
+(`audience='team'`, `created_by=auth.uid()`, `venue_id` derived from `club_venues`) so the
+existing club-broadcast cron delivers it; audit per Hard Rule #9; anon REVOKEd. Modified
+`get_pending_club_broadcasts` (service_role-only): the `audience='team'` recipient set now also
+includes **accepted guardians** (`member_guardians.invite_state='accepted'`) of the team's
+members — so team messages reach players AND guardians (intended side effect: venue-admin team
+announcements now also reach guardians). Consumer: `clubManagerSendAnnouncement` wrapper +
+barrel; **"Message your team"** composer in SessionsScreen (manager-only, per managed team,
+helper text + example, double-fire guard). Gates: rpc-security 2/2 PASS, EV 10/10 + leak 0
+(asserts queued+team shape, audit row, recipients include member AND guardian but NOT manager,
+all 4 error paths), build clean, hygiene 7/7, casual-regression PASS via additive-diff (no
+casual surface touched; zero existing lines modified), Playwright smoke PASS (app boots, 0
+console errors). **Next free mig = 393.**
+
+⛔ **OWED: real-iPhone walk** — manager opens the consumer app on a home-screen install, taps a
+club where they manage a team, sends a "Message your team", confirms the success state and (on
+a populated team) that a member + guardian receive the email. Touches `apps/inorout/src` →
+Hard Rule #13. Phase 5 (pro-rating) is the next club-structure phase.
+
 ## SESSION 175 — ✅ CLUB STRUCTURE Phase 3 SHIPPED (mig 391). Membership-gated club-team join. No new bugs.
 
 Pilot backlog #2, Phase 3 — a scanned club-team QR runs a new player through 360

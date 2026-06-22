@@ -1,5 +1,29 @@
 # In or Out — Key Decisions Log
 
+## SESSION 176 — Club Structure Phase 4: team-manager comms reuse the broadcast spine
+*2026-06-22. Mig 392.*
+
+**Decision: a team manager messaging their own team reuses `club_announcements` + the existing
+broadcast cron, rather than a new comms table/pipeline.** The new
+`club_manager_send_announcement(p_team_id, p_title, p_body)` (authenticated, manager-of-team
+checked via `club_team_managers`+`auth.uid()`, mirroring the mig-304 `club_manager_*` pattern)
+simply inserts a queued `club_announcements` row with `audience='team'`, `created_by=auth.uid()`
+and `venue_id` derived from `club_venues`. The existing cron (`get_pending_club_broadcasts` →
+`apps/inorout/api/cron.js`) delivers it and the existing member feed
+(`member_list_club_announcements`) surfaces it. Rationale: the "reuse over new systems" rule —
+a parallel manager-comms pipeline would duplicate delivery, dedup, and the member-side feed for
+no behavioural gain. The club-WIDE broadcast stays the venue-admin `club_send_announcement`;
+this is the team-manager-scoped complement, not a replacement.
+
+**Decision: team-audience delivery now reaches accepted guardians, not just the members.**
+`get_pending_club_broadcasts`'s `audience='team'` recipient set was extended to also include
+guardians via `member_guardians` where `invite_state='accepted'`. A youth team's messages must
+reach parents, who are the actual recipients for under-age players. **Accepted side effect:**
+venue-admin `audience='team'` announcements now also reach guardians — judged correct and
+consistent (a "team message" should behave the same whoever sends it) rather than scoping
+guardians to manager messages only. Only consumer of the recipients array is the cron emailer,
+so the change is additive and safe (Hard Rule #7/#12 checked).
+
 ## SESSION 173 — Admin acts on a player from My View; admin status is soft everywhere
 *2026-06-22.*
 

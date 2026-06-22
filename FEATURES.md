@@ -77,7 +77,32 @@ the team — gated on holding a club membership. **Migration 391** (additive, 2 
   surface touched; new `MembershipSignup` props default null → VenueLanding byte-identical),
   Playwright smoke on demo club-team code (anon context renders, invalid code → not-found,
   no code-related console errors). ⛔ real-iPhone walk owed (member flow / apps/inorout/src;
-  Hard Rule #13). **Next free mig = 392.** Phases 4 (manager comms) + 5 (pro-rating) unbuilt.
+  Hard Rule #13). Phase 5 (pro-rating) unbuilt.
+
+### #2 Org/team structure — Phase 4: Team-manager comms — SHIPPED (mig 392)
+A team manager can message their own team's players + guardians from the consumer app; the
+club-wide broadcast stays the venue-admin tool. **Migration 392** (additive):
+- `club_manager_send_announcement(p_team_id, p_title, p_body)` — authenticated, manager-of-team
+  check (mirrors the mig-304 `club_manager_*` pattern: `auth.uid()→member_profiles→
+  club_team_managers is_active`, else `not_manager`). **Reuses the comms spine, no parallel
+  system:** inserts a queued `club_announcements` row (`audience='team'`, `created_by=auth.uid()`,
+  `venue_id` derived from `club_venues`) so the existing cron (`get_pending_club_broadcasts` →
+  `apps/inorout/api/cron.js`) delivers it and the existing member feed
+  (`member_list_club_announcements`) surfaces it. Audit per Hard Rule #9; anon REVOKEd.
+- `get_pending_club_broadcasts` team-audience recipients extended to also include **accepted
+  guardians** (`member_guardians.invite_state='accepted'`) of the team's members — team
+  messages now reach players AND guardians. Intended side effect: venue-admin team
+  announcements also reach guardians (consistent).
+- Consumer: `clubManagerSendAnnouncement` wrapper + barrel; **"Message your team"** composer in
+  SessionsScreen (manager-only, per managed team, title+body, helper text + example,
+  double-fire guard, success/error status).
+- Gates: rpc-security 2/2 PASS (manager RPC authenticated-only; `get_pending_club_broadcasts`
+  service_role-only), EV 10/10 + leak 0 (queued+team shape, audit row, recipients include
+  member AND guardian but NOT manager, all 4 error paths), build clean, hygiene 7/7,
+  casual-regression PASS via additive-diff (no casual surface touched; zero existing lines
+  modified), Playwright smoke PASS (app boots, 0 console errors). ⛔ real-iPhone walk owed
+  (manager composer / apps/inorout/src; Hard Rule #13). **Next free mig = 393.** Phase 5
+  (pro-rating) unbuilt.
 
 ## SESSION 173 — ADMIN QUICK-ACTION ON MY VIEW SHIPPED (migs 381; PRs #55, #56, LIVE on main)
 

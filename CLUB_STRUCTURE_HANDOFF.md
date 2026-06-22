@@ -7,9 +7,9 @@ This doc is the single source of truth for the epic. Work the phases **one at a 
 audit → execute → verify → commit per `CLAUDE.md`. Each phase has its own kickoff prompt
 at the bottom — start a fresh session per phase.
 
-**⚠️ Next free migration = 392.** (389 = Phase 1; 390 = Phase 2; 391 = Phase 3.)
+**⚠️ Next free migration = 393.** (389 = Phase 1; 390 = Phase 2; 391 = Phase 3; 392 = Phase 4.)
 Last updated: 2026-06-22, **Phase 1 SHIPPED (mig 389, f30c87b); Phase 2 SHIPPED (mig 390);
-Phase 3 SHIPPED (mig 391)**.
+Phase 3 SHIPPED (mig 391); Phase 4 SHIPPED (mig 392)**.
 
 ---
 
@@ -177,13 +177,27 @@ Gates: rpc-security 2/2 PASS, EV 12/12 + leak 0, build clean, hygiene 7/7, casua
 PASS via additive-diff (no casual surface touched), Playwright smoke PASS on demo. ⛔ owed:
 real-iPhone walk (member flow, Hard Rule #13).
 
-### Phase 4 — Team-manager comms · ~1 day + tests · 🟠 just after
-- New `club_manager_send_announcement(p_team_id, title, body)` — authenticated, manager-of-
-  team check (mirrors `club_manager_*` RPCs), delivers to that team's players/guardians.
-- UI in `apps/inorout` SessionsScreen (manager view).
-
-Gates: rpc-security-sweep, ephemeral-verify; **apps/inorout/src → casual-regression +
-real-iPhone walk**.
+### Phase 4 — Team-manager comms · ✅ SHIPPED (mig 392)
+Delivered: new authenticated RPC `club_manager_send_announcement(p_team_id, p_title, p_body)`
+— manager-of-team check via `club_team_managers`+`auth.uid()` (mirrors the mig-304
+`club_manager_*` pattern exactly: `auth.uid()→member_profiles→club_team_managers is_active`,
+else `not_manager`). **Reuses the existing comms spine, no parallel system:** it inserts a
+`club_announcements` row (`audience='team'`, `status='queued'`, `created_by=auth.uid()`,
+`venue_id` derived from `club_venues`), so the existing club-broadcast cron
+(`apps/inorout/api/cron.js:791` → `get_pending_club_broadcasts`) delivers it and the existing
+member feed (`member_list_club_announcements`) surfaces it. `audit_events` insert per Hard
+Rule #9; REVOKE anon (authenticated-only). **`get_pending_club_broadcasts` team-audience
+recipient set extended** to also include **accepted guardians** (`member_guardians.invite_state
+='accepted'`) of the team's members — so team messages reach players **and** guardians. Side
+effect (intended, consistent): venue-admin `audience='team'` announcements now also reach
+guardians. JS wrapper `clubManagerSendAnnouncement` + barrel; **"Message your team"** composer
+in `apps/inorout` SessionsScreen (manager-only, per managed team, helper text + example,
+double-fire guard). Gates: rpc-security 2/2 PASS (manager RPC authenticated-only,
+`get_pending_club_broadcasts` service_role-only), EV 10/10 + leak 0 (asserts queued+team
+shape, audit row, recipients include member AND guardian but NOT the manager, all 4 error
+paths), build clean, hygiene 7/7, casual-regression PASS via additive-diff (no casual surface
+touched; zero existing lines modified), Playwright smoke PASS (app boots, 0 console errors).
+⛔ owed: real-iPhone walk (manager composer, Hard Rule #13).
 
 ### Phase 5 — Pro-rating (club-configurable) · ~1.5 days · 🔴 after
 - Per-tier config: `proration_basis text` CHECK `none|monthly|weekly|daily`,
@@ -210,8 +224,8 @@ Gates: rpc-security-sweep, ephemeral-verify.
 
 ## 7. NEXT-SESSION KICKOFF PROMPTS
 
-> **Phases 1–3 SHIPPED (migs 389/390/391).** Next session = **Phase 4** (jump to it below).
-> The Phase 1–3 prompts are kept for history.
+> **Phases 1–4 SHIPPED (migs 389/390/391/392).** Next session = **Phase 5 — Pro-rating**
+> (jump to it below). The Phase 1–4 prompts are kept for history. Next free mig = 393.
 
 ### → Phase 1 (✅ SHIPPED — mig 389)
 ```
@@ -258,7 +272,7 @@ team) + orchestration RPC(s). Gates: rpc-security-sweep, ephemeral-verify, casua
 real-iPhone walk (touches member flow). Confirm next free migration before writing SQL.
 ```
 
-### → Phase 4 (START HERE — Phases 1–3 merged)
+### → Phase 4 (✅ SHIPPED — mig 392)
 ```
 Read CLUB_STRUCTURE_HANDOFF.md. Build Phase 4 — Team-manager comms.
 AUDIT FIRST: club_manager_* RPC pattern (manager-of-team auth.uid check), club_send_
@@ -267,7 +281,7 @@ announcement, SessionsScreen manager view. Then plan club_manager_send_announcem
 casual-regression, real-iPhone walk (apps/inorout/src). Confirm next free migration first.
 ```
 
-### → Phase 5 (after Phase 4 merged)
+### → Phase 5 (START HERE — Phases 1–4 merged)
 ```
 Read CLUB_STRUCTURE_HANDOFF.md. Build Phase 5 — Pro-rating (club-configurable).
 AUDIT FIRST: venue_membership_tiers (season_start/season_end), the membership-creation
