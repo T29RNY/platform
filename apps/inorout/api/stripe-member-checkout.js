@@ -108,7 +108,7 @@ module.exports = async function handler(req, res) {
   // Resolve tier name + price
   const { data: tier } = await supabase
     .from("venue_membership_tiers")
-    .select("name")
+    .select("name, pricing_model, season_start, season_end, proration_basis, joining_fee_pence")
     .eq("id", tierId)
     .eq("venue_id", venueId)
     .eq("active", true)
@@ -123,6 +123,22 @@ module.exports = async function handler(req, res) {
     .eq("active", true)
     .maybeSingle();
   if (!priceRow) return res.status(400).json({ error: "price_not_set" });
+
+  // First charge for a season plan = joining fee + the prorated season fee for a
+  // late joiner. Computed by the same SQL helper the enrol RPCs use, so the
+  // Stripe charge, the webhook record and the on-screen breakdown all agree.
+  // Recurring (subscription) plans are unaffected — they bill the full rate.
+  let chargePence = priceRow.price_pence;
+  if (period === "season" && tier.pricing_model === "season") {
+    const { data: prorated, error: prErr } = await supabase.rpc("_prorated_first_charge", {
+      p_full_pence: priceRow.price_pence,
+      p_basis:      tier.proration_basis || "none",
+      p_today:      new Date().toISOString().slice(0, 10),
+      p_start:      tier.season_start,
+      p_end:        tier.season_end,
+    });
+    if (!prErr && prorated != null) chargePence = (tier.joining_fee_pence || 0) + prorated;
+  }
 
   try {
     // Create Stripe Customer on the venue's connected account
@@ -154,7 +170,7 @@ module.exports = async function handler(req, res) {
             price_data: isSeason
               ? {
                   currency:     "gbp",
-                  unit_amount:  priceRow.price_pence,
+                  unit_amount:  chargePence,
                   product_data: { name: tier.name },
                 }
               : {
@@ -172,7 +188,7 @@ module.exports = async function handler(req, res) {
           tier_id:           tierId,
           period,
           member_profile_id: memberProfileId,
-          amount_pence:      String(priceRow.price_pence),
+          amount_pence:      String(chargePence),
         },
       },
       { stripeAccount: accountId }

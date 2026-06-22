@@ -3367,11 +3367,13 @@ export async function venueEraseCustomer(venueToken, customerId) {
 // audience ∈ 'all'|'adult'|'junior'|'child'; pricingModel ∈ 'recurring'|'season'
 export async function venueCreateMembershipTier(venueToken, name, benefits = {}, prices = [], {
   audience = "all", pricingModel = "recurring", seasonStart = null, seasonEnd = null,
+  prorationBasis = "none", joiningFeePence = 0,
 } = {}) {
   const { data, error } = await supabase.rpc("venue_create_membership_tier", {
     p_venue_token: venueToken, p_name: name, p_benefits: benefits, p_prices: prices,
     p_audience: audience, p_pricing_model: pricingModel,
     p_season_start: seasonStart, p_season_end: seasonEnd,
+    p_proration_basis: prorationBasis, p_joining_fee_pence: joiningFeePence,
   });
   if (error) { console.error("[membership] venue_create_membership_tier failed", error); throw error; }
   return data;
@@ -3380,12 +3382,14 @@ export async function venueCreateMembershipTier(venueToken, name, benefits = {},
 export async function venueUpdateMembershipTier(venueToken, tierId, {
   name = null, benefits = null, active = null, prices = null,
   audience = null, pricingModel = null, seasonStart = null, seasonEnd = null,
+  prorationBasis = null, joiningFeePence = null,
 } = {}) {
   const { data, error } = await supabase.rpc("venue_update_membership_tier", {
     p_venue_token: venueToken, p_tier_id: tierId, p_name: name, p_benefits: benefits,
     p_active: active, p_prices: prices,
     p_audience: audience, p_pricing_model: pricingModel,
     p_season_start: seasonStart, p_season_end: seasonEnd,
+    p_proration_basis: prorationBasis, p_joining_fee_pence: joiningFeePence,
   });
   if (error) { console.error("[membership] venue_update_membership_tier failed", error); throw error; }
   return data;

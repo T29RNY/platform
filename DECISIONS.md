@@ -1,5 +1,38 @@
 # In or Out — Key Decisions Log
 
+## SESSION 177 — Club Structure Phase 5: pro-rating is season-only, member's-favour, one helper
+*2026-06-22. Mig 393. Epic COMPLETE.*
+
+**Decision: pro-rating applies to SEASON memberships only; recurring (gym) plans are untouched.**
+The product already splits membership types into `pricing_model` `recurring|season`. Pro-rating —
+"the season's part-gone, pay for what's left" — only has meaning against a season window, so it
+attaches to season tiers. Recurring plans bill their standard rate from the join date with no
+first-charge maths (a gym member joining mid-month just starts their normal monthly billing). This
+keeps the gym vertical byte-identical and avoids inventing a first-charge-vs-renewal split on
+recurring memberships. (Operator framed it directly: "two membership types — seasonal for football
+and regular for gyms.")
+
+**Decision: count the joining period as a whole month/week/day — round UP, in the member's favour.**
+For `basis=monthly`, joining 20 March of a Jan–Dec season pays for 10 of 12 months (the part-month
+of March counts as a full month they get). Operator-confirmed "Option A" over day-exact (B) or
+round-down (C): kindest to the new joiner, simplest to compute, and matches the inclusive
+calendar-month span `(yr×12+mon)` arithmetic. Final pence to nearest; clamp [0, full price]; join
+on/before season start or after season end → full price (never undercharge on bad data). Renewals
+always charge full price — pro-rating is first-charge only.
+
+**Decision: one SQL helper is the single source of truth for the first charge.**
+`_prorated_first_charge(full_pence, basis, today, season_start, season_end)` (IMMUTABLE) is called
+by the enrol writer, the Stripe-complete writer, the signup-tiers read, AND the Stripe checkout
+endpoint (via rpc). The on-screen breakdown, the Stripe charge, and the recorded `amount_pence` can
+never disagree. The optional `joining_fee_pence` is added on top by callers (not inside the helper),
+so the helper stays a pure proration ratio.
+
+**Decision: the Stripe recurring-subscription first charge needs no special handling.**
+Because pro-rating is season-only and a season payment is a one-off (`mode:'payment'`), there's no
+"shrink the first month of a subscription" problem — the season `unit_amount` is simply set to the
+prorated total. Recurring subscriptions bill the full rate unchanged. (Resolves the awkward-Stripe
+concern raised in audit.)
+
 ## SESSION 176 — Club Structure Phase 4: team-manager comms reuse the broadcast spine
 *2026-06-22. Mig 392.*
 

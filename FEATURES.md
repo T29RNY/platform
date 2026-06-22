@@ -120,8 +120,40 @@ club-wide broadcast stays the venue-admin tool. **Migration 392** (additive):
   member AND guardian but NOT manager, all 4 error paths), build clean, hygiene 7/7,
   casual-regression PASS via additive-diff (no casual surface touched; zero existing lines
   modified), Playwright smoke PASS (app boots, 0 console errors). ⛔ real-iPhone walk owed
-  (manager composer / apps/inorout/src; Hard Rule #13). **Next free mig = 393.** Phase 5
-  (pro-rating) unbuilt.
+  (manager composer / apps/inorout/src; Hard Rule #13).
+
+### #2 Org/team structure — Phase 5: Pro-rating (club-configurable) — SHIPPED (mig 393) · EPIC COMPLETE
+Late joiners pay only for the part of the season that's left, plus an optional one-off joining
+fee — club-configurable per tier. **Migration 393** (additive only — existing tiers byte-identical):
+- `venue_membership_tiers.proration_basis` (none|monthly|weekly|daily, DEFAULT 'none') +
+  `joining_fee_pence` (int, DEFAULT 0). Applies to **season** tiers only; recurring (gym) plans
+  bill their standard rate unchanged.
+- `_prorated_first_charge(full_pence, basis, today, season_start, season_end)` — shared IMMUTABLE
+  helper (single source of truth). Rule (operator-confirmed): count the join period as a **whole**
+  (round up, member's favour); final pence to nearest; clamp [0, full]; join on/before season
+  start or after season end → full price (never undercharge on bad data).
+- First charge = `joining_fee + prorated(season_fee)` applied in `member_enrol_membership`
+  (the live demo path) + `stripe_complete_member_enrolment` (fallback; prefers the Stripe-confirmed
+  amount the checkout endpoint now sends) + surfaced as `first_charge_pence` on the season price row
+  in `get_venue_signup_tiers` (so the checkout breakdown always matches what's charged). Renewals
+  always charge the full price.
+- Venue `venue_create/update_membership_tier` gain `p_proration_basis` + `p_joining_fee_pence`
+  (8→10 / 10→12 args; old overloads DROPped). JS wrappers + barrel. Venue TierModal: proration
+  basis selector + joining-fee input (season only) with helper text + worked example.
+  `MembershipSignup` checkout breakdown (full season · joining mid-season − · joining fee + · you
+  pay today). `api/stripe-member-checkout.js` prorates the one-off season `unit_amount` via the
+  same SQL helper.
+- **Two latent pre-393 bugs fixed in-cycle** (surfaced by EV): season self-enrolment wrote the
+  tier's `pricing_model='season'` into `venue_memberships` which only allows recurring|term
+  (now mapped season→term); and `get_venue_signup_tiers` raised "record not assigned yet" for a
+  club-less venue-landing code (now scalar club vars).
+- Gates: rpc-security 6/6 PASS (helper INVOKER pure-fn; SECDEF + search_path + single overload on
+  the rest), EV 10/10 groups + leak 0 (each basis + mid-season date, season→term map, signup
+  breakdown incl. NULL case, Stripe fallback + confirmed-amount, bad-period reject), additive-diff
+  (production proration tiers = 0 → byte-identical), build clean, hygiene 7/7 on client files,
+  casual-regression PASS via additive-diff (only MembershipSignup touched, original Total block
+  preserved as else branch), Playwright boot smoke PASS. ⛔ real-iPhone walk owed (member checkout
+  breakdown / apps/inorout/src; Hard Rule #13). **Next free mig = 394.**
 
 ## SESSION 173 — ADMIN QUICK-ACTION ON MY VIEW SHIPPED (migs 381; PRs #55, #56, LIVE on main)
 

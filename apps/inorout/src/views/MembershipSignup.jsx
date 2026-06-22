@@ -441,6 +441,18 @@ function StepTierSelect({ tiers, path, onDone, onBack }) {
   const standardPrices = prices.filter((p) => p.price_type === "standard" || !p.price_type);
   const price = selectedTier ? tierPrice(selectedTier, period) : null;
 
+  // Late-joiner breakdown: season plans that pro-rate and/or carry a joining fee
+  // return first_charge_pence on the season price row (computed server-side, so
+  // the displayed total always matches what's charged).
+  const seasonRow = prices.find((p) => p.period === "season" && (p.price_type === "standard" || !p.price_type))
+                 || prices.find((p) => p.period === "season");
+  const showBreakdown = !!selectedTier && selectedTier.pricing_model === "season"
+                     && period === "season" && seasonRow && seasonRow.first_charge_pence != null;
+  const joiningFeePence = selectedTier?.joining_fee_pence || 0;
+  const prorationDeduction = showBreakdown
+    ? seasonRow.price_pence - (seasonRow.first_charge_pence - joiningFeePence)
+    : 0;
+
   const submit = () => {
     if (!tierId) { setErr("Please select a membership."); return; }
     if (!period) { setErr("Please select a billing period."); return; }
@@ -489,7 +501,25 @@ function StepTierSelect({ tiers, path, onDone, onBack }) {
         </>
       )}
 
-      {selectedTier && price && (
+      {showBreakdown ? (
+        <div style={{ marginTop: 14, borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--t3)", marginBottom: 4 }}>
+            <span>Full season</span><span>{fmt(seasonRow.price_pence)}</span>
+          </div>
+          {prorationDeduction > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--t3)", marginBottom: 4 }}>
+              <span>Joining mid-season</span><span>−{fmt(prorationDeduction)}</span>
+            </div>
+          )}
+          {joiningFeePence > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--t3)", marginBottom: 4 }}>
+              <span>Joining fee</span><span>+{fmt(joiningFeePence)}</span>
+            </div>
+          )}
+          <p className="ms-subtotal-label" style={{ marginTop: 6 }}>You pay today</p>
+          <p className="ms-subtotal">{fmt(seasonRow.first_charge_pence)}</p>
+        </div>
+      ) : selectedTier && price && (
         <>
           <p className="ms-subtotal-label">Total</p>
           <p className="ms-subtotal">{price}{period && period !== "season" ? <span style={{ fontSize: 16, color: "var(--t3)" }}> / {PERIOD_LABEL[period]}</span> : null}</p>

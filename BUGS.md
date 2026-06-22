@@ -3,6 +3,45 @@
 
 ---
 
+## SESSION 177 — ✅ CLUB STRUCTURE Phase 5 SHIPPED (mig 393). Pro-rating. EPIC COMPLETE. 2 latent bugs fixed.
+
+Pilot backlog #2, Phase 5 (final) — club-configurable pro-rating of season memberships + an
+optional one-off joining fee (see CLUB_STRUCTURE_HANDOFF.md + FEATURES.md). **Migration 393**
+(additive — existing tiers byte-identical, production proration tiers = 0): `venue_membership_tiers`
+gains `proration_basis` (none|monthly|weekly|daily, DEFAULT 'none') + `joining_fee_pence` (DEFAULT
+0); shared IMMUTABLE helper `_prorated_first_charge`; first charge = `joining_fee + prorated(season
+fee)` applied in `member_enrol_membership` + `stripe_complete_member_enrolment` + surfaced as
+`first_charge_pence` in `get_venue_signup_tiers`; venue tier create/update gain the two params
+(old overloads DROPped); venue TierModal + MembershipSignup breakdown + Stripe checkout endpoint
+all use the same helper. Rule (operator-confirmed): join period counts as a whole (round up,
+member's favour), nearest penny, clamp [0, full], joins before season start / after season end →
+full price. Renewals always full price.
+
+**Two latent pre-393 bugs surfaced by ephemeral-verify and fixed in the same migration:**
+1. **Season self-enrolment would always have failed.** `member_enrol_membership` /
+   `stripe_complete_member_enrolment` wrote the tier's `pricing_model` straight into
+   `venue_memberships.pricing_model`, but tiers use `recurring|season` while the membership column
+   only allows `recurring|term` (mig 285). Any season-tier self-enrolment hit a check-constraint
+   violation. Latent because season-tier self-enrolment via this path wasn't exercised before
+   (season enrolment went through `venue_approve_and_enrol`, which doesn't set pricing_model). Fixed:
+   map `season → term` on insert in both RPCs.
+2. **`get_venue_signup_tiers` 500'd for a club-less venue-landing code.** It SELECTed club fields
+   INTO a `record` only when a club existed, then referenced `v_club.id` unconditionally in the
+   RETURN — raising "record \"v_club\" is not assigned yet" when the venue had no club. Latent
+   because every real signup venue has a club. Fixed: scalar club vars (`v_club_name`/
+   `v_club_mandate`/`v_club_sg`) instead of a `record`.
+
+Gates: rpc-security 6/6 PASS, EV 10/10 groups + leak 0 (each basis at a mid-season date, season→term
+map, signup breakdown incl. the NULL-when-no-proration case, Stripe fallback + confirmed-amount,
+bad-period reject), additive-diff byte-identical proof, build inorout+venue clean, hygiene 7/7 on
+client files (the lone raw-rpc hit is the server-side `api/stripe-member-checkout.js`, outside the
+client rule, consistent with its existing direct-DB usage), casual-regression PASS via additive-diff
+(only MembershipSignup touched; original Total block preserved as the else branch), Playwright boot
+smoke clean. ⛔ real-iPhone PWA walk OWED (member checkout breakdown / apps/inorout/src; Hard Rule
+#13). **Next free mig = 394.**
+
+---
+
 ## SESSION 176 — ✅ CLUB STRUCTURE Phase 4 SHIPPED (mig 392). Team-manager comms. No new bugs.
 
 Pilot backlog #2, Phase 4 — a team manager can message their own team's players + guardians

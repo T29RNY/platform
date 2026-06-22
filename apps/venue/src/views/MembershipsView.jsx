@@ -1078,6 +1078,10 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
   const [pricingModel, setPricingModel] = useState(tier?.pricing_model || "recurring");
   const [seasonStart,  setSeasonStart]  = useState(tier?.season_start || "");
   const [seasonEnd,    setSeasonEnd]    = useState(tier?.season_end || "");
+  const [prorationBasis, setProrationBasis] = useState(tier?.proration_basis || "none");
+  const [joiningFee,   setJoiningFee]   = useState(
+    tier?.joining_fee_pence ? String(tier.joining_fee_pence / 100) : ""
+  );
   const [isFree,       setIsFree]       = useState(!!(tier?.benefits?.is_free));
   const [selfSignup,   setSelfSignup]   = useState(tier?.benefits?.self_signup !== false);
   const [active,       setActive]       = useState(tier?.active !== false);
@@ -1150,6 +1154,9 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
         pricingModel,
         seasonStart: pricingModel === "season" ? (seasonStart || null) : null,
         seasonEnd:   pricingModel === "season" ? (seasonEnd || null)   : null,
+        // Pro-rating + joining fee apply to season plans only.
+        prorationBasis:  pricingModel === "season" ? prorationBasis : "none",
+        joiningFeePence: pricingModel === "season" ? (toPence(joiningFee) ?? 0) : 0,
       };
       if (editing) {
         await venueUpdateMembershipTier(venueToken, tier.tier_id, {
@@ -1217,6 +1224,34 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
             <input className="input" type="date" value={seasonEnd} onChange={(e) => setSeasonEnd(e.target.value)} />
           </div>
         </div>
+      )}
+
+      {pricingModel === "season" && (
+        <>
+          <div style={head}>Pro-rate for late joiners</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[["none","Off (full price)"],["monthly","By month"],["weekly","By week"],["daily","By day"]].map(([v, l]) => (
+              <button key={v} type="button" className="charge-opt" onClick={() => setProrationBasis(v)}
+                style={{ borderColor: prorationBasis === v ? "var(--accent)" : "var(--border)", padding: "6px 14px", fontSize: 13 }}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <FieldHelp>
+            Someone joining part-way through the season pays only for the part that's left.
+            Example: a £60 season, joining in March of a Jan–Dec season, <strong>by month</strong> → they pay £50
+            (10 of 12 months). The part-month they join in counts as a whole month, in the member's favour.
+            Needs a season start and end date set above. Renewals next season are always full price.
+          </FieldHelp>
+
+          <label className="field-label">Joining fee (optional)</label>
+          <input className="input" type="number" min="0" step="0.01" placeholder="0.00"
+            value={joiningFee} onChange={(e) => setJoiningFee(e.target.value)} />
+          <FieldHelp>
+            A one-off charge added to the first payment only (not to renewals). Example: <em>£10</em> on top of
+            the season fee. Leave blank for none.
+          </FieldHelp>
+        </>
       )}
 
       <div style={head}>Benefits</div>

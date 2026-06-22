@@ -7,9 +7,12 @@ This doc is the single source of truth for the epic. Work the phases **one at a 
 audit → execute → verify → commit per `CLAUDE.md`. Each phase has its own kickoff prompt
 at the bottom — start a fresh session per phase.
 
-**⚠️ Next free migration = 393.** (389 = Phase 1; 390 = Phase 2; 391 = Phase 3; 392 = Phase 4.)
-Last updated: 2026-06-22, **Phase 1 SHIPPED (mig 389, f30c87b); Phase 2 SHIPPED (mig 390);
-Phase 3 SHIPPED (mig 391); Phase 4 SHIPPED (mig 392)**.
+**⚠️ Next free migration = 394.** (389 = Phase 1; 390 = Phase 2; 391 = Phase 3; 392 = Phase 4;
+393 = Phase 5.)
+Last updated: 2026-06-22, **🏁 EPIC COMPLETE — Phase 1 SHIPPED (mig 389, f30c87b); Phase 2 SHIPPED
+(mig 390); Phase 3 SHIPPED (mig 391); Phase 4 SHIPPED (mig 392); Phase 5 SHIPPED (mig 393)**.
+⛔ owed across the epic: real-iPhone PWA walks (P3 member join, P4 manager composer, P5 checkout
+breakdown) + real-device venue walk (P1/P2 structure + QR).
 
 ---
 
@@ -199,7 +202,25 @@ paths), build clean, hygiene 7/7, casual-regression PASS via additive-diff (no c
 touched; zero existing lines modified), Playwright smoke PASS (app boots, 0 console errors).
 ⛔ owed: real-iPhone walk (manager composer, Hard Rule #13).
 
-### Phase 5 — Pro-rating (club-configurable) · ~1.5 days · 🔴 NEXT (Phases 1–4 merged)
+### Phase 5 — Pro-rating (club-configurable) · ✅ SHIPPED (mig 393) · 🏁 EPIC COMPLETE
+Delivered: pro-rating of **season** memberships only (recurring/gym plans untouched) + optional
+one-off joining fee, club-configurable per tier. `venue_membership_tiers.proration_basis`
+(none|monthly|weekly|daily, DEFAULT 'none') + `joining_fee_pence` (DEFAULT 0). Shared IMMUTABLE
+helper `_prorated_first_charge` (single source of truth) — join period counts as a whole (round up,
+member's favour; operator "Option A"), nearest penny, clamp [0, full], join before season start /
+after end → full price. First charge = `joining_fee + prorated(season fee)` in
+`member_enrol_membership` + `stripe_complete_member_enrolment` + surfaced as `first_charge_pence` in
+`get_venue_signup_tiers`; venue tier create/update gain both params (8→10 / 10→12 args, old
+overloads DROPped) + JS wrappers; venue TierModal basis selector + joining-fee input (season only,
+helper text + worked example); MembershipSignup checkout breakdown; `api/stripe-member-checkout.js`
+prorates the one-off season `unit_amount` via the same helper. **Two latent pre-393 bugs fixed
+in-cycle (EV-caught):** season `pricing_model` written into `venue_memberships` (allows only
+recurring|term) now mapped season→term; `get_venue_signup_tiers` "record not assigned yet" for a
+club-less venue-landing code now uses scalar club vars. Gates: rpc-security 6/6 PASS, EV 10/10 +
+leak 0, additive-diff byte-identical (prod proration tiers = 0), build clean, hygiene 7/7,
+casual-regression PASS via additive-diff (only MembershipSignup, original Total preserved as else),
+Playwright boot smoke PASS. ⛔ owed: real-iPhone walk (member checkout breakdown, Hard Rule #13).
+**Original scope (kept for reference):**
 - Per-tier config (additive columns on `venue_membership_tiers`): `proration_basis text`
   CHECK `none|monthly|weekly|daily` (DEFAULT `'none'` → existing tiers byte-identical),
   `joining_fee_pence int` (nullable / DEFAULT 0). Uses the tier's existing
