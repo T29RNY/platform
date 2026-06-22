@@ -39,6 +39,17 @@ in **MODULAR_PLATFORM_HANDOFF.md**. Three sequenced epics, A→B→C, each merge
   **Ref = standalone module** (audited: league/official arm needs zero squad/club/membership; sells
   independently). RefSix decisions: GPS heatmap/sprint MATCH, video analysis BUILD, multi-watch
   DEFER (Apple-only); add sin-bins + auto match reports. Detail in [[project_watchos_companion]].
+- **D — venue-operator tournament create.** Surface the ALREADY-BUILT Event OS engine (migs 314–328:
+  round-robin/group→KO/single+double-elim/sports-day, registration, auto-schedule, live scoring,
+  H2H standings, brackets, cards, sponsors/branding, public hub) in the VENUE dashboard via
+  venue-token auth (today club-admin-only, in the consumer app). Auth + UI, not new engine. Gated by
+  `tournaments` flag.
+- **Competition model (cross-cutting):** internal (we own — League Mode + Event OS, full write) vs
+  external (FA Full-Time — read-only mirror + match-day trigger). One "Competition" nav umbrella
+  collapses Leagues+Table+Cups+tournaments; ⚠️ external must be read-only (no FA write-back) and
+  never blended with internal standings.
+- **Venue nav simplification** = a deliverable of Epic A (flag + discipline gating, 18→~8 items) +
+  a small standalone IA merge pass (Sessions/Classes, Competition umbrella, People grouping).
 
 ### #2 Org/team structure — Phase 1: Structure (venue console) — SHIPPED (mig 389)
 The club's org chart, editable in the venue console. **Migration 389** (additive):

@@ -158,9 +158,87 @@ independently of the club features.**
 
 ---
 
+## COMPETITION MODEL — INTERNAL vs EXTERNAL (the defining axis)
+
+The cleanest dividing line in the whole competition model. It decides whether In or Out is the
+**system of record (write)** or a **mirror (read)**:
+
+| | Source of truth | Our role | Maps to |
+|---|---|---|---|
+| **Internal league** | In or Out | Full write/manage | League Mode (native) |
+| **Internal tournament/cup/sports day** | In or Out | Full write/manage | **Event OS** |
+| **External (FA) league** | FA Full-Time | Read-only mirror + match-day trigger | `league_fixtures` provider = FA |
+| **External tournament** | — | n/a (FA Full-Time is leagues, not tournaments) | — |
+
+Consequences:
+- **Tournaments are almost always internal** → Event OS has NO external dependency → our strongest,
+  cleanest surface. The tournaments story never touches the FA-feed problem.
+- **External leagues are display + trigger, NEVER edit.** ⚠️ FOOTGUN: an operator must never be able
+  to edit an FA fixture/result in our UI — we can't write it back. External competitions must look +
+  behave read-only. ⚠️ TWO-SOURCES RISK: a venue running an internal league AND with teams in an FA
+  league has standings from two sources (ours computed, FA's read-only) — the UI must keep them
+  visually distinct so operators know which is authoritative. Never blend them.
+- A club can be any mix: internal-only, external-only, or both. Flags handle the combination; the
+  internal/external axis handles whether each surface is editable or a mirror.
+
+## EVENT OS — the internal-competition engine (BUILT; needs venue surfacing)
+
+Event OS (migs 314–328, ALL phases complete, Tournify-killer — Tournify charges €40–120 PER
+tournament for less) is NOT just brackets. Full surface, verified against live code s174:
+
+**Formats:** round-robin / mini-league · group-stage→knockout · single-elimination · double-
+elimination · **sports day / multi-discipline performance scoring** (athletics: heats, qualifiers,
+attempts, configurable points table → team totals — not football at all).
+
+**Lifecycle capabilities:** time-boxed event (multi-day) w/ multiple competitions inside · team
+registration (host direct + external self-serve invite codes + approve/reject/waitlist) · auto-
+schedule (circle-method, pitch allocation, kickoff times, ref assignment) · live scoring via ref
+app (token-based) · standings w/ H2H tiebreakers · auto-advancement (single + double elim) · cards +
+auto-suspension · sponsors + branding (colours/logo/hero/tagline) · Player of the Tournament ·
+equipment hire · public hub (`/tournament/<slug>`: live fixtures/scores/standings/brackets/perf
+results, 30s poll, shareable poster + QR, self-serve registration).
+
+**Overlap with League Mode:** both share `competitions`/`fixtures`/`competition_teams`. Event OS =
+time-boxed EVENT wrapper (`tournament_events`); League Mode = ongoing SEASON wrapper. Together they
+are the ENTIRE "internal" competition surface.
+
+**Where it lives today:** create/manage is CLUB-ADMIN gated, in the CONSUMER app (SessionsScreen
+"Tournaments" tab). Venue dashboard has only venue-token ref/manage RPCs.
+
+### EPIC D — venue-operator tournament create (surface Event OS in the venue dashboard)
+**Goal:** operators create/build/manage tournaments from the venue console (today only club admins
+can, in the consumer app). The ENGINE is built — this is auth + UI, not new tournament logic.
+**Scope:** clone the `club_admin_*` create/build/schedule RPCs onto venue-token auth
+(`resolve_venue_caller` + a manage cap); surface in the venue rail under the Competition umbrella;
+make Cups-tab reachable when empty. Two creation paths into ONE engine: club-admin (consumer, as
+today) + venue-operator (dashboard, new). Gated by the `tournaments` flag (Epic A).
+**Sizing:** ~3–5 sessions (RPC auth clones + EV + venue UI).
+
+## VENUE OS NAV SIMPLIFICATION (a deliverable OF Epic A + a small IA pass)
+
+Two separate jobs — flags solve the first, not the second:
+- **Modulation (flags + discipline) = WHICH items appear.** Nav is one of Epic A's 3 gate layers.
+  Today the venue rail (Dashboard.jsx `TABS`) is 18 items / 5 groups, only 2 conditional (Access by
+  role, Cups by data). Map each item to a gate: always-on core (Operations, Bookings, People,
+  Payments, Facility, Staff, Settings) · flag-gated (Memberships, Sessions/Classes/Trainers/Room
+  hire, Equipment, Competition) · discipline-gated (football never sees Classes/Trainers; gym never
+  sees Leagues/Cups — discipline = relevance, flag = purchased, BOTH gate nav) · data-gated (the
+  Cups zero-footprint pattern). A football club drops 18→~8; a gym sees a different ~8.
+- **IA cleanup = HOW the survivors are grouped (design, NOT flags).** Overlaps flags won't fix:
+  Sessions(Directory) vs Classes(Facilities) duplicate; Leagues+Table+Cups = one "Competition"
+  split three ways; Equipment+Room hire+Spaces scattered; Customers+Teams+Players = one people-tree.
+- **Target shape:** ~7 always-on core + modular sections each with internal tabs — Memberships
+  (Members/Sessions/Trainers), **Competition (internal: Leagues + Event OS tournaments/cups/sports
+  days · external: FA-fed read-only)**, Equipment & Hire, Public page. Competition umbrella is where
+  Cups stops being a stray item and Event OS venue-create (Epic D) lands.
+- Sequencing: nav-presence ships WITH Epic A; the IA merge is a small dedicated venue-UI cycle (can
+  run before/alongside A — pure UI, no flag dependency).
+
 ## SEQUENCING
 
-A → B → C. Each shipped and merged before the next (cloud-session discipline — one session
-start-to-finish). A is the prerequisite for everything; B feeds C. Run feature-plan skill against
-live code on each epic before any edits — start by confirming the stale bits (ref arm shape, the
-FA feed format for the target club's league).
+A → B → C, plus D (venue tournament-create, depends on A's `tournaments` flag) and the venue nav
+work (presence with A, IA merge standalone). Each shipped and merged before the next (cloud-session
+discipline — one session start-to-finish). A is the prerequisite for everything; B feeds C; D
+surfaces the already-built Event OS engine. Run feature-plan skill against live code on each epic
+before any edits — start by confirming the stale bits (ref arm shape, the FA feed format for the
+target club's league, current Event OS club-admin RPC signatures before cloning to venue-token).
