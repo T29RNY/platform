@@ -120,10 +120,11 @@ into your match day," NOT "we have FA sync too."
   render + "latest news" on homepage. The one piece with an ongoing content/support tail — accepted.
 - **Club theming → IN.** Per-club branding via **CSS custom properties** (NOT hardcoded hex — keep
   off the venue-hex tech-debt in BUGS.md s174). Crest, colours, hero.
-- **Image/media GALLERIES → DEFER (still out).** No multi-photo/video gallery section. ⚠️ BOUNDARY
-  TO CONFIRM: assumption = SINGLE hero images per post / club hero banner ARE in, via the existing
-  `uploadVenueMedia`→venue-media path (not a gallery); if operator means zero image uploads (text +
-  paste-URL only), rescope — it changes whether we touch storage at all.
+- **Images: ONE per post + ONE club hero banner (operator-decided s174).** Via existing
+  `uploadVenueMedia`→venue-media bucket. Multi-photo/video GALLERIES still DEFERRED (out). Cost
+  controls (the real driver is file SIZE not count): **resize+compress on upload** (~1600px cap,
+  max-KB target) client-side; **orphan cleanup** — delete the image when its post is deleted so
+  storage doesn't grow with churned drafts.
 - **Discipline-aware composition:** page reads `clubs.discipline` — football gets fixtures/table;
   gym/boxing gets class timetable/grading; news/blog/theming/sponsors apply to all.
 - **⚠️ SAFEGUARDING from day one (junior clubs like GNP):** minors' surnames/photos default
