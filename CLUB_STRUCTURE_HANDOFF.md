@@ -7,7 +7,9 @@ This doc is the single source of truth for the epic. Work the phases **one at a 
 audit → execute → verify → commit per `CLAUDE.md`. Each phase has its own kickoff prompt
 at the bottom — start a fresh session per phase.
 
-**Next free migration = 388.** Last updated: audit session 2026-06-22 (no code changed yet).
+**⚠️ Next free migration = 390.** (388 = tournament tagline/hero, already committed; 389 =
+this epic's Phase 1.) The original "388" in this doc was stale — 388 was taken by a parallel
+session before Phase 1 started. Last updated: 2026-06-22, **Phase 1 SHIPPED (mig 389, commit f30c87b)**.
 
 ---
 
@@ -116,8 +118,15 @@ clubs (text PK)
 Order = demo-critical first. The 29th realistically shows **Phases 1–3** end-to-end
 (payment in Stripe **test mode**); Phases 4–5 land just after.
 
-### Phase 1 — Structure (venue console) · ~1.5 days · 🟢 demo-ready
-**Migration 388** (additive, no renames/drops):
+### Phase 1 — Structure (venue console) · ✅ SHIPPED (mig 389, commit f30c87b, 2026-06-22)
+Delivered exactly as scoped: `club_cohorts.category`, `club_teams.gender/priority_rank/
+archived_at`; new RPCs `club_create_team`/`club_update_team`/`club_list_teams`/
+`club_archive_team`; `p_category` on create/update cohort + `category` in the cohort list
+shape; JS wrappers + barrel; **Structure** tab in venue MembershipsView (org-chart tree,
+create/edit/archive, helper text + example on every input); membership-plan helper text;
+SCHEMA.md fixed. Gates: rpc-security PASS (7), EV 11/11 + leak 0, build clean, Playwright
+smoke 0 errors. ⛔ owed: real-device venue walk. **Original scope (kept for reference):**
+**Migration 389** (was mistakenly "388"; additive, no renames/drops):
 - `club_cohorts.category text` CHECK `youth|adult|mixed` (nullable; backfill demo rows).
 - `club_teams.gender text` CHECK `girls|boys|mixed` (nullable).
 - `club_teams.priority_rank int` (nullable; lower = higher priority within cohort).

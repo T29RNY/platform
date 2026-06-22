@@ -3,6 +3,27 @@
 
 ---
 
+## SESSION 174 — ✅ CLUB STRUCTURE Phase 1 SHIPPED (mig 389, commit f30c87b). No new bugs. One pre-existing tech-debt logged.
+
+Pilot backlog #2, Phase 1 — org/team structure in the venue console (see
+CLUB_STRUCTURE_HANDOFF.md + FEATURES.md). Migration 389 added `club_cohorts.category`,
+`club_teams.gender/priority_rank/archived_at` + 4 new venue-token team RPCs + `p_category`
+on the cohort RPCs; new **Structure** tab (org-chart tree) in venue MembershipsView with
+helper text on every input. **Migration-number correction:** the handoff said "388" but 388
+was already taken by a parallel committed session (tournament tagline/hero) — Phase 1 used
+**389**; next free = **390**. Gates: rpc-security PASS (7 RPCs), EV 11/11 + leak 0, build
+clean, Playwright smoke (Structure tab on demo venue, 0 console errors, demo seed unmutated).
+
+**⛔ OWED:** real-device venue walk of the Structure tab (create age group + team, archive,
+multi-club picker).
+
+**🔧 PRE-EXISTING TECH DEBT (NOT introduced here):** `apps/venue/src/views/MembershipsView.jsx`
+lines ~3111 + ~3172 (StaffTab action buttons) use hardcoded `#fff` / `#111` inside
+`var(--accent, #111)` / `color:"#fff"` — outside the allowed `#60A0FF`/`#FF6060` palette.
+The venue app isn't covered by the hygiene hook (only inorout/src + core are), so these were
+never caught. Tokenise in a focused venue-hygiene sweep; left out of the Phase 1 commit to
+keep the diff scoped.
+
 ## SESSION 173 — ✅ ADMIN QUICK-ACTION ON MY VIEW SHIPPED (mig 381; PRs #55, #56, LIVE on main). One latent bug discovered.
 
 Shipped the admin avatar-tap quick-action sheet on My View (set status + manage guests).
