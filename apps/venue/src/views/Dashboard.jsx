@@ -31,32 +31,37 @@ import { poundsRound } from "../lib/format.js";
 // Competition · Club & admin. Pure regroup/rename; ids are unchanged so deep
 // links, SearchPalette and NotificationsPanel keep working. Fixtures surfaced
 // here under Competition (was buried in Memberships).
+// `flag` = the modular feature switch that gates this item (mig 399). Items with
+// no flag are always-on core (Operations, Payments, People, QR, Access,
+// Integrations). venue_features: bookings/spaces/room_hire/equipment. club_features:
+// memberships/coaching/competition/tournaments. All default ON, so the rail is
+// unchanged until a feature is switched off (Phase 2 operator UI).
 const TABS = [
   { group: "Run", items: [
     { id: "ops",       label: "Operations", icon: "ops" },
-    { id: "bookings",  label: "Bookings",   icon: "bookings" },
+    { id: "bookings",  label: "Bookings",   icon: "bookings", flag: "bookings" },
     { id: "payments",  label: "Payments",   icon: "payments" },
   ]},
   { group: "People", items: [
     { id: "customers",   label: "Customers",   icon: "customers" },
-    { id: "memberships", label: "Memberships", icon: "pound" },
+    { id: "memberships", label: "Memberships", icon: "pound", flag: "memberships" },
     { id: "teams",       label: "Teams",       icon: "teams" },
     { id: "players",     label: "Players",     icon: "players" },
     { id: "staff",       label: "Staff",       icon: "staff" },
   ]},
   { group: "Programmes", items: [
-    { id: "sessions",  label: "Club sessions", icon: "staff" },
-    { id: "classes",   label: "Classes",   icon: "classes" },
-    { id: "trainers",  label: "Trainers",  icon: "staff" },
-    { id: "roomhire",  label: "Room hire", icon: "roomhire" },
-    { id: "equipment", label: "Equipment", icon: "equipment" },
-    { id: "spaces",    label: "Spaces",    icon: "spaces" },
+    { id: "sessions",  label: "Club sessions", icon: "staff",     flag: "coaching" },
+    { id: "classes",   label: "Classes",   icon: "classes",   flag: "coaching" },
+    { id: "trainers",  label: "Trainers",  icon: "staff",     flag: "coaching" },
+    { id: "roomhire",  label: "Room hire", icon: "roomhire",  flag: "room_hire" },
+    { id: "equipment", label: "Equipment", icon: "equipment", flag: "equipment" },
+    { id: "spaces",    label: "Spaces",    icon: "spaces",    flag: "spaces" },
   ]},
   { group: "Competition", items: [
-    { id: "fixtures", label: "Fixtures",  icon: "ops" },
-    { id: "league",   label: "Leagues",   icon: "league" },
-    { id: "table",    label: "Standings", icon: "table" },
-    { id: "cups",     label: "Cups",      icon: "cups", cupOnly: true },
+    { id: "fixtures", label: "Fixtures",  icon: "ops",   flag: "competition" },
+    { id: "league",   label: "Leagues",   icon: "league", flag: "competition" },
+    { id: "table",    label: "Standings", icon: "table",  flag: "competition" },
+    { id: "cups",     label: "Cups",      icon: "cups", cupOnly: true, flag: "tournaments" },
   ]},
   { group: "Club & admin", items: [
     { id: "invites",      label: "QR codes",     icon: "settings" },
@@ -64,6 +69,20 @@ const TABS = [
     { id: "integrations", label: "Integrations", icon: "settings" },
   ]},
 ];
+
+// Map each gated view id → its feature flag, derived from TABS (single source of
+// truth). Used by the route gate so a disabled feature can't be deep-linked.
+const VIEW_FLAG = Object.fromEntries(
+  TABS.flatMap((g) => g.items).filter((t) => t.flag).map((t) => [t.id, t.flag])
+);
+
+// Treat a missing flag set (still loading / lookup failed) as all-on so nothing
+// ever flickers away; a known-false flag is the only thing that hides a surface.
+function featureOn(features, flag) {
+  if (!flag) return true;
+  if (!features) return true;
+  return features[flag] !== false;
+}
 
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
@@ -83,11 +102,19 @@ function canManageLogins(me) {
   return me.role === "manager";
 }
 
-export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, refreshing, membershipTick = 0 }) {
+export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, features = null, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, refreshing, membershipTick = 0 }) {
   const [view, setView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.has("connect") ? "integrations" : "ops";
   });
+
+  // Deep-link / SearchPalette footgun guard: if the active view belongs to a
+  // feature that's switched off, bounce to Operations. (Inert while every flag is
+  // on; only fires once a feature is disabled in Phase 2.)
+  useEffect(() => {
+    const flag = VIEW_FLAG[view];
+    if (flag && features && !featureOn(features, flag)) setView("ops");
+  }, [view, features]);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
 
@@ -119,6 +146,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
       <Rail
         view={view} onView={setView}
         bookingBadge={pendingCount}
+        features={features}
         hasCups={hasCups} showAccess={showAccess}
         anyLive={anyLive} liveCount={liveCount}
         onOpenWizard={() => setWizardOpen(true)}
@@ -136,6 +164,9 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
         />
 
         <main className={"main" + (view === "ops" ? " with-sidebar" : "")}>
+          {VIEW_FLAG[view] && features && !featureOn(features, VIEW_FLAG[view]) ? (
+            <div className="text-mute" style={{ padding: 24 }}>This feature isn’t enabled for this venue.</div>
+          ) : (<>
           {view === "ops" && (
             <>
               <div style={{ gridArea: "stats", minWidth: 0 }}>
@@ -172,6 +203,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "table" && <LeagueTable state={state} venueToken={venueToken} />}
           {view === "cups" && <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
           {view === "integrations" && <IntegrationsView venueToken={venueToken} />}
+          </>)}
         </main>
       </div>
 
@@ -191,7 +223,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   );
 }
 
-function Rail({ view, onView, bookingBadge, hasCups, showAccess, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue }) {
+function Rail({ view, onView, bookingBadge, features, hasCups, showAccess, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue }) {
   return (
     <aside className="rail">
       <div className="rail-brand">
@@ -200,23 +232,27 @@ function Rail({ view, onView, bookingBadge, hasCups, showAccess, anyLive, liveCo
       </div>
 
       <nav className="rail-nav">
-        {TABS.map((grp) => (
-          <React.Fragment key={grp.group}>
-            <div className="rail-nav-label">{grp.group}</div>
-            {grp.items.filter((t) => (!t.cupOnly || hasCups) && (!t.adminOnly || showAccess)).map((t) => (
-              <button
-                key={t.id}
-                className="rail-tab"
-                aria-current={view === t.id ? "page" : undefined}
-                onClick={() => onView(t.id)}
-              >
-                <span className="ico"><Icon name={t.icon} /></span>
-                <span>{t.label}</span>
-                {t.id === "bookings" && bookingBadge > 0 && <span className="badge">{bookingBadge}</span>}
-              </button>
-            ))}
-          </React.Fragment>
-        ))}
+        {TABS.map((grp) => {
+          const items = grp.items.filter((t) => (!t.cupOnly || hasCups) && (!t.adminOnly || showAccess) && featureOn(features, t.flag));
+          if (items.length === 0) return null;   // hide a group whose every item is gated off
+          return (
+            <React.Fragment key={grp.group}>
+              <div className="rail-nav-label">{grp.group}</div>
+              {items.map((t) => (
+                <button
+                  key={t.id}
+                  className="rail-tab"
+                  aria-current={view === t.id ? "page" : undefined}
+                  onClick={() => onView(t.id)}
+                >
+                  <span className="ico"><Icon name={t.icon} /></span>
+                  <span>{t.label}</span>
+                  {t.id === "bookings" && bookingBadge > 0 && <span className="badge">{bookingBadge}</span>}
+                </button>
+              ))}
+            </React.Fragment>
+          );
+        })}
       </nav>
 
       <div className="rail-footer">

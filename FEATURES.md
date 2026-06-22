@@ -17,8 +17,23 @@ Club & admin (renames Sessions→"Club sessions", Table→"Standings"); Fixtures
 Competition (internal `club_fixtures` editable vs FA embed read-only, enforced by the data
 model); MembershipsView 13 chips → 5 grouped chips w/ sub-tabs; the per-club coach/DBS Staff tab
 MOVED into top-level Staff (not a duplicate of venue-ops Staff); venue-hex tech-debt tokenised.
-Next: Phase 1 — `venue_features` + `club_features` flag foundation (3-layer gate, default-all-on).
-Full phased plan in **MODULAR_PLATFORM_HANDOFF.md**.
+**Phase 1 — flag foundation SHIPPED (mig 399).** Two boolean flag tables `venue_features`
+(bookings/spaces/room_hire/equipment — per venue) + `club_features` (memberships/competition/
+coaching/tournaments/public_web — per club, OR'd across the venue's clubs via `club_venues`),
+all DEFAULT true with no-row = on → existing venues zero-touch, all-on. Reader
+`get_venue_feature_flags(credential)` + `getVenueFeatureFlags` wrapper, loaded in the venue app.
+**3-layer gate, all live:** nav (rail filter on a `flag` per item + empty-group hide), route
+(deep-link/SearchPalette bounce + content short-circuit), server (`feature_disabled` guard on **74**
+gated write RPCs — venue-feature via `_venue_feature_enabled`, club-feature via the union
+`_venue_club_feature_enabled` or specific `_club_feature_enabled` where a club_id is in scope).
+Customer CRUD intentionally NOT gated (always-on Customers screen). Verified: line-level baseline
+diff proved guard-only changes across all 74 (REMOVED=0); EV proved flag-off rejects + flag-on
+passes through, self-rolled-back + leak-clean; helpers revoked from anon/authenticated; venue build
++ hygiene clean; Playwright boot smoke (rail identical all-on, Bookings vanished when toggled off,
+restored). ⛔ owed real-device venue walk (s178 Phase 0 walk still owed too). Next: Phase 2 —
+dependency graph + discipline axis + operator toggle UI (= backlog #11); the membership-scope
+refactor (`venue_id=` → scope) rides Phase 1–2's Memberships gate. Full phased plan in
+**MODULAR_PLATFORM_HANDOFF.md**.
 
 **#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
 `club_leagues` + `club_fixtures` RPC-only tables let a club hold its own home/away games vs

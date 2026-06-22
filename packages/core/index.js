@@ -388,6 +388,7 @@ export {
   getChildLiveMatch,
   guardianListChildrenSessions,
   getTeamFeatureFlags,
+  getVenueFeatureFlags,
   clubAdminCreateTournament,
   clubAdminListTournaments,
   clubAdminGetTournament,

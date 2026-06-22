@@ -5595,6 +5595,22 @@ export async function getTeamFeatureFlags(teamId) {
   return data ?? { multi_context_nav: false };
 }
 
+// Modular feature flags for the venue console (mig 399). Returns the merged
+// on/off set for a venue: its own facility features (venue_features) ∪ the org
+// features of every club operating there (club_features). Drives the rail nav +
+// route gates (server RPCs enforce the same flags independently). Fails OPEN —
+// an all-true fallback so a transient lookup error never hides a paid feature.
+const ALL_FEATURES_ON = {
+  bookings: true, spaces: true, room_hire: true, equipment: true,
+  memberships: true, competition: true, coaching: true, tournaments: true, public_web: true,
+};
+export async function getVenueFeatureFlags(credential) {
+  if (!credential) return { ...ALL_FEATURES_ON };
+  const { data, error } = await supabase.rpc("get_venue_feature_flags", { p_credential: credential });
+  if (error) { console.error("[nav] get_venue_feature_flags failed", error); return { ...ALL_FEATURES_ON }; }
+  return data ?? { ...ALL_FEATURES_ON };
+}
+
 // Guardian: every child's upcoming training + matches across ALL their clubs
 // (mig 350). Returns [{ profile_id, first_name, last_name, sessions:[...] }].
 export async function guardianListChildrenSessions() {

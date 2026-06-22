@@ -1,5 +1,44 @@
 # In or Out — Key Decisions Log
 
+## SESSION 179 — Venue OS nav Phase 1 SHIPPED: modular feature flags + full 3-layer gate (mig 399)
+*2026-06-23. Epic A foundation. Plan = MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN".*
+
+**Decision: TWO boolean flag tables, not one, and not an EAV/tier-enum.** `venue_features`
+(bookings/spaces/room_hire/equipment, per venue) + `club_features` (memberships/competition/coaching/
+tournaments/public_web, per club). Wide boolean columns, `DEFAULT true`, and **no row = on** via
+COALESCE — so every existing venue/club is all-on with ZERO backfill (operator confirmed "simple and
+easy"). Pick-and-mix booleans, deliberately NOT a `tier` enum (avoids the "Pro-minus-tournaments"
+trap); presets (Phase 3) just set columns. The venue rail = the venue's own facility flags ∪ the
+club flags of every club operating there (`club_venues`), computed server-side by
+`get_venue_feature_flags(credential)` (mirrors mig-351 `get_team_feature_flags`).
+
+**Decision: full 3-layer gate now — nav + route + server — "all of it" (operator).** Layer 1 nav:
+a `flag` per rail item + empty-group hide. Layer 2 route: deep-link/SearchPalette bounce to
+Operations + content short-circuit, so a disabled feature can't be reached by URL. Layer 3 server:
+a `feature_disabled` guard on **74** gated write RPCs, placed immediately after the venue_id/club_id
+is resolved and BEFORE any write (so a flag-off call rejects without mutating, which also makes
+per-function verification safe). Three guard helpers: `_venue_feature_enabled` (venue features),
+`_club_feature_enabled` (where a specific club_id is in scope — `club_admin_*`, `ref_*`, club-league
+RPCs), and the union `_venue_club_feature_enabled` (venue-token club-feature writes that only know a
+venue_id today — memberships/coaching; matches the rail's union semantics). All helpers fail OPEN
+(missing row / unknown feature → true). Operator chose A (gate everything now) over B (externally-
+reachable subset first); ~17 of the 74 are membership/coaching writes the Phase-2 membership-scope
+refactor will touch again — accepted.
+
+**Decision: customer CRUD is NOT gated.** `venue_create/update/erase/approve_customer` are reachable
+from the always-on **Customers** screen (core, unflagged), so gating them on `memberships` would
+break a core surface when memberships is off. Gate a write RPC on a feature only if that feature's
+gated screen is its sole entry surface. `venue_approve_and_enrol`/`venue_enrol_membership` (true
+enrolments) ARE gated.
+
+**Verification (the careful part):** 74 functions drafted by reading each verbatim live body (8
+parallel read-only agents) and inserting only the guard; applied; then a **line-level baseline diff**
+proved guard-only changes across all 74 (nothing removed, every added line guard-related — REMOVED=0).
+Behavioural EV proved flag-off → `feature_disabled` and flag-on → original error path, across venue-
+feature + club-union paths, self-rolled-back and leak-clean. Helpers revoked from anon/authenticated
+(internal-only; guarded RPCs unaffected in definer context). Default-all-on means the guards are
+inert on ship day. **Next free mig = 400.**
+
 ## SESSION 178 — Venue OS nav Phase 0 SHIPPED: IA cleanup (pure UI, no flags, no schema)
 *2026-06-22. First phase of the Venue OS nav epic (plan = MODULAR_PLATFORM_HANDOFF.md
 "VENUE OS NAV — FULL PHASED PLAN"). Additive UI only; no migration.*
