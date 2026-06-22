@@ -33,6 +33,12 @@ fixtures on your website" panel: ready-to-paste `<iframe>` snippet + an FA Full-
 stored per league (`fa_embed_code`) for the club's own site. FA = display-only (spike NO-GO on a
 feed; STRATEGY/DECISIONS s178). Live render Playwright-verified (`/embed/league/5b59146bb5`).
 
+**#4 Coach paid/unpaid pill SHIPPED (mig 398).** Reminder cron already covers membership arrears
+(`get_membership_reminders_due` `payment_due` kind — no change). New `club_manager_team_payments`
+(authenticated, manager-scoped, read-only) powers a **Subs & payments** roster under "Message your
+team" in the consumer club view — green Paid / red Owes £X pills, auto-reminders messaging. Demo
+user manages First Team (2 owing + 3 paid → real mix). ⛔ owed authed/real-iPhone walk.
+
 ### NEXT EPIC (scoped, not built) — Modular platform: packaging + FA fixtures + public web + ref-as-module
 Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPro review. Full plan
 in **MODULAR_PLATFORM_HANDOFF.md**. Three sequenced epics, A→B→C, each merged before the next:

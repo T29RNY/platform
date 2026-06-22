@@ -5218,6 +5218,16 @@ export async function clubManagerSendAnnouncement(teamId, title, body) {
   return data;
 }
 
+// Coach paid/unpaid roster (mig 398) — a team manager sees who's paid / who owes
+// for their own team. Authenticated; manager-scoped server-side. Read-only.
+export async function clubManagerTeamPayments(teamId) {
+  const { data, error } = await supabase.rpc("club_manager_team_payments", {
+    p_team_id: teamId,
+  });
+  if (error) { console.error("[club-manager] club_manager_team_payments failed", error); throw error; }
+  return data;
+}
+
 export async function memberListClubAnnouncements(clubId) {
   const { data, error } = await supabase.rpc("member_list_club_announcements", {
     p_club_id: clubId,

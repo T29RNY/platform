@@ -3,6 +3,31 @@
 
 ---
 
+## SESSION 178 — ✅ PILOT #4 SHIPPED (mig 398). Coach paid/unpaid pill. Reminder cron already covers arrears.
+
+Pilot demo sprint, item #4 (coach invoice-chasing). **KEY AUDIT FINDING: the auto-reminder half
+was already fully built.** `get_membership_reminders_due` (mig 276) already emits a `payment_due`
+reminder for every unpaid/partial `venue_charges` membership charge past its due date — the
+`api/cron.js` membershipRemindersJob sends them (no-ops until `RESEND_API_KEY`). So **no cron
+change** was needed. The new work = the coach-facing pill. **Migration 398**: `club_manager_team_payments(p_team_id)`
+— authenticated, manager-scoped (auth.uid → member_profiles → club_team_managers, mirroring mig
+392/304), read-only (STABLE, no audit). Returns per active club_team_member: name, membership
+status, `owes` (any unpaid/partial membership charge), `amount_pence`, `overdue` — joining
+`venue_charges` back to the membership via the mig-271 `<id>:<period>` `source_id` encoding (same
+as the reminder RPC). Consumer: a **Subs & payments** card (`TeamPaymentsCard`) under "Message your
+team" in SessionsScreen (manager-gated) — green **Paid** / red **Owes £X** (or **Overdue**) pills,
+"N owing" count, "reminders go out automatically" copy. Wrapper + barrel added.
+
+Gates: rpc-security PASS (SECDEF, search_path, single overload, **authenticated-only — explicit
+anon REVOKE** per the mig-175 gotcha), RPC logic verified live against the real demo roster (demo
+user manages **First Team**: 2 owing — Sarah Mitchell, Marcus Reid — + 3 paid, so the pill shows a
+real mix with zero seeding), build inorout+venue clean, hygiene 7/7 (SessionsScreen), casual-regression
+PASS via additive-diff (SessionsScreen +1 import +1 render line + a new component; **zero existing
+lines modified** — casual byte-identical). ⛔ **OWED real-iPhone/authed walk** of the manager Subs
+& payments card (apps/inorout/src; Hard Rule #13). **Next free mig = 399.**
+
+---
+
 ## SESSION 178 — ✅ PILOT #8 Phase A SHIPPED (mig 394). Club League + home/away fixtures spine. No new bugs.
 
 Pilot demo sprint, item #8 (opposition-coach matchday link) **spine** + the FA-import target

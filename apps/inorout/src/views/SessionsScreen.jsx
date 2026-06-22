@@ -9,6 +9,7 @@ import {
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
   clubManagerSendAnnouncement,
+  clubManagerTeamPayments,
   memberListClubAnnouncements,
   memberGetMerchandise, memberPurchaseMerchandise,
   clubAdminListTournaments, clubAdminCreateTournament, clubAdminUpdateTournamentStatus,
@@ -1284,6 +1285,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                 </div>
               </div>
             </div>
+            <TeamPaymentsCard teamId={effectiveTeamId} />
           </div>
         );
       })()}
@@ -2636,6 +2638,58 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 }
 
 // ── SessionCard ───────────────────────────────────────────────────────────────
+// Coach paid/unpaid roster (mig 398) — shown under "Message your team" for a
+// team a manager runs. Read-only; reminders auto-send via the membership cron.
+function fmtMoneyP(pence) {
+  const p = Number(pence) || 0;
+  return `£${(p / 100).toFixed(p % 100 === 0 ? 0 : 2)}`;
+}
+function payPill(color) {
+  return { fontSize: 12, fontWeight: 700, fontFamily: "var(--font-body)", color,
+    border: `1px solid ${color}`, borderRadius: 20, padding: "2px 10px", whiteSpace: "nowrap" };
+}
+function TeamPaymentsCard({ teamId }) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    if (!teamId) return;
+    let alive = true;
+    setData(null); setErr(false);
+    clubManagerTeamPayments(teamId)
+      .then(r => { if (alive) setData(r?.members || []); })
+      .catch(e => { if (alive) { console.error("[club-manager] team payments failed", e); setErr(true); } });
+    return () => { alive = false; };
+  }, [teamId]);
+
+  if (err) return null;
+  const members = data || [];
+  const owingCount = members.filter(m => m.owes).length;
+
+  return (
+    <div style={{ marginTop: 12, background: "var(--b2)", border: "1px solid var(--border-subtle)", borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--t2)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>Subs &amp; payments</span>
+        {data && owingCount > 0 && <span style={{ fontSize: 12, color: "var(--red)", fontFamily: "var(--font-body)" }}>{owingCount} owing</span>}
+      </div>
+      <div style={{ padding: "6px 14px 12px" }}>
+        <p style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", margin: "6px 0 4px", lineHeight: 1.4 }}>
+          Who's paid and who owes — reminders go out automatically, so no chasing.
+        </p>
+        {!data && <p style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", margin: "8px 0 0" }}>Loading…</p>}
+        {data && members.length === 0 && <p style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", margin: "8px 0 0" }}>No members on this team yet.</p>}
+        {data && members.map(m => (
+          <div key={m.member_profile_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 0", borderTop: "1px solid var(--border-subtle)" }}>
+            <span style={{ fontSize: 14, color: "var(--t1)", fontFamily: "var(--font-body)" }}>{m.name || "Member"}</span>
+            {m.owes
+              ? <span style={payPill("var(--red)")}>{m.overdue ? "Overdue" : "Owes"} {fmtMoneyP(m.amount_pence)}</span>
+              : <span style={payPill("var(--green)")}>{m.membership_status === "active" ? "Paid" : "—"}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SessionCard({ session, onOpen }) {
   const typeStyle = TYPE_STYLE[session.session_type] ?? TYPE_STYLE.other;
   const rsvpState = RSVP_STYLE[session.own_rsvp_status] ?? null;

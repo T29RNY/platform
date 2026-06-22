@@ -346,6 +346,7 @@ export {
   venueUpsertStaffDbs,
   clubSendAnnouncement,
   clubManagerSendAnnouncement,
+  clubManagerTeamPayments,
   memberListClubAnnouncements,
   venueUpsertMerchandise,
   venueListMerchandise,
