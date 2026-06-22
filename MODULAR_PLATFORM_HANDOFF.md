@@ -292,17 +292,29 @@ Features are not all the same kind of thing:
 
 ### Cross-venue / cross-club membership  (resolves "a membership could cross venues and clubs")
 Today `venue_memberships.venue_id` pins a membership to ONE venue — wrong for a multi-venue club.
-- **Build now: club-scoped memberships honored across the club's venues.** Membership belongs to the
-  CLUB; eligibility checks (membership-gated join, class/PT booking, fixtures) resolve "entitled
-  here?" via the membership's **SCOPE**, not `venue_id =`. A bounded refactor of the eligibility
-  reads, not a rewrite.
-- **Design-for-but-defer: cross-CLUB passes** (one membership valid across multiple distinct clubs —
-  the leisure-group/franchise case). Model membership SCOPE explicitly (set of venues, optionally a
-  club-group) so it's expressible later without rework; do NOT build cross-club entitlement now.
-- ⚠️ Every existing membership gate (`member_join_club_team`, `member_book_class_session`, PT,
-  classes, packages…) reads a single venue today — audit each and move onto scope-resolution in the
-  Memberships-gate phase. **Highest-risk surface in the epic (RLS + eligibility correctness) — EV
-  every one.**
+**SCOPE LOCKED s180 (option 1) — full scoping audit in DECISIONS s180; this is Phase 2.5, mig 401.**
+- **Build now (Phase 2.5): club-scoped memberships honored across the club's venues — via `club_id`,
+  NO new column.** The live audit found `venue_memberships` already carries `club_id` (all 23 live rows
+  set, 0 club-less), so "entitled at venue V?" = *the member holds an active membership whose CLUB
+  operates at V* (`club_id → club_venues`). One STABLE helper `_membership_covers_venue(member/row,
+  target)` becomes the single seam. **Exact surface = 6 eligibility gates** (`member_book_class_session`,
+  `member_book_appointment`, `member_purchase_class_package`, `member_join_club_team`,
+  `member_list_trainers`, `member_get_venue_membership_pass`) move from `venue_id =` to the helper; the
+  other ~9 `venue_memberships`+`venue_id` functions key off club_id/audience/own-enrolment-venue (not
+  eligibility — audit-to-confirm, expected no-change). Enrolment stays venue-pinned (tier is
+  `venue_membership_tiers.venue_id` NOT NULL — scope is consumption, not creation).
+- **Cross-CLUB passes — DEFERRED ENTIRELY (option 1, s180), NOT modelled-but-dormant.** A membership
+  valid across DISTINCT `clubs.id` (leisure-group/franchise) crosses an ORG boundary; the entitlement
+  predicate is easy but the blockers are commercial/safety, not SQL: (1) **settlement** — tier price +
+  Stripe-Connect sub / GC mandate belong to ONE connected account, so cross-club consumption needs a
+  revenue-split rule (a commercial decision); (2) **safeguarding / org RLS wall** — club B's operator
+  would serve a member who enrolled at club A across separate `id_mandate`/`safeguarding_config` orgs;
+  (3) **no demand** — 0 multi-venue clubs live. So we do NOT pre-add dormant `club_groups`/scope schema
+  now (option 2 rejected as speculative). The single helper seam keeps it expressible: when a pilot
+  asks, decide revenue-split + cross-org consent FIRST, then add schema — a follow-up, not a rework.
+- ⚠️ **Highest-risk surface in the epic (RLS + eligibility correctness) — EV every one** of the 6 gates
+  against a deliberately multi-venue `_e2e_` club fixture (member of a 2-venue club books at the SECOND
+  venue; non-member still rejected; single-venue data byte-identical — the no-op proven, not assumed).
 
 ### Phases + effort (≈5–6 build sessions total; one shipped+merged before the next)
 - **Phase 0 — IA cleanup (pure UI, no flags):** rail regroup/rename (Run · People-with-tabs ·
