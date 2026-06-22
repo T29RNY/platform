@@ -29,8 +29,25 @@ opponent-required, team-not-in-club, club-not-found, bad-token → delete), buil
 clean, **no new hardcoded hex** in the venue additions (hand-checked — venue app isn't
 hygiene-hook-gated). No `apps/inorout/src` touch → casual-regression N/A, no real-iPhone owed for
 this phase. **⛔ OWED: real-device venue walk** of the Fixtures tab (create league, add a home
-fixture, assign pitch+ref, set ground rules). Phase B (mig 395) = the public opposition-coach
-link; Phase C (mig 396) = FA AI-import. **Next free mig = 395.**
+fixture, assign pitch+ref, set ground rules).
+
+**✅ Phase B SHIPPED in the same session (migs 395 + 396).** Public, no-login opposition-coach
+matchday link: `get_club_fixture_matchday(p_share_code)` (mig 395, anon+auth SECDEF read,
+share_code is the auth signal) returns the home club's matchday essentials (our team / opponent /
+home-away, date+kickoff, pitch, ref, score/status, venue name+address+lat/lng+contact, ground
+rules). New consumer `/matchday/<code>` anon route + self-contained branded `MatchdayScreen.jsx`
+(tokens-only styling in the tournament Info/MatchSheet spirit — hygiene 7/7, no app chrome, no
+auth). Venue **"Share matchday link"** button on each HOME fixture copies
+`https://app.in-or-out.com/matchday/<share_code>`. **Mig 396 = idempotent demo seed**: Finbar's FC
+"U12 Saturday League" + a home fixture (U12 Falcons v Riverside Rangers, Sat 27 Jun 10:30, Main
+Pitch, ref Sam Cooper) on demo_venue with a STABLE code `demofalcons01` + demo ground rules.
+Gates: rpc-security PASS (1 read RPC SECDEF/search_path/anon+auth), public read EV-proven against
+an `_e2e_` fixture (full shape + not-found) + leak 0, build venue+inorout clean, hygiene 7/7
+(MatchdayScreen + App.jsx), casual-regression PASS via additive-diff (App.jsx +5 lines, zero
+modifications — casual byte-identical), **Playwright populated render verified live**
+(`/matchday/demofalcons01` → full branded page, 0 app console errors). ⛔ **OWED real-iPhone walk**
+of the matchday link (apps/inorout/src; Hard Rule #13). Phase C (mig 397) = FA AI-import.
+**Next free mig = 397.**
 
 ---
 

@@ -5633,6 +5633,16 @@ export async function getTournamentPublic(slug) {
   return data;
 }
 
+// Public, no-login opposition-coach matchday link (mig 395) — keyed on a
+// club_fixtures share_code. Anon-readable; the code is the auth signal.
+export async function getClubFixtureMatchday(shareCode) {
+  const { data, error } = await supabase.rpc("get_club_fixture_matchday", {
+    p_share_code: shareCode,
+  });
+  if (error) { console.error("[matchday] get_club_fixture_matchday failed", error); throw error; }
+  return data;
+}
+
 // Public self-serve team registration from the Tournament Hub (anon + authenticated).
 // Allowed only while the event is OPEN; creates a pending team awaiting club-admin approval.
 export async function tournamentRegisterTeam(slug, competitionId, teamName, contactEmail) {

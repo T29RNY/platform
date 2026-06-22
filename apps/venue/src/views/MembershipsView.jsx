@@ -538,8 +538,16 @@ function FixturesTab({ venueToken, pitches = [], refs = [] }) {
   const [form, setForm] = useState(null);          // null | fixture-draft
   const [info, setInfo] = useState(null);          // venue matchday ground rules
   const [infoOpen, setInfoOpen] = useState(false);
+  const [copied, setCopied] = useState(null);      // share_code just copied
   const [error, setError] = useState(null);
   const isSavingRef = useRef(false);
+
+  const MATCHDAY_BASE = "https://app.in-or-out.com";
+  const copyShareLink = async (shareCode) => {
+    const url = `${MATCHDAY_BASE}/matchday/${shareCode}`;
+    try { await navigator.clipboard.writeText(url); setCopied(shareCode); setTimeout(() => setCopied(null), 2000); }
+    catch { window.prompt("Copy this matchday link:", url); }
+  };
 
   useEffect(() => {
     let a = true;
@@ -786,7 +794,12 @@ function FixturesTab({ venueToken, pitches = [], refs = [] }) {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                <button className="btn btn-xs" onClick={() => editFixture(fx)}><Icon name="edit" size={13} /> Edit</button>
+                {fx.is_home && (
+                  <button className="btn btn-xs btn-primary" onClick={() => copyShareLink(fx.share_code)}>
+                    <Icon name="copy" size={13} /> {copied === fx.share_code ? "Copied!" : "Share matchday link"}
+                  </button>
+                )}
+                <button className="btn btn-xs" onClick={() => editFixture(fx)}>Edit</button>
                 <button className="btn btn-xs btn-ghost" onClick={() => deleteFixture(fx.fixture_id)}>Delete</button>
               </div>
             </div>

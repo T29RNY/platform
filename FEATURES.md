@@ -18,8 +18,14 @@ free-text external opponents, with assigned pitch + ref + per-venue matchday gro
 (create league → add/edit fixture → assign pitch & ref → set ground rules). Each fixture mints a
 public `share_code` for the opposition-coach link (Phase B). FA-import columns added dormant for
 Phase C. 8 venue-token RPCs (EV 13/13 + leak 0, rpc-security PASS). Sprint plan + go/no-go in
-PILOT_DEMO_SPRINT_HANDOFF.md / STRATEGY.md. Phase B = the public link; Phase C = FA AI-import.
-⛔ owed real-device venue walk of the Fixtures tab.
+PILOT_DEMO_SPRINT_HANDOFF.md / STRATEGY.md. ⛔ owed real-device venue walk of the Fixtures tab.
+
+**#8 Phase B SHIPPED (migs 395 + 396).** Public `/matchday/<code>` opposition-coach link —
+`get_club_fixture_matchday(share_code)` (anon read) + branded `MatchdayScreen` (home team,
+kick-off, pitch, ref, venue address/directions, ground rules; tokens-only). Venue "Share matchday
+link" button per home fixture. Mig 396 = idempotent demo seed (Finbar's FC U12 Falcons v Riverside
+Rangers, stable code `demofalcons01`) — live populated render Playwright-verified. ⛔ owed
+real-iPhone walk. Phase C = FA AI-import (mig 397).
 
 ### NEXT EPIC (scoped, not built) — Modular platform: packaging + FA fixtures + public web + ref-as-module
 Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPro review. Full plan

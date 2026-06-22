@@ -391,6 +391,7 @@ export {
   clubAdminListTournaments,
   clubAdminGetTournament,
   getTournamentPublic,
+  getClubFixtureMatchday,
   tournamentRegisterTeam,
   clubAdminUpdateTournamentStatus,
   clubAdminAddCompetition,
