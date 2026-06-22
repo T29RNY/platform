@@ -47,6 +47,7 @@ export default function TournamentScreen({ slug }) {
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [notFound, setNotFound]     = useState(false);
+  const [teamFilter, setTeamFilter] = useState("");
   const pollRef = useRef(null);
 
   const load = (s) => {
@@ -148,6 +149,18 @@ export default function TournamentScreen({ slug }) {
   const hasPerfStandings    = perfStandings.length > 0;
   const hasPot              = !!tournament.player_of_tournament_name && tournament.status === "completed";
 
+  // Team filter ("see my team's fixtures") + stage-grouped schedule.
+  const allTeams = Array.from(new Set(
+    (tournament.competitions ?? []).flatMap(c => (c.teams ?? []).map(t => t.team_name))
+  )).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const matchesTeam      = (fx) => !teamFilter || fx.home_team_name === teamFilter || fx.away_team_name === teamFilter;
+  const knockoutIds      = new Set(knockoutFixtures.map(f => f.fixture_id));
+  const scheduleFixtures = fixtures.filter(f => !knockoutIds.has(f.fixture_id)).filter(matchesTeam);
+  const filteredKnockout = knockoutFixtures.filter(matchesTeam);
+  const hasScheduleFixtures = scheduleFixtures.length > 0;
+  const hasKnockoutFiltered = filteredKnockout.length > 0;
+  const teamHasNoFixtures   = teamFilter && !hasScheduleFixtures && !hasKnockoutFiltered;
+
   return page(
     <>
       {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -226,25 +239,61 @@ export default function TournamentScreen({ slug }) {
         </div>
       )}
 
-      {/* ── Schedule ───────────────────────────────────────────────────── */}
-      {hasFixtures && (
+      {/* ── Team filter — "see my team's fixtures" ───────────────────────── */}
+      {allTeams.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }} className="print-hide">
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "var(--t3, #666)" }}>
+            Team
+          </span>
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            style={{
+              background: "var(--b2, rgba(255,255,255,0.06))",
+              border: "1px solid var(--border-subtle, rgba(255,255,255,0.12))",
+              borderRadius: 8, padding: "7px 10px", fontSize: 13,
+              color: "var(--t1, #fff)", fontFamily: "var(--font-body, sans-serif)", cursor: "pointer",
+            }}
+          >
+            <option value="">All teams</option>
+            {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          {teamFilter && (
+            <button
+              onClick={() => setTeamFilter("")}
+              style={{ background: "none", border: "none", color: "var(--t2, rgba(255,255,255,0.5))", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+            >
+              Show all
+            </button>
+          )}
+        </div>
+      )}
+
+      {teamHasNoFixtures && (
+        <div style={{ fontSize: 13, color: "var(--t2, rgba(255,255,255,0.5))", textAlign: "center", padding: "8px 0" }}>
+          No fixtures for {teamFilter} yet.
+        </div>
+      )}
+
+      {/* ── Schedule (grouped by stage / group) ──────────────────────────── */}
+      {hasScheduleFixtures && (
         <section>
-          <SectionHeading>Schedule</SectionHeading>
+          <SectionHeading>{teamFilter ? `${teamFilter} — Fixtures` : "Schedule"}</SectionHeading>
           <Card>
-            {groupByDate(fixtures).map((group, gi) => (
-              <div key={group.date ?? gi}>
-                {group.date && (
+            {groupByStage(scheduleFixtures).map((group, gi) => (
+              <div key={group.stage ?? gi}>
+                {group.stage && (
                   <div style={{
                     fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase",
                     color: "var(--t3, #666)", padding: "10px 0 6px",
                     borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.06))",
                     marginBottom: 4,
                   }}>
-                    {fmtShortDate(group.date)}
+                    {group.stage}
                   </div>
                 )}
                 {group.fixtures.map((fx, i) => (
-                  <FixtureRow key={fx.fixture_id} fx={fx} last={i === group.fixtures.length - 1 && gi === groupByDate(fixtures).length - 1} />
+                  <FixtureRow key={fx.fixture_id} fx={fx} last={i === group.fixtures.length - 1 && gi === groupByStage(scheduleFixtures).length - 1} />
                 ))}
               </div>
             ))}
@@ -253,11 +302,11 @@ export default function TournamentScreen({ slug }) {
       )}
 
       {/* ── Knockout Stage / DE Brackets ───────────────────────────────── */}
-      {hasKnockout && (() => {
-        const singleElimFx = knockoutFixtures.filter(fx => fx.de_bracket == null);
-        const wbFx         = knockoutFixtures.filter(fx => fx.de_bracket === "winners");
-        const lbFx         = knockoutFixtures.filter(fx => fx.de_bracket === "losers");
-        const gfFx         = knockoutFixtures.filter(fx => fx.de_bracket === "grand_final");
+      {hasKnockoutFiltered && (() => {
+        const singleElimFx = filteredKnockout.filter(fx => fx.de_bracket == null);
+        const wbFx         = filteredKnockout.filter(fx => fx.de_bracket === "winners");
+        const lbFx         = filteredKnockout.filter(fx => fx.de_bracket === "losers");
+        const gfFx         = filteredKnockout.filter(fx => fx.de_bracket === "grand_final");
         const renderRounds = (fxList) => groupByRound(fxList).map((group, gi) => (
           <div key={group.round ?? gi}>
             <div style={{
@@ -467,6 +516,22 @@ function groupByRound(fixtures) {
   return groups;
 }
 
+// Group the schedule by stage — the fixture's round_name (e.g. "Group A", "Group B")
+// when present, otherwise the date. Surfaces the group/stage on the public page.
+function groupByStage(fixtures) {
+  const groups = [];
+  let current = null;
+  for (const fx of fixtures) {
+    const stage = fx.round_name ?? (fx.scheduled_date ? fmtShortDate(fx.scheduled_date) : null);
+    if (!current || current.stage !== stage) {
+      current = { stage, fixtures: [] };
+      groups.push(current);
+    }
+    current.fixtures.push(fx);
+  }
+  return groups;
+}
+
 function FixtureRow({ fx, last }) {
   const statusStyle = FIXTURE_STATUS_STYLE[fx.status] ?? FIXTURE_STATUS_STYLE.scheduled;
   const statusLabel = FIXTURE_STATUS_LABEL[fx.status] ?? fx.status;
@@ -505,7 +570,7 @@ function FixtureRow({ fx, last }) {
       {/* Status / pitch */}
       <div style={{ fontSize: 11, textAlign: "right", ...statusStyle }}>
         {statusLabel}
-        {fx.pitch_name && fx.status === "scheduled" && (
+        {fx.pitch_name && (
           <div style={{ color: "var(--t3, #666)", marginTop: 1 }}>{fx.pitch_name}</div>
         )}
       </div>
