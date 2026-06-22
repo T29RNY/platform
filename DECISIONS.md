@@ -5,6 +5,42 @@
 `demo-runbook-pilot` (the s178+pilot+Phase 1 stack was PR'd + merged to main first — PR #62 — per
 cloud-session discipline, before Phase 2 started).*
 
+**Decision (s180, Phase 2.5 scope locked — option 1): membership scope = `club_id`-derived, and
+cross-CLUB passes are deferred ENTIRELY (no dormant schema now).** Phase 2.5 (the next cycle) moves the
+membership eligibility checks from `venue_memberships.venue_id = <target>` onto SCOPE resolution so a
+multi-venue club's membership is honored across all the club's venues. The live audit (s180) pinned the
+shape:
+- **Scope key already exists — no new column.** `venue_memberships` carries both `venue_id` and
+  `club_id`, and all 23 live memberships have `club_id` set (0 club-less). So "entitled at venue V?" =
+  *the member holds an active membership whose CLUB operates at V* (`club_id → club_venues`). One
+  STABLE helper `_membership_covers_venue(member/row, target_venue)` (club branch via club_venues; a
+  defensive `club_id IS NULL → venue_id =` branch for the 0 live club-less rows) becomes the single
+  seam every gate calls.
+- **Exact surface = 6 eligibility gates** that pin to `venue_id =` today: `member_book_class_session`,
+  `member_book_appointment`, `member_purchase_class_package`, `member_join_club_team`,
+  `member_list_trainers`, `member_get_venue_membership_pass`. The other ~9 functions touching
+  `venue_memberships`+`venue_id` key off `club_id`/audience/own-enrolment-venue, NOT eligibility —
+  audit-to-confirm, expected no-change. Enrolment stays venue-pinned (you enrol via a venue's tier;
+  `venue_membership_tiers.venue_id` is NOT NULL) — scope is a CONSUMPTION question, not a creation one.
+
+**Why cross-club is deferred entirely (option 1), not "model-but-don't-wire" (option 2):** cross-CLUB
+entitlement (one membership valid across DISTINCT `clubs.id` — the leisure-group/franchise case) crosses
+an ORG boundary, and the entitlement predicate is the easy part. The real blockers are (1) **settlement**
+— a tier's price/benefits and the Stripe-Connect subscription / GC mandate belong to ONE connected
+account, so "member of club A consumes at club B" needs a revenue-split rule that is a commercial
+decision, not a migration; (2) **safeguarding / org RLS wall** — club B's operator would see/serve a
+member who enrolled at club A, crossing separate `id_mandate`/`safeguarding_config` orgs (a consent
+decision, weightier for junior clubs); (3) **no demand** — 0 multi-venue clubs live, let alone
+multi-club groups. So we build the cross-VENUE (one club) case now and leave cross-CLUB fully out — the
+single helper seam keeps it expressible later, so when a pilot actually asks, cross-club is a follow-up
+(decide revenue split + cross-org consent FIRST, then schema), not a re-architecture. We deliberately do
+NOT pre-add dormant `club_groups`/scope schema now (option 2 rejected — speculative structure against
+zero demand, the exact "don't lock a structure before the pilot tells you what clubs bundle" trap).
+**Risk note:** each of the 6 gates wrong = a paying member locked out or a non-member let in → EV every
+one against a deliberately multi-venue `_e2e_` club fixture (member of a 2-venue club books at the SECOND
+venue; non-member still rejected; on today's single-venue data behaviour byte-identical — the no-op
+property proven, not assumed). Migration 401. ~1 focused session, zero UI, zero live-data migration.
+
 **Decision: a flag row exists ONLY to hold an OFF; turning everything back on prunes it.** The write
 RPCs (`venue_set_venue_feature` / `venue_set_club_feature`) materialise an all-true row, set the one
 column, then DELETE the row if every column is true again. This keeps the mig-399 no-row=on /
