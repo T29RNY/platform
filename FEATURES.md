@@ -11,6 +11,25 @@ Full-Time feasibility verdict live in **STRATEGY.md → "PILOT MEETING FEEDBACK 
 Remaining phases (join link/QR, membership-gated join, manager comms, pro-rating) tracked in
 **CLUB_STRUCTURE_HANDOFF.md**.
 
+### NEXT EPIC (scoped, not built) — Modular platform: packaging + FA fixtures + public web + ref-as-module
+Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPro review. Full plan
+in **MODULAR_PLATFORM_HANDOFF.md**. Three sequenced epics, A→B→C, each merged before the next:
+- **A — `club_features` modular toggles (FOUNDATION).** Per-club on/off gated at 3 layers
+  (nav+route+RPC — fixes the audited "hidden-but-still-reachable" trap), dependency graph
+  (Memberships→Payments etc.), package layer (presets over flags; tiers-vs-pick-and-mix deferred,
+  it's just presentation). Extends the existing `multi_context_nav`/`get_team_feature_flags` pattern.
+  Discipline × package = two orthogonal axes. Default all flags ON (additive, zero regression).
+- **B — Public Web + league fixtures (provider model).** Lightweight branded club page + FA
+  Full-Time fixtures/results/table via the FREE club-admin Season/Group-ID feed (option 2 — NO
+  partner API, that's "Deferred" 4+ yrs). Build the cheap 80% only; don't become Pitchero. Real
+  value = fixtures as a TRIGGER into auto-create-match → auto-open-availability (incumbents can't).
+  `league_fixtures` as a pluggable provider (FA = adapter #1; cricket/hockey later).
+- **C — FA-fixture → ref-assignment loop + RefSix-parity tools.** Ingested fixtures attach to the
+  mig-369 official arm; ref companion in app/watch (NOT official write-back — honest boundary).
+  **Ref = standalone module** (audited: league/official arm needs zero squad/club/membership; sells
+  independently). RefSix decisions: GPS heatmap/sprint MATCH, video analysis BUILD, multi-watch
+  DEFER (Apple-only); add sin-bins + auto match reports. Detail in [[project_watchos_companion]].
+
 ### #2 Org/team structure — Phase 1: Structure (venue console) — SHIPPED (mig 389)
 The club's org chart, editable in the venue console. **Migration 389** (additive):
 - `club_cohorts.category` (youth|adult|mixed) — the explicit age-group type, drives a badge.
