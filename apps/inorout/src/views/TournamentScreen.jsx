@@ -135,7 +135,7 @@ export default function TournamentScreen({ slug }) {
   return (
     <Shell accent={accent}>
       <HubStyles />
-      {sponsors.length > 0 && <SponsorBanner sponsors={sponsors} />}
+      {sponsors.length > 0 && <SponsorBanner sponsors={sponsors} accent={accent} />}
       <Hero t={t} accent={accent} heroUrl={heroUrl} upcoming={upcoming} live={live} completed={completed} champion={champion} info={info} />
 
       <nav className="th-tabs" aria-label="Tournament sections">
@@ -193,29 +193,37 @@ function deriveChampion(knockoutFixtures) {
   return decided.home_score > decided.away_score ? decided.home_team_name : decided.away_team_name;
 }
 
-// ── Sponsor banner ───────────────────────────────────────────────────────────
-function SponsorBanner({ sponsors }) {
+// ── Sponsor banner ad ────────────────────────────────────────────────────────
+// A full-width banner-ad slot the tournament host fills with a sponsor creative,
+// rotating (crossfade) when more than one. Image-led; falls back to a styled name
+// card when a sponsor has no creative.
+function SponsorBanner({ sponsors, accent }) {
   const [i, setI] = useState(0);
   useEffect(() => {
     if (sponsors.length < 2) return;
-    const id = setInterval(() => setI((p) => (p + 1) % sponsors.length), 5000);
+    const id = setInterval(() => setI((p) => (p + 1) % sponsors.length), 6000);
     return () => clearInterval(id);
   }, [sponsors.length]);
   const sp = sponsors[i % sponsors.length];
   if (!sp) return null;
-  const inner = (
-    <div className="th-sponsor-inner">
-      <span className="th-sponsor-eyebrow">Sponsor</span>
+  const body = (
+    <div className="th-ad-frame">
       {sp.logo_url
-        ? <img src={sp.logo_url} alt={sp.name} className="th-sponsor-logo" />
-        : <span className="th-sponsor-name">{sp.name}</span>}
+        ? <img key={sp.sponsor_id} src={sp.logo_url} alt={sp.name} className="th-ad-img" />
+        : <div className="th-ad-fallback"><span className="th-ad-fallback-eyebrow" style={{ color: accent }}>Sponsor</span><span className="th-ad-fallback-name">{sp.name}</span></div>}
+      <span className="th-ad-chip">Ad</span>
+      {sponsors.length > 1 && (
+        <div className="th-ad-dots">
+          {sponsors.map((s, idx) => <span key={s.sponsor_id} className={`th-ad-dot${idx === (i % sponsors.length) ? " on" : ""}`} style={idx === (i % sponsors.length) ? { background: accent } : undefined} />)}
+        </div>
+      )}
     </div>
   );
   return (
-    <div className="th-sponsor print-hide" aria-label={`Sponsor: ${sp.name}`}>
+    <div className="th-ad print-hide" aria-label={`Sponsor: ${sp.name}`}>
       {sp.website_url
-        ? <a href={sp.website_url} target="_blank" rel="noopener noreferrer" className="th-sponsor-link">{inner}</a>
-        : inner}
+        ? <a href={sp.website_url} target="_blank" rel="noopener noreferrer" className="th-ad-link">{body}</a>
+        : body}
     </div>
   );
 }
@@ -646,14 +654,21 @@ function HubStyles() {
       .th-nf-h { font-family: var(--font-display, 'Bebas Neue', sans-serif); font-size: 30px; color: var(--t1, #fff); margin-bottom: 8px; }
       .th-note { font-size: 14px; color: var(--t2, rgba(255,255,255,0.55)); line-height: 1.55; }
 
-      /* sponsor */
-      .th-sponsor { position: sticky; top: 0; z-index: 30; background: rgba(10,10,8,0.92);
-        backdrop-filter: blur(8px); border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); }
-      .th-sponsor-link { text-decoration: none; display: block; }
-      .th-sponsor-inner { max-width: 600px; margin: 0 auto; display: flex; align-items: center; gap: 10px; justify-content: center; padding: 8px 16px; }
-      .th-sponsor-eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--t3, rgba(255,255,255,0.4)); }
-      .th-sponsor-name { font-size: 13px; font-weight: 700; color: var(--t1, #fff); }
-      .th-sponsor-logo { height: 22px; max-width: 120px; object-fit: contain; }
+      /* sponsor banner ad */
+      .th-ad { max-width: 600px; margin: 0 auto; }
+      .th-ad-link { text-decoration: none; display: block; }
+      .th-ad-frame { position: relative; width: 100%; overflow: hidden; background: rgba(255,255,255,0.03);
+        border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08)); }
+      .th-ad-img { display: block; width: 100%; aspect-ratio: 21 / 9; object-fit: cover; }
+      .th-ad-fallback { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+        aspect-ratio: 21 / 9; width: 100%; }
+      .th-ad-fallback-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+      .th-ad-fallback-name { font-family: var(--font-display, 'Bebas Neue', sans-serif); font-size: 28px; color: var(--t1, #fff); }
+      .th-ad-chip { position: absolute; top: 8px; right: 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+        text-transform: uppercase; color: var(--t1, #fff); background: rgba(0,0,0,0.55); border-radius: 4px; padding: 2px 6px; }
+      .th-ad-dots { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; }
+      .th-ad-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.35); }
+      .th-ad-dot.on { width: 16px; border-radius: 3px; }
 
       /* hero */
       .th-hero { position: relative; overflow: hidden; }
