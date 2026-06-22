@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { getTournamentPublic, tournamentRegisterTeam } from "@platform/core/storage/supabase.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ export default function TournamentScreen({ slug }) {
   const knockoutIds = new Set(knockoutFixtures.map((f) => f.fixture_id));
   const scheduleFixtures = fixtures.filter((f) => !knockoutIds.has(f.fixture_id));
   const liveFixtures = fixtures.filter((f) => f.status === "in_progress");
-  const champion = useMemo(() => deriveChampion(knockoutFixtures), [knockoutFixtures]);
+  const champion = deriveChampion(knockoutFixtures);
 
   const allTeams = Array.from(new Set((t.competitions ?? []).flatMap((c) => (c.teams ?? []).map((x) => x.team_name)))).filter(Boolean).sort((a, b) => a.localeCompare(b));
   const hasTables   = standings.some((s) => s.rows?.some((r) => r.played > 0));
