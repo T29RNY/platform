@@ -26,6 +26,7 @@ import {
   clubAdminAddSponsor,
   clubAdminListSponsors,
   clubAdminRemoveSponsor,
+  uploadVenueMedia,
   clubAdminSetBranding,
   clubAdminSetPlayerOfTournament,
   clubAdminGetEquipmentForTournament,
@@ -194,6 +195,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [sponsorForm, setSponsorForm]         = useState({ name: "", logoUrl: "", websiteUrl: "", displayOrder: 0 });
   const [sponsorSaving, setSponsorSaving]     = useState(false);
   const [showAddSponsor, setShowAddSponsor]   = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [tournamentVenueId, setTournamentVenueId] = useState(null);
   const isSponsorSavingRef                    = useRef(false);
   const isRemovingSponsorRef                  = useRef(false);
 
@@ -345,6 +348,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       return;
     }
     setExpandedTournamentId(t.tournament_id);
+    setTournamentVenueId(t.venue_id ?? null);
     setTournamentDetail(null);
     setScheduleData(null);
     setPerfEvents([]);
@@ -653,6 +657,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     } finally {
       setSponsorSaving(false);
       isSponsorSavingRef.current = false;
+    }
+  };
+
+  const handleBannerUpload = async (file) => {
+    if (!file) return;
+    const venueId = tournamentVenueId || tournamentDetail?.venue_id;
+    if (!venueId) { console.error("[sessions] banner upload — no venue id"); return; }
+    setBannerUploading(true);
+    try {
+      const url = await uploadVenueMedia(venueId, file);
+      if (url) setSponsorForm(f => ({ ...f, logoUrl: url }));
+    } catch (e) {
+      console.error("[sessions] banner upload failed", e);
+    } finally {
+      setBannerUploading(false);
     }
   };
 
@@ -1996,8 +2015,18 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                 onChange={e => setSponsorForm(f => ({ ...f, name: e.target.value }))}
                                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
                               />
+                              <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "rgba(255,255,255,0.06)", border: "1px dashed var(--border)", borderRadius: 8, padding: "10px", fontSize: 13, fontWeight: 700, color: "var(--t1)", fontFamily: "var(--font-body)", cursor: "pointer" }}>
+                                {bannerUploading ? "Uploading…" : (sponsorForm.logoUrl ? "Replace banner image" : "Upload banner image (wide)")}
+                                <input
+                                  type="file" accept="image/*" style={{ display: "none" }} disabled={bannerUploading}
+                                  onChange={e => { const file = e.target.files?.[0]; if (file) handleBannerUpload(file); e.target.value = ""; }}
+                                />
+                              </label>
+                              {sponsorForm.logoUrl && (
+                                <img src={sponsorForm.logoUrl} alt="Banner preview" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--border-subtle)", display: "block" }} />
+                              )}
                               <input
-                                placeholder="Logo URL (optional)"
+                                placeholder="…or paste a banner image URL"
                                 value={sponsorForm.logoUrl}
                                 onChange={e => setSponsorForm(f => ({ ...f, logoUrl: e.target.value }))}
                                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none" }}
