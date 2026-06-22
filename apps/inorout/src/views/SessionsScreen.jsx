@@ -196,12 +196,13 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [sponsorSaving, setSponsorSaving]     = useState(false);
   const [showAddSponsor, setShowAddSponsor]   = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [heroUploading, setHeroUploading]     = useState(false);
   const [tournamentVenueId, setTournamentVenueId] = useState(null);
   const isSponsorSavingRef                    = useRef(false);
   const isRemovingSponsorRef                  = useRef(false);
 
   // Phase 7 Commercial — branding
-  const [brandingForm, setBrandingForm]   = useState({ primaryColour: "", secondaryColour: "", customLogoUrl: "" });
+  const [brandingForm, setBrandingForm]   = useState({ primaryColour: "", secondaryColour: "", customLogoUrl: "", tagline: "", heroUrl: "" });
   const [brandingSaving, setBrandingSaving] = useState(false);
   const isBrandingSavingRef               = useRef(false);
 
@@ -342,7 +343,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       setSponsors([]);
       setEquipmentBookings([]);
       setEquipmentItems([]);
-      setBrandingForm({ primaryColour: "", secondaryColour: "", customLogoUrl: "" });
+      setBrandingForm({ primaryColour: "", secondaryColour: "", customLogoUrl: "", tagline: "", heroUrl: "" });
       setPotName("");
       setPotTeam("");
       return;
@@ -376,6 +377,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
         primaryColour:   br.primary_colour   ?? "",
         secondaryColour: br.secondary_colour ?? "",
         customLogoUrl:   br.custom_logo_url  ?? "",
+        tagline:         br.tagline          ?? "",
+        heroUrl:         br.hero_url         ?? "",
       });
       setPotName(detail?.player_of_tournament_name ?? "");
       setPotTeam(detail?.player_of_tournament_team ?? "");
@@ -675,6 +678,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     }
   };
 
+  const handleHeroUpload = async (file) => {
+    if (!file) return;
+    const venueId = tournamentVenueId || tournamentDetail?.venue_id;
+    if (!venueId) { console.error("[sessions] hero upload — no venue id"); return; }
+    setHeroUploading(true);
+    try {
+      const url = await uploadVenueMedia(venueId, file);
+      if (url) setBrandingForm(f => ({ ...f, heroUrl: url }));
+    } catch (e) {
+      console.error("[sessions] hero upload failed", e);
+    } finally {
+      setHeroUploading(false);
+    }
+  };
+
   const handleRemoveSponsor = async (sponsorId) => {
     if (isRemovingSponsorRef.current || !tournamentDetail) return;
     isRemovingSponsorRef.current = true;
@@ -698,6 +716,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
         primaryColour:   brandingForm.primaryColour.trim()   || null,
         secondaryColour: brandingForm.secondaryColour.trim() || null,
         customLogoUrl:   brandingForm.customLogoUrl.trim()   || null,
+        tagline:         brandingForm.tagline.trim()         || null,
+        heroUrl:         brandingForm.heroUrl.trim()         || null,
       });
     } catch (e) {
       console.error("[sessions] set branding failed", e);
@@ -1955,6 +1975,28 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                               placeholder="Custom logo URL (https://…)"
                               value={brandingForm.customLogoUrl}
                               onChange={e => setBrandingForm(f => ({ ...f, customLogoUrl: e.target.value }))}
+                              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", width: "100%", boxSizing: "border-box" }}
+                            />
+                            <input
+                              placeholder="Tagline / subheading (e.g. Eight teams. One day. One trophy.)"
+                              value={brandingForm.tagline}
+                              onChange={e => setBrandingForm(f => ({ ...f, tagline: e.target.value }))}
+                              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", width: "100%", boxSizing: "border-box" }}
+                            />
+                            <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "rgba(255,255,255,0.06)", border: "1px dashed var(--border)", borderRadius: 8, padding: "10px", fontSize: 13, fontWeight: 700, color: "var(--t1)", fontFamily: "var(--font-body)", cursor: "pointer" }}>
+                              {heroUploading ? "Uploading…" : (brandingForm.heroUrl ? "Replace hero background image" : "Upload hero background image")}
+                              <input
+                                type="file" accept="image/*" style={{ display: "none" }} disabled={heroUploading}
+                                onChange={e => { const file = e.target.files?.[0]; if (file) handleHeroUpload(file); e.target.value = ""; }}
+                              />
+                            </label>
+                            {brandingForm.heroUrl && (
+                              <img src={brandingForm.heroUrl} alt="Hero preview" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--border-subtle)", display: "block" }} />
+                            )}
+                            <input
+                              placeholder="…or paste a hero image URL"
+                              value={brandingForm.heroUrl}
+                              onChange={e => setBrandingForm(f => ({ ...f, heroUrl: e.target.value }))}
                               style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "var(--t1)", fontFamily: "var(--font-body)", outline: "none", width: "100%", boxSizing: "border-box" }}
                             />
                             <button
