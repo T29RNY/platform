@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import QRCode from "react-qr-code";
+import { toPng } from "html-to-image";
 import { getTournamentPublic, tournamentRegisterTeam } from "@platform/core/storage/supabase.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,13 +50,14 @@ function useCountdown(targetIso) {
   return { d, h, m, done: target <= now };
 }
 
-export default function TournamentScreen({ slug }) {
+export default function TournamentScreen({ slug, signedIn = false }) {
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [notFound, setNotFound]     = useState(false);
   const [tab, setTab]               = useState(null);
   const [teamFilter, setTeamFilter] = useState("");
   const [openFixtureId, setOpenFixtureId] = useState(null);
+  const [showShare, setShowShare] = useState(false);
   const pollRef = useRef(null);
   const didInitTab = useRef(false);
 
@@ -131,12 +134,13 @@ export default function TournamentScreen({ slug }) {
 
   const activeTab = TABS.some((x) => x.key === tab) ? tab : TABS[0]?.key;
   const openFixture = [...fixtures, ...knockoutFixtures].find((f) => f.fixture_id === openFixtureId) || null;
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${slug}` : "";
 
   return (
     <Shell accent={accent}>
       <HubStyles />
       {sponsors.length > 0 && <SponsorBanner sponsors={sponsors} accent={accent} />}
-      <Hero t={t} accent={accent} heroUrl={heroUrl} upcoming={upcoming} live={live} completed={completed} champion={champion} info={info} />
+      <Hero t={t} accent={accent} heroUrl={heroUrl} upcoming={upcoming} live={live} completed={completed} champion={champion} info={info} onShare={() => setShowShare(true)} />
 
       <nav className="th-tabs" aria-label="Tournament sections">
         {TABS.map((x) => (
@@ -177,9 +181,12 @@ export default function TournamentScreen({ slug }) {
         {activeTab === "info" && <InfoTab t={t} info={info} accent={accent} />}
       </div>
 
-      <a href="/" className="th-back print-hide">← Back to home</a>
+      {signedIn
+        ? <a href="/" className="th-back print-hide">← Back to In or Out</a>
+        : <a href="https://in-or-out.com" className="th-back print-hide">Powered by In or Out · Get the app →</a>}
 
       {openFixture && <MatchSheet fixture={openFixture} accent={accent} onClose={() => setOpenFixtureId(null)} />}
+      {showShare && <SharePosterSheet t={t} accent={accent} heroUrl={heroUrl} info={info} shareUrl={shareUrl} onClose={() => setShowShare(false)} />}
     </Shell>
   );
 }
@@ -229,7 +236,7 @@ function SponsorBanner({ sponsors, accent }) {
 }
 
 // ── Hero ─────────────────────────────────────────────────────────────────────
-function Hero({ t, accent, heroUrl, upcoming, live, completed, champion, info }) {
+function Hero({ t, accent, heroUrl, upcoming, live, completed, champion, info, onShare }) {
   const cd = useCountdown(upcoming ? t.event_date : null);
   return (
     <header className="th-hero">
@@ -249,6 +256,9 @@ function Hero({ t, accent, heroUrl, upcoming, live, completed, champion, info })
           <span className="th-dot">·</span>
           <span>{t.venue_name}</span>
         </div>
+        <button className="th-share-btn print-hide" style={{ borderColor: accent, color: accent }} onClick={onShare}>
+          Share &amp; poster
+        </button>
         {completed && champion && (
           <div className="th-champion" style={{ borderColor: accent }}>
             <span className="th-champion-crown">🏆</span>
@@ -631,6 +641,127 @@ function MatchSheet({ fixture: fx, accent, onClose }) {
 }
 function MetaPill({ k, v }) { return <div className="th-metapill"><div className="th-metapill-k">{k}</div><div className="th-metapill-v">{v}</div></div>; }
 
+// ── Share + poster ───────────────────────────────────────────────────────────
+// The hub IS the live landing page; the poster is the promo artifact that points
+// to it. Clubs save/share it as an image (socials/WhatsApp) or print it (A4) —
+// every poster carries a QR straight to this live page.
+function SharePosterSheet({ t, accent, heroUrl, info, shareUrl, onClose }) {
+  const posterRef = useRef(null);
+  const [busy, setBusy] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const renderPng = async () => {
+    if (!posterRef.current) return null;
+    return toPng(posterRef.current, { pixelRatio: 2, cacheBust: true });
+  };
+
+  const savePoster = async () => {
+    setBusy("image");
+    try {
+      const dataUrl = await renderPng();
+      if (!dataUrl) return;
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `${t.slug}-poster.png`, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: t.name, text: `${t.name} — ${fmtDate(t.event_date)}` });
+      } else {
+        const a = document.createElement("a");
+        a.href = dataUrl; a.download = `${t.slug}-poster.png`; a.click();
+      }
+    } catch (e) { console.error("[tournament] poster export failed", e); }
+    finally { setBusy(""); }
+  };
+
+  const printPoster = async () => {
+    setBusy("print");
+    try {
+      const dataUrl = await renderPng();
+      if (!dataUrl) return;
+      const w = window.open("", "_blank");
+      if (!w) return;
+      w.document.write(`<!doctype html><html><head><title>${t.name} — poster</title><style>@page{margin:8mm}body{margin:0}img{width:100%;display:block}</style></head><body><img src="${dataUrl}" onload="window.focus();window.print()"/></body></html>`);
+      w.document.close();
+    } catch (e) { console.error("[tournament] poster print failed", e); }
+    finally { setBusy(""); }
+  };
+
+  const shareLink = async () => {
+    try {
+      if (navigator.share) { await navigator.share({ title: t.name, url: shareUrl }); return; }
+      await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1800);
+    } catch { /* user cancelled */ }
+  };
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); }
+    catch (e) { console.error("[tournament] copy failed", e); }
+  };
+
+  return (
+    <div className="th-scrim" onClick={onClose}>
+      <div className="th-sheet th-share-sheet" role="dialog" aria-modal="true" aria-label="Share and poster" onClick={(e) => e.stopPropagation()}>
+        <div className="th-sheet-grab" />
+        <div className="th-share-title">Share &amp; poster</div>
+        <div className="th-poster-wrap">
+          <TournamentPoster ref={posterRef} t={t} accent={accent} heroUrl={heroUrl} info={info} shareUrl={shareUrl} />
+        </div>
+        <div className="th-share-actions">
+          <button className="th-share-action primary" style={{ background: accent }} disabled={!!busy} onClick={savePoster}>{busy === "image" ? "Preparing…" : "Save / share poster"}</button>
+          <button className="th-share-action" disabled={!!busy} onClick={printPoster}>{busy === "print" ? "Preparing…" : "Print / PDF"}</button>
+          <button className="th-share-action" onClick={shareLink}>Share link</button>
+          <button className="th-share-action" onClick={copyLink}>{copied ? "Copied ✓" : "Copy link"}</button>
+        </div>
+        <button className="th-sheet-close" style={{ borderColor: accent, color: accent }} onClick={onClose}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+const TournamentPoster = React.forwardRef(function TournamentPoster({ t, accent, heroUrl, info, shareUrl }, ref) {
+  const fee = t.entry_fee_pence ? `£${(t.entry_fee_pence / 100).toFixed(0)} / team` : "Free to enter";
+  const sponsors = t.sponsors ?? [];
+  return (
+    <div ref={ref} className="th-poster">
+      <div className="th-poster-hero" style={{ backgroundImage: `url(${heroUrl})` }}>
+        <div className="th-poster-layer" style={{ background: "linear-gradient(180deg, rgba(10,10,8,0.35), rgba(10,10,8,0.94))" }} />
+        <div className="th-poster-layer" style={{ background: `radial-gradient(70% 55% at 50% 0%, ${accent}55, transparent 70%)` }} />
+        <div className="th-poster-hero-text">
+          <div className="th-poster-club" style={{ color: accent }}>{t.club_name}</div>
+          <div className="th-poster-title">{t.name}</div>
+          {info.tagline && <div className="th-poster-tagline">{info.tagline}</div>}
+        </div>
+      </div>
+      <div className="th-poster-body">
+        <div className="th-poster-meta">
+          <div><div className="th-poster-k" style={{ color: accent }}>When</div><div className="th-poster-v">{fmtDate(t.event_date)}</div></div>
+          <div><div className="th-poster-k" style={{ color: accent }}>Where</div><div className="th-poster-v">{t.venue_name}</div></div>
+          <div><div className="th-poster-k" style={{ color: accent }}>Entry</div><div className="th-poster-v">{fee}</div></div>
+        </div>
+        <div className="th-poster-qr-row">
+          <div className="th-poster-qr"><QRCode value={shareUrl || "https://app.in-or-out.com"} size={120} /></div>
+          <div className="th-poster-scan">
+            <div className="th-poster-scan-big" style={{ color: accent }}>SCAN TO FOLLOW LIVE</div>
+            <div className="th-poster-scan-sub">Fixtures · tables · live scores · register your team</div>
+          </div>
+        </div>
+        {sponsors.length > 0 && (
+          <div className="th-poster-sponsors">
+            <div className="th-poster-sponsors-l">With thanks to our sponsors</div>
+            <div className="th-poster-sponsors-n">{sponsors.map((s) => s.name).join("   ·   ")}</div>
+          </div>
+        )}
+        <div className="th-poster-foot">Powered by <b>In or Out</b> · app.in-or-out.com</div>
+      </div>
+    </div>
+  );
+});
+
 // ── Shell + primitives ───────────────────────────────────────────────────────
 function Shell({ children, accent }) {
   return <div className="th-root" style={accent ? { "--th-accent": accent } : undefined}>{children}</div>;
@@ -641,7 +772,7 @@ function NotFound() {
     <div className="th-notfound">
       <div className="th-nf-h">Tournament not found</div>
       <div className="th-note">This tournament doesn't exist or isn't open yet.</div>
-      <a href="/" className="th-link">← Back to home</a>
+      <a href="https://in-or-out.com" className="th-link">Go to In or Out →</a>
     </div>
   );
 }
@@ -792,6 +923,36 @@ function HubStyles() {
       .th-metapill-v { font-size: 13px; color: var(--t1, #fff); margin-top: 1px; }
       .th-sheet-note { text-align: center; }
       .th-sheet-close { background: none; border: 1px solid; border-radius: 10px; padding: 11px 18px; font-size: 13px; font-weight: 700; cursor: pointer; min-height: 44px; margin-top: 4px; }
+
+      /* share + poster */
+      .th-share-btn { align-self: flex-start; margin-top: 4px; background: rgba(255,255,255,0.06); border: 1px solid; border-radius: 20px; padding: 7px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.3px; cursor: pointer; min-height: 40px; }
+      .th-share-sheet { max-height: 92dvh; overflow-y: auto; }
+      .th-share-title { font-family: var(--font-display, 'Bebas Neue', sans-serif); font-size: 24px; line-height: 1; }
+      .th-poster-wrap { display: flex; justify-content: center; padding: 4px 0 8px; width: 100%; }
+      .th-share-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 360px; }
+      .th-share-action { padding: 12px 10px; border-radius: 10px; border: 1px solid var(--border-subtle, rgba(255,255,255,0.14)); background: rgba(255,255,255,0.05); color: var(--t1, #fff); font-size: 13px; font-weight: 700; font-family: var(--font-body, sans-serif); cursor: pointer; min-height: 46px; }
+      .th-share-action.primary { border: none; color: var(--bg, #0A0A08); }
+      .th-share-action:disabled { opacity: 0.6; cursor: default; }
+
+      .th-poster { width: 360px; background: var(--bg, #0A0A08); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); font-family: var(--font-body, 'DM Sans', sans-serif); }
+      .th-poster-hero { position: relative; height: 280px; background-size: cover; background-position: center; }
+      .th-poster-layer { position: absolute; inset: 0; }
+      .th-poster-hero-text { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px; }
+      .th-poster-club { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+      .th-poster-title { font-family: var(--font-display, 'Bebas Neue', sans-serif); font-size: 38px; line-height: 0.92; color: var(--t1, #fff); }
+      .th-poster-tagline { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 6px; }
+      .th-poster-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 16px; }
+      .th-poster-meta { display: flex; justify-content: space-between; gap: 8px; }
+      .th-poster-k { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 3px; }
+      .th-poster-v { font-size: 13px; color: var(--t1, #fff); line-height: 1.2; }
+      .th-poster-qr-row { display: flex; align-items: center; gap: 14px; }
+      .th-poster-qr { background: white; padding: 8px; border-radius: 10px; line-height: 0; flex-shrink: 0; }
+      .th-poster-scan-big { font-family: var(--font-display, 'Bebas Neue', sans-serif); font-size: 24px; line-height: 1; }
+      .th-poster-scan-sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+      .th-poster-sponsors { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; }
+      .th-poster-sponsors-l { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+      .th-poster-sponsors-n { display: block; font-size: 12px; color: rgba(255,255,255,0.85); margin-top: 4px; font-weight: 600; }
+      .th-poster-foot { font-size: 10px; color: rgba(255,255,255,0.45); text-align: center; }
 
       .th-back { display: block; text-align: center; max-width: 600px; margin: 0 auto; padding: 8px 16px 32px; font-size: 13px; color: var(--t2, rgba(255,255,255,0.5)); text-decoration: none; }
 

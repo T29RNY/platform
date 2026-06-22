@@ -21,6 +21,7 @@
     "@supabase/auth-ui-shared": "^0.1.8",
     "@supabase/supabase-js": "^2.105.4",
     "framer-motion": "^12.40.0",
+    "html-to-image": "^1.11.13",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-qr-code": "^2.2.0",
