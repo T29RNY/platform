@@ -199,12 +199,25 @@ paths), build clean, hygiene 7/7, casual-regression PASS via additive-diff (no c
 touched; zero existing lines modified), Playwright smoke PASS (app boots, 0 console errors).
 ⛔ owed: real-iPhone walk (manager composer, Hard Rule #13).
 
-### Phase 5 — Pro-rating (club-configurable) · ~1.5 days · 🔴 after
-- Per-tier config: `proration_basis text` CHECK `none|monthly|weekly|daily`,
-  `joining_fee_pence int` (uses existing `season_start`/`season_end`).
-- First-charge calculation in the membership-creation path; show the breakdown at checkout.
+### Phase 5 — Pro-rating (club-configurable) · ~1.5 days · 🔴 NEXT (Phases 1–4 merged)
+- Per-tier config (additive columns on `venue_membership_tiers`): `proration_basis text`
+  CHECK `none|monthly|weekly|daily` (DEFAULT `'none'` → existing tiers byte-identical),
+  `joining_fee_pence int` (nullable / DEFAULT 0). Uses the tier's existing
+  `season_start`/`season_end date` (both already present, nullable).
+- First-charge calculation in the membership-creation path. **Surface audit (verified live
+  2026-06-22):** `venue_membership_tiers` has NO price column — the price lives in a
+  per-period tier-prices table (mig 280 `tiered_self_signup`); `get_venue_signup_tiers(p_code)`
+  is the public wizard's read; `member_enrol_membership(invite_code, tier_id, period,
+  for_profile_id)` writes `venue_memberships.amount_pence` + `renews_at`; the Stripe twin is
+  `stripe_complete_member_enrolment`. Pro-rating must compute the FIRST charge as
+  `joining_fee + prorated(full_period_price, basis, today, season_start, season_end)` in all
+  three (enrol write, Stripe complete, and the tiers read so the breakdown shows at checkout).
+- Show the breakdown at checkout in `MembershipSignup` (full price, proration deduction,
+  joining fee, first-charge total). Subsequent renewals charge the full period price.
 
-Gates: rpc-security-sweep, ephemeral-verify.
+Gates: rpc-security-sweep, ephemeral-verify. **No casual surface in scope — but
+`MembershipSignup` is shared with the Phase 3 club-team join + the venue-landing wizard, so
+diff it additively (props default to the no-proration path → existing flows byte-identical).**
 
 **Total ≈ 6–8 build days.**
 
@@ -281,11 +294,47 @@ announcement, SessionsScreen manager view. Then plan club_manager_send_announcem
 casual-regression, real-iPhone walk (apps/inorout/src). Confirm next free migration first.
 ```
 
-### → Phase 5 (START HERE — Phases 1–4 merged)
+### → Phase 5 (START HERE — Phases 1–4 merged · next free mig = 393)
 ```
-Read CLUB_STRUCTURE_HANDOFF.md. Build Phase 5 — Pro-rating (club-configurable).
-AUDIT FIRST: venue_membership_tiers (season_start/season_end), the membership-creation
-charge path, get_venue_signup_tiers. Then plan per-tier proration_basis
-(none|monthly|weekly|daily) + joining_fee_pence + first-charge calculation + checkout
-breakdown. Gates: rpc-security-sweep, ephemeral-verify. Confirm next free migration first.
+Read CLUB_STRUCTURE_HANDOFF.md in full, then CONTEXT.md and BUGS.md.
+Phases 1 (mig 389), 2 (mig 390), 3 (mig 391) and 4 (mig 392) are shipped, committed and live.
+Build Phase 5 — Pro-rating (club-configurable) of the club org/team epic.
+
+AUDIT FIRST (plan mode, no edits): confirm the live shape of the membership-creation charge
+path end-to-end — the per-period tier-prices table (mig 280 tiered_self_signup; venue_
+membership_tiers has NO price column), get_venue_signup_tiers(p_code) (public wizard read),
+member_enrol_membership(invite_code, tier_id, period, for_profile_id) (writes venue_
+memberships.amount_pence + renews_at) and its Stripe twin stripe_complete_member_enrolment;
+the existing nullable venue_membership_tiers.season_start / season_end (date); and where
+MembershipSignup renders the price at checkout (shared with the Phase 3 club-team join + the
+venue-landing wizard). Confirm the next free migration is 393 before writing any SQL.
+
+Then propose the Phase 5 execute plan:
+- Migration 393 (additive only — no rename/drop): venue_membership_tiers gains
+  proration_basis text CHECK (none|monthly|weekly|daily) DEFAULT 'none', joining_fee_pence int
+  DEFAULT 0. Extend the venue-token tier create/update RPC(s) to accept both (with helper text
+  in the venue UI). First-charge = joining_fee + prorated(full_period_price, basis, today,
+  season_start, season_end), basis='none' → full price (existing behaviour byte-identical).
+  Apply the calc in member_enrol_membership + stripe_complete_member_enrolment (the charge
+  writers) and surface the breakdown in get_venue_signup_tiers (the checkout read). Renewals
+  always charge the full period price — pro-rating is first-charge only.
+- JS wrappers/barrel for any changed signatures; checkout breakdown UI in MembershipSignup
+  (full price · proration deduction · joining fee · first-charge total).
+
+Mandatory gates before commit: rpc-security-sweep (every RPC touched — parameter-type changes
+need an explicit DROP of the old overload), ephemeral-verify (own _e2e_ fixture seeding a tier
+with each basis + a mid-season join date, assert the first-charge math for none/monthly/weekly/
+daily + joining fee, auto-rollback, leak-check 0). MembershipSignup is shared (Phase 3 join +
+venue-landing wizard) → additive-diff proof that basis='none'/no-fee tiers are byte-identical;
+casual-regression only if apps/inorout/src is touched. Build clean, hygiene 7/7. Update
+SCHEMA.md (new tier columns), FEATURES.md, DECISIONS.md, BUGS.md and CLUB_STRUCTURE_HANDOFF.md
+(mark Phase 5 shipped → epic COMPLETE) in the same commit. Show me each diff before committing,
+run a Playwright smoke, then commit + push. ⛔ real-iPhone walk owed if the member checkout UI
+changes (Hard Rule #13).
 ```
+
+> **Pro-rating math reference (settle with operator if ambiguous):** for `basis=monthly`,
+> first charge ≈ full_price × (whole+partial months remaining in season ÷ total season months);
+> `weekly`/`daily` = the same ratio at week/day granularity; `none` = full price. Round to
+> whole pence, never below 0, and never above the full price. Confirm rounding + part-period
+> rule (round up vs pro-rata the part period) with the operator before locking the formula.
