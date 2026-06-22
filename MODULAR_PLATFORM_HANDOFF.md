@@ -102,11 +102,39 @@ into your match day," NOT "we have FA sync too."
 - Structured ingest (not iframe) → fixtures become rows in our DB (Epic C depends on this).
 - Gated behind the `public_web` flag from Epic A.
 
+**Public page content scope (operator-decided s174):**
+- **Ships as "just layout" (data already held):** club identity (crest/colours/founded/venue/contact
+  — ⚠️ confirm a club-level branding/badge field exists; `set_branding` is tournament-level today,
+  may need a small `clubs.branding`) · teams/age-groups (org chart, migs 389–390) · fixtures/
+  results/table (internal + FA feed) · link to existing tournament hub · Join/register CTAs (invite
+  links + QR, mig 390).
+- **Front-door differentiators (live + actionable, NOT a static noticeboard):** live score / "Follow
+  live" when a team's playing (realtime) · next-fixture + availability teaser tapping into the
+  engine · prominent Join CTA. This is how we beat a static Pitchero page — same data, shows it
+  *happening*.
+- **Sponsors → club-level (NEW, do in B):** mirror the existing `tournament_sponsors` infra into a
+  `club_sponsors` table (+ a few RPCs); reuse venue-media bucket + `uploadVenueMedia`. Commercial
+  hook = "your sponsor's logo on the live club page" is a club retention/renewal lever.
+- **News + blog → IN (operator-decided s174, upgraded from defer).** Real CMS: `club_posts`
+  (title, body, author, status draft/published, published_at, slug) + dashboard editor + public
+  render + "latest news" on homepage. The one piece with an ongoing content/support tail — accepted.
+- **Club theming → IN.** Per-club branding via **CSS custom properties** (NOT hardcoded hex — keep
+  off the venue-hex tech-debt in BUGS.md s174). Crest, colours, hero.
+- **Image/media GALLERIES → DEFER (still out).** No multi-photo/video gallery section. ⚠️ BOUNDARY
+  TO CONFIRM: assumption = SINGLE hero images per post / club hero banner ARE in, via the existing
+  `uploadVenueMedia`→venue-media path (not a gallery); if operator means zero image uploads (text +
+  paste-URL only), rescope — it changes whether we touch storage at all.
+- **Discipline-aware composition:** page reads `clubs.discipline` — football gets fixtures/table;
+  gym/boxing gets class timetable/grading; news/blog/theming/sponsors apply to all.
+- **⚠️ SAFEGUARDING from day one (junior clubs like GNP):** minors' surnames/photos default
+  HIDDEN/opt-in — applies to squad lists AND news posts + post hero images. Hooks exist
+  (`clubs.safeguarding_config`, `id_mandate`). Non-negotiable; a dealbreaker if missed.
+
 **Depends on:** Epic A (the flag). Ingest can be prototyped in parallel.
 
-**Risk:** the DIY feed maintenance tail (we own the pipe).
+**Risk:** the DIY feed maintenance tail (we own the pipe); + news/blog adds an ongoing content surface.
 
-**Sizing:** ~3–5 sessions.
+**Sizing:** ~5–7 sessions (was 3–5; +news/blog CMS + club theming + club_sponsors).
 
 ---
 
