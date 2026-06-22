@@ -1,5 +1,22 @@
 # In or Out — Feature Tracker
 
+## SESSION 173 — ADMIN QUICK-ACTION ON MY VIEW SHIPPED (migs 381; PRs #55, #56, LIVE on main)
+
+**Admin marks a player + manages their guests from the My View board.** As an admin, tap
+any *other* player's avatar (any section: In/Reserve/Maybe/Out/No Response) → a bottom sheet:
+- **Set availability** — In/Out/Maybe/Reserve (`admin_set_player_status`). Now **soft
+  everywhere** (mig 381): the player can always change it back. The player gets a push
+  naming the admin ("Sam marked you in 👊").
+- **Guests** — add **as many guests as needed** (sheet stays open after each), with a
+  per-guest **"<host> pays / Guest pays"** toggle (`set_guest_payment` — records who pays
+  and registers the guest fee in the ledger).
+
+Self-avatar is excluded (admins use their own status buttons). For a non-admin / casual
+player the board is **byte-identical** — the tap handler is gated on `isAdmin && adminToken`.
+Browser-verified on the demo team (status sheet opens; 2 guests added + one toggled to
+self-pay, DB-confirmed, test rows cleaned up). Build clean, hygiene 7/7, EV 4/4 + leak 0,
+rpc-security PASS. ⛔ real-iPhone PWA push walk OWED (Hard Rule #13).
+
 ## SESSION 171 — UNIFIED LOGIN SHIPPED (one-account sign-in for admins AND players)
 
 **Unified login** — one account sign-in for admins AND players, **LIVE on main / production**.

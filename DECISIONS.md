@@ -1,5 +1,30 @@
 # In or Out — Key Decisions Log
 
+## SESSION 173 — Admin acts on a player from My View; admin status is soft everywhere
+*2026-06-22.*
+
+**Decision: an admin sets a player's status (and adds/pays for their guests) directly
+from the My View board** — tap another player's avatar → bottom-sheet quick action
+(in/out/maybe/reserve + add guests + who-pays). Self is excluded (admins use their own
+status buttons). Discoverability driver: the capability already existed but was buried in
+the Admin View squad screen ⋮ menu and the full PlayerProfile — too many taps for the
+common "Dave texted me, mark him in" case.
+
+**Decision: `admin_set_player_status` is now SOFT EVERYWHERE (mig 381).** It no longer sets
+`admin_locked_in`, so a player can always override their own status afterwards — from the
+new sheet OR the Admin View squad/profile controls that share the RPC. Rationale (Option A,
+operator): one consistent rule beats "in from this screen sticks, from that screen it
+doesn't." `admin_locked_in` is now dormant (nothing sets it true; the `set_player_status`
+self-restore guard that reads it is effectively dead but left in place — return shape
+unchanged per Hard Rule #12). The admin still gets the audit trail + a push to the player
+naming them ("Sam marked you in").
+
+**Decision: guests are unlimited per host + the admin sets who pays per guest.** The sheet
+adds several guests in a row and shows a per-guest "<host> pays / Guest pays" toggle wired
+to `set_guest_payment` (records `paid_by` AND registers the guest fee in the ledger). The
+plain `add_guest_player` never creates a fee, which is why the legacy single toggle in the
+player's own +1 form persisted nothing (see BUGS.md s173).
+
 ## SESSION 171 — Unified login (one-account sign-in for admins AND players)
 *2026-06-21.*
 

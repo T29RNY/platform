@@ -3,6 +3,29 @@
 
 ---
 
+## SESSION 173 — ✅ ADMIN QUICK-ACTION ON MY VIEW SHIPPED (mig 381; PRs #55, #56, LIVE on main). One latent bug discovered.
+
+Shipped the admin avatar-tap quick-action sheet on My View (set status + manage guests).
+`admin_set_player_status` made **soft everywhere** (mig 381 — drops `admin_locked_in`; see
+DECISIONS/FEATURES s173). Gates: build clean, hygiene 7/7, EV 4/4 + leak 0, rpc-security
+PASS, casual-regression additive-diff (board byte-identical for non-admins). Browser-verified
+on demo (status sheet + multi-guest add + who-pays toggle; DB-confirmed; test rows cleaned,
+0 leftover).
+
+**⛔ OWED:** real-iPhone PWA walk — confirm the "[admin] marked you in" push lands on the
+lock screen (Hard Rule #13; PlayerView touched).
+
+**🐞 LATENT BUG DISCOVERED (still OPEN, pre-existing — NOT introduced here):** the player's
+OWN +1 form in `PlayerView.submitGuest` captures a `${host} pays / They pay` toggle
+(`guestSelfPaid`) but **never calls `set_guest_payment`** — it only calls `addGuestPlayer`,
+which creates no fee ledger row and always leaves `self_paid=false`. So a player choosing
+"they pay" for their guest has that choice silently dropped, and no guest fee is registered
+from that path at all. The new admin sheet (s173) does it correctly via `set_guest_payment`;
+the legacy player-facing form still needs the same wiring. (Note: migration numbering —
+my source file is `381_admin_set_player_status_soft_everywhere.sql`; a parallel session also
+grabbed 381 for tournament work — harmless on the live DB but breaks the chronological
+convention; that session should renumber before committing.)
+
 ## SESSION 172 — ✅ PHASE 0E CROSS-APP SSO SWITCHED ON (venue + ref live & proven; consumer-app flip). No migration, no new bugs.
 
 The operator attached the role-app subdomains, so the 0e switch-on that was blocked
