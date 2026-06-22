@@ -1,5 +1,234 @@
 # In or Out — Feature Tracker
 
+## PILOT BACKLOG — multi-team football club feedback (2026-06-22)
+
+First face-to-face feedback from the multi-age football club pilot (Club/Org SKU).
+Positioned as a **replacement for 360Player + MatchDay Admin + Tournify**. Wider-management
+demo ~2026-06-29. Full feedback, prioritised backlog table, competitor pricing and the FA
+Full-Time feasibility verdict live in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
+
+**Working through the 17 asks one-by-one. #2 Org/team structure — Phase 1 SHIPPED (mig 389).**
+Remaining phases (join link/QR, membership-gated join, manager comms, pro-rating) tracked in
+**CLUB_STRUCTURE_HANDOFF.md**.
+
+**Venue OS nav epic (closes backlog #10 nav + #11 modularity) — Phase 0 SHIPPED (s178, no mig).**
+IA cleanup only, pure venue-app UI: rail regrouped to Run · People · Programmes · Competition ·
+Club & admin (renames Sessions→"Club sessions", Table→"Standings"); Fixtures surfaced under
+Competition (internal `club_fixtures` editable vs FA embed read-only, enforced by the data
+model); MembershipsView 13 chips → 5 grouped chips w/ sub-tabs; the per-club coach/DBS Staff tab
+MOVED into top-level Staff (not a duplicate of venue-ops Staff); venue-hex tech-debt tokenised.
+**Phase 1 — flag foundation SHIPPED (mig 399).** Two boolean flag tables `venue_features`
+(bookings/spaces/room_hire/equipment — per venue) + `club_features` (memberships/competition/
+coaching/tournaments/public_web — per club, OR'd across the venue's clubs via `club_venues`),
+all DEFAULT true with no-row = on → existing venues zero-touch, all-on. Reader
+`get_venue_feature_flags(credential)` + `getVenueFeatureFlags` wrapper, loaded in the venue app.
+**3-layer gate, all live:** nav (rail filter on a `flag` per item + empty-group hide), route
+(deep-link/SearchPalette bounce + content short-circuit), server (`feature_disabled` guard on **74**
+gated write RPCs — venue-feature via `_venue_feature_enabled`, club-feature via the union
+`_venue_club_feature_enabled` or specific `_club_feature_enabled` where a club_id is in scope).
+Customer CRUD intentionally NOT gated (always-on Customers screen). Verified: line-level baseline
+diff proved guard-only changes across all 74 (REMOVED=0); EV proved flag-off rejects + flag-on
+passes through, self-rolled-back + leak-clean; helpers revoked from anon/authenticated; venue build
++ hygiene clean; Playwright boot smoke (rail identical all-on, Bookings vanished when toggled off,
+restored). ⛔ owed real-device venue walk (s178 Phase 0 walk still owed too). **Next: Phase 2 =
+A+B+C only (split decision s179)** — A operator toggle UI + B dependency graph (Memberships→Payments,
+Coaching→Memberships→Payments, paid Tournaments→Payments) + C discipline axis (reuse
+`clubs.discipline`/`disciplineLabels` as a relevance gate alongside the purchased flag) = backlog
+#11, ~1 session, smaller than Phase 1. The multi-venue **membership-scope refactor** (`venue_id=` →
+scope, ~17 eligibility RPCs, highest-risk) is DEFERRED to its own **Phase 2.5** cycle — data
+correctness, not UI; don't bundle. Then Phase 3 (presets), Phase 4 (rail 18→8). Full phased plan in
+**MODULAR_PLATFORM_HANDOFF.md**.
+
+**#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
+`club_leagues` + `club_fixtures` RPC-only tables let a club hold its own home/away games vs
+free-text external opponents, with assigned pitch + ref + per-venue matchday ground rules
+(`venues.matchday_info`). Operator surface = new **Fixtures** tab in the venue MembershipsView
+(create league → add/edit fixture → assign pitch & ref → set ground rules). Each fixture mints a
+public `share_code` for the opposition-coach link (Phase B). FA-import columns added dormant for
+Phase C. 8 venue-token RPCs (EV 13/13 + leak 0, rpc-security PASS). Sprint plan + go/no-go in
+PILOT_DEMO_SPRINT_HANDOFF.md / STRATEGY.md. ⛔ owed real-device venue walk of the Fixtures tab.
+
+**#8 Phase B SHIPPED (migs 395 + 396).** Public `/matchday/<code>` opposition-coach link —
+`get_club_fixture_matchday(share_code)` (anon read) + branded `MatchdayScreen` (home team,
+kick-off, pitch, ref, venue address/directions, ground rules; tokens-only). Venue "Share matchday
+link" button per home fixture. Mig 396 = idempotent demo seed (Finbar's FC U12 Falcons v Riverside
+Rangers, stable code `demofalcons01`) — live populated render Playwright-verified. ⛔ owed
+real-iPhone walk. Phase C = FA AI-import (snippet-gated, mig 398+).
+
+**#9 Embed code SHIPPED (mig 397).** Per-league `embed_code` + public `get_club_league_public` +
+chrome-free `/embed/league/<code>` widget (our fixtures+results, iframe-friendly). Venue "Put these
+fixtures on your website" panel: ready-to-paste `<iframe>` snippet + an FA Full-Time snippet field
+stored per league (`fa_embed_code`) for the club's own site. FA = display-only (spike NO-GO on a
+feed; STRATEGY/DECISIONS s178). Live render Playwright-verified (`/embed/league/5b59146bb5`).
+
+**#4 Coach paid/unpaid pill SHIPPED (mig 398).** Reminder cron already covers membership arrears
+(`get_membership_reminders_due` `payment_due` kind — no change). New `club_manager_team_payments`
+(authenticated, manager-scoped, read-only) powers a **Subs & payments** roster under "Message your
+team" in the consumer club view — green Paid / red Owes £X pills, auto-reminders messaging. Demo
+user manages First Team (2 owing + 3 paid → real mix). ⛔ owed authed/real-iPhone walk.
+
+**#10 Venue OS nav + #11 modularity — SCOPED as the full Modular Platform nav epic (next session).**
+Done fully (not half-IA): Phase 0 IA cleanup + Epic A flag engine (Phases 1–4), phase-by-phase.
+Two flag tables (venue_features + club_features → resolves multi-venue clubs); club-scoped
+memberships (resolves cross-venue memberships); default-all-on; tiers deferred. Full phased plan +
+effort + feature-ownership model in **MODULAR_PLATFORM_HANDOFF.md** ("VENUE OS NAV — FULL PHASED
+PLAN"). Demo-sprint items #8/#9/#4 SHIPPED (migs 394–398); FA AI-import (Phase C) snippet-gated.
+
+### NEXT EPIC (scoped, not built) — Modular platform: packaging + FA fixtures + public web + ref-as-module
+Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPro review. Full plan
+in **MODULAR_PLATFORM_HANDOFF.md**. Three sequenced epics, A→B→C, each merged before the next:
+- **A — `club_features` modular toggles (FOUNDATION).** Per-club on/off gated at 3 layers
+  (nav+route+RPC — fixes the audited "hidden-but-still-reachable" trap), dependency graph
+  (Memberships→Payments etc.), package layer (presets over flags; tiers-vs-pick-and-mix deferred,
+  it's just presentation). Extends the existing `multi_context_nav`/`get_team_feature_flags` pattern.
+  Discipline × package = two orthogonal axes. Default all flags ON (additive, zero regression).
+- **B — Public Web + league fixtures (provider model).** Lightweight branded club page + FA
+  Full-Time fixtures/results/table via the FREE club-admin Season/Group-ID feed (option 2 — NO
+  partner API, that's "Deferred" 4+ yrs). Build the cheap 80% only; don't become Pitchero. Real
+  value = fixtures as a TRIGGER into auto-create-match → auto-open-availability (incumbents can't).
+  `league_fixtures` as a pluggable provider (FA = adapter #1; cricket/hockey later).
+- **C — FA-fixture → ref-assignment loop + RefSix-parity tools.** Ingested fixtures attach to the
+  mig-369 official arm; ref companion in app/watch (NOT official write-back — honest boundary).
+  **Ref = standalone module** (audited: league/official arm needs zero squad/club/membership; sells
+  independently). RefSix decisions: GPS heatmap/sprint MATCH, video analysis BUILD, multi-watch
+  DEFER (Apple-only); add sin-bins + auto match reports. Detail in [[project_watchos_companion]].
+- **D — venue-operator tournament create.** Surface the ALREADY-BUILT Event OS engine (migs 314–328:
+  round-robin/group→KO/single+double-elim/sports-day, registration, auto-schedule, live scoring,
+  H2H standings, brackets, cards, sponsors/branding, public hub) in the VENUE dashboard via
+  venue-token auth (today club-admin-only, in the consumer app). Auth + UI, not new engine. Gated by
+  `tournaments` flag.
+- **Competition model (cross-cutting):** internal (we own — League Mode + Event OS, full write) vs
+  external (FA Full-Time — read-only mirror + match-day trigger). One "Competition" nav umbrella
+  collapses Leagues+Table+Cups+tournaments; ⚠️ external must be read-only (no FA write-back) and
+  never blended with internal standings.
+- **Venue nav simplification** = a deliverable of Epic A (flag + discipline gating, 18→~8 items) +
+  a small standalone IA merge pass (Sessions/Classes, Competition umbrella, People grouping).
+
+### #2 Org/team structure — Phase 1: Structure (venue console) — SHIPPED (mig 389)
+The club's org chart, editable in the venue console. **Migration 389** (additive):
+- `club_cohorts.category` (youth|adult|mixed) — the explicit age-group type, drives a badge.
+- `club_teams.gender` (girls|boys|mixed) + `priority_rank int` (1 = top side, ⭐) +
+  `archived_at` (soft-archive).
+- Six venue-token SECURITY DEFINER RPCs: new `club_create_team` / `club_update_team` /
+  `club_list_teams` / `club_archive_team`; `club_create_cohort` + `club_update_cohort`
+  extended with `p_category`; `club_list_cohorts` return shape gains `category`. All follow
+  the `resolve_venue_caller` → `manage_memberships` cap pattern + audit_events insert.
+- Venue UI: new **Structure** tab in MembershipsView — org-chart tree (club → age group →
+  team) with create/edit age groups (type + optional ages) and teams (gender + ⭐ priority),
+  helper text + a worked example on every input. Membership-plan form gained helper text too.
+- Gates: rpc-security PASS (7 RPCs, all SECDEF/search_path/single-overload, anon+auth grant
+  intentional, public REVOKEd), EV 11/11 + leak 0, build clean, no new hygiene violations.
+  Venue app only → casual-regression not required. Demo `club_demo` cohorts/teams backfilled.
+  ⛔ real-device venue walk owed.
+
+### #2 Org/team structure — Phase 2: Team join link + QR — SHIPPED (mig 390)
+Each club team gets its own join link + printable QR. **Migration 390** (additive):
+- `invite_links` CHECKs widened: `entity_type` += `club_team`, `action` += `join_club_team`
+  (a *distinct* action, not a reuse of casual `join_team` — keeps a club-team code out of
+  the casual `/join` flow; dispatch in `InviteResolve` is keyed on `action`).
+- `resolve_invite_link` gains a `club_team` branch returning club / cohort / team context
+  (archived team → status `inactive`). `redeem_invite_link` gains a `club_team` scope branch
+  (audit scope = venue, via `club_venues`) — wired now, fires post-join in Phase 3.
+- New `club_ensure_team_invite_link(venue_token, team_id)` — get-or-create the one canonical
+  code, club-domain ownership (`club_teams.club_id → club_venues.venue_id`); mirrors
+  `venue_ensure_invite_link`. JS wrapper `clubEnsureTeamInviteLink` + barrel.
+- Venue UI: each team row in the **Structure** screen gains a **"Join link / QR"** action →
+  modal with a `react-qr-code` for `/q/<code>` + Copy / **Poster** / **Table-talker** (reuses
+  `printAssets.js`). Consumer: `InviteResolve` shows a tidy resolved "joining <team>" screen
+  for `join_club_team` (real membership-gated join = Phase 3, deliberately not the casual path).
+- Deliberately NOT extended: the generic `venue_owns_entity` / QR-codes management panel —
+  the Structure screen owns one canonical code per club team. Keeps the two QR surfaces apart.
+- Gates: rpc-security 3/3 PASS (SECDEF / search_path pinned / single-overload / anon+auth
+  grant intentional, public REVOKEd), EV 8/8 + leak 0, both builds clean, hygiene clean on
+  in-scope files (venue MembershipsView carries only pre-existing GradingTab hex tech-debt).
+  Playwright smoke on demo venue: Structure → team → QR modal mints code + resolves to
+  club-team context, console clean. Venue app + additive consumer dispatch → casual-regression
+  not required. ⛔ real-device venue walk owed (stacks on Phase 1).
+
+### #2 Org/team structure — Phase 3: Membership-gated join — SHIPPED (mig 391)
+A scanned club-team QR runs a new player through registration + payment, then lands them on
+the team — gated on holding a club membership. **Migration 391** (additive, 2 RPCs):
+- `club_team_join_context(p_code)` — anon+auth resolver: club-team code → team/cohort/club +
+  the club venue's `venue_landing` code (drives the existing 360 wizard) + the signed-in
+  caller's membership/on-team status for self + accepted children. Statuses incl.
+  `signup_not_configured` when the venue has no active landing code.
+- `member_join_club_team(p_code, p_for_profile_id)` — authenticated-only writer. Joins self
+  or an accepted child; **server-side membership gate** (active/ending `venue_membership` at
+  the team's venue, else `no_membership`); idempotent `club_team_members` insert + audit.
+- Consumer: new `ClubTeamJoin` screen replaces the Phase 2 placeholder in `InviteResolve`
+  (`/q/<code>`). Flow: resolve → sign in (reuses `AuthGateModal`) → membership check → if
+  none, **reuse `MembershipSignup`** (register incl. child/guardian → pick tier
+  `get_venue_signup_tiers` → pay Stripe **test mode**, live keys off) → land on the team →
+  `redeem_invite_link` post-join. Already-a-member / already-registered children get a
+  one-tap "Join". `MembershipSignup` gained additive `clubTeamCode` (Stripe return path) +
+  `onEnrolled` props; `stripeInitMemberCheckout`/`api/stripe-member-checkout.js` gained an
+  optional `returnCode`. Self-heals on re-scan (the gate sees the now-live membership), which
+  also covers a Stripe payer who closes the tab before returning.
+- Gates: rpc-security PASS (2 RPCs SECDEF/search_path/single-overload; context anon+auth,
+  writer authenticated-only with anon explicitly REVOKEd), EV 12/12 + leak 0, build clean,
+  hygiene 7/7 on every changed file, casual-regression PASS via additive-diff (no casual
+  surface touched; new `MembershipSignup` props default null → VenueLanding byte-identical),
+  Playwright smoke on demo club-team code (anon context renders, invalid code → not-found,
+  no code-related console errors). ⛔ real-iPhone walk owed (member flow / apps/inorout/src;
+  Hard Rule #13). Phase 5 (pro-rating) unbuilt.
+
+### #2 Org/team structure — Phase 4: Team-manager comms — SHIPPED (mig 392)
+A team manager can message their own team's players + guardians from the consumer app; the
+club-wide broadcast stays the venue-admin tool. **Migration 392** (additive):
+- `club_manager_send_announcement(p_team_id, p_title, p_body)` — authenticated, manager-of-team
+  check (mirrors the mig-304 `club_manager_*` pattern: `auth.uid()→member_profiles→
+  club_team_managers is_active`, else `not_manager`). **Reuses the comms spine, no parallel
+  system:** inserts a queued `club_announcements` row (`audience='team'`, `created_by=auth.uid()`,
+  `venue_id` derived from `club_venues`) so the existing cron (`get_pending_club_broadcasts` →
+  `apps/inorout/api/cron.js`) delivers it and the existing member feed
+  (`member_list_club_announcements`) surfaces it. Audit per Hard Rule #9; anon REVOKEd.
+- `get_pending_club_broadcasts` team-audience recipients extended to also include **accepted
+  guardians** (`member_guardians.invite_state='accepted'`) of the team's members — team
+  messages now reach players AND guardians. Intended side effect: venue-admin team
+  announcements also reach guardians (consistent).
+- Consumer: `clubManagerSendAnnouncement` wrapper + barrel; **"Message your team"** composer in
+  SessionsScreen (manager-only, per managed team, title+body, helper text + example,
+  double-fire guard, success/error status).
+- Gates: rpc-security 2/2 PASS (manager RPC authenticated-only; `get_pending_club_broadcasts`
+  service_role-only), EV 10/10 + leak 0 (queued+team shape, audit row, recipients include
+  member AND guardian but NOT manager, all 4 error paths), build clean, hygiene 7/7,
+  casual-regression PASS via additive-diff (no casual surface touched; zero existing lines
+  modified), Playwright smoke PASS (app boots, 0 console errors). ⛔ real-iPhone walk owed
+  (manager composer / apps/inorout/src; Hard Rule #13).
+
+### #2 Org/team structure — Phase 5: Pro-rating (club-configurable) — SHIPPED (mig 393) · EPIC COMPLETE
+Late joiners pay only for the part of the season that's left, plus an optional one-off joining
+fee — club-configurable per tier. **Migration 393** (additive only — existing tiers byte-identical):
+- `venue_membership_tiers.proration_basis` (none|monthly|weekly|daily, DEFAULT 'none') +
+  `joining_fee_pence` (int, DEFAULT 0). Applies to **season** tiers only; recurring (gym) plans
+  bill their standard rate unchanged.
+- `_prorated_first_charge(full_pence, basis, today, season_start, season_end)` — shared IMMUTABLE
+  helper (single source of truth). Rule (operator-confirmed): count the join period as a **whole**
+  (round up, member's favour); final pence to nearest; clamp [0, full]; join on/before season
+  start or after season end → full price (never undercharge on bad data).
+- First charge = `joining_fee + prorated(season_fee)` applied in `member_enrol_membership`
+  (the live demo path) + `stripe_complete_member_enrolment` (fallback; prefers the Stripe-confirmed
+  amount the checkout endpoint now sends) + surfaced as `first_charge_pence` on the season price row
+  in `get_venue_signup_tiers` (so the checkout breakdown always matches what's charged). Renewals
+  always charge the full price.
+- Venue `venue_create/update_membership_tier` gain `p_proration_basis` + `p_joining_fee_pence`
+  (8→10 / 10→12 args; old overloads DROPped). JS wrappers + barrel. Venue TierModal: proration
+  basis selector + joining-fee input (season only) with helper text + worked example.
+  `MembershipSignup` checkout breakdown (full season · joining mid-season − · joining fee + · you
+  pay today). `api/stripe-member-checkout.js` prorates the one-off season `unit_amount` via the
+  same SQL helper.
+- **Two latent pre-393 bugs fixed in-cycle** (surfaced by EV): season self-enrolment wrote the
+  tier's `pricing_model='season'` into `venue_memberships` which only allows recurring|term
+  (now mapped season→term); and `get_venue_signup_tiers` raised "record not assigned yet" for a
+  club-less venue-landing code (now scalar club vars).
+- Gates: rpc-security 6/6 PASS (helper INVOKER pure-fn; SECDEF + search_path + single overload on
+  the rest), EV 10/10 groups + leak 0 (each basis + mid-season date, season→term map, signup
+  breakdown incl. NULL case, Stripe fallback + confirmed-amount, bad-period reject), additive-diff
+  (production proration tiers = 0 → byte-identical), build clean, hygiene 7/7 on client files,
+  casual-regression PASS via additive-diff (only MembershipSignup touched, original Total block
+  preserved as else branch), Playwright boot smoke PASS. ⛔ real-iPhone walk owed (member checkout
+  breakdown / apps/inorout/src; Hard Rule #13). **Next free mig = 394.**
+
 ## SESSION 173 — ADMIN QUICK-ACTION ON MY VIEW SHIPPED (migs 381; PRs #55, #56, LIVE on main)
 
 **Admin marks a player + manages their guests from the My View board.** As an admin, tap

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   venueGetState, getPitchOccupancy, venueGetBookingIns,
-  venueWhoami, venueClaimMemberships, supabase,
+  venueWhoami, venueClaimMemberships, getVenueFeatureFlags, supabase,
 } from "@platform/core/storage/supabase.js";
 import Dashboard from "./views/Dashboard.jsx";
 import VenueSignIn from "./views/VenueSignIn.jsx";
@@ -50,6 +50,7 @@ export default function App() {
   const [state, setState] = useState(null);
   const [occupancy, setOccupancy] = useState([]);
   const [bookingIns, setBookingIns] = useState({});
+  const [features, setFeatures] = useState(null);   // modular feature flags (mig 399); null = loading
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -87,6 +88,13 @@ export default function App() {
     } catch (err) {
       console.error("venue_get_booking_ins failed", err);
     }
+  }, []);
+
+  // Modular feature flags drive the rail (nav) + route gates. Fails open inside
+  // the wrapper, so a failure leaves every feature visible (never hides paid ones).
+  const loadFeatures = useCallback(async (t) => {
+    if (!t) return;
+    setFeatures(await getVenueFeatureFlags(t));
   }, []);
 
   // ── Auth bootstrap: track the Supabase session (unless using the backdoor) ──
@@ -127,8 +135,8 @@ export default function App() {
 
   // ── Load dashboard data once a credential is resolved ──
   useEffect(() => {
-    if (credential) { load(credential); loadOccupancy(credential); loadIns(credential); }
-  }, [credential, load, loadOccupancy, loadIns]);
+    if (credential) { load(credential); loadOccupancy(credential); loadIns(credential); loadFeatures(credential); }
+  }, [credential, load, loadOccupancy, loadIns, loadFeatures]);
 
   // 60s fallback poll for the live "ins" counts.
   useEffect(() => {
@@ -247,6 +255,7 @@ export default function App() {
       venueToken={credential}
       occupancy={occupancy}
       bookingIns={bookingIns}
+      features={features}
       me={me}
       onSignOut={me?.mode === "login" ? signOut : null}
       onSwitchVenue={(venues && venues.length > 1) ? () => setSelectedVenueId(null) : null}

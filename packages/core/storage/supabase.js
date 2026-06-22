@@ -3367,11 +3367,13 @@ export async function venueEraseCustomer(venueToken, customerId) {
 // audience ∈ 'all'|'adult'|'junior'|'child'; pricingModel ∈ 'recurring'|'season'
 export async function venueCreateMembershipTier(venueToken, name, benefits = {}, prices = [], {
   audience = "all", pricingModel = "recurring", seasonStart = null, seasonEnd = null,
+  prorationBasis = "none", joiningFeePence = 0,
 } = {}) {
   const { data, error } = await supabase.rpc("venue_create_membership_tier", {
     p_venue_token: venueToken, p_name: name, p_benefits: benefits, p_prices: prices,
     p_audience: audience, p_pricing_model: pricingModel,
     p_season_start: seasonStart, p_season_end: seasonEnd,
+    p_proration_basis: prorationBasis, p_joining_fee_pence: joiningFeePence,
   });
   if (error) { console.error("[membership] venue_create_membership_tier failed", error); throw error; }
   return data;
@@ -3380,12 +3382,14 @@ export async function venueCreateMembershipTier(venueToken, name, benefits = {},
 export async function venueUpdateMembershipTier(venueToken, tierId, {
   name = null, benefits = null, active = null, prices = null,
   audience = null, pricingModel = null, seasonStart = null, seasonEnd = null,
+  prorationBasis = null, joiningFeePence = null,
 } = {}) {
   const { data, error } = await supabase.rpc("venue_update_membership_tier", {
     p_venue_token: venueToken, p_tier_id: tierId, p_name: name, p_benefits: benefits,
     p_active: active, p_prices: prices,
     p_audience: audience, p_pricing_model: pricingModel,
     p_season_start: seasonStart, p_season_end: seasonEnd,
+    p_proration_basis: prorationBasis, p_joining_fee_pence: joiningFeePence,
   });
   if (error) { console.error("[membership] venue_update_membership_tier failed", error); throw error; }
   return data;
@@ -4790,13 +4794,13 @@ export async function memberEnrolMembership(inviteCode, tierId, period, forProfi
 // Phase 3 Stripe: create a Checkout session on the venue's connected account.
 // Returns { checkout_url } which the caller redirects to via window.location.href.
 // Dormant (503) until STRIPE_SECRET_KEY is set server-side.
-export async function stripeInitMemberCheckout({ inviteCode, tierId, period, forProfileId = null }) {
+export async function stripeInitMemberCheckout({ inviteCode, tierId, period, forProfileId = null, returnCode = null }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("not_authenticated");
   const res = await fetch("/api/stripe-member-checkout", {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
-    body:    JSON.stringify({ inviteCode, tierId, period, forProfileId }),
+    body:    JSON.stringify({ inviteCode, tierId, period, forProfileId, returnCode }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -4807,10 +4811,10 @@ export async function stripeInitMemberCheckout({ inviteCode, tierId, period, for
 
 // ── Phase 10 — Club Attendance admin RPCs (mig 298) ──────────────────────────
 
-export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null } = {}) {
+export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null, category = null } = {}) {
   const { data, error } = await supabase.rpc("club_create_cohort", {
     p_venue_token: venueToken, p_club_id: clubId, p_name: name,
-    p_description: description, p_min_age: minAge, p_max_age: maxAge,
+    p_description: description, p_min_age: minAge, p_max_age: maxAge, p_category: category,
   });
   if (error) { console.error("[club] club_create_cohort failed", error); throw error; }
   return data;
@@ -4824,12 +4828,155 @@ export async function clubListCohorts(venueToken, clubId, includeInactive = fals
   return data;
 }
 
-export async function clubUpdateCohort(venueToken, cohortId, { name = null, description = null, minAge = null, maxAge = null, active = null } = {}) {
+export async function clubUpdateCohort(venueToken, cohortId, { name = null, description = null, minAge = null, maxAge = null, active = null, category = null } = {}) {
   const { data, error } = await supabase.rpc("club_update_cohort", {
     p_venue_token: venueToken, p_cohort_id: cohortId, p_name: name,
-    p_description: description, p_min_age: minAge, p_max_age: maxAge, p_active: active,
+    p_description: description, p_min_age: minAge, p_max_age: maxAge, p_active: active, p_category: category,
   });
   if (error) { console.error("[club] club_update_cohort failed", error); throw error; }
+  return data;
+}
+
+// ── Club Structure — team RPCs (mig 389) ─────────────────────────────────────
+export async function clubCreateTeam(venueToken, clubId, { cohortId, name, gender = null, priorityRank = null } = {}) {
+  const { data, error } = await supabase.rpc("club_create_team", {
+    p_venue_token: venueToken, p_club_id: clubId, p_cohort_id: cohortId,
+    p_name: name, p_gender: gender, p_priority_rank: priorityRank,
+  });
+  if (error) { console.error("[club] club_create_team failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdateTeam(venueToken, teamId, { name = null, gender = null, priorityRank = null, cohortId = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_team", {
+    p_venue_token: venueToken, p_team_id: teamId, p_name: name,
+    p_gender: gender, p_priority_rank: priorityRank, p_cohort_id: cohortId,
+  });
+  if (error) { console.error("[club] club_update_team failed", error); throw error; }
+  return data;
+}
+
+export async function clubListTeams(venueToken, clubId, includeArchived = false) {
+  const { data, error } = await supabase.rpc("club_list_teams", {
+    p_venue_token: venueToken, p_club_id: clubId, p_include_archived: includeArchived,
+  });
+  if (error) { console.error("[club] club_list_teams failed", error); throw error; }
+  return data;
+}
+
+export async function clubArchiveTeam(venueToken, teamId) {
+  const { data, error } = await supabase.rpc("club_archive_team", {
+    p_venue_token: venueToken, p_team_id: teamId,
+  });
+  if (error) { console.error("[club] club_archive_team failed", error); throw error; }
+  return data;
+}
+
+// ── Club League + home/away fixtures (mig 394) — venue-token operator surface.
+// A club's own league container holding free-text-opponent home/away games with
+// assigned pitch + ref. The #8 opposition-coach link reads these via share_code.
+export async function venueCreateClubLeague(venueToken, clubId, { name, seasonLabel = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_create_club_league", {
+    p_venue_token: venueToken, p_club_id: clubId, p_name: name, p_season_label: seasonLabel,
+  });
+  if (error) { console.error("[league] venue_create_club_league failed", error); throw error; }
+  return data;
+}
+
+export async function venueUpdateClubLeague(venueToken, leagueId, { name = null, seasonLabel = null, archived = null, faEmbedCode = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_update_club_league", {
+    p_venue_token: venueToken, p_league_id: leagueId, p_name: name,
+    p_season_label: seasonLabel, p_archived: archived, p_fa_embed_code: faEmbedCode,
+  });
+  if (error) { console.error("[league] venue_update_club_league failed", error); throw error; }
+  return data;
+}
+
+export async function venueListClubLeagues(venueToken, clubId = null) {
+  const { data, error } = await supabase.rpc("venue_list_club_leagues", {
+    p_venue_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[league] venue_list_club_leagues failed", error); throw error; }
+  return data;
+}
+
+export async function venueUpsertClubFixture(venueToken, {
+  fixtureId = null, leagueId = null, clubTeamId = null, clubTeamName = null,
+  opponentName = null, isHome = null, scheduledDate = null, kickoffTime = null,
+  playingAreaId = null, officialId = null, refName = null,
+  homeScore = null, awayScore = null, status = null, notes = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_upsert_club_fixture", {
+    p_venue_token: venueToken, p_fixture_id: fixtureId, p_league_id: leagueId,
+    p_club_team_id: clubTeamId, p_club_team_name: clubTeamName, p_opponent_name: opponentName,
+    p_is_home: isHome, p_scheduled_date: scheduledDate, p_kickoff_time: kickoffTime,
+    p_playing_area_id: playingAreaId, p_official_id: officialId, p_ref_name: refName,
+    p_home_score: homeScore, p_away_score: awayScore, p_status: status, p_notes: notes,
+  });
+  if (error) { console.error("[league] venue_upsert_club_fixture failed", error); throw error; }
+  return data;
+}
+
+export async function venueDeleteClubFixture(venueToken, fixtureId) {
+  const { data, error } = await supabase.rpc("venue_delete_club_fixture", {
+    p_venue_token: venueToken, p_fixture_id: fixtureId,
+  });
+  if (error) { console.error("[league] venue_delete_club_fixture failed", error); throw error; }
+  return data;
+}
+
+export async function venueListClubFixtures(venueToken, leagueId) {
+  const { data, error } = await supabase.rpc("venue_list_club_fixtures", {
+    p_venue_token: venueToken, p_league_id: leagueId,
+  });
+  if (error) { console.error("[league] venue_list_club_fixtures failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetMatchdayInfo(venueToken, info) {
+  const { data, error } = await supabase.rpc("venue_set_matchday_info", {
+    p_venue_token: venueToken, p_info: info,
+  });
+  if (error) { console.error("[league] venue_set_matchday_info failed", error); throw error; }
+  return data;
+}
+
+export async function venueGetMatchdayInfo(venueToken) {
+  const { data, error } = await supabase.rpc("venue_get_matchday_info", {
+    p_venue_token: venueToken,
+  });
+  if (error) { console.error("[league] venue_get_matchday_info failed", error); throw error; }
+  return data;
+}
+
+// Phase 2 (mig 390) — get-or-create the canonical join_club_team invite code
+// for a club team. The QR encodes /q/<code>; resolve_invite_link returns the
+// club/cohort/team context for the (Phase 3) membership-gated join flow.
+export async function clubEnsureTeamInviteLink(venueToken, teamId) {
+  const { data, error } = await supabase.rpc("club_ensure_team_invite_link", {
+    p_venue_token: venueToken, p_team_id: teamId,
+  });
+  if (error) { console.error("[club] club_ensure_team_invite_link failed", error); throw error; }
+  return data;
+}
+
+// Phase 3 (mig 391) — resolve a scanned join_club_team code into its team/cohort/
+// club context + the club venue's public venue_landing code (used to drive the
+// existing 360 membership wizard), plus the signed-in caller's membership/on-team
+// status for self + accepted children. anon + authenticated.
+export async function clubTeamJoinContext(code) {
+  const { data, error } = await supabase.rpc("club_team_join_context", { p_code: code });
+  if (error) { console.error("[club] club_team_join_context failed", error); return null; }
+  return data;
+}
+
+// Phase 3 (mig 391) — membership-gated assignment of self (or an accepted child)
+// onto a club team. Authenticated only; the RPC enforces an active membership at
+// the team's venue and is idempotent. forProfileId null = join as self.
+export async function memberJoinClubTeam(code, forProfileId = null) {
+  const { data, error } = await supabase.rpc("member_join_club_team", {
+    p_code: code, p_for_profile_id: forProfileId ?? null,
+  });
+  if (error) { console.error("[member] member_join_club_team failed", error); throw error; }
   return data;
 }
 
@@ -5057,6 +5204,27 @@ export async function clubSendAnnouncement(venueToken, clubId, title, body, audi
     p_audience: audience, p_cohort_id: cohortId, p_team_id: teamId,
   });
   if (error) { console.error("[club-comms] club_send_announcement failed", error); throw error; }
+  return data;
+}
+
+// Team-manager-scoped announcement (Phase 4). Authenticated manager-of-team only;
+// queues a club_announcements row delivered to the team's players + accepted guardians
+// by the existing club-broadcast cron.
+export async function clubManagerSendAnnouncement(teamId, title, body) {
+  const { data, error } = await supabase.rpc("club_manager_send_announcement", {
+    p_team_id: teamId, p_title: title, p_body: body,
+  });
+  if (error) { console.error("[club-manager] club_manager_send_announcement failed", error); throw error; }
+  return data;
+}
+
+// Coach paid/unpaid roster (mig 398) — a team manager sees who's paid / who owes
+// for their own team. Authenticated; manager-scoped server-side. Read-only.
+export async function clubManagerTeamPayments(teamId) {
+  const { data, error } = await supabase.rpc("club_manager_team_payments", {
+    p_team_id: teamId,
+  });
+  if (error) { console.error("[club-manager] club_manager_team_payments failed", error); throw error; }
   return data;
 }
 
@@ -5427,6 +5595,22 @@ export async function getTeamFeatureFlags(teamId) {
   return data ?? { multi_context_nav: false };
 }
 
+// Modular feature flags for the venue console (mig 399). Returns the merged
+// on/off set for a venue: its own facility features (venue_features) ∪ the org
+// features of every club operating there (club_features). Drives the rail nav +
+// route gates (server RPCs enforce the same flags independently). Fails OPEN —
+// an all-true fallback so a transient lookup error never hides a paid feature.
+const ALL_FEATURES_ON = {
+  bookings: true, spaces: true, room_hire: true, equipment: true,
+  memberships: true, competition: true, coaching: true, tournaments: true, public_web: true,
+};
+export async function getVenueFeatureFlags(credential) {
+  if (!credential) return { ...ALL_FEATURES_ON };
+  const { data, error } = await supabase.rpc("get_venue_feature_flags", { p_credential: credential });
+  if (error) { console.error("[nav] get_venue_feature_flags failed", error); return { ...ALL_FEATURES_ON }; }
+  return data ?? { ...ALL_FEATURES_ON };
+}
+
 // Guardian: every child's upcoming training + matches across ALL their clubs
 // (mig 350). Returns [{ profile_id, first_name, last_name, sessions:[...] }].
 export async function guardianListChildrenSessions() {
@@ -5472,6 +5656,26 @@ export async function getTournamentPublic(slug) {
     p_slug: slug,
   });
   if (error) { console.error("[event-os] get_tournament_public failed", error); throw error; }
+  return data;
+}
+
+// Public, no-login opposition-coach matchday link (mig 395) — keyed on a
+// club_fixtures share_code. Anon-readable; the code is the auth signal.
+export async function getClubFixtureMatchday(shareCode) {
+  const { data, error } = await supabase.rpc("get_club_fixture_matchday", {
+    p_share_code: shareCode,
+  });
+  if (error) { console.error("[matchday] get_club_fixture_matchday failed", error); throw error; }
+  return data;
+}
+
+// Public, no-login embeddable league widget (mig 397) — a club's fixtures +
+// results, keyed on club_leagues.embed_code. Rendered chrome-free for iframing.
+export async function getClubLeaguePublic(embedCode) {
+  const { data, error } = await supabase.rpc("get_club_league_public", {
+    p_embed_code: embedCode,
+  });
+  if (error) { console.error("[embed] get_club_league_public failed", error); throw error; }
   return data;
 }
 

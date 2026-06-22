@@ -1,5 +1,196 @@
 # In or Out — Key Decisions Log
 
+## SESSION 179 — Venue OS nav Phase 1 SHIPPED: modular feature flags + full 3-layer gate (mig 399)
+*2026-06-23. Epic A foundation. Plan = MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN".*
+
+**Decision: TWO boolean flag tables, not one, and not an EAV/tier-enum.** `venue_features`
+(bookings/spaces/room_hire/equipment, per venue) + `club_features` (memberships/competition/coaching/
+tournaments/public_web, per club). Wide boolean columns, `DEFAULT true`, and **no row = on** via
+COALESCE — so every existing venue/club is all-on with ZERO backfill (operator confirmed "simple and
+easy"). Pick-and-mix booleans, deliberately NOT a `tier` enum (avoids the "Pro-minus-tournaments"
+trap); presets (Phase 3) just set columns. The venue rail = the venue's own facility flags ∪ the
+club flags of every club operating there (`club_venues`), computed server-side by
+`get_venue_feature_flags(credential)` (mirrors mig-351 `get_team_feature_flags`).
+
+**Decision: full 3-layer gate now — nav + route + server — "all of it" (operator).** Layer 1 nav:
+a `flag` per rail item + empty-group hide. Layer 2 route: deep-link/SearchPalette bounce to
+Operations + content short-circuit, so a disabled feature can't be reached by URL. Layer 3 server:
+a `feature_disabled` guard on **74** gated write RPCs, placed immediately after the venue_id/club_id
+is resolved and BEFORE any write (so a flag-off call rejects without mutating, which also makes
+per-function verification safe). Three guard helpers: `_venue_feature_enabled` (venue features),
+`_club_feature_enabled` (where a specific club_id is in scope — `club_admin_*`, `ref_*`, club-league
+RPCs), and the union `_venue_club_feature_enabled` (venue-token club-feature writes that only know a
+venue_id today — memberships/coaching; matches the rail's union semantics). All helpers fail OPEN
+(missing row / unknown feature → true). Operator chose A (gate everything now) over B (externally-
+reachable subset first); ~17 of the 74 are membership/coaching writes the Phase-2 membership-scope
+refactor will touch again — accepted.
+
+**Decision: customer CRUD is NOT gated.** `venue_create/update/erase/approve_customer` are reachable
+from the always-on **Customers** screen (core, unflagged), so gating them on `memberships` would
+break a core surface when memberships is off. Gate a write RPC on a feature only if that feature's
+gated screen is its sole entry surface. `venue_approve_and_enrol`/`venue_enrol_membership` (true
+enrolments) ARE gated.
+
+**Verification (the careful part):** 74 functions drafted by reading each verbatim live body (8
+parallel read-only agents) and inserting only the guard; applied; then a **line-level baseline diff**
+proved guard-only changes across all 74 (nothing removed, every added line guard-related — REMOVED=0).
+Behavioural EV proved flag-off → `feature_disabled` and flag-on → original error path, across venue-
+feature + club-union paths, self-rolled-back and leak-clean. Helpers revoked from anon/authenticated
+(internal-only; guarded RPCs unaffected in definer context). Default-all-on means the guards are
+inert on ship day. **Next free mig = 400.**
+
+**Decision (s179, sizing): Phase 2 is SPLIT.** Phase 2 = A (operator toggle UI) + B (dependency
+graph: Memberships→Payments, Coaching→Memberships→Payments, paid Tournaments→Payments — auto-enable
+prereqs, block unsafe disables) + C (discipline axis — reuse `clubs.discipline`/`disciplineLabels`
+so football never sees Classes, gym never sees Leagues; relevance gate alongside the purchased
+flag). A+B+C is ~1 session, smaller than Phase 1, and delivers usable backlog #11 (operator can flip
+features safely). The multi-venue **membership-scope refactor (`venue_id=` → scope)** — ~17
+eligibility RPCs, the highest-risk surface — is DEFERRED to its own **Phase 2.5** cycle: it's a
+data-correctness/RLS rewrite (full EV each), not UI, and must not be bundled with toggle UI work.
+Phase 3 (presets) + Phase 4 (rail 18→8 wiring) unchanged.
+
+## SESSION 178 — Venue OS nav Phase 0 SHIPPED: IA cleanup (pure UI, no flags, no schema)
+*2026-06-22. First phase of the Venue OS nav epic (plan = MODULAR_PLATFORM_HANDOFF.md
+"VENUE OS NAV — FULL PHASED PLAN"). Additive UI only; no migration.*
+
+**Shipped the rail regroup + Memberships consolidation, no behaviour change to any
+underlying view.** Rail (`Dashboard.jsx` `TABS`) went from 5 mixed groups to the five
+intended ones — **Run · People · Programmes · Competition · Club & admin** — with renames
+(Sessions→"Club sessions", Table→"Standings"). View ids are UNCHANGED, so SearchPalette,
+NotificationsPanel and any deep links keep resolving. **Fixtures** surfaced as a top-level
+Competition item (was buried in Memberships): `FixturesTab` is now exported from
+`MembershipsView.jsx` and rendered directly by `Dashboard`. The internal/external split is
+already enforced by the data model (internal `club_fixtures` = editable rows; the FA feed is
+only ever a stored embed snippet rendered read-only — no code path edits an FA fixture), so
+Phase 0 is presentation only there.
+
+**MembershipsView 13 flat chips → 5 grouped chips with internal sub-tabs:** Members
+(Members/Grading) · Plans & fees (Plans/Team fees/Perks) · Club (Club/Structure) · Comms &
+docs (Announcements/Documents/ID docs) · Shop.
+
+**Decision: the "duplicate Staff tab" was a MOVE, not a delete.** Audit found the Memberships
+`StaffTab` (per-club managers/coaches + DBS/safeguarding) and the top-level `StaffView` (match
+officials + venue ops staff, mig 195) are NOT duplicates — they manage different staff sets.
+Deleting `StaffTab` would have lost coach/DBS management. So it was relocated: `StaffView` now
+has two sub-tabs — "Venue staff & officials" (original) and "Coaches & DBS" (the moved
+`StaffTab`, imported from `MembershipsView`). The redundant Memberships chip is gone; no
+functionality lost.
+
+**Folded the venue-hex tech-debt (BUGS s174) — and it was wider than recorded.** The affected
+tab components were authored against inorout tokens that don't exist in the venue app
+(`--text`, `--bg-card`, `--text-mute`), so the hardcoded fallbacks actually rendered. Tokenised
+every palette-violation site to real venue tokens (`--accent`/`--accent-ink`/`--ink`/`--crit`/
+`--ok`) — which also fixed a latent white-on-amber contrast bug on the primary buttons. Left the
+QR-holder `#fff` (legit white quiet-zone) and grading belt-colour defaults (`#3030FF`, user
+data). Residual `--text-mute, #888` / `--border, #ddd` dead-fallback debt logged for a separate
+sweep to keep this diff scoped. Gates: venue build clean, hardcoded-hex hand-check, Playwright
+boot smoke on demo (rail + Memberships 5 chips + Fixtures standalone + Staff 2 sub-tabs, 0
+console errors). **Next: Phase 1 — flag foundation (`venue_features` + `club_features`).**
+
+## SESSION 178 — Venue OS nav: do the WHOLE epic (IA + flags), phase-by-phase; features split venue/club; memberships club-scoped
+*2026-06-22. Plan of record = MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN".*
+
+**Decision: the nav simplification is done fully — IA cleanup + Epic A's flag engine — phase-by-phase,
+not a half IA-only pass.** Operator: "if we're going to do this, we do it fully." Closes backlog #10
+(nav) AND #11 (modularity toggles); lays Epic A (the foundation B/C/D depend on). ~5–6 build sessions,
+one shipped+merged before the next. Default-all-on confirmed (non-negotiable); tiers deferred
+(pick-and-mix flags underneath, presets on top).
+
+**Decision: features split into TWO ownership types (resolves multi-venue clubs).** Facility features
+(Bookings/Spaces/Room hire/Equipment) = `venue_features` (per venue); org features (Memberships/
+Competition/Coaching/Public web/Tournaments) = `club_features` (per club, follow the club to every
+venue). Venue rail = the venue's facility features ∪ the features of every club operating there. →
+Epic A is TWO flag tables. Discipline (relevance) multiplies in on the club axis.
+
+**Decision: memberships become club-scoped, honored across the club's venues (resolves cross-venue
+memberships).** Today `venue_memberships.venue_id` pins to one venue. Build club-scoped now —
+eligibility checks resolve "entitled here?" via membership SCOPE not `venue_id =`; model scope
+explicitly so a future cross-CLUB pass (leisure-group/franchise) is expressible without rework, but
+do NOT build cross-club entitlement now. Every existing membership gate reads one venue today → audit
++ move onto scope-resolution in the Memberships-gate phase; highest-risk surface, EV every one.
+
+## SESSION 178 — Club fixtures live in a NEW `club_fixtures` table, not the casual `fixtures`
+*2026-06-22. Mig 394. Pilot backlog #8 spine (opposition-coach matchday link) + the FA-import target.*
+
+**Decision: a club's own league games get a brand-new `club_leagues`/`club_fixtures` pair —
+we do NOT bend the existing casual `fixtures` table.** The audit found the casual `fixtures`
+table FK-binds BOTH home and away to a registered `teams` row (`ON DELETE RESTRICT`) and has no
+free-text opponent. A grassroots club's real games are vs EXTERNAL clubs, and the FA import (the
+upstream feeder) yields only opponent *names*. Forcing external opponents into `teams` would
+ripple into the casual-football domain and the RESTRICT FK. The new pair is purely additive
+(RPC-only, touches nothing casual) and reuses everything that already works: `playing_areas`
+(pitch), `match_officials` (ref), `venues` (address/lat/lng/contact + new `matchday_info` jsonb),
+the public share-code pattern, the audit spine. This is the LESS-ripple option, satisfying
+`feedback_reuse_over_new_systems` (the alternative reuse forced changes in working screens).
+
+**Decision: FA "feed sync" is NO-GO as a clean integration; the route is AI-scan of the official
+embed, framed honestly.** Spike (2026-06-22): the FA exposes no iCal/RSS/XML/JSON feed and no
+public API — only a login-gated, per-division JavaScript display widget, deliberately walled
+against scraping. Even Pitchero (15-yr FA partner) gets only a once-a-season per-division export,
+not a live feed; their true live API is cricket's ECB. Matchday is a closed FA consumer app, not
+an integration point. So: (1) display the official embed now (#9, zero-risk); (2) the only path to
+auto-import is AI-reading the rendered widget into our `club_fixtures` — grey, best-effort on
+change-alerts, gated on a real pilot snippet; (3) the endgame is earning the FA/Pitchero-style
+partnership as we grow. Everything funnels into one store (`club_fixtures`) so the manual,
+AI-import, and #8 link layers are independent. Full writeup in STRATEGY.md.
+
+## SESSION 177 — Club Structure Phase 5: pro-rating is season-only, member's-favour, one helper
+*2026-06-22. Mig 393. Epic COMPLETE.*
+
+**Decision: pro-rating applies to SEASON memberships only; recurring (gym) plans are untouched.**
+The product already splits membership types into `pricing_model` `recurring|season`. Pro-rating —
+"the season's part-gone, pay for what's left" — only has meaning against a season window, so it
+attaches to season tiers. Recurring plans bill their standard rate from the join date with no
+first-charge maths (a gym member joining mid-month just starts their normal monthly billing). This
+keeps the gym vertical byte-identical and avoids inventing a first-charge-vs-renewal split on
+recurring memberships. (Operator framed it directly: "two membership types — seasonal for football
+and regular for gyms.")
+
+**Decision: count the joining period as a whole month/week/day — round UP, in the member's favour.**
+For `basis=monthly`, joining 20 March of a Jan–Dec season pays for 10 of 12 months (the part-month
+of March counts as a full month they get). Operator-confirmed "Option A" over day-exact (B) or
+round-down (C): kindest to the new joiner, simplest to compute, and matches the inclusive
+calendar-month span `(yr×12+mon)` arithmetic. Final pence to nearest; clamp [0, full price]; join
+on/before season start or after season end → full price (never undercharge on bad data). Renewals
+always charge full price — pro-rating is first-charge only.
+
+**Decision: one SQL helper is the single source of truth for the first charge.**
+`_prorated_first_charge(full_pence, basis, today, season_start, season_end)` (IMMUTABLE) is called
+by the enrol writer, the Stripe-complete writer, the signup-tiers read, AND the Stripe checkout
+endpoint (via rpc). The on-screen breakdown, the Stripe charge, and the recorded `amount_pence` can
+never disagree. The optional `joining_fee_pence` is added on top by callers (not inside the helper),
+so the helper stays a pure proration ratio.
+
+**Decision: the Stripe recurring-subscription first charge needs no special handling.**
+Because pro-rating is season-only and a season payment is a one-off (`mode:'payment'`), there's no
+"shrink the first month of a subscription" problem — the season `unit_amount` is simply set to the
+prorated total. Recurring subscriptions bill the full rate unchanged. (Resolves the awkward-Stripe
+concern raised in audit.)
+
+## SESSION 176 — Club Structure Phase 4: team-manager comms reuse the broadcast spine
+*2026-06-22. Mig 392.*
+
+**Decision: a team manager messaging their own team reuses `club_announcements` + the existing
+broadcast cron, rather than a new comms table/pipeline.** The new
+`club_manager_send_announcement(p_team_id, p_title, p_body)` (authenticated, manager-of-team
+checked via `club_team_managers`+`auth.uid()`, mirroring the mig-304 `club_manager_*` pattern)
+simply inserts a queued `club_announcements` row with `audience='team'`, `created_by=auth.uid()`
+and `venue_id` derived from `club_venues`. The existing cron (`get_pending_club_broadcasts` →
+`apps/inorout/api/cron.js`) delivers it and the existing member feed
+(`member_list_club_announcements`) surfaces it. Rationale: the "reuse over new systems" rule —
+a parallel manager-comms pipeline would duplicate delivery, dedup, and the member-side feed for
+no behavioural gain. The club-WIDE broadcast stays the venue-admin `club_send_announcement`;
+this is the team-manager-scoped complement, not a replacement.
+
+**Decision: team-audience delivery now reaches accepted guardians, not just the members.**
+`get_pending_club_broadcasts`'s `audience='team'` recipient set was extended to also include
+guardians via `member_guardians` where `invite_state='accepted'`. A youth team's messages must
+reach parents, who are the actual recipients for under-age players. **Accepted side effect:**
+venue-admin `audience='team'` announcements now also reach guardians — judged correct and
+consistent (a "team message" should behave the same whoever sends it) rather than scoping
+guardians to manager messages only. Only consumer of the recipients array is the cron emailer,
+so the change is additive and safe (Hard Rule #7/#12 checked).
+
 ## SESSION 173 — Admin acts on a player from My View; admin status is soft everywhere
 *2026-06-22.*
 
@@ -90,7 +281,7 @@ person_id; RPCs trust auth.uid() from the JWT, never origin/cookie).
 
 Runbook for the operator switch-on = `PHASE_0E_SSO_RUNBOOK.md`.
 
-*Last updated: Jun 19 2026 (session 161 — WATCHOS COMPANION APP SCOPE-LOCKED (10 decisions): native SwiftUI watch target inside `apps/inorout/ios` (one App Store record, watch = only native code); full app all contexts football-first (league + casual-assigned-ref + club cohort); identity-first resolver `get_my_next_assignment` (net-new ref/official identity); provider-agnostic watch auth (WatchConnectivity handoff → email-OTP → Sign-in-with-Apple, NO direct Google/company OAuth on watchOS); HealthKit refs-only auto-start/stop Outdoor-Football workout + watchOS-27 HR zones, summary-only stored + cascaded into delete-account (UK-GDPR); Live Activity/Dynamic Island + complication/Smart-Stack/Double-Tap/Always-On committed to v1; supabase-swift direct to existing `ref_*` RPCs, port offline engine verbatim; build AFTER iOS approval, migrations from 369, MVP ~1–2 wks/full ~2–4 wks. Full plan `~/.claude/plans/once-the-ios-app-dapper-marshmallow.md` + `WATCH_DESIGN_BRIEF.md` + the "watchOS companion app" section below. PRIOR session 160 — TWO decisions: (1) APPLE-FIRST LAUNCH — ship the iOS App Store FIRST; Google Play submission is PARKED until after Apple approval (the Capacitor wrap stays cross-platform in code, only the Play-console/Android-build work defers); see the "Apple App Store first" section below + APP_STORE_CHECKLIST.md. (2) WATCHOS COMPANION APP noted as a post-launch direction — ref view on the wrist + a lightweight football workout tracker (metrics TBD); a SEPARATE native (Swift/SwiftUI, NOT Capacitor) epic that starts AFTER Apple approval; scope + open questions in FEATURES.md "## WATCHOS COMPANION APP". PRIOR: session 149 — CLASSES OPEN/FREE/TRIAL ACCESS decisions (operator-confirmed this session, mig 360). The classes epic relaxes its original "classes are member-only" rule via TWO independent levers cloned from PT booking: an ACCOUNT (auth.uid→member_profiles) is ALWAYS required (no anonymous bookings — attendance/charge/QR check-in always resolve to a real person); a paid MEMBERSHIP is OPTIONAL per class TYPE via `venue_class_types.members_only` (default true = unchanged). members_only=false + session price 0 = a free open/trial class; +price>0 = a paid drop-in. THREE operator decisions: **(1, packs)** class PACKAGES stay member-only — `member_purchase_class_package` UNCHANGED; the lever applies to single-session booking only (a pack is a repeat-commitment ≈ membership; keeping it members-only preserves the "join to unlock the pack discount" upsell). **(2, payment)** a priced open class supports BOTH door (live now) and online/Stripe-prepay (dormant until live keys) — same posture as the rest of the app; nothing new switched on. **(3, flag granularity)** per class-TYPE (where `is_sparring` lives), NOT per-session — simplest, and every session inherits it. AUDIT CORRECTION: the handoff named three gate sites but the live `member_claim_waitlist_spot` has NO membership check (inherits the booking gate), so ONLY `member_book_class_session` changed (membership EXISTS wrapped in `IF COALESCE(members_only,true)`). Mig 360, COMPLETE. PRIOR session 148 — GYM/BOXING VERTICAL Phase 4 fight-record decisions (operator-confirmed this session, "sure. proceed" to the three recommended defaults): **(1, record authority)** logging a bout reuses the existing `manage_facility` cap (like grading awards) — NO dedicated cap and NOT the trainer's own login in v1. **(2, visibility + scope)** the fight record is MemberProfile (member) + operator-roster (staff) only — NO public/Pass-surface chip; **boxing only** (`FIGHT_RECORD_DISCIPLINES=['boxing']` ≡ `disciplineLabels.hasFightRecord`), martial_arts stays grading-only (can opt in later, reversible). **(3, delete + sparring depth)** SOFT-VOID not hard delete (`member_bouts.voided` — history preserved, operator can restore; members never see voided rows); sparring = a flagged row (`is_sparring=true`) on the SAME table, NOT a separate table or per-round capture — sparring is EXCLUDED from the headline W-L-D-NC and surfaced as a separate `sparring_count`. **(model)** dedicated `member_bouts` keyed on member_profile_id, NOT football's player_match (which keys on a football players row) — boxing data stays separate by design. **(dormant sport_stats)** `player_match.sport_stats`/`matches.sport_stats jsonb` ADDED but DORMANT (additive-NULLABLE, 0 pg_proc refs) — realises the long-documented dormant pattern so a future non-football sport can hang per-appearance stats off the existing match spine without another migration; football read/write paths byte-unchanged (proven in casual-regression). **(timing gate)** STRATEGY.md's post-pilot defer for Phases 3–4 is now RETIRED — operator confirmed proceed on pilot day; the vertical is COMPLETE. **(classes free/trial retrofit)** NOT bundled into 359 (operator chose Phase-4-only for the build) but operator OPTED IN (s148) to build it the NEXT session — bring the PT booking's two levers to the classes epic (an account stays always-required; a paid membership becomes OPTIONAL per class type via a `members_only` flag, default true = unchanged; `members_only=false` + price 0 = a free open/trial class). This relaxes the original "classes are member-only" decision; flag lives on `venue_class_types`; the 3 membership-gate sites (`member_book_class_session`/`member_claim_waitlist_spot`/`member_purchase_class_package`) get the lever threaded. Planned as mig 360 — full scope + live audit facts + paste-ready next-session prompt in CLASSES_OPEN_ACCESS_HANDOFF.md. session 147 — GYM/BOXING VERTICAL Phase 3 PT-booking decisions (operator-confirmed this session): **(model)** dedicated appointments (venue_trainers + venue_trainer_availability + venue_appointments), NOT capacity=1 classes — a 1-cap class would force pre-creating every slot, give no bookable trainer identity, and break no-show/cancel semantics; slots are generated on read (availability minus booked), a partial-unique `(trainer_id,starts_at) WHERE status<>'cancelled'` enforces one live booking per slot. **(1, trainer identity)** `venue_trainers.admin_id` NULLABLE — a trainer is usually a `venue_admins` staff login (can check their own members in) but a club can also add a no-login "coach card" (the freelance PT / boxing coach who just turns up); one table, both cases. **(2, tab gating)** the member Train tab is DISCIPLINE-gated via `disciplineLabels.hasPT` (gym/boxing/martial_arts/fitness), not trainer-count-gated — "appears only if a club selects a relevant sport"; football's map is unchanged (hasPT=false) so casual football is byte-identical; BookPT shows a graceful empty state when no trainers exist yet. **(3, who can book — "A, but B for trials/one-offs")** TWO INDEPENDENT LEVERS: an ACCOUNT (authenticated member_profile) is ALWAYS required (we write member_profile_id, audit, QR check-in needs identity — no anonymous bookings); a paid MEMBERSHIP is OPTIONAL, gated per-trainer by `members_only` — true (default = "A") needs active/ending membership, false lets any signed-in member book + pay at the door (trial/one-off). `members_only=false` + price 0 = a FREE open session. The operator noted classes could reuse the same levers (free/open or trial classes) — recorded as an OPT-IN follow-up, NOT built in 358. **(cancellation/no-show — "up to venue/club")** `cancel_cutoff_hours` on the trainer (0 = free cancel any time, mirroring class-types); a no-show KEEPS the venue_charges row and bumps `member_profiles.no_show_count`, reusing the existing `venues.no_show_suspension_threshold`. **(money)** reuses the venue_charges ledger (source_type='pt', door path; cancel→refunded), never a new charge path; settlement DORMANT until live keys; `venue_charges_source_type_check` extended to allow 'pt' (mig 358b). session 146 — GYM/BOXING VERTICAL Phase 2 grading decisions (operator-confirmed this session): (1A) **award authority reuses the existing `manage_facility` cap** — anyone who can run the club awards grades; NO dedicated `award_grades` cap in v1 (reversible — add later if coach-only belt-awarding delegation is ever needed). (2B + research) **grade ladder shape = ordered named grades + `colour_hex` + per-grade `max_stripes`; the award carries a capped `stripes` count** (covers BJJ 0–4 stripes and dan degrees). **Age bands are SEPARATE SCHEMES, not a flag** (`venue_grading_schemes.age_band` juniors|adults|all) — decided after researching real systems: BJJ kids (grey→green, can't get blue till 16) and TKD (poom under-15 vs dan) run genuinely different ladders, and a club already supports many schemes, so a "Juniors" scheme + an "Adults" scheme is the natural model; a kid ageing up just gets a fresh award in the adults scheme (append-only history preserved). Half/tag belts (TKD white-yellow, kids karate tags) = extra grade rows, not a sub-level type. Grading surfaces gate on `disciplineLabels.hasGrading` (martial_arts only today; gym/yoga/dance/fitness carry a rankWord but hasGrading=false; boxing = fight-record Phase 4). Stripes are capped server-side at the grade's max_stripes; the award RPC returns `at_max` so the UI can suggest promotion. session 138 — URL & accounts architecture decided (NOT yet started): move consumer app `apps/inorout` off the apex onto `app.in-or-out.com`; `in-or-out.com` becomes the marketing landing page with a catch-all 301 of all non-marketing paths → `app.`; other apps to subdomains later; move account ownership (Vercel/Supabase/GitHub/Stripe/Anthropic) off personal Gmail to a company identity. Pre-Capacitor-wrap. Full detailed phased runbook in `DOMAIN_MIGRATION.md`. Critical invariant: payment webhooks + the 7 live pg_cron jobs + 2 DB fns MUST repoint to `app.` BEFORE the apex flip (POSTs don't follow 301s). Phase 1 (GoDaddy `app` CNAME + Vercel attach) is next. session 131 — Native app = Capacitor; WhatsApp/SMS ruled out; payment infrastructure = Stripe Connect + GoCardless for Platforms, 8-phase plan, `venue_integrations` foundation. session 90 — MY VIEW has ONE header. The old `HeroCard` green pitch banner is gone; the floodlit pitch is now the *background* of the single `PageHeader` (via `PitchCanvas.jsx`), which carries the wordmark + one fixture line (day · venue · time · £price) + a thin admins line. The day is printed once. Do NOT re-introduce a separate "this week" hero/banner block above or below the header. session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
+*Last updated: Jun 22 2026 (session 175 — CLUB STRUCTURE Phase 3 (membership-gated club-team join, mig 391) THREE decisions: **(1, reuse not parallel)** the join reuses the EXISTING authenticated 360 membership wizard (`MembershipSignup`) verbatim rather than building a parallel club-team signup — forced + confirmed by the data model: `club_team_members` FK→`member_profiles` (the authenticated identity), so the join MUST run signed-in, and the whole tier/register/pay chain is keyed on a `venue_landing` code; the orchestration just resolves the club-team code → club → venue → its venue_landing code and drives the proven wizard (matches the "reuse over new systems" principle). **(2, two RPCs not one mega-RPC)** new surface = a resolver (`club_team_join_context`, anon+auth) + a gated writer (`member_join_club_team`, authed-only with a server-side active-membership gate, idempotent); register/tier/pay stay inside the untouched wizard. The gate lives in the writer (active/ending `venue_membership` at the team's venue → else `no_membership`), so "membership-gated" is enforced server-side, not in the UI. **(3, Stripe assignment = client-side-on-return, NOT webhook)** for a paid tier the payer returns to the club-team screen (via an optional `returnCode` threaded through `stripeInitMemberCheckout` + the API route) which then calls the idempotent writer; assignment is NOT threaded through the Stripe webhook / `stripe_complete_member_enrolment`. Rationale: keeps the Stripe rails byte-identical while DORMANT (test mode only, live keys off), and the gated idempotent join self-heals on re-scan if a payer closes the tab before returning. Trade-off accepted: a payer who never returns is enrolled-but-not-on-team until they re-scan; revisit (move assignment into the webhook) only if guaranteed-without-return becomes a requirement once live keys are on. Gates: rpc-security 2/2, EV 12/12 + leak 0, casual-regression additive-diff, Playwright smoke. ⛔ owed real-iPhone walk (Hard Rule #13). PRIOR session 161 — WATCHOS COMPANION APP SCOPE-LOCKED (10 decisions): native SwiftUI watch target inside `apps/inorout/ios` (one App Store record, watch = only native code); full app all contexts football-first (league + casual-assigned-ref + club cohort); identity-first resolver `get_my_next_assignment` (net-new ref/official identity); provider-agnostic watch auth (WatchConnectivity handoff → email-OTP → Sign-in-with-Apple, NO direct Google/company OAuth on watchOS); HealthKit refs-only auto-start/stop Outdoor-Football workout + watchOS-27 HR zones, summary-only stored + cascaded into delete-account (UK-GDPR); Live Activity/Dynamic Island + complication/Smart-Stack/Double-Tap/Always-On committed to v1; supabase-swift direct to existing `ref_*` RPCs, port offline engine verbatim; build AFTER iOS approval, migrations from 369, MVP ~1–2 wks/full ~2–4 wks. Full plan `~/.claude/plans/once-the-ios-app-dapper-marshmallow.md` + `WATCH_DESIGN_BRIEF.md` + the "watchOS companion app" section below. PRIOR session 160 — TWO decisions: (1) APPLE-FIRST LAUNCH — ship the iOS App Store FIRST; Google Play submission is PARKED until after Apple approval (the Capacitor wrap stays cross-platform in code, only the Play-console/Android-build work defers); see the "Apple App Store first" section below + APP_STORE_CHECKLIST.md. (2) WATCHOS COMPANION APP noted as a post-launch direction — ref view on the wrist + a lightweight football workout tracker (metrics TBD); a SEPARATE native (Swift/SwiftUI, NOT Capacitor) epic that starts AFTER Apple approval; scope + open questions in FEATURES.md "## WATCHOS COMPANION APP". PRIOR: session 149 — CLASSES OPEN/FREE/TRIAL ACCESS decisions (operator-confirmed this session, mig 360). The classes epic relaxes its original "classes are member-only" rule via TWO independent levers cloned from PT booking: an ACCOUNT (auth.uid→member_profiles) is ALWAYS required (no anonymous bookings — attendance/charge/QR check-in always resolve to a real person); a paid MEMBERSHIP is OPTIONAL per class TYPE via `venue_class_types.members_only` (default true = unchanged). members_only=false + session price 0 = a free open/trial class; +price>0 = a paid drop-in. THREE operator decisions: **(1, packs)** class PACKAGES stay member-only — `member_purchase_class_package` UNCHANGED; the lever applies to single-session booking only (a pack is a repeat-commitment ≈ membership; keeping it members-only preserves the "join to unlock the pack discount" upsell). **(2, payment)** a priced open class supports BOTH door (live now) and online/Stripe-prepay (dormant until live keys) — same posture as the rest of the app; nothing new switched on. **(3, flag granularity)** per class-TYPE (where `is_sparring` lives), NOT per-session — simplest, and every session inherits it. AUDIT CORRECTION: the handoff named three gate sites but the live `member_claim_waitlist_spot` has NO membership check (inherits the booking gate), so ONLY `member_book_class_session` changed (membership EXISTS wrapped in `IF COALESCE(members_only,true)`). Mig 360, COMPLETE. PRIOR session 148 — GYM/BOXING VERTICAL Phase 4 fight-record decisions (operator-confirmed this session, "sure. proceed" to the three recommended defaults): **(1, record authority)** logging a bout reuses the existing `manage_facility` cap (like grading awards) — NO dedicated cap and NOT the trainer's own login in v1. **(2, visibility + scope)** the fight record is MemberProfile (member) + operator-roster (staff) only — NO public/Pass-surface chip; **boxing only** (`FIGHT_RECORD_DISCIPLINES=['boxing']` ≡ `disciplineLabels.hasFightRecord`), martial_arts stays grading-only (can opt in later, reversible). **(3, delete + sparring depth)** SOFT-VOID not hard delete (`member_bouts.voided` — history preserved, operator can restore; members never see voided rows); sparring = a flagged row (`is_sparring=true`) on the SAME table, NOT a separate table or per-round capture — sparring is EXCLUDED from the headline W-L-D-NC and surfaced as a separate `sparring_count`. **(model)** dedicated `member_bouts` keyed on member_profile_id, NOT football's player_match (which keys on a football players row) — boxing data stays separate by design. **(dormant sport_stats)** `player_match.sport_stats`/`matches.sport_stats jsonb` ADDED but DORMANT (additive-NULLABLE, 0 pg_proc refs) — realises the long-documented dormant pattern so a future non-football sport can hang per-appearance stats off the existing match spine without another migration; football read/write paths byte-unchanged (proven in casual-regression). **(timing gate)** STRATEGY.md's post-pilot defer for Phases 3–4 is now RETIRED — operator confirmed proceed on pilot day; the vertical is COMPLETE. **(classes free/trial retrofit)** NOT bundled into 359 (operator chose Phase-4-only for the build) but operator OPTED IN (s148) to build it the NEXT session — bring the PT booking's two levers to the classes epic (an account stays always-required; a paid membership becomes OPTIONAL per class type via a `members_only` flag, default true = unchanged; `members_only=false` + price 0 = a free open/trial class). This relaxes the original "classes are member-only" decision; flag lives on `venue_class_types`; the 3 membership-gate sites (`member_book_class_session`/`member_claim_waitlist_spot`/`member_purchase_class_package`) get the lever threaded. Planned as mig 360 — full scope + live audit facts + paste-ready next-session prompt in CLASSES_OPEN_ACCESS_HANDOFF.md. session 147 — GYM/BOXING VERTICAL Phase 3 PT-booking decisions (operator-confirmed this session): **(model)** dedicated appointments (venue_trainers + venue_trainer_availability + venue_appointments), NOT capacity=1 classes — a 1-cap class would force pre-creating every slot, give no bookable trainer identity, and break no-show/cancel semantics; slots are generated on read (availability minus booked), a partial-unique `(trainer_id,starts_at) WHERE status<>'cancelled'` enforces one live booking per slot. **(1, trainer identity)** `venue_trainers.admin_id` NULLABLE — a trainer is usually a `venue_admins` staff login (can check their own members in) but a club can also add a no-login "coach card" (the freelance PT / boxing coach who just turns up); one table, both cases. **(2, tab gating)** the member Train tab is DISCIPLINE-gated via `disciplineLabels.hasPT` (gym/boxing/martial_arts/fitness), not trainer-count-gated — "appears only if a club selects a relevant sport"; football's map is unchanged (hasPT=false) so casual football is byte-identical; BookPT shows a graceful empty state when no trainers exist yet. **(3, who can book — "A, but B for trials/one-offs")** TWO INDEPENDENT LEVERS: an ACCOUNT (authenticated member_profile) is ALWAYS required (we write member_profile_id, audit, QR check-in needs identity — no anonymous bookings); a paid MEMBERSHIP is OPTIONAL, gated per-trainer by `members_only` — true (default = "A") needs active/ending membership, false lets any signed-in member book + pay at the door (trial/one-off). `members_only=false` + price 0 = a FREE open session. The operator noted classes could reuse the same levers (free/open or trial classes) — recorded as an OPT-IN follow-up, NOT built in 358. **(cancellation/no-show — "up to venue/club")** `cancel_cutoff_hours` on the trainer (0 = free cancel any time, mirroring class-types); a no-show KEEPS the venue_charges row and bumps `member_profiles.no_show_count`, reusing the existing `venues.no_show_suspension_threshold`. **(money)** reuses the venue_charges ledger (source_type='pt', door path; cancel→refunded), never a new charge path; settlement DORMANT until live keys; `venue_charges_source_type_check` extended to allow 'pt' (mig 358b). session 146 — GYM/BOXING VERTICAL Phase 2 grading decisions (operator-confirmed this session): (1A) **award authority reuses the existing `manage_facility` cap** — anyone who can run the club awards grades; NO dedicated `award_grades` cap in v1 (reversible — add later if coach-only belt-awarding delegation is ever needed). (2B + research) **grade ladder shape = ordered named grades + `colour_hex` + per-grade `max_stripes`; the award carries a capped `stripes` count** (covers BJJ 0–4 stripes and dan degrees). **Age bands are SEPARATE SCHEMES, not a flag** (`venue_grading_schemes.age_band` juniors|adults|all) — decided after researching real systems: BJJ kids (grey→green, can't get blue till 16) and TKD (poom under-15 vs dan) run genuinely different ladders, and a club already supports many schemes, so a "Juniors" scheme + an "Adults" scheme is the natural model; a kid ageing up just gets a fresh award in the adults scheme (append-only history preserved). Half/tag belts (TKD white-yellow, kids karate tags) = extra grade rows, not a sub-level type. Grading surfaces gate on `disciplineLabels.hasGrading` (martial_arts only today; gym/yoga/dance/fitness carry a rankWord but hasGrading=false; boxing = fight-record Phase 4). Stripes are capped server-side at the grade's max_stripes; the award RPC returns `at_max` so the UI can suggest promotion. session 138 — URL & accounts architecture decided (NOT yet started): move consumer app `apps/inorout` off the apex onto `app.in-or-out.com`; `in-or-out.com` becomes the marketing landing page with a catch-all 301 of all non-marketing paths → `app.`; other apps to subdomains later; move account ownership (Vercel/Supabase/GitHub/Stripe/Anthropic) off personal Gmail to a company identity. Pre-Capacitor-wrap. Full detailed phased runbook in `DOMAIN_MIGRATION.md`. Critical invariant: payment webhooks + the 7 live pg_cron jobs + 2 DB fns MUST repoint to `app.` BEFORE the apex flip (POSTs don't follow 301s). Phase 1 (GoDaddy `app` CNAME + Vercel attach) is next. session 131 — Native app = Capacitor; WhatsApp/SMS ruled out; payment infrastructure = Stripe Connect + GoCardless for Platforms, 8-phase plan, `venue_integrations` foundation. session 90 — MY VIEW has ONE header. The old `HeroCard` green pitch banner is gone; the floodlit pitch is now the *background* of the single `PageHeader` (via `PitchCanvas.jsx`), which carries the wordmark + one fixture line (day · venue · time · £price) + a thin admins line. The day is printed once. Do NOT re-introduce a separate "this week" hero/banner block above or below the header. session 86 — Equipment Cycle 5 data-product tail: equipment intelligence ships venue-dashboard-first via one read-only RPC `venue_equipment_insights` + Insights tab; the Gaffer narrative surface + HQ multi-venue benchmarking are DEFERRED (Gaffer has no venue path today; pilot is one venue); RPC shaped as the future venue-Gaffer context source per Hard Rule #14. session 82 — `players.paid` is a PER-CURRENT-GAME flag: cleared when a new game opens (mig 243), so a fresh game starts with a clean paid slate; `owes` is the cross-week persistence mechanism and `payment_ledger` is the permanent per-match record. session 80 — post-game lifecycle: a finished game CLOSES on result-save (no more sign-ups to a played match); sign-up window enforced SERVER-SIDE not just client; ALL statuses incl reserves reset on completion; result-save preserves paid for already-paid players; POTM voting window is 2 hours. session 79 — operator analytics: detail on the superadmin DASHBOARD, email digest stays a lean alert layer; notification "reach" = real delivery path; ops analytics scope by team_players NOT players.team. session 76 — reserve "spot opened" stays tap-to-claim, server-side)*
 
 Architectural, product, and design decisions that should inform future work.
 Read this before building new features to avoid re-litigating settled questions.

@@ -5,6 +5,8 @@ import {
   venueCreateCustomer, venueUpdateCustomer, venueListFeePlans, venueCreateFeePlan, venueEnrolFee, venueCancelFee,
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
+  clubListCohorts, clubCreateCohort, clubUpdateCohort,
+  clubCreateTeam, clubUpdateTeam, clubListTeams, clubArchiveTeam, clubEnsureTeamInviteLink,
   venueCreateGradingScheme, venueAddGrade, venueAwardGrade, venueListGradingSchemes,
   venueRecordBout, venueUpdateBout, venueDeleteBout, venueListMemberBouts,
   venueListClubVenues, venueAddClubVenue, venueRemoveClubVenue, venueSearch,
@@ -14,12 +16,17 @@ import {
   venueListIdSubmissions, venueVerifyIdDocument, getMemberIdDocUrl,
   venueUpsertMerchandise, venueListMerchandise, venueListPurchases,
   venueFulfilPurchase, venueCancelPurchase,
+  venueListClubLeagues, venueCreateClubLeague, venueUpdateClubLeague,
+  venueListClubFixtures, venueUpsertClubFixture, venueDeleteClubFixture,
+  venueSetMatchdayInfo, venueGetMatchdayInfo,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
+import QRCode from "react-qr-code";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 import { poundsRound } from "../lib/format.js";
 import { POLICY_TEMPLATES } from "../lib/policyTemplates.js";
+import { printPoster, printTableTalker } from "../lib/printAssets.js";
 
 // Memberships — venue-ops surface for the membership programme (migs 269–271).
 // Three sub-tabs: Members (per-person roster + enrol/freeze/cancel), Plans
@@ -117,24 +124,46 @@ const regError = (r) => {
   return null;
 };
 
-export default function MembershipsView({ venueToken, liveTick = 0 }) {
+// Membership IA (session 178, Phase 0): 13 flat chips → 5 grouped chips, each
+// with internal sub-tabs where it bundles more than one surface. Fixtures moved
+// out to the rail Competition group; the per-club coach/DBS Staff tab moved to
+// the top-level Staff area (People) — both removed here to kill the duplication.
+const MEMBERSHIP_GROUPS = [
+  { id: "members",   label: "Members",      tabs: [["members", "Members"], ["grading", "Grading"]] },
+  { id: "plansfees", label: "Plans & fees", tabs: [["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"]] },
+  { id: "club",      label: "Club",         tabs: [["club", "Club"], ["structure", "Structure"]] },
+  { id: "comms",     label: "Comms & docs", tabs: [["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"]] },
+  { id: "shop",      label: "Shop",         tabs: [["merchandise", "Shop"]] },
+];
+
+export default function MembershipsView({ venueToken, liveTick = 0, pitches = [], refs = [] }) {
+  const [group, setGroup] = useState("members");
   const [tab, setTab] = useState("members");
+  const activeGroup = MEMBERSHIP_GROUPS.find((g) => g.id === group) || MEMBERSHIP_GROUPS[0];
+  const selectGroup = (g) => { setGroup(g.id); setTab(g.tabs[0][0]); };
   return (
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["grading", "Grading"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
-            <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
+          {MEMBERSHIP_GROUPS.map((g) => (
+            <button key={g.id} className="chip" aria-pressed={group === g.id} onClick={() => selectGroup(g)}>{g.label}</button>
           ))}
         </span>
       </SectionHead>
+      {activeGroup.tabs.length > 1 && (
+        <span className="chips" style={{ marginBottom: "var(--gap)" }}>
+          {activeGroup.tabs.map(([v, l]) => (
+            <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
+          ))}
+        </span>
+      )}
       {tab === "members" && <MembersTab venueToken={venueToken} liveTick={liveTick} />}
+      {tab === "grading"    && <GradingTab venueToken={venueToken} />}
       {tab === "plans"   && <PlansTab venueToken={venueToken} />}
       {tab === "fees"    && <FeesTab venueToken={venueToken} />}
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
       {tab === "club"       && <ClubTab venueToken={venueToken} />}
-      {tab === "grading"    && <GradingTab venueToken={venueToken} />}
-      {tab === "staff"          && <StaffTab venueToken={venueToken} />}
+      {tab === "structure"  && <StructureTab venueToken={venueToken} />}
       {tab === "announcements"  && <AnnouncementsTab venueToken={venueToken} />}
       {tab === "documents"      && <DocumentsTab venueToken={venueToken} />}
       {tab === "iddocs"     && <IdDocsTab venueToken={venueToken} />}
@@ -508,6 +537,336 @@ function BoutsModal({ venueToken, member, onClose }) {
 }
 
 // ── Grading schemes setup (operator: per-club belt/grade ladders) ────────────
+// ── Fixtures: a club's own League of home/away games (external opponents).
+// Operator creates a League, adds fixtures, assigns pitch + ref, sets venue
+// matchday ground rules. The opposition-coach share link (Phase B) reads these.
+const CF_STATUS = [["scheduled", "Scheduled"], ["completed", "Played"], ["postponed", "Postponed"], ["void", "Void"]];
+const emptyFixture = () => ({
+  fixture_id: null, club_team_id: "", club_team_name: "", opponent_name: "",
+  is_home: true, scheduled_date: "", kickoff_time: "", playing_area_id: "",
+  official_id: "", ref_name: "", home_score: "", away_score: "", status: "scheduled", notes: "",
+});
+
+export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
+  const [clubs, setClubs] = useState(null);
+  const [clubId, setClubId] = useState(null);
+  const [leagues, setLeagues] = useState(null);
+  const [leagueId, setLeagueId] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [fixtures, setFixtures] = useState(null);
+  const [newLeague, setNewLeague] = useState({ name: "", season: "" });
+  const [form, setForm] = useState(null);          // null | fixture-draft
+  const [info, setInfo] = useState(null);          // venue matchday ground rules
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [copied, setCopied] = useState(null);      // share_code just copied
+  const [error, setError] = useState(null);
+  const isSavingRef = useRef(false);
+
+  const [faSnippet, setFaSnippet] = useState("");
+  const [embedCopied, setEmbedCopied] = useState(false);
+
+  const MATCHDAY_BASE = "https://app.in-or-out.com";
+  const copyShareLink = async (shareCode) => {
+    const url = `${MATCHDAY_BASE}/matchday/${shareCode}`;
+    try { await navigator.clipboard.writeText(url); setCopied(shareCode); setTimeout(() => setCopied(null), 2000); }
+    catch { window.prompt("Copy this matchday link:", url); }
+  };
+
+  const selectedLeague = (leagues || []).find((l) => l.league_id === leagueId) || null;
+  useEffect(() => { setFaSnippet(selectedLeague?.fa_embed_code || ""); }, [leagueId, leagues]);
+  const embedSnippet = selectedLeague?.embed_code
+    ? `<iframe src="${MATCHDAY_BASE}/embed/league/${selectedLeague.embed_code}" width="100%" height="600" style="border:0" title="Fixtures & results"></iframe>`
+    : "";
+  const copyEmbed = async () => {
+    try { await navigator.clipboard.writeText(embedSnippet); setEmbedCopied(true); setTimeout(() => setEmbedCopied(false), 2000); }
+    catch { window.prompt("Copy this embed code:", embedSnippet); }
+  };
+  const saveFaSnippet = async () => {
+    if (isSavingRef.current || !leagueId) return;
+    isSavingRef.current = true; setError(null);
+    try { await venueUpdateClubLeague(venueToken, leagueId, { faEmbedCode: faSnippet.trim() || "" }); loadLeagues(clubId); }
+    catch (e) { setError("Couldn’t save the FA snippet — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  useEffect(() => {
+    let a = true;
+    venueListClubs(venueToken)
+      .then((cs) => { if (!a) return; setClubs(cs || []); if ((cs || []).length) setClubId(cs[0].id); })
+      .catch(() => { if (a) setClubs([]); });
+    venueGetMatchdayInfo(venueToken).then((r) => { if (a) setInfo(r?.info || {}); }).catch(() => { if (a) setInfo({}); });
+    return () => { a = false; };
+  }, [venueToken]);
+
+  const loadLeagues = (cid) => {
+    setLeagues(null); setLeagueId(null); setFixtures(null);
+    venueListClubLeagues(venueToken, cid)
+      .then((r) => setLeagues(r?.leagues || []))
+      .catch((e) => setError(e?.message || String(e)));
+    clubListTeams(venueToken, cid, false).then((r) => setTeams(r || [])).catch(() => setTeams([]));
+  };
+  useEffect(() => { if (clubId) loadLeagues(clubId); /* eslint-disable-next-line */ }, [clubId]);
+
+  const loadFixtures = (lid) => {
+    setFixtures(null);
+    venueListClubFixtures(venueToken, lid)
+      .then((r) => setFixtures(r?.fixtures || []))
+      .catch((e) => setError(e?.message || String(e)));
+  };
+  useEffect(() => { if (leagueId) loadFixtures(leagueId); /* eslint-disable-next-line */ }, [leagueId]);
+
+  const createLeague = async () => {
+    if (isSavingRef.current || !newLeague.name.trim()) return;
+    isSavingRef.current = true; setError(null);
+    try {
+      await venueCreateClubLeague(venueToken, clubId, { name: newLeague.name.trim(), seasonLabel: newLeague.season.trim() || null });
+      setNewLeague({ name: "", season: "" });
+      loadLeagues(clubId);
+    } catch (e) { setError("Couldn’t create the league — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  const saveFixture = async () => {
+    if (isSavingRef.current || !form) return;
+    if (!form.opponent_name.trim()) { setError("Add the opponent’s name."); return; }
+    isSavingRef.current = true; setError(null);
+    try {
+      await venueUpsertClubFixture(venueToken, {
+        fixtureId: form.fixture_id || null,
+        leagueId: form.fixture_id ? null : leagueId,
+        clubTeamId: form.club_team_id || null,
+        clubTeamName: form.club_team_id ? null : (form.club_team_name.trim() || null),
+        opponentName: form.opponent_name.trim(),
+        isHome: form.is_home,
+        scheduledDate: form.scheduled_date || null,
+        kickoffTime: form.kickoff_time || null,
+        playingAreaId: form.playing_area_id || null,
+        officialId: form.official_id || null,
+        refName: form.official_id ? null : (form.ref_name.trim() || null),
+        homeScore: form.home_score === "" ? null : Number(form.home_score),
+        awayScore: form.away_score === "" ? null : Number(form.away_score),
+        status: form.status,
+        notes: form.notes.trim() || null,
+      });
+      setForm(null);
+      loadFixtures(leagueId);
+      loadLeagues(clubId);
+    } catch (e) { setError("Couldn’t save the fixture — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  const deleteFixture = async (fid) => {
+    if (!window.confirm("Delete this fixture? The shareable matchday link will stop working.")) return;
+    try { await venueDeleteClubFixture(venueToken, fid); loadFixtures(leagueId); loadLeagues(clubId); }
+    catch (e) { setError("Couldn’t delete — try again."); }
+  };
+
+  const saveInfo = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true; setError(null);
+    try { await venueSetMatchdayInfo(venueToken, info || {}); setInfoOpen(false); }
+    catch (e) { setError("Couldn’t save ground rules — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  if (!clubs) return <p className="text-mute" style={{ padding: 24 }}>Loading…</p>;
+  if (!clubs.length) return <EmptyState title="No clubs yet" body="Create a club in the Club tab first — fixtures belong to a club’s league." />;
+
+  const editFixture = (fx) => setForm({
+    fixture_id: fx.fixture_id, club_team_id: fx.club_team_id || "", club_team_name: fx.club_team_name || "",
+    opponent_name: fx.opponent_name || "", is_home: fx.is_home,
+    scheduled_date: fx.scheduled_date || "", kickoff_time: fx.kickoff_time || "",
+    playing_area_id: fx.playing_area_id || "", official_id: fx.official_id || "",
+    ref_name: fx.referee_name && !fx.official_id ? fx.referee_name : "",
+    home_score: fx.home_score ?? "", away_score: fx.away_score ?? "",
+    status: fx.status || "scheduled", notes: fx.notes || "",
+  });
+
+  return (
+    <div>
+      {clubs.length > 1 && (
+        <div style={{ marginBottom: 16 }}>
+          <label className="field-label" style={{ marginRight: 8 }}>Club</label>
+          <select className="input" style={{ width: "auto" }} value={clubId || ""} onChange={(e) => setClubId(e.target.value)}>
+            {clubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* Matchday ground rules (venue-wide, shown on every home share link) */}
+      <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <strong>Matchday ground rules</strong>
+            <p className="text-mute" style={{ fontSize: 12, margin: "2px 0 0" }}>Shown on every home game’s shareable link, alongside your address &amp; directions.</p>
+          </div>
+          <button className="btn btn-xs" onClick={() => setInfoOpen((o) => !o)}>{infoOpen ? "Close" : "Edit"}</button>
+        </div>
+        {infoOpen && info && (
+          <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+            {[["parking", "Parking & arrival"], ["rules", "Ground rules"], ["directions", "Directions / notes"], ["contact", "Matchday contact"]].map(([k, label]) => (
+              <div key={k}>
+                <label className="field-label">{label}</label>
+                <textarea className="input" rows={2} value={info[k] || ""} onChange={(e) => setInfo((s) => ({ ...s, [k]: e.target.value }))} />
+              </div>
+            ))}
+            <div><button className="btn btn-primary btn-sm" onClick={saveInfo}>Save ground rules</button></div>
+          </div>
+        )}
+      </div>
+
+      {/* New league */}
+      <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+        <strong style={{ display: "block", marginBottom: 8 }}>New league</strong>
+        <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>A container for a team’s season of games — e.g. “U12s — Saturday League”. Add the fixtures below.</p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input className="input" placeholder="League name" value={newLeague.name} onChange={(e) => setNewLeague((s) => ({ ...s, name: e.target.value }))} style={{ flex: 1, minWidth: 180 }} />
+          <input className="input" placeholder="Season (e.g. 2026/27)" value={newLeague.season} onChange={(e) => setNewLeague((s) => ({ ...s, season: e.target.value }))} style={{ width: 160 }} />
+          <button className="btn btn-primary" onClick={createLeague}><Icon name="plus" size={14} /> Create</button>
+        </div>
+      </div>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 13 }}>{error}</p>}
+      {leagues === null && <p className="text-mute">Loading leagues…</p>}
+      {leagues && leagues.length === 0 && <EmptyState title="No leagues yet" body="Create a league above to start adding fixtures." />}
+
+      {leagues && leagues.length > 0 && (
+        <div style={{ marginBottom: "var(--gap-2)" }}>
+          <label className="field-label" style={{ marginRight: 8 }}>League</label>
+          <select className="input" style={{ width: "auto" }} value={leagueId || ""} onChange={(e) => setLeagueId(e.target.value || null)}>
+            <option value="">— choose a league —</option>
+            {leagues.map((l) => <option key={l.league_id} value={l.league_id}>{l.name}{l.season_label ? ` · ${l.season_label}` : ""} ({l.fixture_count})</option>)}
+          </select>
+        </div>
+      )}
+
+      {leagueId && (
+        <>
+          {/* Embed on the club's own website */}
+          <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+            <strong style={{ display: "block", marginBottom: 4 }}>Put these fixtures on your website</strong>
+            <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>Paste this snippet into your club site — your fixtures &amp; results, live, in our design.</p>
+            <textarea className="input" readOnly rows={2} value={embedSnippet} onFocus={(e) => e.target.select()} style={{ fontFamily: "monospace", fontSize: 12 }} />
+            <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button className="btn btn-sm btn-primary" onClick={copyEmbed}><Icon name="copy" size={13} /> {embedCopied ? "Copied!" : "Copy embed code"}</button>
+              {selectedLeague?.embed_code && <a className="btn btn-sm btn-ghost" href={`${MATCHDAY_BASE}/embed/league/${selectedLeague.embed_code}`} target="_blank" rel="noreferrer">Preview</a>}
+            </div>
+            <div style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 12 }}>
+              <strong style={{ display: "block", marginBottom: 4 }}>Official FA league table (optional)</strong>
+              <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>The FA only gives a display widget, not data we can pull. Keep your FA Full-Time “Table” code snippet here for reference, then paste it on your own site for the official division table.</p>
+              <textarea className="input" rows={2} value={faSnippet} onChange={(e) => setFaSnippet(e.target.value)} placeholder="Paste your FA Full-Time code snippet…" style={{ fontFamily: "monospace", fontSize: 12 }} />
+              <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={saveFaSnippet}>Save FA snippet</button>
+            </div>
+          </div>
+
+          {!form && <button className="btn btn-primary" style={{ marginBottom: "var(--gap-2)" }} onClick={() => setForm(emptyFixture())}><Icon name="plus" size={14} /> Add fixture</button>}
+
+          {form && (
+            <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+              <strong style={{ display: "block", marginBottom: 8 }}>{form.fixture_id ? "Edit fixture" : "New fixture"}</strong>
+              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+                <div>
+                  <label className="field-label">Your team</label>
+                  <select className="input" value={form.club_team_id} onChange={(e) => setForm((f) => ({ ...f, club_team_id: e.target.value }))}>
+                    <option value="">— type a name below —</option>
+                    {teams.map((t) => <option key={t.team_id} value={t.team_id}>{t.name}</option>)}
+                  </select>
+                  {!form.club_team_id && <input className="input" style={{ marginTop: 6 }} placeholder="Your team name" value={form.club_team_name} onChange={(e) => setForm((f) => ({ ...f, club_team_name: e.target.value }))} />}
+                </div>
+                <div>
+                  <label className="field-label">Opponent</label>
+                  <input className="input" placeholder="Away club name" value={form.opponent_name} onChange={(e) => setForm((f) => ({ ...f, opponent_name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="field-label">Home or away</label>
+                  <select className="input" value={form.is_home ? "home" : "away"} onChange={(e) => setForm((f) => ({ ...f, is_home: e.target.value === "home" }))}>
+                    <option value="home">Home</option>
+                    <option value="away">Away</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Date</label>
+                  <input className="input" type="date" value={form.scheduled_date} onChange={(e) => setForm((f) => ({ ...f, scheduled_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="field-label">Kick-off</label>
+                  <input className="input" type="time" value={form.kickoff_time} onChange={(e) => setForm((f) => ({ ...f, kickoff_time: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="field-label">Pitch {form.is_home ? "" : "(home only)"}</label>
+                  <select className="input" value={form.playing_area_id} onChange={(e) => setForm((f) => ({ ...f, playing_area_id: e.target.value }))}>
+                    <option value="">— none —</option>
+                    {pitches.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Referee</label>
+                  <select className="input" value={form.official_id} onChange={(e) => setForm((f) => ({ ...f, official_id: e.target.value }))}>
+                    <option value="">— type a name below —</option>
+                    {refs.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                  {!form.official_id && <input className="input" style={{ marginTop: 6 }} placeholder="Referee name" value={form.ref_name} onChange={(e) => setForm((f) => ({ ...f, ref_name: e.target.value }))} />}
+                </div>
+                <div>
+                  <label className="field-label">Status</label>
+                  <select className="input" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
+                    {CF_STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Score (home–away)</label>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input className="input" type="number" min={0} style={{ width: 60 }} value={form.home_score} onChange={(e) => setForm((f) => ({ ...f, home_score: e.target.value }))} />
+                    <span>–</span>
+                    <input className="input" type="number" min={0} style={{ width: 60 }} value={form.away_score} onChange={(e) => setForm((f) => ({ ...f, away_score: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="btn btn-primary btn-sm" onClick={saveFixture}>{form.fixture_id ? "Save" : "Add fixture"}</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setForm(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {fixtures === null && <p className="text-mute">Loading fixtures…</p>}
+          {fixtures && fixtures.length === 0 && <EmptyState title="No fixtures yet" body="Add a fixture above — then share its matchday link with the opposition coach." />}
+          {fixtures && fixtures.map((fx) => (
+            <div className="customer-card" key={fx.fixture_id} style={{ marginBottom: "var(--gap-2)" }}>
+              <div className="cu-top">
+                <div className="cu-head-text">
+                  <div className="cu-name">
+                    {fx.is_home
+                      ? `${fx.club_team_name || "Us"} v ${fx.opponent_name}`
+                      : `${fx.opponent_name} v ${fx.club_team_name || "Us"}`}
+                    <span className="pill" style={{ marginLeft: 8 }}>{fx.is_home ? "Home" : "Away"}</span>
+                  </div>
+                  <div className="cu-sub">
+                    {fx.scheduled_date || "no date"}{fx.kickoff_time ? ` · ${fx.kickoff_time}` : ""}
+                    {fx.pitch_name ? ` · ${fx.pitch_name}` : ""}
+                    {fx.referee_name ? ` · Ref ${fx.referee_name}` : ""}
+                    {fx.home_score != null && fx.away_score != null ? ` · ${fx.home_score}–${fx.away_score}` : ""}
+                    {` · ${CF_STATUS.find(([v]) => v === fx.status)?.[1] || fx.status}`}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                {fx.is_home && (
+                  <button className="btn btn-xs btn-primary" onClick={() => copyShareLink(fx.share_code)}>
+                    <Icon name="copy" size={13} /> {copied === fx.share_code ? "Copied!" : "Share matchday link"}
+                  </button>
+                )}
+                <button className="btn btn-xs" onClick={() => editFixture(fx)}>Edit</button>
+                <button className="btn btn-xs btn-ghost" onClick={() => deleteFixture(fx.fixture_id)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 function GradingTab({ venueToken }) {
   const [clubs, setClubs] = useState(null);
   const [clubId, setClubId] = useState(null);
@@ -1073,6 +1432,10 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
   const [pricingModel, setPricingModel] = useState(tier?.pricing_model || "recurring");
   const [seasonStart,  setSeasonStart]  = useState(tier?.season_start || "");
   const [seasonEnd,    setSeasonEnd]    = useState(tier?.season_end || "");
+  const [prorationBasis, setProrationBasis] = useState(tier?.proration_basis || "none");
+  const [joiningFee,   setJoiningFee]   = useState(
+    tier?.joining_fee_pence ? String(tier.joining_fee_pence / 100) : ""
+  );
   const [isFree,       setIsFree]       = useState(!!(tier?.benefits?.is_free));
   const [selfSignup,   setSelfSignup]   = useState(tier?.benefits?.self_signup !== false);
   const [active,       setActive]       = useState(tier?.active !== false);
@@ -1145,6 +1508,9 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
         pricingModel,
         seasonStart: pricingModel === "season" ? (seasonStart || null) : null,
         seasonEnd:   pricingModel === "season" ? (seasonEnd || null)   : null,
+        // Pro-rating + joining fee apply to season plans only.
+        prorationBasis:  pricingModel === "season" ? prorationBasis : "none",
+        joiningFeePence: pricingModel === "season" ? (toPence(joiningFee) ?? 0) : 0,
       };
       if (editing) {
         await venueUpdateMembershipTier(venueToken, tier.tier_id, {
@@ -1180,6 +1546,7 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
 
       <label className="field-label">Plan name</label>
       <input className="input" placeholder="e.g. Junior Gold" value={name} onChange={(e) => setName(e.target.value)} />
+      <FieldHelp>What members see when they pick a plan. Examples: <em>Junior Gold</em>, <em>Adult Monthly</em>, <em>Family</em>.</FieldHelp>
 
       <div style={head}>Audience</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1211,6 +1578,34 @@ function TierModal({ venueToken, tier = null, onClose, onDone }) {
             <input className="input" type="date" value={seasonEnd} onChange={(e) => setSeasonEnd(e.target.value)} />
           </div>
         </div>
+      )}
+
+      {pricingModel === "season" && (
+        <>
+          <div style={head}>Pro-rate for late joiners</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[["none","Off (full price)"],["monthly","By month"],["weekly","By week"],["daily","By day"]].map(([v, l]) => (
+              <button key={v} type="button" className="charge-opt" onClick={() => setProrationBasis(v)}
+                style={{ borderColor: prorationBasis === v ? "var(--accent)" : "var(--border)", padding: "6px 14px", fontSize: 13 }}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <FieldHelp>
+            Someone joining part-way through the season pays only for the part that's left.
+            Example: a £60 season, joining in March of a Jan–Dec season, <strong>by month</strong> → they pay £50
+            (10 of 12 months). The part-month they join in counts as a whole month, in the member's favour.
+            Needs a season start and end date set above. Renewals next season are always full price.
+          </FieldHelp>
+
+          <label className="field-label">Joining fee (optional)</label>
+          <input className="input" type="number" min="0" step="0.01" placeholder="0.00"
+            value={joiningFee} onChange={(e) => setJoiningFee(e.target.value)} />
+          <FieldHelp>
+            A one-off charge added to the first payment only (not to renewals). Example: <em>£10</em> on top of
+            the season fee. Leave blank for none.
+          </FieldHelp>
+        </>
       )}
 
       <div style={head}>Benefits</div>
@@ -1779,6 +2174,367 @@ function ClubTab({ venueToken }) {
   );
 }
 
+// ── Club Structure (mig 389) ────────────────────────────────────────────────
+// Org chart: club → age group (cohort, with youth/adult/mixed category) → team
+// (girls/boys/mixed + priority rank). Create/edit/archive in place. Every input
+// carries helper text + a worked example.
+
+const CATEGORY_OPTS = [["youth", "Youth"], ["adult", "Adult"], ["mixed", "Mixed"]];
+const GENDER_OPTS   = [["girls", "Girls"], ["boys", "Boys"], ["mixed", "Mixed"]];
+const CATEGORY_BADGE = {
+  youth: { label: "Youth", bg: "rgba(96,160,255,0.15)",  color: "rgba(96,160,255,1)" },
+  adult: { label: "Adult", bg: "rgba(76,175,80,0.15)",   color: "rgba(76,175,80,1)" },
+  mixed: { label: "Mixed", bg: "rgba(255,190,60,0.15)",  color: "var(--amber)" },
+};
+const GENDER_BADGE = {
+  girls: { label: "Girls", bg: "rgba(255,96,96,0.13)",  color: "var(--live)" },
+  boys:  { label: "Boys",  bg: "rgba(96,160,255,0.13)", color: "rgba(96,160,255,1)" },
+  mixed: { label: "Mixed", bg: "rgba(255,190,60,0.13)", color: "var(--amber)" },
+};
+
+// Helper text + example shown under a form input.
+function FieldHelp({ children }) {
+  return <p className="text-mute" style={{ fontSize: 12, margin: "3px 0 12px", lineHeight: 1.4 }}>{children}</p>;
+}
+
+function Badge({ spec }) {
+  if (!spec) return null;
+  return (
+    <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4,
+      padding: "2px 8px", borderRadius: 999, background: spec.bg, color: spec.color }}>
+      {spec.label}
+    </span>
+  );
+}
+
+function StructureTab({ venueToken }) {
+  const [clubs,   setClubs]   = useState(null);
+  const [clubId,  setClubId]  = useState(null);
+  const [cohorts, setCohorts] = useState([]);
+  const [teams,   setTeams]   = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+  const [modal,   setModal]   = useState(null); // {type:'cohort'|'team', cohort?, team?, presetCohortId?}
+
+  useEffect(() => {
+    let a = true;
+    venueListClubs(venueToken)
+      .then((r) => { if (!a) return; setClubs(r || []); if ((r || []).length) setClubId(r[0].id); })
+      .catch((e) => { if (a) setError(e?.message || String(e)); });
+    return () => { a = false; };
+  }, [venueToken]);
+
+  const load = async (cid) => {
+    if (!cid) return;
+    setLoading(true); setError(null);
+    try {
+      const [co, te] = await Promise.all([
+        clubListCohorts(venueToken, cid, true),
+        clubListTeams(venueToken, cid, false),
+      ]);
+      setCohorts(co || []);
+      setTeams(te || []);
+    } catch (e) { setError(e?.message || String(e)); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (clubId) load(clubId); /* eslint-disable-line */ }, [clubId, venueToken]);
+
+  const teamsByCohort = useMemo(() => {
+    const m = {};
+    for (const t of teams) (m[t.cohort_id] ||= []).push(t);
+    return m;
+  }, [teams]);
+
+  const onSaved = () => { setModal(null); load(clubId); };
+
+  const archiveTeam = async (t) => {
+    if (!window.confirm(`Archive "${t.name}"? It will be hidden from the structure but its history is kept.`)) return;
+    try { await clubArchiveTeam(venueToken, t.team_id); load(clubId); }
+    catch (e) { setError(e?.message || String(e)); }
+  };
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 6px" };
+
+  if (error && !clubs) return <EmptyState title="Couldn’t load structure" body={error} />;
+  if (!clubs) return <p className="text-mute" style={{ fontSize: 13, padding: "var(--gap-2)" }}>Loading…</p>;
+  if (clubs.length === 0) return (
+    <EmptyState title="No clubs linked" body="This venue has no clubs configured. Contact support to link a club." />
+  );
+
+  const club = clubs.find((c) => c.id === clubId) || clubs[0];
+
+  return (
+    <div>
+      <p className="text-mute" style={{ fontSize: 13, margin: "0 0 12px", lineHeight: 1.45 }}>
+        Your club’s shape: <strong>age groups</strong> (e.g. U7s, Adults) each holding one or more
+        <strong> teams</strong> (e.g. U7 Lions, U7 Tigers). Set a team’s priority to mark your strongest side.
+      </p>
+
+      {clubs.length > 1 && (
+        <div className="chips" style={{ marginBottom: 12 }}>
+          {clubs.map((c) => (
+            <button key={c.id} className="chip" aria-pressed={c.id === clubId} onClick={() => setClubId(c.id)}>{c.name}</button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <div style={{ fontWeight: 700, fontSize: 16 }}>{club.name}</div>
+        <span className="spacer" style={{ flex: 1 }} />
+        <button className="btn btn-primary" onClick={() => setModal({ type: "cohort" })}>+ Age group</button>
+      </div>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginBottom: 8 }}>{error}</p>}
+      {loading && <p className="text-mute" style={{ fontSize: 13 }}>Loading…</p>}
+
+      {!loading && cohorts.length === 0 && (
+        <EmptyState
+          title="No age groups yet"
+          body="Start by adding an age group — for example “Under 7s” (Youth) or “First Team” (Adult). You can add teams to it next."
+        />
+      )}
+
+      {!loading && cohorts.map((co) => {
+        const cts = teamsByCohort[co.cohort_id] || [];
+        const ageStr = co.min_age != null || co.max_age != null
+          ? `${co.min_age ?? "?"}–${co.max_age ?? "?"} yrs` : null;
+        return (
+          <div className="customer-card" key={co.cohort_id} style={{ marginBottom: "var(--gap-2)", opacity: co.active ? 1 : 0.6 }}>
+            <div className="cu-top" style={{ alignItems: "center" }}>
+              <div className="cu-head-text">
+                <div className="cu-name" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {co.name}
+                  <Badge spec={CATEGORY_BADGE[co.category]} />
+                  {!co.active && <span className="text-mute" style={{ fontSize: 12 }}>(inactive)</span>}
+                </div>
+                <div className="cu-sub">{[ageStr, co.description].filter(Boolean).join(" · ") || "No age range set"}</div>
+              </div>
+              <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setModal({ type: "cohort", cohort: co })}>Edit</button>
+            </div>
+
+            <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
+              {cts.length === 0 && (
+                <p className="text-mute" style={{ fontSize: 12, margin: 0 }}>No teams in this age group yet.</p>
+              )}
+              {cts.map((t) => (
+                <div key={t.team_id} style={{ display: "flex", alignItems: "center", gap: 8,
+                  padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8 }}>
+                  {t.priority_rank != null && (
+                    <span title={`Priority ${t.priority_rank}`} style={{ fontSize: 13 }}>
+                      {t.priority_rank === 1 ? "⭐" : `#${t.priority_rank}`}
+                    </span>
+                  )}
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</span>
+                  <Badge spec={GENDER_BADGE[t.gender]} />
+                  <span className="text-mute" style={{ fontSize: 12 }}>{t.member_count} member{t.member_count !== 1 ? "s" : ""}</span>
+                  <span className="spacer" style={{ flex: 1 }} />
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                    onClick={() => setModal({ type: "invite", team: t, clubName: club.name })}>Join link / QR</button>
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setModal({ type: "team", team: t })}>Edit</button>
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => archiveTeam(t)}>Archive</button>
+                </div>
+              ))}
+              <button className="btn btn-ghost" style={{ fontSize: 13, justifySelf: "start", marginTop: 2 }}
+                onClick={() => setModal({ type: "team", presetCohortId: co.cohort_id })}>+ Add team to {co.name}</button>
+            </div>
+          </div>
+        );
+      })}
+
+      {modal?.type === "cohort" && (
+        <CohortModal venueToken={venueToken} clubId={clubId} cohort={modal.cohort} onClose={() => setModal(null)} onSaved={onSaved} />
+      )}
+      {modal?.type === "team" && (
+        <TeamModal venueToken={venueToken} clubId={clubId} cohorts={cohorts} team={modal.team}
+          presetCohortId={modal.presetCohortId} onClose={() => setModal(null)} onSaved={onSaved} />
+      )}
+      {modal?.type === "invite" && (
+        <TeamInviteModal venueToken={venueToken} team={modal.team} clubName={modal.clubName}
+          onClose={() => setModal(null)} />
+      )}
+    </div>
+  );
+}
+
+// Per-team join link + QR (mig 390). Get-or-creates the one canonical
+// join_club_team code, renders it as a scannable QR pointing at /q/<code>, and
+// reuses the venue poster/table-talker print path (printAssets.js). Phase 2 =
+// the link + QR; the membership-gated join the scan starts lands in Phase 3.
+const INVITE_BASE = "https://app.in-or-out.com";
+function TeamInviteModal({ venueToken, team, clubName, onClose }) {
+  const [code,  setCode]  = useState(null);
+  const [error, setError] = useState(null);
+  const holderRef = useRef(null);
+
+  useEffect(() => {
+    let alive = true;
+    clubEnsureTeamInviteLink(venueToken, team.team_id)
+      .then((r) => { if (alive) setCode(r?.code || null); })
+      .catch((e) => { if (alive) setError(e?.message || String(e)); });
+    return () => { alive = false; };
+  }, [venueToken, team.team_id]);
+
+  const url = code ? `${INVITE_BASE}/q/${code}` : "";
+
+  return (
+    <Modal onClose={onClose} title={`Join link — ${team.name}`} foot={
+      <button className="btn btn-primary" onClick={onClose}>Done</button>
+    }>
+      <p className="text-mute" style={{ fontSize: 13, margin: "0 0 14px", lineHeight: 1.45 }}>
+        Anyone who scans this code starts joining <strong>{team.name}</strong>. Print it as a poster for
+        the clubhouse, or copy the link to share. The code stays the same even if you rename the team.
+      </p>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 12 }}>Couldn’t create a code: {error}</p>}
+      {!error && !code && <p className="text-mute" style={{ fontSize: 13 }}>Generating…</p>}
+
+      {code && (
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <div ref={holderRef} style={{ background: "#fff", padding: 10, borderRadius: 8, flexShrink: 0 }}>
+            <QRCode value={url} size={132} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="text-mute" style={{ fontSize: 12, wordBreak: "break-all", marginBottom: 10 }}>{url}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(url)}>Copy link</button>
+              <button className="btn btn-sm" onClick={() => printPoster(holderRef.current, { venueName: clubName, label: team.name, url })}>Poster</button>
+              <button className="btn btn-sm" onClick={() => printTableTalker(holderRef.current, { venueName: clubName, label: team.name, url })}>Table-talker</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function CohortModal({ venueToken, clubId, cohort, onClose, onSaved }) {
+  const editing = !!cohort;
+  const [name,     setName]     = useState(cohort?.name || "");
+  const [category, setCategory] = useState(cohort?.category || null);
+  const [minAge,   setMinAge]   = useState(cohort?.min_age ?? "");
+  const [maxAge,   setMaxAge]   = useState(cohort?.max_age ?? "");
+  const [active,   setActive]   = useState(cohort?.active ?? true);
+  const [busy,     setBusy]     = useState(false);
+  const [error,    setError]    = useState(null);
+  const savingRef = useRef(false);
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "16px 0 6px" };
+
+  const submit = async () => {
+    if (savingRef.current) return;
+    if (!name.trim()) { setError("Give the age group a name."); return; }
+    savingRef.current = true; setBusy(true); setError(null);
+    const payload = {
+      name: name.trim(), category,
+      minAge: minAge === "" ? null : Number(minAge),
+      maxAge: maxAge === "" ? null : Number(maxAge),
+    };
+    try {
+      if (editing) await clubUpdateCohort(venueToken, cohort.cohort_id, { ...payload, active });
+      else         await clubCreateCohort(venueToken, clubId, payload);
+      onSaved();
+    } catch (e) { setError(e?.message || String(e)); }
+    finally { savingRef.current = false; setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={editing ? `Edit age group — ${cohort.name}` : "New age group"} foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Create age group"}</button></>
+    }>
+      <label className="field-label">Name</label>
+      <input className="input" placeholder="e.g. Under 7s" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+      <FieldHelp>The age band as parents know it. Examples: <em>Under 7s</em>, <em>U12s</em>, <em>First Team</em>, <em>Veterans</em>.</FieldHelp>
+
+      <div style={head}>Type</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {CATEGORY_OPTS.map(([v, l]) => (
+          <button key={v} type="button" className="charge-opt" onClick={() => setCategory(v)}
+            style={{ borderColor: category === v ? "var(--accent)" : "var(--border)", padding: "6px 16px", fontSize: 13 }}>{l}</button>
+        ))}
+      </div>
+      <FieldHelp><strong>Youth</strong> for junior age groups (under-18s), <strong>Adult</strong> for senior sides, <strong>Mixed</strong> if it spans both. Drives the badge on the org chart.</FieldHelp>
+
+      <div style={head}>Age range <span className="text-mute" style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <input className="input" type="number" min="0" max="120" placeholder="Min" value={minAge} onChange={(e) => setMinAge(e.target.value)} style={{ width: 90 }} />
+        <span className="text-mute">to</span>
+        <input className="input" type="number" min="0" max="120" placeholder="Max" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} style={{ width: 90 }} />
+      </div>
+      <FieldHelp>Optional age limits, used to guide sign-ups. Example: an Under 12s group is <em>10 to 12</em>. Leave blank for an open group like a First Team.</FieldHelp>
+
+      {editing && (
+        <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer", marginTop: 6 }}>
+          <input type="checkbox" checked={active} onChange={() => setActive((a) => !a)} />
+          <span>Active (uncheck to hide from filters without deleting)</span>
+        </label>
+      )}
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+function TeamModal({ venueToken, clubId, cohorts, team, presetCohortId, onClose, onSaved }) {
+  const editing = !!team;
+  const [name,     setName]     = useState(team?.name || "");
+  const [cohortId, setCohortId] = useState(team?.cohort_id || presetCohortId || cohorts[0]?.cohort_id || null);
+  const [gender,   setGender]   = useState(team?.gender || null);
+  const [rank,     setRank]     = useState(team?.priority_rank ?? "");
+  const [busy,     setBusy]     = useState(false);
+  const [error,    setError]    = useState(null);
+  const savingRef = useRef(false);
+
+  const head = { fontWeight: 600, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "16px 0 6px" };
+
+  const submit = async () => {
+    if (savingRef.current) return;
+    if (!name.trim()) { setError("Give the team a name."); return; }
+    if (!cohortId)     { setError("Pick an age group for this team."); return; }
+    savingRef.current = true; setBusy(true); setError(null);
+    const rankVal = rank === "" ? null : Number(rank);
+    try {
+      if (editing) await clubUpdateTeam(venueToken, team.team_id, { name: name.trim(), gender, priorityRank: rankVal, cohortId });
+      else         await clubCreateTeam(venueToken, clubId, { cohortId, name: name.trim(), gender, priorityRank: rankVal });
+      onSaved();
+    } catch (e) { setError(e?.message || String(e)); }
+    finally { savingRef.current = false; setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title={editing ? `Edit team — ${team.name}` : "New team"} foot={
+      <><button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button><span className="spacer" />
+      <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Create team"}</button></>
+    }>
+      <label className="field-label">Team name</label>
+      <input className="input" placeholder="e.g. U7 Lions" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+      <FieldHelp>The team’s own name. Examples: <em>U7 Lions</em>, <em>U7 Tigers</em>, <em>First Team</em>, <em>Development XI</em>.</FieldHelp>
+
+      <div style={head}>Age group</div>
+      <select className="input" value={cohortId || ""} onChange={(e) => setCohortId(e.target.value)}>
+        <option value="">— pick an age group —</option>
+        {cohorts.filter((c) => c.active).map((c) => <option key={c.cohort_id} value={c.cohort_id}>{c.name}</option>)}
+      </select>
+      <FieldHelp>Which age group this team sits under. Example: <em>U7 Lions</em> sits under <em>Under 7s</em>.</FieldHelp>
+
+      <div style={head}>Gender / stream</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {GENDER_OPTS.map(([v, l]) => (
+          <button key={v} type="button" className="charge-opt" onClick={() => setGender(v)}
+            style={{ borderColor: gender === v ? "var(--accent)" : "var(--border)", padding: "6px 16px", fontSize: 13 }}>{l}</button>
+        ))}
+      </div>
+      <FieldHelp>So one age group can run a girls’ and a boys’ side side by side. Pick <strong>Mixed</strong> if it isn’t split. Example: <em>U7 Lions</em> = Boys, <em>U7 Roses</em> = Girls.</FieldHelp>
+
+      <div style={head}>Priority <span className="text-mute" style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></div>
+      <input className="input" type="number" min="1" max="99" placeholder="e.g. 1" value={rank} onChange={(e) => setRank(e.target.value)} style={{ width: 110 }} />
+      <FieldHelp>Rank within the age group — <strong>1 = top side</strong> (shows a ⭐). Example: an A team is <em>1</em>, the B team is <em>2</em>. Leave blank if you don’t rank them.</FieldHelp>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
 // ── Staff ─────────────────────────────────────────────────────────────────────
 // Per-club team roster of managers/coaches with DBS status badges.
 // Assign/remove staff; record DBS check details.
@@ -1808,7 +2564,7 @@ function DbsBadge({ status }) {
   );
 }
 
-function StaffTab({ venueToken }) {
+export function StaffTab({ venueToken }) {
   const [clubs,   setClubs]   = useState(null);
   const [staff,   setStaff]   = useState({});   // { [clubId]: staffRow[] }
   const [members, setMembers] = useState([]);
@@ -1940,8 +2696,8 @@ function StaffTab({ venueToken }) {
     letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 8px" };
   const inputSt = {
     width: "100%", boxSizing: "border-box",
-    background: "var(--bg-card, #1a1a1a)", border: "1px solid var(--border, #333)",
-    borderRadius: 8, color: "var(--text, #fff)",
+    background: "var(--bg-2)", border: "1px solid var(--border)",
+    borderRadius: 8, color: "var(--ink)",
     fontSize: 13, padding: "8px 10px", marginTop: 4,
   };
 
@@ -2068,7 +2824,7 @@ function StaffTab({ venueToken }) {
               disabled={assignSaving || !assignTeamId || !assignMemberId}
               style={{
                 padding: "10px 0", borderRadius: 8, border: "none",
-                background: "var(--accent, #60A0FF)", color: "#fff",
+                background: "var(--accent)", color: "var(--accent-ink)",
                 fontSize: 14, fontWeight: 700, cursor: assignSaving ? "not-allowed" : "pointer",
                 opacity: (assignSaving || !assignTeamId || !assignMemberId) ? 0.5 : 1,
               }}
@@ -2131,7 +2887,7 @@ function StaffTab({ venueToken }) {
               disabled={dbsSaving}
               style={{
                 padding: "10px 0", borderRadius: 8, border: "none",
-                background: "var(--accent, #60A0FF)", color: "#fff",
+                background: "var(--accent)", color: "var(--accent-ink)",
                 fontSize: 14, fontWeight: 700, cursor: dbsSaving ? "not-allowed" : "pointer",
                 opacity: dbsSaving ? 0.5 : 1,
               }}
@@ -2455,7 +3211,7 @@ function IdDocsTab({ venueToken }) {
             {docUrl && (
               <div style={{ marginBottom: 16, textAlign: "center" }}>
                 {viewDoc.storage_path.endsWith(".pdf") ? (
-                  <a href={docUrl} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: "var(--accent, #60A0FF)" }}>
+                  <a href={docUrl} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: "var(--accent)" }}>
                     Open PDF document
                   </a>
                 ) : (
@@ -2610,8 +3366,8 @@ function AnnouncementsTab({ venueToken }) {
             <button key={v} onClick={() => { setAudience(v); setCohortId(null); setTeamId(null); }}
               style={{
                 padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer",
-                background: audience === v ? "var(--accent, #111)" : "transparent",
-                color: audience === v ? "#fff" : "var(--text, #111)",
+                background: audience === v ? "var(--accent)" : "transparent",
+                color: audience === v ? "var(--accent-ink)" : "var(--ink)",
                 border: "1px solid var(--border, #ddd)",
               }}>{l}</button>
           ))}
@@ -2654,12 +3410,12 @@ function AnnouncementsTab({ venueToken }) {
           style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14, resize: "vertical", boxSizing: "border-box" }} />
       </div>
 
-      {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
-      {sent  && <p style={{ color: "#2a7a2a", fontSize: 13, marginBottom: 12 }}>Announcement queued — will be emailed within 5 minutes.</p>}
+      {error && <p style={{ color: "var(--crit)", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+      {sent  && <p style={{ color: "var(--ok)", fontSize: 13, marginBottom: 12 }}>Announcement queued — will be emailed within 5 minutes.</p>}
 
       <button onClick={handleSend} disabled={saving}
         style={{
-          padding: "10px 24px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff",
+          padding: "10px 24px", borderRadius: 8, background: "var(--accent)", color: "var(--accent-ink)",
           border: "none", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
           opacity: saving ? 0.6 : 1,
         }}>
@@ -2708,8 +3464,8 @@ function MerchandiseTab({ venueToken }) {
             style={{
               padding: "6px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600,
               border: "1px solid var(--border, #ddd)", cursor: "pointer",
-              background: subTab === v ? "var(--accent, #111)" : "transparent",
-              color: subTab === v ? "#fff" : "var(--text, #111)",
+              background: subTab === v ? "var(--accent)" : "transparent",
+              color: subTab === v ? "var(--accent-ink)" : "var(--ink)",
             }}>
             {l}
           </button>
@@ -2800,7 +3556,7 @@ function CataloguePanel({ venueToken, clubId }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <SectionHead>Items ({items?.length ?? "…"})</SectionHead>
         <button onClick={openNew}
-          style={{ padding: "7px 16px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          style={{ padding: "7px 16px", borderRadius: 8, background: "var(--accent)", color: "var(--accent-ink)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           + Add item
         </button>
       </div>
@@ -2857,11 +3613,11 @@ function CataloguePanel({ venueToken, clubId }) {
               Visible to members
             </label>
           )}
-          {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+          {error && <p style={{ color: "var(--crit)", fontSize: 13, marginBottom: 12 }}>{error}</p>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button onClick={() => setShowForm(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border, #ddd)", background: "none", fontSize: 14, cursor: "pointer" }}>Cancel</button>
             <button onClick={handleSave} disabled={saving}
-              style={{ padding: "8px 20px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+              style={{ padding: "8px 20px", borderRadius: 8, background: "var(--accent)", color: "var(--accent-ink)", border: "none", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
@@ -2950,11 +3706,11 @@ function OrdersPanel({ venueToken, clubId }) {
                   {(o.status === "pending" || o.status === "pending_payment") && (
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button onClick={() => { setActioning({ ...o, _action: "fulfil" }); setNotes(""); setError(null); }}
-                        style={{ padding: "4px 10px", borderRadius: 6, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}>
+                        style={{ padding: "4px 10px", borderRadius: 6, background: "var(--accent)", color: "var(--accent-ink)", border: "none", fontSize: 12, cursor: "pointer" }}>
                         Fulfil
                       </button>
                       <button onClick={() => { setActioning({ ...o, _action: "cancel" }); setNotes(""); setError(null); }}
-                        style={{ padding: "4px 10px", borderRadius: 6, background: "none", color: "#c00", border: "1px solid #c00", fontSize: 12, cursor: "pointer" }}>
+                        style={{ padding: "4px 10px", borderRadius: 6, background: "none", color: "var(--crit)", border: "1px solid var(--crit)", fontSize: 12, cursor: "pointer" }}>
                         Cancel
                       </button>
                     </div>
@@ -2979,14 +3735,14 @@ function OrdersPanel({ venueToken, clubId }) {
               style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14, boxSizing: "border-box" }}
               placeholder={actioning._action === "fulfil" ? "e.g. Handed out at training" : "e.g. Out of stock"} />
           </div>
-          {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+          {error && <p style={{ color: "var(--crit)", fontSize: 13, marginBottom: 12 }}>{error}</p>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button onClick={() => setActioning(null)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border, #ddd)", background: "none", fontSize: 14, cursor: "pointer" }}>Back</button>
             <button onClick={() => handleAction(actioning._action)} disabled={saving}
               style={{
                 padding: "8px 20px", borderRadius: 8, border: "none", fontSize: 14, fontWeight: 600,
                 cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
-                background: actioning._action === "fulfil" ? "var(--accent, #111)" : "#c00", color: "#fff",
+                background: actioning._action === "fulfil" ? "var(--accent)" : "var(--crit)", color: actioning._action === "fulfil" ? "var(--accent-ink)" : "var(--ink)",
               }}>
               {saving ? "Saving…" : actioning._action === "fulfil" ? "Confirm fulfilled" : "Confirm cancel"}
             </button>

@@ -490,6 +490,8 @@ arrive in Phase 2+. All currently empty.
 - `venue_admins` — user_id ↔ venue_id. Roles: owner / manager / staff (migs 237–240). `caps_grant`/`caps_deny text[]` constrained by `venue_admins_caps_known` CHECK to the known gated keys: reverse_money, booking_settings, manage_facility, staff_directory, manage_logins, **manage_memberships** (added mig 269). `_venue_has_cap`: owner+manager pass by default, staff only if granted.
 - `playing_areas` — venue_id, name, surface, capacity, **sport text NULL** (mig 269; NULL = inherit venue primary sport). (Multi-sport rename of `pitches`.)
 - `match_officials` — venue_id, name, contact channels, preferred_channel. (Multi-sport rename of `referees`.) `user_id uuid FK→auth.users` (mig 369, watchOS): links an official card to a real auth identity (self-claim by verified email or operator-bind) → the league/club-fixture arm of `get_my_next_assignment`.
+- `venue_features` (mig 399, Venue OS nav Phase 1) — modular feature switches per VENUE (facility-owned). `venue_id text PK FK→venues ON DELETE CASCADE` + boolean cols `bookings`/`spaces`/`room_hire`/`equipment`, all `NOT NULL DEFAULT true`, `updated_at`. RLS on, NO client policies (written by Phase-2 operator RPCs only). **No row = all-on** (readers COALESCE missing→true) so existing venues need zero backfill. A row exists only once an operator switches something off.
+- `club_features` (mig 399, Venue OS nav Phase 1) — modular feature switches per CLUB (org-owned, follow the club to every venue it operates from). `club_id text PK FK→clubs ON DELETE CASCADE` + boolean cols `memberships`/`competition`/`coaching`/`tournaments`/`public_web`, all `NOT NULL DEFAULT true`, `updated_at`. RLS on, NO client policies. No row = all-on. The venue rail shows a club feature if ANY club at the venue has it on (OR via `club_venues`).
 
 ### Phase 1 — League / Season / Competition layer
 
@@ -933,9 +935,9 @@ an internal id. All access via SECURITY DEFINER RPCs (`resolve_invite_link`,
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `code` | text PK | NO | — | url-safe, generated server-side (`generate_url_safe_token`) |
-| `entity_type` | text | NO | — | CHECK `IN ('team','venue','fixture')` |
-| `entity_id` | text | NO | — | `teams.id` / `venues.id` / `fixtures.id::text`. Not a typed FK (polymorphic; `fixtures.id` is uuid) — integrity enforced in the resolver per `entity_type` |
-| `action` | text | NO | — | CHECK `IN ('join_team','venue_landing','match_checkin')` |
+| `entity_type` | text | NO | — | CHECK `IN ('team','venue','fixture','club_team')` (`club_team` added mig 390) |
+| `entity_id` | text | NO | — | `teams.id` / `venues.id` / `fixtures.id::text` / `club_teams.id::text`. Not a typed FK (polymorphic; `fixtures.id` + `club_teams.id` are uuid) — integrity enforced in the resolver per `entity_type` |
+| `action` | text | NO | — | CHECK `IN ('join_team','venue_landing','match_checkin','join_club_team')` (`join_club_team` added mig 390 — club-team join, distinct from casual `join_team`) |
 | `active` | boolean | NO | `true` | venue can deactivate (slice 7) |
 | `expires_at` | timestamptz | YES | — | NULL = never |
 | `max_uses` | integer | YES | — | NULL = unlimited |
@@ -946,6 +948,35 @@ an internal id. All access via SECURITY DEFINER RPCs (`resolve_invite_link`,
 
 Index: `invite_links_entity_idx` on `(entity_type, entity_id)` — for the
 management panel's per-entity code list (slice 7).
+
+**Club-team codes (mig 390, Club Structure Phase 2):** `entity_type='club_team'`,
+`action='join_club_team'`, `entity_id = club_teams.id::text`. Minted get-or-create
+by `club_ensure_team_invite_link(venue_token, team_id)` (venue-token + `manage_memberships`
+cap; ownership rolls up `club_teams.club_id → club_venues.venue_id` — NOT the league
+competition chain that the casual `team` branch uses). `resolve_invite_link` returns the
+club/cohort/team context (archived team → status `inactive`); the membership-gated join
+itself is Phase 3. Managed from the venue **Memberships → Structure** screen (per-team
+"Join link / QR"), separate from the generic QR-codes panel (`venue_owns_entity` is
+deliberately not extended to club teams).
+
+**Membership-gated join (mig 391, Club Structure Phase 3):** two RPCs turn a scanned
+`join_club_team` code into a team membership.
+- `club_team_join_context(p_code)` — STABLE SECDEF, **anon + authenticated**. Resolves
+  the code → team/cohort/club, then the club's venue (`club_venues` LIMIT 1) → that venue's
+  canonical `venue_landing` code (drives the existing 360 wizard). When a member is signed
+  in, also returns `self {profile_id, has_membership, on_team}` + accepted `children[]` with
+  the same flags. Statuses: `ok` / `not_found` / `inactive` (archived/off) / `expired` /
+  `exhausted` / `signup_not_configured` (no active venue_landing code).
+- `member_join_club_team(p_code, p_for_profile_id)` — SECDEF, **authenticated only** (anon
+  revoked). Target = caller's `member_profiles` row or an accepted child (`member_guardians`).
+  **Membership gate:** requires an active (`active`/`ending`) `venue_membership` for the
+  target at the team's venue, else returns `{ok:false, reason:'no_membership'}`. Idempotent
+  insert into `club_team_members` (NOT-EXISTS guard / reactivate — the table has no unique
+  index on `(team_id, member_profile_id)`); audit `club_team_member_joined`. Consumer
+  `ClubTeamJoin` reuses `MembershipSignup` (keyed on the venue_landing code) for the
+  register → tier → pay (Stripe **test mode**) path, then assigns the team and fires
+  `redeem_invite_link` post-join. Stripe `returnCode` brings a paid joiner back to the
+  club-team screen; the gated, idempotent join self-heals on re-scan.
 
 ---
 
@@ -958,8 +989,8 @@ RLS enabled + REVOKE ALL from anon, authenticated on all tables. Access via SECU
 - `clubs` — `id text PK`, name, short_name, contact_name, contact_email, `id_mandate bool`, `safeguarding_config jsonb` (CPSU toggle flags), `discipline text NOT NULL DEFAULT 'football'` (mig 355, CHECK IN football|gym|boxing|martial_arts|yoga|dance|fitness|other — vertical identity).
 - `venue_class_types.is_sparring bool NOT NULL DEFAULT false` (mig 356, Gym/Boxing Phase 1) — a class type is EITHER a technical class OR a sparring/open-mat session. Additive + nullable-safe (every existing type incl. football defaults false → zero footprint). Set at create (`venue_create_class_type` `p_is_sparring`) or edit (jsonb patch); surfaced by `venue_list_class_types` (operator badge) + `member_list_class_sessions` (member timetable badge). Booking reuses the class-session model wholesale — no new write RPC.
 - `club_venues` — `venue_id text FK→venues`, `club_id text FK→clubs`. M:N link. PK (venue_id, club_id).
-- `club_cohorts` — `id uuid PK`, `club_id text FK→clubs`, name, description, active, `primary_official_id uuid FK→match_officials` (mig 369, watchOS): default official for the cohort's fixtures (convenience binding; folds into the fixture arm of `get_my_next_assignment` — no separate resolver arm). Playing groups within a club.
-- `club_teams` — `id uuid PK`, `club_id text FK→clubs`, `name text`, `sport text NULL`, active. Club-domain playing teams (membership layer, not league layer). Unique per team_id in club.
+- `club_cohorts` — `id uuid PK`, `club_id text FK→clubs`, `name text`, `description text NULL`, `min_age int NULL`, `max_age int NULL`, `active bool DEFAULT true`, `category text NULL` CHECK youth|adult|mixed (mig 389), `primary_official_id uuid FK→match_officials` (mig 369, watchOS): default official for the cohort's fixtures (convenience binding; folds into the fixture arm of `get_my_next_assignment` — no separate resolver arm). AGE-GROUP layer within a club (e.g. Under 7s, First Team).
+- `club_teams` — `id uuid PK`, `club_id text FK→clubs`, `cohort_id uuid NOT NULL FK→club_cohorts` (nesting enforced), `name text`, `gender text NULL` CHECK girls|boys|mixed (mig 389), `priority_rank int NULL` (lower = higher; 1 = top side, mig 389), `archived_at timestamptz NULL` (soft-archive, mig 389), `created_at`. Club-domain playing teams (membership layer, not league layer) — distinct from the league/casual `teams` table. (No `sport`/`active` columns — earlier SCHEMA note was stale.)
 - `club_team_members` — `id uuid PK`, `team_id uuid FK→club_teams`, `member_profile_id uuid FK→member_profiles`, season, joined_at, left_at, is_active. PARTIAL UNIQUE(team_id, member_profile_id) WHERE is_active=true.
 - `club_team_managers` — `id uuid PK`, `team_id uuid FK→club_teams`, `member_profile_id uuid FK→member_profiles`, role (manager|assistant_manager|coach), is_active.
 - `club_staff_dbs` — `id uuid PK`, `member_profile_id uuid FK→member_profiles`, `club_id text FK→clubs`, check_type (basic|standard|enhanced|enhanced_barred), status (pending|valid|expired|withdrawn), certificate_number, issued_date, expiry_date, notes. UNIQUE(member_profile_id, club_id). mig 305.
@@ -968,10 +999,10 @@ RLS enabled + REVOKE ALL from anon, authenticated on all tables. Access via SECU
 - `club_session_rsvps` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, rsvp (in|out|maybe), for_profile_id (guardian child target). UNIQUE(session_id, member_profile_id).
 - `club_session_attendance` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, status (present|absent|late), recorded_at, recorded_by uuid FK→member_profiles. UNIQUE(session_id, member_profile_id). mig 304.
 - `club_session_guests` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, added_by uuid FK→member_profiles. UNIQUE(session_id, member_profile_id). mig 300.
-- `club_announcements` — `id uuid PK`, `club_id text`, `venue_id text`, `created_by uuid FK→auth.users`, title, body, audience (club|cohort|team), cohort_id NULL, team_id NULL, status (queued|sent|failed), email_sent_count, sent_at. mig 307.
+- `club_announcements` — `id uuid PK`, `club_id text`, `venue_id text`, `created_by uuid FK→auth.users`, title, body, audience (club|cohort|team), cohort_id NULL, team_id NULL, status (queued|sent|failed), email_sent_count, sent_at. mig 307. Phase-4 (mig 392): an `audience='team'` row can be created by a team MANAGER via `club_manager_send_announcement` (authenticated, not just the venue admin); delivery is identical (queued → cron → `get_pending_club_broadcasts`). As of mig 392 the team-audience recipient set in `get_pending_club_broadcasts` also includes **accepted guardians** (`member_guardians.invite_state='accepted'`) of the team's members, so team messages reach players AND guardians.
 - `club_merchandise` — `id uuid PK`, `club_id text FK→clubs`, `venue_id text FK→venues`, name, description NULL, category (kit|accessories|equipment|other), price_pence int, stock_qty int NULL (NULL = unlimited), active bool, created_at. mig 309.
 - `club_purchases` — `id uuid PK`, `club_id text FK→clubs`, `venue_id text FK→venues`, `member_profile_id uuid FK→member_profiles`, `item_id uuid FK→club_merchandise`, quantity int, unit_price_pence int, status (pending_payment|pending|fulfilled|cancelled), notes NULL, stripe_payment_intent_id text NULL, created_at. mig 309. `pending_payment` = Stripe hook point (dormant until keys provided).
-- `venue_membership_tiers` — `id uuid PK`, `venue_id text`, name, benefits jsonb, active, audience (all|adult|junior|family), pricing_model (recurring|season), season_start/season_end date NULL.
+- `venue_membership_tiers` — `id uuid PK`, `venue_id text`, name, benefits jsonb, active, audience (all|adult|junior|family), pricing_model (recurring|season), season_start/season_end date NULL, `proration_basis text NOT NULL DEFAULT 'none'` (none|monthly|weekly|daily — mig 393, season tiers only), `joining_fee_pence int NOT NULL DEFAULT 0` (mig 393, one-off added to the first charge). NOTE: tier `pricing_model` vocab is recurring|season; the **membership** row stores recurring|term (season→term mapped in the enrol RPCs).
 - `venue_tier_prices` — `id uuid PK`, `tier_id uuid FK→venue_membership_tiers`, period (monthly|quarterly|annual|season), price_type (standard|family|sibling), amount_pence, active.
 - `venue_memberships` — `id uuid PK`, `venue_id text`, `customer_id uuid NULL FK→venue_customers` (NULL for V2 pure-member path), `member_profile_id uuid NULL FK→member_profiles`, `payer_profile_id uuid NULL`, `tier_id uuid FK→venue_membership_tiers`, `club_id text NULL FK→clubs`, `cohort_id uuid NULL`, period, pricing_model, amount_pence, status (active|paused|ending|cancelled), started_at, renews_at, frozen_until NULL, cancel_at NULL, pass_token (m_… generated), stripe_subscription_id NULL, stripe_price_id NULL, payment_state (current|overdue|cancelled).
 - `policy_documents` — `id uuid PK`, `club_id text FK→clubs`, `venue_id text`, title, current_version_id uuid NULL FK→policy_document_versions, created_at. PARTIAL UNIQUE(club_id, title) WHERE current_version_id IS NOT NULL.

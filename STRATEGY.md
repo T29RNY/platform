@@ -252,6 +252,143 @@ platform is never permanently free above the casual wedge tier.**
 
 ---
 
+## PILOT MEETING FEEDBACK — multi-team football club (2026-06-22)
+
+First face-to-face feedback from a real multi-age football club pilot
+(the Club/Org SKU buyer). They explicitly framed In or Out as a
+**replacement for 360Player + MatchDay Admin + Tournify**. A second
+meeting (~2026-06-29) demos to the wider management team to get an
+agreement in place; the operator asked them to **promote it to other
+teams in their league/area** — the network effect is the real prize.
+
+### Prioritised backlog (work through one-by-one)
+
+> **NEXT SPRINT (to the ~2026-06-29 wider-mgmt demo): #8 → #9 → #4 → #10 + the #1 FA
+> feasibility spike.** Full scope + paste-ready kickoff prompt in
+> **`PILOT_DEMO_SPRINT_HANDOFF.md`**. Backlog #2 (org/team structure) is **COMPLETE**
+> (migs 389–393). Next free mig = 394.
+
+| # | Ask | Status today | Effort | Demo priority |
+|---|-----|--------------|--------|---------------|
+| 1 | **FA Full-Time fixture sync + change alerts** | **Spike DONE (session 178) → NO-GO on a clean feed** (no API/iCal/feed; only a login-gated display widget; Matchday closed; even Pitchero gets only a once-a-season FA export). **Route = AI-scan the embed into our `club_fixtures`, gated on a real pilot snippet** (Phase C, mig 397+, schema dormant-ready). See FA verdict below. | High → **grey/fragile; best-effort alerts** | 🔴 #1 — partnership endgame; AI-import deferred to snippet |
+| 2 | **Org/team structure (youth + adult under one club)** | ✅ **COMPLETE** — epic shipped migs 389–393 (structure, join link/QR, membership-gated join, manager comms, pro-rating) | — | ✅ done |
+| 3 | Mass invoicing | Built (Stripe infra migs 329–337, dormant) | Low (activate) | 🟢 demo as-is |
+| 4 | Coach invoice-chasing (auto reminders + who-hasn't-paid view) | ✅ **SHIPPED** (mig 398) — reminder cron CONFIRMED already covers membership arrears (`payment_due` kind, no change needed); new `club_manager_team_payments` powers a coach-facing **Subs & payments** roster (green Paid / red Owes £X) under "Message your team" in the consumer club view | Low–Med | ✅ done |
+| 5 | Internal vs external pitch booking + reserved/priority times | Pitch system built; priority layer not | Med | 🟠 show |
+| 6 | Team prioritisation system (some teams rank above others) | **Partial** — `club_teams.priority_rank` + ⭐ badge ship in the org chart (Phase 1, mig 389) but display-only; doesn't yet *drive* anything (e.g. pitch priority) | Med (to make it drive) | roadmap |
+| 7 | Multi-venue (train one site, play another) | Need to verify venue-scoping | Med | 🟠 mention |
+| 8 | Opposition-coach matchday info link | ✅ **SHIPPED** (migs 394–396) — `/matchday/<code>` public branded link (home team, kickoff, pitch, ref, address/directions, ground rules); live demo `app.in-or-out.com/matchday/demofalcons01` | Low | ✅ done |
+| 9 | Embed code (fixtures/results on own website) | ✅ **SHIPPED** (mig 397) — `/embed/league/<code>` iframe widget (our fixtures+results, our design) + FA official snippet stored per league for the club's own site | Low | ✅ done |
+| 10 | Simplify Venue OS UI ("too many similar-sounding options") | **Phase 0 (IA cleanup) ✅ SHIPPED (s178, no mig)** — rail 5 groups (Run · People · Programmes · Competition · Club & admin), Fixtures surfaced, Memberships 13→5 chips, coach/DBS Staff moved to top-level Staff, venue-hex tokenised. Remaining = Epic A flag engine Phases 1–4. Full plan in MODULAR_PLATFORM_HANDOFF.md. Next session = Phase 1 (flag foundation). | Med (~5–6 sessions whole epic) | 🔴 → Phase 1 next |
+| 11 | Modularity (clubs pick/pay per module; operator toggles) | **= Epic A Phase 2** (operator per-club/venue feature toggles) — delivered by the same nav epic. Two flag tables (venue_features + club_features); default-all-on; tiers deferred | Med–High | 🔴 → Epic A Phase 2 |
+| 12 | Reporting / data | Not covered | High | roadmap |
+| 13 | Season setup once + ad-hoc changes | Partial | Low–Med | mention |
+| 14–17 | Pitch assignments / reception view / ref view / live data | Built ✅ — all "loved/amazing" | — | 🟢 feature hard |
+
+### Competitor pricing intel (gathered 2026-06-22)
+
+- **360Player** (primary replace target): Core £99/mo, Power £349/mo,
+  All-in-One £499/mo + à-la-carte add-ons (Scheduling £79, Dev/Stats
+  £109, Training Library £119, Video £189, SSO £199) + £299 onboarding.
+  A serious club = **£4k–£6k/yr**.
+- **Tournify**: ≤8 teams free; €40 (≤60 teams) / €120 (unlimited) per
+  event; or **€300/yr** for up to 30 tournaments (each unlimited-team).
+- **MatchDay Admin**: low £/mo, no clean public figure pulled yet.
+- **Combined competitor stack ≈ £500+/mo (£6k+/yr)** — this is the
+  anchor: "one platform replaces all three."
+- **Pricing play for the meeting** (consistent with PILOT COMMERCIAL
+  TERMS above — founder = % off list, never a symbolic absolute):
+  state a **list price (~£299/mo all-modules, undercutting 360Player)**,
+  then apply the locked founder % discount bought with the in-kind terms
+  (feedback call, case study, **referrals**). Have a **per-module price
+  table** ready (mirrors 360Player's add-on model) since they asked for
+  modularity. Confirms the Pitchero-model direction above: £/mo SKU +
+  transaction clip on money through our payments module.
+
+### FA Full-Time — feasibility verdict (researched 2026-06-22)
+
+The "bring tons of teams onboard" lever. Two routes:
+
+1. **Official embed code** (Media → Code Snippets in Full-Time admin):
+   legit, easy, satisfies the "embed on our website" ask (#9) — but it's
+   the FA's locked widget styling, display-only, not restyleable, not
+   alert-able. Club-level feed is single-league only.
+2. **Ingest the data with the club's admin authorisation**: pull all the
+   club's teams (one feed per league they play in), render in **our**
+   design, and **alert teams when a fixture changes** — the
+   differentiator. **Honest caveats:** technically doable, but a **legal
+   grey area** (the club signed the FA's terms, which discourage
+   automated extraction; the FA locked feeds behind admin login *because*
+   sites were pulling data) and **fragile** (undocumented internal feed;
+   FA can change/block it). Native iCal/RSS is moving to the FA's newer
+   "Matchday" product, not Full-Time. **Scales club-by-club** (each must
+   authorise their own login) — NOT "switch on once, whole league
+   appears."
+
+**Meeting framing (do not over-claim):** *"We pull your league data in
+with your authorisation and present it in our design today; the fully
+FA-official version is a partnership conversation as we grow."* The
+sanctioned route is an FA data-partner agreement — worth pursuing
+separately for certainty.
+
+### SPIKE VERDICT — deepened (2026-06-22, session 178)
+
+A focused second spike (incl. the Matchday product + how Pitchero actually
+does it) hardened the verdict to **NO-GO on a clean automated feed; the only
+import path is AI-reading the official display widget; the endgame is an FA/
+Pitchero-style partnership earned as we grow.**
+
+- **No machine-readable feed or API exists.** The FA exposes no iCal/RSS/XML/
+  JSON feed and no public API — only a login-gated, per-division JavaScript
+  **display widget** ("Code Snippets"), deliberately walled against scraping.
+  The calendar-feed request was marked "Not Taken" for Full-Time and "Deferred"
+  for an API on the FA's own forums.
+- **Matchday is NOT an integration door.** It's the FA's own free consumer app
+  (team sheets / scores / club comms) that syncs *internally* with Full-Time/
+  Whole Game. No export, no API, no calendar feed out. It's effectively a free,
+  FA-backed **competitor** to parts of our product, not a data tap. Worth noting
+  as a competitive flag, not a route.
+- **Even Pitchero doesn't get a live FA feed.** Their one true live API is
+  **cricket's ECB** (which offers a real API). For the FA they get only a
+  **one-time, per-division export at the start of the season** — and even that
+  runs on a **selective ~15-year partnership**, not an open door. So "get the
+  same integration as Pitchero" = *become an FA-recognised partner*, a
+  commercial/relationship play, not a technical switch. Useful reframe: even the
+  market leader only refreshes FA data **once a season** — our AI-scan could be
+  *fresher* (daily), and the partnership is the proven endgame.
+- **What we BUILT this sprint (the honest, shippable layers):**
+  (1) **#8/#9 — our own fixtures store** (`club_leagues`/`club_fixtures`, migs
+  394–397): operator holds home/away games vs free-text opponents, assigns
+  pitch/ref/ground-rules, gets a public opposition-coach matchday link
+  (`/matchday/<code>`) **and** an embeddable fixtures/results widget for the
+  club's own site (`/embed/league/<code>`). Zero FA dependency, zero risk.
+  (2) **FA snippet on file** — the operator can store their official FA "Table"
+  Code Snippet against a league and paste it on their own site for the official
+  division table (we don't render the FA script ourselves).
+- **The deferred AI-import layer (Phase C, gated):** AI reads the rendered FA
+  widget → structured rows → one-time FA-name→our-team mapping → upsert into
+  `club_fixtures` (`source='fa_import'`, `fa_fixture_key` for diffing) → daily
+  poll → diff → change-alert via the existing broadcast/email plumbing. **Grey,
+  fragile (no stable fixture id → change-alerts are best-effort, never
+  guaranteed), and gated on a real pilot snippet** to check for a hidden data
+  URL before building. The `club_fixtures` schema already carries the dormant
+  columns, so Phase C is behavioural-only. Do **not** over-claim change-alerts
+  in the demo.
+
+**Trigger to build Phase C:** a real FA Full-Time code snippet from the pilot
+club admin (to confirm whether any usable/stable id or data URL hides behind the
+widget). Until then: ship the embed-display + our-own-fixtures story.
+
+### Sources
+- 360Player GBP pricing: https://www.360player.com/prices/club-gbp
+- Tournify pricing: https://tournifyapp.com/en/pricing
+- FA Full-Time feeds: https://grassrootstechnology.thefa.com/support/solutions/articles/48001158072-embedding-league-tables-fixtures-tables-full-time-feeds-
+- FA — calendar files "Not Taken" / API "Deferred": https://grassrootstechnology.thefa.com/support/discussions/topics/48000563653 · https://grassrootstechnology.thefa.com/support/discussions/topics/48000563596
+- FA Matchday (closed consumer app): https://www.englandfootball.com/participate/leagues-and-clubs/helpful-apps-and-websites/matchday
+- Pitchero — FA = one-time seasonal export, ECB = live API: https://help.pitchero.com/knowledge/3rd-party-powered-competitions · https://join.pitchero.com/non-league-football
+
+---
+
 ## PILOT-PREP WEEK (to 2026-06-18)
 
 1. **QR Onboarding v1** — the only net-new build (see DECISIONS.md
