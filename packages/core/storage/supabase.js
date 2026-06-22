@@ -5603,12 +5603,43 @@ export async function getTeamFeatureFlags(teamId) {
 const ALL_FEATURES_ON = {
   bookings: true, spaces: true, room_hire: true, equipment: true,
   memberships: true, competition: true, coaching: true, tournaments: true, public_web: true,
+  disciplines: [],   // mig 400: distinct clubs.discipline at the venue (relevance axis)
 };
 export async function getVenueFeatureFlags(credential) {
   if (!credential) return { ...ALL_FEATURES_ON };
   const { data, error } = await supabase.rpc("get_venue_feature_flags", { p_credential: credential });
   if (error) { console.error("[nav] get_venue_feature_flags failed", error); return { ...ALL_FEATURES_ON }; }
   return data ?? { ...ALL_FEATURES_ON };
+}
+
+// Operator feature-toggle settings (mig 400). Full per-venue + per-club flag state
+// for the FeaturesView toggle screen: { venue:{bookings,...}, clubs:[{club_id,name,
+// discipline,memberships,...}] }. manage_facility-gated server-side. Throws on error
+// (the screen shows a load error rather than silently rendering wrong toggle state).
+export async function venueGetFeatureSettings(venueToken) {
+  const { data, error } = await supabase.rpc("venue_get_feature_settings", { p_venue_token: venueToken });
+  if (error) { console.error("[nav] venue_get_feature_settings failed", error); throw error; }
+  return data ?? { venue: {}, clubs: [] };
+}
+
+// Toggle a VENUE (facility) feature on/off (mig 400). Returns { ok, applied:{...} }.
+export async function venueSetVenueFeature(venueToken, feature, enabled) {
+  const { data, error } = await supabase.rpc("venue_set_venue_feature", {
+    p_venue_token: venueToken, p_feature: feature, p_enabled: enabled,
+  });
+  if (error) { console.error("[nav] venue_set_venue_feature failed", error); throw error; }
+  return data;
+}
+
+// Toggle a CLUB (org) feature on/off (mig 400). Enforces the dependency graph
+// server-side (enabling coaching auto-enables memberships; disabling memberships
+// while coaching is on throws 'dependency_required'). Returns { ok, applied:{...} }.
+export async function venueSetClubFeature(venueToken, clubId, feature, enabled) {
+  const { data, error } = await supabase.rpc("venue_set_club_feature", {
+    p_venue_token: venueToken, p_club_id: clubId, p_feature: feature, p_enabled: enabled,
+  });
+  if (error) { console.error("[nav] venue_set_club_feature failed", error); throw error; }
+  return data;
 }
 
 // Guardian: every child's upcoming training + matches across ALL their clubs
