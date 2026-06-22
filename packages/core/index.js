@@ -392,6 +392,7 @@ export {
   clubAdminGetTournament,
   getTournamentPublic,
   getClubFixtureMatchday,
+  getClubLeaguePublic,
   tournamentRegisterTeam,
   clubAdminUpdateTournamentStatus,
   clubAdminAddCompetition,

@@ -542,11 +542,31 @@ function FixturesTab({ venueToken, pitches = [], refs = [] }) {
   const [error, setError] = useState(null);
   const isSavingRef = useRef(false);
 
+  const [faSnippet, setFaSnippet] = useState("");
+  const [embedCopied, setEmbedCopied] = useState(false);
+
   const MATCHDAY_BASE = "https://app.in-or-out.com";
   const copyShareLink = async (shareCode) => {
     const url = `${MATCHDAY_BASE}/matchday/${shareCode}`;
     try { await navigator.clipboard.writeText(url); setCopied(shareCode); setTimeout(() => setCopied(null), 2000); }
     catch { window.prompt("Copy this matchday link:", url); }
+  };
+
+  const selectedLeague = (leagues || []).find((l) => l.league_id === leagueId) || null;
+  useEffect(() => { setFaSnippet(selectedLeague?.fa_embed_code || ""); }, [leagueId, leagues]);
+  const embedSnippet = selectedLeague?.embed_code
+    ? `<iframe src="${MATCHDAY_BASE}/embed/league/${selectedLeague.embed_code}" width="100%" height="600" style="border:0" title="Fixtures & results"></iframe>`
+    : "";
+  const copyEmbed = async () => {
+    try { await navigator.clipboard.writeText(embedSnippet); setEmbedCopied(true); setTimeout(() => setEmbedCopied(false), 2000); }
+    catch { window.prompt("Copy this embed code:", embedSnippet); }
+  };
+  const saveFaSnippet = async () => {
+    if (isSavingRef.current || !leagueId) return;
+    isSavingRef.current = true; setError(null);
+    try { await venueUpdateClubLeague(venueToken, leagueId, { faEmbedCode: faSnippet.trim() || "" }); loadLeagues(clubId); }
+    catch (e) { setError("Couldn’t save the FA snippet — try again."); }
+    finally { isSavingRef.current = false; }
   };
 
   useEffect(() => {
@@ -702,6 +722,23 @@ function FixturesTab({ venueToken, pitches = [], refs = [] }) {
 
       {leagueId && (
         <>
+          {/* Embed on the club's own website */}
+          <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+            <strong style={{ display: "block", marginBottom: 4 }}>Put these fixtures on your website</strong>
+            <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>Paste this snippet into your club site — your fixtures &amp; results, live, in our design.</p>
+            <textarea className="input" readOnly rows={2} value={embedSnippet} onFocus={(e) => e.target.select()} style={{ fontFamily: "monospace", fontSize: 12 }} />
+            <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button className="btn btn-sm btn-primary" onClick={copyEmbed}><Icon name="copy" size={13} /> {embedCopied ? "Copied!" : "Copy embed code"}</button>
+              {selectedLeague?.embed_code && <a className="btn btn-sm btn-ghost" href={`${MATCHDAY_BASE}/embed/league/${selectedLeague.embed_code}`} target="_blank" rel="noreferrer">Preview</a>}
+            </div>
+            <div style={{ borderTop: "1px solid var(--border)", marginTop: 14, paddingTop: 12 }}>
+              <strong style={{ display: "block", marginBottom: 4 }}>Official FA league table (optional)</strong>
+              <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>The FA only gives a display widget, not data we can pull. Keep your FA Full-Time “Table” code snippet here for reference, then paste it on your own site for the official division table.</p>
+              <textarea className="input" rows={2} value={faSnippet} onChange={(e) => setFaSnippet(e.target.value)} placeholder="Paste your FA Full-Time code snippet…" style={{ fontFamily: "monospace", fontSize: 12 }} />
+              <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={saveFaSnippet}>Save FA snippet</button>
+            </div>
+          </div>
+
           {!form && <button className="btn btn-primary" style={{ marginBottom: "var(--gap-2)" }} onClick={() => setForm(emptyFixture())}><Icon name="plus" size={14} /> Add fixture</button>}
 
           {form && (

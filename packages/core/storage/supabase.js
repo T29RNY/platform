@@ -4883,10 +4883,10 @@ export async function venueCreateClubLeague(venueToken, clubId, { name, seasonLa
   return data;
 }
 
-export async function venueUpdateClubLeague(venueToken, leagueId, { name = null, seasonLabel = null, archived = null } = {}) {
+export async function venueUpdateClubLeague(venueToken, leagueId, { name = null, seasonLabel = null, archived = null, faEmbedCode = null } = {}) {
   const { data, error } = await supabase.rpc("venue_update_club_league", {
     p_venue_token: venueToken, p_league_id: leagueId, p_name: name,
-    p_season_label: seasonLabel, p_archived: archived,
+    p_season_label: seasonLabel, p_archived: archived, p_fa_embed_code: faEmbedCode,
   });
   if (error) { console.error("[league] venue_update_club_league failed", error); throw error; }
   return data;
@@ -5640,6 +5640,16 @@ export async function getClubFixtureMatchday(shareCode) {
     p_share_code: shareCode,
   });
   if (error) { console.error("[matchday] get_club_fixture_matchday failed", error); throw error; }
+  return data;
+}
+
+// Public, no-login embeddable league widget (mig 397) — a club's fixtures +
+// results, keyed on club_leagues.embed_code. Rendered chrome-free for iframing.
+export async function getClubLeaguePublic(embedCode) {
+  const { data, error } = await supabase.rpc("get_club_league_public", {
+    p_embed_code: embedCode,
+  });
+  if (error) { console.error("[embed] get_club_league_public failed", error); throw error; }
   return data;
 }
 

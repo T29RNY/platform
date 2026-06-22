@@ -25,7 +25,13 @@ PILOT_DEMO_SPRINT_HANDOFF.md / STRATEGY.md. ⛔ owed real-device venue walk of t
 kick-off, pitch, ref, venue address/directions, ground rules; tokens-only). Venue "Share matchday
 link" button per home fixture. Mig 396 = idempotent demo seed (Finbar's FC U12 Falcons v Riverside
 Rangers, stable code `demofalcons01`) — live populated render Playwright-verified. ⛔ owed
-real-iPhone walk. Phase C = FA AI-import (mig 397).
+real-iPhone walk. Phase C = FA AI-import (snippet-gated, mig 398+).
+
+**#9 Embed code SHIPPED (mig 397).** Per-league `embed_code` + public `get_club_league_public` +
+chrome-free `/embed/league/<code>` widget (our fixtures+results, iframe-friendly). Venue "Put these
+fixtures on your website" panel: ready-to-paste `<iframe>` snippet + an FA Full-Time snippet field
+stored per league (`fa_embed_code`) for the club's own site. FA = display-only (spike NO-GO on a
+feed; STRATEGY/DECISIONS s178). Live render Playwright-verified (`/embed/league/5b59146bb5`).
 
 ### NEXT EPIC (scoped, not built) — Modular platform: packaging + FA fixtures + public web + ref-as-module
 Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPro review. Full plan

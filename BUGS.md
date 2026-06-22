@@ -46,8 +46,24 @@ an `_e2e_` fixture (full shape + not-found) + leak 0, build venue+inorout clean,
 (MatchdayScreen + App.jsx), casual-regression PASS via additive-diff (App.jsx +5 lines, zero
 modifications — casual byte-identical), **Playwright populated render verified live**
 (`/matchday/demofalcons01` → full branded page, 0 app console errors). ⛔ **OWED real-iPhone walk**
-of the matchday link (apps/inorout/src; Hard Rule #13). Phase C (mig 397) = FA AI-import.
-**Next free mig = 397.**
+of the matchday link (apps/inorout/src; Hard Rule #13).
+
+**✅ #9 EMBED CODE SHIPPED in the same session (mig 397).** Put a club's fixtures/results on
+their own website. Per-league `embed_code` (additive, backfilled + UNIQUE) + public
+`get_club_league_public(p_embed_code)` (anon SECDEF read → club/league + fixtures & results) + a
+chrome-free `/embed/league/<code>` `EmbedLeagueScreen` (tokens-only, iframe-friendly — no X-Frame
+block is set so it frames cleanly). Venue Fixtures tab gains a **"Put these fixtures on your
+website"** panel: a ready-to-paste `<iframe>` snippet (copy + Preview) **and** an "Official FA
+league table" field that stores the club's FA Full-Time Code Snippet on the league
+(`fa_embed_code`, via the extended `venue_update_club_league` — old 5-arg overload DROPped) for the
+club to paste on their own site. FA snippet = display-only (the spike's NO-GO on a data feed —
+DECISIONS/STRATEGY s178). Demo seed (mig 396) gained a played result (U12 Falcons 3–1 Brookside)
+so the widget shows Fixtures + Results. Gates: rpc-security PASS (2 RPCs single-overload after the
+DROP, SECDEF/search_path/anon+auth), public read smoke-verified live, build venue+inorout clean,
+hygiene 7/7 (EmbedLeagueScreen + App.jsx), casual-regression PASS via additive-diff (App.jsx +5
+lines, zero modifications), **Playwright embed render verified live** (`/embed/league/5b59146bb5`
+→ Fixtures + Results, 0 app console errors). ⛔ owed real-iPhone/real-site iframe check. Phase C
+(FA AI-import) remains snippet-gated. **Next free mig = 398.**
 
 ---
 

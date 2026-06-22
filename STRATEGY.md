@@ -270,15 +270,15 @@ teams in their league/area** — the network effect is the real prize.
 
 | # | Ask | Status today | Effort | Demo priority |
 |---|-----|--------------|--------|---------------|
-| 1 | **FA Full-Time fixture sync + change alerts** | Not built. **Reframed (operator 2026-06-22): paste-a-feed-URL → poll → diff → change-alert (calendar-style), not login-scrape.** Feasibility spike first (are FA per-division feed URLs still obtainable?) | High → **Med if feeds obtainable** | 🔴 #1 — kingmaker (spike first) |
+| 1 | **FA Full-Time fixture sync + change alerts** | **Spike DONE (session 178) → NO-GO on a clean feed** (no API/iCal/feed; only a login-gated display widget; Matchday closed; even Pitchero gets only a once-a-season FA export). **Route = AI-scan the embed into our `club_fixtures`, gated on a real pilot snippet** (Phase C, mig 397+, schema dormant-ready). See FA verdict below. | High → **grey/fragile; best-effort alerts** | 🔴 #1 — partnership endgame; AI-import deferred to snippet |
 | 2 | **Org/team structure (youth + adult under one club)** | ✅ **COMPLETE** — epic shipped migs 389–393 (structure, join link/QR, membership-gated join, manager comms, pro-rating) | — | ✅ done |
 | 3 | Mass invoicing | Built (Stripe infra migs 329–337, dormant) | Low (activate) | 🟢 demo as-is |
 | 4 | Coach invoice-chasing (auto reminders + who-hasn't-paid view) | **Partly built** — membership-reminder cron `get_membership_reminders_due` exists (no-ops until `RESEND_API_KEY`); gap = coach-facing per-team paid/unpaid pill + reminder coverage | Low–Med | 🟠 in next sprint |
 | 5 | Internal vs external pitch booking + reserved/priority times | Pitch system built; priority layer not | Med | 🟠 show |
 | 6 | Team prioritisation system (some teams rank above others) | **Partial** — `club_teams.priority_rank` + ⭐ badge ship in the org chart (Phase 1, mig 389) but display-only; doesn't yet *drive* anything (e.g. pitch priority) | Med (to make it drive) | roadmap |
 | 7 | Multi-venue (train one site, play another) | Need to verify venue-scoping | Med | 🟠 mention |
-| 8 | Opposition-coach matchday info link | Reuse tournament-hub pattern | Low | 🔴 #2 demo |
-| 9 | Embed code (fixtures/results on own website) | FA official snippet + our standalone views | Low | 🟢 easy win |
+| 8 | Opposition-coach matchday info link | ✅ **SHIPPED** (migs 394–396) — `/matchday/<code>` public branded link (home team, kickoff, pitch, ref, address/directions, ground rules); live demo `app.in-or-out.com/matchday/demofalcons01` | Low | ✅ done |
+| 9 | Embed code (fixtures/results on own website) | ✅ **SHIPPED** (mig 397) — `/embed/league/<code>` iframe widget (our fixtures+results, our design) + FA official snippet stored per league for the club's own site | Low | ✅ done |
 | 10 | Simplify Venue OS UI ("too many similar-sounding options") | Needs IA pass | Med | 🔴 #3 demo |
 | 11 | Modularity (clubs pick/pay per module; operator toggles) | Superadmin toggles exist; per-module self-select + pricing not | Med–High | 🔴 show toggles |
 | 12 | Reporting / data | Not covered | High | roadmap |
@@ -331,10 +331,61 @@ FA-official version is a partnership conversation as we grow."* The
 sanctioned route is an FA data-partner agreement — worth pursuing
 separately for certainty.
 
+### SPIKE VERDICT — deepened (2026-06-22, session 178)
+
+A focused second spike (incl. the Matchday product + how Pitchero actually
+does it) hardened the verdict to **NO-GO on a clean automated feed; the only
+import path is AI-reading the official display widget; the endgame is an FA/
+Pitchero-style partnership earned as we grow.**
+
+- **No machine-readable feed or API exists.** The FA exposes no iCal/RSS/XML/
+  JSON feed and no public API — only a login-gated, per-division JavaScript
+  **display widget** ("Code Snippets"), deliberately walled against scraping.
+  The calendar-feed request was marked "Not Taken" for Full-Time and "Deferred"
+  for an API on the FA's own forums.
+- **Matchday is NOT an integration door.** It's the FA's own free consumer app
+  (team sheets / scores / club comms) that syncs *internally* with Full-Time/
+  Whole Game. No export, no API, no calendar feed out. It's effectively a free,
+  FA-backed **competitor** to parts of our product, not a data tap. Worth noting
+  as a competitive flag, not a route.
+- **Even Pitchero doesn't get a live FA feed.** Their one true live API is
+  **cricket's ECB** (which offers a real API). For the FA they get only a
+  **one-time, per-division export at the start of the season** — and even that
+  runs on a **selective ~15-year partnership**, not an open door. So "get the
+  same integration as Pitchero" = *become an FA-recognised partner*, a
+  commercial/relationship play, not a technical switch. Useful reframe: even the
+  market leader only refreshes FA data **once a season** — our AI-scan could be
+  *fresher* (daily), and the partnership is the proven endgame.
+- **What we BUILT this sprint (the honest, shippable layers):**
+  (1) **#8/#9 — our own fixtures store** (`club_leagues`/`club_fixtures`, migs
+  394–397): operator holds home/away games vs free-text opponents, assigns
+  pitch/ref/ground-rules, gets a public opposition-coach matchday link
+  (`/matchday/<code>`) **and** an embeddable fixtures/results widget for the
+  club's own site (`/embed/league/<code>`). Zero FA dependency, zero risk.
+  (2) **FA snippet on file** — the operator can store their official FA "Table"
+  Code Snippet against a league and paste it on their own site for the official
+  division table (we don't render the FA script ourselves).
+- **The deferred AI-import layer (Phase C, gated):** AI reads the rendered FA
+  widget → structured rows → one-time FA-name→our-team mapping → upsert into
+  `club_fixtures` (`source='fa_import'`, `fa_fixture_key` for diffing) → daily
+  poll → diff → change-alert via the existing broadcast/email plumbing. **Grey,
+  fragile (no stable fixture id → change-alerts are best-effort, never
+  guaranteed), and gated on a real pilot snippet** to check for a hidden data
+  URL before building. The `club_fixtures` schema already carries the dormant
+  columns, so Phase C is behavioural-only. Do **not** over-claim change-alerts
+  in the demo.
+
+**Trigger to build Phase C:** a real FA Full-Time code snippet from the pilot
+club admin (to confirm whether any usable/stable id or data URL hides behind the
+widget). Until then: ship the embed-display + our-own-fixtures story.
+
 ### Sources
 - 360Player GBP pricing: https://www.360player.com/prices/club-gbp
 - Tournify pricing: https://tournifyapp.com/en/pricing
 - FA Full-Time feeds: https://grassrootstechnology.thefa.com/support/solutions/articles/48001158072-embedding-league-tables-fixtures-tables-full-time-feeds-
+- FA — calendar files "Not Taken" / API "Deferred": https://grassrootstechnology.thefa.com/support/discussions/topics/48000563653 · https://grassrootstechnology.thefa.com/support/discussions/topics/48000563596
+- FA Matchday (closed consumer app): https://www.englandfootball.com/participate/leagues-and-clubs/helpful-apps-and-websites/matchday
+- Pitchero — FA = one-time seasonal export, ECB = live API: https://help.pitchero.com/knowledge/3rd-party-powered-competitions · https://join.pitchero.com/non-league-football
 
 ---
 
