@@ -14,6 +14,19 @@ only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
 **Rule:** If an RPC doesn't exist for a write you need, create it in Supabase SQL
 editor first, then add the JS wrapper. See CLAUDE.md RPC CHECKLIST.
 
+> **Session 173 (mig 381) — `admin_set_player_status` is now SOFT EVERYWHERE.** Body
+> changed `admin_locked_in = (p_status='in')` → `admin_locked_in = false` (metadata
+> `locked_after` always false); signature/grants/return-shape UNCHANGED (anon+authenticated,
+> SECDEF, search_path, overload=1). Effect: an admin setting a player's status never locks
+> them — the player can always self-restore. `admin_locked_in` is now dormant (no producer);
+> the `set_player_status` guard reading it is dead but left in place. NEW CONSUMER
+> (Hard Rule #14): `apps/inorout` My View `AdminPlayerActionSheet` (admin avatar-tap), in
+> addition to the existing Admin View SquadScreen ⋮ menu + PlayerProfile. `set_guest_payment`
+> (unchanged) gains a NEW CONSUMER: the same sheet's per-guest who-pays toggle. EV 4/4 +
+> leak 0. ⛔ NOTE: the legacy player +1 form (`PlayerView.submitGuest`) still does NOT call
+> `set_guest_payment`, so its who-pays toggle persists nothing + registers no fee — open
+> latent bug (BUGS.md s173).
+
 ---
 
 ## PATTERN
