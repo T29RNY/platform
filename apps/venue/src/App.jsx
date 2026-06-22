@@ -261,6 +261,7 @@ export default function App() {
       onSwitchVenue={(venues && venues.length > 1) ? () => setSelectedVenueId(null) : null}
       onRefresh={() => load(credential)}
       onRefreshOccupancy={() => loadOccupancy(credential)}
+      onRefreshFeatures={() => loadFeatures(credential)}
       refreshing={loading}
       membershipTick={membershipTick}
     />

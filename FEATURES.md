@@ -30,14 +30,35 @@ Customer CRUD intentionally NOT gated (always-on Customers screen). Verified: li
 diff proved guard-only changes across all 74 (REMOVED=0); EV proved flag-off rejects + flag-on
 passes through, self-rolled-back + leak-clean; helpers revoked from anon/authenticated; venue build
 + hygiene clean; Playwright boot smoke (rail identical all-on, Bookings vanished when toggled off,
-restored). ⛔ owed real-device venue walk (s178 Phase 0 walk still owed too). **Next: Phase 2 =
-A+B+C only (split decision s179)** — A operator toggle UI + B dependency graph (Memberships→Payments,
-Coaching→Memberships→Payments, paid Tournaments→Payments) + C discipline axis (reuse
-`clubs.discipline`/`disciplineLabels` as a relevance gate alongside the purchased flag) = backlog
-#11, ~1 session, smaller than Phase 1. The multi-venue **membership-scope refactor** (`venue_id=` →
-scope, ~17 eligibility RPCs, highest-risk) is DEFERRED to its own **Phase 2.5** cycle — data
-correctness, not UI; don't bundle. Then Phase 3 (presets), Phase 4 (rail 18→8). Full phased plan in
-**MODULAR_PLATFORM_HANDOFF.md**.
+restored). ⛔ owed real-device venue walk (s178 Phase 0 walk still owed too).
+
+**Phase 2 — A+B+C SHIPPED (mig 400, s180).** The operator can now flip features safely (backlog #11).
+**A — toggle UI:** new venue rail item **Features** (Club & admin group, `manage_facility`-gated) →
+`FeaturesView` lists facility features (venue) + one section per club (org features) with on/off
+toggles. New RPCs: read `venue_get_feature_settings` + writes `venue_set_venue_feature` /
+`venue_set_club_feature` (manage_facility-gated, audited; a flag row is written ONLY when something is
+OFF and pruned once all-on again → the no-row=on / zero-backfill invariant is preserved exactly).
+**B — dependency graph** enforced server-side in `venue_set_club_feature`: enabling Coaching
+auto-enables Memberships; disabling Memberships is blocked (`dependency_required`) while Coaching is
+on (the UI reflects it — Memberships toggle locked with a reason). Payments is always-on core (not a
+flag) so its edges (Memberships→Payments, Tournaments→Payments) are satisfied-by-construction; encoded
+as comments for a future `payments` flag. **C — discipline axis** (relevance, a SECOND rail gate kept
+separate from the purchased flag): `get_venue_feature_flags` extended with `disciplines`; new
+`lib/featureRelevance.js` `itemDisciplineRelevant()` hides Classes/Trainers from football-only venues
+and Leagues/Standings/Fixtures/Cups from non-team venues, union across the venue's clubs, fail-open on
+unknown/'other'. Gates: rpc-security PASS (single-overload/SECDEF/search_path; anon+authenticated
+grant — the shared backdoor token calls every venue_* RPC as anon, a smoke-caught fix from an initial
+wrong authenticated-only lock), EV 10/10 + leak 0 (toggle persists, auto-enable + unsafe-disable both
+fire, default-all-on preserved), venue build + hygiene 7/7, hex hand-check, discipline logic 15/15
+unit, Playwright boot smoke on demo (Features renders 3 clubs, Bookings OFF → rail+screen+server all
+reject with `feature_disabled` → ON restores, demo_venue back to 0 rows, 0 console errors).
+casual-regression PASS via additive-diff (packages/core +34 lines/0 removed, no apps/inorout touched).
+⛔ owed real-device venue walk (now Phase 0+1+2). **Next free mig = 401.**
+
+**Next: Phase 2.5 — membership-scope refactor** (`venue_memberships.venue_id =` → membership SCOPE,
+~17 eligibility RPCs, highest-risk data-correctness/RLS rewrite, full EV each) — its own cycle, NOT
+bundled with toggle UI. Then Phase 3 (package presets), Phase 4 (rail 18→8 wiring). Full phased plan
+in **MODULAR_PLATFORM_HANDOFF.md**.
 
 **#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
 `club_leagues` + `club_fixtures` RPC-only tables let a club hold its own home/away games vs

@@ -25,7 +25,9 @@ import InvitesView from "./InvitesView.jsx";
 import IntegrationsView from "./IntegrationsView.jsx";
 import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
+import FeaturesView from "./FeaturesView.jsx";
 import { poundsRound } from "../lib/format.js";
+import { itemDisciplineRelevant } from "../lib/featureRelevance.js";
 
 // Rail IA (session 178, Phase 0): five groups — Run · People · Programmes ·
 // Competition · Club & admin. Pure regroup/rename; ids are unchanged so deep
@@ -65,6 +67,7 @@ const TABS = [
   ]},
   { group: "Club & admin", items: [
     { id: "invites",      label: "QR codes",     icon: "settings" },
+    { id: "features",     label: "Features",     icon: "settings", facilityOnly: true },
     { id: "access",       label: "Access",       icon: "settings", adminOnly: true },
     { id: "integrations", label: "Integrations", icon: "settings" },
   ]},
@@ -90,6 +93,7 @@ const TITLES = {
   access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room hire", league: "Leagues", table: "Standings", cups: "Cups",
   fixtures: "Fixtures",
   integrations: "Integrations",
+  features: "Features",
 };
 
 // manage_logins capability for the signed-in caller (token backdoor = full owner).
@@ -102,7 +106,18 @@ function canManageLogins(me) {
   return me.role === "manager";
 }
 
-export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, features = null, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, refreshing, membershipTick = 0 }) {
+// manage_facility capability — gates the Features (modular toggle) screen, the
+// same cap the server RPCs enforce. Token backdoor / owner = full.
+function canManageFacility(me) {
+  if (!me) return false;
+  if (me.mode === "token") return true;
+  if (me.role === "owner") return true;
+  if ((me.capsDeny || []).includes("manage_facility")) return false;
+  if ((me.capsGrant || []).includes("manage_facility")) return true;
+  return me.role === "manager";
+}
+
+export default function Dashboard({ state, venueToken, occupancy = [], bookingIns = {}, features = null, me, onSignOut, onSwitchVenue, onRefresh, onRefreshOccupancy, onRefreshFeatures, refreshing, membershipTick = 0 }) {
   const [view, setView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.has("connect") ? "integrations" : "ops";
@@ -140,6 +155,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   const liveCount = tonight.filter((f) => f.status === "in_progress").length;
   const anyLive = liveCount > 0;
   const showAccess = canManageLogins(me);
+  const showFeatures = canManageFacility(me);
 
   return (
     <div className="app">
@@ -147,7 +163,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
         view={view} onView={setView}
         bookingBadge={pendingCount}
         features={features}
-        hasCups={hasCups} showAccess={showAccess}
+        hasCups={hasCups} showAccess={showAccess} showFeatures={showFeatures}
         anyLive={anyLive} liveCount={liveCount}
         onOpenWizard={() => setWizardOpen(true)}
         onOpenDisplay={() => setDisplayOpen(true)}
@@ -203,6 +219,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "table" && <LeagueTable state={state} venueToken={venueToken} />}
           {view === "cups" && <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
           {view === "integrations" && <IntegrationsView venueToken={venueToken} />}
+          {view === "features" && <FeaturesView venueToken={venueToken} features={features} onChanged={onRefreshFeatures} />}
           </>)}
         </main>
       </div>
@@ -223,7 +240,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   );
 }
 
-function Rail({ view, onView, bookingBadge, features, hasCups, showAccess, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue }) {
+function Rail({ view, onView, bookingBadge, features, hasCups, showAccess, showFeatures, anyLive, liveCount, onOpenWizard, onOpenDisplay, me, onSignOut, onSwitchVenue }) {
   return (
     <aside className="rail">
       <div className="rail-brand">
@@ -233,7 +250,15 @@ function Rail({ view, onView, bookingBadge, features, hasCups, showAccess, anyLi
 
       <nav className="rail-nav">
         {TABS.map((grp) => {
-          const items = grp.items.filter((t) => (!t.cupOnly || hasCups) && (!t.adminOnly || showAccess) && featureOn(features, t.flag));
+          // Two orthogonal rail gates: featureOn = purchased flag (mig 399/400),
+          // itemDisciplineRelevant = relevance to the venue's club disciplines (C).
+          // An item shows only when BOTH pass (plus its data/role conditions).
+          const items = grp.items.filter((t) =>
+            (!t.cupOnly || hasCups) &&
+            (!t.adminOnly || showAccess) &&
+            (!t.facilityOnly || showFeatures) &&
+            featureOn(features, t.flag) &&
+            itemDisciplineRelevant(features?.disciplines, t.id));
           if (items.length === 0) return null;   // hide a group whose every item is gated off
           return (
             <React.Fragment key={grp.group}>

@@ -1,5 +1,57 @@
 # In or Out — Key Decisions Log
 
+## SESSION 180 — Venue OS nav Phase 2 SHIPPED: operator feature toggles (A+B+C, mig 400)
+*2026-06-23. Plan = MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN". Branch
+`demo-runbook-pilot` (the s178+pilot+Phase 1 stack was PR'd + merged to main first — PR #62 — per
+cloud-session discipline, before Phase 2 started).*
+
+**Decision: a flag row exists ONLY to hold an OFF; turning everything back on prunes it.** The write
+RPCs (`venue_set_venue_feature` / `venue_set_club_feature`) materialise an all-true row, set the one
+column, then DELETE the row if every column is true again. This keeps the mig-399 no-row=on /
+zero-backfill invariant literally true forever — the table only ever contains venues/clubs that have
+switched something off. Default-all-on is preserved by construction, not by a backfill.
+
+**Decision: Payments stays always-on core (NOT a flag); the dependency graph encodes its edges as
+comments only.** The plan's edges are Memberships→Payments, Coaching→Memberships→Payments, paid
+Tournaments→Payments. Payments was deliberately left ungated in Phase 1 (core, like Customers), so
+among the real toggleable flags the only edge that bites is **Coaching→Memberships**: enabling
+Coaching auto-enables Memberships, and disabling Memberships is blocked while Coaching is on. The
+Payments edges are satisfied-by-construction (Payments can't be turned off) and recorded as comments
+so a future `payments` flag drops in without rework. Chosen over adding a `payments` flag now (option
+B) — that would contradict Phase 1 and expand scope for no behavioural gain.
+
+**Decision: the dependency graph is reflected in the UI, not just enforced.** Rather than let an
+operator tap "disable Memberships" and hit a server error, the Memberships toggle renders LOCKED with
+the reason "Required by Coaching — turn Coaching off first" whenever Coaching is on. The server block
+(`dependency_required`) is still the source of truth; the UI lock just prevents the dead-end tap.
+
+**Decision: the two axes stay separate — the toggle screen owns the PURCHASED axis (shows every
+flag); discipline only declutters the RAIL.** Discipline relevance (`itemDisciplineRelevant`,
+`lib/featureRelevance.js`, mirroring `disciplineLabels`) hides Classes/Trainers from football-only
+venues and Leagues/Standings/Fixtures/Cups from non-team venues (union across the venue's clubs,
+fail-open on unknown/'other'). It is a SECOND rail gate alongside `featureOn` and NEVER blocks a write
+(a flag does). The FeaturesView toggle screen deliberately shows ALL flags regardless of discipline,
+so no flag is ever un-toggleable — keeping the two axes clean, exactly as the plan demanded. The
+operator-facing relevance map (football hides Classes/Trainers; gym hides Leagues/Cups; everything
+else fail-open) was confirmed before build.
+
+**Correction caught by the boot smoke: every venue_* RPC must GRANT anon, not lock to authenticated.**
+The shared `venue_admin_token` backdoor (dev/demo + legacy) calls venue RPCs as **anon**, passing the
+token as an ARG — not as a Supabase auth session. An initial instinct to revoke anon (mirroring the
+mig-175 authenticated-only gotcha) gave `permission denied (42501)` the moment the demo token opened
+Features. Authorization is enforced INSIDE every venue RPC via `resolve_venue_caller` (needs a valid
+token or an `auth.uid()` staff row) + `_venue_has_cap('manage_facility')`, so the anon grant is safe
+and is the established shape for every venue write RPC (e.g. grading, mig 357). The mig-175 gotcha
+applies only to RPCs that authenticate via `auth.uid()` ALONE (no token path) — venue RPCs have a
+token path, so they need anon. Fixed live + in source same cycle.
+
+**Decision: PR the whole `demo-runbook-pilot` stack (41 commits: s178 IA + pilot sprint + Phase 1) to
+main BEFORE starting Phase 2.** Cloud-session discipline — the live DB ran ahead of main (migs
+378–399 applied but unmerged), the exact Hard-Rule-#11 drift the rules forbid. Merged as PR #62 (the
+failing `platform-ref` check is the known monorepo remote-build failure, not from this stack;
+consumer app build passed). Phase 2 then continued on `demo-runbook-pilot` (now == main) and PRs alone
+at the end.
+
 ## SESSION 179 — Venue OS nav Phase 1 SHIPPED: modular feature flags + full 3-layer gate (mig 399)
 *2026-06-23. Epic A foundation. Plan = MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN".*
 
