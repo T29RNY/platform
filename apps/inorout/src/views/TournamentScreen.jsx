@@ -152,8 +152,8 @@ export default function TournamentScreen({ slug }) {
       <div className="th-body">
         {activeTab === "home" && (
           <HomeTab t={t} accent={accent} upcoming={upcoming} live={live} completed={completed}
-                   liveFixtures={liveFixtures} scheduleFixtures={scheduleFixtures} standings={standings}
-                   champion={champion} info={info} onOpenFixture={setOpenFixtureId} onGoto={setTabDeep} slug={slug} />
+                   liveFixtures={liveFixtures} scheduleFixtures={scheduleFixtures} knockoutFixtures={knockoutFixtures}
+                   standings={standings} champion={champion} info={info} onOpenFixture={setOpenFixtureId} onGoto={setTabDeep} slug={slug} />
         )}
         {activeTab === "fixtures" && (
           <section>
@@ -270,7 +270,7 @@ function Cd({ n, l, accent }) {
 }
 
 // ── Home tab ─────────────────────────────────────────────────────────────────
-function HomeTab({ t, accent, upcoming, live, completed, liveFixtures, scheduleFixtures, standings, champion, info, onOpenFixture, onGoto, slug }) {
+function HomeTab({ t, accent, upcoming, live, completed, liveFixtures, scheduleFixtures, knockoutFixtures = [], standings, champion, info, onOpenFixture, onGoto, slug }) {
   if (upcoming) {
     return (
       <div className="th-stack">
@@ -283,8 +283,12 @@ function HomeTab({ t, accent, upcoming, live, completed, liveFixtures, scheduleF
       </div>
     );
   }
-  const upcomingFx = scheduleFixtures.filter((f) => f.status === "scheduled").slice(0, 4);
-  const recentFx   = scheduleFixtures.filter((f) => f.status === "completed").slice(-4).reverse();
+  // group + knockout together so the headline knockout results surface, most-recent first
+  const allFx      = [...scheduleFixtures, ...knockoutFixtures];
+  const byKickoffAsc  = (a, b) => String(a.kickoff_time || "").localeCompare(String(b.kickoff_time || ""));
+  const byKickoffDesc = (a, b) => String(b.kickoff_time || "").localeCompare(String(a.kickoff_time || ""));
+  const upcomingFx = allFx.filter((f) => f.status === "scheduled").sort(byKickoffAsc).slice(0, 4);
+  const recentFx   = allFx.filter((f) => f.status === "completed").sort(byKickoffDesc).slice(0, 6);
   return (
     <div className="th-stack">
       {completed && champion && (
