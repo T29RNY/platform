@@ -1,5 +1,13 @@
 # Pilot Demo Sprint — Handoff & Scope
 
+> **STATUS (2026-06-22, session 178):** #8 ✅ (migs 394–396, live `app.in-or-out.com/matchday/demofalcons01`)
+> · #9 ✅ (mig 397, live `/embed/league/5b59146bb5`) · #4 ✅ (mig 398) · **FA spike ✅ NO-GO** on a clean
+> feed → AI-scan route, snippet-gated (writeup in STRATEGY.md). **#10 → scoped UP into the full
+> Modular Platform nav epic** (IA + flags, phase-by-phase, next session) — see
+> MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN". **FA AI-importer (Phase C) +
+> real-iPhone walks across #8/#9/#4 = owed.** Next free mig = **399**.
+> Next-session kickoff prompt at the BOTTOM of this file.
+
 **Goal:** land the **wider-management demo (~2026-06-29)** for the multi-age football
 club (Club/Org SKU buyer). Source of asks = `STRATEGY.md` → "PILOT MEETING FEEDBACK
 (2026-06-22)" prioritised backlog. The org/team-structure epic (backlog #2) is **complete**
@@ -131,7 +139,39 @@ plumbing + the setup name-mapping UI.
 
 ---
 
-## NEXT-SESSION KICKOFF PROMPT (paste-ready)
+## NEXT-SESSION KICKOFF PROMPT — MODULAR PLATFORM NAV EPIC, PHASE 0 (paste-ready)
+
+```
+Read MODULAR_PLATFORM_HANDOFF.md in full (esp. "VENUE OS NAV — FULL PHASED PLAN +
+FEATURE-OWNERSHIP MODEL"), then DECISIONS.md (session 178 nav entry), then BUGS.md head.
+
+We are building the Venue OS nav simplification FULLY, phase-by-phase (operator decision
+s178): IA cleanup (Phase 0) + Epic A flag engine (Phases 1–4). Closes backlog #10 + #11.
+Confirmed: default-all-on (non-negotiable), tiers deferred, two flag tables
+(venue_features + club_features), club-scoped memberships. Do ONE phase, ship + merge,
+before the next.
+
+START WITH PHASE 0 — IA cleanup only (pure venue-app UI, NO flags, NO schema):
+  - apps/venue/src/views/Dashboard.jsx TABS: regroup/rename per the plan (Run · People
+    with tabs · Programmes · Competition · Club & admin); Sessions→"Club sessions",
+    Table→"Standings".
+  - Competition group: surface Fixtures here; bake the INTERNAL (editable) vs
+    EXTERNAL/FA (read-only mirror) split so no operator can ever edit an FA fixture.
+  - MembershipsView 13 tabs → 5 (Members · Plans & fees · Club · Comms & docs · Shop);
+    remove the duplicate Staff tab (Staff stays top-level).
+  - Fold the venue-hex tech-debt (BUGS.md s174: MembershipsView ~3111/~3172 #fff/#111).
+
+AUDIT FIRST (skills/audit.md): read Dashboard.jsx TABS + MembershipsView tabs fully,
+confirm the live structure, present the EXACT final grouping in chat for ONE last
+sign-off BEFORE editing. No new features. Gates: venue build clean, hardcoded-hex hand-
+check (venue app isn't hygiene-hook-gated), Playwright boot smoke of the venue dash.
+Update STRATEGY/FEATURES/DECISIONS/BUGS, same commit. Then Phase 1 (flag foundation)
+next session. Next free mig = 399 (Phase 0 is UI-only — likely no migration).
+```
+
+---
+
+## ORIGINAL DEMO-SPRINT PROMPT (archived — #8/#9/#4 + FA spike DONE, #10 → nav epic above)
 
 ```
 Read PILOT_DEMO_SPRINT_HANDOFF.md in full, then CONTEXT.md and BUGS.md.

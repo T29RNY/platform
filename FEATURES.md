@@ -39,6 +39,13 @@ feed; STRATEGY/DECISIONS s178). Live render Playwright-verified (`/embed/league/
 team" in the consumer club view — green Paid / red Owes £X pills, auto-reminders messaging. Demo
 user manages First Team (2 owing + 3 paid → real mix). ⛔ owed authed/real-iPhone walk.
 
+**#10 Venue OS nav + #11 modularity — SCOPED as the full Modular Platform nav epic (next session).**
+Done fully (not half-IA): Phase 0 IA cleanup + Epic A flag engine (Phases 1–4), phase-by-phase.
+Two flag tables (venue_features + club_features → resolves multi-venue clubs); club-scoped
+memberships (resolves cross-venue memberships); default-all-on; tiers deferred. Full phased plan +
+effort + feature-ownership model in **MODULAR_PLATFORM_HANDOFF.md** ("VENUE OS NAV — FULL PHASED
+PLAN"). Demo-sprint items #8/#9/#4 SHIPPED (migs 394–398); FA AI-import (Phase C) snippet-gated.
+
 ### NEXT EPIC (scoped, not built) — Modular platform: packaging + FA fixtures + public web + ref-as-module
 Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPro review. Full plan
 in **MODULAR_PLATFORM_HANDOFF.md**. Three sequenced epics, A→B→C, each merged before the next:

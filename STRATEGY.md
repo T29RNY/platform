@@ -279,8 +279,8 @@ teams in their league/area** — the network effect is the real prize.
 | 7 | Multi-venue (train one site, play another) | Need to verify venue-scoping | Med | 🟠 mention |
 | 8 | Opposition-coach matchday info link | ✅ **SHIPPED** (migs 394–396) — `/matchday/<code>` public branded link (home team, kickoff, pitch, ref, address/directions, ground rules); live demo `app.in-or-out.com/matchday/demofalcons01` | Low | ✅ done |
 | 9 | Embed code (fixtures/results on own website) | ✅ **SHIPPED** (mig 397) — `/embed/league/<code>` iframe widget (our fixtures+results, our design) + FA official snippet stored per league for the club's own site | Low | ✅ done |
-| 10 | Simplify Venue OS UI ("too many similar-sounding options") | Needs IA pass | Med | 🔴 #3 demo |
-| 11 | Modularity (clubs pick/pay per module; operator toggles) | Superadmin toggles exist; per-module self-select + pricing not | Med–High | 🔴 show toggles |
+| 10 | Simplify Venue OS UI ("too many similar-sounding options") | **SCOPED → done fully as the Modular Platform nav epic** (IA cleanup Phase 0 + Epic A flag engine Phases 1–4), phase-by-phase. Full plan + effort + feature-ownership model in MODULAR_PLATFORM_HANDOFF.md. Next session = Phase 0. | Med (~5–6 sessions whole epic) | 🔴 → epic, phased |
+| 11 | Modularity (clubs pick/pay per module; operator toggles) | **= Epic A Phase 2** (operator per-club/venue feature toggles) — delivered by the same nav epic. Two flag tables (venue_features + club_features); default-all-on; tiers deferred | Med–High | 🔴 → Epic A Phase 2 |
 | 12 | Reporting / data | Not covered | High | roadmap |
 | 13 | Season setup once + ad-hoc changes | Partial | Low–Med | mention |
 | 14–17 | Pitch assignments / reception view / ref view / live data | Built ✅ — all "loved/amazing" | — | 🟢 feature hard |

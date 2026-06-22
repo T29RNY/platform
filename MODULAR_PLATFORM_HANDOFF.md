@@ -269,6 +269,61 @@ Two separate jobs — flags solve the first, not the second:
 - Sequencing: nav-presence ships WITH Epic A; the IA merge is a small dedicated venue-UI cycle (can
   run before/alongside A — pure UI, no flag dependency).
 
+## VENUE OS NAV — FULL PHASED PLAN + FEATURE-OWNERSHIP MODEL (locked 2026-06-22, session 178)
+
+Operator decision: do the WHOLE thing **phase-by-phase, not half-IA**. The nav simplification done
+fully = the IA cleanup (Phase 0) + Epic A's flag engine (Phases 1–4). Confirmed: **default-all-on**
+(non-negotiable, zero regression), **tiers deferred** (pick-and-mix flags underneath, named presets
+on top), **build phase-by-phase** (each shipped + merged before the next, cloud-session discipline).
+This single track closes backlog **#10 (nav)** AND **#11 (modularity toggles)** and lays Epic A — the
+foundation B/C/D all depend on.
+
+### Feature ownership splits in TWO  (resolves "a club can have multiple venues")
+Features are not all the same kind of thing:
+- **Facility features (venue-owned) → `venue_features` (per venue):** Bookings, Spaces, Room hire,
+  Equipment, pitch/booking ops. About the physical facility.
+- **Org features (club-owned) → `club_features` (per club):** Memberships, Competition (League Mode +
+  Event OS), Coaching/Classes/Trainers, Public web, Tournaments. These **follow the club to every
+  venue it operates from.**
+- **Venue rail = (this venue's facility features) ∪ (features of every club operating at this venue).**
+  A multi-venue club's org features appear at each of its venues automatically; a venue hosting two
+  clubs shows the union; a single-club venue behaves exactly as the simple model. → **Epic A is TWO
+  flag tables, not one.** Discipline (relevance) still multiplies in on the club axis.
+
+### Cross-venue / cross-club membership  (resolves "a membership could cross venues and clubs")
+Today `venue_memberships.venue_id` pins a membership to ONE venue — wrong for a multi-venue club.
+- **Build now: club-scoped memberships honored across the club's venues.** Membership belongs to the
+  CLUB; eligibility checks (membership-gated join, class/PT booking, fixtures) resolve "entitled
+  here?" via the membership's **SCOPE**, not `venue_id =`. A bounded refactor of the eligibility
+  reads, not a rewrite.
+- **Design-for-but-defer: cross-CLUB passes** (one membership valid across multiple distinct clubs —
+  the leisure-group/franchise case). Model membership SCOPE explicitly (set of venues, optionally a
+  club-group) so it's expressible later without rework; do NOT build cross-club entitlement now.
+- ⚠️ Every existing membership gate (`member_join_club_team`, `member_book_class_session`, PT,
+  classes, packages…) reads a single venue today — audit each and move onto scope-resolution in the
+  Memberships-gate phase. **Highest-risk surface in the epic (RLS + eligibility correctness) — EV
+  every one.**
+
+### Phases + effort (≈5–6 build sessions total; one shipped+merged before the next)
+- **Phase 0 — IA cleanup (pure UI, no flags):** rail regroup/rename (Run · People-with-tabs ·
+  Programmes · Competition · Club&admin), Memberships **13→5** tabs, kill duplicate Staff, renames
+  (Sessions→Club sessions · Table→Standings), **internal/external Competition split** (FA surfaces
+  visibly read-only — protects the mig 394–397 fixtures work), venue-hex tech-debt (BUGS s174) fixed.
+  Ships standalone, additive. **~1 session.**
+- **Phase 1 — Flag foundation:** `venue_features` + `club_features` (extend the mig-351
+  `get_team_feature_flags` / `getTeamFeatureFlags` pattern — don't invent a new one), **3-layer gate
+  (nav + route + RPC)** so off = unreachable (closes the deep-link footgun), **default-all-on**.
+  **~2 sessions.**
+- **Phase 2 — Dependencies + discipline axis + operator toggle UI (= backlog #11):** dependency graph
+  (Memberships→Payments, Coaching→Memberships→Payments, paid Tournaments→Payments; auto-enable
+  prereqs, block unsafe disables), discipline × purchased gating, per-club/venue toggle UI in the
+  venue console. **~1.5 sessions.**
+- **Phase 3 — Package presets:** named presets expand to a flag set (flags = truth, presets =
+  shortcuts; commercial tier decision stays deferred). **~0.5 session.**
+- **Phase 4 — Rail modulation wiring:** point the cleaned-up rail at the flags → 18→~8 per club.
+  **~0.5 session.**
+- **Membership-scope refactor** rides Phase 1–2's Memberships gate; **+0.5–1 session.**
+
 ## SEQUENCING
 
 A → B → C, plus D (venue tournament-create, depends on A's `tournaments` flag) and the venue nav

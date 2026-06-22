@@ -1,5 +1,27 @@
 # In or Out — Key Decisions Log
 
+## SESSION 178 — Venue OS nav: do the WHOLE epic (IA + flags), phase-by-phase; features split venue/club; memberships club-scoped
+*2026-06-22. Plan of record = MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN".*
+
+**Decision: the nav simplification is done fully — IA cleanup + Epic A's flag engine — phase-by-phase,
+not a half IA-only pass.** Operator: "if we're going to do this, we do it fully." Closes backlog #10
+(nav) AND #11 (modularity toggles); lays Epic A (the foundation B/C/D depend on). ~5–6 build sessions,
+one shipped+merged before the next. Default-all-on confirmed (non-negotiable); tiers deferred
+(pick-and-mix flags underneath, presets on top).
+
+**Decision: features split into TWO ownership types (resolves multi-venue clubs).** Facility features
+(Bookings/Spaces/Room hire/Equipment) = `venue_features` (per venue); org features (Memberships/
+Competition/Coaching/Public web/Tournaments) = `club_features` (per club, follow the club to every
+venue). Venue rail = the venue's facility features ∪ the features of every club operating there. →
+Epic A is TWO flag tables. Discipline (relevance) multiplies in on the club axis.
+
+**Decision: memberships become club-scoped, honored across the club's venues (resolves cross-venue
+memberships).** Today `venue_memberships.venue_id` pins to one venue. Build club-scoped now —
+eligibility checks resolve "entitled here?" via membership SCOPE not `venue_id =`; model scope
+explicitly so a future cross-CLUB pass (leisure-group/franchise) is expressible without rework, but
+do NOT build cross-club entitlement now. Every existing membership gate reads one venue today → audit
++ move onto scope-resolution in the Memberships-gate phase; highest-risk surface, EV every one.
+
 ## SESSION 178 — Club fixtures live in a NEW `club_fixtures` table, not the casual `fixtures`
 *2026-06-22. Mig 394. Pilot backlog #8 spine (opposition-coach matchday link) + the FA-import target.*
 
