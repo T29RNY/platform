@@ -933,9 +933,9 @@ an internal id. All access via SECURITY DEFINER RPCs (`resolve_invite_link`,
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `code` | text PK | NO | — | url-safe, generated server-side (`generate_url_safe_token`) |
-| `entity_type` | text | NO | — | CHECK `IN ('team','venue','fixture')` |
-| `entity_id` | text | NO | — | `teams.id` / `venues.id` / `fixtures.id::text`. Not a typed FK (polymorphic; `fixtures.id` is uuid) — integrity enforced in the resolver per `entity_type` |
-| `action` | text | NO | — | CHECK `IN ('join_team','venue_landing','match_checkin')` |
+| `entity_type` | text | NO | — | CHECK `IN ('team','venue','fixture','club_team')` (`club_team` added mig 390) |
+| `entity_id` | text | NO | — | `teams.id` / `venues.id` / `fixtures.id::text` / `club_teams.id::text`. Not a typed FK (polymorphic; `fixtures.id` + `club_teams.id` are uuid) — integrity enforced in the resolver per `entity_type` |
+| `action` | text | NO | — | CHECK `IN ('join_team','venue_landing','match_checkin','join_club_team')` (`join_club_team` added mig 390 — club-team join, distinct from casual `join_team`) |
 | `active` | boolean | NO | `true` | venue can deactivate (slice 7) |
 | `expires_at` | timestamptz | YES | — | NULL = never |
 | `max_uses` | integer | YES | — | NULL = unlimited |
@@ -946,6 +946,16 @@ an internal id. All access via SECURITY DEFINER RPCs (`resolve_invite_link`,
 
 Index: `invite_links_entity_idx` on `(entity_type, entity_id)` — for the
 management panel's per-entity code list (slice 7).
+
+**Club-team codes (mig 390, Club Structure Phase 2):** `entity_type='club_team'`,
+`action='join_club_team'`, `entity_id = club_teams.id::text`. Minted get-or-create
+by `club_ensure_team_invite_link(venue_token, team_id)` (venue-token + `manage_memberships`
+cap; ownership rolls up `club_teams.club_id → club_venues.venue_id` — NOT the league
+competition chain that the casual `team` branch uses). `resolve_invite_link` returns the
+club/cohort/team context (archived team → status `inactive`); the membership-gated join
+itself is Phase 3. Managed from the venue **Memberships → Structure** screen (per-team
+"Join link / QR"), separate from the generic QR-codes panel (`venue_owns_entity` is
+deliberately not extended to club teams).
 
 ---
 

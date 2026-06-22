@@ -28,6 +28,30 @@ The club's org chart, editable in the venue console. **Migration 389** (additive
   Venue app only → casual-regression not required. Demo `club_demo` cohorts/teams backfilled.
   ⛔ real-device venue walk owed.
 
+### #2 Org/team structure — Phase 2: Team join link + QR — SHIPPED (mig 390)
+Each club team gets its own join link + printable QR. **Migration 390** (additive):
+- `invite_links` CHECKs widened: `entity_type` += `club_team`, `action` += `join_club_team`
+  (a *distinct* action, not a reuse of casual `join_team` — keeps a club-team code out of
+  the casual `/join` flow; dispatch in `InviteResolve` is keyed on `action`).
+- `resolve_invite_link` gains a `club_team` branch returning club / cohort / team context
+  (archived team → status `inactive`). `redeem_invite_link` gains a `club_team` scope branch
+  (audit scope = venue, via `club_venues`) — wired now, fires post-join in Phase 3.
+- New `club_ensure_team_invite_link(venue_token, team_id)` — get-or-create the one canonical
+  code, club-domain ownership (`club_teams.club_id → club_venues.venue_id`); mirrors
+  `venue_ensure_invite_link`. JS wrapper `clubEnsureTeamInviteLink` + barrel.
+- Venue UI: each team row in the **Structure** screen gains a **"Join link / QR"** action →
+  modal with a `react-qr-code` for `/q/<code>` + Copy / **Poster** / **Table-talker** (reuses
+  `printAssets.js`). Consumer: `InviteResolve` shows a tidy resolved "joining <team>" screen
+  for `join_club_team` (real membership-gated join = Phase 3, deliberately not the casual path).
+- Deliberately NOT extended: the generic `venue_owns_entity` / QR-codes management panel —
+  the Structure screen owns one canonical code per club team. Keeps the two QR surfaces apart.
+- Gates: rpc-security 3/3 PASS (SECDEF / search_path pinned / single-overload / anon+auth
+  grant intentional, public REVOKEd), EV 8/8 + leak 0, both builds clean, hygiene clean on
+  in-scope files (venue MembershipsView carries only pre-existing GradingTab hex tech-debt).
+  Playwright smoke on demo venue: Structure → team → QR modal mints code + resolves to
+  club-team context, console clean. Venue app + additive consumer dispatch → casual-regression
+  not required. ⛔ real-device venue walk owed (stacks on Phase 1).
+
 ## SESSION 173 — ADMIN QUICK-ACTION ON MY VIEW SHIPPED (migs 381; PRs #55, #56, LIVE on main)
 
 **Admin marks a player + manages their guests from the My View board.** As an admin, tap

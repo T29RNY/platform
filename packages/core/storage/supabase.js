@@ -4868,6 +4868,17 @@ export async function clubArchiveTeam(venueToken, teamId) {
   return data;
 }
 
+// Phase 2 (mig 390) — get-or-create the canonical join_club_team invite code
+// for a club team. The QR encodes /q/<code>; resolve_invite_link returns the
+// club/cohort/team context for the (Phase 3) membership-gated join flow.
+export async function clubEnsureTeamInviteLink(venueToken, teamId) {
+  const { data, error } = await supabase.rpc("club_ensure_team_invite_link", {
+    p_venue_token: venueToken, p_team_id: teamId,
+  });
+  if (error) { console.error("[club] club_ensure_team_invite_link failed", error); throw error; }
+  return data;
+}
+
 export async function clubCreateSession(venueToken, clubId, { title, scheduledAt, cohortId = null, location = null, notes = null, capacity = null } = {}) {
   const { data, error } = await supabase.rpc("club_create_session", {
     p_venue_token: venueToken, p_club_id: clubId, p_title: title,

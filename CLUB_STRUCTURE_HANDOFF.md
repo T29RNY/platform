@@ -7,9 +7,8 @@ This doc is the single source of truth for the epic. Work the phases **one at a 
 audit → execute → verify → commit per `CLAUDE.md`. Each phase has its own kickoff prompt
 at the bottom — start a fresh session per phase.
 
-**⚠️ Next free migration = 390.** (388 = tournament tagline/hero, already committed; 389 =
-this epic's Phase 1.) The original "388" in this doc was stale — 388 was taken by a parallel
-session before Phase 1 started. Last updated: 2026-06-22, **Phase 1 SHIPPED (mig 389, commit f30c87b)**.
+**⚠️ Next free migration = 391.** (389 = Phase 1; 390 = Phase 2 team join link + QR.)
+Last updated: 2026-06-22, **Phase 1 SHIPPED (mig 389, f30c87b); Phase 2 SHIPPED (mig 390)**.
 
 ---
 
@@ -143,13 +142,18 @@ club + membership-tier setup forms.
 
 Gates: rpc-security-sweep, ephemeral-verify, hygiene. **Venue app only → no casual-regression.**
 
-### Phase 2 — Team join link + QR · ~1 day · 🟢 demo-ready
-- Extend `invite_links` to target club teams (`entity_type='club_team'`) + resolve flow +
-  per-team join-link/QR management in the structure screen + printable QR (reuse
-  `react-qr-code` + the poster/print pattern from the tournament hub).
-- Migration 389+ as needed.
-
-Gates: rpc-security-sweep, ephemeral-verify.
+### Phase 2 — Team join link + QR · ✅ SHIPPED (mig 390)
+Delivered: `invite_links` widened to `entity_type='club_team'` + a **distinct**
+`action='join_club_team'` (kept out of the casual `/join` flow); `resolve_invite_link`
++ `redeem_invite_link` club_team branches; new `club_ensure_team_invite_link` get-or-create
+(club-domain ownership via `club_venues`) + JS wrapper/barrel; per-team **"Join link / QR"**
+action in the Structure screen (react-qr-code + reused `printAssets.js` poster/table-talker);
+consumer `InviteResolve` resolved-context screen for `join_club_team` (real join = Phase 3).
+The generic `venue_owns_entity` / QR-codes panel was deliberately NOT extended — the
+Structure screen owns one canonical code per club team. Gates: rpc-security 3/3, EV 8/8 +
+leak 0, builds clean, Playwright smoke on demo venue PASS. ⛔ real-device venue walk owed.
+**Decision note:** the original scope suggested reusing `action='join_team'`; shipped with a
+separate `join_club_team` for clean dispatch + isolation from the casual squad flow.
 
 ### Phase 3 — Membership-gated join · ~2–3 days · 🟠 core flow demo-ready (test-mode pay)
 - Public join page: scan → **membership check** → if none, full registration (reuse 360

@@ -6,7 +6,7 @@ import {
   venueListPartners, venueCreatePartner, venueCreateOffer, venueMembershipSummary,
   venueListClubs, venueUpdateClubSettings,
   clubListCohorts, clubCreateCohort, clubUpdateCohort,
-  clubCreateTeam, clubUpdateTeam, clubListTeams, clubArchiveTeam,
+  clubCreateTeam, clubUpdateTeam, clubListTeams, clubArchiveTeam, clubEnsureTeamInviteLink,
   venueCreateGradingScheme, venueAddGrade, venueAwardGrade, venueListGradingSchemes,
   venueRecordBout, venueUpdateBout, venueDeleteBout, venueListMemberBouts,
   venueListClubVenues, venueAddClubVenue, venueRemoveClubVenue, venueSearch,
@@ -19,9 +19,11 @@ import {
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
+import QRCode from "react-qr-code";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 import { poundsRound } from "../lib/format.js";
 import { POLICY_TEMPLATES } from "../lib/policyTemplates.js";
+import { printPoster, printTableTalker } from "../lib/printAssets.js";
 
 // Memberships — venue-ops surface for the membership programme (migs 269–271).
 // Three sub-tabs: Members (per-person roster + enrol/freeze/cancel), Plans
@@ -1938,6 +1940,8 @@ function StructureTab({ venueToken }) {
                   <Badge spec={GENDER_BADGE[t.gender]} />
                   <span className="text-mute" style={{ fontSize: 12 }}>{t.member_count} member{t.member_count !== 1 ? "s" : ""}</span>
                   <span className="spacer" style={{ flex: 1 }} />
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                    onClick={() => setModal({ type: "invite", team: t, clubName: club.name })}>Join link / QR</button>
                   <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setModal({ type: "team", team: t })}>Edit</button>
                   <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => archiveTeam(t)}>Archive</button>
                 </div>
@@ -1956,7 +1960,62 @@ function StructureTab({ venueToken }) {
         <TeamModal venueToken={venueToken} clubId={clubId} cohorts={cohorts} team={modal.team}
           presetCohortId={modal.presetCohortId} onClose={() => setModal(null)} onSaved={onSaved} />
       )}
+      {modal?.type === "invite" && (
+        <TeamInviteModal venueToken={venueToken} team={modal.team} clubName={modal.clubName}
+          onClose={() => setModal(null)} />
+      )}
     </div>
+  );
+}
+
+// Per-team join link + QR (mig 390). Get-or-creates the one canonical
+// join_club_team code, renders it as a scannable QR pointing at /q/<code>, and
+// reuses the venue poster/table-talker print path (printAssets.js). Phase 2 =
+// the link + QR; the membership-gated join the scan starts lands in Phase 3.
+const INVITE_BASE = "https://app.in-or-out.com";
+function TeamInviteModal({ venueToken, team, clubName, onClose }) {
+  const [code,  setCode]  = useState(null);
+  const [error, setError] = useState(null);
+  const holderRef = useRef(null);
+
+  useEffect(() => {
+    let alive = true;
+    clubEnsureTeamInviteLink(venueToken, team.team_id)
+      .then((r) => { if (alive) setCode(r?.code || null); })
+      .catch((e) => { if (alive) setError(e?.message || String(e)); });
+    return () => { alive = false; };
+  }, [venueToken, team.team_id]);
+
+  const url = code ? `${INVITE_BASE}/q/${code}` : "";
+
+  return (
+    <Modal onClose={onClose} title={`Join link — ${team.name}`} foot={
+      <button className="btn btn-primary" onClick={onClose}>Done</button>
+    }>
+      <p className="text-mute" style={{ fontSize: 13, margin: "0 0 14px", lineHeight: 1.45 }}>
+        Anyone who scans this code starts joining <strong>{team.name}</strong>. Print it as a poster for
+        the clubhouse, or copy the link to share. The code stays the same even if you rename the team.
+      </p>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 12 }}>Couldn’t create a code: {error}</p>}
+      {!error && !code && <p className="text-mute" style={{ fontSize: 13 }}>Generating…</p>}
+
+      {code && (
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <div ref={holderRef} style={{ background: "#fff", padding: 10, borderRadius: 8, flexShrink: 0 }}>
+            <QRCode value={url} size={132} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="text-mute" style={{ fontSize: 12, wordBreak: "break-all", marginBottom: 10 }}>{url}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(url)}>Copy link</button>
+              <button className="btn btn-sm" onClick={() => printPoster(holderRef.current, { venueName: clubName, label: team.name, url })}>Poster</button>
+              <button className="btn btn-sm" onClick={() => printTableTalker(holderRef.current, { venueName: clubName, label: team.name, url })}>Table-talker</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 

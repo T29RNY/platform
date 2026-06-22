@@ -310,6 +310,7 @@ export {
   clubUpdateTeam,
   clubListTeams,
   clubArchiveTeam,
+  clubEnsureTeamInviteLink,
   clubCreateSession,
   clubUpdateSession,
   clubCancelSession,

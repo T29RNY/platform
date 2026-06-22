@@ -219,6 +219,21 @@ export default function InviteResolve({ code }) {
     );
   }
 
+  if (data.action === "join_club_team") {
+    // Club-team join (mig 390). Phase 2 resolves + shows the team context; the
+    // membership-gated join flow (check membership → register → pick tier →
+    // pay → land in the team) lands in Phase 3. Deliberately NOT routed into
+    // the casual /join flow — that targets the unrelated league/casual squad.
+    const sub = [dest.club_name, dest.cohort_name].filter(Boolean).join(" · ");
+    return (
+      <Shell>
+        <h1 className="q-title">{dest.team_name || "Join the team"}</h1>
+        {sub && <p className="q-muted">{sub}</p>}
+        <p className="q-body">You've been invited to join this team. We're putting the finishing touches on club sign-up — check back shortly to register and join.</p>
+      </Shell>
+    );
+  }
+
   if (data.action === "venue_landing") {
     return <VenueLanding venueId={data.entity_id} code={data.code} />;
   }
