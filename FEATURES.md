@@ -1,5 +1,19 @@
 # In or Out — Feature Tracker
 
+## PILOT BACKLOG — multi-team football club feedback (2026-06-22)
+
+First face-to-face feedback from the multi-age football club pilot (Club/Org SKU).
+Positioned as a **replacement for 360Player + MatchDay Admin + Tournify**. Wider-management
+demo ~2026-06-29. Full feedback, prioritised backlog table, competitor pricing and the FA
+Full-Time feasibility verdict live in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
+
+**Working through the 17 asks one-by-one. NEXT = #2 Org/team structure (youth + adult under
+one club).** Audit must scope what already exists — `clubs` (text PK), `club_cohorts`
+(playing groups within a club, `primary_official_id`), `club_teams` (club_id ↔ team name,
+UNIQUE per team_id), `teams.club_id` (league layer), `venue_membership_tiers.audience`
+(all|adult|junior|family) — vs the gap (clear youth/adult age-group categorisation surfaced
+in the UI for one club running both). See next-session prompt handed to the operator.
+
 ## SESSION 173 — ADMIN QUICK-ACTION ON MY VIEW SHIPPED (migs 381; PRs #55, #56, LIVE on main)
 
 **Admin marks a player + manages their guests from the My View board.** As an admin, tap
