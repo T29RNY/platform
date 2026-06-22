@@ -375,6 +375,7 @@ export {
   clubAdminListTournaments,
   clubAdminGetTournament,
   getTournamentPublic,
+  tournamentRegisterTeam,
   clubAdminUpdateTournamentStatus,
   clubAdminAddCompetition,
   clubAdminRegisterTeam,
