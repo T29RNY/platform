@@ -39,6 +39,16 @@ feature + club-union paths, self-rolled-back and leak-clean. Helpers revoked fro
 (internal-only; guarded RPCs unaffected in definer context). Default-all-on means the guards are
 inert on ship day. **Next free mig = 400.**
 
+**Decision (s179, sizing): Phase 2 is SPLIT.** Phase 2 = A (operator toggle UI) + B (dependency
+graph: Memberships→Payments, Coaching→Memberships→Payments, paid Tournaments→Payments — auto-enable
+prereqs, block unsafe disables) + C (discipline axis — reuse `clubs.discipline`/`disciplineLabels`
+so football never sees Classes, gym never sees Leagues; relevance gate alongside the purchased
+flag). A+B+C is ~1 session, smaller than Phase 1, and delivers usable backlog #11 (operator can flip
+features safely). The multi-venue **membership-scope refactor (`venue_id=` → scope)** — ~17
+eligibility RPCs, the highest-risk surface — is DEFERRED to its own **Phase 2.5** cycle: it's a
+data-correctness/RLS rewrite (full EV each), not UI, and must not be bundled with toggle UI work.
+Phase 3 (presets) + Phase 4 (rail 18→8 wiring) unchanged.
+
 ## SESSION 178 — Venue OS nav Phase 0 SHIPPED: IA cleanup (pure UI, no flags, no schema)
 *2026-06-22. First phase of the Venue OS nav epic (plan = MODULAR_PLATFORM_HANDOFF.md
 "VENUE OS NAV — FULL PHASED PLAN"). Additive UI only; no migration.*

@@ -30,9 +30,13 @@ Customer CRUD intentionally NOT gated (always-on Customers screen). Verified: li
 diff proved guard-only changes across all 74 (REMOVED=0); EV proved flag-off rejects + flag-on
 passes through, self-rolled-back + leak-clean; helpers revoked from anon/authenticated; venue build
 + hygiene clean; Playwright boot smoke (rail identical all-on, Bookings vanished when toggled off,
-restored). ⛔ owed real-device venue walk (s178 Phase 0 walk still owed too). Next: Phase 2 —
-dependency graph + discipline axis + operator toggle UI (= backlog #11); the membership-scope
-refactor (`venue_id=` → scope) rides Phase 1–2's Memberships gate. Full phased plan in
+restored). ⛔ owed real-device venue walk (s178 Phase 0 walk still owed too). **Next: Phase 2 =
+A+B+C only (split decision s179)** — A operator toggle UI + B dependency graph (Memberships→Payments,
+Coaching→Memberships→Payments, paid Tournaments→Payments) + C discipline axis (reuse
+`clubs.discipline`/`disciplineLabels` as a relevance gate alongside the purchased flag) = backlog
+#11, ~1 session, smaller than Phase 1. The multi-venue **membership-scope refactor** (`venue_id=` →
+scope, ~17 eligibility RPCs, highest-risk) is DEFERRED to its own **Phase 2.5** cycle — data
+correctness, not UI; don't bundle. Then Phase 3 (presets), Phase 4 (rail 18→8). Full phased plan in
 **MODULAR_PLATFORM_HANDOFF.md**.
 
 **#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
