@@ -5680,12 +5680,14 @@ export async function clubAdminRemoveSponsor(sponsorId) {
   return data;
 }
 
-export async function clubAdminSetBranding(tournamentEventId, { primaryColour = null, secondaryColour = null, customLogoUrl = null } = {}) {
+export async function clubAdminSetBranding(tournamentEventId, { primaryColour = null, secondaryColour = null, customLogoUrl = null, tagline = null, heroUrl = null } = {}) {
   const { data, error } = await supabase.rpc("club_admin_set_branding", {
     p_tournament_event_id: tournamentEventId,
     p_primary_colour:      primaryColour,
     p_secondary_colour:    secondaryColour,
     p_custom_logo_url:     customLogoUrl,
+    p_tagline:             tagline,
+    p_hero_url:            heroUrl,
   });
   if (error) { console.error("[event-os] club_admin_set_branding failed", error); throw error; }
   return data;

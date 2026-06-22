@@ -218,7 +218,7 @@ function SponsorBanner({ sponsors, accent }) {
       {sp.logo_url
         ? <img key={sp.sponsor_id} src={sp.logo_url} alt={sp.name} className="th-ad-img" />
         : <div className="th-ad-fallback"><span className="th-ad-fallback-eyebrow" style={{ color: accent }}>Sponsor</span><span className="th-ad-fallback-name">{sp.name}</span></div>}
-      <span className="th-ad-chip">Ad</span>
+      <span className="th-ad-chip">Tournament sponsor</span>
       {sponsors.length > 1 && (
         <div className="th-ad-dots">
           {sponsors.map((s, idx) => <span key={s.sponsor_id} className={`th-ad-dot${idx === (i % sponsors.length) ? " on" : ""}`} style={idx === (i % sponsors.length) ? { background: accent } : undefined} />)}
@@ -250,7 +250,7 @@ function Hero({ t, accent, heroUrl, upcoming, live, completed, champion, info, o
         </span>
         {branding_logo(t) && <img src={branding_logo(t)} alt="" className="th-hero-logo" />}
         <h1 className="th-title">{t.name}</h1>
-        {info.tagline && <p className="th-tagline">{info.tagline}</p>}
+        {(t.branding?.tagline || info.tagline) && <p className="th-tagline">{t.branding?.tagline || info.tagline}</p>}
         <div className="th-hero-meta">
           <span>{fmtDate(t.event_date)}{t.event_end_date && t.event_end_date !== t.event_date ? ` – ${fmtDate(t.event_end_date)}` : ""}</span>
           <span className="th-dot">·</span>
@@ -458,10 +458,12 @@ function FixtureRow({ fx, accent, onOpen }) {
         </span>
       </div>
       <div className="th-fx-sub">
+        {fx.kickoff_time && <span>KO {fx.kickoff_time}</span>}
+        {fx.kickoff_time && (fx.pitch_name || fx.referee_name) && <span className="th-dot">·</span>}
         {fx.pitch_name && <span>{fx.pitch_name}</span>}
         {fx.pitch_name && fx.referee_name && <span className="th-dot">·</span>}
         {fx.referee_name && <span>Ref {fx.referee_name}</span>}
-        {(fx.pitch_name || fx.referee_name) && fx.current_period && <span className="th-dot">·</span>}
+        {live && fx.current_period && <span className="th-dot">·</span>}
         {live && fx.current_period && <span style={{ color: accent }}>{fx.current_period}</span>}
       </div>
     </button>
@@ -734,7 +736,7 @@ const TournamentPoster = React.forwardRef(function TournamentPoster({ t, accent,
         <div className="th-poster-hero-text">
           <div className="th-poster-club" style={{ color: accent }}>{t.club_name}</div>
           <div className="th-poster-title">{t.name}</div>
-          {info.tagline && <div className="th-poster-tagline">{info.tagline}</div>}
+          {(t.branding?.tagline || info.tagline) && <div className="th-poster-tagline">{t.branding?.tagline || info.tagline}</div>}
         </div>
       </div>
       <div className="th-poster-body">
