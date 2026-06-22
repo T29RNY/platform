@@ -210,7 +210,10 @@ Gates: rpc-security-sweep, ephemeral-verify.
 
 ## 7. NEXT-SESSION KICKOFF PROMPTS
 
-### → Phase 1 (start here)
+> **Phases 1–3 SHIPPED (migs 389/390/391).** Next session = **Phase 4** (jump to it below).
+> The Phase 1–3 prompts are kept for history.
+
+### → Phase 1 (✅ SHIPPED — mig 389)
 ```
 Read CLUB_STRUCTURE_HANDOFF.md in full, then CONTEXT.md and BUGS.md.
 We are building Phase 1 — Structure (venue console) of the club org/team epic.
@@ -236,7 +239,7 @@ hygiene 7/7. Update SCHEMA.md (stale cohort/team columns) + FEATURES.md in the s
 Show me each diff before committing.
 ```
 
-### → Phase 2 (after Phase 1 merged)
+### → Phase 2 (✅ SHIPPED — mig 390)
 ```
 Read CLUB_STRUCTURE_HANDOFF.md. Phase 1 is merged. Build Phase 2 — Team join link + QR.
 AUDIT FIRST: invite_links schema, venue_manage_invite_links, resolve_invite_link, the
@@ -245,7 +248,7 @@ entity_type='club_team' + per-team join-link/QR UI in the structure screen + pri
 Gates: rpc-security-sweep, ephemeral-verify. Confirm next free migration before writing SQL.
 ```
 
-### → Phase 3 (after Phase 2 merged)
+### → Phase 3 (✅ SHIPPED — mig 391)
 ```
 Read CLUB_STRUCTURE_HANDOFF.md. Phases 1–2 merged. Build Phase 3 — Membership-gated join.
 AUDIT FIRST: member_self_signup, get_venue_signup_tiers, member_register_child + the 360
@@ -255,7 +258,7 @@ team) + orchestration RPC(s). Gates: rpc-security-sweep, ephemeral-verify, casua
 real-iPhone walk (touches member flow). Confirm next free migration before writing SQL.
 ```
 
-### → Phase 4 (after Phase 3 merged)
+### → Phase 4 (START HERE — Phases 1–3 merged)
 ```
 Read CLUB_STRUCTURE_HANDOFF.md. Build Phase 4 — Team-manager comms.
 AUDIT FIRST: club_manager_* RPC pattern (manager-of-team auth.uid check), club_send_
