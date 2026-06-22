@@ -1,5 +1,43 @@
 # In or Out — Key Decisions Log
 
+## SESSION 178 — Venue OS nav Phase 0 SHIPPED: IA cleanup (pure UI, no flags, no schema)
+*2026-06-22. First phase of the Venue OS nav epic (plan = MODULAR_PLATFORM_HANDOFF.md
+"VENUE OS NAV — FULL PHASED PLAN"). Additive UI only; no migration.*
+
+**Shipped the rail regroup + Memberships consolidation, no behaviour change to any
+underlying view.** Rail (`Dashboard.jsx` `TABS`) went from 5 mixed groups to the five
+intended ones — **Run · People · Programmes · Competition · Club & admin** — with renames
+(Sessions→"Club sessions", Table→"Standings"). View ids are UNCHANGED, so SearchPalette,
+NotificationsPanel and any deep links keep resolving. **Fixtures** surfaced as a top-level
+Competition item (was buried in Memberships): `FixturesTab` is now exported from
+`MembershipsView.jsx` and rendered directly by `Dashboard`. The internal/external split is
+already enforced by the data model (internal `club_fixtures` = editable rows; the FA feed is
+only ever a stored embed snippet rendered read-only — no code path edits an FA fixture), so
+Phase 0 is presentation only there.
+
+**MembershipsView 13 flat chips → 5 grouped chips with internal sub-tabs:** Members
+(Members/Grading) · Plans & fees (Plans/Team fees/Perks) · Club (Club/Structure) · Comms &
+docs (Announcements/Documents/ID docs) · Shop.
+
+**Decision: the "duplicate Staff tab" was a MOVE, not a delete.** Audit found the Memberships
+`StaffTab` (per-club managers/coaches + DBS/safeguarding) and the top-level `StaffView` (match
+officials + venue ops staff, mig 195) are NOT duplicates — they manage different staff sets.
+Deleting `StaffTab` would have lost coach/DBS management. So it was relocated: `StaffView` now
+has two sub-tabs — "Venue staff & officials" (original) and "Coaches & DBS" (the moved
+`StaffTab`, imported from `MembershipsView`). The redundant Memberships chip is gone; no
+functionality lost.
+
+**Folded the venue-hex tech-debt (BUGS s174) — and it was wider than recorded.** The affected
+tab components were authored against inorout tokens that don't exist in the venue app
+(`--text`, `--bg-card`, `--text-mute`), so the hardcoded fallbacks actually rendered. Tokenised
+every palette-violation site to real venue tokens (`--accent`/`--accent-ink`/`--ink`/`--crit`/
+`--ok`) — which also fixed a latent white-on-amber contrast bug on the primary buttons. Left the
+QR-holder `#fff` (legit white quiet-zone) and grading belt-colour defaults (`#3030FF`, user
+data). Residual `--text-mute, #888` / `--border, #ddd` dead-fallback debt logged for a separate
+sweep to keep this diff scoped. Gates: venue build clean, hardcoded-hex hand-check, Playwright
+boot smoke on demo (rail + Memberships 5 chips + Fixtures standalone + Staff 2 sub-tabs, 0
+console errors). **Next: Phase 1 — flag foundation (`venue_features` + `club_features`).**
+
 ## SESSION 178 — Venue OS nav: do the WHOLE epic (IA + flags), phase-by-phase; features split venue/club; memberships club-scoped
 *2026-06-22. Plan of record = MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN".*
 

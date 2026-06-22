@@ -124,26 +124,46 @@ const regError = (r) => {
   return null;
 };
 
+// Membership IA (session 178, Phase 0): 13 flat chips → 5 grouped chips, each
+// with internal sub-tabs where it bundles more than one surface. Fixtures moved
+// out to the rail Competition group; the per-club coach/DBS Staff tab moved to
+// the top-level Staff area (People) — both removed here to kill the duplication.
+const MEMBERSHIP_GROUPS = [
+  { id: "members",   label: "Members",      tabs: [["members", "Members"], ["grading", "Grading"]] },
+  { id: "plansfees", label: "Plans & fees", tabs: [["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"]] },
+  { id: "club",      label: "Club",         tabs: [["club", "Club"], ["structure", "Structure"]] },
+  { id: "comms",     label: "Comms & docs", tabs: [["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"]] },
+  { id: "shop",      label: "Shop",         tabs: [["merchandise", "Shop"]] },
+];
+
 export default function MembershipsView({ venueToken, liveTick = 0, pitches = [], refs = [] }) {
+  const [group, setGroup] = useState("members");
   const [tab, setTab] = useState("members");
+  const activeGroup = MEMBERSHIP_GROUPS.find((g) => g.id === group) || MEMBERSHIP_GROUPS[0];
+  const selectGroup = (g) => { setGroup(g.id); setTab(g.tabs[0][0]); };
   return (
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["structure", "Structure"], ["fixtures", "Fixtures"], ["grading", "Grading"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
-            <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
+          {MEMBERSHIP_GROUPS.map((g) => (
+            <button key={g.id} className="chip" aria-pressed={group === g.id} onClick={() => selectGroup(g)}>{g.label}</button>
           ))}
         </span>
       </SectionHead>
+      {activeGroup.tabs.length > 1 && (
+        <span className="chips" style={{ marginBottom: "var(--gap)" }}>
+          {activeGroup.tabs.map(([v, l]) => (
+            <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
+          ))}
+        </span>
+      )}
       {tab === "members" && <MembersTab venueToken={venueToken} liveTick={liveTick} />}
+      {tab === "grading"    && <GradingTab venueToken={venueToken} />}
       {tab === "plans"   && <PlansTab venueToken={venueToken} />}
       {tab === "fees"    && <FeesTab venueToken={venueToken} />}
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
       {tab === "club"       && <ClubTab venueToken={venueToken} />}
       {tab === "structure"  && <StructureTab venueToken={venueToken} />}
-      {tab === "fixtures"   && <FixturesTab venueToken={venueToken} pitches={pitches} refs={refs} />}
-      {tab === "grading"    && <GradingTab venueToken={venueToken} />}
-      {tab === "staff"          && <StaffTab venueToken={venueToken} />}
       {tab === "announcements"  && <AnnouncementsTab venueToken={venueToken} />}
       {tab === "documents"      && <DocumentsTab venueToken={venueToken} />}
       {tab === "iddocs"     && <IdDocsTab venueToken={venueToken} />}
@@ -527,7 +547,7 @@ const emptyFixture = () => ({
   official_id: "", ref_name: "", home_score: "", away_score: "", status: "scheduled", notes: "",
 });
 
-function FixturesTab({ venueToken, pitches = [], refs = [] }) {
+export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
   const [clubs, setClubs] = useState(null);
   const [clubId, setClubId] = useState(null);
   const [leagues, setLeagues] = useState(null);
@@ -2544,7 +2564,7 @@ function DbsBadge({ status }) {
   );
 }
 
-function StaffTab({ venueToken }) {
+export function StaffTab({ venueToken }) {
   const [clubs,   setClubs]   = useState(null);
   const [staff,   setStaff]   = useState({});   // { [clubId]: staffRow[] }
   const [members, setMembers] = useState([]);
@@ -2676,8 +2696,8 @@ function StaffTab({ venueToken }) {
     letterSpacing: 0.5, color: "var(--text-mute, #888)", margin: "14px 0 8px" };
   const inputSt = {
     width: "100%", boxSizing: "border-box",
-    background: "var(--bg-card, #1a1a1a)", border: "1px solid var(--border, #333)",
-    borderRadius: 8, color: "var(--text, #fff)",
+    background: "var(--bg-2)", border: "1px solid var(--border)",
+    borderRadius: 8, color: "var(--ink)",
     fontSize: 13, padding: "8px 10px", marginTop: 4,
   };
 
@@ -2804,7 +2824,7 @@ function StaffTab({ venueToken }) {
               disabled={assignSaving || !assignTeamId || !assignMemberId}
               style={{
                 padding: "10px 0", borderRadius: 8, border: "none",
-                background: "var(--accent, #60A0FF)", color: "#fff",
+                background: "var(--accent)", color: "var(--accent-ink)",
                 fontSize: 14, fontWeight: 700, cursor: assignSaving ? "not-allowed" : "pointer",
                 opacity: (assignSaving || !assignTeamId || !assignMemberId) ? 0.5 : 1,
               }}
@@ -2867,7 +2887,7 @@ function StaffTab({ venueToken }) {
               disabled={dbsSaving}
               style={{
                 padding: "10px 0", borderRadius: 8, border: "none",
-                background: "var(--accent, #60A0FF)", color: "#fff",
+                background: "var(--accent)", color: "var(--accent-ink)",
                 fontSize: 14, fontWeight: 700, cursor: dbsSaving ? "not-allowed" : "pointer",
                 opacity: dbsSaving ? 0.5 : 1,
               }}
@@ -3191,7 +3211,7 @@ function IdDocsTab({ venueToken }) {
             {docUrl && (
               <div style={{ marginBottom: 16, textAlign: "center" }}>
                 {viewDoc.storage_path.endsWith(".pdf") ? (
-                  <a href={docUrl} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: "var(--accent, #60A0FF)" }}>
+                  <a href={docUrl} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: "var(--accent)" }}>
                     Open PDF document
                   </a>
                 ) : (
@@ -3346,8 +3366,8 @@ function AnnouncementsTab({ venueToken }) {
             <button key={v} onClick={() => { setAudience(v); setCohortId(null); setTeamId(null); }}
               style={{
                 padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer",
-                background: audience === v ? "var(--accent, #111)" : "transparent",
-                color: audience === v ? "#fff" : "var(--text, #111)",
+                background: audience === v ? "var(--accent)" : "transparent",
+                color: audience === v ? "var(--accent-ink)" : "var(--ink)",
                 border: "1px solid var(--border, #ddd)",
               }}>{l}</button>
           ))}
@@ -3390,12 +3410,12 @@ function AnnouncementsTab({ venueToken }) {
           style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14, resize: "vertical", boxSizing: "border-box" }} />
       </div>
 
-      {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
-      {sent  && <p style={{ color: "#2a7a2a", fontSize: 13, marginBottom: 12 }}>Announcement queued — will be emailed within 5 minutes.</p>}
+      {error && <p style={{ color: "var(--crit)", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+      {sent  && <p style={{ color: "var(--ok)", fontSize: 13, marginBottom: 12 }}>Announcement queued — will be emailed within 5 minutes.</p>}
 
       <button onClick={handleSend} disabled={saving}
         style={{
-          padding: "10px 24px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff",
+          padding: "10px 24px", borderRadius: 8, background: "var(--accent)", color: "var(--accent-ink)",
           border: "none", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
           opacity: saving ? 0.6 : 1,
         }}>
@@ -3444,8 +3464,8 @@ function MerchandiseTab({ venueToken }) {
             style={{
               padding: "6px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600,
               border: "1px solid var(--border, #ddd)", cursor: "pointer",
-              background: subTab === v ? "var(--accent, #111)" : "transparent",
-              color: subTab === v ? "#fff" : "var(--text, #111)",
+              background: subTab === v ? "var(--accent)" : "transparent",
+              color: subTab === v ? "var(--accent-ink)" : "var(--ink)",
             }}>
             {l}
           </button>
@@ -3536,7 +3556,7 @@ function CataloguePanel({ venueToken, clubId }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <SectionHead>Items ({items?.length ?? "…"})</SectionHead>
         <button onClick={openNew}
-          style={{ padding: "7px 16px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          style={{ padding: "7px 16px", borderRadius: 8, background: "var(--accent)", color: "var(--accent-ink)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           + Add item
         </button>
       </div>
@@ -3593,11 +3613,11 @@ function CataloguePanel({ venueToken, clubId }) {
               Visible to members
             </label>
           )}
-          {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+          {error && <p style={{ color: "var(--crit)", fontSize: 13, marginBottom: 12 }}>{error}</p>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button onClick={() => setShowForm(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border, #ddd)", background: "none", fontSize: 14, cursor: "pointer" }}>Cancel</button>
             <button onClick={handleSave} disabled={saving}
-              style={{ padding: "8px 20px", borderRadius: 8, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+              style={{ padding: "8px 20px", borderRadius: 8, background: "var(--accent)", color: "var(--accent-ink)", border: "none", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
@@ -3686,11 +3706,11 @@ function OrdersPanel({ venueToken, clubId }) {
                   {(o.status === "pending" || o.status === "pending_payment") && (
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button onClick={() => { setActioning({ ...o, _action: "fulfil" }); setNotes(""); setError(null); }}
-                        style={{ padding: "4px 10px", borderRadius: 6, background: "var(--accent, #111)", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}>
+                        style={{ padding: "4px 10px", borderRadius: 6, background: "var(--accent)", color: "var(--accent-ink)", border: "none", fontSize: 12, cursor: "pointer" }}>
                         Fulfil
                       </button>
                       <button onClick={() => { setActioning({ ...o, _action: "cancel" }); setNotes(""); setError(null); }}
-                        style={{ padding: "4px 10px", borderRadius: 6, background: "none", color: "#c00", border: "1px solid #c00", fontSize: 12, cursor: "pointer" }}>
+                        style={{ padding: "4px 10px", borderRadius: 6, background: "none", color: "var(--crit)", border: "1px solid var(--crit)", fontSize: 12, cursor: "pointer" }}>
                         Cancel
                       </button>
                     </div>
@@ -3715,14 +3735,14 @@ function OrdersPanel({ venueToken, clubId }) {
               style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border, #ddd)", fontSize: 14, boxSizing: "border-box" }}
               placeholder={actioning._action === "fulfil" ? "e.g. Handed out at training" : "e.g. Out of stock"} />
           </div>
-          {error && <p style={{ color: "#c00", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+          {error && <p style={{ color: "var(--crit)", fontSize: 13, marginBottom: 12 }}>{error}</p>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button onClick={() => setActioning(null)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border, #ddd)", background: "none", fontSize: 14, cursor: "pointer" }}>Back</button>
             <button onClick={() => handleAction(actioning._action)} disabled={saving}
               style={{
                 padding: "8px 20px", borderRadius: 8, border: "none", fontSize: 14, fontWeight: 600,
                 cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
-                background: actioning._action === "fulfil" ? "var(--accent, #111)" : "#c00", color: "#fff",
+                background: actioning._action === "fulfil" ? "var(--accent)" : "var(--crit)", color: actioning._action === "fulfil" ? "var(--accent-ink)" : "var(--ink)",
               }}>
               {saving ? "Saving…" : actioning._action === "fulfil" ? "Confirm fulfilled" : "Confirm cancel"}
             </button>

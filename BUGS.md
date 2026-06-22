@@ -210,6 +210,18 @@ The venue app isn't covered by the hygiene hook (only inorout/src + core are), s
 never caught. Tokenise in a focused venue-hygiene sweep; left out of the Phase 1 commit to
 keep the diff scoped.
 
+**✅ RESOLVED — session 178 (Venue OS nav Phase 0).** Tokenised every palette-violation site
+across `MembershipsView.jsx` to real venue tokens (`--accent` amber + `--accent-ink` for button
+text, `--ink` for body text, `--crit` for danger, `--ok` for success). The debt was WIDER than
+recorded: the affected tabs were authored against inorout tokens that don't exist in the venue
+app (`--text`, `--bg-card`), so the hardcoded fallbacks actually rendered — and white-on-amber
+button text was a latent contrast bug, now fixed (dark-on-amber). Kept the QR-holder `#fff`
+(legit quiet-zone) + grading belt-colour defaults (`#3030FF`, user data). **RESIDUAL (new,
+lower-severity):** ~33 `var(--text-mute, #888)` and `var(--border, #ddd|#333)` dead-fallback
+sites remain — `--text-mute` doesn't exist in the venue so #888 renders (should be `--ink-3`);
+`--border` DOES exist so those fallbacks never show (cosmetic only). Left for a dedicated
+venue-token sweep; scoped out of Phase 0 to keep the IA diff clean.
+
 ## SESSION 173 — ✅ ADMIN QUICK-ACTION ON MY VIEW SHIPPED (mig 381; PRs #55, #56, LIVE on main). One latent bug discovered.
 
 Shipped the admin avatar-tap quick-action sheet on My View (set status + manage guests).

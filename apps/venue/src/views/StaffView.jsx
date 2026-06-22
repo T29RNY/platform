@@ -5,14 +5,34 @@ import StaffMemberForm from "./StaffMemberForm.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState, StarRating } from "./atoms.jsx";
 import { getInitials } from "../lib/format.js";
+import { StaffTab as ClubCoachesTab } from "./MembershipsView.jsx";
 
 const ROLE_LABEL = {
   reception: "Reception", manager: "Manager", admin: "Admin",
   groundstaff: "Groundstaff", coach: "Coach", other: "Staff",
 };
 
-// Staff — match officials (match_officials) + venue staff (venue_staff, mig 195).
+// Staff — two surfaces under one rail item (session 178, Phase 0):
+//  • "Venue staff & officials" — match officials (match_officials) + venue staff
+//    (venue_staff, mig 195). The original StaffView content.
+//  • "Coaches & DBS" — per-club team managers/coaches + DBS/safeguarding records
+//    (moved here from the Memberships StaffTab; NOT a duplicate of the above).
 export default function StaffView({ state, venueToken, onRefresh }) {
+  const [tab, setTab] = useState("venue");
+  return (
+    <div>
+      <span className="chips" style={{ marginBottom: "var(--gap)" }}>
+        {[["venue", "Venue staff & officials"], ["coaches", "Coaches & DBS"]].map(([v, l]) => (
+          <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
+        ))}
+      </span>
+      {tab === "venue" && <VenueStaffPanel state={state} venueToken={venueToken} onRefresh={onRefresh} />}
+      {tab === "coaches" && <ClubCoachesTab venueToken={venueToken} />}
+    </div>
+  );
+}
+
+function VenueStaffPanel({ state, venueToken, onRefresh }) {
   const refs = state.refs ?? [];
   const [refForm, setRefForm] = useState({ open: false, row: null });
   const [staffForm, setStaffForm] = useState({ open: false, row: null });

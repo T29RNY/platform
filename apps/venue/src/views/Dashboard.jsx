@@ -18,7 +18,7 @@ import LeagueView from "./LeagueView.jsx";
 import LeagueTable from "./LeagueTable.jsx";
 import PlayersView from "./PlayersView.jsx";
 import CustomersView from "./CustomersView.jsx";
-import MembershipsView from "./MembershipsView.jsx";
+import MembershipsView, { FixturesTab } from "./MembershipsView.jsx";
 import SessionsView from "./SessionsView.jsx";
 import AccessView from "./AccessView.jsx";
 import InvitesView from "./InvitesView.jsx";
@@ -27,43 +27,49 @@ import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import { poundsRound } from "../lib/format.js";
 
+// Rail IA (session 178, Phase 0): five groups — Run · People · Programmes ·
+// Competition · Club & admin. Pure regroup/rename; ids are unchanged so deep
+// links, SearchPalette and NotificationsPanel keep working. Fixtures surfaced
+// here under Competition (was buried in Memberships).
 const TABS = [
-  { group: "Workspace",   items: [
+  { group: "Run", items: [
     { id: "ops",       label: "Operations", icon: "ops" },
     { id: "bookings",  label: "Bookings",   icon: "bookings" },
     { id: "payments",  label: "Payments",   icon: "payments" },
-    { id: "equipment", label: "Equipment",  icon: "equipment" },
   ]},
-  { group: "Directory",   items: [
+  { group: "People", items: [
     { id: "customers",   label: "Customers",   icon: "customers" },
     { id: "memberships", label: "Memberships", icon: "pound" },
-    { id: "sessions",  label: "Sessions",   icon: "staff" },
-    { id: "teams",     label: "Teams",     icon: "teams" },
-    { id: "players",   label: "Players",   icon: "players" },
-    { id: "staff",     label: "Staff",     icon: "staff" },
-    { id: "invites",   label: "QR codes",  icon: "settings" },
-    { id: "access",    label: "Access",    icon: "settings", adminOnly: true },
+    { id: "teams",       label: "Teams",       icon: "teams" },
+    { id: "players",     label: "Players",     icon: "players" },
+    { id: "staff",       label: "Staff",       icon: "staff" },
   ]},
-  { group: "Facilities", items: [
-    { id: "spaces",  label: "Spaces",  icon: "spaces" },
-    { id: "classes", label: "Classes", icon: "classes" },
-    { id: "trainers", label: "Trainers", icon: "staff" },
-    { id: "roomhire", label: "Room hire", icon: "roomhire" },
+  { group: "Programmes", items: [
+    { id: "sessions",  label: "Club sessions", icon: "staff" },
+    { id: "classes",   label: "Classes",   icon: "classes" },
+    { id: "trainers",  label: "Trainers",  icon: "staff" },
+    { id: "roomhire",  label: "Room hire", icon: "roomhire" },
+    { id: "equipment", label: "Equipment", icon: "equipment" },
+    { id: "spaces",    label: "Spaces",    icon: "spaces" },
   ]},
   { group: "Competition", items: [
-    { id: "league", label: "Leagues", icon: "league" },
-    { id: "table",  label: "Table",   icon: "table" },
-    { id: "cups",   label: "Cups",    icon: "cups", cupOnly: true },
+    { id: "fixtures", label: "Fixtures",  icon: "ops" },
+    { id: "league",   label: "Leagues",   icon: "league" },
+    { id: "table",    label: "Standings", icon: "table" },
+    { id: "cups",     label: "Cups",      icon: "cups", cupOnly: true },
   ]},
-  { group: "Settings", items: [
+  { group: "Club & admin", items: [
+    { id: "invites",      label: "QR codes",     icon: "settings" },
+    { id: "access",       label: "Access",       icon: "settings", adminOnly: true },
     { id: "integrations", label: "Integrations", icon: "settings" },
   ]},
 ];
 
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
-  customers: "Customers", memberships: "Memberships", sessions: "Sessions", teams: "Teams", players: "Players", staff: "Staff",
+  customers: "Customers", memberships: "Memberships", sessions: "Club sessions", teams: "Teams", players: "Players", staff: "Staff",
   access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room hire", league: "Leagues", table: "Standings", cups: "Cups",
+  fixtures: "Fixtures",
   integrations: "Integrations",
 };
 
@@ -156,6 +162,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "customers" && <CustomersView venueToken={venueToken} />}
           {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
           {view === "sessions" && <SessionsView venueToken={venueToken} />}
+          {view === "fixtures" && <FixturesTab venueToken={venueToken} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}
           {view === "staff" && <StaffView state={state} venueToken={venueToken} onRefresh={onRefresh} />}

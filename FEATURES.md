@@ -11,6 +11,15 @@ Full-Time feasibility verdict live in **STRATEGY.md → "PILOT MEETING FEEDBACK 
 Remaining phases (join link/QR, membership-gated join, manager comms, pro-rating) tracked in
 **CLUB_STRUCTURE_HANDOFF.md**.
 
+**Venue OS nav epic (closes backlog #10 nav + #11 modularity) — Phase 0 SHIPPED (s178, no mig).**
+IA cleanup only, pure venue-app UI: rail regrouped to Run · People · Programmes · Competition ·
+Club & admin (renames Sessions→"Club sessions", Table→"Standings"); Fixtures surfaced under
+Competition (internal `club_fixtures` editable vs FA embed read-only, enforced by the data
+model); MembershipsView 13 chips → 5 grouped chips w/ sub-tabs; the per-club coach/DBS Staff tab
+MOVED into top-level Staff (not a duplicate of venue-ops Staff); venue-hex tech-debt tokenised.
+Next: Phase 1 — `venue_features` + `club_features` flag foundation (3-layer gate, default-all-on).
+Full phased plan in **MODULAR_PLATFORM_HANDOFF.md**.
+
 **#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
 `club_leagues` + `club_fixtures` RPC-only tables let a club hold its own home/away games vs
 free-text external opponents, with assigned pitch + ref + per-venue matchday ground rules
