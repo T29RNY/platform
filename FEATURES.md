@@ -11,6 +11,16 @@ Full-Time feasibility verdict live in **STRATEGY.md → "PILOT MEETING FEEDBACK 
 Remaining phases (join link/QR, membership-gated join, manager comms, pro-rating) tracked in
 **CLUB_STRUCTURE_HANDOFF.md**.
 
+**#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
+`club_leagues` + `club_fixtures` RPC-only tables let a club hold its own home/away games vs
+free-text external opponents, with assigned pitch + ref + per-venue matchday ground rules
+(`venues.matchday_info`). Operator surface = new **Fixtures** tab in the venue MembershipsView
+(create league → add/edit fixture → assign pitch & ref → set ground rules). Each fixture mints a
+public `share_code` for the opposition-coach link (Phase B). FA-import columns added dormant for
+Phase C. 8 venue-token RPCs (EV 13/13 + leak 0, rpc-security PASS). Sprint plan + go/no-go in
+PILOT_DEMO_SPRINT_HANDOFF.md / STRATEGY.md. Phase B = the public link; Phase C = FA AI-import.
+⛔ owed real-device venue walk of the Fixtures tab.
+
 ### NEXT EPIC (scoped, not built) — Modular platform: packaging + FA fixtures + public web + ref-as-module
 Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPro review. Full plan
 in **MODULAR_PLATFORM_HANDOFF.md**. Three sequenced epics, A→B→C, each merged before the next:

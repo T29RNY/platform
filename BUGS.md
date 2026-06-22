@@ -3,6 +3,37 @@
 
 ---
 
+## SESSION 178 — ✅ PILOT #8 Phase A SHIPPED (mig 394). Club League + home/away fixtures spine. No new bugs.
+
+Pilot demo sprint, item #8 (opposition-coach matchday link) **spine** + the FA-import target
+(see PILOT_DEMO_SPRINT_HANDOFF.md). **Migration 394** — two brand-new RPC-only tables
+`club_leagues` + `club_fixtures` (free-text external opponents, home/away flag, pitch via
+`playing_areas`, ref via `match_officials` *or* free-text, score/status, public `share_code`
+minted per fixture) + additive `venues.matchday_info jsonb` (per-venue ground rules). **Why a new
+table not the casual `fixtures`:** the casual `fixtures` FK-binds both sides to a registered
+`teams` row (ON DELETE RESTRICT) with no free-text opponent — external/FA opponents can't live
+there without rippling into the casual domain (DECISIONS s178). 8 venue-token RPCs
+(`venue_{create,update,list}_club_league`, `venue_{upsert,delete,list}_club_fixture`,
+`venue_{set,get}_matchday_info`) following the mig-389 club_* pattern (resolve_venue_caller →
+`_venue_has_cap('manage_memberships')` → audit_events per Hard Rule #9). FA-import columns
+(`fa_source_url`/`fa_embed_code`/`fa_last_synced_at` on leagues; `source`/`fa_fixture_key` on
+fixtures) added DORMANT so Phase C is behavioural-only. Operator surface = new **Fixtures** tab in
+venue MembershipsView (club picker → league → add/edit fixture, assign pitch+ref, ground-rules
+editor); `state.pitches`/`state.refs` threaded from Dashboard. Wrappers + barrel added.
+
+Gates: rpc-security PASS (8 RPCs SECDEF/search_path/single-overload; reads granted anon+auth, the
+venue token is the auth signal — consistent with the club_* family), **EV 13/13 + leak 0**
+(create league → create fixture w/ pitch+ref+team → list-joins-resolve → update score/status →
+result-persists → league fixture_count → matchday_info → 5 error guards: pitch-not-in-venue,
+opponent-required, team-not-in-club, club-not-found, bad-token → delete), build venue+inorout
+clean, **no new hardcoded hex** in the venue additions (hand-checked — venue app isn't
+hygiene-hook-gated). No `apps/inorout/src` touch → casual-regression N/A, no real-iPhone owed for
+this phase. **⛔ OWED: real-device venue walk** of the Fixtures tab (create league, add a home
+fixture, assign pitch+ref, set ground rules). Phase B (mig 395) = the public opposition-coach
+link; Phase C (mig 396) = FA AI-import. **Next free mig = 395.**
+
+---
+
 ## SESSION 177 — ✅ CLUB STRUCTURE Phase 5 SHIPPED (mig 393). Pro-rating. EPIC COMPLETE. 2 latent bugs fixed.
 
 Pilot backlog #2, Phase 5 (final) — club-configurable pro-rating of season memberships + an

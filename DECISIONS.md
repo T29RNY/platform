@@ -1,5 +1,30 @@
 # In or Out — Key Decisions Log
 
+## SESSION 178 — Club fixtures live in a NEW `club_fixtures` table, not the casual `fixtures`
+*2026-06-22. Mig 394. Pilot backlog #8 spine (opposition-coach matchday link) + the FA-import target.*
+
+**Decision: a club's own league games get a brand-new `club_leagues`/`club_fixtures` pair —
+we do NOT bend the existing casual `fixtures` table.** The audit found the casual `fixtures`
+table FK-binds BOTH home and away to a registered `teams` row (`ON DELETE RESTRICT`) and has no
+free-text opponent. A grassroots club's real games are vs EXTERNAL clubs, and the FA import (the
+upstream feeder) yields only opponent *names*. Forcing external opponents into `teams` would
+ripple into the casual-football domain and the RESTRICT FK. The new pair is purely additive
+(RPC-only, touches nothing casual) and reuses everything that already works: `playing_areas`
+(pitch), `match_officials` (ref), `venues` (address/lat/lng/contact + new `matchday_info` jsonb),
+the public share-code pattern, the audit spine. This is the LESS-ripple option, satisfying
+`feedback_reuse_over_new_systems` (the alternative reuse forced changes in working screens).
+
+**Decision: FA "feed sync" is NO-GO as a clean integration; the route is AI-scan of the official
+embed, framed honestly.** Spike (2026-06-22): the FA exposes no iCal/RSS/XML/JSON feed and no
+public API — only a login-gated, per-division JavaScript display widget, deliberately walled
+against scraping. Even Pitchero (15-yr FA partner) gets only a once-a-season per-division export,
+not a live feed; their true live API is cricket's ECB. Matchday is a closed FA consumer app, not
+an integration point. So: (1) display the official embed now (#9, zero-risk); (2) the only path to
+auto-import is AI-reading the rendered widget into our `club_fixtures` — grey, best-effort on
+change-alerts, gated on a real pilot snippet; (3) the endgame is earning the FA/Pitchero-style
+partnership as we grow. Everything funnels into one store (`club_fixtures`) so the manual,
+AI-import, and #8 link layers are independent. Full writeup in STRATEGY.md.
+
 ## SESSION 177 — Club Structure Phase 5: pro-rating is season-only, member's-favour, one helper
 *2026-06-22. Mig 393. Epic COMPLETE.*
 

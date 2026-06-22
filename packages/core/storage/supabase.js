@@ -4872,6 +4872,82 @@ export async function clubArchiveTeam(venueToken, teamId) {
   return data;
 }
 
+// ── Club League + home/away fixtures (mig 394) — venue-token operator surface.
+// A club's own league container holding free-text-opponent home/away games with
+// assigned pitch + ref. The #8 opposition-coach link reads these via share_code.
+export async function venueCreateClubLeague(venueToken, clubId, { name, seasonLabel = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_create_club_league", {
+    p_venue_token: venueToken, p_club_id: clubId, p_name: name, p_season_label: seasonLabel,
+  });
+  if (error) { console.error("[league] venue_create_club_league failed", error); throw error; }
+  return data;
+}
+
+export async function venueUpdateClubLeague(venueToken, leagueId, { name = null, seasonLabel = null, archived = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_update_club_league", {
+    p_venue_token: venueToken, p_league_id: leagueId, p_name: name,
+    p_season_label: seasonLabel, p_archived: archived,
+  });
+  if (error) { console.error("[league] venue_update_club_league failed", error); throw error; }
+  return data;
+}
+
+export async function venueListClubLeagues(venueToken, clubId = null) {
+  const { data, error } = await supabase.rpc("venue_list_club_leagues", {
+    p_venue_token: venueToken, p_club_id: clubId,
+  });
+  if (error) { console.error("[league] venue_list_club_leagues failed", error); throw error; }
+  return data;
+}
+
+export async function venueUpsertClubFixture(venueToken, {
+  fixtureId = null, leagueId = null, clubTeamId = null, clubTeamName = null,
+  opponentName = null, isHome = null, scheduledDate = null, kickoffTime = null,
+  playingAreaId = null, officialId = null, refName = null,
+  homeScore = null, awayScore = null, status = null, notes = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_upsert_club_fixture", {
+    p_venue_token: venueToken, p_fixture_id: fixtureId, p_league_id: leagueId,
+    p_club_team_id: clubTeamId, p_club_team_name: clubTeamName, p_opponent_name: opponentName,
+    p_is_home: isHome, p_scheduled_date: scheduledDate, p_kickoff_time: kickoffTime,
+    p_playing_area_id: playingAreaId, p_official_id: officialId, p_ref_name: refName,
+    p_home_score: homeScore, p_away_score: awayScore, p_status: status, p_notes: notes,
+  });
+  if (error) { console.error("[league] venue_upsert_club_fixture failed", error); throw error; }
+  return data;
+}
+
+export async function venueDeleteClubFixture(venueToken, fixtureId) {
+  const { data, error } = await supabase.rpc("venue_delete_club_fixture", {
+    p_venue_token: venueToken, p_fixture_id: fixtureId,
+  });
+  if (error) { console.error("[league] venue_delete_club_fixture failed", error); throw error; }
+  return data;
+}
+
+export async function venueListClubFixtures(venueToken, leagueId) {
+  const { data, error } = await supabase.rpc("venue_list_club_fixtures", {
+    p_venue_token: venueToken, p_league_id: leagueId,
+  });
+  if (error) { console.error("[league] venue_list_club_fixtures failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetMatchdayInfo(venueToken, info) {
+  const { data, error } = await supabase.rpc("venue_set_matchday_info", {
+    p_venue_token: venueToken, p_info: info,
+  });
+  if (error) { console.error("[league] venue_set_matchday_info failed", error); throw error; }
+  return data;
+}
+
+export async function venueGetMatchdayInfo(venueToken) {
+  const { data, error } = await supabase.rpc("venue_get_matchday_info", {
+    p_venue_token: venueToken,
+  });
+  if (error) { console.error("[league] venue_get_matchday_info failed", error); throw error; }
+  return data;
+}
+
 // Phase 2 (mig 390) — get-or-create the canonical join_club_team invite code
 // for a club team. The QR encodes /q/<code>; resolve_invite_link returns the
 // club/cohort/team context for the (Phase 3) membership-gated join flow.

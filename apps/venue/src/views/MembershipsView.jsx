@@ -16,6 +16,9 @@ import {
   venueListIdSubmissions, venueVerifyIdDocument, getMemberIdDocUrl,
   venueUpsertMerchandise, venueListMerchandise, venueListPurchases,
   venueFulfilPurchase, venueCancelPurchase,
+  venueListClubLeagues, venueCreateClubLeague, venueUpdateClubLeague,
+  venueListClubFixtures, venueUpsertClubFixture, venueDeleteClubFixture,
+  venueSetMatchdayInfo, venueGetMatchdayInfo,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
 import Icon from "./Icon.jsx";
@@ -121,13 +124,13 @@ const regError = (r) => {
   return null;
 };
 
-export default function MembershipsView({ venueToken, liveTick = 0 }) {
+export default function MembershipsView({ venueToken, liveTick = 0, pitches = [], refs = [] }) {
   const [tab, setTab] = useState("members");
   return (
     <div>
       <SectionHead label="Memberships" count="Recurring members, plans and team fees — billed to the Payments ledger">
         <span className="chips">
-          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["structure", "Structure"], ["grading", "Grading"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
+          {[["members", "Members"], ["plans", "Plans"], ["fees", "Team fees"], ["perks", "Perks"], ["club", "Club"], ["structure", "Structure"], ["fixtures", "Fixtures"], ["grading", "Grading"], ["staff", "Staff"], ["announcements", "Announcements"], ["documents", "Documents"], ["iddocs", "ID docs"], ["merchandise", "Shop"]].map(([v, l]) => (
             <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
           ))}
         </span>
@@ -138,6 +141,7 @@ export default function MembershipsView({ venueToken, liveTick = 0 }) {
       {tab === "perks"   && <PerksTab venueToken={venueToken} />}
       {tab === "club"       && <ClubTab venueToken={venueToken} />}
       {tab === "structure"  && <StructureTab venueToken={venueToken} />}
+      {tab === "fixtures"   && <FixturesTab venueToken={venueToken} pitches={pitches} refs={refs} />}
       {tab === "grading"    && <GradingTab venueToken={venueToken} />}
       {tab === "staff"          && <StaffTab venueToken={venueToken} />}
       {tab === "announcements"  && <AnnouncementsTab venueToken={venueToken} />}
@@ -513,6 +517,286 @@ function BoutsModal({ venueToken, member, onClose }) {
 }
 
 // ── Grading schemes setup (operator: per-club belt/grade ladders) ────────────
+// ── Fixtures: a club's own League of home/away games (external opponents).
+// Operator creates a League, adds fixtures, assigns pitch + ref, sets venue
+// matchday ground rules. The opposition-coach share link (Phase B) reads these.
+const CF_STATUS = [["scheduled", "Scheduled"], ["completed", "Played"], ["postponed", "Postponed"], ["void", "Void"]];
+const emptyFixture = () => ({
+  fixture_id: null, club_team_id: "", club_team_name: "", opponent_name: "",
+  is_home: true, scheduled_date: "", kickoff_time: "", playing_area_id: "",
+  official_id: "", ref_name: "", home_score: "", away_score: "", status: "scheduled", notes: "",
+});
+
+function FixturesTab({ venueToken, pitches = [], refs = [] }) {
+  const [clubs, setClubs] = useState(null);
+  const [clubId, setClubId] = useState(null);
+  const [leagues, setLeagues] = useState(null);
+  const [leagueId, setLeagueId] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [fixtures, setFixtures] = useState(null);
+  const [newLeague, setNewLeague] = useState({ name: "", season: "" });
+  const [form, setForm] = useState(null);          // null | fixture-draft
+  const [info, setInfo] = useState(null);          // venue matchday ground rules
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [error, setError] = useState(null);
+  const isSavingRef = useRef(false);
+
+  useEffect(() => {
+    let a = true;
+    venueListClubs(venueToken)
+      .then((cs) => { if (!a) return; setClubs(cs || []); if ((cs || []).length) setClubId(cs[0].id); })
+      .catch(() => { if (a) setClubs([]); });
+    venueGetMatchdayInfo(venueToken).then((r) => { if (a) setInfo(r?.info || {}); }).catch(() => { if (a) setInfo({}); });
+    return () => { a = false; };
+  }, [venueToken]);
+
+  const loadLeagues = (cid) => {
+    setLeagues(null); setLeagueId(null); setFixtures(null);
+    venueListClubLeagues(venueToken, cid)
+      .then((r) => setLeagues(r?.leagues || []))
+      .catch((e) => setError(e?.message || String(e)));
+    clubListTeams(venueToken, cid, false).then((r) => setTeams(r || [])).catch(() => setTeams([]));
+  };
+  useEffect(() => { if (clubId) loadLeagues(clubId); /* eslint-disable-next-line */ }, [clubId]);
+
+  const loadFixtures = (lid) => {
+    setFixtures(null);
+    venueListClubFixtures(venueToken, lid)
+      .then((r) => setFixtures(r?.fixtures || []))
+      .catch((e) => setError(e?.message || String(e)));
+  };
+  useEffect(() => { if (leagueId) loadFixtures(leagueId); /* eslint-disable-next-line */ }, [leagueId]);
+
+  const createLeague = async () => {
+    if (isSavingRef.current || !newLeague.name.trim()) return;
+    isSavingRef.current = true; setError(null);
+    try {
+      await venueCreateClubLeague(venueToken, clubId, { name: newLeague.name.trim(), seasonLabel: newLeague.season.trim() || null });
+      setNewLeague({ name: "", season: "" });
+      loadLeagues(clubId);
+    } catch (e) { setError("Couldn’t create the league — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  const saveFixture = async () => {
+    if (isSavingRef.current || !form) return;
+    if (!form.opponent_name.trim()) { setError("Add the opponent’s name."); return; }
+    isSavingRef.current = true; setError(null);
+    try {
+      await venueUpsertClubFixture(venueToken, {
+        fixtureId: form.fixture_id || null,
+        leagueId: form.fixture_id ? null : leagueId,
+        clubTeamId: form.club_team_id || null,
+        clubTeamName: form.club_team_id ? null : (form.club_team_name.trim() || null),
+        opponentName: form.opponent_name.trim(),
+        isHome: form.is_home,
+        scheduledDate: form.scheduled_date || null,
+        kickoffTime: form.kickoff_time || null,
+        playingAreaId: form.playing_area_id || null,
+        officialId: form.official_id || null,
+        refName: form.official_id ? null : (form.ref_name.trim() || null),
+        homeScore: form.home_score === "" ? null : Number(form.home_score),
+        awayScore: form.away_score === "" ? null : Number(form.away_score),
+        status: form.status,
+        notes: form.notes.trim() || null,
+      });
+      setForm(null);
+      loadFixtures(leagueId);
+      loadLeagues(clubId);
+    } catch (e) { setError("Couldn’t save the fixture — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  const deleteFixture = async (fid) => {
+    if (!window.confirm("Delete this fixture? The shareable matchday link will stop working.")) return;
+    try { await venueDeleteClubFixture(venueToken, fid); loadFixtures(leagueId); loadLeagues(clubId); }
+    catch (e) { setError("Couldn’t delete — try again."); }
+  };
+
+  const saveInfo = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true; setError(null);
+    try { await venueSetMatchdayInfo(venueToken, info || {}); setInfoOpen(false); }
+    catch (e) { setError("Couldn’t save ground rules — try again."); }
+    finally { isSavingRef.current = false; }
+  };
+
+  if (!clubs) return <p className="text-mute" style={{ padding: 24 }}>Loading…</p>;
+  if (!clubs.length) return <EmptyState title="No clubs yet" body="Create a club in the Club tab first — fixtures belong to a club’s league." />;
+
+  const editFixture = (fx) => setForm({
+    fixture_id: fx.fixture_id, club_team_id: fx.club_team_id || "", club_team_name: fx.club_team_name || "",
+    opponent_name: fx.opponent_name || "", is_home: fx.is_home,
+    scheduled_date: fx.scheduled_date || "", kickoff_time: fx.kickoff_time || "",
+    playing_area_id: fx.playing_area_id || "", official_id: fx.official_id || "",
+    ref_name: fx.referee_name && !fx.official_id ? fx.referee_name : "",
+    home_score: fx.home_score ?? "", away_score: fx.away_score ?? "",
+    status: fx.status || "scheduled", notes: fx.notes || "",
+  });
+
+  return (
+    <div>
+      {clubs.length > 1 && (
+        <div style={{ marginBottom: 16 }}>
+          <label className="field-label" style={{ marginRight: 8 }}>Club</label>
+          <select className="input" style={{ width: "auto" }} value={clubId || ""} onChange={(e) => setClubId(e.target.value)}>
+            {clubs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* Matchday ground rules (venue-wide, shown on every home share link) */}
+      <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <strong>Matchday ground rules</strong>
+            <p className="text-mute" style={{ fontSize: 12, margin: "2px 0 0" }}>Shown on every home game’s shareable link, alongside your address &amp; directions.</p>
+          </div>
+          <button className="btn btn-xs" onClick={() => setInfoOpen((o) => !o)}>{infoOpen ? "Close" : "Edit"}</button>
+        </div>
+        {infoOpen && info && (
+          <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+            {[["parking", "Parking & arrival"], ["rules", "Ground rules"], ["directions", "Directions / notes"], ["contact", "Matchday contact"]].map(([k, label]) => (
+              <div key={k}>
+                <label className="field-label">{label}</label>
+                <textarea className="input" rows={2} value={info[k] || ""} onChange={(e) => setInfo((s) => ({ ...s, [k]: e.target.value }))} />
+              </div>
+            ))}
+            <div><button className="btn btn-primary btn-sm" onClick={saveInfo}>Save ground rules</button></div>
+          </div>
+        )}
+      </div>
+
+      {/* New league */}
+      <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+        <strong style={{ display: "block", marginBottom: 8 }}>New league</strong>
+        <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>A container for a team’s season of games — e.g. “U12s — Saturday League”. Add the fixtures below.</p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input className="input" placeholder="League name" value={newLeague.name} onChange={(e) => setNewLeague((s) => ({ ...s, name: e.target.value }))} style={{ flex: 1, minWidth: 180 }} />
+          <input className="input" placeholder="Season (e.g. 2026/27)" value={newLeague.season} onChange={(e) => setNewLeague((s) => ({ ...s, season: e.target.value }))} style={{ width: 160 }} />
+          <button className="btn btn-primary" onClick={createLeague}><Icon name="plus" size={14} /> Create</button>
+        </div>
+      </div>
+
+      {error && <p style={{ color: "var(--live)", fontSize: 13 }}>{error}</p>}
+      {leagues === null && <p className="text-mute">Loading leagues…</p>}
+      {leagues && leagues.length === 0 && <EmptyState title="No leagues yet" body="Create a league above to start adding fixtures." />}
+
+      {leagues && leagues.length > 0 && (
+        <div style={{ marginBottom: "var(--gap-2)" }}>
+          <label className="field-label" style={{ marginRight: 8 }}>League</label>
+          <select className="input" style={{ width: "auto" }} value={leagueId || ""} onChange={(e) => setLeagueId(e.target.value || null)}>
+            <option value="">— choose a league —</option>
+            {leagues.map((l) => <option key={l.league_id} value={l.league_id}>{l.name}{l.season_label ? ` · ${l.season_label}` : ""} ({l.fixture_count})</option>)}
+          </select>
+        </div>
+      )}
+
+      {leagueId && (
+        <>
+          {!form && <button className="btn btn-primary" style={{ marginBottom: "var(--gap-2)" }} onClick={() => setForm(emptyFixture())}><Icon name="plus" size={14} /> Add fixture</button>}
+
+          {form && (
+            <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+              <strong style={{ display: "block", marginBottom: 8 }}>{form.fixture_id ? "Edit fixture" : "New fixture"}</strong>
+              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+                <div>
+                  <label className="field-label">Your team</label>
+                  <select className="input" value={form.club_team_id} onChange={(e) => setForm((f) => ({ ...f, club_team_id: e.target.value }))}>
+                    <option value="">— type a name below —</option>
+                    {teams.map((t) => <option key={t.team_id} value={t.team_id}>{t.name}</option>)}
+                  </select>
+                  {!form.club_team_id && <input className="input" style={{ marginTop: 6 }} placeholder="Your team name" value={form.club_team_name} onChange={(e) => setForm((f) => ({ ...f, club_team_name: e.target.value }))} />}
+                </div>
+                <div>
+                  <label className="field-label">Opponent</label>
+                  <input className="input" placeholder="Away club name" value={form.opponent_name} onChange={(e) => setForm((f) => ({ ...f, opponent_name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="field-label">Home or away</label>
+                  <select className="input" value={form.is_home ? "home" : "away"} onChange={(e) => setForm((f) => ({ ...f, is_home: e.target.value === "home" }))}>
+                    <option value="home">Home</option>
+                    <option value="away">Away</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Date</label>
+                  <input className="input" type="date" value={form.scheduled_date} onChange={(e) => setForm((f) => ({ ...f, scheduled_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="field-label">Kick-off</label>
+                  <input className="input" type="time" value={form.kickoff_time} onChange={(e) => setForm((f) => ({ ...f, kickoff_time: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="field-label">Pitch {form.is_home ? "" : "(home only)"}</label>
+                  <select className="input" value={form.playing_area_id} onChange={(e) => setForm((f) => ({ ...f, playing_area_id: e.target.value }))}>
+                    <option value="">— none —</option>
+                    {pitches.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Referee</label>
+                  <select className="input" value={form.official_id} onChange={(e) => setForm((f) => ({ ...f, official_id: e.target.value }))}>
+                    <option value="">— type a name below —</option>
+                    {refs.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                  {!form.official_id && <input className="input" style={{ marginTop: 6 }} placeholder="Referee name" value={form.ref_name} onChange={(e) => setForm((f) => ({ ...f, ref_name: e.target.value }))} />}
+                </div>
+                <div>
+                  <label className="field-label">Status</label>
+                  <select className="input" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
+                    {CF_STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Score (home–away)</label>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input className="input" type="number" min={0} style={{ width: 60 }} value={form.home_score} onChange={(e) => setForm((f) => ({ ...f, home_score: e.target.value }))} />
+                    <span>–</span>
+                    <input className="input" type="number" min={0} style={{ width: 60 }} value={form.away_score} onChange={(e) => setForm((f) => ({ ...f, away_score: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="btn btn-primary btn-sm" onClick={saveFixture}>{form.fixture_id ? "Save" : "Add fixture"}</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setForm(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {fixtures === null && <p className="text-mute">Loading fixtures…</p>}
+          {fixtures && fixtures.length === 0 && <EmptyState title="No fixtures yet" body="Add a fixture above — then share its matchday link with the opposition coach." />}
+          {fixtures && fixtures.map((fx) => (
+            <div className="customer-card" key={fx.fixture_id} style={{ marginBottom: "var(--gap-2)" }}>
+              <div className="cu-top">
+                <div className="cu-head-text">
+                  <div className="cu-name">
+                    {fx.is_home
+                      ? `${fx.club_team_name || "Us"} v ${fx.opponent_name}`
+                      : `${fx.opponent_name} v ${fx.club_team_name || "Us"}`}
+                    <span className="pill" style={{ marginLeft: 8 }}>{fx.is_home ? "Home" : "Away"}</span>
+                  </div>
+                  <div className="cu-sub">
+                    {fx.scheduled_date || "no date"}{fx.kickoff_time ? ` · ${fx.kickoff_time}` : ""}
+                    {fx.pitch_name ? ` · ${fx.pitch_name}` : ""}
+                    {fx.referee_name ? ` · Ref ${fx.referee_name}` : ""}
+                    {fx.home_score != null && fx.away_score != null ? ` · ${fx.home_score}–${fx.away_score}` : ""}
+                    {` · ${CF_STATUS.find(([v]) => v === fx.status)?.[1] || fx.status}`}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <button className="btn btn-xs" onClick={() => editFixture(fx)}><Icon name="edit" size={13} /> Edit</button>
+                <button className="btn btn-xs btn-ghost" onClick={() => deleteFixture(fx.fixture_id)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 function GradingTab({ venueToken }) {
   const [clubs, setClubs] = useState(null);
   const [clubId, setClubId] = useState(null);

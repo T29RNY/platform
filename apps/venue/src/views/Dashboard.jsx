@@ -154,7 +154,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "trainers" && <TrainersView venueToken={venueToken} />}
           {view === "roomhire" && <RoomHiresView venueToken={venueToken} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
-          {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} />}
+          {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
           {view === "sessions" && <SessionsView venueToken={venueToken} />}
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}
