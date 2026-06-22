@@ -263,14 +263,19 @@ teams in their league/area** — the network effect is the real prize.
 
 ### Prioritised backlog (work through one-by-one)
 
+> **NEXT SPRINT (to the ~2026-06-29 wider-mgmt demo): #8 → #9 → #4 → #10 + the #1 FA
+> feasibility spike.** Full scope + paste-ready kickoff prompt in
+> **`PILOT_DEMO_SPRINT_HANDOFF.md`**. Backlog #2 (org/team structure) is **COMPLETE**
+> (migs 389–393). Next free mig = 394.
+
 | # | Ask | Status today | Effort | Demo priority |
 |---|-----|--------------|--------|---------------|
-| 1 | **FA Full-Time fixture sync + change alerts** | Not built | High | 🔴 #1 — kingmaker |
-| 2 | **Org/team structure (youth + adult under one club)** | Partial — `clubs`/`club_cohorts`/`club_teams`/`teams.club_id`/`venue_membership_tiers.audience` exist | Med | 🟠 **NEXT — building first** |
+| 1 | **FA Full-Time fixture sync + change alerts** | Not built. **Reframed (operator 2026-06-22): paste-a-feed-URL → poll → diff → change-alert (calendar-style), not login-scrape.** Feasibility spike first (are FA per-division feed URLs still obtainable?) | High → **Med if feeds obtainable** | 🔴 #1 — kingmaker (spike first) |
+| 2 | **Org/team structure (youth + adult under one club)** | ✅ **COMPLETE** — epic shipped migs 389–393 (structure, join link/QR, membership-gated join, manager comms, pro-rating) | — | ✅ done |
 | 3 | Mass invoicing | Built (Stripe infra migs 329–337, dormant) | Low (activate) | 🟢 demo as-is |
-| 4 | Coach invoice-chasing (auto reminders + who-hasn't-paid view) | Not built | Med | 🟠 show concept |
+| 4 | Coach invoice-chasing (auto reminders + who-hasn't-paid view) | **Partly built** — membership-reminder cron `get_membership_reminders_due` exists (no-ops until `RESEND_API_KEY`); gap = coach-facing per-team paid/unpaid pill + reminder coverage | Low–Med | 🟠 in next sprint |
 | 5 | Internal vs external pitch booking + reserved/priority times | Pitch system built; priority layer not | Med | 🟠 show |
-| 6 | Team prioritisation system (some teams rank above others) | Not built | Med–High | roadmap |
+| 6 | Team prioritisation system (some teams rank above others) | **Partial** — `club_teams.priority_rank` + ⭐ badge ship in the org chart (Phase 1, mig 389) but display-only; doesn't yet *drive* anything (e.g. pitch priority) | Med (to make it drive) | roadmap |
 | 7 | Multi-venue (train one site, play another) | Need to verify venue-scoping | Med | 🟠 mention |
 | 8 | Opposition-coach matchday info link | Reuse tournament-hub pattern | Low | 🔴 #2 demo |
 | 9 | Embed code (fixtures/results on own website) | FA official snippet + our standalone views | Low | 🟢 easy win |
