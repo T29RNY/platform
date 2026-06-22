@@ -112,9 +112,15 @@ into your match day," NOT "we have FA sync too."
   live" when a team's playing (realtime) · next-fixture + availability teaser tapping into the
   engine · prominent Join CTA. This is how we beat a static Pitchero page — same data, shows it
   *happening*.
-- **Sponsors → club-level (NEW, do in B):** mirror the existing `tournament_sponsors` infra into a
-  `club_sponsors` table (+ a few RPCs); reuse venue-media bucket + `uploadVenueMedia`. Commercial
-  hook = "your sponsor's logo on the live club page" is a club retention/renewal lever.
+- **Sponsors → TWO levels.** (a) TOURNAMENT sponsors = ALREADY BUILT (`tournament_sponsors`, mig
+  327; banner on the public hub) — no action. (b) CLUB-LEVEL sponsors = NEW, do in B: mirror the
+  `tournament_sponsors` shape into `club_sponsors` (+ a few RPCs); reuse venue-media bucket +
+  `uploadVenueMedia` (reuse, don't reinvent). MANY sponsors, ONE logo each = a bounded wall, NOT a
+  gallery (so it does NOT conflict with the one-image-per-post / no-galleries rules); resize/compress
+  each logo. Commercial hook = "your sponsor's logo on the live club page + tournament hub" is a club
+  retention/renewal lever — prioritise within B. ⚠️ STORAGE-RLS CAVEAT (from tournament-sponsor
+  experience): venue-media upload works cleanly only when the club admin is ALSO venue staff for that
+  `venue_id` — proper fix = a dedicated media bucket, not borrowing venue-media.
 - **News + blog → IN (operator-decided s174, upgraded from defer).** Real CMS: `club_posts`
   (title, body, author, status draft/published, published_at, slug) + dashboard editor + public
   render + "latest news" on homepage. The one piece with an ongoing content/support tail — accepted.
