@@ -43,7 +43,8 @@ Think of it as four joined-up layers:
 | **Live match updates** (ref → app → TV) | ✅ Solid | The "wow" moment |
 | Tournament hosting (groups + knockout bracket) | ✅ Solid | Event OS, public bracket page |
 | Reception display (live, real data) | ✅ Solid | Real-time from ref taps |
-| **"3v3" specifically** | ⚠️ Generic only | Engine is format-agnostic; **no 3v3-branded league is seeded** (see §6) |
+| **"3v3" specifically** | ✅ Seeded (mig 378) | **Demo 3v3 League** live on the reception TV — 2 live games, table, golden boot, ticker |
+| **Tournament (seeded)** | ✅ Seeded (mig 378) | **Finbar's FC Summer Cup** — groups + knockout + LIVE final; public page below |
 | Casual-match ref assignment UI | ⚠️ API only | League/tournament ref works fully; the *casual* squad-ref picker has no button yet |
 | Club OS attendance/comms, AI briefings | ❌ Dormant | Don't show |
 
@@ -67,10 +68,17 @@ open `app.in-or-out.com` — it's **already signed in** (no code). Proven workin
 
 | Link | Shows |
 |---|---|
-| `display.in-or-out.com` + PIN `1234` | Live reception TV (token `demo_venue_display_token`) |
+| `display.in-or-out.com/?token=demo_venue_display_token` + PIN `1234` | Live reception TV — **now shows live 3v3** |
+| `app.in-or-out.com/tournament/finbars-summer-cup` | **Public tournament bracket page** (groups + knockout + live final) |
 | `ref.in-or-out.com` + a fixture ref token | Referee match tool, ready for a game |
 | `/p/p_demo_alex_token` | A player's public stats / head-to-head |
 | `/m/<pass_token>` (from member pass) | A membership pass (QR, tier, perks) |
+
+**Seeded demo ref tokens (mig 378 — for the Act 4 "live" moment):** the two live 3v3 games
+are `ref_3v3_jag_cob` (Jaguars v Cobras) and `ref_3v3_pum_haw` (Pumas v Hawks); tonight's
+three to-be-played 3v3 games are `ref_3v3_jag_sha`, `ref_3v3_pum_cob`, `ref_3v3_haw_bol`
+(start one fresh to show "kick off → TV updates"). The tournament's LIVE final is
+`ref_cup_final`. Open the ref tool at the app's ref route with `?token=<token>`.
 
 > Venue operator backdoor (no email) exists for emergencies: `venue.in-or-out.com?token=demo_venue_token_DO_NOT_USE_IN_PROD`.
 
@@ -159,25 +167,36 @@ tournament bracket page, and the **one-login switch**.
 **Avoid or pre-test:**
 - **Casual-match ref assignment** has no button yet — use a **league/tournament** fixture's ref
   token for the ref demo (those work fully).
-- **Tournaments:** the bracket engine + public page + ref scoring + reception TV are strong, BUT
-  there's **no deployed "Create Tournament" button** (creation is club-admin/clubmanager, not
-  deployed) and **no tournament is seeded**. To demo it, seed a demo event first (see §6). Don't
-  pitch self-service "any organiser creates their own event" — not there yet.
+- **Tournaments:** the bracket engine + public page + ref scoring + reception TV are strong, and a
+  demo tournament is now **seeded (mig 378, verified live)** — show it via the public page
+  `app.in-or-out.com/tournament/finbars-summer-cup`. There's still **no deployed "Create
+  Tournament" button** (creation is club-admin/clubmanager, not deployed), so don't pitch
+  self-service "any organiser creates their own event" — that's the next epic.
 - **Sports-day / athletics result entry** is unbuilt (football/match-scored only).
-- Don't pitch **3v3** as a distinct built feature — the league engine is format-agnostic but no
-  3v3 league is seeded yet (see §6).
+- **3v3 is now seeded** (Demo 3v3 League, mig 378) and shows live on the reception TV — but it's
+  the format-agnostic league engine, not a bespoke 3v3 product. Lean on the live TV, don't
+  oversell "3v3" as a distinct feature.
 
 ---
 
-## 6. PRE-DEMO CHECKLIST (tomorrow morning, before the demo)
+## 6. PRE-DEMO CHECKLIST (demo morning)
 
-- [ ] **Seed a 3v3 league** + a few live fixtures, so the reception TV literally shows live 3v3.
-- [ ] **Seed a demo tournament** (group stage → knockout, a few played fixtures + one live) so
-      the Event OS bracket can be shown end-to-end (nothing is seeded today).
+- [x] **3v3 league seeded** (mig 378) + live fixtures — reception TV shows live 3v3.
+      **Verified live via Playwright:** `display.in-or-out.com/?token=demo_venue_display_token`
+      (PIN 1234) → "5 live · 3v3 Summer Series", live table, golden boot, goals ticker.
+- [x] **Demo tournament seeded** (mig 378) — group stage → knockout, 6 group games played,
+      both semis played, **final LIVE**. **Verified live via Playwright:**
+      `app.in-or-out.com/tournament/finbars-summer-cup` (groups A/B with ADV, Knockout Stage, live final).
+- [x] **Consumer "Tournaments" tab** demo-able — Alex (`tarny+demo`) is now a club_demo manager
+      with an active Finbar's FC membership (gate verified at the DB level).
 - [ ] *(Optional, bigger)* wire a **"Create Tournament" entry into the venue app** to show the
-      creation flow live rather than pre-seeded — scope on request.
+      creation flow live — that's the next epic (venue-operator self-serve tournaments).
 - [ ] **Dry-run** Acts 2–4 once with the real accounts so nothing surprises you live.
 - [ ] Confirm OTP inbox access (`tarny@lettrack.co.uk`) as an SSO sign-in fallback.
+
+*Data only — no app rebuild needed; the seed is already live. Re-runnable (idempotent).
+Teardown: `rls_migrations/378_*_down.sql`. Note the public route is `/tournament/<slug>`
+(not `/t/<slug>`).*
 
 *(The three s153 "bugs" are already fixed — verified s172. No action needed.)*
 
