@@ -683,7 +683,7 @@ function StepGcEnrol({ code, tier, period, forProfileId }) {
 // Forks at runtime: paid tier + stripe_connected venue → Stripe Checkout redirect;
 // free tier or no Stripe → direct memberEnrolMembership call.
 
-function StepEnrol({ code, tier, period, forProfileId, club, onDone }) {
+function StepEnrol({ code, tier, period, forProfileId, club, onDone, returnCode = null }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const hasRun = useRef(false);
@@ -695,7 +695,9 @@ function StepEnrol({ code, tier, period, forProfileId, club, onDone }) {
     hasRun.current = true;
     setBusy(true);
     if (useStripe) {
-      stripeInitMemberCheckout({ inviteCode: code, tierId: tier.tier_id, period, forProfileId: forProfileId ?? null })
+      // returnCode (club-team join) brings the payer back to the join screen so it
+      // can land them on the team after the webhook confirms the membership.
+      stripeInitMemberCheckout({ inviteCode: code, tierId: tier.tier_id, period, forProfileId: forProfileId ?? null, returnCode: returnCode ?? null })
         .then((r) => {
           if (r?.checkout_url) { window.location.href = r.checkout_url; }
           else { setErr("Couldn't start payment — please try again."); setBusy(false); }
@@ -730,7 +732,7 @@ function StepEnrol({ code, tier, period, forProfileId, club, onDone }) {
 
 // ── Main wizard ───────────────────────────────────────────────────────────────
 
-export default function MembershipSignup({ code, club, documents, tiers, onStart }) {
+export default function MembershipSignup({ code, club, documents, tiers, onStart, clubTeamCode = null, onEnrolled = null }) {
   const [step, setStep] = useState("idle");
   const [path, setPath] = useState(null);         // "adult" | "child"
 
@@ -919,7 +921,16 @@ export default function MembershipSignup({ code, club, documents, tiers, onStart
           period={selectedPeriod}
           forProfileId={path === "child" ? selectedChild?.id : null}
           club={club}
-          onDone={(token) => { setPassToken(token); setStep("done"); }}
+          returnCode={clubTeamCode}
+          onDone={(token) => {
+            // Free / no-Stripe path completes synchronously here. For a club-team
+            // join, hand the enrolment back so the parent can land the member on
+            // the team before showing "done".
+            if (onEnrolled) {
+              onEnrolled(token, path === "child" ? selectedChild?.id : null);
+            }
+            setPassToken(token); setStep("done");
+          }}
         />
       )}
     </>

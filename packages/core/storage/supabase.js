@@ -4790,13 +4790,13 @@ export async function memberEnrolMembership(inviteCode, tierId, period, forProfi
 // Phase 3 Stripe: create a Checkout session on the venue's connected account.
 // Returns { checkout_url } which the caller redirects to via window.location.href.
 // Dormant (503) until STRIPE_SECRET_KEY is set server-side.
-export async function stripeInitMemberCheckout({ inviteCode, tierId, period, forProfileId = null }) {
+export async function stripeInitMemberCheckout({ inviteCode, tierId, period, forProfileId = null, returnCode = null }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("not_authenticated");
   const res = await fetch("/api/stripe-member-checkout", {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
-    body:    JSON.stringify({ inviteCode, tierId, period, forProfileId }),
+    body:    JSON.stringify({ inviteCode, tierId, period, forProfileId, returnCode }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -4876,6 +4876,27 @@ export async function clubEnsureTeamInviteLink(venueToken, teamId) {
     p_venue_token: venueToken, p_team_id: teamId,
   });
   if (error) { console.error("[club] club_ensure_team_invite_link failed", error); throw error; }
+  return data;
+}
+
+// Phase 3 (mig 391) — resolve a scanned join_club_team code into its team/cohort/
+// club context + the club venue's public venue_landing code (used to drive the
+// existing 360 membership wizard), plus the signed-in caller's membership/on-team
+// status for self + accepted children. anon + authenticated.
+export async function clubTeamJoinContext(code) {
+  const { data, error } = await supabase.rpc("club_team_join_context", { p_code: code });
+  if (error) { console.error("[club] club_team_join_context failed", error); return null; }
+  return data;
+}
+
+// Phase 3 (mig 391) — membership-gated assignment of self (or an accepted child)
+// onto a club team. Authenticated only; the RPC enforces an active membership at
+// the team's venue and is idempotent. forProfileId null = join as self.
+export async function memberJoinClubTeam(code, forProfileId = null) {
+  const { data, error } = await supabase.rpc("member_join_club_team", {
+    p_code: code, p_for_profile_id: forProfileId ?? null,
+  });
+  if (error) { console.error("[member] member_join_club_team failed", error); throw error; }
   return data;
 }
 

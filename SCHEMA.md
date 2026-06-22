@@ -957,6 +957,25 @@ itself is Phase 3. Managed from the venue **Memberships → Structure** screen (
 "Join link / QR"), separate from the generic QR-codes panel (`venue_owns_entity` is
 deliberately not extended to club teams).
 
+**Membership-gated join (mig 391, Club Structure Phase 3):** two RPCs turn a scanned
+`join_club_team` code into a team membership.
+- `club_team_join_context(p_code)` — STABLE SECDEF, **anon + authenticated**. Resolves
+  the code → team/cohort/club, then the club's venue (`club_venues` LIMIT 1) → that venue's
+  canonical `venue_landing` code (drives the existing 360 wizard). When a member is signed
+  in, also returns `self {profile_id, has_membership, on_team}` + accepted `children[]` with
+  the same flags. Statuses: `ok` / `not_found` / `inactive` (archived/off) / `expired` /
+  `exhausted` / `signup_not_configured` (no active venue_landing code).
+- `member_join_club_team(p_code, p_for_profile_id)` — SECDEF, **authenticated only** (anon
+  revoked). Target = caller's `member_profiles` row or an accepted child (`member_guardians`).
+  **Membership gate:** requires an active (`active`/`ending`) `venue_membership` for the
+  target at the team's venue, else returns `{ok:false, reason:'no_membership'}`. Idempotent
+  insert into `club_team_members` (NOT-EXISTS guard / reactivate — the table has no unique
+  index on `(team_id, member_profile_id)`); audit `club_team_member_joined`. Consumer
+  `ClubTeamJoin` reuses `MembershipSignup` (keyed on the venue_landing code) for the
+  register → tier → pay (Stripe **test mode**) path, then assigns the team and fires
+  `redeem_invite_link` post-join. Stripe `returnCode` brings a paid joiner back to the
+  club-team screen; the gated, idempotent join self-heals on re-scan.
+
 ---
 
 ## CLUB OS TABLES (migs 283–309)

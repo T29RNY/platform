@@ -52,6 +52,33 @@ Each club team gets its own join link + printable QR. **Migration 390** (additiv
   club-team context, console clean. Venue app + additive consumer dispatch → casual-regression
   not required. ⛔ real-device venue walk owed (stacks on Phase 1).
 
+### #2 Org/team structure — Phase 3: Membership-gated join — SHIPPED (mig 391)
+A scanned club-team QR runs a new player through registration + payment, then lands them on
+the team — gated on holding a club membership. **Migration 391** (additive, 2 RPCs):
+- `club_team_join_context(p_code)` — anon+auth resolver: club-team code → team/cohort/club +
+  the club venue's `venue_landing` code (drives the existing 360 wizard) + the signed-in
+  caller's membership/on-team status for self + accepted children. Statuses incl.
+  `signup_not_configured` when the venue has no active landing code.
+- `member_join_club_team(p_code, p_for_profile_id)` — authenticated-only writer. Joins self
+  or an accepted child; **server-side membership gate** (active/ending `venue_membership` at
+  the team's venue, else `no_membership`); idempotent `club_team_members` insert + audit.
+- Consumer: new `ClubTeamJoin` screen replaces the Phase 2 placeholder in `InviteResolve`
+  (`/q/<code>`). Flow: resolve → sign in (reuses `AuthGateModal`) → membership check → if
+  none, **reuse `MembershipSignup`** (register incl. child/guardian → pick tier
+  `get_venue_signup_tiers` → pay Stripe **test mode**, live keys off) → land on the team →
+  `redeem_invite_link` post-join. Already-a-member / already-registered children get a
+  one-tap "Join". `MembershipSignup` gained additive `clubTeamCode` (Stripe return path) +
+  `onEnrolled` props; `stripeInitMemberCheckout`/`api/stripe-member-checkout.js` gained an
+  optional `returnCode`. Self-heals on re-scan (the gate sees the now-live membership), which
+  also covers a Stripe payer who closes the tab before returning.
+- Gates: rpc-security PASS (2 RPCs SECDEF/search_path/single-overload; context anon+auth,
+  writer authenticated-only with anon explicitly REVOKEd), EV 12/12 + leak 0, build clean,
+  hygiene 7/7 on every changed file, casual-regression PASS via additive-diff (no casual
+  surface touched; new `MembershipSignup` props default null → VenueLanding byte-identical),
+  Playwright smoke on demo club-team code (anon context renders, invalid code → not-found,
+  no code-related console errors). ⛔ real-iPhone walk owed (member flow / apps/inorout/src;
+  Hard Rule #13). **Next free mig = 392.** Phases 4 (manager comms) + 5 (pro-rating) unbuilt.
+
 ## SESSION 173 — ADMIN QUICK-ACTION ON MY VIEW SHIPPED (migs 381; PRs #55, #56, LIVE on main)
 
 **Admin marks a player + manages their guests from the My View board.** As an admin, tap

@@ -311,6 +311,8 @@ export {
   clubListTeams,
   clubArchiveTeam,
   clubEnsureTeamInviteLink,
+  clubTeamJoinContext,
+  memberJoinClubTeam,
   clubCreateSession,
   clubUpdateSession,
   clubCancelSession,

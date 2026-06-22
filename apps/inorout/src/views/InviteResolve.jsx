@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { resolveInviteLink, checkinViaInvite } from "@platform/core/storage/supabase.js";
 import VenueLanding from "./VenueLanding.jsx";
+import ClubTeamJoin from "./ClubTeamJoin.jsx";
 
 // /q/<code> — resolves a scanned invite_links code (mig 248) and dispatches
 // on its action. Slice 1: full resolution + error states + dispatch skeleton.
@@ -220,18 +221,11 @@ export default function InviteResolve({ code }) {
   }
 
   if (data.action === "join_club_team") {
-    // Club-team join (mig 390). Phase 2 resolves + shows the team context; the
-    // membership-gated join flow (check membership → register → pick tier →
-    // pay → land in the team) lands in Phase 3. Deliberately NOT routed into
-    // the casual /join flow — that targets the unrelated league/casual squad.
-    const sub = [dest.club_name, dest.cohort_name].filter(Boolean).join(" · ");
-    return (
-      <Shell>
-        <h1 className="q-title">{dest.team_name || "Join the team"}</h1>
-        {sub && <p className="q-muted">{sub}</p>}
-        <p className="q-body">You've been invited to join this team. We're putting the finishing touches on club sign-up — check back shortly to register and join.</p>
-      </Shell>
-    );
+    // Club-team join (mig 390/391). The membership-gated join flow owns its own
+    // screen: resolve context → sign in → membership check → register/pay (reusing
+    // the 360 wizard) → land on the team. Deliberately NOT routed into the casual
+    // /join flow — that targets the unrelated league/casual squad.
+    return <ClubTeamJoin code={data.code} />;
   }
 
   if (data.action === "venue_landing") {

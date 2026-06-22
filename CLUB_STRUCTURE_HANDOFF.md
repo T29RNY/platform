@@ -7,8 +7,9 @@ This doc is the single source of truth for the epic. Work the phases **one at a 
 audit → execute → verify → commit per `CLAUDE.md`. Each phase has its own kickoff prompt
 at the bottom — start a fresh session per phase.
 
-**⚠️ Next free migration = 391.** (389 = Phase 1; 390 = Phase 2 team join link + QR.)
-Last updated: 2026-06-22, **Phase 1 SHIPPED (mig 389, f30c87b); Phase 2 SHIPPED (mig 390)**.
+**⚠️ Next free migration = 392.** (389 = Phase 1; 390 = Phase 2; 391 = Phase 3.)
+Last updated: 2026-06-22, **Phase 1 SHIPPED (mig 389, f30c87b); Phase 2 SHIPPED (mig 390);
+Phase 3 SHIPPED (mig 391)**.
 
 ---
 
@@ -155,14 +156,26 @@ leak 0, builds clean, Playwright smoke on demo venue PASS. ⛔ real-device venue
 **Decision note:** the original scope suggested reusing `action='join_team'`; shipped with a
 separate `join_club_team` for clean dispatch + isolation from the casual squad flow.
 
-### Phase 3 — Membership-gated join · ~2–3 days · 🟠 core flow demo-ready (test-mode pay)
-- Public join page: scan → **membership check** → if none, full registration (reuse 360
-  flow) → pick tier (`get_venue_signup_tiers`) → pay (Stripe **test mode**; live off) →
-  land in team (`club_team_members`).
-- Orchestration RPC(s) tying check → register → tier → membership → team assignment.
-
-Gates: rpc-security-sweep, ephemeral-verify; **touches member flow → casual-regression +
-real-iPhone walk** before commit.
+### Phase 3 — Membership-gated join · ✅ SHIPPED (mig 391)
+Delivered: 2 RPCs — `club_team_join_context(p_code)` (anon+auth resolver: club-team code →
+team/cohort/club + the club venue's `venue_landing` code + signed-in self/children membership
+& on-team status; statuses incl. `signup_not_configured`) and `member_join_club_team(p_code,
+p_for_profile_id)` (authenticated-only writer; **server-side active-membership gate** at the
+team's venue → else `no_membership`; idempotent `club_team_members` insert + audit; self or
+accepted child). Consumer: new **`ClubTeamJoin`** screen replaces the Phase 2 placeholder in
+`InviteResolve` (`/q/<code>`) — resolve → sign in → membership check → (if none) **reuse
+`MembershipSignup`** verbatim, keyed on the venue_landing code (register incl. child/guardian
+→ tier `get_venue_signup_tiers` → pay Stripe **test mode**, live off) → assign team →
+`redeem_invite_link` post-join. Already-members / registered children get a one-tap "Join".
+Minimal additive edits: `MembershipSignup` gained `clubTeamCode` + `onEnrolled`;
+`stripeInitMemberCheckout` + `api/stripe-member-checkout.js` gained optional `returnCode`
+(paid joiner returns to the club-team screen). Self-heals on re-scan (gate sees the now-live
+membership), covering a Stripe payer who closes the tab. **Design note:** assignment is
+client-side on return + idempotent rather than threaded through the Stripe webhook — keeps
+the Stripe rails byte-identical while DORMANT; revisit if guaranteed-without-return is needed.
+Gates: rpc-security 2/2 PASS, EV 12/12 + leak 0, build clean, hygiene 7/7, casual-regression
+PASS via additive-diff (no casual surface touched), Playwright smoke PASS on demo. ⛔ owed:
+real-iPhone walk (member flow, Hard Rule #13).
 
 ### Phase 4 — Team-manager comms · ~1 day + tests · 🟠 just after
 - New `club_manager_send_announcement(p_team_id, title, body)` — authenticated, manager-of-

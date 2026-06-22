@@ -3,6 +3,38 @@
 
 ---
 
+## SESSION 175 — ✅ CLUB STRUCTURE Phase 3 SHIPPED (mig 391). Membership-gated club-team join. No new bugs.
+
+Pilot backlog #2, Phase 3 — a scanned club-team QR runs a new player through 360
+registration + membership payment (Stripe **test mode**, live keys off) and lands them on the
+team, gated on holding a club membership (see CLUB_STRUCTURE_HANDOFF.md + FEATURES.md).
+**Migration 391** (additive, 2 RPCs): `club_team_join_context` (anon+auth resolver →
+team/cohort/club + the club venue's `venue_landing` code + signed-in self/children membership
+& on-team status) and `member_join_club_team` (authenticated-only writer with a server-side
+active-membership gate, idempotent `club_team_members` insert + audit, self-or-accepted-child).
+Consumer: new `ClubTeamJoin` screen replaces the Phase 2 `InviteResolve` placeholder and
+**reuses `MembershipSignup` verbatim** (keyed on the venue_landing code) for the
+register→tier→pay path, then assigns the team + fires `redeem_invite_link`. Minimal additive
+edits to `MembershipSignup` (`clubTeamCode`/`onEnrolled`) + `stripeInitMemberCheckout` /
+`api/stripe-member-checkout.js` (optional `returnCode` so a paid joiner returns to the
+club-team screen). Stripe assignment is **client-side-on-return + idempotent** (self-heals on
+re-scan) rather than threaded through the webhook — keeps the Stripe rails byte-identical
+while DORMANT.
+
+Gates: rpc-security PASS (2 RPCs SECDEF/search_path/single-overload; **caught the Supabase
+default-privilege gotcha** — `member_join_club_team` was auto-granted to `anon` on creation
+and `REVOKE … FROM public` did NOT remove it; fixed with an explicit `REVOKE EXECUTE … FROM
+anon`, now in the migration source), EV 12/12 + leak 0, build clean, hygiene 7/7 on every
+changed file, casual-regression PASS via additive-diff (no casual surface touched; new
+`MembershipSignup` props default null → VenueLanding byte-identical), Playwright smoke PASS
+(anon club-team context renders live demo team, invalid code → not-found, no code-related
+console errors). **Next free mig = 392.**
+
+**⛔ OWED:** real-iPhone PWA walk — signed-in non-member scans the U12/First-Team QR →
+registers → free/test-mode tier → lands on the team; plus a guardian adding a child (Hard
+Rule #13, member flow / apps/inorout/src touched). Phases 4 (manager comms) + 5 (pro-rating)
+remain unbuilt — prompts in CLUB_STRUCTURE_HANDOFF.md.
+
 ## SESSION 174 — ✅ CLUB STRUCTURE Phase 1 SHIPPED (mig 389, commit f30c87b). No new bugs. One pre-existing tech-debt logged.
 
 Pilot backlog #2, Phase 1 — org/team structure in the venue console (see

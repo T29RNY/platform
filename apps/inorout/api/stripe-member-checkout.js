@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
   if (authErr || !user) return res.status(401).json({ error: "invalid_token" });
   const uid = user.id;
 
-  const { inviteCode, tierId, period, forProfileId } = req.body || {};
+  const { inviteCode, tierId, period, forProfileId, returnCode } = req.body || {};
   if (!inviteCode || !tierId || !period) {
     return res.status(400).json({ error: "missing_params" });
   }
@@ -138,8 +138,11 @@ module.exports = async function handler(req, res) {
     const isSeason  = period === "season";
     const recurring = PERIOD_INTERVALS[period] ?? null;
     const appUrl    = process.env.INOROUT_APP_URL || "https://app.in-or-out.com";
-    const successUrl = `${appUrl}/q/${encodeURIComponent(inviteCode)}?checkout=done`;
-    const cancelUrl  = `${appUrl}/q/${encodeURIComponent(inviteCode)}`;
+    // returnCode (club-team join, Phase 3) sends the payer back to the club-team
+    // join screen so it can land them on the team; falls back to the venue landing.
+    const landCode  = returnCode || inviteCode;
+    const successUrl = `${appUrl}/q/${encodeURIComponent(landCode)}?checkout=done`;
+    const cancelUrl  = `${appUrl}/q/${encodeURIComponent(landCode)}`;
 
     const session = await stripe.checkout.sessions.create(
       {
