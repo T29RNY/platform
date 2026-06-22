@@ -7,6 +7,7 @@ import { savePushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGues
   getPOTMVotingState, getPOTMTallyPublic, setMyNickname,
   resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
 import POTMVotingModal from "./POTMVotingModal.jsx";
+import AdminPlayerActionSheet from "./AdminPlayerActionSheet.jsx";
 import {
   Check, X, Question, ArrowDown,
   PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
@@ -193,6 +194,11 @@ export default function PlayerView({
 }) {
   const me = squad.find(p => p.id === myId);
 
+  // Admin can tap any OTHER player's avatar on My View to open the quick-action
+  // sheet (set their status / add a guest). Self uses the own status buttons.
+  const canAdminAct  = isAdmin && !!adminToken;
+  const adminTapFor  = (p) => (canAdminAct && p.id !== myId ? () => setAdminActionPlayer(p) : undefined);
+
   // ── League Mode 5.5 — competitive availability reuses the casual board ──────
   // For a competitive team we overlay the casual schedule with the next league
   // fixture: the board goes live, its header shows the real opponent/date/venue/
@@ -268,6 +274,8 @@ export default function PlayerView({
   // ── new UI state ──
   const [activeTab,   setActiveTab]   = useState(startTab || "my-view");
   const [showNoResp,  setShowNoResp]  = useState(false);
+  // Admin avatar-tap quick-action sheet (My View). Set to the tapped player.
+  const [adminActionPlayer, setAdminActionPlayer] = useState(null);
   const [cashPending,       setCashPending]       = useState(false);
   const [guestCashPending,  setGuestCashPending]  = useState(() => new Set());
   const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
@@ -694,6 +702,21 @@ export default function PlayerView({
           totalVotes={potmTotalVotes}
           onVoted={() => { setPotmHasVoted(true); fetchPotmTally(); }}
           onClose={() => setShowPOTMModal(false)}
+        />
+      )}
+
+      {/* Admin avatar-tap quick-action sheet (set status / add guest) */}
+      {adminActionPlayer && (
+        <AdminPlayerActionSheet
+          player={adminActionPlayer}
+          squad={squad}
+          setSquad={setSquad}
+          adminToken={adminToken}
+          teamId={teamId}
+          schedule={schedule}
+          settings={settings}
+          adminName={me?.nickname || me?.name}
+          onClose={() => setAdminActionPlayer(null)}
         />
       )}
 
@@ -1609,7 +1632,7 @@ export default function PlayerView({
               ) : (
                 <Tile colour="green" icon="✅" label="In" count={inPlayers.length}>
                   {inPlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
                   ))}
                 </Tile>
               )}
@@ -1619,7 +1642,7 @@ export default function PlayerView({
                 <div data-gaffer-target="reserve-list">
                   <Tile colour="purple" icon="🟣" label="Reserve" count={reservePlayers.length}>
                     {reservePlayers.map((p, i) => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="purple" reserveIndex={i + 1} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="purple" reserveIndex={i + 1} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
                     ))}
                   </Tile>
                 </div>
@@ -1629,7 +1652,7 @@ export default function PlayerView({
               {maybePlayers.length > 0 && (
                 <Tile colour="amber" icon="❓" label="Maybe" count={maybePlayers.length}>
                   {maybePlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
                   ))}
                 </Tile>
               )}
@@ -1638,7 +1661,7 @@ export default function PlayerView({
               {outPlayers.length > 0 && (
                 <Tile colour="red" icon="❌" label="Out" count={outPlayers.length}>
                   {outPlayers.map(p => (
-                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
                   ))}
                 </Tile>
               )}
@@ -1666,7 +1689,7 @@ export default function PlayerView({
                   <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 9px",
                     padding:"0 4px", marginBottom:8 }}>
                     {noRespPlayers.map(p => (
-                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} />
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
                     ))}
                   </div>
                 )}

@@ -20,15 +20,22 @@ function initials(name) {
 // hasGuest:   show "+1" below name
 // hasBibs:    true → amber dot badge bottom-right of circle
 // hasMotm:    true → trophy badge top-right of circle (last match's POTM)
-export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest, isInjured, hasBibs = false, hasMotm = false }) {
+// onClick:    optional — when set, the avatar becomes tappable (admin quick-action
+//             on My View). Renders a subtle pointer affordance; no-op otherwise.
+export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest, isInjured, hasBibs = false, hasMotm = false, onClick }) {
   const variant = player?.injured ? "injured" : isMe ? "you" : (tileColour || "green");
   const c       = CIRCLE[variant] ?? CIRCLE.green;
 
   return (
-    <div style={{
-      display:"flex", flexDirection:"column",
-      alignItems:"center", gap:3, width:34,
-    }}>
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      style={{
+        display:"flex", flexDirection:"column",
+        alignItems:"center", gap:3, width:34,
+        cursor: onClick ? "pointer" : "default",
+        WebkitTapHighlightColor:"transparent",
+      }}>
       {/* Initials circle */}
       <div style={{ position:"relative", width:32, height:32, flexShrink:0 }}>
         <div style={{
