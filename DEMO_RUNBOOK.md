@@ -1,0 +1,206 @@
+# In or Out — Pilot Demo Runbook
+
+*Prepared session 172 (Jun 21 2026) for a live pilot demo. Plain-English, presenter-facing.*
+
+> **The one-line story:** *One platform runs the whole club — memberships and kids'
+> registration, training and class bookings, a league with live-scored fixtures, tournament
+> brackets, a referee's match tool, and a live reception-TV — and every person signs in once
+> to reach whichever of those they're entitled to.*
+
+---
+
+## 1. HOW A CLUB USES IT (the flow to explain)
+
+Think of it as four joined-up layers:
+
+1. **The club's back office (venue app).** The operator sets up membership plans, takes
+   registrations (incl. kids via a guardian), schedules classes/training and PT, runs a
+   league (teams → fixtures → standings), and hosts tournaments (group stage → knockout
+   bracket). One operator console.
+
+2. **The member/player in their pocket (consumer app).** One person signs in once and sees
+   *all* their roles via a context switcher: their casual squad(s), their league team, their
+   club membership (pass + bookings + classes), and — if they're a parent — each of their
+   kids. They book classes, confirm match availability, and carry a digital membership pass.
+
+3. **The matchday tools.** A **referee** opens a per-match link and runs the game live —
+   score, clock, goals, cards, subs — works offline and syncs. A **reception TV** shows live
+   scores, the league table, top scorers and a goals ticker, updating in real time as the ref
+   taps.
+
+4. **One login across all of it (shipped tonight).** Sign in once and it carries across the
+   consumer app, the venue console, and the ref app — so staff who also play, or a club admin
+   who's also a parent, never sign in twice.
+
+**Where each piece is in the build:**
+
+| Capability | State | Note for demo |
+|---|---|---|
+| Memberships (plans, enrol, freeze, pass, QR) | ✅ Solid | Show on venue + member pass |
+| **Kids' registration (guardian, CPSU forms, ID upload)** | ✅ Live | See §4 — answers your question |
+| Classes / PT / room hire booking | ✅ Solid | Rich demo data seeded |
+| League: teams, **fixtures**, standings | ✅ Solid | Seeded competitive league |
+| **Live match updates** (ref → app → TV) | ✅ Solid | The "wow" moment |
+| Tournament hosting (groups + knockout bracket) | ✅ Solid | Event OS, public bracket page |
+| Reception display (live, real data) | ✅ Solid | Real-time from ref taps |
+| **"3v3" specifically** | ✅ Seeded (mig 378) | **Demo 3v3 League** live on the reception TV — 2 live games, table, golden boot, ticker |
+| **Tournament (seeded)** | ✅ Seeded (mig 378) | **Finbar's FC Summer Cup** — groups + knockout + LIVE final; public page below |
+| Casual-match ref assignment UI | ⚠️ API only | League/tournament ref works fully; the *casual* squad-ref picker has no button yet |
+| Club OS attendance/comms, AI briefings | ❌ Dormant | Don't show |
+
+---
+
+## 2. DEMO ACCOUNTS & ACCESS
+
+Two real sign-in accounts (seeded), plus no-login token links. **Email codes for both accounts
+arrive at `tarny@lettrack.co.uk`.**
+
+| Account | Email / Password | What it is | Use it to show |
+|---|---|---|---|
+| **Alex** (all-roles) | `tarny+demo@lettrack.co.uk` / `DemoBoss1!` | Venue **owner** + squad admin + league player + boxing & martial-arts member + superadmin | The club back office; a power-member's app |
+| **Sam** (family) | `tarny+family@lettrack.co.uk` / `DemoFam2!` | **Guardian** of child *Charlie*, venue staff (bookings only), casual player, **paused** boxing member | The parent/guardian experience; a kid's training/matches; staff with limited access |
+
+**🔑 Demo hack (thanks to tonight's single-login):** the consumer app is normally email-code
+only — fiddly on stage. Instead, **sign in on `venue.in-or-out.com` with the password**, then
+open `app.in-or-out.com` — it's **already signed in** (no code). Proven working tonight.
+
+**No-login token links (open directly):**
+
+| Link | Shows |
+|---|---|
+| `display.in-or-out.com/?token=demo_venue_display_token` + PIN `1234` | Live reception TV — **now shows live 3v3** |
+| `app.in-or-out.com/tournament/finbars-summer-cup` | **Public tournament bracket page** (groups + knockout + live final) |
+| `ref.in-or-out.com` + a fixture ref token | Referee match tool, ready for a game |
+| `/p/p_demo_alex_token` | A player's public stats / head-to-head |
+| `/m/<pass_token>` (from member pass) | A membership pass (QR, tier, perks) |
+
+**Seeded demo ref tokens (mig 378 — for the Act 4 "live" moment):** the two live 3v3 games
+are `ref_3v3_jag_cob` (Jaguars v Cobras) and `ref_3v3_pum_haw` (Pumas v Hawks); tonight's
+three to-be-played 3v3 games are `ref_3v3_jag_sha`, `ref_3v3_pum_cob`, `ref_3v3_haw_bol`
+(start one fresh to show "kick off → TV updates"). The tournament's LIVE final is
+`ref_cup_final`. Open the ref tool at the app's ref route with `?token=<token>`.
+
+> Venue operator backdoor (no email) exists for emergencies: `venue.in-or-out.com?token=demo_venue_token_DO_NOT_USE_IN_PROD`.
+
+---
+
+## 3. THE DEMO FLOW (ordered script)
+
+**Setup before they arrive:** open these tabs — (1) `venue.in-or-out.com` signed in as Alex,
+(2) `app.in-or-out.com` (will be signed in via SSO), (3) `display.in-or-out.com` (PIN 1234) on
+the big screen, (4) `ref.in-or-out.com` ready with a fixture ref token.
+
+**Act 1 — "This is the club's back office" (venue app, Alex).**
+Operations dashboard → tonight's fixtures, issues, outstanding payments. Then **Memberships**
+(plans, members, grading/belts), **Classes** (timetable + rosters), **Trainers** (PT bookings).
+Message: *one place to run the whole club.*
+
+**Act 2 — "One login, every role" (consumer app).**
+Open `app.in-or-out.com` — already signed in. Tap the avatar/**context switcher**: show squads,
+league team, club memberships, (and as Sam) the kids. Message: *the messy reality — a parent who
+also plays, a coach who's also a member — is one tidy login.*
+
+**Act 3 — "A parent signs their kid up" (registration).**
+Walk the guardian registration (§4): child details → emergency contacts → medical → consents →
+(optional) ID upload. Message: *safeguarding-ready onboarding, not a paper form.*
+
+**Act 4 — "Matchday, live" (the wow).**
+On the **ref** tab, start a match and tap a goal/card. On the **reception TV**, watch the score,
+table and goals-ticker update in **real time**. Message: *the ref's taps drive the whole room.*
+
+**Act 5 — "Hosting a tournament" (Event OS).**
+Show a tournament's public bracket page (group standings → knockout tree). Message: *run a
+sports day or cup, with a live public bracket.*
+
+**Close:** memberships + registration + league + live scores + tournaments + one login — for the
+whole club, on phones they already own.
+
+---
+
+## 4. GUARDIAN / CHILD REGISTRATION — YOUR QUESTION, ANSWERED
+
+**Do the forms exist?** **Yes.** Live flow: a club's public landing page (`VenueLanding.jsx`) →
+`MembershipSignup.jsx`, a multi-step wizard. Backed by real RPCs (`member_register_child`,
+`member_update_child`, `member_accept_consent`, `member_enrol_membership`).
+
+**Are they complete / official?** **Substantially — pilot-ready, CPSU-aligned.** Captured:
+- Child: name, DOB, relationship to guardian.
+- **Two emergency contacts** (name/relationship/phone).
+- **Medical** (conditions, allergies, medications, GP) — and consent is *forced* if any medical
+  field is filled.
+- SEND / disability notes, dietary notes, authorised collectors, "may leave unaccompanied".
+- **Granular photo consent** (website / social / press / marketing).
+- **E-signed, versioned policy documents** — typed signature + **IP + timestamp + user-agent**
+  stored per signer (auditable); guardian signs on the child's behalf.
+- **GDPR right-to-erasure** implemented (scrubs PII + consents).
+
+**Do we support uploads?** **Yes — ID documents.** Passport / birth certificate / PASS card,
+uploaded to a **private** storage bucket, with **operator approve/reject** and an audit trail.
+(Only shown if the club switches on the ID requirement.)
+
+**Honest gaps to be ready for if they ask:**
+- **No child *photo* upload** (a face photo) — only photo *consent* checkboxes. If they want
+  member photos, that's a small build.
+- **Email isn't verified** at signup (no confirmation code).
+- **Address is free-text** (no postcode lookup).
+- Only the **ID-document** upload slot exists — no general "upload a medical letter" slot yet.
+- Second-guardian invite is schema-only (one guardian captured at signup).
+
+*Good line for tomorrow:* "Registration is safeguarding-ready for the pilot — emergency
+contacts, medical, e-signed consents with an audit trail, and ID-document upload with approval.
+If you need member photos or extra document types, that's a quick add — tell me what's mandatory
+for you."
+
+---
+
+## 5. WHAT'S SOLID vs WHAT TO AVOID ON STAGE
+
+**Lean on (proven, seeded, real-time):** venue back office, memberships + pass + grading/belts,
+classes/PT booking, the league fixtures + standings, **ref → reception-TV live updates**,
+tournament bracket page, and the **one-login switch**.
+
+**Already fixed (verified s172 — the earlier "bug list" was stale from s153, ignore it):**
+- My Squads multi-squad list (now loads from your account, not the matchday squad).
+- Paused-pass "1 Jan 1970" freeze date (guarded; Sam's live data is clean/null).
+- Classes "no venue linked" message (now shows a proper "pick a club" prompt).
+
+**Avoid or pre-test:**
+- **Casual-match ref assignment** has no button yet — use a **league/tournament** fixture's ref
+  token for the ref demo (those work fully).
+- **Tournaments:** the bracket engine + public page + ref scoring + reception TV are strong, and a
+  demo tournament is now **seeded (mig 378, verified live)** — show it via the public page
+  `app.in-or-out.com/tournament/finbars-summer-cup`. There's still **no deployed "Create
+  Tournament" button** (creation is club-admin/clubmanager, not deployed), so don't pitch
+  self-service "any organiser creates their own event" — that's the next epic.
+- **Sports-day / athletics result entry** is unbuilt (football/match-scored only).
+- **3v3 is now seeded** (Demo 3v3 League, mig 378) and shows live on the reception TV — but it's
+  the format-agnostic league engine, not a bespoke 3v3 product. Lean on the live TV, don't
+  oversell "3v3" as a distinct feature.
+
+---
+
+## 6. PRE-DEMO CHECKLIST (demo morning)
+
+- [x] **3v3 league seeded** (mig 378) + live fixtures — reception TV shows live 3v3.
+      **Verified live via Playwright:** `display.in-or-out.com/?token=demo_venue_display_token`
+      (PIN 1234) → "5 live · 3v3 Summer Series", live table, golden boot, goals ticker.
+- [x] **Demo tournament seeded** (mig 378) — group stage → knockout, 6 group games played,
+      both semis played, **final LIVE**. **Verified live via Playwright:**
+      `app.in-or-out.com/tournament/finbars-summer-cup` (groups A/B with ADV, Knockout Stage, live final).
+- [x] **Consumer "Tournaments" tab** demo-able — Alex (`tarny+demo`) is now a club_demo manager
+      with an active Finbar's FC membership (gate verified at the DB level).
+- [ ] *(Optional, bigger)* wire a **"Create Tournament" entry into the venue app** to show the
+      creation flow live — that's the next epic (venue-operator self-serve tournaments).
+- [ ] **Dry-run** Acts 2–4 once with the real accounts so nothing surprises you live.
+- [ ] Confirm OTP inbox access (`tarny@lettrack.co.uk`) as an SSO sign-in fallback.
+
+*Data only — no app rebuild needed; the seed is already live. Re-runnable (idempotent).
+Teardown: `rls_migrations/378_*_down.sql`. Note the public route is `/tournament/<slug>`
+(not `/t/<slug>`).*
+
+*(The three s153 "bugs" are already fixed — verified s172. No action needed.)*
+
+---
+
+*Owed from the SSO work: real-iPhone cross-app walk + consumer-app unified-login re-test. The
+demo itself is browser-based, so neither blocks tomorrow.*
