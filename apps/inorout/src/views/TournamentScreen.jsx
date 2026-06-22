@@ -56,6 +56,7 @@ export default function TournamentScreen({ slug }) {
   const [teamFilter, setTeamFilter] = useState("");
   const [openFixtureId, setOpenFixtureId] = useState(null);
   const pollRef = useRef(null);
+  const didInitTab = useRef(false);
 
   const load = (s) => getTournamentPublic(s)
     .then((data) => { if (!data?.ok) setNotFound(true); else { setTournament(data); setNotFound(false); } })
@@ -79,14 +80,13 @@ export default function TournamentScreen({ slug }) {
     return () => clearInterval(pollRef.current);
   }, [tournament?.status, slug]);
 
-  // deep-link the tab via ?tab=
+  // pick the initial tab once (from ?tab= deep-link, else Home); never fight later clicks
   useEffect(() => {
-    if (!tournament) return;
-    const url = new URL(window.location.href);
-    const wanted = url.searchParams.get("tab");
-    if (wanted && tab == null) { setTab(wanted); return; }
-    if (tab == null) setTab(tournament.status === "live" || tournament.status === "completed" ? "home" : "info");
-  }, [tournament, tab]);
+    if (!tournament || didInitTab.current) return;
+    didInitTab.current = true;
+    const wanted = new URL(window.location.href).searchParams.get("tab");
+    setTab(wanted || "home");
+  }, [tournament]);
 
   const setTabDeep = (t) => {
     setTab(t);
