@@ -5475,6 +5475,19 @@ export async function getTournamentPublic(slug) {
   return data;
 }
 
+// Public self-serve team registration from the Tournament Hub (anon + authenticated).
+// Allowed only while the event is OPEN; creates a pending team awaiting club-admin approval.
+export async function tournamentRegisterTeam(slug, competitionId, teamName, contactEmail) {
+  const { data, error } = await supabase.rpc("tournament_register_team", {
+    p_slug: slug,
+    p_competition_id: competitionId,
+    p_team_name: teamName,
+    p_contact_email: contactEmail || null,
+  });
+  if (error) { console.error("[event-os] tournament_register_team failed", error); throw error; }
+  return data;
+}
+
 export async function clubAdminUpdateTournamentStatus(slug, status) {
   const { data, error } = await supabase.rpc("club_admin_update_tournament_status", {
     p_slug: slug,
