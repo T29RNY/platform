@@ -8,10 +8,33 @@ import {
 import TeamDetail from "./TeamDetail.jsx";
 import CustomerDetailModal from "./CustomerDetailModal.jsx";
 import { NudgeModal } from "./CustomersView.jsx";
+import ContactPicker from "./ContactPicker.jsx";
 import Icon from "./Icon.jsx";
 import { TeamCrest, Crest } from "./atoms.jsx";
 import { DataTable, TabbedPage } from "./PageKit.jsx";
 import { relativeFrom, poundsRound, getInitials } from "../lib/format.js";
+
+// Shared cell for the settable contact columns on both team tabs (Phase 4). A team
+// has two slots — primary ("Main contact") and secondary. Clickable without
+// triggering the row's own click (League rows open TeamDetail).
+function ContactCell({ contact, onEdit }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onEdit(); }}
+      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit",
+               textAlign: "left", color: contact ? "var(--ink-1)" : "var(--accent)" }}
+    >
+      {contact ? contact.name : "Set…"}
+    </button>
+  );
+}
+
+// Filter chips shared by both tabs — "Has contact" / "No contact" (on the main contact).
+const CONTACT_FILTERS = [
+  { id: "has_contact", label: "Has contact", test: (t) => !!t.main_contact },
+  { id: "no_contact",  label: "No contact",  test: (t) => !t.main_contact },
+];
 
 // Teams page (Venue People & Spaces IA, Phase 2). One page, three tabs —
 // League teams (internal competition teams, full roster drill-down), Casual
@@ -38,6 +61,7 @@ export function LeagueTeamsTab({ venueToken }) {
   const [teams, setTeams] = useState(null);
   const [error, setError] = useState(null);
   const [openTeam, setOpenTeam] = useState(null);
+  const [pickerFor, setPickerFor] = useState(null); // { team, rank }
 
   useEffect(() => {
     let alive = true;
@@ -46,6 +70,11 @@ export function LeagueTeamsTab({ venueToken }) {
       .catch((e) => { if (alive) setError(e?.message || String(e)); });
     return () => { alive = false; };
   }, [venueToken]);
+
+  const patchContact = (teamId, rank, contact) => {
+    const key = rank === "secondary" ? "secondary_contact" : "main_contact";
+    setTeams((rows) => (rows || []).map((t) => t.team_id === teamId ? { ...t, [key]: contact } : t));
+  };
 
   if (error) return <div className="dt-empty"><div className="dt-empty-title">Couldn’t load teams</div><div className="text-mute">{error}</div></div>;
 
@@ -59,6 +88,12 @@ export function LeagueTeamsTab({ venueToken }) {
     { key: "type", label: "Type", render: () => <span className="dt-pill is-league">League</span> },
     { key: "competition_count", label: "Competitions", align: "num", sortable: true,
       render: (t) => t.competition_count ?? 0 },
+    { key: "main_contact", label: "Main contact",
+      sortValue: (t) => t.main_contact?.name || "",
+      render: (t) => <ContactCell contact={t.main_contact} onEdit={() => setPickerFor({ team: t, rank: "primary" })} /> },
+    { key: "secondary_contact", label: "Secondary",
+      sortValue: (t) => t.secondary_contact?.name || "",
+      render: (t) => <ContactCell contact={t.secondary_contact} onEdit={() => setPickerFor({ team: t, rank: "secondary" })} /> },
     { key: "last_active_at", label: "Last active", sortable: true,
       sortValue: (t) => t.last_active_at || "",
       render: (t) => t.last_active_at ? relativeFrom(t.last_active_at) : "—" },
@@ -72,13 +107,21 @@ export function LeagueTeamsTab({ venueToken }) {
         getRowKey={(t) => t.team_id}
         searchFields={["name"]}
         searchPlaceholder="Search teams…"
+        filters={CONTACT_FILTERS}
         onRowClick={(t) => setOpenTeam(t)}
         initialSort={{ key: "name", dir: "asc" }}
         empty={{ title: "No active teams yet", body: "Teams appear here once they’re approved into a competition." }}
-        noMatch={{ title: "No teams match", body: "Try a different search." }}
+        noMatch={{ title: "No teams match", body: "Try a different search or filter." }}
       />
       {openTeam && (
         <TeamDetail venueToken={venueToken} teamId={openTeam.team_id} teamName={openTeam.name} onClose={() => setOpenTeam(null)} />
+      )}
+      {pickerFor && (
+        <ContactPicker venueToken={venueToken} teamKind="league" teamId={pickerFor.team.team_id} teamName={pickerFor.team.name}
+          rank={pickerFor.rank}
+          current={(pickerFor.rank === "secondary" ? pickerFor.team.secondary_contact : pickerFor.team.main_contact) || null}
+          onClose={() => setPickerFor(null)}
+          onSaved={(rank, contact) => patchContact(pickerFor.team.team_id, rank, contact)} />
       )}
     </>
   );
@@ -168,6 +211,7 @@ const CATEGORY_BADGE = {
 export function ClubTeamsTab({ venueToken }) {
   const [teams, setTeams] = useState(null);
   const [error, setError] = useState(null);
+  const [pickerFor, setPickerFor] = useState(null); // { team, rank }
 
   useEffect(() => {
     let alive = true;
@@ -177,12 +221,18 @@ export function ClubTeamsTab({ venueToken }) {
     return () => { alive = false; };
   }, [venueToken]);
 
+  const patchContact = (teamId, rank, contact) => {
+    const key = rank === "secondary" ? "secondary_contact" : "main_contact";
+    setTeams((rows) => (rows || []).map((t) => t.team_id === teamId ? { ...t, [key]: contact } : t));
+  };
+
   if (error) return <div className="dt-empty"><div className="dt-empty-title">Couldn’t load club teams</div><div className="text-mute">{error}</div></div>;
 
   const categoryFilters = [
     { id: "youth", label: "Youth", test: (t) => t.cohort_category === "youth" },
     { id: "adult", label: "Adult", test: (t) => t.cohort_category === "adult" },
     { id: "mixed", label: "Mixed", test: (t) => t.cohort_category === "mixed" },
+    ...CONTACT_FILTERS,
   ];
 
   const columns = [
@@ -200,22 +250,35 @@ export function ClubTeamsTab({ venueToken }) {
     { key: "priority_rank", label: "Priority", align: "num", sortable: true,
       sortValue: (t) => t.priority_rank ?? 9999,
       render: (t) => t.priority_rank ?? "—" },
-    // Main contact lands in Phase 4 (settable, via the contact picker).
-    { key: "main_contact", label: "Main contact", render: () => <span className="text-mute">—</span> },
+    { key: "main_contact", label: "Main contact",
+      sortValue: (t) => t.main_contact?.name || "",
+      render: (t) => <ContactCell contact={t.main_contact} onEdit={() => setPickerFor({ team: t, rank: "primary" })} /> },
+    { key: "secondary_contact", label: "Secondary",
+      sortValue: (t) => t.secondary_contact?.name || "",
+      render: (t) => <ContactCell contact={t.secondary_contact} onEdit={() => setPickerFor({ team: t, rank: "secondary" })} /> },
   ];
 
   return (
-    <DataTable
-      columns={columns}
-      rows={teams}
-      getRowKey={(t) => t.team_id}
-      searchFn={(t, q) => (t.name || "").toLowerCase().includes(q) || (t.club_name || "").toLowerCase().includes(q) || (t.cohort_name || "").toLowerCase().includes(q)}
-      searchPlaceholder="Search club teams…"
-      filters={categoryFilters}
-      initialSort={{ key: "club_name", dir: "asc" }}
-      empty={{ title: "No club teams yet", body: "Club teams appear here once a club’s age groups and teams are set up under Memberships." }}
-      noMatch={{ title: "No club teams match", body: "Try a different search or filter." }}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        rows={teams}
+        getRowKey={(t) => t.team_id}
+        searchFn={(t, q) => (t.name || "").toLowerCase().includes(q) || (t.club_name || "").toLowerCase().includes(q) || (t.cohort_name || "").toLowerCase().includes(q)}
+        searchPlaceholder="Search club teams…"
+        filters={categoryFilters}
+        initialSort={{ key: "club_name", dir: "asc" }}
+        empty={{ title: "No club teams yet", body: "Club teams appear here once a club’s age groups and teams are set up under Memberships." }}
+        noMatch={{ title: "No club teams match", body: "Try a different search or filter." }}
+      />
+      {pickerFor && (
+        <ContactPicker venueToken={venueToken} teamKind="club" teamId={pickerFor.team.team_id} teamName={pickerFor.team.name}
+          clubId={pickerFor.team.club_id} rank={pickerFor.rank}
+          current={(pickerFor.rank === "secondary" ? pickerFor.team.secondary_contact : pickerFor.team.main_contact) || null}
+          onClose={() => setPickerFor(null)}
+          onSaved={(rank, contact) => patchContact(pickerFor.team.team_id, rank, contact)} />
+      )}
+    </>
   );
 }
 

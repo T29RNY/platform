@@ -151,6 +151,7 @@ export {
   venueGetStandings,
   venueListPlayers,
   venueListClubTeams,
+  venueSetTeamMainContact,
   getLeagueConfig,
   getCompanyByDomain,
   searchBookableVenues,

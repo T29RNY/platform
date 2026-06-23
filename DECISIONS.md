@@ -3738,3 +3738,31 @@ looks like the membership vanished.
   entities); `fixtures` + `match_events` are RLS-on with **0 policies** (all access via SECDEF RPCs
   gated on `ref_token`/team membership); the new clock RPCs are `ref_token`-scoped to a single fixture
   (no player PII); the validator is admin-token-scoped to one team. No privilege bleed introduced.
+
+## Venue People & Spaces IA — Phase 4: settable team contacts (session 188, mig 411)
+
+- **A team's contact points at an existing person record, never free text** — same
+  one-customer-per-human principle as Stripe Phase 1. Two slots per team: a primary
+  ("Main contact") and a **secondary** (operator asked for one).
+- **The pick source differs by team kind** (operator decision):
+  - **League teams → the `venue_customers` directory** (search / pick / create inline).
+    The league/casual roster lives on the casual side of the consent wall (in
+    `players`/`team_players`), not in `venue_customers`, and the real-world contact is
+    the booker/organiser — a `venue_customers` person.
+  - **Club teams → that team's own active manager / assistant manager / coach**
+    (`club_team_managers` → `member_profiles`), head-manager-first, role-labelled. NOT
+    the whole directory and NOT the playing roster — the people who actually run the team.
+- **Guardian → coach.** A parent/guardian who volunteers to coach must be selectable.
+  Decision: relax `venue_assign_team_manager` so a club's **active member OR a guardian
+  of a member** can be assigned staff (previously members-only → `member_not_enrolled`).
+  The existing Memberships → Coaches & DBS screen stays the place you mark someone a
+  coach; its assign dropdown now lists members + guardians. Once a coach, they appear in
+  the club team's ContactPicker.
+- **Write authority = manage_memberships OR manage_facility** (a team's contact spans
+  people-admin and facility-admin; the picker can also create a customer, which needs
+  manage_memberships).
+- **Polymorphic link, not a column.** `venue_team_contacts` keyed on
+  `(venue_id, team_kind, team_id, contact_rank)` with `contact_kind` (customer|member) +
+  `contact_id` (no FK — two source tables). Chosen because teams live in two tables
+  (`teams` text id / `club_teams` uuid id) and `teams` is the shared casual table we
+  don't touch; and the contact itself spans two identity stores.
