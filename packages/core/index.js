@@ -381,6 +381,7 @@ export {
   memberListMyRoomHires,
   getUserRelationships,
   getMyWorld,
+  getMyMoney,
   getMyAdminTeams,
   claimTeamAdmin,
   getUnifiedHomeFeed,

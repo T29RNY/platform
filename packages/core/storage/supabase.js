@@ -916,6 +916,25 @@ export async function getMyPaymentHistory(token, limit = 50) {
   return (data || []).map(dbToLedger);
 }
 
+// Authenticated unified money view (mig 404, Phase 2). One auth.uid()-scoped read
+// aggregating the signed-in human's whole money picture: own + guardian memberships
+// (with paid/owed ledger charges, pence) and casual match fees (payment_ledger,
+// whole-pounds — returned in a separate array, never summed across streams). Casual
+// rows use the same shape as getMyPaymentHistory so dbToLedger maps them unchanged.
+export async function getMyMoney() {
+  const { data, error } = await supabase.rpc('get_my_money');
+  if (error) throw error;
+  return {
+    ok: !!data?.ok,
+    personId: data?.person_id || null,
+    profileId: data?.profile_id || null,
+    memberships: data?.memberships || [],
+    charges: data?.charges || [],
+    casual: (data?.casual || []).map(dbToLedger),
+    summary: data?.summary || { owed_pence: 0, paid_count: 0, upcoming_count: 0 },
+  };
+}
+
 // Soft-remove self from current squad. Throws { code: 'debt_owed', owes }
 // if the player has outstanding debt.
 export async function leaveSquad(token) {

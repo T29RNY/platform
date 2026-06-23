@@ -6,6 +6,16 @@ SECURITY DEFINER RPCs — no direct client writes permitted.
 
 ---
 
+## Stripe FULL build — Phase 2 schema (mig 404, session 182)
+
+- **No schema change.** Phase 2 is one new READ-ONLY RPC `get_my_money()` (see RPCS.md) — no new
+  tables, columns, or constraints. It reads existing `payment_ledger` (casual fees, whole-pounds
+  `amount numeric`), `venue_memberships`/`venue_charges`/`venue_payments` (membership money, pence),
+  bridged by the person spine (`auth.uid → people.id` for casual, `→ member_profiles.id` for
+  memberships) and the guardian graph (`member_guardians` + `venue_memberships.payer_profile_id`).
+  **Unit reminder:** `payment_ledger.amount` is whole-pounds `numeric`; `venue_charges.amount_due_pence`
+  is pence — `get_my_money` keeps the two streams in SEPARATE arrays and never sums across them.
+
 ## Stripe FULL build — Phase 1 schema (mig 403, session 181)
 
 - **NEW table `stripe_customers`** (RLS enabled, NO policies → definer-only access via

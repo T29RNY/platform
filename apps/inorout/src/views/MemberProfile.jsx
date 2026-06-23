@@ -3,7 +3,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
-         memberGetFightRecord, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
+         memberGetFightRecord, getMyMoney, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
@@ -25,6 +25,22 @@ const fmtDate = (d) => {
   if (!d) return "";
   try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); }
   catch { return d; }
+};
+
+// Unified money view (mig 404) display helpers.
+const periodLabel = (p) =>
+  ({ monthly: "Monthly", quarterly: "Quarterly", annual: "Annual", season: "Season" }[p] || p || "");
+
+const moneyStatusTone = (s) => {
+  switch (s) {
+    case "paid":      return { bg: "rgba(76,175,80,0.15)",  fg: "rgba(76,175,80,1)", label: "Paid" };
+    case "partial":   return { bg: "rgba(96,160,255,0.15)", fg: "#60A0FF",           label: "Part-paid" };
+    case "waived":    return { bg: "rgba(255,255,255,0.06)",fg: "var(--t2)",         label: "Waived" };
+    case "refunded":  return { bg: "rgba(255,255,255,0.06)",fg: "var(--t2)",         label: "Refunded" };
+    case "disputed":  return { bg: "rgba(255,96,96,0.15)",  fg: "#FF6060",           label: "Disputed" };
+    case "cancelled": return { bg: "rgba(255,255,255,0.06)",fg: "var(--t2)",         label: "Cancelled" };
+    default:          return { bg: "rgba(255,190,60,0.15)", fg: "var(--amber)",      label: "Due" };
+  }
 };
 
 const PHOTO_USES = [
@@ -68,6 +84,7 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
   const [myClasses,      setMyClasses]      = useState([]);   // class booking history (mig 340)
   const [gradeHistory,   setGradeHistory]   = useState([]);   // belt/grade award log (mig 357, grading disciplines only)
   const [fightRecord,    setFightRecord]    = useState(null); // { record, bouts } (mig 359, boxing only)
+  const [money,          setMoney]          = useState(null); // unified money view (mig 404, Phase 2)
   const [idUploadClub,   setIdUploadClub]   = useState(null); // club being uploaded for
   const [idDocType,      setIdDocType]      = useState("passport");
   const [idFile,         setIdFile]         = useState(null);
@@ -124,6 +141,17 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
       .catch(() => { if (alive) setFightRecord(null); });
     return () => { alive = false; };
   }, [profile]);
+
+  // Unified money view (mig 404) — auth.uid()-scoped, loads once on mount. Aggregates
+  // the signed-in human's own + guardian memberships (paid/owed ledger charges, pence)
+  // and casual match fees (whole-pounds, separate array). Independent of profile load.
+  useEffect(() => {
+    let alive = true;
+    getMyMoney()
+      .then((m) => { if (alive) setMoney(m?.ok ? m : null); })
+      .catch(() => { if (alive) setMoney(null); });
+    return () => { alive = false; };
+  }, []);
 
   const startEdit = () => {
     setForm({
@@ -967,6 +995,101 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
             }}
           />
         )}
+
+        {/* ── My money (mig 404, Phase 2) — own + guardian memberships and casual
+              match fees in one place; paid + upcoming, each row tagged who-it's-for ── */}
+        {money && (money.memberships.length > 0 || money.charges.length > 0 || money.casual.length > 0) && (() => {
+          // One activity stream: membership ledger charges (pence) + casual fees (whole
+          // pounds — kept in their native unit, never summed across streams).
+          const activity = [
+            ...money.charges.map((c) => ({
+              key: `c_${c.charge_id}`,
+              title: c.label || "Membership",
+              who: c.is_self ? "You" : (c.who_for || "Member"),
+              amount: `£${((c.amount_due_pence || 0) / 100).toFixed(2)}`,
+              status: c.status,
+              date: c.due_date,
+            })),
+            ...money.casual.map((l) => ({
+              key: `l_${l.id}`,
+              title: "Match fee",
+              who: "You",
+              amount: `£${Number(l.amount || 0).toFixed(2)}`,
+              status: l.status,
+              date: l.paidAt || l.createdAt,
+            })),
+          ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+          return (
+            <Section title="My money">
+              {money.summary.owed_pence > 0 && (
+                <div style={{
+                  padding: "12px 14px", display: "flex", justifyContent: "space-between",
+                  alignItems: "center", background: "rgba(255,190,60,0.06)",
+                }}>
+                  <span style={{ fontSize: 13, color: "var(--t2)" }}>Outstanding</span>
+                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: "var(--amber)" }}>
+                    £{(money.summary.owed_pence / 100).toFixed(2)}
+                  </span>
+                </div>
+              )}
+
+              {money.memberships.map((m, i) => (
+                <div key={m.membership_id} style={{
+                  padding: "10px 14px",
+                  borderTop: (i > 0 || money.summary.owed_pence > 0) ? "1px solid var(--border-subtle)" : "none",
+                  display: "flex", alignItems: "flex-start", gap: 12,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>
+                      {m.club_name || m.tier_name || "Membership"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                      {m.is_self ? "You" : (m.who_for || "Member")} · {periodLabel(m.period)} · £{((m.amount_pence || 0) / 100).toFixed(2)}
+                    </div>
+                    {m.renews_at && (
+                      <div style={{ fontSize: 11, color: "var(--t3, #666)", marginTop: 3 }}>
+                        {m.status === "ending" ? "Ends" : "Renews"} {fmtDate(m.renews_at)}{m.is_stripe ? " · card on file" : ""}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+                    background: m.status === "paused" ? "rgba(255,255,255,0.06)" : "rgba(76,175,80,0.15)",
+                    color: m.status === "paused" ? "var(--t2)" : "rgba(76,175,80,1)",
+                  }}>
+                    {m.status === "paused" ? "Paused" : m.status === "ending" ? "Ending" : "Active"}
+                  </span>
+                </div>
+              ))}
+
+              {activity.map((a, i) => {
+                const tone = moneyStatusTone(a.status);
+                return (
+                  <div key={a.key} style={{
+                    padding: "10px 14px",
+                    borderTop: (i > 0 || money.memberships.length > 0 || money.summary.owed_pence > 0)
+                      ? "1px solid var(--border-subtle)" : "none",
+                    display: "flex", alignItems: "flex-start", gap: 12,
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t1)" }}>
+                        {a.title} · {a.amount}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
+                        {a.who}{a.date ? ` · ${fmtDate(a.date)}` : ""}
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+                      background: tone.bg, color: tone.fg,
+                    }}>{tone.label}</span>
+                  </div>
+                );
+              })}
+            </Section>
+          );
+        })()}
 
         {/* ── My orders ───────────────────────────────────────────── */}
         {myOrders.length > 0 && (
