@@ -267,6 +267,19 @@ to every junior (Stripe + cash); member quits mid-term → refund the unused mon
 refund against own fixture, no live rows touched), build + hygiene, casual-regression,
 Stripe test-mode refund + price-change walk, ⛔ real-iPhone walk for the portal entry point.
 
+> **STATUS (s186):** 🏁 **PHASE 5 BUILT + TEST-MODE WALK PASSED** (mig 407, PR #76). Four new fns
+> (no schema change), three new DORMANT APIs (`stripe-billing-portal` / `stripe-refund` /
+> `stripe-price-change`), venue PaymentsView (Change-price wizard + Refund modal) + inorout
+> MemberProfile (Manage card/cancel). **Operator decision "Option A":** a mid-cycle price change
+> applies at the NEXT renewal (no mid-cycle proration); season-schedule members excluded from the
+> push. Refunds only INITIATE — the existing `charge.refunded → stripe_record_refund` reconciles.
+> Gates: EV 5-grp+leak0, rpc-security PASS, build+hygiene 7/7, casual-regression PASS. **TEST-MODE
+> WALK PASSED:** price change proven via a Stripe test clock (new £17 price bills at next renewal,
+> NO mid-cycle invoice; first invoice stayed £15; clock deleted clean), refund proven with a REAL
+> test charge+refund (`ch_…`/`re_…`) reconciled through `stripe_record_refund` (status→partial,
+> idempotent, leak0). ⛔ STILL OWED (narrow): the carried Phase-3 `invoice.paid` reconcile on a
+> REAL PAYING member through the DEPLOYED webhook on a CONNECTED account; real-iPhone portal walk.
+
 ---
 
 ## PHASE 6 — Collection, chasing & reporting (scope #16, #6.2, #6.3)
