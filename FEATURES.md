@@ -72,8 +72,24 @@ authenticated-only grants), EV PASS + leak 0 (full truth-table: the fix [member 
 [cancelled membership rejected], non-member rejected), no JS change (return shapes unchanged → casual
 byte-identical, SQL-only). On today's single-venue data behaviour is byte-identical — the change only
 ever ADMITS a 2nd venue of the SAME club. ⛔ owed real-iPhone walk (a member of a multi-venue club books
-at the 2nd venue; needs a real 2-venue club). **Next free mig = 402.** Then Phase 3 (package presets),
-Phase 4 (rail 18→8 wiring). Full phased plan in **MODULAR_PLATFORM_HANDOFF.md**.
+at the 2nd venue; needs a real 2-venue club). **Next free mig = 402.**
+
+**Phase 3 — package presets SHIPPED (mig 402, s180).** Named preset bundles ("Quick setup") that apply
+a whole flag-set at once — shortcuts on top of the flags (flags stay the source of truth; the commercial
+tier/pricing decision stays deferred, no `tier` enum). Two atomic, audited bulk RPCs
+`venue_set_venue_features(token, jsonb)` + `venue_set_club_features(token, club_id, jsonb)` (manage_facility,
+anon+authenticated for the backdoor; only present keys change; dependency closure — Coaching on forces
+Memberships on — so a preset can never land an invalid state; a row written only to hold an OFF and pruned
+once all-on, no-row=on preserved). The preset CATALOGUE lives client-side in FeaturesView (VENUE_PACKAGES:
+Full facility / Bookings only; CLUB_PACKAGES: Full club / League club / Memberships & coaching / Match-day
+only) so re-bundling/renaming is a one-line edit, no migration. UI: a "Quick setup" button row per scope
+with the matching preset highlighted. Gates: rpc-security PASS, EV 6/6 + leak 0 (bundle applies, closure
+forces memberships, partial-apply leaves absent keys, full bundle prunes the row, unknown key rejected),
+venue build + hygiene 7/7, Playwright boot smoke on demo (applied "League club" to Finbar's FC → coaching/
+tournaments/public_web off, memberships lock lifted, DB matched, highlight moved; "Full club" restored to 0
+rows; 0 console errors), casual-regression PASS via additive-diff (packages/core +2 wrappers, no apps/inorout).
+⛔ owed real-device venue walk (Phases 0–3). **Next free mig = 403.** Then Phase 4 (rail 18→8 wiring). Full
+phased plan in **MODULAR_PLATFORM_HANDOFF.md**.
 
 **#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
 `club_leagues` + `club_fixtures` RPC-only tables let a club hold its own home/away games vs

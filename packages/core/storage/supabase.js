@@ -5642,6 +5642,25 @@ export async function venueSetClubFeature(venueToken, clubId, feature, enabled) 
   return data;
 }
 
+// Package presets (mig 402): apply a whole flag bundle at once. `flags` is a jsonb
+// object of the features to set (absent keys unchanged); the club RPC enforces the
+// dependency closure (coaching on → memberships forced on). Atomic + audited.
+export async function venueSetVenueFeatures(venueToken, flags) {
+  const { data, error } = await supabase.rpc("venue_set_venue_features", {
+    p_venue_token: venueToken, p_flags: flags,
+  });
+  if (error) { console.error("[nav] venue_set_venue_features failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetClubFeatures(venueToken, clubId, flags) {
+  const { data, error } = await supabase.rpc("venue_set_club_features", {
+    p_venue_token: venueToken, p_club_id: clubId, p_flags: flags,
+  });
+  if (error) { console.error("[nav] venue_set_club_features failed", error); throw error; }
+  return data;
+}
+
 // Guardian: every child's upcoming training + matches across ALL their clubs
 // (mig 350). Returns [{ profile_id, first_name, last_name, sessions:[...] }].
 export async function guardianListChildrenSessions() {
