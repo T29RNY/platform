@@ -4466,6 +4466,18 @@ export async function venueGetStandings(venueToken, competitionId) {
   return data;
 }
 
+// ── All club teams across the venue's clubs (Teams page — Club teams tab) — mig 409 ──
+export async function venueListClubTeams(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_club_teams", {
+    p_venue_token: venueToken,
+  });
+  if (error) {
+    console.error("[venue] list_club_teams failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ── All players across the venue's teams (Players view) — mig 198 ──
 export async function venueListPlayers(venueToken) {
   const { data, error } = await supabase.rpc("venue_list_players", {
