@@ -300,11 +300,14 @@ const TEMPLATES = {
     subject: `Payment due — ${c.venueName} membership`,
     text:
       `Hi ${c.firstName},\n\nA membership payment of ${gbp(c.amountPence)} is due${c.dateLabel ? ` (due ${c.dateLabel})` : ""} ` +
-      `at ${c.venueName}. Please settle it at reception to keep your membership active.`,
+      `at ${c.venueName}.` +
+      (c.payUrl ? ` Pay now: ${c.payUrl}` : ` Please settle it at reception to keep your membership active.`),
     html: wrap(
       `<p>Hi <b>${esc(c.firstName)}</b>,</p>` +
       `<p>A membership payment of <b>${gbp(c.amountPence)}</b> is due${c.dateLabel ? ` (due <b>${esc(c.dateLabel)}</b>)` : ""} at <b>${esc(c.venueName)}</b>.</p>` +
-      `<p>Please settle it at reception to keep your membership active.</p>`
+      (c.payUrl
+        ? `<p><a href="${esc(c.payUrl)}">Pay now →</a> — or settle it at reception to keep your membership active.</p>`
+        : `<p>Please settle it at reception to keep your membership active.</p>`)
     ),
   }),
   membership_freeze_ending: (c) => ({

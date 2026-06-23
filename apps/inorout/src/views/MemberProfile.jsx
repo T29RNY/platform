@@ -1025,6 +1025,8 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
               amount: `£${((c.amount_due_pence || 0) / 100).toFixed(2)}`,
               status: c.status,
               date: c.due_date,
+              // #16: pay link (Stripe hosted invoice → else venue payment_link), owed rows only
+              payUrl: (["unpaid", "partial"].includes(c.status) && c.pay_url) ? c.pay_url : null,
             })),
             ...money.casual.map((l) => ({
               key: `l_${l.id}`,
@@ -1107,6 +1109,15 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
                       <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
                         {a.who}{a.date ? ` · ${fmtDate(a.date)}` : ""}
                       </div>
+                      {a.payUrl && (
+                        <a href={a.payUrl} target="_blank" rel="noopener noreferrer" style={{
+                          display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 600,
+                          padding: "4px 10px", borderRadius: 8, border: "1px solid var(--border-subtle)",
+                          background: "transparent", color: "var(--amber)", textDecoration: "none", cursor: "pointer",
+                        }}>
+                          Pay now →
+                        </a>
+                      )}
                     </div>
                     <span style={{
                       fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,

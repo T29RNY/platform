@@ -4099,6 +4099,16 @@ export async function venueListBillingRuns(venueToken, limit = 50) {
   return data;
 }
 
+// Phase 6 #6.3 — operator reconciliation (read-only): raised/paid/outstanding/overdue +
+// collection rate + Stripe-vs-manual by_method split, over an optional due_date window.
+export async function venuePaymentReconciliation(venueToken, { from = null, to = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_payment_reconciliation", {
+    p_venue_token: venueToken, p_from: from, p_to: to,
+  });
+  if (error) { console.error("[payments] venue_payment_reconciliation failed", error); throw error; }
+  return data;
+}
+
 // ── Lifecycle: bulk price change + refunds (mig 407, Stripe Phase 5) ─────────────
 // preview is read-only; commit updates CASH members' ledger amount immediately and returns
 // the Stripe sub members as stripe_targets (the caller then POSTs /api/stripe-price-change to

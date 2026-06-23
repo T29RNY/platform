@@ -298,6 +298,26 @@ emails; "how much of this season's subs are actually in, and who's outstanding?"
 **Gates:** rpc-security-sweep (any RPC change), build + hygiene, casual-regression, Playwright
 smoke, dedupe proven against the reminder cron.
 
+> **STATUS (s187):** 🏁 **PHASE 6 BUILT + GATES PASSED** (mig 408). ONE additive column
+> `venue_charges.pay_url`; 2 new fns (`stripe_set_charge_pay_url` service_role write,
+> `venue_payment_reconciliation` read) + 2 modified (`get_membership_reminders_due`, `get_my_money`).
+> **#16 pay-now:** a charge's pay link resolves Stripe-hosted-invoice → else `venues.payment_link` →
+> else manual nudge; `api/stripe-bulk-invoices.js` persists `hosted_invoice_url` after finalize; the #4
+> reminder email (`_mailer` membership_payment_due) + the inorout MemberProfile My-money pill both gain a
+> "Pay now" button. **#6.2 de-storm:** a Stripe-invoiced charge is SUPPRESSED from the cron `payment_due`
+> reminder (Stripe dunns it) + a per-recipient per-tick throttle (KIND_PRIORITY sort, one email/recipient/
+> tick, deferred kinds not logged → send a later day). **#6.3 reconciliation:** read-only
+> `venue_payment_reconciliation(token,from,to)` → PaymentsView panel (raised/paid/outstanding/overdue +
+> collection rate + Stripe-vs-manual `by_method` split). Gates: rpc-security PASS (4 fns — single overloads,
+> search_path pinned, write+reminders service_role-only, recon anon+auth), EV 5-grp+leak0
+> (`stripe_set_charge_pay_url` own `_e2e_` fixture: persist + idempotent no-op + audit + null-guard),
+> build inorout+venue + hygiene 7/7 + venue hex hand-check, casual-regression PASS (MemberProfile not in
+> casual inventory, +11 additive, pay_url NULL today → byte-identical), Playwright PaymentsView smoke PASS
+> (reconciliation rendered £1,957/£330/£1,048/16.9% + Stripe £0 vs Cash £160/Card £50/Transfer £120, 0
+> console errors). ⛔ STILL OWED (carried): Phase-3 `invoice.paid` reconcile on a REAL paying member through
+> the DEPLOYED webhook on a CONNECTED account; real-iPhone walk of the Phase-5 Manage-card + Phase-6 Pay-now
+> buttons. NEXT = Phase 7 (go-live — config only). **Next free mig = 409.**
+
 ---
 
 ## PHASE 7 — Go-live (scope #1, #1.1, #1.2, #1.3) — LAST

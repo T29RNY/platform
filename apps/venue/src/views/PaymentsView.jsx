@@ -5,6 +5,7 @@ import {
   venueAddFixtureCharge, venueUpdateBookingSettings,
   venueVoidPayment, venueSetChargeDue,
   venueBulkChargePreview, venueBulkChargeCommit, venueVoidBillingRun, venueListBillingRuns,
+  venuePaymentReconciliation,
   venuePriceChangePreview, venueBulkPriceChangeCommit, venueRefundChargeResolve,
   venueListMembershipTiers, venueListClubs, clubListTeams,
 } from "@platform/core/storage/supabase.js";
@@ -43,6 +44,7 @@ export default function PaymentsView({ state, venueToken }) {
   const [priceWizardOpen, setPriceWizardOpen] = useState(false);
   const [refundFor, setRefundFor] = useState(null); // charge being refunded
   const [runs, setRuns] = useState([]);
+  const [recon, setRecon] = useState(null); // Phase 6 #6.3 reconciliation summary (read-only)
 
   const teamName = useCallback((id) => (id ? (state?.teams?.[id]?.name || id) : null), [state]);
 
@@ -69,8 +71,15 @@ export default function PaymentsView({ state, venueToken }) {
     catch (e) { /* runs are a secondary panel — don't block the ledger on a runs error */ console.error("[payments] loadRuns failed", e); }
   }, [venueToken]);
 
+  const loadRecon = useCallback(async () => {
+    if (!venueToken) return;
+    try { const r = await venuePaymentReconciliation(venueToken); setRecon(r ?? null); }
+    catch (e) { /* reconciliation is a secondary read-only panel — don't block the ledger */ console.error("[payments] loadRecon failed", e); }
+  }, [venueToken]);
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadRuns(); }, [loadRuns]);
+  useEffect(() => { loadRecon(); }, [loadRecon]);
 
   const onVoidRun = async (run) => {
     if (!window.confirm(`Void the whole "${run.label}" run? Its ${run.member_count} charge(s) drop out of owed/collected. Money already collected is not auto-refunded.`)) return;
@@ -273,6 +282,47 @@ export default function PaymentsView({ state, venueToken }) {
           </table>
         </div>
       )}
+
+      {recon?.summary && (() => {
+        const rs = recon.summary;
+        const bm = recon.by_method || {};
+        const stripePence = bm.stripe || 0;
+        const manualPence = Object.entries(bm).reduce((t, [k, v]) => t + (k === "stripe" ? 0 : (v || 0)), 0);
+        const methodOrder = [["stripe", "Stripe"], ["cash", "Cash"], ["card", "Card"], ["bank_transfer", "Transfer"], ["other", "Other"]];
+        const rows = methodOrder.filter(([k]) => bm[k]).concat(
+          Object.keys(bm).filter((k) => !methodOrder.some(([mk]) => mk === k)).map((k) => [k, k])
+        );
+        return (
+          <div className="dt-card" style={{ marginTop: "var(--gap-2)" }}>
+            <div className="dt-toolbar">
+              <strong style={{ fontSize: 15 }}>Reconciliation</strong>
+              <span className="text-mute">all time</span>
+            </div>
+            <div className="stat-row" style={{ padding: "var(--gap-1)" }}>
+              <Stat label="Raised" value={gbp(rs.raised_pence)} />
+              <Stat label="Paid" value={gbp(rs.paid_pence)} tone="ok" />
+              <Stat label="Overdue" value={gbp(rs.overdue_pence)} tone="crit" />
+              <Stat label="Collection rate" value={rs.collection_rate == null ? "—" : rs.collection_rate + "%"}
+                bar={rs.collection_rate == null ? null : Math.max(0, Math.min(100, rs.collection_rate))} />
+            </div>
+            <table className="dt">
+              <thead><tr><th>Collected by method</th><th className="num">Amount</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>Stripe (online) <span className="text-mute">vs manual {gbp(manualPence)}</span></td>
+                  <td className="num">{gbp(stripePence)}</td>
+                </tr>
+                {rows.map(([k, label]) => (
+                  <tr key={k}>
+                    <td className="text-mute">{label}</td>
+                    <td className="num">{gbp(bm[k])}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {wizardOpen && (
         <BulkInvoiceWizard venueToken={venueToken} onClose={() => setWizardOpen(false)} onDone={onWizardDone} />

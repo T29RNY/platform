@@ -124,8 +124,16 @@ module.exports = async function handler(req, res) {
           description: run.label },
         { stripeAccount: accountId, idempotencyKey: `${idem}_item` }
       );
-      await stripe.invoices.finalizeInvoice(invoice.id, { stripeAccount: accountId });
+      const finalized = await stripe.invoices.finalizeInvoice(invoice.id, { stripeAccount: accountId });
       await stripe.invoices.sendInvoice(invoice.id, { stripeAccount: accountId });
+      // Phase 6 #16: persist the Stripe hosted-invoice URL on the ledger charge so the #4
+      // chase reminder + the member's in-app "My money" pill can offer a Pay-now link.
+      // (This charge then drops out of the cron payment_due reminder — Stripe dunns it.)
+      if (finalized?.hosted_invoice_url) {
+        await supabase.rpc("stripe_set_charge_pay_url", {
+          p_charge_id: c.id, p_pay_url: finalized.hosted_invoice_url,
+        });
+      }
       invoiced.push({ charge_id: c.id, invoice_id: invoice.id });
     } catch (e) {
       console.error("[stripe-bulk-invoices] charge failed", c.id, e?.message);

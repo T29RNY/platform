@@ -1,5 +1,32 @@
 # In or Out — Key Decisions Log
 
+## SESSION 187 — Stripe FULL build PHASE 6: collection, chasing & reporting (mig 408)
+*2026-06-23. Built/tested under Stripe TEST keys; live keys = Phase 7. Scope #16 pay-now links,
+#6.2 notification de-storm, #6.3 operator reconciliation. Additive — every existing member
+byte-identical until an operator sends a reminder or opens the reconciliation view.*
+
+- **DECISION — a charge's pay link resolves in priority: its OWN Stripe hosted-invoice URL → else the
+  venue's generic `venues.payment_link` → else none (manual nudge).** The hosted-invoice URL was being
+  thrown away by `api/stripe-bulk-invoices.js`; it's now persisted on `venue_charges.pay_url` (new
+  additive column) by the new service_role `stripe_set_charge_pay_url`. A recurring-sub member is NOT a
+  `payment_due` case (Stripe dunns it; the renewal cron skips it since mig 403) — their self-serve path
+  is the Phase-5 Billing Portal button. So #16 = persist + surface, not a new money path.
+- **DECISION — the EMAIL reminder and the IN-APP pill split cleanly to avoid double-emailing.** Email
+  reminders (`get_membership_reminders_due`) are sent ONLY for charges WITHOUT a Stripe invoice
+  (`pay_url IS NULL`) and carry `venues.payment_link` as their link — because a Stripe-invoiced charge is
+  already emailed + dunned by Stripe (#6.2 de-storm: our reminder would be the duplicate). The in-app
+  My-money pill (`get_my_money`) is not an email, so it surfaces the real Stripe hosted-invoice link
+  (`COALESCE(pay_url, payment_link)`) with no double-send risk.
+- **DECISION — de-storm via a per-recipient per-tick throttle on top of permanent dedup.** The cron sorts
+  due reminders by KIND_PRIORITY (payment_due > renewal_due > freeze_ending > welcome) and sends at most
+  ONE email per recipient per tick; a deferred lower-priority kind is NOT written to `notification_log`,
+  so it still sends on a later tick. Proven against the reminder cron (two due rows for one recipient →
+  one send; cron twice → one `notification_log` row).
+- **DECISION — reconciliation is a NEW read RPC, not bolted onto `venue_get_charges`.**
+  `venue_payment_reconciliation(token, from, to)` keeps `venue_get_charges` stable for its existing
+  consumers and owns the period filter + overdue split + Stripe-vs-manual `by_method` breakdown. Read-only
+  (no audit). PaymentsView gains a Reconciliation panel.
+
 ## SESSION 186 — Stripe FULL build PHASE 5: lifecycle (mig 407)
 *2026-06-23. Built/tested under Stripe TEST keys; live keys = Phase 7. Scope #11 Billing Portal,
 #12 bulk price change, #13 refunds, #20 pro-rated price change, #21 pro-rated refund.*
