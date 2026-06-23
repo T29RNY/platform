@@ -6,7 +6,11 @@
 cloud-session discipline, before Phase 2 started).*
 
 **Decision (s180, Phase 2.5 scope locked — option 1): membership scope = `club_id`-derived, and
-cross-CLUB passes are deferred ENTIRELY (no dormant schema now).** Phase 2.5 (the next cycle) moves the
+cross-CLUB passes are deferred ENTIRELY (no dormant schema now).** ✅ **SHIPPED same session (mig 401)** —
+2 helpers (`_membership_covers_venue` + `_member_entitled_at_venue`) + the 6 gate predicates swapped via
+exactly-once-asserted `regexp_replace` on the live bodies (baseline-diff verified: post-apply md5 ==
+predicted, only the predicate changed), EV PASS + leak 0 (fix + no-op + status-filter + reject), no JS
+change. Behaviour byte-identical on today's single-venue data. Phase 2.5 (the next cycle) moves the
 membership eligibility checks from `venue_memberships.venue_id = <target>` onto SCOPE resolution so a
 multi-venue club's membership is honored across all the club's venues. The live audit (s180) pinned the
 shape:

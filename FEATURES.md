@@ -55,10 +55,25 @@ reject with `feature_disabled` → ON restores, demo_venue back to 0 rows, 0 con
 casual-regression PASS via additive-diff (packages/core +34 lines/0 removed, no apps/inorout touched).
 ⛔ owed real-device venue walk (now Phase 0+1+2). **Next free mig = 401.**
 
-**Next: Phase 2.5 — membership-scope refactor** (`venue_memberships.venue_id =` → membership SCOPE,
-~17 eligibility RPCs, highest-risk data-correctness/RLS rewrite, full EV each) — its own cycle, NOT
-bundled with toggle UI. Then Phase 3 (package presets), Phase 4 (rail 18→8 wiring). Full phased plan
-in **MODULAR_PLATFORM_HANDOFF.md**.
+**Phase 2.5 — membership-scope refactor SHIPPED (mig 401, s180).** Membership eligibility now resolves
+across the club's venues, not a single `venue_id`. Live audit pinned the surface to **6 gates** (not
+the feared ~17): `member_book_class_session`, `member_book_appointment`, `member_purchase_class_package`,
+`member_join_club_team`, `member_list_trainers`, `member_get_venue_membership_pass`. **No new column** —
+the scope key already exists (`venue_memberships.club_id`, set on all 23 live rows). Two STABLE helpers:
+`_membership_covers_venue(club_id, venue_id, target)` (club → target ∈ `club_venues`; club-less →
+own venue, defensive) + `_member_entitled_at_venue(profile, target)` (active/ending membership whose
+scope covers target). Each gate's single `… venue_id = target …` predicate swapped onto the helper via
+a whitespace-tolerant, exactly-once-asserted `regexp_replace` on the live body (mig-075 precedent),
+**baseline-diff verified** (post-apply md5 == predicted; only the predicate changed; stale predicate
+gone). Cross-CLUB passes deferred entirely (option 1, s180) — the helper seam keeps them expressible.
+Gates: rpc-security PASS (2 helpers SECDEF/STABLE/search_path/internal-only; 6 gates kept their exact
+authenticated-only grants), EV PASS + leak 0 (full truth-table: the fix [member enrolled at the club's
+2nd venue is entitled at the 1st], the no-op [not entitled at an unrelated club's venue], status filter
+[cancelled membership rejected], non-member rejected), no JS change (return shapes unchanged → casual
+byte-identical, SQL-only). On today's single-venue data behaviour is byte-identical — the change only
+ever ADMITS a 2nd venue of the SAME club. ⛔ owed real-iPhone walk (a member of a multi-venue club books
+at the 2nd venue; needs a real 2-venue club). **Next free mig = 402.** Then Phase 3 (package presets),
+Phase 4 (rail 18→8 wiring). Full phased plan in **MODULAR_PLATFORM_HANDOFF.md**.
 
 **#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
 `club_leagues` + `club_fixtures` RPC-only tables let a club hold its own home/away games vs
