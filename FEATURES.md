@@ -13,7 +13,10 @@ Full-Time feasibility verdict live in **STRATEGY.md → "PILOT MEETING FEEDBACK 
 399–402), #1 FA spike (NO-GO verdict), #14–17 (already loved). 🟢 PARTIAL/addressed = #3 mass
 invoicing (built, dormant — needs live Stripe keys) + season/fixed-term billing (Stripe Phase 4, mig
 406 — season-length plans auto-stop, future start-date anchoring, mid-season equal instalments; built &
-tested on TEST keys, runtime test-clock walk owed before merge), #5 pitch priority/reserved times (pitch system
+tested on TEST keys, runtime test-clock walk owed before merge) + lifecycle (Stripe Phase 5, mig 407 —
+self-service Billing Portal, bulk price change [Option A: applies next renewal, no mid-cycle proration],
+Stripe refunds [full / pro-rated-unused / custom]; built & tested on TEST keys, test-mode walk owed),
+#5 pitch priority/reserved times (pitch system
 built, priority layer not), #6 team prioritisation (⭐ display-only, doesn't drive anything yet),
 #7 multi-venue (feature-ownership + membership scope shipped, mig 401), #13 season setup (partial).
 ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort

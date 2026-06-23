@@ -3,7 +3,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
-         memberGetFightRecord, getMyMoney, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
+         memberGetFightRecord, getMyMoney, stripeInitBillingPortal, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
@@ -85,6 +85,22 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
   const [gradeHistory,   setGradeHistory]   = useState([]);   // belt/grade award log (mig 357, grading disciplines only)
   const [fightRecord,    setFightRecord]    = useState(null); // { record, bouts } (mig 359, boxing only)
   const [money,          setMoney]          = useState(null); // unified money view (mig 404, Phase 2)
+  const [portalBusy,     setPortalBusy]     = useState(null); // membership_id currently opening the portal
+  const isPortalRef = useRef(false);
+
+  // Phase 5: hand a Stripe member off to the hosted Billing Portal (update card / cancel).
+  // A cancel there is reconciled by the subscription.updated/deleted webhook — no local write.
+  const openBillingPortal = async (membershipId) => {
+    if (isPortalRef.current) return;
+    isPortalRef.current = true; setPortalBusy(membershipId);
+    try {
+      const { portal_url } = await stripeInitBillingPortal({ membershipId, returnPath: "/me" });
+      if (portal_url) window.location.href = portal_url;
+    } catch (e) {
+      console.error("[member] billing portal failed", e);
+      isPortalRef.current = false; setPortalBusy(null);
+    }
+  };
   const [idUploadClub,   setIdUploadClub]   = useState(null); // club being uploaded for
   const [idDocType,      setIdDocType]      = useState("passport");
   const [idFile,         setIdFile]         = useState(null);
@@ -1051,6 +1067,18 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
                       <div style={{ fontSize: 11, color: "var(--t3, #666)", marginTop: 3 }}>
                         {m.status === "ending" ? "Ends" : "Renews"} {fmtDate(m.renews_at)}{m.is_stripe ? " · card on file" : ""}
                       </div>
+                    )}
+                    {m.is_stripe && m.status !== "cancelled" && (
+                      <button
+                        onClick={() => openBillingPortal(m.membership_id)}
+                        disabled={portalBusy === m.membership_id}
+                        style={{
+                          marginTop: 8, fontSize: 11, fontWeight: 600, padding: "4px 10px",
+                          borderRadius: 8, border: "1px solid var(--border-subtle)",
+                          background: "transparent", color: "var(--t2)", cursor: "pointer",
+                        }}>
+                        {portalBusy === m.membership_id ? "Opening…" : "Manage card / cancel"}
+                      </button>
                     )}
                   </div>
                   <span style={{

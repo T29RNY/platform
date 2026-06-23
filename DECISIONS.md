@@ -1,5 +1,35 @@
 # In or Out — Key Decisions Log
 
+## SESSION 186 — Stripe FULL build PHASE 5: lifecycle (mig 407)
+*2026-06-23. Built/tested under Stripe TEST keys; live keys = Phase 7. Scope #11 Billing Portal,
+#12 bulk price change, #13 refunds, #20 pro-rated price change, #21 pro-rated refund.*
+
+- **DECISION (operator-confirmed, "Option A") — a mid-cycle price change applies at the member's NEXT
+  renewal, never a surprise mid-month top-up.** So there is **no Stripe mid-cycle proration**:
+  `api/stripe-price-change.js` swaps the subscription's price with `proration_behavior:'none'`. This is
+  the clearest "member's favour" reading and matches the real operator action ("subs up £2 from Sept").
+  It also means scope #20 ("pro-rated price change") collapses to nothing to compute — the new rate
+  simply starts next cycle. Cash members' `amount_pence` updates immediately (the renewal cron mints
+  their next charge at the new rate). Rejected: immediate `create_prorations` (can back-charge a parent
+  mid-month).
+- **DECISION — season-schedule members (Phase 4, `stripe_schedule_id` set) are EXCLUDED from the bulk
+  price change for Phase 5.** A schedule overwrites a bare subscription update, so editing it correctly
+  is its own piece of work; operators re-price those at next season's enrolment. The preview flags them
+  `skip_reason='season_schedule'` so it's explicit, not silent.
+- **DECISION — refunds reuse the existing reconcile loop; the new code only INITIATES.** Phases 1–4
+  already built `charge.refunded → stripe_record_refund` (idempotent on the Stripe refund id). So
+  `api/stripe-refund.js` issues the real Stripe refund and writes NOTHING to the ledger itself — the
+  webhook lands it. Amounts are always RE-COMPUTED server-side (never trust the client): full =
+  collected−refunded; pro-rated = the unused season slice via `_prorated_first_charge` (the same engine
+  as the joining charge, so the member sees one consistent number); custom = capped at refundable.
+- **DECISION — our record never runs ahead of Stripe on a price push.** The commit RPC updates cash
+  members now but leaves Stripe members' `amount_pence` alone; only after Stripe accepts the new price
+  does the API call `stripe_set_membership_price` to sync `amount_pence`+`stripe_price_id`. A failed
+  push leaves no drift.
+- **Additive-by-design:** every existing member is byte-identical until an operator triggers a price
+  change or a refund. No schema change (functions only). Casual flow untouched (no `apps/inorout/src`
+  casual surface; `supabase.js`/`index.js` additions only).
+
 ## SESSION 184 — Stripe FULL build PHASE 4: fixed-term & dated billing (mig 406)
 *2026-06-23. Built/tested under Stripe TEST keys; live keys = Phase 7. Scope #9 Subscription
 Schedules, #10 future start-date anchoring, #19 mid-cycle proration.*

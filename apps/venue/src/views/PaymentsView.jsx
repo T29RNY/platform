@@ -5,6 +5,7 @@ import {
   venueAddFixtureCharge, venueUpdateBookingSettings,
   venueVoidPayment, venueSetChargeDue,
   venueBulkChargePreview, venueBulkChargeCommit, venueVoidBillingRun, venueListBillingRuns,
+  venuePriceChangePreview, venueBulkPriceChangeCommit, venueRefundChargeResolve,
   venueListMembershipTiers, venueListClubs, clubListTeams,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
@@ -39,6 +40,8 @@ export default function PaymentsView({ state, venueToken }) {
   const [link, setLink] = useState(state?.venue?.payment_link ?? "");
   const [editingLink, setEditingLink] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [priceWizardOpen, setPriceWizardOpen] = useState(false);
+  const [refundFor, setRefundFor] = useState(null); // charge being refunded
   const [runs, setRuns] = useState([]);
 
   const teamName = useCallback((id) => (id ? (state?.teams?.[id]?.name || id) : null), [state]);
@@ -79,6 +82,16 @@ export default function PaymentsView({ state, venueToken }) {
   const onWizardDone = async () => {
     setWizardOpen(false);
     await Promise.all([load(), loadRuns()]);
+  };
+
+  const onPriceWizardDone = async () => {
+    setPriceWizardOpen(false);
+    await load();
+  };
+
+  const onRefundDone = async () => {
+    setRefundFor(null);
+    await load();
   };
 
   const onRecord = async (chargeId, amountPence, method, note) => {
@@ -170,6 +183,9 @@ export default function PaymentsView({ state, venueToken }) {
           <button className="btn btn-sm" onClick={() => setWizardOpen(true)}>
             <Icon name="pound" size={14} /> Mass invoice
           </button>
+          <button className="btn btn-sm" onClick={() => setPriceWizardOpen(true)}>
+            <Icon name="pound" size={14} /> Change price
+          </button>
           <button className="btn btn-sm btn-primary" onClick={() => setAdding(true)} disabled={fixtures.length === 0}>
             <Icon name="plus" size={14} /> Add charge
           </button>
@@ -209,6 +225,9 @@ export default function PaymentsView({ state, venueToken }) {
                       )}
                       {c.status !== "refunded" && (
                         <button className="btn btn-xs" style={{ marginLeft: 6 }} onClick={() => setDueFor(c)}>Edit due</button>
+                      )}
+                      {(c.status === "paid" || c.status === "partial") && c.paid_pence > 0 && (
+                        <button className="btn btn-xs" style={{ marginLeft: 6 }} onClick={() => setRefundFor(c)} disabled={busy}>Refund</button>
                       )}
                       {c.status !== "refunded" && (
                         <button className="btn btn-xs btn-danger" style={{ marginLeft: 6 }} onClick={() => onVoidCharge(c)} disabled={busy}>Void</button>
@@ -257,6 +276,12 @@ export default function PaymentsView({ state, venueToken }) {
 
       {wizardOpen && (
         <BulkInvoiceWizard venueToken={venueToken} onClose={() => setWizardOpen(false)} onDone={onWizardDone} />
+      )}
+      {priceWizardOpen && (
+        <PriceChangeWizard venueToken={venueToken} onClose={() => setPriceWizardOpen(false)} onDone={onPriceWizardDone} />
+      )}
+      {refundFor && (
+        <RefundModal charge={refundFor} venueToken={venueToken} onClose={() => setRefundFor(null)} onDone={onRefundDone} teamName={teamName(refundFor.team_id)} />
       )}
       {recordFor && (
         <RecordModal charge={recordFor} busy={busy} onClose={() => setRecordFor(null)} onSubmit={onRecord} teamName={teamName(recordFor.team_id)} />
@@ -602,6 +627,233 @@ function PaymentsModal({ charge, busy, onClose, onVoid, teamName }) {
             </div>
           ))}
         </div>
+      )}
+    </Modal>
+  );
+}
+
+// Shared cohort list (tier / whole club / team) — same shape the bulk wizard builds.
+async function loadCohortOptions(venueToken) {
+  const [tiersRes, clubs] = await Promise.all([venueListMembershipTiers(venueToken), venueListClubs(venueToken)]);
+  const opts = [];
+  (tiersRes?.tiers ?? tiersRes ?? []).forEach((t) => opts.push({ key: `tier:${t.tier_id}`, type: "tier", ref: t.tier_id, label: `Tier · ${t.name}` }));
+  for (const c of (clubs ?? [])) {
+    opts.push({ key: `club:${c.id}`, type: "club", ref: c.id, label: `Whole club · ${c.name}` });
+    try {
+      const teams = await clubListTeams(venueToken, c.id);
+      (teams ?? []).forEach((tm) => opts.push({ key: `team:${tm.team_id}`, type: "team", ref: tm.team_id, label: `Team · ${tm.name}` }));
+    } catch (e) { /* a club with no team structure is fine */ }
+  }
+  return opts;
+}
+
+// ── Change price wizard (mig 407, Stripe Phase 5) ────────────────────────────────
+// Pick a cohort → new price → preview (cash members update now; Stripe sub members get the new
+// price at their NEXT renewal — Option A, no mid-cycle proration) → confirm. Season-schedule
+// members are auto-skipped (re-priced at next season).
+function PriceChangeWizard({ venueToken, onClose, onDone }) {
+  const [step, setStep] = useState(1);
+  const [cohorts, setCohorts] = useState([]);
+  const [loadingCohorts, setLoadingCohorts] = useState(true);
+  const [cohortKey, setCohortKey] = useState("");
+  const [price, setPrice] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [excluded, setExcluded] = useState(() => new Set());
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const opts = await loadCohortOptions(venueToken);
+        setCohorts(opts);
+        if (opts[0]) setCohortKey(opts[0].key);
+      } catch (e) { setErr(e?.message || String(e)); }
+      finally { setLoadingCohorts(false); }
+    })();
+  }, [venueToken]);
+
+  const cohort = cohorts.find((c) => c.key === cohortKey) || null;
+  const pricePence = Math.round(parseFloat(price) * 100);
+  const priceValid = Number.isFinite(pricePence) && pricePence >= 0;
+
+  const members = preview?.members ?? [];
+  const included = members.filter((m) => m.will_change && !excluded.has(m.membership_id));
+  const stripeIncluded = included.filter((m) => m.method === "stripe");
+  const cashIncluded = included.filter((m) => m.method === "cash");
+
+  const toggle = (id) => setExcluded((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+
+  const goPreview = async () => {
+    if (!cohort || !priceValid) return;
+    setBusy(true); setErr(null);
+    try {
+      const p = await venuePriceChangePreview(venueToken, {
+        cohortType: cohort.type, cohortRef: cohort.ref, newPricePence: pricePence, effectiveDate: effectiveDate || null,
+      });
+      setPreview(p); setExcluded(new Set()); setStep(3);
+    } catch (e) { setErr(e?.message || String(e)); } finally { setBusy(false); }
+  };
+
+  const commit = async () => {
+    if (!cohort) return;
+    setBusy(true); setErr(null);
+    try {
+      const excludedIds = members.filter((m) => m.will_change && excluded.has(m.membership_id)).map((m) => m.membership_id);
+      const res = await venueBulkPriceChangeCommit(venueToken, {
+        cohortType: cohort.type, cohortRef: cohort.ref, newPricePence: pricePence,
+        effectiveDate: effectiveDate || null, excludedIds,
+      });
+      const targets = res?.stripe_targets ?? [];
+      if (targets.length) {
+        // Push the new price onto the Stripe subs (applies next renewal). Best-effort: the cash
+        // ledger is already updated; a transient API hiccup here is retried by re-running.
+        try {
+          const { data: { session } = {} } = await supabase.auth.getSession();
+          await fetch(`${API_BASE}/api/stripe-price-change`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+            body: JSON.stringify({ membershipIds: targets.map((t) => t.membership_id), newPricePence: pricePence, venueToken }),
+          });
+        } catch (e) { console.error("[payments] stripe-price-change failed", e); }
+      }
+      onDone(res);
+    } catch (e) { setErr(e?.message || String(e)); setBusy(false); }
+  };
+
+  const foot = (
+    <>
+      <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+      <span className="spacer" />
+      {step === 3 && <button className="btn btn-ghost" onClick={() => setStep(1)} disabled={busy}>Back</button>}
+      {step === 1 && <button className="btn btn-primary" onClick={goPreview} disabled={busy || !cohort || !priceValid}>{busy ? "Loading…" : "Preview"}</button>}
+      {step === 3 && <button className="btn btn-primary" onClick={commit} disabled={busy || included.length === 0}>{busy ? "Applying…" : `Apply to ${included.length} member(s)`}</button>}
+    </>
+  );
+
+  return (
+    <Modal onClose={onClose} title="Change price" foot={foot}>
+      {err && <p className="pill-warn" style={{ padding: 8, marginBottom: 12 }}>{err}</p>}
+      {step === 1 && (
+        <>
+          <label className="field-label">Cohort</label>
+          {loadingCohorts ? <p className="text-mute">Loading cohorts…</p> : (
+            <select className="input" value={cohortKey} onChange={(e) => setCohortKey(e.target.value)} style={{ marginBottom: 12 }}>
+              {cohorts.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+          )}
+          <label className="field-label">New price (£)</label>
+          <input className="input" type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g. 17.00" style={{ marginBottom: 12 }} />
+          <label className="field-label">Effective from (optional)</label>
+          <input className="input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+          <p className="text-mute" style={{ fontSize: 12, marginTop: 10 }}>
+            Card-paying members move to the new price at their next renewal — no mid-month top-up. Cash members’ expected amount updates straight away. Season-plan members are skipped (re-price at next season).
+          </p>
+        </>
+      )}
+      {step === 3 && preview && (
+        <>
+          <p className="text-mute" style={{ marginBottom: 12 }}>
+            New price <strong>{gbp(pricePence)}</strong> · {stripeIncluded.length} on card (next renewal) · {cashIncluded.length} cash (now) · {preview.skip_count} skipped
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+            {members.map((m) => (
+              <label key={m.membership_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--border)", opacity: m.will_change ? 1 : 0.5 }}>
+                <input type="checkbox" disabled={!m.will_change} checked={m.will_change && !excluded.has(m.membership_id)} onChange={() => toggle(m.membership_id)} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <strong>{m.member_name}</strong>
+                  <span className="text-mute" style={{ fontSize: 12 }}>
+                    {" · "}{gbp(m.old_amount_pence)} → {gbp(m.new_amount_pence)}
+                    {m.will_change ? ` · ${m.method === "stripe" ? "card" : "cash"}` : ` · skipped (${m.skip_reason})`}
+                  </span>
+                </div>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+// ── Refund modal (mig 407 + api/stripe-refund, Stripe Phase 5) ───────────────────
+// Resolves how much is refundable (and the pro-rated unused season slice) for a Stripe-collected
+// charge, then issues a real Stripe refund. The refund lands back in the ledger via the
+// charge.refunded webhook. Non-Stripe charges fall back to Void.
+function RefundModal({ charge, venueToken, onClose, onDone, teamName }) {
+  const [info, setInfo] = useState(undefined); // undefined=loading, null=error
+  const [mode, setMode] = useState("full");
+  const [custom, setCustom] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    venueRefundChargeResolve(venueToken, charge.id)
+      .then((d) => { if (alive) { setInfo(d); if (d?.is_season && d?.prorated_unused_pence != null) setMode("prorated"); } })
+      .catch((e) => { if (alive) { setInfo(null); setErr(e?.message || String(e)); } });
+    return () => { alive = false; };
+  }, [venueToken, charge.id]);
+
+  const noStripe = info && !info.stripe_charge_ref;
+  const customPence = Math.round(parseFloat(custom) * 100);
+  const amount = mode === "full"
+    ? (info?.refundable_pence ?? 0)
+    : mode === "prorated"
+      ? (info?.prorated_unused_pence ?? 0)
+      : (Number.isFinite(customPence) ? customPence : 0);
+
+  const submit = async () => {
+    if (!info?.stripe_charge_ref || amount <= 0) return;
+    setBusy(true); setErr(null);
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/api/stripe-refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ chargeId: charge.id, mode, amountPence: mode === "amount" ? customPence : undefined, venueToken }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.detail || out.error || "refund_failed");
+      onDone(out);
+    } catch (e) { setErr(e?.message || String(e)); setBusy(false); }
+  };
+
+  return (
+    <Modal onClose={onClose} title="Refund"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        {!noStripe && <button className="btn btn-primary" onClick={submit} disabled={busy || !info?.stripe_charge_ref || amount <= 0}>{busy ? "Refunding…" : `Refund ${gbp(amount)}`}</button>}
+      </>}>
+      {err && <p className="pill-warn" style={{ padding: 8, marginBottom: 12 }}>{err}</p>}
+      {info === undefined && <p className="text-mute">Checking the payment…</p>}
+      {noStripe && <p className="text-mute">This charge wasn’t paid by card, so there’s nothing to refund through Stripe. Use <strong>Void</strong> to drop it from owed/collected.</p>}
+      {info && info.stripe_charge_ref && (
+        <>
+          <p className="text-mute" style={{ marginBottom: 14 }}>
+            {teamName ? `${teamName} · ` : ""}Refundable <strong>{gbp(info.refundable_pence)}</strong>
+            {info.refunded_pence > 0 ? ` (already refunded ${gbp(info.refunded_pence)})` : ""}
+          </p>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input type="radio" name="rmode" checked={mode === "full"} onChange={() => setMode("full")} />
+            Full refundable balance · {gbp(info.refundable_pence)}
+          </label>
+          {info.is_season && info.prorated_unused_pence != null && (
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <input type="radio" name="rmode" checked={mode === "prorated"} onChange={() => setMode("prorated")} />
+              Unused part of the season · {gbp(info.prorated_unused_pence)}
+            </label>
+          )}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input type="radio" name="rmode" checked={mode === "amount"} onChange={() => setMode("amount")} />
+            A specific amount
+          </label>
+          {mode === "amount" && (
+            <input className="input" type="number" step="0.01" min="0.01" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="£" autoFocus style={{ marginTop: 4 }} />
+          )}
+        </>
       )}
     </Modal>
   );
