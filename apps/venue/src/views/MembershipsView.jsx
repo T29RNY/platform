@@ -2658,6 +2658,30 @@ export function StaffTab({ venueToken }) {
     }
   };
 
+  // Assignable people for a club = its active members + their guardians (so a parent
+  // can be made a coach). Value is the member_profile_id the assign RPC expects.
+  // (Phase 4 — also fixes a latent bug: the dropdown keyed on m.id, but
+  // venue_list_members rows have no `id`, only member_profile_id.)
+  const assignCandidatesFor = (club) => {
+    if (!club) return [];
+    const out = [];
+    const seen = new Set();
+    for (const m of (members || [])) {
+      if (m.club_id !== club.id) continue;
+      if (m.member_profile_id && !seen.has(m.member_profile_id)) {
+        seen.add(m.member_profile_id);
+        out.push({ id: m.member_profile_id, name: [m.first_name, m.last_name].filter(Boolean).join(" ") || "—", kind: "member" });
+      }
+      for (const g of (m.guardians || [])) {
+        if (g.profile_id && !seen.has(g.profile_id)) {
+          seen.add(g.profile_id);
+          out.push({ id: g.profile_id, name: g.name || "Guardian", kind: "guardian" });
+        }
+      }
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  };
+
   const openDbs = (row) => {
     setDbsTarget(row);
     setDbsCheckType(row.dbs_check_type || "enhanced");
@@ -2799,10 +2823,10 @@ export function StaffTab({ venueToken }) {
             <div>
               <div style={headStyle}>Member</div>
               <select value={assignMemberId ?? ""} onChange={e => setAssignMemberId(e.target.value || null)} style={inputSt}>
-                <option value="">— pick a member —</option>
-                {members.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {[m.first_name, m.last_name].filter(Boolean).join(" ")}
+                <option value="">— pick a person —</option>
+                {assignCandidatesFor(assigning?.club).map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.kind === "guardian" ? " (guardian)" : ""}
                   </option>
                 ))}
               </select>

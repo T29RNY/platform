@@ -1,9 +1,26 @@
 # Venue People & Spaces — IA Redesign (Handoff & Plan)
 
 > **STATUS (2026-06-23):** Plan locked. **Phase 1 SHIPPED+MERGED (PR #78). Phase 2 SHIPPED+MERGED
-> (PR #79, mig 409 — Teams page). Phase 3 SHIPPED this session (mig 410 — Members + Guardians page).**
-> Venue-app only — the casual football app (`apps/inorout/src`) is NEVER touched. Each phase ships +
-> merges before the next (cloud-session discipline). Next free migration when one is needed: **411**.
+> (PR #79, mig 409 — Teams page). Phase 3 SHIPPED+MERGED (PR #80, mig 410 — Members + Guardians).
+> Phase 4 SHIPPED this session (mig 411 — settable team contacts).** Venue-app only — the casual
+> football app (`apps/inorout/src`) is NEVER touched. Each phase ships + merges before the next
+> (cloud-session discipline). Next free migration when one is needed: **412**.
+>
+> **Phase 4 outcome (operator decisions):** each team gets TWO settable contact slots — a **Main
+> contact** + a **Secondary** column (+ Has/No-contact filter) on BOTH Teams tabs, via a new
+> `ContactPicker`. Source differs by team kind: **league teams → the `venue_customers` directory**
+> (search/pick/create inline); **club teams → that team's own active manager/assistant/coach**
+> (`club_team_managers`, head-manager-first, role-labelled — Option 2, the team's staff, not the
+> whole directory or the playing roster). To let a **guardian become a coach** (→ then a contact),
+> `venue_assign_team_manager` was relaxed to accept a club's active member OR a guardian of a member,
+> and the Memberships → Coaches & DBS assign dropdown now lists members + guardians (also fixed a
+> latent bug there: it keyed `<option>` on `m.id`, which `venue_list_members` rows don't expose).
+> Backend: polymorphic link table `venue_team_contacts` (primary+secondary; contact_kind
+> customer|member); write `venue_set_team_main_contact` (gated manage_memberships OR manage_facility,
+> audited); both team readers extended additively with `main_contact`+`secondary_contact` (internal
+> `_venue_team_contact_json` resolver). Gates: rpc-security PASS (5 fns), EV 15-grp + leak 0, build
+> venue + hygiene 7/7, casual-regression PASS (core additive-only), Playwright smoke PASS. ⛔ owed
+> manual venue deploy + real-device eyeball (incl. guardian→coach dropdown).
 >
 > **Phase 3 outcome:** a new read-only **Members** rail item (People group) → `MembersView` with two
 > tabs (Members / Guardians) through `TabbedPage` + the Phase-2 `DataTable`. Backend = `venue_list_members`
@@ -128,13 +145,17 @@ still resolve.
 - **Gates passed:** rpc-security PASS, build venue + hygiene 7/7 + hex hand-check, Playwright smoke PASS
   (23 members + U18 badges + inline guardians, Guardians links + dedup, cross-field search, 0 new errors).
 
-### Phase 4 — Main contact (settable) + people directory + contact picker
-- **Main contact** column + filter on both Teams tabs; a **ContactPicker** (search directory / pick /
-  create → links to a `venue_customers` person, no free text).
-- **Backend (NEW + a write):** a team→person main-contact link (column or tiny link table — decide
-  in audit), a **set/clear write RPC** (audited, EV-gated), a **people-search reader**. Migration.
-- **Gates:** rpc-security-sweep, **ephemeral-verify** (own `_e2e_` fixture, leak 0), build + hygiene,
-  casual-regression (additive), Playwright smoke. Same-commit SCHEMA/RPCS/DECISIONS/BUGS.
+### Phase 4 — settable team contacts (Main + Secondary)  ✅ SHIPPED (mig 411, session 188)
+- **Main contact + Secondary** columns + Has/No-contact filter on BOTH Teams tabs, via a new
+  `ContactPicker`. Source by team kind (operator): **league → `venue_customers` directory**
+  (search/pick/create inline); **club → that team's active manager/assistant/coach** (Option 2).
+- **Guardian → coach:** `venue_assign_team_manager` relaxed (member OR guardian of a member); the
+  Coaches & DBS assign dropdown lists members + guardians (also fixed the latent `m.id` dropdown bug).
+- **Backend:** polymorphic `venue_team_contacts` (primary+secondary), write `venue_set_team_main_contact`
+  (gated manage_memberships OR manage_facility, audited), both team readers extended additively,
+  internal `_venue_team_contact_json`. NO change to the casual app.
+- **Gates passed:** rpc-security PASS (5 fns), EV 15-grp + leak 0, build venue + hygiene 7/7,
+  casual-regression PASS (core additive-only), Playwright smoke PASS. ⛔ owed venue deploy + eyeball.
 
 ### Phase 5 — Drop Customers from the rail + consistency sweep
 - Remove the **Customers** nav item (records remain, reachable via picker + search).
@@ -154,35 +175,34 @@ still resolve.
 
 ---
 
-## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 4
+## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 5 (final)
 
 ```
-Read VENUE_PEOPLE_IA_HANDOFF.md in full (Phases 1, 2 & 3 SHIPPED+MERGED). Phase 1 = Rooms + Timetable
-combined pages + "Club sessions"→"Team Training" + shared ViewSubhead/TabbedPage. Phase 2 (mig 409) =
-the Teams page (THREE tabs through TabbedPage + the shared DataTable in apps/venue/src/views/PageKit.jsx
-— REUSE it, don't rebuild — with a Phase-4 PLACEHOLDER "Main contact" column on the Club teams tab,
-rendered "—"). Phase 3 (mig 410) = the Members page (MembersView — Members + Guardians tabs, venue_list_members
-extended additively with dob + guardians[]). Then read apps/venue/src/views/TeamsView.jsx (LeagueTeamsTab +
-ClubTeamsTab — where the Main contact column lives), CustomersView.jsx (the venue_customers people directory
-+ the existing customer modal), and in RPCS.md the venue_customers readers + venue_list_active_teams /
-venue_list_club_teams. Venue-app ONLY; the casual football app (apps/inorout/src) is NEVER touched.
-Confirm next free mig off origin/main (Phase 4 ADDS a write + likely a column/link table → mig 411).
+Read VENUE_PEOPLE_IA_HANDOFF.md in full (Phases 1–4 SHIPPED+MERGED). The Venue People & Spaces IA is
+on its FINAL phase. Recap: Phase 1 = Rooms + Timetable combined pages + "Club sessions"→"Team Training"
++ shared ViewSubhead/TabbedPage. Phase 2 (mig 409) = Teams page (3 tabs + shared DataTable in
+apps/venue/src/views/PageKit.jsx — REUSE, don't rebuild). Phase 3 (mig 410) = Members + Guardians page.
+Phase 4 (mig 411) = settable Main + Secondary team contacts (ContactPicker: league→venue_customers
+directory, club→that team's coaches; venue_team_contacts table + venue_set_team_main_contact write +
+relaxed venue_assign_team_manager for guardian→coach). Venue-app ONLY; apps/inorout/src is NEVER touched.
+Confirm next free mig off origin/main (Phase 5 needs NO migration → stays 412).
 
 Run a full AUDIT → VERIFY (review) → EXECUTE → VERIFY → COMMIT cycle (skills/audit.md FIRST, report
-findings before editing). PHASE 4 — Main contact (settable) + people directory + contact picker:
-- A settable "Main contact" column + filter on BOTH Teams tabs (League teams + Club teams). The link
-  POINTS AT AN EXISTING venue_customers person via a ContactPicker (search the directory / pick / create
-  → links to a venue_customers row, NEVER free text — same "one customer per human" principle as Stripe P1).
-- Backend (NEW + a WRITE): decide in audit whether the team→person link is a column on the team rows or a
-  tiny link table (teams live in two tables — `teams` for league, `club_teams` for club — so a small
-  polymorphic link table keyed on (team_kind, team_id) likely reads cleanest). A set/clear write RPC
-  (gated, audited per Hard Rule #9) + a people-search reader. SECDEF, search_path pinned, single overload,
-  venue_* grant anon+auth per the gotcha; the write GRANTed to the right role + REVOKEd from anon if needed.
+findings before editing). PHASE 5 — drop Customers from the rail + consistency sweep:
+- REMOVE the standalone "Customers" nav item from apps/venue/src/views/Dashboard.jsx (TABS/TITLES/
+  VIEW_FLAG/render switch + any legacy id alias). The venue_customers RECORDS STAY — they remain
+  reachable via the Phase-4 ContactPicker + global Search. CustomersView.jsx may stay as a component
+  (still imported by TeamsView for the Casual bookings tab's CustomerDetailModal/NudgeModal — DO NOT
+  delete those); just remove it from the rail. Audit every reference to the "customers" view id first.
+- CONSISTENCY SWEEP: bring anything still card-based onto the shared table+subhead pattern — primarily
+  STAFF (StaffView) and any leftover People-group screen — using the existing DataTable + ViewSubhead +
+  TabbedPage primitives (REUSE, don't rebuild). Plain-English ViewSubhead one-liner on each.
+- Also consider folding the Memberships-screen operational overlap noted in Phase 3 (enrol/freeze/
+  cancel/grade) — decide in audit whether that belongs in this sweep or stays (it may be larger scope).
 
-GATES (Phase 4 is the riskiest — it writes): rpc-security-sweep; EPHEMERAL-VERIFY (own _e2e_ fixture,
-leak 0 — mandatory for the new write RPC); build venue + hygiene 7/7 + hex hand-check; casual-regression
-ONLY IF packages/core/storage/supabase.js gains a wrapper (additive-diff proof); Playwright smoke (set a
-main contact via the picker on a team, see it render + filter, clear it, 0 console errors). Same-commit
-SCHEMA/RPCS/FEATURES/DECISIONS/BUGS. PR → merge to main before Phase 5. End by giving the Phase 5
-next-session prompt in chat.
+GATES: build venue + hygiene 7/7 + hex hand-check; Playwright smoke (Customers gone from rail; the
+ContactPicker + Search still reach customer records; Staff/leftover screens render as tables, tab-switch
+works, 0 console errors). NO migration expected → EV / rpc-security / casual-regression N/A unless an RPC
+or supabase.js wrapper is touched (if so, run them). Same-commit FEATURES/DECISIONS/BUGS + flip this
+handoff's STATUS to "epic COMPLETE". PR → merge to main. This is the LAST phase — close the epic out.
 ```

@@ -4478,6 +4478,27 @@ export async function venueListClubTeams(venueToken) {
   return data;
 }
 
+// ── Set / clear a team's contact, primary or secondary (Teams page — mig 411) ──
+// teamKind: 'league' | 'club'. teamId is text (league teams.id, or club_teams.id as
+// a string). contactRank: 'primary' | 'secondary'. contactId NULL clears that slot.
+// For league teams the contact is a venue_customers id; for club teams it's a
+// member_profiles id (an active manager/coach of that team). Returns
+// { ok, contact_rank, contact_id, name, contact_kind }.
+export async function venueSetTeamMainContact(venueToken, teamKind, teamId, contactRank, contactId = null) {
+  const { data, error } = await supabase.rpc("venue_set_team_main_contact", {
+    p_venue_token: venueToken,
+    p_team_kind: teamKind,
+    p_team_id: String(teamId),
+    p_contact_rank: contactRank,
+    p_contact_id: contactId,
+  });
+  if (error) {
+    console.error("[venue] set_team_main_contact failed", error);
+    throw error;
+  }
+  return data;
+}
+
 // ── All players across the venue's teams (Players view) — mig 198 ──
 export async function venueListPlayers(venueToken) {
   const { data, error } = await supabase.rpc("venue_list_players", {
