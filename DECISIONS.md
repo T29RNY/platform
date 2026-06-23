@@ -1,5 +1,39 @@
 # In or Out — Key Decisions Log
 
+## SESSION 181 — Pilot #3 reframed: FULL Stripe build, one track (scoping only)
+*2026-06-23. Plan = `STRIPE_FULL_BUILD_HANDOFF.md`. Branch `demo-runbook-pilot`. No code yet —
+this session scoped only.*
+
+**Decision: pilot backlog #3 is NOT "activate the dormant Stripe infra" (the old optimistic
+"Low effort" note) — it is the full Stripe payments platform, built as one track with NO
+demo/post-demo split.** Operator was explicit: build it all; live keys go in at the end. The
+audit found the dormant infra (migs 329–337) is only *per-member self-serve* checkout — true
+mass invoicing, fixed-term seasons, pro-rating beyond the season first-charge, refunds, and a
+unified member money view are all unbuilt.
+
+**Settled sub-decisions:**
+- **One Stripe customer per human** (keyed on auth identity), reused across his own membership,
+  his children's memberships, and casual fees — one saved card, one Billing Portal, one history.
+  Avoids the customer-fragmentation the current per-checkout `customer.create` causes.
+- **Mass invoicing = one-off charges only**, never re-bills recurring subs (Stripe does that).
+  Cohort = team / tier / whole club, with **per-individual removal** in a mandatory preview;
+  auto-skips (already-paid / paused / left) are locked. Online-payable charges use the **Stripe
+  Invoices** product (hosted pay page + dunning), not bespoke payment pages. Each run is a
+  first-class `venue_billing_runs` record with one-click **void-run**.
+- **Fixed-term seasons via Stripe Subscription Schedules** (Sept→June, `end_behavior: cancel`)
+  + start-date anchoring — fixes the open-ended-sub "billed over summer" latent failure.
+- **One pro-rating convention, two surfaces:** `_prorated_first_charge` (mig 393, Option A —
+  round up in member's favour) governs our ledger; Stripe `proration_behavior` governs live subs;
+  both must agree so a member never sees two different pro-rated numbers.
+- **⚠️ Prerequisite (Phase 1, before any live key):** `run_membership_renewals` must skip
+  Stripe-subscription-backed memberships — today it has no guard and would double-bill the day
+  Stripe goes live.
+- **Built entirely on TEST keys (now in place); live keys are the final step (Phase 7)** — go-live
+  is a config change, not a code change.
+
+**Sequencing:** 7 phases, each shipped + merged before the next (cloud-session discipline).
+Next free mig = 403.
+
 ## SESSION 180 — Venue OS nav Phase 2 SHIPPED: operator feature toggles (A+B+C, mig 400)
 *2026-06-23. Plan = MODULAR_PLATFORM_HANDOFF.md "VENUE OS NAV — FULL PHASED PLAN". Branch
 `demo-runbook-pilot` (the s178+pilot+Phase 1 stack was PR'd + merged to main first — PR #62 — per
