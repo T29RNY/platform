@@ -32,6 +32,8 @@ const ITEM_KIND = {
   league:   "competition",
   table:    "competition",
   cups:     "competition",
+  teams:    "competition",   // league/competition roster — irrelevant to non-team sports
+  players:  "competition",
 };
 
 // Does a single discipline make this kind relevant? Unknown/'other' → true.

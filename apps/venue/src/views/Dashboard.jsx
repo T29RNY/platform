@@ -47,8 +47,10 @@ const TABS = [
   { group: "People", items: [
     { id: "customers",   label: "Customers",   icon: "customers" },
     { id: "memberships", label: "Memberships", icon: "pound", flag: "memberships" },
-    { id: "teams",       label: "Teams",       icon: "teams" },
-    { id: "players",     label: "Players",     icon: "players" },
+    // Teams + Players are the league/competition roster (every team active across the
+    // venue's competitions) — gated by `competition`, like Fixtures/Leagues/Standings.
+    { id: "teams",       label: "Teams",       icon: "teams",   flag: "competition" },
+    { id: "players",     label: "Players",     icon: "players", flag: "competition" },
     { id: "staff",       label: "Staff",       icon: "staff" },
   ]},
   { group: "Programmes", items: [
