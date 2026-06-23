@@ -171,7 +171,7 @@ async function dispatch(event, accountId, supabase) {
         );
         stripePriceId = sub.items?.data?.[0]?.price?.id || null;
       }
-      await supabase.rpc("stripe_complete_member_enrolment", {
+      const { data: enrol } = await supabase.rpc("stripe_complete_member_enrolment", {
         p_invite_code:        invite_code,
         p_subscription_id:    subscriptionId,
         p_stripe_customer_id: customerId,
@@ -182,6 +182,49 @@ async function dispatch(event, accountId, supabase) {
         p_amount_pence:       amount_pence ? parseInt(amount_pence, 10) : null,
         p_payer_profile_id:   payer_profile_id || null,
       });
+      const membershipId = enrol?.membership_id || null;
+
+      // Phase 4 — season schedule: convert the open-ended sub into a Subscription Schedule that
+      // auto-cancels at season end (so U12s stop billing over summer). Create from_subscription
+      // (one phase = current price/cycle), then set that phase's end_date + end_behavior:'cancel'.
+      // Persist the schedule id + anchor so the renewal cron leaves it alone.
+      if (meta.plan_kind === "season_schedule" && subscriptionId && membershipId && meta.season_end) {
+        const phaseEndTs = Math.floor(new Date(meta.season_end + "T23:59:59Z").getTime() / 1000);
+        const sched = await stripe.subscriptionSchedules.create(
+          { from_subscription: subscriptionId },
+          accountId ? { stripeAccount: accountId } : undefined
+        );
+        const p0 = sched.phases?.[0] || {};
+        await stripe.subscriptionSchedules.update(
+          sched.id,
+          {
+            end_behavior: "cancel",
+            phases: [{
+              items:      (p0.items || []).map((i) => ({ price: i.price, quantity: i.quantity || 1 })),
+              start_date: p0.start_date,
+              end_date:   phaseEndTs,
+            }],
+          },
+          accountId ? { stripeAccount: accountId } : undefined
+        );
+        await supabase.rpc("stripe_set_membership_schedule", {
+          p_membership_id: membershipId,
+          p_schedule_id:   sched.id,
+          p_phase_end:     meta.season_end,
+          p_billing_start: meta.billing_start || null,
+        });
+      }
+
+      // Phase 4 — season one-off (mode=payment): no invoice fires, so reconcile the captured
+      // payment into the ledger directly (else it's invisible in get_my_money). Idempotent.
+      if (meta.plan_kind === "season_oneoff" && membershipId && obj.payment_status === "paid") {
+        await supabase.rpc("stripe_record_season_payment", {
+          p_membership_id: membershipId,
+          p_amount_pence:  amount_pence ? parseInt(amount_pence, 10) : (obj.amount_total ?? null),
+          p_charge_ref:    obj.payment_intent || obj.id,
+          p_paid_at:       new Date().toISOString(),
+        });
+      }
       break;
     }
     case "account.updated": {

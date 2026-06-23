@@ -124,12 +124,21 @@ module.exports = async function handler(req, res) {
     .maybeSingle();
   if (!priceRow) return res.status(400).json({ error: "price_not_set" });
 
-  // First charge for a season plan = joining fee + the prorated season fee for a
-  // late joiner. Computed by the same SQL helper the enrol RPCs use, so the
-  // Stripe charge, the webhook record and the on-screen breakdown all agree.
-  // Recurring (subscription) plans are unaffected — they bill the full rate.
+  // Three billing shapes, decided here so the rest of the file stays one straight path:
+  //   season_oneoff   — period 'season': pay the whole (prorated) season up front (mode=payment).
+  //   season_schedule — pricing_model 'season' on a RECURRING cadence: equal instalments that
+  //                     auto-stop at season end (the Subscription Schedule is built in the webhook,
+  //                     Phase 4). Late joiners pay only the remaining part of the season, spread
+  //                     evenly; early joiners pay nothing until the season start.
+  //   recurring       — open-ended monthly/quarterly/annual sub (today's default; BYTE-IDENTICAL).
+  const isSeasonOneOff   = period === "season";
+  const isSeasonSchedule = !isSeasonOneOff && tier.pricing_model === "season"
+                           && !!tier.season_start && !!tier.season_end;
+
+  // season one-off: joining fee + the prorated season fee for a late joiner. Same SQL helper the
+  // enrol RPCs use, so the Stripe charge, the webhook record and the on-screen breakdown agree.
   let chargePence = priceRow.price_pence;
-  if (period === "season" && tier.pricing_model === "season") {
+  if (isSeasonOneOff && tier.pricing_model === "season") {
     const { data: prorated, error: prErr } = await supabase.rpc("_prorated_first_charge", {
       p_full_pence: priceRow.price_pence,
       p_basis:      tier.proration_basis || "none",
@@ -138,6 +147,25 @@ module.exports = async function handler(req, res) {
       p_end:        tier.season_end,
     });
     if (!prErr && prorated != null) chargePence = (tier.joining_fee_pence || 0) + prorated;
+  }
+
+  // season schedule: the equal-instalment plan (per-instalment pence + billing start) from the one
+  // SQL engine, so the member pays OUR number — never Stripe's exact proration. recurring plans
+  // never call this and are unaffected.
+  let plan = null;
+  if (isSeasonSchedule) {
+    const { data: p, error: pErr } = await supabase.rpc("_season_instalment_plan", {
+      p_monthly_pence: priceRow.price_pence,
+      p_basis:         tier.proration_basis || "none",
+      p_today:         new Date().toISOString().slice(0, 10),
+      p_season_start:  tier.season_start,
+      p_season_end:    tier.season_end,
+      p_period:        period,
+    });
+    if (pErr || !p?.ok) {
+      return res.status(400).json({ error: "season_plan_failed", detail: pErr?.message || p?.reason });
+    }
+    plan = p;
   }
 
   try {
@@ -174,7 +202,6 @@ module.exports = async function handler(req, res) {
       customerId = newLink?.stripe_customer_id || customer.id;
     }
 
-    const isSeason  = period === "season";
     const recurring = PERIOD_INTERVALS[period] ?? null;
     const appUrl    = process.env.INOROUT_APP_URL || "https://app.in-or-out.com";
     // returnCode (club-team join, Phase 3) sends the payer back to the club-team
@@ -183,27 +210,34 @@ module.exports = async function handler(req, res) {
     const successUrl = `${appUrl}/q/${encodeURIComponent(landCode)}?checkout=done`;
     const cancelUrl  = `${appUrl}/q/${encodeURIComponent(landCode)}`;
 
+    // recurring line amount: the equal instalment for a season schedule, else the full rate.
+    const recurringAmount = isSeasonSchedule ? plan.per_period_pence : priceRow.price_pence;
+    // the membership's recorded amount_pence (the recurring instalment for a schedule; the
+    // single up-front charge for a one-off).
+    const enrolAmount     = isSeasonSchedule ? plan.per_period_pence : chargePence;
+
+    const lineItem = isSeasonOneOff
+      ? { quantity: 1, price_data: { currency: "gbp", unit_amount: chargePence,
+                                     product_data: { name: tier.name } } }
+      : { quantity: 1, price_data: { currency: "gbp", unit_amount: recurringAmount, recurring,
+                                     product_data: { name: tier.name } } };
+
+    // For a season schedule with an early joiner (today < season start), trial_end delays the
+    // first instalment to the season start — no proration, the member just pays nothing until
+    // then. Mid-season joiners bill immediately. The auto-stop is applied in the webhook
+    // (Subscription Schedule capped at season end).
+    const subscriptionData = {};
+    if (isSeasonSchedule && plan.anchored) {
+      subscriptionData.trial_end = Math.floor(new Date(plan.billing_start + "T00:00:00Z").getTime() / 1000);
+    }
+
     const session = await stripe.checkout.sessions.create(
       {
         customer: customerId,
-        mode:     isSeason ? "payment" : "subscription",
-        line_items: [
-          {
-            quantity:   1,
-            price_data: isSeason
-              ? {
-                  currency:     "gbp",
-                  unit_amount:  chargePence,
-                  product_data: { name: tier.name },
-                }
-              : {
-                  currency:     "gbp",
-                  unit_amount:  priceRow.price_pence,
-                  recurring,
-                  product_data: { name: tier.name },
-                },
-          },
-        ],
+        mode:     isSeasonOneOff ? "payment" : "subscription",
+        line_items: [lineItem],
+        ...(!isSeasonOneOff && Object.keys(subscriptionData).length
+              ? { subscription_data: subscriptionData } : {}),
         success_url: successUrl,
         cancel_url:  cancelUrl,
         metadata: {
@@ -212,7 +246,13 @@ module.exports = async function handler(req, res) {
           period,
           member_profile_id: memberProfileId,
           payer_profile_id:  callerProfile.id,
-          amount_pence:      String(chargePence),
+          amount_pence:      String(enrolAmount),
+          // Phase 4: tells the webhook how to finish — convert to a Subscription Schedule
+          // (season_schedule) or reconcile the one-off payment into the ledger (season_oneoff).
+          plan_kind:         isSeasonOneOff ? "season_oneoff"
+                               : (isSeasonSchedule ? "season_schedule" : "recurring"),
+          ...(isSeasonSchedule
+                ? { season_end: tier.season_end, billing_start: plan.billing_start } : {}),
         },
       },
       { stripeAccount: accountId }

@@ -1,12 +1,16 @@
 # Stripe Full Build — Handoff & Plan
 
-> **STATUS (2026-06-23):** 🏁 **PHASE 1 + PHASE 2 + PHASE 3 SHIPPED + MERGED** (Phase 1: mig 403, PR #69,
-> s181; Phase 2: mig 404, PR #71, s182; Phase 3: mig 405, PR #73, s183 — MERGED to main 2026-06-23). Full
-> Stripe build — no demo/post-demo split, one track. 21 scope items (see coverage map). Built end-to-end
-> against the **test keys already in place** (Stripe test mode); **live keys go in last** (Phase 7), so
-> go-live is a config change, not a code change. **Next free migration = 406.** **NEXT = Phase 4**
-> (fixed-term & dated billing). Re-confirm the next mig off `main` before any SQL (cloud-session discipline
-> — migration numbers are first-come). Kickoff prompt for Phase 4 at the bottom.
+> **STATUS (2026-06-23):** 🏁 **PHASE 1 + 2 + 3 SHIPPED + MERGED**; **PHASE 4 BUILT (mig 406, s184) — PR
+> open, pending merge + runtime walk** (Phase 1: mig 403, PR #69; Phase 2: mig 404, PR #71; Phase 3: mig
+> 405, PR #73 — all MERGED). Full Stripe build — one track. 21 scope items (see coverage map). Built
+> end-to-end against the **test keys already in place**; **live keys go in last** (Phase 7), so go-live is
+> a config change, not a code change. **Next free migration = 407.** **NEXT = Phase 5** (lifecycle:
+> billing portal, bulk price change, Stripe refunds). Re-confirm the next mig off `main` before any SQL.
+>
+> ⛔ **Phase 4 owed before merge:** the Stripe TEST-MODE **test-clock walk** (advance past season end to
+> prove the schedule auto-stops; prove the future anchor fires on the season start) + the carried Phase-3
+> **invoice→paid→reconciled walk**. Both need Stripe test keys / a Connect test account — not in this
+> session's env. Everything else (SQL, EV, security, build) is green.
 >
 > ⛔ **Phase 3 still-owed runtime walk:** the Playwright wizard smoke is DONE (s183 — caught + fixed the
 > `venue_list_clubs.id` cohort-picker bug). The **Stripe test-mode invoice→paid→reconciled walk** is the
@@ -191,7 +195,25 @@ invoice paid→reconciled.
 
 ---
 
-## PHASE 4 — Fixed-term & dated billing (scope #9, #10, #19)  ← NEXT
+## PHASE 4 — Fixed-term & dated billing (scope #9, #10, #19)  🏁 BUILT (mig 406, s184) — PR open
+
+**Delivered:** `venue_memberships` += `stripe_schedule_id`/`phase_end_at`/`billing_starts_at` (additive
+nullable). A tier with `pricing_model='season'` on a recurring cadence now becomes a "season schedule":
+checkout creates the sub, the webhook converts it to a Stripe **Subscription Schedule** (`from_subscription`
+→ phase `end_date` = season end, `end_behavior:'cancel'`) so it auto-stops over summer; `stripe_schedule_id`
+persisted via `stripe_set_membership_schedule`. **Future anchoring (#10):** early joiners get
+`subscription_data.trial_end = season_start` (pay nothing until then). **Mid-cycle (#19) — operator
+decision:** late joiners pay only the remaining season (Option 1) as **equal instalments** computed by
+`_season_instalment_plan` (remaining-season total from `_prorated_first_charge`, divided, rounded DOWN —
+member's favour); the Stripe recurring price IS that instalment, so **no Stripe proration is used** and the
+member sees one number matching the ledger. **Season one-off fold-in:** `mode=payment` emits no invoice, so
+the webhook calls `stripe_record_season_payment` (payment_intent ref) to land it in the ledger →
+`get_my_money`. `run_membership_renewals` guard extended to skip schedule-backed / future-anchored subs.
+Open-ended monthly + season one-off paths **byte-identical** until a tier opts in. Gates: EV 7-groups + leak
+0, rpc-security PASS, build + hygiene clean, casual-regression N/A. ⛔ owed: Stripe test-clock walk +
+Phase-3 invoice→paid walk (need test keys).
+
+<details><summary>Original Phase 4 spec (for reference)</summary>
 
 **Build:**
 - **mig 406** — store schedule/anchor metadata on `venue_memberships`
@@ -211,6 +233,8 @@ first charge 1 Sept; join mid-month → pay the part-month.
 **Gates:** rpc-security-sweep (mig 406), ephemeral-verify (schedule metadata + cron-leaves-
 alone), build + hygiene, casual-regression (api only — confirm), Stripe test-mode schedule
 walk (advance test clock to prove auto-stop).
+
+</details>
 
 ---
 
