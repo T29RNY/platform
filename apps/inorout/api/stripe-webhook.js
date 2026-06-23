@@ -46,6 +46,16 @@ module.exports = async function handler(req, res) {
   let event;
   try {
     const raw = await readRawBody(req);
+    // TEMP DIAGNOSTIC (remove after webhook walk): prove raw body vs secret.
+    const sig = req.headers["stripe-signature"] || "";
+    console.error("[stripe-webhook] DIAG", JSON.stringify({
+      rawLen: raw.length,
+      rawHead: raw.toString("utf8").slice(0, 24),
+      ctype: req.headers["content-type"] || null,
+      sigPresent: !!sig, sigLen: sig.length,
+      secretSet: !!process.env.STRIPE_WEBHOOK_SECRET,
+      secretHead: (process.env.STRIPE_WEBHOOK_SECRET || "").slice(0, 8),
+    }));
     event = constructEvent(raw, req.headers["stripe-signature"]);
   } catch (e) {
     console.error("[stripe-webhook] signature verify failed", e?.message);
