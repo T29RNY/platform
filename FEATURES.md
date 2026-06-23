@@ -18,9 +18,15 @@ self-service Billing Portal, bulk price change [Option A: applies next renewal, 
 Stripe refunds [full / pro-rated-unused / custom]; built & tested on TEST keys, test-mode walk owed),
 #5 pitch priority/reserved times (pitch system
 built, priority layer not), #6 team prioritisation (⭐ display-only, doesn't drive anything yet),
-#7 multi-venue (access layer shipped mig 401; **activity layer SCOPED s188 → `MULTI_VENUE_HANDOFF.md`**:
-same-operator only, Phase 1 venue-anchor club_sessions / Phase 2 cross-venue fixtures / Phase 3 optional
-occupancy — pilot club confirmed 2 same-operator venues w/ pitches, training+matches at either),
+#7 multi-venue (access layer shipped mig 401; activity layer scoped s188 → `MULTI_VENUE_HANDOFF.md`,
+same-operator only. **🟢 PHASE 1 BUILT s189 (mig 412, PR pending) — venue-anchor club_sessions:**
+`club_sessions`/`_series` += `venue_id`/`playing_area_id` (backfilled byte-identical), new same-operator
+guard `_venue_in_club_operator`, 5 session write RPCs gain the venue (validated, old overloads dropped),
+readers return venue+address, venue-app venue/pitch picker + venue filter + labels, inorout manager venue
+picker (Option B) + member card shows venue. Gates all PASS (rpc-security, EV 11/11+leak0, casual-
+regression additive, build+hygiene, Playwright). ⛔ owed venue deploy + 2-venue UI walk once pilot data
+exists. NEXT = Phase 2 cross-venue fixtures (mig 413) / Phase 3 optional pitch occupancy=the cross-site
+calendar — pilot club confirmed 2 same-operator venues w/ pitches, training+matches at either),
 #13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
 + demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
