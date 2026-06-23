@@ -1,5 +1,40 @@
 # In or Out — Key Decisions Log
 
+## SESSION 184 — Stripe FULL build PHASE 4: fixed-term & dated billing (mig 406)
+*2026-06-23. Built/tested under Stripe TEST keys; live keys = Phase 7. Scope #9 Subscription
+Schedules, #10 future start-date anchoring, #19 mid-cycle proration.*
+
+- **A "season schedule" plan = tier `pricing_model='season'` on a RECURRING cadence.** It bills equal
+  instalments and auto-stops at season end. `period='season'` stays a one-off (`mode=payment`);
+  `pricing_model='recurring'` stays open-ended. Both untouched paths are **byte-identical** — the new
+  behaviour only triggers when a tier opts in. This was the latent bug: a monthly U12 plan with a
+  season window previously created an open-ended sub that billed straight through summer.
+- **DECISION (operator-confirmed) — mid-season joiners pay equal monthly instalments, not a lumpy
+  first charge, AND pay only for the part of the season remaining (Option 1).** We do NOT use Stripe's
+  native second-based proration. `_season_instalment_plan` is the single engine: it takes the
+  remaining-season total from `_prorated_first_charge` (mig 393, Option A) and divides it into equal
+  instalments **rounded DOWN** (member never overpays). Every charge is identical and is OUR number, so
+  the member sees one figure that matches the ledger and the on-screen breakdown. The recurring price
+  on the Stripe sub IS that instalment — no proration_behavior, no billing_cycle_anchor needed.
+- **Auto-stop via Stripe Subscription Schedule.** Checkout still creates the subscription (member saves
+  a card); the webhook then converts it `from_subscription` and sets the phase `end_date` = season end
+  with `end_behavior:'cancel'`. The schedule id is persisted (`stripe_set_membership_schedule`) so the
+  renewal cron leaves it alone.
+- **Future start-date anchoring via `trial_end`.** An early joiner (signs up before the season starts)
+  gets `subscription_data.trial_end = season_start` — they pay nothing until the season begins, then the
+  first instalment fires. No proration; the trial just delays the first charge. (Confirmed supported on
+  Checkout subscription mode.)
+- **Season one-off reconcile.** A `mode=payment` season checkout emits no invoice, so neither the
+  mig-403 (subscription-keyed) nor mig-405 (invoice-keyed) path catches it. The webhook now calls
+  `stripe_record_season_payment` right after enrolment with the session's `payment_intent`, so the
+  captured money lands in the ledger and shows in `get_my_money` (closes the Phase-2 deferral).
+- **Cron guard is belt-and-braces.** Schedule-backed subs already carry a `stripe_subscription_id` (so
+  were already skipped); the added `stripe_schedule_id`/`billing_starts_at` clauses cover the
+  future-anchor window before the first charge. Proven by the EV guard-predicate assertions.
+- **⛔ Stripe runtime walk owed before merge.** The test-clock walk (advance past season end to prove
+  auto-stop; prove the future anchor fires) + the carried Phase-3 invoice→paid walk both need Stripe
+  test keys / a Connect test account — not available in this session's env.
+
 ## SESSION 182 — Stripe FULL build PHASE 2 shipped: unified member money view (mig 404)
 *2026-06-23. Branch `demo-runbook-pilot`. Built/tested under Stripe TEST keys; live keys = Phase 7.*
 
