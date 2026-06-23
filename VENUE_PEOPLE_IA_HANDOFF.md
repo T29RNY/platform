@@ -1,9 +1,16 @@
 # Venue People & Spaces — IA Redesign (Handoff & Plan)
 
-> **STATUS (2026-06-23):** Plan locked. **Phase 1 SHIPPED+MERGED (PR #78). Phase 2 SHIPPED this
-> session (mig 409 — Teams page, three tabs + DataTable).** Venue-app only — the casual football app
-> (`apps/inorout/src`) is NEVER touched. Each phase ships + merges before the next (cloud-session
-> discipline). Next free migration when one is needed: **410**.
+> **STATUS (2026-06-23):** Plan locked. **Phase 1 SHIPPED+MERGED (PR #78). Phase 2 SHIPPED+MERGED
+> (PR #79, mig 409 — Teams page). Phase 3 SHIPPED this session (mig 410 — Members + Guardians page).**
+> Venue-app only — the casual football app (`apps/inorout/src`) is NEVER touched. Each phase ships +
+> merges before the next (cloud-session discipline). Next free migration when one is needed: **411**.
+>
+> **Phase 3 outcome:** a new read-only **Members** rail item (People group) → `MembersView` with two
+> tabs (Members / Guardians) through `TabbedPage` + the Phase-2 `DataTable`. Backend = `venue_list_members`
+> extended ADDITIVELY (mig 410) with `dob` + a `guardians[]` array (from `member_guardians`); the
+> supabase.js wrapper is unchanged (pass-through), so the legacy MembershipsView Members tab is
+> byte-identical and there's no casual surface. The operational enrol/freeze/cancel/grade machinery
+> stays on the Memberships screen until the Phase-5 consistency sweep (intentional brief overlap).
 >
 > **Phase 2 outcome (operator decision):** the Teams page is THREE clean tabs (operator's call —
 > simpler than one list with badges): **League teams** (competition roster, full drill-down) ·
@@ -109,10 +116,17 @@ still resolve.
 - **Main contact** column = Phase-4 placeholder ("—"), not wired.
 - **Follow-up logged:** casual-team roster visibility (consent-gated, later phase — see status note).
 
-### Phase 3 — Members + Guardians
-- **Members** table + a **Guardians** view (tab/filter) showing each guardian + who they guardian.
-- **Backend:** members reader returns `member_guardians` relationships. Read-only.
-- **Gates:** rpc-security, build + hygiene, casual-regression (additive), Playwright smoke.
+### Phase 3 — Members + Guardians  ✅ SHIPPED (mig 410, session 188)
+- New read-only **Members** rail item (People group) → `MembersView` = **Members** tab (name, age/U18
+  flag, discipline, plan, status, inline guardian) + **Guardians** tab (each guardian + the members they
+  look after, de-duped by member profile), via `TabbedPage` + the Phase-2 `DataTable` + `ViewSubhead`.
+- **Backend:** `venue_list_members` extended ADDITIVELY (mig 410) — each member row now embeds `dob`
+  (COALESCE profile→customer) + a `guardians[]` array from `member_guardians`. Read-only, no audit.
+  supabase.js wrapper UNCHANGED (pass-through) → no new wrapper → casual-regression N/A.
+- The Guardians view is **derived client-side** by inverting `guardians[]` (one reader, one source).
+- Operational membership management stays on the Memberships screen (Phase-5 sweep removes the overlap).
+- **Gates passed:** rpc-security PASS, build venue + hygiene 7/7 + hex hand-check, Playwright smoke PASS
+  (23 members + U18 badges + inline guardians, Guardians links + dedup, cross-field search, 0 new errors).
 
 ### Phase 4 — Main contact (settable) + people directory + contact picker
 - **Main contact** column + filter on both Teams tabs; a **ContactPicker** (search directory / pick /
@@ -140,32 +154,35 @@ still resolve.
 
 ---
 
-## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 3
+## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 4
 
 ```
-Read VENUE_PEOPLE_IA_HANDOFF.md in full (Phases 1 & 2 SHIPPED+MERGED). Phase 1 = Rooms + Timetable
+Read VENUE_PEOPLE_IA_HANDOFF.md in full (Phases 1, 2 & 3 SHIPPED+MERGED). Phase 1 = Rooms + Timetable
 combined pages + "Club sessions"→"Team Training" + shared ViewSubhead/TabbedPage. Phase 2 (mig 409) =
-the Teams page — THREE tabs (League teams / Casual bookings / Club teams) through TabbedPage, the new
-shared DataTable primitive in apps/venue/src/views/PageKit.jsx (sortable/search/filter-chips/clickable
-rows — REUSE it, don't rebuild), redesigned TeamDetail roster table, page-level player search, and the
-Players rail item removed. Then read apps/venue/src/views/Dashboard.jsx (TABS/COMBINED/render),
-MembershipsView.jsx (members live here today — EnrolModal/ProfileModal + venue_list_members), and in
-RPCS.md the members + member_guardians readers (venue_list_members, member_guardians, get_member_pass).
-Venue-app ONLY; the casual football app (apps/inorout/src) is NEVER touched. Confirm next free mig off
-origin/main only if one is needed (Phase 3 should be read-only — likely no migration).
+the Teams page (THREE tabs through TabbedPage + the shared DataTable in apps/venue/src/views/PageKit.jsx
+— REUSE it, don't rebuild — with a Phase-4 PLACEHOLDER "Main contact" column on the Club teams tab,
+rendered "—"). Phase 3 (mig 410) = the Members page (MembersView — Members + Guardians tabs, venue_list_members
+extended additively with dob + guardians[]). Then read apps/venue/src/views/TeamsView.jsx (LeagueTeamsTab +
+ClubTeamsTab — where the Main contact column lives), CustomersView.jsx (the venue_customers people directory
++ the existing customer modal), and in RPCS.md the venue_customers readers + venue_list_active_teams /
+venue_list_club_teams. Venue-app ONLY; the casual football app (apps/inorout/src) is NEVER touched.
+Confirm next free mig off origin/main (Phase 4 ADDS a write + likely a column/link table → mig 411).
 
 Run a full AUDIT → VERIFY (review) → EXECUTE → VERIFY → COMMIT cycle (skills/audit.md FIRST, report
-findings before editing). PHASE 3 — Members + Guardians:
-- A "Members" page (or a combined page if it reads better) with a Members table + a Guardians view
-  (tab or filter) showing each guardian and who they are guardian OF (member_guardians relationships).
-  Reuse the Phase-2 DataTable for both. Plain-English ViewSubhead on each.
-- Backend: a members reader that returns the guardian relationships (extend/confirm the existing
-  venue_list_members / member_guardians readers; read-only). If a reader changes, single overload,
-  search_path pinned, venue_* grant anon+auth per the gotcha, reads no-audit.
+findings before editing). PHASE 4 — Main contact (settable) + people directory + contact picker:
+- A settable "Main contact" column + filter on BOTH Teams tabs (League teams + Club teams). The link
+  POINTS AT AN EXISTING venue_customers person via a ContactPicker (search the directory / pick / create
+  → links to a venue_customers row, NEVER free text — same "one customer per human" principle as Stripe P1).
+- Backend (NEW + a WRITE): decide in audit whether the team→person link is a column on the team rows or a
+  tiny link table (teams live in two tables — `teams` for league, `club_teams` for club — so a small
+  polymorphic link table keyed on (team_kind, team_id) likely reads cleanest). A set/clear write RPC
+  (gated, audited per Hard Rule #9) + a people-search reader. SECDEF, search_path pinned, single overload,
+  venue_* grant anon+auth per the gotcha; the write GRANTed to the right role + REVOKEd from anon if needed.
 
-GATES: rpc-security-sweep (any reader added/changed); build venue + hygiene 7/7 + hex hand-check;
-casual-regression ONLY IF packages/core/storage/supabase.js gains a wrapper (additive-diff proof);
-Playwright smoke (Members table + Guardians view render, guardian→member links show, search/filter
-works, 0 console errors). Update RPCS/SCHEMA/FEATURES if a reader changes; then PR → merge to main
-before Phase 4. End by giving the Phase 4 next-session prompt in chat.
+GATES (Phase 4 is the riskiest — it writes): rpc-security-sweep; EPHEMERAL-VERIFY (own _e2e_ fixture,
+leak 0 — mandatory for the new write RPC); build venue + hygiene 7/7 + hex hand-check; casual-regression
+ONLY IF packages/core/storage/supabase.js gains a wrapper (additive-diff proof); Playwright smoke (set a
+main contact via the picker on a team, see it render + filter, clear it, 0 console errors). Same-commit
+SCHEMA/RPCS/FEATURES/DECISIONS/BUGS. PR → merge to main before Phase 5. End by giving the Phase 5
+next-session prompt in chat.
 ```
