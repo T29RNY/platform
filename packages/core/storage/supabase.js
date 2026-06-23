@@ -4066,6 +4066,39 @@ export async function venueVoidCharge(venueToken, chargeId) {
   return data;
 }
 
+// ── Mass invoicing — bulk one-off charge engine (mig 405, Stripe Phase 3) ────────
+// Cohorts resolve to a set of active memberships; one charge per included member,
+// source_type='membership' so it surfaces in the payer's getMyMoney. preview is
+// read-only; commit writes the billing run + charges; void soft-voids the run.
+export async function venueBulkChargePreview(venueToken, { cohortType, cohortRef, label, amountPence, dueDate = null, prorate = false }) {
+  const { data, error } = await supabase.rpc("venue_bulk_charge_preview", {
+    p_venue_token: venueToken, p_cohort_type: cohortType, p_cohort_ref: cohortRef,
+    p_label: label, p_amount_pence: amountPence, p_due_date: dueDate, p_prorate: prorate });
+  if (error) { console.error("[payments] venue_bulk_charge_preview failed", error); throw error; }
+  return data;
+}
+
+export async function venueBulkChargeCommit(venueToken, { cohortType, cohortRef, label, amountPence, dueDate = null, prorate = false, payOnline = false, excludedIds = [] }) {
+  const { data, error } = await supabase.rpc("venue_bulk_charge_commit", {
+    p_venue_token: venueToken, p_cohort_type: cohortType, p_cohort_ref: cohortRef,
+    p_label: label, p_amount_pence: amountPence, p_due_date: dueDate, p_prorate: prorate,
+    p_pay_online: payOnline, p_excluded_ids: excludedIds });
+  if (error) { console.error("[payments] venue_bulk_charge_commit failed", error); throw error; }
+  return data;
+}
+
+export async function venueVoidBillingRun(venueToken, runId) {
+  const { data, error } = await supabase.rpc("venue_void_billing_run", { p_venue_token: venueToken, p_run_id: runId });
+  if (error) { console.error("[payments] venue_void_billing_run failed", error); throw error; }
+  return data;
+}
+
+export async function venueListBillingRuns(venueToken, limit = 50) {
+  const { data, error } = await supabase.rpc("venue_list_billing_runs", { p_venue_token: venueToken, p_limit: limit });
+  if (error) { console.error("[payments] venue_list_billing_runs failed", error); throw error; }
+  return data;
+}
+
 // ── Venue incident lifecycle (mig 231) — log + resolve from the Operations panel ──
 export async function venueLogIncident(venueToken, description, severity, fixtureId = null) {
   const { data, error } = await supabase.rpc("venue_log_incident", {

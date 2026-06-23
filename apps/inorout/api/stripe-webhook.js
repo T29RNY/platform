@@ -121,6 +121,24 @@ async function dispatch(event, accountId, supabase) {
                                : new Date().toISOString(),
         });
       }
+      // A one-off mass-invoicing Invoice (mig 405) has no subscription; it carries the ledger
+      // charge id in metadata.iorout_charge_id. Reconcile it against that pre-existing charge
+      // (stripe_record_invoice_payment is subscription-keyed and can't match this one).
+      if (event.type === "invoice.paid" && !obj.subscription) {
+        const inv = await stripe.invoices.retrieve(obj.id, accountId ? { stripeAccount: accountId } : undefined);
+        const chargeId = inv.metadata?.iorout_charge_id || null;
+        if (chargeId) {
+          await supabase.rpc("stripe_record_charge_payment", {
+            p_charge_id:    chargeId,
+            p_invoice_id:   inv.id,
+            p_charge_ref:   inv.charge || null,
+            p_amount_pence: inv.amount_paid ?? null,
+            p_paid_at:      inv.status_transitions?.paid_at
+                              ? new Date(inv.status_transitions.paid_at * 1000).toISOString()
+                              : new Date().toISOString(),
+          });
+        }
+      }
       break;
     }
     case "charge.refunded": {
