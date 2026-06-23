@@ -1,11 +1,12 @@
 # Stripe Full Build — Handoff & Plan
 
-> **STATUS (2026-06-23):** 🏁 **PHASE 1 SHIPPED + MERGED** (mig 403, PR #69, session 181).
-> Full Stripe build — no demo/post-demo split, one track. 21 scope items (see coverage map).
-> Built end-to-end against the **test keys already in place** (Stripe test mode); **live keys go
-> in last** (Phase 7), so go-live is a config change, not a code change. **Next free migration =
-> 404.** **NEXT = Phase 2** (unified member money view). Re-confirm the next mig off `main` before
-> any SQL (cloud-session discipline — migration numbers are first-come). Kickoff prompt at the bottom.
+> **STATUS (2026-06-23):** 🏁 **PHASE 1 + PHASE 2 SHIPPED + MERGED** (Phase 1: mig 403, PR #69, s181;
+> Phase 2: mig 404, PR #71, s182). Full Stripe build — no demo/post-demo split, one track. 21 scope
+> items (see coverage map). Built end-to-end against the **test keys already in place** (Stripe test
+> mode); **live keys go in last** (Phase 7), so go-live is a config change, not a code change.
+> **Next free migration = 405.** **NEXT = Phase 3** (mass invoicing — the headline operator action).
+> Re-confirm the next mig off `main` before any SQL (cloud-session discipline — migration numbers are
+> first-come). Kickoff prompt at the bottom.
 
 ---
 
@@ -87,7 +88,26 @@ build + hygiene, casual-regression (checkout touches `api/`, not `src/` — conf
 
 ---
 
-## PHASE 2 — Unified money view for the member (scope #4, #5)  ← NEXT
+## PHASE 2 — Unified money view for the member (scope #4, #5)  ✅ SHIPPED (mig 404, PR #71, session 182)
+
+**Delivered:** `get_my_money()` — one authenticated READ resolver aggregating the signed-in human's
+whole money picture across streams: casual match fees (`get_my_payment_history` folded in UNCHANGED,
+whole-pounds, **separate array**), own memberships, and memberships paid as guardian (own ∪
+`payer_profile_id` ∪ `member_guardians`, deduped, non-cancelled). Membership charges matched from
+`venue_charges` via `split_part(source_id,':',1)`; `paid_pence` from non-voided `venue_payments`.
+**Pence (membership) vs whole-pounds (casual) kept in separate arrays — never summed.** Identity
+model mirrors `get_my_world` (person spine). SECDEF STABLE, search_path pinned, single overload,
+anon REVOKED + authenticated grant (mig-175 gotcha), **read-only → no audit**. UI = additive "My
+money" section in `MemberProfile.jsx`; casual surfaces byte-unchanged. Gates: rpc-security PASS, EV
+8/8 + leak 0, build + hygiene 7/7, casual-regression PASS (additive +20/-0), Playwright authed walk
+PASS (guardian demo user → child membership renders, who_for tagged). ⛔ real-iPhone PWA walk owed
+(none of Hard Rule #13's enumerated files touched). **DECISION: season one-off (mode=payment) Stripe
+payments deferred to Phase 3** (Phase 1 recorded `invoice.*` only); `get_my_money` is complete for
+everything Phase 1 records.
+
+<details><summary>Original Phase 2 spec (for reference)</summary>
+
+### PHASE 2 — Unified money view for the member (scope #4, #5)
 
 **Build:**
 - **mig 404** — `get_my_money` (or extend): one authenticated RPC aggregating the signed-in
@@ -104,9 +124,11 @@ across all three hats.
 **Gates:** rpc-security-sweep, ephemeral-verify, build + hygiene, **casual-regression
 (touches `apps/inorout/src`)**, Playwright authed walk, ⛔ **real-iPhone PWA walk** (Hard #13).
 
+</details>
+
 ---
 
-## PHASE 3 — Mass invoicing (the headline operator action: scope #6, #7, #8, #18)
+## PHASE 3 — Mass invoicing (the headline operator action: scope #6, #7, #8, #18)  ← NEXT
 
 **Build:**
 - **mig 405** — bulk one-off charge engine:
@@ -261,42 +283,56 @@ smoke, dedupe proven against the reminder cron.
 
 ---
 
-## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 2
+## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 3
 
 ```
-Read STRIPE_FULL_BUILD_HANDOFF.md in full (Phase 1 is SHIPPED+MERGED, mig 403, PR #69 —
-read its delivered list), then RPCS.md + SCHEMA.md (venue_charges, venue_payments,
-venue_memberships incl payer_profile_id, member_guardians, the new stripe_customers table),
-then BUGS.md head. We are building the full Stripe payments platform phase-by-phase, one
-phase shipped + merged before the next (cloud-session discipline). Built/tested on the TEST
-keys already in place; LIVE keys are Phase 7 only — no code path may assume live keys.
+Read STRIPE_FULL_BUILD_HANDOFF.md in full (Phases 1 + 2 are SHIPPED+MERGED — Phase 1 mig 403
+PR #69, Phase 2 mig 404 PR #71 — read their delivered lists), then RPCS.md + SCHEMA.md
+(venue_charges incl source_type CHECK + UNIQUE(source_type,source_id,COALESCE(team_id,'')),
+venue_payments incl kind/method/external_ref/voided_at, venue_memberships, venue_membership_tiers
++ venue_tier_prices, member_profiles/member_guardians, stripe_customers, _prorated_first_charge
+mig 393), then BUGS.md head. We are building the full Stripe payments platform phase-by-phase,
+one phase shipped + merged before the next (cloud-session discipline). Built/tested on the TEST
+keys already in place; LIVE keys are Phase 7 only — NO code path may assume live keys.
 
-START PHASE 2 (unified member money view, scope #4 + #5). First CONFIRM next free mig off
-main (should be 404; local main may be stale — check origin/main). Then run a full
-AUDIT -> EXECUTE -> VERIFY -> COMMIT cycle (skills/audit.md first, report before editing):
+START PHASE 3 (mass invoicing — the headline operator action, scope #6 + #7 + #8 + #18). First
+CONFIRM next free mig off main (should be 405; local main may be stale — check origin/main).
+Then run a full AUDIT -> EXECUTE -> VERIFY -> COMMIT cycle (skills/audit.md FIRST, report before
+editing). AUDIT how venue_charges/venue_payments are created + voided today (reuse venue_record_payment
+/ venue_void_payment / _recompute_charge_status patterns, mig 181) and how _prorated_first_charge
+works BEFORE designing anything.
 
-- mig 404: NEW authenticated read RPC get_my_money() (or similarly named) aggregating the
-  signed-in human's WHOLE picture across streams: (a) casual match fees — FOLD IN the existing
-  get_my_payment_history (mig 039, casual-only, token-scoped) with NO change to casual logic;
-  (b) his OWN memberships; (c) memberships he PAYS for as guardian (his children) — use
-  venue_memberships.payer_profile_id (now populated by Phase 1) + member_guardians. Return paid
-  history + upcoming/owed, each row tagged by stream + who-it's-for. auth.uid()-scoped, SECDEF,
-  search_path pinned, REVOKE anon (authenticated-only — explicit anon REVOKE per the mig-175
-  gotcha), read-only (no audit). AUDIT the exact casual-fee shape get_my_payment_history returns
-  + how venue_charges/venue_payments balances are derived (reuse _recompute logic / venue_get_charges
-  pattern) before designing the return shape.
-- UI in apps/inorout/src: a "Payments" / "My money" view — one screen showing daughter's subs,
-  my membership, last Sunday's match fee, with paid + upcoming. Casual surfaces untouched; this
-  is purely additive (grep every render site if threading into a shared view).
+- mig 405 — bulk one-off charge engine + a new venue_billing_runs table (who/what/when/totals/
+  status) with a run_id on the charges it creates:
+  - venue_bulk_charge_preview(token, cohort, amount, due_date, ...) -> every member in the cohort
+    (team / tier / whole club) with status: will-invoice OR auto-skip + reason (already-paid|paused|
+    left). READ-only preview.
+  - venue_bulk_charge_commit(token, run spec, excluded_ids[]) -> one venue_charges row per INCLUDED
+    member; idempotent per run key; writes the billing_run record. (WRITE -> EV required.)
+  - venue_void_billing_run(token, run_id) -> soft-void the whole run, mirroring the venue_payments
+    void pattern. (WRITE -> EV required.)
+  - Pro-rated mass invoicing (#18): reuse _prorated_first_charge (mig 393, Option A round-up) for
+    late joiners in a season-fee run — ONE pro-rating engine, do not reinvent.
+  - All write RPCs: SECDEF, search_path pinned, gated on manage_memberships, audited (Hard Rule #9),
+    venue-token path = grant anon + authenticated (auth enforced inside via resolve_venue_caller —
+    the venue_* RPC gotcha; mig-175 authenticated-only applies ONLY to auth.uid()-only RPCs).
+  - Stripe Invoices for online-payable charges (#7): when "let them pay online" is on, create a
+    Stripe INVOICE per member on the connected account using the Phase-1 reused customer
+    (get_or_link_stripe_customer), finalize it, Stripe emails the hosted pay page; the invoice.paid
+    webhook (already wired Phase 1 via stripe_record_invoice_payment) marks the ledger charge paid.
+    Use a Stripe idempotency_key per (run, member). TEST keys only.
+- UI: apps/venue Payments (+ consumer coach "Subs & payments" roster IF it touches src) — a 4-step
+  wizard: (1) cohort w/ live count, (2) charge label+amount+due date+pay-online toggle, (3)
+  INTERACTIVE preview (tick/untick individuals, auto-skips locked w/ reason, running total), (4)
+  type-to-confirm total -> Send. Plus a billing-run list with Void-run.
 
-GATES (Phase 2 touches apps/inorout/src -> heavier than Phase 1): rpc-security-sweep;
-ephemeral-verify (own _e2e_ fixture: a payer with own membership + a child membership +
-casual fee -> assert all three streams aggregate, leak-check 0); build + hygiene 7/7;
-**casual-regression (MANDATORY — touches src)**; Playwright authed walk of the new screen;
-**real-iPhone PWA walk OWED before commit (Hard Rule #13 — App.jsx/PlayerView/routing)**.
-Update RPCS/SCHEMA/DECISIONS/BUGS same commit; then PR -> merge to main before Phase 3.
+GATES: rpc-security-sweep (3 new write RPCs); ephemeral-verify (own _e2e_ cohort:
+preview -> commit -> void -> leak-check 0; assert auto-skip reasons + idempotency + pro-rated
+late-joiner amount); build + hygiene (apps/venue = hand-check hex, no token vars); casual-regression
+ONLY IF the consumer roster touches apps/inorout/src; Playwright wizard smoke + Stripe test-mode
+invoice paid -> reconciled walk. Update RPCS/SCHEMA/DECISIONS/BUGS/FEATURES same commit; then
+PR -> merge to main before Phase 4.
 
-NOTE: season one-off (mode=payment, no invoice) Stripe payments still don't land in the
-ledger (Phase 1 scope was invoice.* only) — decide in Phase 2 whether the money view folds
-them in from Stripe directly or whether that waits.
+NOTE: Phase 2 deferred season one-off (mode=payment) Stripe payments to here — once Phase 3's
+Stripe Invoice path + reconciliation lands, confirm those one-offs reconcile into the ledger too.
 ```
