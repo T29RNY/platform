@@ -268,7 +268,7 @@ teams in their league/area** — the network effect is the real prize.
 > materially addressed** by the Venue OS nav epic (club_features follow the club to every venue +
 > membership scope honored across the club's venues, mig 401). Remaining roadmap: #12 reporting (un-
 > touched, biggest gap), #5 pitch priority/reserved times, #6 make team prioritisation *drive*
-> something, #3 activate Stripe (live keys), #1 Phase C AI-import (gated on a real FA snippet), #13
+> something, **#3 FULL Stripe build (scoped s181 → `STRIPE_FULL_BUILD_HANDOFF.md`, 21 items/7 phases, NOT just key activation)**, #1 Phase C AI-import (gated on a real FA snippet), #13
 > season setup. Next venue epic = venue-operator tournament create (Epic D, now unblocked by the
 > shipped `tournaments` flag). Next free mig = 403.
 
@@ -276,7 +276,7 @@ teams in their league/area** — the network effect is the real prize.
 |---|-----|--------------|--------|---------------|
 | 1 | **FA Full-Time fixture sync + change alerts** | **Spike DONE (session 178) → NO-GO on a clean feed** (no API/iCal/feed; only a login-gated display widget; Matchday closed; even Pitchero gets only a once-a-season FA export). **Route = AI-scan the embed into our `club_fixtures`, gated on a real pilot snippet** (Phase C, mig 397+, schema dormant-ready). See FA verdict below. | High → **grey/fragile; best-effort alerts** | 🔴 #1 — partnership endgame; AI-import deferred to snippet |
 | 2 | **Org/team structure (youth + adult under one club)** | ✅ **COMPLETE** — epic shipped migs 389–393 (structure, join link/QR, membership-gated join, manager comms, pro-rating) | — | ✅ done |
-| 3 | Mass invoicing | Built (Stripe infra migs 329–337, dormant) | Low (activate) | 🟢 demo as-is |
+| 3 | **Mass invoicing → FULL STRIPE BUILD** | **SCOPED s181 (2026-06-23): building the ENTIRE Stripe platform as one track — NOT just "activate the dormant infra". 21 items / 7 phases: foundations + double-bill guard, one-customer-per-human, unified member payment history, mass-invoicing wizard (cohort + remove individuals) via Stripe Invoices, fixed-term seasons (Subscription Schedules) + start-date anchoring, pro-rating (ledger + Stripe), Billing Portal, bulk price change, refunds, reconciliation. Built on TEST keys (now in place); LIVE keys go in LAST (Phase 7). Plan = `STRIPE_FULL_BUILD_HANDOFF.md`. Next free mig=403.** | Med–High (full build) | roadmap |
 | 4 | Coach invoice-chasing (auto reminders + who-hasn't-paid view) | ✅ **SHIPPED** (mig 398) — reminder cron CONFIRMED already covers membership arrears (`payment_due` kind, no change needed); new `club_manager_team_payments` powers a coach-facing **Subs & payments** roster (green Paid / red Owes £X) under "Message your team" in the consumer club view | Low–Med | ✅ done |
 | 5 | Internal vs external pitch booking + reserved/priority times | Pitch system built; priority layer not | Med | 🟠 show |
 | 6 | Team prioritisation system (some teams rank above others) | **Partial** — `club_teams.priority_rank` + ⭐ badge ship in the org chart (Phase 1, mig 389) but display-only; doesn't yet *drive* anything (e.g. pitch priority) | Med (to make it drive) | roadmap |

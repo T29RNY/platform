@@ -141,15 +141,38 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Create Stripe Customer on the venue's connected account
-    const customer = await stripe.customers.create(
-      {
-        email:    memberEmail  || undefined,
-        name:     memberName   || undefined,
-        metadata: { member_profile_id: memberProfileId, venue_id: venueId },
-      },
-      { stripeAccount: accountId }
-    );
+    // One Stripe Customer per (payer human, connected account). The PAYER is always the
+    // signed-in caller — including a guardian paying for a child — so the saved card and
+    // billing email belong to them, and all their enrolments at this venue reuse it.
+    // Reuse a previously-linked customer; else create one and persist the mapping
+    // (race-safe — the RPC returns the winning row on a concurrent insert).
+    const payerName = [callerProfile.first_name, callerProfile.last_name].filter(Boolean).join(" ");
+    let customerId;
+    const { data: existingLink } = await supabase.rpc("get_or_link_stripe_customer", {
+      p_payer_profile_id: callerProfile.id,
+      p_account_id:       accountId,
+      p_venue_id:         venueId,
+      p_new_customer_id:  null,
+    });
+    if (existingLink?.stripe_customer_id) {
+      customerId = existingLink.stripe_customer_id;
+    } else {
+      const customer = await stripe.customers.create(
+        {
+          email:    callerProfile.email || undefined,
+          name:     payerName            || undefined,
+          metadata: { payer_profile_id: callerProfile.id, venue_id: venueId },
+        },
+        { stripeAccount: accountId }
+      );
+      const { data: newLink } = await supabase.rpc("get_or_link_stripe_customer", {
+        p_payer_profile_id: callerProfile.id,
+        p_account_id:       accountId,
+        p_venue_id:         venueId,
+        p_new_customer_id:  customer.id,
+      });
+      customerId = newLink?.stripe_customer_id || customer.id;
+    }
 
     const isSeason  = period === "season";
     const recurring = PERIOD_INTERVALS[period] ?? null;
@@ -162,7 +185,7 @@ module.exports = async function handler(req, res) {
 
     const session = await stripe.checkout.sessions.create(
       {
-        customer: customer.id,
+        customer: customerId,
         mode:     isSeason ? "payment" : "subscription",
         line_items: [
           {
@@ -188,6 +211,7 @@ module.exports = async function handler(req, res) {
           tier_id:           tierId,
           period,
           member_profile_id: memberProfileId,
+          payer_profile_id:  callerProfile.id,
           amount_pence:      String(chargePence),
         },
       },

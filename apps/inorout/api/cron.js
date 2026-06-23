@@ -854,7 +854,7 @@ async function membershipReconciliationJob(results) {
   const { data: integrations } = await supabase.from("venue_integrations").select("venue_id, account_id").eq("provider", "stripe").eq("status", "connected").in("venue_id", venueIds);
   const acctByVenue = Object.fromEntries((integrations || []).map((vi) => [vi.venue_id, vi.account_id]));
 
-  let checked = 0;
+  let checked = 0, repaired = 0;
   for (const m of subs) {
     const acct = acctByVenue[m.venue_id];
     if (!acct) continue;
@@ -862,11 +862,30 @@ async function membershipReconciliationJob(results) {
       const sub = await stripeClient.subscriptions.retrieve(m.stripe_subscription_id, { stripeAccount: acct });
       await supabase.rpc("apply_membership_subscription_status", { p_subscription_id: sub.id, p_stripe_status: sub.status });
       checked++;
+      // Invoice drift repair: ensure every PAID invoice for this sub has a ledger payment.
+      // The invoice.paid webhook does this in real time; this is the net for a dropped one.
+      // stripe_record_invoice_payment is idempotent per invoice, so re-runs are no-ops.
+      const invs = await stripeClient.invoices.list(
+        { subscription: m.stripe_subscription_id, status: "paid", limit: 10 },
+        { stripeAccount: acct }
+      );
+      for (const inv of (invs.data || [])) {
+        const r = await supabase.rpc("stripe_record_invoice_payment", {
+          p_subscription_id: inv.subscription,
+          p_invoice_id:      inv.id,
+          p_charge_ref:      inv.charge || null,
+          p_amount_pence:    inv.amount_paid ?? null,
+          p_paid_at:         inv.status_transitions?.paid_at
+                               ? new Date(inv.status_transitions.paid_at * 1000).toISOString()
+                               : new Date().toISOString(),
+        });
+        if (r?.data?.recorded) repaired++;
+      }
     } catch (e) {
       results.push(`membershipReconciliation: sub ${m.stripe_subscription_id} — ${e.message}`);
     }
   }
-  results.push(`membershipReconciliation: ${checked} reconciled`);
+  results.push(`membershipReconciliation: ${checked} reconciled, ${repaired} invoice(s) repaired`);
 }
 
 // ── GoCardless reconciliation (Phase 8) ──────────────────────────────────────

@@ -3,6 +3,32 @@
 
 ---
 
+## SESSION 181 — ✅ STRIPE FULL BUILD PHASE 1 SHIPPED (mig 403). Foundations & safety. No new production bugs.
+
+First phase of the full Stripe build (`STRIPE_FULL_BUILD_HANDOFF.md`) — makes Stripe-live SAFE
+before any new payment feature. Built/tested under Stripe TEST keys; live keys = Phase 7. **mig 403:**
+(1) `run_membership_renewals` loop (c) now skips `stripe_subscription_id IS NOT NULL` so Stripe subs
+aren't double-billed; (2) NEW `stripe_customers` table + `get_or_link_stripe_customer` → one Stripe
+customer per (payer human, connected account) so a payer/guardian saves one card; (3) NEW
+`stripe_record_invoice_payment` + `stripe_record_refund` record recurring invoice payments + refunds
+into the `venue_charges`/`venue_payments` ledger (idempotent), `venue_payments.method` gains
+`'stripe'`, and the 04:00 reconciliation cron repairs dropped `invoice.paid` webhooks; (4)
+`stripe_complete_member_enrolment` gains a trailing `p_payer_profile_id` (old 8-arg DROPped) and
+writes `venue_memberships.payer_profile_id`. JS: `api/stripe-member-checkout.js` (customer reuse +
+`payer_profile_id` metadata), `api/stripe-webhook.js` (invoice.paid + charge.refunded ledger,
+payer through enrolment), `api/cron.js` (invoice drift-repair). **SECURITY CATCH:** Supabase
+default privileges auto-granted anon+authenticated EXECUTE on the new fns (and the DROP+recreate of
+`stripe_complete_member_enrolment` lost its service_role-only lockdown) — explicitly REVOKED; all 5
+now `{postgres, service_role}` only. Gates: rpc-security PASS (5 surfaces SECDEF/search_path/
+overload=1/grants), EV 15/15 + leak 0 (renewal guard cash-minted+stripe-skipped, customer
+create/reuse/ignore-new, invoice paid+idempotent+no-membership, refund recorded+idempotent+
+no-payment+missing-params, enrol explicit-payer + COALESCE-default), build PASS, hygiene clean
+(api/ out of hook scope — no console.log/hex introduced), casual-regression N/A (only `api/` +
+migration touched). OWED forward (not bugs): season one-off ledger visibility (Phase 2);
+real-device Stripe TEST-mode walk. **Next free mig = 404.**
+
+---
+
 ## SESSION 178 — ✅ PILOT #4 SHIPPED (mig 398). Coach paid/unpaid pill. Reminder cron already covers arrears.
 
 Pilot demo sprint, item #4 (coach invoice-chasing). **KEY AUDIT FINDING: the auto-reminder half

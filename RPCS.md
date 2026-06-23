@@ -4,6 +4,40 @@
 All client writes go through these SECURITY DEFINER RPCs. Raw SQL names appear
 only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
 
+---
+
+## Stripe FULL build — Phase 1 RPCs (mig 403, session 181)
+
+All service_role-ONLY (called from `apps/inorout/api/` serverless functions via the service-role
+key — NOT the client; no supabase.js wrapper). All SECURITY DEFINER, `search_path public/pg_temp`,
+single overload, `REVOKE ALL FROM PUBLIC` + explicit `REVOKE EXECUTE FROM anon, authenticated`
+(Supabase default-grants those on new fns), `GRANT EXECUTE TO service_role`. Audited (Hard Rule #9).
+
+- **`run_membership_renewals()`** — MODIFIED. Loop (c) now excludes `stripe_subscription_id IS NOT
+  NULL` so Stripe subs aren't double-billed (Stripe re-bills them; the `invoice.paid` webhook
+  records the ledger). Signature/grants unchanged. Consumer: `api/cron.js` membershipRenewalsJob.
+- **`get_or_link_stripe_customer(p_payer_profile_id uuid, p_account_id text, p_venue_id text,
+  p_new_customer_id text DEFAULT NULL)`** — NEW. Returns the mapped Stripe customer for
+  (payer, connected account); with `p_new_customer_id` set, persists it race-safe (`ON CONFLICT`)
+  and returns the winner; else null. Backs the new `stripe_customers` table. Consumer:
+  `api/stripe-member-checkout.js` (reuse one card per payer per venue).
+- **`stripe_record_invoice_payment(p_subscription_id text, p_invoice_id text, p_charge_ref text,
+  p_amount_pence integer, p_paid_at timestamptz DEFAULT now())`** — NEW. Mints an idempotent PAID
+  `venue_charges` row (`source_id = <mid>:inv:<invoice_id>`) + a `method='stripe'` `venue_payments`
+  row (`external_ref` = the Stripe CHARGE id, so refunds can find it). Idempotent per invoice.
+  Returns `{ok, charge_id, recorded, charge_status}`. Consumers: `api/stripe-webhook.js`
+  (`invoice.paid`) + `api/cron.js` reconciliation drift-repair.
+- **`stripe_record_refund(p_charge_ref text, p_amount_pence integer, p_refund_id text)`** — NEW.
+  Finds the non-voided `'stripe'` payment by `external_ref` (charge id), appends a `'refund'` row
+  (positive amount; `_recompute_charge_status` subtracts it). Idempotent on the Stripe refund id.
+  Returns `{ok, recorded, charge_id, charge_status}`. Consumer: `api/stripe-webhook.js`
+  (`charge.refunded`, iterates each refund).
+- **`stripe_complete_member_enrolment(..., p_amount_pence integer DEFAULT NULL,
+  p_payer_profile_id uuid DEFAULT NULL)`** — MODIFIED. Old 8-arg DROPped → 9-arg (trailing
+  `p_payer_profile_id`). Now also writes `venue_memberships.payer_profile_id`
+  (`COALESCE(payer, member)`). Consumer: `api/stripe-webhook.js` (`checkout.session.completed`,
+  reads `payer_profile_id` from session metadata set by checkout).
+
 > **Session 59 (Phase 9 cont.) — no RPC change.** The new league reminder crons
 > (`availabilityRequestJob`/`fixtureReminderJob` in `api/cron.js`) read
 > `fixtures`/`team_players`/`players` with the **service role** (the cron.js convention,
