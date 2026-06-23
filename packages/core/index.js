@@ -392,6 +392,8 @@ export {
   venueGetFeatureSettings,
   venueSetVenueFeature,
   venueSetClubFeature,
+  venueSetVenueFeatures,
+  venueSetClubFeatures,
   clubAdminCreateTournament,
   clubAdminListTournaments,
   clubAdminGetTournament,

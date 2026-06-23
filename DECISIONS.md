@@ -5,6 +5,21 @@
 `demo-runbook-pilot` (the s178+pilot+Phase 1 stack was PR'd + merged to main first — PR #62 — per
 cloud-session discipline, before Phase 2 started).*
 
+**Decision (s180, Phase 3 SHIPPED — mig 402): package presets are CLIENT-SIDE flag-sets + two generic
+atomic bulk-apply RPCs; no preset table, no `tier` enum.** Per the locked Epic A design "packages are
+shortcuts, flags are truth," a preset adds NO data model — it's just a named target flag-set. The
+catalogue lives in `apps/venue/FeaturesView` (VENUE_PACKAGES / CLUB_PACKAGES) so re-bundling or renaming
+is a one-line edit, never a migration, and the commercial tier/pricing decision stays deferred. The
+server side is two generic, atomic, audited "set these flags" RPCs (`venue_set_venue_features` /
+`venue_set_club_features`) — chosen over N chatty per-flag calls (one transaction, one audit row, the
+dependency graph enforced server-side, no partial apply) and over a server-side preset table (which would
+bake a tier structure before the pilot). Only keys PRESENT in the jsonb change (absent keys untouched);
+the dependency closure forces Memberships on when Coaching ends on, so a preset can never land an invalid
+state; the no-row=on invariant is preserved (row written only to hold an OFF, pruned once all-on). EV 6/6
++ leak 0; boot smoke applied "League club" to a demo club and confirmed DB + UI + the dependency-lock
+lifting. Presets shipped (descriptive, not commercial): venue = Full facility / Bookings only; club =
+Full club / League club / Memberships & coaching / Match-day only — all trivially editable.
+
 **Decision (s180, Phase 2.5 scope locked — option 1): membership scope = `club_id`-derived, and
 cross-CLUB passes are deferred ENTIRELY (no dormant schema now).** ✅ **SHIPPED same session (mig 401)** —
 2 helpers (`_membership_covers_venue` + `_member_entitled_at_venue`) + the 6 gate predicates swapped via
