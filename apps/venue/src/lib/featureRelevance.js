@@ -24,7 +24,7 @@ const TEAM_SPORT_DISCIPLINES = new Set(["football"]);
 const KNOWN = new Set([...PT_CLASS_DISCIPLINES, ...TEAM_SPORT_DISCIPLINES]);
 
 // Each discipline-gated rail item belongs to a "kind"; items not listed are
-// never discipline-gated (facility items, People, Memberships, Club sessions…).
+// never discipline-gated (facility items, People, Memberships, Team Training…).
 const ITEM_KIND = {
   classes:  "classes",
   trainers: "classes",

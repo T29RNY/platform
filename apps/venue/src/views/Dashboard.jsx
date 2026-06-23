@@ -26,6 +26,7 @@ import IntegrationsView from "./IntegrationsView.jsx";
 import SearchPalette from "./SearchPalette.jsx";
 import NotificationsPanel, { unseenCount } from "./NotificationsPanel.jsx";
 import FeaturesView from "./FeaturesView.jsx";
+import { TabbedPage } from "./PageKit.jsx";
 import { poundsRound } from "../lib/format.js";
 import { itemDisciplineRelevant } from "../lib/featureRelevance.js";
 
@@ -54,12 +55,19 @@ const TABS = [
     { id: "staff",       label: "Staff",       icon: "staff" },
   ]},
   { group: "Programmes", items: [
-    { id: "sessions",  label: "Club sessions", icon: "staff",     flag: "coaching" },
-    { id: "classes",   label: "Classes",   icon: "classes",   flag: "coaching" },
+    // Combined pages (Venue People & Spaces IA, Phase 1): one rail item, related tabs.
+    // `subs` carry the per-tab flag — the item shows when ANY sub is enabled; the page
+    // renders only the enabled subs (collapsing the tab bar when one qualifies).
+    { id: "timetable", label: "Timetable", icon: "classes", subs: [
+        { id: "classes",  flag: "coaching" },   // Classes (discipline-gated to PT disciplines)
+        { id: "sessions", flag: "coaching" },   // Team Training (RSVP; not discipline-gated)
+      ] },
     { id: "trainers",  label: "Trainers",  icon: "staff",     flag: "coaching" },
-    { id: "roomhire",  label: "Room hire", icon: "roomhire",  flag: "room_hire" },
     { id: "equipment", label: "Equipment", icon: "equipment", flag: "equipment" },
-    { id: "spaces",    label: "Spaces",    icon: "spaces",    flag: "spaces" },
+    { id: "rooms", label: "Rooms", icon: "spaces", subs: [
+        { id: "spaces",   flag: "spaces" },     // Spaces (your rooms — config)
+        { id: "roomhire", flag: "room_hire" },  // Room bookings (renting them out)
+      ] },
   ]},
   { group: "Competition", items: [
     { id: "fixtures", label: "Fixtures",  icon: "ops",   flag: "competition" },
@@ -89,10 +97,29 @@ function featureOn(features, flag) {
   return features[flag] !== false;
 }
 
+// Combined-page support (Phase 1). A sub is visible when its flag is on AND it's relevant
+// to the venue's disciplines (reusing the same two gates the rail applies to a normal item).
+function subVisible(features, sub) {
+  return featureOn(features, sub.flag) && itemDisciplineRelevant(features?.disciplines, sub.id);
+}
+// A nav item is visible when its own gates pass — or, for a combined item, when ANY sub passes.
+function navItemVisible(t, features) {
+  if (t.subs) return t.subs.some((s) => subVisible(features, s));
+  return featureOn(features, t.flag) && itemDisciplineRelevant(features?.disciplines, t.id);
+}
+// Legacy view ids (deep-links / search) → [combined page id, tab to open].
+const VIEW_ALIAS = {
+  spaces:   ["rooms", "spaces"],
+  roomhire: ["rooms", "roomhire"],
+  classes:  ["timetable", "classes"],
+  sessions: ["timetable", "sessions"],
+};
+
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
-  customers: "Customers", memberships: "Memberships", sessions: "Club sessions", teams: "Teams", players: "Players", staff: "Staff",
-  access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room hire", league: "Leagues", table: "Standings", cups: "Cups",
+  customers: "Customers", memberships: "Memberships", sessions: "Team Training", teams: "Teams", players: "Players", staff: "Staff",
+  access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room bookings", league: "Leagues", table: "Standings", cups: "Cups",
+  rooms: "Rooms", timetable: "Timetable",
   fixtures: "Fixtures",
   integrations: "Integrations",
   features: "Features",
@@ -132,6 +159,9 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
     const flag = VIEW_FLAG[view];
     if (flag && features && !featureOn(features, flag)) setView("ops");
   }, [view, features]);
+  // Combined-page normalization: a legacy view id (deep-link / search) resolves to its
+  // combined page + the tab to open. Non-aliased views pass straight through.
+  const [pageView, initialTab] = VIEW_ALIAS[view] || [view, undefined];
   const [wizardOpen, setWizardOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
 
@@ -159,10 +189,36 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   const showAccess = canManageLogins(me);
   const showFeatures = canManageFacility(me);
 
+  // Combined-page tab sets (Phase 1). Each sub carries its own plain-English subhead;
+  // only the flag-enabled + discipline-relevant subs are passed to TabbedPage.
+  const COMBINED = {
+    rooms: [
+      { id: "spaces", label: "Spaces", flag: "spaces",
+        subhead: "Your bookable rooms and areas. Set them up once — classes and room bookings schedule into them.",
+        render: () => <SpacesView venueToken={venueToken} /> },
+      { id: "roomhire", label: "Room bookings", flag: "room_hire",
+        subhead: "When someone hires one of your spaces: requests to confirm or decline, plus confirmed bookings and deposits.",
+        render: () => <RoomHiresView venueToken={venueToken} /> },
+    ],
+    timetable: [
+      { id: "classes", label: "Classes", flag: "coaching",
+        subhead: "Scheduled classes members book a place on — capacity, waitlist and check-in.",
+        render: () => <ClassesView venueToken={venueToken} /> },
+      { id: "sessions", label: "Team Training", flag: "coaching",
+        subhead: "Your teams' training sessions — players RSVP in or out, like the matchday flow.",
+        render: () => <SessionsView venueToken={venueToken} /> },
+    ],
+  };
+  const combinedSubs = COMBINED[pageView] || null;
+  const visibleSubs = combinedSubs ? combinedSubs.filter((s) => subVisible(features, s)) : null;
+  const blocked = combinedSubs
+    ? (!!features && visibleSubs.length === 0)
+    : (VIEW_FLAG[pageView] && features && !featureOn(features, VIEW_FLAG[pageView]));
+
   return (
     <div className="app">
       <Rail
-        view={view} onView={setView}
+        view={pageView} onView={setView}
         bookingBadge={pendingCount}
         features={features}
         hasCups={hasCups} showAccess={showAccess} showFeatures={showFeatures}
@@ -174,15 +230,15 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
 
       <div className="workspace">
         <Topbar
-          view={view} onView={setView}
+          view={pageView} onView={setView}
           state={state} pendingCount={pendingCount}
           liveCount={liveCount}
           onOpenWizard={() => setWizardOpen(true)}
           onRefresh={onRefresh} refreshing={refreshing}
         />
 
-        <main className={"main" + (view === "ops" ? " with-sidebar" : "")}>
-          {VIEW_FLAG[view] && features && !featureOn(features, VIEW_FLAG[view]) ? (
+        <main className={"main" + (pageView === "ops" ? " with-sidebar" : "")}>
+          {blocked ? (
             <div className="text-mute" style={{ padding: 24 }}>This feature isn’t enabled for this venue.</div>
           ) : (<>
           {view === "ops" && (
@@ -204,13 +260,17 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           )}
           {view === "payments" && <PaymentsView state={state} venueToken={venueToken} />}
           {view === "equipment" && <EquipmentView venueToken={venueToken} state={state} />}
-          {view === "spaces" && <SpacesView venueToken={venueToken} />}
-          {view === "classes" && <ClassesView venueToken={venueToken} />}
+          {pageView === "rooms" && (
+            <TabbedPage initial={initialTab}
+              tabs={(visibleSubs || []).map((s) => ({ id: s.id, label: s.label, subhead: s.subhead, render: s.render }))} />
+          )}
+          {pageView === "timetable" && (
+            <TabbedPage initial={initialTab}
+              tabs={(visibleSubs || []).map((s) => ({ id: s.id, label: s.label, subhead: s.subhead, render: s.render }))} />
+          )}
           {view === "trainers" && <TrainersView venueToken={venueToken} />}
-          {view === "roomhire" && <RoomHiresView venueToken={venueToken} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
           {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
-          {view === "sessions" && <SessionsView venueToken={venueToken} />}
           {view === "fixtures" && <FixturesTab venueToken={venueToken} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
           {view === "teams" && <TeamsView venueToken={venueToken} />}
           {view === "players" && <PlayersView venueToken={venueToken} />}
@@ -259,8 +319,7 @@ function Rail({ view, onView, bookingBadge, features, hasCups, showAccess, showF
             (!t.cupOnly || hasCups) &&
             (!t.adminOnly || showAccess) &&
             (!t.facilityOnly || showFeatures) &&
-            featureOn(features, t.flag) &&
-            itemDisciplineRelevant(features?.disciplines, t.id));
+            navItemVisible(t, features));
           if (items.length === 0) return null;   // hide a group whose every item is gated off
           return (
             <React.Fragment key={grp.group}>
