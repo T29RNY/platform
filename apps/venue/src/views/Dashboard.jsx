@@ -18,6 +18,7 @@ import LeagueView from "./LeagueView.jsx";
 import LeagueTable from "./LeagueTable.jsx";
 import CustomersView from "./CustomersView.jsx";
 import MembershipsView, { FixturesTab } from "./MembershipsView.jsx";
+import MembersPage from "./MembersView.jsx";
 import SessionsView from "./SessionsView.jsx";
 import AccessView from "./AccessView.jsx";
 import InvitesView from "./InvitesView.jsx";
@@ -45,6 +46,11 @@ const TABS = [
     { id: "payments",  label: "Payments",   icon: "payments" },
   ]},
   { group: "People", items: [
+    // Members (Venue People & Spaces IA, Phase 3): a read-only directory page —
+    // Members tab + a derived Guardians view. Operational membership management
+    // (enrol / freeze / cancel / grading) stays on the Memberships screen until
+    // the Phase 5 consistency sweep. Gated by the same `memberships` flag.
+    { id: "members",     label: "Members",     icon: "customers", flag: "memberships" },
     { id: "customers",   label: "Customers",   icon: "customers" },
     { id: "memberships", label: "Memberships", icon: "pound", flag: "memberships" },
     // Teams is a combined page (Venue People & Spaces IA, Phase 2): three tabs —
@@ -124,7 +130,7 @@ const VIEW_ALIAS = {
 
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
-  customers: "Customers", memberships: "Memberships", sessions: "Team Training", teams: "Teams", staff: "Staff",
+  customers: "Customers", members: "Members", memberships: "Memberships", sessions: "Team Training", teams: "Teams", staff: "Staff",
   access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room bookings", league: "Leagues", table: "Standings", cups: "Cups",
   rooms: "Rooms", timetable: "Timetable",
   fixtures: "Fixtures",
@@ -288,6 +294,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           )}
           {view === "trainers" && <TrainersView venueToken={venueToken} />}
           {view === "customers" && <CustomersView venueToken={venueToken} />}
+          {view === "members" && <MembersPage venueToken={venueToken} />}
           {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
           {view === "fixtures" && <FixturesTab venueToken={venueToken} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
           {pageView === "teams" && (
