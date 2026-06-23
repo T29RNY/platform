@@ -5120,20 +5120,22 @@ export async function memberJoinClubTeam(code, forProfileId = null) {
   return data;
 }
 
-export async function clubCreateSession(venueToken, clubId, { title, scheduledAt, cohortId = null, location = null, notes = null, capacity = null } = {}) {
+export async function clubCreateSession(venueToken, clubId, { title, scheduledAt, cohortId = null, location = null, notes = null, capacity = null, venueId = null, playingAreaId = null } = {}) {
   const { data, error } = await supabase.rpc("club_create_session", {
     p_venue_token: venueToken, p_club_id: clubId, p_title: title,
     p_scheduled_at: scheduledAt, p_cohort_id: cohortId ?? null,
     p_location: location, p_notes: notes, p_capacity: capacity,
+    p_venue_id: venueId, p_playing_area_id: playingAreaId,
   });
   if (error) { console.error("[club] club_create_session failed", error); throw error; }
   return data;
 }
 
-export async function clubUpdateSession(venueToken, sessionId, { title = null, scheduledAt = null, location = null, notes = null, capacity = null } = {}) {
+export async function clubUpdateSession(venueToken, sessionId, { title = null, scheduledAt = null, location = null, notes = null, capacity = null, venueId = null, playingAreaId = null } = {}) {
   const { data, error } = await supabase.rpc("club_update_session", {
     p_venue_token: venueToken, p_session_id: sessionId, p_title: title,
     p_scheduled_at: scheduledAt, p_location: location, p_notes: notes, p_capacity: capacity,
+    p_venue_id: venueId, p_playing_area_id: playingAreaId,
   });
   if (error) { console.error("[club] club_update_session failed", error); throw error; }
   return data;
@@ -5175,6 +5177,7 @@ export async function clubMarkAttendance(venueToken, sessionId, attendances) {
 export async function clubCreateSessionSeries(venueToken, clubId, {
   title, sessionType, dayOfWeek, startTime, fromDate, toDate,
   cohortId = null, teamId = null, location = null, notes = null, capacity = null,
+  venueId = null, playingAreaId = null,
 } = {}) {
   const { data, error } = await supabase.rpc("club_create_session_series", {
     p_venue_token: venueToken, p_club_id: clubId, p_title: title,
@@ -5182,6 +5185,7 @@ export async function clubCreateSessionSeries(venueToken, clubId, {
     p_from_date: fromDate, p_to_date: toDate,
     p_cohort_id: cohortId, p_team_id: teamId,
     p_location: location, p_notes: notes, p_capacity: capacity,
+    p_venue_id: venueId, p_playing_area_id: playingAreaId,
   });
   if (error) { console.error("[club] club_create_session_series failed", error); throw error; }
   return data;
@@ -5225,6 +5229,7 @@ export async function clubManagerCreateSession(teamId, {
   location = null, notes = null, capacity = null,
   meetTime = null, opponentName = null, homeAway = null,
   opponentVenueName = null, opponentAddress = null,
+  venueId = null, playingAreaId = null,
 } = {}) {
   const { data, error } = await supabase.rpc("club_manager_create_session", {
     p_team_id: teamId, p_title: title, p_scheduled_at: scheduledAt,
@@ -5232,6 +5237,7 @@ export async function clubManagerCreateSession(teamId, {
     p_capacity: capacity, p_meet_time: meetTime, p_opponent_name: opponentName,
     p_home_away: homeAway, p_opponent_venue_name: opponentVenueName,
     p_opponent_address: opponentAddress,
+    p_venue_id: venueId, p_playing_area_id: playingAreaId,
   });
   if (error) { console.error("[club-manager] club_manager_create_session failed", error); throw error; }
   return data;
@@ -5240,12 +5246,14 @@ export async function clubManagerCreateSession(teamId, {
 export async function clubManagerCreateSessionSeries(teamId, {
   title, dayOfWeek, startTime, fromDate, toDate,
   sessionType = 'training', location = null, notes = null, capacity = null,
+  venueId = null, playingAreaId = null,
 } = {}) {
   const { data, error } = await supabase.rpc("club_manager_create_session_series", {
     p_team_id: teamId, p_title: title, p_day_of_week: dayOfWeek,
     p_start_time: startTime, p_from_date: fromDate, p_to_date: toDate,
     p_session_type: sessionType, p_location: location, p_notes: notes,
     p_capacity: capacity,
+    p_venue_id: venueId, p_playing_area_id: playingAreaId,
   });
   if (error) { console.error("[club-manager] club_manager_create_session_series failed", error); throw error; }
   return data;

@@ -1,5 +1,37 @@
 # In or Out — Key Decisions Log
 
+## SESSION 189 — Multi-venue (pilot #7) PHASE 1: venue-anchor club sessions (mig 412)
+*2026-06-24. Same-operator only. Plan/handoff: MULTI_VENUE_HANDOFF.md. Builds the activity layer on
+top of the access layer (mig 401). PR pending → merge before Phase 2.*
+
+- **DECISION — the same-operator seam is one shared guard `_venue_in_club_operator(caller_venue, club,
+  target)`, with a NULLABLE caller.** A cross-venue write is authorised iff the target venue is in the
+  club's `club_venues` AND `venues.company_id` is non-null AND — for a venue-operator caller (has a venue
+  token) — the target shares the caller's `company_id`. For a **club manager** (auth.uid, no venue token)
+  there is no caller venue to compare against, so the caller arg is passed NULL and the check is just
+  "target ∈ the club's venues (+ company non-null)". This is correct under same-operator-only scope
+  because `club_venues` only ever links one operator's venues (the deferred different-operator case never
+  populates a cross-operator `club_venues` row). The guard is the single authorisation point and is reused
+  by Phase 2 fixtures. Reuses the mig-401 `_membership_covers_venue` pattern but ADDS the company seam.
+- **DECISION — activity venue is chosen per-activity, defaulting to the caller's own/only venue.** The
+  venue app create modal defaults to the caller's own venue (so every venue-created session is anchored —
+  even single-venue clubs, matching the byte-identical backfill); the inorout manager modal defaults to
+  the club's only venue. The venue/pitch picker only renders when the club runs >1 venue.
+- **DECISION — Option B: the inorout team-manager also gets a venue picker, not just the venue operator.**
+  The operator-confirmed clarification (s189) is that Venue OS must coordinate activity across ALL its
+  sites; a manager scheduling "train at the other ground this week" is part of that. The picker data is
+  already on `memberProfile.active_clubs[].venues`, so it's near-free. All 5 session write RPCs gain the
+  venue param regardless (capability + EV-proven), even where no UI picker exists yet.
+- **DECISION — Phase 1 delivers cross-site VISIBILITY (venue labels + a venue filter on the club-wide
+  session list); the unified cross-site CALENDAR with clash/double-book protection is Phase 3** (pitch
+  occupancy). Phases 1–2 exist to get venue+pitch correctly ONTO every activity so Phase 3 just draws
+  correct data rather than re-modelling. `club_list_sessions` was already club-wide; it just needed the
+  venue label + a client-side filter.
+- **DECISION — `playing_area_id` (pitch) is stored now even though the calendar that consumes it is
+  Phase 3.** Cheaper to anchor the pitch at create time than to backfill it later; the pitch picker is
+  fed by extending `venue_list_club_venues` additively (`+company_id`, `+playing_areas[]`) rather than a
+  new reader (reuse over new systems).
+
 ## SESSION 188 — Venue People & Spaces IA PHASE 5 (final): drop Customers from rail + consistency sweep — EPIC COMPLETE
 *2026-06-23. NO migration. Venue app only; apps/inorout never touched. Closes the 5-phase
 Venue People & Spaces IA epic. Plan/handoff: VENUE_PEOPLE_IA_HANDOFF.md.*

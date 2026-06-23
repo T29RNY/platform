@@ -877,14 +877,14 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   };
 
   const handleCreateSession = async ({ teamId, title, sessionType, scheduledAt,
-    location, notes, capacity, meetTime, opponentName, homeAway, opponentVenueName, opponentAddress }) => {
+    location, notes, capacity, meetTime, opponentName, homeAway, opponentVenueName, opponentAddress, venueId }) => {
     if (isCreatingRef.current) return;
     isCreatingRef.current = true;
     setCreateLoading(true);
     try {
       await clubManagerCreateSession(teamId, {
         title, scheduledAt, sessionType, location, notes, capacity,
-        meetTime, opponentName, homeAway, opponentVenueName, opponentAddress,
+        meetTime, opponentName, homeAway, opponentVenueName, opponentAddress, venueId,
       });
       setShowCreateModal(false);
       await reloadSessions();
@@ -896,13 +896,13 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     }
   };
 
-  const handleCreateSeries = async ({ teamId, title, sessionType, dayOfWeek, startTime, fromDate, toDate, location, notes, capacity }) => {
+  const handleCreateSeries = async ({ teamId, title, sessionType, dayOfWeek, startTime, fromDate, toDate, location, notes, capacity, venueId }) => {
     if (isCreatingRef.current) return;
     isCreatingRef.current = true;
     setCreateLoading(true);
     try {
       await clubManagerCreateSessionSeries(teamId, {
-        title, sessionType, dayOfWeek, startTime, fromDate, toDate, location, notes, capacity,
+        title, sessionType, dayOfWeek, startTime, fromDate, toDate, location, notes, capacity, venueId,
       });
       setShowCreateModal(false);
       await reloadSessions();
@@ -1060,6 +1060,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const selectedClub = activeClubs.find(c => c.club_id === selectedClubId) ?? null;
   const isManager = (memberProfile.managed_teams ?? []).some(t => t.club_id === selectedClubId);
   const managedTeamsForClub = (memberProfile.managed_teams ?? []).filter(t => t.club_id === selectedClubId);
+  // The club's venues (multi-venue, same-operator) — feeds the manager venue picker.
+  const clubVenuesForClub = memberProfile.active_clubs?.find(c => c.club_id === selectedClubId)?.venues ?? [];
   const isManagerOfSession = (session) => !!session?.team_id && managedTeamsForClub.some(t => t.team_id === session.team_id);
 
   return (
@@ -2624,6 +2626,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       {showCreateModal && (
         <CreateSessionModal
           managedTeams={managedTeamsForClub}
+          clubVenues={clubVenuesForClub}
           loading={createLoading}
           onCreateSession={handleCreateSession}
           onCreateSeries={handleCreateSeries}
@@ -2752,9 +2755,9 @@ function SessionCard({ session, onOpen }) {
           vs {session.opponent_name}
           {session.home_away && ` · ${session.home_away === "home" ? "Home" : session.home_away === "away" ? "Away" : "Neutral"}`}
         </div>
-      ) : session.location ? (
+      ) : (session.venue_name || session.location) ? (
         <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
-          {session.location}
+          {[session.venue_name, session.location].filter(Boolean).join(" · ")}
         </div>
       ) : null}
 
@@ -2847,6 +2850,12 @@ function SessionDetail({
           {/* Session details */}
           {session.meet_time && (
             <InfoRow label="Meet by" value={fmtTime(session.meet_time)} />
+          )}
+          {session.venue_name && (
+            <InfoRow label="Venue" value={session.venue_name} />
+          )}
+          {session.venue_address && (
+            <InfoRow label="Address" value={session.venue_address} />
           )}
           {session.location && (
             <InfoRow label="Location" value={session.location} />
@@ -3286,9 +3295,12 @@ function SessionDetail({
 }
 
 // ── CreateSessionModal ────────────────────────────────────────────────────────
-function CreateSessionModal({ managedTeams, loading, onCreateSession, onCreateSeries, onClose }) {
+function CreateSessionModal({ managedTeams, clubVenues = [], loading, onCreateSession, onCreateSeries, onClose }) {
   const [mode, setMode]               = useState("oneoff"); // "oneoff" | "recurring"
   const [selectedTeamId, setSelectedTeamId] = useState(managedTeams[0]?.team_id ?? null);
+  // Multi-venue (same-operator): anchor the session to one of the club's sites.
+  // Defaults to the only venue when single-venue; picker shows when >1.
+  const [venueId, setVenueId]         = useState(clubVenues.length === 1 ? clubVenues[0].venue_id : "");
   const [title, setTitle]             = useState("");
   const [sessionType, setSessionType] = useState("training");
   const [scheduledAt, setScheduledAt] = useState("");
@@ -3321,6 +3333,7 @@ function CreateSessionModal({ managedTeams, loading, onCreateSession, onCreateSe
         meetTime: null,
         opponentVenueName: null,
         opponentAddress: null,
+        venueId: venueId || null,
       });
     } else {
       if (!fromDate || !toDate) return;
@@ -3335,6 +3348,7 @@ function CreateSessionModal({ managedTeams, loading, onCreateSession, onCreateSe
         location: location.trim() || null,
         notes: notes.trim() || null,
         capacity: capacity ? parseInt(capacity, 10) : null,
+        venueId: venueId || null,
       });
     }
   };
@@ -3443,6 +3457,29 @@ function CreateSessionModal({ managedTeams, loading, onCreateSession, onCreateSe
               style={inputStyle}
             />
           </div>
+
+          {/* Venue — shown when the club runs more than one site (same-operator) */}
+          {clubVenues.length > 1 && (
+            <div>
+              <Label>Venue</Label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                {clubVenues.map(v => {
+                  const active = v.venue_id === venueId;
+                  return (
+                    <button key={v.venue_id} onClick={() => setVenueId(v.venue_id)} style={{
+                      padding: "6px 14px", borderRadius: 20, cursor: "pointer",
+                      border: `1px solid ${active ? "var(--amber)" : "var(--border)"}`,
+                      background: active ? "var(--amber)" : "transparent",
+                      color: active ? "rgba(0,0,0,0.9)" : "var(--t2)",
+                      fontSize: 13, fontFamily: "var(--font-body)", fontWeight: active ? 700 : 400,
+                    }}>
+                      {v.venue_name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* One-off: date/time */}
           {mode === "oneoff" && (

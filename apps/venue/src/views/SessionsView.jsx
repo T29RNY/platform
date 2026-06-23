@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   venueListClubs,
+  venueListClubVenues,
   clubListCohorts,
   clubListSessions,
   clubCreateSession,
@@ -99,8 +100,10 @@ export default function SessionsView({ venueToken }) {
 
 function SessionsPanel({ venueToken, clubId }) {
   const [cohorts, setCohorts] = useState([]);
+  const [venues, setVenues] = useState([]);      // club's same-operator venues (incl. self)
   const [sessions, setSessions] = useState(null);
   const [filterCohort, setFilterCohort] = useState(null);
+  const [filterVenue, setFilterVenue] = useState(null);  // null = all sites
   const [err, setErr] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [detail, setDetail] = useState(null); // session object
@@ -110,6 +113,21 @@ function SessionsPanel({ venueToken, clubId }) {
     catch (e) { console.error(e); }
   }, [venueToken, clubId]);
 
+  // The club's venues, filtered to the caller's operator (same company_id) — the
+  // same-operator seam. Used for the create-time venue picker and the list filter.
+  const loadVenues = useCallback(async () => {
+    try {
+      const r = await venueListClubVenues(venueToken, clubId);
+      const all = r?.venues ?? [];
+      const self = all.find((v) => v.is_self);
+      const company = self?.company_id ?? null;
+      const sameOperator = company
+        ? all.filter((v) => v.company_id === company)
+        : all.filter((v) => v.is_self);
+      setVenues(sameOperator);
+    } catch (e) { console.error(e); }
+  }, [venueToken, clubId]);
+
   const loadSessions = useCallback(async () => {
     setErr(null);
     try { setSessions(await clubListSessions(venueToken, clubId, { cohortId: filterCohort })); }
@@ -117,15 +135,41 @@ function SessionsPanel({ venueToken, clubId }) {
   }, [venueToken, clubId, filterCohort]);
 
   useEffect(() => { loadCohorts(); }, [loadCohorts]);
+  useEffect(() => { loadVenues(); }, [loadVenues]);
   useEffect(() => { loadSessions(); }, [loadSessions]);
+
+  // Cross-site visibility: the operator sees every session for the club across all
+  // their venues; the venue filter narrows to one site without a server round-trip.
+  const shownSessions = sessions === null
+    ? null
+    : (filterVenue ? sessions.filter((s) => s.venue_id === filterVenue) : sessions);
 
   return (
     <div>
-      <SectionHead label="Sessions" count={sessions?.length ?? 0}>
+      <SectionHead label="Sessions" count={shownSessions?.length ?? 0}>
         <button className="btn btn-sm btn-primary" onClick={() => setCreateOpen(true)}>
           + New session
         </button>
       </SectionHead>
+
+      {/* Venue filter — only when the club operates from more than one site */}
+      {venues.length > 1 && (
+        <div className="chips" style={{ marginBottom: "var(--gap-2)" }}>
+          <button className="chip" aria-pressed={filterVenue === null} onClick={() => setFilterVenue(null)}>
+            All sites
+          </button>
+          {venues.map((v) => (
+            <button
+              key={v.venue_id}
+              className="chip"
+              aria-pressed={filterVenue === v.venue_id}
+              onClick={() => setFilterVenue(v.venue_id)}
+            >
+              {v.venue_name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Cohort filter */}
       {cohorts.length > 0 && (
@@ -148,9 +192,9 @@ function SessionsPanel({ venueToken, clubId }) {
 
       {err && <p style={{ color: "var(--live)", fontSize: 13, marginBottom: 12 }}>{err}</p>}
 
-      {sessions === null && <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading…</p>}
+      {shownSessions === null && <p style={{ color: "var(--ink-3)", fontSize: 13 }}>Loading…</p>}
 
-      {sessions !== null && sessions.length === 0 && (
+      {shownSessions !== null && shownSessions.length === 0 && (
         <EmptyState
           title="No sessions yet"
           body="Create the first session for this club."
@@ -158,9 +202,9 @@ function SessionsPanel({ venueToken, clubId }) {
         />
       )}
 
-      {sessions !== null && sessions.length > 0 && (
+      {shownSessions !== null && shownSessions.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {sessions.map((s) => (
+          {shownSessions.map((s) => (
             <SessionRow
               key={s.session_id}
               session={s}
@@ -175,6 +219,7 @@ function SessionsPanel({ venueToken, clubId }) {
           venueToken={venueToken}
           clubId={clubId}
           cohorts={cohorts}
+          venues={venues}
           onClose={() => setCreateOpen(false)}
           onDone={() => { setCreateOpen(false); loadSessions(); }}
         />
@@ -215,6 +260,7 @@ function SessionRow({ session: s, onClick }) {
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", display: "flex", gap: 16, flexWrap: "wrap" }}>
             <span>{fmtDt(s.scheduled_at)}</span>
+            {s.venue_name && <span>🏟 {s.venue_name}{s.playing_area_name ? ` · ${s.playing_area_name}` : ""}</span>}
             {s.location && <span>📍 {s.location}</span>}
             {s.capacity && <span>Cap: {s.capacity}</span>}
           </div>
@@ -242,17 +288,23 @@ function SessionRow({ session: s, onClick }) {
   );
 }
 
-function CreateSessionModal({ venueToken, clubId, cohorts, onClose, onDone }) {
+function CreateSessionModal({ venueToken, clubId, cohorts, venues = [], onClose, onDone }) {
+  // Default the site to the caller's own venue so every venue-created session is
+  // anchored (single-venue clubs need no picker but still record their venue).
+  const selfVenue = venues.find((v) => v.is_self) ?? venues[0] ?? null;
   const [mode, setMode] = useState("oneoff"); // "oneoff" | "recurring"
   const [form, setForm] = useState({
     title: "", scheduledAt: "", cohortId: "", location: "", notes: "", capacity: "",
     sessionType: "training", dayOfWeek: "1", startTime: "", fromDate: "", toDate: "",
+    venueId: selfVenue?.venue_id ?? "", playingAreaId: "",
   });
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
   const isSavingRef = useRef(false);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const selectedVenue = venues.find((v) => v.venue_id === form.venueId) ?? null;
+  const pitches = selectedVenue?.playing_areas ?? [];
 
   const submit = async () => {
     if (isSavingRef.current) return;
@@ -277,6 +329,8 @@ function CreateSessionModal({ venueToken, clubId, cohorts, onClose, onDone }) {
           location: form.location.trim() || null,
           notes: form.notes.trim() || null,
           capacity: form.capacity ? parseInt(form.capacity, 10) : null,
+          venueId: form.venueId || null,
+          playingAreaId: form.playingAreaId || null,
         });
       } else {
         await clubCreateSessionSeries(venueToken, clubId, {
@@ -290,6 +344,8 @@ function CreateSessionModal({ venueToken, clubId, cohorts, onClose, onDone }) {
           location: form.location.trim() || null,
           notes: form.notes.trim() || null,
           capacity: form.capacity ? parseInt(form.capacity, 10) : null,
+          venueId: form.venueId || null,
+          playingAreaId: form.playingAreaId || null,
         });
       }
       onDone();
@@ -380,6 +436,35 @@ function CreateSessionModal({ venueToken, clubId, cohorts, onClose, onDone }) {
             </select>
           </div>
         )}
+        {/* Venue picker — shown when the club operates from more than one site */}
+        {venues.length > 1 && (
+          <div>
+            <label className="field-label">Venue</label>
+            <select
+              className="input"
+              value={form.venueId}
+              onChange={(e) => { set("venueId", e.target.value); set("playingAreaId", ""); }}
+            >
+              {venues.map((v) => (
+                <option key={v.venue_id} value={v.venue_id}>
+                  {v.venue_name}{v.is_self ? " (this site)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {/* Pitch / area — only when the chosen venue has playing areas */}
+        {pitches.length > 0 && (
+          <div>
+            <label className="field-label">Pitch / area</label>
+            <select className="input" value={form.playingAreaId} onChange={(e) => set("playingAreaId", e.target.value)}>
+              <option value="">No specific pitch</option>
+              {pitches.map((pa) => (
+                <option key={pa.id} value={pa.id}>{pa.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="field-label">Location</label>
           <input className="input" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Pitch 2" />
@@ -461,6 +546,8 @@ function SessionDetailModal({ venueToken, session, onClose, onCancelled, onSerie
           {/* Session meta */}
           <div style={{ fontSize: 13, color: "var(--ink-3)", display: "flex", gap: 16, flexWrap: "wrap" }}>
             <span>{fmtDt(session.scheduled_at)}</span>
+            {session.venue_name && <span>🏟 {session.venue_name}{session.playing_area_name ? ` · ${session.playing_area_name}` : ""}</span>}
+            {session.venue_address && <span>{session.venue_address}</span>}
             {session.location && <span>📍 {session.location}</span>}
             {session.cohort_name && <span>Group: {session.cohort_name}</span>}
             {session.capacity && <span>Cap: {session.capacity}</span>}
