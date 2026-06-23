@@ -23,10 +23,12 @@ const { stripe, isConfigured, constructEvent } = require("./_stripe");
 module.exports.config = { api: { bodyParser: false } };
 
 async function readRawBody(req) {
-  // If a framework already buffered it, prefer that; else read the stream.
-  if (req.body && (Buffer.isBuffer(req.body) || typeof req.body === "string")) {
-    return Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body);
-  }
+  // CRITICAL: never touch req.body. On the @vercel/node runtime req.body is a LAZY
+  // GETTER that parses the JSON and CONSUMES the request stream on first access —
+  // after which the raw bytes are gone and Stripe signature verification fails with
+  // "No signatures found matching the expected signature for payload". The Next.js
+  // `bodyParser:false` config below is ignored by the bare @vercel/node runtime, so
+  // avoiding that getter is the only thing that actually preserves the raw body.
   const chunks = [];
   for await (const chunk of req) chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
   return Buffer.concat(chunks);
