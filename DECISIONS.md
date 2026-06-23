@@ -1,5 +1,26 @@
 # In or Out — Key Decisions Log
 
+## SESSION 188 — Venue People & Spaces IA PHASE 5 (final): drop Customers from rail + consistency sweep — EPIC COMPLETE
+*2026-06-23. NO migration. Venue app only; apps/inorout never touched. Closes the 5-phase
+Venue People & Spaces IA epic. Plan/handoff: VENUE_PEOPLE_IA_HANDOFF.md.*
+
+- **DECISION — the standalone "Customers" rail item is removed, but every `venue_customers` record
+  stays and stays reachable.** "Customer / main contact" is now a settable column on each team (Phase 4
+  `ContactPicker` → the `venue_customers` directory) plus the casual-bookings tab's detail/nudge modals,
+  so a dedicated Customers page is redundant menu weight. The records are the venue's people directory —
+  they are never deleted; only the nav entry goes. `CustomersView.jsx` survives as a component (TeamsView
+  imports its `NudgeModal`); only Dashboard's rail item / title / render branch / default import are removed.
+  No `customers` deep-link alias existed and Search/Notifications never targeted it, so nothing dangles.
+- **DECISION — Staff joins the one shared IA pattern (page-with-tabs + DataTable + ViewSubhead), it does
+  not keep its bespoke card grid.** StaffView was the last card-based People-group screen; it's rebuilt on
+  `TabbedPage` + two `DataTable`s (Match officials, Venue staff) with plain-English subheads — consistency
+  is the whole point of the epic (the operator learns ONE interaction model). The "Coaches & DBS" tab reuses
+  the Memberships `StaffTab` unchanged rather than re-implementing it — reuse over a parallel rebuild.
+- **DECISION — the Memberships operational overlap (enrol/freeze/cancel/grade) STAYS on the Memberships
+  screen; it is NOT folded into this sweep.** Relocating grading / fees / fight records / policies out of
+  MembershipsView is on the epic's explicit OUT-OF-SCOPE list — a separate, larger tidy. The brief Phase-3
+  overlap is accepted; closing the IA epic does not require dismantling MembershipsView.
+
 ## SESSION 187 — Stripe FULL build PHASE 6: collection, chasing & reporting (mig 408)
 *2026-06-23. Built/tested under Stripe TEST keys; live keys = Phase 7. Scope #16 pay-now links,
 #6.2 notification de-storm, #6.3 operator reconciliation. Additive — every existing member

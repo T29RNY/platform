@@ -1,10 +1,21 @@
 # Venue People & Spaces — IA Redesign (Handoff & Plan)
 
-> **STATUS (2026-06-23):** Plan locked. **Phase 1 SHIPPED+MERGED (PR #78). Phase 2 SHIPPED+MERGED
-> (PR #79, mig 409 — Teams page). Phase 3 SHIPPED+MERGED (PR #80, mig 410 — Members + Guardians).
-> Phase 4 SHIPPED this session (mig 411 — settable team contacts).** Venue-app only — the casual
-> football app (`apps/inorout/src`) is NEVER touched. Each phase ships + merges before the next
-> (cloud-session discipline). Next free migration when one is needed: **412**.
+> **STATUS (2026-06-23): 🏁🏁 EPIC COMPLETE.** All five phases shipped + merged. **Phase 1
+> (PR #78). Phase 2 (PR #79, mig 409 — Teams page). Phase 3 (PR #80, mig 410 — Members + Guardians).
+> Phase 4 (PR #81, mig 411 — settable team contacts). Phase 5 (this session, NO migration — drop
+> Customers from the rail + Staff consistency sweep).** Venue-app only — the casual football app
+> (`apps/inorout/src`) was NEVER touched. Next free migration: **412** (unchanged — Phase 5 needed none).
+>
+> **Phase 5 outcome:** the standalone **"Customers" rail item is removed** from `Dashboard.jsx`
+> (the `venue_customers` records stay — reachable via the Phase-4 `ContactPicker` + the casual-bookings
+> tab's detail/nudge modals; `CustomersView.jsx` survives as a component for TeamsView's `NudgeModal`).
+> **StaffView rebuilt** onto the shared `TabbedPage` + `DataTable` + `ViewSubhead` pattern (Match
+> officials + Venue staff tables, clickable rows → existing RefForm/StaffMemberForm; "Coaches & DBS"
+> reuses the Memberships `StaffTab` unchanged). The Memberships operational overlap (enrol/freeze/
+> cancel/grade) was DELIBERATELY left in place — relocating it is on the epic's OUT-OF-SCOPE list.
+> Gates: build venue clean, hygiene 7/7 on both changed files + hex hand-check clean, Playwright smoke
+> PASS (Customers gone, ContactPicker reaches the customer directory, Staff renders as tables,
+> tab-switch + row→edit-form work, 0 console errors). ⛔ owed manual venue deploy + real-device eyeball.
 >
 > **Phase 4 outcome (operator decisions):** each team gets TWO settable contact slots — a **Main
 > contact** + a **Secondary** column (+ Has/No-contact filter) on BOTH Teams tabs, via a new
@@ -157,10 +168,18 @@ still resolve.
 - **Gates passed:** rpc-security PASS (5 fns), EV 15-grp + leak 0, build venue + hygiene 7/7,
   casual-regression PASS (core additive-only), Playwright smoke PASS. ⛔ owed venue deploy + eyeball.
 
-### Phase 5 — Drop Customers from the rail + consistency sweep
-- Remove the **Customers** nav item (records remain, reachable via picker + search).
-- Final tables + plain-English subheadings on anything still card-based (Staff, leftovers).
-- **Backend:** none. **Gates:** build + hygiene + Playwright smoke.
+### Phase 5 — Drop Customers from the rail + consistency sweep  ✅ SHIPPED (NO migration, session 188) — EPIC COMPLETE
+- **Customers** nav item REMOVED from `Dashboard.jsx` (TABS item + TITLES + render branch + unused
+  default import). Records remain — reachable via the Phase-4 `ContactPicker` + the casual-bookings
+  detail/nudge modals. `CustomersView.jsx` kept (TeamsView imports its `NudgeModal`). No `customers`
+  deep-link alias existed; Search/Notifications never targeted it → nothing dangles.
+- **StaffView** rebuilt onto `TabbedPage` + two `DataTable`s + per-tab `ViewSubhead` (Match officials,
+  Venue staff; clickable rows → existing RefForm/StaffMemberForm; "Coaches & DBS" reuses the Memberships
+  `StaffTab` unchanged). It was the last card-based People-group screen.
+- **Memberships operational overlap left in place** (relocating grading/fees/etc. is OUT OF SCOPE).
+- **Backend:** none. **Gates passed:** build venue clean, hygiene 7/7 + hex hand-check clean, Playwright
+  smoke PASS (Customers gone, ContactPicker reaches the directory, Staff as tables, tab-switch +
+  row→edit-form, 0 console errors). EV / rpc-security / casual-regression N/A (no RPC, no supabase.js).
 
 ## SEQUENCING & RISK
 - Order 1→5, each merged before the next (avoid two PRs on shared files).

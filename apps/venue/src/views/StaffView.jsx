@@ -3,8 +3,8 @@ import { venueListStaff } from "@platform/core/storage/supabase.js";
 import RefForm from "./RefForm.jsx";
 import StaffMemberForm from "./StaffMemberForm.jsx";
 import Icon from "./Icon.jsx";
-import { SectionHead, EmptyState, StarRating } from "./atoms.jsx";
-import { getInitials } from "../lib/format.js";
+import { SectionHead, StarRating } from "./atoms.jsx";
+import { TabbedPage, DataTable } from "./PageKit.jsx";
 import { StaffTab as ClubCoachesTab } from "./MembershipsView.jsx";
 
 const ROLE_LABEL = {
@@ -12,24 +12,51 @@ const ROLE_LABEL = {
   groundstaff: "Groundstaff", coach: "Coach", other: "Staff",
 };
 
-// Staff — two surfaces under one rail item (session 178, Phase 0):
+// Staff — the People-group page, on the shared IA pattern (Venue People & Spaces
+// epic, Phase 5 consistency sweep): TabbedPage + DataTable + a plain-English
+// ViewSubhead, replacing the old chip switcher + .staff-grid cards.
 //  • "Venue staff & officials" — match officials (match_officials) + venue staff
-//    (venue_staff, mig 195). The original StaffView content.
+//    (venue_staff, mig 195), each a sortable/searchable table.
 //  • "Coaches & DBS" — per-club team managers/coaches + DBS/safeguarding records
-//    (moved here from the Memberships StaffTab; NOT a duplicate of the above).
+//    (the Memberships StaffTab; reused unchanged).
 export default function StaffView({ state, venueToken, onRefresh }) {
-  const [tab, setTab] = useState("venue");
+  const tabs = [
+    {
+      id: "venue",
+      label: "Venue staff & officials",
+      subhead: "Your match officials and venue team — reception, managers, groundstaff and admins. Open anyone to edit their details.",
+      render: () => <VenueStaffPanel state={state} venueToken={venueToken} onRefresh={onRefresh} />,
+    },
+    {
+      id: "coaches",
+      label: "Coaches & DBS",
+      subhead: "Coaches assigned to each club team, with their DBS / safeguarding records.",
+      render: () => <ClubCoachesTab venueToken={venueToken} />,
+    },
+  ];
+  return <TabbedPage tabs={tabs} />;
+}
+
+// Shared cell renderers for the two staff tables.
+const STATUS_FILTERS = [
+  { id: "active", label: "Active", test: (r) => r.active !== false },
+  { id: "inactive", label: "Inactive", test: (r) => r.active === false },
+];
+
+function ContactCell({ row }) {
+  const contacts = [row.phone, row.email].filter(Boolean);
+  if (contacts.length === 0) return <span className="text-mute">—</span>;
   return (
-    <div>
-      <span className="chips" style={{ marginBottom: "var(--gap)" }}>
-        {[["venue", "Venue staff & officials"], ["coaches", "Coaches & DBS"]].map(([v, l]) => (
-          <button key={v} className="chip" aria-pressed={tab === v} onClick={() => setTab(v)}>{l}</button>
-        ))}
-      </span>
-      {tab === "venue" && <VenueStaffPanel state={state} venueToken={venueToken} onRefresh={onRefresh} />}
-      {tab === "coaches" && <ClubCoachesTab venueToken={venueToken} />}
-    </div>
+    <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
+      {contacts.map((c, i) => <span key={i} className="chip-contact">{c}</span>)}
+    </span>
   );
+}
+
+function StatusCell({ row }) {
+  return row.active === false
+    ? <span className="text-mute">Inactive</span>
+    : <span>Active</span>;
 }
 
 function VenueStaffPanel({ state, venueToken, onRefresh }) {
@@ -50,10 +77,33 @@ function VenueStaffPanel({ state, venueToken, onRefresh }) {
 
   const reloadStaff = () => setReloadKey((k) => k + 1);
 
-  const orderedRefs = useMemo(() => [...refs].sort((a, b) => (b.active !== false) - (a.active !== false)), [refs]);
-  const orderedStaff = useMemo(() => (staff ? [...staff].sort((a, b) => (b.active !== false) - (a.active !== false)) : []), [staff]);
   const activeRefs = refs.filter((r) => r.active !== false).length;
   const activeStaff = (staff || []).filter((s) => s.active !== false).length;
+
+  const officialCols = useMemo(() => [
+    { key: "name", label: "Official", sortable: true,
+      render: (r) => <strong>{r.name}</strong> },
+    { key: "type", label: "Type",
+      render: (r) => <span style={{ textTransform: "capitalize" }}>{(r.employment_type || "freelance").replace("_", " ")}</span> },
+    { key: "rating", label: "Rating",
+      sortValue: (r) => Number(r.overall_rating) || 0,
+      render: (r) => (r.overall_rating != null ? <StarRating n={Math.round(Number(r.overall_rating))} /> : <span className="text-mute">—</span>) },
+    { key: "channel", label: "Preferred",
+      render: (r) => <span className="chip-contact preferred">{r.preferred_channel || "push"}</span> },
+    { key: "contact", label: "Contact", render: (r) => <ContactCell row={r} /> },
+    { key: "status", label: "Status", render: (r) => <StatusCell row={r} /> },
+  ], []);
+
+  const staffCols = useMemo(() => [
+    { key: "name", label: "Name", sortable: true,
+      render: (r) => <strong>{r.name}</strong> },
+    { key: "role", label: "Role",
+      render: (r) => `${ROLE_LABEL[r.role] || "Staff"}${r.notes ? ` · ${r.notes}` : ""}` },
+    { key: "channel", label: "Preferred",
+      render: (r) => <span className="chip-contact preferred">{r.preferred_channel || "email"}</span> },
+    { key: "contact", label: "Contact", render: (r) => <ContactCell row={r} /> },
+    { key: "status", label: "Status", render: (r) => <StatusCell row={r} /> },
+  ], []);
 
   return (
     <div>
@@ -63,24 +113,17 @@ function VenueStaffPanel({ state, venueToken, onRefresh }) {
             <Icon name="plus" size={14} /> Add official
           </button>
         </SectionHead>
-        {refs.length === 0 ? (
-          <EmptyState title="No officials yet" body="Add a referee to assign them to fixtures." />
-        ) : (
-          <div className="staff-grid">
-            {orderedRefs.map((ref) => (
-              <StaffCard
-                key={ref.id}
-                name={ref.name}
-                subtitle={(ref.employment_type || "freelance").replace("_", " ")}
-                rating={ref.overall_rating}
-                channel={ref.preferred_channel || "push"}
-                contacts={[ref.phone, ref.email].filter(Boolean)}
-                inactive={ref.active === false}
-                onClick={() => setRefForm({ open: true, row: ref })}
-              />
-            ))}
-          </div>
-        )}
+        <DataTable
+          columns={officialCols}
+          rows={refs}
+          getRowKey={(r) => r.id}
+          searchFields={["name", "phone", "email"]}
+          searchPlaceholder="Search officials…"
+          filters={STATUS_FILTERS}
+          initialSort={{ key: "name", dir: "asc" }}
+          onRowClick={(r) => setRefForm({ open: true, row: r })}
+          empty={{ title: "No officials yet", body: "Add a referee to assign them to fixtures." }}
+        />
       </section>
 
       <section>
@@ -89,24 +132,20 @@ function VenueStaffPanel({ state, venueToken, onRefresh }) {
             <Icon name="plus" size={14} /> Add staff
           </button>
         </SectionHead>
-        {staffErr && <EmptyState title="Couldn’t load staff" body={staffErr} />}
-        {!staffErr && orderedStaff.length === 0 && staff != null && (
-          <EmptyState title="No venue staff yet" body="Add reception, managers, groundstaff and admins here." />
-        )}
-        {orderedStaff.length > 0 && (
-          <div className="staff-grid">
-            {orderedStaff.map((m) => (
-              <StaffCard
-                key={m.id}
-                name={m.name}
-                subtitle={`${ROLE_LABEL[m.role] || "Staff"}${m.notes ? ` · ${m.notes}` : ""}`}
-                channel={m.preferred_channel || "email"}
-                contacts={[m.phone, m.email].filter(Boolean)}
-                inactive={m.active === false}
-                onClick={() => setStaffForm({ open: true, row: m })}
-              />
-            ))}
-          </div>
+        {staffErr ? (
+          <div className="dt-empty"><div className="dt-empty-title">Couldn’t load staff</div><div className="text-mute">{staffErr}</div></div>
+        ) : (
+          <DataTable
+            columns={staffCols}
+            rows={staff}
+            getRowKey={(r) => r.id}
+            searchFields={["name", "phone", "email"]}
+            searchPlaceholder="Search staff…"
+            filters={STATUS_FILTERS}
+            initialSort={{ key: "name", dir: "asc" }}
+            onRowClick={(r) => setStaffForm({ open: true, row: r })}
+            empty={{ title: "No venue staff yet", body: "Add reception, managers, groundstaff and admins here." }}
+          />
         )}
       </section>
 
@@ -119,27 +158,5 @@ function VenueStaffPanel({ state, venueToken, onRefresh }) {
           onClose={() => setStaffForm({ open: false, row: null })} onDone={reloadStaff} />
       )}
     </div>
-  );
-}
-
-function StaffCard({ name, subtitle, rating, channel, contacts = [], inactive, onClick }) {
-  return (
-    <button className={"staff-card" + (inactive ? " inactive" : "")} onClick={onClick} title="Edit" style={{ textAlign: "left", width: "100%" }}>
-      <div className="head">
-        <span className="avatar">{getInitials(name)}</span>
-        <div style={{ minWidth: 0 }}>
-          <div className="name">{name}</div>
-          <div className="role-line">
-            <span style={{ textTransform: "capitalize" }}>{subtitle}</span>
-            {rating != null && <span className="rating"><StarRating n={Math.round(Number(rating))} /></span>}
-          </div>
-        </div>
-      </div>
-      <div className="contact">
-        {channel && <span className="chip-contact preferred">{channel}</span>}
-        {contacts.map((c, i) => <span key={i} className="chip-contact">{c}</span>)}
-        {inactive && <span className="chip-contact">Inactive</span>}
-      </div>
-    </button>
   );
 }
