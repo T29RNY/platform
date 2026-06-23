@@ -1491,6 +1491,38 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   font-weight: 600;
 }
 
+/* Page kit — view subhead + tabbed pages (Venue People & Spaces IA, Phase 1) */
+.view-sub {
+  margin: 0 0 var(--gap-2);
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 70ch;
+}
+.view-tabs {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.view-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 8px 2px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.view-tab:hover { color: var(--ink-2); }
+.view-tab[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
 /* Teams */
 .teams-grid {
   display: grid;
