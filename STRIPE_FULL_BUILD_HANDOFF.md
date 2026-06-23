@@ -1,12 +1,12 @@
 # Stripe Full Build — Handoff & Plan
 
-> **STATUS (2026-06-23):** 🏁 **PHASE 1 + PHASE 2 SHIPPED + MERGED** (Phase 1: mig 403, PR #69, s181;
-> Phase 2: mig 404, PR #71, s182). Full Stripe build — no demo/post-demo split, one track. 21 scope
-> items (see coverage map). Built end-to-end against the **test keys already in place** (Stripe test
-> mode); **live keys go in last** (Phase 7), so go-live is a config change, not a code change.
-> **Next free migration = 405.** **NEXT = Phase 3** (mass invoicing — the headline operator action).
-> Re-confirm the next mig off `main` before any SQL (cloud-session discipline — migration numbers are
-> first-come). Kickoff prompt at the bottom.
+> **STATUS (2026-06-23):** 🏁 **PHASE 1 + PHASE 2 + PHASE 3 SHIPPED** (Phase 1: mig 403, PR #69, s181;
+> Phase 2: mig 404, PR #71, s182; Phase 3: mig 405, s183 — PR open). Full Stripe build — no demo/post-demo
+> split, one track. 21 scope items (see coverage map). Built end-to-end against the **test keys already in
+> place** (Stripe test mode); **live keys go in last** (Phase 7), so go-live is a config change, not a
+> code change. **Next free migration = 406.** **NEXT = Phase 4** (fixed-term & dated billing). Re-confirm
+> the next mig off `main` before any SQL (cloud-session discipline — migration numbers are first-come).
+> ⛔ Phase 3 OWED before merge: Playwright wizard smoke + Stripe test-mode invoice→paid→reconciled walk.
 
 ---
 
@@ -128,7 +128,29 @@ across all three hats.
 
 ---
 
-## PHASE 3 — Mass invoicing (the headline operator action: scope #6, #7, #8, #18)  ← NEXT
+## PHASE 3 — Mass invoicing (the headline operator action: scope #6, #7, #8, #18)  ✅ SHIPPED (mig 405, s183)
+
+**Delivered:** `venue_billing_runs` table + `venue_charges.billing_run_id`. The billable entity is a
+MEMBERSHIP — cohorts (tier/club/team) resolve to active `venue_memberships`; a bulk charge is one
+`venue_charges` row per included member, `source_type='membership'`, `source_id='<membership_id>:run:<run_id>'`,
+so it surfaces in `get_my_money` verbatim (no Phase-2 rework). RPCs: `venue_bulk_charge_preview` (READ,
+gated, will-invoice/auto-skip paused|left|already-billed + per-member pro-rated amount via `_prorated_first_charge`),
+`venue_bulk_charge_commit` (WRITE, one charge per included active membership, idempotent per run, writes the run
+record; cash payers excluded via `excluded_ids`), `venue_void_billing_run` (WRITE, run→voided + charges→refunded,
+payments intact), `venue_list_billing_runs` (READ), `stripe_record_charge_payment` (service_role webhook-only —
+reconciles a ONE-OFF Stripe Invoice via `metadata.iorout_charge_id`; the Phase-1 `stripe_record_invoice_payment`
+is subscription-keyed and can't match a one-off). `get_my_money`+`venue_get_charges` rebuilt to surface the run
+label. API `/api/stripe-bulk-invoices.js` (one finalized Stripe Invoice per pay-online charge on the connected
+account, reuses `get_or_link_stripe_customer`, idempotency_key per run+charge) + `invoice.paid` one-off webhook
+branch. UI: apps/venue PaymentsView 4-step wizard + billing-run list w/ Void-run. **DECISION (operator-confirmed):**
+mass invoicing bills membership-holders only; non-member billing is a clean later add (nullable
+`venue_charges.payer_profile_id` + a `get_my_money` UNION + `cohort_type='ad_hoc'` — `cohort_type` left OPEN TEXT
+for it). Gates: EV 8/8 + leak 0, rpc-security PASS, build inorout+venue + hygiene 7/7 PASS, casual-regression N/A
+(no `apps/inorout/src`). ⛔ OWED before merge: Playwright wizard smoke + Stripe test-mode invoice→paid→reconciled
+walk. NOTE: the Phase-2-deferred season one-off (mode=payment) Stripe payments now reconcile via this same
+one-off-invoice path once those checkouts attach `metadata.iorout_charge_id` (Phase 4 follow-up).
+
+<details><summary>Original Phase 3 spec (for reference)</summary>
 
 **Build:**
 - **mig 405** — bulk one-off charge engine:
@@ -160,9 +182,11 @@ preview→commit→void→leak-check 0), build + hygiene (venue app = hand-check
 casual-regression if consumer roster touches `src`, Playwright wizard smoke + Stripe test-mode
 invoice paid→reconciled.
 
+</details>
+
 ---
 
-## PHASE 4 — Fixed-term & dated billing (scope #9, #10, #19)
+## PHASE 4 — Fixed-term & dated billing (scope #9, #10, #19)  ← NEXT
 
 **Build:**
 - **mig 406** — store schedule/anchor metadata on `venue_memberships`
