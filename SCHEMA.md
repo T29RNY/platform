@@ -4,6 +4,24 @@
 Cross-reference this with `RPCS.md` for write paths. All writes go through
 SECURITY DEFINER RPCs — no direct client writes permitted.
 
+---
+
+## Stripe FULL build — Phase 1 schema (mig 403, session 181)
+
+- **NEW table `stripe_customers`** (RLS enabled, NO policies → definer-only access via
+  service_role RPCs): `id uuid pk`, `payer_profile_id uuid→member_profiles ON DELETE CASCADE`,
+  `account_id text` (the Stripe connected account the customer lives on), `stripe_customer_id text`,
+  `email text`, `created_at timestamptz DEFAULT now()`, **UNIQUE (payer_profile_id, account_id)**.
+  One Stripe customer per (payer human, connected account) — the payer's saved card is reused across
+  all their enrolments at that venue. Written only by `get_or_link_stripe_customer`.
+- **ALTERED `venue_payments_method_check`** — now allows `'stripe'`
+  (was cash|bank_transfer|card|other). Lets Stripe-collected money be distinguished from manual
+  for Phase 6 reporting. `venue_payments.kind` unchanged (payment|refund; a `'refund'` row stores a
+  POSITIVE amount and `_recompute_charge_status` subtracts it).
+- **`venue_memberships.payer_profile_id`** — now POPULATED at Stripe enrolment
+  (`stripe_complete_member_enrolment`, `COALESCE(payer, member)`). Column already existed; this is a
+  write-path change, not a schema change. Provider-agnostic "who pays" link for Phase 2.
+
 > **Session 59 (Phase 9 cont.) — no schema change.** The league reminder crons reuse the
 > existing `fixtures`, `team_players`, `players` (`status`/`phone`/`notification_channel` from
 > mig 056) and `notification_log` tables. New push `type` values

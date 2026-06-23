@@ -106,11 +106,40 @@ async function dispatch(event, accountId, supabase) {
         const fresh = await stripe.subscriptions.retrieve(obj.subscription, accountId ? { stripeAccount: accountId } : undefined);
         await supabase.rpc("apply_membership_subscription_status", { p_subscription_id: fresh.id, p_stripe_status: fresh.status });
       }
+      // On a PAID subscription invoice, record the payment into the venue ledger. The
+      // renewal cron skips Stripe subs (mig 403), so this is the sole ledger source for a
+      // Stripe member's recurring payments — nothing is silently lost. Idempotent per invoice.
+      if (event.type === "invoice.paid" && obj.subscription) {
+        const inv = await stripe.invoices.retrieve(obj.id, accountId ? { stripeAccount: accountId } : undefined);
+        await supabase.rpc("stripe_record_invoice_payment", {
+          p_subscription_id: inv.subscription,
+          p_invoice_id:      inv.id,
+          p_charge_ref:      inv.charge || null,
+          p_amount_pence:    inv.amount_paid ?? null,
+          p_paid_at:         inv.status_transitions?.paid_at
+                               ? new Date(inv.status_transitions.paid_at * 1000).toISOString()
+                               : new Date().toISOString(),
+        });
+      }
+      break;
+    }
+    case "charge.refunded": {
+      // Mirror the refund into the ledger against the original 'stripe' payment (found by
+      // charge id). One ledger 'refund' row per Stripe refund, idempotent on the refund id —
+      // so partials and charge.refunded re-fires are safe.
+      const ch = await stripe.charges.retrieve(obj.id, { expand: ["refunds"] }, accountId ? { stripeAccount: accountId } : undefined);
+      for (const r of (ch.refunds?.data || [])) {
+        await supabase.rpc("stripe_record_refund", {
+          p_charge_ref:   ch.id,
+          p_amount_pence: r.amount ?? null,
+          p_refund_id:    r.id,
+        });
+      }
       break;
     }
     case "checkout.session.completed": {
       const meta = obj.metadata || {};
-      const { invite_code, tier_id, period, member_profile_id, amount_pence } = meta;
+      const { invite_code, tier_id, period, member_profile_id, payer_profile_id, amount_pence } = meta;
       // Only process sessions we originated (membership checkout has these keys)
       if (!invite_code || !tier_id || !period || !member_profile_id) break;
       const subscriptionId = obj.subscription || null;
@@ -133,6 +162,7 @@ async function dispatch(event, accountId, supabase) {
         p_period:             period,
         p_member_profile_id:  member_profile_id,
         p_amount_pence:       amount_pence ? parseInt(amount_pence, 10) : null,
+        p_payer_profile_id:   payer_profile_id || null,
       });
       break;
     }

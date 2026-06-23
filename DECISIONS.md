@@ -1,5 +1,40 @@
 # In or Out — Key Decisions Log
 
+## SESSION 181 — Stripe FULL build PHASE 1 shipped: foundations & safety (mig 403)
+*2026-06-23. Branch `demo-runbook-pilot`. Built/tested under Stripe TEST keys; live keys = Phase 7.*
+
+First phase of the full Stripe build (`STRIPE_FULL_BUILD_HANDOFF.md`). Makes Stripe-live SAFE
+before any new payment feature. Decisions locked this phase:
+
+- **Renewal-cron double-bill guard.** `run_membership_renewals` loop (c) now skips any
+  membership with a live `stripe_subscription_id` (Stripe re-bills subscriptions itself; minting
+  an `unpaid` ledger charge would double-bill and make the #4 chase engine chase paid money). The
+  `invoice.paid` webhook is now the SOLE ledger source for a Stripe member's recurring payments.
+- **One Stripe customer per (payer human, connected account).** New `stripe_customers` mapping
+  table keyed `(payer_profile_id, account_id)`. The PAYER is the customer — always the signed-in
+  caller, including a guardian paying for a child — so the saved card/email belong to the payer and
+  every enrolment at that venue reuses it. Keyed on the **connected account** (not venue), because a
+  Stripe customer lives on the account; a payer at two venues legitimately holds two customers.
+  Race-safe via `ON CONFLICT` (the RPC returns the persisted winner; at worst one orphan customer
+  on a double-submit, accepted).
+- **invoice.* / refund.* land in the ledger.** `stripe_record_invoice_payment` mints an idempotent
+  PAID `venue_charges` row + a `method='stripe'` `venue_payments` row per invoice;
+  `stripe_record_refund` appends a `'refund'` row (positive amount; `_recompute_charge_status`
+  subtracts it) idempotent on the Stripe refund id. `venue_payments.method` gains `'stripe'` so
+  Phase 6 can split Stripe-vs-manual collection. Reconciliation cron (04:00) extended to list each
+  sub's paid invoices and repair any dropped `invoice.paid` webhook (idempotent).
+- **payer_profile_id persisted at enrolment.** `stripe_complete_member_enrolment` gains a trailing
+  `p_payer_profile_id` (old 8-arg DROPped → 9-arg), defaulting to the member when absent. Provider-
+  agnostic link for Phase 2's "memberships I pay for as guardian".
+- **Out of Phase 1 (noted forward):** season one-off (mode=payment, no invoice) payments still
+  don't land in the ledger — surfaced in Phase 2's money view. GoCardless recurring double-bill is
+  NOT guarded here (Stripe-scoped phase); revisit if GC auto-collection lands.
+
+Gates: rpc-security PASS (5 RPC surfaces — SECDEF/search_path/single-overload, all locked to
+service_role; Supabase default anon+authenticated grants on the new fns explicitly REVOKED), EV
+15/15 + leak 0, build PASS, hygiene clean (api/ out of hook scope; no console.log/hex introduced),
+casual-regression N/A (only `api/` + migration touched). **Next free mig = 404.**
+
 ## SESSION 181 — Pilot #3 reframed: FULL Stripe build, one track (scoping only)
 *2026-06-23. Plan = `STRIPE_FULL_BUILD_HANDOFF.md`. Branch `demo-runbook-pilot`. No code yet —
 this session scoped only.*
