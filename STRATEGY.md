@@ -263,10 +263,14 @@ teams in their league/area** — the network effect is the real prize.
 
 ### Prioritised backlog (work through one-by-one)
 
-> **NEXT SPRINT (to the ~2026-06-29 wider-mgmt demo): #8 → #9 → #4 → #10 + the #1 FA
-> feasibility spike.** Full scope + paste-ready kickoff prompt in
-> **`PILOT_DEMO_SPRINT_HANDOFF.md`**. Backlog #2 (org/team structure) is **COMPLETE**
-> (migs 389–393). Next free mig = 394.
+> **NEXT-SPRINT ITEMS ALL DONE (s180, to the ~2026-06-29 wider-mgmt demo):** #8 ✅ #9 ✅ #4 ✅
+> #10 ✅ #11 ✅ + the #1 FA spike ✅ (NO-GO verdict). Backlog #2 ✅ (migs 389–393). **#7 multi-venue
+> materially addressed** by the Venue OS nav epic (club_features follow the club to every venue +
+> membership scope honored across the club's venues, mig 401). Remaining roadmap: #12 reporting (un-
+> touched, biggest gap), #5 pitch priority/reserved times, #6 make team prioritisation *drive*
+> something, #3 activate Stripe (live keys), #1 Phase C AI-import (gated on a real FA snippet), #13
+> season setup. Next venue epic = venue-operator tournament create (Epic D, now unblocked by the
+> shipped `tournaments` flag). Next free mig = 403.
 
 | # | Ask | Status today | Effort | Demo priority |
 |---|-----|--------------|--------|---------------|
@@ -276,11 +280,11 @@ teams in their league/area** — the network effect is the real prize.
 | 4 | Coach invoice-chasing (auto reminders + who-hasn't-paid view) | ✅ **SHIPPED** (mig 398) — reminder cron CONFIRMED already covers membership arrears (`payment_due` kind, no change needed); new `club_manager_team_payments` powers a coach-facing **Subs & payments** roster (green Paid / red Owes £X) under "Message your team" in the consumer club view | Low–Med | ✅ done |
 | 5 | Internal vs external pitch booking + reserved/priority times | Pitch system built; priority layer not | Med | 🟠 show |
 | 6 | Team prioritisation system (some teams rank above others) | **Partial** — `club_teams.priority_rank` + ⭐ badge ship in the org chart (Phase 1, mig 389) but display-only; doesn't yet *drive* anything (e.g. pitch priority) | Med (to make it drive) | roadmap |
-| 7 | Multi-venue (train one site, play another) | Need to verify venue-scoping | Med | 🟠 mention |
+| 7 | Multi-venue (train one site, play another) | **Materially addressed (s180)** — the Venue OS nav epic split features into `venue_features` (per venue) + `club_features` (per club, follow the club to every venue), and Phase 2.5 (mig 401) made membership eligibility resolve across the club's venues (a member enrolled at one site is honored at the club's other sites). Verified by EV; byte-identical on today's single-venue data. **Remaining:** cross-venue fixtures/booking flows if a pilot needs them; cross-CLUB passes deferred (settlement + safeguarding, DECISIONS s180) | Med | 🟢 demo the model |
 | 8 | Opposition-coach matchday info link | ✅ **SHIPPED** (migs 394–396) — `/matchday/<code>` public branded link (home team, kickoff, pitch, ref, address/directions, ground rules); live demo `app.in-or-out.com/matchday/demofalcons01` | Low | ✅ done |
 | 9 | Embed code (fixtures/results on own website) | ✅ **SHIPPED** (mig 397) — `/embed/league/<code>` iframe widget (our fixtures+results, our design) + FA official snippet stored per league for the club's own site | Low | ✅ done |
-| 10 | Simplify Venue OS UI ("too many similar-sounding options") | **Phase 0 (IA cleanup) ✅ SHIPPED (s178, no mig)** — rail 5 groups (Run · People · Programmes · Competition · Club & admin), Fixtures surfaced, Memberships 13→5 chips, coach/DBS Staff moved to top-level Staff, venue-hex tokenised. Remaining = Epic A flag engine Phases 1–4. Full plan in MODULAR_PLATFORM_HANDOFF.md. Next session = Phase 1 (flag foundation). | Med (~5–6 sessions whole epic) | 🔴 → Phase 1 next |
-| 11 | Modularity (clubs pick/pay per module; operator toggles) | **= Epic A Phase 2** (operator per-club/venue feature toggles) — delivered by the same nav epic. Two flag tables (venue_features + club_features); default-all-on; tiers deferred | Med–High | 🔴 → Epic A Phase 2 |
+| 10 | Simplify Venue OS UI ("too many similar-sounding options") | ✅ **COMPLETE (s180)** — full Venue OS nav epic shipped: Phase 0 IA cleanup (rail 5 groups, Memberships 13→5, Fixtures surfaced), Phase 1 flag foundation + 3-layer gate (mig 399), Phase 2 toggle UI + dependency graph + discipline axis (mig 400), Phase 2.5 membership scope (mig 401), Phase 3 presets (mig 402), Phase 4 rail wiring. Default-all-on (zero ship-day change); a configured club collapses the rail ~18→8 | — | ✅ done |
+| 11 | Modularity (clubs pick/pay per module; operator toggles) | ✅ **COMPLETE (s180)** — operator "Features" screen (manage_facility-gated) flips per-venue + per-club features on/off (migs 400) with a server-enforced dependency graph + discipline axis, plus "Quick setup" package presets (mig 402). Two flag tables (venue_features + club_features); default-all-on; commercial tier/pricing decision deliberately deferred (presets are shortcuts, flags are truth) | — | ✅ done |
 | 12 | Reporting / data | Not covered | High | roadmap |
 | 13 | Season setup once + ad-hoc changes | Partial | Low–Med | mention |
 | 14–17 | Pitch assignments / reception view / ref view / live data | Built ✅ — all "loved/amazing" | — | 🟢 feature hard |
