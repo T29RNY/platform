@@ -419,9 +419,10 @@ function BulkInvoiceWizard({ venueToken, onClose, onDone }) {
         const opts = [];
         (tiersRes?.tiers ?? tiersRes ?? []).forEach((t) => opts.push({ key: `tier:${t.tier_id}`, type: "tier", ref: t.tier_id, label: `Tier · ${t.name}` }));
         for (const c of (clubs ?? [])) {
-          opts.push({ key: `club:${c.club_id}`, type: "club", ref: c.club_id, label: `Whole club · ${c.name}` });
+          // venue_list_clubs returns `id` (not club_id); club_list_teams returns `team_id` + `name`.
+          opts.push({ key: `club:${c.id}`, type: "club", ref: c.id, label: `Whole club · ${c.name}` });
           try {
-            const teams = await clubListTeams(venueToken, c.club_id);
+            const teams = await clubListTeams(venueToken, c.id);
             (teams ?? []).forEach((tm) => opts.push({ key: `team:${tm.team_id}`, type: "team", ref: tm.team_id, label: `Team · ${tm.name}` }));
           } catch (e) { /* a club with no team structure is fine */ }
         }
