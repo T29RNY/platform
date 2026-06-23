@@ -358,57 +358,57 @@ smoke, dedupe proven against the reminder cron.
 
 ---
 
-## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 5
+## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 6
 
 ```
-Read STRIPE_FULL_BUILD_HANDOFF.md in full (Phases 1 + 2 + 3 + 4 are SHIPPED+MERGED — Phase 1 mig 403
-PR #69, Phase 2 mig 404 PR #71, Phase 3 mig 405 PR #73, Phase 4 mig 406 PR #75; Phase 4 RUNTIME WALK
-PASSED s185 — read the STATUS block + the Phase 5 section), then RPCS.md + SCHEMA.md (venue_memberships
-incl stripe_subscription_id/stripe_customer_id/stripe_schedule_id/phase_end_at/billing_starts_at/
-payment_state/period/renews_at/pricing_model; venue_charges + venue_payments ledger; stripe_customers
-mig 403; _prorated_first_charge mig 393), then BUGS.md head + GO_LIVE_ISSUES.md #19 (the webhook
-raw-body + secret outage — so you don't re-trip it). Also read api/stripe-webhook.js (subscription +
-invoice + refund lifecycle), api/stripe-member-checkout.js (how customers/subs are created), and the
-existing manual-void path on venue_charges. We are building the full Stripe payments platform
-phase-by-phase, one phase shipped + merged before the next (cloud-session discipline). Built/tested on
-the TEST keys already in place; LIVE keys are Phase 7 only — NO code path may assume live keys.
+Read STRIPE_FULL_BUILD_HANDOFF.md in full (Phases 1–5 are SHIPPED+MERGED — P1 mig 403 PR #69, P2 mig 404
+PR #71, P3 mig 405 PR #73, P4 mig 406 PR #75, P5 mig 407 PR #76; P4 runtime walk PASSED s185, P5
+test-mode walk PASSED s186 — read the STATUS blocks + the Phase 6 section), then RPCS.md + SCHEMA.md
+(venue_charges + venue_payments ledger; venue_billing_runs mig 405; venue_memberships money columns;
+notification_log shape), BUGS.md head + GO_LIVE_ISSUES.md #19 (webhook raw-body + secret outage — don't
+re-trip it). Also read: the #4 chase engine (mig 398 — paid/unpaid pills + auto-reminders + the reminder
+cron), api/stripe-webhook.js, api/stripe-bulk-invoices.js (how a pay-online run is invoiced), the
+existing venue_get_charges / venue_get_billing_status readers, and apps/venue PaymentsView. We build the
+full Stripe payments platform phase-by-phase, one phase shipped + merged before the next (cloud-session
+discipline). Built/tested on the TEST keys in place; LIVE keys are Phase 7 only — NO code path may
+assume live keys.
 
-CONFIRM next free mig off origin/main (should be 407; local main may be stale — check origin/main).
+CONFIRM next free mig off origin/main (should be 408; local main may be stale — check origin/main).
 Then run a full AUDIT -> VERIFY (review) -> EXECUTE -> VERIFY -> COMMIT cycle (skills/audit.md FIRST,
-report findings before editing anything). AUDIT the existing customer-reuse (stripe_customers /
-get_or_link_stripe_customer mig 403), the ledger void path, and how the webhook already handles
-subscription.updated/deleted + charge.refunded BEFORE designing — Phase 5 is lifecycle on top of the
-objects Phases 1-4 already create, not a new money path.
+report findings before editing anything). AUDIT the #4 reminder cron + notification_log + how a charge
+knows its pay link (Stripe hosted-invoice URL vs the venue payment_link vs the new billing-portal)
+BEFORE designing — Phase 6 is collection/reporting on top of the charges Phases 1–5 already create, not
+a new money path.
 
-PHASE 5 — Lifecycle management (scope #11, #12, #13, #20, #21):
-- Stripe Billing Portal (#11): new api/stripe-billing-portal.js -> returns a portal session URL for the
-  signed-in member (their REUSED customer) to update card / cancel / pause. The webhook already handles
-  the resulting subscription.updated/deleted -> apply_membership_subscription_status; verify that loop.
-- mig 407 — bulk price change (#12, +pro-rated #20): venue_bulk_price_change(token, cohort, new_price,
-  effective_date). For Stripe-sub members push the new price to their sub WITH proration (proration must
-  agree with mig-393 Option A — round up, member's favour); for non-Stripe (cash) members update the
-  ledger amount. Gate on manage_memberships; venue token = anon backdoor, auth enforced inside (grant
-  anon per the venue_* RPC gotcha). Audit every write (Hard Rule #9). Idempotent.
-- Refunds via Stripe (#13, +pro-rated #21): venue_refund_charge(token, charge_id, amount|full) -> Stripe
-  refund on a Stripe-collected charge (today only a manual ledger void exists); pro-rated "unused
-  portion" refund reuses the mig-393 maths; reconcile back to the ledger via the existing
-  charge.refunded -> stripe_record_refund webhook branch (idempotent on the refund id).
+PHASE 6 — Collection, chasing & reporting (scope #16, #6.2, #6.3):
+- Pay-now links in chase reminders (#16): the #4 reminder email/pill carries the Stripe hosted-invoice /
+  Billing-Portal pay link for online-enabled charges (cash-only charges keep the manual nudge). Decide
+  where the link comes from per charge: a bulk pay-online run already has a Stripe Invoice (hosted URL);
+  a recurring sub member uses the Billing Portal; a cash charge has none.
+- Notification de-storm (#6.2): a bulk run + the reminder cron must dedupe via notification_log so a
+  member isn't double-emailed, and a large blast is throttled. Prove the dedupe against the reminder
+  cron (two runs in a window → one send).
+- Operator reconciliation view (#6.3): per-run + per-period raised/paid/overdue, collection rate,
+  Stripe-vs-manual split (venue_payments.method='stripe' vs cash/card) — extend venue_get_billing_status
+  / venue_list_billing_runs + PaymentsView. Read-only (no audit).
 
-GATES: rpc-security-sweep (migs 407 + every RPC added/changed); ephemeral-verify (price-change + refund
-against your OWN _e2e_ fixture, never touch demo/prod rows, leak-check 0); build + hygiene (apps/venue
-hex hand-check if touched); casual-regression ONLY IF apps/inorout/src is touched; Stripe TEST-MODE walk
-(use the Stripe CLI test-clock pattern proven s185 + the live test-mode webhook resend pattern — see
-GO_LIVE #19): prove a price-change pushes to the sub with the right proration, and a refund reaches
-Stripe + lands in the ledger. ⛔ also still owed from Phase 3: the invoice.paid -> ledger reconcile walk
-on a REAL PAYING member (open-ended monthly that charges now) — fold it into this test-mode session
-since you'll have the webhook + CLI set up anyway. Update RPCS/SCHEMA/DECISIONS/BUGS/FEATURES in the
-same commit; then PR -> merge to main before Phase 6.
+GATES: rpc-security-sweep (any RPC added/changed — single overload, search_path pinned, venue_* grant
+anon+auth per the gotcha, reads no-audit / writes audited Hard Rule #9); ephemeral-verify (any new write
+RPC against your OWN _e2e_ fixture, never touch demo/prod rows, leak-check 0); build + hygiene (apps/venue
+hex hand-check if touched); casual-regression ONLY IF apps/inorout/src is touched; Playwright PaymentsView
+smoke. If a pay-link path is added, a Stripe TEST-MODE check that the hosted-invoice/portal URL resolves
+(reuse the s186 CLI sandbox). ⛔ STILL OWED from earlier phases — fold in if you set up the webhook+CLI:
+the carried Phase-3 invoice.paid -> ledger reconcile on a REAL PAYING member through the DEPLOYED webhook
+on a CONNECTED account (needs a connected-account test checkout); the real-iPhone walk of the Phase-5
+member "Manage card / cancel" button. Update RPCS/SCHEMA/DECISIONS/BUGS/FEATURES in the same commit; then
+PR -> merge to main before Phase 7.
 
 GO-LIVE REMINDER (do NOT action now, just don't break it): the webhook is ONE platform-level Connect
-endpoint; its whsec is set once in Vercel. The LIVE destination will have its own whsec to copy at
-Phase 7 (GO_LIVE #19). Clubs/venues connect their own Stripe via Express but never touch the webhook.
+endpoint; its whsec is set once in Vercel. The LIVE destination will have its OWN whsec to copy at Phase
+7 (GO_LIVE #19) or it's a 100% day-one outage. Clubs/venues connect their own Stripe via Express but
+never touch the webhook.
 
-NOTE: Phase 5 is mostly api/ + a migration + venue UI for the portal entry / price-change action.
-Design additively so today's members are byte-identical until an operator actually triggers a
-price-change or refund.
+NOTE: Phase 6 is mostly readers + the reminder cron + venue UI. Design additively so today's members are
+byte-identical until an operator sends a reminder or opens the reconciliation view; no member is ever
+double-emailed.
 ```
