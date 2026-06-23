@@ -1,5 +1,28 @@
 # In or Out — Key Decisions Log
 
+## SESSION 182 — Stripe FULL build PHASE 2 shipped: unified member money view (mig 404)
+*2026-06-23. Branch `demo-runbook-pilot`. Built/tested under Stripe TEST keys; live keys = Phase 7.*
+
+- **One auth.uid()-scoped read aggregates all money streams.** `get_my_money()` mirrors `get_my_world`'s
+  identity model — the person spine bridges the two worlds keyed differently (casual fees by player
+  token / `people.id`; memberships by `member_profiles.id`). The "Dave" persona sees own + children's
+  subs + casual match fees in one place. UI: a "My money" section in `MemberProfile.jsx` (the authed
+  member surface) — casual surfaces (PlayerView/PlayerProfile) untouched; purely additive.
+- **Casual logic is NOT modified.** `get_my_payment_history` (mig 039, token-scoped) stays as-is;
+  `get_my_money` reads the same `payment_ledger` rows by person and returns the identical row shape so
+  `dbToLedger` maps them verbatim. **Pence vs pounds:** membership money is pence, casual is whole-pounds
+  `numeric` — the two are returned in separate arrays and never summed across streams.
+- **Memberships I'm responsible for = own ∪ as-payer ∪ as-guardian, deduped.** Uses
+  `venue_memberships.payer_profile_id` (populated by Phase 1) plus `member_guardians` as a safety net for
+  legacy/null-payer rows. Each row tagged `who_for` ('self' or the child's name) + `is_self`.
+- **DECISION — season one-off (mode=payment) Stripe payments deferred to Phase 3.** Phase 1 recorded
+  `invoice.*` only, so `mode=payment` season checkouts aren't in the ledger yet. `get_my_money` is
+  correct & complete for everything Phase 1 records; the gap closes when Phase 3 brings Stripe Invoices
+  + their reconciliation path. Surfacing Stripe-direct payments in the money view waits for that.
+- **Real-iPhone PWA walk OWED.** None of Hard Rule #13's enumerated files changed (App.jsx / PlayerView /
+  routing / manifest / supabase client config) — only the additive `MemberProfile.jsx` section + additive
+  wrapper. Device walk of the "My money" section still owed (operator) as good practice.
+
 ## SESSION 181 — Stripe FULL build PHASE 1 shipped: foundations & safety (mig 403)
 *2026-06-23. Branch `demo-runbook-pilot`. Built/tested under Stripe TEST keys; live keys = Phase 7.*
 
