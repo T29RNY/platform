@@ -18,8 +18,10 @@ self-service Billing Portal, bulk price change [Option A: applies next renewal, 
 Stripe refunds [full / pro-rated-unused / custom]; built & tested on TEST keys, test-mode walk owed),
 #5 pitch priority/reserved times (pitch system
 built, priority layer not), #6 team prioritisation (⭐ display-only, doesn't drive anything yet),
-#7 multi-venue (feature-ownership + membership scope shipped, mig 401), #13 season setup (partial).
-⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
+#7 multi-venue (access layer shipped mig 401; **activity layer SCOPED s188 → `MULTI_VENUE_HANDOFF.md`**:
+same-operator only, Phase 1 venue-anchor club_sessions / Phase 2 cross-venue fixtures / Phase 3 optional
+occupancy — pilot club confirmed 2 same-operator venues w/ pitches, training+matches at either),
+#13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
 + demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
 **Venue OS nav epic (closes backlog #10 nav + #11 modularity) — Phase 0 SHIPPED (s178, no mig).**
