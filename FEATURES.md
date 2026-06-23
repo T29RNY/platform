@@ -88,8 +88,22 @@ forces memberships, partial-apply leaves absent keys, full bundle prunes the row
 venue build + hygiene 7/7, Playwright boot smoke on demo (applied "League club" to Finbar's FC → coaching/
 tournaments/public_web off, memberships lock lifted, DB matched, highlight moved; "Full club" restored to 0
 rows; 0 console errors), casual-regression PASS via additive-diff (packages/core +2 wrappers, no apps/inorout).
-⛔ owed real-device venue walk (Phases 0–3). **Next free mig = 403.** Then Phase 4 (rail 18→8 wiring). Full
-phased plan in **MODULAR_PLATFORM_HANDOFF.md**.
+⛔ owed real-device venue walk (Phases 0–3). **Next free mig = 403.**
+
+**Phase 4 — rail modulation wiring SHIPPED (s180, NO migration). 🏁 VENUE OS NAV EPIC COMPLETE (closes
+backlog #10 nav + #11 modularity).** The flag+discipline rail gates were already live (Phases 1–2); Phase 4
+gated the last always-on items that belong to a feature — **Teams + Players** (the league/competition
+roster: "every team active across the venue's competitions") now carry `flag: "competition"` (nav + route,
+auto via VIEW_FLAG) + the discipline `competition` kind in `featureRelevance.js` (so a non-team-sport venue
+hides them too). Everything else verified genuinely core (Operations/Payments/Customers/Staff/QR/Integrations)
+or already gated. Read-only directories → no write RPC to guard → no migration. Gates: venue build + hygiene
+7/7, discipline logic 7/7 unit (Teams/Players: football shows, gym/boxing hide, union shows, none/other
+fail-open), **Playwright collapse proof on demo** (set all 3 clubs "Match-day only" + venue "Bookings only"
+→ rail collapsed 21→**9** items: Programmes + Competition groups fully hidden, Memberships/Teams/Players
+gone, only Run·Customers·Staff·admin left → restored to full rail + 0 feature rows, 0 console errors),
+casual-regression trivially clean (apps/venue only — no packages/core, no apps/inorout). The "18→~8 per
+configured club" target is met (9 here, →~7 once Access/Features hide for a non-manager login). ⛔ owed
+real-device venue walk (Phases 0–4). Full phased plan in **MODULAR_PLATFORM_HANDOFF.md**.
 
 **#8 Opposition-coach matchday link + the FA-import spine — Phase A SHIPPED (mig 394).** New
 `club_leagues` + `club_fixtures` RPC-only tables let a club hold its own home/away games vs

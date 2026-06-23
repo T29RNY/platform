@@ -5,6 +5,21 @@
 `demo-runbook-pilot` (the s178+pilot+Phase 1 stack was PR'd + merged to main first — PR #62 — per
 cloud-session discipline, before Phase 2 started).*
 
+**Decision (s180, Phase 4 SHIPPED — 🏁 VENUE OS NAV EPIC COMPLETE, no migration): the rail-collapse
+deliverable is gating the last always-on items that belong to a feature; everything else is genuinely
+core.** The flag + discipline rail gates were already live (Phases 1–2), so Phase 4 was a focused audit,
+not new machinery. Audit of the always-on items found exactly two miscategorised: **Teams + Players** —
+the venue app's TeamsView/PlayersView are the LEAGUE/competition roster ("every team active across the
+venue's competitions"; a non-competition venue sees them empty), so they now carry `flag: "competition"`
+(nav + route via the auto-derived VIEW_FLAG) and the `competition` discipline kind. The rest were
+confirmed correctly classified — Operations/Payments/Customers(CRM)/Staff/QR/Integrations are genuinely
+always-on; Access/Features are role-gated; everything else was already flag+discipline gated. Teams/Players
+are read-only directories, so nav+route gating suffices — no write RPC to guard, hence NO migration. The
+"18→~8 per configured club" target was proven on demo (all clubs Match-day-only + venue Bookings-only →
+rail 21→9, both Programmes and Competition groups fully hidden). The epic (backlog #10 nav + #11
+modularity) is now COMPLETE: Phase 0 IA, Phase 1 flags + 3-layer gate, Phase 2 toggle UI + dependency
+graph + discipline axis, Phase 2.5 membership scope, Phase 3 presets, Phase 4 rail wiring.
+
 **Decision (s180, Phase 3 SHIPPED — mig 402): package presets are CLIENT-SIDE flag-sets + two generic
 atomic bulk-apply RPCs; no preset table, no `tier` enum.** Per the locked Epic A design "packages are
 shortcuts, flags are truth," a preset adds NO data model — it's just a named target flag-set. The
