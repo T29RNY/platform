@@ -1,12 +1,17 @@
 # Stripe Full Build — Handoff & Plan
 
-> **STATUS (2026-06-23):** 🏁 **PHASE 1 + PHASE 2 + PHASE 3 SHIPPED** (Phase 1: mig 403, PR #69, s181;
-> Phase 2: mig 404, PR #71, s182; Phase 3: mig 405, s183 — PR open). Full Stripe build — no demo/post-demo
-> split, one track. 21 scope items (see coverage map). Built end-to-end against the **test keys already in
-> place** (Stripe test mode); **live keys go in last** (Phase 7), so go-live is a config change, not a
-> code change. **Next free migration = 406.** **NEXT = Phase 4** (fixed-term & dated billing). Re-confirm
-> the next mig off `main` before any SQL (cloud-session discipline — migration numbers are first-come).
-> ⛔ Phase 3 OWED before merge: Playwright wizard smoke + Stripe test-mode invoice→paid→reconciled walk.
+> **STATUS (2026-06-23):** 🏁 **PHASE 1 + PHASE 2 + PHASE 3 SHIPPED + MERGED** (Phase 1: mig 403, PR #69,
+> s181; Phase 2: mig 404, PR #71, s182; Phase 3: mig 405, PR #73, s183 — MERGED to main 2026-06-23). Full
+> Stripe build — no demo/post-demo split, one track. 21 scope items (see coverage map). Built end-to-end
+> against the **test keys already in place** (Stripe test mode); **live keys go in last** (Phase 7), so
+> go-live is a config change, not a code change. **Next free migration = 406.** **NEXT = Phase 4**
+> (fixed-term & dated billing). Re-confirm the next mig off `main` before any SQL (cloud-session discipline
+> — migration numbers are first-come). Kickoff prompt for Phase 4 at the bottom.
+>
+> ⛔ **Phase 3 still-owed runtime walk:** the Playwright wizard smoke is DONE (s183 — caught + fixed the
+> `venue_list_clubs.id` cohort-picker bug). The **Stripe test-mode invoice→paid→reconciled walk** is the
+> one remaining Phase-3 verification (needs a Stripe Connect test account actually creating invoices) —
+> fold it into the start of Phase 4 (which is all Stripe test-clock work anyway).
 
 ---
 
@@ -307,56 +312,54 @@ smoke, dedupe proven against the reminder cron.
 
 ---
 
-## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 3
+## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 4
 
 ```
-Read STRIPE_FULL_BUILD_HANDOFF.md in full (Phases 1 + 2 are SHIPPED+MERGED — Phase 1 mig 403
-PR #69, Phase 2 mig 404 PR #71 — read their delivered lists), then RPCS.md + SCHEMA.md
-(venue_charges incl source_type CHECK + UNIQUE(source_type,source_id,COALESCE(team_id,'')),
-venue_payments incl kind/method/external_ref/voided_at, venue_memberships, venue_membership_tiers
-+ venue_tier_prices, member_profiles/member_guardians, stripe_customers, _prorated_first_charge
-mig 393), then BUGS.md head. We are building the full Stripe payments platform phase-by-phase,
-one phase shipped + merged before the next (cloud-session discipline). Built/tested on the TEST
-keys already in place; LIVE keys are Phase 7 only — NO code path may assume live keys.
+Read STRIPE_FULL_BUILD_HANDOFF.md in full (Phases 1 + 2 + 3 are SHIPPED+MERGED — Phase 1 mig 403
+PR #69, Phase 2 mig 404 PR #71, Phase 3 mig 405 PR #73 — read their delivered lists), then RPCS.md
++ SCHEMA.md (venue_memberships incl stripe_subscription_id/stripe_customer_id/stripe_price_id/
+payment_state/period/renews_at/pricing_model, venue_membership_tiers incl pricing_model+season_start
++season_end+proration_basis+joining_fee_pence, _prorated_first_charge mig 393), then BUGS.md head.
+Also read api/stripe-member-checkout.js (how subscriptions are created today) + api/stripe-webhook.js
+(subscription lifecycle + invoice.paid) + run_membership_renewals (mig 403 guard). We are building the
+full Stripe payments platform phase-by-phase, one phase shipped + merged before the next (cloud-session
+discipline). Built/tested on the TEST keys already in place; LIVE keys are Phase 7 only — NO code path
+may assume live keys.
 
-START PHASE 3 (mass invoicing — the headline operator action, scope #6 + #7 + #8 + #18). First
-CONFIRM next free mig off main (should be 405; local main may be stale — check origin/main).
-Then run a full AUDIT -> EXECUTE -> VERIFY -> COMMIT cycle (skills/audit.md FIRST, report before
-editing). AUDIT how venue_charges/venue_payments are created + voided today (reuse venue_record_payment
-/ venue_void_payment / _recompute_charge_status patterns, mig 181) and how _prorated_first_charge
-works BEFORE designing anything.
+FIRST, close out the one owed Phase-3 runtime gate: a Stripe test-mode invoice -> paid -> reconciled
+walk (commit a small _e2e_ pay-online run on a throwaway fixture OR use a Stripe test clock; confirm the
+invoice.paid webhook one-off branch -> stripe_record_charge_payment marks the ledger charge paid). Then
+START PHASE 4 (fixed-term & dated billing, scope #9 + #10 + #19).
 
-- mig 405 — bulk one-off charge engine + a new venue_billing_runs table (who/what/when/totals/
-  status) with a run_id on the charges it creates:
-  - venue_bulk_charge_preview(token, cohort, amount, due_date, ...) -> every member in the cohort
-    (team / tier / whole club) with status: will-invoice OR auto-skip + reason (already-paid|paused|
-    left). READ-only preview.
-  - venue_bulk_charge_commit(token, run spec, excluded_ids[]) -> one venue_charges row per INCLUDED
-    member; idempotent per run key; writes the billing_run record. (WRITE -> EV required.)
-  - venue_void_billing_run(token, run_id) -> soft-void the whole run, mirroring the venue_payments
-    void pattern. (WRITE -> EV required.)
-  - Pro-rated mass invoicing (#18): reuse _prorated_first_charge (mig 393, Option A round-up) for
-    late joiners in a season-fee run — ONE pro-rating engine, do not reinvent.
-  - All write RPCs: SECDEF, search_path pinned, gated on manage_memberships, audited (Hard Rule #9),
-    venue-token path = grant anon + authenticated (auth enforced inside via resolve_venue_caller —
-    the venue_* RPC gotcha; mig-175 authenticated-only applies ONLY to auth.uid()-only RPCs).
-  - Stripe Invoices for online-payable charges (#7): when "let them pay online" is on, create a
-    Stripe INVOICE per member on the connected account using the Phase-1 reused customer
-    (get_or_link_stripe_customer), finalize it, Stripe emails the hosted pay page; the invoice.paid
-    webhook (already wired Phase 1 via stripe_record_invoice_payment) marks the ledger charge paid.
-    Use a Stripe idempotency_key per (run, member). TEST keys only.
-- UI: apps/venue Payments (+ consumer coach "Subs & payments" roster IF it touches src) — a 4-step
-  wizard: (1) cohort w/ live count, (2) charge label+amount+due date+pay-online toggle, (3)
-  INTERACTIVE preview (tick/untick individuals, auto-skips locked w/ reason, running total), (4)
-  type-to-confirm total -> Send. Plus a billing-run list with Void-run.
+CONFIRM next free mig off origin/main (should be 406; local main may be stale — check origin/main).
+Then run a full AUDIT -> VERIFY (review) -> EXECUTE -> VERIFY -> COMMIT cycle (skills/audit.md FIRST,
+report before editing). AUDIT how api/stripe-member-checkout.js creates a subscription today
+(mode:'subscription', PERIOD_INTERVALS) and how stripe_complete_member_enrolment + the webhook persist
+stripe_subscription_id, BEFORE designing anything — Phase 4 changes the SHAPE of the Stripe object
+created at checkout, not the ledger.
 
-GATES: rpc-security-sweep (3 new write RPCs); ephemeral-verify (own _e2e_ cohort:
-preview -> commit -> void -> leak-check 0; assert auto-skip reasons + idempotency + pro-rated
-late-joiner amount); build + hygiene (apps/venue = hand-check hex, no token vars); casual-regression
-ONLY IF the consumer roster touches apps/inorout/src; Playwright wizard smoke + Stripe test-mode
-invoice paid -> reconciled walk. Update RPCS/SCHEMA/DECISIONS/BUGS/FEATURES same commit; then
-PR -> merge to main before Phase 4.
+- mig 406 — store schedule/anchor metadata on venue_memberships (stripe_schedule_id, phase_end_at,
+  billing_starts_at; additive nullable). The renewal cron (run_membership_renewals) must leave
+  schedule-backed / future-anchored subs alone exactly like it already skips stripe_subscription_id.
+- Subscription Schedules (#9): for season-length recurring plans, api/stripe-member-checkout.js creates
+  a Stripe Subscription SCHEDULE (phases Sept->June, end_behavior:'cancel') instead of an open-ended
+  sub — so U12s pay monthly Sept->June then AUTO-STOP (no summer billing). Persist stripe_schedule_id.
+- Future start-date anchoring (#10): billing_cycle_anchor / trial_end so billing begins on the season
+  start date, not signup day (sign up in July -> first charge 1 Sept).
+- Mid-cycle proration on recurring subs (#19): set proration_behavior so a mid-month joiner's first
+  charge is the part-period — MUST agree with the mig-393 Option A convention (round up, member's
+  favour) so the member never sees two different numbers vs our ledger pro-rating.
+- Also fold in the Phase-2/3-deferred season one-off (mode:'payment') reconcile: make those checkouts
+  attach metadata.iorout_charge_id (or mint the ledger charge + invoice) so they land in the ledger via
+  the Phase-3 one-off path (stripe_record_charge_payment), not silently.
 
-NOTE: Phase 2 deferred season one-off (mode=payment) Stripe payments to here — once Phase 3's
-Stripe Invoice path + reconciliation lands, confirm those one-offs reconcile into the ledger too.
+GATES: rpc-security-sweep (any RPC added/changed — mig 406); ephemeral-verify (schedule/anchor metadata
+write + cron-leaves-schedule-backed-subs-alone, own _e2e_ fixture, leak-check 0); build + hygiene
+(apps/venue hand-check hex if touched); casual-regression ONLY IF apps/inorout/src is touched (api/ +
+migration only -> N/A); Stripe TEST-MODE walk with a test clock to PROVE the season schedule auto-stops
+(advance the clock past the phase end) + the future anchor fires on the right date. Update
+RPCS/SCHEMA/DECISIONS/BUGS/FEATURES same commit; then PR -> merge to main before Phase 5.
+
+NOTE: Phase 4 is mostly api/ + a migration — design it so the open-ended-sub path stays byte-identical
+until a tier opts into a season schedule (additive, no regression to today's monthly members).
 ```
