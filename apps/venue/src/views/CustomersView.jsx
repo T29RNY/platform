@@ -146,7 +146,7 @@ export default function CustomersView({ venueToken }) {
   );
 }
 
-function NudgeModal({ customer, venueToken, onClose }) {
+export function NudgeModal({ customer, venueToken, onClose }) {
   const options = NUDGE_TEMPLATES[customer.nudge_status] || NUDGE_TEMPLATES.healthy;
   const [template, setTemplate] = useState(options[0][0]);
   const [busy, setBusy] = useState(false);

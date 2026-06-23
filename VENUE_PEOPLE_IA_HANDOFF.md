@@ -1,8 +1,19 @@
 # Venue People & Spaces — IA Redesign (Handoff & Plan)
 
-> **STATUS (2026-06-23):** Plan locked. **Phase 1 IN PROGRESS this session.** Venue-app only —
-> the casual football app (`apps/inorout/src`) is NEVER touched. Each phase ships + merges before
-> the next (cloud-session discipline). Next free migration when one is needed: **409**.
+> **STATUS (2026-06-23):** Plan locked. **Phase 1 SHIPPED+MERGED (PR #78). Phase 2 SHIPPED this
+> session (mig 409 — Teams page, three tabs + DataTable).** Venue-app only — the casual football app
+> (`apps/inorout/src`) is NEVER touched. Each phase ships + merges before the next (cloud-session
+> discipline). Next free migration when one is needed: **410**.
+>
+> **Phase 2 outcome (operator decision):** the Teams page is THREE clean tabs (operator's call —
+> simpler than one list with badges): **League teams** (competition roster, full drill-down) ·
+> **Casual bookings** (pitch bookers via the existing `venue_list_customers` — contact/bookings/spend,
+> NO roster) · **Club teams** (new `venue_list_club_teams` reader). Players folded in (standalone
+> Players item removed; page-level player search + redesigned roster table). Shared `DataTable`
+> primitive built. **FOLLOW-UP LOGGED:** casual booking teams DO have rosters in the casual app and the
+> venue *could* be shown them (the team books signed-in → team_id links the squad), but that crosses
+> the casual↔venue consent wall — a deliberate later phase (decide the consent/opt-in model first),
+> explicitly NOT folded into this IA epic.
 
 ## GOAL
 
@@ -83,14 +94,20 @@ still resolve.
   pages render, tab-switch works, 0 console errors). Casual-regression N/A (no `apps/inorout/src`,
   no `supabase.js`).
 
-### Phase 2 — Teams page
-- Tabs **Teams** (casual + league, "League" badge + filter) | **Club teams**. Players folded in as a
-  team drill-down (redesigned roster modal — TABLE form) + a **global player search** box.
-- Build the shared **`DataTable`** here (first consumer).
-- **Backend:** venue-scoped **club-teams reader** + **search-players reader** (extend/confirm).
-  Read-only.
-- **Gates:** rpc-security (any reader changed), build + hygiene, casual-regression (additive-diff if
-  `supabase.js` gains a wrapper), Playwright smoke.
+### Phase 2 — Teams page  ✅ SHIPPED (mig 409, session 188)
+- **THREE tabs** (operator decision — clean separation beats one badged list): **League teams**
+  (`venue_list_active_teams`, "League" pill, full roster drill-down) | **Casual bookings**
+  (`venue_list_customers` — bookers/walk-ins, contact/bookings/spend; NO roster) | **Club teams**
+  (NEW `venue_list_club_teams`). Players folded in: standalone Players item REMOVED, redesigned
+  roster TABLE + page-level player search (`venue_list_players`).
+- Shared **`DataTable`** primitive built in `PageKit.jsx` (sortable, search, filter chips,
+  empty/no-match, clickable rows) — reused by all three tabs + the roster.
+- **Backend:** ONE new read RPC `venue_list_club_teams` (SECDEF, search_path, single overload,
+  anon+auth, no audit). `venue_list_players` confirmed sufficient for player search. NO schema change.
+- **Gates passed:** rpc-security PASS, build venue + hygiene 7/7 + hex hand-check, casual-regression
+  PASS (core additive-only, inorout untouched), Playwright smoke PASS (0 console errors).
+- **Main contact** column = Phase-4 placeholder ("—"), not wired.
+- **Follow-up logged:** casual-team roster visibility (consent-gated, later phase — see status note).
 
 ### Phase 3 — Members + Guardians
 - **Members** table + a **Guardians** view (tab/filter) showing each guardian + who they guardian.
@@ -123,32 +140,32 @@ still resolve.
 
 ---
 
-## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 2
+## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 3
 
 ```
-Read VENUE_PEOPLE_IA_HANDOFF.md in full (Phase 1 is SHIPPED+MERGED — Rooms + Timetable combined
-pages, "Club sessions"→"Team Training" rename, shared ViewSubhead + TabbedPage primitives, rail
-combined-page pattern with per-sub flag+discipline gating + legacy-id aliases). Then read
-apps/venue/src/views/Dashboard.jsx (TABS/render/Rail), TeamsView.jsx + TeamDetail.jsx (league teams +
-the roster modal), MembershipsView.jsx (where club teams live today, in the org chart), and the
-readers venue_list_active_teams / the club-teams + players readers in RPCS.md. Venue-app ONLY; the
-casual football app is never touched. Confirm next free mig off origin/main if a migration is needed.
+Read VENUE_PEOPLE_IA_HANDOFF.md in full (Phases 1 & 2 SHIPPED+MERGED). Phase 1 = Rooms + Timetable
+combined pages + "Club sessions"→"Team Training" + shared ViewSubhead/TabbedPage. Phase 2 (mig 409) =
+the Teams page — THREE tabs (League teams / Casual bookings / Club teams) through TabbedPage, the new
+shared DataTable primitive in apps/venue/src/views/PageKit.jsx (sortable/search/filter-chips/clickable
+rows — REUSE it, don't rebuild), redesigned TeamDetail roster table, page-level player search, and the
+Players rail item removed. Then read apps/venue/src/views/Dashboard.jsx (TABS/COMBINED/render),
+MembershipsView.jsx (members live here today — EnrolModal/ProfileModal + venue_list_members), and in
+RPCS.md the members + member_guardians readers (venue_list_members, member_guardians, get_member_pass).
+Venue-app ONLY; the casual football app (apps/inorout/src) is NEVER touched. Confirm next free mig off
+origin/main only if one is needed (Phase 3 should be read-only — likely no migration).
 
 Run a full AUDIT → VERIFY (review) → EXECUTE → VERIFY → COMMIT cycle (skills/audit.md FIRST, report
-findings before editing). PHASE 2 — Teams page:
-- One page, tabs: "Teams" (casual + league from the `teams` table, with a "League" badge + filter
-  derived from competition_teams) and "Club teams" (`club_teams` membership layer, currently buried
-  in the MembershipsView org chart). Players folded in as a team drill-down (redesign the roster
-  modal into TABLE form, more info) + a global player-search box at page level. NO standalone Players
-  nav item (already removed conceptually).
-- Build the shared DataTable primitive here (first consumer): sortable columns, search, filter chips,
-  empty state, row actions. Reuse it for both tabs.
-- Backend: a venue-scoped club-teams reader + a search-players reader (extend/confirm existing;
-  read-only). The main-contact column is PHASE 4 — leave a placeholder column, don't wire it yet.
+findings before editing). PHASE 3 — Members + Guardians:
+- A "Members" page (or a combined page if it reads better) with a Members table + a Guardians view
+  (tab or filter) showing each guardian and who they are guardian OF (member_guardians relationships).
+  Reuse the Phase-2 DataTable for both. Plain-English ViewSubhead on each.
+- Backend: a members reader that returns the guardian relationships (extend/confirm the existing
+  venue_list_members / member_guardians readers; read-only). If a reader changes, single overload,
+  search_path pinned, venue_* grant anon+auth per the gotcha, reads no-audit.
 
-GATES: rpc-security-sweep (any reader added/changed — single overload, search_path pinned, venue_*
-grant anon+auth per the gotcha, reads no-audit); build venue + hygiene 7/7 + hex hand-check;
-casual-regression ONLY IF supabase.js gains a wrapper (additive-diff); Playwright smoke of the Teams
-page (both tabs render, drill-down opens the roster modal, search filters, 0 console errors). Update
-RPCS/SCHEMA/FEATURES if a reader changes; then PR → merge to main before Phase 3.
+GATES: rpc-security-sweep (any reader added/changed); build venue + hygiene 7/7 + hex hand-check;
+casual-regression ONLY IF packages/core/storage/supabase.js gains a wrapper (additive-diff proof);
+Playwright smoke (Members table + Guardians view render, guardian→member links show, search/filter
+works, 0 console errors). Update RPCS/SCHEMA/FEATURES if a reader changes; then PR → merge to main
+before Phase 4. End by giving the Phase 4 next-session prompt in chat.
 ```

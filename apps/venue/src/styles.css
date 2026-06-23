@@ -1470,6 +1470,34 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .dt .num { font-variant-numeric: tabular-nums; text-align: right; letter-spacing: -0.005em; }
 .dt .center { text-align: center; }
 
+/* DataTable primitive (PageKit) — sortable headers, clickable rows, empty state */
+.dt th.dt-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.dt th.dt-sortable:hover { color: var(--ink-2); }
+.dt th.dt-sorted { color: var(--ink); }
+.dt .dt-caret { margin-left: 5px; font-size: 9px; opacity: 0.65; vertical-align: middle; }
+.dt tbody tr.dt-row-click { cursor: pointer; }
+.dt tbody tr.dt-row-click:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dt-empty { padding: 32px 20px; text-align: center; }
+.dt-empty-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--ink); }
+
+/* "League" / casual marker pill used on the Teams page */
+.dt-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: var(--bg-3);
+  color: var(--ink-3);
+}
+.dt-pill.is-league { background: rgba(96,160,255,0.15); color: rgba(96,160,255,1); }
+.dt-pill.cat.is-youth { background: rgba(96,160,255,0.15); color: rgba(96,160,255,1); }
+.dt-pill.cat.is-adult { background: rgba(76,175,80,0.15); color: rgba(76,175,80,1); }
+.dt-pill.cat.is-mixed { background: rgba(255,190,60,0.15); color: var(--amber); }
+
+.player-search { margin-bottom: 18px; }
+
 .chips {
   display: inline-flex;
   gap: 4px;

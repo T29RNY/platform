@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { venueGetTeamRoster } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
+import { DataTable } from "./PageKit.jsx";
 
-// Team detail — roster + competitions for a team in this venue's competitions.
+// Team detail — roster (TABLE form) + competitions for a team in this venue's
+// competitions. Redesigned for the Phase-2 Teams page: the roster is now a
+// sortable/filterable DataTable rather than a stat-stack, surfacing more per
+// player at a glance.
 export default function TeamDetail({ venueToken, teamId, teamName, onClose }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -19,6 +23,32 @@ export default function TeamDetail({ venueToken, teamId, teamName, onClose }) {
   const players = data?.players ?? [];
   const comps = data?.competitions ?? [];
   const active = players.filter((p) => !p.disabled);
+
+  const columns = [
+    { key: "shirt_number", label: "#", align: "num", width: 48, sortable: true,
+      sortValue: (p) => p.shirt_number ?? 999,
+      render: (p) => p.shirt_number ?? "–" },
+    { key: "name", label: "Player", sortable: true, render: (p) => (
+      <span className={p.disabled ? "text-mute" : undefined}>
+        {p.name}
+        {p.nickname && <span className="text-mute"> “{p.nickname}”</span>}
+      </span>
+    ) },
+    { key: "status", label: "Status", render: (p) => (
+      <span className="td-badges">
+        {p.is_vice_captain && <span className="dt-pill">VC</span>}
+        {p.type === "reserve" && <span className="dt-pill">Reserve</span>}
+        {p.injured && <span className="dt-pill" style={{ color: "var(--amber)" }}>Injured</span>}
+        {p.disabled && <span className="dt-pill">Inactive</span>}
+        {!p.is_vice_captain && p.type !== "reserve" && !p.injured && !p.disabled && <span className="text-mute">—</span>}
+      </span>
+    ) },
+    { key: "goals", label: "Goals", align: "num", sortable: true, render: (p) => p.goals ?? 0 },
+    { key: "motm", label: "POTM", align: "num", sortable: true, render: (p) => p.motm ?? 0 },
+    { key: "attended", label: "Played", align: "num", sortable: true, render: (p) => p.attended ?? 0 },
+    { key: "wdl", label: "W–D–L", align: "center",
+      render: (p) => `${p.w ?? 0}-${p.d ?? 0}-${p.l ?? 0}` },
+  ];
 
   return (
     <Modal open wide onClose={onClose} title={team?.name || teamName || "Team"}
@@ -40,35 +70,23 @@ export default function TeamDetail({ venueToken, teamId, teamName, onClose }) {
             </div>
           </div>
 
-          {players.length === 0 ? (
-            <p className="muted" style={{ marginTop: 16 }}>No players on this roster yet.</p>
-          ) : (
-            <div className="td-roster">
-              {players.map((p) => (
-                <div className={"td-player" + (p.disabled ? " is-out" : "")} key={p.id}>
-                  <span className="td-shirt">{p.shirt_number ?? "–"}</span>
-                  <div className="td-player-id">
-                    <span className="td-player-name">
-                      {p.name}
-                      {p.nickname && <span className="td-nick">“{p.nickname}”</span>}
-                    </span>
-                    <div className="td-badges">
-                      {p.is_vice_captain && <span className="td-badge td-badge-vc">VC</span>}
-                      {p.type === "reserve" && <span className="td-badge">Reserve</span>}
-                      {p.injured && <span className="td-badge td-badge-warn">Injured</span>}
-                      {p.disabled && <span className="td-badge td-badge-mute">Inactive</span>}
-                    </div>
-                  </div>
-                  <div className="td-stats">
-                    <span className="td-stat" title="Goals"><b>{p.goals ?? 0}</b><i>G</i></span>
-                    <span className="td-stat" title="POTM"><b>{p.motm ?? 0}</b><i>P</i></span>
-                    <span className="td-stat" title="Played"><b>{p.attended ?? 0}</b><i>App</i></span>
-                    <span className="td-stat td-wdl" title="Win–Draw–Loss">{p.w ?? 0}-{p.d ?? 0}-{p.l ?? 0}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div style={{ marginTop: 16 }}>
+            <DataTable
+              columns={columns}
+              rows={players}
+              getRowKey={(p) => p.id}
+              searchFields={["name", "nickname"]}
+              searchPlaceholder="Search roster…"
+              filters={[
+                { id: "active", label: "Active", test: (p) => !p.disabled },
+                { id: "injured", label: "Injured", test: (p) => p.injured },
+                { id: "inactive", label: "Inactive", test: (p) => p.disabled },
+              ]}
+              initialSort={{ key: "shirt_number", dir: "asc" }}
+              empty={{ title: "No players on this roster yet", body: "Players appear here once the team builds its squad." }}
+              noMatch={{ title: "No players match", body: "Try a different search or filter." }}
+            />
+          </div>
         </>
       )}
     </Modal>
@@ -76,8 +94,9 @@ export default function TeamDetail({ venueToken, teamId, teamName, onClose }) {
 }
 
 function crestStyle(team) {
-  const a = team?.primary_colour || "#E8A020";
-  const b = team?.secondary_colour || "#1A1B22";
+  // Team brand colours from the DB; fall back to neutral tokens (no hardcoded hex).
+  const a = team?.primary_colour || "var(--accent)";
+  const b = team?.secondary_colour || "var(--bg-3)";
   return { background: `linear-gradient(135deg, ${a}, ${b})` };
 }
 function initials(name) {

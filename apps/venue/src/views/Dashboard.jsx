@@ -12,11 +12,10 @@ import TrainersView from "./TrainersView.jsx";
 import RoomHiresView from "./RoomHiresView.jsx";
 import BracketView from "./BracketView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
-import TeamsView from "./TeamsView.jsx";
+import TeamsPage, { LeagueTeamsTab, CasualTeamsTab, ClubTeamsTab } from "./TeamsView.jsx";
 import StaffView from "./StaffView.jsx";
 import LeagueView from "./LeagueView.jsx";
 import LeagueTable from "./LeagueTable.jsx";
-import PlayersView from "./PlayersView.jsx";
 import CustomersView from "./CustomersView.jsx";
 import MembershipsView, { FixturesTab } from "./MembershipsView.jsx";
 import SessionsView from "./SessionsView.jsx";
@@ -48,10 +47,17 @@ const TABS = [
   { group: "People", items: [
     { id: "customers",   label: "Customers",   icon: "customers" },
     { id: "memberships", label: "Memberships", icon: "pound", flag: "memberships" },
-    // Teams + Players are the league/competition roster (every team active across the
-    // venue's competitions) — gated by `competition`, like Fixtures/Leagues/Standings.
-    { id: "teams",       label: "Teams",       icon: "teams",   flag: "competition" },
-    { id: "players",     label: "Players",     icon: "players", flag: "competition" },
+    // Teams is a combined page (Venue People & Spaces IA, Phase 2): three tabs —
+    // League teams (competition roster), Casual bookings (pitch bookers) and Club
+    // teams (membership layer). Players are folded in as a roster drill-down + a
+    // page-level player search (no standalone Players item). Each sub keeps its own
+    // flag + discipline rule: League stays competition-gated (football only), Casual
+    // follows `bookings`, Club teams follow `memberships`.
+    { id: "teams", label: "Teams", icon: "teams", subs: [
+        { id: "teams",     flag: "competition" },  // League teams (discipline-gated)
+        { id: "casual",    flag: "bookings" },     // Casual bookings
+        { id: "clubteams", flag: "memberships" },  // Club teams
+      ] },
     { id: "staff",       label: "Staff",       icon: "staff" },
   ]},
   { group: "Programmes", items: [
@@ -113,11 +119,12 @@ const VIEW_ALIAS = {
   roomhire: ["rooms", "roomhire"],
   classes:  ["timetable", "classes"],
   sessions: ["timetable", "sessions"],
+  players:  ["teams", "teams"],   // legacy Players deep-link → Teams page, League tab
 };
 
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
-  customers: "Customers", memberships: "Memberships", sessions: "Team Training", teams: "Teams", players: "Players", staff: "Staff",
+  customers: "Customers", memberships: "Memberships", sessions: "Team Training", teams: "Teams", staff: "Staff",
   access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room bookings", league: "Leagues", table: "Standings", cups: "Cups",
   rooms: "Rooms", timetable: "Timetable",
   fixtures: "Fixtures",
@@ -192,6 +199,17 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
   // Combined-page tab sets (Phase 1). Each sub carries its own plain-English subhead;
   // only the flag-enabled + discipline-relevant subs are passed to TabbedPage.
   const COMBINED = {
+    teams: [
+      { id: "teams", label: "League teams", flag: "competition",
+        subhead: "Your internal competition teams. Open one for the full roster; use the search above to find any player.",
+        render: () => <LeagueTeamsTab venueToken={venueToken} /> },
+      { id: "casual", label: "Casual bookings", flag: "bookings",
+        subhead: "Teams and walk-ins who book your pitches — contact, bookings and what they’ve paid. (Casual squads have no roster here.)",
+        render: () => <CasualTeamsTab venueToken={venueToken} /> },
+      { id: "clubteams", label: "Club teams", flag: "memberships",
+        subhead: "Your club’s membership teams by age group — the squads set up under Memberships.",
+        render: () => <ClubTeamsTab venueToken={venueToken} /> },
+    ],
     rooms: [
       { id: "spaces", label: "Spaces", flag: "spaces",
         subhead: "Your bookable rooms and areas. Set them up once — classes and room bookings schedule into them.",
@@ -272,8 +290,14 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "customers" && <CustomersView venueToken={venueToken} />}
           {view === "memberships" && <MembershipsView venueToken={venueToken} liveTick={membershipTick} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
           {view === "fixtures" && <FixturesTab venueToken={venueToken} pitches={state.pitches ?? []} refs={state.refs ?? []} />}
-          {view === "teams" && <TeamsView venueToken={venueToken} />}
-          {view === "players" && <PlayersView venueToken={venueToken} />}
+          {pageView === "teams" && (
+            <TeamsPage
+              venueToken={venueToken}
+              initialTab={initialTab}
+              showPlayerSearch={(visibleSubs || []).some((s) => s.id === "teams")}
+              tabs={(visibleSubs || []).map((s) => ({ id: s.id, label: s.label, subhead: s.subhead, render: s.render }))}
+            />
+          )}
           {view === "staff" && <StaffView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
           {view === "access" && <AccessView venueToken={venueToken} me={me} />}
           {view === "invites" && <InvitesView state={state} venueToken={venueToken} />}
