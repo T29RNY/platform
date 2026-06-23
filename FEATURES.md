@@ -7,9 +7,15 @@ Positioned as a **replacement for 360Player + MatchDay Admin + Tournify**. Wider
 demo ~2026-06-29. Full feedback, prioritised backlog table, competitor pricing and the FA
 Full-Time feasibility verdict live in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
-**Working through the 17 asks one-by-one. #2 Org/team structure — Phase 1 SHIPPED (mig 389).**
-Remaining phases (join link/QR, membership-gated join, manager comms, pro-rating) tracked in
-**CLUB_STRUCTURE_HANDOFF.md**.
+**Working through the 17 asks one-by-one. STATUS (s180):** ✅ DONE = #2 org/team structure (migs
+389–393), #4 coach invoice-chasing (mig 398), #8 opposition-coach matchday link (migs 394–396),
+#9 embed code (mig 397), #10 Simplify Venue OS UI + #11 modularity (full Venue OS nav epic, migs
+399–402), #1 FA spike (NO-GO verdict), #14–17 (already loved). 🟢 PARTIAL/addressed = #3 mass
+invoicing (built, dormant — needs live Stripe keys), #5 pitch priority/reserved times (pitch system
+built, priority layer not), #6 team prioritisation (⭐ display-only, doesn't drive anything yet),
+#7 multi-venue (feature-ownership + membership scope shipped, mig 401), #13 season setup (partial).
+⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
++ demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
 **Venue OS nav epic (closes backlog #10 nav + #11 modularity) — Phase 0 SHIPPED (s178, no mig).**
 IA cleanup only, pure venue-app UI: rail regrouped to Run · People · Programmes · Competition ·
