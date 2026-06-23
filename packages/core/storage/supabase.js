@@ -4099,6 +4099,34 @@ export async function venueListBillingRuns(venueToken, limit = 50) {
   return data;
 }
 
+// ── Lifecycle: bulk price change + refunds (mig 407, Stripe Phase 5) ─────────────
+// preview is read-only; commit updates CASH members' ledger amount immediately and returns
+// the Stripe sub members as stripe_targets (the caller then POSTs /api/stripe-price-change to
+// push the new price). Refund-resolve is the read used to show refundable / pro-rated-unused
+// before the operator confirms; the actual refund goes via /api/stripe-refund.
+export async function venuePriceChangePreview(venueToken, { cohortType, cohortRef, newPricePence, effectiveDate = null }) {
+  const { data, error } = await supabase.rpc("venue_price_change_preview", {
+    p_venue_token: venueToken, p_cohort_type: cohortType, p_cohort_ref: cohortRef,
+    p_new_price_pence: newPricePence, p_effective_date: effectiveDate });
+  if (error) { console.error("[payments] venue_price_change_preview failed", error); throw error; }
+  return data;
+}
+
+export async function venueBulkPriceChangeCommit(venueToken, { cohortType, cohortRef, newPricePence, effectiveDate = null, excludedIds = [] }) {
+  const { data, error } = await supabase.rpc("venue_bulk_price_change_commit", {
+    p_venue_token: venueToken, p_cohort_type: cohortType, p_cohort_ref: cohortRef,
+    p_new_price_pence: newPricePence, p_effective_date: effectiveDate, p_excluded_ids: excludedIds });
+  if (error) { console.error("[payments] venue_bulk_price_change_commit failed", error); throw error; }
+  return data;
+}
+
+export async function venueRefundChargeResolve(venueToken, chargeId) {
+  const { data, error } = await supabase.rpc("venue_refund_charge_resolve", {
+    p_venue_token: venueToken, p_charge_id: chargeId });
+  if (error) { console.error("[payments] venue_refund_charge_resolve failed", error); throw error; }
+  return data;
+}
+
 // ── Venue incident lifecycle (mig 231) — log + resolve from the Operations panel ──
 export async function venueLogIncident(venueToken, description, severity, fixtureId = null) {
   const { data, error } = await supabase.rpc("venue_log_incident", {
@@ -4857,6 +4885,23 @@ export async function stripeInitMemberCheckout({ inviteCode, tierId, period, for
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || err.error || "checkout_failed");
+  }
+  return res.json();
+}
+
+// Phase 5 Stripe: open the hosted Billing Portal so a member self-serves their saved card /
+// cancels their subscription. Returns { portal_url } to redirect to. Dormant (503) until keys set.
+export async function stripeInitBillingPortal({ membershipId, returnPath = "/" }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("not_authenticated");
+  const res = await fetch("/api/stripe-billing-portal", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+    body:    JSON.stringify({ membershipId, returnPath }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || err.error || "portal_failed");
   }
   return res.json();
 }
