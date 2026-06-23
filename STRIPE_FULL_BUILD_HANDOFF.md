@@ -1,11 +1,11 @@
 # Stripe Full Build — Handoff & Plan
 
-> **STATUS (2026-06-23):** SCOPED, not started. Full Stripe build — no demo/post-demo
-> split, one track. 21 scope items (see coverage map). Built end-to-end against the
-> **test keys already in place** (Stripe test mode); **live keys go in last** (Phase 7),
-> so go-live is a config change, not a code change. **Next free migration = 403.**
-> Re-confirm off `main` before any SQL (cloud-session discipline — migration numbers are
-> first-come). Kickoff prompt at the bottom.
+> **STATUS (2026-06-23):** 🏁 **PHASE 1 SHIPPED + MERGED** (mig 403, PR #69, session 181).
+> Full Stripe build — no demo/post-demo split, one track. 21 scope items (see coverage map).
+> Built end-to-end against the **test keys already in place** (Stripe test mode); **live keys go
+> in last** (Phase 7), so go-live is a config change, not a code change. **Next free migration =
+> 404.** **NEXT = Phase 2** (unified member money view). Re-confirm the next mig off `main` before
+> any SQL (cloud-session discipline — migration numbers are first-come). Kickoff prompt at the bottom.
 
 ---
 
@@ -45,7 +45,21 @@ in test mode; live keys flip it on.
 
 ---
 
-## PHASE 1 — Foundations & safety (no new user features; makes Stripe-live safe)
+## PHASE 1 — Foundations & safety  ✅ SHIPPED (mig 403, PR #69, session 181)
+
+**Delivered:** renewal-cron guard (`run_membership_renewals` skips live `stripe_subscription_id`);
+`stripe_customers` table + `get_or_link_stripe_customer` (one customer per payer+connected account,
+reused in checkout); `stripe_record_invoice_payment` + `stripe_record_refund` (invoice.*/refund.* →
+`venue_charges`/`venue_payments` ledger, idempotent; `venue_payments.method` += `'stripe'`);
+reconciliation cron invoice drift-repair; `stripe_complete_member_enrolment` += `p_payer_profile_id`
+(8→9 arg, old DROPped) now writing `venue_memberships.payer_profile_id`. All 5 RPCs service_role-only
+(⚠️ Supabase default-grants anon+authenticated on NEW fns AND on DROP+recreate — explicitly REVOKED).
+Gates: rpc-security PASS, EV 15/15 + leak 0, build PASS, hygiene clean, casual-regression N/A
+(api/ + migration only). Phase 2 inputs now live: the payer→customer map and `payer_profile_id`.
+
+<details><summary>Original Phase 1 spec (for reference)</summary>
+
+### PHASE 1 — Foundations & safety (no new user features; makes Stripe-live safe)
 
 **Why first:** the moment live keys go on, the current code double-bills and fragments
 customers. Fix that before layering anything on.
@@ -69,9 +83,11 @@ share one Stripe customer + one saved card; no payment ever silently lost.
 **Gates:** rpc-security-sweep (mig 403), ephemeral-verify (renewal guard + customer-reuse),
 build + hygiene, casual-regression (checkout touches `api/`, not `src/` — confirm).
 
+</details>
+
 ---
 
-## PHASE 2 — Unified money view for the member (scope #4, #5)
+## PHASE 2 — Unified money view for the member (scope #4, #5)  ← NEXT
 
 **Build:**
 - **mig 404** — `get_my_money` (or extend): one authenticated RPC aggregating the signed-in
@@ -245,20 +261,42 @@ smoke, dedupe proven against the reminder cron.
 
 ---
 
-## NEXT-SESSION KICKOFF PROMPT (paste-ready)
+## NEXT-SESSION KICKOFF PROMPT (paste-ready) — PHASE 2
 
 ```
-Read STRIPE_FULL_BUILD_HANDOFF.md in full, then RPCS.md + SCHEMA.md (venue_charges,
-venue_memberships, venue_integrations), then BUGS.md head. We are building the full
-Stripe payments platform, phase-by-phase, one phase shipped + merged before the next
-(cloud-session discipline). Everything is built/tested against the TEST keys already in
-place; live keys go in LAST (Phase 7) — no code path may assume live keys before then.
+Read STRIPE_FULL_BUILD_HANDOFF.md in full (Phase 1 is SHIPPED+MERGED, mig 403, PR #69 —
+read its delivered list), then RPCS.md + SCHEMA.md (venue_charges, venue_payments,
+venue_memberships incl payer_profile_id, member_guardians, the new stripe_customers table),
+then BUGS.md head. We are building the full Stripe payments platform phase-by-phase, one
+phase shipped + merged before the next (cloud-session discipline). Built/tested on the TEST
+keys already in place; LIVE keys are Phase 7 only — no code path may assume live keys.
 
-START WITH PHASE 1 (foundations & safety): the renewal-cron Stripe-sub double-bill guard
-(mig 403), one-Stripe-customer-per-human reuse in stripe-member-checkout.js, and webhook/
-reconciliation coverage for invoice.* + refund.*. AUDIT FIRST (skills/audit.md): pull the
-live run_membership_renewals body, the checkout customer-creation block, and the webhook
-event switch; report the exact changes in chat before editing. Confirm next free mig = 403
-off main. Gates: rpc-security-sweep, ephemeral-verify (own _e2e_ fixture, leak-check 0),
-build + hygiene, casual-regression. Update RPCS/SCHEMA/DECISIONS, same commit.
+START PHASE 2 (unified member money view, scope #4 + #5). First CONFIRM next free mig off
+main (should be 404; local main may be stale — check origin/main). Then run a full
+AUDIT -> EXECUTE -> VERIFY -> COMMIT cycle (skills/audit.md first, report before editing):
+
+- mig 404: NEW authenticated read RPC get_my_money() (or similarly named) aggregating the
+  signed-in human's WHOLE picture across streams: (a) casual match fees — FOLD IN the existing
+  get_my_payment_history (mig 039, casual-only, token-scoped) with NO change to casual logic;
+  (b) his OWN memberships; (c) memberships he PAYS for as guardian (his children) — use
+  venue_memberships.payer_profile_id (now populated by Phase 1) + member_guardians. Return paid
+  history + upcoming/owed, each row tagged by stream + who-it's-for. auth.uid()-scoped, SECDEF,
+  search_path pinned, REVOKE anon (authenticated-only — explicit anon REVOKE per the mig-175
+  gotcha), read-only (no audit). AUDIT the exact casual-fee shape get_my_payment_history returns
+  + how venue_charges/venue_payments balances are derived (reuse _recompute logic / venue_get_charges
+  pattern) before designing the return shape.
+- UI in apps/inorout/src: a "Payments" / "My money" view — one screen showing daughter's subs,
+  my membership, last Sunday's match fee, with paid + upcoming. Casual surfaces untouched; this
+  is purely additive (grep every render site if threading into a shared view).
+
+GATES (Phase 2 touches apps/inorout/src -> heavier than Phase 1): rpc-security-sweep;
+ephemeral-verify (own _e2e_ fixture: a payer with own membership + a child membership +
+casual fee -> assert all three streams aggregate, leak-check 0); build + hygiene 7/7;
+**casual-regression (MANDATORY — touches src)**; Playwright authed walk of the new screen;
+**real-iPhone PWA walk OWED before commit (Hard Rule #13 — App.jsx/PlayerView/routing)**.
+Update RPCS/SCHEMA/DECISIONS/BUGS same commit; then PR -> merge to main before Phase 3.
+
+NOTE: season one-off (mode=payment, no invoice) Stripe payments still don't land in the
+ledger (Phase 1 scope was invoice.* only) — decide in Phase 2 whether the money view folds
+them in from Stripe directly or whether that waits.
 ```
