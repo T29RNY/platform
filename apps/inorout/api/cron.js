@@ -761,10 +761,21 @@ async function membershipRemindersJob(results) {
   const reminders = data?.reminders || [];
   if (!reminders.length) { results.push("membershipReminders: none due"); return; }
 
-  let sent = 0, skipped = 0;
+  // De-storm (Stripe Phase 6 #6.2): at most ONE membership reminder email per recipient
+  // per tick. Sort by priority so the most actionable kind wins; a lower-priority kind for
+  // the same recipient is deferred to a later tick (its notification_log row is NOT written,
+  // so it still sends another day). Permanent per-(type,entity_key,recipient) dedup is
+  // unchanged on top of this. (Stripe-invoiced charges never reach here — the reminder RPC
+  // suppresses them so Stripe owns their dunning.)
+  const KIND_PRIORITY = { payment_due: 0, renewal_due: 1, freeze_ending: 2, welcome: 3 };
+  reminders.sort((a, b) => (KIND_PRIORITY[a.kind] ?? 9) - (KIND_PRIORITY[b.kind] ?? 9));
+  const emailedThisTick = new Set();
+
+  let sent = 0, skipped = 0, throttled = 0;
   for (const r of reminders) {
     const type = `membership_${r.kind}`;
     if (await alreadyNotified(type, r.entity_key, r.email, "email")) { skipped++; continue; }
+    if (emailedThisTick.has(r.email)) { throttled++; continue; }
     const ctx = {
       firstName: r.first_name || "there",
       venueName: r.venue_name,
@@ -773,6 +784,9 @@ async function membershipRemindersJob(results) {
       period: r.period,
       dateLabel: fmtUkDate(r.date_label),
       passUrl: r.pass_token ? `https://app.in-or-out.com/m/${r.pass_token}` : "",
+      // #16: a charge's pay link (its Stripe hosted invoice → else the venue's generic
+      // payment_link), resolved server-side. Only payment_due carries one; "" = manual nudge.
+      payUrl: r.pay_url || "",
     };
     const res = await sendTemplated(type, r.email, ctx);
     if (res?.skipped === "no_api_key") { results.push("membershipReminders: skipped (RESEND_API_KEY unset)"); return; }
@@ -780,12 +794,13 @@ async function membershipRemindersJob(results) {
       await supabase.from("notification_log").insert({
         type, entity_id: r.entity_key, recipient: r.email, channel: "email",
       });
+      emailedThisTick.add(r.email);
       sent++;
     } else if (res?.error) {
       results.push(`membershipReminders: send failed (${r.email}) — ${res.error}`);
     }
   }
-  results.push(`membershipReminders: ${sent} sent, ${skipped} already-sent`);
+  results.push(`membershipReminders: ${sent} sent, ${skipped} already-sent, ${throttled} throttled`);
 }
 
 // ── Club broadcast emails (Phase 11, mig 307) — fire immediately on every tick

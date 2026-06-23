@@ -257,6 +257,7 @@ export {
   venueBulkChargeCommit,
   venueVoidBillingRun,
   venueListBillingRuns,
+  venuePaymentReconciliation,
   venuePriceChangePreview,
   venueBulkPriceChangeCommit,
   venueRefundChargeResolve,
