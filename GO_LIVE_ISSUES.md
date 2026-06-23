@@ -1451,3 +1451,48 @@ stale breadcrumb on a real device can still surface it until cleared.
 **Expected outcome:** a fresh sign-in lands on your team/account landing. Admins land
 straight in the admin view; multi-team people see the "YOUR TEAMS" chooser; nobody is
 looped back to a stale page or logged out.
+
+---
+
+## 19. SESSION 185 — STRIPE WEBHOOK: 100% SIGNATURE FAILURE (two independent causes)
+
+**Issue class:** every Stripe webhook delivery to `/api/stripe-webhook` failed, so NO
+membership, schedule, invoice-paid, or subscription-status event ever reconciled —
+silent money-flow breakage. The endpoint looked "Active" in Stripe; the failure was
+only visible in the delivery list (400) + Vercel logs. Surfaced during the Phase 4
+test-mode walk; two separate bugs stacked, each of which alone causes total failure:
+
+1. **Raw-body consumed by Vercel's lazy `req.body` getter (code bug — fix `6f4ac8b`).**
+   On the bare `@vercel/node` runtime (this is a Vite app, NOT Next.js), `req.body` is
+   a lazy getter that *parses the JSON and drains the request stream on first access*.
+   `readRawBody` accessed `req.body` in a guard, so by the time it read the stream the
+   raw bytes were gone → Stripe signature verified against an empty body → always
+   `400 bad_signature`. The Next.js `config.api.bodyParser=false` export is IGNORED by
+   `@vercel/node`. **Fix:** never touch `req.body`; read the stream directly.
+2. **`STRIPE_WEBHOOK_SECRET` mismatch (config bug).** Vercel held `whsec_hT…` while the
+   live destination signed with `whsec_zP…` (the destination's secret had diverged from
+   the env var). Even with the raw body correct, verification failed. **Fix:** copy the
+   destination's signing secret (Stripe → Webhooks → destination → Overview → reveal
+   Signing secret) into Vercel `STRIPE_WEBHOOK_SECRET` (Production + Preview), redeploy.
+
+**Diagnosis tip:** the `400 bad_signature` body is generic — both causes look identical.
+The real Stripe error ("No signatures found matching the expected signature for payload")
+is in the Vercel function log. To tell raw-body-vs-secret apart, log `rawBody.length` +
+`rawHead` + `secretHead` (first 8 chars of the env secret) — a populated raw body with a
+mismatched `secretHead` pinpoints the secret.
+
+**Pre-flight check — run before go-live AND every time keys/destination change:**
+
+1. In Stripe, reveal the destination's **Signing secret** and confirm it matches
+   `STRIPE_WEBHOOK_SECRET` in Vercel (first 8 chars are enough): `whsec_…`.
+2. Resend (or trigger) one real `checkout.session.completed` and confirm the delivery
+   shows **200 / Recovered**, not 400.
+3. Confirm the resulting `venue_memberships` row carries `stripe_subscription_id` (and,
+   for a season tier, `stripe_schedule_id` + `phase_end_at` + `billing_starts_at`).
+
+**⚠️ GO-LIVE TRAP:** the LIVE webhook destination has its OWN `whsec_…`, different from
+this sandbox one. When switching to live keys (Phase 7), the secret MUST be re-copied or
+this exact 100%-failure returns on day one.
+
+**Expected outcome:** webhook delivery returns 200; the membership + schedule + ledger
+rows all appear.
