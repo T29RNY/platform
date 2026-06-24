@@ -558,6 +558,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
   const [venues, setVenues] = useState([]);
   const [fixtures, setFixtures] = useState(null);
   const [newLeague, setNewLeague] = useState({ name: "", season: "" });
+  const [showNewLeague, setShowNewLeague] = useState(false);  // create-league form is secondary
   const [form, setForm] = useState(null);          // null | fixture-draft
   const [info, setInfo] = useState(null);          // venue matchday ground rules
   const [infoOpen, setInfoOpen] = useState(false);
@@ -604,7 +605,13 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
   const loadLeagues = (cid) => {
     setLeagues(null); setLeagueId(null); setFixtures(null);
     venueListClubLeagues(venueToken, cid)
-      .then((r) => setLeagues(r?.leagues || []))
+      .then((r) => {
+        const ls = r?.leagues || [];
+        setLeagues(ls);
+        // Auto-select so fixtures + Add-fixture are visible immediately (keep the
+        // current pick if it survived a reload, else default to the first league).
+        setLeagueId((cur) => (cur && ls.some((l) => l.league_id === cur)) ? cur : (ls[0]?.league_id ?? null));
+      })
       .catch((e) => setError(e?.message || String(e)));
     clubListTeams(venueToken, cid, false).then((r) => setTeams(r || [])).catch(() => setTeams([]));
   };
@@ -648,7 +655,8 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
     try {
       await venueCreateClubLeague(venueToken, clubId, { name: newLeague.name.trim(), seasonLabel: newLeague.season.trim() || null });
       setNewLeague({ name: "", season: "" });
-      loadLeagues(clubId);
+      setShowNewLeague(false);
+      loadLeagues(clubId);   // auto-selects the newest league (ordered newest-first)
     } catch (e) { setError("Couldn’t create the league — try again."); }
     finally { isSavingRef.current = false; }
   };
@@ -747,28 +755,32 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
         )}
       </div>
 
-      {/* New league */}
-      <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-        <strong style={{ display: "block", marginBottom: 8 }}>New league</strong>
-        <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>A container for a team’s season of games — e.g. “U12s — Saturday League”. Add the fixtures below.</p>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input className="input" placeholder="League name" value={newLeague.name} onChange={(e) => setNewLeague((s) => ({ ...s, name: e.target.value }))} style={{ flex: 1, minWidth: 180 }} />
-          <input className="input" placeholder="Season (e.g. 2026/27)" value={newLeague.season} onChange={(e) => setNewLeague((s) => ({ ...s, season: e.target.value }))} style={{ width: 160 }} />
-          <button className="btn btn-primary" onClick={createLeague}><Icon name="plus" size={14} /> Create</button>
-        </div>
-      </div>
-
       {error && <p style={{ color: "var(--live)", fontSize: 13 }}>{error}</p>}
       {leagues === null && <p className="text-mute">Loading leagues…</p>}
-      {leagues && leagues.length === 0 && <EmptyState title="No leagues yet" body="Create a league above to start adding fixtures." />}
 
+      {/* League switcher + secondary “New league” action (shown once at least one exists) */}
       {leagues && leagues.length > 0 && (
-        <div style={{ marginBottom: "var(--gap-2)" }}>
-          <label className="field-label" style={{ marginRight: 8 }}>League</label>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: "var(--gap-2)" }}>
+          <label className="field-label" style={{ marginRight: 4 }}>League</label>
           <select className="input" style={{ width: "auto" }} value={leagueId || ""} onChange={(e) => setLeagueId(e.target.value || null)}>
-            <option value="">— choose a league —</option>
             {leagues.map((l) => <option key={l.league_id} value={l.league_id}>{l.name}{l.season_label ? ` · ${l.season_label}` : ""} ({l.fixture_count})</option>)}
           </select>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowNewLeague((o) => !o)}>
+            <Icon name="plus" size={13} /> {showNewLeague ? "Cancel" : "New league"}
+          </button>
+        </div>
+      )}
+
+      {/* Create-league form — secondary (revealed on demand), or the primary CTA when there are none yet */}
+      {leagues && (showNewLeague || leagues.length === 0) && (
+        <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+          <strong style={{ display: "block", marginBottom: 8 }}>{leagues.length === 0 ? "Create your first league" : "New league"}</strong>
+          <p className="text-mute" style={{ fontSize: 12, marginTop: 0 }}>A league is a season of a team’s games — e.g. “U12s — Saturday League”. Create one, then add its fixtures below.</p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input className="input" placeholder="League name" value={newLeague.name} onChange={(e) => setNewLeague((s) => ({ ...s, name: e.target.value }))} style={{ flex: 1, minWidth: 180 }} />
+            <input className="input" placeholder="Season (e.g. 2026/27)" value={newLeague.season} onChange={(e) => setNewLeague((s) => ({ ...s, season: e.target.value }))} style={{ width: 160 }} />
+            <button className="btn btn-primary" onClick={createLeague}><Icon name="plus" size={14} /> Create</button>
+          </div>
         </div>
       )}
 

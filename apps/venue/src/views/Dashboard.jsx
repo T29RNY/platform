@@ -80,9 +80,9 @@ const TABS = [
       ] },
   ]},
   { group: "Competition", items: [
-    { id: "fixtures", label: "Fixtures",  icon: "ops",   flag: "competition" },
-    { id: "league",   label: "Leagues",   icon: "league", flag: "competition" },
-    { id: "table",    label: "Standings", icon: "table",  flag: "competition" },
+    { id: "fixtures", label: "Club Leagues",   icon: "ops",   flag: "competition" },
+    { id: "league",   label: "Internal League", icon: "league", flag: "competition" },
+    { id: "table",    label: "Standings",       icon: "table",  flag: "competition" },
     { id: "cups",     label: "Cups",      icon: "cups", cupOnly: true, flag: "tournaments" },
   ]},
   { group: "Club & admin", items: [
@@ -129,9 +129,9 @@ const VIEW_ALIAS = {
 const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
   members: "Members", memberships: "Memberships", sessions: "Team Training", teams: "Teams", staff: "Staff",
-  access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room bookings", league: "Leagues", table: "Standings", cups: "Cups",
+  access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room bookings", league: "Internal League", table: "Standings", cups: "Cups",
   rooms: "Rooms", timetable: "Timetable",
-  fixtures: "Fixtures",
+  fixtures: "Club Leagues",
   integrations: "Integrations",
   features: "Features",
 };

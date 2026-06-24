@@ -14,7 +14,7 @@ export default function LeagueView({ state, onNewSeason }) {
 
   return (
     <div>
-      <SectionHead label="Leagues" count={`${leagues.length} league${leagues.length === 1 ? "" : "s"} · ${seasons.length} season${seasons.length === 1 ? "" : "s"}`}>
+      <SectionHead label="Internal League" count={`${leagues.length} league${leagues.length === 1 ? "" : "s"} · ${seasons.length} season${seasons.length === 1 ? "" : "s"}`}>
         <button className="btn btn-sm btn-primary" onClick={onNewSeason}>
           <Icon name="plus" size={14} /> Set up new season
         </button>

@@ -29,7 +29,7 @@ export default function LeagueTable({ state, venueToken }) {
   const rows = data?.standings ?? [];
 
   if (comps.length === 0) {
-    return <EmptyState title="No league table yet" body="No round-robin competition set up. Create a season under the Leagues tab." />;
+    return <EmptyState title="No league table yet" body="No round-robin competition set up. Create a season under the Internal League tab." />;
   }
 
   return (
