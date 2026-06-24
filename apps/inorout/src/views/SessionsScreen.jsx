@@ -4,7 +4,7 @@ import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
 import {
   memberGetSelf, memberListChildren,
-  memberListUpcomingSessions, memberRsvpSession, memberGetSessionRsvpBoard,
+  memberListUpcomingSessions, memberListClubFixtures, memberRsvpSession, memberGetSessionRsvpBoard,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
@@ -152,6 +152,8 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [selectedClubId, setSelectedClubId] = useState(null);
   const [sessions, setSessions]             = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [fixtures, setFixtures]             = useState([]);    // Club Leagues fixtures (read-only, Phase 3a)
+  const [detailFixture, setDetailFixture]   = useState(null);  // tapped fixture → read-only detail card
   const [bumpProposals, setBumpProposals]   = useState([]);   // pitch priority Phase 3
 
   const [detailSession, setDetailSession] = useState(null);
@@ -357,6 +359,18 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       .then(data => { if (alive) setSessions(data ?? []); })
       .catch(e => { console.error("[sessions] list failed", e); })
       .finally(() => { if (alive) setSessionsLoading(false); });
+    return () => { alive = false; };
+  }, [selectedClubId]);
+
+  // Load Club Leagues fixtures for the caller's managed teams in this club (read-only,
+  // Phase 3a). Returns [] for non-managers / no fixtures — folded into the agenda below.
+  useEffect(() => {
+    if (!selectedClubId) return;
+    let alive = true;
+    setFixtures([]);
+    memberListClubFixtures(selectedClubId)
+      .then(data => { if (alive) setFixtures(Array.isArray(data) ? data : []); })
+      .catch(e => { console.error("[sessions] fixtures list failed", e); });
     return () => { alive = false; };
   }, [selectedClubId]);
 
@@ -1468,15 +1482,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           </p>
         )}
 
-        {selectedClubId && !sessionsLoading && sessions.length === 0 && (
+        {selectedClubId && !sessionsLoading && sessions.length === 0 && fixtures.length === 0 && (
           <p style={{ color: "var(--t2)", fontSize: 14, fontFamily: "var(--font-body)", textAlign: "center", marginTop: 32 }}>
             No upcoming sessions.
           </p>
         )}
 
-        {/* Agenda calendar — sessions grouped by day with a week navigator (Phase 1) */}
-        {selectedClubId && !sessionsLoading && sessions.length > 0 && (() => {
-          const filtered = filterSessionsByWeek(sessions, weekFilter);
+        {/* Agenda calendar — sessions + Club Leagues fixtures grouped by day with a week
+            navigator (Phase 1 + Phase 3a). Fixtures are read-only; both share the day grid. */}
+        {selectedClubId && !sessionsLoading && (sessions.length > 0 || fixtures.length > 0) && (() => {
+          const combined = [...sessions, ...fixtures].sort((a, b) => {
+            if (!a.scheduled_at) return 1;
+            if (!b.scheduled_at) return -1;
+            return new Date(a.scheduled_at) - new Date(b.scheduled_at);
+          });
+          const filtered = filterSessionsByWeek(combined, weekFilter);
           const groups   = groupSessionsByDay(filtered);
           return (
             <>
@@ -1520,7 +1540,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                       </span>
                       <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
-                          {group.items.length} {group.items.length === 1 ? "session" : "sessions"}
+                          {group.items.length} {group.items.length === 1 ? "event" : "events"}
                         </span>
                         {isManager && (
                           <button
@@ -1539,12 +1559,20 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                         )}
                       </span>
                     </div>
-                    {group.items.map(session => (
-                      <SessionCard
-                        key={session.session_id}
-                        session={session}
-                        onOpen={() => openDetail(session)}
-                      />
+                    {group.items.map(item => (
+                      item.is_fixture ? (
+                        <FixtureCard
+                          key={`fx:${item.fixture_id}`}
+                          fixture={item}
+                          onOpen={() => setDetailFixture(item)}
+                        />
+                      ) : (
+                        <SessionCard
+                          key={item.session_id}
+                          session={item}
+                          onOpen={() => openDetail(item)}
+                        />
+                      )
                     ))}
                   </div>
                 ))
@@ -2812,6 +2840,14 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
         />
       )}
 
+      {/* ── Club League fixture detail sheet (read-only, Phase 3a) ──────── */}
+      {detailFixture && (
+        <FixtureDetail
+          fixture={detailFixture}
+          onClose={() => setDetailFixture(null)}
+        />
+      )}
+
       {/* ── Create session modal ────────────────────────────────────────── */}
       {showCreateModal && (
         <CreateSessionModal
@@ -2952,6 +2988,160 @@ function BumpProposalCard({ proposal: p, onResolve }) {
         >
           Decline
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Club League fixture helpers (Phase 3a) ──────────────────────────────────────
+// Club Leagues fixtures (club_fixtures) are operator-created and READ-ONLY here.
+// kickoff_time arrives as a wall-clock "HH:MM:SS" string — render it directly rather
+// than off the tz-anchored scheduled_at, so the displayed kickoff is exactly as set.
+const fmtClock = (t) => (typeof t === "string" && t.length >= 5) ? t.slice(0, 5) : "";
+// Distinct blue palette so a league fixture reads apart from amber club matches.
+// #60A0FF is one of the two sanctioned hard-coded hexes (Team A).
+const FIXTURE_BADGE = { background: "rgba(96,160,255,0.15)", color: "#60A0FF" };
+
+// ── FixtureCard ─────────────────────────────────────────────────────────────────
+function FixtureCard({ fixture: f, onOpen }) {
+  const homeAway = f.home_away === "home" ? "Home" : f.home_away === "away" ? "Away" : null;
+  const place = [f.pitch_name, f.venue_name].filter(Boolean).join(" · ");
+  return (
+    <div
+      onClick={onOpen}
+      style={{
+        background: "var(--b2)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--r)",
+        padding: "14px",
+        cursor: "pointer",
+      }}
+    >
+      {/* Top row: Club League badge + home/away */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+          padding: "3px 8px", borderRadius: 10,
+          fontFamily: "var(--font-body)",
+          ...FIXTURE_BADGE,
+        }}>
+          Club League
+        </span>
+        {homeAway && (
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10,
+            fontFamily: "var(--font-body)",
+            background: "rgba(255,255,255,0.06)", color: "var(--t2)",
+          }}>
+            {homeAway}
+          </span>
+        )}
+      </div>
+
+      {/* Title */}
+      <div style={{ fontFamily: "var(--font-display)", fontSize: 18, lineHeight: 1.1, marginBottom: 6 }}>
+        vs {f.opponent_name}
+      </div>
+
+      {/* Date + kickoff */}
+      <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)", marginBottom: 2 }}>
+        {f.scheduled_date ? fmtDate(f.scheduled_at) : "Date TBC"}
+        {fmtClock(f.kickoff_time) && ` · KO ${fmtClock(f.kickoff_time)}`}
+      </div>
+
+      {/* Venue / pitch */}
+      {place && (
+        <div style={{ fontSize: 13, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
+          {place}
+        </div>
+      )}
+
+      {/* League label */}
+      {f.league_name && (
+        <div style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 4, opacity: 0.7 }}>
+          {f.league_name}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── FixtureDetail ─────────────────────────────────────────────────────────────
+// Read-only bottom sheet for a Club League fixture. The operator owns the schedule;
+// the manager just reads it here (Phase 3b will add home-match edit in place).
+function FixtureDetail({ fixture: f, onClose }) {
+  const homeAway = f.home_away === "home" ? "Home" : f.home_away === "away" ? "Away" : null;
+  const place = [f.pitch_name, f.venue_name].filter(Boolean).join(" · ");
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end",
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        width: "100%", maxHeight: "90vh",
+        background: "var(--b1)", borderRadius: "var(--r) var(--r) 0 0",
+        display: "flex", flexDirection: "column", overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+          padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", flexShrink: 0,
+        }}>
+          <div style={{ flex: 1, marginRight: 12 }}>
+            <span style={{
+              display: "inline-block", fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+              padding: "3px 8px", borderRadius: 10, marginBottom: 8,
+              fontFamily: "var(--font-body)", ...FIXTURE_BADGE,
+            }}>
+              Club League
+            </span>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 22, lineHeight: 1.1 }}>
+              vs {f.opponent_name}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 6, fontFamily: "var(--font-body)" }}>
+              {f.scheduled_date ? fmtDate(f.scheduled_at) : "Date TBC"}
+              {fmtClock(f.kickoff_time) && ` · KO ${fmtClock(f.kickoff_time)}`}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: "none", border: "none", fontSize: 22, color: "var(--t2)",
+            cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0,
+          }}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+          {homeAway && <InfoRow label="Home / away" value={homeAway} />}
+          {f.club_team_name && <InfoRow label="Team" value={f.club_team_name} />}
+          {f.league_name && <InfoRow label="League" value={f.league_name} />}
+          {place && <InfoRow label="Venue" value={place} />}
+          {f.ref_name && <InfoRow label="Referee" value={f.ref_name} />}
+          {f.notes && <InfoRow label="Notes" value={f.notes} />}
+
+          <p style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 16, opacity: 0.7 }}>
+            This fixture is set by the club. Times, pitch and referee are managed by the operator.
+          </p>
+
+          {f.share_code && (
+            <a
+              href={`/matchday/${f.share_code}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "block", textAlign: "center", marginTop: 16,
+                background: "rgba(255,255,255,0.08)", border: "1px solid var(--border)",
+                color: "var(--t1)", borderRadius: 10, padding: "12px",
+                fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)",
+                textDecoration: "none",
+              }}
+            >
+              View matchday page
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

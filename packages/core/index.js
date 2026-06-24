@@ -349,6 +349,7 @@ export {
   clubCreateSessionSeries,
   clubCancelSessionSeries,
   memberListUpcomingSessions,
+  memberListClubFixtures,
   memberRsvpSession,
   memberGetSessionRsvpBoard,
   clubManagerCreateSession,

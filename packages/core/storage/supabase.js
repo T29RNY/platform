@@ -5303,6 +5303,17 @@ export async function memberListUpcomingSessions(clubId, cohortId = null) {
   return data;
 }
 
+// Club Leagues fixtures (club_fixtures, operator-created) for the caller's managed teams
+// in this club. READ-ONLY (Calendar & Mobile Phase 3a) — folded into the manager Agenda
+// alongside member_list_upcoming_sessions. Returns [] for non-managers / no fixtures.
+export async function memberListClubFixtures(clubId) {
+  const { data, error } = await supabase.rpc("member_list_club_fixtures", {
+    p_club_id: clubId,
+  });
+  if (error) { console.error("[member] member_list_club_fixtures failed", error); throw error; }
+  return data;
+}
+
 export async function memberRsvpSession(sessionId, status, { forProfileId = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("member_rsvp_session", {
     p_session_id: sessionId, p_status: status,
