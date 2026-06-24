@@ -196,6 +196,9 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   const setView = (v) => { setCalendarView(v); try { localStorage.setItem("venueCalView", v); } catch { /* ignore */ } };
   // Grid hides resources with no booking that day by default; this reveals every lane.
   const [showAllResources, setShowAllResources] = useState(false);
+  // Unified modes give the calendar the screen; this reveals the Requests inbox +
+  // Cancellations log on demand (they're always shown in pitch mode).
+  const [showAdmin, setShowAdmin] = useState(false);
 
   const hasMultiVenue = operatorVenues.length > 1;
   const ALL_GROUNDS = "__all__";
@@ -354,7 +357,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
 
       <BumpProposalsBanner venueToken={venueToken} proposals={bumpProposals} onResolved={onBumpResolved} />
 
-      {!isUnified && (
+      {(!isUnified || showAdmin) && (
       <section style={{ marginBottom: "var(--gap-3)" }}>
         <SectionHead label="Requests" count={pendingGroups.length}>
           <button className="btn btn-sm btn-ghost" onClick={() => setSettingsOpen(true)}>
@@ -392,6 +395,16 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                   <button className={"btn btn-xs" + (calendarView === "grid" ? " btn-primary" : "")} onClick={() => setView("grid")} title="Time-aligned calendar">Grid</button>
                   <button className={"btn btn-xs" + (calendarView === "agenda" ? " btn-primary" : "")} onClick={() => setView("agenda")} title="Compact per-resource list">Agenda</button>
                 </span>
+              )}
+              {isUnified && (
+                <button
+                  className={"btn btn-xs" + (showAdmin ? " btn-primary" : "")}
+                  onClick={() => setShowAdmin((s) => !s)}
+                  aria-pressed={showAdmin}
+                  title="Show the requests inbox and cancellations log"
+                >
+                  <Icon name="bell" size={13} /> Requests &amp; cancellations{pendingGroups.length ? ` (${pendingGroups.length})` : ""}
+                </button>
               )}
               {!isUnified && hasMultiVenue && (
                 <span className="ground-switch" title="View another of your grounds">
@@ -590,7 +603,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
         onClose={() => setSelectedBlock(null)}
       />
 
-      {!isUnified && <CancellationsLog venueToken={venueToken} refreshKey={cancelKey} />}
+      {(!isUnified || showAdmin) && <CancellationsLog venueToken={venueToken} refreshKey={cancelKey} />}
     </div>
   );
 }

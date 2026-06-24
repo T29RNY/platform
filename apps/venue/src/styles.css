@@ -2867,6 +2867,13 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   padding: 1px 4px; border-radius: 4px;
   background: var(--accent); color: var(--accent-ink);
 }
+/* a pending REQUEST must read as needing action — a filled amber badge, not just a tint */
+.occ-req-tag {
+  flex: none;
+  font-size: 8px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 4px;
+  background: var(--warn); color: #1a1203;
+}
 /* club activity — read at a glance by ICON + a COLOUR-FILLED TAG (not the tiny icon
    alone), with a supporting tint. The type badge carries the activity colour so
    Training (violet) vs Match (blue) is unmistakable even before the glyph reads. */

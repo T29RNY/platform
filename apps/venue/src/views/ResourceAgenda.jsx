@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { minsOfDay, fmtTime, occClass, occLabel, occSub, occType, occIcon } from "../bookingUtil.js";
+import { minsOfDay, fmtTime, occClass, occLabel, occSub, occType, occIcon, occIsPending } from "../bookingUtil.js";
 import Icon from "./Icon.jsx";
 
 // Denser alternative to the time-aligned grid: each booked resource is a ROW, its bookings
@@ -64,6 +64,7 @@ export default function ResourceAgenda({ venues, dayOcc, activeTypes, onSelectBl
                       <span className="agenda-chip-time">{fmtTime(o.start)}–{fmtTime(o.end)}</span>
                       <span className="agenda-chip-main">
                         {glyph && <span className="occ-glyph"><Icon name={glyph} size={11} /></span>}
+                        {occIsPending(o) && <span className="occ-req-tag">Request</span>}
                         <span className="agenda-chip-label">{occLabel(o)}</span>
                         {type && <span className="occ-type">{type}</span>}
                       </span>
