@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { getOperatorPitchOccupancy, getVenueResourceOccupancy, getEquipmentAvailability, venueListPitchReservedWindows, venueListBumpProposals, venueListClassTypes, venueListAdmins } from "@platform/core";
+import { getOperatorPitchOccupancy, getVenueResourceOccupancy, getEquipmentAvailability, venueListPitchReservedWindows, venueListBumpProposals, venueListClassTypes, venueListAdmins, venueListMembers, venueListTrainers } from "@platform/core";
 import RequestsInbox from "./RequestsInbox.jsx";
 import BumpProposalsBanner from "./BumpProposalsBanner.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
@@ -9,6 +9,9 @@ import ResourceAgenda from "./ResourceAgenda.jsx";
 import EquipmentStrip from "./EquipmentStrip.jsx";
 import ResourceBlockModal from "./ResourceBlockModal.jsx";
 import { CreateSessionModal as ClassSessionModal } from "./ClassesView.jsx";
+import Modal from "./Modal.jsx";
+import RoomHireModal from "./RoomHireModal.jsx";
+import AppointmentModal from "./AppointmentModal.jsx";
 import DayAgenda from "./DayAgenda.jsx";
 import WalkInModal from "./WalkInModal.jsx";
 import BookingSettings from "./BookingSettings.jsx";
@@ -186,27 +189,38 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   }, [venueToken]);
   useEffect(() => { if (isUnified) loadResources(); }, [isUnified, loadResources]);
 
-  // Class types + instructors power the Room-lane tap-to-book (reuses the Classes screen's
-  // CreateSessionModal). Loaded once when the unified calendar is open.
+  // Reference data for the calendar tap-to-book modals (reuses existing screens). Class types
+  // + instructors power the class-session create; members + trainers power the Phase-2b room
+  // hire + appointment create. Loaded once when the unified calendar is open.
   const [classTypes, setClassTypes] = useState([]);
   const [instructors, setInstructors] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [trainers, setTrainers] = useState([]);
   useEffect(() => {
     if (!isUnified) return;
     let cancelled = false;
     (async () => {
       try {
-        const [tps, ad] = await Promise.all([venueListClassTypes(venueToken), venueListAdmins(venueToken)]);
+        const [tps, ad, mem, trn] = await Promise.all([
+          venueListClassTypes(venueToken), venueListAdmins(venueToken),
+          venueListMembers(venueToken), venueListTrainers(venueToken),
+        ]);
         if (cancelled) return;
         setClassTypes((Array.isArray(tps) ? tps : []).filter((t) => t.is_active));
         setInstructors((ad?.admins ?? []).filter((a) => a.status === "active"));
+        setMembers(Array.isArray(mem) ? mem : []);
+        setTrainers((trn?.trainers ?? []).filter((t) => t.active));
       } catch (err) {
-        console.error("load class refs for calendar booking failed", err);
+        console.error("load refs for calendar booking failed", err);
       }
     })();
     return () => { cancelled = true; };
   }, [isUnified, venueToken]);
-  // Room-lane tap → schedule a class in that space at the tapped time: { spaceId, startsAt }.
-  const [classCreate, setClassCreate] = useState(null);
+  // Calendar tap-to-book targets. Room tap → a chooser (class | hire); trainer tap → appointment.
+  const [classCreate, setClassCreate] = useState(null);   // { spaceId, startsAt }
+  const [roomChoice, setRoomChoice] = useState(null);     // { spaceId, startsAt } — chooser open
+  const [roomHireCreate, setRoomHireCreate] = useState(null); // { spaceId, startsAt }
+  const [apptCreate, setApptCreate] = useState(null);     // { trainerId, startsAt }
 
   const [equipment, setEquipment] = useState([]);
   const [selectedBlock, setSelectedBlock] = useState(null);
@@ -368,14 +382,22 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); loadBumps(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
 
-  // Unified-calendar tap-to-book: route an empty-slot tap to the right existing flow per lane.
-  // pitch → WalkInModal; room → reused class CreateSessionModal. Only own-site pitch/room
-  // lanes are marked bookable, so trainer/foreign lanes never reach here.
+  // Own-site rooms (id + name) for the room-hire modal's room picker.
+  const selfRooms = useMemo(
+    () => resourceVenues.filter((v) => v.is_self).flatMap((v) => v.rooms ?? []),
+    [resourceVenues],
+  );
+
+  // Unified-calendar tap-to-book: route an empty-slot tap to the right flow per lane. Only
+  // own-site pitch/room/trainer lanes are bookable, so foreign lanes never reach here.
+  //   pitch → WalkInModal; room → chooser (class | hire); trainer → AppointmentModal.
   const onResourceBook = (resourceType, resourceId, hhmm) => {
     if (resourceType === "pitch") {
       setWalkIn({ pitchId: resourceId, time: hhmm || "19:00" });
     } else if (resourceType === "room") {
-      setClassCreate({ spaceId: resourceId, startsAt: `${date}T${hhmm || "18:00"}` });
+      setRoomChoice({ spaceId: resourceId, startsAt: `${date}T${hhmm || "18:00"}` });
+    } else if (resourceType === "trainer") {
+      setApptCreate({ trainerId: resourceId, startsAt: `${date}T${hhmm || "10:00"}` });
     }
   };
 
@@ -648,6 +670,43 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
           onDone={() => { setClassCreate(null); loadResources(); afterWrite(); }}
         />
       )}
+
+      {/* Room tap → pick what to put in the slot: a scheduled class or an ad-hoc room hire. */}
+      <Modal
+        open={!!roomChoice}
+        onClose={() => setRoomChoice(null)}
+        title="Book this room"
+      >
+        <p className="bk-modal-note">What would you like to add to this slot?</p>
+        <div className="form-row" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 8 }}>
+          <button className="btn btn-ghost" onClick={() => { setClassCreate(roomChoice); setRoomChoice(null); }}>
+            Schedule a class
+          </button>
+          <button className="btn btn-primary" onClick={() => { setRoomHireCreate(roomChoice); setRoomChoice(null); }}>
+            Create a room hire
+          </button>
+        </div>
+      </Modal>
+
+      <RoomHireModal
+        open={!!roomHireCreate}
+        onClose={() => setRoomHireCreate(null)}
+        venueToken={venueToken}
+        spaces={selfRooms}
+        members={members}
+        prefill={roomHireCreate}
+        onCreated={() => { setRoomHireCreate(null); loadResources(); afterWrite(); }}
+      />
+
+      <AppointmentModal
+        open={!!apptCreate}
+        onClose={() => setApptCreate(null)}
+        venueToken={venueToken}
+        trainers={trainers}
+        members={members}
+        prefill={apptCreate}
+        onCreated={() => { setApptCreate(null); loadResources(); afterWrite(); }}
+      />
 
       {(!isUnified || showAdmin) && <CancellationsLog venueToken={venueToken} refreshKey={cancelKey} />}
     </div>
