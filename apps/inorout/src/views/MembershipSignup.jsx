@@ -7,6 +7,7 @@ import {
   memberEnrolMembership, stripeInitMemberCheckout, gcInitMemberMandate,
   supabase,
 } from "@platform/core/storage/supabase.js";
+import { openExternal } from "../native/open-external.js";
 
 // Phase 7 — /q membership signup wizard.
 // Replaces the old v1 MemberSignupForm.
@@ -690,7 +691,7 @@ function StepGcEnrol({ code, tier, period, forProfileId }) {
     hasRun.current = true;
     gcInitMemberMandate({ inviteCode: code, tierId: tier.tier_id, period, forProfileId: forProfileId ?? null })
       .then((r) => {
-        if (r?.redirect_url) { window.location.href = r.redirect_url; }
+        if (r?.redirect_url) { openExternal(r.redirect_url); }
         else { setErr("Couldn't start Direct Debit setup — please try again."); setBusy(false); }
       })
       .catch((e) => {
@@ -729,7 +730,7 @@ function StepEnrol({ code, tier, period, forProfileId, club, onDone, returnCode 
       // can land them on the team after the webhook confirms the membership.
       stripeInitMemberCheckout({ inviteCode: code, tierId: tier.tier_id, period, forProfileId: forProfileId ?? null, returnCode: returnCode ?? null })
         .then((r) => {
-          if (r?.checkout_url) { window.location.href = r.checkout_url; }
+          if (r?.checkout_url) { openExternal(r.checkout_url); }
           else { setErr("Couldn't start payment — please try again."); setBusy(false); }
         })
         .catch((e) => {

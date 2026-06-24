@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { colors as C } from "@platform/core";
 
-const EFFECTIVE_DATE = "19 June 2026";
+const EFFECTIVE_DATE = "24 June 2026";
 const CONTACT_EMAIL = "support@in-or-out.com";
 const COMPANY = "In or Out";
 
@@ -12,7 +12,8 @@ export default function Legal() {
 
   const S = {
     page: { background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:680, margin:"0 auto", padding:"32px 24px 60px",
+      maxWidth:680, margin:"0 auto",
+      padding:"calc(32px + env(safe-area-inset-top)) 24px calc(60px + env(safe-area-inset-bottom))",
       fontFamily:"Inter,sans-serif" },
     h1: { fontFamily:"Bebas Neue,sans-serif", fontSize:32, color:C.amber,
       letterSpacing:2, marginBottom:4 },
@@ -36,7 +37,11 @@ export default function Legal() {
         <a href="/" style={{ fontFamily:"Inter,sans-serif", fontSize:12,
           color:C.muted, textDecoration:"none" }}>← Back to In or Out</a>
       </div>
-      <div style={S.h1}>IN OR OUT</div>
+      <div style={S.h1}>
+        <span style={{ color:C.green }}>IN</span>
+        <span style={{ color:C.text }}> OR </span>
+        <span style={{ color:C.red }}>OUT</span>
+      </div>
       <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
         color:C.muted, marginBottom:28 }}>Legal — effective {EFFECTIVE_DATE}</div>
 
@@ -137,10 +142,12 @@ export default function Legal() {
             <li><strong style={{color:C.text}}>Supabase</strong> — secure database and authentication</li>
             <li><strong style={{color:C.text}}>Vercel</strong> — hosting of the application</li>
             <li><strong style={{color:C.text}}>Google</strong> — Google sign-in, if you choose it</li>
-            <li><strong style={{color:C.text}}>PostHog</strong> — usage analytics</li>
+            <li><strong style={{color:C.text}}>Apple</strong> — Sign in with Apple, if you choose it</li>
+            <li><strong style={{color:C.text}}>PostHog</strong> — usage analytics (hosted in the EU)</li>
             <li><strong style={{color:C.text}}>Resend</strong> — sending transactional emails</li>
             <li><strong style={{color:C.text}}>Twilio</strong> — sending text-message notifications, where used</li>
             <li><strong style={{color:C.text}}>Stripe</strong> and <strong style={{color:C.text}}>GoCardless</strong> — payment processing, where enabled</li>
+            <li><strong style={{color:C.text}}>OpenStreetMap (Nominatim)</strong> — looking up venue names and addresses when a game or club is set up (the address you type is sent to find a match)</li>
           </ul>
 
           <h2 style={S.h2}>International Transfers</h2>

@@ -4,6 +4,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
          memberGetFightRecord, getMyMoney, stripeInitBillingPortal, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
+import { openExternal } from "../native/open-external.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
@@ -95,7 +96,7 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
     isPortalRef.current = true; setPortalBusy(membershipId);
     try {
       const { portal_url } = await stripeInitBillingPortal({ membershipId, returnPath: "/me" });
-      if (portal_url) window.location.href = portal_url;
+      if (portal_url) openExternal(portal_url);
     } catch (e) {
       console.error("[member] billing portal failed", e);
       isPortalRef.current = false; setPortalBusy(null);
@@ -402,6 +403,13 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
         >
           Delete my account
         </button>
+        {/* In-app legal reachability (Apple 5.1.1) for a signed-in, no-club user. */}
+        <div style={{ marginTop: 12, display: "flex", gap: 16, justifyContent: "center",
+          fontFamily: "var(--font-body)", fontSize: 11, color: "var(--t2)" }}>
+          <a href="/legal" style={{ color: "var(--t2)", textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 8px" }}>Terms</a>
+          <a href="/legal#privacy" style={{ color: "var(--t2)", textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 8px" }}>Privacy</a>
+          <a href="mailto:hello@in-or-out.com" style={{ color: "var(--t2)", textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 8px" }}>Contact</a>
+        </div>
       </div>
       <ClubNavBar active="profile" hasFeed={hasFeed} />
     </div>
@@ -1110,7 +1118,9 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
                         {a.who}{a.date ? ` · ${fmtDate(a.date)}` : ""}
                       </div>
                       {a.payUrl && (
-                        <a href={a.payUrl} target="_blank" rel="noopener noreferrer" style={{
+                        <a href={a.payUrl} target="_blank" rel="noopener noreferrer"
+                          onClick={(e) => { if (window.__CAP_NATIVE__) { e.preventDefault(); openExternal(a.payUrl); } }}
+                          style={{
                           display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 600,
                           padding: "4px 10px", borderRadius: 8, border: "1px solid var(--border-subtle)",
                           background: "transparent", color: "var(--amber)", textDecoration: "none", cursor: "pointer",
@@ -1294,6 +1304,14 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
           <button onClick={handleDeleteAccount} style={btnStyle("transparent", "var(--red)", true, "0.5px solid var(--redb)")}>
             Delete my account
           </button>
+          {/* In-app legal reachability (Apple 5.1.1) — must be reachable from a
+              signed-in surface, not only the logged-out marketing splash. */}
+          <div style={{ marginTop: 6, display: "flex", gap: 16, justifyContent: "center",
+            fontFamily: "var(--font-body)", fontSize: 11, color: "var(--t2)" }}>
+            <a href="/legal" style={{ color: "var(--t2)", textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 8px" }}>Terms</a>
+            <a href="/legal#privacy" style={{ color: "var(--t2)", textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 8px" }}>Privacy</a>
+            <a href="mailto:hello@in-or-out.com" style={{ color: "var(--t2)", textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 44, padding: "0 8px" }}>Contact</a>
+          </div>
         </div>
       </div>
       <Tour tourKey="io_tour_club_profile" enabled={clubToursEnabled()} />

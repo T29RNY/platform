@@ -99,7 +99,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
               color:C.muted, lineHeight:1.6, marginBottom:24 }}>
               We sent a sign-in link to<br/>
               <strong style={{ color:C.text }}>{email}</strong><br/>
-              Tap it to continue — no password needed.
+              Tap it to continue — no password to remember.
             </div>
             <button onClick={() => { setSent(false); setEmail(""); }}
               style={{ background:"none", border:"none", color:C.amber,
@@ -111,7 +111,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
           <>
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
               color:C.muted, marginBottom:28, lineHeight:1.6 }}>
-              Sign in to continue. Takes 10 seconds — no password needed.
+              Sign in to continue — no password to remember.
             </div>
 
             {/* Apple — HIG: at least as prominent as Google. Solid near-white
@@ -194,7 +194,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
 
             <div style={{ fontFamily:"Inter,sans-serif", fontSize:11,
               color:C.muted, textAlign:"center", marginTop:20, lineHeight:1.5 }}>
-              No password · No spam · Unsubscribe anytime
+              No password to remember · No spam · Unsubscribe anytime
             </div>
           </>
         )}

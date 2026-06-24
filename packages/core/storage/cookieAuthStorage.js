@@ -33,8 +33,16 @@ const CHUNK = 3000;     // keep each cookie comfortably under the 4KB per-cookie
 const MAX_CHUNKS = 24;  // hard stop so a malformed read can never loop unbounded
 
 function isNative() {
-  return typeof window !== "undefined"
-    && window.Capacitor?.isNativePlatform?.() === true;
+  if (typeof window === "undefined") return false;
+  // Trust the deterministic flag stamped by the native wrap's main.jsx FIRST
+  // (set synchronously via @capacitor/core's isNativePlatform() before any
+  // storage read). The live `window.Capacitor` bridge check is a fallback for
+  // any path that runs before the flag is set — but for a remote-server.url
+  // WKWebView that check can read false even in the wrap, which is exactly the
+  // bug this flag closes. Native → ALWAYS localStorage (shared cookies don't
+  // persist across launches in WKWebView → refresh-token storm → logout).
+  if (window.__CAP_NATIVE__ === true) return true;
+  return window.Capacitor?.isNativePlatform?.() === true;
 }
 
 // Cookie storage engages only when a parent domain is configured AND we are not
@@ -88,15 +96,26 @@ function getItem(key) {
     out += part; found = true;
   }
   if (found) return decodeURIComponent(out);
-  // Migration read: a session written to localStorage BEFORE the cookie flip.
-  // Promote it to the cookie so the cutover is seamless (no forced re-login).
-  const legacy = lsGet(key);
-  if (legacy != null) { setItem(key, legacy); return legacy; }
-  return null;
+  // Cookie absent — a session written to localStorage BEFORE the cookie flip, OR
+  // a cookie that was silently dropped (WKWebView/Safari evict cookies on their
+  // own schedule). Fall back to the durable localStorage mirror. NON-DESTRUCTIVE:
+  // no write-on-read — the next setItem from supabase-js's auto-refresh repopulates
+  // the cookie naturally. (The old code did setItem() here, a write-on-read that
+  // combined with the destructive lsRemove below to guarantee a read/write
+  // disagreement whenever a cookie write was dropped.)
+  return lsGet(key);
 }
 
 function setItem(key, value) {
   if (!cookieMode()) { lsSet(key, value); return; }
+  // Always keep a same-origin localStorage MIRROR as a durable fallback. The
+  // cookie is the cross-subdomain source of truth for SSO, but if the browser
+  // drops it the mirror means a dropped cookie degrades to a silent re-read,
+  // never a logged-out session that triggers a refresh-token storm. (Previously
+  // this lsRemove'd the copy unconditionally — so a dropped cookie wiped the
+  // session from BOTH stores. getItem prefers the cookie, so the mirror is only
+  // consulted when the cookie is genuinely gone.)
+  lsSet(key, value);
   const enc = encodeURIComponent(value);
   clearCookieSet(key); // drop any prior representation (single + stale chunks)
   if (enc.length <= CHUNK) {
@@ -106,7 +125,6 @@ function setItem(key, value) {
       writeCookie(`${key}.${i}`, enc.slice(o, o + CHUNK));
     }
   }
-  lsRemove(key); // cookie is now the single source of truth
 }
 
 function removeItem(key) {

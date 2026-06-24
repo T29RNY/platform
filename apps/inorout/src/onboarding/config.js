@@ -6,7 +6,7 @@ export const ONBOARDING_CONFIG = {
   steps: {
     createTeam: {
       title:    "Set Up Your Game",
-      subtitle: "Takes 2 minutes. No account needed.",
+      subtitle: "Takes 2 minutes. Players join with a link — no account needed.",
       cta:      "Create Team →",
     },
     addPlayers: {
