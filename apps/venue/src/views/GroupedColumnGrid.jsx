@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occSub, occType, occIsFirst, occIcon, occInitials, occRankBadge, freeGaps, reservedBands } from "../bookingUtil.js";
+import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occSub, occType, occIsFirst, occIsPending, occIcon, occInitials, occRankBadge, freeGaps, reservedBands } from "../bookingUtil.js";
 import Icon from "./Icon.jsx";
 
 const PXMIN = 1.0;          // pixels per minute (matches ScheduleGrid)
@@ -132,6 +132,7 @@ export default function GroupedColumnGrid({
                     <div className="occ-top">
                       {glyph && <span className="occ-glyph"><Icon name={glyph} size={12} /></span>}
                       {rank && <span className="occ-rank" title="Team priority">{rank}</span>}
+                      {occIsPending(o) && <span className="occ-req-tag">Request</span>}
                       <span className="occ-label">{occLabel(o)}</span>
                       {occIsFirst(o) && <span className="occ-new">NEW</span>}
                       {type && <span className="occ-type">{type}</span>}

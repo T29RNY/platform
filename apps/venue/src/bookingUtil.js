@@ -234,6 +234,13 @@ export function occIsFirst(o) {
   return o.source_kind === "booking" && o.detail?.is_first === true;
 }
 
+// True when the block is a pending REQUEST awaiting the operator (a pitch booking or a
+// room hire still in 'requested'). Drives the prominent REQUEST badge on the calendar —
+// a request must read as needing action, not just by a dashed outline.
+export function occIsPending(o) {
+  return (o.source_kind === "booking" || o.source_kind === "room_hire") && o.detail?.status === "requested";
+}
+
 // Primary label for an occupancy block.
 export function occLabel(o) {
   if (o.source_kind === "maintenance") return "Maintenance";
