@@ -1,5 +1,33 @@
 # In or Out — Key Decisions Log
 
+## SESSION 190 — Multi-venue (pilot #7) PHASE 2: cross-venue fixtures (mig 413)
+*2026-06-24. Same-operator only. Plan/handoff: MULTI_VENUE_HANDOFF.md. Phase 1 (mig 412) merged (PR #84)
+first per cloud-session discipline. Function-only — NO schema/column/table/guard change; reuses the live
+Phase-1 guard `_venue_in_club_operator`. PR pending → merge before Phase 3.*
+
+- **DECISION — a fixture is anchored to the PITCH'S venue, not a new `club_fixtures.venue_id` column.**
+  Unlike sessions (which got an explicit `venue_id` because a training session may have no pitch), a
+  league fixture's site is fully determined by its `playing_area_id`. So Phase 2 adds NO column: the
+  server derives the venue from the pitch, the venue UI's venue picker is purely client-side scoping to
+  filter the pitch list, and only `playingAreaId` is sent. Consequence: **no supabase.js / barrel change
+  at all** — the JS surface is the venue FixturesTab only.
+- **DECISION — relax the pitch gate with an own-venue short-circuit to guarantee zero regression.** The new
+  rule is "pitch ∈ caller's own venue **OR** `_venue_in_club_operator(caller, league.club, pitch.venue)`".
+  The `= caller venue` short-circuit is load-bearing: the guard requires `company_id` non-null, but many
+  existing single-venue clubs have a NULL `company_id`; running every pitch through the guard would have
+  rejected them booking their OWN pitch. The short-circuit means the guard is consulted ONLY when the
+  chosen pitch is at a DIFFERENT venue, so today's single-venue clubs are byte-identical. Same error code
+  `pitch_not_in_venue` is kept (the venue UI already handles it).
+- **DECISION — the matchday ground is derived from `COALESCE(pitch.venue, league.venue)`, fixing a latent
+  bug.** `get_club_fixture_matchday` always joined the venue on `cl.venue_id` (the league's HOME venue), so
+  the public opposition-coach link for a game played at the club's OTHER same-operator venue would have
+  shown the wrong ground/address/directions. Now it shows the pitch's venue, falling back to the league
+  venue only when no pitch is set. Return keys are unchanged so MatchdayScreen needs no change and stays
+  byte-identical for single-site data.
+- **DECISION — match officials stay caller-venue-scoped (out of Phase-2 scope).** Relaxing the
+  `ref_not_in_venue` gate the same way is deferred; an away-site fixture uses a free-text ref or none.
+  Logged as a follow-up rather than widened silently.
+
 ## SESSION 189 — Multi-venue (pilot #7) PHASE 1: venue-anchor club sessions (mig 412)
 *2026-06-24. Same-operator only. Plan/handoff: MULTI_VENUE_HANDOFF.md. Builds the activity layer on
 top of the access layer (mig 401). PR pending → merge before Phase 2.*
