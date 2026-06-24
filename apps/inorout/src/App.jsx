@@ -1600,8 +1600,8 @@ export default function App() {
       </div>
       <div style={{ fontSize:14, color:C.muted, textAlign:"center",
         marginBottom:40, lineHeight:1.6, maxWidth:300 }}>
-        The fastest way to organise your weekly football game.<br/>
-        No apps. No accounts. Just tap and go.
+        The easiest way to organise your weekly football game.<br/>
+        One link per player — they just tap In or Out.
       </div>
       <a href="/create" style={{ display:"block", width:"100%", maxWidth:320, textDecoration:"none" }}>
         <button style={{ width:"100%", padding:"16px 0", borderRadius:8,

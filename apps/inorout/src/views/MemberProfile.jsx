@@ -402,6 +402,13 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
         >
           Delete my account
         </button>
+        {/* In-app legal reachability (Apple 5.1.1) for a signed-in, no-club user. */}
+        <div style={{ marginTop: 12, display: "flex", gap: 16, justifyContent: "center",
+          fontFamily: "var(--font-body)", fontSize: 11, color: "var(--t2)" }}>
+          <a href="/legal" style={{ color: "var(--t2)", textDecoration: "none" }}>Terms</a>
+          <a href="/legal#privacy" style={{ color: "var(--t2)", textDecoration: "none" }}>Privacy</a>
+          <a href="mailto:hello@in-or-out.com" style={{ color: "var(--t2)", textDecoration: "none" }}>Contact</a>
+        </div>
       </div>
       <ClubNavBar active="profile" hasFeed={hasFeed} />
     </div>
@@ -1294,6 +1301,14 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
           <button onClick={handleDeleteAccount} style={btnStyle("transparent", "var(--red)", true, "0.5px solid var(--redb)")}>
             Delete my account
           </button>
+          {/* In-app legal reachability (Apple 5.1.1) — must be reachable from a
+              signed-in surface, not only the logged-out marketing splash. */}
+          <div style={{ marginTop: 6, display: "flex", gap: 16, justifyContent: "center",
+            fontFamily: "var(--font-body)", fontSize: 11, color: "var(--t2)" }}>
+            <a href="/legal" style={{ color: "var(--t2)", textDecoration: "none" }}>Terms</a>
+            <a href="/legal#privacy" style={{ color: "var(--t2)", textDecoration: "none" }}>Privacy</a>
+            <a href="mailto:hello@in-or-out.com" style={{ color: "var(--t2)", textDecoration: "none" }}>Contact</a>
+          </div>
         </div>
       </div>
       <Tour tourKey="io_tour_club_profile" enabled={clubToursEnabled()} />
