@@ -872,6 +872,34 @@ rank-driven bumping land in Phase 2 (mig 417).
   read by `venue_list_pitch_reserved_windows` (company-scoped). Advisory calendar
   shading on `ScheduleGrid` + `AllGroundsGrid`.
 
+### pitch_bump_proposals (migration 417) — pitch priority Phase 2 (rank bumping)
+
+Net-new table. When a higher-`priority_rank` club team takes a slot held by a lower-ranked
+club team, the incumbent event is set **tentative** (writes no occupancy) and a proposal row
+records the suggested relocation slot, surfaced for Accept/Decline. Created server-side by the
+rank-aware resolver `_reserve_club_occupancy` (called by the mig-414 club-session/fixture
+occupancy triggers); resolved by `club_manager_resolve_bump` / `venue_resolve_bump`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK default gen_random_uuid() | |
+| `event_kind` | text NOT NULL | CHECK in (`club_session`,`club_fixture`) — the bumped event |
+| `event_id` | uuid NOT NULL | the bumped `club_sessions.id` / `club_fixtures.id` |
+| `club_team_id` | uuid NULL | FK → `club_teams(id)` ON DELETE CASCADE (the bumped team) |
+| `club_id` | text NULL | bumped team's club |
+| `original_playing_area_id` / `original_venue_id` / `original_start` | uuid / text / timestamptz | where it was |
+| `suggested_playing_area_id` / `suggested_venue_id` / `suggested_start` | uuid / text / timestamptz NULL | closest free slot; NULL = no alternative found |
+| `bumped_by_kind` / `bumped_by_id` | text | the winning event |
+| `status` | text NOT NULL DEFAULT 'pending' | CHECK in (`pending`,`accepted`,`declined`,`expired`,`superseded`) |
+| `created_at` / `resolved_at` | timestamptz | |
+
+- Indexes `idx_pbp_event` `(event_kind,event_id)`, partial `idx_pbp_team_pending` `(club_team_id) WHERE status='pending'`.
+- RLS ON, REVOKE anon/authenticated — RPC-only.
+- **`club_sessions.status` + `club_fixtures.status` gain `'tentative'`** (mig 417 extends both
+  `*_status_check` constraints). A tentative event holds **no** `pitch_occupancy` (the mig-414
+  triggers' ELSE branch releases it). `club_sessions`: `scheduled|cancelled|tentative`.
+  `club_fixtures`: `scheduled|completed|postponed|void|tentative`.
+
 ### Stage 2b — priority displacement (migrations 142–143)
 
 - **Fixture-trigger auto-yield (mig 142):** when a fixture claims a slot, the

@@ -4417,6 +4417,54 @@ export async function venueListPitchReservedWindows(venueToken) {
   return data;
 }
 
+// Pitch priority Phase 2 — rank-bump proposals. When a higher-ranked club team takes a
+// contested slot, the bumped team's event goes tentative + gets a suggested alternative.
+// These surface + resolve those proposals (venue-token + club-manager auth.uid variants).
+export async function venueListBumpProposals(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_bump_proposals", {
+    p_venue_token: venueToken,
+  });
+  if (error) {
+    console.error("[venue] list_bump_proposals failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function venueResolveBump(venueToken, proposalId, action) {
+  const { data, error } = await supabase.rpc("venue_resolve_bump", {
+    p_venue_token: venueToken,
+    p_proposal_id: proposalId,
+    p_action: action,
+  });
+  if (error) {
+    console.error("[venue] resolve_bump failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function clubManagerListBumpProposals() {
+  const { data, error } = await supabase.rpc("club_manager_list_bump_proposals", {});
+  if (error) {
+    console.error("[club] list_bump_proposals failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function clubManagerResolveBump(proposalId, action) {
+  const { data, error } = await supabase.rpc("club_manager_resolve_bump", {
+    p_proposal_id: proposalId,
+    p_action: action,
+  });
+  if (error) {
+    console.error("[club] resolve_bump failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function venueAddRef(venueToken, ref) {
   const { data, error } = await supabase.rpc("venue_add_ref", {
     p_venue_token: venueToken,

@@ -332,6 +332,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
         pitches={pitches}
         teams={state.teams ?? {}}
         prefill={walkIn}
+        reservedByPitch={reservedByPitch}
         onCreated={() => { setWalkIn(null); afterWrite(); }}
       />
       <BookingSettings

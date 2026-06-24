@@ -191,6 +191,13 @@ export function reservedBands(windows, iso) {
     }));
 }
 
+// The reserved band covering a given start time (minutes-from-midnight) on a date, or null.
+// Used by the operator walk-in flow to warn before booking over the club's own reserved time
+// (operator can still override — the server returns warning:'reserved', it does not block).
+export function reservedHitAt(windows, iso, startMin) {
+  return reservedBands(windows, iso).find((b) => startMin >= b.startMin && startMin < b.endMin) || null;
+}
+
 // True when this is the booker's first-ever booking at the venue (bookings only).
 export function occIsFirst(o) {
   return o.source_kind === "booking" && o.detail?.is_first === true;
