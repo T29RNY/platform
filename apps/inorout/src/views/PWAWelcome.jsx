@@ -112,6 +112,28 @@ export default function PWAWelcome() {
         marginTop:32, lineHeight:1.6 }}>
         Can't find your link? Ask your admin to reshare the invite.
       </div>
+
+      {/* Escape hatch — a signed-in user with no team (or anyone without a link)
+          must never be stranded on this paste-a-link screen. /create gates on
+          auth: signed-in → the create/join onboarding (with Sign out + Manage
+          account), logged-out → sign in. */}
+      <a href="/create" style={{ marginTop:20, display:"inline-flex",
+        alignItems:"center", minHeight:44, padding:"0 8px",
+        fontFamily:"Inter,sans-serif", fontSize:13, color:C.amber,
+        textDecoration:"none", fontWeight:600 }}>
+        New here? Create or join a team
+      </a>
+
+      {/* Legal reachability + comfortable tap targets */}
+      <div style={{ marginTop:8, fontFamily:"Inter,sans-serif", fontSize:11,
+        color:C.muted, display:"flex", gap:8, justifyContent:"center" }}>
+        <a href="/legal" style={{ color:C.muted, textDecoration:"none",
+          display:"inline-flex", alignItems:"center", minHeight:44, padding:"0 8px" }}>Terms</a>
+        <a href="/legal#privacy" style={{ color:C.muted, textDecoration:"none",
+          display:"inline-flex", alignItems:"center", minHeight:44, padding:"0 8px" }}>Privacy</a>
+        <a href="mailto:hello@in-or-out.com" style={{ color:C.muted, textDecoration:"none",
+          display:"inline-flex", alignItems:"center", minHeight:44, padding:"0 8px" }}>Contact</a>
+      </div>
     </div>
   );
 }

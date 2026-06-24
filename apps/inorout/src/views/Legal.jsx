@@ -12,7 +12,8 @@ export default function Legal() {
 
   const S = {
     page: { background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:680, margin:"0 auto", padding:"32px 24px 60px",
+      maxWidth:680, margin:"0 auto",
+      padding:"calc(32px + env(safe-area-inset-top)) 24px calc(60px + env(safe-area-inset-bottom))",
       fontFamily:"Inter,sans-serif" },
     h1: { fontFamily:"Bebas Neue,sans-serif", fontSize:32, color:C.amber,
       letterSpacing:2, marginBottom:4 },
