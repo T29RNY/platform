@@ -30,11 +30,12 @@ const VENUE_FEATURES = [
 ];
 
 const CLUB_FEATURES = [
-  { key: "memberships", label: "Memberships", hint: "plans, fees & member management" },
-  { key: "competition", label: "Competition", hint: "leagues, standings & fixtures" },
-  { key: "coaching",    label: "Coaching",    hint: "club sessions, classes & trainers" },
-  { key: "tournaments", label: "Tournaments", hint: "Event OS cups & brackets" },
-  { key: "public_web",  label: "Public web",  hint: "public club page" },
+  { key: "memberships",  label: "Memberships",     hint: "plans, fees & member management" },
+  { key: "competition",  label: "Internal League", hint: "your own teams' league, seasons & standings" },
+  { key: "club_leagues", label: "Club Leagues",    hint: "fixtures vs outside clubs + matchday links" },
+  { key: "coaching",     label: "Coaching",        hint: "club sessions, classes & trainers" },
+  { key: "tournaments",  label: "Tournaments",     hint: "Event OS cups & brackets" },
+  { key: "public_web",   label: "Public web",      hint: "public club page" },
 ];
 
 // Preset bundles. Descriptive (not commercial tiers) — easy to re-bundle/rename.
@@ -44,10 +45,10 @@ const VENUE_PACKAGES = [
 ];
 
 const CLUB_PACKAGES = [
-  { key: "full",     label: "Full club",              flags: { memberships: true,  competition: true,  coaching: true,  tournaments: true,  public_web: true } },
-  { key: "league",   label: "League club",            flags: { memberships: true,  competition: true,  coaching: false, tournaments: false, public_web: false } },
-  { key: "coaching", label: "Memberships & coaching", flags: { memberships: true,  competition: false, coaching: true,  tournaments: false, public_web: false } },
-  { key: "matchday", label: "Match-day only",         flags: { memberships: false, competition: false, coaching: false, tournaments: false, public_web: false } },
+  { key: "full",     label: "Full club",              flags: { memberships: true,  competition: true,  club_leagues: true,  coaching: true,  tournaments: true,  public_web: true } },
+  { key: "league",   label: "League club",            flags: { memberships: true,  competition: true,  club_leagues: true,  coaching: false, tournaments: false, public_web: false } },
+  { key: "coaching", label: "Memberships & coaching", flags: { memberships: true,  competition: false, club_leagues: false, coaching: true,  tournaments: false, public_web: false } },
+  { key: "matchday", label: "Match-day only",         flags: { memberships: false, competition: false, club_leagues: false, coaching: false, tournaments: false, public_web: false } },
 ];
 
 // Which preset (if any) exactly matches the current effective flags — for highlighting.

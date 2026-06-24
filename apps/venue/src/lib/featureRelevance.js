@@ -28,7 +28,7 @@ const KNOWN = new Set([...PT_CLASS_DISCIPLINES, ...TEAM_SPORT_DISCIPLINES]);
 const ITEM_KIND = {
   classes:  "classes",
   trainers: "classes",
-  fixtures: "competition",
+  fixtures: "club_leagues",  // grassroots external-opponent fixtures (own purchased flag, mig 415)
   league:   "competition",
   table:    "competition",
   cups:     "competition",
@@ -39,8 +39,9 @@ const ITEM_KIND = {
 // Does a single discipline make this kind relevant? Unknown/'other' → true.
 function disciplineMatchesKind(d, kind) {
   if (!d || !KNOWN.has(d)) return true;                 // fail-open
-  if (kind === "classes")     return PT_CLASS_DISCIPLINES.has(d);
-  if (kind === "competition") return TEAM_SPORT_DISCIPLINES.has(d);
+  if (kind === "classes")      return PT_CLASS_DISCIPLINES.has(d);
+  if (kind === "competition")  return TEAM_SPORT_DISCIPLINES.has(d);
+  if (kind === "club_leagues") return TEAM_SPORT_DISCIPLINES.has(d);
   return true;
 }
 

@@ -1,5 +1,32 @@
 # In or Out — Key Decisions Log
 
+## SESSION 193 — Split the "Competition" feature switch into two (Cycle 2, mig 415)
+*2026-06-24. Venue app + DB. Follows the s192 rename. Default-all-on preserved → every
+existing venue byte-identical until a flag is switched off.*
+
+- **DECISION — the single `club_features.competition` switch is split into two so a club
+  shows only the league tool it uses.** New column `club_features.club_leagues bool NOT
+  NULL DEFAULT true`. `competition` now governs **Internal League** (registered teams +
+  standings + Teams/Players); the new `club_leagues` governs **Club Leagues** (grassroots
+  external-opponent fixtures + matchday links). The rail item `fixtures` moves to
+  `flag:'club_leagues'` (Dashboard + featureRelevance `ITEM_KIND`, with a matching
+  team-sport discipline branch). The Features screen gains a "Club Leagues" toggle and the
+  old "Competition" toggle is relabelled "Internal League"; every Quick-setup preset gains
+  an explicit `club_leagues` key (full/league = on, coaching/match-day = off).
+- **DECISION — the trigger is the operator's explicit setup choice, never auto-detection.**
+  Default both-on; a grassroots club hides Internal League by turning `competition` off
+  (or via a preset), keeping `club_leagues` on. We deliberately do NOT infer from whether
+  league/fixture data exists — a brand-new venue has none, so inference would hide a
+  working tool.
+- **DECISION — the 5 Club-Leagues WRITE guards move from `competition` → `club_leagues`,
+  and the Phase-2 guard-drop is fixed.** `venue_create_club_league`/`venue_update_club_league`/
+  `venue_delete_club_fixture`/`venue_set_matchday_info` had exactly one `competition`
+  literal each → swapped in-place on the live body (mig-401 precedent). This is REQUIRED
+  for correctness: otherwise a club with Club Leagues on but Internal League (`competition`)
+  off would see the screen but be unable to save. **LATENT FIX:** `venue_upsert_club_fixture`
+  had NO feature guard at all — the Phase-2 (mig-413) rewrite silently dropped the one
+  mig-399 added; re-added here as `club_leagues`. Closed in the same migration.
+
 ## SESSION 192 — Venue "two leagues" disambiguation + Club-Leagues flow fix (Cycle 1, no migration)
 *2026-06-24. Venue app only; no DB change. Operator-driven IA cleanup. Cycle 2 (split the Competition
 feature switch so the two surfaces show independently) is queued as its own cycle, mig 415.*
