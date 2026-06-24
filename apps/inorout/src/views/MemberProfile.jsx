@@ -4,6 +4,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
          memberGetFightRecord, getMyMoney, stripeInitBillingPortal, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
+import { openExternal } from "../native/open-external.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
@@ -95,7 +96,7 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
     isPortalRef.current = true; setPortalBusy(membershipId);
     try {
       const { portal_url } = await stripeInitBillingPortal({ membershipId, returnPath: "/me" });
-      if (portal_url) window.location.href = portal_url;
+      if (portal_url) openExternal(portal_url);
     } catch (e) {
       console.error("[member] billing portal failed", e);
       isPortalRef.current = false; setPortalBusy(null);
@@ -1117,7 +1118,9 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
                         {a.who}{a.date ? ` · ${fmtDate(a.date)}` : ""}
                       </div>
                       {a.payUrl && (
-                        <a href={a.payUrl} target="_blank" rel="noopener noreferrer" style={{
+                        <a href={a.payUrl} target="_blank" rel="noopener noreferrer"
+                          onClick={(e) => { if (window.__CAP_NATIVE__) { e.preventDefault(); openExternal(a.payUrl); } }}
+                          style={{
                           display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 600,
                           padding: "4px 10px", borderRadius: 8, border: "1px solid var(--border-subtle)",
                           background: "transparent", color: "var(--amber)", textDecoration: "none", cursor: "pointer",

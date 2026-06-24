@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { colors as C } from "@platform/core";
 
-const EFFECTIVE_DATE = "19 June 2026";
+const EFFECTIVE_DATE = "24 June 2026";
 const CONTACT_EMAIL = "support@in-or-out.com";
 const COMPANY = "In or Out";
 
@@ -142,10 +142,12 @@ export default function Legal() {
             <li><strong style={{color:C.text}}>Supabase</strong> — secure database and authentication</li>
             <li><strong style={{color:C.text}}>Vercel</strong> — hosting of the application</li>
             <li><strong style={{color:C.text}}>Google</strong> — Google sign-in, if you choose it</li>
-            <li><strong style={{color:C.text}}>PostHog</strong> — usage analytics</li>
+            <li><strong style={{color:C.text}}>Apple</strong> — Sign in with Apple, if you choose it</li>
+            <li><strong style={{color:C.text}}>PostHog</strong> — usage analytics (hosted in the EU)</li>
             <li><strong style={{color:C.text}}>Resend</strong> — sending transactional emails</li>
             <li><strong style={{color:C.text}}>Twilio</strong> — sending text-message notifications, where used</li>
             <li><strong style={{color:C.text}}>Stripe</strong> and <strong style={{color:C.text}}>GoCardless</strong> — payment processing, where enabled</li>
+            <li><strong style={{color:C.text}}>OpenStreetMap (Nominatim)</strong> — looking up venue names and addresses when a game or club is set up (the address you type is sent to find a match)</li>
           </ul>
 
           <h2 style={S.h2}>International Transfers</h2>
