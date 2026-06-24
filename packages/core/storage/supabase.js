@@ -3711,6 +3711,17 @@ export async function getOperatorPitchOccupancy(venueToken, from, to) {
   return data;
 }
 
+// Unified resource calendar feed (Phase 1, read-only): one normalised occupancy[] across
+// pitches + rooms (room hires ∪ class sessions) + trainers, for EVERY venue the caller's
+// operator runs (same venues.company_id). Returns { ok, venues: [{ venue_id, venue_name,
+// is_self, pitches[], rooms[], trainers[], occupancy[] }] }. Equipment is read separately
+// via getEquipmentAvailability (quantity-over-time strip, not a lane).
+export async function getVenueResourceOccupancy(venueToken, from, to) {
+  const { data, error } = await supabase.rpc("get_venue_resource_occupancy", { p_venue_token: venueToken, p_from: from, p_to: to });
+  if (error) { console.error("[booking] get_venue_resource_occupancy failed", error); throw error; }
+  return data;
+}
+
 // Venue booking settings: bookings_enabled toggle + cancellation_policy text.
 export async function venueUpdateBookingSettings(venueToken, updates) {
   const { data, error } = await supabase.rpc("venue_update_booking_settings", { p_venue_token: venueToken, p_updates: updates });

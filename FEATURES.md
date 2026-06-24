@@ -68,8 +68,15 @@ path passes no pitch], Playwright smoke 0 errors: Match block renders, filters e
 ⛔ owed venue deploy + real-device walk. **🟢 ALL-GROUNDS SINGLE-CALENDAR VIEW SHIPPED s194 (UI-only, no
 mig):** BookingsView ground switcher gains an "All grounds" option laying every same-company venue on ONE
 pitch calendar grouped by venue (`AllGroundsGrid.jsx`), home site bookable + others view-only; also clarified
-Training/Match block visuals (colour-filled badge + glyph chip) + calmed the pitch-visibility chips. (NOTE: it
-is a PITCH calendar — rooms/classes/equipment are separate surfaces, not on it.) DEFERRED follow-up:
+Training/Match block visuals (colour-filled badge + glyph chip) + calmed the pitch-visibility chips.
+**🟢 UNIFIED RESOURCE CALENDAR PHASE 1 SHIPPED s198 (mig 419, read-only):** the "(NOTE: PITCH calendar only)"
+caveat above is now LIFTED — the Bookings calendar gains a "Show: Pitches/Rooms/Trainers/All" switch that lays
+**pitches + rooms + classes + trainers across every operator venue** on ONE calendar (shared `GroupedColumnGrid`
+engine; `AllGroundsGrid` refactored onto it, regression-safe) + an **equipment availability strip**, all
+filterable. Read-only (tap→detail, empty→no-op). New reader `get_venue_resource_occupancy` + `ResourceCalendar`/
+`ResourceBlockModal`/`EquipmentStrip`. Pitches mode = existing pitch console unchanged. Gates all PASS (EV
+3/3+leak0, Playwright 0 err, rpc-security, hygiene 7/7). ⛔ owed venue MANUAL deploy + device walk.
+**Phase 2 (next) = book/create from the calendar, desktop + mobile.** DEFERRED follow-up (now Phase 2):
 create-a-session/match-from-a-calendar-tap + mobile booking polish for that flow,
 #13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
 + demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.

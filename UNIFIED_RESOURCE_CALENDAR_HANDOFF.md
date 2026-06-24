@@ -3,6 +3,17 @@
 *Scoped 2026-06-24 (s194). Operator-requested follow-up to the "All grounds" pitch calendar.
 Venue/club domain only (not casual inorout). Next free migration at scope time = **419**.*
 
+> **🏁 PHASE 1 SHIPPED — s198 (mig 419, read-only).** One unified calendar across **all operator
+> venues** showing pitches + rooms + classes + trainers (filterable) + an equipment availability
+> strip. New SECDEF reader `get_venue_resource_occupancy` (+ definer-only `_room_occupancy_detail`/
+> `_trainer_occupancy_detail`); shared `GroupedColumnGrid` engine with `AllGroundsGrid` refactored
+> onto it (regression-safe); new `ResourceCalendar`/`ResourceBlockModal`/`EquipmentStrip`;
+> `BookingsView` "Show: Pitches/Rooms/Trainers/All" switch. **Operator overrides at build:** all
+> venues from the start (not single-venue v1); one shared engine (Option A); class name primary,
+> room a subheading. All gates PASS (EV 3/3+leak0, Playwright 0 err, hygiene 7/7, rpc-security).
+> ⛔ owed: venue MANUAL prebuilt-static deploy + signed-in device walk. **NEXT = Phase 2 below
+> (book/create from the calendar, desktop + mobile).**
+
 ---
 
 ## THE ASK

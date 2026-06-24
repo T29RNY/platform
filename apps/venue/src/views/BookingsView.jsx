@@ -1,9 +1,12 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { getOperatorPitchOccupancy, venueListPitchReservedWindows, venueListBumpProposals } from "@platform/core";
+import { getOperatorPitchOccupancy, getVenueResourceOccupancy, getEquipmentAvailability, venueListPitchReservedWindows, venueListBumpProposals } from "@platform/core";
 import RequestsInbox from "./RequestsInbox.jsx";
 import BumpProposalsBanner from "./BumpProposalsBanner.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
 import AllGroundsGrid from "./AllGroundsGrid.jsx";
+import ResourceCalendar from "./ResourceCalendar.jsx";
+import EquipmentStrip from "./EquipmentStrip.jsx";
+import ResourceBlockModal from "./ResourceBlockModal.jsx";
 import DayAgenda from "./DayAgenda.jsx";
 import WalkInModal from "./WalkInModal.jsx";
 import BookingSettings from "./BookingSettings.jsx";
@@ -14,7 +17,27 @@ import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 import { todayIso, addDays, fmtDayLabel, isOnDate, occLabel, occTypeKey, occIsFirst, occBounds } from "../bookingUtil.js";
 
-const EMPTY_FILTERS = { paid: false, owed: false, oneoff: false, block: false, league: false, training: false, match: false, maint: false, pending: false, isnew: false, free: false };
+const EMPTY_FILTERS = { paid: false, owed: false, oneoff: false, block: false, league: false, training: false, match: false, maint: false, pending: false, isnew: false, free: false, room: false, class: false, pt: false };
+
+// Which resource lanes the "Show" switcher exposes on the unified calendar.
+const RESOURCE_MODES = [
+  { key: "pitches", label: "Pitches", types: ["pitch"] },
+  { key: "rooms", label: "Rooms", types: ["room"] },
+  { key: "trainers", label: "Trainers", types: ["trainer"] },
+  { key: "all", label: "All", types: ["pitch", "room", "trainer"] },
+];
+
+// Does a unified-calendar block pass the active resource filters (search + Room/Class/PT chips)?
+function resourcePasses(o, f, q) {
+  const query = q.trim().toLowerCase();
+  if (query && !occLabel(o).toLowerCase().includes(query)) return false;
+  if (f.room || f.class || f.pt) {
+    const key = occTypeKey(o);
+    const match = (f.room && key === "room") || (f.class && key === "class") || (f.pt && key === "pt");
+    if (!match) return false;
+  }
+  return true;
+}
 
 // Does an occupancy block pass the active calendar filters? (q = search, hidden = pitch hide.)
 function occPasses(o, f, q, hidden) {
@@ -141,6 +164,29 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
     if (!opts?.soft) { onRefreshOccupancy?.(); loadOperator(); }
   }, [loadBumps, onRefreshOccupancy, loadOperator]);
 
+  // ── Unified resource calendar (Phase 1, read-only): one "Show" switcher lays
+  // pitches / rooms / trainers (and an equipment strip) across EVERY operator venue.
+  // Pitch mode keeps the existing pitch console untouched; the other modes render the
+  // read-only ResourceCalendar fed by get_venue_resource_occupancy.
+  const [resourceMode, setResourceMode] = useState("pitches");
+  const isUnified = resourceMode !== "pitches";
+  const activeTypes = useMemo(() => RESOURCE_MODES.find((m) => m.key === resourceMode)?.types ?? ["pitch"], [resourceMode]);
+
+  const [resourceVenues, setResourceVenues] = useState([]);
+  const loadResources = useCallback(async () => {
+    try {
+      const res = await getVenueResourceOccupancy(venueToken, todayIso(), addDays(todayIso(), 90));
+      setResourceVenues(Array.isArray(res?.venues) ? res.venues : []);
+    } catch (err) {
+      console.error("get_venue_resource_occupancy failed", err);
+      setResourceVenues([]);
+    }
+  }, [venueToken]);
+  useEffect(() => { if (isUnified) loadResources(); }, [isUnified, loadResources]);
+
+  const [equipment, setEquipment] = useState([]);
+  const [selectedBlock, setSelectedBlock] = useState(null);
+
   const hasMultiVenue = operatorVenues.length > 1;
   const ALL_GROUNDS = "__all__";
   const isAll = selectedVenueId === ALL_GROUNDS;
@@ -165,6 +211,22 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [cancelKey, setCancelKey] = useState(0); // bump to reload the cancellations log
+
+  // Equipment availability for the visible day (unified mode only) — quantity strip.
+  useEffect(() => {
+    if (!isUnified) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getEquipmentAvailability(venueToken, `${date}T00:00:00`, `${addDays(date, 1)}T00:00:00`);
+        if (!cancelled) setEquipment(Array.isArray(res?.equipment) ? res.equipment : []);
+      } catch (err) {
+        console.error("get_equipment_availability failed", err);
+        if (!cancelled) setEquipment([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isUnified, venueToken, date]);
 
   useEffect(() => {
     if (!mobilePitchId && activePitches.length) setMobilePitchId(activePitches[0].id);
@@ -208,6 +270,31 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   );
   const noMatches = !freeMode && contentActive && visibleOcc.length === 0;
 
+  // ── Unified resource calendar derived state ───────────────────────────────
+  const resourceDayOcc = useMemo(() => {
+    const out = [];
+    for (const v of resourceVenues) {
+      for (const o of (v.occupancy ?? [])) {
+        if (!activeTypes.includes(o.resource_type)) continue;
+        if (!isOnDate(o.start, date)) continue;
+        if (!resourcePasses(o, filters, filterQ)) continue;
+        out.push(o);
+      }
+    }
+    return out;
+  }, [resourceVenues, activeTypes, date, filters, filterQ]);
+  const resourceContentActive = filters.room || filters.class || filters.pt || !!filterQ.trim();
+  const resourceWindow = useMemo(
+    () => (resourceContentActive ? occBounds(resourceDayOcc) : null),
+    [resourceContentActive, resourceDayOcc],
+  );
+  // Drop venues with no active-type lanes so empty bands don't render.
+  const resourceVisibleVenues = useMemo(
+    () => resourceVenues.filter((v) =>
+      activeTypes.some((t) => ((t === "pitch" ? v.pitches : t === "room" ? v.rooms : v.trainers) ?? []).length > 0)),
+    [resourceVenues, activeTypes],
+  );
+
   const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); loadBumps(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
 
@@ -241,10 +328,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
             <button className="btn btn-sm" onClick={() => setDate(todayIso())}>Jump to today</button>
           )}
         </SectionHead>
-        {activePitches.length === 0 ? (
-          <EmptyState title="No active pitches" body={isSelf ? "Add a pitch in Operations first." : "This site has no active pitches."} />
-        ) : (
-          <div className="schedule">
+        <div className="schedule">
             <div className="schedule-head">
               <span className="nav">
                 <button className="btn btn-xs btn-icon" onClick={() => setDate(addDays(date, -1))} aria-label="Previous day"><Icon name="chevron_l" size={14} /></button>
@@ -252,7 +336,12 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
               </span>
               <span className="date">{fmtDayLabel(date)}</span>
               <span style={{ flex: 1 }} />
-              {hasMultiVenue && (
+              <span className="res-switch" role="group" aria-label="Show resource type">
+                {RESOURCE_MODES.map((m) => (
+                  <button key={m.key} className={"btn btn-xs" + (resourceMode === m.key ? " btn-primary" : "")} onClick={() => setResourceMode(m.key)}>{m.label}</button>
+                ))}
+              </span>
+              {!isUnified && hasMultiVenue && (
                 <span className="ground-switch" title="View another of your grounds">
                   <Icon name="spaces" size={14} />
                   <select
@@ -270,6 +359,43 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                 </span>
               )}
             </div>
+            {isUnified ? (
+              <>
+                <div className="banner banner-info ground-readonly">
+                  Showing <strong>all your resources</strong> across every site — a read-only overview. Book from each resource's own screen for now.
+                </div>
+                <CalendarFilters
+                  resourceChips
+                  pitches={[]}
+                  hiddenPitches={hiddenPitches}
+                  onTogglePitch={togglePitch}
+                  q={filterQ}
+                  onQ={setFilterQ}
+                  f={filters}
+                  onToggle={toggleFilter}
+                  onClear={clearFilters}
+                  isMobile={isMobile}
+                />
+                {resourceVisibleVenues.length === 0 ? (
+                  <EmptyState title="Nothing to show yet" body="No rooms, classes or trainers are set up for your venues." />
+                ) : resourceContentActive && resourceDayOcc.length === 0 ? (
+                  <EmptyState title="No matches" body="Nothing on this day fits the current filters." />
+                ) : (
+                  <ResourceCalendar
+                    date={date}
+                    venues={resourceVisibleVenues}
+                    dayOcc={resourceDayOcc}
+                    activeTypes={activeTypes}
+                    windowOverride={resourceWindow}
+                    onSelectBlock={setSelectedBlock}
+                  />
+                )}
+                <EquipmentStrip items={equipment} dayLabel={fmtDayLabel(date)} />
+              </>
+            ) : activePitches.length === 0 ? (
+              <EmptyState title="No active pitches" body={isSelf ? "Add a pitch in Operations first." : "This site has no active pitches."} />
+            ) : (
+              <>
             {!isSelf && !isAll && (
               <div className="banner banner-info ground-readonly">
                 Viewing <strong>{selectedVenue?.venue_name}</strong> — read-only. Switch to this site's console to book.
@@ -342,8 +468,9 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                 onSelectBooking={setSelectedBooking}
               />
             )}
+              </>
+            )}
           </div>
-        )}
       </section>
 
       <WalkInModal
@@ -376,6 +503,11 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
         venueToken={venueToken}
         onClose={() => setSelectedBooking(null)}
         onChanged={() => { setSelectedBooking(null); afterWrite(); }}
+      />
+      <ResourceBlockModal
+        open={!!selectedBlock}
+        occ={selectedBlock}
+        onClose={() => setSelectedBlock(null)}
       />
 
       <CancellationsLog venueToken={venueToken} refreshKey={cancelKey} />
