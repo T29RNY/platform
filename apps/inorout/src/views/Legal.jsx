@@ -14,18 +14,18 @@ export default function Legal() {
     page: { background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:680, margin:"0 auto",
       padding:"calc(32px + env(safe-area-inset-top)) 24px calc(60px + env(safe-area-inset-bottom))",
-      fontFamily:"Inter,sans-serif" },
+      fontFamily:"'DM Sans', sans-serif" },
     h1: { fontFamily:"Bebas Neue,sans-serif", fontSize:32, color:C.amber,
       letterSpacing:2, marginBottom:4 },
-    h2: { fontFamily:"Inter,sans-serif", fontSize:16, fontWeight:800,
+    h2: { fontFamily:"'DM Sans', sans-serif", fontSize:16, fontWeight:800,
       color:C.text, margin:"24px 0 8px" },
-    p: { fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted,
+    p: { fontFamily:"'DM Sans', sans-serif", fontSize:14, color:C.muted,
       lineHeight:1.7, marginBottom:12 },
-    ul: { fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted,
+    ul: { fontFamily:"'DM Sans', sans-serif", fontSize:14, color:C.muted,
       lineHeight:1.7, marginBottom:12, paddingLeft:20 },
     tab: (active) => ({
       padding:"10px 20px", borderRadius:6, border:"none", cursor:"pointer",
-      fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
+      fontFamily:"'DM Sans', sans-serif", fontSize:13, fontWeight:700,
       background: active ? C.amber : "transparent",
       color: active ? C.black : C.muted,
     }),
@@ -34,7 +34,7 @@ export default function Legal() {
   return (
     <div style={S.page}>
       <div style={{ marginBottom:8 }}>
-        <a href="/" style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+        <a href="/" style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12,
           color:C.muted, textDecoration:"none" }}>← Back to In or Out</a>
       </div>
       <div style={S.h1}>
@@ -42,7 +42,7 @@ export default function Legal() {
         <span style={{ color:C.text }}> OR </span>
         <span style={{ color:C.red }}>OUT</span>
       </div>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
+      <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13,
         color:C.muted, marginBottom:28 }}>Legal — effective {EFFECTIVE_DATE}</div>
 
       {/* Tabs */}

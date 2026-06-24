@@ -66,7 +66,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
 
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif",
+      maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif",
       display:"flex", flexDirection:"column" }}>
 
       {/* Header */}
@@ -79,7 +79,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
           <span style={{ color:C.red }}>OUT</span>
         </div>
         {teamName && (
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
+          <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13,
             color:C.muted, marginTop:4 }}>
             Sign in to join <strong style={{ color:C.text }}>{teamName}</strong>
           </div>
@@ -95,7 +95,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
               color:C.text, letterSpacing:1, marginBottom:8 }}>
               CHECK YOUR EMAIL
             </div>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
+            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13,
               color:C.muted, lineHeight:1.6, marginBottom:24 }}>
               We sent a sign-in link to<br/>
               <strong style={{ color:C.text }}>{email}</strong><br/>
@@ -103,13 +103,13 @@ export default function SignIn({ teamName, onBack, returnTo }) {
             </div>
             <button onClick={() => { setSent(false); setEmail(""); }}
               style={{ background:"none", border:"none", color:C.amber,
-                fontFamily:"Inter,sans-serif", fontSize:13, cursor:"pointer" }}>
+                fontFamily:"'DM Sans', sans-serif", fontSize:13, cursor:"pointer" }}>
               Use a different email
             </button>
           </div>
         ) : (
           <>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
+            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14,
               color:C.muted, marginBottom:28, lineHeight:1.6 }}>
               Sign in to continue — no password to remember.
             </div>
@@ -119,7 +119,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
             <button onClick={signInWithApple} style={{
               width:"100%", padding:"14px 0", borderRadius:8, marginBottom:12,
               border:"none", background:C.text,
-              color:C.bg, fontFamily:"Inter,sans-serif", fontSize:14,
+              color:C.bg, fontFamily:"'DM Sans', sans-serif", fontSize:14,
               fontWeight:600, cursor:"pointer",
               display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               {APPLE_SVG}
@@ -130,7 +130,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
             <button onClick={signInWithGoogle} style={{
               width:"100%", padding:"14px 0", borderRadius:8, marginBottom:12,
               border:`1.5px solid ${C.border}`, background:C.surface,
-              color:C.text, fontFamily:"Inter,sans-serif", fontSize:14,
+              color:C.text, fontFamily:"'DM Sans', sans-serif", fontSize:14,
               fontWeight:600, cursor:"pointer",
               display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
               <svg width="18" height="18" viewBox="0 0 18 18">
@@ -145,7 +145,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
             {/* Divider */}
             <div style={{ display:"flex", alignItems:"center", gap:12, margin:"16px 0" }}>
               <div style={{ flex:1, height:1, background:C.border }}/>
-              <span style={{ fontFamily:"Inter,sans-serif", fontSize:11,
+              <span style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11,
                 color:C.muted, fontWeight:600 }}>OR</span>
               <div style={{ flex:1, height:1, background:C.border }}/>
             </div>
@@ -155,7 +155,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
               <button onClick={() => setShowEmail(true)} style={{
                 width:"100%", padding:"14px 0", borderRadius:8,
                 border:`1.5px solid ${C.border}`, background:"transparent",
-                color:C.muted, fontFamily:"Inter,sans-serif", fontSize:14,
+                color:C.muted, fontFamily:"'DM Sans', sans-serif", fontSize:14,
                 fontWeight:600, cursor:"pointer" }}>
                 Continue with Email
               </button>
@@ -171,13 +171,13 @@ export default function SignIn({ teamName, onBack, returnTo }) {
                   style={{ width:"100%", padding:"13px 14px", borderRadius:6,
                     border:`1.5px solid ${email?C.amber:C.border}`,
                     background:C.bg, color:C.text,
-                    fontFamily:"Inter,sans-serif", fontSize:14,
+                    fontFamily:"'DM Sans', sans-serif", fontSize:14,
                     outline:"none", boxSizing:"border-box", marginBottom:10 }}
                 />
                 {error && (
                   <div style={{ padding:"8px 12px", borderRadius:6,
                     background:C.red+"18", color:C.red,
-                    fontFamily:"Inter,sans-serif", fontSize:12,
+                    fontFamily:"'DM Sans', sans-serif", fontSize:12,
                     marginBottom:10 }}>{error}</div>
                 )}
                 <button onClick={signInWithEmail}
@@ -185,14 +185,14 @@ export default function SignIn({ teamName, onBack, returnTo }) {
                   width:"100%", padding:"13px 0", borderRadius:6, border:"none",
                   background: loading || !email.trim() ? "#2a2a2a" : C.amber,
                   color: loading || !email.trim() ? C.muted : C.black,
-                  fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:800,
+                  fontFamily:"'DM Sans', sans-serif", fontSize:14, fontWeight:800,
                   cursor: loading || !email.trim() ? "not-allowed" : "pointer" }}>
                   {loading ? "Sending..." : "Send Magic Link →"}
                 </button>
               </div>
             )}
 
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11,
+            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11,
               color:C.muted, textAlign:"center", marginTop:20, lineHeight:1.5 }}>
               No password to remember · No spam · Unsubscribe anytime
             </div>

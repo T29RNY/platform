@@ -98,7 +98,7 @@ export default function AuthCallback() {
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
       flexDirection:"column", alignItems:"center", justifyContent:"center",
-      gap:16, fontFamily:"Inter,sans-serif" }}>
+      gap:16, fontFamily:"'DM Sans', sans-serif" }}>
       {status === "processing" && <>
         <div style={{ fontSize:40 }}>⚽</div>
         <div style={{ fontSize:14, color:C.muted }}>Signing you in...</div>

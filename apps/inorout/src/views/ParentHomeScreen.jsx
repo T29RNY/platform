@@ -66,7 +66,7 @@ function SessionRow({ session, childId, onRsvp, saving }) {
                 border: `1px solid ${active ? on : C.border}`,
                 background: active ? on : C.surface,
                 color: active ? C.black : C.text,
-                fontFamily: "Inter,sans-serif", fontSize: 12, fontWeight: 700,
+                fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 700,
                 opacity: saving ? 0.6 : 1,
               }}
             >
@@ -161,7 +161,7 @@ export default function ParentHomeScreen() {
 
   return (
     <div style={{ background: C.bg, minHeight: "100dvh", color: C.text,
-      maxWidth: 430, margin: "0 auto", fontFamily: "Inter,sans-serif", paddingBottom: 90 }}>
+      maxWidth: 430, margin: "0 auto", fontFamily: "'DM Sans', sans-serif", paddingBottom: 90 }}>
       <div style={{ padding: "calc(20px + env(safe-area-inset-top)) 18px 12px", borderBottom: `1px solid ${C.border}` }}>
         {/* Brand lockup — IN green · OR neutral · OUT red (matches PageHeader). */}
         <div style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: 28, letterSpacing: 3 }}>

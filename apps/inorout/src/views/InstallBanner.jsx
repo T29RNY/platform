@@ -73,7 +73,7 @@ export default function InstallBanner() {
       <div style={{
         position:"fixed", bottom:0, left:0, right:0, zIndex:100,
         maxWidth:430, margin:"0 auto",
-        background:"#1a1a1a", borderTop:`2px solid ${C.amber}`,
+        background:C.surface, borderTop:`2px solid ${C.amber}`,
         padding:"14px 18px 20px",
         display:"flex", alignItems:"center", gap:12,
       }}>
@@ -82,9 +82,9 @@ export default function InstallBanner() {
           fontSize:18, flexShrink:0 }}>⚽</div>
 
         <div style={{ flex:1 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, fontWeight:700,
+          <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13, fontWeight:700,
             color:C.text, marginBottom:2 }}>Add to Home Screen</div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted }}>
+          <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12, color:C.muted }}>
             Install for quick access — works like a native app
           </div>
         </div>
@@ -93,14 +93,14 @@ export default function InstallBanner() {
           <button onClick={() => { setModalStep(0); setShowModal(true); }} style={{
             padding:"6px 12px", borderRadius:5,
             border:`1px solid ${C.amber}`, background:C.amber+"18", color:C.amber,
-            fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700,
+            fontFamily:"'DM Sans', sans-serif", fontSize:12, fontWeight:700,
             cursor:"pointer", flexShrink:0,
           }}>How to</button>
         ) : deferredPrompt ? (
           <button onClick={install} style={{
             padding:"6px 12px", borderRadius:5,
-            border:"none", background:C.amber, color:"#000",
-            fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:700,
+            border:"none", background:C.amber, color:C.black,
+            fontFamily:"'DM Sans', sans-serif", fontSize:12, fontWeight:700,
             cursor:"pointer", flexShrink:0,
           }}>Install</button>
         ) : null}
@@ -125,7 +125,7 @@ export default function InstallBanner() {
             style={{
               position:"relative",
               width:"100%", maxWidth:430,
-              background:"#1a1a1a",
+              background:C.surface,
               borderRadius:"16px 16px 0 0",
               borderTop:`2px solid ${C.amber}`,
               padding:"24px 24px 36px",
@@ -147,7 +147,7 @@ export default function InstallBanner() {
                 color:C.amber, letterSpacing:1.5, marginBottom:10 }}>
                 {IOS_STEPS[modalStep].title}
               </div>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
+              <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14,
                 color:C.muted, lineHeight:1.6, maxWidth:280, margin:"0 auto" }}>
                 {IOS_STEPS[modalStep].desc}
               </div>
@@ -172,20 +172,20 @@ export default function InstallBanner() {
                 <button onClick={() => setModalStep(s => s - 1)} style={{
                   flex:1, padding:"12px 0", borderRadius:6,
                   border:`1px solid ${C.border}`, background:"transparent", color:C.muted,
-                  fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:600, cursor:"pointer",
+                  fontFamily:"'DM Sans', sans-serif", fontSize:14, fontWeight:600, cursor:"pointer",
                 }}>← Back</button>
               )}
               {modalStep < IOS_STEPS.length - 1 ? (
                 <button onClick={() => setModalStep(s => s + 1)} style={{
                   flex:1, padding:"12px 0", borderRadius:6,
-                  border:"none", background:C.amber, color:"#000",
-                  fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, cursor:"pointer",
+                  border:"none", background:C.amber, color:C.black,
+                  fontFamily:"'DM Sans', sans-serif", fontSize:14, fontWeight:700, cursor:"pointer",
                 }}>Next →</button>
               ) : (
                 <button onClick={() => setShowModal(false)} style={{
                   flex:1, padding:"12px 0", borderRadius:6,
-                  border:"none", background:C.green, color:"#000",
-                  fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:700, cursor:"pointer",
+                  border:"none", background:C.green, color:C.black,
+                  fontFamily:"'DM Sans', sans-serif", fontSize:14, fontWeight:700, cursor:"pointer",
                 }}>Got it ✓</button>
               )}
             </div>
