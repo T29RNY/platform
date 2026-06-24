@@ -80,7 +80,7 @@ const TABS = [
       ] },
   ]},
   { group: "Competition", items: [
-    { id: "fixtures", label: "Club Leagues",   icon: "ops",   flag: "competition" },
+    { id: "fixtures", label: "Club Leagues",   icon: "ops",   flag: "club_leagues" },
     { id: "league",   label: "Internal League", icon: "league", flag: "competition" },
     { id: "table",    label: "Standings",       icon: "table",  flag: "competition" },
     { id: "cups",     label: "Cups",      icon: "cups", cupOnly: true, flag: "tournaments" },
