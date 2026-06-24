@@ -11,7 +11,7 @@ import {
   setPlayerNickname, resetPlayerToken,
   insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
   deletePlayer, getMyContact, setPlayerContact,
-  adminSetPlayerStatus,
+  adminSetPlayerStatus, signOut, supabase,
 } from "@platform/core/storage/supabase.js";
 import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
@@ -275,6 +275,21 @@ export default function PlayerProfile({
   // RPC uses auth.uid()). In the home-screen app the user is almost always
   // unauthed; pop the email-OTP modal first, then open the typed-DELETE flow.
   const { requireAuth, gateProps } = useRequireAuth();
+
+  // Sign out — only shown when there's a real auth session. A /p/<token> link
+  // can be viewed anonymously, where "sign out" would be meaningless.
+  const [isAuthed, setIsAuthed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getSession()
+      .then(({ data }) => { if (alive) setIsAuthed(!!data?.session?.user); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const handleSignOut = async () => {
+    try { await signOut(); } catch (e) { console.error("sign out failed", e); }
+    window.location.replace("/signin");
+  };
 
   // Admin-mode state
   const [editingNick, setEditingNick] = useState(false);
@@ -924,6 +939,26 @@ export default function PlayerProfile({
             }}>
               Account
             </div>
+
+            {isAuthed && (
+              <button
+                onClick={handleSignOut}
+                style={{
+                  width:"100%", padding:"14px 16px",
+                  borderRadius:"var(--r)",
+                  background:"transparent",
+                  border:`0.5px solid var(--border-subtle)`,
+                  color:"var(--t1)",
+                  fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+                  display:"flex", alignItems:"center", gap:10,
+                  cursor:"pointer", marginBottom:8,
+                  WebkitTapHighlightColor:"transparent",
+                }}
+              >
+                <SignOut size={16} weight="thin"/>
+                Sign out
+              </button>
+            )}
 
             <FirstTimeHint
               storageKey="ioo_hint_profile_leave"
