@@ -91,10 +91,19 @@ Club Leagues fixtures (`club_fixtures`) were invisible to them. New read-only re
 `member_list_club_fixtures(p_club_id)` folds the caller's managed-team fixtures into the same
 day-grouped Agenda as read-only `FixtureCard`s (Club League badge, vs-opponent, KO time, pitch/venue,
 home/away) → tap → read-only `FixtureDetail` sheet + "View matchday page" link. Operator owns the
-schedule; manager reads only. **Phase 3b (next, mig 421) = home-match edit** — a guarded
-`club_manager_update_home_fixture` write RPC letting a HOME-team manager set pitch/venue/ref/kickoff
-(reuses pitch-occupancy clash protection; away fixtures stay read-only). Then **P4 push** for comms +
-bumps. Full phase log in the `project_calendar_mobile` memory.
+schedule; manager reads only.
+
+**🟢 CALENDAR & MOBILE PHASE 3b — HOME-FIXTURE MANAGER EDIT (mig 421, s201).** The Phase-3a
+`FixtureDetail` now lets a HOME-team manager edit logistics in place — kickoff time, pitch (from the
+allowed venue set = league home venue ∪ same-operator club venues), and referee (a named venue
+official OR free-text). Away fixtures + date/opponent/scores/status stay operator-owned/read-only.
+NEW guarded write `club_manager_update_home_fixture` (manager+is_home gated) **reuses** the mig-414
+`tg_sync_club_fixture_occupancy` trigger for clash protection (`slot_unavailable` — a manager can't
+double-book) + an options reader `club_manager_get_home_fixture_options` feeding the form's pitch +
+official pickers. Gates all PASS (EV 8/8 + leak 0, rpc-security, build/hygiene, casual additive,
+Playwright boot). ⛔ owed Hard Rule #13 device walk + venue deploy. **Next = P4 push** for comms +
+bumps; **Phase 2b** operator room-hire/trainer-appointment create. Full phase log in the
+`project_calendar_mobile` memory.
 #13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
 + demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 

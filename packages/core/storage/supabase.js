@@ -5314,6 +5314,34 @@ export async function memberListClubFixtures(clubId) {
   return data;
 }
 
+// Calendar & Mobile Phase 3b — HOME-team manager edits a Club League fixture's logistics
+// (pitch / referee / kickoff). Options reader feeds the edit form's pitch + official pickers;
+// the fixture row carries the current values. Manager + is_home gated server-side.
+export async function clubManagerGetHomeFixtureOptions(fixtureId) {
+  const { data, error } = await supabase.rpc("club_manager_get_home_fixture_options", {
+    p_fixture_id: fixtureId,
+  });
+  if (error) { console.error("[manager] club_manager_get_home_fixture_options failed", error); throw error; }
+  return data;
+}
+
+// Guarded write: sets pitch (playingAreaId), referee (officialId OR free-text refName) and
+// kickoff (kickoffTime, "HH:MM" or null). All other fields stay operator-owned. Throws on
+// slot_unavailable / pitch_not_in_venue / ref_not_in_venue / not_a_manager / away_read_only.
+export async function clubManagerUpdateHomeFixture(fixtureId, {
+  playingAreaId = null, officialId = null, refName = null, kickoffTime = null,
+} = {}) {
+  const { data, error } = await supabase.rpc("club_manager_update_home_fixture", {
+    p_fixture_id: fixtureId,
+    p_playing_area_id: playingAreaId,
+    p_official_id: officialId,
+    p_ref_name: refName,
+    p_kickoff_time: kickoffTime,
+  });
+  if (error) { console.error("[manager] club_manager_update_home_fixture failed", error); throw error; }
+  return data;
+}
+
 export async function memberRsvpSession(sessionId, status, { forProfileId = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("member_rsvp_session", {
     p_session_id: sessionId, p_status: status,

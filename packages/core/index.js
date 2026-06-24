@@ -350,6 +350,8 @@ export {
   clubCancelSessionSeries,
   memberListUpcomingSessions,
   memberListClubFixtures,
+  clubManagerGetHomeFixtureOptions,
+  clubManagerUpdateHomeFixture,
   memberRsvpSession,
   memberGetSessionRsvpBoard,
   clubManagerCreateSession,
