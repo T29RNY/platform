@@ -541,9 +541,9 @@ function BoutsModal({ venueToken, member, onClose }) {
 // Operator creates a League, adds fixtures, assigns pitch + ref, sets venue
 // matchday ground rules. The opposition-coach share link (Phase B) reads these.
 const CF_STATUS = [["scheduled", "Scheduled"], ["completed", "Played"], ["postponed", "Postponed"], ["void", "Void"]];
-const emptyFixture = () => ({
+const emptyFixture = (venueId = "") => ({
   fixture_id: null, club_team_id: "", club_team_name: "", opponent_name: "",
-  is_home: true, scheduled_date: "", kickoff_time: "", playing_area_id: "",
+  is_home: true, scheduled_date: "", kickoff_time: "", venue_id: venueId, playing_area_id: "",
   official_id: "", ref_name: "", home_score: "", away_score: "", status: "scheduled", notes: "",
 });
 
@@ -553,6 +553,9 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
   const [leagues, setLeagues] = useState(null);
   const [leagueId, setLeagueId] = useState(null);
   const [teams, setTeams] = useState([]);
+  // Multi-venue (pilot #7 Phase 2): the club's same-operator venues, each carrying
+  // its playing_areas[]. Scopes the fixture pitch picker across both sites.
+  const [venues, setVenues] = useState([]);
   const [fixtures, setFixtures] = useState(null);
   const [newLeague, setNewLeague] = useState({ name: "", season: "" });
   const [form, setForm] = useState(null);          // null | fixture-draft
@@ -606,6 +609,30 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
     clubListTeams(venueToken, cid, false).then((r) => setTeams(r || [])).catch(() => setTeams([]));
   };
   useEffect(() => { if (clubId) loadLeagues(clubId); /* eslint-disable-next-line */ }, [clubId]);
+
+  // The club's venues, narrowed to the caller's operator (same company_id) — the
+  // same-operator seam (mirrors SessionsView). Feeds the fixture venue + pitch picker.
+  useEffect(() => {
+    if (!clubId) { setVenues([]); return; }
+    let a = true;
+    venueListClubVenues(venueToken, clubId)
+      .then((r) => {
+        if (!a) return;
+        const all = r?.venues ?? [];
+        const self = all.find((v) => v.is_self);
+        const company = self?.company_id ?? null;
+        const sameOperator = company
+          ? all.filter((v) => v.company_id === company)
+          : all.filter((v) => v.is_self);
+        setVenues(sameOperator);
+      })
+      .catch(() => { if (a) setVenues([]); });
+    return () => { a = false; };
+  }, [venueToken, clubId]);
+
+  const selfVenue = venues.find((v) => v.is_self) ?? venues[0] ?? null;
+  const formVenue = form ? (venues.find((v) => v.venue_id === form.venue_id) ?? selfVenue) : null;
+  const formPitches = formVenue?.playing_areas ?? pitches;
 
   const loadFixtures = (lid) => {
     setFixtures(null);
@@ -676,6 +703,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
     fixture_id: fx.fixture_id, club_team_id: fx.club_team_id || "", club_team_name: fx.club_team_name || "",
     opponent_name: fx.opponent_name || "", is_home: fx.is_home,
     scheduled_date: fx.scheduled_date || "", kickoff_time: fx.kickoff_time || "",
+    venue_id: fx.venue_id || selfVenue?.venue_id || "",
     playing_area_id: fx.playing_area_id || "", official_id: fx.official_id || "",
     ref_name: fx.referee_name && !fx.official_id ? fx.referee_name : "",
     home_score: fx.home_score ?? "", away_score: fx.away_score ?? "",
@@ -759,7 +787,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
             </div>
           </div>
 
-          {!form && <button className="btn btn-primary" style={{ marginBottom: "var(--gap-2)" }} onClick={() => setForm(emptyFixture())}><Icon name="plus" size={14} /> Add fixture</button>}
+          {!form && <button className="btn btn-primary" style={{ marginBottom: "var(--gap-2)" }} onClick={() => setForm(emptyFixture(selfVenue?.venue_id ?? ""))}><Icon name="plus" size={14} /> Add fixture</button>}
 
           {form && (
             <div className="panel" style={{ padding: "var(--gap-2)", marginBottom: "var(--gap-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
@@ -792,11 +820,22 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
                   <label className="field-label">Kick-off</label>
                   <input className="input" type="time" value={form.kickoff_time} onChange={(e) => setForm((f) => ({ ...f, kickoff_time: e.target.value }))} />
                 </div>
+                {/* Venue — shown when the club operates from more than one same-operator site */}
+                {venues.length > 1 && (
+                  <div>
+                    <label className="field-label">Venue</label>
+                    <select className="input" value={form.venue_id} onChange={(e) => setForm((f) => ({ ...f, venue_id: e.target.value, playing_area_id: "" }))}>
+                      {venues.map((v) => (
+                        <option key={v.venue_id} value={v.venue_id}>{v.venue_name}{v.is_self ? " (this site)" : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="field-label">Pitch {form.is_home ? "" : "(home only)"}</label>
                   <select className="input" value={form.playing_area_id} onChange={(e) => setForm((f) => ({ ...f, playing_area_id: e.target.value }))}>
                     <option value="">— none —</option>
-                    {pitches.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {formPitches.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -843,6 +882,7 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
                   </div>
                   <div className="cu-sub">
                     {fx.scheduled_date || "no date"}{fx.kickoff_time ? ` · ${fx.kickoff_time}` : ""}
+                    {fx.venue_id && selfVenue && fx.venue_id !== selfVenue.venue_id && fx.venue_name ? ` · ${fx.venue_name}` : ""}
                     {fx.pitch_name ? ` · ${fx.pitch_name}` : ""}
                     {fx.referee_name ? ` · Ref ${fx.referee_name}` : ""}
                     {fx.home_score != null && fx.away_score != null ? ` · ${fx.home_score}–${fx.away_score}` : ""}

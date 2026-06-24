@@ -19,14 +19,21 @@ Stripe refunds [full / pro-rated-unused / custom]; built & tested on TEST keys, 
 #5 pitch priority/reserved times (pitch system
 built, priority layer not), #6 team prioritisation (⭐ display-only, doesn't drive anything yet),
 #7 multi-venue (access layer shipped mig 401; activity layer scoped s188 → `MULTI_VENUE_HANDOFF.md`,
-same-operator only. **🟢 PHASE 1 BUILT s189 (mig 412, PR pending) — venue-anchor club_sessions:**
+same-operator only. **🟢 PHASE 1 SHIPPED+MERGED s189 (mig 412, PR #84→main) — venue-anchor club_sessions:**
 `club_sessions`/`_series` += `venue_id`/`playing_area_id` (backfilled byte-identical), new same-operator
 guard `_venue_in_club_operator`, 5 session write RPCs gain the venue (validated, old overloads dropped),
 readers return venue+address, venue-app venue/pitch picker + venue filter + labels, inorout manager venue
-picker (Option B) + member card shows venue. Gates all PASS (rpc-security, EV 11/11+leak0, casual-
-regression additive, build+hygiene, Playwright). ⛔ owed venue deploy + 2-venue UI walk once pilot data
-exists. NEXT = Phase 2 cross-venue fixtures (mig 413) / Phase 3 optional pitch occupancy=the cross-site
-calendar — pilot club confirmed 2 same-operator venues w/ pitches, training+matches at either),
+picker (Option B) + member card shows venue. **🟢 PHASE 2 BUILT s190 (mig 413, PR pending) — cross-venue
+fixtures:** function-only (NO schema/guard change, reuses the Phase-1 guard) — `venue_upsert_club_fixture`
+pitch gate relaxed to "pitch ∈ caller venue OR a same-operator club venue" (own-venue short-circuit keeps
+single-venue clubs byte-identical), `venue_list_club_fixtures` += venue_id/name/address, and a LATENT BUG
+FIXED — `get_club_fixture_matchday` now derives the ground from the pitch's venue (`COALESCE(pitch.venue,
+league.venue)`) so an away-site home game shows the right ground (was always the league's home venue).
+Venue FixturesTab gains the same-operator venue + pitch picker. Gates all PASS (rpc-security 3 fns, EV
+9/9+leak0, casual-regression N/A [no core/inorout change], build+hygiene, Playwright matchday+FixturesTab
+smoke). ⛔ owed venue deploy + 2-venue UI walk once pilot data exists. NEXT = Phase 3 OPTIONAL pitch
+occupancy = the cross-site calendar w/ clash protection (mig 414) — pilot club confirmed 2 same-operator
+venues w/ pitches, training+matches at either),
 #13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
 + demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
