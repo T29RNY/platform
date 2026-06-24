@@ -2920,6 +2920,58 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .eq-item .eq-count { font-size: 11px; color: var(--ink-3); }
 .eq-item.is-out { border-color: rgba(245,158,11,0.4); background: var(--warn-soft); }
 .eq-item.is-out .eq-count { color: var(--warn); font-weight: 600; }
+/* pinned: equipment stays visible below the fixed-height calendar even as the page scrolls */
+.eq-strip-pinned { position: sticky; bottom: 0; z-index: 4; margin-top: 0; box-shadow: 0 -8px 16px -8px rgba(0,0,0,0.5); }
+
+/* ── Unified resource calendar — fixed-height grid + now-line + view toggle ── */
+/* Fixed viewport: the calendar is a constant height that fits on screen; vertical scroll
+   moves through the day (headers + time gutter already pinned via .sg-corner/.sg-axis). */
+.sg-scroll-fixed { height: min(62vh, 700px); max-height: none; }
+/* "now" indicator — a thin live line across each column on today's view */
+.sg-nowline {
+  position: absolute; left: 0; right: 0; height: 0;
+  border-top: 2px solid var(--live); z-index: 1; pointer-events: none;
+}
+.sg-nowline::before {
+  content: ""; position: absolute; left: 0; top: -4px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--live);
+}
+.cal-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+/* Agenda view — each booked resource is a row of time-ordered chips (denser than the grid) */
+.agenda-res { display: flex; flex-direction: column; gap: 16px; }
+.agenda-res-bandhead {
+  font-size: 12px; font-weight: 700; color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.agenda-res-row { display: flex; gap: 14px; padding: 8px 0; align-items: flex-start; }
+.agenda-res-row + .agenda-res-row { border-top: 1px solid var(--rule); }
+.agenda-res-name { flex: 0 0 150px; min-width: 0; padding-top: 4px; }
+.agenda-res-title { display: block; font-weight: 600; font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agenda-res-venue { display: block; font-size: 11px; color: var(--ink-3); }
+.agenda-res-chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0; }
+/* colour (background/border-color/text) comes from the occ-* class — set only width/style here */
+.agenda-chip {
+  text-align: left; cursor: pointer;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 10px; border-radius: var(--radius-sm);
+  border-width: 1px; border-style: solid;
+  min-width: 150px; max-width: 240px;
+  transition: transform 100ms, box-shadow 100ms;
+}
+.agenda-chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
+.agenda-chip-time { font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.agenda-chip-main { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.agenda-chip-label { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+.agenda-chip-main .occ-type { margin-left: auto; }
+.agenda-chip-sub { font-size: 10px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 760px) {
+  .agenda-res-row { flex-direction: column; gap: 8px; }
+  .agenda-res-name { flex: none; padding-top: 0; }
+  .agenda-chip { min-width: 0; max-width: none; flex: 1; }
+}
 
 /* cross-site ground switcher (operators running more than one venue) */
 .ground-switch { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occSub, occType, occIsFirst, occIcon, occInitials, occRankBadge, freeGaps, reservedBands } from "../bookingUtil.js";
 import Icon from "./Icon.jsx";
 
@@ -13,11 +13,22 @@ const SNAP = 30;            // tap-to-book snaps to 30-min
 // (ResourceCalendar) — band = venue, or band = venue×resource-type.
 export default function GroupedColumnGrid({
   date, bands, dayOcc, colIdOf, allColumns = [], bookingIns = {},
-  windowOverride = null, freeMode = false, reservedById = null,
+  windowOverride = null, freeMode = false, reservedById = null, nowMin = null, fixedHeight = false,
   onTapEmpty, blockClickable, onBlockClick,
 }) {
   const { startMin, endMin } = windowOverride ?? dayWindow(allColumns, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
+
+  // Fixed-height grids scroll vertically through the day; open at now (or the first
+  // booking) rather than at the top so the relevant part of the day is in view.
+  const scrollRef = useRef(null);
+  useEffect(() => {
+    if (!fixedHeight || !scrollRef.current) return;
+    const firstBlock = dayOcc.length ? Math.min(...dayOcc.map((o) => minsOfDay(o.start))) : null;
+    const target = nowMin ?? firstBlock;
+    if (target == null) return;
+    scrollRef.current.scrollTop = Math.max(0, (target - startMin) * PXMIN - 64);
+  }, [fixedHeight, nowMin, date, startMin, dayOcc]);
 
   const hours = [];
   for (let m = startMin; m <= endMin; m += 60) hours.push(m);
@@ -43,7 +54,7 @@ export default function GroupedColumnGrid({
   };
 
   return (
-    <div className="sg-scroll">
+    <div className={"sg-scroll" + (fixedHeight ? " sg-scroll-fixed" : "")} ref={scrollRef}>
       <div className="sg is-grouped" style={{ gridTemplateColumns: `52px repeat(${totalCols}, minmax(120px, 1fr))` }}>
         {/* group header row */}
         <div className="sg-corner sg-corner-venue" />
@@ -83,6 +94,9 @@ export default function GroupedColumnGrid({
               {hours.map((m) => (
                 <div className="sg-hourline" key={m} style={{ top: (m - startMin) * PXMIN }} />
               ))}
+              {nowMin != null && (
+                <div className="sg-nowline" style={{ top: (nowMin - startMin) * PXMIN }} />
+              )}
               {reservedById && reservedBands(reservedById.get(col.id), date).map((b, i) => (
                 <div className={"sg-reserved sg-reserved-" + b.audience} key={"rsv" + i}
                   style={{ top: (b.startMin - startMin) * PXMIN, height: Math.max((b.endMin - b.startMin) * PXMIN, 14) }}

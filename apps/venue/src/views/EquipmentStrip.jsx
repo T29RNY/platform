@@ -4,10 +4,11 @@ import Icon from "./Icon.jsx";
 // Equipment availability strip for the unified calendar. Equipment is quantity-over-time
 // ("12 of 20 bibs out 18:00–20:00"), not a one-thing-per-slot lane — so it renders as a
 // strip beneath the grid, driven by get_equipment_availability over the visible day.
-export default function EquipmentStrip({ items = [], dayLabel }) {
+export default function EquipmentStrip({ items = [], dayLabel, pinned = false }) {
+  const cls = "eq-strip" + (pinned ? " eq-strip-pinned" : "");
   if (!items.length) {
     return (
-      <div className="eq-strip">
+      <div className={cls}>
         <span className="eq-strip-label"><Icon name="equipment" size={13} /> Equipment</span>
         <span className="text-mute">No equipment catalogued.</span>
       </div>
@@ -18,7 +19,7 @@ export default function EquipmentStrip({ items = [], dayLabel }) {
     .sort((a, b) => b.out - a.out || a.name.localeCompare(b.name));
 
   return (
-    <div className="eq-strip">
+    <div className={cls}>
       <span className="eq-strip-label"><Icon name="equipment" size={13} /> Equipment{dayLabel ? ` · ${dayLabel}` : ""}</span>
       <div className="eq-strip-items">
         {rows.map((e) => (
