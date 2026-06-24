@@ -1,5 +1,6 @@
 import React from "react";
-import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, freeGaps } from "../bookingUtil.js";
+import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIcon, occInitials, freeGaps } from "../bookingUtil.js";
+import Icon from "./Icon.jsx";
 
 const PXMIN = 0.9;
 const SNAP = 30;
@@ -66,6 +67,9 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
             const h = Math.max((minsOfDay(o.end) - minsOfDay(o.start)) * PXMIN, 22);
             const isBooking = o.source_kind === "booking";
             const ins = isBooking ? bookingIns[o.source_id] : null;
+            const type = occType(o);
+            const glyph = occIcon(o);
+            const initials = occInitials(o);
             return (
               <div
                 key={o.id}
@@ -73,9 +77,14 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
                 style={{ top, height: h }}
                 onClick={(e) => { e.stopPropagation(); if (isBooking) onSelectBooking?.(o); }}
               >
-                <span className="occ-label">{occLabel(o)}</span>
+                <div className="occ-top">
+                  {glyph && <span className="occ-glyph"><Icon name={glyph} size={12} /></span>}
+                  <span className="occ-label">{occLabel(o)}</span>
+                  {type && <span className="occ-type">{type}</span>}
+                </div>
                 <span className="occ-time">{fmtTime(o.start)}–{fmtTime(o.end)}</span>
                 {ins && <span className="occ-ins">{ins.in_count}{ins.target ? `/${ins.target}` : ""} in</span>}
+                {initials && <span className="occ-mgr">{initials}</span>}
               </div>
             );
           })}

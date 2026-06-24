@@ -31,6 +31,8 @@ export default function CalendarFilters({
         <Chip k="oneoff" label="One-off" />
         <Chip k="block" label="Block" />
         <Chip k="league" label="League" />
+        <Chip k="training" label="Training" />
+        <Chip k="match" label="Match" />
         <Chip k="maint" label="Maintenance" />
         <span className="cal-sep" />
         <Chip k="pending" label="Pending" />

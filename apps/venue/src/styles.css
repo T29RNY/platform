@@ -35,6 +35,8 @@
   --warn-soft:    rgba(245, 158, 11, 0.14);
   --info:         #3B82F6;
   --info-soft:    rgba(59, 130, 246, 0.14);
+  --train:        #8B5CF6;     /* club training (violet) — paired with an icon + tag */
+  --train-soft:   rgba(139, 92, 246, 0.16);
   --crit:         #F04438;
 
   /* Density (regular default) */
@@ -2820,6 +2822,21 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   padding: 1px 4px; border-radius: 4px;
   background: var(--accent); color: var(--accent-ink);
 }
+/* club activity — read at a glance by ICON + TAG (not colour alone), with a supporting tint */
+.occ-training { background: var(--train-soft); border-color: rgba(139,92,246,0.4); color: var(--train); cursor: default; }
+.occ-training .occ-time { color: var(--train); }
+.occ-match { background: var(--info-soft); border-color: rgba(59,130,246,0.4); color: var(--info); cursor: default; }
+.occ-match .occ-time { color: var(--info); }
+.occ-glyph { flex: none; display: inline-flex; align-items: center; opacity: 0.9; }
+.occ-mgr { display: block; margin-top: 2px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-3); }
+
+/* cross-site ground switcher (operators running more than one venue) */
+.ground-switch { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.ground-switch select {
+  background: var(--bg-3); color: var(--ink); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); padding: 4px 8px; font-size: 12px;
+}
+.ground-readonly { margin: 8px 0 0; }
 
 /* Day agenda (mobile single-pitch list) */
 .agenda-pitches { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }

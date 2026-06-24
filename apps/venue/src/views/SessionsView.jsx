@@ -350,7 +350,9 @@ function CreateSessionModal({ venueToken, clubId, cohorts, venues = [], onClose,
       }
       onDone();
     } catch (e) {
-      setErr(e?.message || String(e));
+      setErr(e?.message === "slot_unavailable"
+        ? "That pitch is already booked at this time — pick another slot or pitch."
+        : (e?.message || String(e)));
     } finally {
       isSavingRef.current = false;
       setBusy(false);

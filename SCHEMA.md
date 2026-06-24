@@ -715,8 +715,8 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
 | `playing_area_id` | uuid NOT NULL | FK → `playing_areas(id)` ON DELETE CASCADE |
 | `venue_id` | text NOT NULL | FK → `venues(id)` ON DELETE CASCADE (denormalised for calendar reads) |
 | `time_range` | tstzrange NOT NULL | half-open `[)` so back-to-back slots don't collide |
-| `source_kind` | text NOT NULL | CHECK in (`fixture`,`booking`,`maintenance`) |
-| `source_id` | text NOT NULL | `fixtures.id::text` / `pitch_bookings.id::text` / venue maint key |
+| `source_kind` | text NOT NULL | CHECK in (`fixture`,`booking`,`maintenance`,`club_session`,`club_fixture`) — last two added mig 414 (multi-venue Phase 3) |
+| `source_id` | text NOT NULL | `fixtures.id::text` / `pitch_bookings.id::text` / venue maint key / `club_sessions.id::text` / `club_fixtures.id::text` |
 | `priority` | smallint NOT NULL | CHECK 0–3. 0=maintenance (top, non-displaceable), 1=fixture, 2=block, 3=ad-hoc |
 | `active` | boolean NOT NULL | DEFAULT true |
 | `created_at` | timestamptz NOT NULL | DEFAULT now() |
@@ -756,6 +756,14 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   `priority=1`, length `COALESCE(fixtures.slot_minutes, league_config.slot_minutes, 60)`,
   `(date+kickoff)` @ Europe/London, half-open. Releasing status / cleared pitch →
   deactivate the row. NO auto-yield of bookings yet (Stage 2b).
+- `sync_club_session_occupancy` on `club_sessions` + `sync_club_fixture_occupancy` on
+  `club_fixtures` (mig 414, fns `tg_sync_club_session_occupancy` / `tg_sync_club_fixture_occupancy`):
+  AFTER INSERT/DELETE/UPDATE OF the pitch+time+status cols. Pitch-holding status
+  (`club_sessions.status='scheduled'` / `club_fixtures.status IN ('scheduled','completed')`)
+  with a `playing_area_id` + time → upsert `priority=1`, 60-min slot, venue from the pitch.
+  Cancel/postpone/void/cleared-pitch/DELETE → deactivate the row. On overlap with any
+  active row the EXCLUDE fires inside the trigger and is re-raised as `slot_unavailable`
+  (P0001) — hard clash-protection on every write path. No displacement.
 
 **RPC behaviour (migs 135/138):**
 - `venue_update_pitch` edits `booking_windows`; a maintenance window that overlaps an
@@ -1024,8 +1032,8 @@ RLS enabled + REVOKE ALL from anon, authenticated on all tables. Access via SECU
 - `club_team_members` — `id uuid PK`, `team_id uuid FK→club_teams`, `member_profile_id uuid FK→member_profiles`, season, joined_at, left_at, is_active. PARTIAL UNIQUE(team_id, member_profile_id) WHERE is_active=true.
 - `club_team_managers` — `id uuid PK`, `team_id uuid FK→club_teams`, `member_profile_id uuid FK→member_profiles`, role (manager|assistant_manager|coach), is_active.
 - `club_staff_dbs` — `id uuid PK`, `member_profile_id uuid FK→member_profiles`, `club_id text FK→clubs`, check_type (basic|standard|enhanced|enhanced_barred), status (pending|valid|expired|withdrawn), certificate_number, issued_date, expiry_date, notes. UNIQUE(member_profile_id, club_id). mig 305.
-- `club_sessions` — `id uuid PK`, `club_id text`, `cohort_id uuid NULL FK→club_cohorts`, `team_id uuid NULL FK→club_teams`, session_type (training|match|friendly|other), title, scheduled_at, duration_mins, location, capacity NULL, notes, status (scheduled|cancelled), series_id uuid NULL FK→club_session_series, opponent_name/home_away/meet_time (match fields), **`venue_id text NULL FK→venues` + `playing_area_id uuid NULL FK→playing_areas` (mig 412, multi-venue Phase 1 — anchors the session to one of the club's same-operator venues; backfilled to each club's single current venue, NULL only on a future multi-venue split)**. migs 298+300+412.
-- `club_session_series` — `id uuid PK`, `club_id text`, cohort_id, team_id, title, session_type, day_of_week (0–6), start_time, duration_mins, location, start_date, end_date, notes, **`venue_id text NULL FK→venues` + `playing_area_id uuid NULL FK→playing_areas` (mig 412 — propagated to every generated `club_sessions` row)**. migs 302+412.
+- `club_sessions` — `id uuid PK`, `club_id text`, `cohort_id uuid NULL FK→club_cohorts`, `team_id uuid NULL FK→club_teams`, session_type (training|match|friendly|other), title, scheduled_at, location, capacity NULL, notes, status (scheduled|cancelled), series_id uuid NULL FK→club_session_series, opponent_name/home_away/meet_time (match fields), **`venue_id text NULL FK→venues` + `playing_area_id uuid NULL FK→playing_areas` (mig 412, multi-venue Phase 1 — anchors the session to one of the club's same-operator venues; backfilled to each club's single current venue, NULL only on a future multi-venue split)**. A scheduled session with a pitch reserves `pitch_occupancy` (60-min slot) via trigger (mig 414). migs 298+300+412+414. (No `duration_mins` column — occupancy uses a fixed 60-min slot.)
+- `club_session_series` — `id uuid PK`, `club_id text`, cohort_id, team_id, title, session_type, day_of_week (0–6), start_time, location, from_date, to_date, notes, **`venue_id text NULL FK→venues` + `playing_area_id uuid NULL FK→playing_areas` (mig 412 — propagated to every generated `club_sessions` row)**. migs 302+412.
 - `club_session_rsvps` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, rsvp (in|out|maybe), for_profile_id (guardian child target). UNIQUE(session_id, member_profile_id).
 - `club_session_attendance` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, status (present|absent|late), recorded_at, recorded_by uuid FK→member_profiles. UNIQUE(session_id, member_profile_id). mig 304.
 - `club_session_guests` — `id uuid PK`, `session_id uuid FK→club_sessions`, `member_profile_id uuid FK→member_profiles`, added_by uuid FK→member_profiles. UNIQUE(session_id, member_profile_id). mig 300.

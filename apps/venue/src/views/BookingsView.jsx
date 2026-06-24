@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { getOperatorPitchOccupancy } from "@platform/core";
 import RequestsInbox from "./RequestsInbox.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
 import DayAgenda from "./DayAgenda.jsx";
@@ -11,7 +12,7 @@ import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 import { todayIso, addDays, fmtDayLabel, isOnDate, occLabel, occTypeKey, occIsFirst, occBounds } from "../bookingUtil.js";
 
-const EMPTY_FILTERS = { paid: false, owed: false, oneoff: false, block: false, league: false, maint: false, pending: false, isnew: false, free: false };
+const EMPTY_FILTERS = { paid: false, owed: false, oneoff: false, block: false, league: false, training: false, match: false, maint: false, pending: false, isnew: false, free: false };
 
 // Does an occupancy block pass the active calendar filters? (q = search, hidden = pitch hide.)
 function occPasses(o, f, q, hidden) {
@@ -27,9 +28,10 @@ function occPasses(o, f, q, hidden) {
     const matchPay = (f.paid && !owed && o.source_kind !== "maintenance") || (f.owed && owed);
     if (!matchPay) return false;
   }
-  if (f.oneoff || f.block || f.league || f.maint) {
+  if (f.oneoff || f.block || f.league || f.training || f.match || f.maint) {
     const matchType = (f.oneoff && key === "oneoff") || (f.block && key === "block")
-      || (f.league && key === "league") || (f.maint && key === "maint");
+      || (f.league && key === "league") || (f.training && key === "training")
+      || (f.match && key === "match") || (f.maint && key === "maint");
     if (!matchType) return false;
   }
   if (f.pending && !pending) return false;
@@ -78,6 +80,34 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   const enabled = !!venue.bookings_enabled;
   const pitches = useMemo(() => (state.pitches ?? []).filter((p) => p.active), [state.pitches]);
   const isMobile = useIsMobile();
+  const selfVenueId = venue.id ?? state.venue?.id;
+
+  // ── Cross-site: occupancy + pitches for EVERY venue this operator runs ──────
+  // A ground switcher lets the operator view any of their sites' calendars on one
+  // screen. The home venue stays fully interactive; other sites are view-only
+  // (booking needs that venue's own console/token).
+  const [operatorVenues, setOperatorVenues] = useState([]);
+  const [selectedVenueId, setSelectedVenueId] = useState(null);
+  const loadOperator = useCallback(async () => {
+    try {
+      const res = await getOperatorPitchOccupancy(venueToken, todayIso(), addDays(todayIso(), 90));
+      setOperatorVenues(Array.isArray(res?.venues) ? res.venues : []);
+    } catch (err) {
+      console.error("get_operator_pitch_occupancy failed", err);
+      setOperatorVenues([]);
+    }
+  }, [venueToken]);
+  useEffect(() => { loadOperator(); }, [loadOperator]);
+
+  const hasMultiVenue = operatorVenues.length > 1;
+  const isSelf = !selectedVenueId || selectedVenueId === selfVenueId;
+  const selectedVenue = operatorVenues.find((v) => v.venue_id === selectedVenueId) || null;
+  const activePitches = useMemo(
+    () => (isSelf ? pitches : (selectedVenue?.pitches ?? [])),
+    [isSelf, pitches, selectedVenue],
+  );
+  const activeOccupancy = isSelf ? occupancy : (selectedVenue?.occupancy ?? []);
+  const canBookHere = enabled && isSelf;
 
   const [date, setDate] = useState(todayIso());
   const [mobilePitchId, setMobilePitchId] = useState(null);
@@ -87,8 +117,10 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   const [cancelKey, setCancelKey] = useState(0); // bump to reload the cancellations log
 
   useEffect(() => {
-    if (!mobilePitchId && pitches.length) setMobilePitchId(pitches[0].id);
-  }, [pitches, mobilePitchId]);
+    if (!mobilePitchId && activePitches.length) setMobilePitchId(activePitches[0].id);
+  }, [activePitches, mobilePitchId]);
+  // Reset the mobile pitch picker when switching grounds.
+  useEffect(() => { setMobilePitchId(null); }, [selectedVenueId]);
 
   // ── calendar filters ──────────────────────────────────────────────────────
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -99,18 +131,18 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   const clearFilters = () => { setFilters(EMPTY_FILTERS); setFilterQ(""); setHiddenPitches(new Set()); };
 
   const pendingGroups = useMemo(() => buildPendingGroups(occupancy), [occupancy]);
-  const dayOcc = useMemo(() => occupancy.filter((o) => isOnDate(o.start, date)), [occupancy, date]);
+  const dayOcc = useMemo(() => activeOccupancy.filter((o) => isOnDate(o.start, date)), [activeOccupancy, date]);
   const visibleOcc = useMemo(
     () => dayOcc.filter((o) => occPasses(o, filters, filterQ, hiddenPitches)),
     [dayOcc, filters, filterQ, hiddenPitches],
   );
-  const visiblePitches = useMemo(() => pitches.filter((p) => !hiddenPitches.has(p.id)), [pitches, hiddenPitches]);
+  const visiblePitches = useMemo(() => activePitches.filter((p) => !hiddenPitches.has(p.id)), [activePitches, hiddenPitches]);
 
   // Free-slots mode shows availability (booked blocks stripped); any content chip
   // (payment/type/pending/new/search) collapses the calendar to just the matches.
   const freeMode = filters.free;
   const contentActive = filters.paid || filters.owed || filters.oneoff || filters.block
-    || filters.league || filters.maint || filters.pending || filters.isnew || !!filterQ.trim();
+    || filters.league || filters.training || filters.match || filters.maint || filters.pending || filters.isnew || !!filterQ.trim();
   const pitchOcc = useMemo(() => dayOcc.filter((o) => !hiddenPitches.has(o.playing_area_id)), [dayOcc, hiddenPitches]);
   const gridOcc = freeMode ? pitchOcc : visibleOcc;           // free mode needs real bookings for gap calc
   const windowOverride = useMemo(
@@ -119,7 +151,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   );
   const noMatches = !freeMode && contentActive && visibleOcc.length === 0;
 
-  const afterWrite = () => { onRefreshOccupancy?.(); setCancelKey((k) => k + 1); };
+  const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
 
   return (
@@ -137,7 +169,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
           <button className="btn btn-sm btn-ghost" onClick={() => setSettingsOpen(true)}>
             <Icon name="settings" size={14} /> Settings
           </button>
-          <button className="btn btn-sm btn-primary" onClick={addBooking} disabled={!pitches.length}>
+          <button className="btn btn-sm btn-primary" onClick={addBooking} disabled={!pitches.length || !isSelf}>
             <Icon name="plus" size={14} /> Add booking
           </button>
         </SectionHead>
@@ -150,8 +182,8 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
             <button className="btn btn-sm" onClick={() => setDate(todayIso())}>Jump to today</button>
           )}
         </SectionHead>
-        {pitches.length === 0 ? (
-          <EmptyState title="No active pitches" body="Add a pitch in Operations first." />
+        {activePitches.length === 0 ? (
+          <EmptyState title="No active pitches" body={isSelf ? "Add a pitch in Operations first." : "This site has no active pitches."} />
         ) : (
           <div className="schedule">
             <div className="schedule-head">
@@ -161,9 +193,30 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
               </span>
               <span className="date">{fmtDayLabel(date)}</span>
               <span style={{ flex: 1 }} />
+              {hasMultiVenue && (
+                <span className="ground-switch" title="View another of your grounds">
+                  <Icon name="spaces" size={14} />
+                  <select
+                    value={selectedVenueId ?? selfVenueId ?? ""}
+                    onChange={(e) => setSelectedVenueId(e.target.value)}
+                    aria-label="Choose ground"
+                  >
+                    {operatorVenues.map((v) => (
+                      <option key={v.venue_id} value={v.venue_id}>
+                        {v.venue_name}{v.is_self ? " (this site)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              )}
             </div>
+            {!isSelf && (
+              <div className="banner banner-info ground-readonly">
+                Viewing <strong>{selectedVenue?.venue_name}</strong> — read-only. Switch to this site's console to book.
+              </div>
+            )}
             <CalendarFilters
-              pitches={pitches}
+              pitches={activePitches}
               hiddenPitches={hiddenPitches}
               onTogglePitch={togglePitch}
               q={filterQ}
@@ -176,12 +229,12 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
             {isMobile ? (
               <DayAgenda
                 date={date}
-                pitches={pitches}
+                pitches={activePitches}
                 pitchId={mobilePitchId}
                 onPitchChange={setMobilePitchId}
                 dayOcc={gridOcc}
                 bookingIns={bookingIns}
-                canBook={enabled}
+                canBook={canBookHere}
                 windowOverride={windowOverride}
                 freeMode={freeMode}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
@@ -197,7 +250,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                 pitches={visiblePitches}
                 dayOcc={gridOcc}
                 bookingIns={bookingIns}
-                canBook={enabled}
+                canBook={canBookHere}
                 windowOverride={windowOverride}
                 freeMode={freeMode}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}

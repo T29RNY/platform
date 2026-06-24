@@ -1,5 +1,34 @@
 # In or Out — Key Decisions Log
 
+## SESSION 191 — Multi-venue (pilot #7) PHASE 3: pitch occupancy / clash protection (mig 414) — EPIC COMPLETE
+*2026-06-24. Same-operator only. Final phase of pilot #7. Plan/handoff: MULTI_VENUE_HANDOFF.md.*
+
+- **Build Phase 3 (the optional one): YES.** Operator's s189 ask was explicit — a unified
+  cross-site calendar with HARD double-book blocking, not just correct-venue display.
+- **Mechanism = TRIGGERS, not per-RPC edits.** Mirrors the live league-fixture pattern
+  (`tg_sync_fixture_occupancy`). One trigger per table (`club_sessions`, `club_fixtures`)
+  AFTER INSERT/DELETE/UPDATE-of-(pitch,time,status) covers EVERY create/update/cancel/
+  void/delete path in one place → no release path can be missed (the prompt's phantom-slot
+  risk). The 8+ session/fixture write RPCs were NOT touched.
+- **Hard block, no displacement.** A club session/fixture overlapping ANY active occupancy
+  row is rejected `slot_unavailable` (the existing EXCLUDE fires inside the trigger; caught +
+  re-raised P0001). Unlike league fixtures, club activity does NOT displace lower-priority
+  bookings — clash-protection, not precedence. Priority fixed at 1.
+- **Repeating series fail whole-batch on any clashing week (operator chose Option A** over
+  skip-the-clashing-week). Simplest + safest; operator repicks pitch/time.
+- **Default 60-min slot.** Neither `club_sessions` nor `club_fixtures` has a duration column
+  (SCHEMA.md `duration_mins` line was STALE — fixed this commit). Occupancy uses a fixed
+  60-min slot, consistent with the league-fixture `COALESCE(...,60)` default.
+- **Cross-site calendar = NEW reader, not an extension.** `get_operator_pitch_occupancy`
+  returns per-venue {pitches, occupancy} across all same-`company_id` venues, leaving the
+  heavily-used single-venue `get_pitch_occupancy` byte-stable. Venue BookingsView gains a
+  ground switcher (other sites view-only — booking needs that site's own console/token).
+  `get_pitch_occupancy` refactored to share one `_pitch_occupancy_detail` builder (no drift).
+- **inorout manager path needs no change** — it passes a venue but NO pitch, so it never
+  writes occupancy and cannot clash. Casual flow untouched (core change additive-only).
+- **DEFERRED:** create-a-training/match-from-a-calendar-tap + mobile booking polish for that
+  flow → separate follow-up task (tap-to-book already covers ad-hoc pitch bookings).
+
 ## SESSION 190 — Multi-venue (pilot #7) PHASE 2: cross-venue fixtures (mig 413)
 *2026-06-24. Same-operator only. Plan/handoff: MULTI_VENUE_HANDOFF.md. Phase 1 (mig 412) merged (PR #84)
 first per cloud-session discipline. Function-only — NO schema/column/table/guard change; reuses the live

@@ -102,17 +102,22 @@ export function dayWindow(pitches, iso, dayOcc = []) {
 //   amber  = money owed              (occ-owed)
 //   dashed = a request to action     (occ-pending — not yet a confirmed booking)
 //   striped= maintenance             (occ-maint)
-// Booking TYPE (one-off/block/league) is conveyed by occType(), not colour.
+// Booking TYPE (one-off/block/league/training/match) is conveyed by occType() + occIcon(),
+// not by colour alone (accessibility).
 export function occClass(o) {
   if (o.source_kind === "maintenance") return "occ-maint";
+  if (o.source_kind === "club_session") return "occ-training";
+  if (o.source_kind === "club_fixture") return "occ-match";
   if (o.detail?.status === "requested") return "occ-pending";
   return o.detail?.owed ? "occ-owed" : "occ-paid";
 }
 
-// Word tag for the booking TYPE — "League" | "Block" | "One-off" (null = maintenance).
+// Word tag for the booking TYPE — League | Block | One-off | Training | Match (null = maintenance).
 export function occType(o) {
   if (o.source_kind === "maintenance") return null;
   if (o.source_kind === "fixture") return "League";
+  if (o.source_kind === "club_session") return "Training";
+  if (o.source_kind === "club_fixture") return "Match";
   return o.detail?.kind === "block" ? "Block" : "One-off";
 }
 
@@ -120,7 +125,22 @@ export function occType(o) {
 export function occTypeKey(o) {
   if (o.source_kind === "maintenance") return "maint";
   if (o.source_kind === "fixture") return "league";
+  if (o.source_kind === "club_session") return "training";
+  if (o.source_kind === "club_fixture") return "match";
   return o.detail?.kind === "block" ? "block" : "oneoff";
+}
+
+// Icon glyph name (Icon.jsx registry) for the block — a shape, not just a colour, so
+// Training vs Match reads at a glance. null = no glyph (ordinary bookings/maintenance).
+export function occIcon(o) {
+  if (o.source_kind === "club_session") return "teams";
+  if (o.source_kind === "club_fixture") return "whistle";
+  return null;
+}
+
+// Manager initials carried on club activity blocks (null for non-club / no manager).
+export function occInitials(o) {
+  return o.detail?.manager_initials || null;
 }
 
 // Tight time bounds (minutes, padded to whole hours) of a set of occupancy blocks.
@@ -160,6 +180,15 @@ export function occLabel(o) {
   if (o.source_kind === "fixture") {
     const d = o.detail ?? {};
     return d.home_team ? `${d.home_team} v ${d.away_team ?? "?"}` : "Fixture";
+  }
+  if (o.source_kind === "club_session") {
+    const d = o.detail ?? {};
+    return d.title || d.team_name || "Training";
+  }
+  if (o.source_kind === "club_fixture") {
+    const d = o.detail ?? {};
+    const our = d.our_team || "Our team";
+    return d.opponent ? `${our} v ${d.opponent}` : our;
   }
   return o.detail?.team_name || "Booking";
 }

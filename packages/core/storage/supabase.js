@@ -3702,6 +3702,15 @@ export async function getPitchOccupancy(venueToken, from, to) {
   return data;
 }
 
+// Unified cross-site calendar feed: occupancy + pitches for EVERY venue the caller's
+// operator runs (same venues.company_id), grouped by venue. Drives the ground switcher.
+// Returns { ok, venues: [{ venue_id, venue_name, venue_address, is_self, pitches[], occupancy[] }] }.
+export async function getOperatorPitchOccupancy(venueToken, from, to) {
+  const { data, error } = await supabase.rpc("get_operator_pitch_occupancy", { p_venue_token: venueToken, p_from: from, p_to: to });
+  if (error) { console.error("[booking] get_operator_pitch_occupancy failed", error); throw error; }
+  return data;
+}
+
 // Venue booking settings: bookings_enabled toggle + cancellation_policy text.
 export async function venueUpdateBookingSettings(venueToken, updates) {
   const { data, error } = await supabase.rpc("venue_update_booking_settings", { p_venue_token: venueToken, p_updates: updates });
