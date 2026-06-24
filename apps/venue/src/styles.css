@@ -2784,6 +2784,11 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .cal-chip.is-active.chip-ok { background: var(--ok); border-color: var(--ok); color: #04150e; }
 .cal-chip.is-active.chip-warn { background: var(--warn); border-color: var(--warn); color: #1a1203; }
 .cal-clear { margin-left: 4px; background: none; border: none; color: var(--ink-3); cursor: pointer; font-size: 12px; text-decoration: underline; }
+/* Pitch visibility toggles are NOT type filters — visible (the default) is a calm
+   raised chip, hidden is faded + struck through. Keeps the row off the loud accent
+   yellow that a row of "active" type chips would use. */
+.cal-pitch.is-on { background: var(--bg-4); color: var(--ink); border-color: var(--border-strong); font-weight: 600; }
+.cal-pitch.is-off { color: var(--ink-3); text-decoration: line-through; opacity: 0.6; }
 .sg-hourline {
   position: absolute; left: 0; right: 0;
   border-top: 1px solid var(--rule);
@@ -2822,12 +2827,22 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   padding: 1px 4px; border-radius: 4px;
   background: var(--accent); color: var(--accent-ink);
 }
-/* club activity — read at a glance by ICON + TAG (not colour alone), with a supporting tint */
+/* club activity — read at a glance by ICON + a COLOUR-FILLED TAG (not the tiny icon
+   alone), with a supporting tint. The type badge carries the activity colour so
+   Training (violet) vs Match (blue) is unmistakable even before the glyph reads. */
 .occ-training { background: var(--train-soft); border-color: rgba(139,92,246,0.4); color: var(--train); cursor: default; }
 .occ-training .occ-time { color: var(--train); }
+.occ-training .occ-type { background: var(--train); color: var(--accent-ink); }
 .occ-match { background: var(--info-soft); border-color: rgba(59,130,246,0.4); color: var(--info); cursor: default; }
 .occ-match .occ-time { color: var(--info); }
-.occ-glyph { flex: none; display: inline-flex; align-items: center; opacity: 0.9; }
+.occ-match .occ-type { background: var(--info); color: var(--accent-ink); }
+/* the glyph sits in a filled chip in the activity colour — a strong, distinct shape */
+.occ-glyph {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 5px;
+  background: currentColor;
+}
+.occ-glyph svg { color: var(--accent-ink); }
 .occ-mgr { display: block; margin-top: 2px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-3); }
 
 /* cross-site ground switcher (operators running more than one venue) */
@@ -2837,6 +2852,29 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   border-radius: var(--radius-sm); padding: 4px 8px; font-size: 12px;
 }
 .ground-readonly { margin: 8px 0 0; }
+
+/* all-grounds: a venue-grouped header band sits above the pitch heads. Two sticky
+   header rows stack — the venue band at top:0, the pitch row offset below it. */
+.sg-venuehead {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; align-items: center; gap: 8px;
+  height: 32px; box-sizing: border-box;
+  padding: 6px 14px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border-strong);
+  font-size: 12px; font-weight: 700; color: var(--ink);
+}
+.sg-venuename { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-venue-ro {
+  flex: none;
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 1px 6px; border-radius: 5px;
+  background: rgba(255,255,255,0.09); color: var(--ink-3);
+}
+.sg.is-grouped .sg-colhead { top: 32px; }
+.sg-corner-venue { z-index: 5; }
+.sg-corner-pitch { top: 32px; z-index: 5; }
 
 /* Day agenda (mobile single-pitch list) */
 .agenda-pitches { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }

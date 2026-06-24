@@ -1,5 +1,32 @@
 # In or Out — Key Decisions Log
 
+## SESSION 194 — Venue "All grounds" single-calendar view (UI-only, no migration)
+*2026-06-24. Venue app only. Multi-venue epic Phase-3 follow-up (operator-requested s193).
+No DB/RPC change — `get_operator_pitch_occupancy` already returns every same-company
+venue's `{pitches, occupancy}`; this is pure presentation.*
+
+- **DECISION — the BookingsView ground switcher gains an "All grounds" option that lays
+  every operator venue on ONE calendar, grouped by venue.** Previously the switcher showed
+  one site at a time. All-grounds flattens every venue's pitches + occupancy so the existing
+  filter / day-window / no-match math operates across all sites unchanged; a new
+  `AllGroundsGrid` renders venue-grouped columns (a venue header band, then its pitch
+  columns) reusing the exact occ-block visuals. New `apps/venue/src/views/AllGroundsGrid.jsx`.
+- **DECISION — per-column bookability, not per-view.** In all-grounds the home (`is_self`)
+  venue's columns stay tappable-to-book; other sites are view-only (a "View-only" marker on
+  the venue header) — an empty-slot tap on a foreign column is a no-op and foreign blocks
+  aren't actionable, because booking needs that site's own console/token. The single-venue
+  modes are unchanged (default).
+- **DECISION — Training vs Match blocks now read by a COLOUR-FILLED tag + glyph chip, not a
+  tiny mono icon.** Operator feedback: the 12px `teams`/`whistle` glyphs were too alike. The
+  TYPE badge now carries the activity colour (Training = violet `--train`, Match = blue
+  `--info`) and the glyph sits in a filled chip in that colour — unmistakable at a glance.
+  Shared occ-block styling, so it improves every booking view (ScheduleGrid/DayAgenda too).
+- **DECISION — pitch-visibility chips get their own calm visual, off the accent yellow.**
+  Operator feedback: a row of bright-yellow "active" pitch pills looked odd. Pitch toggles
+  now use `.cal-pitch` — "showing" = a quiet raised neutral chip (`--bg-4`), "hidden" =
+  faded + struck-through. They were sharing the loud accent state the *type-filter* chips use;
+  visibility-default-on is not a "filter is active" signal, so it shouldn't shout.
+
 ## SESSION 193 — Split the "Competition" feature switch into two (Cycle 2, mig 415)
 *2026-06-24. Venue app + DB. Follows the s192 rename. Default-all-on preserved → every
 existing venue byte-identical until a flag is switched off.*

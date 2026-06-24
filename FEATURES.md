@@ -16,8 +16,10 @@ invoicing (built, dormant — needs live Stripe keys) + season/fixed-term billin
 tested on TEST keys, runtime test-clock walk owed before merge) + lifecycle (Stripe Phase 5, mig 407 —
 self-service Billing Portal, bulk price change [Option A: applies next renewal, no mid-cycle proration],
 Stripe refunds [full / pro-rated-unused / custom]; built & tested on TEST keys, test-mode walk owed),
-#5 pitch priority/reserved times (pitch system
-built, priority layer not), #6 team prioritisation (⭐ display-only, doesn't drive anything yet),
+**🔜 NEXT PICK (operator-requested s194, a linked pair):** #5 pitch priority/reserved times (pitch system
+built, priority layer not — internal club use vs external/casual hire + reserved/priority time windows) +
+#6 team prioritisation (`club_teams.priority_rank` ⭐ ships display-only since mig 389; make it *drive* pitch
+priority so a higher-ranked team wins a contested slot / gets first call on reserved windows),
 #7 multi-venue (access layer shipped mig 401; activity layer scoped s188 → `MULTI_VENUE_HANDOFF.md`,
 same-operator only. **🟢 PHASE 1 SHIPPED+MERGED s189 (mig 412, PR #84→main) — venue-anchor club_sessions:**
 `club_sessions`/`_series` += `venue_id`/`playing_area_id` (backfilled byte-identical), new same-operator
@@ -41,8 +43,12 @@ render with an ICON + Training/Match tag + team + manager initials (not colour-a
 chips added. Gates ALL PASS (rpc-security 2 readers + 2 helpers locked, EV 8/8+leak0 own `_e2e_` 2-venue
 same-co club, build venue+inorout + hygiene, casual-regression additive-only [inorout untouched, manager
 path passes no pitch], Playwright smoke 0 errors: Match block renders, filters exclude, switcher works).
-⛔ owed venue deploy + real-device walk. DEFERRED follow-up: create-a-session/match-from-a-calendar-tap +
-mobile booking polish for that flow,
+⛔ owed venue deploy + real-device walk. **🟢 ALL-GROUNDS SINGLE-CALENDAR VIEW SHIPPED s194 (UI-only, no
+mig):** BookingsView ground switcher gains an "All grounds" option laying every same-company venue on ONE
+pitch calendar grouped by venue (`AllGroundsGrid.jsx`), home site bookable + others view-only; also clarified
+Training/Match block visuals (colour-filled badge + glyph chip) + calmed the pitch-visibility chips. (NOTE: it
+is a PITCH calendar — rooms/classes/equipment are separate surfaces, not on it.) DEFERRED follow-up:
+create-a-session/match-from-a-calendar-tap + mobile booking polish for that flow,
 #13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
 + demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
