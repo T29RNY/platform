@@ -266,11 +266,15 @@ teams in their league/area** — the network effect is the real prize.
 > **NEXT-SPRINT ITEMS ALL DONE (s180, to the ~2026-06-29 wider-mgmt demo):** #8 ✅ #9 ✅ #4 ✅
 > #10 ✅ #11 ✅ + the #1 FA spike ✅ (NO-GO verdict). Backlog #2 ✅ (migs 389–393). **#7 multi-venue
 > materially addressed** by the Venue OS nav epic (club_features follow the club to every venue +
-> membership scope honored across the club's venues, mig 401). Remaining roadmap: #12 reporting (un-
-> touched, biggest gap), #5 pitch priority/reserved times, #6 make team prioritisation *drive*
-> something, **#3 FULL Stripe build (scoped s181 → `STRIPE_FULL_BUILD_HANDOFF.md`, 21 items/7 phases, NOT just key activation)**, #1 Phase C AI-import (gated on a real FA snippet), #13
+> membership scope honored across the club's venues, mig 401). **#7 multi-venue EPIC COMPLETE
+> (Phases 1–3, migs 412–414) + the "All grounds" single-calendar view shipped s194 (UI-only).**
+> **🔜 NEXT PICK (operator-requested s194) = #5 + #6 together** — #5 internal vs external pitch
+> booking + reserved/priority times, #6 make team prioritisation (`club_teams.priority_rank` ⭐,
+> display-only today) actually *drive* pitch priority. They're a linked pair (rank → priority
+> booking window). Then remaining roadmap: #12 reporting (untouched, biggest gap),
+> **#3 FULL Stripe build (scoped s181 → `STRIPE_FULL_BUILD_HANDOFF.md`, 21 items/7 phases — Phases 1–6 SHIPPED, Phase 7 go-live config left)**, #1 Phase C AI-import (gated on a real FA snippet), #13
 > season setup. Next venue epic = venue-operator tournament create (Epic D, now unblocked by the
-> shipped `tournaments` flag). Next free mig = 403.
+> shipped `tournaments` flag). Next free mig = 416.
 
 | # | Ask | Status today | Effort | Demo priority |
 |---|-----|--------------|--------|---------------|

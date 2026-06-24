@@ -47,8 +47,9 @@ export default function CalendarFilters({
           {pitches.map((p) => (
             <button
               key={p.id}
-              className={"cal-chip" + (hiddenPitches.has(p.id) ? "" : " is-active")}
+              className={"cal-chip cal-pitch " + (hiddenPitches.has(p.id) ? "is-off" : "is-on")}
               onClick={() => onTogglePitch(p.id)}
+              aria-pressed={!hiddenPitches.has(p.id)}
             >
               {p.name}
             </button>

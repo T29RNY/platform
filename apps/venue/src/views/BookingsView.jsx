@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { getOperatorPitchOccupancy } from "@platform/core";
 import RequestsInbox from "./RequestsInbox.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
+import AllGroundsGrid from "./AllGroundsGrid.jsx";
 import DayAgenda from "./DayAgenda.jsx";
 import WalkInModal from "./WalkInModal.jsx";
 import BookingSettings from "./BookingSettings.jsx";
@@ -100,13 +101,21 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   useEffect(() => { loadOperator(); }, [loadOperator]);
 
   const hasMultiVenue = operatorVenues.length > 1;
-  const isSelf = !selectedVenueId || selectedVenueId === selfVenueId;
-  const selectedVenue = operatorVenues.find((v) => v.venue_id === selectedVenueId) || null;
+  const ALL_GROUNDS = "__all__";
+  const isAll = selectedVenueId === ALL_GROUNDS;
+  const isSelf = !isAll && (!selectedVenueId || selectedVenueId === selfVenueId);
+  const selectedVenue = isAll ? null : operatorVenues.find((v) => v.venue_id === selectedVenueId) || null;
+
+  // All-grounds: flatten every operator venue's pitches + occupancy so the existing
+  // filter / day-window / no-match math operates across all sites unchanged.
+  const allVenuePitches = useMemo(() => operatorVenues.flatMap((v) => v.pitches ?? []), [operatorVenues]);
+  const allVenueOcc = useMemo(() => operatorVenues.flatMap((v) => v.occupancy ?? []), [operatorVenues]);
+
   const activePitches = useMemo(
-    () => (isSelf ? pitches : (selectedVenue?.pitches ?? [])),
-    [isSelf, pitches, selectedVenue],
+    () => (isAll ? allVenuePitches : isSelf ? pitches : (selectedVenue?.pitches ?? [])),
+    [isAll, allVenuePitches, isSelf, pitches, selectedVenue],
   );
-  const activeOccupancy = isSelf ? occupancy : (selectedVenue?.occupancy ?? []);
+  const activeOccupancy = isAll ? allVenueOcc : isSelf ? occupancy : (selectedVenue?.occupancy ?? []);
   const canBookHere = enabled && isSelf;
 
   const [date, setDate] = useState(todayIso());
@@ -137,6 +146,13 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
     [dayOcc, filters, filterQ, hiddenPitches],
   );
   const visiblePitches = useMemo(() => activePitches.filter((p) => !hiddenPitches.has(p.id)), [activePitches, hiddenPitches]);
+  // All-grounds: each venue with its non-hidden pitches; venues with none drop out.
+  const visibleVenues = useMemo(
+    () => operatorVenues
+      .map((v) => ({ ...v, pitches: (v.pitches ?? []).filter((p) => !hiddenPitches.has(p.id)) }))
+      .filter((v) => v.pitches.length > 0),
+    [operatorVenues, hiddenPitches],
+  );
 
   // Free-slots mode shows availability (booked blocks stripped); any content chip
   // (payment/type/pending/new/search) collapses the calendar to just the matches.
@@ -201,6 +217,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                     onChange={(e) => setSelectedVenueId(e.target.value)}
                     aria-label="Choose ground"
                   >
+                    <option value={ALL_GROUNDS}>All grounds</option>
                     {operatorVenues.map((v) => (
                       <option key={v.venue_id} value={v.venue_id}>
                         {v.venue_name}{v.is_self ? " (this site)" : ""}
@@ -210,9 +227,14 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                 </span>
               )}
             </div>
-            {!isSelf && (
+            {!isSelf && !isAll && (
               <div className="banner banner-info ground-readonly">
                 Viewing <strong>{selectedVenue?.venue_name}</strong> — read-only. Switch to this site's console to book.
+              </div>
+            )}
+            {isAll && (
+              <div className="banner banner-info ground-readonly">
+                Showing <strong>all your grounds</strong> on one calendar. Other sites are view-only — book from each site's own console.
               </div>
             )}
             <CalendarFilters
@@ -226,7 +248,25 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
               onClear={clearFilters}
               isMobile={isMobile}
             />
-            {isMobile ? (
+            {isAll ? (
+              noMatches ? (
+                <EmptyState title="No bookings match" body="Nothing on this day fits the current filters." />
+              ) : visibleVenues.length === 0 ? (
+                <EmptyState title="No pitches shown" body="All pitches are hidden by the filter." />
+              ) : (
+                <AllGroundsGrid
+                  date={date}
+                  venues={visibleVenues}
+                  dayOcc={gridOcc}
+                  bookingIns={bookingIns}
+                  canBookSelf={enabled}
+                  windowOverride={windowOverride}
+                  freeMode={freeMode}
+                  onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
+                  onSelectBooking={setSelectedBooking}
+                />
+              )
+            ) : isMobile ? (
               <DayAgenda
                 date={date}
                 pitches={activePitches}
