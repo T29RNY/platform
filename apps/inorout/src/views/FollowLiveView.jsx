@@ -59,7 +59,7 @@ function EventRow({ event }) {
       borderBottom:`1px solid ${C.border}` }}>
       <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:15,
         color:C.amber, width:32, flexShrink:0 }}>{minute}</div>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.text }}>
+      <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13, color:C.text }}>
         {label}
       </div>
     </div>
@@ -105,7 +105,7 @@ export default function FollowLiveView({ profileId }) {
 
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
+      maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif" }}>
       <div style={{ padding:"16px 18px 12px", borderBottom:`1px solid ${C.border}`,
         display:"flex", alignItems:"center", gap:12 }}>
         <button
@@ -141,7 +141,7 @@ export default function FollowLiveView({ profileId }) {
             <button
               onClick={() => window.location.href = "/parent-home"}
               style={{ padding:"12px 28px", borderRadius:8, border:`1px solid ${C.border}`,
-                background:C.bg, color:C.text, fontFamily:"Inter,sans-serif",
+                background:C.bg, color:C.text, fontFamily:"'DM Sans', sans-serif",
                 fontSize:13, fontWeight:700, cursor:"pointer" }}>
               Back to home
             </button>

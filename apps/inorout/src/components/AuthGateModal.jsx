@@ -104,7 +104,7 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
           background: C.bg, color: C.text,
           border: `1px solid ${C.border}`, borderRadius: 14,
           padding: "24px 22px 22px",
-          fontFamily: "Inter, sans-serif",
+          fontFamily: "'DM Sans', sans-serif",
           boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
         }}
       >
@@ -142,7 +142,7 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
                 width: "100%", padding: "13px 14px", borderRadius: 8,
                 border: `1.5px solid ${email ? C.amber : C.border}`,
                 background: C.surface, color: C.text,
-                fontFamily: "Inter, sans-serif", fontSize: 15,
+                fontFamily: "'DM Sans', sans-serif", fontSize: 15,
                 outline: "none", boxSizing: "border-box", marginBottom: 10,
               }}
             />
@@ -160,7 +160,7 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
                 width: "100%", padding: "13px 0", borderRadius: 8, border: "none",
                 background: loading || !email.trim() ? "#2a2a2a" : C.amber,
                 color: loading || !email.trim() ? C.muted : C.black,
-                fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 700,
+                fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700,
                 cursor: loading || !email.trim() ? "not-allowed" : "pointer",
               }}
             >
@@ -217,7 +217,7 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
                 width: "100%", padding: "13px 0", borderRadius: 8, border: "none",
                 background: loading || code.length < 6 ? "#2a2a2a" : C.amber,
                 color: loading || code.length < 6 ? C.muted : C.black,
-                fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 700,
+                fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700,
                 cursor: loading || code.length < 6 ? "not-allowed" : "pointer",
                 marginBottom: 8,
               }}
@@ -231,7 +231,7 @@ export default function AuthGateModal({ open, onClose, onAuthed, reason }) {
                 width: "100%", padding: "10px 0", borderRadius: 8,
                 border: `1px solid ${C.border}`, background: "transparent",
                 color: (loading || cooldown > 0) ? C.muted : C.text,
-                fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 500,
+                fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500,
                 cursor: (loading || cooldown > 0) ? "not-allowed" : "pointer",
                 marginBottom: 8,
               }}

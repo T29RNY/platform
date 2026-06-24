@@ -46,7 +46,7 @@ export default function PWAWelcome() {
     <div style={{
       background:C.bg, minHeight:"100dvh", color:C.text,
       display:"flex", flexDirection:"column", alignItems:"center",
-      padding:"52px 24px 40px", fontFamily:"Inter,sans-serif",
+      padding:"52px 24px 40px", fontFamily:"'DM Sans', sans-serif",
       maxWidth:430, margin:"0 auto", boxSizing:"border-box",
     }}>
 
@@ -84,7 +84,7 @@ export default function PWAWelcome() {
           style={{ width:"100%", padding:"13px 14px", borderRadius:6,
             border:`1.5px solid ${link ? C.amber : C.border}`,
             background:C.bg, color:C.text,
-            fontFamily:"Inter,sans-serif", fontSize:14,
+            fontFamily:"'DM Sans', sans-serif", fontSize:14,
             outline:"none", boxSizing:"border-box", marginBottom:8,
             transition:"border-color 0.15s" }}
         />
@@ -101,7 +101,7 @@ export default function PWAWelcome() {
           style={{ width:"100%", padding:"13px 0", borderRadius:6, border:"none",
             background: link.trim() ? C.amber : C.border,
             color: link.trim() ? C.black : C.muted,
-            fontFamily:"Inter,sans-serif", fontSize:14, fontWeight:800,
+            fontFamily:"'DM Sans', sans-serif", fontSize:14, fontWeight:800,
             cursor: link.trim() ? "pointer" : "not-allowed" }}>
           Go →
         </button>
@@ -119,13 +119,13 @@ export default function PWAWelcome() {
           account), logged-out → sign in. */}
       <a href="/create" style={{ marginTop:20, display:"inline-flex",
         alignItems:"center", minHeight:44, padding:"0 8px",
-        fontFamily:"Inter,sans-serif", fontSize:13, color:C.amber,
+        fontFamily:"'DM Sans', sans-serif", fontSize:13, color:C.amber,
         textDecoration:"none", fontWeight:600 }}>
         New here? Create or join a team
       </a>
 
       {/* Legal reachability + comfortable tap targets */}
-      <div style={{ marginTop:8, fontFamily:"Inter,sans-serif", fontSize:11,
+      <div style={{ marginTop:8, fontFamily:"'DM Sans', sans-serif", fontSize:11,
         color:C.muted, display:"flex", gap:8, justifyContent:"center" }}>
         <a href="/legal" style={{ color:C.muted, textDecoration:"none",
           display:"inline-flex", alignItems:"center", minHeight:44, padding:"0 8px" }}>Terms</a>

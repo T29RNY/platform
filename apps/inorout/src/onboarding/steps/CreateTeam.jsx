@@ -315,7 +315,7 @@ export default function CreateTeam({
   const nameValid = groupName.trim().length > 0;
 
   return (
-    <div style={{ padding: 24, paddingBottom: 48, fontFamily: "var(--font-body)" }}>
+    <div style={{ padding: "calc(24px + env(safe-area-inset-top)) 24px 48px", fontFamily: "var(--font-body)" }}>
 
       <ProgressBar current={1} total={3} />
 

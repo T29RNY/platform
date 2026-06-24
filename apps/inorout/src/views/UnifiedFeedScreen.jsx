@@ -49,21 +49,21 @@ function EventCard({ event, onClick }) {
             {event.title}
           </div>
           {event.subtitle && (
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12,
               color: C.muted, marginTop:3 }}>{event.subtitle}</div>
           )}
           {event.child_name && (
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12,
               color: C.muted, marginTop:3 }}>For {event.child_name}</div>
           )}
         </div>
         <div style={{ textAlign:"right", flexShrink:0 }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
+          <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, fontWeight:700,
             color: isLive ? C.amber : C.muted, letterSpacing:1.5,
             textTransform:"uppercase" }}>
             {isLive ? "● LIVE" : typeLabel}
           </div>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, color:C.muted, marginTop:4 }}>
+          <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12, color:C.muted, marginTop:4 }}>
             {formatWhen(event.when_at)}
           </div>
         </div>
@@ -92,7 +92,7 @@ function BottomNav({ active }) {
           color: active === key ? C.amber : C.muted,
         }}>
           <Icon size={22} weight="thin" />
-          <span style={{ fontFamily:"Inter,sans-serif", fontSize:10,
+          <span style={{ fontFamily:"'DM Sans', sans-serif", fontSize:10,
             fontWeight:600, marginTop:3, letterSpacing:0.5 }}>{label}</span>
         </a>
       ))}
@@ -129,7 +129,7 @@ export default function UnifiedFeedScreen() {
 
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif",
+      maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif",
       paddingBottom: 72 }}>
       <div style={{ padding:"calc(20px + env(safe-area-inset-top)) 18px 12px", borderBottom:`1px solid ${C.border}` }}>
         {/* Brand lockup — IN green · OR neutral · OUT red (matches PageHeader). */}

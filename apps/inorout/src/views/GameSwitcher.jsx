@@ -4,12 +4,12 @@ import { colors as C } from "@platform/core";
 // For now shows one game (Finbar's Tuesdays), ready to expand
 export default function GameSwitcher({ games, onSelect, playerName }) {
   return (
-    <div style={{ padding:24, fontFamily:"Inter,sans-serif" }}>
+    <div style={{ padding:24, fontFamily:"'DM Sans', sans-serif" }}>
       <div style={{ marginBottom:24 }}>
         <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28, color:C.amber,
           letterSpacing:2, lineHeight:1 }}>YOUR GAMES</div>
         {playerName && (
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:13, color:C.muted, marginTop:4 }}>
+          <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13, color:C.muted, marginTop:4 }}>
             Welcome back, {playerName}
           </div>
         )}
@@ -36,7 +36,7 @@ export default function GameSwitcher({ games, onSelect, playerName }) {
                   color:C.amber, letterSpacing:2, lineHeight:1 }}>
                   {game.settings.groupName}
                 </div>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+                <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12,
                   color:C.muted, marginTop:3 }}>
                   {game.schedule.dayOfWeek} · {game.schedule.venue} · {game.schedule.kickoff}
                 </div>
@@ -46,14 +46,14 @@ export default function GameSwitcher({ games, onSelect, playerName }) {
                 padding:"6px 10px", minWidth:46 }}>
                 <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:26,
                   color:full?C.green:C.amber, lineHeight:1 }}>{inCount}</div>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:9,
+                <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:9,
                   color:C.muted }}>/{needed}</div>
               </div>
             </div>
 
             {/* Status */}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:12, fontWeight:600,
+              <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12, fontWeight:600,
                 color: game.schedule.gameIsLive ? C.green : C.muted }}>
                 {game.schedule.isCancelled ? "❌ Cancelled"
                  : game.schedule.isDraft    ? "📋 Coming soon"
@@ -61,7 +61,7 @@ export default function GameSwitcher({ games, onSelect, playerName }) {
                  : "⏸ Not yet open"}
               </div>
               {me && (
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
+                <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, fontWeight:700,
                   padding:"3px 10px", borderRadius:4,
                   background: me.status==="in"  ? C.green+"20"
                             : me.status==="out"  ? C.red+"20"
@@ -82,13 +82,13 @@ export default function GameSwitcher({ games, onSelect, playerName }) {
             {/* Balance */}
             {me?.owes > 0 && (
               <div style={{ marginTop:10, padding:"8px 12px", borderRadius:6,
-                background:C.red+"12", fontFamily:"Inter,sans-serif",
+                background:C.red+"12", fontFamily:"'DM Sans', sans-serif",
                 fontSize:12, color:C.red }}>
                 💰 You owe £{me.owes}
               </div>
             )}
 
-            <div style={{ marginTop:14, fontFamily:"Inter,sans-serif", fontSize:12,
+            <div style={{ marginTop:14, fontFamily:"'DM Sans', sans-serif", fontSize:12,
               color:C.amber, fontWeight:600, textAlign:"right" }}>
               Open →
             </div>

@@ -55,7 +55,7 @@ import PWAWelcome   from "./views/PWAWelcome.jsx";
 import Gaffer        from "./views/Gaffer/index.jsx";
 import SquadReady    from "./onboarding/steps/SquadReady.jsx";
 
-const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Bebas+Neue&display=swap";
+const FONT_LINK = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap";
 
 const DEFAULT_SCHEDULE = {
   dayOfWeek:"Tuesday", kickoff:"19:00", venue:"", opensDay:"Wednesday",
@@ -1296,7 +1296,7 @@ export default function App() {
     if (!joinTeam) return (
       <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
         flexDirection:"column", alignItems:"center", justifyContent:"center",
-        padding:24, fontFamily:"Inter,sans-serif" }}>
+        padding:24, fontFamily:"'DM Sans', sans-serif" }}>
         <div style={{ fontSize:40, marginBottom:16 }}>🔗</div>
         <div style={{ fontSize:14, color:C.muted, textAlign:"center" }}>
           This invite link is invalid or has expired.
@@ -1371,7 +1371,7 @@ export default function App() {
       <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
         flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
         <div style={{ fontSize:48 }}>⚽</div>
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
+        <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
       </div>
     );
   }
@@ -1430,7 +1430,7 @@ export default function App() {
     return (
       <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
         display:"flex", flexDirection:"column", alignItems:"center",
-        justifyContent:"center", padding:24, fontFamily:"Inter,sans-serif" }}>
+        justifyContent:"center", padding:24, fontFamily:"'DM Sans', sans-serif" }}>
         <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:44,
           color:C.amber, letterSpacing:4, marginBottom:8, textAlign:"center" }}>
           YOUR TEAMS
@@ -1448,18 +1448,18 @@ export default function App() {
                 <span style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:20,
                   letterSpacing:1, color: r.live ? C.amber : C.text }}>{r.name}</span>
                 {r.isAdmin && (
-                  <span style={{ fontFamily:"Inter,sans-serif", fontSize:9, fontWeight:700,
+                  <span style={{ fontFamily:"'DM Sans', sans-serif", fontSize:9, fontWeight:700,
                     letterSpacing:1, color:C.muted, border:`1px solid ${C.border}`,
                     borderRadius:4, padding:"2px 5px" }}>MANAGER</span>
                 )}
               </span>
-              <span style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:700,
+              <span style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, fontWeight:700,
                 letterSpacing:1, color: r.live ? C.amber : C.muted }}>
                 {r.live ? "● LIVE" : "OPEN →"}</span>
             </a>
           ))}
         </div>
-        <a href="/create" style={{ marginTop:18, fontFamily:"Inter,sans-serif",
+        <a href="/create" style={{ marginTop:18, fontFamily:"'DM Sans', sans-serif",
           fontSize:13, color:C.muted, textDecoration:"underline",
           textDecorationStyle:"dotted" }}>Create / Join another team</a>
       </div>
@@ -1676,7 +1676,7 @@ export default function App() {
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
       flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
       <div style={{ fontSize:48 }}>⚽</div>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
+      <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
     </div>
   );
 
@@ -1685,7 +1685,7 @@ export default function App() {
       flexDirection:"column", alignItems:"center", justifyContent:"center",
       gap:16, padding:20 }}>
       <div style={{ fontSize:40 }}>⚠️</div>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
+      <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14,
         color:C.red, textAlign:"center" }}>
         {error}<br/>
         <span style={{ color:C.muted, fontSize:12 }}>Check your link and try again.</span>
@@ -1696,9 +1696,9 @@ export default function App() {
   if (route.type==="player" && !myPlayer) return (
     <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
       flexDirection:"column", alignItems:"center", justifyContent:"center",
-      padding:24, fontFamily:"Inter,sans-serif" }}>
+      padding:24, fontFamily:"'DM Sans', sans-serif" }}>
       <div style={{ fontSize:40, marginBottom:16 }}>🔗</div>
-      <div style={{ fontFamily:"Inter,sans-serif", fontSize:14,
+      <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14,
         color:C.muted, textAlign:"center" }}>
         This link doesn't match any player.<br/>
         Check the link your organiser sent you.
@@ -1714,7 +1714,7 @@ export default function App() {
     if (featureFlags?.multi_context_nav) { window.location.replace("/feed"); return null; }
     return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
+      maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif" }}>
       <InstallBanner/>
       <div style={{ padding:"20px 18px 12px", background:C.bg,
         borderBottom:`1px solid ${C.border}` }}>
@@ -1723,13 +1723,13 @@ export default function App() {
           <span style={{ color:C.text }}> OR </span>
           <span style={{ color:C.red }}>OUT</span>
         </div>
-        <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
+        <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13,
           color:C.muted, marginTop:2 }}>Welcome back, {myPlayer.name}</div>
       </div>
       <div style={{ padding:18 }}>
         {playerTeams.length > 0 && (
           <>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, fontWeight:800,
               color:C.muted, letterSpacing:1.5, textTransform:"uppercase", marginBottom:16 }}>
               YOUR GAMES
             </div>
@@ -1741,7 +1741,7 @@ export default function App() {
                 onMouseLeave={e => e.currentTarget.style.borderColor=C.border}>
                 <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
                   color:C.amber, letterSpacing:2 }}>{team.name}</div>
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+                <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12,
                   color:C.amber, marginTop:12, fontWeight:600, textAlign:"right" }}>
                   Open →
                 </div>
@@ -1751,7 +1751,7 @@ export default function App() {
         )}
         {clubEntries.length > 0 && (
           <>
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:11, fontWeight:800,
+            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, fontWeight:800,
               color:C.muted, letterSpacing:1.5, textTransform:"uppercase",
               marginBottom:16, marginTop: playerTeams.length > 0 ? 8 : 0 }}>
               YOUR CLUBS
@@ -1766,10 +1766,10 @@ export default function App() {
                 <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:22,
                   color:C.amber, letterSpacing:2 }}>{club.club_name}</div>
                 {club.cohort_name && (
-                  <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
+                  <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13,
                     color:C.muted, marginTop:4 }}>{club.cohort_name}</div>
                 )}
-                <div style={{ fontFamily:"Inter,sans-serif", fontSize:12,
+                <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:12,
                   color:C.amber, marginTop:12, fontWeight:600, textAlign:"right" }}>
                   Sessions →
                 </div>
@@ -1828,7 +1828,7 @@ export default function App() {
   return (
     <TourProvider enabled={multiContextNav}>
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
-      maxWidth:430, margin:"0 auto", fontFamily:"Inter,sans-serif" }}>
+      maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif" }}>
       <InstallBanner/>
       <ContextSwitcher
         open={showSwitcher}
