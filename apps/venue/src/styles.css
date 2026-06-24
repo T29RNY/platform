@@ -37,6 +37,10 @@
   --info-soft:    rgba(59, 130, 246, 0.14);
   --train:        #8B5CF6;     /* club training (violet) — paired with an icon + tag */
   --train-soft:   rgba(139, 92, 246, 0.16);
+  --room:         #14B8A6;     /* room hire (teal) — unified resource calendar */
+  --room-soft:    rgba(20, 184, 166, 0.15);
+  --pt:           #6366F1;     /* personal training (indigo) — unified resource calendar */
+  --pt-soft:      rgba(99, 102, 241, 0.15);
   --reserved-soft: rgba(148, 163, 184, 0.13); /* calm slate — advisory reserved-time shading */
   --crit:         #F04438;
 
@@ -2881,6 +2885,41 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .occ-glyph svg { color: var(--accent-ink); }
 .occ-mgr { display: block; margin-top: 2px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-3); }
 .occ-rank { flex: none; font-size: 10px; font-weight: 800; line-height: 1; color: var(--ink-2); }
+/* secondary line (unified resource calendar): class room subheading, room-hire booker */
+.occ-sub { display: block; font-size: 10px; color: var(--ink-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* unified resource calendar block kinds — room hire (teal), class (violet), PT (indigo).
+   Like the club-activity blocks, the type word + icon carry the meaning; the tint supports it. */
+.occ-room { background: var(--room-soft); border-color: rgba(20,184,166,0.4); color: var(--room); }
+.occ-room .occ-time, .occ-room .occ-sub { color: var(--room); }
+.occ-room .occ-type { background: var(--room); color: var(--accent-ink); }
+.occ-class { background: var(--train-soft); border-color: rgba(139,92,246,0.4); color: var(--train); }
+.occ-class .occ-time, .occ-class .occ-sub { color: var(--train); }
+.occ-class .occ-type { background: var(--train); color: var(--accent-ink); }
+.occ-pt { background: var(--pt-soft); border-color: rgba(99,102,241,0.4); color: var(--pt); }
+.occ-pt .occ-time, .occ-pt .occ-sub { color: var(--pt); }
+.occ-pt .occ-type { background: var(--pt); color: var(--accent-ink); }
+
+/* "Show" resource-type switcher (Pitches / Rooms / Trainers / All) */
+.res-switch { display: inline-flex; gap: 4px; margin-right: 8px; }
+
+/* equipment availability strip (quantity-over-time, not a lane) */
+.eq-strip {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 12px;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.eq-strip-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.eq-strip-items { display: flex; gap: 8px; flex-wrap: wrap; }
+.eq-item {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 4px 9px; border-radius: var(--radius-pill);
+  background: var(--bg-3); border: 1px solid var(--border); font-size: 12px; color: var(--ink-2);
+}
+.eq-item strong { font-weight: 600; color: var(--ink); }
+.eq-item .eq-count { font-size: 11px; color: var(--ink-3); }
+.eq-item.is-out { border-color: rgba(245,158,11,0.4); background: var(--warn-soft); }
+.eq-item.is-out .eq-count { color: var(--warn); font-weight: 600; }
 
 /* cross-site ground switcher (operators running more than one venue) */
 .ground-switch { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }

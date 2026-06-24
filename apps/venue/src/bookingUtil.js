@@ -108,6 +108,9 @@ export function occClass(o) {
   if (o.source_kind === "maintenance") return "occ-maint";
   if (o.source_kind === "club_session") return "occ-training";
   if (o.source_kind === "club_fixture") return "occ-match";
+  if (o.source_kind === "room_hire") return o.detail?.status === "requested" ? "occ-pending" : "occ-room";
+  if (o.source_kind === "class") return "occ-class";
+  if (o.source_kind === "appointment") return "occ-pt";
   if (o.detail?.status === "requested") return "occ-pending";
   return o.detail?.owed ? "occ-owed" : "occ-paid";
 }
@@ -118,6 +121,9 @@ export function occType(o) {
   if (o.source_kind === "fixture") return "League";
   if (o.source_kind === "club_session") return "Training";
   if (o.source_kind === "club_fixture") return "Match";
+  if (o.source_kind === "room_hire") return "Room";
+  if (o.source_kind === "class") return "Class";
+  if (o.source_kind === "appointment") return "PT";
   return o.detail?.kind === "block" ? "Block" : "One-off";
 }
 
@@ -127,7 +133,19 @@ export function occTypeKey(o) {
   if (o.source_kind === "fixture") return "league";
   if (o.source_kind === "club_session") return "training";
   if (o.source_kind === "club_fixture") return "match";
+  if (o.source_kind === "room_hire") return "room";
+  if (o.source_kind === "class") return "class";
+  if (o.source_kind === "appointment") return "pt";
   return o.detail?.kind === "block" ? "block" : "oneoff";
+}
+
+// Resource type this block belongs to — drives which lane/group it renders in on the
+// unified resource calendar. Pitch occupancy (booking/fixture/club_*/maintenance) → pitch.
+export function occResourceType(o) {
+  if (o.resource_type) return o.resource_type;
+  if (o.source_kind === "room_hire" || o.source_kind === "class") return "room";
+  if (o.source_kind === "appointment") return "trainer";
+  return "pitch";
 }
 
 // Icon glyph name (Icon.jsx registry) for the block — a shape, not just a colour, so
@@ -135,6 +153,9 @@ export function occTypeKey(o) {
 export function occIcon(o) {
   if (o.source_kind === "club_session") return "teams";
   if (o.source_kind === "club_fixture") return "whistle";
+  if (o.source_kind === "room_hire") return "spaces";
+  if (o.source_kind === "class") return "players";
+  if (o.source_kind === "appointment") return "staff";
   return null;
 }
 
@@ -229,5 +250,26 @@ export function occLabel(o) {
     const our = d.our_team || "Our team";
     return d.opponent ? `${our} v ${d.opponent}` : our;
   }
+  if (o.source_kind === "room_hire") {
+    const d = o.detail ?? {};
+    return d.purpose || d.booker || "Room hire";
+  }
+  if (o.source_kind === "class") return o.detail?.class_name || "Class";
+  if (o.source_kind === "appointment") {
+    const d = o.detail ?? {};
+    return d.member_name || d.trainer_name || "PT session";
+  }
   return o.detail?.team_name || "Booking";
+}
+
+// Secondary line under the label on the unified resource calendar. Classes lead with the
+// class name and show the room as a subheading; room hires show the booker beneath the
+// purpose. null = no subheading (most blocks).
+export function occSub(o) {
+  if (o.source_kind === "class") return o.detail?.space_name || null;
+  if (o.source_kind === "room_hire") {
+    const d = o.detail ?? {};
+    return d.purpose && d.booker ? d.booker : null;
+  }
+  return null;
 }

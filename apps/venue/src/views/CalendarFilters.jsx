@@ -6,7 +6,7 @@ import Icon from "./Icon.jsx";
 // (DayAgenda has its own pitch picker).
 export default function CalendarFilters({
   pitches, hiddenPitches, onTogglePitch,
-  q, onQ, f, onToggle, onClear, isMobile,
+  q, onQ, f, onToggle, onClear, isMobile, resourceChips = false,
 }) {
   const Chip = ({ k, label, cls }) => (
     <button className={"cal-chip" + (f[k] ? " is-active " + (cls || "") : "")} onClick={() => onToggle(k)}>
@@ -25,23 +25,34 @@ export default function CalendarFilters({
       </div>
 
       <div className="cal-chiprow">
-        <Chip k="paid" label="Paid" cls="chip-ok" />
-        <Chip k="owed" label="Owed" cls="chip-warn" />
-        <span className="cal-sep" />
-        <Chip k="oneoff" label="One-off" />
-        <Chip k="block" label="Block" />
-        <Chip k="league" label="League" />
-        <Chip k="training" label="Training" />
-        <Chip k="match" label="Match" />
-        <Chip k="maint" label="Maintenance" />
-        <span className="cal-sep" />
-        <Chip k="pending" label="Pending" />
-        <Chip k="isnew" label="New" cls="chip-accent" />
-        <Chip k="free" label="Free slots" />
-        {anyActive && <button className="cal-clear" onClick={onClear}>Clear</button>}
+        {resourceChips ? (
+          <>
+            <Chip k="room" label="Room hire" />
+            <Chip k="class" label="Class" />
+            <Chip k="pt" label="PT" />
+            {anyActive && <button className="cal-clear" onClick={onClear}>Clear</button>}
+          </>
+        ) : (
+          <>
+            <Chip k="paid" label="Paid" cls="chip-ok" />
+            <Chip k="owed" label="Owed" cls="chip-warn" />
+            <span className="cal-sep" />
+            <Chip k="oneoff" label="One-off" />
+            <Chip k="block" label="Block" />
+            <Chip k="league" label="League" />
+            <Chip k="training" label="Training" />
+            <Chip k="match" label="Match" />
+            <Chip k="maint" label="Maintenance" />
+            <span className="cal-sep" />
+            <Chip k="pending" label="Pending" />
+            <Chip k="isnew" label="New" cls="chip-accent" />
+            <Chip k="free" label="Free slots" />
+            {anyActive && <button className="cal-clear" onClick={onClear}>Clear</button>}
+          </>
+        )}
       </div>
 
-      {!isMobile && pitches.length > 1 && (
+      {!resourceChips && !isMobile && pitches.length > 1 && (
         <div className="cal-chiprow">
           <span className="cal-rowlabel">Pitches</span>
           {pitches.map((p) => (

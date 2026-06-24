@@ -255,6 +255,7 @@ export {
   venueRevokeAdmin,
   getPitchOccupancy,
   getOperatorPitchOccupancy,
+  getVenueResourceOccupancy,
   venueUpdateBookingSettings,
   venueGetCharges,
   venueRecordPayment,
