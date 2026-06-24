@@ -53,6 +53,7 @@ function localTime(tstz) {
 // Friendly mapping for the booking RPC error codes.
 const ERR = {
   slot_unavailable: "That slot was just taken — pick another.",
+  slot_reserved: "That time is reserved for club use — pick another.",
   not_team_admin: "You need to be an admin of this team to book.",
   auth_required: "Please sign in to book.",
   pitch_unavailable: "That pitch isn't available for booking.",

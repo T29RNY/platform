@@ -161,7 +161,25 @@ Original scope:
 - **Gates:** rpc-security; ephemeral-verify (own `_e2e_` venue+club+teams → set windows → read
   back → leak 0); build venue + hygiene 7/7 + hex; Playwright config smoke. casual-regression N/A.
 
-### Phase 2 (mig 417) — Enforcement + rank bumping (the big one)  *(touches core/inorout → casual-regression)*
+### Phase 2 (mig 417) — Enforcement + rank bumping (the big one)  *(touches core/inorout → casual-regression)*  🏁 SHIPPED s196
+**Built as scoped.** New `pitch_bump_proposals` table + `tentative` status on `club_sessions`/`club_fixtures`
+(both `*_status_check` extended). External gate via `_pitch_window_blocks(pitch,range,kind,rank,team_id)`
+(5th `team_id` arg = locked superset of the 4-arg sig so a team's own window isn't off-limits in the search):
+`book_pitch_adhoc`/`_series` → `slot_reserved`; `venue_create_booking`/`_series` → `warning:'reserved'` (operator
+override). Internal-create NOT window-gated (locked decision A). Rank bump via resolver `_reserve_club_occupancy`
+(both mig-414 triggers delegate to it) → worse rank yields → tentative + release + winner-reserved-first +
+`_closest_available_slot` (same date, 30-min steps, same-company venues, skip non-qualifying windows) →
+`pitch_bump_proposals` + `_notify_bump` (club_announcements spine + `notify_venue_change` + Hard Rule #9 audit).
+Accept/Decline: `club_manager_resolve_bump` (auth-only) + `venue_resolve_bump` (token, `manage_facility`) →
+`_apply_bump_resolution` (accept moves+re-reserves, race→re-suggest+stay pending; decline stays tentative).
+Readers `club_manager_list_bump_proposals`/`venue_list_bump_proposals` for the Phase-3 UI. Wrappers + barrel.
+UI: casual `BookPitchModal` `slot_reserved` msg + venue `WalkInModal` pre-commit "book anyway" warning
+(`bookingUtil.reservedHitAt`). Gates ALL PASS: rpc-security (4 public + 7 helpers), **EV 14/14 + leak 0**,
+casual-regression (additive-only; `book_pitch_*` identical when no windows = universal casual case), build
+venue+inorout + hygiene 7/7 + hex-clean, Playwright venue boot 0 errors. ⛔ owed venue deploy + real-device
+two-token walk + Phase-3 calendar Accept/Decline UI. **Next free mig = 418.**
+
+Original scope:
 - **External gate (#5):** shared definer helper `_pitch_window_blocks(playing_area_id, time_range,
   requester_kind, requester_rank)` → returns the blocking window or null. Gate
   `book_pitch_adhoc`/`book_pitch_series` (external) against `internal`/`team`/`min_rank` windows →
@@ -221,10 +239,16 @@ Original scope:
 ## 5. STATUS
 - s195 (design): audit + design LOCKED.
 - s195 (build): **🏁 PHASE 1 SHIPPED (mig 416).** `pitch_reserved_windows` table + 2 venue config RPCs +
-  JS wrappers/barrel + BookingSettings "Reserved times" editor + advisory shading on ScheduleGrid +
-  AllGroundsGrid. Config + display only (no enforcement, no bumping). All gates PASS. **Next free mig = 417.**
-- **NEXT = Phase 2 (mig 417)** — external gate (`_pitch_window_blocks` → `book_pitch_*` → `slot_reserved`;
-  `venue_create_booking` warn-only) + rank-driven club-team bump (tentative + suggest-and-confirm) +
-  accept/decline RPCs. **Touches `book_pitch_*` → casual-regression MANDATORY** + ephemeral-verify MANDATORY.
+  JS wrappers/barrel + BookingSettings "Reserved times" editor + advisory shading. Config + display only.
+- s196 (build): **🏁 PHASE 2 SHIPPED (mig 417)** — external gate (`_pitch_window_blocks` → `book_pitch_*` →
+  `slot_reserved`; `venue_create_booking*` warn-only) + rank-driven club-team bump (`_reserve_club_occupancy`
+  → tentative + `pitch_bump_proposals` + `_closest_available_slot` + `_notify_bump`) + accept/decline RPCs
+  (`club_manager_resolve_bump`/`venue_resolve_bump`) + list readers + JS wrappers/barrel + casual `slot_reserved`
+  msg + venue operator-override warning. **All gates PASS (EV 14/14 + leak 0; casual-regression PASS).**
+  **Next free mig = 418.**
+- **NEXT = Phase 3 (likely no mig)** — surface rank badge + "Tentative — needs attention" state on club
+  occupancy blocks + the suggested-slot Accept/Decline prompt for managers (player app) + venue console,
+  reading `club_manager_list_bump_proposals`/`venue_list_bump_proposals` + the resolve RPCs. UI-only.
+- ⛔ owed across P1+P2: venue deploy + real-device two-token walk (operator warning banner; casual `slot_reserved`).
 </content>
 </invoke>

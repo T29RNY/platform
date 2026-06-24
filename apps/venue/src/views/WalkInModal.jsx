@@ -7,7 +7,7 @@ import {
   getPitchFreeSlots,
   getPitchFreeSlotsSeries,
 } from "@platform/core/storage/supabase.js";
-import { dowOf } from "../bookingUtil.js";
+import { dowOf, parseHHMM, reservedHitAt } from "../bookingUtil.js";
 
 const ERR = {
   slot_unavailable: "That slot is already taken — pick another time.",
@@ -34,7 +34,7 @@ const fmtDayLabel = (ymd) => {
   } catch { return ymd; }
 };
 
-export default function WalkInModal({ open, onClose, venueToken, venueId, date, pitches, teams, prefill, onCreated }) {
+export default function WalkInModal({ open, onClose, venueToken, venueId, date, pitches, teams, prefill, onCreated, reservedByPitch }) {
   const [pitchId, setPitchId] = useState("");
   const [bookingDate, setBookingDate] = useState(date || "");
   const [time, setTime] = useState("");
@@ -147,6 +147,15 @@ export default function WalkInModal({ open, onClose, venueToken, venueId, date, 
     if (!availableTimes.includes(time)) setTime(availableTimes[0]);
   }, [availableTimes]);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Operator override warning: does the chosen pitch+day+time land in a reserved window?
+  // The server still books (warning-only) — we just flag it up front (locked decision #5).
+  const reservedHit = useMemo(() => {
+    if (!pitchId || !bookingDate || !time) return null;
+    const windows = reservedByPitch?.get?.(pitchId) || [];
+    if (!windows.length) return null;
+    return reservedHitAt(windows, bookingDate, parseHHMM(time));
+  }, [reservedByPitch, pitchId, bookingDate, time]);
+
   const submit = async () => {
     setError(null);
     // booker resolution
@@ -185,7 +194,7 @@ export default function WalkInModal({ open, onClose, venueToken, venueId, date, 
     <Modal open={open} onClose={onClose} title="New booking"
       footer={
         <button className="btn-accent" disabled={busy || noSlots} onClick={submit}>
-          {busy ? "Booking…" : "Confirm booking"}
+          {busy ? "Booking…" : reservedHit ? "Book anyway" : "Confirm booking"}
         </button>
       }
     >
@@ -278,6 +287,11 @@ export default function WalkInModal({ open, onClose, venueToken, venueId, date, 
         </div>
       </div>
 
+      {reservedHit && (
+        <div className="bk-modal-note" style={{ color: "var(--warn)", fontWeight: 500 }}>
+          ⚠ This time is reserved for club use ({reservedHit.label}). You can still book it — it won't be offered to outside hires.
+        </div>
+      )}
       <p className="bk-modal-note">Confirmed straight away — we'll email the customer a confirmation.</p>
       {error && <div className="bk-inbox-error">{error}</div>}
     </Modal>
