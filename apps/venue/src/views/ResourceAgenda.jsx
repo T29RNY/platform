@@ -21,13 +21,14 @@ export default function ResourceAgenda({ venues, dayOcc, activeTypes, onSelectBl
     }
     return m;
   }, [venues]);
-  // Own-site lanes the operator can book into (pitch/room). Mirrors ResourceCalendar.
+  // Own-site lanes the operator can book into (pitch/room/trainer). Mirrors ResourceCalendar.
   const bookableById = useMemo(() => {
     const s = new Set();
     for (const v of venues) {
       if (!v.is_self) continue;
       if (BOOKABLE_RESOURCE_TYPES.has("pitch")) for (const p of (v.pitches ?? [])) s.add(p.id);
       if (BOOKABLE_RESOURCE_TYPES.has("room")) for (const r of (v.rooms ?? [])) s.add(r.id);
+      if (BOOKABLE_RESOURCE_TYPES.has("trainer")) for (const t of (v.trainers ?? [])) s.add(t.id);
     }
     return s;
   }, [venues]);

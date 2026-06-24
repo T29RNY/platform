@@ -4,11 +4,10 @@ const TZ = "Europe/London";
 
 const pad = (n) => String(n).padStart(2, "0");
 
-// Resource lanes the operator can book into from the unified calendar (Phase 2, own site
-// only). pitch → WalkInModal, room → reused class CreateSessionModal. Trainer appointments
-// and ad-hoc room hires have no operator create flow yet, so those lanes stay read-only;
-// add the type here once a reuse target exists.
-export const BOOKABLE_RESOURCE_TYPES = new Set(["pitch", "room"]);
+// Resource lanes the operator can book into from the unified calendar (own site only).
+// pitch → WalkInModal; room → chooser (schedule a class | create a room hire); trainer →
+// AppointmentModal (Phase 2b, mig 423). Foreign-site lanes stay read-only (is_self gate).
+export const BOOKABLE_RESOURCE_TYPES = new Set(["pitch", "room", "trainer"]);
 
 export function isoDate(d) {
   // YYYY-MM-DD from LOCAL components (never toISOString — that converts to UTC

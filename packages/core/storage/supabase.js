@@ -3854,6 +3854,22 @@ export async function venueRecordHireDeposit(venueToken, hireId, depositStatus) 
   return data;
 }
 
+// Operator ad-hoc room hire straight to 'confirmed' (mig 423, calendar Phase 2b). Either a
+// member (pass memberProfileId → contact pulled from the profile) or a walk-in (bookerName).
+// Reuses _space_is_available under a row lock; creates a 'room_hire' charge when priced.
+// Returns { ok, hire_id, charge_id, status } or { ok:false, reason:'space_unavailable' }.
+export async function venueCreateRoomHire(venueToken, spaceId, startsAt, endsAt, purpose, {
+  pricePence = 0, bookerName = null, bookerEmail = null, bookerPhone = null,
+  depositPence = null, attendeeCount = null, memberProfileId = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_create_room_hire", {
+    p_venue_token: venueToken, p_space_id: spaceId, p_starts_at: startsAt, p_ends_at: endsAt,
+    p_purpose: purpose, p_price_pence: pricePence, p_booker_name: bookerName,
+    p_booker_email: bookerEmail, p_booker_phone: bookerPhone, p_deposit_pence: depositPence,
+    p_attendee_count: attendeeCount, p_member_profile_id: memberProfileId });
+  if (error) { console.error("[roomhire] venue_create_room_hire failed", error); throw error; }
+  return data;
+}
+
 // ── Classes (mig 339, Classes+Room-Hire Phase 2) — class catalogue + scheduling ──
 // Class types (catalogue): list returns each type + upcoming_session_count + space_name.
 export async function venueListClassTypes(venueToken) {
@@ -5750,6 +5766,19 @@ export async function venueMarkAppointmentCompleted(venueToken, appointmentId, n
   const { data, error } = await supabase.rpc("venue_mark_appointment_completed", {
     p_venue_token: venueToken, p_appointment_id: appointmentId, p_no_show: noShow });
   if (error) { console.error("[pt] venue_mark_appointment_completed failed", error); throw error; }
+  return data;
+}
+
+// Operator books an EXISTING member into a trainer slot straight to 'confirmed' (mig 423,
+// calendar Phase 2b). No availability-window enforcement (ad-hoc override); inlined overlap
+// guard. endsAt defaults to the trainer's default_session_minutes, pricePence to the
+// trainer's price. Returns { ok, appointment_id, ... } or { ok:false, reason:'slot_taken' }.
+export async function venueCreateAppointment(venueToken, trainerId, memberProfileId, startsAt, {
+  endsAt = null, pricePence = null } = {}) {
+  const { data, error } = await supabase.rpc("venue_create_appointment", {
+    p_venue_token: venueToken, p_trainer_id: trainerId, p_member_profile_id: memberProfileId,
+    p_starts_at: startsAt, p_ends_at: endsAt, p_price_pence: pricePence });
+  if (error) { console.error("[pt] venue_create_appointment failed", error); throw error; }
   return data;
 }
 
