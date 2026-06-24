@@ -1496,3 +1496,37 @@ this exact 100%-failure returns on day one.
 
 **Expected outcome:** webhook delivery returns 200; the membership + schedule + ledger
 rows all appear.
+
+---
+
+## 20. SESSION 204 — UNIFIED HOME ("Feed") RPC THREW 42703 ON EVERY CALL (mig 425)
+
+**Issue class:** the multi-context home screen (`/feed`, `UnifiedFeedScreen`) silently
+showed "Nothing coming up in the next two weeks" for **every** user with a squad and a
+club, since it shipped. It looked like an empty-state, not a failure. The cause:
+`get_unified_home_feed` referenced `players.team_id` and `players.player_token`, but the
+`players` table has `team` and `token`. PostgreSQL resolves columns at execution, so the
+bad refs made the **whole** function throw `42703 column p.team_id does not exist`, and
+the client (`UnifiedFeedScreen` / `supabase.js`) caught the error and rendered the empty
+state — masking a hard 400. A second, latent bug sat behind it: even with the columns
+fixed, the squad block keyed membership off `players.team` (NULL for linked players)
+instead of `team_players`, so squad games would never appear. **Fix (mig 425):** correct
+the columns AND re-resolve squad membership through `team_players` (mirroring the working
+`get_user_relationships`), plus `s.active=true` and an `> now()` lower bound to match the
+other blocks' upcoming-only semantics.
+
+**Why nothing caught it:** build, hygiene, and ephemeral-verify cannot see a swallowed
+400 — only a real browser smoke of the signed-in screen did. (Reinforces the
+"run the app in a browser before done" rule.)
+
+**Pre-flight check — run before go-live:**
+
+1. Sign in (real account or a demo account via the Supabase password grant) as a user
+   who has BOTH a casual squad and a club membership.
+2. Open `/feed` and check the browser console / network tab: `get_unified_home_feed`
+   must return **200**, not 400. There must be **no** `42703` / "column does not exist".
+3. With a non-live upcoming squad game OR an upcoming club session in the next 14 days,
+   confirm it actually renders as a card (not the empty state).
+
+**Expected outcome:** the RPC returns `{events:[…]}` with the user's upcoming squad games,
+club sessions, fixtures and children's sessions — never a silently-swallowed error.
