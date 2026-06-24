@@ -25,7 +25,24 @@ Venue/club domain only (not casual inorout). Next free migration at scope time =
 
 ---
 
-## ⭐ PHASE 3 — BUILD-READY (next session) — hard room/trainer clash protection
+## ⭐ PHASE 3 — 🏁 SHIPPED s203 (2026-06-24, mig 424) — hard room/trainer clash protection
+
+> **🏁 BUILT + APPLIED LIVE (mig 424).** One shared `resource_occupancy` ledger (single-table
+> shape, mirrors `pitch_occupancy`) with a btree_gist `EXCLUDE (resource_type, resource_id,
+> time_range) WHERE active`, kept in sync by **3 SECDEF per-table triggers**
+> (`tg_sync_room_hire_occupancy` on `venue_room_hires`, `tg_sync_class_session_occupancy` on
+> `venue_class_sessions`, `tg_sync_appointment_occupancy` on `venue_appointments`) — covering ALL
+> 13 audited write paths (rooms 5, classes 5, trainers 3 incl. the no-op deposit/checkin/reassign
+> ones the `UPDATE OF` column lists skip). Room hire + class session share the `room` lane → the
+> room-hire-vs-class **cross-table** gap is hard-closed too. Occupy = `status <> 'cancelled'`
+> (byte-identical to `_space_is_available`), backfilled future-only (clash-only ledger). Friendly
+> surfacing: exclusion_violation → `slot_unavailable` (rooms) / `slot_taken` (trainers); inline
+> guards stay as fast-path belt-and-braces; `RoomHireModal` + `ClassesView` error maps gained a
+> `slot_unavailable` key for the rare trigger-race. RLS on, 0 policies, anon/auth REVOKEd (matches
+> pitch_occupancy). **Gates ALL PASS:** EV **9/9 + leak 0** (room overlap, cross-table class-vs-hire,
+> trainer overlap, adjacent allowed, cancel + delete release), trigger-fn security (SECDEF +
+> search_path + revoked), build venue clean, hygiene 7/7 ×2, Playwright boot 0 errors. casual-regression
+> N/A (venue only). ⛔ owed: venue MANUAL prebuilt-static deploy + live-bundle grep + operator device walk.
 
 *Audited 2026-06-24 (s202). This supersedes the looser "Phase 3 (optional)" note further down.*
 

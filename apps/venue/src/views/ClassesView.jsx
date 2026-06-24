@@ -611,7 +611,7 @@ export function CreateSessionModal({ venueToken, types, instructors, onClose, on
         setResult(r);
       }
     } catch (e) {
-      setErr(e?.message === "space_unavailable" ? "That space is already booked at that time." : (e?.message || String(e)));
+      setErr(["space_unavailable", "slot_unavailable"].includes(e?.message) ? "That space is already booked at that time." : (e?.message || String(e)));
     } finally { savingRef.current = false; setBusy(false); }
   };
 

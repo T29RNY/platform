@@ -731,6 +731,46 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   WHERE active` for the calendar grid read.
 - Requires the `btree_gist` extension (installed in mig 133).
 
+### resource_occupancy (migration 424) — room + trainer clash protection
+
+The rooms/trainers analogue of `pitch_occupancy`. One row = "this room or
+trainer is taken for this time-range", from any source. RLS-enabled, REVOKE
+anon/authenticated (trigger/RPC-only — only the SECDEF sync triggers write it).
+Clash-protection ONLY: the calendar reader `get_venue_resource_occupancy` reads
+the source tables directly, so this table never feeds the calendar and is
+backfilled future-only.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `venue_id` | text NOT NULL | the owning venue |
+| `resource_type` | text NOT NULL | CHECK in (`room`,`trainer`) |
+| `resource_id` | uuid NOT NULL | `venue_spaces.id` (room) / `venue_trainers.id` (trainer); soft ref (no FK — lifecycle is trigger-managed) |
+| `time_range` | tstzrange NOT NULL | half-open `[)` so back-to-back slots don't collide |
+| `source_kind` | text NOT NULL | CHECK in (`room_hire`,`class_session`,`appointment`) |
+| `source_id` | text NOT NULL | `venue_room_hires.id::text` / `venue_class_sessions.id::text` / `venue_appointments.id::text` |
+| `active` | boolean NOT NULL | DEFAULT true |
+| `created_at` | timestamptz NOT NULL | DEFAULT now() |
+
+- **Partial exclusion guard:** `EXCLUDE USING gist (resource_type WITH =,
+  resource_id WITH =, time_range WITH &&) WHERE (active)` — two *active* rows
+  can never overlap on the same room or trainer. Because a room is occupied by
+  EITHER a room hire OR a class session and both share the
+  `(resource_type='room', resource_id=space_id)` lane, this also hard-closes the
+  room-hire-vs-class cross-table double-booking gap.
+- **Idempotent re-sync:** `UNIQUE (source_kind, source_id)` — upsert key for the
+  three sync triggers' `ON CONFLICT`.
+- **Sync triggers** (SECDEF, search_path-locked, revoked from clients):
+  `tg_sync_room_hire_occupancy` (on `venue_room_hires`),
+  `tg_sync_class_session_occupancy` (on `venue_class_sessions`),
+  `tg_sync_appointment_occupancy` (on `venue_appointments`) — fire AFTER
+  INSERT/DELETE/UPDATE OF (status, space_id|trainer_id, starts_at, ends_at).
+  Occupy when `status <> 'cancelled'`; release otherwise. On exclusion_violation
+  they `RAISE 'slot_unavailable'` (rooms) / `'slot_taken'` (trainers) to match
+  the existing client copy. The inline `_space_is_available` (rooms) / inline
+  overlap-count (trainers) guards remain as the fast-path belt-and-braces.
+- Reuses the `btree_gist` extension (already installed mig 133).
+
 ### Stage 2a — projection layer (migrations 134–138)
 
 **Additive columns (mig 134):**
