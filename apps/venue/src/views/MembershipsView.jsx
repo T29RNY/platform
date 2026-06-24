@@ -678,7 +678,11 @@ export function FixturesTab({ venueToken, pitches = [], refs = [] }) {
       setForm(null);
       loadFixtures(leagueId);
       loadLeagues(clubId);
-    } catch (e) { setError("Couldn’t save the fixture — try again."); }
+    } catch (e) {
+      setError(e?.message === "slot_unavailable"
+        ? "That pitch is already booked at this time — pick another slot or pitch."
+        : "Couldn’t save the fixture — try again.");
+    }
     finally { isSavingRef.current = false; }
   };
 

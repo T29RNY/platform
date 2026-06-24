@@ -71,7 +71,16 @@ So "who's allowed where" is solved. The gap is **anchoring each activity to the 
   rejected), build + hygiene, casual-regression N/A (venue-app + matchday public only, no apps/inorout
   write) — confirm matchday public read still clean. Same-commit docs.
 
-### Phase 3 — pitch occupancy / clash protection (mig 414, OPTIONAL — decide after P1/P2)
+### Phase 3 — pitch occupancy / clash protection (mig 414) — 🏁🏁 SHIPPED s191, EPIC COMPLETE
+> Built per-table triggers (`tg_sync_club_session_occupancy`/`tg_sync_club_fixture_occupancy`) projecting
+> club sessions + fixtures into `pitch_occupancy` (hard `slot_unavailable` on overlap, no displacement,
+> 60-min slot, venue from the pitch); new `get_operator_pitch_occupancy` cross-site reader + venue ground
+> switcher; calendar blocks gain icon + Training/Match tag + manager initials + Training/Match filter chips.
+> `get_pitch_occupancy` refactored onto a shared `_pitch_occupancy_detail` builder (existing output
+> byte-identical). Gates all PASS (rpc-security, EV 8/8+leak0, build venue+inorout, casual-regression
+> additive-only, Playwright 0 errors). DEFERRED follow-up: create-a-session/match-from-a-calendar-tap +
+> mobile booking polish. Original plan below.
+
 - Sessions + fixtures that carry a pitch write `pitch_occupancy` at the chosen venue (source_kind
   'club_session' / 'club_fixture') so they show busy on that venue's calendar and the existing
   exclusion constraint blocks double-booking (`slot_unavailable`). Heavier (touches the venue calendar +

@@ -31,9 +31,18 @@ FIXED — `get_club_fixture_matchday` now derives the ground from the pitch's ve
 league.venue)`) so an away-site home game shows the right ground (was always the league's home venue).
 Venue FixturesTab gains the same-operator venue + pitch picker. Gates all PASS (rpc-security 3 fns, EV
 9/9+leak0, casual-regression N/A [no core/inorout change], build+hygiene, Playwright matchday+FixturesTab
-smoke). ⛔ owed venue deploy + 2-venue UI walk once pilot data exists. NEXT = Phase 3 OPTIONAL pitch
-occupancy = the cross-site calendar w/ clash protection (mig 414) — pilot club confirmed 2 same-operator
-venues w/ pitches, training+matches at either),
+smoke). **🏁🏁 PHASE 3 SHIPPED s191 (mig 414) — EPIC COMPLETE — pitch occupancy / clash protection +
+cross-site calendar:** club sessions + fixtures with a pitch now reserve `pitch_occupancy` via per-table
+TRIGGERS (`tg_sync_club_session_occupancy`/`tg_sync_club_fixture_occupancy`, covering every create/update/
+cancel/void/delete path), so they show busy on the venue calendar AND a clashing activity is hard-blocked
+`slot_unavailable` (EXCLUDE constraint, no displacement). NEW reader `get_operator_pitch_occupancy` feeds a
+cross-site **ground switcher** in venue BookingsView (all same-`company_id` sites, others view-only); blocks
+render with an ICON + Training/Match tag + team + manager initials (not colour-alone); Training/Match filter
+chips added. Gates ALL PASS (rpc-security 2 readers + 2 helpers locked, EV 8/8+leak0 own `_e2e_` 2-venue
+same-co club, build venue+inorout + hygiene, casual-regression additive-only [inorout untouched, manager
+path passes no pitch], Playwright smoke 0 errors: Match block renders, filters exclude, switcher works).
+⛔ owed venue deploy + real-device walk. DEFERRED follow-up: create-a-session/match-from-a-calendar-tap +
+mobile booking polish for that flow,
 #13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
 + demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
