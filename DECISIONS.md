@@ -1,5 +1,30 @@
 # In or Out — Key Decisions Log
 
+## SESSION 192 — Venue "two leagues" disambiguation + Club-Leagues flow fix (Cycle 1, no migration)
+*2026-06-24. Venue app only; no DB change. Operator-driven IA cleanup. Cycle 2 (split the Competition
+feature switch so the two surfaces show independently) is queued as its own cycle, mig 415.*
+
+- **DECISION — Venue OS had TWO unrelated "league" tools and they are now named apart.** The **Fixtures**
+  rail item (grassroots `club_leagues`/`club_fixtures` — free-text *external* opponents + matchday share
+  links) is renamed **"Club Leagues."** The **Leagues** rail item (registered-team `leagues`/`seasons`/
+  `competitions` + standings — your own teams playing *each other*) is renamed **"Internal League."** They
+  share no data; a "league" created in one never appears in the other. The rename is **label-only** — the
+  route ids (`fixtures`, `league`) and the `competition` feature flag are unchanged, so routing, deep-links
+  and gating are untouched. Renamed in: Dashboard rail labels + `TITLES`, `LeagueView` heading,
+  `LeagueTable` empty-state pointer. (Operator originally said it the other way round; corrected after
+  confirming which tool is which.)
+- **DECISION — the Club Leagues (Fixtures) screen now leads with the fixtures, not the create form.** The
+  old flow hid the fixtures list and "Add fixture" behind a manual "— choose a league —" dropdown that
+  didn't even auto-select. Now: the league **auto-selects** (first league, or the last valid pick on
+  reload), the fixtures + "Add fixture" are visible immediately, "New league" is a **secondary** toggle
+  button beside the league switcher, and a club with **no** leagues sees one clear "Create your first
+  league" call-to-action instead of an empty form + empty dropdown.
+- **DECISION (queued, Cycle 2) — the single "Competition" switch will be split into two** so an operator's
+  setup shows only the league tool they use (Internal League vs Club Leagues). The **trigger is the
+  operator's explicit setup choice** (a feature toggle + the Quick-setup presets), defaulting to **both on**
+  so existing venues are unchanged — NOT an auto-guess from whether data exists (which would show nothing
+  for a brand-new venue). Needs mig 415.
+
 ## SESSION 191 — Multi-venue (pilot #7) PHASE 3: pitch occupancy / clash protection (mig 414) — EPIC COMPLETE
 *2026-06-24. Same-operator only. Final phase of pilot #7. Plan/handoff: MULTI_VENUE_HANDOFF.md.*
 
