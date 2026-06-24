@@ -143,6 +143,16 @@ export function occInitials(o) {
   return o.detail?.manager_initials || null;
 }
 
+// Priority-rank badge for a club activity block: ⭐ for the top team (rank 1), #n below it,
+// null when the team is unranked or the block isn't club activity. Matches the badge used in
+// MembershipsView so the same rank reads identically on the calendar and in team admin.
+export function occRankBadge(o) {
+  if (o.source_kind !== "club_session" && o.source_kind !== "club_fixture") return null;
+  const r = o.detail?.priority_rank;
+  if (r == null) return null;
+  return Number(r) === 1 ? "⭐" : `#${r}`;
+}
+
 // Tight time bounds (minutes, padded to whole hours) of a set of occupancy blocks.
 // Used to collapse the calendar to just the filtered results. null when empty.
 export function occBounds(occ) {

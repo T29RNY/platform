@@ -1,5 +1,5 @@
 import React from "react";
-import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIsFirst, occIcon, occInitials, freeGaps, reservedBands } from "../bookingUtil.js";
+import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIsFirst, occIcon, occInitials, occRankBadge, freeGaps, reservedBands } from "../bookingUtil.js";
 import Icon from "./Icon.jsx";
 
 const PXMIN = 1.0;          // pixels per minute (matches ScheduleGrid)
@@ -105,6 +105,7 @@ export default function AllGroundsGrid({ date, venues, dayOcc, bookingIns = {}, 
                 const type = occType(o);
                 const glyph = occIcon(o);
                 const initials = occInitials(o);
+                const rank = occRankBadge(o);
                 return (
                   <div
                     key={o.id}
@@ -114,6 +115,7 @@ export default function AllGroundsGrid({ date, venues, dayOcc, bookingIns = {}, 
                   >
                     <div className="occ-top">
                       {glyph && <span className="occ-glyph"><Icon name={glyph} size={12} /></span>}
+                      {rank && <span className="occ-rank" title="Team priority">{rank}</span>}
                       <span className="occ-label">{occLabel(o)}</span>
                       {occIsFirst(o) && <span className="occ-new">NEW</span>}
                       {type && <span className="occ-type">{type}</span>}

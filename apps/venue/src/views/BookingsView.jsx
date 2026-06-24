@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { getOperatorPitchOccupancy, venueListPitchReservedWindows } from "@platform/core";
+import { getOperatorPitchOccupancy, venueListPitchReservedWindows, venueListBumpProposals } from "@platform/core";
 import RequestsInbox from "./RequestsInbox.jsx";
+import BumpProposalsBanner from "./BumpProposalsBanner.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
 import AllGroundsGrid from "./AllGroundsGrid.jsx";
 import DayAgenda from "./DayAgenda.jsx";
@@ -120,6 +121,26 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   }, [venueToken]);
   useEffect(() => { loadReserved(); }, [loadReserved]);
 
+  // ── Bump proposals (pitch priority Phase 3): pending suggested relocations for any
+  // club team bumped off a contested slot across this operator's grounds. The operator
+  // can Accept (move the event onto the suggested slot) or Decline on the team's behalf.
+  const [bumpProposals, setBumpProposals] = useState([]);
+  const loadBumps = useCallback(async () => {
+    try {
+      const res = await venueListBumpProposals(venueToken);
+      setBumpProposals(Array.isArray(res?.proposals) ? res.proposals : []);
+    } catch (err) {
+      console.error("venue_list_bump_proposals failed", err);
+      setBumpProposals([]);
+    }
+  }, [venueToken]);
+  useEffect(() => { loadBumps(); }, [loadBumps]);
+  // Accepting moves the event (occupancy changes); always refetch the calendar too.
+  const onBumpResolved = useCallback((opts) => {
+    loadBumps();
+    if (!opts?.soft) { onRefreshOccupancy?.(); loadOperator(); }
+  }, [loadBumps, onRefreshOccupancy, loadOperator]);
+
   const hasMultiVenue = operatorVenues.length > 1;
   const ALL_GROUNDS = "__all__";
   const isAll = selectedVenueId === ALL_GROUNDS;
@@ -187,7 +208,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   );
   const noMatches = !freeMode && contentActive && visibleOcc.length === 0;
 
-  const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); setCancelKey((k) => k + 1); };
+  const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); loadBumps(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
 
   return (
@@ -199,6 +220,8 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
           <button className="btn btn-sm btn-primary" onClick={() => setSettingsOpen(true)}>Turn on bookings</button>
         </div>
       )}
+
+      <BumpProposalsBanner venueToken={venueToken} proposals={bumpProposals} onResolved={onBumpResolved} />
 
       <section style={{ marginBottom: "var(--gap-3)" }}>
         <SectionHead label="Requests" count={pendingGroups.length}>

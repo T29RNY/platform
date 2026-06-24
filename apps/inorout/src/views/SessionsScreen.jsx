@@ -10,6 +10,7 @@ import {
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
   clubManagerSendAnnouncement,
   clubManagerTeamPayments,
+  clubManagerListBumpProposals, clubManagerResolveBump,
   memberListClubAnnouncements,
   memberGetMerchandise, memberPurchaseMerchandise,
   clubAdminListTournaments, clubAdminCreateTournament, clubAdminUpdateTournamentStatus,
@@ -83,6 +84,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [selectedClubId, setSelectedClubId] = useState(null);
   const [sessions, setSessions]             = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [bumpProposals, setBumpProposals]   = useState([]);   // pitch priority Phase 3
 
   const [detailSession, setDetailSession] = useState(null);
   const [rsvpBoard, setRsvpBoard]         = useState(null);
@@ -281,6 +283,24 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
       .then(data => { if (alive) setSessions(data ?? []); })
       .catch(e => { console.error("[sessions] list failed", e); })
       .finally(() => { if (alive) setSessionsLoading(false); });
+    return () => { alive = false; };
+  }, [selectedClubId]);
+
+  // Pitch priority Phase 3 — pending bump proposals for teams this user manages. The reader
+  // is auth.uid-scoped (all managed teams across clubs); we surface them on the sessions tab.
+  const reloadBumpProposals = async () => {
+    try {
+      const res = await clubManagerListBumpProposals();
+      setBumpProposals(Array.isArray(res?.proposals) ? res.proposals : []);
+    } catch (e) {
+      console.error("[sessions] bump proposals failed", e);
+    }
+  };
+  useEffect(() => {
+    let alive = true;
+    clubManagerListBumpProposals()
+      .then(res => { if (alive) setBumpProposals(Array.isArray(res?.proposals) ? res.proposals : []); })
+      .catch(e => { console.error("[sessions] bump proposals failed", e); });
     return () => { alive = false; };
   }, [selectedClubId]);
 
@@ -876,6 +896,16 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     }
   };
 
+  // Pitch priority Phase 3 — manager accepts/declines a suggested relocation. Accept moves
+  // the event onto the suggested slot (server re-reserves; on a lost race it re-suggests and
+  // the proposal stays pending). Returns the RPC result so the card can show a retry note.
+  const resolveBump = async (proposalId, action) => {
+    const res = await clubManagerResolveBump(proposalId, action);
+    await reloadBumpProposals();
+    if (!res?.retry) await reloadSessions();   // event moved → its session reappears scheduled
+    return res;
+  };
+
   const handleCreateSession = async ({ teamId, title, sessionType, scheduledAt,
     location, notes, capacity, meetTime, opponentName, homeAway, opponentVenueName, opponentAddress, venueId }) => {
     if (isCreatingRef.current) return;
@@ -1336,6 +1366,21 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
       {/* ── Session list ────────────────────────────────────────────────── */}
       {activeTab === "sessions" && <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+
+        {(() => {
+          const mine = bumpProposals.filter(p => managedTeamsForClub.some(t => t.team_id === p.club_team_id));
+          if (!mine.length) return null;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: "var(--amber)", fontFamily: "var(--font-body)", textTransform: "uppercase" }}>
+                Pitch change needed
+              </span>
+              {mine.map(p => (
+                <BumpProposalCard key={p.id} proposal={p} onResolve={resolveBump} />
+              ))}
+            </div>
+          );
+        })()}
 
         {!selectedClubId && (
           <p style={{ color: "var(--t2)", fontSize: 14, fontFamily: "var(--font-body)", textAlign: "center", marginTop: 32 }}>
@@ -2688,6 +2733,79 @@ function TeamPaymentsCard({ teamId }) {
               : <span style={payPill("var(--green)")}>{m.membership_status === "active" ? "Paid" : "—"}</span>}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// Pitch priority Phase 3 — a single bump proposal: the team was moved off a contested slot
+// by a higher-priority booking. Shows the closest free alternative the system found, with
+// Accept (move there) / Decline (leave tentative, sort manually). Amber "needs attention"
+// card mirroring the medical-alert styling used elsewhere in this screen.
+function BumpProposalCard({ proposal: p, onResolve }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [note, setNote] = useState(null);
+  const hasSuggestion = !!p.suggested_start;
+  const where = [p.suggested_pitch_name, p.suggested_venue_name].filter(Boolean).join(" · ");
+
+  const run = async (action) => {
+    if (busy) return;
+    setBusy(true); setError(null); setNote(null);
+    try {
+      const res = await onResolve(p.id, action);
+      if (res?.retry) setNote("That slot was just taken — we've found another. Review and Accept again.");
+    } catch (e) {
+      console.error("[sessions] resolve bump failed", e);
+      setError("Couldn't update — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ background: "rgba(255,190,60,0.08)", border: "1px solid rgba(255,190,60,0.3)", borderRadius: 10, padding: "12px 14px", fontFamily: "var(--font-body)" }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--t1)" }}>{p.club_team_name || "Your team"}</div>
+      <div style={{ fontSize: 13, color: "var(--t2)", marginTop: 2 }}>
+        Bumped from {p.original_start ? `${fmtDate(p.original_start)} ${fmtTime(p.original_start)}` : "its slot"} by a higher-priority booking.
+      </div>
+      {hasSuggestion ? (
+        <div style={{ fontSize: 13, color: "var(--t1)", marginTop: 6 }}>
+          Closest free: <strong>{where ? `${where} · ` : ""}{fmtDate(p.suggested_start)} {fmtTime(p.suggested_start)}</strong>
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, color: "var(--amber)", marginTop: 6 }}>
+          No automatic alternative found — please re-book as soon as possible.
+        </div>
+      )}
+      {note && <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 6 }}>{note}</div>}
+      {error && <div style={{ fontSize: 12, color: "#FF6060", marginTop: 6 }}>{error}</div>}
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button
+          disabled={busy || !hasSuggestion}
+          onClick={() => run("accept")}
+          style={{
+            fontSize: 13, fontWeight: 700, fontFamily: "var(--font-body)",
+            background: (busy || !hasSuggestion) ? "rgba(255,255,255,0.08)" : "var(--amber)",
+            color: (busy || !hasSuggestion) ? "var(--t2)" : "rgba(0,0,0,0.9)",
+            border: `1px solid ${(busy || !hasSuggestion) ? "var(--border)" : "var(--amber)"}`,
+            padding: "6px 16px", borderRadius: 20, cursor: (busy || !hasSuggestion) ? "default" : "pointer",
+          }}
+        >
+          {busy ? "…" : "Accept"}
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => run("decline")}
+          style={{
+            fontSize: 13, fontWeight: 700, fontFamily: "var(--font-body)",
+            background: "transparent", color: "var(--t1)",
+            border: "1px solid var(--border)", padding: "6px 16px", borderRadius: 20,
+            cursor: busy ? "default" : "pointer",
+          }}
+        >
+          Decline
+        </button>
       </div>
     </div>
   );

@@ -4,8 +4,9 @@ Canonical plan for the linked pair: **#5 internal-vs-external pitch booking + re
 time windows** and **#6 make `club_teams.priority_rank` (the ⭐ badge) actually DRIVE pitch
 contention**. Scoped + locked in session 195 (audit only, no code). Build runs next session.
 
-Next free migration = **416**. Venue/club domain (not casual, except the one external-gate touch
-noted below). Operator-requested at the 2026-06-22 pilot meeting (STRATEGY.md backlog #5/#6).
+Next free migration = **419**. **🏁🏁 EPIC COMPLETE — all 3 phases shipped (migs 416–418, s195–197).**
+Venue/club domain (not casual, except the one external-gate touch noted below). Operator-requested at the
+2026-06-22 pilot meeting (STRATEGY.md backlog #5/#6).
 
 ---
 
@@ -205,9 +206,30 @@ Original scope:
   / decline stays tentative / no-alt path / leak 0); **casual-regression MANDATORY** (touches
   `book_pitch_*`); build venue+inorout + hygiene + hex; Playwright.
 
-### Phase 3 (likely no mig) — surface rank + tentative on the calendar
-- Rank badge (⭐/`#n`) on club occupancy blocks; clear "Tentative — needs attention" state; the
-  suggested-slot accept/decline prompt surfaced for managers (player app + venue console). UI-only.
+### Phase 3 (mig 418) — surface rank + tentative on the calendar  🏁 SHIPPED s197
+**Built UI-only + ONE tiny additive backend touch.** `_pitch_occupancy_detail` (the definer-only helper
+behind `get_pitch_occupancy` + `get_operator_pitch_occupancy`) gains `priority_rank` on its `club_session`
++ `club_fixture` branches (same signature, no behaviour change, both readers pass `detail` through).
+- **(a) ⭐/#n rank badge** on club occupancy blocks — `bookingUtil.occRankBadge(o)` (⭐ when rank=1 else `#n`,
+  matches MembershipsView), rendered in ALL THREE venue grids (ScheduleGrid + AllGroundsGrid + DayAgenda),
+  CSS `.occ-rank`.
+- **(b) "Tentative — needs attention"** — a bumped event goes `tentative`, which holds NO occupancy, AND
+  `member_list_upcoming_sessions` filters `status='scheduled'` → the bumped event drops out of every
+  calendar/list. So there is no block/chip to style; the **bump-proposal banner IS the needs-attention
+  surface** (it represents the tentative event needing a slot). Locked realisation, not a gap.
+- **(c) Accept/Decline** — venue `BookingsView` → new `BumpProposalsBanner.jsx` (reads
+  `venue_list_bump_proposals(token)`, acts via `venue_resolve_bump`); inorout `SessionsScreen` → new
+  `BumpProposalCard` (reads `club_manager_list_bump_proposals()` no-arg auth.uid, filtered client-side to
+  the selected club's managed teams, acts via `club_manager_resolve_bump`). Both handle the
+  `{ok:false,retry:true,reason:'slot_taken'}` re-suggest (refetch list, keep row, prompt re-Accept) and
+  refetch occupancy/sessions on a clean resolve.
+- **Gates:** rpc-security PASS (`_pitch_occupancy_detail` single overload / SECDEF / search_path / REVOKE
+  anon+auth); build venue+inorout + hygiene 7/7 (all 7 changed files) + venue hex-clean; casual-regression
+  PASS (only `SessionsScreen.jsx` touched — NOT in the casual inventory; additive manager-gated card; no
+  `packages/core` change); Playwright venue walk PASS (⭐ on a real demo club_fixture block; bump banner real
+  data → Decline → DB `declined` + banner clears, 0 console errors; throwaway `_e2e_` proposal seeded vs demo
+  venue then deleted, leak 0) + inorout boot smoke clean. **EV N/A** (no new write RPC — P2 EV 14/14 already
+  proved the resolve paths). ⛔ owed venue deploy + signed-in inorout-manager Accept device walk (carried).
 
 ---
 
@@ -245,10 +267,12 @@ Original scope:
   → tentative + `pitch_bump_proposals` + `_closest_available_slot` + `_notify_bump`) + accept/decline RPCs
   (`club_manager_resolve_bump`/`venue_resolve_bump`) + list readers + JS wrappers/barrel + casual `slot_reserved`
   msg + venue operator-override warning. **All gates PASS (EV 14/14 + leak 0; casual-regression PASS).**
-  **Next free mig = 418.**
-- **NEXT = Phase 3 (likely no mig)** — surface rank badge + "Tentative — needs attention" state on club
-  occupancy blocks + the suggested-slot Accept/Decline prompt for managers (player app) + venue console,
-  reading `club_manager_list_bump_proposals`/`venue_list_bump_proposals` + the resolve RPCs. UI-only.
-- ⛔ owed across P1+P2: venue deploy + real-device two-token walk (operator warning banner; casual `slot_reserved`).
+- s197 (build): **🏁🏁 PHASE 3 SHIPPED (mig 418) — EPIC COMPLETE.** Calendar surfacing: `_pitch_occupancy_detail`
+  += `priority_rank` (additive); ⭐/#n rank badge on club blocks across all 3 venue grids; Accept/Decline bump
+  prompt for operator (venue `BumpProposalsBanner`) AND club manager (inorout `SessionsScreen` bump card),
+  reading the Phase-2 list/resolve RPCs. All gates PASS (rpc-security; build venue+inorout + hygiene 7/7 + hex;
+  casual-regression PASS; Playwright ⭐+Decline walk 0 errors; leak 0; EV N/A). **Next free mig = 419.**
+- ⛔ owed across the epic: venue deploy + real-device two-token walk (operator warning banner; casual
+  `slot_reserved`; signed-in inorout-manager Accept/Decline).
 </content>
 </invoke>

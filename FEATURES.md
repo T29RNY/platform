@@ -16,7 +16,18 @@ invoicing (built, dormant — needs live Stripe keys) + season/fixed-term billin
 tested on TEST keys, runtime test-clock walk owed before merge) + lifecycle (Stripe Phase 5, mig 407 —
 self-service Billing Portal, bulk price change [Option A: applies next renewal, no mid-cycle proration],
 Stripe refunds [full / pro-rated-unused / custom]; built & tested on TEST keys, test-mode walk owed),
-**🟢 PITCH PRIORITY #5+#6 — PHASES 1+2 SHIPPED (migs 416–417), P3 (calendar UI) next** (`PITCH_PRIORITY_HANDOFF.md`):
+**🏁🏁 PITCH PRIORITY #5+#6 — EPIC COMPLETE (3 phases, migs 416–418), P3 SHIPPED s197** (`PITCH_PRIORITY_HANDOFF.md`):
+P3 (mig 418, tiny additive) = CALENDAR SURFACING — `_pitch_occupancy_detail` gains `priority_rank` →
+⭐/#n rank badge on club occupancy blocks across all 3 venue grids (ScheduleGrid/AllGroundsGrid/DayAgenda)
++ the suggested-slot Accept/Decline prompt surfaced for BOTH the operator (venue `BumpProposalsBanner`,
+reads `venue_list_bump_proposals`/`venue_resolve_bump`) AND the club manager (inorout `SessionsScreen`
+bump card, reads `club_manager_list_bump_proposals`/`club_manager_resolve_bump`); tentative/bumped events
+hold no occupancy and drop from the scheduled list, so the bump banner IS the needs-attention surface.
+P3 gates: rpc-security PASS, build venue+inorout + hygiene 7/7 + hex, casual-regression PASS (only
+manager-gated SessionsScreen card, not in casual inventory), Playwright PASS (⭐ badge + Decline walk →
+DB declined → banner clears, 0 errors), EV N/A (no new write RPC). ⛔ owed venue deploy + signed-in
+inorout-manager device walk.
+
 P1 = reserved-window foundation — `pitch_reserved_windows` table + venue config RPCs + "Reserved times"
 editor + advisory calendar shading. **P2 (mig 417) = enforcement + rank bumping IS LIVE:** external gate
 via `_pitch_window_blocks` (`book_pitch_adhoc`/`_series` → `slot_reserved`; `venue_create_booking*` →
@@ -24,8 +35,8 @@ via `_pitch_window_blocks` (`book_pitch_adhoc`/`_series` → `slot_reserved`; `v
 `priority_rank` yields → `tentative` + release + `_closest_available_slot` across same-company venues →
 `pitch_bump_proposals` + `_notify_bump` via club_announcements → Accept/Decline RPCs
 `club_manager_resolve_bump`/`venue_resolve_bump` + list readers). Bumping is club-vs-club ONLY — paying
-hires never auto-evicted; `club_sessions`/`club_fixtures` status gained `tentative`. **Only P3 (tentative
-badge + Accept/Decline UI on the calendar) remains.** P2 gates: rpc-security PASS (4 public + 7 helpers),
+hires never auto-evicted; `club_sessions`/`club_fixtures` status gained `tentative`. **P3 (calendar UI)
+SHIPPED s197 (mig 418) → epic complete.** P2 gates: rpc-security PASS (4 public + 7 helpers),
 EV 14/14+leak0, casual-regression PASS (additive), build venue+inorout + hygiene 7/7, Playwright boot
 0 errors. ⛔ owed venue deploy + real-device two-token walk.
 **Original ask:** #5 pitch priority/reserved times (internal club use vs external/casual hire) +

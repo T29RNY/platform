@@ -1,5 +1,5 @@
 import React from "react";
-import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIcon, occInitials, freeGaps } from "../bookingUtil.js";
+import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIcon, occInitials, occRankBadge, freeGaps } from "../bookingUtil.js";
 import Icon from "./Icon.jsx";
 
 const PXMIN = 0.9;
@@ -70,6 +70,7 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
             const type = occType(o);
             const glyph = occIcon(o);
             const initials = occInitials(o);
+            const rank = occRankBadge(o);
             return (
               <div
                 key={o.id}
@@ -79,6 +80,7 @@ export default function DayAgenda({ date, pitches, pitchId, onPitchChange, dayOc
               >
                 <div className="occ-top">
                   {glyph && <span className="occ-glyph"><Icon name={glyph} size={12} /></span>}
+                  {rank && <span className="occ-rank" title="Team priority">{rank}</span>}
                   <span className="occ-label">{occLabel(o)}</span>
                   {type && <span className="occ-type">{type}</span>}
                 </div>
