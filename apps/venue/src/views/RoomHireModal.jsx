@@ -9,6 +9,9 @@ import { venueCreateRoomHire } from "@platform/core/storage/supabase.js";
 
 const ERR = {
   space_unavailable: "That room is already booked for an overlapping time — pick another slot.",
+  // Hard clash-protection trigger (mig 424) raises this on the rare race that slips past
+  // the inline _space_is_available guard — same meaning as space_unavailable.
+  slot_unavailable: "That room is already booked for an overlapping time — pick another slot.",
   space_not_in_venue: "That room isn't part of this venue.",
   space_not_found: "That room couldn't be found.",
   purpose_required: "Add what the room is being hired for.",
