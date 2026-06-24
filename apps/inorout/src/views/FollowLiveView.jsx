@@ -106,7 +106,7 @@ export default function FollowLiveView({ profileId }) {
   return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif" }}>
-      <div style={{ padding:"16px 18px 12px", borderBottom:`1px solid ${C.border}`,
+      <div style={{ padding:"calc(16px + env(safe-area-inset-top)) 18px 12px", borderBottom:`1px solid ${C.border}`,
         display:"flex", alignItems:"center", gap:12 }}>
         <button
           onClick={() => window.history.length > 1

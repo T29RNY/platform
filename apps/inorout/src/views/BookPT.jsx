@@ -176,7 +176,7 @@ export default function BookPT({ authUser, memberProfile: memberProfileProp }) {
 
   return (
     <div style={wrap}>
-      <div style={{ background: "var(--b2)", borderBottom: "1px solid var(--border-subtle)", padding: "20px 20px 16px" }}>
+      <div style={{ background: "var(--b2)", borderBottom: "1px solid var(--border-subtle)", padding: "calc(20px + env(safe-area-inset-top)) 20px 16px" }}>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 26, lineHeight: 1 }}>{labels.trainTab}</div>
 
         {activeClubs.length > 1 && (

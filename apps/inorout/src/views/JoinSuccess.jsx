@@ -49,7 +49,7 @@ export default function JoinSuccess({ player, team }) {
       display: "flex", flexDirection: "column",
       maxWidth: 430, margin: "0 auto",
     }}>
-      <div style={{ flex: 1, padding: "40px 20px 0", overflowY: "auto" }}>
+      <div style={{ flex: 1, padding: "calc(40px + env(safe-area-inset-top)) 20px 0", overflowY: "auto" }}>
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
           <img

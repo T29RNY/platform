@@ -46,7 +46,7 @@ export default function PWAWelcome() {
     <div style={{
       background:C.bg, minHeight:"100dvh", color:C.text,
       display:"flex", flexDirection:"column", alignItems:"center",
-      padding:"52px 24px 40px", fontFamily:"'DM Sans', sans-serif",
+      padding:"calc(28px + env(safe-area-inset-top)) 24px 40px", fontFamily:"'DM Sans', sans-serif",
       maxWidth:430, margin:"0 auto", boxSizing:"border-box",
     }}>
 
