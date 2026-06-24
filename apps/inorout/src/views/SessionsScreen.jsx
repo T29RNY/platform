@@ -4,7 +4,9 @@ import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
 import {
   memberGetSelf, memberListChildren,
-  memberListUpcomingSessions, memberListClubFixtures, memberRsvpSession, memberGetSessionRsvpBoard,
+  memberListUpcomingSessions, memberListClubFixtures,
+  clubManagerGetHomeFixtureOptions, clubManagerUpdateHomeFixture,
+  memberRsvpSession, memberGetSessionRsvpBoard,
   clubManagerCreateSession, clubManagerCreateSessionSeries, clubManagerCancelSession,
   clubManagerGetTeamMembers, clubManagerAddSessionGuest, clubManagerRemoveSessionGuest,
   clubManagerMarkAttendance, clubManagerGetMemberDetail,
@@ -363,7 +365,17 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   }, [selectedClubId]);
 
   // Load Club Leagues fixtures for the caller's managed teams in this club (read-only,
-  // Phase 3a). Returns [] for non-managers / no fixtures — folded into the agenda below.
+  // Phase 3a; HOME-fixture logistics editable in place, Phase 3b). Returns [] for
+  // non-managers / no fixtures — folded into the agenda below.
+  const reloadFixtures = async () => {
+    if (!selectedClubId) return;
+    try {
+      const data = await memberListClubFixtures(selectedClubId);
+      setFixtures(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("[sessions] fixtures list failed", e);
+    }
+  };
   useEffect(() => {
     if (!selectedClubId) return;
     let alive = true;
@@ -2840,11 +2852,12 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
         />
       )}
 
-      {/* ── Club League fixture detail sheet (read-only, Phase 3a) ──────── */}
+      {/* ── Club League fixture detail sheet — read-only, plus HOME-fixture edit (Phase 3a/3b) ── */}
       {detailFixture && (
         <FixtureDetail
           fixture={detailFixture}
           onClose={() => setDetailFixture(null)}
+          onSaved={async () => { await reloadFixtures(); setDetailFixture(null); }}
         />
       )}
 
@@ -3067,11 +3080,80 @@ function FixtureCard({ fixture: f, onOpen }) {
 }
 
 // ── FixtureDetail ─────────────────────────────────────────────────────────────
-// Read-only bottom sheet for a Club League fixture. The operator owns the schedule;
-// the manager just reads it here (Phase 3b will add home-match edit in place).
-function FixtureDetail({ fixture: f, onClose }) {
+// Bottom sheet for a Club League fixture. Read-only by default (Phase 3a). For a HOME
+// fixture the team manager can edit logistics in place — pitch, referee, kickoff
+// (Phase 3b, via club_manager_update_home_fixture). Date / opponent / scores / status
+// stay operator-owned. Away fixtures are fully read-only.
+const FIXTURE_ERR = {
+  slot_unavailable:   "That pitch is already booked at this time. Pick another pitch or kickoff.",
+  pitch_not_in_venue: "That pitch isn't available for this fixture.",
+  ref_not_in_venue:   "That referee isn't available for this venue.",
+  away_read_only:     "Away fixtures are managed by the host club.",
+  not_a_manager:      "You don't manage this team.",
+};
+function fixtureErrText(e) {
+  const raw = (e?.message || e?.details || "").toString();
+  const hit = Object.keys(FIXTURE_ERR).find(k => raw.includes(k));
+  return hit ? FIXTURE_ERR[hit] : "Couldn't save the change. Please try again.";
+}
+
+function FixtureDetail({ fixture: f, onClose, onSaved }) {
   const homeAway = f.home_away === "home" ? "Home" : f.home_away === "away" ? "Away" : null;
   const place = [f.pitch_name, f.venue_name].filter(Boolean).join(" · ");
+
+  const [editing, setEditing]   = useState(false);
+  const [opts, setOpts]         = useState(null);   // { pitches, officials, fixture }
+  const [optsLoading, setOptsLoading] = useState(false);
+  const [optsErr, setOptsErr]   = useState(null);
+  const [pitchId, setPitchId]   = useState("");
+  const [refMode, setRefMode]   = useState("official"); // 'official' | 'free'
+  const [officialId, setOfficialId] = useState("");
+  const [refName, setRefName]   = useState("");
+  const [kickoff, setKickoff]   = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [saveErr, setSaveErr]   = useState(null);
+  const savingRef = useRef(false);
+
+  const openEdit = async () => {
+    setEditing(true);
+    setSaveErr(null); setOptsErr(null); setOptsLoading(true);
+    try {
+      const res = await clubManagerGetHomeFixtureOptions(f.fixture_id);
+      if (!res?.ok) { setOptsErr(FIXTURE_ERR[res?.reason] || "This fixture can't be edited."); return; }
+      setOpts(res);
+      const cur = res.fixture || {};
+      setPitchId(cur.playing_area_id || "");
+      setKickoff(cur.kickoff_time || "");
+      if (cur.official_id) { setRefMode("official"); setOfficialId(cur.official_id); setRefName(""); }
+      else { setRefMode((res.officials || []).length ? "official" : "free"); setOfficialId(""); setRefName(cur.ref_name || ""); }
+    } catch (e) {
+      console.error("[manager] load fixture options failed", e);
+      setOptsErr("Couldn't load options. Please try again.");
+    } finally {
+      setOptsLoading(false);
+    }
+  };
+
+  const save = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true; setSaving(true); setSaveErr(null);
+    try {
+      const useOfficial = refMode === "official" && officialId;
+      await clubManagerUpdateHomeFixture(f.fixture_id, {
+        playingAreaId: pitchId || null,
+        officialId: useOfficial ? officialId : null,
+        refName: useOfficial ? null : (refName.trim() || null),
+        kickoffTime: kickoff || null,
+      });
+      await onSaved?.();
+    } catch (e) {
+      console.error("[manager] save fixture failed", e);
+      setSaveErr(fixtureErrText(e));
+    } finally {
+      savingRef.current = false; setSaving(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -3114,32 +3196,147 @@ function FixtureDetail({ fixture: f, onClose }) {
 
         {/* Body */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-          {homeAway && <InfoRow label="Home / away" value={homeAway} />}
-          {f.club_team_name && <InfoRow label="Team" value={f.club_team_name} />}
-          {f.league_name && <InfoRow label="League" value={f.league_name} />}
-          {place && <InfoRow label="Venue" value={place} />}
-          {f.ref_name && <InfoRow label="Referee" value={f.ref_name} />}
-          {f.notes && <InfoRow label="Notes" value={f.notes} />}
+          {!editing ? (
+            <>
+              {homeAway && <InfoRow label="Home / away" value={homeAway} />}
+              {f.club_team_name && <InfoRow label="Team" value={f.club_team_name} />}
+              {f.league_name && <InfoRow label="League" value={f.league_name} />}
+              {place && <InfoRow label="Venue" value={place} />}
+              {f.ref_name && <InfoRow label="Referee" value={f.ref_name} />}
+              {f.notes && <InfoRow label="Notes" value={f.notes} />}
 
-          <p style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 16, opacity: 0.7 }}>
-            This fixture is set by the club. Times, pitch and referee are managed by the operator.
-          </p>
+              {f.is_home ? (
+                <button
+                  onClick={openEdit}
+                  style={{
+                    display: "block", width: "100%", textAlign: "center", marginTop: 18,
+                    background: "var(--amber)", border: "none", color: "rgba(0,0,0,0.9)",
+                    borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700,
+                    fontFamily: "var(--font-body)", cursor: "pointer",
+                  }}
+                >
+                  Edit pitch, referee & kickoff
+                </button>
+              ) : (
+                <p style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 16, opacity: 0.7 }}>
+                  This is an away fixture — pitch, kickoff and referee are set by the host club.
+                </p>
+              )}
 
-          {f.share_code && (
-            <a
-              href={`/matchday/${f.share_code}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "block", textAlign: "center", marginTop: 16,
-                background: "rgba(255,255,255,0.08)", border: "1px solid var(--border)",
-                color: "var(--t1)", borderRadius: 10, padding: "12px",
-                fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)",
-                textDecoration: "none",
-              }}
-            >
-              View matchday page
-            </a>
+              {f.share_code && (
+                <a
+                  href={`/matchday/${f.share_code}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "block", textAlign: "center", marginTop: 12,
+                    background: "rgba(255,255,255,0.08)", border: "1px solid var(--border)",
+                    color: "var(--t1)", borderRadius: 10, padding: "12px",
+                    fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)",
+                    textDecoration: "none",
+                  }}
+                >
+                  View matchday page
+                </a>
+              )}
+            </>
+          ) : optsLoading ? (
+            <p style={{ fontSize: 14, color: "var(--t2)", fontFamily: "var(--font-body)", padding: "20px 0", textAlign: "center" }}>
+              Loading…
+            </p>
+          ) : optsErr ? (
+            <>
+              <p style={{ fontSize: 14, color: "var(--danger, #FF6060)", fontFamily: "var(--font-body)" }}>{optsErr}</p>
+              <button onClick={() => setEditing(false)} style={{
+                marginTop: 12, background: "rgba(255,255,255,0.08)", border: "1px solid var(--border)",
+                color: "var(--t1)", borderRadius: 10, padding: "10px 16px", fontSize: 14,
+                fontFamily: "var(--font-body)", cursor: "pointer",
+              }}>Back</button>
+            </>
+          ) : (
+            <>
+              {/* Kickoff */}
+              <div>
+                <Label>Kickoff time</Label>
+                <input type="time" value={kickoff} onChange={e => setKickoff(e.target.value)} style={inputStyle} />
+              </div>
+
+              {/* Pitch */}
+              <div style={{ marginTop: 14 }}>
+                <Label>Pitch</Label>
+                <select value={pitchId} onChange={e => setPitchId(e.target.value)} style={inputStyle}>
+                  <option value="">No pitch / TBC</option>
+                  {(opts?.pitches || []).map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.venue_name ? ` — ${p.venue_name}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Referee */}
+              <div style={{ marginTop: 14 }}>
+                <Label>Referee</Label>
+                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  {(opts?.officials || []).length > 0 && (
+                    <button onClick={() => setRefMode("official")} style={{
+                      flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer",
+                      border: `1px solid ${refMode === "official" ? "var(--amber)" : "var(--border)"}`,
+                      background: refMode === "official" ? "var(--amber)" : "transparent",
+                      color: refMode === "official" ? "rgba(0,0,0,0.9)" : "var(--t2)",
+                      fontSize: 13, fontFamily: "var(--font-body)", fontWeight: refMode === "official" ? 700 : 400,
+                    }}>From venue</button>
+                  )}
+                  <button onClick={() => setRefMode("free")} style={{
+                    flex: 1, padding: "8px", borderRadius: 8, cursor: "pointer",
+                    border: `1px solid ${refMode === "free" ? "var(--amber)" : "var(--border)"}`,
+                    background: refMode === "free" ? "var(--amber)" : "transparent",
+                    color: refMode === "free" ? "rgba(0,0,0,0.9)" : "var(--t2)",
+                    fontSize: 13, fontFamily: "var(--font-body)", fontWeight: refMode === "free" ? 700 : 400,
+                  }}>Name / TBC</button>
+                </div>
+                {refMode === "official" ? (
+                  <select value={officialId} onChange={e => setOfficialId(e.target.value)} style={inputStyle}>
+                    <option value="">No referee assigned</option>
+                    {(opts?.officials || []).map(o => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}{o.venue_name ? ` — ${o.venue_name}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={refName}
+                    onChange={e => setRefName(e.target.value)}
+                    placeholder="e.g. John Smith, or leave blank"
+                    style={inputStyle}
+                  />
+                )}
+              </div>
+
+              {saveErr && (
+                <p style={{ fontSize: 13, color: "var(--danger, #FF6060)", fontFamily: "var(--font-body)", marginTop: 14 }}>
+                  {saveErr}
+                </p>
+              )}
+
+              <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                <button onClick={() => setEditing(false)} disabled={saving} style={{
+                  flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid var(--border)",
+                  color: "var(--t1)", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700,
+                  fontFamily: "var(--font-body)", cursor: saving ? "default" : "pointer",
+                }}>Cancel</button>
+                <button onClick={save} disabled={saving} style={{
+                  flex: 2, background: "var(--amber)", border: "none", color: "rgba(0,0,0,0.9)",
+                  borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700,
+                  fontFamily: "var(--font-body)", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1,
+                }}>{saving ? "Saving…" : "Save"}</button>
+              </div>
+
+              <p style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)", marginTop: 14, opacity: 0.7 }}>
+                Only the pitch, referee and kickoff are yours to set. Date, opponent and result stay with the club.
+              </p>
+            </>
           )}
         </div>
       </div>
