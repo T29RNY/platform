@@ -5,6 +5,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
          memberGetFightRecord, getMyMoney, stripeInitBillingPortal, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
 import { openExternal } from "../native/open-external.js";
+import { enableMemberPush, disableMemberPush } from "../native/native-push.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
@@ -108,6 +109,41 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
   const [idUploading,    setIdUploading]    = useState(false);
   const [idUploadError,  setIdUploadError]  = useState(null);
   const isIdUploadingRef = useRef(false);
+
+  // Push notifications (mig 422) — keyed on the signed-in member, so announcements
+  // and pitch-bump pings reach the phone, not just the in-app feed. localStorage
+  // mirrors the casual PlayerView convention; the server row is the source of truth.
+  const [notifState, setNotifState] = useState(() => {
+    try { return localStorage.getItem("member_notif") || "idle"; } catch { return "idle"; }
+  });
+  const setNotif = (s) => {
+    try { s === "idle" ? localStorage.removeItem("member_notif") : localStorage.setItem("member_notif", s); } catch { /* noop */ }
+    setNotifState(s);
+  };
+  const handleEnableNotifs = async () => {
+    setNotifState("asking");
+    try {
+      const r = await enableMemberPush({
+        onRegistered: () => setNotif("subscribed"),
+        onError:      () => setNotif("idle"),
+      });
+      if (r === "registering") return;            // native: outcome arrives via callbacks
+      if (r === "subscribed")  { setNotif("subscribed"); return; }
+      if (r === "denied")      { setNotif("denied"); return; }
+      setNotif(r === "unsupported" ? "unsupported" : "idle");
+    } catch (e) {
+      console.error("[member] enable notifications failed", e);
+      setNotifState("idle");
+    }
+  };
+  const handleDisableNotifs = async () => {
+    try {
+      await disableMemberPush();
+      setNotif("idle");
+    } catch (e) {
+      console.error("[member] disable notifications failed", e);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -477,6 +513,32 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
               {profile.gender && <ReadRow label="Gender" value={profile.gender} />}
             </>
           )}
+        </Section>
+
+        {/* ── Notifications ────────────────────────────────────────── */}
+        <Section title="Notifications">
+          <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 14, color: "var(--t2)", lineHeight: 1.5 }}>
+              {notifState === "subscribed"
+                ? "On — we'll ping your phone for new announcements and pitch changes."
+                : notifState === "denied"
+                  ? "Off. Turn notifications on for In or Out in your device Settings, then tap Enable."
+                  : notifState === "unsupported"
+                    ? "This device can't receive push notifications."
+                    : "Get a notification on your phone for announcements and pitch changes — not just in the app."}
+            </div>
+            {notifState === "subscribed" ? (
+              <button onClick={handleDisableNotifs}
+                style={btnStyle("transparent", "var(--t2)", false, "1px solid var(--border-subtle)")}>
+                Turn off
+              </button>
+            ) : notifState === "unsupported" ? null : (
+              <button onClick={handleEnableNotifs} disabled={notifState === "asking"}
+                style={btnStyle("var(--amber)", "var(--black)")}>
+                {notifState === "asking" ? "Enabling…" : "Enable"}
+              </button>
+            )}
+          </div>
         </Section>
 
         {/* ── Address ──────────────────────────────────────────────── */}

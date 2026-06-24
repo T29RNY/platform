@@ -725,6 +725,24 @@ export async function savePushSubscription(playerToken, subscription, platform =
   if (error) throw error;
 }
 
+// Member (club manager / member) push — keyed on auth.uid() not a player token
+// (mig 422). Same subscription shapes as savePushSubscription. Authenticated only.
+export async function saveMemberPushSubscription(subscription, platform = 'web') {
+  const { error } = await supabase.rpc('register_member_push_subscription', {
+    p_subscription: subscription,
+    p_platform:     platform,
+  });
+  if (error) throw error;
+}
+
+// platform null = remove every platform for the signed-in member ("turn off").
+export async function removeMemberPushSubscription(platform = null) {
+  const { error } = await supabase.rpc('unregister_member_push_subscription', {
+    p_platform: platform,
+  });
+  if (error) throw error;
+}
+
 // ─── Notification log ─────────────────────────────────────────────────────────
 export async function alreadyNotified(teamId, type, gameDate) {
   const { data } = await supabase

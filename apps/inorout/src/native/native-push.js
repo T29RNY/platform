@@ -18,7 +18,17 @@
 // no client change is needed when those creds land.
 
 import { Capacitor } from '@capacitor/core';
-import { savePushSubscription } from '@platform/core/storage/supabase.js';
+import { savePushSubscription, saveMemberPushSubscription, removeMemberPushSubscription } from '@platform/core/storage/supabase.js';
+
+// VITE_VAPID_PUBLIC_KEY → Uint8Array for the web (PWA) PushManager.subscribe path.
+function urlBase64ToUint8Array(b64) {
+  const padding = '='.repeat((4 - (b64.length % 4)) % 4);
+  const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
 
 // `callbacks` (optional): { onRegistered(), onError(err) } — fire on the ACTUAL
 // async outcome so the caller can mark "subscribed" only when a token truly
@@ -69,4 +79,86 @@ export async function registerNativePush(playerToken, callbacks = {}) {
   // Triggers APNs/FCM registration; the OS replies on the 'registration' event.
   await PushNotifications.register();
   return 'registering';
+}
+
+// ── Member push (club managers / members) ─────────────────────────────────────
+// Same transport as the casual player flow, but keyed on the signed-in member
+// (auth.uid) instead of a player token (mig 422). Used by MemberProfile's
+// Notifications toggle and the SessionsScreen soft prompt. So managers/members
+// get announcements + pitch-bump pings on the phone, not just in the feed.
+
+// Native (iOS/Android) device-token capture for the signed-in member.
+// Returns 'registering' | 'denied' | false (= not native; use the web flow).
+async function registerMemberNativePush(callbacks = {}) {
+  if (!Capacitor.isNativePlatform()) return false;
+
+  const { PushNotifications } = await import('@capacitor/push-notifications');
+  const platform = Capacitor.getPlatform(); // 'ios' | 'android'
+
+  let perm = await PushNotifications.checkPermissions();
+  if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+    perm = await PushNotifications.requestPermissions();
+  }
+  if (perm.receive !== 'granted') return 'denied';
+
+  try { await PushNotifications.removeAllListeners(); } catch { /* noop */ }
+
+  await PushNotifications.addListener('registration', async (token) => {
+    try {
+      await saveMemberPushSubscription({ token: token.value }, platform);
+      callbacks.onRegistered?.();
+    } catch (e) {
+      console.error('member push: save token failed', e);
+      callbacks.onError?.(e);
+    }
+  });
+  await PushNotifications.addListener('registrationError', (err) => {
+    console.error('member push: registration error', err);
+    callbacks.onError?.(err);
+  });
+
+  await PushNotifications.register();
+  return 'registering';
+}
+
+// Turn ON member notifications. Native-first (APNs/FCM); on the web falls back to
+// VAPID web-push. Returns:
+//   'registering' — native: token arrives later via callbacks.onRegistered/onError
+//   'subscribed'  — web: sub saved synchronously
+//   'denied'      — OS permission declined
+//   'unsupported' — web with no service-worker / PushManager
+export async function enableMemberPush(callbacks = {}) {
+  const native = await registerMemberNativePush(callbacks);
+  if (native) return native; // 'registering' | 'denied'
+
+  // Web (PWA / desktop browser): VAPID web-push.
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
+    return 'unsupported';
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return 'denied';
+
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+  });
+  await saveMemberPushSubscription(sub.toJSON(), 'web');
+  callbacks.onRegistered?.();
+  return 'subscribed';
+}
+
+// Turn OFF member notifications: drop the server rows and, on the web, also
+// release the local PushManager subscription. Best-effort.
+export async function disableMemberPush() {
+  try {
+    if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+    }
+  } catch (e) {
+    console.error('member push: web unsubscribe failed', e);
+  }
+  await removeMemberPushSubscription();
 }

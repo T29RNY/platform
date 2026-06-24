@@ -837,6 +837,18 @@ async function clubBroadcastJob(base, results) {
         results.push(`clubBroadcast: send failed (${r.email}) — ${res.error}`);
       }
     }
+    // Push the same announcement to members who've enabled device notifications
+    // (mig 422). One POST per broadcast; covers pitch-bump proposals too (mig 417
+    // _notify_bump creates a club_announcement). Best-effort — never blocks email.
+    const memberProfileIds = [...new Set(recipients.map(r => r.member_profile_id).filter(Boolean))];
+    if (memberProfileIds.length) {
+      await callNotifyDirect(base, {
+        memberProfileIds,
+        announcementId: b.announcement_id,
+        payload: { title: b.title, body: b.body, url: "https://app.in-or-out.com/sessions" },
+      });
+    }
+
     // Mark announcement sent regardless of per-recipient failures (partial delivery is still delivery)
     await supabase
       .from("club_announcements")

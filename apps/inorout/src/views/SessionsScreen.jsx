@@ -39,6 +39,7 @@ import {
   clubAdminListTournamentEquipmentBookings,
   clubAdminCancelEquipmentBooking,
 } from "@platform/core/storage/supabase.js";
+import { enableMemberPush } from "../native/native-push.js";
 
 // SessionsScreen — member/parent-facing club sessions surface.
 // Authenticated gate enforced by App.jsx before mounting.
@@ -187,6 +188,38 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [announcements, setAnnouncements]             = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
+
+  // Push opt-in soft prompt (mig 422) — one-time, dismissible. Shows for managers
+  // who haven't already enabled push or dismissed it. Full on/off control lives in
+  // MemberProfile; this just nudges. localStorage mirrors the casual convention.
+  const [showPushPrompt, setShowPushPrompt] = useState(() => {
+    try {
+      return localStorage.getItem("member_notif") !== "subscribed"
+          && localStorage.getItem("member_notif") !== "denied"
+          && localStorage.getItem("member_notif_prompt_dismissed") !== "1";
+    } catch { return false; }
+  });
+  const [pushBusy, setPushBusy] = useState(false);
+  const dismissPushPrompt = () => {
+    try { localStorage.setItem("member_notif_prompt_dismissed", "1"); } catch { /* noop */ }
+    setShowPushPrompt(false);
+  };
+  const enablePushFromPrompt = async () => {
+    setPushBusy(true);
+    try {
+      const r = await enableMemberPush({
+        onRegistered: () => { try { localStorage.setItem("member_notif", "subscribed"); } catch { /* noop */ } setShowPushPrompt(false); },
+      });
+      if (r === "subscribed")      { try { localStorage.setItem("member_notif", "subscribed"); } catch { /* noop */ } setShowPushPrompt(false); }
+      else if (r === "denied")     { try { localStorage.setItem("member_notif", "denied"); }     catch { /* noop */ } setShowPushPrompt(false); }
+      else if (r === "unsupported") setShowPushPrompt(false);
+      // 'registering' (native): the onRegistered callback clears the prompt
+    } catch (e) {
+      console.error("[sessions] enable push failed", e);
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   // manager → team message composer (Phase 4)
   const [composeTeamId, setComposeTeamId] = useState("");
@@ -1291,6 +1324,34 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           </div>
         )}
       </div>
+
+      {/* ── Push opt-in (soft, dismissible, manager-first) ──────────────── */}
+      {isManager && selectedClubId && activeTab === "sessions" && showPushPrompt && (
+        <div style={{
+          margin: "12px 16px 0", padding: 14,
+          background: "var(--b2)", border: "1px solid var(--border-subtle)",
+          borderRadius: "var(--r)", display: "flex", flexDirection: "column", gap: 10,
+        }}>
+          <div style={{ fontSize: 14, color: "var(--t1)", fontWeight: 700, fontFamily: "var(--font-body)" }}>
+            Get pinged on your phone
+          </div>
+          <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.5, fontFamily: "var(--font-body)" }}>
+            Turn on notifications so announcements and pitch changes reach your phone, not just this screen.
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={enablePushFromPrompt} disabled={pushBusy} style={{
+              flex: 1, padding: "10px 0", borderRadius: "var(--r-button)",
+              background: "var(--amber)", color: "var(--black)", border: "none",
+              fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)", cursor: "pointer",
+            }}>{pushBusy ? "Enabling…" : "Enable"}</button>
+            <button onClick={dismissPushPrompt} style={{
+              padding: "10px 16px", borderRadius: "var(--r-button)",
+              background: "transparent", color: "var(--t2)", border: "1px solid var(--border-subtle)",
+              fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)", cursor: "pointer",
+            }}>Not now</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Announcements ───────────────────────────────────────────────── */}
       {selectedClubId && activeTab === "sessions" && (announcementsLoading || announcements.length > 0) && (
