@@ -14,6 +14,58 @@ Venue/club domain only (not casual inorout). Next free migration at scope time =
 > ⛔ owed: venue MANUAL prebuilt-static deploy + signed-in device walk. **NEXT = Phase 2 below
 > (book/create from the calendar, desktop + mobile).**
 
+> **🏁 PHASE 2 / 2b SHIPPED + DEPLOYED — s202 (2026-06-24).** Book-from-calendar (P2, no mig, PR #97)
+> plus the calendar-mobile Phase 2b operator create-from-calendar for **room hire + PT appointment**
+> (mig 423, PR #102 → main). **2b is now LIVE on platform-venue.vercel.app** — manual prebuilt-static
+> deploy done this session; live bundle `index-CZowjm7c.js` grep-confirmed to contain `New room hire`/
+> `Create hire`/`Customer name`/`New appointment`/`Book appointment` (RoomHireModal + AppointmentModal).
+> ⛔ still owed: signed-in operator **device walk** of the create flows (deploy half done).
+> **NEXT = Phase 3 below — hard cross-resource clash protection (room + trainer occupancy). BUILD-READY
+> scope locked below. Migration 424.**
+
+---
+
+## ⭐ PHASE 3 — BUILD-READY (next session) — hard room/trainer clash protection
+
+*Audited 2026-06-24 (s202). This supersedes the looser "Phase 3 (optional)" note further down.*
+
+**The gap (pitch-parity).** Pitches are protected by a **true Postgres `EXCLUDE` constraint**
+(`pitch_occupancy_no_overlap`) on the `pitch_occupancy` ledger, kept in sync by **per-table triggers**
+that fire on *every* create/update/cancel/void/delete path (mig 414). That makes pitch double-booking
+**structurally impossible from any write path**. Rooms and trainers do **not** have this:
+
+- **Rooms** — only an **inline** `_space_is_available()` overlap check (mig 338: vs class sessions ∪
+  room hires) + a `FOR UPDATE` lock on `venue_spaces`, called *inside* the create RPCs
+  (`venue_create_room_hire`, `venue_confirm_room_hire`). Any write path that does **not** call
+  `_space_is_available` can still double-book a room.
+- **Trainers** — only an **inline** overlap-count guard inside `venue_create_appointment` + an
+  exact-start unique index. The unique index can't catch arbitrary-time overlaps; the inline guard
+  only covers that one RPC.
+
+**The build.** Mirror the mig-414 pitch mechanism for rooms and trainers so clash protection is
+**path-independent**, not per-RPC:
+
+1. **Ledger(s)** — either a shared `space_occupancy` table or two (`room_occupancy`, `trainer_occupancy`),
+   each with a `tstzrange` and a btree_gist `EXCLUDE` constraint preventing overlap per resource id.
+   Decide shared-vs-split in the audit (recommend matching pitch_occupancy's single-table shape).
+2. **Per-table sync triggers** on `venue_room_hires`, `venue_class_sessions`, and `venue_appointments`
+   (and any other table that occupies a room/trainer) — INSERT/UPDATE/DELETE → upsert/deactivate the
+   ledger row, exactly like `tg_sync_club_session_occupancy` / `tg_sync_club_fixture_occupancy`.
+3. **Friendly surfacing** — catch the EXCLUDE violation and return `slot_unavailable` (rooms) /
+   `slot_taken` (trainers) to match the existing client copy; the inline guards in the create RPCs
+   become a fast-path belt-and-braces, the trigger is the real guarantee.
+4. **Backfill** the ledger from existing live room hires / class sessions / appointments in the
+   migration so the constraint doesn't reject day-one writes against pre-existing bookings.
+
+**Gates:** rpc-security sweep + **ephemeral-verify** (this ADDS write-path behaviour via triggers —
+seed own `_e2e_` room/trainer + two overlapping bookings, prove the 2nd rejects, leak-check 0) +
+build venue + hygiene 7/7 + hex + Playwright smoke; casual-regression N/A (venue/club only);
+schema-sync if any column moves (this only ADDS tables/triggers). **Migration 424.**
+
+**Open audit questions to lock first:** (a) one shared `space_occupancy` ledger vs split room/trainer
+tables; (b) does any write path *other* than the three named tables occupy a room/trainer (grep
+before trusting the trigger set); (c) backfill scope — all-time vs future-only rows.
+
 ---
 
 ## THE ASK
