@@ -84,6 +84,17 @@ Grid = fixed-height pane (62vh, constant window from opening hours → no resize
 modes. Both views Playwright-verified 0 err, height-stable; Pitches mode unchanged.
 **Phase 2 (next) = book/create from the calendar, desktop + mobile.** DEFERRED follow-up (now Phase 2):
 create-a-session/match-from-a-calendar-tap + mobile booking polish for that flow,
+
+**🟢 CALENDAR & MOBILE PHASE 3a — MANAGER SEES CLUB LEAGUES FIXTURES (mig 420, s200).** The team
+manager's inorout Agenda (`SessionsScreen`) previously showed `club_sessions` only; operator-created
+Club Leagues fixtures (`club_fixtures`) were invisible to them. New read-only reader
+`member_list_club_fixtures(p_club_id)` folds the caller's managed-team fixtures into the same
+day-grouped Agenda as read-only `FixtureCard`s (Club League badge, vs-opponent, KO time, pitch/venue,
+home/away) → tap → read-only `FixtureDetail` sheet + "View matchday page" link. Operator owns the
+schedule; manager reads only. **Phase 3b (next, mig 421) = home-match edit** — a guarded
+`club_manager_update_home_fixture` write RPC letting a HOME-team manager set pitch/venue/ref/kickoff
+(reuses pitch-occupancy clash protection; away fixtures stay read-only). Then **P4 push** for comms +
+bumps. Full phase log in the `project_calendar_mobile` memory.
 #13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort
 + demo priority lives in **STRATEGY.md → "PILOT MEETING FEEDBACK (2026-06-22)"**.
 
