@@ -326,6 +326,64 @@ async function getSubsForPlayers(teamId, playerIds) {
   return data || [];
 }
 
+// Resolve push subs for club members by member_profile_id (mig 422):
+// member_profiles.auth_user_id → push_subscriptions.auth_user_id. Each returned
+// sub is tagged with member_profile_id so the caller can dedup per recipient.
+async function getSubsForMembers(memberProfileIds) {
+  const ids = [...new Set((memberProfileIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+  const { data: profs } = await supabase
+    .from('member_profiles')
+    .select('id, auth_user_id')
+    .in('id', ids);
+  const authToProfile = {};
+  for (const p of profs || []) if (p.auth_user_id) authToProfile[p.auth_user_id] = p.id;
+  const authIds = Object.keys(authToProfile);
+  if (!authIds.length) return [];
+  const { data: subs } = await supabase
+    .from('push_subscriptions')
+    .select('id, auth_user_id, subscription, platform')
+    .in('auth_user_id', authIds);
+  return (subs || []).map(s => ({ ...s, member_profile_id: authToProfile[s.auth_user_id] }));
+}
+
+// Deliver a club announcement (and therefore a pitch-bump, which creates one)
+// to members who've enabled device push. Deep-links into the agenda. Deduped
+// per (announcement, member, push) so a re-run never double-pings. Returns count.
+async function pushToMemberSubs(subs, payload, announcementId) {
+  let sent = 0;
+  await Promise.allSettled(
+    subs.map(async sub => {
+      if (announcementId) {
+        const { data: dup } = await supabase
+          .from('notification_log')
+          .select('id')
+          .eq('type', 'club_announcement')
+          .eq('entity_id', announcementId)
+          .eq('recipient', sub.member_profile_id)
+          .eq('channel', 'push')
+          .limit(1);
+        if (dup?.length) return;
+      }
+      const payloadObj = { ...payload, url: payload.url || 'https://app.in-or-out.com/sessions' };
+      const res = await deliverPush(sub, payloadObj);
+      if (res.ok) {
+        sent++;
+        await supabase.from('notification_log').insert({
+          type: 'club_announcement',
+          entity_id: announcementId || null,
+          recipient: sub.member_profile_id,
+          channel: 'push',
+          sent_at: new Date().toISOString(),
+        });
+      } else if (res.gone) {
+        await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+      }
+    })
+  );
+  return sent;
+}
+
 // ── Cron mode ─────────────────────────────────────────────────────────────────
 
 async function handleCron(cronType) {
@@ -531,6 +589,20 @@ module.exports = async function handler(req, res) {
     }
     const result = await handleCron(body.cronType);
     return res.status(200).json(result);
+  }
+
+  // ── Member-push mode (club comms + pitch bumps) — cron-triggered only ─────────
+  // cron.js clubBroadcastJob resolves an announcement's member recipients and POSTs
+  // them here. CRON_SECRET-gated so it can't be used to spam arbitrary members.
+  if (Array.isArray(body.memberProfileIds)) {
+    if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+      return res.status(401).end();
+    }
+    if (!body.payload) return res.status(400).json({ error: 'Missing payload' });
+    const subs = await getSubsForMembers(body.memberProfileIds);
+    if (!subs.length) return res.status(200).json({ sent: 0 });
+    const sent = await pushToMemberSubs(subs, body.payload, body.announcementId);
+    return res.status(200).json({ sent });
   }
 
   // ── Direct mode ─────────────────────────────────────────────────────────────
