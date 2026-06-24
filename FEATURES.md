@@ -16,9 +16,16 @@ invoicing (built, dormant — needs live Stripe keys) + season/fixed-term billin
 tested on TEST keys, runtime test-clock walk owed before merge) + lifecycle (Stripe Phase 5, mig 407 —
 self-service Billing Portal, bulk price change [Option A: applies next renewal, no mid-cycle proration],
 Stripe refunds [full / pro-rated-unused / custom]; built & tested on TEST keys, test-mode walk owed),
-**🔜 NEXT PICK (operator-requested s194, a linked pair):** #5 pitch priority/reserved times (pitch system
-built, priority layer not — internal club use vs external/casual hire + reserved/priority time windows) +
-#6 team prioritisation (`club_teams.priority_rank` ⭐ ships display-only since mig 389; make it *drive* pitch
+**🟡 PITCH PRIORITY #5+#6 — PHASE 1 SHIPPED s195 (mig 416), P2–3 next** (`PITCH_PRIORITY_HANDOFF.md`):
+P1 = reserved-window foundation — new `pitch_reserved_windows` table + venue config RPCs
+(`venue_set_pitch_reserved_windows`/`venue_list_pitch_reserved_windows`, `manage_facility`) + a
+"Reserved times" editor (audience internal|team|min_rank, team/rank picker from `club_list_teams`) +
+calm advisory shading on ScheduleGrid + AllGroundsGrid. **Config + display ONLY — NO enforcement, NO
+rank bumping yet** (P2/mig 417 adds the external `book_pitch_*` gate → `slot_reserved` + the
+rank-driven club-team bump/suggest-and-confirm). Gates: rpc-security PASS (2 fns), EV 9/9+leak0, build
+venue + hygiene 7/7, Playwright config smoke 0 errors. ⛔ owed venue deploy + device eyeball.
+**Original ask:** #5 pitch priority/reserved times (internal club use vs external/casual hire) +
+#6 team prioritisation (`club_teams.priority_rank` ⭐ display-only since mig 389; make it *drive* pitch
 priority so a higher-ranked team wins a contested slot / gets first call on reserved windows),
 #7 multi-venue (access layer shipped mig 401; activity layer scoped s188 → `MULTI_VENUE_HANDOFF.md`,
 same-operator only. **🟢 PHASE 1 SHIPPED+MERGED s189 (mig 412, PR #84→main) — venue-anchor club_sessions:**

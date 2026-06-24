@@ -844,6 +844,34 @@ RLS-enabled, REVOKE anon/authenticated (RPC-only).
   (pre-confirmed hire, row-locked qty guard, auto-charge, demand-miss-on-turn-away),
   `venue_cancel_equipment_hire(token,hire)` (+ refund), `venue_list_equipment_hires(token,status?,limit?)`.
 
+### pitch_reserved_windows (migration 416) — pitch priority Phase 1
+
+Net-new table. Declares recurring weekly time bands a pitch is **held for the club's
+own use**. **Phase 1 is config + advisory display ONLY** — these rows write **no**
+`pitch_occupancy` and enforce nothing. Enforcement (blocking external bookings) and
+rank-driven bumping land in Phase 2 (mig 417).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK default gen_random_uuid() | |
+| `playing_area_id` | uuid NOT NULL | FK → `playing_areas(id)` ON DELETE CASCADE |
+| `venue_id` | text NOT NULL | FK → `venues(id)` |
+| `day_of_week` | smallint NOT NULL | CHECK 0–6 (0=Sun, matches `booking_windows`) |
+| `start_time` | time NOT NULL | CHECK `start_time < end_time` (`prw_time_order`) |
+| `end_time` | time NOT NULL | |
+| `audience` | text NOT NULL | CHECK in (`internal`,`team`,`min_rank`) |
+| `club_team_id` | uuid NULL | FK → `club_teams(id)` ON DELETE CASCADE; required iff `audience='team'` |
+| `min_rank` | int NULL | required iff `audience='min_rank'` (lower = higher priority) |
+| `note` | text NULL | free-text |
+| `created_at` | timestamptz NOT NULL DEFAULT now() | |
+
+- CHECK `prw_audience_shape` enforces the audience↔column shape (team→team_id only;
+  min_rank→min_rank only; internal→neither). Index `idx_prw_pitch` on `(playing_area_id)`.
+- RLS ON, REVOKE anon/authenticated — RPC-only. Written by
+  `venue_set_pitch_reserved_windows` (replace-set per pitch, `manage_facility` cap),
+  read by `venue_list_pitch_reserved_windows` (company-scoped). Advisory calendar
+  shading on `ScheduleGrid` + `AllGroundsGrid`.
+
 ### Stage 2b — priority displacement (migrations 142–143)
 
 - **Fixture-trigger auto-yield (mig 142):** when a fixture claims a slot, the

@@ -4389,6 +4389,34 @@ export async function venueUpdatePitch(venueToken, pitchId, updates) {
   return data;
 }
 
+// Pitch priority Phase 1 — reserved windows are advisory time bands held for the
+// club's own use (config + calendar shading only; NO enforcement until Phase 2).
+export async function venueSetPitchReservedWindows(venueToken, pitchId, windows) {
+  const { data, error } = await supabase.rpc("venue_set_pitch_reserved_windows", {
+    p_venue_token: venueToken,
+    p_pitch_id: pitchId,
+    p_windows: windows,
+  });
+  if (error) {
+    console.error("[venue] set_pitch_reserved_windows failed", error);
+    throw error;
+  }
+  return data;
+}
+
+// Every reserved window across the operator's same-company venues (one read powers
+// the editor + the calm calendar shading on both the single-site and all-grounds grids).
+export async function venueListPitchReservedWindows(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_pitch_reserved_windows", {
+    p_venue_token: venueToken,
+  });
+  if (error) {
+    console.error("[venue] list_pitch_reserved_windows failed", error);
+    throw error;
+  }
+  return data;
+}
+
 export async function venueAddRef(venueToken, ref) {
   const { data, error } = await supabase.rpc("venue_add_ref", {
     p_venue_token: venueToken,

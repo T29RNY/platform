@@ -141,6 +141,8 @@ export {
   venueExpelTeam,
   venueAddPitch,
   venueUpdatePitch,
+  venueSetPitchReservedWindows,
+  venueListPitchReservedWindows,
   venueAddRef,
   venueUpdateRef,
   venueListActiveTeams,

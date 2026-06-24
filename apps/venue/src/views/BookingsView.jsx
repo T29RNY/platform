@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { getOperatorPitchOccupancy } from "@platform/core";
+import { getOperatorPitchOccupancy, venueListPitchReservedWindows } from "@platform/core";
 import RequestsInbox from "./RequestsInbox.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
 import AllGroundsGrid from "./AllGroundsGrid.jsx";
@@ -99,6 +99,26 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
     }
   }, [venueToken]);
   useEffect(() => { loadOperator(); }, [loadOperator]);
+
+  // ── Reserved windows (pitch priority Phase 1): one company-scoped read → a
+  // pitchId→[window] map that shades both grids and feeds the settings editor.
+  // Advisory only — these hold no pitch, block nothing (enforcement is Phase 2).
+  const [reservedByPitch, setReservedByPitch] = useState(() => new Map());
+  const loadReserved = useCallback(async () => {
+    try {
+      const res = await venueListPitchReservedWindows(venueToken);
+      const map = new Map();
+      for (const w of (res?.windows ?? [])) {
+        if (!map.has(w.playing_area_id)) map.set(w.playing_area_id, []);
+        map.get(w.playing_area_id).push(w);
+      }
+      setReservedByPitch(map);
+    } catch (err) {
+      console.error("venue_list_pitch_reserved_windows failed", err);
+      setReservedByPitch(new Map());
+    }
+  }, [venueToken]);
+  useEffect(() => { loadReserved(); }, [loadReserved]);
 
   const hasMultiVenue = operatorVenues.length > 1;
   const ALL_GROUNDS = "__all__";
@@ -262,6 +282,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                   canBookSelf={enabled}
                   windowOverride={windowOverride}
                   freeMode={freeMode}
+                  reservedByPitch={reservedByPitch}
                   onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
                   onSelectBooking={setSelectedBooking}
                 />
@@ -293,6 +314,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                 canBook={canBookHere}
                 windowOverride={windowOverride}
                 freeMode={freeMode}
+                reservedByPitch={reservedByPitch}
                 onTapEmpty={(pitchId, time) => setWalkIn({ pitchId, time })}
                 onSelectBooking={setSelectedBooking}
               />
@@ -318,6 +340,8 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
         venueToken={venueToken}
         venue={venue}
         pitches={state.pitches ?? []}
+        reservedByPitch={reservedByPitch}
+        onReservedSaved={loadReserved}
         onSaved={() => { onRefresh?.(); }}
       />
       <BookingDetailModal

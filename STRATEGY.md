@@ -268,8 +268,13 @@ teams in their league/area** — the network effect is the real prize.
 > materially addressed** by the Venue OS nav epic (club_features follow the club to every venue +
 > membership scope honored across the club's venues, mig 401). **#7 multi-venue EPIC COMPLETE
 > (Phases 1–3, migs 412–414) + the "All grounds" single-calendar view shipped s194 (UI-only).**
-> **🔜 NEXT PICK = #5 + #6 together — SCOPED + LOCKED s195 → `PITCH_PRIORITY_HANDOFF.md`** (audit
-> done, nothing built). #5 internal-vs-external pitch booking + reserved/priority time windows
+> **🔜 #5 + #6 — PHASE 1 SHIPPED s195 (mig 416), Phases 2–3 next → `PITCH_PRIORITY_HANDOFF.md`.**
+> P1 (reserved-window foundation) is built + merged: new `pitch_reserved_windows` table + venue
+> config RPCs (`venue_set_pitch_reserved_windows`/`venue_list_pitch_reserved_windows`,
+> `manage_facility`) + a "Reserved times" editor in BookingSettings + calm advisory shading on
+> ScheduleGrid/AllGroundsGrid. **Config + display only — NO enforcement, NO bumping yet** (that's P2,
+> mig 417). Original scope below.
+> #5 internal-vs-external pitch booking + reserved/priority time windows
 > (internal/external follows `source_kind`, already clean — net-new is reserved windows); #6 make
 > `club_teams.priority_rank` ⭐ (display-only today) actually DRIVE contention. **Operator decisions
 > (s195):** bumping is **club-team-vs-club-team ONLY** (never auto-bumps a paying outside hire —
@@ -282,7 +287,7 @@ teams in their league/area** — the network effect is the real prize.
 > Then remaining roadmap: #12 reporting (untouched, biggest gap),
 > **#3 FULL Stripe build (scoped s181 → `STRIPE_FULL_BUILD_HANDOFF.md`, 21 items/7 phases — Phases 1–6 SHIPPED, Phase 7 go-live config left)**, #1 Phase C AI-import (gated on a real FA snippet), #13
 > season setup. Next venue epic = venue-operator tournament create (Epic D, now unblocked by the
-> shipped `tournaments` flag). Next free mig = 416.
+> shipped `tournaments` flag). Next free mig = 417.
 
 | # | Ask | Status today | Effort | Demo priority |
 |---|-----|--------------|--------|---------------|
@@ -290,8 +295,8 @@ teams in their league/area** — the network effect is the real prize.
 | 2 | **Org/team structure (youth + adult under one club)** | ✅ **COMPLETE** — epic shipped migs 389–393 (structure, join link/QR, membership-gated join, manager comms, pro-rating) | — | ✅ done |
 | 3 | **Mass invoicing → FULL STRIPE BUILD** | **SCOPED s181 (2026-06-23): building the ENTIRE Stripe platform as one track — NOT just "activate the dormant infra". 21 items / 7 phases: foundations + double-bill guard, one-customer-per-human, unified member payment history, mass-invoicing wizard (cohort + remove individuals) via Stripe Invoices, fixed-term seasons (Subscription Schedules) + start-date anchoring, pro-rating (ledger + Stripe), Billing Portal, bulk price change, refunds, reconciliation. Built on TEST keys (now in place); LIVE keys go in LAST (Phase 7). Plan = `STRIPE_FULL_BUILD_HANDOFF.md`. Next free mig=403.** | Med–High (full build) | roadmap |
 | 4 | Coach invoice-chasing (auto reminders + who-hasn't-paid view) | ✅ **SHIPPED** (mig 398) — reminder cron CONFIRMED already covers membership arrears (`payment_due` kind, no change needed); new `club_manager_team_payments` powers a coach-facing **Subs & payments** roster (green Paid / red Owes £X) under "Message your team" in the consumer club view | Low–Med | ✅ done |
-| 5 | Internal vs external pitch booking + reserved/priority times | **SCOPED+LOCKED s195 → `PITCH_PRIORITY_HANDOFF.md`** (audit done). Internal/external already follows `source_kind`; net-new = `pitch_reserved_windows` table (audience internal\|team\|min_rank) blocking outside hire from ring-fenced club times. Linked pair with #6 | Med (3 phases, mig 416+) | 🟢 next |
-| 6 | Team prioritisation system (some teams rank above others) | **Partial→SCOPED s195** — `club_teams.priority_rank` ⭐ ships (mig 389) but display-only. Locked design (`PITCH_PRIORITY_HANDOFF.md`): higher rank auto-bumps a lower-ranked **club team** off a contested slot (never a paying hire) → bumped event goes tentative + suggest-and-confirm closest free slot across the operator's venues → manager Accept/Decline | Med (to make it drive) | 🟢 next |
+| 5 | Internal vs external pitch booking + reserved/priority times | **P1 SHIPPED s195 (mig 416)** → `PITCH_PRIORITY_HANDOFF.md`. Net-new `pitch_reserved_windows` table (audience internal\|team\|min_rank) + venue config RPCs + "Reserved times" editor + advisory calendar shading — config + display only. **P2 (mig 417) adds the external gate** (`book_pitch_*` → `slot_reserved`; `venue_create_booking` warn-only). Linked pair with #6 | Med (P1 done; P2–3 left) | 🟡 P1 done |
+| 6 | Team prioritisation system (some teams rank above others) | **Partial→SCOPED s195; rank pickable in reserved windows from P1** — `club_teams.priority_rank` ⭐ ships (mig 389) display-only + now selectable as a reserved-window audience (mig 416). Locked design (`PITCH_PRIORITY_HANDOFF.md`): **P2** higher rank auto-bumps a lower-ranked **club team** off a contested slot (never a paying hire) → bumped event goes tentative + suggest-and-confirm closest free slot across the operator's venues → manager Accept/Decline | Med (P2 makes it drive) | 🟡 P2 next |
 | 7 | Multi-venue (train one site, play another) | **Access layer DONE (mig 401)** + **activity layer SCOPED s188 → `MULTI_VENUE_HANDOFF.md`** (pilot club confirmed: 2 venues w/ pitches, SAME operator, training+matches at either site). Plan: same-operator only (via `venues.company_id`); Phase 1 venue-anchor `club_sessions` (mig 412), Phase 2 cross-venue fixtures (mig 413), Phase 3 optional pitch-occupancy clash-protection. cross-CLUB still deferred (settlement+safeguarding, DECISIONS s180) | Med | 🟢 building |
 | 8 | Opposition-coach matchday info link | ✅ **SHIPPED** (migs 394–396) — `/matchday/<code>` public branded link (home team, kickoff, pitch, ref, address/directions, ground rules); live demo `app.in-or-out.com/matchday/demofalcons01` | Low | ✅ done |
 | 9 | Embed code (fixtures/results on own website) | ✅ **SHIPPED** (mig 397) — `/embed/league/<code>` iframe widget (our fixtures+results, our design) + FA official snippet stored per league for the club's own site | Low | ✅ done |

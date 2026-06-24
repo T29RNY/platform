@@ -134,7 +134,17 @@ CONSTRAINT pitch_occupancy_no_overlap
 
 ## 3. PHASED PLAN (each = own AUDIT→EXECUTE→VERIFY→COMMIT, merge before next)
 
-### Phase 1 (mig 416) — Reserved-window schema + config RPCs + venue UI  *(no casual/core touch)*
+### Phase 1 (mig 416) — Reserved-window schema + config RPCs + venue UI  *(no casual/core touch)*  🏁 SHIPPED s195
+**Built exactly as scoped.** Read path = a dedicated company-scoped `venue_list_pitch_reserved_windows`
+(NOT folded into `venue_get_state`/`get_operator_pitch_occupancy` — keeps the two big readers untouched);
+BookingsView loads it once into a `reservedByPitch` Map passed to both grids + BookingSettings. Editor
+lives in **BookingSettings** only (per-pitch, alongside bookable/prime hours; PitchForm left as-is).
+Shading helper = `bookingUtil.reservedBands(windows, iso)`; band CSS `.sg-reserved` (token
+`--reserved-soft`, `pointer-events:none` so tap-to-book still works through it). Gates all PASS
+(rpc-security 2 fns, EV 9/9 + leak 0, build venue + hygiene 7/7 + venue hex-clean, Playwright config
+smoke 0 errors). ⛔ owed venue deploy + device eyeball.
+
+Original scope:
 - **New table** `pitch_reserved_windows`: `id uuid pk`, `playing_area_id uuid →playing_areas
   (CASCADE)`, `venue_id text →venues`, `day_of_week smallint 0–6`, `start_time time`,
   `end_time time`, `audience text CHECK ('internal','team','min_rank')`, `club_team_id uuid NULL
@@ -209,7 +219,12 @@ CONSTRAINT pitch_occupancy_no_overlap
 ---
 
 ## 5. STATUS
-- s195: **audit + design LOCKED, nothing built.** This doc + STRATEGY/DECISIONS/memory updated and
-  committed. Next session = Phase 1 execute. Next free mig = 416.
+- s195 (design): audit + design LOCKED.
+- s195 (build): **🏁 PHASE 1 SHIPPED (mig 416).** `pitch_reserved_windows` table + 2 venue config RPCs +
+  JS wrappers/barrel + BookingSettings "Reserved times" editor + advisory shading on ScheduleGrid +
+  AllGroundsGrid. Config + display only (no enforcement, no bumping). All gates PASS. **Next free mig = 417.**
+- **NEXT = Phase 2 (mig 417)** — external gate (`_pitch_window_blocks` → `book_pitch_*` → `slot_reserved`;
+  `venue_create_booking` warn-only) + rank-driven club-team bump (tentative + suggest-and-confirm) +
+  accept/decline RPCs. **Touches `book_pitch_*` → casual-regression MANDATORY** + ephemeral-verify MANDATORY.
 </content>
 </invoke>

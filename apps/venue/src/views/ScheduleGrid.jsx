@@ -1,11 +1,11 @@
 import React from "react";
-import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIsFirst, occIcon, occInitials, freeGaps } from "../bookingUtil.js";
+import { dayWindow, minsOfDay, hhmm, fmtTime, occClass, occLabel, occType, occIsFirst, occIcon, occInitials, freeGaps, reservedBands } from "../bookingUtil.js";
 import Icon from "./Icon.jsx";
 
 const PXMIN = 1.0;          // pixels per minute (60px/hr — fits name + time + ins in a 60-min block)
 const SNAP = 30;            // tap-to-book snaps to 30-min
 
-export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, canBook, windowOverride = null, freeMode = false, onTapEmpty, onSelectBooking }) {
+export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, canBook, windowOverride = null, freeMode = false, reservedByPitch = null, onTapEmpty, onSelectBooking }) {
   const { startMin, endMin } = windowOverride ?? dayWindow(pitches, date, dayOcc);
   const height = (endMin - startMin) * PXMIN;
 
@@ -55,6 +55,13 @@ export default function ScheduleGrid({ date, pitches, dayOcc, bookingIns = {}, c
           >
             {hours.map((m) => (
               <div className="sg-hourline" key={m} style={{ top: (m - startMin) * PXMIN }} />
+            ))}
+            {reservedByPitch && reservedBands(reservedByPitch.get(p.id), date).map((b, i) => (
+              <div className={"sg-reserved sg-reserved-" + b.audience} key={"rsv" + i}
+                style={{ top: (b.startMin - startMin) * PXMIN, height: Math.max((b.endMin - b.startMin) * PXMIN, 14) }}
+                title={`Reserved — ${b.label}`}>
+                <span className="sg-reserved-tag">{b.label}</span>
+              </div>
             ))}
             {freeMode && freeGaps(byPitch.get(p.id) ?? [], startMin, endMin).map(([s, e], i) => (
               <div className="occ occ-free occ-actionable" key={"free" + i}

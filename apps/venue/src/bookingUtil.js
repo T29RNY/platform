@@ -169,6 +169,28 @@ export function freeGaps(occ, startMin, endMin) {
   return gaps;
 }
 
+// Short audience label for a reserved window (calendar tint + editor summary).
+export function reservedLabel(w) {
+  if (w.audience === "team") return w.club_team_name || "Team";
+  if (w.audience === "min_rank") return `Rank ≤ ${w.min_rank}`;
+  return "Club";
+}
+
+// Reserved bands (minutes-from-midnight) for one pitch on a given calendar date.
+// Advisory shading only — these write no occupancy. Filters a pitch's reserved
+// windows to the date's weekday and converts each to a [startMin,endMin] band.
+export function reservedBands(windows, iso) {
+  const dow = dowOf(iso);
+  return (windows ?? [])
+    .filter((w) => Number(w.day_of_week) === dow)
+    .map((w) => ({
+      startMin: parseHHMM(w.start_time),
+      endMin: parseHHMM(w.end_time),
+      label: reservedLabel(w),
+      audience: w.audience,
+    }));
+}
+
 // True when this is the booker's first-ever booking at the venue (bookings only).
 export function occIsFirst(o) {
   return o.source_kind === "booking" && o.detail?.is_first === true;

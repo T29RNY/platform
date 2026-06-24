@@ -37,6 +37,7 @@
   --info-soft:    rgba(59, 130, 246, 0.14);
   --train:        #8B5CF6;     /* club training (violet) — paired with an icon + tag */
   --train-soft:   rgba(139, 92, 246, 0.16);
+  --reserved-soft: rgba(148, 163, 184, 0.13); /* calm slate — advisory reserved-time shading */
   --crit:         #F04438;
 
   /* Density (regular default) */
@@ -2792,6 +2793,23 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .sg-hourline {
   position: absolute; left: 0; right: 0;
   border-top: 1px solid var(--rule);
+}
+/* Reserved time band — advisory shading only (pitch priority Phase 1). A calm slate
+   tint behind the occupancy blocks; holds no pitch and blocks nothing yet. Must not
+   intercept taps, so the column's tap-to-book keeps working through it. */
+.sg-reserved {
+  position: absolute; left: 0; right: 0;
+  background: var(--reserved-soft);
+  border-top: 1px dashed var(--border-strong);
+  border-bottom: 1px dashed var(--border-strong);
+  pointer-events: none;
+  overflow: hidden;
+}
+.sg-reserved-tag {
+  position: absolute; top: 2px; right: 6px;
+  font-size: 9px; letter-spacing: 0.02em; text-transform: uppercase;
+  color: var(--ink-3); opacity: 0.85;
+  max-width: calc(100% - 10px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .sg .occ {
   position: absolute; left: 6px; right: 6px;
