@@ -76,6 +76,74 @@ const fmtTime = (iso) => {
   } catch { return ""; }
 };
 
+// ── Agenda calendar helpers (Phase 1 — manager mobile calendar) ────────────────
+// The manager's upcoming sessions arrive already sorted ascending by scheduled_at
+// (member_list_upcoming_sessions ORDER BY cs.scheduled_at). We reshape that flat
+// list into a day-grouped agenda. All local-time; upcoming-only data.
+
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+
+// Monday-anchored week start for the given date (en-GB week).
+const mondayOf = (d) => {
+  const x = startOfDay(d);
+  const dow = (x.getDay() + 6) % 7; // 0 = Monday … 6 = Sunday
+  x.setDate(x.getDate() - dow);
+  return x;
+};
+
+// Stable local-day key (YYYY-MM-DD) for grouping.
+const dayKeyOf = (iso) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+// Relative day header label: Today / Tomorrow / "Wed 25 Jun".
+const dayLabelOf = (iso) => {
+  const d = startOfDay(iso);
+  const today = startOfDay(new Date());
+  const diffDays = Math.round((d - today) / 86400000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+};
+
+// Group an already-ascending session list into [{ key, label, items }] day buckets,
+// preserving order. Sessions with no scheduled_at fall into a trailing "Scheduled" bucket.
+const groupSessionsByDay = (list) => {
+  const groups = [];
+  const byKey = {};
+  for (const s of list) {
+    const key = s.scheduled_at ? dayKeyOf(s.scheduled_at) : "undated";
+    if (!byKey[key]) {
+      byKey[key] = { key, label: s.scheduled_at ? dayLabelOf(s.scheduled_at) : "Date TBC", items: [] };
+      groups.push(byKey[key]);
+    }
+    byKey[key].items.push(s);
+  }
+  return groups;
+};
+
+// Filter the session list to a week window. 'all' = no filter (default — nothing hidden).
+const filterSessionsByWeek = (list, mode) => {
+  if (mode === "all") return list;
+  const thisWeekStart = mondayOf(new Date());
+  const nextWeekStart = new Date(thisWeekStart); nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+  const weekAfterStart = new Date(nextWeekStart); weekAfterStart.setDate(weekAfterStart.getDate() + 7);
+  return list.filter((s) => {
+    if (!s.scheduled_at) return false;
+    const t = new Date(s.scheduled_at);
+    if (mode === "this") return t < nextWeekStart;                       // upcoming-only, so ≥ now already
+    if (mode === "next") return t >= nextWeekStart && t < weekAfterStart;
+    return true;
+  });
+};
+
+const WEEK_FILTERS = [
+  { id: "all",  label: "All" },
+  { id: "this", label: "This week" },
+  { id: "next", label: "Next week" },
+];
+
 export default function SessionsScreen({ authUser, memberProfile: memberProfileProp, hasFeed = false }) {
   const [memberProfile, setMemberProfile] = useState(memberProfileProp ?? undefined);
   const [children, setChildren]           = useState([]);
@@ -128,6 +196,9 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   // medical detail: { [profileId]: detailObj | 'loading' | 'error' }
   const [memberDetails, setMemberDetails] = useState({});
   const isFetchingDetailRef = useRef(false);
+
+  // agenda calendar week filter (Phase 1 — manager mobile calendar). 'all' default = nothing hidden.
+  const [weekFilter, setWeekFilter] = useState("all");
 
   // tournaments (manager only)
   const [activeTab, setActiveTab]                   = useState("sessions");
@@ -1400,13 +1471,67 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           </p>
         )}
 
-        {sessions.map(session => (
-          <SessionCard
-            key={session.session_id}
-            session={session}
-            onOpen={() => openDetail(session)}
-          />
-        ))}
+        {/* Agenda calendar — sessions grouped by day with a week navigator (Phase 1) */}
+        {selectedClubId && !sessionsLoading && sessions.length > 0 && (() => {
+          const filtered = filterSessionsByWeek(sessions, weekFilter);
+          const groups   = groupSessionsByDay(filtered);
+          return (
+            <>
+              {/* Week navigator — segmented filter, styled like the manager tab pills */}
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {WEEK_FILTERS.map(f => {
+                  const active = weekFilter === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => setWeekFilter(f.id)}
+                      style={{
+                        padding: "6px 14px", borderRadius: 20,
+                        border: `1px solid ${active ? "var(--amber)" : "var(--border)"}`,
+                        background: active ? "var(--amber)" : "transparent",
+                        color: active ? "rgba(0,0,0,0.9)" : "var(--t2)",
+                        fontSize: 13, fontWeight: active ? 700 : 400,
+                        fontFamily: "var(--font-body)", cursor: "pointer",
+                      }}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {groups.length === 0 ? (
+                <p style={{ color: "var(--t2)", fontSize: 14, fontFamily: "var(--font-body)", textAlign: "center", marginTop: 24 }}>
+                  {weekFilter === "this" ? "Nothing on this week." : weekFilter === "next" ? "Nothing on next week." : "No upcoming sessions."}
+                </p>
+              ) : (
+                groups.map(group => (
+                  <div key={group.key} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {/* Day header */}
+                    <div style={{
+                      display: "flex", alignItems: "baseline", justifyContent: "space-between",
+                      paddingBottom: 6, borderBottom: "1px solid var(--border-subtle)", marginTop: 4,
+                    }}>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 20, letterSpacing: 0.5, color: "var(--t1)" }}>
+                        {group.label}
+                      </span>
+                      <span style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
+                        {group.items.length} {group.items.length === 1 ? "session" : "sessions"}
+                      </span>
+                    </div>
+                    {group.items.map(session => (
+                      <SessionCard
+                        key={session.session_id}
+                        session={session}
+                        onOpen={() => openDetail(session)}
+                      />
+                    ))}
+                  </div>
+                ))
+              )}
+            </>
+          );
+        })()}
       </div>}
 
       {/* ── Tournaments view ────────────────────────────────────────────── */}
