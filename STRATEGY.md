@@ -308,6 +308,7 @@ teams in their league/area** — the network effect is the real prize.
 | 12 | Reporting / data | Not covered | High | roadmap |
 | 13 | Season setup once + ad-hoc changes | Partial | Low–Med | mention |
 | 14–17 | Pitch assignments / reception view / ref view / live data | Built ✅ — all "loved/amazing" | — | 🟢 feature hard |
+| 18 | **Unified resource calendar** (one calendar: pitches + rooms + classes + equipment, filterable) | 📋 **SCOPED s194, UNBUILT** — pitches done (`pitch_occupancy` + s194 All-grounds); rooms/classes/equipment NOT on it (3 different time models). Plan = `UNIFIED_RESOURCE_CALENDAR_HANDOFF.md` | Med (P1) | roadmap |
 
 ### Competitor pricing intel (gathered 2026-06-22)
 
