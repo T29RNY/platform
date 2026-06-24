@@ -36,7 +36,11 @@ export default function Legal() {
         <a href="/" style={{ fontFamily:"Inter,sans-serif", fontSize:12,
           color:C.muted, textDecoration:"none" }}>← Back to In or Out</a>
       </div>
-      <div style={S.h1}>IN OR OUT</div>
+      <div style={S.h1}>
+        <span style={{ color:C.green }}>IN</span>
+        <span style={{ color:C.text }}> OR </span>
+        <span style={{ color:C.red }}>OUT</span>
+      </div>
       <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
         color:C.muted, marginBottom:28 }}>Legal — effective {EFFECTIVE_DATE}</div>
 

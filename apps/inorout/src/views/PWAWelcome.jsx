@@ -50,10 +50,12 @@ export default function PWAWelcome() {
       maxWidth:430, margin:"0 auto", boxSizing:"border-box",
     }}>
 
-      {/* Wordmark */}
+      {/* Wordmark — IN green · OR neutral · OUT red (canonical lockup, matches PageHeader) */}
       <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:52,
-        color:C.amber, letterSpacing:4, textAlign:"center", marginBottom:6 }}>
-        IN OR OUT
+        letterSpacing:4, textAlign:"center", marginBottom:6 }}>
+        <span style={{ color:C.green }}>IN</span>
+        <span style={{ color:C.text }}> OR </span>
+        <span style={{ color:C.red }}>OUT</span>
       </div>
 
       {/* Headlines */}

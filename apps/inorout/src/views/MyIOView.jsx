@@ -43,7 +43,6 @@ const INSIGHTS = [
   { id:"impact",          label:"Team Impact",        rgb:"176,96,240",  hex:"#B060F0", unlockAt:7,  dataKey:"impact",          gradFrom:"rgba(176,96,240,0.18)",  gradTo:"rgba(176,96,240,0.06)"  },
   { id:"nemesis",         label:"Nemesis",            rgb:"255,64,64",   hex:"#FF4040", unlockAt:8,  dataKey:"nemesis",         gradFrom:"rgba(255,64,64,0.18)",   gradTo:"rgba(255,64,64,0.06)"   },
   { id:"bestPartnership", label:"Best Partnership",   rgb:"61,220,106",  hex:"#3DDC6A", unlockAt:8,  dataKey:"bestPartnership", gradFrom:"rgba(61,220,106,0.18)",  gradTo:"rgba(61,220,106,0.06)"  },
-  { id:"advancedChem",    label:"Advanced Chemistry", rgb:"255,176,32",  hex:"#FFB020", unlockAt:8,  dataKey:null,              gradFrom:"rgba(255,176,32,0.18)",  gradTo:"rgba(255,176,32,0.06)"  },
   { id:"legacy",          label:"Legacy Insights",    rgb:"232,160,32",  hex:"#E8A020", unlockAt:16, dataKey:null,              gradFrom:"rgba(232,160,32,0.18)",  gradTo:"rgba(232,160,32,0.06)"  },
 ];
 
@@ -441,10 +440,6 @@ function InsightCard({ insight, data, gamesPlayed, playerId }) {
     title = isUnbeaten
       ? `${data.length} game unbeaten run`
       : `${data.length} games without a win`;
-  } else if (id === "advancedChem") {
-    badgeContent = <text x="27" y="36" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.4)" fontFamily="DM Sans,sans-serif">Soon</text>;
-    title = "Advanced Chemistry";
-    body = "Coming soon";
   }
 
   return (

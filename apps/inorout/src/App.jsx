@@ -1715,8 +1715,11 @@ export default function App() {
       <InstallBanner/>
       <div style={{ padding:"20px 18px 12px", background:C.bg,
         borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28,
-          color:C.amber, letterSpacing:3 }}>IN OR OUT</div>
+        <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28, letterSpacing:3 }}>
+          <span style={{ color:C.green }}>IN</span>
+          <span style={{ color:C.text }}> OR </span>
+          <span style={{ color:C.red }}>OUT</span>
+        </div>
         <div style={{ fontFamily:"Inter,sans-serif", fontSize:13,
           color:C.muted, marginTop:2 }}>Welcome back, {myPlayer.name}</div>
       </div>
