@@ -1568,6 +1568,15 @@ export default function App() {
             Manage account
           </a>
         </div>
+        {/* Terms/Privacy reachable in-app (5.1.1): this onboarding screen is exactly
+            where a fresh Sign-in-with-Apple account lands, so the legal links must be
+            here, not only on the logged-out marketing splash. */}
+        <div style={{ marginTop:36, fontFamily:"'DM Sans',sans-serif", fontSize:11,
+          color:C.faint, textAlign:"center", display:"flex", gap:16, justifyContent:"center" }}>
+          <a href="/legal" style={{ color:C.faint, textDecoration:"none" }}>Terms</a>
+          <a href="/legal#privacy" style={{ color:C.faint, textDecoration:"none" }}>Privacy</a>
+          <a href="mailto:hello@in-or-out.com" style={{ color:C.faint, textDecoration:"none" }}>Contact</a>
+        </div>
       </div>
     );
   }
