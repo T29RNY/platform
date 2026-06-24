@@ -14,6 +14,17 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     // cookieAuthStorage.js. (storageKey is left to the SDK default —
     // `sb-<ref>-auth-token`, already identical across all apps.)
     storage: cookieAuthStorage,
+    // Make the previously-implicit defaults explicit. supabase-js owns token
+    // refreshing — the app must NOT also force a refreshSession() on boot/resume
+    // (that races the SDK's auto-refresh, revokes the live token, and in a
+    // WKWebView where storage doesn't round-trip becomes a 1/sec refresh storm →
+    // 429 → logout). flowType is deliberately LEFT at the SDK default: the native
+    // shell returns an implicit `#access_token` hash that detectSessionInUrl
+    // consumes, and web sign-in works on the default too — changing it would
+    // break one of the two paths.
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
   },
   realtime: {
     // iOS suspends the PWA and tears down the realtime WebSocket when

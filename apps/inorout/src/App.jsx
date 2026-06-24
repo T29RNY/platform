@@ -522,13 +522,13 @@ export default function App() {
 
     async function load() {
       try {
-        // Force a session refresh on every boot. PWAs (especially iOS) lose
-        // their access-token between launches even when the refresh token
-        // is still valid. Calling refreshSession here gets us a fresh JWT
-        // so subsequent RPCs go out authed. If there's no refresh token
-        // (anon visitor) or the refresh fails for any reason, we swallow
-        // the error and proceed exactly as we would have today.
-        try { await supabase.auth.refreshSession(); } catch (e) { /* anon or expired — fall through */ }
+        // NOTE: no forced refreshSession() on boot. supabase-js owns token
+        // refreshing (autoRefreshToken:true in supabase.js). A manual refresh
+        // here races the SDK's own auto-refresh — each manual rotation revokes
+        // the token the SDK is mid-refresh on, and in a WKWebView where storage
+        // doesn't reliably round-trip that became a ~1/sec refresh storm → 429
+        // → logout (App Store 2.1(a) rejection, s199). getSession() below reads
+        // the persisted session and the SDK refreshes it lazily when needed.
 
         // Auth session is also resolved by the top-level authReady effect for
         // gating the UI. We still read it locally here because the load body
@@ -744,7 +744,14 @@ export default function App() {
 
   useEffect(() => {
     if (!authUser) { setRelationships(null); return; }
-    getUserRelationships().then(r => setRelationships(r)).catch(() => {});
+    // On RPC failure set an EMPTY sentinel, never leave `null`. The landing
+    // oracle gates on `relationships` being non-null; a swallowed error that
+    // left it null forever hung the page on a blank/marketing splash for a
+    // signed-in user (App Store 2.1(a) hang vector, s199). Empty → the
+    // "signed-in, no team" onboarding renders, which is the correct fallback.
+    getUserRelationships()
+      .then(r => setRelationships(r || { squads: [], club_memberships: [], guardian_of: [] }))
+      .catch(() => setRelationships({ squads: [], club_memberships: [], guardian_of: [] }));
   }, [authUser]);
 
   // Unified login (Step 2) — load the teams this account admins (with tokens).
@@ -771,6 +778,13 @@ export default function App() {
   // network round-trip. Declared above the resume effect because that effect's
   // dependency array references it — a later const would be in the TDZ.
   const isRefreshing = useRef(false);
+  // Resume-handler auth-refresh throttle. MUST be a ref, not an effect-local
+  // `let`: the resume effect's dep array is [refreshTeamData], which is rebuilt
+  // on every route change (its deps are [route?.type, route?.token]). A local
+  // `let lastAuthRefresh = 0` reset to 0 on each rebuild, defeating the 5-min
+  // throttle so a navigate-heavy session re-refreshed the token repeatedly. A
+  // ref persists across effect re-runs.
+  const lastAuthRefresh = useRef(0);
   const refreshTeamData = useCallback(async () => {
     if (isRefreshing.current) return;
     isRefreshing.current = true;
@@ -814,17 +828,17 @@ export default function App() {
   // realtime reconnect resumes live streaming; the catch-up re-fetch pulls any
   // events lost while suspended.
   useEffect(() => {
-    let lastAuthRefresh = 0;
     const AUTH_THROTTLE = 5 * 60 * 1000;
     const onResume = async () => {
       if (document.visibilityState !== 'visible') return;
 
-      // (a) Auth token refresh — throttled to once / 5 min. Refreshing the JWT
-      // on every rapid foreground/background cycle is wasteful and rate-limit
-      // prone.
+      // (a) Auth token refresh — throttled to once / 5 min via a ref (see
+      // lastAuthRefresh above) so the throttle survives this effect's re-runs.
+      // Refreshing the JWT on every rapid foreground/background cycle is wasteful
+      // and rate-limit prone.
       const now = Date.now();
-      if (now - lastAuthRefresh >= AUTH_THROTTLE) {
-        lastAuthRefresh = now;
+      if (now - lastAuthRefresh.current >= AUTH_THROTTLE) {
+        lastAuthRefresh.current = now;
         try { await supabase.auth.refreshSession(); } catch (e) { /* expected for anon — silent */ }
       }
 
@@ -1346,6 +1360,22 @@ export default function App() {
     return <TournamentJoinScreen code={route.code} />;
   }
 
+  // In-flight guard: a signed-in user at "/" whose relationships or admin-teams
+  // are still loading must see a SPINNER, not the logged-out-looking marketing
+  // splash below (which would otherwise paint for the frame(s) before the RPCs
+  // resolve — a brief "you're signed out" flash, and the visual half of the
+  // 2.1(a) rejection). Scoped to landing so token/admin routes are unaffected.
+  if (route.type === "landing" && authReady && authUser
+      && (relationships === null || myAdminTeams === null)) {
+    return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16 }}>
+        <div style={{ fontSize:48 }}>⚽</div>
+        <div style={{ fontFamily:"Inter,sans-serif", fontSize:14, color:C.muted }}>Loading...</div>
+      </div>
+    );
+  }
+
   // Authenticated user at "/" — route to the correct home based on relationships.
   // Only fires once relationships have loaded (null guard prevents a flash-redirect
   // on the frame before the RPC resolves). Squad-only with exactly one squad →
@@ -1436,45 +1466,108 @@ export default function App() {
     );
   }
 
-  // Apple "Hide My Email" safety net (Option A): a signed-in user on a private
-  // relay address with zero teams/clubs/children almost certainly already has a
-  // real account under their usual login (Google / email) — Apple's relay created
-  // a separate empty one. Guide them back instead of dropping them on Create/Join
-  // (which risks an accidental duplicate team). Scoped to relay emails ONLY, so
-  // genuinely-new normal users still get the standard welcome below.
+  // Signed-in user with ZERO teams/clubs/children (Option A onboarding). This one
+  // branch subsumes both the old relay-only dead-end AND the normal-email
+  // fall-through to the logged-out-looking marketing splash: every 0-team signed-in
+  // user lands here now. It gives a real home — Create / Join — plus REACHABLE Sign
+  // out and Delete-account (via /profile, which renders both for a no-team user) so
+  // a fresh Hide-My-Email reviewer is never stranded (App Store 2.1(a) hang/logout
+  // + 5.1.1(v) deletion-reachability, s199). `isRelay` only downgrades the
+  // Hide-My-Email caution to a secondary hint instead of being the whole screen.
   if (route.type === "landing" && authReady && authUser && relationships && myAdminTeams !== null
       && homeScreenType === "squad_only"
       && (relationships.squads?.length ?? 0) === 0
-      && myAdminTeams.length === 0
-      && (authUser.email || "").toLowerCase().endsWith("@privaterelay.appleid.com")) {
-    const signOutRetry = async () => {
+      && myAdminTeams.length === 0) {
+    const isRelay = (authUser.email || "").toLowerCase().endsWith("@privaterelay.appleid.com");
+    const who = authUser.email || authUser.user_metadata?.name || "your account";
+    const signOut = async () => {
       try { await supabase.auth.signOut(); } catch (e) { console.error("sign out failed", e); }
       window.location.replace("/signin");
+    };
+    const onbLinkValid = /\/p\/[a-zA-Z0-9_-]+/.test(linkInput);
+    const onbGoToLink = () => {
+      const m = linkInput.match(/\/p\/([a-zA-Z0-9_-]+)/);
+      if (m) window.location.href = `/p/${m[1]}`;
     };
     return (
       <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
         display:"flex", flexDirection:"column", alignItems:"center",
         justifyContent:"center", padding:24, fontFamily:"'DM Sans',sans-serif" }}>
-        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:40,
-          color:C.amber, letterSpacing:3, marginBottom:12, textAlign:"center" }}>
-          NEW ACCOUNT
+        <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:44,
+          letterSpacing:3, marginBottom:6, textAlign:"center", lineHeight:0.9 }}>
+          <span style={{ color:C.green }}>IN</span>
+          <span style={{ color:C.text }}> OR </span>
+          <span style={{ color:C.red }}>OUT</span>
         </div>
-        <div style={{ fontSize:14, color:C.muted, textAlign:"center",
-          marginBottom:28, lineHeight:1.6, maxWidth:320 }}>
-          You signed in with Apple's <b>Hide My Email</b>, which creates a separate
-          account — so it has no teams yet.<br/><br/>
-          If you already have a team, sign back in the way you used before
-          (Google or email), or open your team's link.
+        <div style={{ fontSize:13, color:C.muted, textAlign:"center", marginBottom:22 }}>
+          You're signed in as <span style={{ color:C.text }}>{who}</span>.
         </div>
-        <button onClick={signOutRetry} style={{ width:"100%", maxWidth:320,
-          padding:"16px 0", borderRadius:8, border:"none", background:C.amber,
-          color:C.black, fontFamily:"'DM Sans',sans-serif", fontSize:16,
-          fontWeight:700, cursor:"pointer", letterSpacing:0.3 }}>
-          Sign in a different way
-        </button>
-        <a href="/create" style={{ marginTop:18, fontFamily:"Inter,sans-serif",
-          fontSize:13, color:C.muted, textDecoration:"underline",
-          textDecorationStyle:"dotted" }}>I'm new — create / join a team</a>
+        <div style={{ fontSize:15, color:C.text, textAlign:"center",
+          marginBottom:24, lineHeight:1.5, maxWidth:300 }}>
+          You're not in a team yet. Create one, or join an existing team to get going.
+        </div>
+        <a href="/create" style={{ display:"block", width:"100%", maxWidth:320, textDecoration:"none" }}>
+          <button style={{ width:"100%", padding:"16px 0", borderRadius:8,
+            border:"none", background:C.amber, color:C.black,
+            fontFamily:"'DM Sans',sans-serif", fontSize:16, fontWeight:700,
+            cursor:"pointer", letterSpacing:0.3, display:"flex",
+            alignItems:"center", justifyContent:"center", gap:8 }}>
+            Create or join a team
+            <ArrowRight size={18} weight="thin" />
+          </button>
+        </a>
+        <div style={{ marginTop:18, textAlign:"center" }}>
+          {!showLinkInput ? (
+            <button onClick={() => setShowLinkInput(true)} style={{
+              background:"none", border:"none", padding:0, cursor:"pointer",
+              fontFamily:"'DM Sans',sans-serif", fontSize:13, color:C.muted,
+              display:"inline-flex", alignItems:"center", gap:6,
+              textDecoration:"underline", textDecorationStyle:"dotted" }}>
+              <LinkSimple size={15} weight="thin" />
+              Have a player link?
+            </button>
+          ) : (
+            <div style={{ maxWidth:320, margin:"0 auto" }}>
+              <input autoFocus value={linkInput}
+                onChange={e => setLinkInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") onbGoToLink(); }}
+                placeholder="Paste your link here"
+                style={{ width:"100%", padding:"12px 14px", borderRadius:6,
+                  border:`1.5px solid ${linkInput ? C.amber : C.border}`,
+                  background:C.bg, color:C.text, fontFamily:"'DM Sans',sans-serif",
+                  fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:8 }} />
+              <button onClick={onbGoToLink}
+                style={{ width:"100%", padding:"12px 0", borderRadius:6, border:"none",
+                  background: onbLinkValid ? C.amber : C.border,
+                  color: onbLinkValid ? C.black : C.muted,
+                  fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:700,
+                  cursor: onbLinkValid ? "pointer" : "not-allowed",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                Go <ArrowRight size={16} weight="thin" />
+              </button>
+            </div>
+          )}
+        </div>
+        {isRelay && (
+          <div style={{ marginTop:24, fontSize:12, color:C.faint, textAlign:"center",
+            lineHeight:1.5, maxWidth:300 }}>
+            You used Apple's <b>Hide My Email</b>, which creates a separate account. If
+            you already have a team under another login, sign out and sign back in the
+            way you used before.
+          </div>
+        )}
+        <div style={{ marginTop:28, display:"flex", gap:18, alignItems:"center" }}>
+          <button onClick={signOut} style={{ background:"none", border:"none",
+            padding:0, cursor:"pointer", fontFamily:"'DM Sans',sans-serif",
+            fontSize:13, color:C.muted, textDecoration:"underline",
+            textDecorationStyle:"dotted" }}>
+            Sign out
+          </button>
+          <a href="/profile" style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13,
+            color:C.muted, textDecoration:"underline", textDecorationStyle:"dotted" }}>
+            Manage account
+          </a>
+        </div>
       </div>
     );
   }
