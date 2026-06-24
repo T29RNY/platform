@@ -3991,3 +3991,19 @@ Pilot backlog #5 (internal-vs-external pitch booking + reserved/priority times) 
   not hard block) — the external gate lives on the casual `book_pitch_*` path.
 - **Reuse the comms spine** (club_announcements / broadcast cron / notify_team_change) for bump
   notifications — no parallel system; audit every fire-and-forget write (Hard Rule #9).
+
+## Calendar & mobile epic — Phase 1 (manager mobile calendar)
+
+- **Manager's schedule is an agenda calendar, not a flat list, by default.** `SessionsScreen.jsx`
+  reshapes the manager's upcoming `sessions` (training + matches, both `club_sessions`) into a
+  day-grouped agenda with relative day headers (Today / Tomorrow / "Wed 25 Jun") + per-day counts,
+  reusing the existing `SessionCard` (type badges, RSVP chips, venue/opponent labels) unchanged.
+  Rationale: "the calendar is key, on mobile" — the agenda IS the calendar; no list/agenda toggle.
+- **UI-only reshape — no backend.** Data is unchanged: `member_list_upcoming_sessions` already
+  returns the sessions `ORDER BY scheduled_at` ascending with `session_type`/`venue_*`/`opponent_*`.
+  Grouping + the week filter are pure client transforms. No migration, no new RPC, no RPC touched.
+- **Week navigator = simple segmented filter (All · This week · Next week), default All.** Monday-
+  anchored weeks; default `all` hides nothing (preserves the old "show every upcoming session"
+  behaviour). No infinite prev/next navigation — the dataset is finite upcoming-only, so three chips
+  beat arrows. Club Leagues fixtures (`club_fixtures`, operator-created) are NOT in this list — that
+  surfacing is Phase 3 (needs a new manager-facing reader).
