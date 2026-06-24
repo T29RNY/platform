@@ -3955,3 +3955,39 @@ looks like the membership vanished.
   `contact_id` (no FK — two source tables). Chosen because teams live in two tables
   (`teams` text id / `club_teams` uuid id) and `teams` is the shared casual table we
   don't touch; and the contact itself spans two identity stores.
+
+## Pitch priority — rank-driven contention + reserved windows (session 195, pre-build scope; PITCH_PRIORITY_HANDOFF.md)
+
+Pilot backlog #5 (internal-vs-external pitch booking + reserved/priority times) and #6 (make
+`club_teams.priority_rank` drive pitch contention) — audited and locked s195, build next session.
+
+- **Internal vs external needs no new flag — it already follows `source_kind`.** `club_session`
+  + `club_fixture` (→ `club_teams`, the ranked teams) = internal; `booking` (→ `pitch_bookings.
+  team_id` → casual `teams`, or a walk-in) = external. They never cross (a `club_teams` uuid can't
+  sit on `pitch_bookings.team_id`). The net-new piece is the **priority/reservation layer**, not
+  the distinction.
+- **Today contention is blind first-come hard-block.** The `pitch_occupancy_no_overlap` partial
+  GiST EXCLUDE is source-/priority-blind; the `priority smallint` column and mig-133's "displacement
+  model" are write-only metadata — nothing reads them. `priority_rank` is display-only (TeamsView /
+  MembershipsView ⭐ + list_club_teams ORDER BY). So "make rank win" is genuinely new behaviour.
+- **Bumping is club-team-vs-club-team ONLY.** A higher-ranked club team auto-bumps a lower-ranked
+  club team; a club team **never** auto-bumps a paying outside hire. Rationale: outside bookings are
+  revenue + a customer promise (and refunds once Stripe is live) — yanking them automatically is bad
+  product. Club time is protected **prospectively** by reserved windows instead, never by retroactive
+  eviction of a paid hire.
+- **Rank decides, not arrival order.** Whoever has the worse `priority_rank` yields. Equal/NULL rank
+  on either side → today's polite `slot_unavailable`, no bump.
+- **Suggest-and-confirm, not silent auto-move.** A bumped event goes **tentative** and releases its
+  pitch immediately; the system computes the closest-available slot (nearest in time, same venue
+  first then the operator's other same-company venues, skipping reserved windows) and notifies the
+  bumped team's managers with an **Accept / Decline**. Accept → moves + re-reserves (re-suggest on
+  race); Decline or no-alternative → stays tentative + "sort ASAP". Tentative events hold no pitch.
+  Both the venue operator (token) and the club manager (auth.uid, player app) can act.
+- **Reserved windows = one flexible table, not two systems.** `pitch_reserved_windows` with an
+  `audience` of `internal` | `team` | `min_rank` (+ optional `club_team_id` / `min_rank`) covers
+  both per-use-type and per-team ring-fencing. Windows act **prospectively** (block new non-qualifying
+  bookings); a window added over an existing booking surfaces as an operator warning, never an
+  auto-evict. The operator can override their own reserved window when booking a walk-in (warning,
+  not hard block) — the external gate lives on the casual `book_pitch_*` path.
+- **Reuse the comms spine** (club_announcements / broadcast cron / notify_team_change) for bump
+  notifications — no parallel system; audit every fire-and-forget write (Hard Rule #9).
