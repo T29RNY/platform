@@ -2957,6 +2957,8 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
 .agenda-res-name { flex: 0 0 150px; min-width: 0; padding-top: 4px; }
 .agenda-res-title { display: block; font-weight: 600; font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-res-venue { display: block; font-size: 11px; color: var(--ink-3); }
+.agenda-res-add { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 3px 9px; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--bg-4); border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; }
+.agenda-res-add:hover { background: var(--bg-3); }
 .agenda-res-chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0; }
 /* colour (background/border-color/text) comes from the occ-* class — set only width/style here */
 .agenda-chip {

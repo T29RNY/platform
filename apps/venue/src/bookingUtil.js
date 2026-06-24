@@ -4,6 +4,12 @@ const TZ = "Europe/London";
 
 const pad = (n) => String(n).padStart(2, "0");
 
+// Resource lanes the operator can book into from the unified calendar (Phase 2, own site
+// only). pitch → WalkInModal, room → reused class CreateSessionModal. Trainer appointments
+// and ad-hoc room hires have no operator create flow yet, so those lanes stay read-only;
+// add the type here once a reuse target exists.
+export const BOOKABLE_RESOURCE_TYPES = new Set(["pitch", "room"]);
+
 export function isoDate(d) {
   // YYYY-MM-DD from LOCAL components (never toISOString — that converts to UTC
   // and shifts the date in non-UTC zones, silently cancelling addDays).

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { getOperatorPitchOccupancy, getVenueResourceOccupancy, getEquipmentAvailability, venueListPitchReservedWindows, venueListBumpProposals } from "@platform/core";
+import { getOperatorPitchOccupancy, getVenueResourceOccupancy, getEquipmentAvailability, venueListPitchReservedWindows, venueListBumpProposals, venueListClassTypes, venueListAdmins } from "@platform/core";
 import RequestsInbox from "./RequestsInbox.jsx";
 import BumpProposalsBanner from "./BumpProposalsBanner.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
@@ -8,6 +8,7 @@ import ResourceCalendar from "./ResourceCalendar.jsx";
 import ResourceAgenda from "./ResourceAgenda.jsx";
 import EquipmentStrip from "./EquipmentStrip.jsx";
 import ResourceBlockModal from "./ResourceBlockModal.jsx";
+import { CreateSessionModal as ClassSessionModal } from "./ClassesView.jsx";
 import DayAgenda from "./DayAgenda.jsx";
 import WalkInModal from "./WalkInModal.jsx";
 import BookingSettings from "./BookingSettings.jsx";
@@ -185,6 +186,28 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   }, [venueToken]);
   useEffect(() => { if (isUnified) loadResources(); }, [isUnified, loadResources]);
 
+  // Class types + instructors power the Room-lane tap-to-book (reuses the Classes screen's
+  // CreateSessionModal). Loaded once when the unified calendar is open.
+  const [classTypes, setClassTypes] = useState([]);
+  const [instructors, setInstructors] = useState([]);
+  useEffect(() => {
+    if (!isUnified) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [tps, ad] = await Promise.all([venueListClassTypes(venueToken), venueListAdmins(venueToken)]);
+        if (cancelled) return;
+        setClassTypes((Array.isArray(tps) ? tps : []).filter((t) => t.is_active));
+        setInstructors((ad?.admins ?? []).filter((a) => a.status === "active"));
+      } catch (err) {
+        console.error("load class refs for calendar booking failed", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isUnified, venueToken]);
+  // Room-lane tap → schedule a class in that space at the tapped time: { spaceId, startsAt }.
+  const [classCreate, setClassCreate] = useState(null);
+
   const [equipment, setEquipment] = useState([]);
   const [selectedBlock, setSelectedBlock] = useState(null);
 
@@ -345,6 +368,17 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); loadBumps(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
 
+  // Unified-calendar tap-to-book: route an empty-slot tap to the right existing flow per lane.
+  // pitch → WalkInModal; room → reused class CreateSessionModal. Only own-site pitch/room
+  // lanes are marked bookable, so trainer/foreign lanes never reach here.
+  const onResourceBook = (resourceType, resourceId, hhmm) => {
+    if (resourceType === "pitch") {
+      setWalkIn({ pitchId: resourceId, time: hhmm || "19:00" });
+    } else if (resourceType === "room") {
+      setClassCreate({ spaceId: resourceId, startsAt: `${date}T${hhmm || "18:00"}` });
+    }
+  };
+
   return (
     <div className="bookings">
       {!enabled && (
@@ -427,7 +461,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
             {isUnified ? (
               <>
                 <div className="banner banner-info ground-readonly">
-                  Showing <strong>all your resources</strong> across every site — a read-only overview. Book from each resource's own screen for now.
+                  Showing <strong>all your resources</strong> across every site. Tap an empty slot on this site's pitches or rooms to book; other sites are view-only.
                 </div>
                 <CalendarFilters
                   resourceChips
@@ -454,6 +488,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                       dayOcc={resourceDayOcc}
                       activeTypes={activeTypes}
                       onSelectBlock={setSelectedBlock}
+                      onBook={onResourceBook}
                     />
                   )
                 ) : (
@@ -479,6 +514,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                         nowMin={nowMin}
                         fixedHeight
                         onSelectBlock={setSelectedBlock}
+                        onBook={onResourceBook}
                       />
                     )}
                   </>
@@ -602,6 +638,16 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
         occ={selectedBlock}
         onClose={() => setSelectedBlock(null)}
       />
+      {classCreate && (
+        <ClassSessionModal
+          venueToken={venueToken}
+          types={classTypes.filter((t) => t.space_id === classCreate.spaceId)}
+          instructors={instructors}
+          initialStartsAt={classCreate.startsAt}
+          onClose={() => setClassCreate(null)}
+          onDone={() => { setClassCreate(null); loadResources(); afterWrite(); }}
+        />
+      )}
 
       {(!isUnified || showAdmin) && <CancellationsLog venueToken={venueToken} refreshKey={cancelKey} />}
     </div>

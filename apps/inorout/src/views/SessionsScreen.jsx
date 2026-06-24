@@ -164,6 +164,9 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
   // Manager write state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // When the manager taps "+ Add" on a day in the Agenda we seed the create modal with
+  // that day (datetime-local "YYYY-MM-DDTHH:MM"); the global "+ Create" leaves it blank.
+  const [createDate, setCreateDate]           = useState("");
   const [createLoading, setCreateLoading]     = useState(false);
   const [teamMembers, setTeamMembers]         = useState([]);
   const [teamMembersLoading, setTeamMembersLoading] = useState(false);
@@ -1190,7 +1193,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
               </span>
               {activeTab === "sessions" && (
                 <button
-                  onClick={() => setShowCreateModal(true)}
+                  onClick={() => { setCreateDate(""); setShowCreateModal(true); }}
                   style={{
                     fontSize: 13, fontWeight: 700,
                     background: "rgba(255,255,255,0.08)",
@@ -1515,8 +1518,25 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                       <span style={{ fontFamily: "var(--font-display)", fontSize: 20, letterSpacing: 0.5, color: "var(--t1)" }}>
                         {group.label}
                       </span>
-                      <span style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
-                        {group.items.length} {group.items.length === 1 ? "session" : "sessions"}
+                      <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)" }}>
+                          {group.items.length} {group.items.length === 1 ? "session" : "sessions"}
+                        </span>
+                        {isManager && (
+                          <button
+                            onClick={() => { setCreateDate(`${group.key}T18:00`); setShowCreateModal(true); }}
+                            title={`Add a session on ${group.label}`}
+                            style={{
+                              fontSize: 12, fontWeight: 700, lineHeight: 1,
+                              background: "rgba(255,255,255,0.08)",
+                              border: "1px solid var(--border)", color: "var(--t1)",
+                              padding: "4px 9px", borderRadius: 14,
+                              fontFamily: "var(--font-body)", cursor: "pointer",
+                            }}
+                          >
+                            + Add
+                          </button>
+                        )}
                       </span>
                     </div>
                     {group.items.map(session => (
@@ -2798,6 +2818,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
           managedTeams={managedTeamsForClub}
           clubVenues={clubVenuesForClub}
           loading={createLoading}
+          initialDate={createDate}
           onCreateSession={handleCreateSession}
           onCreateSeries={handleCreateSeries}
           onClose={() => setShowCreateModal(false)}
@@ -3538,7 +3559,7 @@ function SessionDetail({
 }
 
 // ── CreateSessionModal ────────────────────────────────────────────────────────
-function CreateSessionModal({ managedTeams, clubVenues = [], loading, onCreateSession, onCreateSeries, onClose }) {
+function CreateSessionModal({ managedTeams, clubVenues = [], loading, initialDate = "", onCreateSession, onCreateSeries, onClose }) {
   const [mode, setMode]               = useState("oneoff"); // "oneoff" | "recurring"
   const [selectedTeamId, setSelectedTeamId] = useState(managedTeams[0]?.team_id ?? null);
   // Multi-venue (same-operator): anchor the session to one of the club's sites.
@@ -3546,7 +3567,7 @@ function CreateSessionModal({ managedTeams, clubVenues = [], loading, onCreateSe
   const [venueId, setVenueId]         = useState(clubVenues.length === 1 ? clubVenues[0].venue_id : "");
   const [title, setTitle]             = useState("");
   const [sessionType, setSessionType] = useState("training");
-  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduledAt, setScheduledAt] = useState(initialDate); // prefilled when opened from a day's "+ Add"
   const [dayOfWeek, setDayOfWeek]     = useState(1); // Monday default
   const [startTime, setStartTime]     = useState("18:00");
   const [fromDate, setFromDate]       = useState("");

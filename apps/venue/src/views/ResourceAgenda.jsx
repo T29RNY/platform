@@ -1,15 +1,16 @@
 import React, { useMemo } from "react";
-import { minsOfDay, fmtTime, occClass, occLabel, occSub, occType, occIcon, occIsPending } from "../bookingUtil.js";
+import { minsOfDay, fmtTime, occClass, occLabel, occSub, occType, occIcon, occIsPending, BOOKABLE_RESOURCE_TYPES } from "../bookingUtil.js";
 import Icon from "./Icon.jsx";
 
 // Denser alternative to the time-aligned grid: each booked resource is a ROW, its bookings
 // laid out left-to-right as time-ordered chips. Fits far more on screen for big venues and
-// is the natural mobile layout. Only resources WITH bookings appear. Read-only (tap a chip →
-// its detail). Same colour/label/type helpers as the grid so the two views read identically.
+// is the natural mobile layout. Only resources WITH bookings appear. Tap a chip → its
+// read-only detail; own-site bookable rows (pitch/room) carry a "+" to start a booking via
+// onBook. Same colour/label/type helpers as the grid so the two views read identically.
 const TYPE_ORDER = ["pitch", "room", "trainer"];
 const TYPE_LABEL = { pitch: "Pitches", room: "Rooms", trainer: "Trainers" };
 
-export default function ResourceAgenda({ venues, dayOcc, activeTypes, onSelectBlock }) {
+export default function ResourceAgenda({ venues, dayOcc, activeTypes, onSelectBlock, onBook }) {
   const multiVenue = venues.length > 1;
   const venueName = useMemo(() => {
     const m = new Map();
@@ -19,6 +20,16 @@ export default function ResourceAgenda({ venues, dayOcc, activeTypes, onSelectBl
       for (const t of (v.trainers ?? [])) m.set(t.id, v.venue_name);
     }
     return m;
+  }, [venues]);
+  // Own-site lanes the operator can book into (pitch/room). Mirrors ResourceCalendar.
+  const bookableById = useMemo(() => {
+    const s = new Set();
+    for (const v of venues) {
+      if (!v.is_self) continue;
+      if (BOOKABLE_RESOURCE_TYPES.has("pitch")) for (const p of (v.pitches ?? [])) s.add(p.id);
+      if (BOOKABLE_RESOURCE_TYPES.has("room")) for (const r of (v.rooms ?? [])) s.add(r.id);
+    }
+    return s;
   }, [venues]);
 
   // One row per resource that has a booking, grouped by resource type.
@@ -52,6 +63,11 @@ export default function ResourceAgenda({ venues, dayOcc, activeTypes, onSelectBl
                 <span className="agenda-res-title">{row.name}</span>
                 {multiVenue && venueName.get(row.id) && (
                   <span className="agenda-res-venue">{venueName.get(row.id)}</span>
+                )}
+                {onBook && bookableById.has(row.id) && (
+                  <button className="agenda-res-add" title="Book this resource" onClick={() => onBook(row.type, row.id, null)}>
+                    <Icon name="plus" size={12} /> Book
+                  </button>
                 )}
               </div>
               <div className="agenda-res-chips">
