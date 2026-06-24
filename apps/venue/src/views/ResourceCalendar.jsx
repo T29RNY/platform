@@ -9,7 +9,7 @@ import GroupedColumnGrid from "./GroupedColumnGrid.jsx";
 const TYPE_ORDER = ["pitch", "room", "trainer"];
 const TYPE_LABEL = { pitch: "Pitches", room: "Rooms", trainer: "Trainers" };
 
-export default function ResourceCalendar({ date, venues, dayOcc, activeTypes, windowOverride = null, onSelectBlock }) {
+export default function ResourceCalendar({ date, venues, dayOcc, activeTypes, windowOverride = null, nowMin = null, fixedHeight = false, onSelectBlock }) {
   const multiVenue = venues.length > 1;
 
   const bands = useMemo(() => {
@@ -41,6 +41,8 @@ export default function ResourceCalendar({ date, venues, dayOcc, activeTypes, wi
       colIdOf={(o) => o.resource_id}
       allColumns={[]}
       windowOverride={windowOverride}
+      nowMin={nowMin}
+      fixedHeight={fixedHeight}
       blockClickable={() => true}
       onBlockClick={(o) => onSelectBlock?.(o)}
     />

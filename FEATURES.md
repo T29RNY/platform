@@ -76,6 +76,12 @@ engine; `AllGroundsGrid` refactored onto it, regression-safe) + an **equipment a
 filterable. Read-only (tap→detail, empty→no-op). New reader `get_venue_resource_occupancy` + `ResourceCalendar`/
 `ResourceBlockModal`/`EquipmentStrip`. Pitches mode = existing pitch console unchanged. Gates all PASS (EV
 3/3+leak0, Playwright 0 err, rpc-security, hygiene 7/7). ⛔ owed venue MANUAL deploy + device walk.
+**LAYOUT REWORK s198 (UI-only, no mig) after operator feedback** (grid terrible for big venues + kept
+resizing + equipment fell below fold): now a **Grid/Agenda view toggle** (persisted; mobile=Agenda) —
+Grid = fixed-height pane (62vh, constant window from opening hours → no resize), empty resources hidden +
+"Show all" toggle, live now-line + auto-scroll; Agenda = denser per-resource rows of time chips
+(`ResourceAgenda`). Equipment strip pinned (always visible). Pitch Requests/Cancellations hidden in unified
+modes. Both views Playwright-verified 0 err, height-stable; Pitches mode unchanged.
 **Phase 2 (next) = book/create from the calendar, desktop + mobile.** DEFERRED follow-up (now Phase 2):
 create-a-session/match-from-a-calendar-tap + mobile booking polish for that flow,
 #13 season setup (partial). ⬜ NOT STARTED = #12 reporting/data (biggest remaining gap). The full prioritised table with effort

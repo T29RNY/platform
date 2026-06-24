@@ -5,6 +5,7 @@ import BumpProposalsBanner from "./BumpProposalsBanner.jsx";
 import ScheduleGrid from "./ScheduleGrid.jsx";
 import AllGroundsGrid from "./AllGroundsGrid.jsx";
 import ResourceCalendar from "./ResourceCalendar.jsx";
+import ResourceAgenda from "./ResourceAgenda.jsx";
 import EquipmentStrip from "./EquipmentStrip.jsx";
 import ResourceBlockModal from "./ResourceBlockModal.jsx";
 import DayAgenda from "./DayAgenda.jsx";
@@ -15,7 +16,7 @@ import CancellationsLog from "./CancellationsLog.jsx";
 import CalendarFilters from "./CalendarFilters.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
-import { todayIso, addDays, fmtDayLabel, isOnDate, occLabel, occTypeKey, occIsFirst, occBounds } from "../bookingUtil.js";
+import { todayIso, addDays, fmtDayLabel, isOnDate, occLabel, occTypeKey, occIsFirst, occBounds, parseHHMM, minsOfDay } from "../bookingUtil.js";
 
 const EMPTY_FILTERS = { paid: false, owed: false, oneoff: false, block: false, league: false, training: false, match: false, maint: false, pending: false, isnew: false, free: false, room: false, class: false, pt: false };
 
@@ -187,6 +188,15 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
   const [equipment, setEquipment] = useState([]);
   const [selectedBlock, setSelectedBlock] = useState(null);
 
+  // View preference (Grid = time-aligned calendar / Agenda = denser per-resource list),
+  // persisted so the operator's choice sticks. Mobile always uses Agenda (columns can't fit).
+  const [calendarView, setCalendarView] = useState(() => {
+    try { return localStorage.getItem("venueCalView") || "grid"; } catch { return "grid"; }
+  });
+  const setView = (v) => { setCalendarView(v); try { localStorage.setItem("venueCalView", v); } catch { /* ignore */ } };
+  // Grid hides resources with no booking that day by default; this reveals every lane.
+  const [showAllResources, setShowAllResources] = useState(false);
+
   const hasMultiVenue = operatorVenues.length > 1;
   const ALL_GROUNDS = "__all__";
   const isAll = selectedVenueId === ALL_GROUNDS;
@@ -284,16 +294,50 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
     return out;
   }, [resourceVenues, activeTypes, date, filters, filterQ]);
   const resourceContentActive = filters.room || filters.class || filters.pt || !!filterQ.trim();
-  const resourceWindow = useMemo(
-    () => (resourceContentActive ? occBounds(resourceDayOcc) : null),
-    [resourceContentActive, resourceDayOcc],
-  );
   // Drop venues with no active-type lanes so empty bands don't render.
   const resourceVisibleVenues = useMemo(
     () => resourceVenues.filter((v) =>
       activeTypes.some((t) => ((t === "pitch" ? v.pitches : t === "room" ? v.rooms : v.trainers) ?? []).length > 0)),
     [resourceVenues, activeTypes],
   );
+
+  // Mobile can't fit calendar columns → always Agenda. Desktop honours the saved choice.
+  const viewMode = isMobile ? "agenda" : calendarView;
+
+  // CONSTANT day window (minutes) for the grid — derived from the venue's pitch opening
+  // hours, never from the selected day's bookings, so the calendar is the SAME height every
+  // day and under every filter (no more resizing). Floors to whole hours, min 07:00–23:00.
+  const resourceWindow = useMemo(() => {
+    let lo = 7 * 60, hi = 23 * 60;
+    for (const p of (state.pitches ?? [])) {
+      for (const w of (p.booking_windows ?? [])) {
+        lo = Math.min(lo, parseHHMM(w.open_time));
+        hi = Math.max(hi, parseHHMM(w.close_time));
+      }
+    }
+    return { startMin: Math.floor(lo / 60) * 60, endMin: Math.ceil(hi / 60) * 60 };
+  }, [state.pitches]);
+
+  // Now-line position (minutes) when the selected day is today and within the window.
+  const nowMin = useMemo(() => {
+    if (date !== todayIso()) return null;
+    const m = minsOfDay(new Date().toISOString());
+    return m >= resourceWindow.startMin && m <= resourceWindow.endMin ? m : null;
+  }, [date, resourceWindow]);
+
+  // Grid: hide resources with no booking this day unless "Show all" is on.
+  const bookedIds = useMemo(() => new Set(resourceDayOcc.map((o) => o.resource_id)), [resourceDayOcc]);
+  const resourceGridVenues = useMemo(() => {
+    if (showAllResources) return resourceVisibleVenues;
+    return resourceVisibleVenues
+      .map((v) => ({
+        ...v,
+        pitches: (v.pitches ?? []).filter((p) => bookedIds.has(p.id)),
+        rooms: (v.rooms ?? []).filter((r) => bookedIds.has(r.id)),
+        trainers: (v.trainers ?? []).filter((t) => bookedIds.has(t.id)),
+      }))
+      .filter((v) => (v.pitches.length + v.rooms.length + v.trainers.length) > 0);
+  }, [resourceVisibleVenues, showAllResources, bookedIds]);
 
   const afterWrite = () => { onRefreshOccupancy?.(); loadOperator(); loadBumps(); setCancelKey((k) => k + 1); };
   const addBooking = () => setWalkIn({ pitchId: pitches[0]?.id, time: "19:00" });
@@ -310,6 +354,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
 
       <BumpProposalsBanner venueToken={venueToken} proposals={bumpProposals} onResolved={onBumpResolved} />
 
+      {!isUnified && (
       <section style={{ marginBottom: "var(--gap-3)" }}>
         <SectionHead label="Requests" count={pendingGroups.length}>
           <button className="btn btn-sm btn-ghost" onClick={() => setSettingsOpen(true)}>
@@ -321,6 +366,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
         </SectionHead>
         <RequestsInbox groups={pendingGroups} venueToken={venueToken} onChanged={afterWrite} />
       </section>
+      )}
 
       <section>
         <SectionHead label="Schedule">
@@ -341,6 +387,12 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                   <button key={m.key} className={"btn btn-xs" + (resourceMode === m.key ? " btn-primary" : "")} onClick={() => setResourceMode(m.key)}>{m.label}</button>
                 ))}
               </span>
+              {isUnified && !isMobile && (
+                <span className="res-switch" role="group" aria-label="Calendar view">
+                  <button className={"btn btn-xs" + (calendarView === "grid" ? " btn-primary" : "")} onClick={() => setView("grid")} title="Time-aligned calendar">Grid</button>
+                  <button className={"btn btn-xs" + (calendarView === "agenda" ? " btn-primary" : "")} onClick={() => setView("agenda")} title="Compact per-resource list">Agenda</button>
+                </span>
+              )}
               {!isUnified && hasMultiVenue && (
                 <span className="ground-switch" title="View another of your grounds">
                   <Icon name="spaces" size={14} />
@@ -380,17 +432,45 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
                   <EmptyState title="Nothing to show yet" body="No rooms, classes or trainers are set up for your venues." />
                 ) : resourceContentActive && resourceDayOcc.length === 0 ? (
                   <EmptyState title="No matches" body="Nothing on this day fits the current filters." />
+                ) : viewMode === "agenda" ? (
+                  resourceDayOcc.length === 0 ? (
+                    <EmptyState title="Nothing booked" body="No bookings on this day. Switch to Grid to see empty lanes." />
+                  ) : (
+                    <ResourceAgenda
+                      venues={resourceVisibleVenues}
+                      dayOcc={resourceDayOcc}
+                      activeTypes={activeTypes}
+                      onSelectBlock={setSelectedBlock}
+                    />
+                  )
                 ) : (
-                  <ResourceCalendar
-                    date={date}
-                    venues={resourceVisibleVenues}
-                    dayOcc={resourceDayOcc}
-                    activeTypes={activeTypes}
-                    windowOverride={resourceWindow}
-                    onSelectBlock={setSelectedBlock}
-                  />
+                  <>
+                    <div className="cal-toolbar">
+                      <button
+                        className={"cal-chip" + (showAllResources ? " is-active" : "")}
+                        onClick={() => setShowAllResources((s) => !s)}
+                        aria-pressed={showAllResources}
+                      >
+                        {showAllResources ? "Showing all lanes" : "Show all resources"}
+                      </button>
+                    </div>
+                    {resourceGridVenues.length === 0 ? (
+                      <EmptyState title="Nothing booked" body="No bookings on this day. Tap “Show all resources” to see every empty lane." />
+                    ) : (
+                      <ResourceCalendar
+                        date={date}
+                        venues={resourceGridVenues}
+                        dayOcc={resourceDayOcc}
+                        activeTypes={activeTypes}
+                        windowOverride={resourceWindow}
+                        nowMin={nowMin}
+                        fixedHeight
+                        onSelectBlock={setSelectedBlock}
+                      />
+                    )}
+                  </>
                 )}
-                <EquipmentStrip items={equipment} dayLabel={fmtDayLabel(date)} />
+                <EquipmentStrip items={equipment} dayLabel={fmtDayLabel(date)} pinned />
               </>
             ) : activePitches.length === 0 ? (
               <EmptyState title="No active pitches" body={isSelf ? "Add a pitch in Operations first." : "This site has no active pitches."} />
@@ -510,7 +590,7 @@ export default function BookingsView({ state, venueToken, occupancy = [], bookin
         onClose={() => setSelectedBlock(null)}
       />
 
-      <CancellationsLog venueToken={venueToken} refreshKey={cancelKey} />
+      {!isUnified && <CancellationsLog venueToken={venueToken} refreshKey={cancelKey} />}
     </div>
   );
 }
