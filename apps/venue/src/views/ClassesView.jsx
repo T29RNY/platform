@@ -561,14 +561,17 @@ function SchedulePanel({ venueToken, types, instructors, noTypes, onGoToTypes })
   );
 }
 
-function CreateSessionModal({ venueToken, types, instructors, onClose, onDone }) {
+// Exported so the unified resource calendar (BookingsView) can reuse it as a tap-to-book
+// target for the Room lane — opened with the tapped slot's start time prefilled and the
+// class-type list already filtered to that room. initialStartsAt is "YYYY-MM-DDTHH:MM".
+export function CreateSessionModal({ venueToken, types, instructors, onClose, onDone, initialStartsAt = "" }) {
   const [mode, setMode] = useState("oneoff"); // "oneoff" | "recurring"
   const [classTypeId, setClassTypeId] = useState(types[0]?.id ?? "");
   const [instructorId, setInstructorId] = useState(instructors[0]?.id ?? "");
   const [paymentMode, setPaymentMode] = useState("door");
   const [price, setPrice] = useState("0.00");
   // one-off
-  const [startsAt, setStartsAt] = useState("");
+  const [startsAt, setStartsAt] = useState(initialStartsAt);
   // recurring
   const [dayOfWeek, setDayOfWeek] = useState("1");
   const [startTime, setStartTime] = useState("");
@@ -640,6 +643,7 @@ function CreateSessionModal({ venueToken, types, instructors, onClose, onDone })
 
       <label className="field-label">Class type</label>
       <select className="input" value={classTypeId} onChange={(e) => setClassTypeId(e.target.value)} style={{ marginBottom: 12 }}>
+        {types.length === 0 && <option value="">No class types for this space — add one under Class types</option>}
         {types.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.space_name} · {t.duration_minutes}m</option>)}
       </select>
 
