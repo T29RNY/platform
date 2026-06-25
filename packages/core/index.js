@@ -355,6 +355,8 @@ export {
   clubManagerUpdateHomeFixture,
   memberRsvpSession,
   memberGetSessionRsvpBoard,
+  guardianListChildFixtures,
+  guardianSetFixtureAvailability,
   clubManagerCreateSession,
   clubManagerCreateSessionSeries,
   clubManagerCancelSession,

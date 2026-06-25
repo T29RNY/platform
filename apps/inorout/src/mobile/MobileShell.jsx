@@ -20,6 +20,7 @@ import { useMobileTheme } from "./theme/useMobileTheme.js";
 import { resolveRoles, tabsFor, TAB_META, contextSubline } from "./nav.js";
 import MIcon from "./icons.jsx";
 import MobileSheet from "./MobileSheet.jsx";
+import GuardianMatches from "./screens/GuardianMatches.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -132,14 +133,22 @@ export default function MobileShell({ world, authUser, route }) {
       {/* scroll body — re-keyed on tab + child so per-screen state resets */}
       <div className="m-scroll" key={tab + "·" + (childId || "")}>
         <div className="m-view-enter">
-          <div className="m-card">
-            <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
-            <p style={{ color: "var(--ink2)", fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
-              Foundation ready. The <strong style={{ color: "var(--ink)" }}>{TAB_META[tab]?.title}</strong>{" "}
-              screen for the <strong style={{ color: "var(--amber)" }}>{role.key.replace("_", " ")}</strong>{" "}
-              role mounts here.
-            </p>
-          </div>
+          {isGuardian && tab === "matches" ? (
+            <GuardianMatches
+              childId={activeChild?.child_profile_id || null}
+              childFirst={activeChild?.first_name || "your child"}
+              toast={toast}
+            />
+          ) : (
+            <div className="m-card">
+              <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
+              <p style={{ color: "var(--ink2)", fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
+                Foundation ready. The <strong style={{ color: "var(--ink)" }}>{TAB_META[tab]?.title}</strong>{" "}
+                screen for the <strong style={{ color: "var(--amber)" }}>{role.key.replace("_", " ")}</strong>{" "}
+                role mounts here.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
