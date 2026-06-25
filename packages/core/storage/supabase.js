@@ -5404,6 +5404,28 @@ export async function memberGetSessionRsvpBoard(sessionId) {
   return data;
 }
 
+// Guardian app Phase 1 (mig 426) — read a child's FA grassroots league fixtures.
+// Returns { ok, child_profile_id, upcoming:[...], recent:[...] }; each upcoming
+// fixture carries own_rsvp_status (in|out|maybe|null). Guardian-gated server-side.
+export async function guardianListChildFixtures(childProfileId) {
+  const { data, error } = await supabase.rpc("guardian_list_child_fixtures", {
+    p_child_profile_id: childProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_list_child_fixtures failed", error); throw error; }
+  return data;
+}
+
+// Guardian app Phase 1 (mig 426) — parent marks a child available/unavailable for
+// a league fixture. status ∈ in|out|maybe. forProfileId = the child (omit/self for
+// a member marking their own). Throws on not_guardian / not_on_team / fixture_not_found.
+export async function guardianSetFixtureAvailability(fixtureId, status, { forProfileId = null } = {}) {
+  const { data, error } = await supabase.rpc("guardian_set_fixture_availability", {
+    p_fixture_id: fixtureId, p_status: status, p_for_profile_id: forProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_set_fixture_availability failed", error); throw error; }
+  return data;
+}
+
 export async function clubManagerCreateSession(teamId, {
   title, scheduledAt, sessionType = 'training',
   location = null, notes = null, capacity = null,
