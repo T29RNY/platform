@@ -1,0 +1,289 @@
+/* mobile-tokens.css — SCOPED amber/dark token foundation for the multi-role
+   mobile app (guardian + operator + team-manager surfaces under /hub).
+
+   HARD SCOPE RULE: every token lives under [data-surface="mobile"], NEVER on
+   :root. The existing gold/dark theme (theme/tokens.css :root) is untouched, so
+   the casual player view, the internal-league player ("Member") view, and every
+   laptop/dashboard page keep their current look. Tokens here only cascade DOWN
+   into the mobile subtree — they cannot escape upward. Theme (dark default /
+   warm-paper light) flips via data-theme on the SAME wrapper element, never on
+   <html>. See src/mobile/theme/useMobileTheme.js.
+
+   Token names intentionally mirror the design handoff (design_handoff_guardian_app)
+   so screen ports stay mechanical. Note: --bg/--s1/--s2/--s3/--amber also exist
+   on :root with DIFFERENT values — scoping is exactly what shadows them safely
+   inside this subtree. Bebas Neue is deliberately absent: the mobile surface is
+   full DM Sans (no --font-display). */
+
+[data-surface="mobile"] {
+  /* ── Surfaces (dark default) ── */
+  --bg:        #07090F;   /* page behind device */
+  --app:       #0A0D14;   /* app background */
+  --s1:        #11151F;   /* base card */
+  --s2:        #171C28;   /* elevated surface */
+  --s3:        #1F2533;   /* input / hover */
+  --s4:        #2A3140;   /* deepest control */
+  --hair:      rgba(255,255,255,0.07);
+  --hair2:     rgba(255,255,255,0.12);
+
+  /* ── Ink ── */
+  --ink:       #F3F5F9;
+  --ink2:      #B6BECC;
+  --ink3:      #7C8493;
+  --ink4:      #565E6D;
+
+  /* ── Amber accent (sodium amber) ── */
+  --amber:      #FFC83A;
+  --amber-deep: #E0A91E;
+  --amber-soft: rgba(255,200,58,0.14);
+  --amber-glow: rgba(255,200,58,0.30);
+  --amber-ink:  #1A1403;   /* foreground on amber fills (near-black) */
+
+  /* ── Semantic ── */
+  --live:      #F5483B;
+  --live-soft: rgba(245,72,59,0.16);
+  --ok:        #1FC98B;
+  --ok-soft:   rgba(31,201,139,0.15);
+  --info:      #4F8CFF;
+  --info-soft: rgba(79,140,255,0.15);
+  --ok-ink:    #46E3AC;
+  --live-ink:  #FF7A70;
+  --info-ink:  #87B0FF;
+
+  /* ── Radii ── */
+  --r-xl: 26px;
+  --r-lg: 20px;
+  --r-md: 15px;
+  --r-sm: 10px;
+  --r-pill: 999px;
+
+  /* ── Shadows ── */
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.04) inset, 0 10px 30px rgba(0,0,0,0.45);
+  --shadow-sheet: 0 -20px 60px rgba(0,0,0,0.6);
+
+  /* ── Type ── */
+  --m-font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* host */
+  color: var(--ink);
+  font-family: var(--m-font);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Light theme — warm-paper neutrals; accent stays amber ── */
+[data-surface="mobile"][data-theme="light"] {
+  --app:   #F4F2EC;
+  --s1:    #FFFFFF;
+  --s2:    #F7F5EF;
+  --s3:    #ECE9E0;
+  --s4:    #E1DDD2;
+  --hair:  rgba(28,26,22,0.09);
+  --hair2: rgba(28,26,22,0.16);
+  --ink:   #1B1E25;
+  --ink2:  #454A54;
+  --ink3:  #767B85;
+  --ink4:  #A3A8B1;
+  --amber:      #E8A516;
+  --amber-soft: rgba(232,165,22,0.16);
+  --ok-ink:   #0E9C68;
+  --live-ink: #D2392C;
+  --info-ink: #2D5FD0;
+  --shadow-card: 0 1px 2px rgba(28,26,22,0.06), 0 8px 24px rgba(28,26,22,0.08);
+  --shadow-sheet: 0 -16px 48px rgba(28,26,22,0.18);
+}
+
+/* ───────────────────────── shell structure ───────────────────────── */
+/* Full-screen in the real app (not the 390×844 prototype canvas). */
+
+[data-surface="mobile"].m-app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--app);
+  overflow: hidden;
+}
+
+/* header */
+[data-surface="mobile"] .m-hdr {
+  flex: none;
+  padding: calc(env(safe-area-inset-top, 0) + 10px) 16px 8px;
+  background: var(--app);
+  border-bottom: 1px solid var(--hair);
+}
+[data-surface="mobile"] .m-hdr-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+[data-surface="mobile"] .m-avatar {
+  width: 38px; height: 38px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--amber-soft);
+  color: var(--amber);
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+[data-surface="mobile"] .m-icon-btn {
+  width: 38px; height: 38px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--s2);
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+[data-surface="mobile"] .m-hdr-title { flex: 1; min-width: 0; }
+[data-surface="mobile"] .m-hdr-title .m-title {
+  font-size: 19px; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-surface="mobile"] .m-hdr-title .m-sub {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--ink3); margin-top: 1px;
+}
+[data-surface="mobile"] .m-dot-badge {
+  position: absolute; top: -2px; right: -2px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--live); color: var(--white, #fff);
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* child switcher strip */
+[data-surface="mobile"] .m-child-strip {
+  display: flex; gap: 8px; margin-top: 10px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+[data-surface="mobile"] .m-child-strip::-webkit-scrollbar { display: none; }
+[data-surface="mobile"] .m-child-chip {
+  display: flex; align-items: center; gap: 7px; flex: none;
+  padding: 6px 12px 6px 7px;
+  border-radius: var(--r-pill);
+  background: var(--s2); border: 1px solid var(--hair);
+  color: var(--ink2); font-size: 13px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+[data-surface="mobile"] .m-child-chip.on {
+  background: var(--amber-soft); border-color: var(--amber-glow);
+  color: var(--amber);
+}
+
+/* scroll body */
+[data-surface="mobile"] .m-scroll {
+  flex: 1; min-height: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 110px;
+}
+
+/* floating tab bar */
+[data-surface="mobile"] .m-tabbar {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0) + 12px);
+  width: calc(100% - 28px); max-width: 460px;
+  display: flex; justify-content: space-around;
+  padding: 8px 6px;
+  border-radius: var(--r-xl);
+  background: color-mix(in srgb, var(--s2) 88%, transparent);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--hair2);
+  box-shadow: var(--shadow-card);
+}
+[data-surface="mobile"] .m-tab {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 4px 0;
+  background: none; border: none;
+  color: var(--ink3); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+[data-surface="mobile"] .m-tab.on { color: var(--amber); }
+[data-surface="mobile"] .m-tlabel { font-size: 10.5px; font-weight: 600; }
+[data-surface="mobile"] .m-tbadge {
+  position: absolute; top: -3px; right: 50%; margin-right: -22px;
+  min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: var(--r-pill);
+  background: var(--live); color: var(--white, #fff);
+  font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* bottom sheet */
+[data-surface="mobile"] .m-sheet-scrim {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+[data-surface="mobile"] .m-sheet {
+  width: 100%; max-width: 460px;
+  max-height: 88dvh; overflow-y: auto;
+  background: var(--s1);
+  border-top-left-radius: var(--r-xl); border-top-right-radius: var(--r-xl);
+  border-top: 1px solid var(--hair2);
+  box-shadow: var(--shadow-sheet);
+  padding: 10px 18px calc(env(safe-area-inset-bottom, 0) + 22px);
+}
+[data-surface="mobile"] .m-sheet-grab {
+  width: 38px; height: 4px; border-radius: var(--r-pill);
+  background: var(--hair2); margin: 4px auto 12px;
+}
+[data-surface="mobile"] .m-sheet-titlerow {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+[data-surface="mobile"] .m-sheet-title {
+  font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
+}
+
+/* toasts */
+[data-surface="mobile"] .m-toast-wrap {
+  position: fixed; top: calc(env(safe-area-inset-top, 0) + 12px);
+  left: 50%; transform: translateX(-50%);
+  z-index: 1100;
+  display: flex; flex-direction: column; gap: 8px;
+  width: calc(100% - 32px); max-width: 420px;
+}
+[data-surface="mobile"] .m-toast {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  background: var(--s2); border: 1px solid var(--hair2);
+  box-shadow: var(--shadow-card);
+}
+
+/* generic card + eyebrow primitives */
+[data-surface="mobile"] .m-card {
+  background: var(--s1); border: 1px solid var(--hair);
+  border-radius: var(--r-lg); padding: 14px;
+  box-shadow: var(--shadow-card);
+}
+[data-surface="mobile"] .m-eyebrow {
+  font-size: 11.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.13em;
+  color: var(--ink3);
+}
+
+/* motion — respect reduced-motion */
+@media (prefers-reduced-motion: no-preference) {
+  [data-surface="mobile"] .m-view-enter {
+    animation: m-slide-up 0.34s cubic-bezier(.2,.8,.25,1);
+  }
+  @keyframes m-slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}

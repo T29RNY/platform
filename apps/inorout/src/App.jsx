@@ -39,6 +39,7 @@ import ClassesScreen        from "./views/ClassesScreen.jsx";
 import BookPT               from "./views/BookPT.jsx";
 import UnifiedFeedScreen   from "./views/UnifiedFeedScreen.jsx";
 import ParentHomeScreen    from "./views/ParentHomeScreen.jsx";
+import MobileShell         from "./mobile/MobileShell.jsx";
 import TournamentScreen    from "./views/TournamentScreen.jsx";
 import MatchdayScreen      from "./views/MatchdayScreen.jsx";
 import EmbedLeagueScreen   from "./views/EmbedLeagueScreen.jsx";
@@ -109,6 +110,7 @@ function getRoute() {
   if (parts[0]==="signin")                   return { type:"signin" };
   if (parts[0]==="parent-home")              return { type:"parent-home" };
   if (parts[0]==="feed")                     return { type:"feed" };
+  if (parts[0]==="hub")                      return { type:"hub", sub: parts.slice(1) };
   if (parts[0]==="follow-live" && parts[1])  return { type:"follow-live", profileId:parts[1] };
   if (parts[0]==="tournament" && parts[1]==="join" && parts[2]) return { type:"tournament_join", code:parts[2] };
   if (parts[0]==="tournament"  && parts[1])  return { type:"tournament",  slug:parts[1] };
@@ -1336,6 +1338,21 @@ export default function App() {
     // hub; a squad-only user resumed here gets bounced to their real home.
     if (relationships && homeScreenType === "squad_only") { window.location.replace("/"); return null; }
     return <UnifiedFeedScreen authUser={authUser} />;
+  }
+
+  // Multi-role mobile app (guardian + operator + team-manager). Scoped under
+  // /hub — its own [data-surface="mobile"] amber theme tree; never touches the
+  // casual / Member views or any laptop page. Role comes from get_my_world()
+  // (myWorld); no role switcher.
+  if (route.type === "hub") {
+    if (!authReady || (authUser && myWorld === null)) return (
+      <div style={{ background:C.bg, minHeight:"100dvh", display:"flex",
+        alignItems:"center", justifyContent:"center" }}>
+        <div style={{ fontSize:48 }}>⚽</div>
+      </div>
+    );
+    if (!authUser) return <SignIn returnTo="/hub" />;
+    return <MobileShell world={myWorld} authUser={authUser} route={route} />;
   }
 
   if (route.type === "follow-live") {
