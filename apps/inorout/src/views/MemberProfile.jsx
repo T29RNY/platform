@@ -3,7 +3,7 @@ import { memberGetSelf, memberUpdateSelf, memberListChildren, memberRegisterChil
          memberGetPendingConsents, memberListConsents, memberAcceptConsent,
          uploadMemberIdDoc, memberSubmitIdDocument, memberListIdDocuments,
          memberListMyPurchases, memberListMyClassBookings, memberGetGradeHistory,
-         memberGetFightRecord, getMyMoney, stripeInitBillingPortal, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
+         memberGetFightRecord, getMyMoney, stripeInitBillingPortal, stripeInitChargeCheckout, signOut, deleteMyAccountAuth } from "@platform/core/storage/supabase.js";
 import { openExternal } from "../native/open-external.js";
 import { enableMemberPush, disableMemberPush } from "../native/native-push.js";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
@@ -101,6 +101,23 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
     } catch (e) {
       console.error("[member] billing portal failed", e);
       isPortalRef.current = false; setPortalBusy(null);
+    }
+  };
+
+  // "Pay now" for ONE owed charge. Uses the charge's stored hosted-invoice URL if present,
+  // else mints one via stripe-charge-checkout (reconciles through the invoice.paid webhook).
+  const [chargeBusy, setChargeBusy] = useState(null); // charge_id currently being paid
+  const payChargeNow = async (chargeId, existingUrl) => {
+    if (chargeBusy) return;
+    if (existingUrl) { openExternal(existingUrl); return; }
+    setChargeBusy(chargeId);
+    try {
+      const { pay_url } = await stripeInitChargeCheckout({ chargeId });
+      if (pay_url) openExternal(pay_url);
+    } catch (e) {
+      console.error("[member] charge checkout failed", e);
+    } finally {
+      setChargeBusy(null);
     }
   };
   const [idUploadClub,   setIdUploadClub]   = useState(null); // club being uploaded for
@@ -1090,12 +1107,15 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
           const activity = [
             ...money.charges.map((c) => ({
               key: `c_${c.charge_id}`,
+              chargeId: c.charge_id,
+              owed: ["unpaid", "partial"].includes(c.status),
               title: c.label || "Membership",
               who: c.is_self ? "You" : (c.who_for || "Member"),
               amount: `£${((c.amount_due_pence || 0) / 100).toFixed(2)}`,
               status: c.status,
               date: c.due_date,
-              // #16: pay link (Stripe hosted invoice → else venue payment_link), owed rows only
+              // #16: pay link (Stripe hosted invoice → else venue payment_link); when absent
+              // the Pay-now button mints one on demand via stripe-charge-checkout.
               payUrl: (["unpaid", "partial"].includes(c.status) && c.pay_url) ? c.pay_url : null,
             })),
             ...money.casual.map((l) => ({
@@ -1179,16 +1199,17 @@ export default function MemberProfile({ authUser, hasFeed = false }) {
                       <div style={{ fontSize: 12, color: "var(--t2)", marginTop: 2 }}>
                         {a.who}{a.date ? ` · ${fmtDate(a.date)}` : ""}
                       </div>
-                      {a.payUrl && (
-                        <a href={a.payUrl} target="_blank" rel="noopener noreferrer"
-                          onClick={(e) => { if (window.__CAP_NATIVE__) { e.preventDefault(); openExternal(a.payUrl); } }}
+                      {a.chargeId && a.owed && (
+                        <button
+                          onClick={() => payChargeNow(a.chargeId, a.payUrl)}
+                          disabled={chargeBusy === a.chargeId}
                           style={{
                           display: "inline-block", marginTop: 8, fontSize: 11, fontWeight: 600,
                           padding: "4px 10px", borderRadius: 8, border: "1px solid var(--border-subtle)",
-                          background: "transparent", color: "var(--amber)", textDecoration: "none", cursor: "pointer",
+                          background: "transparent", color: "var(--amber)", cursor: "pointer",
                         }}>
-                          Pay now →
-                        </a>
+                          {chargeBusy === a.chargeId ? "Opening…" : "Pay now →"}
+                        </button>
                       )}
                     </div>
                     <span style={{

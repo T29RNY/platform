@@ -22,6 +22,7 @@ import MIcon from "./icons.jsx";
 import MobileSheet from "./MobileSheet.jsx";
 import GuardianMatches from "./screens/GuardianMatches.jsx";
 import GuardianLeague from "./screens/GuardianLeague.jsx";
+import GuardianMembership from "./screens/GuardianMembership.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -144,6 +145,12 @@ export default function MobileShell({ world, authUser, route }) {
             <GuardianLeague
               childId={activeChild?.child_profile_id || null}
               childFirst={activeChild?.first_name || "your child"}
+            />
+          ) : isGuardian && tab === "membership" ? (
+            <GuardianMembership
+              childId={activeChild?.child_profile_id || null}
+              childFirst={activeChild?.first_name || "your child"}
+              toast={toast}
             />
           ) : (
             <div className="m-card">
