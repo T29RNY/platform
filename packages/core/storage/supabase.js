@@ -5090,6 +5090,24 @@ export async function stripeInitBillingPortal({ membershipId, returnPath = "/" }
   return res.json();
 }
 
+// Phase 1 Guardian Membership: member-initiated "Pay now" for ONE outstanding venue_charge
+// (membership or class). Mints/reuses a Stripe hosted invoice and returns { pay_url } to open.
+// Reconciles via the existing invoice.paid webhook. Dormant (503) until keys set.
+export async function stripeInitChargeCheckout({ chargeId }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("not_authenticated");
+  const res = await fetch("/api/stripe-charge-checkout", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+    body:    JSON.stringify({ chargeId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || err.error || "checkout_failed");
+  }
+  return res.json();
+}
+
 // ── Phase 10 — Club Attendance admin RPCs (mig 298) ──────────────────────────
 
 export async function clubCreateCohort(venueToken, clubId, { name, description = null, minAge = null, maxAge = null, category = null } = {}) {
@@ -5437,6 +5455,31 @@ export async function guardianListChildLeagues(childProfileId) {
     p_child_profile_id: childProfileId,
   });
   if (error) { console.error("[guardian] guardian_list_child_leagues failed", error); throw error; }
+  return data;
+}
+
+// Guardian app Phase 1, screen 3 (mig 429) — bookable upcoming extra classes at the
+// venue(s) the child's club runs at. Returns { ok, child_profile_id, options:[...] }
+// (session_id, class_name, starts_at, price_pence, payment_mode, members_only,
+// spots_left, already_booked). Read-only, guardian-gated server-side.
+export async function guardianListChildClassOptions(childProfileId) {
+  const { data, error } = await supabase.rpc("guardian_list_child_class_options", {
+    p_child_profile_id: childProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_list_child_class_options failed", error); throw error; }
+  return data;
+}
+
+// Guardian app Phase 1, screen 3 (mig 429) — book a paid extra class FOR A CHILD.
+// forProfileId = the child (omit/self for a member booking their own). Writes into
+// venue_class_bookings + the venue_charges ledger (same desktop place). Returns
+// { ok, booking_id, status, payment_status, ... } or { ok:false, reason } for
+// already_booked / suspended / payment_method_unavailable. Throws not_guardian etc.
+export async function guardianBookClassSession(sessionId, { forProfileId = null } = {}) {
+  const { data, error } = await supabase.rpc("guardian_book_class_session", {
+    p_session_id: sessionId, p_for_profile_id: forProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_book_class_session failed", error); throw error; }
   return data;
 }
 
