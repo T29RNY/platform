@@ -5027,6 +5027,52 @@ export async function venueVerifyIdDocument(venueToken, documentId, action, reje
   return data;
 }
 
+// Remove ID object(s) from the private bucket via the Storage API (retention purge —
+// direct SQL DELETE on storage.objects is blocked by Supabase's protect_objects_delete).
+export async function removeMemberIdDoc(paths) {
+  const list = Array.isArray(paths) ? paths : [paths];
+  const { error } = await supabase.storage.from("member-id-docs").remove(list);
+  if (error) { console.error("[member] id doc remove failed", error); throw error; }
+  return true;
+}
+
+// ── Guardian Documents (mig 431) ─────────────────────────────────────────────
+// Per-child requirement manifest (sign / upload / review) + guardian-routed writes.
+// SIGN reuses the existing memberAcceptConsent (already supports on-behalf-of child).
+
+export async function guardianListChildDocuments(childProfileId) {
+  const { data, error } = await supabase.rpc("guardian_list_child_documents", {
+    p_child_profile_id: childProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_list_child_documents failed", error); throw error; }
+  return data;
+}
+
+export async function guardianSubmitIdDocument(forProfileId, clubId, documentType, storagePath) {
+  const { data, error } = await supabase.rpc("guardian_submit_id_document", {
+    p_for_profile_id: forProfileId, p_club_id: clubId,
+    p_document_type: documentType, p_storage_path: storagePath,
+  });
+  if (error) { console.error("[guardian] guardian_submit_id_document failed", error); throw error; }
+  return data;
+}
+
+export async function guardianConfirmRecordReview(forProfileId, reviewKind = "medical") {
+  const { data, error } = await supabase.rpc("guardian_confirm_record_review", {
+    p_for_profile_id: forProfileId, p_review_kind: reviewKind,
+  });
+  if (error) { console.error("[guardian] guardian_confirm_record_review failed", error); throw error; }
+  return data;
+}
+
+export async function guardianPurgeIdDocument(documentId) {
+  const { data, error } = await supabase.rpc("guardian_purge_id_document", {
+    p_document_id: documentId,
+  });
+  if (error) { console.error("[guardian] guardian_purge_id_document failed", error); throw error; }
+  return data;
+}
+
 // ── Phase 7 — /q signup rebuild (mig 296) ────────────────────────────────────
 
 // Create member's own profile at /q signup (authenticated, fails if profile exists).

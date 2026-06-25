@@ -23,6 +23,8 @@ import MobileSheet from "./MobileSheet.jsx";
 import GuardianMatches from "./screens/GuardianMatches.jsx";
 import GuardianLeague from "./screens/GuardianLeague.jsx";
 import GuardianMembership from "./screens/GuardianMembership.jsx";
+import GuardianMore from "./screens/GuardianMore.jsx";
+import GuardianDocs from "./screens/GuardianDocs.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -55,6 +57,10 @@ export default function MobileShell({ world, authUser, route }) {
     if (!tabs.includes(tab)) setTab(tabs[0]);
   }, [tabs, tab]);
 
+  // Guardian "More" sub-view (null | 'documents'). Resets when the tab or child changes.
+  const [moreView, setMoreView] = useState(null);
+  useEffect(() => { setMoreView(null); }, [tab, childId]);
+
   const [sheet, setSheet] = useState(null); // null | 'profile' | node
   const [toasts, setToasts] = useState([]);
 
@@ -83,6 +89,9 @@ export default function MobileShell({ world, authUser, route }) {
   }
 
   const isGuardian = role.key === "guardian";
+  const headerTitle = isGuardian && tab === "more" && moreView === "documents"
+    ? "Documents"
+    : TAB_META[tab]?.title || "Home";
 
   return (
     <div data-surface="mobile" data-theme={resolved} className="m-app">
@@ -93,7 +102,7 @@ export default function MobileShell({ world, authUser, route }) {
             {initials(displayName)}
           </button>
           <div className="m-hdr-title">
-            <div className="m-title">{TAB_META[tab]?.title || "Home"}</div>
+            <div className="m-title">{headerTitle}</div>
             <div className="m-sub">
               <span>{contextSubline(role, activeChild)}</span>
             </div>
@@ -152,6 +161,21 @@ export default function MobileShell({ world, authUser, route }) {
               childFirst={activeChild?.first_name || "your child"}
               toast={toast}
             />
+          ) : isGuardian && tab === "more" ? (
+            moreView === "documents" ? (
+              <GuardianDocs
+                childId={activeChild?.child_profile_id || null}
+                childFirst={activeChild?.first_name || "your child"}
+                toast={toast}
+                onBack={() => setMoreView(null)}
+              />
+            ) : (
+              <GuardianMore
+                childFirst={activeChild?.first_name || "your child"}
+                onOpenDocuments={() => setMoreView("documents")}
+                onOpenProfile={() => setSheet("profile")}
+              />
+            )
           ) : (
             <div className="m-card">
               <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
@@ -174,7 +198,11 @@ export default function MobileShell({ world, authUser, route }) {
             <button
               key={id}
               className={"m-tab" + (on ? " on" : "")}
-              onClick={() => (id === "more" ? setSheet("profile") : setTab(id))}
+              onClick={() => {
+                if (id === "more" && isGuardian) { setTab("more"); setMoreView(null); }
+                else if (id === "more") setSheet("profile");
+                else setTab(id);
+              }}
             >
               <MIcon name={m.icon} size={23} />
               <span className="m-tlabel">{m.label}</span>
