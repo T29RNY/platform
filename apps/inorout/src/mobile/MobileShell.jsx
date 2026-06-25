@@ -25,6 +25,7 @@ import GuardianLeague from "./screens/GuardianLeague.jsx";
 import GuardianMembership from "./screens/GuardianMembership.jsx";
 import GuardianMore from "./screens/GuardianMore.jsx";
 import GuardianDocs from "./screens/GuardianDocs.jsx";
+import GuardianSchedule from "./screens/GuardianSchedule.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -57,7 +58,7 @@ export default function MobileShell({ world, authUser, route }) {
     if (!tabs.includes(tab)) setTab(tabs[0]);
   }, [tabs, tab]);
 
-  // Guardian "More" sub-view (null | 'documents'). Resets when the tab or child changes.
+  // Guardian "More" sub-view (null | 'documents' | 'schedule'). Resets when the tab or child changes.
   const [moreView, setMoreView] = useState(null);
   useEffect(() => { setMoreView(null); }, [tab, childId]);
 
@@ -89,8 +90,9 @@ export default function MobileShell({ world, authUser, route }) {
   }
 
   const isGuardian = role.key === "guardian";
-  const headerTitle = isGuardian && tab === "more" && moreView === "documents"
-    ? "Documents"
+  const MORE_TITLES = { documents: "Documents", schedule: "Schedule" };
+  const headerTitle = isGuardian && tab === "more" && moreView
+    ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
     : TAB_META[tab]?.title || "Home";
 
   return (
@@ -169,10 +171,18 @@ export default function MobileShell({ world, authUser, route }) {
                 toast={toast}
                 onBack={() => setMoreView(null)}
               />
+            ) : moreView === "schedule" ? (
+              <GuardianSchedule
+                childId={activeChild?.child_profile_id || null}
+                childFirst={activeChild?.first_name || "your child"}
+                toast={toast}
+                onBack={() => setMoreView(null)}
+              />
             ) : (
               <GuardianMore
                 childFirst={activeChild?.first_name || "your child"}
                 onOpenDocuments={() => setMoreView("documents")}
+                onOpenSchedule={() => setMoreView("schedule")}
                 onOpenProfile={() => setSheet("profile")}
               />
             )
