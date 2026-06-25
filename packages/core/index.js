@@ -357,6 +357,7 @@ export {
   memberGetSessionRsvpBoard,
   guardianListChildFixtures,
   guardianSetFixtureAvailability,
+  guardianListChildLeagues,
   clubManagerCreateSession,
   clubManagerCreateSessionSeries,
   clubManagerCancelSession,

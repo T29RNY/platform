@@ -5426,6 +5426,20 @@ export async function guardianSetFixtureAvailability(fixtureId, status, { forPro
   return data;
 }
 
+// Guardian app Phase 1, screen 2 (mig 428) — read a child's grassroots league(s).
+// Returns { ok, child_profile_id, leagues:[...] }; each league carries fa_embed_code/
+// fa_source_url (official FA Full-Time table source), a computed team `form`
+// (played/won/drawn/lost/gf/ga/gd/points/last5), and `fixtures`/`results` arrays.
+// Grassroots club_fixtures cannot yield a real computed league table — form is the
+// child's own TEAM record, never a league rank. Guardian-gated server-side.
+export async function guardianListChildLeagues(childProfileId) {
+  const { data, error } = await supabase.rpc("guardian_list_child_leagues", {
+    p_child_profile_id: childProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_list_child_leagues failed", error); throw error; }
+  return data;
+}
+
 export async function clubManagerCreateSession(teamId, {
   title, scheduledAt, sessionType = 'training',
   location = null, notes = null, capacity = null,
