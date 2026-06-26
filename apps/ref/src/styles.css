@@ -78,6 +78,11 @@ html, body { margin: 0; padding: 0; overscroll-behavior: none; }
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* Flat ground for the scrolling content. The .app radial vignette (lighter at
+     top) otherwise faded out mid-screen — right around the LiveMatch "vs" divider
+     — so the home block sat on a lighter band that made the divider look like it
+     belonged to the home team. The vignette still reads behind the fixed scoreboard. */
+  background: var(--bg);
 }
 .scroll::-webkit-scrollbar { display: none; }
 
@@ -292,6 +297,26 @@ html, body { margin: 0; padding: 0; overscroll-behavior: none; }
 }
 .team-head .nm { font-size: 14px; font-weight: 800; letter-spacing: 0.02em; flex: 1; }
 .team-head .ct { font-size: 12px; font-weight: 600; color: var(--txt3); }
+
+/* "vs" divider between the home and away sections — ties them into ONE match
+   so two stacked full-width team blocks no longer read as two separate games.
+   Centred chip flanked by hairlines; keeps the GOAL buttons full-width. */
+.vs-sep {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 18px 14px;
+}
+.vs-sep::before, .vs-sep::after {
+  content: ""; flex: 1; height: 2px; border-radius: 2px;
+  background: var(--hair2);
+}
+.vs-sep span {
+  font-family: var(--font-disp);
+  font-size: 14px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--txt);
+  background: var(--raised); border: 1px solid var(--hair2);
+  padding: 6px 16px; border-radius: 999px;
+  box-shadow: var(--shadow-card);
+}
 
 .subhead {
   font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
