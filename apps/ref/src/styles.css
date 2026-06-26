@@ -297,16 +297,20 @@ html, body { margin: 0; padding: 0; overscroll-behavior: none; }
    so two stacked full-width team blocks no longer read as two separate games.
    Centred chip flanked by hairlines; keeps the GOAL buttons full-width. */
 .vs-sep {
-  display: flex; align-items: center; gap: 12px;
-  padding: 2px 18px 6px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 18px 14px;
 }
 .vs-sep::before, .vs-sep::after {
-  content: ""; flex: 1; height: 1px;
-  background: var(--hair);
+  content: ""; flex: 1; height: 2px; border-radius: 2px;
+  background: var(--hair2);
 }
 .vs-sep span {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--txt3);
+  font-family: var(--font-disp);
+  font-size: 14px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--txt);
+  background: var(--raised); border: 1px solid var(--hair2);
+  padding: 6px 16px; border-radius: 999px;
+  box-shadow: var(--shadow-card);
 }
 
 .subhead {
