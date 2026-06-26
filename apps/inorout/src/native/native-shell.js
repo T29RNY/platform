@@ -16,10 +16,11 @@ import { App } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { colors } from '@platform/core';
+import { isNativeApp } from './is-native.js';
 
 export function initNativeShell() {
   // Web build: nothing to bridge. Bail before touching any native plugin.
-  if (!Capacitor.isNativePlatform()) return;
+  if (!isNativeApp()) return;
 
   const platform = Capacitor.getPlatform(); // 'ios' | 'android'
 

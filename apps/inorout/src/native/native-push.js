@@ -19,6 +19,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { savePushSubscription, saveMemberPushSubscription, removeMemberPushSubscription } from '@platform/core/storage/supabase.js';
+import { isNativeApp } from './is-native.js';
 
 // VITE_VAPID_PUBLIC_KEY → Uint8Array for the web (PWA) PushManager.subscribe path.
 function urlBase64ToUint8Array(b64) {
@@ -41,7 +42,7 @@ function urlBase64ToUint8Array(b64) {
 //   'denied'      — user declined the OS permission prompt
 //   false         — not a native platform (caller should use the web flow)
 export async function registerNativePush(playerToken, callbacks = {}) {
-  if (!Capacitor.isNativePlatform()) return false;
+  if (!isNativeApp()) return false;
   if (!playerToken) return false;
 
   // Lazy import: the plugin throws "not implemented on web", so it must never be
@@ -90,7 +91,7 @@ export async function registerNativePush(playerToken, callbacks = {}) {
 // Native (iOS/Android) device-token capture for the signed-in member.
 // Returns 'registering' | 'denied' | false (= not native; use the web flow).
 async function registerMemberNativePush(callbacks = {}) {
-  if (!Capacitor.isNativePlatform()) return false;
+  if (!isNativeApp()) return false;
 
   const { PushNotifications } = await import('@capacitor/push-notifications');
   const platform = Capacitor.getPlatform(); // 'ios' | 'android'
@@ -152,7 +153,7 @@ export async function enableMemberPush(callbacks = {}) {
 // release the local PushManager subscription. Best-effort.
 export async function disableMemberPush() {
   try {
-    if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
+    if (!isNativeApp() && 'serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) await sub.unsubscribe();

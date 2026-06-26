@@ -56,13 +56,16 @@ let cookiesUnreliable = false;
 
 function isNative() {
   if (typeof window === "undefined") return false;
-  // Trust the deterministic flag stamped by the native wrap's main.jsx FIRST
-  // (set synchronously via @capacitor/core's isNativePlatform() before any
-  // storage read). The live `window.Capacitor` bridge check is a fallback for
-  // any path that runs before the flag is set — but for a remote-server.url
-  // WKWebView that check can read false even in the wrap, which is exactly the
-  // bug this flag closes. Native → ALWAYS localStorage (shared cookies don't
-  // persist across launches in WKWebView → refresh-token storm → logout).
+  // UA marker FIRST (capacitor.config `appendUserAgent`, mirrored in the app's
+  // is-native.js). It's baked into the WKWebView User-Agent at the native config
+  // level — present from the first line of JS, immune to the bridge-injection
+  // timing that read FALSE in the remote-server.url WKWebView on the App Review
+  // iPad (the root cause of both rejections). Checked here directly so storage is
+  // robust even on a read that races main.jsx's flag stamp. Then the flag, then the
+  // live bridge. Native → ALWAYS localStorage (shared cookies don't persist across
+  // launches in WKWebView → refresh-token storm → logout).
+  const ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+  if (ua.includes("InorOutApp")) return true;
   if (window.__CAP_NATIVE__ === true) return true;
   return window.Capacitor?.isNativePlatform?.() === true;
 }
