@@ -32,6 +32,7 @@ import GuardianTeam from "./screens/GuardianTeam.jsx";
 import OperationsTonight from "./screens/OperationsTonight.jsx";
 import OperatorBookings from "./screens/OperatorBookings.jsx";
 import OperatorPayments from "./screens/OperatorPayments.jsx";
+import OperatorPeople from "./screens/OperatorPeople.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -240,6 +241,13 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
             <OperatorPayments
               venueId={role.entityId}
               venueName={role.name}
+              toast={toast}
+            />
+          ) : role.key === "operator" && tab === "people" ? (
+            <OperatorPeople
+              venueId={role.entityId}
+              venueName={role.name}
+              roleSub={role.sub}
               toast={toast}
             />
           ) : (
