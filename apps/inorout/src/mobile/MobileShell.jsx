@@ -33,6 +33,7 @@ import OperationsTonight from "./screens/OperationsTonight.jsx";
 import OperatorBookings from "./screens/OperatorBookings.jsx";
 import OperatorPayments from "./screens/OperatorPayments.jsx";
 import OperatorPeople from "./screens/OperatorPeople.jsx";
+import OperatorMore from "./screens/OperatorMore.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -250,6 +251,13 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               roleSub={role.sub}
               toast={toast}
             />
+          ) : role.key === "operator" && tab === "more" ? (
+            <OperatorMore
+              roleSub={role.sub}
+              venueName={role.name}
+              onOpenProfile={() => setSheet("profile")}
+              toast={toast}
+            />
           ) : (
             <div className="m-card">
               <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
@@ -273,7 +281,7 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               key={id}
               className={"m-tab" + (on ? " on" : "")}
               onClick={() => {
-                if (id === "more" && isGuardian) { setTab("more"); setMoreView(null); }
+                if (id === "more" && (isGuardian || role.key === "operator")) { setTab("more"); setMoreView(null); }
                 else if (id === "more") setSheet("profile");
                 else setTab(id);
               }}
