@@ -1352,7 +1352,8 @@ export default function App() {
       </div>
     );
     if (!authUser) return <SignIn returnTo="/hub" />;
-    return <MobileShell world={myWorld} authUser={authUser} route={route} />;
+    return <MobileShell world={myWorld} authUser={authUser} route={route}
+      onSignOut={async () => { try { await supabase.auth.signOut(); } catch (e) { console.error("sign out failed", e); } }} />;
   }
 
   if (route.type === "follow-live") {
