@@ -23,6 +23,7 @@ import {
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
+import SwipeRow from "../SwipeRow.jsx";
 
 function gbp(pence) {
   const n = Number(pence || 0) / 100;
@@ -203,26 +204,28 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
           <div style={{ fontSize: 14, fontWeight: 600, marginTop: 8, color: "var(--ink2)" }}>All clear — nothing needs you</div>
         </div>
       )}
-      {regs.length > 0 && <div className="m-eyebrow" style={{ margin: "2px 2px 9px" }}>New registrations</div>}
+      {regs.length > 0 && <div className="m-eyebrow" style={{ margin: "2px 2px 9px" }}>New registrations · swipe</div>}
       {regs.map((r) => {
         const busy = !!busyReg[r.id];
         return (
-          <div key={`reg-${r.id}`} className="m-card" style={{ padding: "13px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 11, flex: "none", background: "var(--amber-soft)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}><MIcon name="shield" size={19} color="var(--amber)" /></div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team_name || "New team"}</div>
-              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {[r.competition_name, r.captain_email].filter(Boolean).join(" · ") || "Pending registration"}
+          <SwipeRow key={`reg-${r.id}`} disabled={busy} onApprove={() => decide(r, true)} onDecline={() => decide(r, false)}>
+            <div className="m-card" style={{ padding: "13px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 11, flex: "none", background: "var(--amber-soft)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}><MIcon name="shield" size={19} color="var(--amber)" /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team_name || "New team"}</div>
+                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {[r.competition_name, r.captain_email].filter(Boolean).join(" · ") || "Pending registration"}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 7, flex: "none" }}>
+                <IconAction icon="x" tone="live" busy={busy} onClick={() => decide(r, false)} aria="Decline" />
+                <IconAction icon="check" tone="ok" busy={busy} onClick={() => decide(r, true)} aria="Approve" />
               </div>
             </div>
-            <div style={{ display: "flex", gap: 7, flex: "none" }}>
-              <IconAction icon="x" tone="live" busy={busy} onClick={() => decide(r, false)} aria="Decline" />
-              <IconAction icon="check" tone="ok" busy={busy} onClick={() => decide(r, true)} aria="Approve" />
-            </div>
-          </div>
+          </SwipeRow>
         );
       })}
       {incidents.length > 0 && <div className="m-eyebrow" style={{ margin: "14px 2px 9px" }}>Open issues</div>}
