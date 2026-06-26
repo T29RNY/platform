@@ -293,6 +293,22 @@ html, body { margin: 0; padding: 0; overscroll-behavior: none; }
 .team-head .nm { font-size: 14px; font-weight: 800; letter-spacing: 0.02em; flex: 1; }
 .team-head .ct { font-size: 12px; font-weight: 600; color: var(--txt3); }
 
+/* "vs" divider between the home and away sections — ties them into ONE match
+   so two stacked full-width team blocks no longer read as two separate games.
+   Centred chip flanked by hairlines; keeps the GOAL buttons full-width. */
+.vs-sep {
+  display: flex; align-items: center; gap: 12px;
+  padding: 2px 18px 6px;
+}
+.vs-sep::before, .vs-sep::after {
+  content: ""; flex: 1; height: 1px;
+  background: var(--hair);
+}
+.vs-sep span {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--txt3);
+}
+
 .subhead {
   font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--txt3); padding: 10px 18px 5px;

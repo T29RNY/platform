@@ -876,6 +876,8 @@ export default function LiveMatch({ state, refToken, onRefresh }) {
         {props.home_squad.length > 0
           ? <TeamColumn team={home} squad={props.home_squad} events={events} locked={locked} fixture={fixture} onTapPlayer={(p) => setOverlay({ type: "actions", player: p })} />
           : <TournamentGoalButton team={home} locked={locked} onGoal={() => doTournamentGoal("home")} onCard={() => setOverlay({ type: "tournament-card", side: "home", team: home })} />}
+        {/* connective divider — these two blocks are ONE match, not two */}
+        {away && <div className="vs-sep" aria-hidden="true"><span>vs</span></div>}
         {props.away_squad.length > 0
           ? <TeamColumn team={away} squad={props.away_squad} events={events} locked={locked} fixture={fixture} onTapPlayer={(p) => setOverlay({ type: "actions", player: p })} />
           : <TournamentGoalButton team={away} locked={locked} onGoal={() => doTournamentGoal("away")} onCard={() => setOverlay({ type: "tournament-card", side: "away", team: away })} />}
