@@ -218,6 +218,7 @@ export {
   guardianPurgeIdDocument,
   guardianListChildNotices,
   guardianMarkNoticeRead,
+  guardianListChildTeam,
   memberSelfCreateProfile,
   memberEnrolMembership,
   stripeInitMemberCheckout,
