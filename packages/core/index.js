@@ -216,6 +216,8 @@ export {
   guardianSubmitIdDocument,
   guardianConfirmRecordReview,
   guardianPurgeIdDocument,
+  guardianListChildNotices,
+  guardianMarkNoticeRead,
   memberSelfCreateProfile,
   memberEnrolMembership,
   stripeInitMemberCheckout,

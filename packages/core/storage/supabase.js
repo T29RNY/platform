@@ -5073,6 +5073,24 @@ export async function guardianPurgeIdDocument(documentId) {
   return data;
 }
 
+// Club notices (guardian inbox) — read-only consumption of club_announcements scoped to the
+// CHILD's clubs/teams, + a mark-as-read that drives the unread badge (mig 434).
+export async function guardianListChildNotices(childProfileId) {
+  const { data, error } = await supabase.rpc("guardian_list_child_notices", {
+    p_child_profile_id: childProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_list_child_notices failed", error); throw error; }
+  return data;
+}
+
+export async function guardianMarkNoticeRead(announcementId, forProfileId) {
+  const { data, error } = await supabase.rpc("guardian_mark_notice_read", {
+    p_announcement_id: announcementId, p_for_profile_id: forProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_mark_notice_read failed", error); throw error; }
+  return data;
+}
+
 // ── Phase 7 — /q signup rebuild (mig 296) ────────────────────────────────────
 
 // Create member's own profile at /q signup (authenticated, fails if profile exists).

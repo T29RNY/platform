@@ -15,6 +15,7 @@
 // there is NO role switcher (prototype affordance only).
 
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { guardianListChildNotices } from "@platform/core";
 import "./theme/mobile-tokens.css";
 import { useMobileTheme } from "./theme/useMobileTheme.js";
 import { resolveRoles, tabsFor, TAB_META, contextSubline } from "./nav.js";
@@ -26,6 +27,7 @@ import GuardianMembership from "./screens/GuardianMembership.jsx";
 import GuardianMore from "./screens/GuardianMore.jsx";
 import GuardianDocs from "./screens/GuardianDocs.jsx";
 import GuardianSchedule from "./screens/GuardianSchedule.jsx";
+import GuardianNotices from "./screens/GuardianNotices.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -58,9 +60,24 @@ export default function MobileShell({ world, authUser, route }) {
     if (!tabs.includes(tab)) setTab(tabs[0]);
   }, [tabs, tab]);
 
-  // Guardian "More" sub-view (null | 'documents' | 'schedule'). Resets when the tab or child changes.
+  // Guardian "More" sub-view (null | 'documents' | 'schedule' | 'notices'). Resets when the tab or child changes.
   const [moreView, setMoreView] = useState(null);
   useEffect(() => { setMoreView(null); }, [tab, childId]);
+
+  // Unread club-notices count for the active child → drives the "Club notices" More-row badge.
+  const [noticesUnread, setNoticesUnread] = useState(0);
+  const guardianActive = role?.key === "guardian";
+  // Use the resolved active child's id (childId state is only set by the child-switcher and
+  // stays null for a single-child guardian, where activeChild falls back to children[0]).
+  const activeChildId = activeChild?.child_profile_id || null;
+  useEffect(() => {
+    let cancelled = false;
+    if (!guardianActive || !activeChildId) { setNoticesUnread(0); return; }
+    guardianListChildNotices(activeChildId)
+      .then((res) => { if (!cancelled) setNoticesUnread(res?.unread_count ?? 0); })
+      .catch(() => { if (!cancelled) setNoticesUnread(0); });
+    return () => { cancelled = true; };
+  }, [guardianActive, activeChildId]);
 
   const [sheet, setSheet] = useState(null); // null | 'profile' | node
   const [toasts, setToasts] = useState([]);
@@ -90,7 +107,7 @@ export default function MobileShell({ world, authUser, route }) {
   }
 
   const isGuardian = role.key === "guardian";
-  const MORE_TITLES = { documents: "Documents", schedule: "Schedule" };
+  const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices" };
   const headerTitle = isGuardian && tab === "more" && moreView
     ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
     : TAB_META[tab]?.title || "Home";
@@ -178,11 +195,21 @@ export default function MobileShell({ world, authUser, route }) {
                 toast={toast}
                 onBack={() => setMoreView(null)}
               />
+            ) : moreView === "notices" ? (
+              <GuardianNotices
+                childId={activeChild?.child_profile_id || null}
+                childFirst={activeChild?.first_name || "your child"}
+                toast={toast}
+                onBack={() => setMoreView(null)}
+                onUnreadChange={setNoticesUnread}
+              />
             ) : (
               <GuardianMore
                 childFirst={activeChild?.first_name || "your child"}
+                noticesUnread={noticesUnread}
                 onOpenDocuments={() => setMoreView("documents")}
                 onOpenSchedule={() => setMoreView("schedule")}
+                onOpenNotices={() => setMoreView("notices")}
                 onOpenProfile={() => setSheet("profile")}
               />
             )
