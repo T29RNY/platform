@@ -49,6 +49,45 @@ broken WKWebView dropping a chunk = latches on first write / 0 storms). No migra
 
 ---
 
+## NATIVE SIGN IN WITH APPLE (the root-cause-eliminating path — JS landed, build owed)
+
+The whole class of failures (round 1 + round 2 + the implicit-hash transient-`/user`
+gap) stems from one choice: doing **web OAuth redirects inside the WKWebView**. Native
+Sign in with Apple removes that class for the Apple flow — the OS sheet returns an
+**identity token** straight to JS (`signInWithIdToken`), with **no browser, no
+`#access_token` hash, no `/auth/callback` round-trip, no cookie/storage race at login**.
+
+⚠️ It is NOT a substitute for the storage fix / Option 2: the refresh-token storm is a
+*persistence* problem that happens post-login regardless of how you signed in. Native
+sign-in hardens the LOGIN step; the self-heal + Option 2 harden the SESSION. Do both.
+
+**JS LANDED THIS SESSION (web bundle, DORMANT until the binary links the plugin):**
+- `@capacitor-community/apple-sign-in@7.1.0` added to `apps/inorout/package.json`.
+- `native-auth.js`: `startOAuth('apple', …)` now routes to a new `startAppleNative()`
+  **only when** `Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('SignInWithApple')`.
+  On the current 1.0(4) binary the native plugin isn't registered → `isPluginAvailable`
+  is false → it falls through to the existing web flow, so shipping this to the live
+  bundle CANNOT break the submitted binary. `startAppleNative` does nonce (raw +
+  SHA-256) → `SignInWithApple.authorize` → `supabase.auth.signInWithIdToken({provider:
+  'apple', token, nonce})` → navigates to `/auth/callback` to reuse the shared returnTo
+  logic. All 3 Apple buttons (SignIn / EmailCaptureOverlay / JoinTeam) route through
+  `startOAuth`, so no call-site change was needed.
+
+**OWED to activate (build machine + 1 dashboard change):**
+1. **Supabase → Auth → Providers → Apple → Authorized Client IDs:** ADD the bundle id
+   **`uk.inorout.app`** alongside the existing Service ID `uk.inorout.app.signin`. The
+   native identity token's audience is the bundle id; without this, `signInWithIdToken`
+   rejects it. (The native path does NOT use the OAuth client secret — so it also
+   sidesteps the `2026-12-16` client-secret-expiry landmine for app users.)
+2. **Build machine:** `npm install` (picks up the plugin) → `npx cap sync ios` (links
+   `SignInWithApple` into the Xcode target) → confirm the **Sign in with Apple**
+   capability is on the target (already added s163) → archive **1.0(5)**.
+3. **Device walk** (iPhone + iPad, fresh Hide-My-Email): tap Apple → the OS sheet
+   appears (NOT a Safari sheet) → lands signed-in. Confirm `isPluginAvailable` is true
+   in the 1.0(5) build (else it silently uses the web flow).
+
+---
+
 ## ROUND 1 (PR #96) — superseded by Round 2 above
 
 **Status: FIX SHIPPED to PR, DEVICE WALK OWED.** Diagnosed s199; built + verified
