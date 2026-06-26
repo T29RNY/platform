@@ -1,23 +1,24 @@
 // OperatorBookings.jsx — Operator track, screen 2 ("Bookings"), mounted at /hub
 // for an operator role (owner | manager | staff), tab "bookings".
 //
-// Honest mobile re-presentation of the laptop venue calendar
-// (apps/venue/src/views/ResourceCalendar.jsx / ResourceAgenda.jsx) in the scoped
-// amber theme. ALL data comes from one existing call —
-// getVenueResourceOccupancy(venue_id, from, to) → get_venue_resource_occupancy
-// (mig 419): one normalised occupancy[] across pitches + rooms (room hires ∪
-// classes) + trainers, plus the resource lanes. No new reader.
+// Faithful mobile re-presentation of the prototype Bookings screen
+// (design_handoff_guardian_app/m-views.jsx — Bookings()): a VERTICAL TIME-GRID
+// CALENDAR (hour lines + hour labels, blocks positioned by time, overlapping
+// blocks squashed side-by-side into columns, a live "now" line) with a day
+// stepper / strip, a resource-lane filter, and a Requests section below.
+//
+// Data: getVenueResourceOccupancy(venue_id, from, to) → get_venue_resource_occupancy
+// (mig 419): one normalised occupancy[] across pitches + rooms (room hires ∪ classes)
+// + trainers, plus the resource lanes. No new reader.
 //
 // AUTH: identical to OperationsTonight — the operator passes their venue_id as the
 // credential; resolve_venue_caller stage 1b authenticates via auth.uid() against
 // venue_admins. No token, no new RPC.
 //
-// Request approvals reuse existing writers: venueConfirmBooking /
-// venueDeclineBooking (pitch booking requests). Room-hire confirmation needs a
-// price (a fuller flow, deferred), and new-booking CREATE (the prototype's
-// progressive NewBookingSheet) is deferred to its own cycle — the "+" surfaces a
-// "coming soon" toast. Fixtures / classes / club sessions / PT appointments are
-// read-only here, faithful to the laptop block modal.
+// Request approvals reuse existing writers: venueConfirmBooking / venueDeclineBooking
+// (pitch booking requests). Room-hire confirmation (needs a price) and new-booking
+// CREATE (the prototype's progressive NewBookingSheet — tap a free slot / the "+")
+// are deferred to their own cycle — the "+" surfaces a "coming soon" toast.
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -27,41 +28,39 @@ import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 
 const LONDON = "Europe/London";
+const PXH = 62;            // pixels per hour on the calendar grid
+const GAP_MIN = 6;         // px subtracted from block height for breathing room
 
 function gbp(pence) {
   const n = Number(pence || 0) / 100;
-  return "£" + n.toLocaleString("en-GB", {
-    minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2,
-  });
-}
-
-function initials(name) {
-  const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
-  if (!w.length) return "?";
-  if (w.length === 1) return w[0].slice(0, 2).toUpperCase();
-  return (w[0][0] + w[w.length - 1][0]).toUpperCase();
+  return "£" + n.toLocaleString("en-GB", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
 }
 
 // Local YYYY-MM-DD key for a Date in the venue's timezone.
 function dayKey(d) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: LONDON, year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(d);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: LONDON, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 function hm(d) {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: LONDON, hour: "2-digit", minute: "2-digit", hour12: false,
-  }).format(d);
+  return new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+}
+// Fractional London hour (e.g. 19.5 for 19:30) — drives the vertical position.
+function londonHM(d) {
+  if (!d) return null;
+  const p = new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d);
+  let h = +p.find((x) => x.type === "hour").value;
+  const m = +p.find((x) => x.type === "minute").value;
+  if (h === 24) h = 0;
+  return h + m / 60;
 }
 
-// Lane metadata: order + label + icon for the three resource lanes.
+// Resource lanes shown by the filter (only those the venue actually has appear).
 const LANES = [
   { key: "pitch",   label: "Pitches",  icon: "grid" },
   { key: "room",    label: "Rooms",    icon: "door" },
   { key: "trainer", label: "Trainers", icon: "figure" },
 ];
 
-// source_kind → glyph + a short human label for the block.
+// source_kind → glyph + a short human label for the block / detail.
 const KIND_META = {
   booking:      { icon: "grid",    word: "Hire" },
   fixture:      { icon: "whistle", word: "Fixture" },
@@ -72,6 +71,20 @@ const KIND_META = {
   class:        { icon: "users",   word: "Class" },
   appointment:  { icon: "figure",  word: "PT" },
 };
+
+// A pitch booking awaiting operator confirmation — the only inline-actionable kind.
+function isPitchRequest(o) {
+  return o.source_kind === "booking" && (o.detail?.status === "requested");
+}
+
+// Coloured left-stripe tone per block, mirroring the prototype evtTone.
+function toneFor(o) {
+  if (o.source_kind === "maintenance") return { stripe: "var(--ink3)", soft: "var(--s3)", hatch: true };
+  if (isPitchRequest(o)) return { stripe: "var(--amber)", soft: "var(--amber-soft)" };
+  if (["fixture", "club_fixture", "club_session"].includes(o.source_kind)) return { stripe: "var(--amber)", soft: "var(--amber-soft)" };
+  if (o.source_kind === "booking") return { stripe: "var(--ok)", soft: "var(--ok-soft)" };
+  return { stripe: "var(--info)", soft: "var(--info-soft)" }; // room_hire / class / appointment
+}
 
 // Human title for an occupancy block, from its source_kind + detail.
 function blockTitle(o) {
@@ -88,10 +101,38 @@ function blockTitle(o) {
     default:             return "Booking";
   }
 }
+// Short resource tag for the block corner (e.g. "Main", "Studio 1").
+function resTag(name) {
+  const s = String(name || "").trim();
+  return s.length > 11 ? s.slice(0, 10) + "…" : s || "—";
+}
 
-// A pitch booking awaiting operator confirmation — the only inline-actionable kind.
-function isPitchRequest(o) {
-  return o.source_kind === "booking" && (o.detail?.status === "requested");
+// Column-squash overlapping blocks (port of the prototype combineEvents()).
+function layout(items) {
+  const evs = items
+    .map((o) => ({ ...o, _s: londonHM(o._start), _e: londonHM(o._end) }))
+    .filter((o) => o._s != null && o._e != null && o._e > o._s)
+    .sort((a, b) => a._s - b._s || a._e - b._e);
+  let cluster = [], clusterEnd = 0;
+  const flush = () => {
+    if (!cluster.length) return;
+    const colEnds = [];
+    cluster.forEach((ev) => {
+      let c = 0;
+      while (c < colEnds.length && colEnds[c] > ev._s + 0.001) c++;
+      ev._col = c; colEnds[c] = ev._e;
+    });
+    const n = colEnds.length;
+    cluster.forEach((ev) => (ev._cols = n));
+    cluster = [];
+  };
+  evs.forEach((ev) => {
+    if (cluster.length && ev._s >= clusterEnd - 0.001) flush();
+    cluster.push(ev);
+    clusterEnd = cluster.length === 1 ? ev._e : Math.max(clusterEnd, ev._e);
+  });
+  flush();
+  return evs;
 }
 
 export default function OperatorBookings({ venueId, venueName, toast }) {
@@ -99,6 +140,7 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
   const [selKey, setSelKey] = useState(() => dayKey(new Date()));
   const [detail, setDetail] = useState(null);          // occupancy item or null
   const [busy, setBusy] = useState({});                // source_id → bool
+  const [lanesOff, setLanesOff] = useState(() => new Set()); // resource_types hidden
 
   // 14-day window: today .. +13, fetched once.
   const window14 = useMemo(() => {
@@ -136,13 +178,8 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
     return occ.map((o) => {
       const start = o.start ? new Date(o.start) : null;
       const end = o.end ? new Date(o.end) : null;
-      return {
-        ...o,
-        _key: start ? dayKey(start) : null,
-        _start: start, _end: end,
-        _lane: o.resource_type || "pitch",
-      };
-    }).filter((o) => o._key);
+      return { ...o, _key: start ? dayKey(start) : null, _start: start, _end: end, _lane: o.resource_type || "pitch" };
+    }).filter((o) => o._key && o._start && o._end);
   }, [venue]);
 
   // Per-day index → drives the day-strip dots / request badges.
@@ -155,6 +192,16 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
     }
     return m;
   }, [blocks]);
+
+  // Which lanes the venue actually has (drives the filter row).
+  const presentLanes = useMemo(() => {
+    if (!venue) return [];
+    return LANES.filter((ln) =>
+      (ln.key === "pitch" && (venue.pitches || []).length) ||
+      (ln.key === "room" && (venue.rooms || []).length) ||
+      (ln.key === "trainer" && (venue.trainers || []).length)
+    );
+  }, [venue]);
 
   if (loading) {
     return (
@@ -178,11 +225,34 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
   }
 
   const todayKey = dayKey(new Date());
-  const dayBlocks = blocks.filter((b) => b._key === selKey).sort((a, b) => (a._start - b._start));
-  const dayRequests = dayBlocks.filter(isPitchRequest);
-  const laneGroups = LANES.map((ln) => ({
-    ...ln, items: dayBlocks.filter((b) => b._lane === ln.key && !isPitchRequest(b)),
-  })).filter((g) => g.items.length);
+  const dayAll = blocks.filter((b) => b._key === selKey);
+  const dayShown = dayAll.filter((b) => !lanesOff.has(b._lane));
+  const dayRequests = dayAll.filter(isPitchRequest).sort((a, b) => a._start - b._start);
+  const laid = layout(dayShown);
+
+  // Calendar vertical window: snap to the day's blocks, min 5h span.
+  let startH = 9, endH = 22;
+  if (laid.length) {
+    startH = Math.floor(Math.min(...laid.map((e) => e._s)));
+    endH = Math.ceil(Math.max(...laid.map((e) => e._e)));
+    if (endH - startH < 5) endH = startH + 5;
+    if (startH < 0) startH = 0;
+    if (endH > 24) endH = 24;
+  }
+  const hours = [];
+  for (let h = startH; h <= endH; h++) hours.push(h);
+  const gridH = (endH - startH) * PXH;
+  const nowHM = londonHM(new Date());
+  const showNow = selKey === todayKey && nowHM > startH && nowHM < endH;
+
+  const toggleLane = (key) => {
+    setLanesOff((prev) => {
+      const n = new Set(prev);
+      if (n.has(key)) n.delete(key);
+      else if (n.size < presentLanes.length - 1) n.add(key); // keep at least one lane on
+      return n;
+    });
+  };
 
   // ── pitch-booking request confirm / decline ──
   const decide = async (o, confirm) => {
@@ -205,6 +275,8 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
     }
   };
 
+  const selDate = window14.find((d) => d.key === selKey)?.date || new Date();
+
   return (
     <div>
       {/* ── day strip ── */}
@@ -220,8 +292,7 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
               flex: "none", width: 52, padding: "9px 0 8px", borderRadius: 14, cursor: "pointer",
               display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
               background: on ? "var(--amber)" : "var(--s2)",
-              border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)",
-              fontFamily: "var(--m-font)",
+              border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)", fontFamily: "var(--m-font)",
             }}>
               <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase",
                 color: on ? "var(--amber-ink)" : "var(--ink3)" }}>{isToday ? "Today" : wd}</span>
@@ -239,27 +310,129 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
         })}
       </div>
 
-      {/* ── selected-day heading ── */}
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "16px 2px 4px" }}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", margin: 0, color: "var(--ink)" }}>
-          {new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, weekday: "long", day: "numeric", month: "long" }).format(window14.find((d) => d.key === selKey)?.date || new Date())}
+      {/* ── heading + lane filter + new ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "14px 2px 0", gap: 10 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", margin: 0, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, weekday: "long", day: "numeric", month: "long" }).format(selDate)}
         </h2>
         <button onClick={() => toast?.({ icon: "plus", text: "New booking — coming soon", sub: "Use the venue dashboard for now" })}
           aria-label="New booking" style={{
             flex: "none", width: 34, height: 34, borderRadius: 11, cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
-            background: "var(--amber-soft)", border: "1px solid var(--amber-glow)",
-          }}><MIcon name="plus" size={18} color="var(--amber)" /></button>
+            background: "var(--amber)", border: "none",
+          }}><MIcon name="plus" size={18} color="var(--amber-ink)" /></button>
       </div>
-      <div style={{ fontSize: 12.5, color: "var(--ink3)", fontWeight: 600, margin: "0 2px 4px" }}>
-        {dayBlocks.length ? `${dayBlocks.length} booking${dayBlocks.length === 1 ? "" : "s"}` : "No bookings"}
-        {dayRequests.length ? ` · ${dayRequests.length} awaiting confirmation` : ""}
+
+      {presentLanes.length > 1 && (
+        <div style={{ display: "flex", gap: 7, margin: "11px 2px 0", flexWrap: "wrap" }}>
+          {presentLanes.map((ln) => {
+            const on = !lanesOff.has(ln.key);
+            return (
+              <button key={ln.key} onClick={() => toggleLane(ln.key)} style={{
+                height: 30, padding: "0 12px", borderRadius: "var(--r-pill)", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--m-font)",
+                fontSize: 12.5, fontWeight: 700,
+                background: on ? "var(--amber-soft)" : "var(--s2)",
+                border: "1px solid", borderColor: on ? "var(--amber-glow)" : "var(--hair)",
+                color: on ? "var(--amber)" : "var(--ink3)",
+              }}>
+                <MIcon name={ln.icon} size={14} color={on ? "var(--amber)" : "var(--ink3)"} />{ln.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── the calendar ── */}
+      <div className="m-card" style={{ padding: "14px 12px 12px", marginTop: 13, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 12, paddingLeft: 2 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>Day view
+            <span style={{ color: "var(--ink3)", fontWeight: 500 }}> · {dayShown.length} booking{dayShown.length === 1 ? "" : "s"}</span>
+          </div>
+          {dayRequests.length > 0 && (
+            <span style={{ fontSize: 12, color: "var(--amber)", fontWeight: 700, flex: "none" }}>{dayRequests.length} to confirm</span>
+          )}
+        </div>
+
+        {dayShown.length === 0 ? (
+          <div style={{ padding: "26px 14px", textAlign: "center" }}>
+            <MIcon name="calendar" size={26} color="var(--ink3)" />
+            <div style={{ fontSize: 14, fontWeight: 700, marginTop: 9, color: "var(--ink2)" }}>Nothing booked</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 3 }}>
+              {dayAll.length ? "All lanes hidden by the filter." : "No pitches, rooms or trainers booked this day."}
+            </div>
+          </div>
+        ) : (
+          <div style={{ maxHeight: 420, overflowY: "auto", overflowX: "hidden", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
+            <div style={{ position: "relative", height: gridH }}>
+              {/* hour lines + labels */}
+              {hours.map((h) => (
+                <div key={h}>
+                  <div style={{ position: "absolute", left: 46, right: 0, top: (h - startH) * PXH, borderTop: "1px dashed var(--hair)" }} />
+                  <div style={{ position: "absolute", left: 0, width: 38, textAlign: "right", top: (h - startH) * PXH, transform: "translateY(-7px)",
+                    fontSize: 10.5, fontWeight: 700, color: "var(--ink4)", fontVariantNumeric: "tabular-nums" }}>{String(h).padStart(2, "0")}:00</div>
+                </div>
+              ))}
+
+              {/* now line */}
+              {showNow && (
+                <div style={{ position: "absolute", left: 46, right: 0, top: (nowHM - startH) * PXH, height: 2, background: "var(--live)", zIndex: 6, boxShadow: "0 0 8px var(--live)" }}>
+                  <span style={{ position: "absolute", left: -4, top: -3, width: 8, height: 8, borderRadius: "50%", background: "var(--live)" }} />
+                </div>
+              )}
+
+              {/* blocks */}
+              <div style={{ position: "absolute", left: 52, right: 2, top: 0, bottom: 0 }}>
+                {laid.map((e) => {
+                  const top = (e._s - startH) * PXH + 3;
+                  const height = Math.max(40, (e._e - e._s) * PXH - GAP_MIN);
+                  const tone = toneFor(e);
+                  const w = 100 / e._cols;
+                  const tight = e._cols > 1;
+                  const title = blockTitle(e);
+                  return (
+                    <button key={e.id} onClick={() => setDetail(e)} style={{
+                      position: "absolute", top, height, left: `${e._col * w}%`, width: `calc(${w}% - 4px)`,
+                      borderRadius: 13, overflow: "hidden", cursor: "pointer", textAlign: "left",
+                      padding: "6px 8px 6px 13px", border: "1px solid var(--hair2)",
+                      background: tone.hatch
+                        ? "repeating-linear-gradient(45deg, var(--s3), var(--s3) 7px, var(--s2) 7px, var(--s2) 14px)"
+                        : "var(--s2)",
+                      fontFamily: "var(--m-font)", boxShadow: "var(--shadow-card)",
+                    }}>
+                      <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: tone.stripe }} />
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: "var(--ink2)", letterSpacing: "0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{resTag(e.resource_name)}</span>
+                        {e.detail?.status === "in_progress"
+                          ? <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--live)", flex: "none" }} />
+                          : <span style={{ width: 7, height: 7, borderRadius: "50%", background: tone.stripe, flex: "none" }} />}
+                      </div>
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
+                        {tight ? title.split(" v ")[0] : title}
+                      </div>
+                      {height > 52 && (
+                        <div style={{ fontSize: 10, color: "var(--ink3)", fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                          {hm(e._start)}–{hm(e._end)}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ fontSize: 11.5, color: "var(--ink4)", marginTop: 11, display: "flex", alignItems: "center", gap: 7, paddingLeft: 2 }}>
+          <MIcon name="info" size={13} color="var(--ink4)" style={{ flex: "none" }} />
+          Overlapping bookings sit side by side · tap one for detail
+        </div>
       </div>
 
       {/* ── requests ── */}
       {dayRequests.length > 0 && (
         <>
-          <div className="m-eyebrow" style={{ margin: "16px 2px 9px" }}>Awaiting confirmation</div>
+          <div className="m-eyebrow" style={{ margin: "20px 2px 9px" }}>Requests · {dayRequests.length} pending</div>
           {dayRequests.map((o) => {
             const b = !!busy[o.source_id];
             return (
@@ -284,28 +457,6 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
         </>
       )}
 
-      {/* ── lanes ── */}
-      {laneGroups.map((g) => (
-        <div key={g.key}>
-          <div className="m-eyebrow" style={{ margin: "18px 2px 9px", display: "flex", alignItems: "center", gap: 7 }}>
-            <MIcon name={g.icon} size={14} color="var(--ink3)" />{g.label}
-            <span style={{ color: "var(--ink4)", fontWeight: 700 }}>{g.items.length}</span>
-          </div>
-          {g.items.map((o) => (
-            <BlockCard key={o.id} o={o} onOpen={() => setDetail(o)} />
-          ))}
-        </div>
-      ))}
-
-      {/* ── empty ── */}
-      {dayBlocks.length === 0 && (
-        <div className="m-card" style={{ padding: "28px 18px", textAlign: "center", marginTop: 8 }}>
-          <MIcon name="calendar" size={28} color="var(--ink3)" />
-          <div style={{ fontSize: 14.5, fontWeight: 700, marginTop: 10, color: "var(--ink2)" }}>Nothing booked</div>
-          <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 3 }}>No pitches, rooms or trainers are booked this day.</div>
-        </div>
-      )}
-
       {detail && (
         <BookingDetailSheet
           o={detail}
@@ -319,7 +470,7 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
   );
 }
 
-// Status pill text + tone for a block.
+// Status pill text + tone for a block / detail sheet.
 function statusPill(o) {
   const d = o.detail || {};
   if (isPitchRequest(o)) return { text: "Awaiting confirmation", tone: "amber" };
@@ -329,33 +480,6 @@ function statusPill(o) {
   if (d.status === "confirmed" || o.source_kind === "booking") return { text: "Confirmed", tone: "ok" };
   if (d.status) return { text: d.status, tone: "ok" };
   return { text: "Booked", tone: "ok" };
-}
-
-function BlockCard({ o, onOpen }) {
-  const meta = KIND_META[o.source_kind] || KIND_META.booking;
-  const pill = statusPill(o);
-  return (
-    <button onClick={onOpen} className="m-card" style={{
-      width: "100%", textAlign: "left", cursor: "pointer", padding: "12px 14px", marginBottom: 10,
-      display: "flex", alignItems: "center", gap: 12,
-    }}>
-      <div style={{ width: 46, flex: "none", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>{o._start ? hm(o._start) : "—"}</div>
-        <div style={{ fontSize: 11, color: "var(--ink4)", marginTop: 1 }}>{o._end ? hm(o._end) : ""}</div>
-      </div>
-      <div style={{ width: 34, height: 34, borderRadius: 10, flex: "none", background: "var(--s3)",
-        display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <MIcon name={meta.icon} size={17} color="var(--ink2)" />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{blockTitle(o)}</div>
-        <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {[meta.word, o.resource_name].filter(Boolean).join(" · ")}
-        </div>
-      </div>
-      <StatusChip pill={pill} />
-    </button>
-  );
 }
 
 function StatusChip({ pill }) {
