@@ -129,7 +129,15 @@ function readCookieValue(key) {
 
 function getItem(key) {
   if (!cookieMode()) return lsGet(key);
-  const fromCookie = readCookieValue(key);
+  // A cookie that reads back PRESENT-but-stale (not absent) is returned as-is here:
+  // getItem can't safely prefer the mirror, because in cross-subdomain SSO a newer
+  // session legitimately lands in the shared cookie ahead of this origin's mirror,
+  // so "cookie != mirror" does NOT imply the cookie is wrong. The WKWebView stale-
+  // read storm is closed at the source instead — native uses localStorage only
+  // (the UA-marker detector, Option 2). A decode error never escapes — degrade to
+  // the mirror.
+  let fromCookie = null;
+  try { fromCookie = readCookieValue(key); } catch { fromCookie = null; }
   if (fromCookie != null) return fromCookie;
   // Cookie absent — a session written to localStorage BEFORE the cookie flip, OR
   // a cookie that was silently dropped (WKWebView/Safari evict cookies on their
@@ -165,8 +173,15 @@ function setItem(key, value) {
   // unreliable (the WKWebView app-store-rejection case) — latch to localStorage-only
   // for the rest of the session. The mirror written above already holds `value`, so
   // getItem returns the correct session immediately and supabase-js never enters the
-  // refresh-token storm. No-op on healthy browsers, which round-trip exactly.
-  if (readCookieValue(key) !== value) {
+  // refresh-token storm. A decode error (corrupt/truncated chunk) counts as a
+  // mismatch — it must never throw out of setItem. The only theoretical false
+  // positive (a second subdomain writing a newer session into the shared cookie in
+  // the sub-microsecond gap between this write and read — already serialised by
+  // supabase's cross-tab lock) merely DEGRADES SSO to localStorage for this page
+  // load; never a logout, and it resets next load. No-op on healthy browsers.
+  let readBack = null;
+  try { readBack = readCookieValue(key); } catch { readBack = null; }
+  if (readBack !== value) {
     cookiesUnreliable = true;
     console.error(
       "[auth] cookie store unreliable — read-back mismatch; using localStorage only"
