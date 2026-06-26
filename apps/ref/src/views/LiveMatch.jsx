@@ -421,9 +421,9 @@ function TournamentGoalButton({ team, locked, onGoal, onCard }) {
           className={"btn btn-primary btn-block" + (locked ? " disabled" : "")}
           disabled={locked}
           onClick={onGoal}
-          style={{ minHeight: 72, fontSize: 20, letterSpacing: 1 }}
+          style={{ minHeight: 72, fontSize: 20, fontWeight: 800, letterSpacing: "0.22em", paddingLeft: "0.22em" }}
         >
-          <GoalDot s={20} /> GOAL
+          GOAL
         </button>
         <button
           className={"btn btn-ghost btn-block" + (locked ? " disabled" : "")}
