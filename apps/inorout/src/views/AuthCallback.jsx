@@ -8,8 +8,10 @@ import { supabase, updateUserProfile, getCompanyByDomain } from "@platform/core/
 // a beat after our first getSession() read returns null. We wait for the SIGNED_IN
 // event rather than redirecting on a null session — redirecting logged-out here is
 // the exact "signed in, then logged out" App Store 2.1(a) symptom. If the wait
-// elapses with no session we show an error with a way home, never a silent logout.
-const SESSION_WAIT_MS = 8000;
+// elapses we re-check storage once, then show an error with a way home — never a
+// silent logout. 12s tolerates a slow cellular WKWebView token exchange (a reviewer
+// on throttled wifi must not get an error on a sign-in that was about to succeed).
+const SESSION_WAIT_MS = 12000;
 
 export default function AuthCallback() {
   const [status, setStatus] = useState("processing");
@@ -115,7 +117,8 @@ export default function AuthCallback() {
       try {
         // Fast-fail: the provider explicitly returned an error (e.g. the user
         // cancelled). No session is coming — don't sit through the wait.
-        const qsErr = new URLSearchParams(window.location.search).get("error");
+        const qs = new URLSearchParams(window.location.search);
+        const qsErr = qs.get("error");
         const hashErr = new URLSearchParams(
           (window.location.hash || "").replace(/^#/, "")
         ).get("error");
@@ -133,14 +136,30 @@ export default function AuthCallback() {
         // ran under the same lock getSession awaits). Finish immediately.
         if (data.session?.user) { finish(data.session.user); return; }
 
-        // No session yet — supabase-js may still be consuming the URL hash/code.
-        // Wait for SIGNED_IN instead of redirecting logged-out.
+        // Is an auth response actually inbound in the URL? PKCE (?code), magic-link
+        // OTP (?token_hash) or implicit OAuth (#access_token). If NONE, no session is
+        // coming — a stray/relaunched /auth/callback or an already-consumed link with
+        // no live session. Preserve the old behaviour (redirect to returnTo) instead
+        // of spinning for 12s then erroring.
+        const hp = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+        const authInbound = qs.has("code") || qs.has("token_hash") || hp.has("access_token");
+        if (!authInbound) { finish(null); return; }
+
+        // Auth IS inbound but not in storage yet — supabase-js is still consuming the
+        // URL. Wait for SIGNED_IN / INITIAL_SESSION instead of redirecting logged-out.
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
           if (session?.user) finish(session.user);
         });
         sub = listener?.subscription || null;
 
-        timer = setTimeout(() => {
+        timer = setTimeout(async () => {
+          if (settled) return;
+          // Last chance: the event may have been missed but the session could have
+          // landed in storage (slow exchange). Check before declaring failure.
+          try {
+            const { data: late } = await supabase.auth.getSession();
+            if (late.session?.user) { finish(late.session.user); return; }
+          } catch (e) { /* fall through to the error screen */ }
           if (settled) return;
           settled = true;
           cleanup();
