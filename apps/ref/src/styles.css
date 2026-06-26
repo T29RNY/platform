@@ -78,6 +78,11 @@ html, body { margin: 0; padding: 0; overscroll-behavior: none; }
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* Flat ground for the scrolling content. The .app radial vignette (lighter at
+     top) otherwise faded out mid-screen — right around the LiveMatch "vs" divider
+     — so the home block sat on a lighter band that made the divider look like it
+     belonged to the home team. The vignette still reads behind the fixed scoreboard. */
+  background: var(--bg);
 }
 .scroll::-webkit-scrollbar { display: none; }
 
