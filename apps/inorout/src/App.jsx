@@ -17,7 +17,7 @@ import {
   memberGetSelf,
   getUserRelationships,
   getMyWorld, claimTeamAdmin, getMyAdminTeams,
-  getTeamFeatureFlags,
+  getTeamFeatureFlags, refLinkSelfToOfficial,
 } from "@platform/core/storage/supabase.js";
 import { deriveSquadContext } from "./lib/deriveContext.js";
 import { writeLastContext, readLastContext } from "./lib/lastContext.js";
@@ -767,9 +767,21 @@ export default function App() {
 
   // Phase 0c — load the unified "my world" resolver for the context switcher.
   // Best-effort: a failure just leaves the switcher to its squad rows.
+  // First self-link any match-official cards that match this account's verified
+  // email (ref_link_self_to_official sets match_officials.user_id → a trigger
+  // fills person_id) so a referee's assignments surface in ref_assignments without
+  // any manual setup. Idempotent + no-op for non-referees; never blocks world-load.
   useEffect(() => {
     if (!authUser) { setMyWorld(null); return; }
-    getMyWorld().then(w => setMyWorld(w?.ok ? w : null)).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try { await refLinkSelfToOfficial(); } catch { /* best-effort link */ }
+      try {
+        const w = await getMyWorld();
+        if (!cancelled) setMyWorld(w?.ok ? w : null);
+      } catch { /* leave the switcher to its squad rows */ }
+    })();
+    return () => { cancelled = true; };
   }, [authUser]);
 
   // Full catch-up re-fetch. Single source of truth for the team_live broadcast
