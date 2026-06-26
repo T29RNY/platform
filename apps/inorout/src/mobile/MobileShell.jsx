@@ -20,7 +20,7 @@ import "./theme/mobile-tokens.css";
 import { useMobileTheme } from "./theme/useMobileTheme.js";
 import { resolveRoles, tabsFor, TAB_META, contextSubline } from "./nav.js";
 import MIcon from "./icons.jsx";
-import MobileSheet from "./MobileSheet.jsx";
+import ProfileSheet from "./ProfileSheet.jsx";
 import GuardianMatches from "./screens/GuardianMatches.jsx";
 import GuardianLeague from "./screens/GuardianLeague.jsx";
 import GuardianMembership from "./screens/GuardianMembership.jsx";
@@ -38,7 +38,7 @@ function initials(name) {
   return (w[0][0] + w[w.length - 1][0]).toUpperCase();
 }
 
-export default function MobileShell({ world, authUser, route }) {
+export default function MobileShell({ world, authUser, route, onSignOut }) {
   const { pref, resolved, setPref } = useMobileTheme();
 
   // Resolve hats once from the server payload. Highest-rank role is the default.
@@ -284,9 +284,18 @@ export default function MobileShell({ world, authUser, route }) {
         <ProfileSheet
           name={displayName}
           email={authUser?.email}
+          role={role}
           roles={roles}
           roleIdx={roleIdx}
           onPickRole={(i) => { setRoleIdx(i); setSheet(null); }}
+          world={world}
+          children={children}
+          childId={activeChildId}
+          childFirst={activeChild?.first_name || "your child"}
+          onPickChild={setChildId}
+          onGoToMembership={isGuardian ? () => { setTab("membership"); setSheet(null); } : undefined}
+          onSignOut={onSignOut}
+          toast={toast}
           pref={pref}
           onPref={setPref}
           onClose={() => setSheet(null)}
@@ -294,68 +303,5 @@ export default function MobileShell({ world, authUser, route }) {
       )}
       {sheet && typeof sheet !== "string" && sheet}
     </div>
-  );
-}
-
-// Minimal Phase 0 profile sheet: identity, appearance (proves theme switching),
-// and — only when the person holds more than one hat — a context picker (NOT the
-// prototype role switcher; this is the real multi-hat chooser, surfaced only when
-// real data shows multiple roles).
-function ProfileSheet({ name, email, roles, roleIdx, onPickRole, pref, onPref, onClose }) {
-  return (
-    <MobileSheet title="Profile" onClose={onClose}>
-      <div className="m-card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div className="m-avatar" style={{ cursor: "default" }}>{name ? name.slice(0, 1).toUpperCase() : "?"}</div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{name}</div>
-          {email && <div style={{ fontSize: 12.5, color: "var(--ink3)" }}>{email}</div>}
-        </div>
-      </div>
-
-      {roles.length > 1 && (
-        <>
-          <div className="m-eyebrow" style={{ margin: "20px 2px 10px" }}>Your roles</div>
-          {roles.map((r, i) => (
-            <button
-              key={r.key + ":" + i}
-              className="m-card"
-              onClick={() => onPickRole(i)}
-              style={{
-                width: "100%", display: "flex", alignItems: "center", gap: 12,
-                marginBottom: 8, cursor: "pointer", textAlign: "left",
-                borderColor: i === roleIdx ? "var(--amber-glow)" : "var(--hair)",
-              }}
-            >
-              <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>
-                {r.name} <span style={{ color: "var(--ink3)", fontWeight: 400 }}>· {r.key.replace("_", " ")}</span>
-              </span>
-              {i === roleIdx && <MIcon name="check" size={18} color="var(--amber)" />}
-            </button>
-          ))}
-        </>
-      )}
-
-      <div className="m-eyebrow" style={{ margin: "20px 2px 10px" }}>Appearance</div>
-      <div style={{ display: "flex", gap: 8 }}>
-        {["light", "dark", "system"].map((opt) => {
-          const on = pref === opt;
-          return (
-            <button
-              key={opt}
-              onClick={() => onPref(opt)}
-              style={{
-                flex: 1, padding: "10px 0", borderRadius: "var(--r-md)",
-                background: on ? "var(--amber-soft)" : "var(--s2)",
-                border: "1px solid " + (on ? "var(--amber-glow)" : "var(--hair)"),
-                color: on ? "var(--amber)" : "var(--ink2)",
-                fontSize: 13.5, fontWeight: 600, textTransform: "capitalize", cursor: "pointer",
-              }}
-            >
-              {opt === "system" ? "Auto" : opt}
-            </button>
-          );
-        })}
-      </div>
-    </MobileSheet>
   );
 }
