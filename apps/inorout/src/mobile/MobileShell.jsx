@@ -28,6 +28,7 @@ import GuardianMore from "./screens/GuardianMore.jsx";
 import GuardianDocs from "./screens/GuardianDocs.jsx";
 import GuardianSchedule from "./screens/GuardianSchedule.jsx";
 import GuardianNotices from "./screens/GuardianNotices.jsx";
+import GuardianTeam from "./screens/GuardianTeam.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -107,7 +108,7 @@ export default function MobileShell({ world, authUser, route }) {
   }
 
   const isGuardian = role.key === "guardian";
-  const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices" };
+  const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices", team: "Team" };
   const headerTitle = isGuardian && tab === "more" && moreView
     ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
     : TAB_META[tab]?.title || "Home";
@@ -203,10 +204,17 @@ export default function MobileShell({ world, authUser, route }) {
                 onBack={() => setMoreView(null)}
                 onUnreadChange={setNoticesUnread}
               />
+            ) : moreView === "team" ? (
+              <GuardianTeam
+                childId={activeChild?.child_profile_id || null}
+                childFirst={activeChild?.first_name || "your child"}
+                onBack={() => setMoreView(null)}
+              />
             ) : (
               <GuardianMore
                 childFirst={activeChild?.first_name || "your child"}
                 noticesUnread={noticesUnread}
+                onOpenTeam={() => setMoreView("team")}
                 onOpenDocuments={() => setMoreView("documents")}
                 onOpenSchedule={() => setMoreView("schedule")}
                 onOpenNotices={() => setMoreView("notices")}

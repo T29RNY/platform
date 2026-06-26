@@ -8,13 +8,13 @@
 import MIcon from "../icons.jsx";
 
 const ROWS = [
-  { id: "team", icon: "shield", title: "Team", sub: "Squad, coaches & contacts", soon: true },
+  { id: "team", icon: "shield", title: "Team", sub: "Squad, coach & broadcasts", soon: false },
   { id: "schedule", icon: "calendar", title: "Schedule", sub: "Training & fixtures", soon: false },
   { id: "notices", icon: "bell", title: "Club notices", sub: "Announcements from the club", soon: false },
   { id: "documents", icon: "flag", title: "Documents & consent", sub: "Registration & medical forms", soon: false },
 ];
 
-export default function GuardianMore({ childFirst, dueCount, noticesUnread, onOpenDocuments, onOpenSchedule, onOpenNotices, onOpenProfile }) {
+export default function GuardianMore({ childFirst, dueCount, noticesUnread, onOpenTeam, onOpenDocuments, onOpenSchedule, onOpenNotices, onOpenProfile }) {
   return (
     <div className="m-view-enter">
       <div className="m-eyebrow" style={{ margin: "8px 2px 12px" }}>
@@ -29,7 +29,8 @@ export default function GuardianMore({ childFirst, dueCount, noticesUnread, onOp
           <button
             key={r.id}
             onClick={() => {
-              if (r.id === "documents") onOpenDocuments?.();
+              if (r.id === "team") onOpenTeam?.();
+              else if (r.id === "documents") onOpenDocuments?.();
               else if (r.id === "schedule") onOpenSchedule?.();
               else if (r.id === "notices") onOpenNotices?.();
             }}

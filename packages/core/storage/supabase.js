@@ -5091,6 +5091,16 @@ export async function guardianMarkNoticeRead(announcementId, forProfileId) {
   return data;
 }
 
+// Guardian "Team" screen (mig 436) — the child's team(s): header + own W/D/L record,
+// coaches, and squad (read-only). Team broadcasts come from guardianListChildNotices.
+export async function guardianListChildTeam(childProfileId) {
+  const { data, error } = await supabase.rpc("guardian_list_child_team", {
+    p_child_profile_id: childProfileId,
+  });
+  if (error) { console.error("[guardian] guardian_list_child_team failed", error); throw error; }
+  return data;
+}
+
 // ── Phase 7 — /q signup rebuild (mig 296) ────────────────────────────────────
 
 // Create member's own profile at /q signup (authenticated, fails if profile exists).
