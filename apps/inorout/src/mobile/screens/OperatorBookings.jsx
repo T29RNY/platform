@@ -26,7 +26,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   getVenueResourceOccupancy, venueConfirmBooking, venueDeclineBooking,
-  venueCreateBooking, venueListCustomersPeople,
+  venueCreateBooking, venueListCustomersPeople, cancelBooking,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -281,10 +281,26 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
     }
   };
 
+  const cancelOne = async (o) => {
+    if (busy[o.source_id]) return;
+    setBusy((s) => ({ ...s, [o.source_id]: true }));
+    try {
+      await cancelBooking(o.source_id, groundId);
+      toast?.({ icon: "x", text: `${blockTitle(o)} cancelled`, sub: o.resource_name || "" });
+      setDetail(null);
+      await load();
+    } catch {
+      toast?.({ icon: "alert", text: "Couldn't cancel — try again" });
+      setBusy((s) => ({ ...s, [o.source_id]: false }));
+    }
+  };
+
   const openCreate = (presetPitch = null, presetStart = null) =>
     setSheet({ create: true, presetPitch, presetStart });
 
   const selDate = window14.find((d) => d.key === selKey)?.date || new Date();
+  const idx = window14.findIndex((d) => d.key === selKey);
+  const shortDate = new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, weekday: "short", day: "numeric", month: "short" }).format(selDate);
   const multiGround = venues.length > 1;
 
   return (
@@ -302,46 +318,34 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
         </button>
       )}
 
-      {/* day strip */}
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "8px 0 4px", scrollbarWidth: "none" }}>
-        {window14.map((d) => {
-          const on = d.key === selKey; const info = byDay[d.key]; const isToday = d.key === todayKey;
-          const wd = new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, weekday: "short" }).format(d.date);
-          const dn = new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, day: "numeric" }).format(d.date);
-          return (
-            <button key={d.key} onClick={() => setSelKey(d.key)} style={{
-              flex: "none", width: 52, padding: "9px 0 8px", borderRadius: 14, cursor: "pointer",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-              background: on ? "var(--amber)" : "var(--s2)", border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)", fontFamily: "var(--m-font)",
-            }}>
-              <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: on ? "var(--amber-ink)" : "var(--ink3)" }}>{isToday ? "Today" : wd}</span>
-              <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, fontVariantNumeric: "tabular-nums", color: on ? "var(--amber-ink)" : "var(--ink)" }}>{dn}</span>
-              <span style={{ height: 6, display: "flex", alignItems: "center" }}>
-                {info?.requests ? <span style={{ width: 6, height: 6, borderRadius: "50%", background: on ? "var(--amber-ink)" : "var(--live)" }} />
-                  : info?.count ? <span style={{ width: 5, height: 5, borderRadius: "50%", background: on ? "var(--amber-ink)" : "var(--ink4)" }} /> : null}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* heading + filter + new */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "14px 2px 0", gap: 8 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em", margin: 0, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>
-          {new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, weekday: "long", day: "numeric", month: "long" }).format(selDate)}
-        </h2>
+      {/* toolbar — day stepper · filter · new (mirrors the prototype toolbar) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0 2px" }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 2, height: 40, background: "var(--s2)", border: "1px solid var(--hair)", borderRadius: 12, padding: "0 4px" }}>
+          <button onClick={() => idx > 0 && setSelKey(window14[idx - 1].key)} disabled={idx <= 0} aria-label="Previous day" style={stepBtn(idx <= 0)}>
+            <MIcon name="chevleft" size={16} color={idx <= 0 ? "var(--ink4)" : "var(--ink2)"} />
+          </button>
+          <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+            <MIcon name="calendar" size={14} color="var(--ink3)" style={{ flex: "none" }} />
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontVariantNumeric: "tabular-nums" }}>{shortDate}</span>
+            {selKey === todayKey && <span style={{ flex: "none", height: 18, padding: "0 7px", borderRadius: "var(--r-pill)", background: "var(--ok-soft)", color: "var(--ok-ink)", fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", display: "inline-flex", alignItems: "center" }}>TODAY</span>}
+            {dayRequests.length > 0 && <span style={{ flex: "none", minWidth: 18, height: 18, padding: "0 5px", borderRadius: "var(--r-pill)", background: "var(--amber-soft)", color: "var(--amber)", fontSize: 10.5, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{dayRequests.length}</span>}
+          </span>
+          <button onClick={() => idx < window14.length - 1 && setSelKey(window14[idx + 1].key)} disabled={idx >= window14.length - 1} aria-label="Next day" style={stepBtn(idx >= window14.length - 1)}>
+            <MIcon name="chevron" size={16} color={idx >= window14.length - 1 ? "var(--ink4)" : "var(--ink2)"} />
+          </button>
+        </div>
         <button onClick={() => setSheet("kinds")} aria-label="Filter" style={{
-          flex: "none", height: 34, minWidth: 34, padding: hiddenKinds ? "0 11px 0 9px" : "0", borderRadius: 11, cursor: "pointer",
+          flex: "none", height: 40, minWidth: 40, padding: hiddenKinds ? "0 12px 0 10px" : "0", borderRadius: 11, cursor: "pointer",
           display: "flex", alignItems: "center", gap: 6, justifyContent: "center",
           background: hiddenKinds ? "var(--amber)" : "var(--s2)", border: "1px solid", borderColor: hiddenKinds ? "var(--amber)" : "var(--hair)",
         }}>
-          <MIcon name="list" size={17} color={hiddenKinds ? "var(--amber-ink)" : "var(--ink2)"} />
+          <MIcon name="list" size={18} color={hiddenKinds ? "var(--amber-ink)" : "var(--ink2)"} />
           {hiddenKinds > 0 && <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--amber-ink)" }}>{hiddenKinds}</span>}
         </button>
         <button onClick={() => openCreate()} aria-label="New booking" style={{
-          flex: "none", width: 34, height: 34, borderRadius: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          flex: "none", width: 40, height: 40, borderRadius: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
           background: "var(--amber)", border: "none",
-        }}><MIcon name="plus" size={18} color="var(--amber-ink)" /></button>
+        }}><MIcon name="plus" size={19} color="var(--amber-ink)" /></button>
       </div>
 
       {/* resource lanes */}
@@ -476,7 +480,8 @@ export default function OperatorBookings({ venueId, venueName, toast }) {
       {/* sheets */}
       {detail && (
         <BookingDetailSheet o={detail} busy={!!busy[detail.source_id]} onClose={() => setDetail(null)}
-          onConfirm={() => decide(detail, true)} onDecline={() => decide(detail, false)} />
+          onConfirm={() => decide(detail, true)} onDecline={() => decide(detail, false)}
+          onCancel={detail.source_kind === "booking" && !isPitchRequest(detail) ? () => cancelOne(detail) : null} />
       )}
       {sheet === "ground" && (
         <GroundSheet venues={venues} current={groundId} onPick={(id) => { setGroundId(id); setSheet(null); }} onClose={() => setSheet(null)} />
@@ -764,6 +769,9 @@ function Chip({ icon, text }) {
 function FieldLabel({ children }) {
   return <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink3)", margin: "15px 2px 8px" }}>{children}</div>;
 }
+function stepBtn(disabled) {
+  return { width: 34, height: 34, borderRadius: 9, flex: "none", cursor: disabled ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", opacity: disabled ? 0.45 : 1 };
+}
 function chip(on) {
   return {
     height: 38, padding: "0 16px", borderRadius: "var(--r-pill)", cursor: "pointer", fontFamily: "var(--m-font)", fontSize: 13.5, fontWeight: 700,
@@ -800,21 +808,34 @@ function IconAction({ icon, tone, busy, onClick, aria }) {
     </button>
   );
 }
-function BookingDetailSheet({ o, busy, onClose, onConfirm, onDecline }) {
+function BookingDetailSheet({ o, busy, onClose, onConfirm, onDecline, onCancel }) {
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const d = o.detail || {};
   const meta = KIND_META[o.source_kind] || KIND_META.booking;
   const pill = statusPill(o);
   const request = isPitchRequest(o);
   const dateLabel = o._start ? new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, weekday: "long", day: "numeric", month: "long" }).format(o._start) : "—";
-  return (
-    <MobileSheet title="Booking" onClose={busy ? undefined : onClose} footer={request ? (
+  const footer = request ? (
+    <div style={{ display: "flex", gap: 9 }}>
+      <button onClick={onDecline} disabled={busy} style={{ flex: 1, height: 48, borderRadius: 14, cursor: busy ? "default" : "pointer", background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--live-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, opacity: busy ? 0.6 : 1 }}>Decline</button>
+      <button onClick={onConfirm} disabled={busy} style={{ flex: 1.5, height: 48, borderRadius: 14, border: "none", cursor: busy ? "default" : "pointer", background: "var(--amber)", color: "var(--amber-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, opacity: busy ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <MIcon name="check" size={17} color="var(--amber-ink)" />{busy ? "Confirming…" : "Confirm booking"}
+      </button>
+    </div>
+  ) : onCancel ? (
+    confirmCancel ? (
       <div style={{ display: "flex", gap: 9 }}>
-        <button onClick={onDecline} disabled={busy} style={{ flex: 1, height: 48, borderRadius: 14, cursor: busy ? "default" : "pointer", background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--live-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, opacity: busy ? 0.6 : 1 }}>Decline</button>
-        <button onClick={onConfirm} disabled={busy} style={{ flex: 1.5, height: 48, borderRadius: 14, border: "none", cursor: busy ? "default" : "pointer", background: "var(--amber)", color: "var(--amber-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, opacity: busy ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <MIcon name="check" size={17} color="var(--amber-ink)" />{busy ? "Confirming…" : "Confirm booking"}
-        </button>
+        <button onClick={() => setConfirmCancel(false)} disabled={busy} style={{ flex: 1, height: 48, borderRadius: 14, cursor: "pointer", background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15 }}>Keep</button>
+        <button onClick={onCancel} disabled={busy} style={{ flex: 1.5, height: 48, borderRadius: 14, border: "none", cursor: busy ? "default" : "pointer", background: "var(--live-soft)", color: "var(--live-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, opacity: busy ? 0.7 : 1 }}>{busy ? "Cancelling…" : "Yes, cancel booking"}</button>
       </div>
-    ) : null}>
+    ) : (
+      <button onClick={() => setConfirmCancel(true)} disabled={busy} style={{ width: "100%", height: 48, borderRadius: 14, cursor: "pointer", background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--live-ink)", fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <MIcon name="x" size={16} color="var(--live-ink)" />Cancel this booking
+      </button>
+    )
+  ) : null;
+  return (
+    <MobileSheet title="Booking" onClose={busy ? undefined : onClose} footer={footer}>
       <div className="m-card" style={{ padding: "15px 15px", background: "var(--s2)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <StatusChip pill={pill} />
