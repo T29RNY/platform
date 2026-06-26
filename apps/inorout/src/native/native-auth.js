@@ -31,6 +31,13 @@ import { supabase } from '@platform/core/storage/supabase.js';
 // scheme the native build registers and the Supabase Auth redirect allowlist.
 export const NATIVE_AUTH_REDIRECT = 'uk.inorout.app://auth/callback';
 
+// The app's BUNDLE ID — the audience of the native Apple identity token. iOS ignores
+// the plugin's clientId/redirectURI (it uses the app entitlement), but Supabase's
+// Apple provider MUST list this in its Authorized Client IDs or signInWithIdToken
+// rejects the token's audience. (The web leg uses the Service ID uk.inorout.app.signin;
+// both must be authorized for web + native sign-in to coexist.)
+const APPLE_NATIVE_CLIENT_ID = 'uk.inorout.app';
+
 // Custom URL scheme half of NATIVE_AUTH_REDIRECT — used by the authsession opener.
 const NATIVE_AUTH_SCHEME = 'uk.inorout.app';
 
@@ -62,6 +69,22 @@ const NATIVE_OAUTH_VIA = 'browser';
 // Returns the { data, error } shape signInWithOAuth returns, so existing call
 // sites that read `error` keep working.
 export async function startOAuth(provider, options = {}) {
+  // NATIVE Sign in with Apple — the robust path. Uses the OS Apple sheet + an
+  // identity token (signInWithIdToken), NOT a webview OAuth redirect: no system
+  // browser, no #access_token hash, no /auth/callback round-trip, no cookie/storage
+  // race at login — it eliminates the whole class of WKWebView auth fragility.
+  // Gated on isPluginAvailable so it stays DORMANT until a binary that actually
+  // LINKS the plugin ships: on the current binary the plugin isn't registered →
+  // isPluginAvailable is false → we fall through to the proven web flow below, so
+  // shipping this JS to the live bundle can't break the already-submitted binary.
+  if (
+    provider === 'apple' &&
+    Capacitor.isNativePlatform() &&
+    Capacitor.isPluginAvailable('SignInWithApple')
+  ) {
+    return startAppleNative(options);
+  }
+
   // WEB / PWA — unchanged full-page redirect.
   if (!Capacitor.isNativePlatform()) {
     return supabase.auth.signInWithOAuth({ provider, options });
@@ -80,6 +103,56 @@ export async function startOAuth(provider, options = {}) {
   });
   if (!error && data?.url) await Browser.open({ url: data.url });
   return { data, error };
+}
+
+// --- Native Sign in with Apple (identity-token flow) ---------------------------
+// A cryptographically-random raw nonce + its SHA-256 hash. Apple embeds the HASHED
+// nonce in the identity token; Supabase verifies it against the RAW nonce we pass to
+// signInWithIdToken — the replay protection the provider requires. Web Crypto is
+// available in the WKWebView.
+function generateRawNonce() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function sha256Hex(input) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Drive the OS Apple sheet, exchange the returned identity token for a Supabase
+// session IN PLACE, then hand off to /auth/callback so the returnTo + profile-update
+// + breadcrumb-clear logic is shared byte-for-byte with the web sign-in flow.
+// Returns the { data, error } shape the callers already handle.
+async function startAppleNative(options = {}) {
+  try {
+    const { SignInWithApple } = await import('@capacitor-community/apple-sign-in');
+    const rawNonce = generateRawNonce();
+    const hashedNonce = await sha256Hex(rawNonce);
+    const { response } = await SignInWithApple.authorize({
+      clientId: APPLE_NATIVE_CLIENT_ID,         // iOS ignores this; documents the audience
+      redirectURI: options.redirectTo || `${location.origin}/auth/callback`, // iOS ignores this
+      scopes: 'name email',
+      nonce: hashedNonce,
+    });
+    if (!response?.identityToken) {
+      return { data: null, error: new Error('No identity token returned by Apple') };
+    }
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: response.identityToken,
+      nonce: rawNonce,
+    });
+    if (error) return { data, error };
+    // Session is live in storage. Route through the shared callback screen, which
+    // resolves returnTo and finishes immediately (getSession already has the user).
+    window.location.assign('/auth/callback');
+    return { data, error: null };
+  } catch (e) {
+    // User dismissed the sheet, or a native/exchange error — surface it like the web
+    // path so the caller's `if (error)` shows a message instead of failing silently.
+    return { data: null, error: e };
+  }
 }
 
 // DORMANT (Stage 5.3 / F4 fallback). Open the provider URL in
