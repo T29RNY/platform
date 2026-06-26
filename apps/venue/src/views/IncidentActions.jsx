@@ -75,7 +75,7 @@ export default function IncidentActions({ venueToken, incident, onDone }) {
   async function resolve() {
     setBusy(true); setError(null);
     try {
-      await venueResolveIncident(venueToken, incident.id, note.trim() || null);
+      await venueResolveIncident(venueToken, incident.id, null, note.trim() || null);
       setOpen(false);
       setNote("");
       onDone?.();

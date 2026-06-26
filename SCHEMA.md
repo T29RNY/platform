@@ -542,7 +542,7 @@ arrive in Phase 2+. All currently empty.
 
 ### Phase 1 — Operations layer
 
-- `incidents` — venue_id, fixture_id (nullable), reported_by (auth.users), description, severity (info/warning/critical), resolved_at/by/note.
+- `incidents` — venue_id, fixture_id (nullable), reported_by (auth.users), description, severity (info/warning/critical), resolved_at/by/note, `outcome` (mig 437; nullable, CHECK ∈ fixed/safe/contractor/nofault — structured resolution from the mobile Operations screen; NULL for free-text-only/legacy resolutions).
 - `hq_preview_tokens` — company_id, token (per-token unique), generated_by, expires_at, accessed_at.
 
 ### Phase 1 — Additions to existing tables (migration 056)

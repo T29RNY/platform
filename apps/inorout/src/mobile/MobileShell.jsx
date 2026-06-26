@@ -29,6 +29,7 @@ import GuardianDocs from "./screens/GuardianDocs.jsx";
 import GuardianSchedule from "./screens/GuardianSchedule.jsx";
 import GuardianNotices from "./screens/GuardianNotices.jsx";
 import GuardianTeam from "./screens/GuardianTeam.jsx";
+import OperationsTonight from "./screens/OperationsTonight.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -221,6 +222,12 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 onOpenProfile={() => setSheet("profile")}
               />
             )
+          ) : role.key === "operator" && tab === "tonight" ? (
+            <OperationsTonight
+              venueId={role.entityId}
+              venueName={role.name}
+              toast={toast}
+            />
           ) : (
             <div className="m-card">
               <div className="m-eyebrow">{TAB_META[tab]?.title}</div>

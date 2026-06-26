@@ -1,0 +1,418 @@
+// OperationsTonight.jsx — Operator track, screen 1 ("Tonight"), mounted at /hub
+// for an operator role (owner | manager | staff), tab "tonight".
+//
+// Honest mobile re-presentation of the laptop venue dashboard's Operations view
+// (apps/venue/src/views/Operations.jsx) in the scoped amber theme. ALL data comes
+// from one existing call — venueGetState(venue_id) → venue_get_state (mig 250):
+// fixtures.tonight, teams, pitches, refs, open_incidents, pending_registrations,
+// payments_summary. No new reader.
+//
+// AUTH: a mobile operator passes their venue_id as the credential. resolve_venue_caller
+// stage 1b authenticates them via auth.uid() against venue_admins — the same path the
+// laptop app uses (credential = selectedVenueId). No token, no new RPC.
+//
+// Quick actions reuse existing writers: venueApproveTeamRegistration /
+// venueRejectTeamRegistration (mig 250) and venueResolveIncident with the structured
+// outcome arg (mig 437). "Notify affected teams" is intentionally absent — deferred to
+// the Broadcast-composer cycle where the fan-out target exists.
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  venueGetState, venueResolveIncident,
+  venueApproveTeamRegistration, venueRejectTeamRegistration,
+} from "@platform/core";
+import MIcon from "../icons.jsx";
+import MobileSheet from "../MobileSheet.jsx";
+
+function gbp(pence) {
+  const n = Number(pence || 0) / 100;
+  return "£" + n.toLocaleString("en-GB", {
+    minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2,
+  });
+}
+
+function initials(name) {
+  const w = String(name || "?").trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return "?";
+  if (w.length === 1) return w[0].slice(0, 2).toUpperCase();
+  return (w[0][0] + w[w.length - 1][0]).toUpperCase();
+}
+
+// Deterministic HSL tint fallback when a team has no stored brand colour.
+function hueFor(name) {
+  let h = 0;
+  const s = String(name || "");
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+// Internal-league teams DO carry brand colours (unlike grassroots), so use them
+// when present; the value is DB-sourced (not a hardcoded hex literal).
+function Crest({ team, name, size = 26, r = 7 }) {
+  const label = team?.name || name || "TBC";
+  const c1 = team?.primary_colour || null;
+  const c2 = team?.secondary_colour || team?.primary_colour || null;
+  const hue = hueFor(label);
+  const bg = c1
+    ? `linear-gradient(135deg, ${c1} 0 55%, ${c2} 100%)`
+    : `linear-gradient(135deg, hsl(${hue} 46% 42%) 0 52%, hsl(${hue} 46% 30%) 100%)`;
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: r, flex: "none",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: bg, color: "white", fontSize: size * 0.34, fontWeight: 800, letterSpacing: "-0.02em",
+    }}>{initials(label)}</div>
+  );
+}
+
+const OUTCOMES = [
+  { id: "fixed",      label: "Fixed",            desc: "Resolved on site",         icon: "check" },
+  { id: "safe",       label: "Made safe",        desc: "Isolated / closed for now", icon: "shield" },
+  { id: "contractor", label: "Contractor booked", desc: "External fix scheduled",   icon: "cog" },
+  { id: "nofault",    label: "No fault found",   desc: "Checked — nothing wrong",  icon: "info" },
+];
+
+export default function OperationsTonight({ venueId, venueName, toast }) {
+  const [state, setState] = useState({ loading: true, error: false, data: null });
+  const [busyReg, setBusyReg] = useState({});     // competition_team_id → bool
+  const [resolving, setResolving] = useState(null); // open incident object or null
+
+  const load = useCallback(async () => {
+    if (!venueId) { setState({ loading: false, error: false, data: null }); return; }
+    setState((s) => ({ ...s, loading: true, error: false }));
+    try {
+      const data = await venueGetState(venueId);
+      setState({ loading: false, error: false, data });
+    } catch {
+      setState({ loading: false, error: true, data: null });
+    }
+  }, [venueId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const { loading, error, data } = state;
+
+  if (loading) {
+    return (
+      <div className="m-card" style={{ marginTop: 8 }}>
+        <div className="m-eyebrow">Operations</div>
+        <p style={{ color: "var(--ink3)", fontSize: 14, marginTop: 8 }}>Loading tonight at {venueName || "your venue"}…</p>
+      </div>
+    );
+  }
+  if (error || !data) {
+    return (
+      <div className="m-card" style={{ marginTop: 8 }}>
+        <div className="m-eyebrow">Operations</div>
+        <p style={{ color: "var(--ink2)", fontSize: 14, marginTop: 8 }}>Couldn't load the venue right now.</p>
+        <button onClick={load} style={{
+          marginTop: 12, padding: "9px 16px", borderRadius: "var(--r-pill)", cursor: "pointer",
+          background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)", fontWeight: 700, fontSize: 13.5,
+        }}>Try again</button>
+      </div>
+    );
+  }
+
+  const teams = data.teams || {};
+  const tonight = data.fixtures?.tonight || [];
+  const regs = data.pending_registrations || [];
+  const incidents = data.open_incidents || [];
+  const pitchById = Object.fromEntries((data.pitches || []).map((p) => [p.id, p]));
+  const refById = Object.fromEntries((data.refs || []).map((r) => [r.id, r]));
+  const outstanding = data.payments_summary?.outstanding_pence || 0;
+
+  const live = tonight.filter((f) => f.status === "in_progress");
+  const upcoming = tonight.filter((f) => !["in_progress", "completed", "walkover", "forfeit", "voided"].includes(f.status));
+  const toAssign = tonight.filter((f) => !f.playing_area_id || !f.official_id).length;
+  const issues = regs.length + incidents.length;
+
+  const teamName = (id) => teams[id]?.name || "TBC";
+
+  // ── Registration approve / reject ──
+  const decide = async (r, approve) => {
+    if (busyReg[r.id]) return;
+    setBusyReg((s) => ({ ...s, [r.id]: true }));
+    try {
+      if (approve) await venueApproveTeamRegistration(venueId, r.id);
+      else await venueRejectTeamRegistration(venueId, r.id, null);
+      toast?.({
+        icon: approve ? "check" : "x",
+        text: `${r.team_name || "Team"} ${approve ? "approved" : "declined"}`,
+        sub: r.competition_name || "",
+      });
+      await load();
+    } catch {
+      toast?.({ icon: "alert", text: "Couldn't update — try again" });
+    } finally {
+      setBusyReg((s) => ({ ...s, [r.id]: false }));
+    }
+  };
+
+  return (
+    <div>
+      {/* ── stat strip ── */}
+      <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "8px 0 2px", scrollbarWidth: "none" }}>
+        <StatTile tone="live" live label="Live now" value={live.length} sub="in play" />
+        <StatTile tone="amber" label="To assign" value={toAssign} sub="pitch / ref" />
+        <StatTile tone="ink" label="Issues" value={issues} sub={`${regs.length} regs · ${incidents.length} alerts`} />
+        <StatTile tone="amber" label="Outstanding" value={gbp(outstanding)} sub="this cycle" mono />
+      </div>
+
+      {/* ── LIVE NOW ── */}
+      <SecHead title="Live now" meta={live.length ? `${live.length} of ${tonight.length}` : "tonight"} />
+      {live.length === 0 ? (
+        <div className="m-card" style={{ padding: "16px 15px", display: "flex", alignItems: "center", gap: 13 }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 13, flex: "none", background: "var(--s4)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}><MIcon name="clock" size={20} color="var(--ink3)" /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>No match in play</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 2 }}>
+              {tonight.length ? `${tonight.length} fixture${tonight.length === 1 ? "" : "s"} scheduled tonight` : "Quiet night at the venue"}
+            </div>
+          </div>
+        </div>
+      ) : live.map((f) => (
+        <button key={f.id} onClick={() => toast?.({ icon: "pulse", text: "Live match view coming soon" })}
+          className="m-card" style={{ width: "100%", textAlign: "left", cursor: "pointer", padding: "12px 14px", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <span className="m-eyebrow">{f.round_name || pitchById[f.playing_area_id]?.name || "Match"}</span>
+            <span style={{
+              height: 20, padding: "0 8px", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center", gap: 5,
+              background: "var(--live-soft)", color: "var(--live-ink)", fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em",
+            }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--live)" }} />LIVE</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+              <TeamRow team={teams[f.home_team_id]} name={teamName(f.home_team_id)} />
+              <TeamRow team={teams[f.away_team_id]} name={teamName(f.away_team_id)} />
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", color: "var(--ink)", flex: "none", fontVariantNumeric: "tabular-nums" }}>
+              {f.home_score ?? 0}<span style={{ color: "var(--ink4)", margin: "0 4px" }}>:</span>{f.away_score ?? 0}
+            </div>
+          </div>
+        </button>
+      ))}
+
+      {/* ── NEEDS YOU ── */}
+      <SecHead title="Needs you" meta={issues ? `${issues} item${issues === 1 ? "" : "s"}` : ""} />
+      {issues === 0 && (
+        <div className="m-card" style={{ padding: "24px 18px", textAlign: "center" }}>
+          <MIcon name="check" size={26} color="var(--ok)" />
+          <div style={{ fontSize: 14, fontWeight: 600, marginTop: 8, color: "var(--ink2)" }}>All clear — nothing needs you</div>
+        </div>
+      )}
+      {regs.length > 0 && <div className="m-eyebrow" style={{ margin: "2px 2px 9px" }}>New registrations</div>}
+      {regs.map((r) => {
+        const busy = !!busyReg[r.id];
+        return (
+          <div key={`reg-${r.id}`} className="m-card" style={{ padding: "13px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 11, flex: "none", background: "var(--amber-soft)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}><MIcon name="shield" size={19} color="var(--amber)" /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.team_name || "New team"}</div>
+              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {[r.competition_name, r.captain_email].filter(Boolean).join(" · ") || "Pending registration"}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 7, flex: "none" }}>
+              <IconAction icon="x" tone="live" busy={busy} onClick={() => decide(r, false)} aria="Decline" />
+              <IconAction icon="check" tone="ok" busy={busy} onClick={() => decide(r, true)} aria="Approve" />
+            </div>
+          </div>
+        );
+      })}
+      {incidents.length > 0 && <div className="m-eyebrow" style={{ margin: "14px 2px 9px" }}>Open issues</div>}
+      {incidents.map((inc) => {
+        const crit = inc.severity === "critical";
+        return (
+          <div key={`inc-${inc.id}`} className="m-card" style={{ padding: "13px 14px", marginBottom: 10, display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%", marginTop: 5, flex: "none",
+              background: crit ? "var(--live)" : "var(--amber)",
+            }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>{inc.description}</div>
+              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2 }}>
+                {(inc.severity || "info")}{inc.reported_by_name ? ` · ${inc.reported_by_name}` : ""}
+              </div>
+            </div>
+            <button onClick={() => setResolving(inc)} style={{
+              flex: "none", height: 30, padding: "0 13px", borderRadius: "var(--r-pill)", cursor: "pointer",
+              background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--ink)", fontWeight: 700, fontSize: 12.5, fontFamily: "var(--m-font)",
+            }}>Resolve</button>
+          </div>
+        );
+      })}
+
+      {/* ── COMING UP ── */}
+      {upcoming.length > 0 && (
+        <>
+          <SecHead title="Coming up" meta="tonight" />
+          {upcoming.map((f) => {
+            const pitch = pitchById[f.playing_area_id];
+            const ref = refById[f.official_id];
+            return (
+              <div key={f.id} className="m-card" style={{ padding: "12px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 46, flex: "none", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink2)" }}>{f.kickoff_time ? f.kickoff_time.slice(0, 5) : "TBC"}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", flex: "none" }}>
+                  <Crest team={teams[f.home_team_id]} name={teamName(f.home_team_id)} />
+                  <div style={{ marginLeft: -7 }}><Crest team={teams[f.away_team_id]} name={teamName(f.away_team_id)} /></div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {teamName(f.home_team_id)} <span style={{ color: "var(--ink4)" }}>v</span> {teamName(f.away_team_id)}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+                    <AssignChip ok={!!pitch} okText={pitch?.name} warnText="No pitch" />
+                    <AssignChip ok={!!ref} okText={ref?.name} warnText="No ref" />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {resolving && (
+        <ResolveSheet
+          inc={resolving}
+          venueId={venueId}
+          onClose={() => setResolving(null)}
+          onDone={async () => { setResolving(null); await load(); }}
+          toast={toast}
+        />
+      )}
+    </div>
+  );
+}
+
+function TeamRow({ team, name }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+      <Crest team={team} name={name} size={24} r={7} />
+      <span style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+    </div>
+  );
+}
+
+function StatTile({ tone, label, value, sub, live, mono }) {
+  const col = tone === "live" ? "var(--live)" : tone === "amber" ? "var(--amber)" : "var(--ink)";
+  return (
+    <div className="m-card" style={{ flex: "none", width: 122, padding: "13px 13px", display: "flex", flexDirection: "column", gap: 6 }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {live && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--live)", flex: "none" }} />}
+        <span className="m-eyebrow" style={{ fontSize: 10.5 }}>{label}</span>
+      </span>
+      <div style={{ fontSize: mono ? 22 : 28, fontWeight: 800, letterSpacing: "-0.03em", color: col, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: "var(--ink3)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>
+    </div>
+  );
+}
+
+function SecHead({ title, meta }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "22px 2px 11px" }}>
+      <h2 style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em", margin: 0 }}>{title}</h2>
+      {meta ? <span style={{ fontSize: 12, color: "var(--ink3)", fontWeight: 600 }}>{meta}</span> : null}
+    </div>
+  );
+}
+
+function AssignChip({ ok, okText, warnText }) {
+  return (
+    <span style={{
+      height: 21, fontSize: 11, padding: "0 8px", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center", fontWeight: 700,
+      background: ok ? "var(--s3)" : "var(--amber-soft)",
+      color: ok ? "var(--ink2)" : "var(--amber)",
+    }}>{ok ? (okText || "Set") : warnText}</span>
+  );
+}
+
+function IconAction({ icon, tone, busy, onClick, aria }) {
+  const soft = tone === "ok" ? "var(--ok-soft)" : "var(--live-soft)";
+  const ink = tone === "ok" ? "var(--ok-ink)" : "var(--live-ink)";
+  return (
+    <button onClick={onClick} disabled={busy} aria-label={aria} style={{
+      width: 34, height: 34, borderRadius: 10, flex: "none", cursor: busy ? "default" : "pointer",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: soft, border: "none", opacity: busy ? 0.5 : 1,
+    }}><MIcon name={icon} size={16} color={ink} /></button>
+  );
+}
+
+function ResolveSheet({ inc, venueId, onClose, onDone, toast }) {
+  const [outcome, setOutcome] = useState(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const crit = inc.severity === "critical";
+
+  const resolve = async () => {
+    if (!outcome || busy) return;
+    setBusy(true);
+    try {
+      await venueResolveIncident(venueId, inc.id, outcome, note.trim() || null);
+      toast?.({ icon: "check", text: "Issue resolved", sub: OUTCOMES.find((o) => o.id === outcome)?.label });
+      await onDone();
+    } catch {
+      toast?.({ icon: "alert", text: "Couldn't resolve — try again" });
+      setBusy(false);
+    }
+  };
+
+  return (
+    <MobileSheet title="Resolve issue" onClose={busy ? undefined : onClose} footer={
+      <button onClick={resolve} disabled={!outcome || busy} style={{
+        width: "100%", height: 48, borderRadius: 14, border: "none", cursor: outcome && !busy ? "pointer" : "default",
+        fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15,
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        background: outcome ? "var(--amber)" : "var(--s3)", color: outcome ? "var(--amber-ink)" : "var(--ink3)", opacity: busy ? 0.7 : 1,
+      }}>
+        {outcome ? <><MIcon name="check" size={17} color="var(--amber-ink)" />{busy ? "Resolving…" : "Mark resolved"}</> : "Choose an outcome"}
+      </button>
+    }>
+      <div className="m-card" style={{ padding: "13px 14px", display: "flex", alignItems: "flex-start", gap: 11, background: "var(--s2)" }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 5, flex: "none", background: crit ? "var(--live)" : "var(--amber)" }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.3 }}>{inc.description}</div>
+          <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2 }}>{inc.severity || "info"}{inc.reported_by_name ? ` · ${inc.reported_by_name}` : ""}</div>
+        </div>
+      </div>
+
+      <div className="m-eyebrow" style={{ margin: "16px 2px 9px" }}>Outcome</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {OUTCOMES.map((o) => {
+          const on = outcome === o.id;
+          return (
+            <button key={o.id} onClick={() => setOutcome(o.id)} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: "12px 13px", borderRadius: 14, cursor: "pointer", textAlign: "left",
+              background: "var(--s2)", border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)", fontFamily: "var(--m-font)", color: "inherit",
+            }}>
+              <span style={{
+                width: 38, height: 38, borderRadius: 11, flex: "none", display: "flex", alignItems: "center", justifyContent: "center",
+                background: on ? "var(--amber)" : "var(--s3)",
+              }}><MIcon name={o.icon} size={18} color={on ? "var(--amber-ink)" : "var(--ink2)"} /></span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", display: "block" }}>{o.label}</span>
+                <span style={{ fontSize: 12.5, color: "var(--ink3)", display: "block", marginTop: 1 }}>{o.desc}</span>
+              </span>
+              {on && <MIcon name="check" size={18} color="var(--amber)" />}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="m-eyebrow" style={{ margin: "16px 2px 9px" }}>Resolution note · optional</div>
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was done, by whom, any follow-up…"
+        style={{
+          width: "100%", minHeight: 88, padding: "12px 14px", borderRadius: 14, resize: "none", lineHeight: 1.45,
+          background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 14, boxSizing: "border-box",
+        }} />
+    </MobileSheet>
+  );
+}
