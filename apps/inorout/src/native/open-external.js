@@ -1,4 +1,4 @@
-import { Capacitor } from "@capacitor/core";
+import { isNativeApp } from "./is-native.js";
 
 // Open a URL OUTSIDE the app's own webview.
 //
@@ -15,7 +15,7 @@ import { Capacitor } from "@capacitor/core";
 // web (mirrors native-auth.js).
 export async function openExternal(url) {
   if (!url) return;
-  if (Capacitor.isNativePlatform()) {
+  if (isNativeApp()) {
     try {
       const { Browser } = await import("@capacitor/browser");
       await Browser.open({ url });

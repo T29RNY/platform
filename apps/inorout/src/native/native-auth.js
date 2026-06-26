@@ -26,6 +26,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@platform/core/storage/supabase.js';
+import { isNativeApp } from './is-native.js';
 
 // The custom-scheme deep link the provider redirects back to. Must match the
 // scheme the native build registers and the Supabase Auth redirect allowlist.
@@ -79,14 +80,14 @@ export async function startOAuth(provider, options = {}) {
   // shipping this JS to the live bundle can't break the already-submitted binary.
   if (
     provider === 'apple' &&
-    Capacitor.isNativePlatform() &&
+    isNativeApp() &&
     Capacitor.isPluginAvailable('SignInWithApple')
   ) {
     return startAppleNative(options);
   }
 
   // WEB / PWA — unchanged full-page redirect.
-  if (!Capacitor.isNativePlatform()) {
+  if (!isNativeApp()) {
     return supabase.auth.signInWithOAuth({ provider, options });
   }
 

@@ -18,7 +18,7 @@ import PageHeader  from "../components/ui/PageHeader.jsx";
 import StatusButton from "../components/ui/StatusButton.jsx";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import { registerNativePush } from "../native/native-push.js";
-import { Capacitor } from "@capacitor/core";
+import { isNativeApp as detectNativeApp } from "../native/is-native.js";
 import Tile        from "../components/ui/Tile.jsx";
 import Avatar      from "../components/ui/Avatar.jsx";
 import NavBar      from "../components/ui/NavBar.jsx";
@@ -333,7 +333,7 @@ export default function PlayerView({
   // So treat a native build as push-capable regardless of those web checks;
   // otherwise the "Enable" opt-in never renders on the App Store / TestFlight
   // build and no device token is ever captured.
-  const isNativeApp  = Capacitor.isNativePlatform();
+  const isNativeApp  = detectNativeApp();
   const canPush      = isNativeApp ||
     ("PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone));
 

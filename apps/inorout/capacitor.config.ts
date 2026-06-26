@@ -50,6 +50,13 @@ const config: CapacitorConfig = {
   appName: 'In or Out',
   webDir: 'dist',
   backgroundColor: '#0A0A08',
+  // Appended to the WKWebView / Android WebView User-Agent. This is the DETERMINISTIC
+  // native signal `isNativeApp()` keys off (src/native/is-native.js): it's baked into
+  // the UA at the native config level, so it's present from the first line of JS and
+  // immune to the bridge-injection timing that made Capacitor.isNativePlatform() read
+  // FALSE in the remote-server.url WKWebView on the App Review iPad — the root cause of
+  // both 2.1(a) rejections. Must match NATIVE_UA_MARKER in is-native.js.
+  appendUserAgent: 'InorOutApp',
   server: {
     url: 'https://app.in-or-out.com',
     cleartext: false,

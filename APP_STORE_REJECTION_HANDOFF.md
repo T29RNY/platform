@@ -41,11 +41,15 @@ broken WKWebView dropping a chunk = latches on first write / 0 storms). No migra
 1. Deploy the bundle (auto on push to `main`) + verify live.
 2. **Real-iPhone AND real-iPad device walk** — Apple tested on iPad; the iPhone-only
    walk last round is what let this through. Force-quit/reopen ×2.
-3. **Option 2 (recommended, separate native session):** add `appendUserAgent` in
-   `capacitor.config.ts` so `isNative()` keys off a UA marker set at the WebView config
-   level (immune to bridge timing), rebuild **1.0(5)**, device-walk, submit fresh.
-   A fresh binary is the cleaner resubmission given this flow has now failed twice —
-   do NOT bet on Apple re-reviewing the twice-failed 1.0(4).
+3. **Option 2 — DONE IN CODE (s212), activates on rebuild.** `capacitor.config.ts` now
+   sets `appendUserAgent: 'InorOutApp'`, and a shared `isNativeApp()` (src/native/
+   is-native.js) keys off that UA marker FIRST — immune to the bridge-timing false-
+   negative that read FALSE on the iPad. Every detection site (storage, native-shell,
+   native-auth, push, open-external, PlayerView) routes through it; `main.jsx` stamps
+   `__CAP_NATIVE__` from it. Byte-equivalent to the old behaviour until a binary bakes
+   the UA marker, so it's inert on web + the current binary. **Just needs `cap sync` +
+   archive 1.0(5)** to take effect — no further code. A fresh binary is the cleaner
+   resubmission given this flow has failed twice; do NOT bet on re-reviewing 1.0(4).
 
 ---
 
