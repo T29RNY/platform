@@ -17,8 +17,25 @@
 // NATIVE-GUARDED
 // Inside the Capacitor wrapper it ALWAYS uses localStorage — the native shell's
 // proven `#access_token` → /auth/callback flow (app-store F4) must not change, and
-// WKWebView cookies are unreliable across launches. `window.Capacitor` is injected
-// by the native bridge before the app bundle runs, so the guard is reliable.
+// WKWebView cookies are unreliable across launches. The `__CAP_NATIVE__` flag and
+// the `window.Capacitor` bridge check are the FIRST line of defence.
+//
+// SELF-HEAL (app-store rejection #2, build 1.0(4))
+// The native guard above is NOT sufficient on its own. App Review hit a refresh-
+// token storm on an iPad: `Capacitor.isNativePlatform()` returned false in the
+// remote-`server.url` WKWebView, so the guard let cookie mode engage — and WKWebView
+// then returned stale/partial cookie reads inside a single session, so supabase-js
+// rotated its refresh token 47× in 44s before the server 429'd it and logged the
+// user out. The localStorage mirror did NOT save it: getItem only consults the
+// mirror when the cookie is fully ABSENT, not when it reads back WRONG.
+// So storage now SELF-HEALS independently of native detection: every cookie write
+// is read straight back, and the first time the read-back does not match what was
+// written we conclude this runtime's cookie store is unreliable and latch to
+// localStorage-only for the rest of the page session (the mirror is always written
+// first, so the live session is never lost). In-memory only — never persisted — so
+// a one-off glitch on a healthy web browser can't permanently disable SSO; each
+// launch re-evaluates and a genuinely broken store simply re-latches within one
+// refresh cycle. Healthy browsers round-trip exactly and never latch.
 //
 // SECURITY (see DECISIONS.md, Phase 0e)
 // Cookie is `SameSite=Lax; Secure`, readable by JS on any subdomain (HttpOnly is
@@ -31,6 +48,11 @@
 const COOKIE_DOMAIN = import.meta.env.VITE_AUTH_COOKIE_DOMAIN || null;
 const CHUNK = 3000;     // keep each cookie comfortably under the 4KB per-cookie cap
 const MAX_CHUNKS = 24;  // hard stop so a malformed read can never loop unbounded
+
+// Latched the first time a cookie write fails to read back identically (see
+// SELF-HEAL above). In-memory only, never persisted. Once true, this runtime
+// treats its cookie store as unreliable and uses localStorage exclusively.
+let cookiesUnreliable = false;
 
 function isNative() {
   if (typeof window === "undefined") return false;
@@ -49,7 +71,12 @@ function isNative() {
 // inside the native wrapper. Otherwise fall back to localStorage so dev,
 // *.vercel.app previews, Playwright, and the native app are all unchanged.
 function cookieMode() {
-  return !!COOKIE_DOMAIN && typeof document !== "undefined" && !isNative();
+  return (
+    !!COOKIE_DOMAIN &&
+    typeof document !== "undefined" &&
+    !isNative() &&
+    !cookiesUnreliable
+  );
 }
 
 function lsGet(key) {
@@ -84,9 +111,11 @@ function clearCookieSet(key) {
   for (let i = 0; i < MAX_CHUNKS; i++) deleteCookie(`${key}.${i}`);
 }
 
-function getItem(key) {
-  if (!cookieMode()) return lsGet(key);
-  // Single unchunked cookie first, then reassemble chunks (key.0, key.1, …).
+// Reassemble the stored value from cookies: a single unchunked cookie first, then
+// chunked cookies (key.0, key.1, …). Returns the decoded string, or null when no
+// cookie representation is present at all. Shared by getItem (read path) and
+// setItem (write-back verification).
+function readCookieValue(key) {
   const single = readCookie(key);
   if (single != null) return decodeURIComponent(single);
   let out = "", found = false;
@@ -95,7 +124,13 @@ function getItem(key) {
     if (part == null) break;
     out += part; found = true;
   }
-  if (found) return decodeURIComponent(out);
+  return found ? decodeURIComponent(out) : null;
+}
+
+function getItem(key) {
+  if (!cookieMode()) return lsGet(key);
+  const fromCookie = readCookieValue(key);
+  if (fromCookie != null) return fromCookie;
   // Cookie absent — a session written to localStorage BEFORE the cookie flip, OR
   // a cookie that was silently dropped (WKWebView/Safari evict cookies on their
   // own schedule). Fall back to the durable localStorage mirror. NON-DESTRUCTIVE:
@@ -124,6 +159,18 @@ function setItem(key, value) {
     for (let i = 0, o = 0; o < enc.length && i < MAX_CHUNKS; i++, o += CHUNK) {
       writeCookie(`${key}.${i}`, enc.slice(o, o + CHUNK));
     }
+  }
+  // SELF-HEAL: confirm the cookie store actually accepted the write. If reading it
+  // straight back does not reproduce `value`, this runtime's cookie store is
+  // unreliable (the WKWebView app-store-rejection case) — latch to localStorage-only
+  // for the rest of the session. The mirror written above already holds `value`, so
+  // getItem returns the correct session immediately and supabase-js never enters the
+  // refresh-token storm. No-op on healthy browsers, which round-trip exactly.
+  if (readCookieValue(key) !== value) {
+    cookiesUnreliable = true;
+    console.error(
+      "[auth] cookie store unreliable — read-back mismatch; using localStorage only"
+    );
   }
 }
 

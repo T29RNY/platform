@@ -223,6 +223,41 @@ player and confirm the admin's status changed.
 
 ---
 
+### 1.5 Native app — Sign in with Apple spins forever then logs out (refresh-token storm)
+**Symptom:** in the native iOS app (and especially on iPad), Sign in
+with Apple succeeds, then the app loads indefinitely and logs the user
+straight back out. App Store rejection 2.1(a), twice (builds 1.0(3) and
+1.0(4)).
+**Root cause:** the native shell loads the live site via `server.url`,
+and the shared-subdomain SSO adapter stores the session in a **cookie**
+whenever it thinks it is on the web. Native detection
+(`Capacitor.isNativePlatform()` / the `__CAP_NATIVE__` flag) can return
+**false** inside a remote-`server.url` WKWebView — confirmed on the
+reviewer's iPad. Cookie mode then engages, but WKWebView returns
+stale/partial cookie reads within the session, so supabase-js rotates
+its refresh token in a tight loop (the reviewer's account: 47 rotations
+in 44s) until the auth server 429s it and the session dies. The
+localStorage mirror did not rescue it — `getItem` only fell back to the
+mirror when the cookie was fully *absent*, never when it read back
+*wrong*.
+**Fix (round 2, session 212):** `cookieAuthStorage.js` now SELF-HEALS
+independently of native detection — every cookie write is read straight
+back, and the first time the read-back ≠ what was written it latches to
+localStorage-only for the session (mirror written first, so the live
+session is never lost; in-memory only, so healthy web SSO is unaffected
+and never permanently disabled). Ships in the live bundle, so it also
+fixes the binary already submitted. Recommended follow-up: an
+`appendUserAgent` marker in `capacitor.config.ts` so native detection
+can never silently fail (a fresh build).
+**Pre-flight check:** on a real **iPhone AND a real iPad**, install the
+native build, Sign in with Apple with a *fresh* Apple ID (use Hide My
+Email to mimic App Review). Confirm you land on the app — not a spinner,
+not a bounce back to the sign-in screen. Force-quit and reopen: you stay
+signed in. (Web-only smoke and the simulator will NOT reproduce this —
+it only shows on a real device's WKWebView.)
+
+---
+
 ## 2. MULTI-TEAM MEMBERSHIP
 
 ### 2.1 Second team-membership unreachable for returning users
