@@ -4210,9 +4210,11 @@ export async function venueLogIncident(venueToken, description, severity, fixtur
   return data;
 }
 
-export async function venueResolveIncident(venueToken, incidentId, note = null) {
+// p_outcome (mig 437): one of fixed | safe | contractor | nofault, or null for a
+// free-text-only resolution (desktop). Stored on incidents.outcome for the record.
+export async function venueResolveIncident(venueToken, incidentId, outcome = null, note = null) {
   const { data, error } = await supabase.rpc("venue_resolve_incident", {
-    p_venue_token: venueToken, p_incident_id: incidentId, p_resolution_note: note });
+    p_venue_token: venueToken, p_incident_id: incidentId, p_outcome: outcome, p_resolution_note: note });
   if (error) { console.error("[incidents] venue_resolve_incident failed", error); throw error; }
   return data;
 }
