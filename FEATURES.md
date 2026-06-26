@@ -1,5 +1,13 @@
 # In or Out — Feature Tracker
 
+## REFEREE EPIC — full plan in `REFEREE_HANDOFF.md`
+
+Referee home in `/hub` + `apps/ref` officiating. **SHIPPED (merged):** referee role/My-fixtures/
+in-app officiating iframe (#133) + auto-link on sign-in (#133) + LiveMatch polish (#134).
+**NEXT — four PRs, each its own PR, priority order:** (1) push-notify ref on assignment
+*(next session)* → (2) history/past matches → (3) availability + accept/decline → (4) tournament
+officiating. Next free mig = **441**. See `REFEREE_HANDOFF.md` for the per-PR audit + boundaries.
+
 ## PILOT BACKLOG — multi-team football club feedback (2026-06-22)
 
 First face-to-face feedback from the multi-age football club pilot (Club/Org SKU).
