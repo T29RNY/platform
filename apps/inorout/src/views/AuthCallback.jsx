@@ -152,6 +152,28 @@ export default function AuthCallback() {
         });
         sub = listener?.subscription || null;
 
+        // Implicit (#access_token) recovery. supabase-js consumes the hash ONCE on
+        // init and validates it with an UN-RETRIED `/user` call; a transient network
+        // blip there drops the session but LEAVES the tokens in the URL, and no
+        // further event ever fires — so the wait above would otherwise time out on a
+        // sign-in Apple actually approved (the reviewer-on-flaky-wifi case). Init only
+        // tried the access_token, so the hash's refresh_token is still unused: re-
+        // establish via refreshSession(), whose network call IS retried with backoff.
+        // It awaits the SDK's own init internally and runs behind the same lock, so it
+        // can't race or corrupt a slow-but-successful init. (?code / magic-link flows
+        // aren't covered here — supabase-js can re-exchange those on a reload.)
+        const recoveryHash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+        const recoveryRefreshToken = recoveryHash.get("access_token")
+          ? recoveryHash.get("refresh_token")
+          : null;
+        if (recoveryRefreshToken) {
+          supabase.auth.refreshSession({ refresh_token: recoveryRefreshToken })
+            .then(({ data, error }) => {
+              if (!settled && !error && data?.user) finish(data.user);
+            })
+            .catch(() => { /* total failure falls through to the timer's error screen */ });
+        }
+
         timer = setTimeout(async () => {
           if (settled) return;
           // Last chance: the event may have been missed but the session could have
