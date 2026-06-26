@@ -10,11 +10,11 @@ import MIcon from "../icons.jsx";
 const ROWS = [
   { id: "team", icon: "shield", title: "Team", sub: "Squad, coaches & contacts", soon: true },
   { id: "schedule", icon: "calendar", title: "Schedule", sub: "Training & fixtures", soon: false },
-  { id: "notices", icon: "bell", title: "Club notices", sub: "Announcements from the club", soon: true },
+  { id: "notices", icon: "bell", title: "Club notices", sub: "Announcements from the club", soon: false },
   { id: "documents", icon: "flag", title: "Documents & consent", sub: "Registration & medical forms", soon: false },
 ];
 
-export default function GuardianMore({ childFirst, dueCount, onOpenDocuments, onOpenSchedule, onOpenProfile }) {
+export default function GuardianMore({ childFirst, dueCount, noticesUnread, onOpenDocuments, onOpenSchedule, onOpenNotices, onOpenProfile }) {
   return (
     <div className="m-view-enter">
       <div className="m-eyebrow" style={{ margin: "8px 2px 12px" }}>
@@ -23,13 +23,15 @@ export default function GuardianMore({ childFirst, dueCount, onOpenDocuments, on
 
       {ROWS.map((r) => {
         const disabled = r.soon;
-        const showDue = r.id === "documents" && dueCount > 0;
+        const badge = r.id === "documents" ? dueCount : r.id === "notices" ? noticesUnread : 0;
+        const showDue = badge > 0;
         return (
           <button
             key={r.id}
             onClick={() => {
               if (r.id === "documents") onOpenDocuments?.();
               else if (r.id === "schedule") onOpenSchedule?.();
+              else if (r.id === "notices") onOpenNotices?.();
             }}
             disabled={disabled}
             className="m-card"
@@ -51,7 +53,7 @@ export default function GuardianMore({ childFirst, dueCount, onOpenDocuments, on
             {r.soon ? (
               <span style={{ flex: "none", fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: "var(--r-pill)", background: "var(--s3)", color: "var(--ink3)" }}>Soon</span>
             ) : showDue ? (
-              <span style={{ flex: "none", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: "var(--r-pill)", background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)" }}>{dueCount}</span>
+              <span style={{ flex: "none", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: "var(--r-pill)", background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)" }}>{badge}</span>
             ) : (
               <MIcon name="chevron" size={16} color="var(--ink4)" />
             )}
