@@ -15,11 +15,10 @@
 //
 // CONTEXT SWITCHER (operator-requested) — detects EVERY hat the person holds and
 // opens the CORRECT, current screen, styled in the amber mobile theme:
-//   • guardian / operator / team-manager  → switch IN-PLACE in /hub (the new amber
-//                                            screens) via roleIdx — no reload.
+//   • guardian / operator / team-manager / referee → switch IN-PLACE in /hub (the new
+//                                            amber screens) via roleIdx — no reload.
 //   • casual / league football squads      → the live player app  (/p/<token>)
 //   • club / gym memberships               → the live club view   (/sessions?club=)
-//   • referee assignments                  → the referee app
 // (The casual app's gold ContextSwitcher is untouched — this is its amber, mobile-
 // correct sibling, scoped entirely inside [data-surface="mobile"].)
 
@@ -30,11 +29,7 @@ import MIcon from "./icons.jsx";
 import MobileSheet from "./MobileSheet.jsx";
 import { contextSubline } from "./nav.js";
 
-// Mirrors the casual ContextSwitcher: deep-link to the referee app, falling back to
-// the live deployment until the *.in-or-out.com subdomain is attached.
-const REF_APP_BASE = import.meta.env.VITE_REF_APP_URL || "https://platform-ref.vercel.app";
-
-const ROLE_LABEL = { guardian: "Guardian", operator: "Operator", team_manager: "Team manager" };
+const ROLE_LABEL = { guardian: "Guardian", operator: "Operator", team_manager: "Team manager", referee: "Referee" };
 
 // HSL crest tint from a name hash — the established grassroots-crest pattern
 // (Matches / League / Team screens). Hex would trip the hygiene hook; HSL is fine.
@@ -113,7 +108,8 @@ export default function ProfileSheet({
   }, []);
 
   const clubs = world?.club_memberships || [];
-  const refs = world?.ref_assignments || [];
+  // Referee assignments are now a first-class /hub hat (resolveRoles → roles[]), so the
+  // referee context is rendered IN-PLACE in the roles switcher below, not as a deep-link out.
 
   // Compact membership for the active child (guardian only) — same source as screen 3.
   const [money, setMoney] = useState(null);
@@ -184,14 +180,6 @@ export default function ProfileSheet({
     sub: c.cohort_name || "Club membership",
     onClick: () => go(`/sessions?club=${c.club_id}`),
   }));
-  if (refs.length > 0) {
-    const t = refs[0]?.ref_token;
-    otherContexts.push({
-      key: "ref", iconName: "whistle", title: "Referee",
-      sub: `${refs.length} assignment${refs.length === 1 ? "" : "s"}`,
-      onClick: () => go(t ? `${REF_APP_BASE}/?token=${t}` : REF_APP_BASE),
-    });
-  }
 
   const hasSwitcher = roles.length > 1 || otherContexts.length > 0;
   const membership = money?.memberships?.[0] || null;
@@ -231,7 +219,7 @@ export default function ProfileSheet({
           {roles.map((r, i) => (
             <PanelRow
               key={r.key + ":" + i}
-              iconName={r.key === "guardian" ? "users" : r.key === "operator" ? "house" : "shield"}
+              iconName={r.key === "guardian" ? "users" : r.key === "operator" ? "house" : r.key === "referee" ? "whistle" : "shield"}
               title={r.name || (ROLE_LABEL[r.key] || r.key)}
               sub={ROLE_LABEL[r.key] || r.key.replace("_", " ")}
               active={i === roleIdx}

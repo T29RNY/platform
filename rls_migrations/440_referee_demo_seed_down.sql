@@ -1,0 +1,7 @@
+-- 440_referee_demo_seed_down.sql — reverse the referee demo seed.
+DELETE FROM public.fixtures WHERE id IN (
+  '70000000-0000-4000-8000-000000000641',
+  '70000000-0000-4000-8000-000000000642',
+  '70000000-0000-4000-8000-000000000643'
+);
+DELETE FROM public.match_officials WHERE id = '70000000-0000-4000-8000-000000000640';

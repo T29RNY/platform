@@ -7,6 +7,7 @@
 //   venue_admin (admin_roles[].type) → operator   (role = owner|manager|staff)
 //   coaching[]                       → team_manager (club grassroots team)
 //   guardian_of[]                    → guardian
+//   ref_assignments[]                → referee     (match official; league + casual)
 //
 // EXCLUDED on purpose (owned by existing views, not this epic): the casual player
 // and internal-league "Member" surfaces. team_admin (a league/casual squad admin)
@@ -18,6 +19,7 @@ export const ROLE_RANK = {
   operator_manager: 2,
   operator_staff: 1,
   team_manager: 1,
+  referee: 0,        // above guardian, below operator/manager — never hijacks an operator's default
   guardian: -1,
 };
 
@@ -50,6 +52,15 @@ export function resolveRoles(world) {
     });
   }
 
+  if ((world.ref_assignments || []).length > 0) {
+    roles.push({
+      key: "referee",
+      assignments: world.ref_assignments, // [{context, ref_token, game_id, kickoff_at, ...}]
+      name: "Referee",
+      rank: ROLE_RANK.referee,
+    });
+  }
+
   if ((world.guardian_of || []).length > 0) {
     roles.push({
       key: "guardian",
@@ -76,6 +87,8 @@ export function tabsFor(role) {
         : ["tonight", "bookings", "payments", "people", "more"];
     case "team_manager":
       return ["tonight", "league", "people", "more"];
+    case "referee":
+      return ["fixtures", "more"];
     default:
       return ["more"];
   }
@@ -90,6 +103,7 @@ export const TAB_META = {
   matches:    { icon: "pulse",    label: "Matches",    title: "Matches" },
   league:     { icon: "trophy",   label: "League",     title: "League" },
   membership: { icon: "card",     label: "Membership", title: "Membership" },
+  fixtures:   { icon: "whistle",  label: "Fixtures",   title: "My fixtures" },
   more:       { icon: "dots",     label: "More",       title: "More" },
 };
 
@@ -102,5 +116,6 @@ export function contextSubline(role, activeChild) {
   }
   if (role.key === "operator") return role.name || "Your venue";
   if (role.key === "team_manager") return role.name || "Your team";
+  if (role.key === "referee") return "Match official";
   return "";
 }

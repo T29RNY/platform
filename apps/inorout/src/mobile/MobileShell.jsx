@@ -36,6 +36,8 @@ import OperatorPeople from "./screens/OperatorPeople.jsx";
 import OperatorMore from "./screens/OperatorMore.jsx";
 import OperatorTournaments from "./screens/OperatorTournaments.jsx";
 import TournamentView from "./screens/TournamentView.jsx";
+import RefFixtures from "./screens/RefFixtures.jsx";
+import RefMatch from "./screens/RefMatch.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -73,7 +75,9 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
   const [moreView, setMoreView] = useState(null);
   // Tournament spectator overlay (null | {slug, id}) — opened from the Cups index, closes on tab nav.
   const [tournament, setTournament] = useState(null);
-  useEffect(() => { setMoreView(null); setTournament(null); }, [tab, childId]);
+  // Referee officiating overlay (null | game) — full-screen iframe of the ref app, closes on tab nav.
+  const [refMatch, setRefMatch] = useState(null);
+  useEffect(() => { setMoreView(null); setTournament(null); setRefMatch(null); }, [tab, childId]);
 
   // Unread club-notices count for the active child → drives the "Club notices" More-row badge.
   const [noticesUnread, setNoticesUnread] = useState(0);
@@ -285,6 +289,8 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
                 toast={toast}
               />
             )
+          ) : role.key === "referee" && tab === "fixtures" ? (
+            <RefFixtures onOpenMatch={setRefMatch} toast={toast} />
           ) : (
             <div className="m-card">
               <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
@@ -298,7 +304,8 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
         </div>
       </div>
 
-      {/* floating role-aware tab bar */}
+      {/* floating role-aware tab bar — hidden while the officiating overlay is open */}
+      {!refMatch && (
       <div className="m-tabbar">
         {tabs.map((id) => {
           const m = TAB_META[id];
@@ -319,6 +326,10 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
           );
         })}
       </div>
+      )}
+
+      {/* referee officiating overlay — full-screen iframe of the existing ref app */}
+      {refMatch && <RefMatch game={refMatch} onBack={() => setRefMatch(null)} />}
 
       {/* toasts */}
       {toasts.length > 0 && (

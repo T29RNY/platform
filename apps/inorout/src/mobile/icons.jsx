@@ -8,7 +8,7 @@
 
 import {
   Pulse, Trophy, IdentificationCard, DotsThreeOutline,
-  CalendarBlank, CurrencyGbp, Users, ShieldChevron, UsersThree,
+  CalendarBlank, CurrencyGbp, Users, ShieldChevron, FlagCheckered,
   SquaresFour, Barbell, Package, Door, Globe, ListBullets, Trophy as Cup,
   Bell, QrCode, Key, MagnifyingGlass, CaretRight, CaretDown, CaretLeft,
   Check, X, Plus, Flag, Clock, Warning, Info, Television, Sparkle,
@@ -24,7 +24,7 @@ const REGISTRY = {
   users: Users,
   card: IdentificationCard,
   shield: ShieldChevron,
-  whistle: UsersThree,
+  whistle: FlagCheckered, // referee/officiating glyph — Phosphor has no Whistle in this version
   grid: SquaresFour,
   figure: Barbell,
   box: Package,
