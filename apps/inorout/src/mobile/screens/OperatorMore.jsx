@@ -61,7 +61,7 @@ function rowVisible(row, rank, isOwner) {
   return true;
 }
 
-export default function OperatorMore({ roleSub = "staff", venueName, onOpenProfile, toast }) {
+export default function OperatorMore({ roleSub = "staff", venueName, onOpenProfile, onOpenCups, toast }) {
   const [q, setQ] = useState("");
   const rank = RANK[roleSub] ?? 0;
   const isOwner = roleSub === "owner";
@@ -100,32 +100,39 @@ export default function OperatorMore({ roleSub = "staff", venueName, onOpenProfi
       {groups.map((g) => (
         <div key={g.group} style={{ marginTop: 16 }}>
           <div className="m-eyebrow" style={{ margin: "0 2px 9px" }}>{g.group}</div>
-          {g.rows.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => soon(r.title)}
-              className="m-card"
-              style={{
-                width: "100%", textAlign: "left", cursor: "pointer", padding: "13px 14px", marginBottom: 9,
-                display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--m-font)", color: "inherit",
-              }}
-            >
-              <div style={{
-                width: 38, height: 38, borderRadius: 11, flex: "none", background: "var(--s4)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <MIcon name={r.icon} size={18} color="var(--amber)" />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>{r.title}</div>
-                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.sub}</div>
-              </div>
-              <span style={{
-                flex: "none", fontSize: 10.5, fontWeight: 700, padding: "3px 9px",
-                borderRadius: "var(--r-pill)", background: "var(--s3)", color: "var(--ink3)",
-              }}>Soon</span>
-            </button>
-          ))}
+          {g.rows.map((r) => {
+            const isLive = r.id === "cups" && !!onOpenCups; // Cups is a real screen (the others are Soon)
+            return (
+              <button
+                key={r.id}
+                onClick={() => (isLive ? onOpenCups() : soon(r.title))}
+                className="m-card"
+                style={{
+                  width: "100%", textAlign: "left", cursor: "pointer", padding: "13px 14px", marginBottom: 9,
+                  display: "flex", alignItems: "center", gap: 12, fontFamily: "var(--m-font)", color: "inherit",
+                }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 11, flex: "none", background: isLive ? "var(--amber-soft)" : "var(--s4)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <MIcon name={r.icon} size={18} color="var(--amber)" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>{r.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.sub}</div>
+                </div>
+                {isLive ? (
+                  <MIcon name="chevron" size={16} color="var(--ink4)" />
+                ) : (
+                  <span style={{
+                    flex: "none", fontSize: 10.5, fontWeight: 700, padding: "3px 9px",
+                    borderRadius: "var(--r-pill)", background: "var(--s3)", color: "var(--ink3)",
+                  }}>Soon</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       ))}
 

@@ -6247,6 +6247,32 @@ export async function clubAdminUpdateTournamentStatus(slug, status) {
   return data;
 }
 
+// Mobile tournament/Cups (mig 439). Venue-scoped tournament index for the operator
+// /hub screens — operators carry a venue_id (pass role.entityId); resolve_venue_caller
+// (stage-1b) gates. The spectator screen still reads getTournamentPublic(slug).
+export async function listVenueTournaments(venueToken) {
+  const { data, error } = await supabase.rpc("list_venue_tournaments", { p_venue_token: venueToken });
+  if (error) { console.error("[event-os] list_venue_tournaments failed", error); throw error; }
+  return data;
+}
+
+// Persisted "follow a team" for the mobile spectator screen (mig 439). Keyed on
+// auth.uid() server-side — works for every signed-in role.
+export async function tournamentSetTeamFollow(competitionTeamId, follow) {
+  const { data, error } = await supabase.rpc("tournament_set_team_follow", {
+    p_competition_team_id: competitionTeamId,
+    p_follow: follow,
+  });
+  if (error) { console.error("[event-os] tournament_set_team_follow failed", error); throw error; }
+  return data;
+}
+
+export async function tournamentListMyFollows(tournamentEventId) {
+  const { data, error } = await supabase.rpc("tournament_list_my_follows", { p_tournament_event_id: tournamentEventId });
+  if (error) { console.error("[event-os] tournament_list_my_follows failed", error); throw error; }
+  return data?.competition_team_ids ?? [];
+}
+
 export async function clubAdminAddCompetition(tournamentEventId, name, type, format = null) {
   const { data, error } = await supabase.rpc("club_admin_add_competition", {
     p_tournament_event_id: tournamentEventId,

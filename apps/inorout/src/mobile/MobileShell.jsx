@@ -34,6 +34,8 @@ import OperatorBookings from "./screens/OperatorBookings.jsx";
 import OperatorPayments from "./screens/OperatorPayments.jsx";
 import OperatorPeople from "./screens/OperatorPeople.jsx";
 import OperatorMore from "./screens/OperatorMore.jsx";
+import OperatorTournaments from "./screens/OperatorTournaments.jsx";
+import TournamentView from "./screens/TournamentView.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -66,9 +68,12 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
     if (!tabs.includes(tab)) setTab(tabs[0]);
   }, [tabs, tab]);
 
-  // Guardian "More" sub-view (null | 'documents' | 'schedule' | 'notices'). Resets when the tab or child changes.
+  // Guardian "More" sub-view (null | 'documents' | 'schedule' | 'notices') + operator
+  // More sub-view (null | 'cups'). Resets when the tab or child changes.
   const [moreView, setMoreView] = useState(null);
-  useEffect(() => { setMoreView(null); }, [tab, childId]);
+  // Tournament spectator overlay (null | {slug, id}) — opened from the Cups index, closes on tab nav.
+  const [tournament, setTournament] = useState(null);
+  useEffect(() => { setMoreView(null); setTournament(null); }, [tab, childId]);
 
   // Unread club-notices count for the active child → drives the "Club notices" More-row badge.
   const [noticesUnread, setNoticesUnread] = useState(0);
@@ -114,9 +119,13 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
 
   const isGuardian = role.key === "guardian";
   const MORE_TITLES = { documents: "Documents", schedule: "Schedule", notices: "Club notices", team: "Team" };
-  const headerTitle = isGuardian && tab === "more" && moreView
-    ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
-    : TAB_META[tab]?.title || "Home";
+  const headerTitle = tournament
+    ? "Tournament"
+    : role.key === "operator" && tab === "more" && moreView === "cups"
+      ? "Tournaments"
+      : isGuardian && tab === "more" && moreView
+        ? (MORE_TITLES[moreView] || TAB_META[tab]?.title || "Home")
+        : TAB_META[tab]?.title || "Home";
 
   return (
     <div data-surface="mobile" data-theme={resolved} className="m-app">
@@ -169,7 +178,14 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
       {/* scroll body — re-keyed on tab + child so per-screen state resets */}
       <div className="m-scroll" key={tab + "·" + (childId || "")}>
         <div className="m-view-enter">
-          {isGuardian && tab === "matches" ? (
+          {tournament ? (
+            <TournamentView
+              slug={tournament.slug}
+              tournamentId={tournament.id}
+              onBack={() => setTournament(null)}
+              toast={toast}
+            />
+          ) : isGuardian && tab === "matches" ? (
             <GuardianMatches
               childId={activeChild?.child_profile_id || null}
               childFirst={activeChild?.first_name || "your child"}
@@ -252,12 +268,23 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
               toast={toast}
             />
           ) : role.key === "operator" && tab === "more" ? (
-            <OperatorMore
-              roleSub={role.sub}
-              venueName={role.name}
-              onOpenProfile={() => setSheet("profile")}
-              toast={toast}
-            />
+            moreView === "cups" ? (
+              <OperatorTournaments
+                venueId={role.entityId}
+                venueName={role.name}
+                onOpenTournament={(slug, id) => setTournament({ slug, id })}
+                onBack={() => setMoreView(null)}
+                toast={toast}
+              />
+            ) : (
+              <OperatorMore
+                roleSub={role.sub}
+                venueName={role.name}
+                onOpenProfile={() => setSheet("profile")}
+                onOpenCups={() => setMoreView("cups")}
+                toast={toast}
+              />
+            )
           ) : (
             <div className="m-card">
               <div className="m-eyebrow">{TAB_META[tab]?.title}</div>
