@@ -87,10 +87,27 @@ additive core), rpc-security-sweep (clean), Playwright /hub ref smoke PASS (Past
 games w/ scores → tap → read-only PostMatch). No write → EV N/A. Wrapper
 `getMyOfficiatingHistory`; RPCS.md updated.
 
-### PR #3 — Availability + accept/decline
-Let a ref mark availability (so venues assign around it) and accept/decline an assignment.
-New state on the assignment (accepted/declined) + a venue-side surface to see it. Needs a
-write RPC (→ ephemeral-verify) + audit_events.
+### PR #3 — Availability + accept/decline  ✅ SHIPPED
+The FIRST referee PR that WRITES. mig 442 adds two RPC-only tables —
+`ref_assignment_responses` (accept/decline; absent row = pending) and `ref_unavailability`
+(blackout date ranges) — kept ISOLATED so the security-sensitive assign RPCs
+(`venue_assign_ref`/`assign_casual_match_ref`) and the Swift-locked `get_my_assignments`
+stay UNTOUCHED (a re-assignment naturally reads "pending" for the new ref — no reset logic).
+Three write RPCs (`ref_respond_to_assignment`, `ref_add_unavailability`,
+`ref_remove_unavailability` — all SECDEF, authenticated-only, each INSERTs audit_events,
+Hard Rule #9) + two readers (`get_my_ref_status` for the ref, `venue_get_ref_responses` for
+the operator). Resolution mirrors mig 372/441 (`auth.uid()`→`people`→`match_officials`/`players.person_id`).
+Frontend: RefFixtures gains Accept/Decline on each UPCOMING row (live/past excluded) +
+a "My availability" panel (add/remove blackout ranges); venue FixtureCard shows a ref-response
+chip (✓ accepted / ✗ declined) and FixtureActions flags an official who's unavailable on the
+fixture's date. Both works LEAGUE + CASUAL for the ref's accept/decline; the operator-facing
+"see the response" surface is LEAGUE-only this PR (casual is squad-admin-assigned — the
+squad-admin response surface is deferred to a follow-up). Gates: build ×2 clean, hygiene 7/7,
+rpc-security-sweep (5 RPCs: 4 authenticated-only, 1 venue-token anon+auth, all SECDEF +
+search_path), ephemeral-verify PASS (10 assertions incl. 5 error-paths + unauth, leak-check 0),
+casual-regression (additive core only, no `views/` touched), Playwright /hub ref smoke PASS
+(Referee hat → Live/Upcoming(accept/decline)/Past/Availability all render; Accept persisted to
+DB + audit_events live). ⛔ owed: real-iPhone referee walk; squad-admin casual response surface.
 
 ### PR #4 — Tournament officiating
 Currently excluded: tournament fixtures aren't assigned via `match_officials`, so they never

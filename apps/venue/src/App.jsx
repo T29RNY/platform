@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
-  venueGetState, getPitchOccupancy, venueGetBookingIns,
+  venueGetState, getPitchOccupancy, venueGetBookingIns, venueGetRefResponses,
   venueWhoami, venueClaimMemberships, getVenueFeatureFlags, supabase,
 } from "@platform/core/storage/supabase.js";
 import Dashboard from "./views/Dashboard.jsx";
@@ -60,6 +60,19 @@ export default function App() {
     setError(null);
     try {
       const data = await venueGetState(t);
+      // Referee accept/decline + availability (mig 442) — best-effort, merged onto
+      // the dashboard state so FixtureCard/FixtureActions read it without new props.
+      // A failure never blocks the dashboard (refs surface just stays neutral).
+      const refResponses = {}; const officialUnavail = {};
+      try {
+        const rr = await venueGetRefResponses(t);
+        (rr?.fixture_responses || []).forEach((r) => { refResponses[r.fixture_id] = { response: r.response, responded_at: r.responded_at }; });
+        (rr?.official_unavailability || []).forEach((u) => {
+          (officialUnavail[u.official_id] ||= []).push({ start_date: u.start_date, end_date: u.end_date });
+        });
+      } catch (err) { console.error("venue_get_ref_responses failed", err); }
+      data.refResponses = refResponses;
+      data.officialUnavail = officialUnavail;
       setState(data);
     } catch (err) {
       console.error("venue_get_state failed", err);

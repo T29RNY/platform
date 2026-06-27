@@ -94,6 +94,14 @@ function RefModal({ fixture, state, venueToken, onDone, onClose }) {
   const [error, setError] = useState(null);
   const refs = (state.refs || []).filter((r) => r.active);
 
+  // mig 442 — flag a ref who marked themselves unavailable on this fixture's date so
+  // the operator can assign around it (a warning, not a hard block).
+  const fxDate = fixture.scheduled_date;
+  const unavailFor = (officialId) =>
+    !!fxDate && ((state.officialUnavail || {})[officialId] || [])
+      .some((w) => w.start_date <= fxDate && fxDate <= w.end_date);
+  const selectedUnavailable = refId && unavailFor(refId);
+
   async function save() {
     setBusy(true); setError(null);
     try {
@@ -114,10 +122,15 @@ function RefModal({ fixture, state, venueToken, onDone, onClose }) {
         <option value="">— None (clear) —</option>
         {refs.map((r) => (
           <option key={r.id} value={r.id}>
-            {r.name} — {r.preferred_channel || "push"}{r.overall_rating ? ` · ${Number(r.overall_rating).toFixed(1)}★` : ""}
+            {r.name} — {r.preferred_channel || "push"}{r.overall_rating ? ` · ${Number(r.overall_rating).toFixed(1)}★` : ""}{unavailFor(r.id) ? " · Unavailable" : ""}
           </option>
         ))}
       </select>
+      {selectedUnavailable && (
+        <p style={{ color: "var(--warn)", fontSize: 12, marginTop: 8 }}>
+          This referee marked themselves unavailable on this date.
+        </p>
+      )}
       {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{error}</p>}
     </Modal>
   );
