@@ -6310,6 +6310,137 @@ export async function getClubPublic(slug) {
   return data;
 }
 
+// ── Club page admin writes (Modular Platform Epic B — Phase 3, mig 446) ─────────
+// Club-manager auth (auth.uid) + public_web feature gate + audit, server-side.
+
+export async function clubSetPage(clubId, { slug, primaryColour = null, secondaryColour = null, accentColour = null, crestUrl = null, heroUrl = null, tagline = null, about = null, socials = null, sections = null } = {}) {
+  const { data, error } = await supabase.rpc("club_set_page", {
+    p_club_id:          clubId,
+    p_slug:             slug,
+    p_primary_colour:   primaryColour,
+    p_secondary_colour: secondaryColour,
+    p_accent_colour:    accentColour,
+    p_crest_url:        crestUrl,
+    p_hero_url:         heroUrl,
+    p_tagline:          tagline,
+    p_about:            about,
+    p_socials:          socials,
+    p_sections:         sections,
+  });
+  if (error) { console.error("[club-page] club_set_page failed", error); throw error; }
+  return data;
+}
+
+export async function clubPublishPage(clubId, published) {
+  const { data, error } = await supabase.rpc("club_publish_page", {
+    p_club_id:   clubId,
+    p_published: published,
+  });
+  if (error) { console.error("[club-page] club_publish_page failed", error); throw error; }
+  return data;
+}
+
+export async function clubAddSponsor(clubId, name, logoUrl = null, websiteUrl = null, displayOrder = 0) {
+  const { data, error } = await supabase.rpc("club_add_sponsor", {
+    p_club_id:       clubId,
+    p_name:          name,
+    p_logo_url:      logoUrl,
+    p_website_url:   websiteUrl,
+    p_display_order: displayOrder,
+  });
+  if (error) { console.error("[club-page] club_add_sponsor failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdateSponsor(sponsorId, { name = null, logoUrl = null, websiteUrl = null, displayOrder = null, active = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_sponsor", {
+    p_sponsor_id:    sponsorId,
+    p_name:          name,
+    p_logo_url:      logoUrl,
+    p_website_url:   websiteUrl,
+    p_display_order: displayOrder,
+    p_active:        active,
+  });
+  if (error) { console.error("[club-page] club_update_sponsor failed", error); throw error; }
+  return data;
+}
+
+export async function clubRemoveSponsor(sponsorId) {
+  const { data, error } = await supabase.rpc("club_remove_sponsor", {
+    p_sponsor_id: sponsorId,
+  });
+  if (error) { console.error("[club-page] club_remove_sponsor failed", error); throw error; }
+  return data;
+}
+
+export async function clubListSponsors(clubId) {
+  const { data, error } = await supabase.rpc("club_list_sponsors", {
+    p_club_id: clubId,
+  });
+  if (error) { console.error("[club-page] club_list_sponsors failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubCreatePost(clubId, { slug, title, body = null, heroUrl = null, authorName = null } = {}) {
+  const { data, error } = await supabase.rpc("club_create_post", {
+    p_club_id:     clubId,
+    p_slug:        slug,
+    p_title:       title,
+    p_body:        body,
+    p_hero_url:    heroUrl,
+    p_author_name: authorName,
+  });
+  if (error) { console.error("[club-page] club_create_post failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdatePost(postId, { title = null, body = null, heroUrl = null, authorName = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_post", {
+    p_post_id:     postId,
+    p_title:       title,
+    p_body:        body,
+    p_hero_url:    heroUrl,
+    p_author_name: authorName,
+  });
+  if (error) { console.error("[club-page] club_update_post failed", error); throw error; }
+  return data;
+}
+
+export async function clubDeletePost(postId) {
+  const { data, error } = await supabase.rpc("club_delete_post", {
+    p_post_id: postId,
+  });
+  if (error) { console.error("[club-page] club_delete_post failed", error); throw error; }
+  return data;
+}
+
+export async function clubPublishPost(postId, published) {
+  const { data, error } = await supabase.rpc("club_publish_post", {
+    p_post_id:   postId,
+    p_published: published,
+  });
+  if (error) { console.error("[club-page] club_publish_post failed", error); throw error; }
+  return data;
+}
+
+export async function clubListPosts(clubId) {
+  const { data, error } = await supabase.rpc("club_list_posts", {
+    p_club_id: clubId,
+  });
+  if (error) { console.error("[club-page] club_list_posts failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubSetSafeguarding(clubId, { minPublicAge = null, hidePublicRosters = null } = {}) {
+  const { data, error } = await supabase.rpc("club_set_safeguarding", {
+    p_club_id:             clubId,
+    p_min_public_age:      minPublicAge,
+    p_hide_public_rosters: hidePublicRosters,
+  });
+  if (error) { console.error("[club-page] club_set_safeguarding failed", error); throw error; }
+  return data;
+}
+
 // Public self-serve team registration from the Tournament Hub (anon + authenticated).
 // Allowed only while the event is OPEN; creates a pending team awaiting club-admin approval.
 export async function tournamentRegisterTeam(slug, competitionId, teamName, contactEmail) {
