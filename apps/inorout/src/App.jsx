@@ -43,6 +43,7 @@ import MobileShell         from "./mobile/MobileShell.jsx";
 import TournamentScreen    from "./views/TournamentScreen.jsx";
 import MatchdayScreen      from "./views/MatchdayScreen.jsx";
 import EmbedLeagueScreen   from "./views/EmbedLeagueScreen.jsx";
+import ClubPublicScreen    from "./views/ClubPublicScreen.jsx";
 import TournamentJoinScreen from "./views/TournamentJoinScreen.jsx";
 import FollowLiveView      from "./views/FollowLiveView.jsx";
 import EmailCaptureOverlay  from "./views/EmailCaptureOverlay.jsx";
@@ -116,6 +117,7 @@ function getRoute() {
   if (parts[0]==="tournament"  && parts[1])  return { type:"tournament",  slug:parts[1] };
   if (parts[0]==="matchday"    && parts[1])  return { type:"matchday",    code:parts[1] };
   if (parts[0]==="embed" && parts[1]==="league" && parts[2]) return { type:"embed_league", code:parts[2] };
+  if (parts[0]==="c"           && parts[1])  return { type:"club_public", slug:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
@@ -1383,6 +1385,10 @@ export default function App() {
 
   if (route.type === "embed_league") {
     return <EmbedLeagueScreen code={route.code} />;
+  }
+
+  if (route.type === "club_public") {
+    return <ClubPublicScreen slug={route.slug} />;
   }
 
   if (route.type === "tournament_join") {
