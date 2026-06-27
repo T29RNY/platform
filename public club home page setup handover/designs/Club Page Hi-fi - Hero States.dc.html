@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#f4f4f5;}
+  *{box-sizing:border-box;}
+  @keyframes hpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+  ::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="position:absolute;left:80px;top:-72px;width:1500px">
+  <div style="font:400 38px 'Bebas Neue';color:#17171b;letter-spacing:.5px">In or Out — Hero states &amp; theming proof</div>
+  <div style="font:500 15px 'DM Sans';color:#6b6b77;margin-top:2px">The hero changes through the match week from fixtures data · the empty state still looks intentional · and the same layout re-skins from any club's 3 colours</div>
+</div>
+
+<div style="position:absolute;left:80px;top:18px;width:1000px">
+  <div style="font:600 13px 'DM Sans';letter-spacing:2px;color:#9a9aa6">J — HERO STATES (derive client-side from fixtures)</div>
+  <div style="font:400 30px 'Bebas Neue';color:#17171b;margin-top:0;letter-spacing:.4px">Pre-match · Live · Post-match · Idle · Empty (zero-config)</div>
+</div>
+
+<!-- ===== PRE-MATCH ===== -->
+<div style="position:absolute;left:80px;top:124px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-40px;font:600 12px 'DM Sans';color:#6b6b77">Pre-match <span style="font:600 9px 'DM Sans';color:#1f9d57;background:#e7f6ee;padding:2px 7px;border-radius:6px;margin-left:4px">✅ default for grassroots</span></div>
+  <div style="background:#000;border-radius:40px;padding:9px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:32px;overflow:hidden;height:480px;position:relative">
+      <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▦ ▮</span></div>
+      <div style="position:relative;height:230px;margin:0 11px;border-radius:18px;overflow:hidden;background:linear-gradient(150deg,#3a0c18,#0d0d0f 75%)">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.035),rgba(255,255,255,.035) 2px,transparent 2px,transparent 12px)"></div>
+        <div style="position:absolute;left:16px;bottom:14px"><div style="width:40px;height:40px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 15px 'Bebas Neue';color:#d8455f;margin-bottom:10px">RFC</div><div style="font:400 26px 'Bebas Neue';letter-spacing:.4px;line-height:.95">REDBRIDGE FC</div></div>
+      </div>
+      <div style="margin:12px 11px 0;border:1px solid #23232a;border-radius:14px;padding:13px;background:#141417">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><span style="font:700 10px 'DM Sans';letter-spacing:.8px;color:#9a9aa6">NEXT MATCH · IN 2 DAYS</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between"><div style="text-align:center;flex:1"><div style="width:34px;height:34px;border-radius:50%;background:#16100f;border:1px solid #3a1420;margin:0 auto 5px;display:flex;align-items:center;justify-content:center;font:400 9px 'Bebas Neue';color:#d8455f">RFC</div><div style="font:700 10px 'DM Sans'">Redbridge</div></div><div style="text-align:center"><div style="font:400 18px 'Bebas Neue';color:#9a9aa6">SAT</div><div style="font:400 15px 'Bebas Neue'">10:00</div></div><div style="text-align:center;flex:1"><div style="width:34px;height:34px;border-radius:50%;background:#23232a;margin:0 auto 5px"></div><div style="font:700 10px 'DM Sans'">Rovers</div></div></div>
+        <div style="display:flex;align-items:center;gap:7px;margin-top:11px;padding-top:11px;border-top:1px solid #23232a"><div style="flex:1"><div style="height:5px;border-radius:3px;background:#2a2a31;overflow:hidden"><div style="height:100%;width:78%;background:#3fcf6a;border-radius:3px"></div></div></div><span style="font:600 10px 'DM Sans';color:#3fcf6a">11 confirmed · 3 needed</span></div>
+      </div>
+      <div style="margin:10px 11px 0;display:flex;gap:8px"><div style="flex:1;text-align:center;border:1px solid #23232a;border-radius:11px;padding:10px;font:700 11px 'DM Sans';color:#c7c7cf">🔔 Remind me</div><div style="flex:1;text-align:center;background:#d8455f;color:#fff;border-radius:11px;padding:10px;font:700 11px 'DM Sans'">Match-day →</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LIVE ===== -->
+<div style="position:absolute;left:410px;top:124px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-40px;font:600 12px 'DM Sans';color:#6b6b77">Live <span style="font:600 9px 'DM Sans';color:#b5611f;background:#fff7e6;padding:2px 7px;border-radius:6px;margin-left:4px">⚠ refereed / P4 poll only</span></div>
+  <div style="background:#000;border-radius:40px;padding:9px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:32px;overflow:hidden;height:480px;position:relative">
+      <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▦ ▮</span></div>
+      <div style="position:relative;height:230px;margin:0 11px;border-radius:18px;overflow:hidden;background:linear-gradient(150deg,#3a0c18,#0d0d0f 75%)">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.035),rgba(255,255,255,.035) 2px,transparent 2px,transparent 12px)"></div>
+        <div style="position:absolute;top:11px;right:11px;display:inline-flex;align-items:center;gap:5px;background:#d8455f;color:#fff;font:700 8px 'DM Sans';letter-spacing:.8px;padding:5px 10px;border-radius:12px"><span style="width:5px;height:5px;border-radius:50%;background:#fff;animation:hpulse 1.1s infinite"></span>LIVE</div>
+        <div style="position:absolute;left:16px;bottom:14px"><div style="width:36px;height:36px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue';color:#d8455f;margin-bottom:9px">RFC</div><div style="font:400 22px 'Bebas Neue';letter-spacing:.4px;line-height:.95">REDBRIDGE FC</div></div>
+      </div>
+      <div style="margin:12px 11px 0;border:1.5px solid #3a1420;border-radius:14px;padding:13px;background:#16100f">
+        <div style="display:flex;align-items:center;justify-content:space-between"><div style="text-align:center;flex:1"><div style="font:700 10px 'DM Sans'">Redbridge</div></div><div style="text-align:center"><div style="font:400 34px 'Bebas Neue';color:#d8455f;line-height:1">2–1</div></div><div style="text-align:center;flex:1"><div style="font:700 10px 'DM Sans'">Rovers</div></div></div>
+        <div style="text-align:center;margin-top:6px"><span style="display:inline-flex;align-items:center;gap:5px;background:#2a1620;color:#ff8aa0;font:700 9px 'DM Sans';padding:4px 9px;border-radius:10px"><span style="width:5px;height:5px;border-radius:50%;background:#d8455f;animation:hpulse 1.1s infinite"></span>67' · 2nd half</span></div>
+      </div>
+      <div style="margin:10px 11px 0;background:#d8455f;color:#fff;text-align:center;border-radius:11px;padding:11px;font:700 11px 'DM Sans'">Follow live →</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== POST-MATCH ===== -->
+<div style="position:absolute;left:740px;top:124px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-40px;font:600 12px 'DM Sans';color:#6b6b77">Post-match <span style="font:600 9px 'DM Sans';color:#1f9d57;background:#e7f6ee;padding:2px 7px;border-radius:6px;margin-left:4px">✅ completed + score</span></div>
+  <div style="background:#000;border-radius:40px;padding:9px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:32px;overflow:hidden;height:480px;position:relative">
+      <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▦ ▮</span></div>
+      <div style="position:relative;height:230px;margin:0 11px;border-radius:18px;overflow:hidden;background:linear-gradient(150deg,#10331f,#0d0d0f 75%)">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.035),rgba(255,255,255,.035) 2px,transparent 2px,transparent 12px)"></div>
+        <div style="position:absolute;top:11px;right:11px;background:#10331f;color:#3fcf6a;font:700 9px 'DM Sans';letter-spacing:.5px;padding:5px 10px;border-radius:12px">FULL TIME · WON</div>
+        <div style="position:absolute;left:16px;bottom:14px"><div style="font:400 13px 'Bebas Neue';color:#9a9aa6;margin-bottom:2px">REDBRIDGE 3–1 ROVERS</div><div style="font:400 24px 'Bebas Neue';letter-spacing:.4px;line-height:.95">WE WON IT LATE</div></div>
+      </div>
+      <div style="margin:12px 11px 0;border:1px solid #23232a;border-radius:14px;overflow:hidden">
+        <div style="height:70px;background:repeating-linear-gradient(125deg,#16161a,#16161a 8px,#1c1c20 8px,#1c1c20 16px);position:relative"><span style="position:absolute;left:10px;top:8px;font:10px ui-monospace,monospace;color:#6b6b75">match photo</span></div>
+        <div style="padding:11px"><div style="font:600 8px 'DM Sans';letter-spacing:.6px;color:#3fcf6a">MATCH REPORT</div><div style="font:700 12px 'DM Sans';margin-top:3px">Cup run continues after late winner</div><div style="font:600 11px 'DM Sans';color:#d8455f;margin-top:7px">Read report →</div></div>
+      </div>
+      <div style="margin:9px 11px 0;display:flex;align-items:center;gap:7px;font:600 10px 'DM Sans';color:#9a9aa6"><span style="background:#141417;border:1px solid #23232a;border-radius:8px;padding:7px 10px">📷 12 photos</span><span style="background:#141417;border:1px solid #23232a;border-radius:8px;padding:7px 10px">🔗 Share result</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== IDLE ===== -->
+<div style="position:absolute;left:1070px;top:124px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-40px;font:600 12px 'DM Sans';color:#6b6b77">Idle / off-week <span style="font:600 9px 'DM Sans';color:#1f9d57;background:#e7f6ee;padding:2px 7px;border-radius:6px;margin-left:4px">✅ none upcoming</span></div>
+  <div style="background:#000;border-radius:40px;padding:9px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:32px;overflow:hidden;height:480px;position:relative">
+      <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▦ ▮</span></div>
+      <div style="position:relative;height:230px;margin:0 11px;border-radius:18px;overflow:hidden;background:linear-gradient(150deg,#3a0c18,#0d0d0f 75%)">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.035),rgba(255,255,255,.035) 2px,transparent 2px,transparent 12px)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:16px;text-align:center"><div style="width:48px;height:48px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 18px 'Bebas Neue';color:#d8455f;margin:0 auto 10px">RFC</div><div style="font:400 26px 'Bebas Neue';letter-spacing:.4px;line-height:1">REDBRIDGE FC</div><div style="font:600 11px 'DM Sans';color:#9a9aa6;margin-top:4px">Community since 1989</div></div>
+      </div>
+      <div style="margin:12px 11px 0;border:1px solid #23232a;border-radius:14px;padding:13px;text-align:center"><div style="font:600 10px 'DM Sans';color:#9a9aa6">NEXT FIXTURE</div><div style="font:400 18px 'Bebas Neue';margin-top:3px">SAT 11 JAN · 10:00</div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:2px">League · vs Rovers</div></div>
+      <div style="margin:10px 11px 0;background:#d8455f;color:#fff;text-align:center;border-radius:11px;padding:11px;font:700 11px 'DM Sans'">Play for us →</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EMPTY / ZERO-CONFIG ===== -->
+<div style="position:absolute;left:1400px;top:124px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-40px;font:600 12px 'DM Sans';color:#d8455f">Empty · zero-config <span style="font:600 9px 'DM Sans';color:#b5611f;background:#fff7e6;padding:2px 7px;border-radius:6px;margin-left:4px">★ the Santos club — must still look good</span></div>
+  <div style="background:#000;border-radius:40px;padding:9px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:32px;overflow:hidden;height:480px;position:relative">
+      <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▦ ▮</span></div>
+      <!-- only crest + colours, no hero photo, no fixtures -->
+      <div style="position:relative;height:230px;margin:0 11px;border-radius:18px;overflow:hidden;background:linear-gradient(150deg,#6e1a27,#3a0c18 60%,#0d0d0f)">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.05),rgba(255,255,255,.05) 2px,transparent 2px,transparent 14px)"></div>
+        <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center"><div style="width:60px;height:60px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 24px 'Bebas Neue';color:#8a2433;margin:0 auto 12px;box-shadow:0 8px 20px rgba(0,0,0,.4)">RW</div><div style="font:400 28px 'Bebas Neue';letter-spacing:.5px;line-height:1">RIVERSIDE WANDERERS</div></div>
+      </div>
+      <div style="margin:14px 11px 0;text-align:center"><div style="font:500 12px 'DM Sans';color:#c7c7cf;line-height:1.5">A brand-new club page — built from just a crest and three colours.</div></div>
+      <div style="margin:14px 11px 0;border:1.5px dashed #3a1420;background:#16100f;border-radius:13px;padding:14px;text-align:center"><div style="font:700 12px 'DM Sans';color:#ff8aa0">Be first to join</div><div style="font:500 10px 'DM Sans';color:#9a9aa6;margin-top:3px">Fixtures &amp; squads appear here automatically as the club gets going.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== THEME PROOF ===== -->
+<div style="position:absolute;left:80px;top:680px;width:1000px">
+  <div style="font:600 13px 'DM Sans';letter-spacing:2px;color:#9a9aa6">K — THEMING PROOF (colour as a prop)</div>
+  <div style="font:400 28px 'Bebas Neue';color:#17171b;margin-top:0;letter-spacing:.4px">One layout, any club's 3 colours — text tones &amp; contrast auto-derived</div>
+</div>
+
+
+<!-- claret -->
+<div style="position:absolute;left:80px;top:790px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Claret · #8A2433</div>
+  <div style="background:#000;border-radius:40px;padding:9px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:32px;overflow:hidden;height:440px;position:relative">
+      <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▮</span></div>
+      <div style="position:relative;height:150px;margin:0 11px;border-radius:16px;overflow:hidden;background:linear-gradient(150deg,#3a0c18,#0d0d0f 75%)"><div style="position:absolute;left:14px;bottom:12px"><div style="width:34px;height:34px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue';color:#d8455f;margin-bottom:8px">RFC</div><div style="font:400 22px 'Bebas Neue';letter-spacing:.4px">REDBRIDGE FC</div></div></div>
+      <div style="margin:11px 11px 0;border:1px solid #23232a;border-radius:12px;padding:11px;display:flex;align-items:center;justify-content:between"><div style="flex:1"><div style="font:600 8px 'DM Sans';color:#9a9aa6">NEXT</div><div style="font:700 11px 'DM Sans'">vs Rovers · Sat 10:00</div></div><div style="background:#d8455f;color:#fff;font:700 9px 'DM Sans';padding:6px 11px;border-radius:14px">Follow</div></div>
+      <div style="margin:9px 11px 0;display:flex;background:#17171b;border-radius:10px;padding:3px;gap:2px"><div style="flex:1;text-align:center;background:#d8455f;color:#fff;border-radius:8px;padding:7px;font:700 10px 'DM Sans'">Fixtures</div><div style="flex:1;text-align:center;color:#9a9aa6;padding:7px;font:600 10px 'DM Sans'">Table</div><div style="flex:1;text-align:center;color:#9a9aa6;padding:7px;font:600 10px 'DM Sans'">Players</div></div>
+      <div style="margin:9px 11px 0;background:#d8455f;color:#fff;text-align:center;border-radius:11px;padding:10px;font:700 11px 'DM Sans'">Play for us</div>
+    </div>
+  </div>
+</div>
+
+<!-- cobalt -->
+<div style="position:absolute;left:410px;top:790px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Cobalt · #2A6FDB</div>
+  <div style="background:#000;border-radius:40px;padding:9px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:32px;overflow:hidden;height:440px;position:relative">
+      <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▮</span></div>
+      <div style="position:relative;height:150px;margin:0 11px;border-radius:16px;overflow:hidden;background:linear-gradient(150deg,#11254a,#0d0d0f 75%)"><div style="position:absolute;left:14px;bottom:12px"><div style="width:34px;height:34px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue';color:#3f7fe0;margin-bottom:8px">MTC</div><div style="font:400 22px 'Bebas Neue';letter-spacing:.4px">MARSH TOWN</div></div></div>
+      <div style="margin:11px 11px 0;border:1px solid #23232a;border-radius:12px;padding:11px;display:flex;align-items:center"><div style="flex:1"><div style="font:600 8px 'DM Sans';color:#9a9aa6">NEXT</div><div style="font:700 11px 'DM Sans'">vs City · Sat 14:00</div></div><div style="background:#3f7fe0;color:#fff;font:700 9px 'DM Sans';padding:6px 11px;border-radius:14px">Follow</div></div>
+      <div style="margin:9px 11px 0;display:flex;background:#17171b;border-radius:10px;padding:3px;gap:2px"><div style="flex:1;text-align:center;background:#3f7fe0;color:#fff;border-radius:8px;padding:7px;font:700 10px 'DM Sans'">Fixtures</div><div style="flex:1;text-align:center;color:#9a9aa6;padding:7px;font:600 10px 'DM Sans'">Table</div><div style="flex:1;text-align:center;color:#9a9aa6;padding:7px;font:600 10px 'DM Sans'">Players</div></div>
+      <div style="margin:9px 11px 0;background:#3f7fe0;color:#fff;text-align:center;border-radius:11px;padding:10px;font:700 11px 'DM Sans'">Play for us</div>
+    </div>
+  </div>
+</div>
+
+<!-- forest -->
+<div style="position:absolute;left:740px;top:790px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Forest · #1F8A5B</div>
+  <div style="background:#000;border-radius:40px;padding:9px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:32px;overflow:hidden;height:440px;position:relative">
+      <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▮</span></div>
+      <div style="position:relative;height:150px;margin:0 11px;border-radius:16px;overflow:hidden;background:linear-gradient(150deg,#0f3324,#0d0d0f 75%)"><div style="position:absolute;left:14px;bottom:12px"><div style="width:34px;height:34px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue';color:#27a26d;margin-bottom:8px">PVF</div><div style="font:400 22px 'Bebas Neue';letter-spacing:.4px">PARKVIEW FC</div></div></div>
+      <div style="margin:11px 11px 0;border:1px solid #23232a;border-radius:12px;padding:11px;display:flex;align-items:center"><div style="flex:1"><div style="font:600 8px 'DM Sans';color:#9a9aa6">NEXT</div><div style="font:700 11px 'DM Sans'">vs Albion · Sun 11:00</div></div><div style="background:#27a26d;color:#fff;font:700 9px 'DM Sans';padding:6px 11px;border-radius:14px">Follow</div></div>
+      <div style="margin:9px 11px 0;display:flex;background:#17171b;border-radius:10px;padding:3px;gap:2px"><div style="flex:1;text-align:center;background:#27a26d;color:#fff;border-radius:8px;padding:7px;font:700 10px 'DM Sans'">Fixtures</div><div style="flex:1;text-align:center;color:#9a9aa6;padding:7px;font:600 10px 'DM Sans'">Table</div><div style="flex:1;text-align:center;color:#9a9aa6;padding:7px;font:600 10px 'DM Sans'">Players</div></div>
+      <div style="margin:9px 11px 0;background:#27a26d;color:#fff;text-align:center;border-radius:11px;padding:10px;font:700 11px 'DM Sans'">Play for us</div>
+    </div>
+  </div>
+</div>
+
+<!-- auto-derive note + worst-case -->
+<div style="position:absolute;left:1070px;top:790px;width:340px;background:#0d0d0f;border:1px solid #23232a;border-radius:16px;padding:20px;color:#fff">
+  <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:11px;color:#d8455f">SAME FILE, ANY BRAND</div>
+  <div style="font:500 12px 'DM Sans';color:#c7c7cf;line-height:1.6">The three frames are <b style="color:#fff">one layout</b> — only the `primary/secondary/accent` props change. Foreground tones are derived so a pale brand still reads on dark, and the contrast guard blocks unreadable combinations at setup.</div>
+  <div style="margin-top:14px;border:1px solid #23232a;border-radius:11px;overflow:hidden">
+    <div style="background:#f2e23a;padding:11px 13px;display:flex;align-items:center;justify-content:space-between"><span style="color:#3a3206;font:700 12px 'DM Sans'">Pale brand → dark text auto</span></div>
+    <div style="background:#141417;padding:9px 13px;font:500 10px 'DM Sans';color:#9a9aa6">Worst-case yellow: text flips to ink, not white — still AA.</div>
+  </div>
+</div>
+
+<!-- ===== THIN / EMPTY CLUB — THE PRIMARY STATE ===== -->
+<div style="position:absolute;left:80px;top:1320px;width:1000px">
+  <div style="font:600 13px 'DM Sans';letter-spacing:2px;color:#9a9aa6">L — THE THIN CLUB (primary design target)</div>
+  <div style="font:400 28px 'Bebas Neue';color:#17171b;margin-top:0;letter-spacing:.4px">One team · no stats · no sponsors · no FA feed · no hero photo — still alive &amp; deliberate</div>
+</div>
+<div style="position:absolute;left:80px;top:1410px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#d8455f">Full thin-club page — every module degrades, nothing looks broken</div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:780px;overflow-y:auto;position:relative">
+      <div style="position:sticky;top:0;z-index:5;height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans';background:#0d0d0f"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 16px 12px"><div style="display:flex;align-items:center;gap:9px"><div style="width:32px;height:32px;border-radius:50%;background:#11254a;border:1.5px solid #3f7fe0;display:flex;align-items:center;justify-content:center;font:400 11px 'Bebas Neue';color:#7fa8ee">MTC</div><span style="font:400 18px 'Bebas Neue';letter-spacing:.5px">MARSH TOWN</span></div><div style="font:700 11px 'DM Sans';color:#fff;background:#3f7fe0;padding:8px 14px;border-radius:20px">Join</div></div>
+      <!-- hero: crest + colours only, no photo, but full and intentional -->
+      <div style="position:relative;height:200px;margin:0 12px;border-radius:20px;overflow:hidden;background:linear-gradient(150deg,#11254a,#0d0d0f 78%)"><div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.05),rgba(255,255,255,.05) 2px,transparent 2px,transparent 14px)"></div><div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center"><div style="width:54px;height:54px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 20px 'Bebas Neue';color:#11254a;margin:0 auto 11px;box-shadow:0 8px 20px rgba(0,0,0,.4)">MTC</div><div style="font:400 28px 'Bebas Neue';letter-spacing:.5px;line-height:1">MARSH TOWN FC</div><div style="font:600 11px 'DM Sans';color:#9a9aa6;margin-top:4px">Just getting started</div></div></div>
+      <!-- next fixture (real even for a thin club) -->
+      <div style="margin:13px 12px 0;border:1px solid #23232a;border-radius:14px;padding:13px;background:#141417;display:flex;align-items:center;justify-content:space-between"><div><div style="font:700 10px 'DM Sans';letter-spacing:.8px;color:#9a9aa6">FIRST FIXTURE</div><div style="font:700 12px 'DM Sans';margin-top:3px">v Hillcroft · Sat 14:00</div></div><div style="font:700 11px 'DM Sans';color:#3f7fe0">Remind</div></div>
+      <!-- one team -->
+      <div style="padding:18px 12px 0"><div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:10px">TEAM</div><div style="border:1px solid #23232a;border-radius:13px;padding:14px"><div style="font:700 14px 'Bebas Neue';color:#7fa8ee">FIRST XI</div><div style="font:600 11px 'DM Sans';color:#9a9aa6;margin-top:2px">Men's · forming · 8 signed</div><div style="display:flex;margin-top:11px"><span style="width:24px;height:24px;border-radius:50%;background:#23232a;border:2px solid #0d0d0f"></span><span style="width:24px;height:24px;border-radius:50%;background:#1c1c20;border:2px solid #0d0d0f;margin-left:-8px"></span><span style="width:24px;height:24px;border-radius:50%;background:#11254a;border:2px solid #0d0d0f;margin-left:-8px;font:700 9px 'DM Sans';color:#7fa8ee;display:flex;align-items:center;justify-content:center">+6</span></div></div></div>
+      <!-- intentional empties: news + sponsors as invitations, not holes -->
+      <div style="padding:18px 12px 0"><div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:10px">NEWS</div><div style="border:1.5px dashed #23262e;border-radius:13px;padding:18px 14px;text-align:center"><div style="font:700 12px 'DM Sans';color:#c7c7cf">No posts yet</div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:3px">Match reports &amp; club news will appear here.</div></div></div>
+      <div style="padding:18px 12px 0"><div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:10px">GET INVOLVED</div><div style="border-radius:14px;padding:15px;background:#3f7fe0;color:#fff;display:flex;align-items:center;justify-content:between"><div style="flex:1"><div style="font:400 20px 'Bebas Neue';letter-spacing:.4px">PLAY FOR US</div><div style="font:600 10px 'DM Sans';color:rgba(255,255,255,.85);margin-top:2px">New club, every position open</div></div><div style="width:52px;height:52px;background:#fff;border-radius:11px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#11254a">QR</div></div></div>
+      <!-- about minimal -->
+      <div style="padding:18px 12px 0"><div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:8px">ABOUT</div><div style="font:500 12px 'DM Sans';color:#9a9aa6;line-height:1.5">A brand-new Sunday-league side based in Marsh Town. Built on In or Out.</div></div>
+      <div style="margin-top:20px;padding:20px 12px 28px;background:#000;text-align:center"><div style="font:400 16px 'Bebas Neue';letter-spacing:.6px;color:#fff">MARSH TOWN FC</div><div style="font:500 10px 'DM Sans';color:rgba(255,255,255,.4);margin-top:7px">Powered by In or Out</div></div>
+    </div>
+  </div>
+</div>
+<div style="position:absolute;left:470px;top:1410px;width:300px;background:#0d0d0f;border:1px solid #23232a;border-radius:16px;padding:20px;color:#fff">
+  <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:11px;color:#3f7fe0">DESIGN RULE</div>
+  <div style="font:500 12px 'DM Sans';color:#c7c7cf;line-height:1.6">Every absent module becomes an <b style="color:#fff">invitation</b>, not a hole: "No posts yet", "every position open". A do-nothing club still scrolls as a complete, confident page — that's the pitch. Sections it hasn't enabled simply aren't there (no gaps).</div>
+  <div style="margin-top:14px;border-top:1px solid #23232a;padding-top:13px;font:500 11px 'DM Sans';color:#9a9aa6;line-height:1.5">Real even when thin: crest + 3 colours, the first fixture, one team, the Join CTA. Everything else degrades to a tidy empty state.</div>
+</div>
+</x-dc>
+</body>
+</html>

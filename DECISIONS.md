@@ -4044,3 +4044,36 @@ audited s213 (3-agent read-only). Four decisions taken before build:
   (`venue_update_club_settings`, venue-token). Rationale: `safeguarding_config` is a single shared
   blob with no separate "venue floor" field; the asymmetry resolves the venue-vs-club ownership
   tension without new schema and fails safe toward more child protection.
+
+**Phase 4/5 public-page scope — locked s220 (operator-approved), built next session from the Claude
+Design handover `public club home page setup handover`:**
+- **The empty/thin club is the primary design state.** A brand-new 1-team club with no stats, sponsors
+  or FA feed must still look alive — that's the whole pitch. Every module degrades to a deliberate empty
+  state. Mobile/parent-first; safeguarding-dominant.
+- **FA league table = ingest + render our OWN styled version, NOT a raw embed.** We pull table+fixtures+
+  results from the FA Full-Time feed (`club_leagues.fa_source_url`) and style it ourselves, PER-LEAGUE.
+  The form guide (W/D/L from our own `club_fixtures`) is the GUARANTEED always-on panel; leagues with no
+  parseable feed degrade to it — never a blank or fabricated table. The FA ingest is a SEPARATE, brittle
+  build (server-side scraper; the Epic-C "structured FA ingest" dependency; load-bearing unknown = does
+  a given league expose a parseable feed). Ship form-guide-first, layer FA ingest after.
+- **Player stats are opt-in, present-when-data.** Reliability board = computable from
+  `club_fixture_availability`/`club_session_attendance`, POSITIVE-ONLY, honours minor/hide-roster rules
+  (never names a minor publicly), may be members-only. Top scorer = from ref-app `match_events` goals,
+  so only populates for teams that ref through us (needs ref-player→member_profile link). POTM =
+  manager-PICKED (clone `club_admin_set_player_of_tournament`), not voting.
+- **New page modules to build:** sponsor `tier` (headline/match/supporter); contacts (surface existing
+  `clubs.contact_name/email` + a roles table with a dedicated Welfare/Safeguarding Officer, FA-required);
+  a documents store (upload to `club-media` + public list); lightweight social events (one-off items:
+  Awards Night/Fundraiser/Xmas Party — NOT a calendar); a get-involved `links` block on `club_pages`.
+  The Join CTA reuses the EXISTING gated join/membership flow. No live in-play score on the homepage
+  (`club_fixtures` has no minute data). All new fields extend `get_club_public` — roll into one migration
+  (447); FA ingest is its own piece.
+
+**Custom domains — DEFERRED (not P4/P5), decided s220.** Vercel bundles custom domains at ~£0 per domain
+(no per-domain fee; Pro soft-limit ~100k), so offering them costs us nothing incremental beyond the base
+plan; the only real cost is DNS support. Pitchero gates custom domains behind £38–99/mo packages and just
+passes the ~£15/yr registration through. Two-segment reality: established clubs usually already own a
+domain (so it's a "bring your existing domain" migration — the sharpest Pitchero-switch wedge); junior/new
+teams have none (the subdomain freebie covers them). PLAN: subdomain (`<slug>.in-or-out.com`) = near-free
+freebie; own-domain = premium tier, build only when a paying club asks. P5 wizard shows the canonical URL
+(not hard-coded `/c/<slug>`) + a coming-soon "custom domain" slot so we don't preclude it.

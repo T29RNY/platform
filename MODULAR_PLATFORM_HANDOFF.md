@@ -255,11 +255,53 @@ wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
     RPCS.md: record P4/P5 consumers (Hard Rule #14). Migration .sql + _down.sql same commit (HR#11).
 - **Phase 4 — Public page UI** (`/c/<slug>` → `ClubPublicScreen`): from Claude Design wireframes —
   modular sections, per-club CSS-var theme, live/next-fixture strip (30s poll), Join/QR CTA, social-
-  share preview. Gates: casual-regression, Playwright, real-device walk.
+  share preview. **Design handover file = `public club home page setup handover`** (Claude Design).
+  Gates: casual-regression, Playwright, real-device walk.
 - **Phase 5 — Setup wizard + edit dashboard** (`ClubSettingsScreen`): wizard (identity → crest →
   colours w/ contrast guard + auto-suggest-from-crest → hero → sections → teams → sponsors → first
   post → safeguarding → preview/publish) + always-available edit surface; client-side resize/compress
   on upload + orphan cleanup. Gates: casual-regression, Playwright, real-device walk.
+
+**P4/P5 SCOPE LOCKED (session 220, operator-approved) — the public-page modules + their data reality.**
+Design handover = `public club home page setup handover`. The thin/empty club is the PRIMARY design
+state (a brand-new 1-team club with no stats/sponsors/FA-feed must still look alive). Mobile/parent-
+first; safeguarding-dominant. Section keys (modular, toggleable, reorderable): `about, teams, fixtures,
+news, sponsors, tournaments, stats, contacts, documents, events, get-involved`. Per-module calls:
+  - **Fixtures/results — BUILD (two layers).** Form guide (W/D/L from our own completed `club_fixtures`)
+    is the GUARANTEED always-filled panel. FA table = we INGEST the FA Full-Time feed (table+fixtures+
+    results) off `club_leagues.fa_source_url` and render OUR OWN styled version (NOT a raw embed),
+    PER-LEAGUE (a club's age groups = separate tables). Leagues with no usable feed degrade to the form
+    guide — never a blank/fabricated table. ⚠️ **The FA ingest is a SEPARATE, heavier, brittle build**
+    (server-side scraper/feed-reader; load-bearing unknown = does the pilot league expose a parseable
+    feed; maintenance risk when FA changes pages) — this is the Epic-C "structured FA ingest" dependency.
+    Ship the page form-guide-first; layer the FA ingest after. Plan B reuses `club_manager_update_home_
+    fixture` (manual entry, mig 414).
+  - **Player stats — BUILD all three, OPT-IN per team (present-when-data).** Reliability ("most reliable"
+    board) computable from `club_fixture_availability` + `club_session_attendance`; POSITIVE-ONLY, honour
+    minor/hide-roster safeguarding (never name a minor publicly), may be members-only for some clubs.
+    Top scorer = from ref-app `match_events` goals → only populates for teams that ref through us
+    (needs ref-player→member_profile identity link). POTM = manager-PICKED (name + month, clone
+    `club_admin_set_player_of_tournament`), NOT voting.
+  - **Sponsor tiers — BUILD.** Add `tier` (headline/match/supporter) to `club_sponsors`; tiered wall,
+    degrades to flat row.
+  - **Contacts — BUILD both.** Surface existing `clubs.contact_name/email` + a small roles table
+    (committee + a prominent dedicated WELFARE/SAFEGUARDING OFFICER — FA-required, on-brand).
+  - **Documents — BUILD.** New store: upload to `club-media` + public list/route (constitution, codes
+    of conduct, privacy, safeguarding policy, fixture PDFs).
+  - **Events — BUILD lightweight (NOT a calendar).** Competitive = `tournaments[]`→hub; social = a simple
+    club-adds-one-off-items list (Awards Night / Fundraiser / Xmas Party: title, date, blurb).
+  - **Get-involved — BUILD.** `links` jsonb `[{label,url}]` on `club_pages` (volunteer/shop/lottery/
+    donate/PDF). Join CTA deep-links the EXISTING gated join/membership flow (reuse, not rebuilt).
+  - **Live state — CANNOT.** `club_fixtures` has no in-play/minute data; hero = next-fixture/latest-
+    result; 30s poll swaps next→result + pulls new posts/events; NO live club-match score (live exists
+    only on the tournament hub).
+  - **Backend plumbing:** every new field extends `get_club_public` (P2 read) — roll the page-data
+    additions into ONE migration (447); the FA ingest is its own separate piece. New tables: club roles/
+    contacts, club documents, social events, (+ sponsor `tier` column, `club_pages.links`, POTM field).
+  - **Deferred (not P4/P5):** custom domains — see DECISIONS s220. Vercel charges ~£0 per domain
+    (bundled), so subdomain (`<slug>.in-or-out.com`) is a near-free freebie and own-domain is a natural
+    premium/Pitchero-switch tier. Wizard's share step shows the canonical URL (not hard-coded `/c/<slug>`)
+    + a coming-soon "custom domain" slot — design for it, don't build it.
 
 **Build-order note:** B and D are independent of each other (D only needs the Event OS engine +
 venue-token RPCs). C is the only epic that truly depends on B (it needs B's structured FA ingest).

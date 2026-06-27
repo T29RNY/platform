@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#f4f4f5;}
+  *{box-sizing:border-box;}
+  ::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="position:absolute;left:80px;top:-72px;width:1500px">
+  <div style="font:400 38px 'Bebas Neue';color:#17171b;letter-spacing:.5px">In or Out — Setup Wizard (committed)</div>
+  <div style="font:500 15px 'DM Sans';color:#6b6b77;margin-top:2px">Locked section keys · discipline pre-selects defaults · every field explains what it's for &amp; what it does · click the rail steps, toggle the sections</div>
+</div>
+
+<div style="position:absolute;left:80px;top:18px;width:1000px">
+  <div style="font:600 13px 'DM Sans';letter-spacing:2px;color:#9a9aa6">I — SETUP WIZARD</div>
+  <div style="font:400 30px 'Bebas Neue';color:#17171b;margin-top:0;letter-spacing:.4px">A publishable, good-looking page in ~2 minutes — the antidote to "Slide title"</div>
+</div>
+
+<!-- =============== DESKTOP WIZARD (interactive) =============== -->
+<div style="position:absolute;left:80px;top:124px;width:1180px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#d8455f">Desktop · click a step in the rail · toggle sections on the right</div>
+  <div style="background:#0d0d0f;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -24px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.14);border:1px solid #23232a">
+    <!-- chrome -->
+    <div style="height:42px;background:#17171b;display:flex;align-items:center;gap:7px;padding:0 16px;border-bottom:1px solid #23232a"><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><div style="margin-left:10px;font:600 12px 'DM Sans';color:#9a9aa6">Set up your club page</div><div style="margin-left:auto;font:600 11px 'DM Sans';color:#6b6b75">Save &amp; exit</div></div>
+    <div style="display:flex;height:560px">
+      <!-- RAIL -->
+      <div style="width:230px;border-right:1px solid #1c1c22;padding:18px 14px;background:#0b0b0d;overflow-y:auto">
+        <div style="font:700 9px 'DM Sans';letter-spacing:1px;color:#6b6b75;margin-bottom:12px">SET UP · 12 STEPS</div>
+        <sc-for list="{{ railItems }}" as="item" hint-placeholder-count="12">
+          <div onClick="{{ item.onClick }}" style="{{ item.cls }}">
+            <span style="{{ item.badgeCls }}">{{ item.badge }}</span>
+            <span style="flex:1">{{ item.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <!-- CENTER -->
+      <div style="flex:1.5;padding:24px 28px;overflow-y:auto;border-right:1px solid #1c1c22">
+        <div style="font:600 10px 'DM Sans';letter-spacing:.8px;color:#d8455f;margin-bottom:3px">STEP {{ stepNo }} OF 11</div>
+        <div style="font:400 28px 'Bebas Neue';letter-spacing:.4px;line-height:1">{{ stepTitle }}</div>
+        <div style="font:500 13px 'DM Sans';color:#9a9aa6;margin:5px 0 20px">{{ stepHelp }}</div>
+
+        <!-- SECTIONS (centerpiece) -->
+        <sc-if value="{{ isSections }}" hint-placeholder-val="{{ true }}">
+          <div style="font:600 10px 'DM Sans';letter-spacing:.6px;color:#6b6b75;margin-bottom:11px">DRAG TO REORDER · TOGGLE ON/OFF · DISCIPLINE PRE-SELECTED</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ sectionRows }}" as="row" hint-placeholder-count="9">
+              <div style="display:flex;align-items:center;gap:13px;border:1px solid #23232a;border-radius:13px;padding:12px 14px">
+                <span style="color:#3a3a44;font-size:15px;cursor:grab">⠿</span>
+                <div style="flex:1">
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font:700 13px 'DM Sans'">{{ row.name }}</span><span style="{{ row.dotCls }}"></span><span style="font:600 9px 'DM Sans';color:#6b6b75">{{ row.tagText }}</span></div>
+                  <div style="font:500 11px 'DM Sans';color:#9a9aa6;margin-top:2px">{{ row.shows }}</div>
+                </div>
+                <div onClick="{{ row.onToggle }}" style="{{ row.toggleCls }}"><div style="{{ row.knobCls }}"></div></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- IDENTITY -->
+        <sc-if value="{{ isIdentity }}">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div><div style="font:700 11px 'DM Sans';color:#c7c7cf;margin-bottom:5px">Club name</div><div style="height:42px;border:1.5px solid #d8455f;border-radius:10px;background:#16100f;display:flex;align-items:center;padding:0 13px;font:700 14px 'DM Sans'">Redbridge FC</div><div style="font:500 11px 'DM Sans';color:#6b6b75;margin-top:5px">Shown in the hero, nav and share card.</div></div>
+            <div><div style="font:700 11px 'DM Sans';color:#c7c7cf;margin-bottom:5px">Tagline</div><div style="height:42px;border:1px solid #23232a;border-radius:10px;background:#141417;display:flex;align-items:center;padding:0 13px;font:500 14px 'DM Sans';color:#9a9aa6">Community since 1989</div><div style="font:500 11px 'DM Sans';color:#6b6b75;margin-top:5px">One short line under your name. Optional.</div></div>
+            <div><div style="font:700 11px 'DM Sans';color:#c7c7cf;margin-bottom:5px">Your web address</div><div style="height:42px;border:1px solid #23232a;border-radius:10px;background:#141417;display:flex;align-items:center;padding:0 13px;font:600 13px ui-monospace,monospace;color:#9a9aa6">in-or-out.club/c/<span style="color:#fff;font-weight:700">redbridge</span><span style="margin-left:auto;color:#3fcf6a;font:700 12px 'DM Sans'">✓ free</span></div><div style="font:500 11px 'DM Sans';color:#6b6b75;margin-top:5px">Your permanent public link — share it anywhere. Change it later from the dashboard.</div></div>
+            <div style="display:flex;gap:14px"><div style="flex:1"><div style="font:700 11px 'DM Sans';color:#c7c7cf;margin-bottom:5px">Founded</div><div style="height:42px;border:1px solid #23232a;border-radius:10px;background:#141417;display:flex;align-items:center;padding:0 13px;font:600 13px 'DM Sans'">1989</div></div><div style="flex:1.6"><div style="font:700 11px 'DM Sans';color:#c7c7cf;margin-bottom:5px">Discipline</div><div style="height:42px;border:1px solid #23232a;border-radius:10px;background:#141417;display:flex;align-items:center;padding:0 13px;font:600 13px 'DM Sans'">⚽ Football<span style="margin-left:auto;color:#6b6b75">▾</span></div></div></div>
+            <div style="border:1px dashed #3a1420;background:#16100f;border-radius:11px;padding:12px 13px;font:500 11px 'DM Sans';color:#ffb38a;line-height:1.5"><b style="color:#fff">Why discipline matters:</b> it pre-selects which sections turn on and re-words the whole page — Players vs Fighters, Fixtures vs Timetable, League table vs Grading.</div>
+          </div>
+        </sc-if>
+
+        <!-- COLOURS -->
+        <sc-if value="{{ isColours }}">
+          <div style="font:600 11px 'DM Sans';color:#c7c7cf;margin-bottom:9px">Suggested from your crest ✨</div>
+          <div style="display:flex;gap:12px;margin-bottom:18px">
+            <div style="flex:1;text-align:center"><div style="height:60px;border-radius:11px;background:#d8455f;border:2px solid #fff"></div><div style="font:600 9px 'DM Sans';color:#6b6b75;margin-top:5px">Primary</div></div>
+            <div style="flex:1;text-align:center"><div style="height:60px;border-radius:11px;background:#3a1420;border:1px solid #23232a"></div><div style="font:600 9px 'DM Sans';color:#6b6b75;margin-top:5px">Secondary</div></div>
+            <div style="flex:1;text-align:center"><div style="height:60px;border-radius:11px;background:#f5f5f5;border:1px solid #23232a"></div><div style="font:600 9px 'DM Sans';color:#6b6b75;margin-top:5px">Accent</div></div>
+          </div>
+          <div style="border:1px solid #23232a;border-radius:12px;overflow:hidden;margin-bottom:12px">
+            <div style="background:#d8455f;padding:12px 14px;display:flex;align-items:center;justify-content:space-between"><span style="font:700 13px 'DM Sans';color:#fff">Join button — sample</span><span style="background:#10331f;color:#3fcf6a;font:700 9px 'DM Sans';padding:4px 8px;border-radius:6px">AA PASS · 5.1:1</span></div>
+          </div>
+          <div style="font:500 12px 'DM Sans';color:#9a9aa6;line-height:1.5">These three colours re-skin the entire page. We derive text and foreground tones automatically and run a live contrast check, so no colour choice can make your text unreadable.</div>
+        </sc-if>
+
+        <!-- SAFEGUARDING -->
+        <sc-if value="{{ isSafeguarding }}">
+          <div style="border:1px solid #3a1420;background:#16100f;border-radius:12px;padding:14px;margin-bottom:14px;font:500 12px 'DM Sans';color:#ffb38a;line-height:1.5"><b style="color:#fff">Tightening-only.</b> Your venue set the baseline. You can make protections <b style="color:#fff">stronger</b> here — never weaker. Loosening is controlled by the venue.</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:13px;border:1px solid #23232a;border-radius:12px;padding:13px 14px"><div style="flex:1"><div style="font:700 13px 'DM Sans'">Minimum public age</div><div style="font:500 11px 'DM Sans';color:#9a9aa6;margin-top:2px">Venue baseline 16 — raise only. Below it, names show “Jack M.” &amp; photos are hidden.</div></div><div style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:28px;border-radius:8px;border:1px solid #23232a;color:#3a3a44;display:flex;align-items:center;justify-content:center;font:700 14px 'DM Sans'" title="can’t go below baseline">–</span><span style="font:400 22px 'Bebas Neue';color:#d8455f;width:26px;text-align:center">18</span><span style="width:28px;height:28px;border-radius:8px;border:1px solid #d8455f;color:#fff;background:#d8455f;display:flex;align-items:center;justify-content:center;font:700 14px 'DM Sans'">+</span></div></div>
+            <div style="display:flex;align-items:center;gap:13px;border:1px solid #23232a;border-radius:12px;padding:13px 14px"><div style="flex:1"><div style="font:700 13px 'DM Sans'">Hide squad lists entirely</div><div style="font:500 11px 'DM Sans';color:#9a9aa6;margin-top:2px">Currently OFF. You can switch it ON — only the venue can switch it back.</div></div><span style="font:700 11px 'DM Sans';color:#fff;background:#17171b;border:1px solid #3a1420;border-radius:9px;padding:8px 13px">Turn ON</span></div>
+          </div>
+        </sc-if>
+
+        <!-- GENERIC (other steps) -->
+        <sc-if value="{{ isOther }}">
+          <div style="border:1px solid #23232a;border-radius:12px;padding:16px;background:#141417;margin-bottom:14px">
+            <div style="font:600 10px 'DM Sans';letter-spacing:.6px;color:#6b6b75;margin-bottom:9px">WHAT THIS STEP DOES</div>
+            <div style="font:500 13px 'DM Sans';color:#e4e4e7;line-height:1.55">{{ stepDoes }}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="height:46px;border:1.5px dashed #2a2a31;border-radius:11px;display:flex;align-items:center;padding:0 14px;font:600 12px 'DM Sans';color:#6b6b75">＋ {{ stepTitle }} field</div>
+            <div style="height:46px;border:1.5px dashed #2a2a31;border-radius:11px;display:flex;align-items:center;padding:0 14px;font:600 12px 'DM Sans';color:#6b6b75">Pre-filled from your existing data · skippable</div>
+          </div>
+        </sc-if>
+      </div>
+      <!-- HELPER / PREVIEW -->
+      <div style="width:300px;padding:22px 22px;background:#0b0b0d;overflow-y:auto">
+        <div style="font:600 10px 'DM Sans';letter-spacing:.8px;color:#d8455f;margin-bottom:9px">WHAT THIS STEP DOES</div>
+        <div style="font:500 12px 'DM Sans';color:#d6d6db;line-height:1.6;margin-bottom:20px">{{ stepDoes }}</div>
+        <div style="font:600 10px 'DM Sans';letter-spacing:.8px;color:#6b6b75;margin-bottom:9px">LIVE PREVIEW</div>
+        <div style="border:1px solid #23232a;border-radius:11px;overflow:hidden">
+          <div style="height:70px;background:linear-gradient(150deg,#3a0c18,#0d0d0f);display:flex;align-items:flex-end;padding:9px"><div style="display:flex;align-items:center;gap:6px"><div style="width:20px;height:20px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font:400 8px 'Bebas Neue';color:#d8455f">RFC</div><span style="font:400 13px 'Bebas Neue';color:#fff">REDBRIDGE FC</span></div></div>
+          <div style="padding:9px"><div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #23232a;border-radius:7px;padding:7px 9px;margin-bottom:6px"><span style="font:700 9px 'DM Sans'">vs Rovers · Sat</span><span style="font:700 9px 'DM Sans';color:#d8455f">10:00</span></div><div style="background:#d8455f;color:#fff;text-align:center;border-radius:6px;padding:6px;font:700 9px 'DM Sans'">Play for us</div></div>
+        </div>
+        <div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:9px;line-height:1.4">Updates as you go. Nothing is public until you publish.</div>
+      </div>
+    </div>
+    <!-- footer nav -->
+    <div style="padding:13px 22px;border-top:1px solid #1c1c22;display:flex;align-items:center;justify-content:space-between;background:#0b0b0d">
+      <span style="font:600 12px 'DM Sans';color:#9a9aa6;border:1px solid #23232a;border-radius:9px;padding:9px 16px">Back</span>
+      <div style="display:flex;gap:9px"><span style="font:600 12px 'DM Sans';color:#9a9aa6;border:1px solid #23232a;border-radius:9px;padding:9px 16px">Skip — use default</span><span style="font:700 12px 'DM Sans';color:#fff;background:#d8455f;border-radius:9px;padding:9px 20px">Continue →</span></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- =============== MOBILE · SECTIONS =============== -->
+<div style="position:absolute;left:80px;top:800px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Mobile · sections step (each block explains itself)</div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:780px;overflow-y:auto;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans';color:#f4f4f5"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="padding:4px 18px 0">
+        <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:5;background:#d8455f;border-radius:2px"></div><div style="height:4px;flex:7;background:#23232a;border-radius:2px"></div></div>
+        <div style="font:600 10px 'DM Sans';color:#d8455f">STEP 5 OF 11</div>
+        <div style="font:400 26px 'Bebas Neue';letter-spacing:.4px;line-height:1;margin-top:2px">PAGE SECTIONS</div>
+        <div style="font:500 12px 'DM Sans';color:#9a9aa6;margin:4px 0 14px;line-height:1.5">Drag to reorder, switch off what you don't need. <b style="color:#ffb38a">Football defaults set.</b> Each line says what the block shows.</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:11px 12px"><span style="color:#3a3a44">⠿</span><div style="flex:1"><div style="display:flex;align-items:center;gap:7px"><span style="font:700 12px 'DM Sans'">Hero</span><span style="width:6px;height:6px;border-radius:50%;background:#3fcf6a"></span></div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Crest, colours & match-week hero</div></div><div style="width:38px;height:22px;border-radius:11px;background:#3fcf6a;opacity:.6;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:11px 12px"><span style="color:#3a3a44">⠿</span><div style="flex:1"><div style="display:flex;align-items:center;gap:7px"><span style="font:700 12px 'DM Sans'">Match hub</span><span style="width:6px;height:6px;border-radius:50%;background:#3fcf6a"></span></div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Fixtures, results & FA table</div></div><div style="width:38px;height:22px;border-radius:11px;background:#3fcf6a;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:11px 12px"><span style="color:#3a3a44">⠿</span><div style="flex:1"><div style="display:flex;align-items:center;gap:7px"><span style="font:700 12px 'DM Sans'">People & stats</span><span style="width:6px;height:6px;border-radius:50%;background:#f5b800"></span><span style="font:600 8px 'DM Sans';color:#6b6b75">net-new</span></div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Top scorer, POTM & season reliability</div></div><div style="width:38px;height:22px;border-radius:11px;background:#3fcf6a;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:11px 12px"><span style="color:#3a3a44">⠿</span><div style="flex:1"><div style="display:flex;align-items:center;gap:7px"><span style="font:700 12px 'DM Sans'">News</span><span style="width:6px;height:6px;border-radius:50%;background:#3fcf6a"></span></div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Latest posts + article pages</div></div><div style="width:38px;height:22px;border-radius:11px;background:#3fcf6a;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:11px 12px;opacity:.5"><span style="color:#3a3a44">⠿</span><div style="flex:1"><div style="font:700 12px 'DM Sans';color:#9a9aa6">Sponsors</div><div style="font:500 10px 'DM Sans';color:#6b6b75">Tiered sponsor wall</div></div><div style="width:38px;height:22px;border-radius:11px;background:#2a2a31;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;left:2.5px"></div></div></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:13px 18px;border-top:1px solid #1c1c22;display:flex;gap:9px;background:#0d0d0f"><div style="flex:1;text-align:center;border:1px solid #23232a;border-radius:11px;padding:12px;font:700 12px 'DM Sans';color:#9a9aa6">Back</div><div style="flex:1.6;text-align:center;background:#d8455f;color:#fff;border-radius:11px;padding:12px;font:700 12px 'DM Sans'">Continue →</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- =============== MOBILE · IDENTITY =============== -->
+<div style="position:absolute;left:470px;top:800px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Mobile · identity (every field has a helper)</div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:780px;overflow-y:auto;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans';color:#f4f4f5"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="padding:4px 18px 0">
+        <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:1;background:#d8455f;border-radius:2px"></div><div style="height:4px;flex:11;background:#23232a;border-radius:2px"></div></div>
+        <div style="font:600 10px 'DM Sans';color:#d8455f">STEP 1 OF 11</div>
+        <div style="font:400 26px 'Bebas Neue';letter-spacing:.4px;line-height:1;margin-top:2px">CLUB IDENTITY</div>
+        <div style="font:500 12px 'DM Sans';color:#9a9aa6;margin:4px 0 16px">The basics every visitor sees first.</div>
+        <div style="margin-bottom:14px"><div style="font:700 11px 'DM Sans';color:#c7c7cf;margin-bottom:5px">Club name</div><div style="height:44px;border:1.5px solid #d8455f;border-radius:11px;background:#16100f;display:flex;align-items:center;padding:0 13px;font:700 14px 'DM Sans'">Redbridge FC</div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:5px">Shown in the hero, nav &amp; share card.</div></div>
+        <div style="margin-bottom:14px"><div style="font:700 11px 'DM Sans';color:#c7c7cf;margin-bottom:5px">Your web address</div><div style="height:44px;border:1px solid #23232a;border-radius:11px;background:#141417;display:flex;align-items:center;padding:0 13px;font:600 12px ui-monospace,monospace;color:#9a9aa6">…/c/<span style="color:#fff;font-weight:700">redbridge</span><span style="margin-left:auto;color:#3fcf6a;font:700 11px 'DM Sans'">✓ free</span></div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:5px">Your permanent public link — share it anywhere.</div></div>
+        <div><div style="font:700 11px 'DM Sans';color:#c7c7cf;margin-bottom:5px">Discipline</div><div style="height:44px;border:1px solid #23232a;border-radius:11px;background:#141417;display:flex;align-items:center;padding:0 13px;font:600 13px 'DM Sans'">⚽ Football<span style="margin-left:auto;color:#6b6b75">▾</span></div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:5px">Pre-selects your sections &amp; re-words the page.</div></div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:13px 18px;border-top:1px solid #1c1c22;display:flex;gap:9px;background:#0d0d0f"><div style="flex:1;text-align:center;border:1px solid #23232a;border-radius:11px;padding:12px;font:700 12px 'DM Sans';color:#9a9aa6">Skip</div><div style="flex:1.6;text-align:center;background:#d8455f;color:#fff;border-radius:11px;padding:12px;font:700 12px 'DM Sans'">Continue →</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- philosophy card -->
+<div style="position:absolute;left:880px;top:800px;width:380px;background:#0d0d0f;border:1px solid #23232a;border-radius:16px;padding:22px;color:#fff">
+  <div style="font:400 22px 'Bebas Neue';letter-spacing:.5px;margin-bottom:13px;color:#d8455f">EVERY FIELD EXPLAINS ITSELF</div>
+  <div style="font:500 13px 'DM Sans';color:#c7c7cf;line-height:1.65">No grassroots volunteer should wonder what a field does. So every step carries a plain "<b style="color:#fff">what this does</b>" line, and the Sections step shows the live-data source under each block. Three rules:</div>
+  <div style="margin-top:14px;display:flex;flex-direction:column;gap:11px">
+    <div style="display:flex;gap:11px"><span style="width:24px;height:24px;border-radius:7px;background:#16100f;border:1px solid #3a1420;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span><div style="font:500 12px 'DM Sans';color:#d6d6db;line-height:1.5"><b style="color:#fff">Pre-filled.</b> Every step starts from data the club already has.</div></div>
+    <div style="display:flex;gap:11px"><span style="width:24px;height:24px;border-radius:7px;background:#16100f;border:1px solid #3a1420;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</span><div style="font:500 12px 'DM Sans';color:#d6d6db;line-height:1.5"><b style="color:#fff">Skippable.</b> A sensible default means the page is never empty.</div></div>
+    <div style="display:flex;gap:11px"><span style="width:24px;height:24px;border-radius:7px;background:#16100f;border:1px solid #3a1420;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</span><div style="font:500 12px 'DM Sans';color:#d6d6db;line-height:1.5"><b style="color:#fff">Discipline-aware.</b> Picking football/boxing/gym pre-selects sections &amp; wording.</div></div>
+  </div>
+  <div style="margin-top:16px;border-top:1px solid #23232a;padding-top:13px;font:500 11px 'DM Sans';color:#6b6b75;line-height:1.5">Section keys match <b style="color:#9a9aa6">CLUB_PAGE_COMPOSITION_SPEC.md</b> exactly — the wizard and the page renderer share one contract. The same steps reopen individually from the manage dashboard.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { step:'sections', sec:{ hero:1, fixtures:1, teams:1, stats:1, news:1, sponsors:0, tournaments:0, events:0, about:1, contacts:1, documents:0, getinvolved:1 } };
+
+  steps(){
+    return {
+      identity:{ n:1, title:'Club identity', help:'The basics every visitor sees first.', does:'Sets your club name, tagline and your public web address (/c/your-slug). The discipline you pick here pre-selects which sections turn on and re-words the whole page (Players vs Fighters, Fixtures vs Timetable).' },
+      crest:{ n:2, title:'Crest', help:'Your club badge.', does:'Appears in the hero, the nav and the social-share card. A square PNG or SVG at 512px works best (max 5 MB). No crest? We generate a monogram from your initials and colours.' },
+      colours:{ n:3, title:'Club colours', help:'Three colours re-skin the whole page.', does:'We auto-suggest a palette from your crest. Text and foreground tones are derived automatically and a live contrast check stops any colour making text unreadable.' },
+      hero:{ n:4, title:'Hero image', help:'The big banner at the top.', does:'One 16:9 image (1920×1080). The hero changes through the match week — pre-match, result, or quiet week — automatically from your fixtures. No image? A club-colour wash stands in and still looks intentional.' },
+      sections:{ n:5, title:'Page sections', help:'Choose & order the blocks on your page.', does:'Turn blocks on/off and drag to reorder. Your discipline pre-selects sensible defaults. Each block pulls live data automatically — the line under each name tells you exactly what it shows.' },
+      teams:{ n:6, title:'Teams', help:'Auto-pulled — read-only confirm.', does:'Imported from your squads (cohorts → teams, senior first). You just confirm what shows. Minors\u2019 surnames and photos are hidden automatically before the page renders — you don\u2019t set this per player.' },
+      sponsors:{ n:7, title:'Sponsors', help:'A premium wall, not a graveyard.', does:'Add each sponsor\u2019s logo, link and a tier (headline / match / supporter). Reorder freely; the wall degrades to a tidy flat row when no tiers are set.' },
+      news:{ n:8, title:'First news post', help:'Fills the News block from day one.', does:'A starter post welcomes visitors. Posts show latest-first on the home page and each opens its own article page.' },
+      safeguarding:{ n:9, title:'Safeguarding', help:'Tightening-only by rule.', does:'Shows the current policy (a venue operator may have set it). You can only make it STRONGER — raise the minimum public age or switch roster-hiding ON. Loosening is venue-controlled. Below the age, names become \u201cJack M.\u201d and photos are hidden server-side.' },
+      preview:{ n:10, title:'Preview', help:'See exactly what the public sees.', does:'Renders the live page on mobile and desktop from everything so far — including the empty states for any block you left off. Nothing is public yet.' },
+      publish:{ n:11, title:'Publish', help:'Go live.', does:'Flips draft → live. We show your canonical page address (a custom domain may come later — there\u2019s a slot for it in settings). Unpublish or edit any block any time from the dashboard.' },
+    };
+  }
+
+  renderVals(){
+    const S=this.steps(), step=this.state.step, cur=S[step];
+    const order=['identity','crest','colours','hero','sections','teams','sponsors','news','safeguarding','preview','publish'];
+    const idx=order.indexOf(step);
+    const railItems=order.map((k,i)=>{
+      const active=k===step, done=i<idx;
+      return {
+        label:S[k].title,
+        badge: done?'✓':String(S[k].n),
+        cls:`display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;margin-bottom:2px;font:600 12px 'DM Sans';${active?'background:#16100f;color:#fff;border:1px solid #3a1420':'color:#9a9aa6;border:1px solid transparent'}`,
+        badgeCls:`width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:400 11px 'Bebas Neue';flex-shrink:0;${active?'background:#d8455f;color:#fff':done?'background:#10331f;color:#3fcf6a':'border:1px solid #2a2a31;color:#6b6b75'}`,
+        onClick:()=>this.setState({step:k}),
+      };
+    });
+
+    const secMeta=[
+      {k:'hero', name:'Hero', shows:'Crest, colours & next-fixture / latest result', tag:'real', locked:true},
+      {k:'fixtures', name:'Fixtures', shows:'Form guide + results; FA table when fed', tag:'real'},
+      {k:'teams', name:'Teams', shows:'Squads (safeguarded) + per-team pages', tag:'real'},
+      {k:'stats', name:'Stats', shows:'Reliability, top scorer, POTM — opt-in, no minors', tag:'new'},
+      {k:'news', name:'News', shows:'Latest posts + their own article pages', tag:'real'},
+      {k:'sponsors', name:'Sponsors', shows:'Tiered wall (degrades to flat row)', tag:'real'},
+      {k:'tournaments', name:'Tournaments', shows:'Links into the tournament hub', tag:'real'},
+      {k:'events', name:'Events', shows:'Social \u201cwhat\u2019s on\u201d list', tag:'new'},
+      {k:'about', name:'About', shows:'Club story, home venue & socials', tag:'real'},
+      {k:'contacts', name:'Contacts', shows:'Committee + Welfare Officer', tag:'new'},
+      {k:'documents', name:'Documents', shows:'Policies & forms', tag:'new'},
+      {k:'getinvolved', name:'Get involved', shows:'Volunteer / shop / lottery links + Join', tag:'new'},
+    ];
+    const sectionRows=secMeta.map(d=>{
+      const on=!!this.state.sec[d.k];
+      return {
+        name:d.name, shows:d.shows,
+        tagText: d.tag==='real' ? 'live data' : 'build this phase',
+        dotCls:`width:7px;height:7px;border-radius:50%;background:${d.tag==='real'?'#3fcf6a':'#f5b800'}`,
+        toggleCls:`width:40px;height:23px;border-radius:12px;position:relative;flex-shrink:0;cursor:${d.locked?'default':'pointer'};background:${on?'#3fcf6a':'#2a2a31'};${d.locked?'opacity:.6':''}`,
+        knobCls:`width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;${on?'right:2.5px':'left:2.5px'}`,
+        onToggle: d.locked ? ()=>{} : ()=>this.setState(s=>({sec:{...s.sec,[d.k]: s.sec[d.k]?0:1}})),
+      };
+    });
+
+    const built=['identity','colours','sections','safeguarding'];
+    return {
+      stepNo:cur.n, stepTitle:cur.title, stepHelp:cur.help, stepDoes:cur.does,
+      isIdentity:step==='identity', isColours:step==='colours', isSections:step==='sections', isSafeguarding:step==='safeguarding',
+      isOther: !built.includes(step),
+      railItems, sectionRows,
+    };
+  }
+}
+</script>
+</body>
+</html>

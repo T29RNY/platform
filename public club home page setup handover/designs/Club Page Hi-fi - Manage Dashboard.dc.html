@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#f4f4f5;}
+  *{box-sizing:border-box;}
+  ::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="position:absolute;left:80px;top:-72px;width:1500px">
+  <div style="font:400 38px 'Bebas Neue';color:#17171b;letter-spacing:.5px">In or Out — Manage dashboard</div>
+  <div style="font:500 15px 'DM Sans';color:#6b6b77;margin-top:2px">The wizard's blocks as an always-on surface · same locked section keys · reopen any step · draft ⇄ published · news / sponsors / teams editors</div>
+</div>
+
+<div style="position:absolute;left:80px;top:18px;width:1000px">
+  <div style="font:600 13px 'DM Sans';letter-spacing:2px;color:#9a9aa6">O — MANAGE DASHBOARD</div>
+  <div style="font:400 30px 'Bebas Neue';color:#17171b;margin-top:0;letter-spacing:.4px">Change anything later — without the linear flow</div>
+</div>
+
+<!-- ===== DESKTOP DASHBOARD ===== -->
+<div style="position:absolute;left:80px;top:124px;width:1180px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Desktop · overview (live page + reopen-any-step + draft state)</div>
+  <div style="background:#0d0d0f;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -24px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.14);border:1px solid #23232a">
+    <div style="height:42px;background:#17171b;display:flex;align-items:center;gap:7px;padding:0 16px;border-bottom:1px solid #23232a"><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><div style="margin-left:10px;font:600 12px 'DM Sans';color:#9a9aa6">In or Out · Manage</div></div>
+    <!-- top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid #1c1c22">
+      <div style="display:flex;align-items:center;gap:13px"><div style="width:36px;height:36px;border-radius:50%;background:#17171b;border:1.5px solid #d8455f;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue';color:#d8455f">RFC</div><div><div style="font:400 18px 'Bebas Neue';letter-spacing:.4px">REDBRIDGE FC</div><div style="display:flex;align-items:center;gap:6px;font:600 10px 'DM Sans';color:#3fcf6a;margin-top:1px"><span style="width:7px;height:7px;border-radius:50%;background:#3fcf6a"></span>Published · live</div></div></div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="font:600 10px 'DM Sans';color:#8a6d00;background:#fff3cd;padding:7px 12px;border-radius:9px">2 unpublished edits</span><span style="font:700 12px 'DM Sans';color:#9a9aa6;border:1px solid #23232a;border-radius:10px;padding:9px 15px">Discard</span><span style="font:700 12px 'DM Sans';color:#c7c7cf;border:1px solid #23232a;border-radius:10px;padding:9px 15px">👁 Preview draft</span><span style="font:700 12px 'DM Sans';color:#fff;background:#d8455f;border-radius:10px;padding:9px 18px">Publish changes</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.15fr 1fr">
+      <!-- live page mini -->
+      <div style="padding:24px 28px;background:#0b0b0d;border-right:1px solid #1c1c22">
+        <div style="font:700 10px 'DM Sans';letter-spacing:1px;color:#6b6b75;margin-bottom:13px">YOUR LIVE PAGE — CLICK A SECTION TO EDIT</div>
+        <div style="background:#0d0d0f;border-radius:13px;overflow:hidden;border:1px solid #23232a">
+          <div style="height:120px;background:linear-gradient(150deg,#3a0c18,#0d0d0f);position:relative"><span style="position:absolute;top:9px;right:10px;background:#d8455f;color:#fff;font:700 8px 'DM Sans';padding:4px 8px;border-radius:7px">✎ hero</span><div style="position:absolute;left:14px;bottom:12px"><div style="width:30px;height:30px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 11px 'Bebas Neue';color:#d8455f;margin-bottom:7px">RFC</div><div style="font:400 17px 'Bebas Neue'">REDBRIDGE FC</div></div></div>
+          <div style="padding:12px;border-bottom:1px solid #1c1c22;position:relative"><span style="position:absolute;top:9px;right:10px;background:#d8455f;color:#fff;font:700 8px 'DM Sans';padding:4px 8px;border-radius:7px">✎ matchHub</span><div style="border:1px solid #23232a;border-radius:8px;padding:9px 11px;width:78%;display:flex;justify-content:space-between"><span style="font:700 10px 'DM Sans'">vs Rovers · Sat</span><span style="font:700 10px 'DM Sans';color:#d8455f">10:00</span></div></div>
+          <div style="padding:12px;position:relative"><span style="position:absolute;top:9px;right:10px;background:#d8455f;color:#fff;font:700 8px 'DM Sans';padding:4px 8px;border-radius:7px">✎ sponsors</span><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:82%"><div style="height:28px;background:#16161a;border-radius:6px"></div><div style="height:28px;background:#16161a;border-radius:6px"></div><div style="height:28px;background:#16161a;border-radius:6px"></div><div style="height:28px;background:#16161a;border-radius:6px"></div></div></div>
+        </div>
+      </div>
+      <!-- reopen step grid + changelog -->
+      <div style="padding:24px 28px">
+        <div style="display:flex;background:#17171b;border-radius:11px;padding:4px;margin-bottom:20px"><div style="flex:1;text-align:center;background:#d8455f;color:#fff;border-radius:8px;padding:9px;font:700 12px 'DM Sans'">Draft</div><div style="flex:1;text-align:center;color:#9a9aa6;padding:9px;font:600 12px 'DM Sans'">Published</div></div>
+        <div style="font:700 10px 'DM Sans';letter-spacing:1px;color:#6b6b75;margin-bottom:12px">REOPEN ANY STEP · LOCKED KEYS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+          <div style="border:1px solid #23232a;border-radius:12px;padding:13px"><div style="font-size:16px;margin-bottom:7px">🎨</div><div style="font:700 12px 'DM Sans'">Brand &amp; crest</div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:1px">Claret · hero set</div></div>
+          <div style="border:1px solid #23232a;border-radius:12px;padding:13px"><div style="font-size:16px;margin-bottom:7px">▦</div><div style="font:700 12px 'DM Sans'">Sections &amp; order</div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:1px">7 on · reorder</div></div>
+          <div style="border:1px solid #23232a;border-radius:12px;padding:13px"><div style="font-size:16px;margin-bottom:7px">👥</div><div style="font:700 12px 'DM Sans'">Teams</div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:1px">20 shown</div></div>
+          <div style="border:1px solid #23232a;border-radius:12px;padding:13px"><div style="font-size:16px;margin-bottom:7px">📰</div><div style="font:700 12px 'DM Sans'">News</div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:1px">6 posts · 1 draft</div></div>
+          <div style="border:1px solid #23232a;border-radius:12px;padding:13px"><div style="font-size:16px;margin-bottom:7px">🤝</div><div style="font:700 12px 'DM Sans'">Sponsors</div><div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:1px">8 logos</div></div>
+          <div style="border:1px solid #3a1420;background:#16100f;border-radius:12px;padding:13px"><div style="font-size:16px;margin-bottom:7px">🛡️</div><div style="font:700 12px 'DM Sans';color:#ff8aa0">Safeguarding</div><div style="font:500 10px 'DM Sans';color:#bb8a7a;margin-top:1px">Age 18 · on</div></div>
+        </div>
+        <div style="border:1px solid #23232a;border-radius:12px;padding:13px 15px"><div style="font:700 10px 'DM Sans';letter-spacing:.6px;color:#6b6b75;margin-bottom:9px">CHANGED SINCE LIVE</div><div style="font:500 12px 'DM Sans';color:#c7c7cf;line-height:1.9">• Primary colour → deeper claret<br>• Added sponsor "Northgate"<br>• New post: <i>New kit revealed</i> (draft)</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== NEWS EDITOR (mobile) ===== -->
+<div style="position:absolute;left:80px;top:760px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">News editor</div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:700px;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans'"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:2px 16px 12px"><span style="font:700 17px 'DM Sans';color:#9a9aa6">‹</span><span style="font:400 20px 'Bebas Neue';letter-spacing:.4px">NEWS</span><span style="margin-left:auto;background:#d8455f;color:#fff;border-radius:18px;padding:7px 13px;font:700 11px 'DM Sans'">+ New post</span></div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:9px"><div style="width:44px;height:44px;border-radius:8px;background:repeating-linear-gradient(125deg,#16161a,#16161a 5px,#1c1c20 5px,#1c1c20 10px)"></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Cup run continues</div><div style="font:500 9px 'DM Sans';color:#6b6b75">Published · 2d</div></div><span style="background:#10331f;color:#3fcf6a;font:700 8px 'DM Sans';padding:3px 7px;border-radius:5px">LIVE</span></div>
+        <div style="display:flex;align-items:center;gap:11px;border:1px solid #3a1420;background:#16100f;border-radius:12px;padding:9px"><div style="width:44px;height:44px;border-radius:8px;background:repeating-linear-gradient(125deg,#16161a,#16161a 5px,#1c1c20 5px,#1c1c20 10px)"></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">New kit revealed</div><div style="font:500 9px 'DM Sans';color:#6b6b75">Editing…</div></div><span style="background:#fff3cd;color:#8a6d00;font:700 8px 'DM Sans';padding:3px 7px;border-radius:5px">DRAFT</span></div>
+      </div>
+      <div style="margin:16px 16px 0;border-top:1px solid #1c1c22;padding-top:14px">
+        <div style="height:40px;border:1.5px solid #d8455f;border-radius:10px;background:#16100f;display:flex;align-items:center;padding:0 12px;font:700 13px 'DM Sans';margin-bottom:9px">New kit revealed</div>
+        <div style="height:64px;border:2px dashed #2a2a31;border-radius:10px;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#6b6b75;margin-bottom:9px">＋ hero image · 16:9 · 1200×675</div>
+        <div style="border:1px solid #23232a;border-radius:10px;background:#141417;padding:11px;min-height:60px"><div style="height:7px;background:#23232a;border-radius:4px;margin-bottom:6px"></div><div style="height:7px;width:80%;background:#23232a;border-radius:4px"></div></div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:13px 16px;border-top:1px solid #1c1c22;display:flex;gap:9px;background:#0d0d0f"><div style="flex:1;text-align:center;border:1px solid #23232a;border-radius:10px;padding:11px;font:700 11px 'DM Sans';color:#9a9aa6">Save draft</div><div style="flex:1.4;text-align:center;background:#d8455f;color:#fff;border-radius:10px;padding:11px;font:700 11px 'DM Sans'">Publish post</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SPONSORS MANAGER (mobile) ===== -->
+<div style="position:absolute;left:470px;top:760px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Sponsors manager</div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:700px;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans'"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:2px 16px 8px"><span style="font:700 17px 'DM Sans';color:#9a9aa6">‹</span><span style="font:400 20px 'Bebas Neue';letter-spacing:.4px">SPONSORS</span></div>
+      <div style="font:500 11px 'DM Sans';color:#9a9aa6;padding:0 16px 14px">Drag to reorder · set a tier · tap ✕ to remove.</div>
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #2a230c;background:#16140a;border-radius:12px;padding:10px 12px"><span style="color:#3a3a44">⠿</span><div style="width:46px;height:30px;background:#0d0d0f;border:1px solid #23232a;border-radius:5px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#6b6b75">logo</div><div style="flex:1"><div style="font:700 11px 'DM Sans'">Northgate Motors</div><div style="font:600 8px 'DM Sans';color:#f5b800">⭐ Headline</div></div><span style="color:#c66;font-size:12px">✕</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #23232a;border-radius:12px;padding:10px 12px"><span style="color:#3a3a44">⠿</span><div style="width:46px;height:30px;background:#0d0d0f;border:1px solid #23232a;border-radius:5px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#6b6b75">logo</div><div style="flex:1"><div style="font:700 11px 'DM Sans'">Eastside Physio</div><div style="font:600 8px 'DM Sans';color:#9a9aa6">Match sponsor</div></div><span style="color:#c66;font-size:12px">✕</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #23232a;border-radius:12px;padding:10px 12px"><span style="color:#3a3a44">⠿</span><div style="width:46px;height:30px;background:#0d0d0f;border:1px solid #23232a;border-radius:5px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#6b6b75">logo</div><div style="flex:1"><div style="font:700 11px 'DM Sans'">Tower Hardware</div><div style="font:600 8px 'DM Sans';color:#9a9aa6">Supporter</div></div><span style="color:#c66;font-size:12px">✕</span></div>
+      </div>
+      <div style="margin:12px 16px 0;border:1.5px dashed #2a2a31;border-radius:12px;padding:16px;text-align:center"><div style="font:22px system-ui;color:#3a3a44;line-height:1">＋</div><div style="font:700 11px 'DM Sans';color:#9a9aa6;margin-top:3px">Add sponsor</div><div style="font:500 9px 'DM Sans';color:#6b6b75;margin-top:2px">Logo · link · tier · ~400×200, SVG/PNG</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TEAMS EDITOR (mobile) ===== -->
+<div style="position:absolute;left:860px;top:760px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Teams editor (visibility)</div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:700px;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans'"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:2px 16px 8px"><span style="font:700 17px 'DM Sans';color:#9a9aa6">‹</span><span style="font:400 20px 'Bebas Neue';letter-spacing:.4px">TEAMS</span></div>
+      <div style="font:500 11px 'DM Sans';color:#9a9aa6;padding:0 16px 12px">Imported from your squads. Toggle what shows publicly — safeguarding is automatic.</div>
+      <div style="padding:0 16px"><div style="font:700 9px 'DM Sans';letter-spacing:.8px;color:#6b6b75;margin-bottom:8px">FOUNDATION · YOUTH</div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:11px;padding:11px"><div style="flex:1"><div style="font:700 12px 'DM Sans'">U12 Tigers</div><div style="font:500 9px 'DM Sans';color:#6b6b75">12 players</div></div><div style="width:38px;height:22px;border-radius:11px;background:#3fcf6a;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:11px;padding:11px"><div style="flex:1"><div style="font:700 12px 'DM Sans'">U12 Lions</div><div style="font:500 9px 'DM Sans';color:#6b6b75">11 players</div></div><div style="width:38px;height:22px;border-radius:11px;background:#3fcf6a;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:11px;padding:11px;opacity:.5"><div style="flex:1"><div style="font:700 12px 'DM Sans';color:#9a9aa6">U10 Cubs</div><div style="font:500 9px 'DM Sans';color:#6b6b75">forming</div></div><div style="width:38px;height:22px;border-radius:11px;background:#2a2a31;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;left:2.5px"></div></div></div>
+        </div>
+        <div style="font:700 9px 'DM Sans';letter-spacing:.8px;color:#6b6b75;margin-bottom:8px">SENIOR</div>
+        <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:11px;padding:11px"><div style="flex:1"><div style="font:700 12px 'DM Sans'">First XI</div><div style="font:500 9px 'DM Sans';color:#6b6b75">18 players</div></div><div style="width:38px;height:22px;border-radius:11px;background:#3fcf6a;position:relative"><div style="width:17px;height:17px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+      </div>
+      <div style="margin:14px 16px 0;border:1px solid #3a1420;background:#16100f;border-radius:11px;padding:11px 13px;font:500 10px 'DM Sans';color:#ff8aa0;line-height:1.45">🛡️ Under-18 squads always render with surnames &amp; photos hidden — you can't switch that off.</div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>
