@@ -211,10 +211,41 @@ wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
   barrel export. NO write → ephemeral-verify not triggered; EV (read-shape assertion) + rpc-security-
   sweep still run. Then add the `/c/<slug>` anon route one-liner in `App.jsx getRoute()` (defer the
   ClubPublicScreen render to P4; a stub/JSON dump is fine to prove the route + read end-to-end).
-- **Phase 3 — Admin write RPCs (mig 446):** `club_set_page` (identity/branding/sections + server-side
-  hex + contrast validation), `club_publish_page`, `club_add/list/remove_sponsor`,
-  `club_create/update/delete/list_post`. All gated on `_club_feature_enabled(club_id,'public_web')` +
-  club-manager auth + audit_events (Hard Rule #9). Gates: rpc-security-sweep, EV, ephemeral-verify.
+- **Phase 3 — Admin write RPCs (mig 446):** `club_set_page` (branding/sections — upsert club_pages),
+  `club_publish_page`, `club_add/update/remove/list_sponsor`, `club_create/update/delete/list_post`
+  (+ `club_publish_post`). All gated on `_club_feature_enabled(club_id,'public_web')` + club-manager
+  auth + audit_events (Hard Rule #9). Gates: rpc-security-sweep, EV, ephemeral-verify (FIRST write phase
+  of Epic B → ephemeral-verify is MANDATORY).
+  **BUILD POINTERS (audited s215):**
+  - **CANONICAL CLONE = `club_admin_set_branding` (mig 388).** Its exact preamble IS the P3 auth +
+    feature-gate pattern: `v_uid := auth.uid()` (raise `not_authenticated` if null) → `SELECT id INTO
+    v_profile_id FROM member_profiles WHERE auth_user_id = v_uid` (raise `not_authorised` if null) →
+    `IF NOT EXISTS (SELECT 1 FROM club_team_managers ctm JOIN club_teams ct ON ct.id=ctm.team_id WHERE
+    ctm.member_profile_id=v_profile_id AND ct.club_id=<club> AND ctm.is_active=true) THEN raise
+    not_authorised` → `IF NOT public._club_feature_enabled(<club>, 'public_web') THEN raise
+    feature_disabled` → UPDATE → `INSERT INTO audit_events(team_id,actor_user_id,actor_type,action,
+    entity_type,entity_id,metadata) VALUES('_system', v_uid, 'club_admin', '<action>', '<entity>', …)`.
+    Page/sponsor/post RPCs take `p_club_id text` directly and run that same club-scoped manager check.
+  - **`_club_feature_enabled(club_id, feature)` DEFAULTS TRUE** when the club has no `club_features` row
+    (COALESCE …, true) — fine, but means the gate only bites once a row exists; don't rely on it as the
+    sole guard, the manager-auth check is the real gate.
+  - **Sponsor RPCs:** clone the 5 `tournament_sponsors` admin RPCs (mig 327) — add/update/remove/reorder/
+    list (admin list returns INACTIVE too, unlike the public read). Same shape, FK swapped to `club_id`.
+  - **Hex validation:** strict server-side regex `^#[0-9a-fA-F]{6}$` on the 3 colours (reject otherwise);
+    store via `jsonb`-style NULLIF(btrim(...),'') like set_branding. **Contrast: DECISION NEEDED in
+    audit** — hard-reject low-contrast pairs server-side (compute WCAG relative-luminance ratio, net-new
+    helper) vs. advisory-only with the contrast guard living client-side in the P5 wizard. Lean
+    advisory/client (matches design brief's "contrast guard + auto-suggest-from-crest" = P5 UX); confirm.
+  - **`club_set_page` upserts `club_pages`** (`INSERT … ON CONFLICT (club_id) DO UPDATE`); slug
+    uniqueness + lowercase/hyphen CHECK already enforced by the table (mig 444) — surface the constraint
+    violation as a clean `slug_taken`/`slug_invalid` error.
+  - **Safeguarding write path — DECISION NEEDED in audit:** P2 honors `clubs.safeguarding_config` keys
+    `min_public_age`(int) + `hide_public_rosters`(bool), but that column is currently written ONLY by
+    `venue_update_club_settings` (venue-token). The P5 wizard's safeguarding step needs a club-manager
+    write — either extend a P3 RPC or add `club_set_safeguarding(p_club_id, …)`. Flag the venue-vs-club
+    ownership tension; don't silently let club managers overwrite a venue-set policy.
+  - Wrappers camelCase in supabase.js + barrel; each raw RPC name in exactly ONE `supabase.rpc()`.
+    RPCS.md: record P4/P5 consumers (Hard Rule #14). Migration .sql + _down.sql same commit (HR#11).
 - **Phase 4 — Public page UI** (`/c/<slug>` → `ClubPublicScreen`): from Claude Design wireframes —
   modular sections, per-club CSS-var theme, live/next-fixture strip (30s poll), Join/QR CTA, social-
   share preview. Gates: casual-regression, Playwright, real-device walk.
