@@ -135,17 +135,18 @@ export function slugify(s) {
 export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 // ── section-key model (matches ClubPublicScreen DEFAULT_ORDER + renderer keys) ──
-// tag: 'live' = data flows today (P1–P5a) · 'soon' = editor lands in Phase 5b.
+// tag: 'live' = data flows today · 'soon' = editor not built yet. All four P5b
+// modules (stats/events/documents/contacts) are now live (mig 449).
 export const SECTION_DEFS = [
   { key: "fixtures",     label: "Fixtures & results", desc: "Form guide + results",           tag: "live" },
   { key: "teams",        label: "Teams",              desc: "Squads (safeguarded)",           tag: "live" },
-  { key: "stats",        label: "Player stats",       desc: "Player of the month",            tag: "soon" },
+  { key: "stats",        label: "Player stats",       desc: "Player of the month",            tag: "live" },
   { key: "news",         label: "News",               desc: "Latest posts & reports",         tag: "live" },
   { key: "sponsors",     label: "Sponsors",           desc: "Tiered sponsor wall",            tag: "live" },
   { key: "tournaments",  label: "Tournaments",        desc: "Links to your tournament hub",   tag: "live" },
-  { key: "events",       label: "What's on",          desc: "Social events list",             tag: "soon" },
-  { key: "documents",    label: "Documents",          desc: "Policies & forms",               tag: "soon" },
-  { key: "contacts",     label: "Club contacts",      desc: "Committee + welfare officer",     tag: "soon" },
+  { key: "events",       label: "What's on",          desc: "Social events list",             tag: "live" },
+  { key: "documents",    label: "Documents",          desc: "Policies & forms",               tag: "live" },
+  { key: "contacts",     label: "Club contacts",      desc: "Committee + welfare officer",     tag: "live" },
   { key: "about",        label: "About",              desc: "Blurb, founded, socials",        tag: "live" },
   { key: "get-involved", label: "Get involved",       desc: "Join + volunteer/shop links",    tag: "live" },
 ];
@@ -184,3 +185,14 @@ export const TIERS = [
   { key: "match",     label: "Match" },
   { key: "supporter", label: "Supporter" },
 ];
+
+// Document categories (free-text on the server; a fixed picker keeps it tidy).
+export const DOC_TYPES = ["Policy", "Form", "Report", "Fixture list", "Other"];
+
+// Human "1.2 MB" label from a File size in bytes (best-effort, display only).
+export function fileSizeLabel(bytes) {
+  if (!bytes || bytes <= 0) return null;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

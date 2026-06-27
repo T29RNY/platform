@@ -1,5 +1,25 @@
 # In or Out — Key Decisions Log
 
+## SESSION 222 — Modular Platform Epic B Phase 5b (new-table club page modules, mig 449)
+Decided in-build (extends the s221 P5 decisions):
+1. **POTM is one row per `club_team`, manager-picked (name + month), UPSERT.** Clones
+   `club_admin_set_player_of_tournament`; `club_id` is server-derived from `club_teams` (never
+   client-trusted). A `club_set_potm` re-call overwrites the team's single row (no history).
+2. **Youth POTM is safeguard-gated at the PUBLIC read, not at write.** Managers may set a POTM on any
+   team they manage, but `get_club_public` SUPPRESSES a team's stats slice when its cohort is youth
+   (`category='youth'` OR `max_age < min_public_age`) and suppresses ALL stats when
+   `hide_public_rosters`. Mirrors the existing roster transform — under-18s are never named on public
+   boards. The wizard lead text tells managers youth picks stay private.
+3. **Welfare officer = a `club_committee` row with `is_welfare=true`, foregrounded.** `get_club_public`
+   returns the first `is_welfare` row as `contacts.welfareOfficer` and the rest as `committee` (so the
+   officer never double-renders). The club secretary stays `clubs.contact_name/email` (shown separately).
+4. **Documents store a URL, not an uploaded PDF.** The `club-media` bucket (mig 444) is image-MIME-only,
+   so a club PDF (constitution/policy) is added by pasting its hosted link; an optional image upload
+   (scanned form/poster) reuses `uploadClubMedia`. Avoids widening the bucket's allowed MIME types.
+5. **get_club_public slice shapes are frozen to P4's existing reads** (`clubPublicSections.jsx`):
+   `documents[].type/size` map from `doc_type/size_label`; `events[].date` maps from `event_date`;
+   `stats` is keyed by `team_id`. Result: zero P4 rework, verified live on `/c/finbars-fc`.
+
 ## SESSION 221 — Modular Platform Epic B Phase 5 (club setup wizard / edit dashboard)
 Operator-approved s221, before build:
 1. **Stats slice = manager-picked POTM only.** Top-scorer DEFERRED (it needs a ref-player→

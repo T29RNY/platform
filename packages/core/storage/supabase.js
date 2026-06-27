@@ -6489,6 +6489,118 @@ export async function clubSetSafeguarding(clubId, { minPublicAge = null, hidePub
   return data;
 }
 
+// ── Phase 5b club page modules: committee, documents, events, POTM (mig 449) ──
+// All club-manager auth + public_web gate + audit server-side; authenticated-only.
+export async function clubAddCommitteeMember(clubId, { role, name, email = null, isWelfare = false, displayOrder = 0 } = {}) {
+  const { data, error } = await supabase.rpc("club_add_committee_member", {
+    p_club_id: clubId, p_role: role, p_name: name, p_email: email,
+    p_is_welfare: isWelfare, p_display_order: displayOrder,
+  });
+  if (error) { console.error("[club-page] club_add_committee_member failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdateCommitteeMember(committeeId, { role = null, name = null, email = null, isWelfare = null, displayOrder = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_committee_member", {
+    p_committee_id: committeeId, p_role: role, p_name: name, p_email: email,
+    p_is_welfare: isWelfare, p_display_order: displayOrder,
+  });
+  if (error) { console.error("[club-page] club_update_committee_member failed", error); throw error; }
+  return data;
+}
+
+export async function clubRemoveCommitteeMember(committeeId) {
+  const { data, error } = await supabase.rpc("club_remove_committee_member", { p_committee_id: committeeId });
+  if (error) { console.error("[club-page] club_remove_committee_member failed", error); throw error; }
+  return data;
+}
+
+export async function clubListCommittee(clubId) {
+  const { data, error } = await supabase.rpc("club_list_committee", { p_club_id: clubId });
+  if (error) { console.error("[club-page] club_list_committee failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubAddDocument(clubId, { title, url, docType = null, sizeLabel = null, displayOrder = 0 } = {}) {
+  const { data, error } = await supabase.rpc("club_add_document", {
+    p_club_id: clubId, p_title: title, p_url: url,
+    p_doc_type: docType, p_size_label: sizeLabel, p_display_order: displayOrder,
+  });
+  if (error) { console.error("[club-page] club_add_document failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdateDocument(documentId, { title = null, url = null, docType = null, sizeLabel = null, displayOrder = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_document", {
+    p_document_id: documentId, p_title: title, p_url: url,
+    p_doc_type: docType, p_size_label: sizeLabel, p_display_order: displayOrder,
+  });
+  if (error) { console.error("[club-page] club_update_document failed", error); throw error; }
+  return data;
+}
+
+export async function clubRemoveDocument(documentId) {
+  const { data, error } = await supabase.rpc("club_remove_document", { p_document_id: documentId });
+  if (error) { console.error("[club-page] club_remove_document failed", error); throw error; }
+  return data;
+}
+
+export async function clubListDocuments(clubId) {
+  const { data, error } = await supabase.rpc("club_list_documents", { p_club_id: clubId });
+  if (error) { console.error("[club-page] club_list_documents failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubAddEvent(clubId, { title, eventDate = null, blurb = null, displayOrder = 0 } = {}) {
+  const { data, error } = await supabase.rpc("club_add_event", {
+    p_club_id: clubId, p_title: title, p_event_date: eventDate,
+    p_blurb: blurb, p_display_order: displayOrder,
+  });
+  if (error) { console.error("[club-page] club_add_event failed", error); throw error; }
+  return data;
+}
+
+export async function clubUpdateEvent(eventId, { title = null, eventDate = null, blurb = null, displayOrder = null } = {}) {
+  const { data, error } = await supabase.rpc("club_update_event", {
+    p_event_id: eventId, p_title: title, p_event_date: eventDate,
+    p_blurb: blurb, p_display_order: displayOrder,
+  });
+  if (error) { console.error("[club-page] club_update_event failed", error); throw error; }
+  return data;
+}
+
+export async function clubRemoveEvent(eventId) {
+  const { data, error } = await supabase.rpc("club_remove_event", { p_event_id: eventId });
+  if (error) { console.error("[club-page] club_remove_event failed", error); throw error; }
+  return data;
+}
+
+export async function clubListEvents(clubId) {
+  const { data, error } = await supabase.rpc("club_list_events", { p_club_id: clubId });
+  if (error) { console.error("[club-page] club_list_events failed", error); throw error; }
+  return data ?? [];
+}
+
+export async function clubSetPotm(teamId, { name, month = null } = {}) {
+  const { data, error } = await supabase.rpc("club_set_potm", {
+    p_team_id: teamId, p_name: name, p_month: month,
+  });
+  if (error) { console.error("[club-page] club_set_potm failed", error); throw error; }
+  return data;
+}
+
+export async function clubRemovePotm(teamId) {
+  const { data, error } = await supabase.rpc("club_remove_potm", { p_team_id: teamId });
+  if (error) { console.error("[club-page] club_remove_potm failed", error); throw error; }
+  return data;
+}
+
+export async function clubListPotm(clubId) {
+  const { data, error } = await supabase.rpc("club_list_potm", { p_club_id: clubId });
+  if (error) { console.error("[club-page] club_list_potm failed", error); throw error; }
+  return data ?? [];
+}
+
 // Public self-serve team registration from the Tournament Hub (anon + authenticated).
 // Allowed only while the event is OPEN; creates a pending team awaiting club-admin approval.
 export async function tournamentRegisterTeam(slug, competitionId, teamName, contactEmail) {
