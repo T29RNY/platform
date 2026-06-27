@@ -20,6 +20,7 @@ import {
   clubAdminAddCompetition, clubAdminRegisterTeam,
   clubAdminSendTeamInvite, clubAdminApproveTeam, clubAdminRejectTeam,
   clubAdminGenerateSchedule, clubAdminGetSchedule,
+  clubAdminAssignTournamentRef,
   clubAdminSeedKnockout,
   clubAdminSeedDoubleElimination,
   clubAdminSetPerformanceConfig,
@@ -146,6 +147,54 @@ const WEEK_FILTERS = [
   { id: "this", label: "This week" },
   { id: "next", label: "Next week" },
 ];
+
+// Operator referee-assign control on a tournament schedule fixture (Referee PR #4, mig 443).
+// Editable only pre-kickoff (scheduled/allocated): an inline official picker that calls
+// club_admin_assign_tournament_ref — the assigned ref then gets the game on their /hub home
+// (and a push). On terminal/in-progress fixtures it's a read-only chip of the assigned ref.
+function TournamentRefControl({ fx, officials, onDone }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const editable = fx.status === "scheduled" || fx.status === "allocated";
+  const list = officials || [];
+
+  const chip = (label, faded) => (
+    <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: faded ? "var(--t3, #666)" : "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", flexShrink: 0, maxWidth: 92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+  );
+
+  // Non-editable: show the assigned official read-only (or nothing if unassigned).
+  if (!editable) return fx.official_name ? chip(fx.official_name, false) : null;
+
+  const assign = async (officialId) => {
+    if (busy) return;
+    setBusy(true);
+    try { await clubAdminAssignTournamentRef(fx.fixture_id, officialId || null); await onDone?.(); setOpen(false); }
+    catch (e) { console.error("[sessions] assign tournament ref failed", e); }
+    finally { setBusy(false); }
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        title={fx.official_name ? `Referee: ${fx.official_name} — tap to change` : "Assign a referee"}
+        style={{ fontSize: 10, fontWeight: 700, background: fx.official_id ? "rgba(96,160,255,0.1)" : "rgba(255,255,255,0.06)", border: `1px solid ${fx.official_id ? "rgba(96,160,255,0.25)" : "var(--border)"}`, color: fx.official_id ? "#60A0FF" : "var(--t2)", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+      >
+        {fx.official_name || "+ Ref"}
+      </button>
+    );
+  }
+  return (
+    <select
+      autoFocus disabled={busy} value={fx.official_id || ""}
+      onChange={(e) => assign(e.target.value)} onBlur={() => setOpen(false)}
+      style={{ fontSize: 10, fontWeight: 700, background: "var(--b3, rgba(255,255,255,0.06))", border: "1px solid var(--border)", color: "var(--t1)", padding: "2px 4px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0, maxWidth: 120, outline: "none" }}
+    >
+      <option value="">— No referee —</option>
+      {list.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+    </select>
+  );
+}
 
 export default function SessionsScreen({ authUser, memberProfile: memberProfileProp, hasFeed = false }) {
   const [memberProfile, setMemberProfile] = useState(memberProfileProp ?? undefined);
@@ -571,6 +620,15 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
     } catch (e) {
       console.error("[sessions] reload detail failed", e);
     }
+  };
+
+  // Lightweight schedule-only refresh (after a tournament ref assignment) — keyed on the
+  // tournament_event_id the schedule reader echoes back, so it works wherever scheduleData is.
+  const refreshSchedule = async () => {
+    const tid = scheduleData?.tournament_event_id;
+    if (!tid) return;
+    try { setScheduleData(await clubAdminGetSchedule(tid)); }
+    catch (e) { console.error("[sessions] refresh schedule failed", e); }
   };
 
   const handleAddCompetition = async () => {
@@ -2060,14 +2118,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                             {fx.pitch_name && (
                                               <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>· {fx.pitch_name}</span>
                                             )}
-                                            {fx.ref_token && (
-                                              <button
-                                                onClick={() => navigator.clipboard.writeText(`https://platform-ref.vercel.app/?token=${fx.ref_token}`)}
-                                                style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
-                                              >
-                                                Ref
-                                              </button>
-                                            )}
+                                            <TournamentRefControl fx={fx} officials={scheduleData?.venue_officials} onDone={refreshSchedule} />
                                           </div>
                                         ))}
                                       </div>
@@ -2139,14 +2190,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                                 {fx.pitch_name && (
                                                   <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>· {fx.pitch_name}</span>
                                                 )}
-                                                {fx.ref_token && (
-                                                  <button
-                                                    onClick={() => navigator.clipboard.writeText(`https://platform-ref.vercel.app/?token=${fx.ref_token}`)}
-                                                    style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}
-                                                  >
-                                                    Ref
-                                                  </button>
-                                                )}
+                                                <TournamentRefControl fx={fx} officials={scheduleData?.venue_officials} onDone={refreshSchedule} />
                                               </div>
                                             ))}
                                           </div>
@@ -2170,9 +2214,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
                                           <span style={{ fontSize: 12, color: fx.away_team_name ? "var(--t1)" : "var(--t3, #666)", fontFamily: "var(--font-body)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right", fontStyle: fx.away_team_name ? "normal" : "italic" }}>{fx.away_team_name ?? "TBD"}</span>
                                           {fx.kickoff_time && <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>{fx.kickoff_time.slice(0,5)}</span>}
                                           {fx.pitch_name && <span style={{ fontSize: 10, color: "var(--t3, #666)", fontFamily: "var(--font-body)", flexShrink: 0, marginLeft: 4 }}>· {fx.pitch_name}</span>}
-                                          {fx.ref_token && (
-                                            <button onClick={() => navigator.clipboard.writeText(`https://platform-ref.vercel.app/?token=${fx.ref_token}`)} style={{ fontSize: 10, fontWeight: 700, background: "rgba(96,160,255,0.1)", border: "1px solid rgba(96,160,255,0.25)", color: "#60A0FF", padding: "2px 7px", borderRadius: 10, fontFamily: "var(--font-body)", cursor: "pointer", flexShrink: 0 }}>Ref</button>
-                                          )}
+                                          <TournamentRefControl fx={fx} officials={scheduleData?.venue_officials} onDone={refreshSchedule} />
                                         </div>
                                       );
                                       return (

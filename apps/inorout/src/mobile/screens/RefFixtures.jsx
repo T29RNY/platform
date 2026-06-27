@@ -19,7 +19,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  getMyAssignments, getMyOfficiatingHistory, getMyRefStatus,
+  getMyAssignments, getMyTournamentAssignments, getMyOfficiatingHistory, getMyRefStatus,
   refRespondToAssignment, refAddUnavailability, refRemoveUnavailability,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
@@ -60,16 +60,21 @@ function titleFor(g) {
   return `${g.home_team || "Home"}  v  ${g.away_team || "Away"}`;
 }
 
+// Three contexts: casual (amber), tournament/cup (green), league (blue, default).
+const CONTEXT_CHIP = {
+  casual:     { label: "Casual", bg: "var(--amber-soft)", fg: "var(--amber)" },
+  tournament: { label: "Cup",    bg: "var(--ok-soft)",    fg: "var(--ok-ink)" },
+  league:     { label: "League", bg: "var(--info-soft)",  fg: "var(--info-ink)" },
+};
 function ContextChip({ context }) {
-  const casual = context === "casual";
+  const c = CONTEXT_CHIP[context] || CONTEXT_CHIP.league;
   return (
     <span style={{
       flex: "none", fontSize: 10, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase",
       padding: "3px 8px", borderRadius: "var(--r-pill)",
-      background: casual ? "var(--amber-soft)" : "var(--info-soft)",
-      color: casual ? "var(--amber)" : "var(--info-ink)",
+      background: c.bg, color: c.fg,
     }}>
-      {casual ? "Casual" : "League"}
+      {c.label}
     </span>
   );
 }
@@ -288,7 +293,8 @@ function Eyebrow({ children, right }) {
 
 export default function RefFixtures({ onOpenMatch, toast }) {
   const [status, setStatus] = useState("loading"); // loading | ok | error
-  const [games, setGames] = useState([]);
+  const [games, setGames] = useState([]);          // league + casual (Swift-locked reader)
+  const [tourGames, setTourGames] = useState([]);  // tournament (mig 443, separate reader)
   const [past, setPast] = useState([]);
   const [responses, setResponses] = useState({}); // `${context}:${game_id}` -> "accepted"|"declined"
   const [unavail, setUnavail] = useState([]);
@@ -312,6 +318,10 @@ export default function RefFixtures({ onOpenMatch, toast }) {
     getMyAssignments(null)
       .then((res) => { setGames(res?.games || []); setStatus("ok"); })
       .catch((e) => { console.error("[ref] get_my_assignments failed", e); setStatus("error"); });
+    // Tournament assignments — separate reader (mig 443), best-effort like Past; merged below.
+    getMyTournamentAssignments()
+      .then((res) => { setTourGames(res?.games || []); })
+      .catch((e) => { console.error("[ref] get_my_tournament_assignments failed", e); setTourGames([]); });
     getMyOfficiatingHistory()
       .then((res) => { setPast(res?.games || []); })
       .catch((e) => { console.error("[ref] get_my_officiating_history failed", e); setPast([]); });
@@ -390,12 +400,20 @@ export default function RefFixtures({ onOpenMatch, toast }) {
     );
   }
 
-  const liveGames = games.filter((g) => g.is_in_progress);
-  const upcoming = games.filter((g) => !g.is_in_progress);
+  // Merge league/casual (Swift-locked reader) with tournament (mig 443) into one list,
+  // live first then soonest kickoff — they share the per-game shape; the chip distinguishes.
+  const allGames = [...games, ...tourGames].sort((a, b) => {
+    if (a.is_in_progress !== b.is_in_progress) return a.is_in_progress ? -1 : 1;
+    const ka = a.kickoff_at ? new Date(a.kickoff_at).getTime() : Infinity;
+    const kb = b.kickoff_at ? new Date(b.kickoff_at).getTime() : Infinity;
+    return ka - kb;
+  });
+  const liveGames = allGames.filter((g) => g.is_in_progress);
+  const upcoming = allGames.filter((g) => !g.is_in_progress);
 
   // Only a true blank slate (no live/upcoming AND no history) shows the empty card —
   // but availability is still offered so a brand-new ref can set it up front.
-  if (games.length === 0 && past.length === 0) {
+  if (allGames.length === 0 && past.length === 0) {
     return (
       <div className="m-view-enter">
         <div className="m-card" style={{ padding: "26px 18px", textAlign: "center" }}>
@@ -445,7 +463,7 @@ export default function RefFixtures({ onOpenMatch, toast }) {
       <Eyebrow>Availability</Eyebrow>
       <AvailabilityPanel items={unavail} onAdd={addUnavail} onRemove={removeUnavail} busy={busyKey === "avail"} />
 
-      {games.length > 0 && (
+      {allGames.length > 0 && (
         <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "16px 2px 4px", lineHeight: 1.45 }}>
           Tap a match to open the officiating screen — record goals, cards and the clock right here.
         </div>
