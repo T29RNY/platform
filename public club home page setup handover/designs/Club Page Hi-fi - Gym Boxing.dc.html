@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#f4f4f5;}
+  *{box-sizing:border-box;}
+  @keyframes hpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+  @keyframes hbar{0%{transform:translateX(-120%)}100%{transform:translateX(360%)}}
+  ::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<!-- title -->
+<div style="position:absolute;left:80px;top:-72px;width:1500px">
+  <div style="font:400 38px 'Bebas Neue';color:#17171b;letter-spacing:.5px">In or Out — Gym / Boxing · Baller-ceiling</div>
+  <div style="font:500 15px 'DM Sans';color:#6b6b77;margin-top:2px">Same engine, fight-night production value · live class dashboard · attendance &amp; reliability leaderboards · fighter cards · fight record (no belts — boxing) · <span style="color:#1f9d57;font-weight:700">✅ classes/bookings/bouts are real data</span></div>
+</div>
+
+<!-- zone header -->
+<div style="position:absolute;left:80px;top:18px;width:1000px">
+  <div style="font:600 13px 'DM Sans';letter-spacing:2px;color:#9a9aa6">F — GYM / BOXING DISCIPLINE</div>
+  <div style="font:400 30px 'Bebas Neue';color:#17171b;margin-top:0;letter-spacing:.4px">The homepage IS a live dashboard — not a noticeboard</div>
+</div>
+
+<!-- =============== MOBILE =============== -->
+<div style="position:absolute;left:80px;top:124px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Mobile · Ironside Boxing (dashboard · interactive tabs)</div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:790px;overflow-y:auto;position:relative">
+      <!-- status bar -->
+      <div style="position:sticky;top:0;z-index:5;height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans';background:#0d0d0f;color:#f4f4f5"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <!-- top bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 16px 12px">
+        <div style="display:flex;align-items:center;gap:9px"><div style="width:32px;height:32px;border-radius:9px;background:#17171b;border:1.5px solid #ff3024;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue';color:#ff3024">IB</div><span style="font:400 19px 'Bebas Neue';letter-spacing:.6px">IRONSIDE BOXING</span></div>
+        <div style="font:700 11px 'DM Sans';color:#fff;background:#ff3024;padding:8px 14px;border-radius:20px">Join</div>
+      </div>
+      <!-- HERO -->
+      <div style="position:relative;height:260px;margin:0 12px;border-radius:20px;overflow:hidden;background:linear-gradient(150deg,#3a0c08,#0d0d0f 70%)">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.035),rgba(255,255,255,.035) 2px,transparent 2px,transparent 12px)"></div>
+        <div style="position:absolute;top:12px;left:14px;font:11px ui-monospace,monospace;color:rgba(255,255,255,.32)">hero photo</div>
+        <div style="position:absolute;top:12px;right:12px;display:inline-flex;align-items:center;gap:6px;background:#ff3024;color:#fff;font:700 9px 'DM Sans';letter-spacing:.8px;padding:6px 11px;border-radius:14px"><span style="width:6px;height:6px;border-radius:50%;background:#fff;animation:hpulse 1.1s infinite"></span>CLASS ON NOW</div>
+        <div style="position:absolute;left:18px;bottom:18px;right:18px">
+          <div style="width:54px;height:54px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 20px 'Bebas Neue';color:#ff3024;margin-bottom:12px">IB</div>
+          <div style="font:400 40px 'Bebas Neue';letter-spacing:.6px;line-height:.92">IRONSIDE<br>BOXING CLUB</div>
+          <div style="font:600 12px 'DM Sans';color:rgba(255,255,255,.6);margin-top:8px">Est. 2011 · Bethnal Green · Amateur &amp; white-collar</div>
+        </div>
+      </div>
+      <!-- LIVE class strip -->
+      <div style="margin:13px 12px 0;border:1px solid #2a2a31;border-radius:16px;padding:14px 15px;background:#141417;display:flex;align-items:center;gap:13px">
+        <div style="width:46px;height:46px;border-radius:12px;background:#3a0c08;border:1px solid #ff3024;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0"><span style="width:7px;height:7px;border-radius:50%;background:#ff3024;animation:hpulse 1.1s infinite"></span><span style="font:700 8px 'DM Sans';color:#ff3024;margin-top:3px;letter-spacing:.5px">LIVE</span></div>
+        <div style="flex:1"><div style="font:700 14px 'DM Sans'">Adult Sparring</div><div style="font:500 11px 'DM Sans';color:#9a9aa6;margin-top:2px">Coach Diaz · 14 training · ends 19:30</div></div>
+        <div style="text-align:right"><div style="font:400 26px 'Bebas Neue';color:#ff3024;line-height:1">14</div><div style="font:500 9px 'DM Sans';color:#6b6b75">in now</div></div>
+      </div>
+      <!-- DASHBOARD (Baller heart) -->
+      <div style="padding:18px 12px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><span style="font:400 22px 'Bebas Neue';letter-spacing:.5px">THE GYM, LIVE</span></div>
+        <div style="display:flex;background:#17171b;border-radius:12px;padding:4px;gap:3px;margin-bottom:14px">
+          <div onClick="{{ setTimetable }}" style="{{ segTimetable }}">Timetable</div>
+          <div onClick="{{ setBoards }}" style="{{ segBoards }}">Leaders</div>
+          <div onClick="{{ setFighters }}" style="{{ segFighters }}">Fighters</div>
+        </div>
+        <!-- TIMETABLE -->
+        <sc-if value="{{ isTimetable }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #ff3024;border-radius:13px;padding:12px 14px;background:#16100f"><div style="text-align:center;width:38px"><div style="font:400 17px 'Bebas Neue';color:#ff3024">TUE</div><div style="font:500 9px 'DM Sans';color:#9a9aa6">NOW</div></div><div style="flex:1"><div style="font:700 13px 'DM Sans'">Adult Sparring</div><div style="font:500 11px 'DM Sans';color:#9a9aa6">18:30 · Coach Diaz</div></div><span style="display:inline-flex;align-items:center;gap:5px;font:700 10px 'DM Sans';color:#ff3024"><span style="width:6px;height:6px;border-radius:50%;background:#ff3024;animation:hpulse 1.1s infinite"></span>LIVE</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:13px;padding:12px 14px"><div style="text-align:center;width:38px"><div style="font:400 17px 'Bebas Neue'">WED</div><div style="font:500 9px 'DM Sans';color:#6b6b75">17:00</div></div><div style="flex:1"><div style="font:700 13px 'DM Sans'">Juniors (8–14)</div><div style="font:500 11px 'DM Sans';color:#9a9aa6">Coach Amara</div></div><span style="font:700 10px 'DM Sans';color:#3fcf6a">4 spots</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:13px;padding:12px 14px"><div style="text-align:center;width:38px"><div style="font:400 17px 'Bebas Neue'">THU</div><div style="font:500 9px 'DM Sans';color:#6b6b75">18:00</div></div><div style="flex:1"><div style="font:700 13px 'DM Sans'">Pads &amp; Bags</div><div style="font:500 11px 'DM Sans';color:#9a9aa6">All levels</div></div><span style="font:700 10px 'DM Sans';color:#9a9aa6">Full · waitlist</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:13px;padding:12px 14px"><div style="text-align:center;width:38px"><div style="font:400 17px 'Bebas Neue'">SAT</div><div style="font:500 9px 'DM Sans';color:#6b6b75">10:00</div></div><div style="flex:1"><div style="font:700 13px 'DM Sans'">Open Mat</div><div style="font:500 11px 'DM Sans';color:#9a9aa6">Free spar</div></div><span style="font:700 10px 'DM Sans';color:#3fcf6a">9 spots</span></div>
+          </div>
+        </sc-if>
+        <!-- LEADERBOARDS -->
+        <sc-if value="{{ isBoards }}">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font:700 11px 'DM Sans';letter-spacing:.8px;color:#9a9aa6">⚡ MOST RELIABLE · THIS SEASONHIS MONTH</span><span style="font:500 10px 'DM Sans';color:#6b6b75">attendance</span></div>
+            <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:18px">
+              <div style="display:flex;align-items:center;gap:12px;border:1px solid #2a230c;border-radius:13px;padding:11px 13px;background:#16140a"><span style="font:400 22px 'Bebas Neue';color:#f5b800;width:22px">1</span><div style="width:32px;height:32px;border-radius:50%;background:#23232a"></div><div style="flex:1"><div style="font:700 13px 'DM Sans'">Marcus O.</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Adults</div></div><div style="text-align:right"><div style="font:400 20px 'Bebas Neue';color:#f5b800;line-height:1">98%</div><div style="font:500 9px 'DM Sans';color:#6b6b75">16 sessions</div></div></div>
+              <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:13px;padding:11px 13px"><span style="font:400 22px 'Bebas Neue';color:#c0c0c8;width:22px">2</span><div style="width:32px;height:32px;border-radius:50%;background:#23232a"></div><div style="flex:1"><div style="font:700 13px 'DM Sans'">Jayden T.</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Juniors · surname hidden</div></div><div style="text-align:right"><div style="font:400 20px 'Bebas Neue';line-height:1">94%</div><div style="font:500 9px 'DM Sans';color:#6b6b75">15 sessions</div></div></div>
+              <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:13px;padding:11px 13px"><span style="font:400 22px 'Bebas Neue';color:#cd7f4a;width:22px">3</span><div style="width:32px;height:32px;border-radius:50%;background:#23232a"></div><div style="flex:1"><div style="font:700 13px 'DM Sans'">Priya N.</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Adults</div></div><div style="text-align:right"><div style="font:400 20px 'Bebas Neue';line-height:1">91%</div><div style="font:500 9px 'DM Sans';color:#6b6b75">14 sessions</div></div></div>
+            </div>
+            <div style="font:700 11px 'DM Sans';letter-spacing:.8px;color:#9a9aa6;margin-bottom:10px">🥊 SPARRING ROUNDS · SEASON</div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;border:1px solid #23232a;border-radius:13px;padding:12px;text-align:center"><div style="font:400 28px 'Bebas Neue';color:#ff3024;line-height:1">412</div><div style="font:600 10px 'DM Sans';margin-top:3px">Marcus O.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">leads</div></div>
+              <div style="flex:1;border:1px solid #23232a;border-radius:13px;padding:12px;text-align:center"><div style="font:400 28px 'Bebas Neue';line-height:1">388</div><div style="font:600 10px 'DM Sans';margin-top:3px">Sol R.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">2nd</div></div>
+            </div>
+            <div style="font:500 10px 'DM Sans';color:#6b6b75;margin-top:12px;line-height:1.4">Reliability is computed from class attendance — our data, no manual entry.</div>
+          </div>
+        </sc-if>
+        <!-- FIGHTERS -->
+        <sc-if value="{{ isFighters }}">
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <!-- fighter card -->
+            <div style="border-radius:16px;overflow:hidden;background:linear-gradient(150deg,#23110d,#141417);border:1px solid #3a1410">
+              <div style="display:flex;align-items:center;gap:13px;padding:14px">
+                <div style="width:58px;height:58px;border-radius:13px;background:#0d0d0f;border:1px solid #3a1410;display:flex;align-items:center;justify-content:center;font:11px ui-monospace,monospace;color:#6b6b75">photo</div>
+                <div style="flex:1"><div style="font:400 24px 'Bebas Neue';letter-spacing:.4px;line-height:1">SOL "STORM" REYES</div><div style="font:600 11px 'DM Sans';color:#9a9aa6;margin-top:2px">Lightweight · Senior · Blue belt</div></div>
+              </div>
+              <div style="display:flex;border-top:1px solid #2a1a16">
+                <div style="flex:1;text-align:center;padding:11px 0;border-right:1px solid #2a1a16"><div style="font:400 24px 'Bebas Neue';color:#3fcf6a;line-height:1">8</div><div style="font:600 9px 'DM Sans';color:#6b6b75;letter-spacing:.5px">WON</div></div>
+                <div style="flex:1;text-align:center;padding:11px 0;border-right:1px solid #2a1a16"><div style="font:400 24px 'Bebas Neue';line-height:1">2</div><div style="font:600 9px 'DM Sans';color:#6b6b75;letter-spacing:.5px">LOST</div></div>
+                <div style="flex:1;text-align:center;padding:11px 0"><div style="font:400 24px 'Bebas Neue';line-height:1">1</div><div style="font:600 9px 'DM Sans';color:#6b6b75;letter-spacing:.5px">DREW</div></div>
+              </div>
+              <div style="padding:10px 14px;background:#16100f;font:600 11px 'DM Sans';color:#ff7a6f">Next: vs A. Khan · Fight Night, Fri 28</div>
+            </div>
+            <!-- second compact -->
+            <div style="display:flex;align-items:center;gap:13px;border:1px solid #23232a;border-radius:14px;padding:12px 13px">
+              <div style="width:46px;height:46px;border-radius:11px;background:#0d0d0f;border:1px solid #23232a;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#6b6b75">photo</div>
+              <div style="flex:1"><div style="font:400 20px 'Bebas Neue';letter-spacing:.4px;line-height:1">PRIYA "PN" NAIR</div><div style="font:600 10px 'DM Sans';color:#9a9aa6;margin-top:2px">Featherweight · White-collar</div></div>
+              <div style="text-align:right"><div style="font:400 18px 'Bebas Neue';line-height:1">5–1</div><div style="font:500 9px 'DM Sans';color:#6b6b75">record</div></div>
+            </div>
+            <div style="font:500 10px 'DM Sans';color:#6b6b75;line-height:1.4">Records from your bout log — junior fighters never shown with full names or photos.</div>
+          </div>
+        </sc-if>
+      </div>
+      <!-- FIGHT RECORD (boxing = hasFightRecord, no belts) -->
+      <div style="padding:20px 12px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><span style="font:400 22px 'Bebas Neue';letter-spacing:.5px">FIGHT RECORD</span><span style="font:600 11px 'DM Sans';color:#ff3024">Fight Night · Fri 28</span></div>
+        <div style="border:1px solid #23232a;border-radius:16px;padding:15px">
+          <!-- club record this season -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span style="font:500 10px 'DM Sans';color:#6b6b75;letter-spacing:.5px">CLUB · SEASON</span><div style="flex:1;display:flex;align-items:flex-end;gap:13px"><div><span style="font:400 30px 'Bebas Neue';color:#3fcf6a;line-height:.9">24</span><span style="font:600 9px 'DM Sans';color:#6b6b75;margin-left:3px">W</span></div><div><span style="font:400 30px 'Bebas Neue';line-height:.9">9</span><span style="font:600 9px 'DM Sans';color:#6b6b75;margin-left:3px">L</span></div><div><span style="font:400 30px 'Bebas Neue';line-height:.9">3</span><span style="font:600 9px 'DM Sans';color:#6b6b75;margin-left:3px">D</span></div></div></div>
+          <!-- recent results -->
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:11px"><span style="width:20px;height:20px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">W</span><div style="flex:1"><div style="font:700 11px 'DM Sans'">Sol Reyes</div></div><span style="font:500 10px 'DM Sans';color:#9a9aa6">TKO · R3</span></div>
+            <div style="display:flex;align-items:center;gap:11px"><span style="width:20px;height:20px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">W</span><div style="flex:1"><div style="font:700 11px 'DM Sans'">Priya Nair</div></div><span style="font:500 10px 'DM Sans';color:#9a9aa6">Points</span></div>
+            <div style="display:flex;align-items:center;gap:11px"><span style="width:20px;height:20px;border-radius:6px;background:#2a2a31;color:#c0c0c8;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">L</span><div style="flex:1"><div style="font:700 11px 'DM Sans'">Jayden T. <span style="font:500 9px 'DM Sans';color:#6b6b75">· junior</span></div></div><span style="font:500 10px 'DM Sans';color:#9a9aa6">Split</span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:#16140a;border:1px solid #2a230c;border-radius:11px;padding:11px 13px;margin-top:12px"><span style="font-size:17px">🏆</span><div style="flex:1"><div style="font:700 12px 'DM Sans';color:#f5b800">Sol Reyes wins on Fight Night</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">8th win · TKO round 3</div></div></div>
+        </div>
+      </div>
+      <!-- LATEST NEWS -->
+      <div style="padding:20px 12px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><span style="font:400 22px 'Bebas Neue';letter-spacing:.5px">LATEST</span><span style="font:600 11px 'DM Sans';color:#ff3024">All news ›</span></div>
+        <div style="border:1px solid #23232a;border-radius:16px;overflow:hidden">
+          <div style="height:120px;background:repeating-linear-gradient(125deg,#16161a,#16161a 9px,#1c1c20 9px,#1c1c20 18px);position:relative"><span style="position:absolute;left:12px;top:10px;font:11px ui-monospace,monospace;color:#6b6b75">article image</span></div>
+          <div style="padding:13px"><div style="font:600 9px 'DM Sans';letter-spacing:.6px;color:#ff3024">FIGHT NIGHT · 3 DAYS AGO</div><div style="font:400 20px 'Bebas Neue';letter-spacing:.3px;line-height:1;margin:6px 0 5px">SOL REYES TAKES HIS 8TH WIN</div><div style="font:500 11px 'DM Sans';color:#9a9aa6;line-height:1.5">A third-round stoppage caps a standout night for Ironside…</div></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <div style="flex:1;border:1px solid #23232a;border-radius:12px;padding:11px"><div style="font:600 8px 'DM Sans';letter-spacing:.5px;color:#6b6b75">CLUB · 1W</div><div style="font:700 12px 'DM Sans';margin-top:4px;line-height:1.2">New junior class added</div></div>
+          <div style="flex:1;border:1px solid #23232a;border-radius:12px;padding:11px"><div style="font:600 8px 'DM Sans';letter-spacing:.5px;color:#6b6b75">EVENT · 2W</div><div style="font:700 12px 'DM Sans';margin-top:4px;line-height:1.2">White-collar night</div></div>
+        </div>
+      </div>
+      <!-- JOIN -->
+      <div style="margin:20px 12px 0;border-radius:16px;padding:16px;background:#ff3024;color:#fff;display:flex;align-items:center;justify-content:space-between">
+        <div><div style="font:400 24px 'Bebas Neue';letter-spacing:.5px">FIRST SESSION FREE</div><div style="font:600 11px 'DM Sans';color:rgba(255,255,255,.85);margin-top:2px">Book a trial · all levels welcome</div><div style="margin-top:11px;background:#fff;color:#ff3024;font:700 11px 'DM Sans';padding:9px 15px;border-radius:18px;display:inline-block">Book now</div></div>
+        <div style="width:66px;height:66px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#ff3024">QR</div>
+      </div>
+      <!-- SPONSORS -->
+      <div style="padding:20px 12px 0">
+        <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:11px">BACKED BY</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:12px;padding:11px 13px"><div style="width:54px;height:30px;background:#17171b;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#6b6b75">logo</div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Eastside Physio</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Official medical partner</div></div><span style="color:#6b6b75">›</span></div>
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:12px;padding:11px 13px"><div style="width:54px;height:30px;background:#17171b;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#6b6b75">logo</div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Tower Hardware</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Kit sponsor</div></div><span style="color:#6b6b75">›</span></div>
+        </div>
+      </div>
+      <!-- safeguarding note -->
+      <div style="margin:18px 12px 0;border:1px solid #23232a;border-radius:12px;padding:12px 13px;display:flex;gap:10px;align-items:flex-start"><span style="font-size:15px">🛡️</span><div style="font:500 11px 'DM Sans';color:#9a9aa6;line-height:1.45">Junior classes run safeguarded — surnames &amp; photos hidden across leaderboards, fighters &amp; news.</div></div>
+      <div style="margin-top:18px;padding:22px 12px 30px;background:#000;text-align:center"><div style="font:400 18px 'Bebas Neue';letter-spacing:.6px;color:#fff">IRONSIDE BOXING</div><div style="font:500 10px 'DM Sans';color:rgba(255,255,255,.4);margin-top:7px">Powered by In or Out · Contact · Socials</div></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- =============== DESKTOP =============== -->
+<div style="position:absolute;left:470px;top:124px;width:1200px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Desktop · the live dashboard is the homepage</div>
+  <div style="background:#0d0d0f;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -24px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.14);border:1px solid #23232a">
+    <!-- browser chrome (dark) -->
+    <div style="height:42px;background:#17171b;display:flex;align-items:center;gap:7px;padding:0 16px;border-bottom:1px solid #23232a"><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><div style="flex:1;max-width:380px;margin-left:14px;height:26px;background:#0d0d0f;border-radius:13px;border:1px solid #23232a;display:flex;align-items:center;padding:0 14px;font:600 12px 'DM Sans';color:#6b6b75">in-or-out.club/c/ironside</div></div>
+    <!-- nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:15px 30px;border-bottom:1px solid #1c1c22">
+      <div style="display:flex;align-items:center;gap:11px"><div style="width:36px;height:36px;border-radius:10px;background:#17171b;border:1.5px solid #ff3024;display:flex;align-items:center;justify-content:center;font:400 15px 'Bebas Neue';color:#ff3024">IB</div><span style="font:400 22px 'Bebas Neue';letter-spacing:.6px">IRONSIDE BOXING</span></div>
+      <div style="display:flex;align-items:center;gap:26px;font:600 13px 'DM Sans';color:#9a9aa6"><span>Timetable</span><span>Fighters</span><span>Fight Night</span><span>News</span><span style="background:#ff3024;color:#fff;padding:9px 18px;border-radius:20px">First session free</span></div>
+    </div>
+    <!-- hero band -->
+    <div style="position:relative;height:230px;background:linear-gradient(120deg,#3a0c08,#0d0d0f 65%);overflow:hidden">
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.03),rgba(255,255,255,.03) 2px,transparent 2px,transparent 13px)"></div>
+      <div style="position:absolute;top:12px;left:16px;font:11px ui-monospace,monospace;color:rgba(255,255,255,.3)">hero photo (full-bleed)</div>
+      <div style="position:absolute;left:34px;bottom:30px">
+        <div style="font:400 52px 'Bebas Neue';letter-spacing:.8px;line-height:.9">IRONSIDE BOXING CLUB</div>
+        <div style="font:600 13px 'DM Sans';color:rgba(255,255,255,.6);margin-top:8px">Est. 2011 · Bethnal Green · Amateur &amp; white-collar boxing</div>
+      </div>
+      <!-- live class + fight night chips -->
+      <div style="position:absolute;right:34px;bottom:30px;display:flex;gap:12px">
+        <div style="width:200px;background:rgba(13,13,15,.85);border:1px solid #3a1410;border-radius:14px;padding:13px"><div style="display:inline-flex;align-items:center;gap:6px;font:700 9px 'DM Sans';letter-spacing:.8px;color:#ff3024;margin-bottom:8px"><span style="width:6px;height:6px;border-radius:50%;background:#ff3024;animation:hpulse 1.1s infinite"></span>CLASS ON NOW</div><div style="font:700 13px 'DM Sans'">Adult Sparring</div><div style="font:500 11px 'DM Sans';color:#9a9aa6;margin-top:2px">14 training · ends 19:30</div></div>
+        <div style="width:200px;background:rgba(13,13,15,.85);border:1px solid #23232a;border-radius:14px;padding:13px"><div style="font:700 9px 'DM Sans';letter-spacing:.8px;color:#f5b800;margin-bottom:8px">⚡ FIGHT NIGHT</div><div style="font:700 13px 'DM Sans'">Fri 28 · 7 bouts</div><div style="font:500 11px 'DM Sans';color:#9a9aa6;margin-top:2px">Tickets &amp; card →</div></div>
+      </div>
+    </div>
+    <!-- 3-col live dashboard -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0">
+      <!-- timetable -->
+      <div style="padding:22px 24px;border-right:1px solid #1c1c22">
+        <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:13px">THIS WEEK</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #ff3024;border-radius:12px;padding:11px 13px;background:#16100f"><div style="text-align:center;width:34px"><div style="font:400 16px 'Bebas Neue';color:#ff3024">TUE</div></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Adult Sparring</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">18:30 · Diaz</div></div><span style="width:7px;height:7px;border-radius:50%;background:#ff3024;animation:hpulse 1.1s infinite"></span></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:11px 13px"><div style="text-align:center;width:34px"><div style="font:400 16px 'Bebas Neue'">WED</div></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Juniors 8–14</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">17:00 · Amara</div></div><span style="font:700 10px 'DM Sans';color:#3fcf6a">4</span></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:11px 13px"><div style="text-align:center;width:34px"><div style="font:400 16px 'Bebas Neue'">THU</div></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Pads &amp; Bags</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">18:00</div></div><span style="font:700 10px 'DM Sans';color:#9a9aa6">Full</span></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:11px 13px"><div style="text-align:center;width:34px"><div style="font:400 16px 'Bebas Neue'">SAT</div></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Open Mat</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">10:00</div></div><span style="font:700 10px 'DM Sans';color:#3fcf6a">9</span></div>
+        </div>
+      </div>
+      <!-- leaderboard -->
+      <div style="padding:22px 24px;border-right:1px solid #1c1c22">
+        <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:4px">MOST RELIABLE</div>
+        <div style="font:500 10px 'DM Sans';color:#6b6b75;margin-bottom:13px">attendance · this season</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #2a230c;background:#16140a;border-radius:12px;padding:10px 12px"><span style="font:400 22px 'Bebas Neue';color:#f5b800;width:20px">1</span><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Marcus O.</div></div><div style="font:400 19px 'Bebas Neue';color:#f5b800">98%</div></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:10px 12px"><span style="font:400 22px 'Bebas Neue';color:#c0c0c8;width:20px">2</span><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Jayden T.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">junior · hidden</div></div><div style="font:400 19px 'Bebas Neue'">94%</div></div>
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:10px 12px"><span style="font:400 22px 'Bebas Neue';color:#cd7f4a;width:20px">3</span><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Priya N.</div></div><div style="font:400 19px 'Bebas Neue'">91%</div></div>
+        </div>
+        <div style="font:400 16px 'Bebas Neue';letter-spacing:.5px;margin:18px 0 9px">FIGHT RECORD</div>
+        <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:9px"><div><span style="font:400 24px 'Bebas Neue';color:#3fcf6a;line-height:.9">24</span><span style="font:600 8px 'DM Sans';color:#6b6b75;margin-left:2px">W</span></div><div><span style="font:400 24px 'Bebas Neue';line-height:.9">9</span><span style="font:600 8px 'DM Sans';color:#6b6b75;margin-left:2px">L</span></div><div><span style="font:400 24px 'Bebas Neue';line-height:.9">3</span><span style="font:600 8px 'DM Sans';color:#6b6b75;margin-left:2px">D</span></div><span style="font:500 9px 'DM Sans';color:#6b6b75;margin-left:auto">this season</span></div>
+        <div style="font:600 10px 'DM Sans';color:#f5b800">🏆 Sol Reyes wins on Fight Night · TKO R3</div>
+      </div>
+      <!-- fighters -->
+      <div style="padding:22px 24px">
+        <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:13px">FIGHTERS</div>
+        <div style="border-radius:14px;overflow:hidden;background:linear-gradient(150deg,#23110d,#141417);border:1px solid #3a1410;margin-bottom:9px">
+          <div style="display:flex;align-items:center;gap:11px;padding:12px"><div style="width:46px;height:46px;border-radius:11px;background:#0d0d0f;border:1px solid #3a1410;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#6b6b75">photo</div><div style="flex:1"><div style="font:400 19px 'Bebas Neue';letter-spacing:.3px;line-height:1">SOL "STORM" REYES</div><div style="font:600 10px 'DM Sans';color:#9a9aa6">Lightweight · Blue</div></div></div>
+          <div style="display:flex;border-top:1px solid #2a1a16"><div style="flex:1;text-align:center;padding:9px 0;border-right:1px solid #2a1a16"><div style="font:400 20px 'Bebas Neue';color:#3fcf6a;line-height:1">8</div><div style="font:600 8px 'DM Sans';color:#6b6b75">WON</div></div><div style="flex:1;text-align:center;padding:9px 0;border-right:1px solid #2a1a16"><div style="font:400 20px 'Bebas Neue';line-height:1">2</div><div style="font:600 8px 'DM Sans';color:#6b6b75">LOST</div></div><div style="flex:1;text-align:center;padding:9px 0"><div style="font:400 20px 'Bebas Neue';line-height:1">1</div><div style="font:600 8px 'DM Sans';color:#6b6b75">DREW</div></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;border:1px solid #23232a;border-radius:12px;padding:10px 12px"><div style="width:34px;height:34px;border-radius:9px;background:#0d0d0f;border:1px solid #23232a"></div><div style="flex:1"><div style="font:400 16px 'Bebas Neue';letter-spacing:.3px;line-height:1">PRIYA NAIR</div><div style="font:500 9px 'DM Sans';color:#9a9aa6">Featherweight</div></div><div style="font:400 16px 'Bebas Neue'">5–1</div></div>
+      </div>
+    </div>
+    <!-- DESKTOP LATEST NEWS -->
+    <div style="padding:22px 30px;border-top:1px solid #1c1c22">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><span style="font:400 20px 'Bebas Neue';letter-spacing:.5px">LATEST NEWS</span><span style="font:600 12px 'DM Sans';color:#ff3024">All news ›</span></div>
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px">
+        <div style="border:1px solid #23232a;border-radius:13px;overflow:hidden"><div style="height:110px;background:repeating-linear-gradient(125deg,#16161a,#16161a 9px,#1c1c20 9px,#1c1c20 18px)"></div><div style="padding:13px"><div style="font:600 9px 'DM Sans';letter-spacing:.6px;color:#ff3024">FIGHT NIGHT · 3D</div><div style="font:400 19px 'Bebas Neue';line-height:1;margin:5px 0 4px">SOL REYES TAKES HIS 8TH WIN</div><div style="font:500 11px 'DM Sans';color:#9a9aa6">A third-round stoppage caps the night…</div></div></div>
+        <div style="border:1px solid #23232a;border-radius:13px;overflow:hidden"><div style="height:110px;background:repeating-linear-gradient(125deg,#16161a,#16161a 9px,#1c1c20 9px,#1c1c20 18px)"></div><div style="padding:13px"><div style="font:600 9px 'DM Sans';letter-spacing:.6px;color:#6b6b75">CLUB · 1W</div><div style="font:400 17px 'Bebas Neue';line-height:1;margin-top:5px">NEW JUNIOR CLASS ADDED</div></div></div>
+        <div style="border:1px solid #23232a;border-radius:13px;overflow:hidden"><div style="height:110px;background:repeating-linear-gradient(125deg,#16161a,#16161a 9px,#1c1c20 9px,#1c1c20 18px)"></div><div style="padding:13px"><div style="font:600 9px 'DM Sans';letter-spacing:.6px;color:#6b6b75">EVENT · 2W</div><div style="font:400 17px 'Bebas Neue';line-height:1;margin-top:5px">WHITE-COLLAR NIGHT RETURNS</div></div></div>
+      </div>
+    </div>
+    <!-- join + sponsors strip -->
+    <div style="display:flex;gap:0;border-top:1px solid #1c1c22">
+      <div style="flex:1.3;padding:20px 24px;background:#ff3024;display:flex;align-items:center;justify-content:space-between"><div><div style="font:400 26px 'Bebas Neue';letter-spacing:.5px;color:#fff">FIRST SESSION FREE</div><div style="font:600 11px 'DM Sans';color:rgba(255,255,255,.85)">Book a trial — all levels</div></div><div style="display:flex;align-items:center;gap:12px"><div style="background:#fff;color:#ff3024;font:700 12px 'DM Sans';padding:11px 18px;border-radius:10px">Book now</div><div style="width:48px;height:48px;background:#fff;border-radius:9px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#ff3024">QR</div></div></div>
+      <div style="flex:1;padding:20px 24px;display:flex;align-items:center;gap:10px"><span style="font:600 10px 'DM Sans';color:#6b6b75;letter-spacing:.5px">BACKED BY</span><div style="flex:1;height:34px;background:#17171b;border:1px solid #23232a;border-radius:7px"></div><div style="flex:1;height:34px;background:#17171b;border:1px solid #23232a;border-radius:7px"></div><div style="flex:1;height:34px;background:#17171b;border:1px solid #23232a;border-radius:7px"></div></div>
+    </div>
+    <div style="padding:18px 30px;background:#000;display:flex;align-items:center;justify-content:space-between"><div style="font:400 18px 'Bebas Neue';letter-spacing:.6px;color:#fff">IRONSIDE BOXING</div><div style="font:500 11px 'DM Sans';color:rgba(255,255,255,.4)">Powered by In or Out · Contact · Socials</div></div>
+  </div>
+</div>
+
+<!-- baller-vs-santos note -->
+<div style="position:absolute;left:470px;top:840px;width:1200px;background:#0d0d0f;border-radius:14px;padding:20px 26px;color:#fff;display:flex;gap:30px;align-items:center">
+  <div style="flex:1"><div style="font:400 22px 'Bebas Neue';letter-spacing:.5px;margin-bottom:8px;color:#ff3024">FAR FROM SANTOS, CLOSE TO BALLER</div><div style="font:500 13px 'DM Sans';color:#c7c7cf;line-height:1.6">Every number here is auto-built: live class from bookings, reliability from attendance, records from the bout log, belts from gradings. A do-nothing gym still gets a fight-night dashboard — the same engine, just re-skinned per discipline from 3 colours + crest.</div></div>
+  <div style="display:flex;gap:10px;flex-shrink:0">
+    <div style="width:130px;border:1px solid #23232a;border-radius:11px;padding:13px;text-align:center"><div style="font:400 26px 'Bebas Neue';color:#ff3024;line-height:1">0</div><div style="font:500 10px 'DM Sans';color:#9a9aa6;margin-top:3px">manual updates needed</div></div>
+    <div style="width:130px;border:1px solid #23232a;border-radius:11px;padding:13px;text-align:center"><div style="font:400 26px 'Bebas Neue';color:#3fcf6a;line-height:1">5</div><div style="font:500 10px 'DM Sans';color:#9a9aa6;margin-top:3px">live data blocks</div></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tab:'timetable' };
+  seg(active){
+    return active
+      ? "flex:1;text-align:center;font:700 12px 'DM Sans';background:#ff3024;color:#fff;border-radius:9px;padding:9px 0;cursor:pointer;transition:all .15s"
+      : "flex:1;text-align:center;font:600 12px 'DM Sans';color:#9a9aa6;border-radius:9px;padding:9px 0;cursor:pointer;transition:all .15s";
+  }
+  renderVals(){
+    const t = this.state.tab, set=(v)=>()=>this.setState({tab:v});
+    return {
+      isTimetable:t==='timetable', isBoards:t==='boards', isFighters:t==='fighters',
+      segTimetable:this.seg(t==='timetable'), segBoards:this.seg(t==='boards'), segFighters:this.seg(t==='fighters'),
+      setTimetable:set('timetable'), setBoards:set('boards'), setFighters:set('fighters'),
+    };
+  }
+}
+</script>
+</body>
+</html>

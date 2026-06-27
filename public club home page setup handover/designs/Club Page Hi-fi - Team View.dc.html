@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#f4f4f5;}
+  *{box-sizing:border-box;}
+  ::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="position:absolute;left:80px;top:-72px;width:1500px">
+  <div style="font:400 38px 'Bebas Neue';color:#17171b;letter-spacing:.5px">In or Out — Single-team mini-view</div>
+  <div style="font:500 15px 'DM Sans';color:#6b6b77;margin-top:2px">The most-visited page: a parent comes for ONE team. Next fixture · training slot · safeguarded squad · that team's form &amp; mini-table. Bookmarkable, shareable.</div>
+</div>
+
+<div style="position:absolute;left:80px;top:18px;width:1000px">
+  <div style="font:600 13px 'DM Sans';letter-spacing:2px;color:#9a9aa6">L — TEAM VIEW (tap a team → here)</div>
+  <div style="font:400 30px 'Bebas Neue';color:#17171b;margin-top:0;letter-spacing:.4px">U12 Tigers — a club within the club</div>
+</div>
+
+<!-- ===== MOBILE TEAM ===== -->
+<div style="position:absolute;left:80px;top:124px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Mobile · U12 Tigers <span style="font:600 9px 'DM Sans';color:#1f9d57;background:#e7f6ee;padding:2px 7px;border-radius:6px;margin-left:4px">✅ teams[] · safeguarded</span></div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:780px;overflow-y:auto;position:relative">
+      <div style="position:sticky;top:0;z-index:5;height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans';background:#0d0d0f"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="display:flex;align-items:center;gap:11px;padding:4px 16px 10px"><span style="font:700 18px 'DM Sans';color:#9a9aa6">‹</span><span style="font:500 12px 'DM Sans';color:#9a9aa6">Redbridge FC</span><span style="margin-left:auto;font:600 11px 'DM Sans';color:#d8455f">🔖 Save</span></div>
+      <!-- team header -->
+      <div style="position:relative;height:130px;margin:0 12px;border-radius:18px;overflow:hidden;background:linear-gradient(150deg,#3a0c18,#0d0d0f 75%)"><div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.035),rgba(255,255,255,.035) 2px,transparent 2px,transparent 12px)"></div><div style="position:absolute;left:16px;bottom:14px"><div style="font:400 32px 'Bebas Neue';letter-spacing:.4px;line-height:.9">U12 TIGERS</div><div style="font:600 11px 'DM Sans';color:#9a9aa6;margin-top:3px">Youth · Foundation · 12 players</div></div></div>
+      <!-- next fixture + training -->
+      <div style="margin:13px 12px 0;border:1px solid #23232a;border-radius:16px;padding:14px;background:#141417">
+        <div style="font:700 10px 'DM Sans';letter-spacing:.8px;color:#9a9aa6;margin-bottom:10px">NEXT MATCH · SUN</div>
+        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 13px 'DM Sans'">U12 Tigers v City</span><span style="font:400 18px 'Bebas Neue';color:#d8455f">11:00</span></div>
+        <div style="font:600 10px 'DM Sans';color:#6b6b75;margin-top:3px">📍 Redbridge Rec Ground · Cup</div>
+      </div>
+      <div style="margin:10px 12px 0;border:1px solid #23232a;border-radius:14px;padding:13px;display:flex;align-items:center;gap:12px"><span style="font-size:18px">🏃</span><div style="flex:1"><div style="font:700 12px 'DM Sans'">Training · Wed 17:00</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Coach R. Patel · Rec Ground</div></div></div>
+      <!-- form -->
+      <div style="padding:18px 12px 0"><div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:10px">FORM</div><div style="display:flex;gap:6px"><span style="width:26px;height:26px;border-radius:7px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 14px 'Bebas Neue'">W</span><span style="width:26px;height:26px;border-radius:7px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 14px 'Bebas Neue'">W</span><span style="width:26px;height:26px;border-radius:7px;background:#331016;color:#ff8aa0;display:flex;align-items:center;justify-content:center;font:400 14px 'Bebas Neue'">L</span><span style="width:26px;height:26px;border-radius:7px;background:#2a2a31;color:#c0c0c8;display:flex;align-items:center;justify-content:center;font:400 14px 'Bebas Neue'">D</span><span style="width:26px;height:26px;border-radius:7px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 14px 'Bebas Neue'">W</span></div></div>
+      <!-- mini table -->
+      <div style="padding:18px 12px 0"><div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:10px">MINI-LEAGUE</div><div style="border:1px solid #23232a;border-radius:13px;overflow:hidden">
+        <div style="display:flex;align-items:center;padding:9px 13px;font:600 11px 'DM Sans'"><span style="width:18px;color:#9a9aa6">2</span><span style="flex:1">City Colts</span><span style="font:400 13px 'Bebas Neue'">24</span></div>
+        <div style="display:flex;align-items:center;padding:9px 13px;border-top:1px solid #1c1c22;background:#16100f;font:700 11px 'DM Sans';color:#ff8aa0"><span style="width:18px">3</span><span style="flex:1">U12 Tigers</span><span style="font:400 13px 'Bebas Neue';color:#d8455f">22</span></div>
+        <div style="display:flex;align-items:center;padding:9px 13px;border-top:1px solid #1c1c22;font:600 11px 'DM Sans'"><span style="width:18px;color:#9a9aa6">4</span><span style="flex:1">Albion Jrs</span><span style="font:400 13px 'Bebas Neue'">19</span></div>
+      </div></div>
+      <!-- squad (safeguarded) -->
+      <div style="padding:18px 12px 0"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font:400 18px 'Bebas Neue';letter-spacing:.5px">SQUAD</span><span style="font:600 9px 'DM Sans';color:#6b6b75">🛡️ surnames hidden · U18</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:30px;height:30px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Jack M.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">Forward</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:30px;height:30px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Amir K.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">Midfield</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:30px;height:30px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Leo T.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">Keeper</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:30px;height:30px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Sam P.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">Defender</div></div></div>
+        </div>
+      </div>
+      <!-- join this team -->
+      <div style="margin:18px 12px 0;border-radius:16px;padding:15px;background:#d8455f;color:#fff;display:flex;align-items:center;justify-content:space-between"><div><div style="font:400 22px 'Bebas Neue';letter-spacing:.4px">JOIN U12 TIGERS</div><div style="font:600 10px 'DM Sans';color:rgba(255,255,255,.85)">Spaces for 2026 · register your child</div></div><div style="width:54px;height:54px;background:#fff;border-radius:11px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#c2384f">QR</div></div>
+      <div style="margin-top:18px;padding:20px 12px 28px;background:#000;text-align:center"><div style="font:500 10px 'DM Sans';color:rgba(255,255,255,.4)">Powered by In or Out</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DESKTOP TEAM ===== -->
+<div style="position:absolute;left:470px;top:124px;width:900px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Desktop · U12 Tigers</div>
+  <div style="background:#0d0d0f;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -24px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.14);border:1px solid #23232a">
+    <div style="height:42px;background:#17171b;display:flex;align-items:center;gap:7px;padding:0 16px;border-bottom:1px solid #23232a"><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><div style="flex:1;max-width:340px;margin-left:14px;height:26px;background:#0d0d0f;border-radius:13px;border:1px solid #23232a;display:flex;align-items:center;padding:0 14px;font:600 12px 'DM Sans';color:#6b6b75">in-or-out.club/c/redbridge/team/u12-tigers</div></div>
+    <div style="position:relative;height:160px;background:linear-gradient(120deg,#3a0c18,#0d0d0f 65%);overflow:hidden"><div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.03),rgba(255,255,255,.03) 2px,transparent 2px,transparent 13px)"></div><div style="position:absolute;left:30px;bottom:24px"><div style="font:500 11px 'DM Sans';color:#9a9aa6">REDBRIDGE FC · YOUTH</div><div style="font:400 44px 'Bebas Neue';letter-spacing:.6px;line-height:.9">U12 TIGERS</div></div><div style="position:absolute;right:30px;bottom:24px;background:#d8455f;color:#fff;font:700 12px 'DM Sans';padding:11px 18px;border-radius:10px">Join this team</div></div>
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:0">
+      <div style="padding:24px 28px;border-right:1px solid #1c1c22">
+        <div style="display:flex;gap:12px;margin-bottom:22px"><div style="flex:1;border:1px solid #23232a;border-radius:13px;padding:14px"><div style="font:600 9px 'DM Sans';color:#9a9aa6">NEXT MATCH</div><div style="font:700 13px 'DM Sans';margin-top:5px">v City · Sun 11:00</div><div style="font:500 10px 'DM Sans';color:#6b6b75">Cup · Home</div></div><div style="flex:1;border:1px solid #23232a;border-radius:13px;padding:14px"><div style="font:600 9px 'DM Sans';color:#9a9aa6">TRAINING</div><div style="font:700 13px 'DM Sans';margin-top:5px">Wed 17:00</div><div style="font:500 10px 'DM Sans';color:#6b6b75">Coach R. Patel</div></div></div>
+        <div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:11px">SQUAD <span style="font:600 9px 'DM Sans';color:#6b6b75">· 🛡️ U18 safeguarded</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Jack M.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">FWD</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Amir K.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">MID</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Leo T.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">GK</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Sam P.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">DEF</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Tom H.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">MID</div></div></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #23232a;border-radius:11px;padding:9px"><div style="width:28px;height:28px;border-radius:50%;background:#23232a"></div><div><div style="font:700 11px 'DM Sans'">Noah B.</div><div style="font:500 9px 'DM Sans';color:#6b6b75">DEF</div></div></div>
+        </div>
+      </div>
+      <div style="padding:24px 28px">
+        <div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:10px">FORM</div>
+        <div style="display:flex;gap:6px;margin-bottom:20px"><span style="width:26px;height:26px;border-radius:7px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue'">W</span><span style="width:26px;height:26px;border-radius:7px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue'">W</span><span style="width:26px;height:26px;border-radius:7px;background:#331016;color:#ff8aa0;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue'">L</span><span style="width:26px;height:26px;border-radius:7px;background:#2a2a31;color:#c0c0c8;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue'">D</span><span style="width:26px;height:26px;border-radius:7px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue'">W</span></div>
+        <div style="font:400 18px 'Bebas Neue';letter-spacing:.5px;margin-bottom:10px">MINI-LEAGUE</div>
+        <div style="border:1px solid #23232a;border-radius:12px;overflow:hidden">
+          <div style="display:flex;align-items:center;padding:9px 12px;font:600 11px 'DM Sans'"><span style="width:18px;color:#9a9aa6">2</span><span style="flex:1">City Colts</span><span style="font:400 13px 'Bebas Neue'">24</span></div>
+          <div style="display:flex;align-items:center;padding:9px 12px;border-top:1px solid #1c1c22;background:#16100f;font:700 11px 'DM Sans';color:#ff8aa0"><span style="width:18px">3</span><span style="flex:1">U12 Tigers</span><span style="font:400 13px 'Bebas Neue';color:#d8455f">22</span></div>
+          <div style="display:flex;align-items:center;padding:9px 12px;border-top:1px solid #1c1c22;font:600 11px 'DM Sans'"><span style="width:18px;color:#9a9aa6">4</span><span style="flex:1">Albion Jrs</span><span style="font:400 13px 'Bebas Neue'">19</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:18px 30px;background:#000;display:flex;align-items:center;justify-content:space-between"><div style="font:400 16px 'Bebas Neue';letter-spacing:.6px;color:#fff">REDBRIDGE FC</div><div style="font:500 11px 'DM Sans';color:rgba(255,255,255,.4)">Powered by In or Out</div></div>
+  </div>
+</div>
+
+<!-- note -->
+<div style="position:absolute;left:1400px;top:124px;width:300px;background:#0d0d0f;border:1px solid #23232a;border-radius:16px;padding:20px;color:#fff">
+  <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:11px;color:#d8455f">WHY THIS PAGE MATTERS</div>
+  <div style="font:500 12px 'DM Sans';color:#c7c7cf;line-height:1.6">"No-one cares about the whole club — a parent cares about <b style="color:#fff">U12 Tigers</b>." This is the page they bookmark and share in the team WhatsApp. Every team links here from the home page's Teams block.</div>
+  <div style="margin-top:14px;border-top:1px solid #23232a;padding-top:13px;font:500 11px 'DM Sans';color:#9a9aa6;line-height:1.5">Squad uses the <b style="color:#c7c7cf">already-safeguarded</b> payload — "Jack M." + avatar placeholder, photos suppressed under the club's <b style="color:#c7c7cf">min_public_age</b>.</div>
+</div>
+
+
+<!-- ===== PLAYER PROFILE (adult; minors restricted) ===== -->
+<div style="position:absolute;left:80px;top:840px;width:320px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Player profile (adults only · minors restricted)</div>
+  <div style="background:#000;border-radius:44px;padding:10px;box-shadow:0 20px 50px -18px rgba(0,0,0,.5)">
+    <div style="background:#0d0d0f;border-radius:34px;overflow:hidden;height:560px;position:relative">
+      <div style="height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 20px 0 24px;font:600 12px 'DM Sans'"><span>9:41</span><span style="font-size:10px">●●● ▦ ▮</span></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:2px 16px 10px"><span style="font:700 17px 'DM Sans';color:#9a9aa6">‹</span><span style="font:500 11px 'DM Sans';color:#9a9aa6">First XI</span></div>
+      <div style="position:relative;height:170px;margin:0 12px;border-radius:16px;overflow:hidden;background:linear-gradient(150deg,#3a0c18,#0d0d0f 75%)"><div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.035),rgba(255,255,255,.035) 2px,transparent 2px,transparent 12px)"></div><div style="position:absolute;left:14px;bottom:13px;display:flex;align-items:flex-end;gap:12px"><div style="width:60px;height:60px;border-radius:14px;background:#0d0d0f;border:1px solid #3a1420;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#6b6b75">photo</div><div><div style="font:400 26px 'Bebas Neue';letter-spacing:.4px;line-height:.9">J. MENSAH</div><div style="font:600 11px 'DM Sans';color:#9a9aa6">Forward · #7</div></div></div></div>
+      <div style="display:flex;margin:13px 12px 0;border:1px solid #23232a;border-radius:14px;overflow:hidden">
+        <div style="flex:1;text-align:center;padding:12px 0;border-right:1px solid #23232a"><div style="font:400 26px 'Bebas Neue';color:#d8455f;line-height:1">14</div><div style="font:600 8px 'DM Sans';color:#6b6b75">GOALS</div></div>
+        <div style="flex:1;text-align:center;padding:12px 0;border-right:1px solid #23232a"><div style="font:400 26px 'Bebas Neue';line-height:1">19</div><div style="font:600 8px 'DM Sans';color:#6b6b75">APPS</div></div>
+        <div style="flex:1;text-align:center;padding:12px 0"><div style="font:400 26px 'Bebas Neue';color:#3fcf6a;line-height:1">92%</div><div style="font:600 8px 'DM Sans';color:#6b6b75">RELIABLE</div></div>
+      </div>
+      <div style="padding:16px 12px 0"><div style="font:400 16px 'Bebas Neue';letter-spacing:.5px;margin-bottom:9px">RECENT</div><div style="display:flex;gap:6px"><span style="width:24px;height:24px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">⚽</span><span style="width:24px;height:24px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">⚽</span><span style="width:24px;height:24px;border-radius:6px;background:#2a2a31;color:#9a9aa6;display:flex;align-items:center;justify-content:center;font-size:11px">–</span><span style="width:24px;height:24px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">⚽</span></div></div>
+      <div style="margin:16px 12px 0;border:1px solid #23232a;border-radius:11px;padding:11px 13px;font:500 10px 'DM Sans';color:#9a9aa6;line-height:1.45">⭐ Player of the Month · April. Stats are season-scoped &amp; auto-built from match data.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

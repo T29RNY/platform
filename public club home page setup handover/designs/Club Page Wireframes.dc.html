@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;color:#2a2a2a;}
+  @keyframes wfpulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @keyframes wfbar{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+</style>
+</helmet>
+
+<!-- ============ CANVAS TITLE ============ -->
+<div style="position:absolute;left:80px;top:-70px;width:1200px">
+  <div style="font:700 30px system-ui;color:#1f1f1f">"In or Out" — Public Club Page · Wireframes</div>
+  <div style="font:500 15px system-ui;color:#7a7a7a;margin-top:6px">Mid-fi structure &amp; flow · grey = placeholder · <span style="color:#d8492f;font-weight:700">coral = live / actionable</span> · yellow = behaviour notes · theme swatches = per-club 3-colour system</div>
+</div>
+
+<!-- ============ ZONE A HEADER ============ -->
+<div style="position:absolute;left:80px;top:30px;width:900px">
+  <div style="font:700 22px system-ui;color:#1f1f1f;letter-spacing:.3px">A · Public Club Home Page <span style="font-weight:500;color:#9a9a9a">— the live shop window (no login)</span></div>
+  <div style="height:3px;width:560px;background:#1f1f1f;margin-top:8px"></div>
+</div>
+
+<!-- ===== A1 · FOOTBALL · POPULATED (mobile) ===== -->
+<div style="position:absolute;left:80px;top:110px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">A1 · Football · fully populated</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)">
+    <div style="background:#fff;border-radius:19px;overflow:hidden;height:760px;overflow-y:auto">
+      <!-- status bar -->
+      <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ● &nbsp; ⌁</span></div>
+      <!-- hero -->
+      <div style="background:repeating-linear-gradient(45deg,#efefef,#efefef 7px,#e7e7e7 7px,#e7e7e7 14px);padding:18px 14px 14px;position:relative">
+        <div style="position:absolute;top:8px;right:10px;font:11px ui-monospace,monospace;color:#9a9a9a">hero image</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:46px;height:46px;border-radius:50%;background:#fff;border:2px solid #cfcfcf;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#9a9a9a;text-align:center;line-height:1.1">crest</div>
+          <div><div style="font:800 17px system-ui;color:#222">Redbridge FC</div><div style="font:500 11px system-ui;color:#777">Community since 1989</div></div>
+        </div>
+      </div>
+      <!-- live/next strip -->
+      <div style="margin:10px 12px;border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;background:#fafafa">
+        <div><div style="font:600 9px system-ui;color:#999;letter-spacing:.5px">NEXT FIXTURE</div><div style="font:700 12px system-ui;color:#333;margin-top:2px">First XI vs Rovers</div><div style="font:500 10px system-ui;color:#888">Sat 10:00 · Home</div></div>
+        <div style="background:#1d1d1d;color:#fff;border-radius:7px;padding:7px 11px;font:600 11px system-ui">Follow →</div>
+      </div>
+      <!-- JOIN CTA (persistent) -->
+      <div style="margin:0 12px 4px;border:1.5px solid #d8492f;border-radius:10px;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;background:#fff6f4">
+        <div><div style="font:800 13px system-ui;color:#c2402a">Join the club</div><div style="font:500 10px system-ui;color:#9a6b5f">Invite link + QR · primary goal</div></div>
+        <div style="width:38px;height:38px;background:#fff;border:1px solid #e3b5aa;border-radius:6px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#c2402a">QR</div>
+      </div>
+      <!-- section: fixtures/results/table -->
+      <div style="padding:14px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Fixtures · Results · Table</div>
+        <div style="display:flex;gap:5px;margin-bottom:8px">
+          <div style="flex:1;text-align:center;font:600 10px system-ui;background:#1d1d1d;color:#fff;border-radius:6px;padding:5px">Upcoming</div>
+          <div style="flex:1;text-align:center;font:600 10px system-ui;background:#eee;color:#777;border-radius:6px;padding:5px">Results</div>
+          <div style="flex:1;text-align:center;font:600 10px system-ui;background:#eee;color:#777;border-radius:6px;padding:5px">Table</div>
+        </div>
+        <div style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-bottom:1px solid #f0f0f0;font:600 11px system-ui;color:#444">Rovers (H)<span style="font:500 10px;color:#888">Sat 10:00 →</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-bottom:1px solid #f0f0f0;font:600 11px system-ui;color:#444">Athletic (A)<span style="font:500 10px;color:#888">Sat 14:00 →</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;font:600 11px system-ui;color:#444">United (H)<span style="font:500 10px;color:#888">Sun 11:00 →</span></div>
+        </div>
+        <div style="font:500 9px system-ui;color:#aaa;margin-top:5px">↑ each row taps → match-day / follow live</div>
+      </div>
+      <!-- teams -->
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Teams &amp; age groups</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <div style="font:600 11px system-ui;background:#f0f0f0;border-radius:14px;padding:6px 12px;color:#555">First XI</div>
+          <div style="font:600 11px system-ui;background:#f0f0f0;border-radius:14px;padding:6px 12px;color:#555">U16s</div>
+          <div style="font:600 11px system-ui;background:#f0f0f0;border-radius:14px;padding:6px 12px;color:#555">U12s</div>
+          <div style="font:600 11px system-ui;background:#f0f0f0;border-radius:14px;padding:6px 12px;color:#555">U10s</div>
+        </div>
+      </div>
+      <!-- news -->
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Latest news</div>
+        <div style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden">
+          <div style="height:80px;background:repeating-linear-gradient(45deg,#efefef,#efefef 7px,#e7e7e7 7px,#e7e7e7 14px);display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#9a9a9a">post image</div>
+          <div style="padding:9px 11px"><div style="font:700 11px system-ui;color:#333">Cup run continues</div><div style="height:7px;background:#ececec;border-radius:4px;margin:6px 0"></div><div style="height:7px;width:70%;background:#ececec;border-radius:4px"></div><div style="font:600 10px system-ui;color:#d8492f;margin-top:8px">Read more →</div></div>
+        </div>
+      </div>
+      <!-- sponsors wall -->
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Sponsors</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <div style="height:34px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+          <div style="height:34px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+          <div style="height:34px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+          <div style="height:34px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+          <div style="height:34px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+          <div style="height:34px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+        </div>
+      </div>
+      <!-- about/contact -->
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:6px">About &amp; contact</div>
+        <div style="height:7px;background:#ececec;border-radius:4px;margin-bottom:5px"></div>
+        <div style="height:7px;width:80%;background:#ececec;border-radius:4px;margin-bottom:10px"></div>
+        <div style="font:500 10px system-ui;color:#888">📍 Redbridge Rec Ground · ☎ contact · social ◯ ◯ ◯</div>
+      </div>
+      <!-- footer -->
+      <div style="margin-top:8px;padding:12px;background:#f7f7f7;text-align:center;font:500 9px system-ui;color:#aaa">powered by In or Out · privacy · terms</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== A2 · FOOTBALL · LIVE state (mobile) ===== -->
+<div style="position:absolute;left:430px;top:110px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">A2 · Live-match state</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)">
+    <div style="background:#fff;border-radius:19px;overflow:hidden;height:760px;overflow-y:auto">
+      <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ● &nbsp; ⌁</span></div>
+      <div style="background:repeating-linear-gradient(45deg,#efefef,#efefef 7px,#e7e7e7 7px,#e7e7e7 14px);padding:18px 14px 14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:46px;height:46px;border-radius:50%;background:#fff;border:2px solid #cfcfcf;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#9a9a9a">crest</div>
+          <div><div style="font:800 17px system-ui;color:#222">Redbridge FC</div><div style="font:500 11px system-ui;color:#777">Community since 1989</div></div>
+        </div>
+      </div>
+      <!-- LIVE strip replaces next-fixture -->
+      <div style="margin:10px 12px;border:1.5px solid #d8492f;border-radius:10px;padding:11px 12px;background:#fff6f4">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><span style="width:9px;height:9px;border-radius:50%;background:#d8492f;display:inline-block;animation:wfpulse 1.2s infinite"></span><span style="font:800 10px system-ui;color:#d8492f;letter-spacing:1px">PLAYING NOW — FOLLOW LIVE</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="text-align:center;flex:1"><div style="font:600 10px system-ui;color:#555">Redbridge</div><div style="font:800 24px system-ui;color:#222">2</div></div>
+          <div style="font:700 11px system-ui;color:#999">67'</div>
+          <div style="text-align:center;flex:1"><div style="font:600 10px system-ui;color:#555">Rovers</div><div style="font:800 24px system-ui;color:#222">1</div></div>
+        </div>
+        <div style="background:#d8492f;color:#fff;text-align:center;border-radius:7px;padding:8px;font:700 11px system-ui;margin-top:9px">Open match-day →</div>
+      </div>
+      <!-- live feed ticker -->
+      <div style="margin:0 12px 4px;border:1px solid #eee;border-radius:8px;overflow:hidden">
+        <div style="padding:8px 11px;border-bottom:1px solid #f2f2f2;font:600 10px system-ui;color:#444">⚽ 67' Goal — Redbridge</div>
+        <div style="padding:8px 11px;border-bottom:1px solid #f2f2f2;font:500 10px system-ui;color:#777">🟨 54' Booking — Rovers</div>
+        <div style="padding:8px 11px;font:500 10px system-ui;color:#777">⚽ 33' Goal — Rovers</div>
+        <div style="height:3px;background:#f3f3f3;overflow:hidden"><div style="height:3px;width:40%;background:#d8492f;animation:wfbar 2.4s linear infinite"></div></div>
+      </div>
+      <!-- join still persistent -->
+      <div style="margin:10px 12px 4px;border:1.5px solid #d8492f;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;background:#fff">
+        <div style="font:800 12px system-ui;color:#c2402a">Join the club</div>
+        <div style="width:34px;height:34px;background:#fff;border:1px solid #e3b5aa;border-radius:6px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#c2402a">QR</div>
+      </div>
+      <div style="padding:14px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Other fixtures today</div>
+        <div style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border-bottom:1px solid #f0f0f0;font:600 11px system-ui;color:#444">U16s vs Athletic<span style="color:#d8492f;font:700 9px">● LIVE 0-0</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;font:600 11px system-ui;color:#444">U12s vs City<span style="font:500 10px;color:#888">KO 12:00</span></div>
+        </div>
+      </div>
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Latest news</div>
+        <div style="border:1px solid #e8e8e8;border-radius:8px;padding:9px 11px"><div style="font:700 11px system-ui;color:#333">Match preview</div><div style="height:7px;background:#ececec;border-radius:4px;margin-top:6px"></div></div>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:#f7f7f7;text-align:center;font:500 9px system-ui;color:#aaa">powered by In or Out</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== A3 · NEW / SPARSE club (mobile) ===== -->
+<div style="position:absolute;left:780px;top:110px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">A3 · Brand-new sparse club · empty states</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)">
+    <div style="background:#fff;border-radius:19px;overflow:hidden;height:760px;overflow-y:auto">
+      <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ● &nbsp; ⌁</span></div>
+      <div style="background:#f4f4f4;padding:18px 14px 14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:46px;height:46px;border-radius:50%;background:#e9e9e9;border:2px dashed #c8c8c8;display:flex;align-items:center;justify-content:center;font:14px system-ui;color:#aaa">RW</div>
+          <div><div style="font:800 17px system-ui;color:#222">Riverside Wanderers</div><div style="font:500 11px system-ui;color:#aaa">Add a tagline →</div></div>
+        </div>
+        <div style="font:500 9px ui-monospace,monospace;color:#bbb;margin-top:8px">no hero yet → fallback = club colour wash + crest initials</div>
+      </div>
+      <!-- join is ALWAYS present, even when empty -->
+      <div style="margin:10px 12px;border:1.5px solid #d8492f;border-radius:10px;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;background:#fff6f4">
+        <div><div style="font:800 13px system-ui;color:#c2402a">Join the club</div><div style="font:500 10px system-ui;color:#9a6b5f">Share link + QR to fill your squad</div></div>
+        <div style="width:38px;height:38px;background:#fff;border:1px solid #e3b5aa;border-radius:6px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#c2402a">QR</div>
+      </div>
+      <!-- intentional empty states -->
+      <div style="padding:14px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Fixtures</div>
+        <div style="border:1.5px dashed #dcdcdc;border-radius:10px;padding:18px 12px;text-align:center;background:#fbfbfb">
+          <div style="font:30px system-ui;color:#d6d6d6;line-height:1">◔</div>
+          <div style="font:600 11px system-ui;color:#888;margin-top:6px">No fixtures scheduled</div>
+          <div style="font:500 10px system-ui;color:#aaa;margin-top:2px">Your league fixtures appear here automatically</div>
+        </div>
+      </div>
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Teams</div>
+        <div style="border:1.5px dashed #dcdcdc;border-radius:10px;padding:16px 12px;text-align:center;background:#fbfbfb">
+          <div style="font:600 11px system-ui;color:#888">No teams yet</div>
+          <div style="font:500 10px system-ui;color:#aaa;margin-top:2px">Invite members → squads form here</div>
+        </div>
+      </div>
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">News</div>
+        <div style="border:1.5px dashed #dcdcdc;border-radius:10px;padding:16px 12px;text-align:center;background:#fbfbfb">
+          <div style="font:600 11px system-ui;color:#888">Nothing posted yet</div>
+        </div>
+      </div>
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:6px">About</div>
+        <div style="font:500 10px system-ui;color:#888">📍 Add your home venue · ☎ contact</div>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:#f7f7f7;text-align:center;font:500 9px system-ui;color:#aaa">powered by In or Out</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== A4 · GYM / BOXING discipline (mobile) ===== -->
+<div style="position:absolute;left:1130px;top:110px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">A4 · Gym / boxing · same shell, different blocks</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)">
+    <div style="background:#fff;border-radius:19px;overflow:hidden;height:760px;overflow-y:auto">
+      <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ● &nbsp; ⌁</span></div>
+      <div style="background:repeating-linear-gradient(45deg,#efefef,#efefef 7px,#e7e7e7 7px,#e7e7e7 14px);padding:18px 14px 14px;position:relative">
+        <div style="position:absolute;top:8px;right:10px;font:11px ui-monospace,monospace;color:#9a9a9a">hero image</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:46px;height:46px;border-radius:50%;background:#fff;border:2px solid #cfcfcf;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#9a9a9a">crest</div>
+          <div><div style="font:800 16px system-ui;color:#222">Ironside Boxing</div><div style="font:500 11px system-ui;color:#777">Discipline. Respect.</div></div>
+        </div>
+      </div>
+      <!-- next class strip (no fixtures) -->
+      <div style="margin:10px 12px;border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;background:#fafafa">
+        <div><div style="font:600 9px system-ui;color:#999;letter-spacing:.5px">NEXT CLASS</div><div style="font:700 12px system-ui;color:#333;margin-top:2px">Sparring · Adults</div><div style="font:500 10px system-ui;color:#888">Today 18:30 · 6 spots left</div></div>
+        <div style="background:#1d1d1d;color:#fff;border-radius:7px;padding:7px 11px;font:600 11px system-ui">Book →</div>
+      </div>
+      <div style="margin:0 12px 4px;border:1.5px solid #d8492f;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;background:#fff6f4">
+        <div style="font:800 12px system-ui;color:#c2402a">Join / first session free</div>
+        <div style="width:34px;height:34px;background:#fff;border:1px solid #e3b5aa;border-radius:6px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#c2402a">QR</div>
+      </div>
+      <!-- class timetable -->
+      <div style="padding:14px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Class timetable</div>
+        <div style="border:1px solid #e8e8e8;border-radius:8px;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;padding:9px 11px;border-bottom:1px solid #f0f0f0;font:600 11px system-ui;color:#444"><span>Mon · Pads &amp; bags</span><span style="font:500 10px;color:#888">18:00</span></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 11px;border-bottom:1px solid #f0f0f0;font:600 11px system-ui;color:#444"><span>Tue · Sparring</span><span style="font:500 10px;color:#888">18:30</span></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 11px;border-bottom:1px solid #f0f0f0;font:600 11px system-ui;color:#444"><span>Wed · Juniors</span><span style="font:500 10px;color:#888">17:00</span></div>
+          <div style="display:flex;justify-content:space-between;padding:9px 11px;font:600 11px system-ui;color:#444"><span>Sat · Open mat</span><span style="font:500 10px;color:#888">10:00</span></div>
+        </div>
+      </div>
+      <!-- grading / belts -->
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Grading &amp; belts</div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <div style="flex:1;height:10px;border-radius:5px;background:#dcdcdc"></div>
+          <div style="flex:1;height:10px;border-radius:5px;background:#c4c4c4"></div>
+          <div style="flex:1;height:10px;border-radius:5px;background:#a8a8a8"></div>
+          <div style="flex:1;height:10px;border-radius:5px;background:#8c8c8c"></div>
+          <div style="flex:1;height:10px;border-radius:5px;background:#2a2a2a"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font:500 9px system-ui;color:#999;margin-top:4px"><span>White</span><span>Black</span></div>
+        <div style="font:500 9px ui-monospace,monospace;color:#bbb;margin-top:6px">next grading: Sat 12 Jul →</div>
+      </div>
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Coaches</div>
+        <div style="display:flex;gap:8px"><div style="width:40px;height:40px;border-radius:50%;background:#eee"></div><div style="width:40px;height:40px;border-radius:50%;background:#eee"></div><div style="width:40px;height:40px;border-radius:50%;background:#eee"></div></div>
+      </div>
+      <div style="padding:12px 12px 4px"><div style="font:700 12px system-ui;color:#333;margin-bottom:8px">Sponsors</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div style="height:32px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px"></div><div style="height:32px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px"></div><div style="height:32px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:6px"></div></div>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:#f7f7f7;text-align:center;font:500 9px system-ui;color:#aaa">powered by In or Out</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== A5 · SOCIAL SHARE preview card ===== -->
+<div style="position:absolute;left:1480px;top:110px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">A5 · Shared-link / social preview (WhatsApp, etc.)</div>
+  <div style="background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.1);overflow:hidden;border:1px solid #eee">
+    <!-- the OG card -->
+    <div style="height:178px;background:repeating-linear-gradient(45deg,#e9e9e9,#e9e9e9 8px,#e2e2e2 8px,#e2e2e2 16px);position:relative;display:flex;align-items:center;justify-content:center">
+      <div style="font:11px ui-monospace,monospace;color:#9a9a9a;position:absolute;top:8px;left:10px">hero image (1200×630)</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="width:56px;height:56px;border-radius:50%;background:#fff;border:2px solid #cfcfcf;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#9a9a9a">crest</div>
+        <div style="font:800 18px system-ui;color:#333;text-shadow:0 1px 2px #fff">Redbridge FC</div>
+      </div>
+      <div style="position:absolute;bottom:8px;right:10px;background:#d8492f;color:#fff;font:700 9px system-ui;padding:4px 8px;border-radius:5px">● LIVE 2-1</div>
+    </div>
+    <div style="padding:12px 14px">
+      <div style="font:700 13px system-ui;color:#222">Redbridge FC — follow the club live</div>
+      <div style="font:500 11px system-ui;color:#888;margin-top:3px">Fixtures, results &amp; one-tap join</div>
+      <div style="font:600 11px ui-monospace,monospace;color:#aaa;margin-top:7px">in-or-out.club/redbridge</div>
+    </div>
+  </div>
+  <div style="margin-top:14px;font:600 12px system-ui;color:#555">Same card, draft/empty club ↓</div>
+  <div style="background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.1);overflow:hidden;border:1px solid #eee;margin-top:8px">
+    <div style="height:120px;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:44px;height:44px;border-radius:50%;background:#e4e4e4;border:2px dashed #c8c8c8;display:flex;align-items:center;justify-content:center;font:13px system-ui;color:#aaa">RW</div><div style="font:800 15px system-ui;color:#555">Riverside Wanderers</div></div></div>
+    <div style="padding:11px 14px"><div style="font:700 12px system-ui;color:#333">Riverside Wanderers</div><div style="font:600 10px ui-monospace,monospace;color:#aaa;margin-top:5px">in-or-out.club/riverside</div></div>
+  </div>
+</div>
+
+<!-- post-its zone A -->
+<div style="position:absolute;left:80px;top:910px;width:230px;background:#fef4a8;padding:13px 15px;box-shadow:0 2px 6px rgba(0,0,0,.12);transform:rotate(-1deg);font:600 15px Caveat,cursive;color:#6b5e10;line-height:1.35">Sections are modular — admin toggles on/off &amp; reorders. Page must look complete with 3 sections OR all 8.</div>
+<div style="position:absolute;left:430px;top:910px;width:230px;background:#fef4a8;padding:13px 15px;box-shadow:0 2px 6px rgba(0,0,0,.12);transform:rotate(1deg);font:600 15px Caveat,cursive;color:#6b5e10;line-height:1.35">Live state: next-fixture strip flips to pulsing score + event ticker. Join CTA stays persistent throughout.</div>
+<div style="position:absolute;left:1130px;top:910px;width:230px;background:#fef4a8;padding:13px 15px;box-shadow:0 2px 6px rgba(0,0,0,.12);transform:rotate(-1deg);font:600 15px Caveat,cursive;color:#6b5e10;line-height:1.35">Discipline swap: fixtures/table → class timetable + belts. Same shell, content blocks differ.</div>
+
+<!-- ===== A6 · DESKTOP home · football (populated, live in hero) ===== -->
+<div style="position:absolute;left:80px;top:1180px;width:860px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">A6 · Desktop · football home (live in hero)</div>
+  <div style="background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1);overflow:hidden;border:1px solid #e6e6e6">
+    <!-- browser chrome -->
+    <div style="height:34px;background:#ededed;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #e0e0e0">
+      <span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span>
+      <div style="flex:1;margin-left:10px;height:20px;background:#fff;border-radius:11px;border:1px solid #e0e0e0;display:flex;align-items:center;padding:0 12px;font:600 11px ui-monospace,monospace;color:#999">in-or-out.club/redbridge</div>
+    </div>
+    <!-- club nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #f0f0f0">
+      <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:50%;background:#fff;border:2px solid #cfcfcf;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#aaa">crest</div><div style="font:800 16px system-ui;color:#222">Redbridge FC</div></div>
+      <div style="display:flex;align-items:center;gap:18px;font:600 12px system-ui;color:#666"><span>Fixtures</span><span>Teams</span><span>News</span><span>Sponsors</span><span>About</span><span style="background:#d8492f;color:#fff;padding:7px 14px;border-radius:7px">Join</span></div>
+    </div>
+    <!-- hero w/ live -->
+    <div style="height:200px;background:repeating-linear-gradient(45deg,#ececec,#ececec 9px,#e4e4e4 9px,#e4e4e4 18px);position:relative;display:flex;align-items:center;padding:0 32px">
+      <div style="position:absolute;top:10px;right:14px;font:11px ui-monospace,monospace;color:#9a9a9a">hero image</div>
+      <div style="background:rgba(255,255,255,.9);border:1.5px solid #d8492f;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:22px;box-shadow:0 4px 16px rgba(0,0,0,.08)">
+        <div style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:#d8492f;animation:wfpulse 1.2s infinite"></span><span style="font:800 11px system-ui;color:#d8492f;letter-spacing:1px">LIVE</span></div>
+        <div style="text-align:center"><div style="font:600 11px system-ui;color:#555">Redbridge</div><div style="font:800 30px system-ui">2</div></div>
+        <div style="font:700 13px system-ui;color:#999">67'</div>
+        <div style="text-align:center"><div style="font:600 11px system-ui;color:#555">Rovers</div><div style="font:800 30px system-ui">1</div></div>
+        <div style="background:#d8492f;color:#fff;border-radius:8px;padding:10px 16px;font:700 12px system-ui">Follow live →</div>
+      </div>
+    </div>
+    <!-- body 2-col -->
+    <div style="display:flex;gap:18px;padding:18px 20px">
+      <div style="flex:2">
+        <div style="font:700 13px system-ui;margin-bottom:8px">Fixtures · Results · Table</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px"><div style="font:600 11px system-ui;background:#1d1d1d;color:#fff;border-radius:6px;padding:6px 14px">Upcoming</div><div style="font:600 11px system-ui;background:#eee;color:#777;border-radius:6px;padding:6px 14px">Results</div><div style="font:600 11px system-ui;background:#eee;color:#777;border-radius:6px;padding:6px 14px">Table</div></div>
+        <div style="border:1px solid #eee;border-radius:8px;overflow:hidden;margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #f2f2f2;font:600 12px system-ui;color:#444">First XI vs Rovers (H)<span style="font:500 11px;color:#888">Sat 10:00 →</span></div>
+          <div style="display:flex;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #f2f2f2;font:600 12px system-ui;color:#444">U16s vs Athletic (A)<span style="font:500 11px;color:#888">Sat 14:00 →</span></div>
+          <div style="display:flex;justify-content:space-between;padding:11px 14px;font:600 12px system-ui;color:#444">U12s vs City (H)<span style="font:500 11px;color:#888">Sun 11:00 →</span></div>
+        </div>
+        <div style="font:700 13px system-ui;margin-bottom:8px">Latest news</div>
+        <div style="display:flex;gap:12px"><div style="flex:1;border:1px solid #eee;border-radius:8px;overflow:hidden"><div style="height:74px;background:repeating-linear-gradient(45deg,#efefef,#efefef 7px,#e7e7e7 7px,#e7e7e7 14px)"></div><div style="padding:9px"><div style="font:700 11px system-ui">Cup run continues</div><div style="height:6px;background:#ececec;border-radius:3px;margin-top:6px"></div></div></div><div style="flex:1;border:1px solid #eee;border-radius:8px;overflow:hidden"><div style="height:74px;background:repeating-linear-gradient(45deg,#efefef,#efefef 7px,#e7e7e7 7px,#e7e7e7 14px)"></div><div style="padding:9px"><div style="font:700 11px system-ui">New kit launch</div><div style="height:6px;background:#ececec;border-radius:3px;margin-top:6px"></div></div></div></div>
+      </div>
+      <div style="flex:1">
+        <div style="border:1.5px solid #d8492f;border-radius:10px;padding:14px;text-align:center;background:#fff6f4;margin-bottom:14px"><div style="font:800 14px system-ui;color:#c2402a">Join the club</div><div style="width:74px;height:74px;background:#fff;border:1px solid #e3b5aa;border-radius:8px;margin:10px auto;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#c2402a">QR</div><div style="font:500 10px system-ui;color:#9a6b5f">scan or share invite link</div></div>
+        <div style="font:700 12px system-ui;margin-bottom:8px">Teams</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px"><div style="font:600 11px system-ui;background:#f0f0f0;border-radius:13px;padding:5px 11px;color:#555">First XI</div><div style="font:600 11px system-ui;background:#f0f0f0;border-radius:13px;padding:5px 11px;color:#555">U16s</div><div style="font:600 11px system-ui;background:#f0f0f0;border-radius:13px;padding:5px 11px;color:#555">U12s</div><div style="font:600 11px system-ui;background:#f0f0f0;border-radius:13px;padding:5px 11px;color:#555">U10s</div></div>
+        <div style="font:700 12px system-ui;margin-bottom:8px">Sponsors</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"><div style="height:30px;background:#f2f2f2;border:1px solid #eee;border-radius:5px"></div><div style="height:30px;background:#f2f2f2;border:1px solid #eee;border-radius:5px"></div><div style="height:30px;background:#f2f2f2;border:1px solid #eee;border-radius:5px"></div><div style="height:30px;background:#f2f2f2;border:1px solid #eee;border-radius:5px"></div><div style="height:30px;background:#f2f2f2;border:1px solid #eee;border-radius:5px"></div><div style="height:30px;background:#f2f2f2;border:1px solid #eee;border-radius:5px"></div></div>
+      </div>
+    </div>
+    <div style="padding:12px;background:#f7f7f7;text-align:center;font:500 10px system-ui;color:#aaa;border-top:1px solid #f0f0f0">powered by In or Out · privacy · terms · contact</div>
+  </div>
+</div>
+
+<!-- ===== A7 · DESKTOP home · gym/boxing ===== -->
+<div style="position:absolute;left:990px;top:1180px;width:600px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">A7 · Desktop · gym/boxing home</div>
+  <div style="background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1);overflow:hidden;border:1px solid #e6e6e6">
+    <div style="height:34px;background:#ededed;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #e0e0e0">
+      <span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span>
+      <div style="flex:1;margin-left:10px;height:20px;background:#fff;border-radius:11px;border:1px solid #e0e0e0;display:flex;align-items:center;padding:0 12px;font:600 11px ui-monospace,monospace;color:#999">in-or-out.club/ironside</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 18px;border-bottom:1px solid #f0f0f0">
+      <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid #cfcfcf;display:flex;align-items:center;justify-content:center;font:7px ui-monospace,monospace;color:#aaa">crest</div><div style="font:800 14px system-ui;color:#222">Ironside Boxing</div></div>
+      <div style="display:flex;align-items:center;gap:14px;font:600 11px system-ui;color:#666"><span>Timetable</span><span>Grading</span><span>Coaches</span><span style="background:#d8492f;color:#fff;padding:6px 12px;border-radius:6px">Join</span></div>
+    </div>
+    <div style="height:150px;background:repeating-linear-gradient(45deg,#ececec,#ececec 9px,#e4e4e4 9px,#e4e4e4 18px);position:relative;display:flex;align-items:flex-end;padding:16px">
+      <div style="position:absolute;top:10px;right:14px;font:11px ui-monospace,monospace;color:#9a9a9a">hero image</div>
+      <div style="background:rgba(255,255,255,.9);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:14px"><div><div style="font:600 9px system-ui;color:#999">NEXT CLASS</div><div style="font:700 12px system-ui">Sparring · 18:30 · 6 spots</div></div><div style="background:#1d1d1d;color:#fff;border-radius:7px;padding:8px 13px;font:700 11px system-ui">Book →</div></div>
+    </div>
+    <div style="display:flex;gap:16px;padding:16px 18px">
+      <div style="flex:2"><div style="font:700 12px system-ui;margin-bottom:8px">Class timetable</div>
+        <div style="border:1px solid #eee;border-radius:8px;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #f2f2f2;font:600 11px system-ui;color:#444"><span>Mon · Pads &amp; bags</span><span style="color:#888">18:00</span></div>
+          <div style="display:flex;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #f2f2f2;font:600 11px system-ui;color:#444"><span>Tue · Sparring</span><span style="color:#888">18:30</span></div>
+          <div style="display:flex;justify-content:space-between;padding:10px 13px;font:600 11px system-ui;color:#444"><span>Sat · Open mat</span><span style="color:#888">10:00</span></div>
+        </div>
+        <div style="font:700 12px system-ui;margin:14px 0 8px">Grading &amp; belts</div>
+        <div style="display:flex;gap:3px"><div style="flex:1;height:10px;border-radius:5px;background:#dcdcdc"></div><div style="flex:1;height:10px;border-radius:5px;background:#bdbdbd"></div><div style="flex:1;height:10px;border-radius:5px;background:#9a9a9a"></div><div style="flex:1;height:10px;border-radius:5px;background:#2a2a2a"></div></div>
+      </div>
+      <div style="flex:1"><div style="border:1.5px solid #d8492f;border-radius:10px;padding:13px;text-align:center;background:#fff6f4"><div style="font:800 12px system-ui;color:#c2402a">First session free</div><div style="width:60px;height:60px;background:#fff;border:1px solid #e3b5aa;border-radius:8px;margin:9px auto;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#c2402a">QR</div></div></div>
+    </div>
+    <div style="padding:11px;background:#f7f7f7;text-align:center;font:500 9px system-ui;color:#aaa">powered by In or Out</div>
+  </div>
+</div>
+
+<!-- ============ ZONE B HEADER ============ -->
+<div style="position:absolute;left:80px;top:1820px;width:900px">
+  <div style="font:700 22px system-ui;color:#1f1f1f;letter-spacing:.3px">B · Setup Wizard <span style="font-weight:500;color:#9a9a9a">— admin stands the page up once (skippable where safe)</span></div>
+  <div style="height:3px;width:560px;background:#1f1f1f;margin-top:8px"></div>
+  <div style="font:600 13px system-ui;color:#888;margin-top:8px">Identity → Crest → Colours → Hero → Sections → Teams → Sponsors → News → Safeguarding → Publish</div>
+</div>
+
+<!-- helper: wizard progress shown per frame. Step 1 -->
+<!-- ===== B1 Identity ===== -->
+<div style="position:absolute;left:80px;top:1930px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B1 · Identity</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 1 of 10</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Club identity</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:14px">The basics visitors see first.</div>
+      <div style="font:600 10px system-ui;color:#777;margin-bottom:4px">Club name</div>
+      <div style="height:36px;border:1px solid #ddd;border-radius:8px;background:#fafafa;display:flex;align-items:center;padding:0 11px;font:600 12px system-ui;color:#333;margin-bottom:11px">Redbridge FC</div>
+      <div style="font:600 10px system-ui;color:#777;margin-bottom:4px">Tagline</div>
+      <div style="height:36px;border:1px solid #ddd;border-radius:8px;background:#fafafa;display:flex;align-items:center;padding:0 11px;font:500 12px system-ui;color:#999;margin-bottom:11px">Community since 1989</div>
+      <div style="font:600 10px system-ui;color:#777;margin-bottom:4px">Vanity URL</div>
+      <div style="height:36px;border:1px solid #ddd;border-radius:8px;background:#fafafa;display:flex;align-items:center;padding:0 11px;font:600 11px ui-monospace,monospace;color:#666;margin-bottom:11px">in-or-out.club/<span style="color:#222">redbridge</span> <span style="margin-left:auto;color:#2e9b57;font-size:13px">✓</span></div>
+      <div style="display:flex;gap:8px"><div style="flex:1;height:34px;border:1px solid #ddd;border-radius:8px;background:#fafafa;display:flex;align-items:center;padding:0 10px;font:500 10px system-ui;color:#999">📍 Venue</div><div style="flex:1;height:34px;border:1px solid #ddd;border-radius:8px;background:#fafafa;display:flex;align-items:center;padding:0 10px;font:500 10px system-ui;color:#999">☎ Contact</div></div>
+      <div style="font:500 10px system-ui;color:#999;margin-top:10px">Socials: ◯ ◯ ◯ +</div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Back</div><div style="flex:1.6;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Next →</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B2 Crest upload ===== -->
+<div style="position:absolute;left:430px;top:1930px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B2 · Crest upload</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 2 of 10</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Upload your crest</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:16px">Badge appears in hero, nav &amp; share card.</div>
+      <div style="border:2px dashed #d2d2d2;border-radius:14px;padding:28px 14px;text-align:center;background:#fbfbfb">
+        <div style="width:64px;height:64px;border-radius:50%;background:#fff;border:1px solid #e0e0e0;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font:11px ui-monospace,monospace;color:#aaa">crest</div>
+        <div style="font:700 12px system-ui;color:#444">Drop image or browse</div>
+        <div style="font:500 10px system-ui;color:#aaa;margin-top:3px">PNG/SVG · square works best</div>
+      </div>
+      <div style="margin-top:14px;border:1px solid #f0e3d8;background:#fdf8f3;border-radius:9px;padding:10px 12px;font:500 11px system-ui;color:#9a7a5a"><b style="color:#7a5a3a">No crest?</b> We'll generate a monogram badge from your initials + club colours.</div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Back</div><div style="flex:1.6;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Next →</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B3 Colours + contrast ===== -->
+<div style="position:absolute;left:780px;top:1930px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B3 · Colours · auto-suggest + contrast</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 3 of 10</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Club colours</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:13px">Auto-picked from your crest — tweak any.</div>
+      <div style="font:600 10px system-ui;color:#777;margin-bottom:6px">Suggested from crest ✨</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <div style="flex:1;text-align:center"><div style="height:46px;border-radius:9px;background:#8a8a8a;border:2px solid #1d1d1d"></div><div style="font:500 8px ui-monospace,monospace;color:#999;margin-top:3px">primary</div></div>
+        <div style="flex:1;text-align:center"><div style="height:46px;border-radius:9px;background:#c0c0c0;border:1px solid #ddd"></div><div style="font:500 8px ui-monospace,monospace;color:#999;margin-top:3px">secondary</div></div>
+        <div style="flex:1;text-align:center"><div style="height:46px;border-radius:9px;background:#2a2a2a;border:1px solid #ddd"></div><div style="font:500 8px ui-monospace,monospace;color:#999;margin-top:3px">accent</div></div>
+        <div style="flex:.6;text-align:center"><div style="height:46px;border-radius:9px;background:#fafafa;border:1.5px dashed #ccc;display:flex;align-items:center;justify-content:center;font:18px system-ui;color:#bbb">+</div></div>
+      </div>
+      <div style="font:600 10px system-ui;color:#777;margin-bottom:6px">Live contrast check</div>
+      <div style="border:1px solid #eee;border-radius:9px;overflow:hidden">
+        <div style="background:#8a8a8a;padding:9px 11px;display:flex;align-items:center;justify-content:space-between"><span style="color:#fff;font:700 12px system-ui">Sample button</span><span style="background:#2e9b57;color:#fff;font:700 8px system-ui;padding:3px 6px;border-radius:4px">AA ✓ 5.2:1</span></div>
+        <div style="background:#f0f0f0;padding:9px 11px;display:flex;align-items:center;justify-content:space-between"><span style="color:#c9c9c9;font:700 12px system-ui">Low contrast</span><span style="background:#d8492f;color:#fff;font:700 8px system-ui;padding:3px 6px;border-radius:4px">FAIL 1.4:1</span></div>
+      </div>
+      <div style="font:500 10px system-ui;color:#888;margin-top:9px;line-height:1.4">Text/foreground tones derived automatically so copy stays readable on any pick.</div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Back</div><div style="flex:1.6;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Next →</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B4 Hero crop ===== -->
+<div style="position:absolute;left:1130px;top:1930px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B4 · Hero image + crop</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 4 of 10</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Hero banner</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:14px">One image — drag to reposition the crop.</div>
+      <div style="position:relative;border-radius:12px;overflow:hidden;background:repeating-linear-gradient(45deg,#e9e9e9,#e9e9e9 8px,#e2e2e2 8px,#e2e2e2 16px);height:150px">
+        <div style="position:absolute;inset:18px 14px;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.28);border-radius:4px"></div>
+        <div style="position:absolute;top:6px;left:8px;font:10px ui-monospace,monospace;color:#888">hero image</div>
+        <div style="position:absolute;left:50%;bottom:8px;transform:translateX(-50%);font:600 9px system-ui;color:#fff;background:rgba(0,0,0,.5);padding:3px 8px;border-radius:10px">drag · 16:9 crop</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:8px;font:600 11px system-ui;color:#666">Replace</div><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:8px;font:600 11px system-ui;color:#666">Reset crop</div></div>
+      <div style="margin-top:12px;font:500 10px system-ui;color:#999;line-height:1.4">Skippable — fallback hero = club-colour wash behind the crest.</div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Skip</div><div style="flex:1.6;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Next →</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B5 Choose sections (toggle + reorder) ===== -->
+<div style="position:absolute;left:1480px;top:1930px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B5 · Choose &amp; order sections</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 5 of 10</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Page sections</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:12px">Drag to reorder · toggle on/off. <span style="color:#7a5a3a">Football defaults shown.</span></div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px;background:#fff"><span style="color:#ccc;font:13px system-ui">⠿</span><span style="font:700 12px system-ui;color:#333;flex:1">Hero</span><div style="width:34px;height:19px;border-radius:10px;background:#2e9b57;position:relative"><div style="width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px"></div></div></div>
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px;background:#fff"><span style="color:#ccc;font:13px system-ui">⠿</span><span style="font:700 12px system-ui;color:#333;flex:1">Fixtures &amp; table</span><div style="width:34px;height:19px;border-radius:10px;background:#2e9b57;position:relative"><div style="width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px"></div></div></div>
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px;background:#fff"><span style="color:#ccc;font:13px system-ui">⠿</span><span style="font:700 12px system-ui;color:#333;flex:1">Teams</span><div style="width:34px;height:19px;border-radius:10px;background:#2e9b57;position:relative"><div style="width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px"></div></div></div>
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px;background:#fff"><span style="color:#ccc;font:13px system-ui">⠿</span><span style="font:700 12px system-ui;color:#333;flex:1">News</span><div style="width:34px;height:19px;border-radius:10px;background:#2e9b57;position:relative"><div style="width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px"></div></div></div>
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px;background:#fafafa;opacity:.6"><span style="color:#ccc;font:13px system-ui">⠿</span><span style="font:700 12px system-ui;color:#999;flex:1">Sponsors</span><div style="width:34px;height:19px;border-radius:10px;background:#dcdcdc;position:relative"><div style="width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px"></div></div></div>
+      </div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Back</div><div style="flex:1.6;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Next →</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B6 Teams import ===== -->
+<div style="position:absolute;left:80px;top:2560px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B6 · Teams / age groups</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:6;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:4;background:#eee;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 6 of 10</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Teams to display</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:13px">Imported from your squads — pick what's public.</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:10px 11px"><div style="width:18px;height:18px;border-radius:5px;background:#1d1d1d;color:#fff;display:flex;align-items:center;justify-content:center;font:11px system-ui">✓</div><span style="font:700 12px system-ui;color:#333;flex:1">First XI</span><span style="font:500 10px system-ui;color:#aaa">18 players</span></div>
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:10px 11px"><div style="width:18px;height:18px;border-radius:5px;background:#1d1d1d;color:#fff;display:flex;align-items:center;justify-content:center;font:11px system-ui">✓</div><span style="font:700 12px system-ui;color:#333;flex:1">U16s</span><span style="font:500 10px system-ui;color:#aaa">14 players</span></div>
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:10px 11px"><div style="width:18px;height:18px;border-radius:5px;background:#1d1d1d;color:#fff;display:flex;align-items:center;justify-content:center;font:11px system-ui">✓</div><span style="font:700 12px system-ui;color:#333;flex:1">U12s</span><span style="font:500 10px system-ui;color:#aaa">12 players</span></div>
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:10px 11px;opacity:.55"><div style="width:18px;height:18px;border-radius:5px;border:1.5px solid #ccc"></div><span style="font:700 12px system-ui;color:#999;flex:1">U10s</span><span style="font:500 10px system-ui;color:#aaa">hidden</span></div>
+      </div>
+      <div style="margin-top:11px;border:1px dashed #ddd;border-radius:8px;padding:9px;text-align:center;font:600 11px system-ui;color:#888">+ Add a team manually</div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Back</div><div style="flex:1.6;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Next →</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B7 Sponsors (optional) ===== -->
+<div style="position:absolute;left:430px;top:2560px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B7 · Sponsors <span style="color:#aaa">(optional)</span></div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:7;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:3;background:#eee;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 7 of 10 · optional</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Sponsor logos</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:14px">A wall — one logo each. Drag to reorder.</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <div style="height:48px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:7px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+        <div style="height:48px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:7px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+        <div style="height:48px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:7px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+        <div style="height:48px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:7px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#aaa">logo</div>
+        <div style="height:48px;border:1.5px dashed #d2d2d2;border-radius:7px;display:flex;align-items:center;justify-content:center;font:20px system-ui;color:#bbb">+</div>
+      </div>
+      <div style="margin-top:12px;font:500 10px system-ui;color:#999;line-height:1.4">Bounded grid — looks tidy whether you add 2 logos or 20.</div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Skip</div><div style="flex:1.6;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Next →</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B8 First news post (optional) ===== -->
+<div style="position:absolute;left:780px;top:2560px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B8 · First news post <span style="color:#aaa">(optional)</span></div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:8;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:2;background:#eee;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 8 of 10 · optional</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">A starter post</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:13px">Welcomes visitors — fills the News block.</div>
+      <div style="height:34px;border:1px solid #ddd;border-radius:8px;background:#fafafa;display:flex;align-items:center;padding:0 11px;font:600 12px system-ui;color:#333;margin-bottom:9px">Welcome to our new home</div>
+      <div style="height:74px;border:2px dashed #d2d2d2;border-radius:8px;background:#fbfbfb;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#aaa;margin-bottom:9px">+ post image (one)</div>
+      <div style="border:1px solid #ddd;border-radius:8px;background:#fafafa;padding:10px 11px;min-height:60px"><div style="height:7px;background:#e6e6e6;border-radius:4px;margin-bottom:6px"></div><div style="height:7px;width:85%;background:#e6e6e6;border-radius:4px;margin-bottom:6px"></div><div style="height:7px;width:60%;background:#e6e6e6;border-radius:4px"></div></div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Skip</div><div style="flex:1.6;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Next →</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B9 Safeguarding (MANDATORY) ===== -->
+<div style="position:absolute;left:1130px;top:2560px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#d8492f">B9 · Safeguarding · MANDATORY</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:9;background:#1d1d1d;border-radius:2px"></div><div style="height:4px;flex:1;background:#eee;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#d8492f">Step 9 of 10 · required</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Safeguarding</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:13px">This is a junior/youth club — protections are ON by default.</div>
+      <div style="border:1.5px solid #f0d9d2;background:#fdf6f4;border-radius:11px;padding:13px">
+        <div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:11px"><div style="width:34px;height:19px;border-radius:10px;background:#2e9b57;position:relative;flex-shrink:0"><div style="width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px"></div></div><div><div style="font:700 11px system-ui;color:#333">Hide minors' surnames</div><div style="font:500 10px system-ui;color:#999">Squad lists show "Jack M."</div></div></div>
+        <div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:11px"><div style="width:34px;height:19px;border-radius:10px;background:#2e9b57;position:relative;flex-shrink:0"><div style="width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px"></div></div><div><div style="font:700 11px system-ui;color:#333">Hide minors' photos</div><div style="font:500 10px system-ui;color:#999">Applies to squads, news &amp; images</div></div></div>
+        <div style="display:flex;align-items:flex-start;gap:9px"><div style="width:34px;height:19px;border-radius:10px;background:#2e9b57;position:relative;flex-shrink:0"><div style="width:15px;height:15px;border-radius:50%;background:#fff;position:absolute;top:2px;right:2px"></div></div><div><div style="font:700 11px system-ui;color:#333">Approve images before publish</div></div></div>
+      </div>
+      <div style="margin-top:11px;display:flex;align-items:center;gap:8px"><div style="width:18px;height:18px;border-radius:5px;border:1.5px solid #d8492f"></div><span style="font:600 11px system-ui;color:#555">I confirm these settings <span style="color:#d8492f">*</span></span></div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Back</div><div style="flex:1.6;text-align:center;background:#cfcfcf;color:#fff;border-radius:8px;padding:10px;font:600 12px system-ui">Confirm to continue</div></div>
+  </div></div>
+</div>
+
+<!-- ===== B10 Preview & publish ===== -->
+<div style="position:absolute;left:1480px;top:2560px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B10 · Preview &amp; publish</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:560px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:4px;margin-bottom:14px"><div style="height:4px;flex:1;background:#1d1d1d;border-radius:2px"></div></div>
+      <div style="font:500 10px system-ui;color:#aaa">Step 10 of 10</div>
+      <div style="font:800 18px system-ui;color:#222;margin:2px 0 4px">Preview &amp; publish</div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:12px">Exactly what the public will see.</div>
+      <div style="border:1px solid #e6e6e6;border-radius:10px;overflow:hidden;transform:scale(1)">
+        <div style="background:repeating-linear-gradient(45deg,#efefef,#efefef 6px,#e7e7e7 6px,#e7e7e7 12px);padding:10px;display:flex;align-items:center;gap:7px"><div style="width:26px;height:26px;border-radius:50%;background:#fff;border:1px solid #ccc"></div><div style="font:800 11px system-ui;color:#333">Redbridge FC</div></div>
+        <div style="padding:8px"><div style="height:6px;background:#ececec;border-radius:3px;margin-bottom:5px"></div><div style="height:24px;background:#fff6f4;border:1px solid #f0d9d2;border-radius:5px;margin-bottom:5px"></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px"><div style="height:16px;background:#f2f2f2;border-radius:3px"></div><div style="height:16px;background:#f2f2f2;border-radius:3px"></div><div style="height:16px;background:#f2f2f2;border-radius:3px"></div></div></div>
+      </div>
+      <div style="display:flex;gap:7px;margin-top:11px"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:8px;font:600 11px system-ui;color:#666">📱 Mobile</div><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:8px;font:600 11px system-ui;color:#666">💻 Desktop</div></div>
+      <div style="margin-top:9px;display:flex;align-items:center;gap:7px;font:600 11px system-ui;color:#888"><span style="background:#fff3cd;color:#8a6d00;padding:3px 8px;border-radius:5px;font-size:10px">DRAFT</span> → will go live</div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:10px;font:600 12px system-ui;color:#999">Back</div><div style="flex:1.6;text-align:center;background:#d8492f;color:#fff;border-radius:8px;padding:10px;font:700 12px system-ui">Publish 🚀</div></div>
+  </div></div>
+</div>
+
+<!-- post-its zone B -->
+<div style="position:absolute;left:1480px;top:3160px;width:240px;background:#fef4a8;padding:13px 15px;box-shadow:0 2px 6px rgba(0,0,0,.12);transform:rotate(1deg);font:600 15px Caveat,cursive;color:#6b5e10;line-height:1.35">Safeguarding can't be skipped for youth clubs — "Next" is disabled until confirmed. Everything else is skippable &amp; reorderable.</div>
+
+<!-- ===== B-flagship · Branding controls detail (desktop) ===== -->
+<div style="position:absolute;left:80px;top:3220px;width:680px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B★ · Branding engine · crest → auto-palette → contrast (the differentiator)</div>
+  <div style="background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.1);border:1px solid #e6e6e6;padding:20px">
+    <div style="display:flex;gap:22px">
+      <!-- 1 crest -->
+      <div style="flex:1">
+        <div style="font:700 12px system-ui;color:#333;margin-bottom:9px">1 · Crest in</div>
+        <div style="border:2px dashed #d2d2d2;border-radius:12px;padding:20px;text-align:center;background:#fbfbfb"><div style="width:70px;height:70px;border-radius:50%;background:#fff;border:1px solid #e0e0e0;margin:0 auto;display:flex;align-items:center;justify-content:center;font:11px ui-monospace,monospace;color:#aaa">crest.png</div></div>
+        <div style="font:500 10px system-ui;color:#999;margin-top:8px;text-align:center">→ colours sampled from badge</div>
+      </div>
+      <div style="display:flex;align-items:center;font:24px system-ui;color:#ccc">→</div>
+      <!-- 2 palette -->
+      <div style="flex:1.2">
+        <div style="font:700 12px system-ui;color:#333;margin-bottom:9px">2 · Suggested palette (editable)</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <div style="flex:1;text-align:center"><div style="height:54px;border-radius:9px;background:#7a7a7a;border:2px solid #1d1d1d"></div><div style="font:600 8px ui-monospace,monospace;color:#888;margin-top:4px">#7A7A7A</div><div style="font:500 8px system-ui;color:#aaa">primary</div></div>
+          <div style="flex:1;text-align:center"><div style="height:54px;border-radius:9px;background:#bcbcbc;border:1px solid #ddd"></div><div style="font:600 8px ui-monospace,monospace;color:#888;margin-top:4px">#BCBCBC</div><div style="font:500 8px system-ui;color:#aaa">secondary</div></div>
+          <div style="flex:1;text-align:center"><div style="height:54px;border-radius:9px;background:#2a2a2a;border:1px solid #ddd"></div><div style="font:600 8px ui-monospace,monospace;color:#888;margin-top:4px">#2A2A2A</div><div style="font:500 8px system-ui;color:#aaa">accent</div></div>
+        </div>
+        <div style="font:500 10px system-ui;color:#999">Max 3 colours · tap any to override. Text/foreground tones auto-derived for legibility.</div>
+      </div>
+      <div style="display:flex;align-items:center;font:24px system-ui;color:#ccc">→</div>
+      <!-- 3 contrast -->
+      <div style="flex:1.1">
+        <div style="font:700 12px system-ui;color:#333;margin-bottom:9px">3 · Live contrast guard</div>
+        <div style="border:1px solid #eee;border-radius:9px;overflow:hidden;margin-bottom:8px">
+          <div style="background:#7a7a7a;padding:10px 12px;display:flex;align-items:center;justify-content:space-between"><span style="color:#fff;font:700 12px system-ui">Join button</span><span style="background:#2e9b57;color:#fff;font:700 9px system-ui;padding:3px 7px;border-radius:5px">PASS 4.8:1</span></div>
+          <div style="background:#dcdcdc;padding:10px 12px;display:flex;align-items:center;justify-content:space-between"><span style="color:#bdbdbd;font:700 12px system-ui">If too light…</span><span style="background:#d8492f;color:#fff;font:700 9px system-ui;padding:3px 7px;border-radius:5px">FAIL 1.3:1</span></div>
+        </div>
+        <div style="border:1px solid #f0d9d2;background:#fdf6f4;border-radius:8px;padding:9px 11px;font:500 10px system-ui;color:#9a6b5f"><b style="color:#c2402a">Auto-fix:</b> nudges text to dark/light or deepens the colour until it passes AA.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== B-desktop · wizard shell (desktop) ===== -->
+<div style="position:absolute;left:810px;top:3220px;width:620px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">B · Desktop wizard shell (left rail steps + live preview)</div>
+  <div style="background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.1);border:1px solid #e6e6e6;overflow:hidden">
+    <div style="height:34px;background:#ededed;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #e0e0e0"><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><div style="margin-left:8px;font:600 11px system-ui;color:#999">Set up your club page</div></div>
+    <div style="display:flex;height:340px">
+      <!-- step rail -->
+      <div style="width:170px;border-right:1px solid #f0f0f0;padding:14px 12px;background:#fafafa;font:600 11px system-ui">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#999"><span style="width:16px;height:16px;border-radius:50%;background:#2e9b57;color:#fff;display:flex;align-items:center;justify-content:center;font:9px system-ui">✓</span>Identity</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#999"><span style="width:16px;height:16px;border-radius:50%;background:#2e9b57;color:#fff;display:flex;align-items:center;justify-content:center;font:9px system-ui">✓</span>Crest</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;border-radius:6px;background:#1d1d1d;color:#fff"><span style="width:16px;height:16px;border-radius:50%;background:#fff;color:#1d1d1d;display:flex;align-items:center;justify-content:center;font:9px system-ui">3</span>Colours</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#bbb"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #ccc;display:flex;align-items:center;justify-content:center;font:9px system-ui">4</span>Hero</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#bbb"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #ccc;display:flex;align-items:center;justify-content:center;font:9px system-ui">5</span>Sections</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#bbb"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #ccc;display:flex;align-items:center;justify-content:center;font:9px system-ui">6</span>Teams</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#bbb"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #ccc"></span>Sponsors</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#bbb"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #ccc"></span>News</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#c2402a"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #d8492f">!</span>Safeguard</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 7px;color:#bbb"><span style="width:16px;height:16px;border-radius:50%;border:1.5px solid #ccc"></span>Publish</div>
+      </div>
+      <!-- editor -->
+      <div style="flex:1.1;padding:16px;border-right:1px solid #f0f0f0">
+        <div style="font:800 15px system-ui;color:#222">Club colours</div>
+        <div style="font:500 11px system-ui;color:#888;margin:3px 0 14px">Auto-picked from crest — adjust below.</div>
+        <div style="display:flex;gap:8px;margin-bottom:14px"><div style="flex:1;height:46px;border-radius:8px;background:#7a7a7a;border:2px solid #1d1d1d"></div><div style="flex:1;height:46px;border-radius:8px;background:#bcbcbc"></div><div style="flex:1;height:46px;border-radius:8px;background:#2a2a2a"></div></div>
+        <div style="border:1px solid #eee;border-radius:8px;padding:10px;font:600 11px system-ui;color:#555;display:flex;justify-content:space-between;align-items:center">Contrast on Join button <span style="background:#2e9b57;color:#fff;font-size:9px;padding:3px 7px;border-radius:5px">AA ✓</span></div>
+      </div>
+      <!-- live preview -->
+      <div style="flex:.9;padding:14px;background:#f7f7f7">
+        <div style="font:600 10px system-ui;color:#999;margin-bottom:8px">LIVE PREVIEW</div>
+        <div style="background:#fff;border-radius:8px;border:1px solid #e6e6e6;overflow:hidden"><div style="background:#7a7a7a;padding:9px;display:flex;align-items:center;gap:6px"><div style="width:22px;height:22px;border-radius:50%;background:#fff"></div><div style="color:#fff;font:800 10px system-ui">Redbridge FC</div></div><div style="padding:8px"><div style="background:#2a2a2a;color:#fff;text-align:center;border-radius:5px;padding:6px;font:700 9px system-ui">Join</div></div></div>
+      </div>
+    </div>
+    <div style="padding:11px 16px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between"><div style="font:600 11px system-ui;color:#999;border:1px solid #ddd;border-radius:7px;padding:8px 16px">Back</div><div style="display:flex;gap:8px"><div style="font:600 11px system-ui;color:#999;border:1px solid #ddd;border-radius:7px;padding:8px 16px">Save &amp; exit</div><div style="font:600 11px system-ui;color:#fff;background:#1d1d1d;border-radius:7px;padding:8px 18px">Next →</div></div></div>
+  </div>
+</div>
+
+<!-- ============ ZONE C HEADER ============ -->
+<div style="position:absolute;left:80px;top:3760px;width:900px">
+  <div style="font:700 22px system-ui;color:#1f1f1f;letter-spacing:.3px">C · Edit / Manage Dashboard <span style="font-weight:500;color:#9a9a9a">— same blocks, always-on (not a linear flow)</span></div>
+  <div style="height:3px;width:560px;background:#1f1f1f;margin-top:8px"></div>
+</div>
+
+<!-- ===== C1 · Mobile dashboard overview ===== -->
+<div style="position:absolute;left:80px;top:3870px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">C1 · Manage · overview (mobile)</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:600px;overflow-y:auto">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font:800 17px system-ui;color:#222">Manage page</div><div style="display:flex;align-items:center;gap:5px;font:700 9px system-ui;color:#2e9b57"><span style="width:7px;height:7px;border-radius:50%;background:#2e9b57"></span>LIVE</div></div>
+      <div style="font:600 11px ui-monospace,monospace;color:#aaa;margin-bottom:14px">in-or-out.club/redbridge</div>
+      <!-- draft toggle bar -->
+      <div style="background:#fff3cd;border:1px solid #f0e0a0;border-radius:9px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><span style="font:600 10px system-ui;color:#8a6d00">2 unpublished edits</span><div style="display:flex;gap:6px"><span style="font:700 9px system-ui;color:#8a6d00;border:1px solid #d8c87a;border-radius:5px;padding:4px 8px">Discard</span><span style="font:700 9px system-ui;color:#fff;background:#1d1d1d;border-radius:5px;padding:4px 9px">Publish</span></div></div>
+      <div style="font:600 10px system-ui;color:#999;margin-bottom:8px">SECTIONS · tap to edit</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:11px"><span style="font:15px system-ui">🎨</span><div style="flex:1"><div style="font:700 12px system-ui;color:#333">Brand &amp; crest</div><div style="font:500 10px system-ui;color:#aaa">colours, badge, hero</div></div><span style="color:#bbb;font:14px system-ui">✎</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:11px"><span style="font:15px system-ui">▦</span><div style="flex:1"><div style="font:700 12px system-ui;color:#333">Sections &amp; order</div><div style="font:500 10px system-ui;color:#aaa">5 on · reorder</div></div><span style="color:#bbb;font:14px system-ui">✎</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:11px"><span style="font:15px system-ui">👥</span><div style="flex:1"><div style="font:700 12px system-ui;color:#333">Teams</div><div style="font:500 10px system-ui;color:#aaa">4 shown</div></div><span style="color:#bbb;font:14px system-ui">✎</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:11px"><span style="font:15px system-ui">📰</span><div style="flex:1"><div style="font:700 12px system-ui;color:#333">News / blog</div><div style="font:500 10px system-ui;color:#aaa">6 posts · 1 draft</div></div><span style="color:#bbb;font:14px system-ui">✎</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:11px"><span style="font:15px system-ui">🏷️</span><div style="flex:1"><div style="font:700 12px system-ui;color:#333">Sponsors</div><div style="font:500 10px system-ui;color:#aaa">6 logos</div></div><span style="color:#bbb;font:14px system-ui">✎</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #f0d9d2;background:#fdf6f4;border-radius:9px;padding:11px"><span style="font:15px system-ui">🛡️</span><div style="flex:1"><div style="font:700 12px system-ui;color:#c2402a">Safeguarding</div><div style="font:500 10px system-ui;color:#bb8a7a">protections ON</div></div><span style="color:#d8a79a;font:14px system-ui">✎</span></div>
+      </div>
+      <div style="margin-top:12px;text-align:center;border:1px solid #ddd;border-radius:9px;padding:11px;font:700 12px system-ui;color:#555">👁 Preview public page</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===== C2 · Mobile news editor ===== -->
+<div style="position:absolute;left:430px;top:3870px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">C2 · News / blog editor</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:600px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span style="color:#bbb;font:16px system-ui">←</span><div style="font:800 16px system-ui;color:#222">News</div><div style="margin-left:auto;background:#1d1d1d;color:#fff;border-radius:7px;padding:7px 12px;font:600 11px system-ui">+ New</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:9px"><div style="width:44px;height:44px;border-radius:6px;background:repeating-linear-gradient(45deg,#efefef,#efefef 5px,#e7e7e7 5px,#e7e7e7 10px)"></div><div style="flex:1"><div style="font:700 11px system-ui;color:#333">Cup run continues</div><div style="font:500 9px system-ui;color:#aaa">Published · 2d ago</div></div><span style="background:#e6f4ec;color:#2e9b57;font:700 8px system-ui;padding:3px 6px;border-radius:4px">LIVE</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:9px"><div style="width:44px;height:44px;border-radius:6px;background:repeating-linear-gradient(45deg,#efefef,#efefef 5px,#e7e7e7 5px,#e7e7e7 10px)"></div><div style="flex:1"><div style="font:700 11px system-ui;color:#333">New kit launch</div><div style="font:500 9px system-ui;color:#aaa">Draft</div></div><span style="background:#fff3cd;color:#8a6d00;font:700 8px system-ui;padding:3px 6px;border-radius:4px">DRAFT</span></div>
+      </div>
+      <div style="margin-top:14px;border-top:1px solid #f0f0f0;padding-top:14px">
+        <div style="font:600 10px system-ui;color:#999;margin-bottom:8px">EDITING · New kit launch</div>
+        <div style="height:32px;border:1px solid #ddd;border-radius:8px;background:#fafafa;display:flex;align-items:center;padding:0 11px;font:600 11px system-ui;color:#333;margin-bottom:8px">New kit launch</div>
+        <div style="height:60px;border:2px dashed #d2d2d2;border-radius:8px;background:#fbfbfb;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#aaa;margin-bottom:8px">post image (one)</div>
+        <div style="border:1px solid #ddd;border-radius:8px;background:#fafafa;padding:9px;min-height:44px"><div style="height:6px;background:#e6e6e6;border-radius:3px;margin-bottom:5px"></div><div style="height:6px;width:75%;background:#e6e6e6;border-radius:3px"></div></div>
+      </div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:11px 16px;border-top:1px solid #f0f0f0;display:flex;gap:8px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:9px;font:600 11px system-ui;color:#999">Save draft</div><div style="flex:1.4;text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:9px;font:600 11px system-ui">Publish post</div></div>
+  </div></div>
+</div>
+
+<!-- ===== C3 · Mobile sponsors manager ===== -->
+<div style="position:absolute;left:780px;top:3870px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">C3 · Sponsors manager</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:600px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="color:#bbb;font:16px system-ui">←</span><div style="font:800 16px system-ui;color:#222">Sponsors</div></div>
+      <div style="font:500 11px system-ui;color:#888;margin-bottom:14px">Drag to reorder · tap ✕ to remove.</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:9px 11px"><span style="color:#ccc;font:14px system-ui">⠿</span><div style="width:46px;height:30px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:5px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#aaa">logo</div><span style="flex:1;font:600 11px system-ui;color:#444">Sponsor A</span><span style="color:#c9a;font:13px system-ui;color:#c66">✕</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:9px 11px"><span style="color:#ccc;font:14px system-ui">⠿</span><div style="width:46px;height:30px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:5px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#aaa">logo</div><span style="flex:1;font:600 11px system-ui;color:#444">Sponsor B</span><span style="font:13px system-ui;color:#c66">✕</span></div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid #eee;border-radius:9px;padding:9px 11px"><span style="color:#ccc;font:14px system-ui">⠿</span><div style="width:46px;height:30px;background:#f2f2f2;border:1px solid #e8e8e8;border-radius:5px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#aaa">logo</div><span style="flex:1;font:600 11px system-ui;color:#444">Sponsor C</span><span style="font:13px system-ui;color:#c66">✕</span></div>
+      </div>
+      <div style="margin-top:12px;border:1.5px dashed #d2d2d2;border-radius:9px;padding:16px;text-align:center;background:#fbfbfb"><div style="font:22px system-ui;color:#bbb">+</div><div style="font:600 11px system-ui;color:#888">Add sponsor logo</div></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===== C4 · Draft vs published / preview / discard ===== -->
+<div style="position:absolute;left:1130px;top:3870px;width:300px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">C4 · Draft ⇄ Published · preview · discard</div>
+  <div style="background:#1d1d1d;border-radius:26px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.14)"><div style="background:#fff;border-radius:19px;overflow:hidden;height:600px">
+    <div style="height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 10px system-ui;color:#999">9:41<span>● ● ●</span></div>
+    <div style="padding:14px 16px">
+      <div style="font:800 16px system-ui;color:#222;margin-bottom:14px">Publish changes</div>
+      <!-- segmented draft/published -->
+      <div style="display:flex;background:#f0f0f0;border-radius:9px;padding:3px;margin-bottom:14px"><div style="flex:1;text-align:center;background:#fff;border-radius:7px;padding:8px;font:700 11px system-ui;color:#333;box-shadow:0 1px 2px rgba(0,0,0,.08)">Draft</div><div style="flex:1;text-align:center;padding:8px;font:700 11px system-ui;color:#999">Published</div></div>
+      <div style="border:1px solid #eee;border-radius:10px;overflow:hidden;margin-bottom:14px">
+        <div style="background:#fff3cd;padding:9px 11px;font:700 10px system-ui;color:#8a6d00;border-bottom:1px solid #f0e0a0">Draft preview — what you'll publish</div>
+        <div style="padding:9px"><div style="background:repeating-linear-gradient(45deg,#efefef,#efefef 6px,#e7e7e7 6px,#e7e7e7 12px);height:50px;border-radius:5px;margin-bottom:6px"></div><div style="height:6px;background:#ececec;border-radius:3px;margin-bottom:4px"></div><div style="height:6px;width:70%;background:#ececec;border-radius:3px"></div></div>
+      </div>
+      <div style="border:1px solid #eee;border-radius:9px;padding:11px;margin-bottom:11px">
+        <div style="font:600 10px system-ui;color:#999;margin-bottom:7px">CHANGED SINCE LIVE</div>
+        <div style="font:500 11px system-ui;color:#555;line-height:1.7">• Primary colour → darker<br>• Added sponsor "C"<br>• New post: kit launch</div>
+      </div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:11px 16px;border-top:1px solid #f0f0f0;background:#fff"><div style="display:flex;gap:8px;margin-bottom:8px"><div style="flex:1;text-align:center;border:1px solid #ddd;border-radius:8px;padding:9px;font:600 11px system-ui;color:#999">👁 Preview</div><div style="flex:1;text-align:center;border:1px solid #e3b5aa;color:#c2402a;border-radius:8px;padding:9px;font:600 11px system-ui">Discard</div></div><div style="text-align:center;background:#1d1d1d;color:#fff;border-radius:8px;padding:10px;font:700 12px system-ui">Publish to live</div></div>
+  </div></div>
+</div>
+
+<!-- ===== C5 · Desktop dashboard overview ===== -->
+<div style="position:absolute;left:80px;top:4520px;width:720px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">C5 · Desktop · manage dashboard (live page + quick-edit entry points)</div>
+  <div style="background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.1);border:1px solid #e6e6e6;overflow:hidden">
+    <div style="height:34px;background:#ededed;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #e0e0e0"><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><div style="margin-left:8px;font:600 11px system-ui;color:#999">Manage · Redbridge FC</div></div>
+    <!-- top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid #f0f0f0"><div style="display:flex;align-items:center;gap:10px"><div style="font:800 15px system-ui;color:#222">Manage page</div><span style="display:flex;align-items:center;gap:5px;font:700 9px system-ui;color:#2e9b57"><span style="width:7px;height:7px;border-radius:50%;background:#2e9b57"></span>LIVE</span></div><div style="display:flex;align-items:center;gap:9px"><span style="background:#fff3cd;color:#8a6d00;font:600 10px system-ui;padding:5px 9px;border-radius:6px">2 unpublished edits</span><span style="font:600 11px system-ui;color:#999;border:1px solid #ddd;border-radius:7px;padding:7px 13px">Discard</span><span style="font:600 11px system-ui;color:#666;border:1px solid #ddd;border-radius:7px;padding:7px 13px">👁 Preview</span><span style="font:700 11px system-ui;color:#fff;background:#1d1d1d;border-radius:7px;padding:7px 15px">Publish</span></div></div>
+    <div style="display:flex">
+      <!-- left: live page mini -->
+      <div style="flex:1.1;padding:16px;background:#f7f7f7;border-right:1px solid #f0f0f0">
+        <div style="font:600 10px system-ui;color:#999;margin-bottom:8px">LIVE PAGE · click a section to edit</div>
+        <div style="background:#fff;border-radius:8px;border:1px solid #e6e6e6;overflow:hidden">
+          <div style="background:repeating-linear-gradient(45deg,#efefef,#efefef 6px,#e7e7e7 6px,#e7e7e7 12px);padding:11px;display:flex;align-items:center;gap:7px;position:relative"><div style="width:26px;height:26px;border-radius:50%;background:#fff;border:1px solid #ccc"></div><div style="font:800 11px system-ui;color:#333">Redbridge FC</div><span style="position:absolute;top:6px;right:7px;background:#1d1d1d;color:#fff;font:600 8px system-ui;padding:3px 6px;border-radius:4px">✎ Hero</span></div>
+          <div style="padding:9px;border-bottom:1px solid #f4f4f4;position:relative"><div style="height:22px;background:#fff6f4;border:1px solid #f0d9d2;border-radius:5px"></div><span style="position:absolute;top:6px;right:7px;background:#1d1d1d;color:#fff;font:600 8px system-ui;padding:3px 6px;border-radius:4px">✎ Fixtures</span></div>
+          <div style="padding:9px;position:relative"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px"><div style="height:18px;background:#f2f2f2;border-radius:3px"></div><div style="height:18px;background:#f2f2f2;border-radius:3px"></div><div style="height:18px;background:#f2f2f2;border-radius:3px"></div></div><span style="position:absolute;top:6px;right:7px;background:#1d1d1d;color:#fff;font:600 8px system-ui;padding:3px 6px;border-radius:4px">✎ Sponsors</span></div>
+        </div>
+      </div>
+      <!-- right: section list -->
+      <div style="flex:.9;padding:16px">
+        <div style="font:600 10px system-ui;color:#999;margin-bottom:9px">RE-OPEN ANY STEP</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px"><span>🎨</span><span style="flex:1;font:700 11px system-ui;color:#333">Brand &amp; crest</span><span style="color:#bbb">✎</span></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px"><span>▦</span><span style="flex:1;font:700 11px system-ui;color:#333">Sections &amp; order</span><span style="color:#bbb">✎</span></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px"><span>👥</span><span style="flex:1;font:700 11px system-ui;color:#333">Teams</span><span style="color:#bbb">✎</span></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px"><span>📰</span><span style="flex:1;font:700 11px system-ui;color:#333">News · 1 draft</span><span style="color:#bbb">✎</span></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #eee;border-radius:8px;padding:9px 11px"><span>🏷️</span><span style="flex:1;font:700 11px system-ui;color:#333">Sponsors</span><span style="color:#bbb">✎</span></div>
+          <div style="display:flex;align-items:center;gap:9px;border:1px solid #f0d9d2;background:#fdf6f4;border-radius:8px;padding:9px 11px"><span>🛡️</span><span style="flex:1;font:700 11px system-ui;color:#c2402a">Safeguarding · ON</span><span style="color:#d8a79a">✎</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== C6 · Desktop news editor ===== -->
+<div style="position:absolute;left:850px;top:4520px;width:560px">
+  <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px system-ui;color:#555">C6 · Desktop · news editor</div>
+  <div style="background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.1);border:1px solid #e6e6e6;overflow:hidden">
+    <div style="height:34px;background:#ededed;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid #e0e0e0"><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><span style="width:10px;height:10px;border-radius:50%;background:#ccc"></span><div style="margin-left:8px;font:600 11px system-ui;color:#999">News editor</div></div>
+    <div style="display:flex;height:330px">
+      <!-- post list -->
+      <div style="width:180px;border-right:1px solid #f0f0f0;padding:13px;background:#fafafa"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><span style="font:700 12px system-ui;color:#333">Posts</span><span style="background:#1d1d1d;color:#fff;font:600 10px system-ui;border-radius:6px;padding:5px 9px">+ New</span></div>
+        <div style="background:#fff;border:1px solid #1d1d1d;border-radius:8px;padding:8px;margin-bottom:7px"><div style="font:700 11px system-ui;color:#333">New kit launch</div><div style="font:500 9px system-ui;color:#8a6d00;margin-top:3px">● Draft</div></div>
+        <div style="border:1px solid #eee;border-radius:8px;padding:8px;margin-bottom:7px"><div style="font:700 11px system-ui;color:#444">Cup run continues</div><div style="font:500 9px system-ui;color:#2e9b57;margin-top:3px">● Published</div></div>
+        <div style="border:1px solid #eee;border-radius:8px;padding:8px"><div style="font:700 11px system-ui;color:#444">Season review</div><div style="font:500 9px system-ui;color:#2e9b57;margin-top:3px">● Published</div></div>
+      </div>
+      <!-- editor -->
+      <div style="flex:1;padding:16px">
+        <div style="height:34px;border:1px solid #ddd;border-radius:8px;background:#fafafa;display:flex;align-items:center;padding:0 12px;font:700 13px system-ui;color:#333;margin-bottom:10px">New kit launch</div>
+        <div style="height:90px;border:2px dashed #d2d2d2;border-radius:8px;background:#fbfbfb;display:flex;align-items:center;justify-content:center;font:10px ui-monospace,monospace;color:#aaa;margin-bottom:10px">drop post image (one per post)</div>
+        <div style="border:1px solid #ddd;border-radius:8px;background:#fafafa;padding:11px;min-height:70px"><div style="height:7px;background:#e6e6e6;border-radius:4px;margin-bottom:6px"></div><div style="height:7px;background:#e6e6e6;border-radius:4px;margin-bottom:6px"></div><div style="height:7px;width:65%;background:#e6e6e6;border-radius:4px"></div></div>
+      </div>
+    </div>
+    <div style="padding:11px 16px;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:8px"><span style="font:600 11px system-ui;color:#c2402a;border:1px solid #e3b5aa;border-radius:7px;padding:8px 14px">Delete</span><span style="font:600 11px system-ui;color:#999;border:1px solid #ddd;border-radius:7px;padding:8px 14px">Save draft</span><span style="font:700 11px system-ui;color:#fff;background:#1d1d1d;border-radius:7px;padding:8px 16px">Publish</span></div>
+  </div>
+</div>
+
+<!-- post-its zone C -->
+<div style="position:absolute;left:850px;top:4400px;width:250px;background:#fef4a8;padding:13px 15px;box-shadow:0 2px 6px rgba(0,0,0,.12);transform:rotate(-1deg);font:600 15px Caveat,cursive;color:#6b5e10;line-height:1.35">Dashboard = wizard's building blocks, but non-linear &amp; always-on. Every section deep-links straight to its editor. Draft ⇄ Published with discard is global.</div>
+
+<!-- cross-cutting rules card -->
+<div style="position:absolute;left:80px;top:4960px;width:680px;background:#1f1f1f;border-radius:10px;padding:18px 22px;color:#fff">
+  <div style="font:700 14px system-ui;margin-bottom:12px">Cross-cutting rules (apply to all three surfaces)</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px 26px;font:500 12px system-ui;color:#d6d6d6;line-height:1.45">
+    <div><b style="color:#fff">Live &amp; actionable over static</b> — scores, availability &amp; next-fixture surface motion wherever data allows.</div>
+    <div><b style="color:#fff">Per-club theming</b> — 3 chosen colours + crest drive everything; system adapts to any palette, no hardcoded look.</div>
+    <div><b style="color:#fff">Accessibility</b> — legible at worst plausible colours; ≥44px tap targets; one-handed mobile.</div>
+    <div><b style="color:#fff">Modular</b> — every section independently on/off; page reads complete at 3 sections or all 8.</div>
+  </div>
+  <div style="margin-top:14px;font:500 11px system-ui;color:#888;border-top:1px solid #3a3a3a;padding-top:11px"><b style="color:#aaa">Out of scope:</b> multi-photo galleries · video hosting · deep CMS page-builders · custom theming beyond 3-colour · e-commerce</div>
+</div>
+</x-dc>
+</body>
+</html>

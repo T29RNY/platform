@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:'Manrope',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#17171b;}
+  *{box-sizing:border-box;}
+  @keyframes hpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+  @keyframes hbar{0%{transform:translateX(-120%)}100%{transform:translateX(360%)}}
+  ::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<!-- ===== canvas title ===== -->
+<div style="position:absolute;left:80px;top:-72px;width:1400px">
+  <div style="font:700 30px 'Space Grotesk';color:#17171b;letter-spacing:-.5px">In or Out — Club Page · Hi-fi</div>
+  <div style="font:500 15px Manrope;color:#6b6b77;margin-top:6px">Clean neutral chrome · the club's colour does the talking · example: <b style="color:#8a2433">Redbridge FC — claret</b> · tap the Upcoming / Results / Table tabs and the wizard swatches</div>
+</div>
+
+<!-- ===== ZONE A header ===== -->
+<div style="position:absolute;left:80px;top:20px;width:900px">
+  <div style="font:600 13px Manrope;letter-spacing:2px;color:#9a9aa6">A — PUBLIC HOME PAGE</div>
+  <div style="font:700 24px 'Space Grotesk';color:#17171b;margin-top:3px;letter-spacing:-.4px">The live shop window</div>
+</div>
+
+<!-- =================== A1 · MOBILE · POPULATED =================== -->
+<div style="position:absolute;left:80px;top:110px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#6b6b77">Mobile · home (populated · interactive)</div>
+  <div style="background:#0e0e10;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.12)">
+    <div style="background:#fff;border-radius:36px;overflow:hidden;height:780px;overflow-y:auto;position:relative">
+      <!-- status bar -->
+      <div style="position:sticky;top:0;z-index:5;height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px Manrope;background:#fff"><span>9:41</span><span style="display:flex;gap:5px;align-items:center;font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <!-- top app bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 18px 12px">
+        <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid #8a2433;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk';color:#8a2433">RFC</div><span style="font:700 15px 'Space Grotesk';letter-spacing:-.3px">Redbridge FC</span></div>
+        <div style="font:700 12px Manrope;color:#fff;background:#8a2433;padding:8px 15px;border-radius:20px">Join</div>
+      </div>
+      <!-- HERO -->
+      <div style="position:relative;height:300px;margin:0 12px;border-radius:22px;overflow:hidden;background:linear-gradient(150deg,#6e1a27,#8a2433 55%,#a83a48)">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.05),rgba(255,255,255,.05) 2px,transparent 2px,transparent 11px)"></div>
+        <div style="position:absolute;top:12px;left:14px;font:11px ui-monospace,monospace;color:rgba(255,255,255,.5)">hero photo</div>
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(14,8,9,.82),rgba(14,8,9,.1) 55%,transparent)"></div>
+        <div style="position:absolute;left:20px;right:20px;bottom:20px">
+          <div style="width:60px;height:60px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font:700 18px 'Space Grotesk';color:#8a2433;box-shadow:0 6px 16px rgba(0,0,0,.3);margin-bottom:13px">RFC</div>
+          <div style="font:700 30px 'Space Grotesk';color:#fff;letter-spacing:-.8px;line-height:1.02">Redbridge<br>Football Club</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:9px"><span style="font:600 12px Manrope;color:rgba(255,255,255,.85)">Community since 1989</span><span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.5)"></span><span style="font:600 12px Manrope;color:rgba(255,255,255,.85)">Step 5 · 2nd</span></div>
+        </div>
+      </div>
+      <!-- NEXT MATCH card -->
+      <div style="margin:14px 12px 0;border:1px solid #ededf1;border-radius:18px;padding:15px 16px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.03)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px"><span style="font:700 11px Manrope;letter-spacing:1.3px;color:#9a9aa6">NEXT MATCH</span><span style="font:600 11px Manrope;color:#8a2433;background:#faf1f2;padding:4px 9px;border-radius:8px">in 2 days</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:1"><div style="width:42px;height:42px;border-radius:50%;background:#faf1f2;border:1.5px solid #8a2433;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk';color:#8a2433">RFC</div><span style="font:700 12px Manrope">Redbridge</span></div>
+          <div style="text-align:center;flex:.8"><div style="font:600 13px 'Space Grotesk';color:#9a9aa6">Sat · 10:00</div><div style="font:700 11px Manrope;color:#c7c7d0;margin-top:3px">VS</div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:1"><div style="width:42px;height:42px;border-radius:50%;background:#f3f3f6;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk';color:#9a9aa6">ROV</div><span style="font:700 12px Manrope">Rovers</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;margin-top:13px;font:600 11px Manrope;color:#9a9aa6;justify-content:center"><span>📍 Redbridge Rec Ground</span></div>
+        <div style="display:flex;gap:8px;margin-top:13px"><div style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:11px;padding:11px;font:700 12px Manrope;color:#3a3a44">Set reminder</div><div style="flex:1;text-align:center;background:#17171b;color:#fff;border-radius:11px;padding:11px;font:700 12px Manrope">Follow live →</div></div>
+      </div>
+      <!-- JOIN block -->
+      <div style="margin:14px 12px 0;border-radius:18px;padding:17px;background:linear-gradient(135deg,#8a2433,#6e1a27);color:#fff;position:relative;overflow:hidden">
+        <div style="position:absolute;right:-20px;top:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.06)"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;position:relative">
+          <div style="max-width:60%"><div style="font:700 17px 'Space Grotesk';letter-spacing:-.3px">Join Redbridge</div><div style="font:500 12px Manrope;color:rgba(255,255,255,.8);margin-top:4px;line-height:1.4">Players, parents &amp; supporters. One tap.</div><div style="margin-top:13px;background:#fff;color:#8a2433;font:700 12px Manrope;padding:9px 15px;border-radius:20px;display:inline-block">Share invite</div></div>
+          <div style="width:78px;height:78px;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#8a2433;padding:7px;text-align:center">QR code</div>
+        </div>
+      </div>
+      <!-- FIXTURES / RESULTS / TABLE (interactive) -->
+      <div style="padding:20px 12px 0">
+        <div style="font:700 16px 'Space Grotesk';letter-spacing:-.3px;margin-bottom:12px">Matches</div>
+        <div style="display:flex;background:#f3f3f6;border-radius:12px;padding:4px;gap:3px;margin-bottom:14px">
+          <div onClick="{{ setFix }}" style="{{ segFix }}">Upcoming</div>
+          <div onClick="{{ setRes }}" style="{{ segRes }}">Results</div>
+          <div onClick="{{ setTab }}" style="{{ segTab }}">Table</div>
+        </div>
+        <sc-if value="{{ isFix }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:14px;padding:12px 14px"><div style="text-align:center;width:42px"><div style="font:700 13px 'Space Grotesk';color:#17171b">SAT</div><div style="font:600 10px Manrope;color:#9a9aa6">11 JAN</div></div><div style="flex:1"><div style="font:700 13px Manrope">vs Rovers</div><div style="font:600 11px Manrope;color:#9a9aa6">First XI · League · Home</div></div><span style="font:600 11px Manrope;color:#8a2433">10:00 ›</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:14px;padding:12px 14px"><div style="text-align:center;width:42px"><div style="font:700 13px 'Space Grotesk';color:#17171b">SAT</div><div style="font:600 10px Manrope;color:#9a9aa6">18 JAN</div></div><div style="flex:1"><div style="font:700 13px Manrope">at Athletic</div><div style="font:600 11px Manrope;color:#9a9aa6">First XI · League · Away</div></div><span style="font:600 11px Manrope;color:#8a2433">14:00 ›</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:14px;padding:12px 14px"><div style="text-align:center;width:42px"><div style="font:700 13px 'Space Grotesk';color:#17171b">SUN</div><div style="font:600 10px Manrope;color:#9a9aa6">19 JAN</div></div><div style="flex:1"><div style="font:700 13px Manrope">U12s vs City</div><div style="font:600 11px Manrope;color:#9a9aa6">Youth · Cup · Home</div></div><span style="font:600 11px Manrope;color:#8a2433">11:00 ›</span></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isRes }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:14px;padding:12px 14px"><span style="width:22px;height:22px;border-radius:7px;background:#e7f6ee;color:#1f9d57;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk'">W</span><div style="flex:1"><div style="font:700 13px Manrope">vs United</div><div style="font:600 11px Manrope;color:#9a9aa6">First XI · League</div></div><span style="font:700 16px 'Space Grotesk'">3–1</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:14px;padding:12px 14px"><span style="width:22px;height:22px;border-radius:7px;background:#f3f3f6;color:#9a9aa6;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk'">D</span><div style="flex:1"><div style="font:700 13px Manrope">at County</div><div style="font:600 11px Manrope;color:#9a9aa6">First XI · League</div></div><span style="font:700 16px 'Space Grotesk'">2–2</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:14px;padding:12px 14px"><span style="width:22px;height:22px;border-radius:7px;background:#fbeceb;color:#c0392b;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk'">L</span><div style="flex:1"><div style="font:700 13px Manrope">vs Wanderers</div><div style="font:600 11px Manrope;color:#9a9aa6">First XI · Cup</div></div><span style="font:700 16px 'Space Grotesk'">0–1</span></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isTab }}">
+          <div style="border:1px solid #ededf1;border-radius:14px;overflow:hidden">
+            <div style="display:flex;align-items:center;padding:9px 14px;background:#fafafb;font:700 10px Manrope;letter-spacing:.5px;color:#9a9aa6"><span style="width:22px">#</span><span style="flex:1">CLUB</span><span style="width:30px;text-align:center">P</span><span style="width:30px;text-align:center">GD</span><span style="width:34px;text-align:center">PTS</span></div>
+            <div style="display:flex;align-items:center;padding:11px 14px;border-top:1px solid #f3f3f6;font:600 12px Manrope"><span style="width:22px;color:#9a9aa6">1</span><span style="flex:1">Athletic</span><span style="width:30px;text-align:center;color:#6b6b77">14</span><span style="width:30px;text-align:center;color:#6b6b77">+18</span><span style="width:34px;text-align:center;font:700 13px 'Space Grotesk'">34</span></div>
+            <div style="display:flex;align-items:center;padding:11px 14px;border-top:1px solid #f3f3f6;background:#faf1f2;font:700 12px Manrope"><span style="width:22px;color:#8a2433">2</span><span style="flex:1;color:#8a2433">Redbridge FC</span><span style="width:30px;text-align:center;color:#8a2433">14</span><span style="width:30px;text-align:center;color:#8a2433">+12</span><span style="width:34px;text-align:center;font:700 13px 'Space Grotesk';color:#8a2433">31</span></div>
+            <div style="display:flex;align-items:center;padding:11px 14px;border-top:1px solid #f3f3f6;font:600 12px Manrope"><span style="width:22px;color:#9a9aa6">3</span><span style="flex:1">Rovers</span><span style="width:30px;text-align:center;color:#6b6b77">14</span><span style="width:30px;text-align:center;color:#6b6b77">+7</span><span style="width:34px;text-align:center;font:700 13px 'Space Grotesk'">28</span></div>
+          </div>
+        </sc-if>
+      </div>
+      <!-- TEAMS -->
+      <div style="padding:20px 0 0">
+        <div style="font:700 16px 'Space Grotesk';letter-spacing:-.3px;margin:0 12px 12px">Teams</div>
+        <div style="display:flex;gap:10px;overflow-x:auto;padding:0 12px 4px">
+          <div style="flex:0 0 110px;border:1px solid #ededf1;border-radius:16px;padding:14px;background:#fff"><div style="font:700 15px 'Space Grotesk';color:#8a2433">First XI</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">Men's · Step 5</div><div style="display:flex;margin-top:12px"><span style="width:24px;height:24px;border-radius:50%;background:#eee;border:2px solid #fff"></span><span style="width:24px;height:24px;border-radius:50%;background:#e4e4ea;border:2px solid #fff;margin-left:-8px"></span><span style="width:24px;height:24px;border-radius:50%;background:#d9d9e1;border:2px solid #fff;margin-left:-8px"></span><span style="width:24px;height:24px;border-radius:50%;background:#faf1f2;border:2px solid #fff;margin-left:-8px;font:700 9px Manrope;color:#8a2433;display:flex;align-items:center;justify-content:center">+15</span></div></div>
+          <div style="flex:0 0 110px;border:1px solid #ededf1;border-radius:16px;padding:14px;background:#fff"><div style="font:700 15px 'Space Grotesk'">U16s</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">Youth</div><div style="display:flex;margin-top:12px"><span style="width:24px;height:24px;border-radius:50%;background:#eee;border:2px solid #fff"></span><span style="width:24px;height:24px;border-radius:50%;background:#e4e4ea;border:2px solid #fff;margin-left:-8px"></span><span style="width:24px;height:24px;border-radius:50%;background:#f3f3f6;border:2px solid #fff;margin-left:-8px;font:700 9px Manrope;color:#9a9aa6;display:flex;align-items:center;justify-content:center">+12</span></div></div>
+          <div style="flex:0 0 110px;border:1px solid #ededf1;border-radius:16px;padding:14px;background:#fff"><div style="font:700 15px 'Space Grotesk'">U12s</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">Youth</div><div style="display:flex;margin-top:12px"><span style="width:24px;height:24px;border-radius:50%;background:#eee;border:2px solid #fff"></span><span style="width:24px;height:24px;border-radius:50%;background:#f3f3f6;border:2px solid #fff;margin-left:-8px;font:700 9px Manrope;color:#9a9aa6;display:flex;align-items:center;justify-content:center">+10</span></div></div>
+        </div>
+      </div>
+      <!-- NEWS -->
+      <div style="padding:20px 12px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><span style="font:700 16px 'Space Grotesk';letter-spacing:-.3px">News</span><span style="font:600 12px Manrope;color:#8a2433">All ›</span></div>
+        <div style="border:1px solid #ededf1;border-radius:16px;overflow:hidden">
+          <div style="height:140px;background:repeating-linear-gradient(125deg,#f0f0f3,#f0f0f3 9px,#e9e9ee 9px,#e9e9ee 18px);position:relative"><span style="position:absolute;left:12px;top:10px;font:11px ui-monospace,monospace;color:#a8a8b2">article image</span></div>
+          <div style="padding:14px"><div style="font:600 10px Manrope;letter-spacing:.6px;color:#8a2433">MATCH REPORT · 2 DAYS AGO</div><div style="font:700 15px 'Space Grotesk';letter-spacing:-.3px;margin:6px 0 5px;line-height:1.2">Cup run continues after late winner</div><div style="font:500 12px Manrope;color:#6b6b77;line-height:1.5">A 90th-minute strike sends Redbridge into the quarter-finals…</div><div style="font:700 12px Manrope;color:#8a2433;margin-top:10px">Read more →</div></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <div style="flex:1;border:1px solid #ededf1;border-radius:14px;padding:11px"><div style="font:600 9px Manrope;letter-spacing:.5px;color:#9a9aa6">CLUB · 5D</div><div style="font:700 12px 'Space Grotesk';margin-top:4px;line-height:1.2">New kit revealed</div></div>
+          <div style="flex:1;border:1px solid #ededf1;border-radius:14px;padding:11px"><div style="font:600 9px Manrope;letter-spacing:.5px;color:#9a9aa6">YOUTH · 1W</div><div style="font:700 12px 'Space Grotesk';margin-top:4px;line-height:1.2">U12s sign-ups open</div></div>
+        </div>
+      </div>
+      <!-- SPONSORS -->
+      <div style="padding:20px 12px 0">
+        <div style="font:700 16px 'Space Grotesk';letter-spacing:-.3px;margin-bottom:12px">Our sponsors</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div style="height:46px;background:#f7f7f9;border:1px solid #ededf1;border-radius:11px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#b4b4be">logo</div>
+          <div style="height:46px;background:#f7f7f9;border:1px solid #ededf1;border-radius:11px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#b4b4be">logo</div>
+          <div style="height:46px;background:#f7f7f9;border:1px solid #ededf1;border-radius:11px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#b4b4be">logo</div>
+          <div style="height:46px;background:#f7f7f9;border:1px solid #ededf1;border-radius:11px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#b4b4be">logo</div>
+          <div style="height:46px;background:#f7f7f9;border:1px solid #ededf1;border-radius:11px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#b4b4be">logo</div>
+          <div style="height:46px;background:#f7f7f9;border:1px solid #ededf1;border-radius:11px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#b4b4be">logo</div>
+        </div>
+      </div>
+      <!-- ABOUT -->
+      <div style="padding:20px 12px 0">
+        <div style="font:700 16px 'Space Grotesk';letter-spacing:-.3px;margin-bottom:12px">About &amp; contact</div>
+        <div style="border:1px solid #ededf1;border-radius:16px;overflow:hidden">
+          <div style="height:90px;background:repeating-linear-gradient(125deg,#eef0f3,#eef0f3 9px,#e7e9ee 9px,#e7e9ee 18px);position:relative"><span style="position:absolute;left:12px;top:10px;font:11px ui-monospace,monospace;color:#a8a8b2">venue map</span></div>
+          <div style="padding:14px"><div style="font:500 12px Manrope;color:#6b6b77;line-height:1.5;margin-bottom:12px">A grassroots club at the heart of Redbridge — football for every age, every ability.</div>
+            <div style="font:700 12px Manrope">📍 Redbridge Rec Ground, IG1</div>
+            <div style="display:flex;gap:8px;margin-top:12px"><span style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:10px;padding:9px;font:700 11px Manrope">Get directions</span><span style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:10px;padding:9px;font:700 11px Manrope">Contact</span></div>
+            <div style="display:flex;gap:8px;margin-top:10px;justify-content:center"><span style="width:30px;height:30px;border-radius:50%;background:#f3f3f6"></span><span style="width:30px;height:30px;border-radius:50%;background:#f3f3f6"></span><span style="width:30px;height:30px;border-radius:50%;background:#f3f3f6"></span></div>
+          </div>
+        </div>
+      </div>
+      <!-- FOOTER -->
+      <div style="margin-top:22px;padding:22px 12px 30px;background:#0e0e10;text-align:center"><div style="font:700 13px 'Space Grotesk';color:#fff;letter-spacing:-.2px">Redbridge FC</div><div style="font:500 11px Manrope;color:rgba(255,255,255,.4);margin-top:8px">Powered by In or Out · Privacy · Terms</div></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- =================== A2 · MOBILE · LIVE =================== -->
+<div style="position:absolute;left:470px;top:110px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#6b6b77">Mobile · home (live match)</div>
+  <div style="background:#0e0e10;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.12)">
+    <div style="background:#fff;border-radius:36px;overflow:hidden;height:780px;overflow-y:auto;position:relative">
+      <div style="position:sticky;top:0;z-index:5;height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px Manrope;background:#fff"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 18px 12px">
+        <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid #8a2433;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk';color:#8a2433">RFC</div><span style="font:700 15px 'Space Grotesk';letter-spacing:-.3px">Redbridge FC</span></div>
+        <div style="font:700 12px Manrope;color:#fff;background:#8a2433;padding:8px 15px;border-radius:20px">Join</div>
+      </div>
+      <!-- LIVE banner -->
+      <div style="margin:0 12px;display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:7px;background:#8a2433;color:#fff;font:700 11px Manrope;letter-spacing:1px;padding:7px 12px;border-radius:20px"><span style="width:7px;height:7px;border-radius:50%;background:#fff;display:inline-block;animation:hpulse 1.1s infinite"></span>LIVE NOW</div>
+        <span style="font:600 12px Manrope;color:#6b6b77">👁 142 following</span>
+      </div>
+      <!-- LIVE SCORE panel -->
+      <div style="margin:12px 12px 0;border-radius:22px;overflow:hidden;background:linear-gradient(160deg,#6e1a27,#8a2433);color:#fff;position:relative">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.05),rgba(255,255,255,.05) 2px,transparent 2px,transparent 12px)"></div>
+        <div style="position:relative;padding:18px 18px 16px">
+          <div style="text-align:center;font:600 11px Manrope;letter-spacing:1px;color:rgba(255,255,255,.7);margin-bottom:14px">LEAGUE · MATCHDAY 15</div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div style="width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font:700 13px 'Space Grotesk';color:#8a2433">RFC</div><span style="font:700 13px Manrope">Redbridge</span></div>
+            <div style="text-align:center;flex:1.1"><div style="font:700 46px 'Space Grotesk';letter-spacing:-1px;line-height:1">2–1</div><div style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;background:rgba(255,255,255,.16);padding:4px 11px;border-radius:20px;font:700 12px 'Space Grotesk'"><span style="width:6px;height:6px;border-radius:50%;background:#fff;animation:hpulse 1.1s infinite"></span>67'</div></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1"><div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font:700 13px 'Space Grotesk'">ROV</div><span style="font:700 13px Manrope">Rovers</span></div>
+          </div>
+          <!-- momentum bar -->
+          <div style="margin-top:18px"><div style="display:flex;justify-content:space-between;font:600 9px Manrope;color:rgba(255,255,255,.6);margin-bottom:5px"><span>Momentum</span><span>62% possession</span></div><div style="height:5px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden"><div style="height:100%;width:62%;background:#fff;border-radius:3px"></div></div></div>
+          <div style="background:#fff;color:#8a2433;text-align:center;border-radius:12px;padding:12px;font:700 13px Manrope;margin-top:16px">Open match-day centre →</div>
+        </div>
+      </div>
+      <!-- event feed -->
+      <div style="margin:14px 12px 0;border:1px solid #ededf1;border-radius:16px;overflow:hidden">
+        <div style="padding:11px 14px;font:700 11px Manrope;letter-spacing:.8px;color:#9a9aa6;border-bottom:1px solid #f3f3f6;display:flex;align-items:center;gap:7px"><span style="position:relative;width:30px;height:4px;border-radius:2px;background:#f3f3f6;overflow:hidden;display:inline-block"><span style="position:absolute;left:0;top:0;height:100%;width:30%;background:#8a2433;animation:hbar 2.2s linear infinite"></span></span>LIVE FEED</div>
+        <div style="display:flex;align-items:center;gap:11px;padding:12px 14px"><span style="font:700 12px 'Space Grotesk';color:#9a9aa6;width:28px">67'</span><span style="width:22px;text-align:center">⚽</span><div style="flex:1"><div style="font:700 12px Manrope">Goal — J. Mensah</div><div style="font:600 10px Manrope;color:#9a9aa6">Redbridge lead 2–1</div></div></div>
+        <div style="display:flex;align-items:center;gap:11px;padding:12px 14px;border-top:1px solid #f3f3f6"><span style="font:700 12px 'Space Grotesk';color:#9a9aa6;width:28px">54'</span><span style="width:22px;text-align:center">🟨</span><div style="flex:1"><div style="font:700 12px Manrope">Booking — Rovers</div></div></div>
+        <div style="display:flex;align-items:center;gap:11px;padding:12px 14px;border-top:1px solid #f3f3f6"><span style="font:700 12px 'Space Grotesk';color:#9a9aa6;width:28px">33'</span><span style="width:22px;text-align:center">⚽</span><div style="flex:1"><div style="font:700 12px Manrope">Goal — Rovers</div><div style="font:600 10px Manrope;color:#9a9aa6">Equaliser, 1–1</div></div></div>
+      </div>
+      <!-- other live today -->
+      <div style="padding:20px 12px 0"><div style="font:700 16px 'Space Grotesk';letter-spacing:-.3px;margin-bottom:12px">Also today</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:14px;padding:12px 14px"><div style="flex:1"><div style="font:700 13px Manrope">U16s vs Athletic</div><div style="font:600 11px Manrope;color:#9a9aa6">Youth · League</div></div><span style="display:inline-flex;align-items:center;gap:5px;font:700 11px Manrope;color:#8a2433"><span style="width:6px;height:6px;border-radius:50%;background:#8a2433;animation:hpulse 1.1s infinite"></span>0–0 · 21'</span></div>
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:14px;padding:12px 14px"><div style="flex:1"><div style="font:700 13px Manrope">U12s vs City</div><div style="font:600 11px Manrope;color:#9a9aa6">Youth · Cup</div></div><span style="font:600 11px Manrope;color:#9a9aa6">KO 12:00</span></div>
+        </div>
+      </div>
+      <!-- join persistent -->
+      <div style="margin:20px 12px 0;border-radius:18px;padding:16px;background:linear-gradient(135deg,#8a2433,#6e1a27);color:#fff;display:flex;align-items:center;justify-content:space-between">
+        <div><div style="font:700 16px 'Space Grotesk'">Join Redbridge</div><div style="font:500 11px Manrope;color:rgba(255,255,255,.8);margin-top:3px">Be part of match day</div></div>
+        <div style="width:62px;height:62px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#8a2433">QR</div>
+      </div>
+      <div style="margin-top:22px;padding:22px 12px 30px;background:#0e0e10;text-align:center"><div style="font:700 13px 'Space Grotesk';color:#fff">Redbridge FC</div><div style="font:500 11px Manrope;color:rgba(255,255,255,.4);margin-top:8px">Powered by In or Out</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== A3 · DESKTOP HOME =================== -->
+<div style="position:absolute;left:870px;top:110px;width:1180px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#6b6b77">Desktop · home (live in hero)</div>
+  <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -24px rgba(0,0,0,.32),0 8px 24px rgba(0,0,0,.08);border:1px solid #e9e9ee">
+    <!-- browser chrome -->
+    <div style="height:42px;background:#f3f3f5;display:flex;align-items:center;gap:7px;padding:0 16px;border-bottom:1px solid #e6e6ec"><span style="width:11px;height:11px;border-radius:50%;background:#dcdce2"></span><span style="width:11px;height:11px;border-radius:50%;background:#dcdce2"></span><span style="width:11px;height:11px;border-radius:50%;background:#dcdce2"></span><div style="flex:1;max-width:420px;margin-left:14px;height:26px;background:#fff;border-radius:13px;border:1px solid #e6e6ec;display:flex;align-items:center;padding:0 14px;font:600 12px Manrope;color:#9a9aa6">🔒 in-or-out.club/redbridge</div></div>
+    <!-- club nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid #f0f0f3">
+      <div style="display:flex;align-items:center;gap:11px"><div style="width:38px;height:38px;border-radius:50%;background:#fff;border:2px solid #8a2433;display:flex;align-items:center;justify-content:center;font:700 13px 'Space Grotesk';color:#8a2433">RFC</div><span style="font:700 18px 'Space Grotesk';letter-spacing:-.3px">Redbridge FC</span></div>
+      <div style="display:flex;align-items:center;gap:30px;font:600 13px Manrope;color:#5b5b66"><span>Matches</span><span>Teams</span><span>News</span><span>Sponsors</span><span>About</span><span style="background:#8a2433;color:#fff;padding:9px 20px;border-radius:22px">Join the club</span></div>
+    </div>
+    <!-- HERO -->
+    <div style="position:relative;height:340px;background:linear-gradient(120deg,#6e1a27,#8a2433 60%,#a83a48);overflow:hidden">
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.05),rgba(255,255,255,.05) 2px,transparent 2px,transparent 13px)"></div>
+      <div style="position:absolute;top:14px;left:18px;font:11px ui-monospace,monospace;color:rgba(255,255,255,.45)">hero photo (full-bleed)</div>
+      <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(14,8,9,.7),transparent 70%)"></div>
+      <div style="position:absolute;left:40px;bottom:36px">
+        <div style="width:70px;height:70px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font:700 20px 'Space Grotesk';color:#8a2433;box-shadow:0 8px 20px rgba(0,0,0,.3);margin-bottom:16px">RFC</div>
+        <div style="font:700 42px 'Space Grotesk';color:#fff;letter-spacing:-1.2px;line-height:1">Redbridge Football Club</div>
+        <div style="font:600 14px Manrope;color:rgba(255,255,255,.85);margin-top:10px">Community since 1989 · Step 5 · East London</div>
+      </div>
+      <!-- live card floating right -->
+      <div style="position:absolute;right:40px;bottom:36px;width:320px;background:rgba(255,255,255,.97);border-radius:18px;padding:18px;box-shadow:0 20px 40px -12px rgba(0,0,0,.4)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><span style="display:inline-flex;align-items:center;gap:6px;background:#8a2433;color:#fff;font:700 10px Manrope;letter-spacing:1px;padding:5px 11px;border-radius:14px"><span style="width:6px;height:6px;border-radius:50%;background:#fff;animation:hpulse 1.1s infinite"></span>LIVE</span><span style="font:600 11px Manrope;color:#9a9aa6">👁 142 following</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="text-align:center;flex:1"><div style="width:40px;height:40px;border-radius:50%;background:#faf1f2;border:1.5px solid #8a2433;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk';color:#8a2433">RFC</div><div style="font:700 11px Manrope">Redbridge</div></div>
+          <div style="text-align:center"><div style="font:700 34px 'Space Grotesk';letter-spacing:-1px;line-height:1">2–1</div><div style="font:700 11px 'Space Grotesk';color:#8a2433;margin-top:3px">67'</div></div>
+          <div style="text-align:center;flex:1"><div style="width:40px;height:40px;border-radius:50%;background:#f3f3f6;margin:0 auto 7px;display:flex;align-items:center;justify-content:center;font:700 11px 'Space Grotesk';color:#9a9aa6">ROV</div><div style="font:700 11px Manrope">Rovers</div></div>
+        </div>
+        <div style="background:#17171b;color:#fff;text-align:center;border-radius:11px;padding:11px;font:700 12px Manrope;margin-top:15px">Follow live →</div>
+      </div>
+    </div>
+    <!-- body grid -->
+    <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:28px;padding:30px 40px 36px">
+      <!-- main -->
+      <div>
+        <div style="font:700 20px 'Space Grotesk';letter-spacing:-.4px;margin-bottom:14px">Matches</div>
+        <div style="display:inline-flex;background:#f3f3f6;border-radius:11px;padding:4px;gap:3px;margin-bottom:16px"><div style="font:700 12px Manrope;background:#fff;border-radius:8px;padding:8px 18px;box-shadow:0 1px 2px rgba(0,0,0,.06)">Upcoming</div><div style="font:600 12px Manrope;color:#9a9aa6;padding:8px 18px">Results</div><div style="font:600 12px Manrope;color:#9a9aa6;padding:8px 18px">Table</div></div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:30px">
+          <div style="display:flex;align-items:center;gap:16px;border:1px solid #ededf1;border-radius:14px;padding:14px 18px"><div style="text-align:center;width:46px"><div style="font:700 14px 'Space Grotesk'">SAT</div><div style="font:600 10px Manrope;color:#9a9aa6">11 JAN</div></div><div style="flex:1"><div style="font:700 14px Manrope">First XI vs Rovers</div><div style="font:600 12px Manrope;color:#9a9aa6">League · Home · Redbridge Rec Ground</div></div><span style="font:700 13px 'Space Grotesk'">10:00</span><span style="font:600 13px Manrope;color:#8a2433">›</span></div>
+          <div style="display:flex;align-items:center;gap:16px;border:1px solid #ededf1;border-radius:14px;padding:14px 18px"><div style="text-align:center;width:46px"><div style="font:700 14px 'Space Grotesk'">SAT</div><div style="font:600 10px Manrope;color:#9a9aa6">18 JAN</div></div><div style="flex:1"><div style="font:700 14px Manrope">First XI at Athletic</div><div style="font:600 12px Manrope;color:#9a9aa6">League · Away</div></div><span style="font:700 13px 'Space Grotesk'">14:00</span><span style="font:600 13px Manrope;color:#8a2433">›</span></div>
+          <div style="display:flex;align-items:center;gap:16px;border:1px solid #ededf1;border-radius:14px;padding:14px 18px"><div style="text-align:center;width:46px"><div style="font:700 14px 'Space Grotesk'">SUN</div><div style="font:600 10px Manrope;color:#9a9aa6">19 JAN</div></div><div style="flex:1"><div style="font:700 14px Manrope">U12s vs City</div><div style="font:600 12px Manrope;color:#9a9aa6">Cup · Home</div></div><span style="font:700 13px 'Space Grotesk'">11:00</span><span style="font:600 13px Manrope;color:#8a2433">›</span></div>
+        </div>
+        <div style="font:700 20px 'Space Grotesk';letter-spacing:-.4px;margin-bottom:14px">Latest news</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="border:1px solid #ededf1;border-radius:14px;overflow:hidden"><div style="height:120px;background:repeating-linear-gradient(125deg,#f0f0f3,#f0f0f3 9px,#e9e9ee 9px,#e9e9ee 18px)"></div><div style="padding:14px"><div style="font:600 10px Manrope;letter-spacing:.6px;color:#8a2433">MATCH REPORT</div><div style="font:700 15px 'Space Grotesk';margin:6px 0 5px;line-height:1.2;letter-spacing:-.3px">Cup run continues after late winner</div><div style="font:500 12px Manrope;color:#6b6b77;line-height:1.5">A 90th-minute strike sends Redbridge through…</div></div></div>
+          <div style="border:1px solid #ededf1;border-radius:14px;overflow:hidden"><div style="height:120px;background:repeating-linear-gradient(125deg,#f0f0f3,#f0f0f3 9px,#e9e9ee 9px,#e9e9ee 18px)"></div><div style="padding:14px"><div style="font:600 10px Manrope;letter-spacing:.6px;color:#8a2433">CLUB NEWS</div><div style="font:700 15px 'Space Grotesk';margin:6px 0 5px;line-height:1.2;letter-spacing:-.3px">New home kit revealed for 2026</div><div style="font:500 12px Manrope;color:#6b6b77;line-height:1.5">Designed with our supporters…</div></div></div>
+        </div>
+      </div>
+      <!-- sidebar -->
+      <div>
+        <div style="border-radius:18px;padding:20px;background:linear-gradient(135deg,#8a2433,#6e1a27);color:#fff;margin-bottom:20px;position:relative;overflow:hidden"><div style="position:absolute;right:-24px;top:-24px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.06)"></div><div style="position:relative"><div style="font:700 19px 'Space Grotesk';letter-spacing:-.3px">Join Redbridge FC</div><div style="font:500 12px Manrope;color:rgba(255,255,255,.8);margin-top:5px;line-height:1.45">Players, parents &amp; supporters welcome.</div><div style="display:flex;align-items:center;gap:14px;margin-top:16px"><div style="width:84px;height:84px;background:#fff;border-radius:13px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#8a2433">QR code</div><div style="flex:1"><div style="background:#fff;color:#8a2433;text-align:center;font:700 12px Manrope;padding:10px;border-radius:10px;margin-bottom:8px">Register</div><div style="border:1px solid rgba(255,255,255,.4);text-align:center;font:700 12px Manrope;padding:10px;border-radius:10px">Share invite</div></div></div></div></div>
+        <div style="font:700 14px 'Space Grotesk';margin-bottom:12px">League table</div>
+        <div style="border:1px solid #ededf1;border-radius:14px;overflow:hidden;margin-bottom:22px">
+          <div style="display:flex;align-items:center;padding:10px 14px;font:600 12px Manrope"><span style="width:20px;color:#9a9aa6">1</span><span style="flex:1">Athletic</span><span style="font:700 13px 'Space Grotesk'">34</span></div>
+          <div style="display:flex;align-items:center;padding:10px 14px;background:#faf1f2;border-top:1px solid #f3f3f6;font:700 12px Manrope;color:#8a2433"><span style="width:20px">2</span><span style="flex:1">Redbridge FC</span><span style="font:700 13px 'Space Grotesk'">31</span></div>
+          <div style="display:flex;align-items:center;padding:10px 14px;border-top:1px solid #f3f3f6;font:600 12px Manrope"><span style="width:20px;color:#9a9aa6">3</span><span style="flex:1">Rovers</span><span style="font:700 13px 'Space Grotesk'">28</span></div>
+        </div>
+        <div style="font:700 14px 'Space Grotesk';margin-bottom:12px">Sponsors</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><div style="height:42px;background:#f7f7f9;border:1px solid #ededf1;border-radius:10px"></div><div style="height:42px;background:#f7f7f9;border:1px solid #ededf1;border-radius:10px"></div><div style="height:42px;background:#f7f7f9;border:1px solid #ededf1;border-radius:10px"></div><div style="height:42px;background:#f7f7f9;border:1px solid #ededf1;border-radius:10px"></div><div style="height:42px;background:#f7f7f9;border:1px solid #ededf1;border-radius:10px"></div><div style="height:42px;background:#f7f7f9;border:1px solid #ededf1;border-radius:10px"></div></div>
+      </div>
+    </div>
+    <div style="padding:22px 40px;background:#0e0e10;display:flex;align-items:center;justify-content:space-between"><div style="font:700 15px 'Space Grotesk';color:#fff">Redbridge FC</div><div style="font:500 12px Manrope;color:rgba(255,255,255,.4)">Powered by In or Out · Privacy · Terms · Contact</div></div>
+  </div>
+</div>
+
+<!-- ===== ZONE B header ===== -->
+<div style="position:absolute;left:80px;top:1360px;width:900px">
+  <div style="font:600 13px Manrope;letter-spacing:2px;color:#9a9aa6">B — SETUP WIZARD</div>
+  <div style="font:700 24px 'Space Grotesk';color:#17171b;margin-top:3px;letter-spacing:-.4px">Stand the page up in minutes — colour is the wow moment</div>
+</div>
+
+<!-- =================== B1 · COLOURS (interactive recolour) =================== -->
+<div style="position:absolute;left:80px;top:1450px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#8a2433">Brand · colours — tap a swatch, watch it theme ↓</div>
+  <div style="background:#0e0e10;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.12)">
+    <div style="background:#fff;border-radius:36px;overflow:hidden;height:780px;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px Manrope"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="padding:6px 20px 0">
+        <div style="display:flex;gap:4px;margin-bottom:16px"><div style="height:5px;flex:1;background:#8a2433;border-radius:3px"></div><div style="height:5px;flex:1;background:#8a2433;border-radius:3px"></div><div style="height:5px;flex:1;background:#8a2433;border-radius:3px"></div><div style="height:5px;flex:1;background:#ededf1;border-radius:3px"></div><div style="height:5px;flex:1;background:#ededf1;border-radius:3px"></div></div>
+        <div style="font:600 11px Manrope;color:#9a9aa6">STEP 3 OF 10</div>
+        <div style="font:700 24px 'Space Grotesk';letter-spacing:-.5px;margin:3px 0 5px">Club colours</div>
+        <div style="font:500 13px Manrope;color:#6b6b77;line-height:1.5">We picked these from your crest. Tap to change — everything re-themes instantly.</div>
+        <!-- swatches -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:18px 0 8px">
+          <div onClick="{{ setClaret }}" style="{{ swClaret }}"></div>
+          <div onClick="{{ setCobalt }}" style="{{ swCobalt }}"></div>
+          <div onClick="{{ setForest }}" style="{{ swForest }}"></div>
+          <div onClick="{{ setAmber }}" style="{{ swAmber }}"></div>
+          <div onClick="{{ setSlate }}" style="{{ swSlate }}"></div>
+        </div>
+        <!-- contrast meter -->
+        <div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #ededf1;border-radius:12px;padding:12px 14px;margin-top:12px">
+          <div><div style="font:700 12px Manrope">Contrast on buttons</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">White text · ratio {{ ratio }}:1</div></div>
+          <span style="{{ passStyle }}">{{ passLabel }}</span>
+        </div>
+        <div style="font:500 11px Manrope;color:#9a9aa6;margin-top:8px;line-height:1.45">Text &amp; foreground tones are derived automatically so copy never becomes unreadable.</div>
+        <!-- LIVE PREVIEW -->
+        <div style="font:700 11px Manrope;letter-spacing:1px;color:#9a9aa6;margin:18px 0 9px">LIVE PREVIEW</div>
+        <div style="border:1px solid #ededf1;border-radius:16px;overflow:hidden">
+          <div style="{{ pvHeader }}"><div style="{{ pvCrest }}">RFC</div><div style="font:700 13px 'Space Grotesk'">Redbridge FC</div><div style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;font:700 10px Manrope;padding:5px 11px;border-radius:14px">Join</div></div>
+          <div style="padding:13px">
+            <div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #ededf1;border-radius:11px;padding:11px 13px;margin-bottom:11px"><div><span style="{{ pvChip }}">NEXT</span><div style="font:700 12px Manrope;margin-top:6px">vs Rovers · Sat 10:00</div></div><div style="{{ pvScore }}">VS</div></div>
+            <div style="{{ pvBtn }}">Follow live →</div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px;border-top:1px solid #f0f0f3;display:flex;gap:10px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:12px;padding:13px;font:700 13px Manrope;color:#6b6b77">Back</div><div style="flex:1.7;text-align:center;background:#17171b;color:#fff;border-radius:12px;padding:13px;font:700 13px Manrope">Continue →</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== B2 · IDENTITY + CREST =================== -->
+<div style="position:absolute;left:470px;top:1450px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#6b6b77">Identity &amp; crest</div>
+  <div style="background:#0e0e10;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.12)">
+    <div style="background:#fff;border-radius:36px;overflow:hidden;height:780px;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px Manrope"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="padding:6px 20px 0">
+        <div style="display:flex;gap:4px;margin-bottom:16px"><div style="height:5px;flex:1;background:#8a2433;border-radius:3px"></div><div style="height:5px;flex:4;background:#ededf1;border-radius:3px"></div></div>
+        <div style="font:600 11px Manrope;color:#9a9aa6">STEP 1 OF 10</div>
+        <div style="font:700 24px 'Space Grotesk';letter-spacing:-.5px;margin:3px 0 16px">Club identity</div>
+        <div style="font:700 11px Manrope;color:#6b6b77;margin-bottom:7px">CLUB NAME</div>
+        <div style="height:48px;border:1.5px solid #17171b;border-radius:12px;display:flex;align-items:center;padding:0 14px;font:700 14px Manrope;margin-bottom:14px">Redbridge FC</div>
+        <div style="font:700 11px Manrope;color:#6b6b77;margin-bottom:7px">TAGLINE</div>
+        <div style="height:48px;border:1px solid #e6e6ec;border-radius:12px;display:flex;align-items:center;padding:0 14px;font:500 14px Manrope;color:#9a9aa6;margin-bottom:14px">Community since 1989</div>
+        <div style="font:700 11px Manrope;color:#6b6b77;margin-bottom:7px">YOUR PAGE ADDRESS</div>
+        <div style="height:48px;border:1px solid #e6e6ec;border-radius:12px;display:flex;align-items:center;padding:0 14px;font:600 13px ui-monospace,monospace;color:#9a9aa6;margin-bottom:18px">in-or-out.club/<span style="color:#17171b;font-weight:700">redbridge</span><span style="margin-left:auto;color:#1f9d57;font:700 13px Manrope">✓ free</span></div>
+        <!-- crest -->
+        <div style="font:700 11px Manrope;color:#6b6b77;margin-bottom:9px">CREST</div>
+        <div style="display:flex;align-items:center;gap:14px;border:1px solid #ededf1;border-radius:16px;padding:14px">
+          <div style="width:60px;height:60px;border-radius:50%;background:#fff;border:2px solid #8a2433;display:flex;align-items:center;justify-content:center;font:700 16px 'Space Grotesk';color:#8a2433">RFC</div>
+          <div style="flex:1"><div style="font:700 13px Manrope">crest.png uploaded</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">Used in hero, nav &amp; share card</div><div style="font:700 12px Manrope;color:#8a2433;margin-top:7px">Replace</div></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px;border-top:1px solid #f0f0f3;display:flex;gap:10px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:12px;padding:13px;font:700 13px Manrope;color:#6b6b77">Back</div><div style="flex:1.7;text-align:center;background:#17171b;color:#fff;border-radius:12px;padding:13px;font:700 13px Manrope">Continue →</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== B3 · SECTIONS =================== -->
+<div style="position:absolute;left:860px;top:1450px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#6b6b77">Sections — toggle &amp; reorder</div>
+  <div style="background:#0e0e10;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.12)">
+    <div style="background:#fff;border-radius:36px;overflow:hidden;height:780px;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px Manrope"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="padding:6px 20px 0">
+        <div style="display:flex;gap:4px;margin-bottom:16px"><div style="height:5px;flex:5;background:#8a2433;border-radius:3px"></div><div style="height:5px;flex:5;background:#ededf1;border-radius:3px"></div></div>
+        <div style="font:600 11px Manrope;color:#9a9aa6">STEP 5 OF 10</div>
+        <div style="font:700 24px 'Space Grotesk';letter-spacing:-.5px;margin:3px 0 5px">Page sections</div>
+        <div style="font:500 13px Manrope;color:#6b6b77;line-height:1.5;margin-bottom:16px">Drag to reorder, switch off what you don't need. <b style="color:#8a2433">Football defaults set.</b></div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:13px;padding:13px 14px"><span style="color:#c7c7d0;font-size:15px">⠿</span><span style="flex:1;font:700 13px Manrope">Hero</span><div style="width:40px;height:23px;border-radius:12px;background:#1f9d57;position:relative"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:13px;padding:13px 14px"><span style="color:#c7c7d0;font-size:15px">⠿</span><span style="flex:1;font:700 13px Manrope">Fixtures &amp; table</span><div style="width:40px;height:23px;border-radius:12px;background:#1f9d57;position:relative"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:12px;border:1.5px solid #8a2433;border-radius:13px;padding:13px 14px;background:#faf1f2;box-shadow:0 6px 16px -6px rgba(138,36,51,.4)"><span style="color:#8a2433;font-size:15px">⠿</span><span style="flex:1;font:700 13px Manrope;color:#8a2433">Teams</span><div style="width:40px;height:23px;border-radius:12px;background:#1f9d57;position:relative"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:13px;padding:13px 14px"><span style="color:#c7c7d0;font-size:15px">⠿</span><span style="flex:1;font:700 13px Manrope">News</span><div style="width:40px;height:23px;border-radius:12px;background:#1f9d57;position:relative"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:13px;padding:13px 14px;opacity:.5"><span style="color:#c7c7d0;font-size:15px">⠿</span><span style="flex:1;font:700 13px Manrope;color:#9a9aa6">Sponsors</span><div style="width:40px;height:23px;border-radius:12px;background:#e4e4ea;position:relative"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;left:2.5px"></div></div></div>
+          <div style="display:flex;align-items:center;gap:12px;border:1px solid #ededf1;border-radius:13px;padding:13px 14px;opacity:.5"><span style="color:#c7c7d0;font-size:15px">⠿</span><span style="flex:1;font:700 13px Manrope;color:#9a9aa6">About</span><div style="width:40px;height:23px;border-radius:12px;background:#e4e4ea;position:relative"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;left:2.5px"></div></div></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px;border-top:1px solid #f0f0f3;display:flex;gap:10px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:12px;padding:13px;font:700 13px Manrope;color:#6b6b77">Back</div><div style="flex:1.7;text-align:center;background:#17171b;color:#fff;border-radius:12px;padding:13px;font:700 13px Manrope">Continue →</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== B4 · SAFEGUARDING =================== -->
+<div style="position:absolute;left:1250px;top:1450px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#8a2433">Safeguarding · mandatory</div>
+  <div style="background:#0e0e10;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.12)">
+    <div style="background:#fff;border-radius:36px;overflow:hidden;height:780px;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px Manrope"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="padding:6px 20px 0">
+        <div style="display:flex;gap:4px;margin-bottom:16px"><div style="height:5px;flex:9;background:#8a2433;border-radius:3px"></div><div style="height:5px;flex:1;background:#ededf1;border-radius:3px"></div></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:34px;height:34px;border-radius:10px;background:#faf1f2;display:flex;align-items:center;justify-content:center;font-size:17px">🛡️</span><span style="font:600 11px Manrope;color:#8a2433">STEP 9 · REQUIRED</span></div>
+        <div style="font:700 24px 'Space Grotesk';letter-spacing:-.5px;margin:11px 0 5px">Safeguarding</div>
+        <div style="font:500 13px Manrope;color:#6b6b77;line-height:1.5;margin-bottom:16px">You have youth teams, so child protections are <b style="color:#17171b">on by default</b>.</div>
+        <div style="border:1px solid #ededf1;border-radius:16px;overflow:hidden">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:15px 14px"><div style="width:40px;height:23px;border-radius:12px;background:#1f9d57;position:relative;flex-shrink:0;margin-top:1px"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div><div><div style="font:700 13px Manrope">Hide minors' surnames</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">Squad lists show "Jack M."</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:15px 14px;border-top:1px solid #f3f3f6"><div style="width:40px;height:23px;border-radius:12px;background:#1f9d57;position:relative;flex-shrink:0;margin-top:1px"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div><div><div style="font:700 13px Manrope">Hide minors' photos</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">Applies to squads, news &amp; images</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:15px 14px;border-top:1px solid #f3f3f6"><div style="width:40px;height:23px;border-radius:12px;background:#1f9d57;position:relative;flex-shrink:0;margin-top:1px"><div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2.5px;right:2.5px"></div></div><div><div style="font:700 13px Manrope">Approve images before publish</div></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;margin-top:16px;border:1.5px solid #8a2433;border-radius:13px;padding:13px 14px;background:#faf1f2"><span style="width:22px;height:22px;border-radius:7px;border:2px solid #8a2433;display:flex;align-items:center;justify-content:center;color:#8a2433;font-size:12px">✓</span><span style="font:700 12px Manrope;color:#17171b">I confirm these settings</span></div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px;border-top:1px solid #f0f0f3;display:flex;gap:10px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:12px;padding:13px;font:700 13px Manrope;color:#6b6b77">Back</div><div style="flex:1.7;text-align:center;background:#8a2433;color:#fff;border-radius:12px;padding:13px;font:700 13px Manrope">Confirm &amp; continue</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== B5 · PUBLISH =================== -->
+<div style="position:absolute;left:1640px;top:1450px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#6b6b77">Preview &amp; publish</div>
+  <div style="background:#0e0e10;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.12)">
+    <div style="background:#fff;border-radius:36px;overflow:hidden;height:780px;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px Manrope"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="padding:6px 20px 0">
+        <div style="display:flex;gap:4px;margin-bottom:16px"><div style="height:5px;flex:1;background:#8a2433;border-radius:3px"></div></div>
+        <div style="font:600 11px Manrope;color:#9a9aa6">STEP 10 OF 10</div>
+        <div style="font:700 24px 'Space Grotesk';letter-spacing:-.5px;margin:3px 0 5px">You're ready 🎉</div>
+        <div style="font:500 13px Manrope;color:#6b6b77;line-height:1.5;margin-bottom:16px">Here's exactly what visitors will see.</div>
+        <!-- mini preview of the real page -->
+        <div style="border:1px solid #ededf1;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px -12px rgba(0,0,0,.2)">
+          <div style="height:120px;background:linear-gradient(150deg,#6e1a27,#8a2433);position:relative"><div style="position:absolute;left:14px;bottom:12px"><div style="width:30px;height:30px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font:700 9px 'Space Grotesk';color:#8a2433;margin-bottom:7px">RFC</div><div style="font:700 15px 'Space Grotesk';color:#fff;letter-spacing:-.4px">Redbridge FC</div></div></div>
+          <div style="padding:11px"><div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #ededf1;border-radius:9px;padding:9px 11px;margin-bottom:8px"><span style="font:700 10px Manrope">vs Rovers · Sat</span><span style="font:700 10px Manrope;color:#8a2433">Follow</span></div><div style="background:#8a2433;color:#fff;text-align:center;border-radius:8px;padding:8px;font:700 10px Manrope;margin-bottom:8px">Join the club</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px"><div style="height:24px;background:#f3f3f6;border-radius:5px"></div><div style="height:24px;background:#f3f3f6;border-radius:5px"></div><div style="height:24px;background:#f3f3f6;border-radius:5px"></div></div></div>
+        </div>
+        <div style="display:flex;gap:9px;margin-top:14px"><div style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:11px;padding:11px;font:700 12px Manrope;color:#3a3a44">📱 Mobile</div><div style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:11px;padding:11px;font:700 12px Manrope;color:#3a3a44">💻 Desktop</div></div>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:13px;font:600 12px Manrope;color:#6b6b77"><span style="background:#fff7e6;color:#b5611f;font:700 10px Manrope;padding:5px 10px;border-radius:8px">DRAFT</span>Will go live at in-or-out.club/redbridge</div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px;border-top:1px solid #f0f0f3;display:flex;gap:10px;background:#fff"><div style="flex:1;text-align:center;border:1px solid #e6e6ec;border-radius:12px;padding:13px;font:700 13px Manrope;color:#6b6b77">Edit</div><div style="flex:1.7;text-align:center;background:#8a2433;color:#fff;border-radius:12px;padding:13px;font:700 13px Manrope">Publish 🚀</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ZONE C header ===== -->
+<div style="position:absolute;left:80px;top:2330px;width:900px">
+  <div style="font:600 13px Manrope;letter-spacing:2px;color:#9a9aa6">C — MANAGE DASHBOARD</div>
+  <div style="font:700 24px 'Space Grotesk';color:#17171b;margin-top:3px;letter-spacing:-.4px">Change anything, anytime — draft &rarr; live</div>
+</div>
+
+<!-- =================== C1 · DESKTOP DASHBOARD =================== -->
+<div style="position:absolute;left:80px;top:2420px;width:1180px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#6b6b77">Desktop · manage dashboard</div>
+  <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -24px rgba(0,0,0,.32),0 8px 24px rgba(0,0,0,.08);border:1px solid #e9e9ee">
+    <div style="height:42px;background:#f3f3f5;display:flex;align-items:center;gap:7px;padding:0 16px;border-bottom:1px solid #e6e6ec"><span style="width:11px;height:11px;border-radius:50%;background:#dcdce2"></span><span style="width:11px;height:11px;border-radius:50%;background:#dcdce2"></span><span style="width:11px;height:11px;border-radius:50%;background:#dcdce2"></span><div style="margin-left:12px;font:600 12px Manrope;color:#9a9aa6">In or Out · Manage</div></div>
+    <!-- top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid #f0f0f3">
+      <div style="display:flex;align-items:center;gap:13px"><div style="width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid #8a2433;display:flex;align-items:center;justify-content:center;font:700 12px 'Space Grotesk';color:#8a2433">RFC</div><div><div style="font:700 16px 'Space Grotesk';letter-spacing:-.3px">Redbridge FC</div><div style="display:flex;align-items:center;gap:6px;font:600 11px Manrope;color:#1f9d57;margin-top:1px"><span style="width:7px;height:7px;border-radius:50%;background:#1f9d57"></span>Published · live now</div></div></div>
+      <div style="display:flex;align-items:center;gap:11px"><span style="font:600 11px Manrope;color:#b5611f;background:#fff7e6;padding:7px 12px;border-radius:9px">2 unpublished edits</span><span style="font:700 12px Manrope;color:#6b6b77;border:1px solid #e6e6ec;border-radius:10px;padding:9px 15px">Discard</span><span style="font:700 12px Manrope;color:#3a3a44;border:1px solid #e6e6ec;border-radius:10px;padding:9px 15px">👁 Preview</span><span style="font:700 12px Manrope;color:#fff;background:#17171b;border-radius:10px;padding:9px 18px">Publish changes</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:0">
+      <!-- live page mini, clickable sections -->
+      <div style="padding:24px 28px;background:#f7f7f9;border-right:1px solid #f0f0f3">
+        <div style="font:700 11px Manrope;letter-spacing:1px;color:#9a9aa6;margin-bottom:13px">YOUR LIVE PAGE — CLICK A SECTION TO EDIT</div>
+        <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px -16px rgba(0,0,0,.2);border:1px solid #ededf1">
+          <div style="height:130px;background:linear-gradient(150deg,#6e1a27,#8a2433);position:relative"><span style="position:absolute;top:10px;right:11px;background:#17171b;color:#fff;font:700 9px Manrope;padding:4px 9px;border-radius:7px">✎ Hero</span><div style="position:absolute;left:16px;bottom:14px"><div style="width:34px;height:34px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font:700 10px 'Space Grotesk';color:#8a2433;margin-bottom:8px">RFC</div><div style="font:700 18px 'Space Grotesk';color:#fff;letter-spacing:-.4px">Redbridge FC</div></div></div>
+          <div style="padding:13px;border-bottom:1px solid #f4f4f6;position:relative"><span style="position:absolute;top:10px;right:11px;background:#17171b;color:#fff;font:700 9px Manrope;padding:4px 9px;border-radius:7px">✎ Matches</span><div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #ededf1;border-radius:10px;padding:11px 13px;width:75%"><span style="font:700 11px Manrope">vs Rovers · Sat 10:00</span><span style="font:700 11px Manrope;color:#8a2433">Follow</span></div></div>
+          <div style="padding:13px;position:relative"><span style="position:absolute;top:10px;right:11px;background:#17171b;color:#fff;font:700 9px Manrope;padding:4px 9px;border-radius:7px">✎ Sponsors</span><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:80%"><div style="height:30px;background:#f3f3f6;border-radius:6px"></div><div style="height:30px;background:#f3f3f6;border-radius:6px"></div><div style="height:30px;background:#f3f3f6;border-radius:6px"></div><div style="height:30px;background:#f3f3f6;border-radius:6px"></div></div></div>
+        </div>
+      </div>
+      <!-- right: tools -->
+      <div style="padding:24px 28px">
+        <!-- draft/published toggle -->
+        <div style="display:flex;background:#f3f3f6;border-radius:11px;padding:4px;margin-bottom:20px"><div style="flex:1;text-align:center;background:#fff;border-radius:8px;padding:9px;font:700 12px Manrope;box-shadow:0 1px 2px rgba(0,0,0,.06)">Draft</div><div style="flex:1;text-align:center;padding:9px;font:600 12px Manrope;color:#9a9aa6">Published</div></div>
+        <div style="font:700 11px Manrope;letter-spacing:1px;color:#9a9aa6;margin-bottom:12px">RE-OPEN ANY STEP</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px">
+          <div style="border:1px solid #ededf1;border-radius:13px;padding:14px"><div style="font-size:18px;margin-bottom:8px">🎨</div><div style="font:700 13px Manrope">Brand &amp; crest</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">Claret · hero set</div></div>
+          <div style="border:1px solid #ededf1;border-radius:13px;padding:14px"><div style="font-size:18px;margin-bottom:8px">▦</div><div style="font:700 13px Manrope">Sections</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">5 on · reorder</div></div>
+          <div style="border:1px solid #ededf1;border-radius:13px;padding:14px"><div style="font-size:18px;margin-bottom:8px">👥</div><div style="font:700 13px Manrope">Teams</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">4 shown</div></div>
+          <div style="border:1px solid #ededf1;border-radius:13px;padding:14px"><div style="font-size:18px;margin-bottom:8px">📰</div><div style="font:700 13px Manrope">News</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">6 posts · 1 draft</div></div>
+          <div style="border:1px solid #ededf1;border-radius:13px;padding:14px"><div style="font-size:18px;margin-bottom:8px">🏷️</div><div style="font:700 13px Manrope">Sponsors</div><div style="font:600 11px Manrope;color:#9a9aa6;margin-top:2px">6 logos</div></div>
+          <div style="border:1px solid #f0d9d2;background:#faf1f2;border-radius:13px;padding:14px"><div style="font-size:18px;margin-bottom:8px">🛡️</div><div style="font:700 13px Manrope;color:#8a2433">Safeguarding</div><div style="font:600 11px Manrope;color:#bb8a7a;margin-top:2px">Protections ON</div></div>
+        </div>
+        <div style="border:1px solid #ededf1;border-radius:13px;padding:14px 16px"><div style="font:700 11px Manrope;letter-spacing:.6px;color:#9a9aa6;margin-bottom:9px">CHANGED SINCE LIVE</div><div style="font:600 12px Manrope;color:#5b5b66;line-height:1.9">• Primary colour → deeper claret<br>• Added sponsor "Northgate"<br>• New post: <i>New kit revealed</i> (draft)</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== C2 · MOBILE MANAGE =================== -->
+<div style="position:absolute;left:1300px;top:2420px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px Manrope;color:#6b6b77">Mobile · manage</div>
+  <div style="background:#0e0e10;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.12)">
+    <div style="background:#fff;border-radius:36px;overflow:hidden;height:780px;overflow-y:auto;position:relative">
+      <div style="height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px Manrope"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="padding:6px 18px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between"><div style="font:700 22px 'Space Grotesk';letter-spacing:-.4px">Manage page</div><span style="display:flex;align-items:center;gap:5px;font:700 11px Manrope;color:#1f9d57"><span style="width:7px;height:7px;border-radius:50%;background:#1f9d57"></span>LIVE</span></div>
+        <div style="font:600 12px ui-monospace,monospace;color:#9a9aa6;margin:4px 0 16px">in-or-out.club/redbridge</div>
+        <div style="background:#fff7e6;border:1px solid #f3e2c0;border-radius:14px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"><span style="font:700 12px Manrope;color:#b5611f">2 unpublished edits</span><div style="display:flex;gap:7px"><span style="font:700 11px Manrope;color:#b5611f;border:1px solid #e6cfa3;border-radius:8px;padding:6px 11px">Discard</span><span style="font:700 11px Manrope;color:#fff;background:#17171b;border-radius:8px;padding:6px 12px">Publish</span></div></div>
+        <div style="font:700 11px Manrope;letter-spacing:1px;color:#9a9aa6;margin-bottom:11px">SECTIONS · TAP TO EDIT</div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;gap:13px;border:1px solid #ededf1;border-radius:14px;padding:14px"><span style="font-size:18px">🎨</span><div style="flex:1"><div style="font:700 13px Manrope">Brand &amp; crest</div><div style="font:600 11px Manrope;color:#9a9aa6">Claret · hero set</div></div><span style="color:#c7c7d0">›</span></div>
+          <div style="display:flex;align-items:center;gap:13px;border:1px solid #ededf1;border-radius:14px;padding:14px"><span style="font-size:18px">▦</span><div style="flex:1"><div style="font:700 13px Manrope">Sections &amp; order</div><div style="font:600 11px Manrope;color:#9a9aa6">5 on</div></div><span style="color:#c7c7d0">›</span></div>
+          <div style="display:flex;align-items:center;gap:13px;border:1px solid #ededf1;border-radius:14px;padding:14px"><span style="font-size:18px">📰</span><div style="flex:1"><div style="font:700 13px Manrope">News / blog</div><div style="font:600 11px Manrope;color:#9a9aa6">6 posts · 1 draft</div></div><span style="color:#c7c7d0">›</span></div>
+          <div style="display:flex;align-items:center;gap:13px;border:1px solid #ededf1;border-radius:14px;padding:14px"><span style="font-size:18px">🏷️</span><div style="flex:1"><div style="font:700 13px Manrope">Sponsors</div><div style="font:600 11px Manrope;color:#9a9aa6">6 logos</div></div><span style="color:#c7c7d0">›</span></div>
+          <div style="display:flex;align-items:center;gap:13px;border:1px solid #f0d9d2;background:#faf1f2;border-radius:14px;padding:14px"><span style="font-size:18px">🛡️</span><div style="flex:1"><div style="font:700 13px Manrope;color:#8a2433">Safeguarding</div><div style="font:600 11px Manrope;color:#bb8a7a">Protections ON</div></div><span style="color:#d8a79a">›</span></div>
+        </div>
+        <div style="margin-top:14px;text-align:center;border:1px solid #e6e6ec;border-radius:13px;padding:14px;font:700 13px Manrope;color:#3a3a44">👁 Preview public page</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- closing note -->
+<div style="position:absolute;left:80px;top:3120px;width:760px;background:#0e0e10;border-radius:16px;padding:22px 26px;color:#fff">
+  <div style="font:700 16px 'Space Grotesk';letter-spacing:-.3px;margin-bottom:13px">One theming system, every club</div>
+  <div style="font:500 13px Manrope;color:#c7c7cf;line-height:1.6">Swap the crest + 3 colours and the same clean chrome becomes any club's page — claret, cobalt, forest, amber. Live scores, next fixture and one-tap Join keep it a <b style="color:#fff">shop window, not a brochure</b>. Contrast is checked automatically so it stays legible at the worst plausible palette.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tab: 'fixtures', dtab: 'fixtures', club: '#8a2433' };
+
+  seg(active){
+    return active
+      ? 'flex:1;text-align:center;font:700 12px Manrope;background:#fff;color:#17171b;border-radius:9px;padding:9px 0;box-shadow:0 1px 3px rgba(0,0,0,.08);cursor:pointer;transition:all .15s'
+      : 'flex:1;text-align:center;font:600 12px Manrope;color:#9a9aa6;border-radius:9px;padding:9px 0;cursor:pointer;transition:all .15s';
+  }
+  hexToRgb(h){h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.substr(i,2),16));}
+  lum(rgb){const a=rgb.map(v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];}
+  contrast(hex){const L1=this.lum([255,255,255]);const L2=this.lum(this.hexToRgb(hex));const hi=Math.max(L1,L2),lo=Math.min(L1,L2);return (hi+0.05)/(lo+0.05);}
+  shade(hex,f){const [r,g,b]=this.hexToRgb(hex);const adj=(x)=> f>=0 ? Math.round(x*(1-f)) : Math.round(x+(255-x)*(-f)); return '#'+[r,g,b].map(adj).map(x=>Math.max(0,Math.min(255,x)).toString(16).padStart(2,'0')).join('');}
+
+  renderVals(){
+    const c = this.state.club;
+    const ratio = this.contrast(c);
+    const pass = ratio >= 4.5;
+    const mk = (k,v)=>()=>this.setState({[k]:v});
+    const swatch = (hex,active)=>`width:100%;aspect-ratio:1;border-radius:13px;background:${hex};cursor:pointer;border:3px solid ${active?'#17171b':'transparent'};box-shadow:${active?'0 0 0 2px #fff inset':'none'};transition:all .15s`;
+    return {
+      isFix:this.state.tab==='fixtures', isRes:this.state.tab==='results', isTab:this.state.tab==='table',
+      segFix:this.seg(this.state.tab==='fixtures'), segRes:this.seg(this.state.tab==='results'), segTab:this.seg(this.state.tab==='table'),
+      setFix:mk('tab','fixtures'), setRes:mk('tab','results'), setTab:mk('tab','table'),
+      // wizard recolour
+      club:c, clubDeep:this.shade(c,.22),
+      ratio:ratio.toFixed(1), pass,
+      passLabel: pass ? 'AA pass' : 'Too light',
+      passStyle: `display:inline-flex;align-items:center;gap:5px;font:700 10px Manrope;padding:4px 9px;border-radius:7px;background:${pass?'#e7f6ee':'#fbeceb'};color:${pass?'#1f9d57':'#c0392b'}`,
+      setClaret:mk('club','#8a2433'), setCobalt:mk('club','#234e9a'), setForest:mk('club','#1f6b46'), setAmber:mk('club','#b5611f'), setSlate:mk('club','#3a3f52'),
+      swClaret:swatch('#8a2433',c==='#8a2433'), swCobalt:swatch('#234e9a',c==='#234e9a'), swForest:swatch('#1f6b46',c==='#1f6b46'), swAmber:swatch('#b5611f',c==='#b5611f'), swSlate:swatch('#3a3f52',c==='#3a3f52'),
+      pvHeader:`background:linear-gradient(135deg,${this.shade(c,.18)},${c});color:#fff;padding:13px 15px;display:flex;align-items:center;gap:9px`,
+      pvBtn:`background:${c};color:#fff;text-align:center;border-radius:9px;padding:10px;font:700 12px Manrope`,
+      pvChip:`display:inline-block;background:${this.shade(c,-.7)};color:${this.shade(c,.1)};font:700 10px Manrope;padding:4px 9px;border-radius:7px`,
+      pvScore:`font:700 22px 'Space Grotesk';color:${c}`,
+      pvCrest:`width:30px;height:30px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font:700 10px 'Space Grotesk';color:${c}`,
+    };
+  }
+}
+</script>
+</body>
+</html>

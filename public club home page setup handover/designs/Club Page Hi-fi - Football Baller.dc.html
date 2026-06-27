@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#f4f4f5;}
+  *{box-sizing:border-box;}
+  @keyframes hpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+  ::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<!-- title -->
+<div style="position:absolute;left:80px;top:-72px;width:1500px">
+  <div style="font:400 38px 'Bebas Neue';color:#17171b;letter-spacing:.5px">In or Out — Football, Baller-ceiling + discipline-aware wording</div>
+  <div style="font:500 15px 'DM Sans';color:#6b6b77;margin-top:2px">Same fight-night dashboard, re-skinned claret · live table with <i>meaning</i> · player cards · reliability board · and a switcher proving the wording adapts to each discipline →</div>
+</div>
+
+<!-- zone header -->
+<div style="position:absolute;left:80px;top:18px;width:1000px">
+  <div style="font:600 13px 'DM Sans';letter-spacing:2px;color:#9a9aa6">G — FOOTBALL · BALLER TREATMENT</div>
+  <div style="font:400 30px 'Bebas Neue';color:#17171b;margin-top:0;letter-spacing:.4px">Redbridge FC — the live dashboard is the homepage</div>
+</div>
+
+<!-- =============== MOBILE FOOTBALL =============== -->
+<div style="position:absolute;left:80px;top:124px;width:340px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Mobile · Redbridge FC (dashboard · interactive tabs)</div>
+  <div style="background:#000;border-radius:46px;padding:11px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.18)">
+    <div style="background:#0d0d0f;border-radius:36px;overflow:hidden;height:790px;overflow-y:auto;position:relative">
+      <div style="position:sticky;top:0;z-index:5;height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;font:600 13px 'DM Sans';background:#0d0d0f;color:#f4f4f5"><span>9:41</span><span style="font-size:11px">●●●&nbsp;&nbsp;▦&nbsp;&nbsp;▮</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 16px 12px">
+        <div style="display:flex;align-items:center;gap:9px"><div style="width:32px;height:32px;border-radius:50%;background:#17171b;border:1.5px solid #d8455f;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue';color:#d8455f">RFC</div><span style="font:400 19px 'Bebas Neue';letter-spacing:.6px">REDBRIDGE FC</span></div>
+        <div style="font:700 11px 'DM Sans';color:#fff;background:#d8455f;padding:8px 14px;border-radius:20px">Join</div>
+      </div>
+      <!-- HERO: next-fixture / latest-result (no live ticker — club_fixtures has no in-play state) -->
+      <div style="position:relative;height:248px;margin:0 12px;border-radius:20px;overflow:hidden;background:linear-gradient(150deg,#3a0c18,#0d0d0f 70%)">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.035),rgba(255,255,255,.035) 2px,transparent 2px,transparent 12px)"></div>
+        <div style="position:absolute;top:12px;left:14px;font:11px ui-monospace,monospace;color:rgba(255,255,255,.32)">hero photo</div>
+        <div style="position:absolute;top:12px;right:12px;background:#141417;border:1px solid #2a2a31;color:#c7c7cf;font:700 9px 'DM Sans';letter-spacing:.8px;padding:6px 11px;border-radius:14px">NEXT MATCH · IN 2 DAYS</div>
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:16px 18px;background:linear-gradient(to top,rgba(13,13,15,.95),transparent)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="width:40px;height:40px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;font:400 15px 'Bebas Neue';color:#d8455f">RFC</div><div style="font:400 26px 'Bebas Neue';letter-spacing:.5px;line-height:.95">REDBRIDGE FC</div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#141417;border:1px solid #2a2a31;border-radius:13px;padding:11px 14px">
+            <div><div style="font:700 12px 'DM Sans'">First XI v Rovers</div><div style="font:600 10px 'DM Sans';color:#9a9aa6;margin-top:2px">League · Home · Rec Ground</div></div>
+            <div style="text-align:right"><div style="font:400 22px 'Bebas Neue';color:#d8455f;line-height:1">SAT</div><div style="font:700 11px 'DM Sans'">10:00</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- DASHBOARD -->
+      <div style="padding:18px 12px 0">
+        <div style="font:400 22px 'Bebas Neue';letter-spacing:.5px;margin-bottom:12px">THE CLUB</div>
+        <div style="display:flex;background:#17171b;border-radius:12px;padding:4px;gap:3px;margin-bottom:14px">
+          <div onClick="{{ setFixtures }}" style="{{ segFixtures }}">Fixtures</div>
+          <div onClick="{{ setTable }}" style="{{ segTable }}">Table</div>
+          <div onClick="{{ setPlayers }}" style="{{ segPlayers }}">Players</div>
+        </div>
+        <!-- FIXTURES -->
+        <sc-if value="{{ isFixtures }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font:700 10px 'DM Sans';letter-spacing:.8px;color:#9a9aa6;margin-bottom:1px">UPCOMING</div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:13px;padding:11px 13px"><div style="text-align:center;width:36px"><div style="font:400 16px 'Bebas Neue'">SAT</div><div style="font:500 9px 'DM Sans';color:#6b6b75">11 JAN</div></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">vs Athletic</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">League · Away</div></div><span style="font:700 11px 'DM Sans';color:#d8455f">14:00</span></div>
+            <div style="font:700 10px 'DM Sans';letter-spacing:.8px;color:#9a9aa6;margin:6px 0 1px">RECENT</div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:13px;padding:11px 13px"><span style="width:22px;height:22px;border-radius:7px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue'">W</span><div style="flex:1"><div style="font:700 12px 'DM Sans'">vs United</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">League</div></div><span style="font:400 18px 'Bebas Neue'">3–1</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:13px;padding:11px 13px"><span style="width:22px;height:22px;border-radius:7px;background:#2a2a31;color:#c0c0c8;display:flex;align-items:center;justify-content:center;font:400 13px 'Bebas Neue'">D</span><div style="flex:1"><div style="font:700 12px 'DM Sans'">at County</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">League</div></div><span style="font:400 18px 'Bebas Neue'">2–2</span></div>
+          </div>
+        </sc-if>
+        <!-- TABLE with MEANING -->
+        <sc-if value="{{ isTable }}">
+          <div>
+            <div style="display:inline-flex;align-items:center;gap:5px;font:600 9px 'DM Sans';color:#9aa6c0;background:#15171c;border:1px solid #23262e;padding:4px 9px;border-radius:7px;margin-bottom:11px">🔗 FA league table · auto-synced</div>
+            <!-- the meaning line -->
+            <div style="border:1px solid #3a1420;background:linear-gradient(120deg,#2a1018,#141417);border-radius:14px;padding:14px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:11px"><div style="font:400 40px 'Bebas Neue';color:#d8455f;line-height:.85">3<span style="font-size:18px;vertical-align:super">rd</span></div><div><div style="font:700 13px 'DM Sans'">2 points off promotion</div><div style="font:500 11px 'DM Sans';color:#9a9aa6;margin-top:2px">Win Sat &amp; you go 2nd · vs 2nd-place Rovers next</div></div></div></div>
+            <div style="border:1px solid #23232a;border-radius:13px;overflow:hidden">
+              <div style="display:flex;align-items:center;padding:8px 13px;font:700 9px 'DM Sans';letter-spacing:.5px;color:#6b6b75;background:#141417"><span style="width:20px">#</span><span style="flex:1">CLUB</span><span style="width:26px;text-align:center">P</span><span style="width:30px;text-align:center">GD</span><span style="width:30px;text-align:center">PTS</span></div>
+              <div style="display:flex;align-items:center;padding:10px 13px;border-top:1px solid #1c1c22;font:600 12px 'DM Sans'"><span style="width:20px;color:#9a9aa6">1</span><span style="flex:1">Athletic</span><span style="width:26px;text-align:center;color:#9a9aa6">14</span><span style="width:30px;text-align:center;color:#9a9aa6">+18</span><span style="width:30px;text-align:center;font:400 15px 'Bebas Neue'">34</span></div>
+              <div style="display:flex;align-items:center;padding:10px 13px;border-top:1px solid #1c1c22;font:600 12px 'DM Sans'"><span style="width:20px;color:#9a9aa6">2</span><span style="flex:1">Rovers</span><span style="width:26px;text-align:center;color:#9a9aa6">14</span><span style="width:30px;text-align:center;color:#9a9aa6">+12</span><span style="width:30px;text-align:center;font:400 15px 'Bebas Neue'">33</span></div>
+              <div style="display:flex;align-items:center;padding:10px 13px;border-top:1px solid #1c1c22;background:#1c1014;font:700 12px 'DM Sans';color:#ff8aa0"><span style="width:20px">3</span><span style="flex:1">Redbridge FC</span><span style="width:26px;text-align:center">14</span><span style="width:30px;text-align:center">+11</span><span style="width:30px;text-align:center;font:400 15px 'Bebas Neue';color:#d8455f">31</span></div>
+              <div style="display:flex;align-items:center;padding:10px 13px;border-top:1px solid #1c1c22;font:600 12px 'DM Sans'"><span style="width:20px;color:#9a9aa6">4</span><span style="flex:1">City</span><span style="width:26px;text-align:center;color:#9a9aa6">14</span><span style="width:30px;text-align:center;color:#9a9aa6">+5</span><span style="width:30px;text-align:center;font:400 15px 'Bebas Neue'">26</span></div>
+            </div>
+          </div>
+        </sc-if>
+        <!-- PLAYERS cards -->
+        <sc-if value="{{ isPlayers }}">
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <div style="border-radius:16px;overflow:hidden;background:linear-gradient(150deg,#2a1018,#141417);border:1px solid #3a1420">
+              <div style="display:flex;align-items:center;gap:13px;padding:14px"><div style="width:54px;height:54px;border-radius:13px;background:#0d0d0f;border:1px solid #3a1420;display:flex;align-items:center;justify-content:center;font:11px ui-monospace,monospace;color:#6b6b75">photo</div><div style="flex:1"><div style="font:700 9px 'DM Sans';letter-spacing:.8px;color:#d8455f">⚽ TOP SCORER</div><div style="font:400 24px 'Bebas Neue';letter-spacing:.3px;line-height:1;margin-top:2px">J. MENSAH</div><div style="font:600 10px 'DM Sans';color:#9a9aa6">First XI · Forward</div></div><div style="text-align:center"><div style="font:400 34px 'Bebas Neue';color:#d8455f;line-height:.9">14</div><div style="font:600 8px 'DM Sans';color:#6b6b75">GOALS</div></div></div>
+            </div>
+            <div style="display:flex;gap:9px">
+              <div style="flex:1;border:1px solid #23232a;border-radius:13px;padding:13px"><div style="font:700 8px 'DM Sans';letter-spacing:.6px;color:#f5b800">⭐ PLAYER OF MONTH</div><div style="font:400 18px 'Bebas Neue';margin-top:5px;line-height:1">L. PRICE</div><div style="font:500 9px 'DM Sans';color:#6b6b75">112 votes</div></div>
+              <div style="flex:1;border:1px solid #23232a;border-radius:13px;padding:13px"><div style="font:700 8px 'DM Sans';letter-spacing:.6px;color:#3fcf6a">⚡ MOST RELIABLE</div><div style="font:400 18px 'Bebas Neue';margin-top:5px;line-height:1">M. ADEYEMI</div><div style="font:500 9px 'DM Sans';color:#6b6b75">96% available</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;border:1px solid #23232a;border-radius:13px;padding:11px 13px;background:#0f0f12"><span style="font-size:14px">🛡️</span><div style="font:500 10px 'DM Sans';color:#9a9aa6;line-height:1.4">Senior squads only — under-18 players are never named on public boards.</div></div>
+            <div style="font:500 10px 'DM Sans';color:#6b6b75;line-height:1.4">Positive-only · reliability from availability, top-scorer/POTM appear when a team tracks them.</div>
+          </div>
+        </sc-if>
+      </div>
+      <!-- LATEST NEWS -->
+      <div style="padding:20px 12px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><span style="font:400 22px 'Bebas Neue';letter-spacing:.5px">LATEST</span><span style="font:600 11px 'DM Sans';color:#d8455f">All news ›</span></div>
+        <div style="border:1px solid #23232a;border-radius:16px;overflow:hidden;margin-bottom:10px">
+          <div style="height:120px;background:repeating-linear-gradient(125deg,#16161a,#16161a 9px,#1c1c20 9px,#1c1c20 18px);position:relative"><span style="position:absolute;left:12px;top:10px;font:11px ui-monospace,monospace;color:#6b6b75">article image</span></div>
+          <div style="padding:13px"><div style="font:600 9px 'DM Sans';letter-spacing:.6px;color:#d8455f">MATCH REPORT · 2 DAYS AGO</div><div style="font:400 20px 'Bebas Neue';letter-spacing:.3px;line-height:1;margin:6px 0 5px">CUP RUN CONTINUES AFTER LATE WINNER</div><div style="font:500 11px 'DM Sans';color:#9a9aa6;line-height:1.5">A 90th-minute strike sends Redbridge through…</div></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div style="flex:1;border:1px solid #23232a;border-radius:12px;padding:11px"><div style="font:600 8px 'DM Sans';letter-spacing:.5px;color:#6b6b75">CLUB · 5D</div><div style="font:700 12px 'DM Sans';margin-top:4px;line-height:1.2">New kit revealed</div></div>
+          <div style="flex:1;border:1px solid #23232a;border-radius:12px;padding:11px"><div style="font:600 8px 'DM Sans';letter-spacing:.5px;color:#6b6b75">YOUTH · 1W</div><div style="font:700 12px 'DM Sans';margin-top:4px;line-height:1.2">U12 sign-ups open</div></div>
+        </div>
+      </div>
+      <!-- PLAY FOR US -->
+      <div style="margin:20px 12px 0;border-radius:16px;padding:16px;background:#d8455f;color:#fff;display:flex;align-items:center;justify-content:space-between">
+        <div><div style="font:400 24px 'Bebas Neue';letter-spacing:.5px">PLAY FOR US</div><div style="font:600 11px 'DM Sans';color:rgba(255,255,255,.85);margin-top:2px">Trials Tue 7pm · register a child</div><div style="margin-top:11px;background:#fff;color:#c2384f;font:700 11px 'DM Sans';padding:9px 15px;border-radius:18px;display:inline-block">Start now</div></div>
+        <div style="width:66px;height:66px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#c2384f">QR</div>
+      </div>
+      <!-- SPONSORS -->
+      <div style="padding:20px 12px 0">
+        <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:11px">BACKED BY</div>
+        <div style="display:flex;align-items:center;gap:12px;border:1px solid #23232a;border-radius:12px;padding:11px 13px"><div style="width:54px;height:30px;background:#17171b;border-radius:6px;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#6b6b75">logo</div><div style="flex:1"><div style="font:700 12px 'DM Sans'">Northgate Motors</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">Match sponsor · today</div></div><span style="color:#6b6b75">›</span></div>
+      </div>
+      <div style="margin:18px 12px 0;border:1px solid #23232a;border-radius:12px;padding:12px 13px;display:flex;gap:10px;align-items:flex-start"><span style="font-size:15px">🛡️</span><div style="font:500 11px 'DM Sans';color:#9a9aa6;line-height:1.45">Youth squads safeguarded — surnames &amp; photos hidden across the table, players &amp; news.</div></div>
+      <div style="margin-top:18px;padding:22px 12px 30px;background:#000;text-align:center"><div style="font:400 18px 'Bebas Neue';letter-spacing:.6px;color:#fff">REDBRIDGE FC</div><div style="font:500 10px 'DM Sans';color:rgba(255,255,255,.4);margin-top:7px">Powered by In or Out</div></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- =============== DESKTOP FOOTBALL =============== -->
+<div style="position:absolute;left:470px;top:124px;width:1200px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Desktop · live dashboard homepage</div>
+  <div style="background:#0d0d0f;border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -24px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.14);border:1px solid #23232a">
+    <div style="height:42px;background:#17171b;display:flex;align-items:center;gap:7px;padding:0 16px;border-bottom:1px solid #23232a"><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><span style="width:11px;height:11px;border-radius:50%;background:#39393f"></span><div style="flex:1;max-width:360px;margin-left:14px;height:26px;background:#0d0d0f;border-radius:13px;border:1px solid #23232a;display:flex;align-items:center;padding:0 14px;font:600 12px 'DM Sans';color:#6b6b75">in-or-out.club/c/redbridge</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:15px 30px;border-bottom:1px solid #1c1c22">
+      <div style="display:flex;align-items:center;gap:11px"><div style="width:36px;height:36px;border-radius:50%;background:#17171b;border:1.5px solid #d8455f;display:flex;align-items:center;justify-content:center;font:400 14px 'Bebas Neue';color:#d8455f">RFC</div><span style="font:400 22px 'Bebas Neue';letter-spacing:.6px">REDBRIDGE FC</span></div>
+      <div style="display:flex;align-items:center;gap:26px;font:600 13px 'DM Sans';color:#9a9aa6"><span>Fixtures</span><span>Teams</span><span>Players</span><span>News</span><span style="background:#d8455f;color:#fff;padding:9px 18px;border-radius:20px">Play for us</span></div>
+    </div>
+    <div style="position:relative;height:210px;background:linear-gradient(120deg,#3a0c18,#0d0d0f 65%);overflow:hidden">
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(125deg,rgba(255,255,255,.03),rgba(255,255,255,.03) 2px,transparent 2px,transparent 13px)"></div>
+      <div style="position:absolute;top:12px;left:16px;font:11px ui-monospace,monospace;color:rgba(255,255,255,.3)">hero photo (full-bleed)</div>
+      <div style="position:absolute;left:34px;bottom:28px"><div style="font:400 48px 'Bebas Neue';letter-spacing:.8px;line-height:.9">REDBRIDGE FC</div><div style="font:600 13px 'DM Sans';color:rgba(255,255,255,.6);margin-top:6px">Community since 1989 · Step 5 · East London</div></div>
+      <div style="position:absolute;right:34px;bottom:28px;width:280px;background:rgba(13,13,15,.85);border:1px solid #2a2a31;border-radius:14px;padding:14px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span style="font:700 9px 'DM Sans';letter-spacing:.8px;color:#c7c7cf">NEXT MATCH · IN 2 DAYS</span><span style="font:500 10px 'DM Sans';color:#9a9aa6">League</span></div><div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 13px 'DM Sans'">First XI v Rovers</span><span style="font:400 22px 'Bebas Neue';color:#d8455f">SAT 10:00</span></div><div style="background:#d8455f;color:#fff;text-align:center;border-radius:9px;padding:9px;font:700 11px 'DM Sans';margin-top:11px">Set a reminder →</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0">
+      <div style="padding:22px 24px;border-right:1px solid #1c1c22">
+        <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:13px">FIXTURES &amp; FORM</div>
+        <div style="display:flex;gap:5px;margin-bottom:13px"><span style="width:22px;height:22px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">W</span><span style="width:22px;height:22px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">W</span><span style="width:22px;height:22px;border-radius:6px;background:#2a2a31;color:#c0c0c8;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">D</span><span style="width:22px;height:22px;border-radius:6px;background:#331016;color:#ff8aa0;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">L</span><span style="width:22px;height:22px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">W</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;border:1px solid #23232a;border-radius:12px;padding:10px 12px"><div style="text-align:center;width:32px"><div style="font:400 15px 'Bebas Neue'">SAT</div></div><div style="flex:1"><div style="font:700 12px 'DM Sans'">at Athletic</div><div style="font:500 10px 'DM Sans';color:#9a9aa6">League</div></div><span style="font:700 10px 'DM Sans';color:#d8455f">14:00</span></div>
+          <div style="display:flex;align-items:center;gap:10px;border:1px solid #23232a;border-radius:12px;padding:10px 12px"><span style="width:22px;height:22px;border-radius:6px;background:#10331f;color:#3fcf6a;display:flex;align-items:center;justify-content:center;font:400 12px 'Bebas Neue'">W</span><div style="flex:1"><div style="font:700 12px 'DM Sans'">vs United</div></div><span style="font:400 16px 'Bebas Neue'">3–1</span></div>
+        </div>
+      </div>
+      <div style="padding:22px 24px;border-right:1px solid #1c1c22">
+        <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:5px">LEAGUE TABLE</div><div style="display:inline-flex;font:600 9px 'DM Sans';color:#9aa6c0;background:#15171c;border:1px solid #23262e;padding:3px 8px;border-radius:6px;margin-bottom:11px">🔗 FA table</div>
+        <div style="border:1px solid #3a1420;background:linear-gradient(120deg,#2a1018,#141417);border-radius:12px;padding:12px;margin-bottom:11px;display:flex;align-items:center;gap:10px"><div style="font:400 32px 'Bebas Neue';color:#d8455f;line-height:.85">3<span style="font-size:15px;vertical-align:super">rd</span></div><div style="font:600 11px 'DM Sans';line-height:1.35">2 pts off promotion ·<br>vs 2nd next</div></div>
+        <div style="border:1px solid #23232a;border-radius:12px;overflow:hidden">
+          <div style="display:flex;align-items:center;padding:9px 12px;font:600 11px 'DM Sans'"><span style="width:18px;color:#9a9aa6">1</span><span style="flex:1">Athletic</span><span style="font:400 14px 'Bebas Neue'">34</span></div>
+          <div style="display:flex;align-items:center;padding:9px 12px;border-top:1px solid #1c1c22;font:600 11px 'DM Sans'"><span style="width:18px;color:#9a9aa6">2</span><span style="flex:1">Rovers</span><span style="font:400 14px 'Bebas Neue'">33</span></div>
+          <div style="display:flex;align-items:center;padding:9px 12px;border-top:1px solid #1c1c22;background:#1c1014;font:700 11px 'DM Sans';color:#ff8aa0"><span style="width:18px">3</span><span style="flex:1">Redbridge FC</span><span style="font:400 14px 'Bebas Neue';color:#d8455f">31</span></div>
+        </div>
+      </div>
+      <div style="padding:22px 24px">
+        <div style="font:400 20px 'Bebas Neue';letter-spacing:.5px;margin-bottom:13px">PLAYERS</div>
+        <div style="border-radius:13px;overflow:hidden;background:linear-gradient(150deg,#2a1018,#141417);border:1px solid #3a1420;margin-bottom:9px"><div style="display:flex;align-items:center;gap:11px;padding:12px"><div style="width:44px;height:44px;border-radius:11px;background:#0d0d0f;border:1px solid #3a1420;display:flex;align-items:center;justify-content:center;font:9px ui-monospace,monospace;color:#6b6b75">photo</div><div style="flex:1"><div style="font:700 8px 'DM Sans';letter-spacing:.7px;color:#d8455f">⚽ TOP SCORER</div><div style="font:400 18px 'Bebas Neue';line-height:1;margin-top:2px">J. MENSAH</div></div><div style="text-align:center"><div style="font:400 26px 'Bebas Neue';color:#d8455f;line-height:.9">14</div><div style="font:600 7px 'DM Sans';color:#6b6b75">GOALS</div></div></div></div>
+        <div style="display:flex;gap:8px"><div style="flex:1;border:1px solid #23232a;border-radius:11px;padding:11px"><div style="font:700 7px 'DM Sans';letter-spacing:.5px;color:#f5b800">⭐ POTM</div><div style="font:400 15px 'Bebas Neue';margin-top:4px;line-height:1">L. PRICE</div></div><div style="flex:1;border:1px solid #23232a;border-radius:11px;padding:11px"><div style="font:700 7px 'DM Sans';letter-spacing:.5px;color:#3fcf6a">⚡ RELIABLE</div><div style="font:400 15px 'Bebas Neue';margin-top:4px;line-height:1">M. ADEYEMI</div></div></div>
+      </div>
+    </div>
+    <!-- DESKTOP LATEST NEWS -->
+    <div style="padding:22px 30px;border-top:1px solid #1c1c22">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><span style="font:400 20px 'Bebas Neue';letter-spacing:.5px">LATEST NEWS</span><span style="font:600 12px 'DM Sans';color:#d8455f">All news ›</span></div>
+      <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px">
+        <div style="border:1px solid #23232a;border-radius:13px;overflow:hidden"><div style="height:110px;background:repeating-linear-gradient(125deg,#16161a,#16161a 9px,#1c1c20 9px,#1c1c20 18px)"></div><div style="padding:13px"><div style="font:600 9px 'DM Sans';letter-spacing:.6px;color:#d8455f">MATCH REPORT · 2D</div><div style="font:400 19px 'Bebas Neue';line-height:1;margin:5px 0 4px">CUP RUN CONTINUES AFTER LATE WINNER</div><div style="font:500 11px 'DM Sans';color:#9a9aa6">A 90th-minute strike sends Redbridge through…</div></div></div>
+        <div style="border:1px solid #23232a;border-radius:13px;overflow:hidden"><div style="height:110px;background:repeating-linear-gradient(125deg,#16161a,#16161a 9px,#1c1c20 9px,#1c1c20 18px)"></div><div style="padding:13px"><div style="font:600 9px 'DM Sans';letter-spacing:.6px;color:#6b6b75">CLUB · 5D</div><div style="font:400 17px 'Bebas Neue';line-height:1;margin-top:5px">NEW HOME KIT REVEALED</div></div></div>
+        <div style="border:1px solid #23232a;border-radius:13px;overflow:hidden"><div style="height:110px;background:repeating-linear-gradient(125deg,#16161a,#16161a 9px,#1c1c20 9px,#1c1c20 18px)"></div><div style="padding:13px"><div style="font:600 9px 'DM Sans';letter-spacing:.6px;color:#6b6b75">YOUTH · 1W</div><div style="font:400 17px 'Bebas Neue';line-height:1;margin-top:5px">U12 TIGERS SIGN-UPS OPEN</div></div></div>
+      </div>
+    </div>
+    <div style="display:flex;border-top:1px solid #1c1c22"><div style="flex:1.3;padding:20px 24px;background:#d8455f;display:flex;align-items:center;justify-content:space-between"><div><div style="font:400 26px 'Bebas Neue';letter-spacing:.5px;color:#fff">PLAY FOR US</div><div style="font:600 11px 'DM Sans';color:rgba(255,255,255,.85)">Trials Tue 7pm · register a child</div></div><div style="display:flex;align-items:center;gap:12px"><div style="background:#fff;color:#c2384f;font:700 12px 'DM Sans';padding:11px 18px;border-radius:10px">Start now</div><div style="width:48px;height:48px;background:#fff;border-radius:9px;display:flex;align-items:center;justify-content:center;font:8px ui-monospace,monospace;color:#c2384f">QR</div></div></div><div style="flex:1;padding:20px 24px;display:flex;align-items:center;gap:10px"><span style="font:600 10px 'DM Sans';color:#6b6b75;letter-spacing:.5px">BACKED BY</span><div style="flex:1;height:34px;background:#17171b;border:1px solid #23232a;border-radius:7px"></div><div style="flex:1;height:34px;background:#17171b;border:1px solid #23232a;border-radius:7px"></div></div></div>
+    <div style="padding:18px 30px;background:#000;display:flex;align-items:center;justify-content:space-between"><div style="font:400 18px 'Bebas Neue';letter-spacing:.6px;color:#fff">REDBRIDGE FC</div><div style="font:500 11px 'DM Sans';color:rgba(255,255,255,.4)">Powered by In or Out</div></div>
+  </div>
+</div>
+
+<!-- =============== DISCIPLINE SWITCHER (interactive) =============== -->
+<div style="position:absolute;left:80px;top:980px;width:740px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#d8455f">Discipline-aware wording — tap a discipline, the page re-labels live</div>
+  <div style="background:#0d0d0f;border:1px solid #23232a;border-radius:18px;padding:22px;color:#f4f4f5">
+    <div style="display:flex;gap:9px;margin-bottom:20px;flex-wrap:wrap">
+      <div onClick="{{ setFootball }}" style="{{ pillFootball }}">⚽ Football</div>
+      <div onClick="{{ setBoxing }}" style="{{ pillBoxing }}">🥊 Boxing</div>
+      <div onClick="{{ setGym }}" style="{{ pillGym }}">🏋 Gym</div>
+      <div onClick="{{ setMartial }}" style="{{ pillMartial }}">🥋 Martial arts</div>
+    </div>
+    <div style="display:grid;grid-template-columns:280px 1fr;gap:22px;align-items:start">
+      <div style="{{ dHero }}">
+        <div style="position:absolute;top:11px;right:11px;{{ dLive }}"><span style="width:6px;height:6px;border-radius:50%;background:#fff;animation:hpulse 1.1s infinite"></span>{{ dv.live }}</div>
+        <div style="position:absolute;left:13px;bottom:12px;right:13px"><div style="font:400 22px 'Bebas Neue';letter-spacing:.5px;line-height:1">{{ dv.label }} CLUB</div><div style="font:600 11px 'DM Sans';color:#9a9aa6;margin-top:3px">{{ dv.next }}</div></div>
+      </div>
+      <div>
+        <div style="font:700 10px 'DM Sans';letter-spacing:.8px;color:#9a9aa6;margin-bottom:9px">SAME LAYOUT — RE-WORDED</div>
+        <div style="display:flex;background:#17171b;border-radius:10px;padding:4px;gap:3px;margin-bottom:13px">
+          <div style="{{ dTab1 }}">{{ dv.tab1 }}</div>
+          <div style="{{ dTab2 }}">{{ dv.tab2 }}</div>
+          <div style="{{ dTab3 }}">{{ dv.tab3 }}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #23232a;border-radius:10px;padding:10px 13px"><span style="font:500 11px 'DM Sans';color:#9a9aa6">Standings block</span><span style="font:700 12px 'DM Sans'">{{ dv.standings }}</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #23232a;border-radius:10px;padding:10px 13px"><span style="font:500 11px 'DM Sans';color:#9a9aa6">People / stats</span><span style="font:700 12px 'DM Sans'">{{ dv.people }} · {{ dv.metric }}</span></div>
+        </div>
+        <div style="{{ dCta }}">{{ dv.cta }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =============== VOCABULARY MAP =============== -->
+<div style="position:absolute;left:860px;top:980px;width:810px">
+  <div data-drags-parent="1" style="position:absolute;top:-26px;font:600 12px 'DM Sans';color:#6b6b77">Proposed public-page vocabulary — extends disciplineLabels.js (football stays unchanged)</div>
+  <div style="background:#fff;border:1px solid #e9e9ee;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.05)">
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 1fr;background:#17171b;color:#fff">
+      <div style="padding:11px 14px;font:700 10px 'DM Sans';letter-spacing:.6px;color:#9a9aa6">CONCEPT</div>
+      <div style="padding:11px 12px;font:700 11px 'DM Sans'">⚽ Football</div>
+      <div style="padding:11px 12px;font:700 11px 'DM Sans'">🥊 Boxing</div>
+      <div style="padding:11px 12px;font:700 11px 'DM Sans'">🏋 Gym</div>
+      <div style="padding:11px 12px;font:700 11px 'DM Sans'">🥋 Martial arts</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 1fr;font:600 12px 'DM Sans';color:#3a3a44">
+      <div style="padding:12px 14px;background:#fafafb;font:700 11px 'DM Sans';color:#6b6b77">Live banner</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3">Match on now</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3">Class on now</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3">Session on now</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3">Class on now</div>
+
+      <div style="padding:12px 14px;background:#fafafb;font:700 11px 'DM Sans';color:#6b6b77;border-top:1px solid #f0f0f3">Schedule tab</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Fixtures</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Timetable</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Timetable</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Timetable</div>
+
+      <div style="padding:12px 14px;background:#fafafb;font:700 11px 'DM Sans';color:#6b6b77;border-top:1px solid #f0f0f3">Standings block</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">League table</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Fight record</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Leaderboard</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Grading &amp; belts</div>
+
+      <div style="padding:12px 14px;background:#fafafb;font:700 11px 'DM Sans';color:#6b6b77;border-top:1px solid #f0f0f3">Participant</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Players</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Fighters</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Members</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Students</div>
+
+      <div style="padding:12px 14px;background:#fafafb;font:700 11px 'DM Sans';color:#6b6b77;border-top:1px solid #f0f0f3">Headline metric</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Top scorer</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Most rounds</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Most sessions</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Most sessions</div>
+
+      <div style="padding:12px 14px;background:#fafafb;font:700 11px 'DM Sans';color:#6b6b77;border-top:1px solid #f0f0f3">Join CTA</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Play for us</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">First session free</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">First class free</div>
+      <div style="padding:12px;border-left:1px solid #f0f0f3;border-top:1px solid #f0f0f3">Free trial class</div>
+    </div>
+    <div style="padding:12px 14px;background:#fafafb;border-top:1px solid #f0f0f3;font:500 11px 'DM Sans';color:#9a9aa6">Real today in disciplineLabels.js: <b>Sessions · Classes · Train · Book</b> + <b>rankWord</b> (Level / Grade) + flags <b>hasGrading</b> (martial only) · <b>hasFightRecord</b> (boxing only) · <b>hasPT</b>. Football is the default — byte-identical. Everything above is proposed net-new copy to lock &amp; add to that file. Reliability (from availability) needs no discipline-specific data.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tab:'fixtures', disc:'football' };
+
+  seg(active){
+    return active
+      ? "flex:1;text-align:center;font:700 12px 'DM Sans';background:#d8455f;color:#fff;border-radius:9px;padding:9px 0;cursor:pointer;transition:all .15s"
+      : "flex:1;text-align:center;font:600 12px 'DM Sans';color:#9a9aa6;border-radius:9px;padding:9px 0;cursor:pointer;transition:all .15s";
+  }
+
+  vocab(){
+    return {
+      football:{ label:'Football', accent:'#d8455f', tintbg:'#2a1018', live:'MATCH ON NOW', next:'Next match · Sat 10:00', tab1:'Fixtures', tab2:'Table', tab3:'Players', standings:'League Table', people:'Players', cta:'PLAY FOR US', metric:'Top scorer', metricUnit:'goals' },
+      boxing:{ label:'Boxing', accent:'#ff3024', tintbg:'#2a1010', live:'CLASS ON NOW', next:'Next class · Tonight 18:30', tab1:'Timetable', tab2:'Record', tab3:'Fighters', standings:'Fight record', people:'Fighters', cta:'FIRST SESSION FREE', metric:'Most rounds', metricUnit:'rounds' },
+      gym:{ label:'Gym', accent:'#23c562', tintbg:'#0f2a1a', live:'SESSION ON NOW', next:'Next session · 17:00', tab1:'Timetable', tab2:'Leaders', tab3:'Members', standings:'Leaderboard', people:'Members', cta:'FIRST CLASS FREE', metric:'Most sessions', metricUnit:'sessions' },
+      martial:{ label:'Martial arts', accent:'#5b7cf0', tintbg:'#131a2e', live:'CLASS ON NOW', next:'Next class · 18:00', tab1:'Timetable', tab2:'Belts', tab3:'Students', standings:'Grading & Belts', people:'Students', cta:'FREE TRIAL CLASS', metric:'Most sessions', metricUnit:'sessions' },
+    };
+  }
+
+  renderVals(){
+    const t=this.state.tab, set=(v)=>()=>this.setState({tab:v});
+    const V=this.vocab(), d=this.state.disc, dv=V[d];
+    const dpill=(disc)=>{
+      const on = disc===d;
+      return `font:600 12px 'DM Sans';padding:8px 13px;border-radius:18px;cursor:pointer;transition:all .15s;border:1px solid ${on?V[disc].accent:'#2a2a31'};background:${on?V[disc].accent:'transparent'};color:${on?'#fff':'#9a9aa6'}`;
+    };
+    return {
+      // football page tabs
+      isFixtures:t==='fixtures', isTable:t==='table', isPlayers:t==='players',
+      segFixtures:this.seg(t==='fixtures'), segTable:this.seg(t==='table'), segPlayers:this.seg(t==='players'),
+      setFixtures:set('fixtures'), setTable:set('table'), setPlayers:set('players'),
+      // discipline switcher demo
+      dv,
+      setFootball:()=>this.setState({disc:'football'}), setBoxing:()=>this.setState({disc:'boxing'}), setGym:()=>this.setState({disc:'gym'}), setMartial:()=>this.setState({disc:'martial'}),
+      pillFootball:dpill('football'), pillBoxing:dpill('boxing'), pillGym:dpill('gym'), pillMartial:dpill('martial'),
+      dLive:`display:inline-flex;align-items:center;gap:6px;background:${dv.accent};color:#fff;font:700 9px 'DM Sans';letter-spacing:.8px;padding:6px 11px;border-radius:14px`,
+      dNum:`font:400 26px 'Bebas Neue';color:${dv.accent};line-height:1`,
+      dTab1:`flex:1;text-align:center;font:700 11px 'DM Sans';background:${dv.accent};color:#fff;border-radius:8px;padding:8px 0`,
+      dTab2:`flex:1;text-align:center;font:600 11px 'DM Sans';color:#9a9aa6;padding:8px 0`,
+      dTab3:`flex:1;text-align:center;font:600 11px 'DM Sans';color:#9a9aa6;padding:8px 0`,
+      dCta:`background:${dv.accent};color:#fff;border-radius:12px;padding:13px;text-align:center;font:400 20px 'Bebas Neue';letter-spacing:.5px`,
+      dHero:`position:relative;height:120px;border-radius:14px;overflow:hidden;background:linear-gradient(150deg,${dv.tintbg},#0d0d0f 75%)`,
+      dStandingsTag:`display:inline-block;font:700 9px 'DM Sans';letter-spacing:.5px;color:${dv.accent};background:${dv.tintbg};padding:4px 9px;border-radius:7px`,
+    };
+  }
+}
+</script>
+</body>
+</html>
