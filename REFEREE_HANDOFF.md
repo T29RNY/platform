@@ -19,6 +19,22 @@ below, each to land as **its own PR**.
   with zero manual setup. Best-effort, idempotent, no-op for non-referees.
 - **`apps/ref` LiveMatch polish** (PR #134): home/away unified with a "vs" divider,
   flat scroll-body background, GOAL button = tracked uppercase text (no icon).
+- **Push-notify the ref on assignment** (PR #1 of this epic): when a venue assigns a
+  referee (`venue_assign_ref` → `fixtures.official_id`, or `assign_casual_match_ref` →
+  `matches.ref_player_id`), the newly-assigned ref now gets a push deep-linking into
+  `/hub/fixtures`. **Pure delivery-layer change — no migration, no RPC, no schema.** The
+  assign RPCs already audited the assignment; the gap was only that `dispatchRefAssigned`
+  (in `api/cron.js onboardingEmailJob`, every-tick, 20-min audit-poll) hardcoded
+  `push:false`. Now `push` is a real channel via the existing `pickChannel`, keyed on the
+  ref's auth `user_id` (`match_officials.user_id` / `players.user_id`) and resolved by a
+  new auth-user push mode in `api/notify.js` (`{ authUserIds, payload }`, CRON_SECRET-
+  gated — refs needn't be club members so it bypasses the `member_profiles` hop). Honours
+  `preferred_channel` (default `push`); falls back to email/SMS/WhatsApp when no live sub.
+  Covers re-assignment (`fixture_ref_changed` / `casual_ref_changed` added to
+  `ONBOARDING_ACTIONS`, notifying the NEW ref); clears are not notified. Per-channel dedup
+  via `notification_log`. Gates: `node --check` both files, app build, `pickChannel`
+  routing unit test (8/8). ⛔ owed: real-device push walk (web-push + APNs need a real
+  subscription endpoint — not exercisable headlessly).
 
 ## KEY AUDIT FACTS (load-bearing — don't re-derive)
 
@@ -51,15 +67,10 @@ below, each to land as **its own PR**.
 
 ## ROADMAP — four PRs, in priority order
 
-### PR #1 — Push-notify the referee on assignment  *(NEXT SESSION)*
-The biggest real-world gap: assignment doesn't reach the ref. Now that refs have accounts
-and can enable push, notify them when `fixtures.official_id` is set to their card.
-- Likely shape: a trigger (or the venue assign RPC) fires a push to the ref's registered
-  subscription via the existing `notify.js` pipeline — "You're on for X v Y, <kickoff>".
-  Audit `audit_events` (Hard Rule #9). Handle re-assignment / un-assignment.
-- Watch the Swift-locked reader (don't touch). Confirm the ref's push sub is reachable by
-  auth.uid()/person. Consider a quiet-hours / dedupe guard.
-- Boundary: league + casual assignments (the two arms of `get_my_assignments`).
+### PR #1 — Push-notify the referee on assignment  ✅ SHIPPED (see SHIPPED section above)
+Delivered as a pure delivery-layer change (no migration). League + casual arms both
+covered; push deep-links to `/hub/fixtures`; honours `preferred_channel` with email/SMS
+fallback; re-assignment notifies the new ref; per-channel dedup. ⛔ owed: real-device walk.
 
 ### PR #2 — History / Past matches in the ref view
 `get_my_assignments` returns Live + Upcoming only. Add a **separate** reader
