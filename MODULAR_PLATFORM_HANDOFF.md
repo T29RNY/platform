@@ -192,6 +192,19 @@ wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
   branding + teams + fixtures/table (reuse league logic) + sponsors + published news + tournament-hub
   link. Rejects unpublished. Discipline-aware. Safeguarding applied server-side (hide minors'
   surnames/photos). Gates: rpc-security-sweep, EV.
+  **BUILD POINTERS (audited s214):** clone `get_tournament_public(text)` exactly — original def
+  `rls_migrations/321_phase6_public_page.sql`, JS wrapper `getTournamentPublic(slug)` at
+  `packages/core/storage/supabase.js:6273`. Pattern: `LANGUAGE plpgsql SECURITY DEFINER SET search_path
+  = public, pg_temp`; `REVOKE ALL FROM public` then `GRANT EXECUTE ... TO anon, authenticated`; key on
+  `club_pages.slug`; `IF NOT published THEN RETURN jsonb_build_object('found', false)`. Read branding
+  off `club_pages` (3 colours/crest/hero/tagline/about/socials/sections), identity off `clubs`
+  (name/short_name/discipline), teams off `club_cohorts`+`club_teams`, sponsors off `club_sponsors`
+  (active=true, ORDER BY display_order), news off `club_posts` (status='published', ORDER BY
+  published_at DESC). Safeguarding: read `clubs.safeguarding_config`; truncate minor surnames + drop
+  photos in the player/squad arrays SERVER-SIDE. Add wrapper `getClubPublic(slug)` to supabase.js +
+  barrel export. NO write → ephemeral-verify not triggered; EV (read-shape assertion) + rpc-security-
+  sweep still run. Then add the `/c/<slug>` anon route one-liner in `App.jsx getRoute()` (defer the
+  ClubPublicScreen render to P4; a stub/JSON dump is fine to prove the route + read end-to-end).
 - **Phase 3 — Admin write RPCs (mig 446):** `club_set_page` (identity/branding/sections + server-side
   hex + contrast validation), `club_publish_page`, `club_add/list/remove_sponsor`,
   `club_create/update/delete/list_post`. All gated on `_club_feature_enabled(club_id,'public_web')` +
