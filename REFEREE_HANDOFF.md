@@ -109,11 +109,32 @@ casual-regression (additive core only, no `views/` touched), Playwright /hub ref
 (Referee hat → Live/Upcoming(accept/decline)/Past/Availability all render; Accept persisted to
 DB + audit_events live). ⛔ owed: real-iPhone referee walk; squad-admin casual response surface.
 
-### PR #4 — Tournament officiating
-Currently excluded: tournament fixtures aren't assigned via `match_officials`, so they never
-appear in `get_my_assignments`. Decide the model (extend the reader's union with a tournament
-arm, or a parallel assignment table) so tournament refs get the same `/hub` home. Tournament
-live scores currently poll (ref tournament RPCs don't broadcast yet).
+### PR #4 — Tournament officiating  ✅ SHIPPED
+**Key correction to the original framing:** tournament fixtures are NOT a separate system —
+they're rows in the SAME `fixtures` table (distinguished by `home_competition_team_id IS NOT NULL`),
+already carrying `official_id` + `ref_token`, already officiated end-to-end by apps/ref. They were
+invisible to `/hub` only because mig 372's league arm INNER-JOINs `teams ON home_team_id` (NULL for
+tournament fixtures). **Model chosen: REUSE `fixtures.official_id` (no parallel table) + a PARALLEL
+reader** (mig 372 untouched — Swift watch safe), mirroring PR #2/#3.
+
+mig 443 ships: (1) `get_my_tournament_assignments()` — tournament arm, identical per-game shape,
+`context='tournament'`, names from `competition_teams`; (2) `get_my_world()` REPLACED to fold
+tournament games into `ref_assignments` so a tournament-ONLY ref resolves the `referee` role
+(nav.js keys off `world.ref_assignments`); (3) `club_admin_assign_tournament_ref(fixture, official)`
+— the operator assign path (club-admin auth, mirrors `club_admin_assign_fixture_slot`; emits the same
+`fixture_ref_assigned` audit action → PR #1 push fires for free); (4) `club_admin_get_schedule`
+extended with `venue_officials` + per-fixture `official_id`/`official_name`; (5) accept/decline parity
+— `ref_assignment_responses` CHECK + `ref_respond_to_assignment` gain a `'tournament'` branch; (6) demo
+seed — the demo ref (640) gets the live cup final + a seeded upcoming 3rd-place play-off.
+Frontend: `RefFixtures.jsx` merges tournament rows into Live/Upcoming with a green **"Cup"** chip +
+accept/decline; `SessionsScreen.jsx` tournament schedule gains `TournamentRefControl` (inline official
+picker on each scheduled fixture). Gates: builds ×2, hygiene 7/7×3, rpc-security-sweep (5 RPCs PASS),
+EV PASS (9 assertions incl. 5 error-paths + tournament accept, leak 0), casual-regression (no casual
+surface touched), **Playwright /hub ref smoke PASS** (live "Cup" final + league game side-by-side,
+upcoming cup play-off accept persisted to DB). ⛔ owed (NOT this PR): real-iPhone referee walk;
+operator-side SessionsScreen assign Playwright walk; squad-admin casual response surface; ref
+ratings/profile; **tournament live-score broadcast** (still polls — an apps/ref/display concern, out of
+scope for the /hub ref home); tournament arm of `get_my_officiating_history` (Past is league+casual only).
 
 ## Also flagged (not yet scheduled)
 - **Onboarding edge:** auto-link needs the venue to assign by the **same email** the ref

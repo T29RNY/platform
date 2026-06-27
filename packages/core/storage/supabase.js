@@ -2893,6 +2893,16 @@ export async function getMyOfficiatingHistory(limit = 50) {
   return data;
 }
 
+// Referee PR #4 (mig 443) — the signed-in ref's TOURNAMENT assignments (Event OS
+// fixtures, home_competition_team_id NOT NULL). SEPARATE parallel reader to the
+// Swift-locked get_my_assignments (untouched); identical per-game shape with
+// context='tournament'. Merged client-side into RefFixtures alongside league/casual.
+export async function getMyTournamentAssignments() {
+  const { data, error } = await supabase.rpc("get_my_tournament_assignments", {});
+  if (error) { console.error("[spine] get_my_tournament_assignments failed", error); throw error; }
+  return data;
+}
+
 // Referee PR #3 (mig 442) — the ref's own accept/decline responses + upcoming
 // unavailability windows. Merged client-side into RefFixtures (the Swift-locked
 // get_my_assignments stays untouched). Shape: { ok, responses:[...], unavailability:[...] }.
@@ -6423,6 +6433,19 @@ export async function clubAdminAssignFixtureSlot(fixtureId, scheduledDate, kicko
     p_slot_minutes:    slotMinutes,
   });
   if (error) { console.error("[event-os] club_admin_assign_fixture_slot failed", error); throw error; }
+  return data;
+}
+
+// Referee PR #4 (mig 443) — assign (or clear, official=null) a referee on a TOURNAMENT
+// fixture. Club-admin auth (mirrors club_admin_assign_fixture_slot); emits the same
+// fixture_ref_assigned/_changed/_cleared audit action venue_assign_ref does, so the
+// PR #1 push-on-assign cron notifies the ref. Consumer: apps/inorout SessionsScreen.
+export async function clubAdminAssignTournamentRef(fixtureId, officialId) {
+  const { data, error } = await supabase.rpc("club_admin_assign_tournament_ref", {
+    p_fixture_id:  fixtureId,
+    p_official_id: officialId,
+  });
+  if (error) { console.error("[event-os] club_admin_assign_tournament_ref failed", error); throw error; }
   return data;
 }
 
