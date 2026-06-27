@@ -184,8 +184,10 @@ orphan-cleanup (current `uploadVenueMedia` does neither); the `venue-media` buck
 
 **PHASED BUILD — each its own PR, sequenced (cloud-session one-at-a-time rule). Phases 1–3 are
 wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
-- **Phase 1 — Data foundation (mig 444):** `club_pages`, `club_sponsors`, `club_posts` tables + RLS
-  (REVOKE all, RPC-only) + new `club-media` bucket & storage policies. No UI. Gates: schema-sync, build.
+- **Phase 1 — Data foundation (mig 444):** ✅ SHIPPED (s214). `club_pages`, `club_sponsors`,
+  `club_posts` tables + RLS (REVOKE all, RPC-only, 0 policies) + new public `club-media` bucket &
+  3 club-scoped storage write policies. No UI. Build PASS. Design brief handed to Claude Design
+  (`CLUB_PAGE_DESIGN_BRIEF.md`, project "In or Out — Public Club Page (Epic B)").
 - **Phase 2 — Public read RPC (mig 445):** `get_club_public(p_slug)` — anon SECDEF, returns identity +
   branding + teams + fixtures/table (reuse league logic) + sponsors + published news + tournament-hub
   link. Rejects unpublished. Discipline-aware. Safeguarding applied server-side (hide minors'
