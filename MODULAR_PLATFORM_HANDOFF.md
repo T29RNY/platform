@@ -278,10 +278,28 @@ wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
     thin clubs vs the prototype. ⛔ STILL OWED: real-device walk (Hard Rule #13).
 - **Phase 4 (original plan, retained):** from Claude Design wireframes — modular sections, per-club
   CSS-var theme, live/next-fixture strip (30s poll), Join/QR CTA, social-share preview.
-- **Phase 5 — Setup wizard + edit dashboard** (`ClubSettingsScreen`): wizard (identity → crest →
-  colours w/ contrast guard + auto-suggest-from-crest → hero → sections → teams → sponsors → first
-  post → safeguarding → preview/publish) + always-available edit surface; client-side resize/compress
-  on upload + orphan cleanup. Gates: casual-regression, Playwright, real-device walk.
+- **Phase 5 — Setup wizard + edit dashboard** (`ClubSettingsScreen`). SPLIT INTO TWO SEQUENTIAL PRs
+  (operator-approved s221; cloud-session discipline). P5 scope decisions s221: stats slice = **manager-
+  picked POTM only** (top-scorer DEFERRED — needs a ref-player→member_profile link thin clubs lack;
+  P4 StatsSection already renders with topScorer:null); **reliability SKIPPED** (dodges the season-vs-
+  all-time hard-rule conflict + attendance aggregation; a thin club has no meaningful reliability); FA
+  table stays Epic C.
+  - **Phase 5a — ✅ SHIPPED s221 (mig 448).** Page-level config that needs NO new tables + the full
+    wizard/edit dashboard. Backend: `club_sponsors.tier` + `club_pages.links` columns; club_add_sponsor/
+    club_update_sponsor +tier; club_set_page +links; club_list_sponsors + get_club_public surface tier;
+    get_club_public adds `getInvolved` from links; NEW `club_get_page` admin read (raw page row, any
+    published state, for the wizard). Frontend: `apps/inorout/src/views/ClubSettings/`
+    (`ClubSettingsScreen.jsx` wizard[identity→crest→colours w/ advisory AA contrast + suggest-from-crest
+    →hero→sections toggle/reorder→teams read-only confirm→sponsors+tier→first post→get-involved→
+    safeguarding tightening-only→preview/publish] + always-on edit dashboard; `clubSettingsHelpers.js`
+    contrast/compress/slug/section-model; `clubSettings.css` scoped, zero hex). `uploadClubMedia`/
+    `removeClubMedia` (compress + orphan cleanup). Mounted off SessionsScreen manager-only "Public page"
+    button. Gates: build/hygiene 7/7/rpc-security 6/6/EV 10/10+leak-0/casual-regression/Playwright all
+    PASS. ⛔ owed real-device walk (HR#13).
+  - **Phase 5b — NEXT (mig 449).** New-table modules: club_committee (committee + welfare officer) /
+    club_documents / club_events + write RPCs; POTM stat (manager-pick) + per-team stats slice; extend
+    get_club_public with contacts/documents/events/stats. Dashboard editor panels + wizard steps for
+    each. P4 components already read these keys defensively — zero P4 rework.
 
 **P4/P5 SCOPE LOCKED (session 220, operator-approved) — the public-page modules + their data reality.**
 Design handover = `public club home page setup handover`. The thin/empty club is the PRIMARY design

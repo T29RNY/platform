@@ -4333,6 +4333,41 @@ export async function uploadVenueMedia(venueId, file) {
   return data?.publicUrl || null;
 }
 
+// Club page media upload (Modular Epic B — Phase 5). Public bucket `club-media`;
+// the mig-444 storage policy scopes writes to an active club manager and requires
+// the object path's first folder to be the club id (`<club_id>/...`). `kind`
+// namespaces the file (crest/hero/sponsor/post). Returns the public URL to
+// persist via the Phase-3 write RPCs (clubSetPage / clubAddSponsor / clubCreatePost).
+export async function uploadClubMedia(clubId, file, kind = "img") {
+  if (!clubId || !file) throw new Error("upload_missing_args");
+  const ext = (file.name?.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+  const path = `${clubId}/${kind}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("club-media").upload(path, file, {
+    cacheControl: "3600", upsert: false, contentType: file.type || undefined,
+  });
+  if (error) { console.error("[club-page] club-media upload failed", error); throw error; }
+  const { data } = supabase.storage.from("club-media").getPublicUrl(path);
+  return data?.publicUrl || null;
+}
+
+// Orphan cleanup for club-media. Given a public URL we own, derive the object
+// path and remove it. Best-effort: a failed delete leaves an orphan, never throws
+// into the caller's save flow. Only acts on club-media URLs.
+export async function removeClubMedia(publicUrl) {
+  try {
+    if (!publicUrl || typeof publicUrl !== "string") return;
+    const marker = "/club-media/";
+    const i = publicUrl.indexOf(marker);
+    if (i === -1) return; // not one of ours (e.g. external URL) — leave it
+    const path = decodeURIComponent(publicUrl.slice(i + marker.length).split("?")[0]);
+    if (!path) return;
+    const { error } = await supabase.storage.from("club-media").remove([path]);
+    if (error) console.error("[club-page] club-media remove failed", error);
+  } catch (e) {
+    console.error("[club-page] removeClubMedia failed", e);
+  }
+}
+
 export async function venueAssignRef(venueToken, fixtureId, officialId) {
   const { data, error } = await supabase.rpc("venue_assign_ref", {
     p_venue_token: venueToken,
@@ -6313,7 +6348,17 @@ export async function getClubPublic(slug) {
 // ── Club page admin writes (Modular Platform Epic B — Phase 3, mig 446) ─────────
 // Club-manager auth (auth.uid) + public_web feature gate + audit, server-side.
 
-export async function clubSetPage(clubId, { slug, primaryColour = null, secondaryColour = null, accentColour = null, crestUrl = null, heroUrl = null, tagline = null, about = null, socials = null, sections = null } = {}) {
+// Club-manager admin read of the page record for the setup wizard / edit dashboard
+// (mig 448). Returns the page row at ANY published state (NO safeguarding transform),
+// the club identity, and the safeguarding config to prefill the wizard. page=null
+// when no page set up yet. Consumer: P5 ClubSettingsScreen.
+export async function clubGetPage(clubId) {
+  const { data, error } = await supabase.rpc("club_get_page", { p_club_id: clubId });
+  if (error) { console.error("[club-page] club_get_page failed", error); throw error; }
+  return data;
+}
+
+export async function clubSetPage(clubId, { slug, primaryColour = null, secondaryColour = null, accentColour = null, crestUrl = null, heroUrl = null, tagline = null, about = null, socials = null, sections = null, links = null } = {}) {
   const { data, error } = await supabase.rpc("club_set_page", {
     p_club_id:          clubId,
     p_slug:             slug,
@@ -6326,6 +6371,7 @@ export async function clubSetPage(clubId, { slug, primaryColour = null, secondar
     p_about:            about,
     p_socials:          socials,
     p_sections:         sections,
+    p_links:            links,
   });
   if (error) { console.error("[club-page] club_set_page failed", error); throw error; }
   return data;
@@ -6340,19 +6386,20 @@ export async function clubPublishPage(clubId, published) {
   return data;
 }
 
-export async function clubAddSponsor(clubId, name, logoUrl = null, websiteUrl = null, displayOrder = 0) {
+export async function clubAddSponsor(clubId, name, logoUrl = null, websiteUrl = null, displayOrder = 0, tier = null) {
   const { data, error } = await supabase.rpc("club_add_sponsor", {
     p_club_id:       clubId,
     p_name:          name,
     p_logo_url:      logoUrl,
     p_website_url:   websiteUrl,
     p_display_order: displayOrder,
+    p_tier:          tier,
   });
   if (error) { console.error("[club-page] club_add_sponsor failed", error); throw error; }
   return data;
 }
 
-export async function clubUpdateSponsor(sponsorId, { name = null, logoUrl = null, websiteUrl = null, displayOrder = null, active = null } = {}) {
+export async function clubUpdateSponsor(sponsorId, { name = null, logoUrl = null, websiteUrl = null, displayOrder = null, active = null, tier = null } = {}) {
   const { data, error } = await supabase.rpc("club_update_sponsor", {
     p_sponsor_id:    sponsorId,
     p_name:          name,
@@ -6360,6 +6407,7 @@ export async function clubUpdateSponsor(sponsorId, { name = null, logoUrl = null
     p_website_url:   websiteUrl,
     p_display_order: displayOrder,
     p_active:        active,
+    p_tier:          tier,
   });
   if (error) { console.error("[club-page] club_update_sponsor failed", error); throw error; }
   return data;

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import ClubNavBar from "../components/ui/ClubNavBar.jsx";
+import ClubSettingsScreen from "./ClubSettings/ClubSettingsScreen.jsx";
 import Tour from "../components/Tour.jsx";
 import { clubToursEnabled } from "../lib/tourRegistry.js";
 import {
@@ -218,6 +219,7 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
 
   // Manager write state
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showClubSettings, setShowClubSettings] = useState(false);
   // When the manager taps "+ Add" on a day in the Agenda we seed the create modal with
   // that day (datetime-local "YYYY-MM-DDTHH:MM"); the global "+ Create" leaves it blank.
   const [createDate, setCreateDate]           = useState("");
@@ -1285,6 +1287,18 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const clubVenuesForClub = memberProfile.active_clubs?.find(c => c.club_id === selectedClubId)?.venues ?? [];
   const isManagerOfSession = (session) => !!session?.team_id && managedTeamsForClub.some(t => t.team_id === session.team_id);
 
+  // Manager-only public-page setup wizard / edit dashboard (Modular Epic B P5).
+  if (showClubSettings && isManager && selectedClubId) {
+    return (
+      <ClubSettingsScreen
+        clubId={selectedClubId}
+        clubName={selectedClub?.club_name}
+        managedTeams={managedTeamsForClub}
+        onClose={() => setShowClubSettings(false)}
+      />
+    );
+  }
+
   return (
     <div style={wrap}>
 
@@ -1308,6 +1322,19 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
               }}>
                 Manager
               </span>
+              <button
+                onClick={() => setShowClubSettings(true)}
+                style={{
+                  fontSize: 13, fontWeight: 700,
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid var(--border)",
+                  color: "var(--t1)",
+                  padding: "5px 12px", borderRadius: 20,
+                  fontFamily: "var(--font-body)", cursor: "pointer",
+                }}
+              >
+                Public page
+              </button>
               {activeTab === "sessions" && (
                 <button
                   onClick={() => { setCreateDate(""); setShowCreateModal(true); }}
