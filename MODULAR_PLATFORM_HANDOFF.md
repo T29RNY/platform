@@ -253,10 +253,31 @@ wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
     ownership tension; don't silently let club managers overwrite a venue-set policy.
   - Wrappers camelCase in supabase.js + barrel; each raw RPC name in exactly ONE `supabase.rpc()`.
     RPCS.md: record P4/P5 consumers (Hard Rule #14). Migration .sql + _down.sql same commit (HR#11).
-- **Phase 4 — Public page UI** (`/c/<slug>` → `ClubPublicScreen`): from Claude Design wireframes —
-  modular sections, per-club CSS-var theme, live/next-fixture strip (30s poll), Join/QR CTA, social-
-  share preview. **Design handover file = `public club home page setup handover`** (Claude Design).
-  Gates: casual-regression, Playwright, real-device walk.
+- **Phase 4 — Public page UI (`/c/<slug>` → `ClubPublicScreen`): ✅ SHIPPED s221.** Built from the
+  authoritative `public club home page setup handover/docs/CLUB_PAGE_BUILD_HANDOVER.md` + 9 hi-fi
+  designs. Pure-frontend cycle against the EXISTING mig-445 payload — NO RPC change.
+  - New files (all isolated under `apps/inorout/src/views/ClubPublic/`, App.jsx UNCHANGED — route was
+    already wired in P2): `clubPublicVocab.js` (discipline-aware public wording, kept SEPARATE from
+    `lib/disciplineLabels.js` so casual surfaces stay byte-identical), `clubPublicHelpers.js` (hero-state
+    derivation, form guide, luminance-based on-accent text, themeVars), `clubPublicSections.jsx` (TopBar
+    + 4 hero states + all 11 section blocks each with a designed empty/degrade state + safeguard note +
+    footer + not-found), `clubPublic.css` (scoped under `.club-public`; tokens + data-injected club CSS
+    vars + `color-mix` tints → ZERO hex literals). `ClubPublicScreen.jsx` replaced the P2 JSON stub.
+  - Hero = next-fixture / latest-result derived client-side (pre/post/idle/empty), ~30s **swap-only**
+    poll, **NO live in-play score** (handover §5). Per-club theme = 3 colours as CSS vars, accents only;
+    type/icons stay Bebas/DM Sans/Phosphor-thin. Join/QR CTA deep-links `socials.website` (the existing
+    membership flow link is reused as-is; a real per-club join code arrives with the P5 read-extension).
+  - **DECISION (s221): the read-extension is DEFERRED to P5.** The conditional modules (`stats / contacts
+    / documents / events / getInvolved` + sponsor `tier`) have no data source until the P5 write side
+    exists, so P4 renders them defensively (read optional payload keys → empty/absent). When P5 adds
+    **mig 448** (read-extension + write side) the components light up with ZERO P4 rework.
+  - **Demo seed = mig 447** (data-only, no schema/RPC): publishes `/c/finbars-fc` (rich: club_demo) +
+    `/c/demo-boxing` (thin: club_demo_box) so the page is LIVE for the device-walk + Playwright smoke.
+  - Gates PASS: build, hygiene 7/7 (all 5 files), casual-regression (isolated route — no casual surface
+    or shared file touched; casual player view smoke clean), Playwright visual smoke of BOTH the rich +
+    thin clubs vs the prototype. ⛔ STILL OWED: real-device walk (Hard Rule #13).
+- **Phase 4 (original plan, retained):** from Claude Design wireframes — modular sections, per-club
+  CSS-var theme, live/next-fixture strip (30s poll), Join/QR CTA, social-share preview.
 - **Phase 5 — Setup wizard + edit dashboard** (`ClubSettingsScreen`): wizard (identity → crest →
   colours w/ contrast guard + auto-suggest-from-crest → hero → sections → teams → sponsors → first
   post → safeguarding → preview/publish) + always-available edit surface; client-side resize/compress
