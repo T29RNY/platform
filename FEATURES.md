@@ -251,9 +251,12 @@ in **MODULAR_PLATFORM_HANDOFF.md**. **FOUR sequenced epics A→B→C→D**, each
 `public_web` flag B needs; only the package/preset presentation layer remains). **Epic B = IN BUILD.
 P1 (mig 444) ✅ · P2 read (mig 445) ✅ · P3 admin writes (mig 446) ✅ · P4 public UI `ClubPublicScreen`
 (s221) ✅ · P5a (mig 448) ✅ SHIPPED s221: `ClubSettingsScreen` setup wizard + always-on edit dashboard +
-sponsor `tier` + `club_pages.links` get-involved + `club_get_page` admin read. NEXT = P5b (mig 449):
-contacts/documents/events new tables + manager-pick POTM stat + get_club_public slices.** P5 split into
-2 PRs (operator s221); stats=POTM-only, reliability skipped, FA table=Epic C. 4 decisions locked + plan
+sponsor `tier` + `club_pages.links` get-involved + `club_get_page` admin read. P5b (mig 449) ✅ SHIPPED
+s222: 4 new tables (club_committee/documents/events + manager-pick club_team_potm) + 15 club-manager RPCs
++ get_club_public contacts/documents/events/stats slices (P4 reads them with ZERO rework — verified live)
++ ClubSettingsScreen Contacts/Documents/Events/Player-of-the-month panels. EPIC B COMPLETE pending Epic C
+(FA table ingest).** P5 split into 2 PRs (operator s221); stats=POTM-only (youth teams safeguard-gated),
+reliability skipped, FA table=Epic C. 4 decisions locked + plan
 in the handoff. Phases 2–3
 (RPCs, migs 445–446) are wireframe-independent; P4–P5 UI wait on Claude Design. C depends on B's FA
 ingest; D is independent (Event OS engine already built). The epics:

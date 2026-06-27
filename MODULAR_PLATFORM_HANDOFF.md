@@ -296,10 +296,17 @@ wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
     `removeClubMedia` (compress + orphan cleanup). Mounted off SessionsScreen manager-only "Public page"
     button. Gates: build/hygiene 7/7/rpc-security 6/6/EV 10/10+leak-0/casual-regression/Playwright all
     PASS. ⛔ owed real-device walk (HR#13).
-  - **Phase 5b — NEXT (mig 449).** New-table modules: club_committee (committee + welfare officer) /
-    club_documents / club_events + write RPCs; POTM stat (manager-pick) + per-team stats slice; extend
-    get_club_public with contacts/documents/events/stats. Dashboard editor panels + wizard steps for
-    each. P4 components already read these keys defensively — zero P4 rework.
+  - **Phase 5b — ✅ SHIPPED s222 (mig 449).** New-table modules: `club_committee` (committee + welfare
+    officer) / `club_documents` / `club_events` + manager-pick `club_team_potm` (one row/team, UPSERT) +
+    15 club-manager RPCs (add/update/remove/list ×3 + set/remove/list POTM, all the mig-446 preamble
+    verbatim). `get_club_public` gains `contacts`/`documents`/`events`/`stats` slices in P4's exact read
+    shapes — ZERO P4 rework (verified live on `/c/finbars-fc`). POTM safeguard-gated: youth teams +
+    hide_public_rosters suppressed. Frontend: `ClubSettingsScreen` Contacts/Documents/Events/Player-of-
+    the-month dashboard panels + wizard steps; `SECTION_DEFS` stats/events/documents/contacts flipped
+    soon→live; documents = paste-URL primary (club-media is image-MIME-only) + optional image upload.
+    Demo seed (club_demo): committee+welfare, 4 docs, 3 events, First-Team POTM. Gates: mig applied,
+    .sql+_down.sql committed, build/hygiene 7/7/rpc-security 16/16/EV 14/14+leak-0/casual-regression/
+    Playwright all PASS. ⛔ owed real-device walk (HR#13). **EPIC B COMPLETE** pending Epic C (FA ingest).
 
 **P4/P5 SCOPE LOCKED (session 220, operator-approved) — the public-page modules + their data reality.**
 Design handover = `public club home page setup handover`. The thin/empty club is the PRIMARY design

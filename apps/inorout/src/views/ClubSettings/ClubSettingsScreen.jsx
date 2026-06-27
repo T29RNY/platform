@@ -4,6 +4,10 @@ import {
   clubListSponsors, clubAddSponsor, clubUpdateSponsor, clubRemoveSponsor,
   clubListPosts, clubCreatePost, clubDeletePost, clubPublishPost,
   clubSetSafeguarding, uploadClubMedia, removeClubMedia,
+  clubListCommittee, clubAddCommitteeMember, clubUpdateCommitteeMember, clubRemoveCommitteeMember,
+  clubListDocuments, clubAddDocument, clubRemoveDocument,
+  clubListEvents, clubAddEvent, clubRemoveEvent,
+  clubListPotm, clubSetPotm, clubRemovePotm,
 } from "@platform/core/storage/supabase.js";
 import {
   ArrowLeft, ArrowRight, Check, X, CaretUp, CaretDown, Eye, Globe, ShieldCheck,
@@ -12,7 +16,7 @@ import {
 import {
   isValidHex, NEUTRAL_HEX, contrastVerdict, dominantColourFromImage,
   compressImage, IMG_TARGETS, slugify, SLUG_RE, SECTION_DEFS, normaliseSections,
-  repackOrder, SOCIAL_FIELDS, TIERS,
+  repackOrder, SOCIAL_FIELDS, TIERS, DOC_TYPES, fileSizeLabel,
 } from "./clubSettingsHelpers.js";
 import "./clubSettings.css";
 
@@ -33,6 +37,10 @@ const STEPS = [
   { key: "teams",        label: "Teams" },
   { key: "sponsors",     label: "Sponsors" },
   { key: "news",         label: "First news post" },
+  { key: "contacts",     label: "Club contacts" },
+  { key: "documents",    label: "Documents" },
+  { key: "events",       label: "What's on" },
+  { key: "stats",        label: "Player of the month" },
   { key: "getInvolved",  label: "Get involved" },
   { key: "safeguarding", label: "Safeguarding" },
   { key: "publish",      label: "Preview & publish" },
@@ -68,6 +76,10 @@ export default function ClubSettingsScreen({ clubId, clubName, managedTeams = []
   const [published, setPublished] = useState(false);
   const [sponsors, setSponsors] = useState([]);
   const [posts, setPosts]       = useState([]);
+  const [committee, setCommittee] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [events, setEvents]     = useState([]);
+  const [potm, setPotm]         = useState([]);            // [{team_id,name,month}]
   const [banner, setBanner]     = useState(null);          // {kind:'err'|'ok', text}
   const savingRef = useRef(false);
 
@@ -77,10 +89,14 @@ export default function ClubSettingsScreen({ clubId, clubName, managedTeams = []
     (async () => {
       setLoading(true); setLoadErr(false);
       try {
-        const [pageRes, sp, ps] = await Promise.all([
+        const [pageRes, sp, ps, cm, dc, ev, pm] = await Promise.all([
           clubGetPage(clubId),
           clubListSponsors(clubId).catch(() => []),
           clubListPosts(clubId).catch(() => []),
+          clubListCommittee(clubId).catch(() => []),
+          clubListDocuments(clubId).catch(() => []),
+          clubListEvents(clubId).catch(() => []),
+          clubListPotm(clubId).catch(() => []),
         ]);
         if (!alive) return;
         const c = pageRes?.club || null;
@@ -88,6 +104,10 @@ export default function ClubSettingsScreen({ clubId, clubName, managedTeams = []
         if (pageRes?.safeguarding) setSafeguard(pageRes.safeguarding);
         setSponsors(Array.isArray(sp) ? sp : []);
         setPosts(Array.isArray(ps) ? ps : []);
+        setCommittee(Array.isArray(cm) ? cm : []);
+        setDocuments(Array.isArray(dc) ? dc : []);
+        setEvents(Array.isArray(ev) ? ev : []);
+        setPotm(Array.isArray(pm) ? pm : []);
         const p = pageRes?.page;
         if (p && p.slug) {
           setForm({
@@ -196,7 +216,8 @@ export default function ClubSettingsScreen({ clubId, clubName, managedTeams = []
 
   const stepProps = {
     form, patch, patchSocial, club, clubId, safeguard, setSafeguard, sponsors, setSponsors,
-    posts, setPosts, managedTeams, uploadImage, flash, savePage,
+    posts, setPosts, committee, setCommittee, documents, setDocuments, events, setEvents,
+    potm, setPotm, managedTeams, uploadImage, flash, savePage,
   };
 
   // ── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -358,6 +379,10 @@ function StepBody(props) {
     case "teams":        return <TeamsStep {...props} />;
     case "sponsors":     return <SponsorsStep {...props} />;
     case "news":         return <NewsStep {...props} />;
+    case "contacts":     return <ContactsStep {...props} />;
+    case "documents":    return <DocumentsStep {...props} />;
+    case "events":       return <EventsStep {...props} />;
+    case "stats":        return <StatsStep {...props} />;
     case "getInvolved":  return <GetInvolvedStep {...props} />;
     case "safeguarding": return <SafeguardingStep {...props} />;
     case "publish":      return <PublishStep {...props} />;
@@ -665,6 +690,194 @@ function NewsStep({ clubId, posts, setPosts, uploadImage, flash }) {
           onUpload={async (file) => { const url = await uploadImage(file, "post", form.heroUrl); if (url) setForm((f) => ({ ...f, heroUrl: url })); return url; }}
           onClear={() => { removeClubMedia(form.heroUrl); setForm((f) => ({ ...f, heroUrl: "" })); }} />
         <button className="cs-btn cs-btn--primary" disabled={busy || !form.title.trim()} onClick={create}><Plus size={15} weight="thin" /> Save draft</button>
+      </div>
+    </div>
+  );
+}
+
+// ── contacts (committee + welfare officer) ─────────────────────────────────────────
+function ContactsStep({ clubId, club, committee, setCommittee, flash }) {
+  const [form, setForm] = useState({ role: "", name: "", email: "", isWelfare: false });
+  const [busy, setBusy] = useState(false);
+  const reload = async () => { try { const list = await clubListCommittee(clubId); setCommittee(Array.isArray(list) ? list : []); } catch (e) { console.error("[club-settings] reload committee", e); } };
+  const add = async () => {
+    if (busy || !form.role.trim() || !form.name.trim()) return;
+    setBusy(true);
+    try {
+      await clubAddCommitteeMember(clubId, { role: form.role.trim(), name: form.name.trim(), email: form.email.trim() || null, isWelfare: form.isWelfare, displayOrder: committee.length });
+      setForm({ role: "", name: "", email: "", isWelfare: false });
+      await reload();
+    } catch (e) { console.error("[club-settings] add committee", e); flash("err", friendlyErr(e, { role_required: "A role is required.", name_required: "A name is required." })); }
+    finally { setBusy(false); }
+  };
+  const remove = async (id) => { try { await clubRemoveCommitteeMember(id); await reload(); } catch (e) { console.error("[club-settings] remove committee", e); } };
+  const toggleWelfare = async (id, next) => { try { await clubUpdateCommitteeMember(id, { isWelfare: next }); await reload(); } catch (e) { console.error("[club-settings] welfare toggle", e); } };
+
+  return (
+    <div className="cs-body">
+      <p className="cs-lead">Your committee, with a prominent Welfare / Safeguarding Officer up top — parents look for this first. Your club secretary ({club?.contact_name || "set on the club record"}) is shown automatically.</p>
+      {committee.length > 0 && (
+        <div className="cs-list">
+          {committee.map((c) => (
+            <div key={c.committee_id} className="cs-list-row">
+              <div className="cs-list-main">
+                <div className="cs-list-title">{c.name}{c.is_welfare && <span className="cs-tag">Welfare</span>}</div>
+                <div className="cs-list-sub">{[c.role, c.email].filter(Boolean).join(" · ")}</div>
+              </div>
+              <button className="cs-btn cs-btn--ghost cs-btn--sm" onClick={() => toggleWelfare(c.committee_id, !c.is_welfare)}>{c.is_welfare ? "Unset welfare" : "Set welfare"}</button>
+              <button className="cs-icon-btn" onClick={() => remove(c.committee_id)} aria-label="Remove"><Trash size={15} weight="thin" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="cs-addbox">
+        <div className="cs-addbox-title">Add a committee member</div>
+        <Field label="Role"><input className="cs-input" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} placeholder="e.g. Chairperson" /></Field>
+        <Field label="Name"><input className="cs-input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></Field>
+        <Field label="Email" hint="Optional — shown as a contact link."><input className="cs-input" value={form.email} inputMode="email" onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="name@club.co.uk" /></Field>
+        <label className="cs-checkrow">
+          <input type="checkbox" checked={form.isWelfare} onChange={(e) => setForm((f) => ({ ...f, isWelfare: e.target.checked }))} />
+          <span>This is the Welfare / Safeguarding Officer</span>
+        </label>
+        <button className="cs-btn cs-btn--primary" disabled={busy || !form.role.trim() || !form.name.trim()} onClick={add}><Plus size={15} weight="thin" /> Add member</button>
+      </div>
+    </div>
+  );
+}
+
+// ── documents (policies / forms — paste a hosted link, or upload an image) ─────────
+function DocumentsStep({ clubId, documents, setDocuments, uploadImage, flash }) {
+  const [form, setForm] = useState({ title: "", url: "", docType: "Policy", sizeLabel: "" });
+  const [busy, setBusy] = useState(false);
+  const reload = async () => { try { const list = await clubListDocuments(clubId); setDocuments(Array.isArray(list) ? list : []); } catch (e) { console.error("[club-settings] reload documents", e); } };
+  const add = async () => {
+    if (busy || !form.title.trim() || !form.url.trim()) return;
+    setBusy(true);
+    try {
+      await clubAddDocument(clubId, { title: form.title.trim(), url: form.url.trim(), docType: form.docType || null, sizeLabel: form.sizeLabel || null, displayOrder: documents.length });
+      setForm({ title: "", url: "", docType: "Policy", sizeLabel: "" });
+      await reload();
+    } catch (e) { console.error("[club-settings] add document", e); flash("err", friendlyErr(e, { title_required: "A title is required.", url_required: "Add a link or upload a file." })); }
+    finally { setBusy(false); }
+  };
+  const remove = async (id) => { try { await clubRemoveDocument(id); await reload(); } catch (e) { console.error("[club-settings] remove document", e); } };
+
+  return (
+    <div className="cs-body">
+      <p className="cs-lead">Constitution, codes of conduct, safeguarding policy, membership forms. Paste a link to a hosted PDF, or upload an image-based document.</p>
+      {documents.length > 0 && (
+        <div className="cs-list">
+          {documents.map((d) => (
+            <div key={d.document_id} className="cs-list-row">
+              <div className="cs-list-main"><div className="cs-list-title">{d.title}</div><div className="cs-list-sub">{[d.doc_type, d.size_label].filter(Boolean).join(" · ") || "document"}</div></div>
+              <button className="cs-icon-btn" onClick={() => remove(d.document_id)} aria-label="Remove"><Trash size={15} weight="thin" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="cs-addbox">
+        <div className="cs-addbox-title">Add a document</div>
+        <Field label="Title"><input className="cs-input" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Safeguarding Policy" /></Field>
+        <Field label="Type">
+          <select className="cs-input" value={form.docType} onChange={(e) => setForm((f) => ({ ...f, docType: e.target.value }))}>
+            {DOC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </Field>
+        <Field label="Link" hint="A link to your hosted PDF or doc."><input className="cs-input" value={form.url} inputMode="url" onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="https://…" /></Field>
+        <ImageField label="Or upload an image" aspect="wide" value={form.url && /\.(png|jpe?g|webp|gif|svg)$/i.test(form.url) ? form.url : ""} kind="document"
+          hint="For scanned forms / posters. PDFs: paste the link above instead."
+          onUpload={async (file) => { const url = await uploadImage(file, "document", null); if (url) setForm((f) => ({ ...f, url, sizeLabel: f.sizeLabel || fileSizeLabel(file.size) || "" })); return url; }}
+          onClear={() => setForm((f) => ({ ...f, url: "" }))} />
+        <button className="cs-btn cs-btn--primary" disabled={busy || !form.title.trim() || !form.url.trim()} onClick={add}><Plus size={15} weight="thin" /> Add document</button>
+      </div>
+    </div>
+  );
+}
+
+// ── events (lightweight social "what's on") ────────────────────────────────────────
+function EventsStep({ clubId, events, setEvents, flash }) {
+  const [form, setForm] = useState({ title: "", eventDate: "", blurb: "" });
+  const [busy, setBusy] = useState(false);
+  const reload = async () => { try { const list = await clubListEvents(clubId); setEvents(Array.isArray(list) ? list : []); } catch (e) { console.error("[club-settings] reload events", e); } };
+  const add = async () => {
+    if (busy || !form.title.trim()) return;
+    setBusy(true);
+    try {
+      await clubAddEvent(clubId, { title: form.title.trim(), eventDate: form.eventDate || null, blurb: form.blurb.trim() || null, displayOrder: events.length });
+      setForm({ title: "", eventDate: "", blurb: "" });
+      await reload();
+    } catch (e) { console.error("[club-settings] add event", e); flash("err", friendlyErr(e, { title_required: "A title is required." })); }
+    finally { setBusy(false); }
+  };
+  const remove = async (id) => { try { await clubRemoveEvent(id); await reload(); } catch (e) { console.error("[club-settings] remove event", e); } };
+
+  return (
+    <div className="cs-body">
+      <p className="cs-lead">Awards night, fundraiser, Christmas party — one-off club happenings. Not a calendar; just what's coming up.</p>
+      {events.length > 0 && (
+        <div className="cs-list">
+          {events.map((e) => (
+            <div key={e.event_id} className="cs-list-row">
+              <div className="cs-list-main"><div className="cs-list-title">{e.title}</div><div className="cs-list-sub">{[e.event_date, e.blurb].filter(Boolean).join(" · ") || "no date"}</div></div>
+              <button className="cs-icon-btn" onClick={() => remove(e.event_id)} aria-label="Remove"><Trash size={15} weight="thin" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="cs-addbox">
+        <div className="cs-addbox-title">Add an event</div>
+        <Field label="Title"><input className="cs-input" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Awards Night" /></Field>
+        <Field label="Date" hint="Optional."><input className="cs-input" type="date" value={form.eventDate} onChange={(e) => setForm((f) => ({ ...f, eventDate: e.target.value }))} /></Field>
+        <Field label="Details" hint="One short line. Optional."><input className="cs-input" value={form.blurb} maxLength={120} onChange={(e) => setForm((f) => ({ ...f, blurb: e.target.value }))} placeholder="All welcome at the clubhouse" /></Field>
+        <button className="cs-btn cs-btn--primary" disabled={busy || !form.title.trim()} onClick={add}><Plus size={15} weight="thin" /> Add event</button>
+      </div>
+    </div>
+  );
+}
+
+// ── stats: manager-picked Player of the Month, per team ─────────────────────────────
+function StatsStep({ clubId, potm, setPotm, managedTeams, flash }) {
+  const teams = managedTeams || [];
+  const byTeam = Object.fromEntries((potm || []).map((p) => [p.team_id, p]));
+  const reload = async () => { try { const list = await clubListPotm(clubId); setPotm(Array.isArray(list) ? list : []); } catch (e) { console.error("[club-settings] reload potm", e); } };
+
+  return (
+    <div className="cs-body">
+      <p className="cs-lead">Pick a Player of the Month for each senior team — you choose the name, it's not a vote. Under-18 squads are never shown publicly, so youth picks stay private.</p>
+      {teams.length === 0 ? (
+        <div className="cs-empty-box">No teams yet — POTM appears once you have a team.</div>
+      ) : (
+        teams.map((t) => <PotmRow key={t.team_id} team={t} current={byTeam[t.team_id]} onSaved={reload} flash={flash} />)
+      )}
+    </div>
+  );
+}
+
+function PotmRow({ team, current, onSaved, flash }) {
+  const [name, setName] = useState(current?.name || "");
+  const [month, setMonth] = useState(current?.month || "");
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (busy || !name.trim()) return;
+    setBusy(true);
+    try { await clubSetPotm(team.team_id, { name: name.trim(), month: month.trim() || null }); flash("ok", "Player of the month saved."); await onSaved(); }
+    catch (e) { console.error("[club-settings] set potm", e); flash("err", friendlyErr(e, { name_required: "Enter a player name." })); }
+    finally { setBusy(false); }
+  };
+  const clear = async () => {
+    setBusy(true);
+    try { await clubRemovePotm(team.team_id); setName(""); setMonth(""); await onSaved(); }
+    catch (e) { console.error("[club-settings] clear potm", e); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="cs-addbox">
+      <div className="cs-addbox-title">{team.team_name || "Team"}</div>
+      <Field label="Player name"><input className="cs-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Jordan Hayes" /></Field>
+      <Field label="Month" hint="Optional label, e.g. June 2026."><input className="cs-input" value={month} onChange={(e) => setMonth(e.target.value)} placeholder="June 2026" /></Field>
+      <div className="cs-link-row" style={{ gridTemplateColumns: "1fr auto" }}>
+        <button className="cs-btn cs-btn--primary" disabled={busy || !name.trim()} onClick={save}><Check size={15} weight="thin" /> Save</button>
+        {current && <button className="cs-btn cs-btn--ghost" disabled={busy} onClick={clear}><Trash size={15} weight="thin" /> Clear</button>}
       </div>
     </div>
   );
