@@ -252,7 +252,7 @@ module.exports = async function handler(req, res) {
 
   // ── Onboarding & ops emails (Phase 9 Cycle 9.1, every tick) ───────────────
   try {
-    await onboardingEmailJob(results);
+    await onboardingEmailJob(base, results);
   } catch (e) {
     results.push(`onboardingEmail: error — ${e.message}`);
   }
@@ -1398,7 +1398,10 @@ const ONBOARDING_ACTIONS = [
   "team_registration_submitted", // → venue admin
   "team_approved",               // → team admin
   "team_rejected",               // → team admin
-  "fixture_ref_assigned",        // → referee
+  "fixture_ref_assigned",        // → referee (league, new assignment)
+  "fixture_ref_changed",         // → referee (league, re-assignment → notify the new ref)
+  "casual_ref_assigned",         // → referee (casual, new assignment)
+  "casual_ref_changed",          // → referee (casual, re-assignment → notify the new ref)
   "venue_nudge_requested",       // → team admin (venue Nudge, mig 224)
 ];
 
@@ -1446,16 +1449,54 @@ async function teamNameOf(id) {
 
 async function refFixtureCtx(fixtureId) {
   const { data: f } = await supabase.from("fixtures")
-    .select("home_team_id, away_team_id, scheduled_date, kickoff_time, ref_token")
+    .select("home_team_id, away_team_id, scheduled_date, kickoff_time, ref_token, playing_area_id")
     .eq("id", fixtureId).single();
   if (!f) return { matchLabel: "your match" };
   const [h, a] = await Promise.all([teamNameOf(f.home_team_id), teamNameOf(f.away_team_id)]);
   const matchLabel = `${h || "Home"} v ${a || "Away"}`;
   const dateLabel = [f.scheduled_date, f.kickoff_time ? String(f.kickoff_time).slice(0, 5) : null]
     .filter(Boolean).join(" ");
+  let venueName = null;
+  if (f.playing_area_id) {
+    const { data: pa } = await supabase.from("playing_areas")
+      .select("venue_id").eq("id", f.playing_area_id).maybeSingle();
+    if (pa?.venue_id) {
+      const { data: v } = await supabase.from("venues")
+        .select("name").eq("id", pa.venue_id).maybeSingle();
+      venueName = v?.name || null;
+    }
+  }
   const link = process.env.REF_APP_URL && f.ref_token
     ? `${process.env.REF_APP_URL}/ref/${f.ref_token}` : null;
-  return { matchLabel, dateLabel, link };
+  return { matchLabel, dateLabel, venueName, link };
+}
+
+// Context for a CASUAL ref assignment (matches.ref_player_id). Casual matches
+// have no opponent entity — the assignment is "ref this squad's game" — so the
+// label is the squad name. Venue/kickoff come from the linked schedule row.
+async function casualRefCtx(matchId) {
+  const { data: mt } = await supabase.from("matches")
+    .select("team_id, ref_token, match_date").eq("id", matchId).single();
+  if (!mt) return { matchLabel: "your casual match" };
+  const squad = await teamNameOf(mt.team_id);
+  const { data: sc } = await supabase.from("schedule")
+    .select("venue, game_date_time").eq("active_match_id", matchId).maybeSingle();
+  const dt = sc?.game_date_time || mt.match_date || null;
+  let dateLabel = null;
+  if (dt) {
+    try {
+      dateLabel = new Date(dt).toLocaleString("en-GB", {
+        timeZone: "Europe/London", weekday: "short", day: "numeric",
+        month: "short", hour: "2-digit", minute: "2-digit",
+      });
+    } catch { dateLabel = String(dt).slice(0, 16).replace("T", " "); }
+  }
+  const link = process.env.REF_APP_URL && mt.ref_token
+    ? `${process.env.REF_APP_URL}/ref/${mt.ref_token}` : null;
+  return {
+    matchLabel: squad ? `${squad} (casual)` : "your casual match",
+    dateLabel, venueName: sc?.venue || null, link,
+  };
 }
 
 async function alreadyEmailed(type, entityId, recipient) {
@@ -1473,22 +1514,82 @@ async function alreadyNotified(type, entityId, recipient, channel) {
   return !!(data && data.length);
 }
 
-// Route a ref-assignment notification through the official's preferred channel with
-// availability fallback (whatsapp→sms→email), honouring match_officials.preferred_channel.
-// Refs have no web-push subscription, so 'push' contacts are always absent and a 'push'
-// preference falls through to email. SMS/WhatsApp go via _sms.js (Twilio, no-op without
-// TWILIO_* env); email via _mailer.js (Resend). One channel per ref — the picked one.
-// notification_log is keyed per-channel so a Twilio outage retries next tick without
-// blocking the email fallback. Returns false only to stop the whole job (email no-key).
-async function dispatchRefAssigned(entityId, official, ctx, results) {
+// True if this auth user has at least one registered push subscription (mig 422,
+// keyed on auth_user_id — the /hub Profile push toggle). Used so a 'push' channel
+// is only picked when it can actually land.
+async function authUserHasPushSub(uid) {
+  if (!uid) return false;
+  const { data } = await supabase
+    .from("push_subscriptions").select("id").eq("auth_user_id", uid).limit(1);
+  return !!(data && data.length);
+}
+
+// Deliver a ref-assignment push via /api/notify's auth-user mode. Returns the
+// count that landed (0 on any error / no live sub) so the caller can fall back.
+async function callNotifyAuthUsers(base, authUserIds, payload) {
+  try {
+    const r = await fetch(`${base}/api/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` },
+      body: JSON.stringify({ authUserIds, payload }),
+    });
+    if (!r.ok) return 0;
+    const j = await r.json().catch(() => ({}));
+    return j.sent || 0;
+  } catch (e) { return 0; }
+}
+
+// Route a ref-assignment notification through the referee's preferred channel
+// (push→email→SMS/WhatsApp) honouring preferred_channel. Refs now have accounts
+// (auto-linked, PR #133) and a /hub push toggle (mig 422), so 'push' is a live
+// channel keyed on the ref's auth user_id: app-user refs get an in-app push that
+// deep-links into /hub Fixtures, everyone else falls back to the existing
+// email/SMS/WhatsApp contact path. SMS/WhatsApp via _sms.js (Twilio, no-op
+// without TWILIO_* env); email via _mailer.js (Resend). One channel per ref — the
+// picked one. notification_log is keyed per-channel so an outage on one channel
+// retries next tick without blocking another. `ref` carries
+// { user_id, email, phone, whatsapp_number, preferred_channel } — same shape for
+// league (match_officials) and casual (players) refs. Returns false only to stop
+// the whole job (email no-key).
+async function dispatchRefAssigned(base, entityId, ref, ctx, results) {
   const contacts = {
-    whatsapp_number: official.whatsapp_number || null,
-    phone: official.phone || null,
-    email: official.email || null,
-    push: false,
+    whatsapp_number: ref.whatsapp_number || null,
+    phone: ref.phone || null,
+    email: ref.email || null,
+    push: await authUserHasPushSub(ref.user_id),
   };
-  const channel = pickChannel(official.preferred_channel || "push", contacts);
+  let channel = pickChannel(ref.preferred_channel || "push", contacts);
   if (!channel) { results.push("onboardingEmail: ref_assigned no contact channel"); return true; }
+
+  // Push — the in-app channel. Deep-links into /hub Fixtures.
+  if (channel === "push") {
+    if (await alreadyNotified("ref_assigned", entityId, ref.user_id, "push")) return true;
+    const body = `${ctx.matchLabel}`
+      + (ctx.dateLabel ? ` — ${ctx.dateLabel}` : "")
+      + (ctx.venueName ? ` at ${ctx.venueName}` : "")
+      + ". Tap to open.";
+    const sent = await callNotifyAuthUsers(base, [ref.user_id], {
+      title: "You're on to referee ⚽",
+      body,
+      url: `${base}/hub/fixtures`,
+      icon: "/icons/icon-192.png",
+    });
+    if (sent > 0) {
+      await supabase.from("notification_log").insert({
+        type: "ref_assigned", entity_id: entityId, recipient: ref.user_id, channel: "push",
+      });
+      results.push("onboardingEmail: ref_assigned → 1 push");
+      return true;
+    }
+    // Sub vanished between the capability check and the send — fall back to a
+    // contact channel (skip push so we don't loop).
+    contacts.push = false;
+    channel = pickChannel(
+      ref.preferred_channel === "push" ? "email" : (ref.preferred_channel || "email"),
+      contacts
+    );
+    if (!channel) { results.push("onboardingEmail: ref_assigned push no live sub, no fallback"); return true; }
+  }
 
   const to = channel === "whatsapp" ? contacts.whatsapp_number
            : channel === "sms"      ? contacts.phone
@@ -1538,7 +1639,7 @@ async function dispatchEmail(type, entityId, recipients, ctx, teamId, results) {
   return true;
 }
 
-async function onboardingEmailJob(results) {
+async function onboardingEmailJob(base, results) {
   const since = new Date(Date.now() - 20 * 60 * 1000).toISOString();
   const { data: events, error } = await supabase
     .from("audit_events")
@@ -1571,13 +1672,34 @@ async function onboardingEmailJob(results) {
           reason: m.reason || null },
         teamId, results);
       if (!ok) return;
-    } else if (ev.action === "fixture_ref_assigned") {
+    } else if (ev.action === "fixture_ref_assigned" || ev.action === "fixture_ref_changed") {
+      // League ref. metadata.official_id is the NEWLY assigned official (the one to
+      // notify). On a re-assignment (fixture_ref_changed) the new ref is told; the
+      // outgoing ref is not (clears emit fixture_ref_cleared, which we don't dispatch).
       const officialId = m.official_id;
       if (!officialId) continue;
       const { data: off } = await supabase.from("match_officials")
-        .select("email, phone, whatsapp_number, preferred_channel").eq("id", officialId).single();
+        .select("email, phone, whatsapp_number, preferred_channel, user_id").eq("id", officialId).single();
       if (!off) continue;
-      const ok = await dispatchRefAssigned(ev.entity_id, off, await refFixtureCtx(ev.entity_id), results);
+      const ok = await dispatchRefAssigned(base, ev.entity_id, off, await refFixtureCtx(ev.entity_id), results);
+      if (!ok) return;
+    } else if (ev.action === "casual_ref_assigned" || ev.action === "casual_ref_changed") {
+      // Casual ref — a squad player assigned to officiate a casual match
+      // (matches.ref_player_id, mig 369). Players carry no email; reach is push
+      // (their /hub auth user_id) with SMS fallback if a phone is captured.
+      const refPlayerId = m.ref_player_id;
+      if (!refPlayerId) continue;
+      const { data: pl } = await supabase.from("players")
+        .select("user_id, phone, notification_channel").eq("id", refPlayerId).single();
+      if (!pl) continue;
+      const ref = {
+        user_id: pl.user_id || null,
+        email: null,
+        phone: pl.phone || null,
+        whatsapp_number: pl.phone || null,
+        preferred_channel: pl.notification_channel || "push",
+      };
+      const ok = await dispatchRefAssigned(base, ev.entity_id, ref, await casualRefCtx(ev.entity_id), results);
       if (!ok) return;
     } else if (ev.action === "venue_nudge_requested") {
       // Venue Nudge (mig 224). The RPC recorded the request; resolve the team's

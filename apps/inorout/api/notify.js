@@ -347,6 +347,40 @@ async function getSubsForMembers(memberProfileIds) {
   return (subs || []).map(s => ({ ...s, member_profile_id: authToProfile[s.auth_user_id] }));
 }
 
+// Resolve push subs for an auth user directly (mig 422 keys member/referee subs
+// on auth_user_id). Referees are not necessarily club members — a match_official
+// or casual player can be assigned with no member_profiles row — so this targets
+// the auth user straight, bypassing the member_profiles hop getSubsForMembers does.
+async function getSubsForAuthUsers(authUserIds) {
+  const ids = [...new Set((authUserIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+  const { data } = await supabase
+    .from('push_subscriptions')
+    .select('id, auth_user_id, subscription, platform')
+    .in('auth_user_id', ids);
+  return data || [];
+}
+
+// Deliver a ref-assignment push to an auth user's registered devices. Deep-links
+// into the /hub Fixtures tab by default. The CALLER owns dedup (cron.js logs
+// per (type, entity, recipient, channel) in notification_log), so this only
+// delivers + prunes dead subs and returns how many landed.
+async function pushToAuthUserSubs(subs, payload) {
+  let sent = 0;
+  await Promise.allSettled(
+    subs.map(async sub => {
+      const payloadObj = { ...payload, url: payload.url || 'https://app.in-or-out.com/hub/fixtures' };
+      const res = await deliverPush(sub, payloadObj);
+      if (res.ok) {
+        sent++;
+      } else if (res.gone) {
+        await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+      }
+    })
+  );
+  return sent;
+}
+
 // Deliver a club announcement (and therefore a pitch-bump, which creates one)
 // to members who've enabled device push. Deep-links into the agenda. Deduped
 // per (announcement, member, push) so a re-run never double-pings. Returns count.
@@ -602,6 +636,23 @@ module.exports = async function handler(req, res) {
     const subs = await getSubsForMembers(body.memberProfileIds);
     if (!subs.length) return res.status(200).json({ sent: 0 });
     const sent = await pushToMemberSubs(subs, body.payload, body.announcementId);
+    return res.status(200).json({ sent });
+  }
+
+  // ── Auth-user push mode (ref assignment) — cron-triggered only ────────────────
+  // cron.js onboardingEmailJob resolves a referee's auth_user_id (match_officials
+  // .user_id for league refs, players.user_id for casual refs) and POSTs them here
+  // to reach their /hub push subscription (mig 422, keyed on auth_user_id). Refs
+  // need not be club members, so this targets the auth user directly. CRON_SECRET-
+  // gated so it can't be used to push arbitrary users. Dedup lives in the caller.
+  if (Array.isArray(body.authUserIds)) {
+    if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+      return res.status(401).end();
+    }
+    if (!body.payload) return res.status(400).json({ error: 'Missing payload' });
+    const subs = await getSubsForAuthUsers(body.authUserIds);
+    if (!subs.length) return res.status(200).json({ sent: 0 });
+    const sent = await pushToAuthUserSubs(subs, body.payload);
     return res.status(200).json({ sent });
   }
 
