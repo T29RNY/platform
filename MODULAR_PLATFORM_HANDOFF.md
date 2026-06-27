@@ -183,6 +183,81 @@ engine; Playwright the render. Plan B if a league has no usable feed = the exist
 `club_manager_update_home_fixture` (mig 414) — already wired. ⚠️ STILL OWED on Epic B: real-device walk
 (HR#13). Full FA settled-facts + provider rationale in the "FA Full-Time access" + "Scope" blocks above.
 
+### EPIC C — AUDIT COMPLETE + FA FORMAT RESEARCHED + C1 SPEC LOCKED (session 223, 2026-06-28)
+
+**Status: audit done, two scope decisions taken, build NOT started (parked before C1). Next free mig = 450.**
+
+**Audit confirmed (live DB + source):**
+- All six FA columns exist exactly as claimed — `club_leagues.{fa_source_url, fa_embed_code, fa_last_synced_at}`
+  (+ legacy `embed_code`) and `club_fixtures.{source, fa_fixture_key}`. The idempotent upsert key is ALREADY
+  built: unique index `uq_club_fixtures_fa` on `(league_id, fa_fixture_key) WHERE fa_fixture_key IS NOT NULL`
+  (mig 394). `source` CHECK is `('manual','fa_import')`. NOTHING to re-add.
+- **The "match-day trigger" prize is far smaller than the original framing.** The club-fixture availability
+  engine ALREADY EXISTS and is fully separate from the casual `fixtures`/`matches`/`schedule` family:
+  `club_fixture_availability` (mig 426) + `guardian_set_fixture_availability` writer + readers
+  `guardian_list_child_fixtures` (426) / `member_list_club_fixtures` (420). **A `scheduled` club_fixture with a
+  non-null `club_team_id` is automatically availability-open** — no new match table, no casual coupling. So the
+  trigger reduces to: on ingest, map the FA fixture to one of our `club_teams` (set `club_team_id`). That's the
+  whole job, and it touches ZERO casual surface.
+- **Ingest worker home = `apps/inorout/api/cron.js`** (service-role, `CRON_SECRET`-gated, pg_cron-driven every
+  15 min; established "thin scheduler calls a service-role RPC" pattern — `run_membership_renewals` et al). Fetch
+  + HTML-parse must live in JS there; the DB write goes through a new service-role RPC.
+- **Render path partly exists:** `get_club_public` already returns `leagues[].fixtures[]` (mig 445); P4
+  `clubPublicSections` already renders the form-guide. C2 just extends the FA-fixtures block.
+- **No pilot club in the system yet** — ZERO non-demo clubs; one demo league only (`club_demo` "U12 Saturday
+  League", 7 manual team-linked fixtures, no FA feed). So the load-bearing "does the pilot league expose the
+  structured feed?" can't be answered against live data — hence decision 1b below.
+
+**FA Full-Time format — researched (session 223), grounded in a LIVE league page:**
+- **No JSON/XML/iCal/CSV feed exists.** The FA deliberately removed the easy data feed and locked the "Code
+  Snippets" generator behind admin login to deter scraping; an iCal feed was requested and REJECTED. The JS embed
+  snippet (`fa_embed_code`, display-only, fixed 350px, 30-day expiry on non-live code) is the locked box → the
+  "iframe-only ⇒ degrade to form-guide" path is real.
+- **But the public Full-Time pages stay server-rendered and parseable.** Real live sample:
+  `fulltime.thefa.com/index.html?league=6306575&selectedSeason=688337720&selectedDivision=748409599&selectedCompetition=0&selectedFixtureGroupKey=1_655251742`
+  returns HTML with the league table, results, and fixture links `/displayFixture.html?id=28052869`, dates
+  `11/05/25`, scores `4 - 1`. Third-party scrapers (Apify) confirm this is the route everyone uses.
+- **The "structured Season/Group feed" = those URL params** (`league`, `selectedSeason`, `selectedDivision`,
+  `selectedFixtureGroupKey`), NOT a data API. We store the full URL in `fa_source_url`; ingest = server-side
+  fetch + HTML parse of that public page. Brittle to FA markup changes = the "we own the pipe" maintenance tail.
+
+**TWO SCOPE DECISIONS (operator-approved s223):**
+- **1b — build the adapter against the GENERIC FA Full-Time format** (researched as above), defer real-feed
+  verification until a real pilot club onboards. (There is no real club/feed to test against yet.)
+- **2b — fixtures + results ONLY, NO standings/league table.** Parser skips the league-table markup; sidesteps
+  the brittlest parse and the "store opponent clubs we don't otherwise track" problem. (`get_club_public` already
+  can't derive standings — consistent.)
+
+**Locked design (all confirmed against the real page):**
+1. `fa_fixture_key` = the FA `displayFixture` id (e.g. `28052869`) — stable per fixture across re-syncs → clean
+   idempotent UPSERT on the existing `(league_id, fa_fixture_key)` index.
+2. `fa_source_url` holds the full Full-Time league/club URL (carries season/division/group params); parser
+   extracts + fetches. Needs a setter → extend the existing operator RPC `venue_update_club_league` with
+   `p_fa_source_url` (it already takes `fa_embed_code`; DROP+recreate the overload per the param-type rule).
+3. Score parse: `H - A` with digits both sides → `completed` + `home_score`/`away_score`; placeholder/empty →
+   `scheduled`.
+4. Team mapping (the C3 trigger, free, no schema): normalise-match each parsed side against the club's
+   `club_teams.name`. Match → set `club_team_id` + `is_home`, opponent = other side. Both filters a division feed
+   to OUR games AND auto-opens availability (engine above). No match on either side ⇒ still upsert the row so it
+   renders, `club_team_id` NULL (no availability).
+
+**Confirmed phased build (each own PR, cloud one-at-a-time; next mig = 450):**
+- **C1 (mig 450) — ingest pipeline, server-side only.** New service-role RPC `fa_ingest_upsert_fixtures(p_league_id
+  uuid, p_fixtures jsonb)` (idempotent upsert on `fa_fixture_key`, stamp `fa_last_synced_at`, audit per HR#9) +
+  a JS parser module + a `faSyncJob` in `cron.js` iterating leagues with `fa_source_url` set (fetch → parse →
+  call RPC), provider-tagged via `club_fixtures.source='fa_import'` + extend `venue_update_club_league` with
+  `p_fa_source_url`. Gates: rpc-security-sweep + ephemeral-verify (+leak) on the write RPC; NO client surface →
+  casual-regression NOT triggered. Migration .sql + _down.sql same commit (HR#11). RPCS.md records consumers
+  (HR#14: cron faSyncJob + future C2 render).
+- **C2 — OUR-styled per-league fixtures/results render.** Extend P4 `clubPublicSections` FA-fixtures block;
+  `get_club_public` leagues slice already carries `fixtures[]`. Playwright the render (rich `/c/finbars-fc`).
+- **C3 — surface the auto-opened availability / team-mapping refinement.** casual-regression IF it touches
+  `apps/inorout/src`; EV on any new write.
+
+**Plan B (unchanged):** a league with no usable feed degrades to the P4 form-guide + manual
+`club_manager_update_home_fixture` (mig 414). Sources: FA Grassroots "Embedding Feeds" article; live
+fulltime.thefa.com league page; FA iCal-request (rejected); Apify FA Full-Time scrapers.
+
 ---
 
 ## EPIC B — AUDIT FINDINGS, DECISIONS & PHASED BUILD PLAN (session 213, 2026-06-27)
