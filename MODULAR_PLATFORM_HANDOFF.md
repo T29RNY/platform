@@ -145,6 +145,46 @@ into your match day," NOT "we have FA sync too."
 
 ---
 
+## EPIC C — FA FIXTURE INGEST — BUILD POINTERS FOR NEXT SESSION (session 222)
+
+**Status: NEXT epic. Epic B is COMPLETE (P1–P5b shipped, migs 444–449). Epic C is the only epic that
+depends on B; D is independent.** Next free migration = **450**.
+
+**AUDIT correction (s222) — the DB foundation ALREADY EXISTS, do NOT re-add it:**
+- `club_leagues` already has `fa_source_url text`, `fa_embed_code text`, `fa_last_synced_at timestamptz`
+  (+ a legacy `embed_code text`). The per-league FA provider config columns are in place.
+- `club_fixtures` already has `source text` (provider tag — pluggable-provider field, NOT hardcoded "FA")
+  and `fa_fixture_key text` (the stable per-fixture key for **idempotent UPSERT** on re-sync).
+- So Epic C is NOT "new schema" — it is the **ingest pipeline + render + match-day trigger**. Any new
+  schema is incremental (e.g. a standings/league-table cache or a `provider` enum if we formalise it).
+
+**What Epic C actually builds (form-guide already ships P4 — this LAYERS the FA table on top):**
+1. **Verify the feed form FIRST (load-bearing unknown).** Confirm the pilot club's league exposes the
+   Season ID + Group ID *structured* feed (Full-Time → Media → Code Snippets), NOT just the locked
+   iframe. If only the iframe exists, that league degrades to the P4 form-guide — never a blank/fake
+   table. This gate decides whether "it's just layout" is true. (Settled facts: no priced FA API; the
+   FREE club-admin Code Snippets route is what we use — see the FA section above, don't relitigate.)
+2. **Ingest worker = a pluggable PROVIDER adapter** (FA Full-Time = adapter #1; cricket ECB/hockey/rugby
+   later without rework — key off `club_fixtures.source`, don't hardcode "FA"). Parse the Season/Group
+   feed → UPSERT `club_fixtures` keyed on `fa_fixture_key` (idempotent re-sync) + stamp
+   `club_leagues.fa_last_synced_at`. Likely a Vercel serverless/cron endpoint (server-side fetch+parse,
+   NOT client) — the brittle/maintenance-tail piece (we own the pipe if the FA changes page format).
+3. **OUR-styled league table + fixtures/results render**, PER-LEAGUE (a club's age groups = separate
+   tables), reusing the P4 `clubPublicSections` look — NOT a raw embed. Extend `get_club_public`
+   fixtures/leagues (the slice already returns `leagues[].fixtures[]`).
+4. **The real prize — the match-day TRIGGER:** an ingested fixture auto-creates the match → auto-opens
+   availability (taps the existing casual/club engine). "Your fixtures flow into your match day." This
+   is the leapfrog over Pitchero; the table is parity, the trigger is the differentiator.
+
+**Build discipline:** phase it (each its own PR, cloud one-at-a-time rule); ship the read/render before
+the auto-trigger; SECDEF + `_club_feature_enabled('public_web')` gate + audit on any new write RPC;
+EV + rpc-security-sweep on writes; casual-regression if it touches `apps/inorout/src` or the match
+engine; Playwright the render. Plan B if a league has no usable feed = the existing manual
+`club_manager_update_home_fixture` (mig 414) — already wired. ⚠️ STILL OWED on Epic B: real-device walk
+(HR#13). Full FA settled-facts + provider rationale in the "FA Full-Time access" + "Scope" blocks above.
+
+---
+
 ## EPIC B — AUDIT FINDINGS, DECISIONS & PHASED BUILD PLAN (session 213, 2026-06-27)
 
 Three-agent read-only audit run before build. **B is the NEXT epic to build.** A wireframe brief for
