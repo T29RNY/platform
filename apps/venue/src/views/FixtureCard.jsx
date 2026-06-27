@@ -19,6 +19,7 @@ export default function FixtureCard({ fx, state, venueToken, onDone, prominent, 
   const away = teamFor(fx.away_team_id);
   const pitch = (state.pitches || []).find((p) => p.id === fx.playing_area_id) || null;
   const ref = (state.refs || []).find((r) => r.id === fx.official_id) || null;
+  const refResp = (state.refResponses || {})[fx.id] || null; // accepted | declined (mig 442)
   const status = deriveStatusForCard(fx);
   const live = fx.status === "in_progress";
   const completed = fx.status === "completed";
@@ -69,6 +70,7 @@ export default function FixtureCard({ fx, state, venueToken, onDone, prominent, 
         <span className="assign">
           <Icon name="whistle" size={12} />
           {ref ? <strong>{ref.name.split(" ")[0]}</strong> : <span className="needs">Ref?</span>}
+          {ref && refResp && <RefResponse response={refResp.response} />}
         </span>
         <span className="spacer" />
         {withActions && (
@@ -78,6 +80,22 @@ export default function FixtureCard({ fx, state, venueToken, onDone, prominent, 
         )}
       </footer>
     </article>
+  );
+}
+
+// The assigned ref's accept/decline (mig 442). A small icon chip beside the ref
+// name — accepted = ok, declined = live/red. Absent (pending) renders nothing.
+function RefResponse({ response }) {
+  const ok = response === "accepted";
+  return (
+    <span
+      title={ok ? "Referee accepted" : "Referee declined"}
+      style={{
+        display: "inline-flex", alignItems: "center", marginLeft: 4,
+        color: ok ? "var(--ok)" : "var(--live)",
+      }}>
+      <Icon name={ok ? "check" : "x"} size={12} />
+    </span>
   );
 }
 

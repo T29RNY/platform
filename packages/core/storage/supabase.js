@@ -2893,6 +2893,57 @@ export async function getMyOfficiatingHistory(limit = 50) {
   return data;
 }
 
+// Referee PR #3 (mig 442) — the ref's own accept/decline responses + upcoming
+// unavailability windows. Merged client-side into RefFixtures (the Swift-locked
+// get_my_assignments stays untouched). Shape: { ok, responses:[...], unavailability:[...] }.
+export async function getMyRefStatus() {
+  const { data, error } = await supabase.rpc("get_my_ref_status", {});
+  if (error) { console.error("[ref] get_my_ref_status failed", error); throw error; }
+  return data;
+}
+
+// Ref accepts or declines a specific assignment (context = 'league' | 'casual',
+// gameId = fixtures.id / matches.id, response = 'accepted' | 'declined'). mig 442.
+export async function refRespondToAssignment(context, gameId, response) {
+  const { data, error } = await supabase.rpc("ref_respond_to_assignment", {
+    p_context:  context,
+    p_game_id:  gameId,
+    p_response: response,
+  });
+  if (error) { console.error("[ref] ref_respond_to_assignment failed", error); throw error; }
+  return data;
+}
+
+// Ref adds a blackout date range (start/end are 'YYYY-MM-DD'). mig 442.
+export async function refAddUnavailability(start, end, note = null) {
+  const { data, error } = await supabase.rpc("ref_add_unavailability", {
+    p_start: start,
+    p_end:   end,
+    p_note:  note,
+  });
+  if (error) { console.error("[ref] ref_add_unavailability failed", error); throw error; }
+  return data;
+}
+
+// Ref removes one of their own unavailability windows by id. mig 442.
+export async function refRemoveUnavailability(id) {
+  const { data, error } = await supabase.rpc("ref_remove_unavailability", {
+    p_id: id,
+  });
+  if (error) { console.error("[ref] ref_remove_unavailability failed", error); throw error; }
+  return data;
+}
+
+// Operator surface (mig 442) — per-fixture ref accept/decline + each official's
+// upcoming unavailability for the venue's league fixtures. Merged into venue state.
+export async function venueGetRefResponses(venueToken) {
+  const { data, error } = await supabase.rpc("venue_get_ref_responses", {
+    p_venue_token: venueToken,
+  });
+  if (error) { console.error("[ref] venue_get_ref_responses failed", error); throw error; }
+  return data;
+}
+
 // Ref self-claims every match_officials card matching their verified auth email.
 export async function refLinkSelfToOfficial() {
   const { data, error } = await supabase.rpc("ref_link_self_to_official", {});
