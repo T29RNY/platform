@@ -188,10 +188,16 @@ wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
   `club_posts` tables + RLS (REVOKE all, RPC-only, 0 policies) + new public `club-media` bucket &
   3 club-scoped storage write policies. No UI. Build PASS. Design brief handed to Claude Design
   (`CLUB_PAGE_DESIGN_BRIEF.md`, project "In or Out — Public Club Page (Epic B)").
-- **Phase 2 — Public read RPC (mig 445):** `get_club_public(p_slug)` — anon SECDEF, returns identity +
-  branding + teams + fixtures/table (reuse league logic) + sponsors + published news + tournament-hub
-  link. Rejects unpublished. Discipline-aware. Safeguarding applied server-side (hide minors'
-  surnames/photos). Gates: rpc-security-sweep, EV.
+- **Phase 2 — Public read RPC (mig 445):** ✅ SHIPPED (s215). `get_club_public(p_slug)` — anon SECDEF,
+  returns `{found:true, club, branding, teams[cohort→team→safeguarded members], leagues[+fixtures],
+  sponsors, news, tournaments}` or `{found:false}` (missing/unpublished). Wrapper `getClubPublic` +
+  barrel; `/c/<slug>` route + `ClubPublicScreen.jsx` JSON-dump STUB (real UI = P4). **Safeguarding
+  server-side** off `clubs.safeguarding_config` (`min_public_age` def 18, `hide_public_rosters` def
+  false): minors/unknown-DOB → first name + surname initial, no photo; adults full. **No standings
+  table** (external club_fixtures can't yield one — live FA table = P4 fa_embed iframe; flagged for P4).
+  **No member photo column exists yet** → `photo_url` always null, gate documented for when one lands.
+  Gates: build PASS, rpc-security (single overload/SECDEF/search_path/anon+auth ✅), EV 8/8 + leak-0.
+  Build pointers below preserved for reference.
   **BUILD POINTERS (audited s214):** clone `get_tournament_public(text)` exactly — original def
   `rls_migrations/321_phase6_public_page.sql`, JS wrapper `getTournamentPublic(slug)` at
   `packages/core/storage/supabase.js:6273`. Pattern: `LANGUAGE plpgsql SECURITY DEFINER SET search_path

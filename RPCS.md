@@ -922,6 +922,14 @@ JS wrappers land with the consuming UI (Stages 5/6).
 | `get_tournament_public(p_slug)` | `getTournamentPublic(slug)` | **anon, authenticated** | **READ (mig 317; … mig 326; extended mig 327).** **Mig 327 adds:** `branding {primary_colour, secondary_colour, custom_logo_url}`, `sponsors[]`, `player_of_tournament_name`, `player_of_tournament_team`. *Consumer: apps/inorout TournamentScreen — branding header, sponsor strip, POT trophy card.* |
 | `club_admin_get_tournament(p_slug)` | `clubAdminGetTournament(slug)` | **authenticated** (anon REVOKED) | **READ (mig 316; extended mig 318, mig 324; extended mig 327).** **Mig 327 adds:** `sponsors[]`, `player_of_tournament_name`, `player_of_tournament_team`. *Consumer: SessionsScreen Tournaments tab expand panel.* |
 
+### Modular Platform Epic B — public club home page (mig 445)
+
+The anon public-read behind `/c/<slug>` (the "Pitchero destroyer" club page). SECDEF, search_path locked, single overload, `REVOKE ALL FROM public` then GRANT anon+authenticated. Read-only (no audit). Clones `get_tournament_public`'s grant pattern + `get_club_league_public`'s fixtures logic. Hard Rule #14 — consumer recorded so a later return-shape change can't silently break the Phase 4 UI.
+
+| RPC (SQL) | JS wrapper | grants | description |
+|---|---|---|---|
+| `get_club_public(p_slug)` | `getClubPublic(slug)` | **anon, authenticated** | **READ (mig 445), SECDEF.** Keyed on `club_pages.slug`; returns `{found:false}` when missing OR `published=false`. On success: `{found:true, club{id,name,short_name,discipline,founded_year}, branding{primary/secondary/accent_colour,crest_url,hero_url,tagline,about,socials,sections}, teams[cohort{…,teams[{…,members[]}]}], leagues[{league_id,name,season_label,fixtures[]}], sponsors[] (active, by display_order), news[] (status='published', newest first), tournaments[] (this club's non-draft events — the hub link)}`. **No standings table** — external `club_fixtures` (free-text opponents, our games only) can't yield one; the live FA table is the P4 `fa_embed_code` iframe. **Safeguarding applied SERVER-SIDE** from `clubs.safeguarding_config`: `min_public_age` (int, default 18), `hide_public_rosters` (bool, default false). Minors (or unknown DOB) → first name + surname initial, `photo_url` null (no member photo column exists yet — gate lands when one is added); adults shown in full. ***Consumer: apps/inorout Phase 4 `ClubPublicScreen.jsx` (`/c/<slug>`) — currently a JSON-dump stub.*** EV 8/8 + leak-0. |
+
 ### watchOS companion — identity layer (mig 369)
 
 Net-new ref/official identity. **Primary consumer = the watchOS companion app** (supabase-swift calls these RPCs directly; the JS wrappers serve the web admin surfaces). Hard Rule #14 — record the watch consumer now so a later return-shape change can't silently break it; Hard Rule #12 — `get_my_next_assignment`'s shape is LOCKED for Swift `CodingKeys`.

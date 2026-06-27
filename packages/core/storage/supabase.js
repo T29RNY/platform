@@ -6298,6 +6298,18 @@ export async function getClubLeaguePublic(embedCode) {
   return data;
 }
 
+// Public, no-login club home page (Modular Epic B, mig 445) — keyed on a
+// club_pages.slug. Anon-readable; returns {found:false} when missing/unpublished.
+// Identity + branding + teams (safeguarded rosters) + leagues/fixtures + sponsors
+// + published news + tournament-hub links. Consumer: Phase 4 ClubPublicScreen.
+export async function getClubPublic(slug) {
+  const { data, error } = await supabase.rpc("get_club_public", {
+    p_slug: slug,
+  });
+  if (error) { console.error("[club-page] get_club_public failed", error); throw error; }
+  return data;
+}
+
 // Public self-serve team registration from the Tournament Hub (anon + authenticated).
 // Allowed only while the event is OPEN; creates a pending team awaiting club-admin approval.
 export async function tournamentRegisterTeam(slug, competitionId, teamName, contactEmail) {

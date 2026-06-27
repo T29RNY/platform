@@ -446,6 +446,7 @@ export {
   getTournamentPublic,
   getClubFixtureMatchday,
   getClubLeaguePublic,
+  getClubPublic,
   tournamentRegisterTeam,
   listVenueTournaments,
   tournamentSetTeamFollow,
