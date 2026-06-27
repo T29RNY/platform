@@ -211,6 +211,13 @@ wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
   barrel export. NO write → ephemeral-verify not triggered; EV (read-shape assertion) + rpc-security-
   sweep still run. Then add the `/c/<slug>` anon route one-liner in `App.jsx getRoute()` (defer the
   ClubPublicScreen render to P4; a stub/JSON dump is fine to prove the route + read end-to-end).
+- **Phase 3 — Admin write RPCs (mig 446): ✅ SHIPPED s220.** 12 RPCs (the 11 planned +
+  `club_set_safeguarding`), all club-manager auth + `_club_feature_enabled('public_web')` + audit,
+  authenticated-only, single overload, search_path pinned. Decisions: contrast = advisory/client-side
+  (server validates hex FORMAT only, `^#[0-9a-fA-F]{6}$`); safeguarding write = `club_set_safeguarding`
+  TIGHTENING-ONLY (strengthen-only — age may only ↑, hide only false→true; loosening stays venue-token).
+  Gates PASS: build, rpc-security 12/12, EV 14/14 + leak-0. RPCS.md/DECISIONS.md updated. **NEXT = P4
+  public page UI, then P5 wizard — both need Claude Design wireframes.** Original plan retained below:
 - **Phase 3 — Admin write RPCs (mig 446):** `club_set_page` (branding/sections — upsert club_pages),
   `club_publish_page`, `club_add/update/remove/list_sponsor`, `club_create/update/delete/list_post`
   (+ `club_publish_post`). All gated on `_club_feature_enabled(club_id,'public_web')` + club-manager

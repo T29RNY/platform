@@ -4028,3 +4028,19 @@ audited s213 (3-agent read-only). Four decisions taken before build:
   Venue-operator parity DEFERRED. All new write RPCs gate on `_club_feature_enabled(club_id,
   'public_web')` (already wired, mig 399) + audit_events (Hard Rule #9). Safeguarding (hide minors'
   surnames/photos) is applied SERVER-SIDE in the public read, reading `clubs.safeguarding_config`.
+
+**Phase 3 (admin writes, mig 446) — two decisions taken s220, operator-approved:**
+- **Colour contrast is advisory/client-side, NOT a server reject.** The P3 write RPCs validate
+  colour *format* only (strict hex `^#[0-9a-fA-F]{6}$`, malformed → `invalid_colour`); they do NOT
+  compute WCAG contrast. The contrast guard + auto-suggest-from-crest lives in the P5 wizard UI.
+  Rationale: some clubs have genuinely low-contrast brand pairs, and the public page can force a
+  readable per-channel text colour at render — a hard server reject would block legitimate branding
+  for marginal value and needs a net-new luminance helper.
+- **Club-manager safeguarding writes are TIGHTENING-ONLY.** New RPC `club_set_safeguarding(p_club_id,
+  p_min_public_age, p_hide_public_rosters)` lets a club manager STRENGTHEN protection (raise
+  `min_public_age`, switch `hide_public_rosters` false→true) but never WEAKEN it (lower age or
+  true→false → `safeguarding_cannot_weaken`). It merges just those two keys into
+  `clubs.safeguarding_config`, preserving any other keys. Loosening stays the venue operator's call
+  (`venue_update_club_settings`, venue-token). Rationale: `safeguarding_config` is a single shared
+  blob with no separate "venue floor" field; the asymmetry resolves the venue-vs-club ownership
+  tension without new schema and fails safe toward more child protection.
