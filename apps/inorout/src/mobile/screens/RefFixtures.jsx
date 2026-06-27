@@ -5,13 +5,16 @@
 // is the match official for, already filtered server-side to live + upcoming only
 // (status IN scheduled|allocated|in_progress, future-or-live). No new backend.
 //
-// Rows group into "Live now" (is_in_progress) and "Upcoming". Tapping a row hands the
-// fixture's ref_token up to the shell, which opens the existing token-driven ref app
-// (apps/ref) in a full-screen iframe overlay — the meticulous officiating UI is reused
-// unchanged, never re-ported here.
+// Rows group into "Live now" (is_in_progress), "Upcoming", and "Past". Tapping a row
+// hands the fixture's ref_token up to the shell, which opens the existing token-driven
+// ref app (apps/ref) in a full-screen iframe overlay — the meticulous officiating UI is
+// reused unchanged, never re-ported here. Live/upcoming come from get_my_assignments
+// (mig 372, Swift-locked); Past comes from the separate get_my_officiating_history
+// (mig 441) — completed games, read-only (the ref app routes a completed token to its
+// own PostMatch view).
 
 import { useEffect, useState } from "react";
-import { getMyAssignments } from "@platform/core";
+import { getMyAssignments, getMyOfficiatingHistory } from "@platform/core";
 import MIcon from "../icons.jsx";
 
 // kickoff_at is a timestamp (league = local naive, casual = tz) — format defensively.
@@ -25,6 +28,14 @@ function fmtKick(iso) {
   if (sameDay) return `Today · ${time}`;
   const day = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
   return `${day} · ${time}`;
+}
+
+// Past games show the date played, not a kickoff time.
+function fmtPlayed(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function titleFor(g) {
@@ -79,6 +90,47 @@ function FixtureRow({ g, onOpen }) {
   );
 }
 
+// A completed game — muted, with the final score badge. Tapping reuses the same
+// officiating overlay; the ref app routes a completed token to its read-only PostMatch.
+function PastRow({ g, onOpen }) {
+  const hasScore = g.home_score != null && g.away_score != null;
+  return (
+    <button
+      onClick={() => onOpen(g)}
+      className="m-card"
+      style={{
+        width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "var(--m-font)",
+        padding: "13px 14px", marginBottom: 9, display: "flex", alignItems: "center", gap: 12,
+        background: "var(--s2)", borderColor: "var(--hair)", opacity: 0.92,
+      }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 11, flex: "none", display: "flex",
+        alignItems: "center", justifyContent: "center", background: "var(--s4)",
+      }}>
+        <MIcon name="whistle" size={20} color="var(--ink3)" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {titleFor(g)}
+        </div>
+        <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {fmtPlayed(g.kickoff_at)}{g.venue_name ? ` · ${g.venue_name}` : ""}
+        </div>
+      </div>
+      {hasScore && (
+        <span style={{
+          flex: "none", fontFamily: "var(--m-font-num, var(--m-font))", fontSize: 14, fontWeight: 800,
+          letterSpacing: "0.02em", color: "var(--ink)", padding: "4px 10px", borderRadius: "var(--r-pill)",
+          background: "var(--s4)",
+        }}>
+          {g.home_score}–{g.away_score}
+        </span>
+      )}
+      <MIcon name="chevron" size={16} color="var(--ink4)" />
+    </button>
+  );
+}
+
 function Eyebrow({ children, right }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "20px 2px 10px" }}>
@@ -91,12 +143,18 @@ function Eyebrow({ children, right }) {
 export default function RefFixtures({ onOpenMatch, toast }) {
   const [status, setStatus] = useState("loading"); // loading | ok | error
   const [games, setGames] = useState([]);
+  const [past, setPast] = useState([]);
 
   const load = () => {
     setStatus("loading");
+    // Live/upcoming gates the screen; the read-only Past list is best-effort and never
+    // blocks the page (its own failure just leaves the section absent).
     getMyAssignments(null)
       .then((res) => { setGames(res?.games || []); setStatus("ok"); })
       .catch((e) => { console.error("[ref] get_my_assignments failed", e); setStatus("error"); });
+    getMyOfficiatingHistory()
+      .then((res) => { setPast(res?.games || []); })
+      .catch((e) => { console.error("[ref] get_my_officiating_history failed", e); setPast([]); });
   };
   useEffect(() => { load(); }, []);
 
@@ -133,7 +191,8 @@ export default function RefFixtures({ onOpenMatch, toast }) {
   const liveGames = games.filter((g) => g.is_in_progress);
   const upcoming = games.filter((g) => !g.is_in_progress);
 
-  if (games.length === 0) {
+  // Only a true blank slate (no live/upcoming AND no history) shows the empty card.
+  if (games.length === 0 && past.length === 0) {
     return (
       <div className="m-view-enter">
         <div className="m-card" style={{ padding: "26px 18px", textAlign: "center" }}>
@@ -165,9 +224,18 @@ export default function RefFixtures({ onOpenMatch, toast }) {
         </>
       )}
 
-      <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "16px 2px 4px", lineHeight: 1.45 }}>
-        Tap a match to open the officiating screen — record goals, cards and the clock right here.
-      </div>
+      {past.length > 0 && (
+        <>
+          <Eyebrow right={`${past.length} game${past.length === 1 ? "" : "s"}`}>Past</Eyebrow>
+          {past.map((g) => <PastRow key={g.game_id} g={g} onOpen={open} />)}
+        </>
+      )}
+
+      {games.length > 0 && (
+        <div style={{ fontSize: 11.5, color: "var(--ink4)", margin: "16px 2px 4px", lineHeight: 1.45 }}>
+          Tap a match to open the officiating screen — record goals, cards and the clock right here.
+        </div>
+      )}
     </div>
   );
 }

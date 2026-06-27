@@ -1,0 +1,289 @@
+/* ============================================================
+   IoO Ref — watchOS adaptation
+   Broadcast-dark teal system, re-tuned for OLED wrist glance:
+   true-black canvas, oversized tabular numerals, big swipe targets,
+   Digital Crown + Action Button storytelling.
+   ============================================================ */
+
+:root {
+  --w-black:   #000000;     /* OLED true black — blends into bezel */
+  --w-bg:      #07090C;
+  --w-surface: #141821;
+  --w-surface2:#1C212B;
+  --w-raised:  #262C38;
+  --w-hair:    #2A313D;
+  --w-hair2:   #3A4150;
+
+  --w-txt:  #F4F6FA;
+  --w-txt2: #AEB7C4;
+  --w-txt3: #717B8A;
+
+  --w-accent:  #19D8C4;
+  --w-accent-b:#3DF0DC;
+  --w-accent-d:#0E9A8C;
+  --w-accent-ink:#04201D;
+  --w-glow: rgba(25,216,196,0.45);
+
+  --w-yellow: #F5C518;
+  --w-red:    #FF4B44;
+  --w-amber:  #FBA63A;
+  --w-blue:   #5B8CFF;
+  --w-green:  #36C46E;
+  --w-og:     #F0743C;
+
+  --w-disp: 'Archivo', system-ui, sans-serif;
+  --w-ui:   'Hanken Grotesk', system-ui, sans-serif;
+}
+
+.w-tabnum { font-variant-numeric: tabular-nums; }
+.w-disp { font-family: var(--w-disp); font-weight: 800; letter-spacing: -0.01em; }
+
+/* ============================================================
+   Watch case chrome
+   ============================================================ */
+.w-case { position: relative; }
+
+/* metallic frame */
+.w-frame {
+  position: relative;
+  background:
+    linear-gradient(155deg, #d9d6cf 0%, #b9b5ad 38%, #8f8b82 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.55),
+    inset 0 -3px 6px rgba(0,0,0,0.4),
+    0 26px 60px rgba(0,0,0,0.55);
+}
+.w-case-series .w-frame {
+  background: linear-gradient(155deg, #3a3f47 0%, #23272e 45%, #16191e 100%);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.18),
+    inset 0 -3px 6px rgba(0,0,0,0.6),
+    0 26px 60px rgba(0,0,0,0.55);
+}
+
+/* the OLED glass */
+.w-screen {
+  position: relative;
+  background: var(--w-black);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.9), inset 0 0 22px rgba(0,0,0,0.85);
+}
+
+/* Digital Crown */
+.w-crown {
+  position: absolute; left: 100%;
+  background: linear-gradient(180deg, #e7e4dd, #a09b91 55%, #7d786f);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.7), 0 2px 5px rgba(0,0,0,0.5);
+}
+.w-crown::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 2px, transparent 2px 4px);
+  border-radius: inherit;
+}
+.w-case-series .w-crown { background: linear-gradient(180deg, #4a4f57, #2a2e35 55%, #1c2026); }
+.w-case-series .w-crown::after { background: repeating-linear-gradient(0deg, rgba(0,0,0,0.4) 0 2px, transparent 2px 4px); }
+.w-crown.red { background: linear-gradient(180deg, #ff7a52, #e8502a); }
+
+/* side button */
+.w-sidebtn {
+  position: absolute; left: 100%;
+  background: linear-gradient(180deg, #cfccc4, #968f85);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.6), 0 2px 5px rgba(0,0,0,0.5);
+}
+.w-case-series .w-sidebtn { background: linear-gradient(180deg, #3e434b, #24282f); }
+
+/* Action Button (Ultra, left) */
+.w-action {
+  position: absolute; right: 100%;
+  background: linear-gradient(180deg, #ff8a3c, #f1591f);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.5);
+}
+
+/* speaker/mic vents on left of Ultra */
+.w-vent {
+  position: absolute; right: 100%;
+  background: rgba(0,0,0,0.35);
+  border-radius: 3px;
+}
+
+/* ============================================================
+   Screen content shell
+   ============================================================ */
+.w-scr {
+  position: absolute; inset: 0;
+  color: var(--w-txt);
+  font-family: var(--w-ui);
+  -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column;
+}
+.w-scr-pad { padding: 30px 30px 26px; }
+
+/* system clock, top-right */
+.w-time {
+  position: absolute; top: 16px; right: 30px; z-index: 6;
+  font-family: var(--w-disp); font-weight: 700; font-size: 27px;
+  color: var(--w-accent-b); font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+}
+.w-time.plain { color: var(--w-txt); }
+
+/* ambient OLED glow behind hero content (gated) */
+.w-aura { position: absolute; inset: 0; pointer-events: none; }
+.w-aura::before {
+  content: ''; position: absolute; left: 50%; top: 30%; width: 120%; height: 70%;
+  transform: translate(-50%,-50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(25,216,196,0.16), transparent 70%);
+}
+
+/* ---- common atoms ---- */
+.w-eyebrow {
+  font-size: 19px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--w-txt3);
+}
+.w-pill {
+  display: inline-flex; align-items: center; gap: 9px;
+  height: 38px; padding: 0 16px; border-radius: 999px;
+  background: var(--w-surface2); color: var(--w-txt2);
+  font-size: 20px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.w-pill.live { color: var(--w-accent-b); background: rgba(25,216,196,0.12); }
+.w-pill.amber { color: var(--w-amber); background: rgba(251,166,58,0.14); }
+.w-livedot {
+  width: 12px; height: 12px; border-radius: 50%; background: var(--w-accent);
+  box-shadow: 0 0 0 0 var(--w-glow); animation: wpulse 1.8s infinite;
+}
+@keyframes wpulse {
+  0% { box-shadow: 0 0 0 0 var(--w-glow); }
+  70% { box-shadow: 0 0 0 10px rgba(25,216,196,0); }
+  100% { box-shadow: 0 0 0 0 rgba(25,216,196,0); }
+}
+
+.w-clock {
+  font-family: var(--w-disp); font-weight: 800; font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em; line-height: 0.86; color: var(--w-txt);
+}
+.w-bar { width: 9px; border-radius: 5px; flex: none; align-self: stretch;
+  box-shadow: 0 0 12px -2px currentColor; }
+
+/* team score row */
+.w-scorerow { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+.w-team-mini { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.w-team-mini.away { flex-direction: row-reverse; }
+.w-team-mini .ab { font-family: var(--w-disp); font-weight: 800; font-size: 27px; letter-spacing: 0.02em; }
+.w-bignum { font-family: var(--w-disp); font-weight: 800; font-size: 60px; line-height: 1; font-variant-numeric: tabular-nums; }
+
+/* buttons */
+.w-btn {
+  border: none; cursor: pointer; font-family: var(--w-ui); font-weight: 800;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  color: var(--w-txt); background: var(--w-raised); border-radius: 26px;
+  user-select: none; transition: transform .08s;
+}
+.w-btn:active { transform: scale(0.96); }
+.w-btn-primary { background: linear-gradient(180deg, var(--w-accent-b), var(--w-accent)); color: var(--w-accent-ink); box-shadow: 0 10px 26px var(--w-glow); }
+.w-btn-block { width: 100%; }
+.w-btn-lg { height: 74px; font-size: 28px; border-radius: 30px; }
+
+/* circular dock buttons */
+.w-circle {
+  width: 72px; height: 72px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--w-surface2); color: var(--w-txt2);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 0 0 1.5px var(--w-hair2); transition: transform .08s;
+}
+.w-circle:active { transform: scale(0.92); }
+.w-circle.primary {
+  width: 92px; height: 92px;
+  background: linear-gradient(180deg, var(--w-accent-b), var(--w-accent));
+  color: var(--w-accent-ink); box-shadow: 0 10px 26px var(--w-glow);
+}
+
+/* shirt token */
+.w-shirt {
+  display: flex; align-items: center; justify-content: center; flex: none;
+  font-family: var(--w-disp); font-weight: 800; font-variant-numeric: tabular-nums;
+  background: var(--w-surface2); color: var(--w-txt); border-radius: 18px;
+  box-shadow: inset 0 0 0 1.5px var(--w-hair2);
+}
+
+/* crafted card glyph */
+.w-card { border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.45); flex: none; }
+.w-card.y { background: var(--w-yellow); }
+.w-card.r { background: var(--w-red); }
+.w-goaldot {
+  border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 34% 30%, #fff, var(--w-accent) 72%);
+  box-shadow: 0 0 0 2px var(--w-accent-d), 0 0 16px -2px var(--w-glow);
+}
+
+/* Digital-Crown scroll indicator */
+.w-crownind {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 5px; height: 150px; border-radius: 3px; background: rgba(255,255,255,0.08);
+  z-index: 5;
+}
+.w-crownind .thumb {
+  position: absolute; left: 0; width: 100%; border-radius: 3px;
+  background: var(--w-accent); box-shadow: 0 0 10px -1px var(--w-glow);
+}
+
+/* crown hint callout aligned to physical crown */
+.w-crownhint {
+  position: absolute; z-index: 6; display: flex; align-items: center; gap: 8px;
+  font-size: 16px; font-weight: 800; color: var(--w-accent-b);
+  letter-spacing: 0.02em;
+}
+.w-crownhint .ring {
+  width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--w-accent);
+  position: relative; flex: none;
+}
+.w-crownhint .ring::after {
+  content: ''; position: absolute; inset: -8px -2px; border-radius: 50%;
+  border: 2px dashed rgba(25,216,196,0.45);
+}
+
+/* full-bleed moment screens */
+.w-moment { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; padding: 30px; }
+.w-moment .big { font-family: var(--w-disp); font-weight: 800; letter-spacing: 0.01em; line-height: 0.95; }
+
+/* countdown ring base */
+.w-ringwrap { position: relative; display: flex; align-items: center; justify-content: center; }
+.w-ringwrap svg { transform: rotate(-90deg); }
+.w-ringwrap .inner { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; }
+
+/* sync dot */
+.w-syncdot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+.w-syncdot.ok { background: var(--w-green); }
+.w-syncdot.pend { background: var(--w-amber); box-shadow: 0 0 0 0 rgba(251,166,58,0.5); animation: wpulse2 1.6s infinite; }
+@keyframes wpulse2 { 70% { box-shadow: 0 0 0 7px rgba(251,166,58,0); } 100% { box-shadow: 0 0 0 0 rgba(251,166,58,0); } }
+
+/* event log row */
+.w-logrow { display: flex; align-items: center; gap: 13px; padding: 13px 4px; }
+.w-logrow + .w-logrow { border-top: 1px solid var(--w-hair); }
+.w-logrow .min { font-family: var(--w-disp); font-weight: 800; font-size: 22px; color: var(--w-txt3); width: 50px; flex: none; font-variant-numeric: tabular-nums; }
+.w-logrow .lbl { flex: 1; font-size: 23px; font-weight: 700; min-width: 0; }
+.w-logrow .lbl small { display: block; font-size: 17px; font-weight: 600; color: var(--w-txt3); }
+
+/* sin-bin strip — persistent banner on live home, never a takeover */
+.w-binstrip {
+  position: relative; overflow: hidden; cursor: pointer;
+  width: 100%; height: 40px; margin-top: 12px; border: none;
+  border-radius: 13px; background: rgba(251,166,58,0.12);
+  box-shadow: inset 0 0 0 1.5px rgba(251,166,58,0.35);
+  font-family: var(--w-ui);
+}
+.w-binstrip-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: rgba(251,166,58,0.16);
+}
+.w-binstrip-row {
+  position: relative; display: flex; align-items: center; gap: 9px;
+  height: 100%; padding: 0 12px; color: var(--w-amber);
+}
+.w-binstrip-row .lbl { font-size: 18px; font-weight: 800; letter-spacing: 0.01em; }
+.w-binstrip-row .t { margin-left: auto; font-family: var(--w-disp); font-weight: 800; font-size: 22px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .w-livedot, .w-syncdot.pend { animation: none; }
+}

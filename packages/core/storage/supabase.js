@@ -2881,6 +2881,18 @@ export async function getMyAssignments(roleFilter = null) {
   return data;
 }
 
+// Completed officiated games for the signed-in ref (mig 441) — the read-only "Past"
+// arm of RefFixtures. SEPARATE from get_my_assignments (Swift-locked, live+upcoming
+// only). Shape: { ok, game_count, games: [<game + home_score/away_score>...] }.
+// Consumer: apps/inorout RefFixtures.jsx.
+export async function getMyOfficiatingHistory(limit = 50) {
+  const { data, error } = await supabase.rpc("get_my_officiating_history", {
+    p_limit: limit,
+  });
+  if (error) { console.error("[spine] get_my_officiating_history failed", error); throw error; }
+  return data;
+}
+
 // Ref self-claims every match_officials card matching their verified auth email.
 export async function refLinkSelfToOfficial() {
   const { data, error } = await supabase.rpc("ref_link_self_to_official", {});

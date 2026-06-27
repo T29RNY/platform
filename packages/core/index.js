@@ -102,6 +102,7 @@ export {
   validateCasualRefActivations,
   getMyNextAssignment,
   getMyAssignments,
+  getMyOfficiatingHistory,
   refLinkSelfToOfficial,
   venueLinkOfficialToUser,
   assignCasualMatchRef,
