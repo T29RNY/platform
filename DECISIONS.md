@@ -4077,3 +4077,25 @@ domain (so it's a "bring your existing domain" migration — the sharpest Pitche
 teams have none (the subdomain freebie covers them). PLAN: subdomain (`<slug>.in-or-out.com`) = near-free
 freebie; own-domain = premium tier, build only when a paying club asks. P5 wizard shows the canonical URL
 (not hard-coded `/c/<slug>`) + a coming-soon "custom domain" slot so we don't preclude it.
+
+**Epic B Phase 4 — public page UI shipped, two build-time decisions (s221, operator-approved via the
+"build P4 only, recommend the split" kickoff):**
+1. **Read-extension DEFERRED to P5 (mig 448), NOT P4.** `get_club_public` (mig 445) returns the base
+   modules only (about/teams/fixtures-formguide/news/sponsors/tournaments). The conditional slices the
+   handover marks "added this phase" (`stats / contacts / documents / events / getInvolved` + sponsor
+   `tier`) have NO data source until the P5 write side populates them — building the read in P4 would only
+   ever render empty. So P4 shipped as a **pure-frontend cycle** against the existing payload: all 11
+   sections built defensively (read optional payload keys → designed empty/absent state). The read-
+   extension lands WITH its P5 write side (one mig 448) and the components light up with zero P4 rework.
+   This kept P4 free of the rpc-security/ephemeral-verify gates (no RPC touched).
+2. **Demo seed (mig 447) instead of a transient test insert.** A data-only migration publishes two demo
+   pages — `/c/finbars-fc` (rich club_demo) + `/c/demo-boxing` (thin club_demo_box) — so the page is live
+   for the operator's device-walk + the Playwright smoke, and source↔DB stay in sync (Hard Rule #11).
+   No schema/RPC → no security/EV gate. Reversed by its `_down`.
+- **Theming = scoped CSS vars, accents only (as briefed).** Per-club 3 colours injected as
+  `--cp-primary/secondary/accent` on the `.club-public` container; tints via `color-mix()`, readable
+  on-accent text via JS luminance returning a `var(--black|white)` token (never a hex literal → hygiene-
+  clean). Platform type/icon system unchanged (Bebas / DM Sans / Phosphor thin). Hero is next-fixture/
+  result with a ~30s swap-only poll; **no live in-play club score** (no source). Discipline-aware public
+  wording lives in a NEW `clubPublicVocab.js` (not `disciplineLabels.js`) so casual surfaces stay
+  byte-identical.
