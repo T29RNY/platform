@@ -1,0 +1,2418 @@
+# Casual Player Screen — Design Handoff
+
+This is the "footy Tuesdays" view a casual player sees in the **In or Out** app.
+It's a dark-mode, mobile-first PWA (max width 430px). Everything below is the
+complete render path for this one screen so a designer can suggest changes with
+full context: the design tokens, the main screen component, and every child
+component it renders.
+
+## What this screen does
+
+A weekly recurring casual football game. The player opens the app and:
+- sees the fixture (team name, day, venue, kickoff time, price)
+- taps **In / Out / Maybe / Reserve** to set their availability
+- pays their match fee (cash-confirm flow; Stripe transfer is stubbed/disabled)
+- can add a **Plus One** (guest) and cover or pass on their payment
+- can mark themselves **Injured**
+- sees the **Live Board** — who's in, split into Team A / Team B once the admin
+  has picked teams, plus Reserve / Maybe / Out / No-response groups
+- POTM (player of the match) voting modal + result banner
+
+## Design system rules (important constraints)
+
+- **Dark theme only.** Background `#0A0A08`, surfaces step up `--s1/--s2/--s3`.
+- **Gold is the brand accent** (`#E8A020`) — primary CTAs, active nav, highlights.
+- **Status colour language is fixed:** green=In, red=Out, amber=Maybe, purple=Reserve.
+- **Two team colours are the ONLY hardcoded hex allowed:** `#60A0FF` (Team A blue),
+  `#FF6060` (Team B red). Everything else must come from a CSS variable.
+- **Fonts:** `Bebas Neue` (display — the big "IN OR OUT" wordmark, numbers, the
+  player's name), `DM Sans` (all body text). Body weights are light: 300/400 mostly.
+- **Icons:** Phosphor icons, always `weight="thin"`.
+- Heavy use of subtle glows / inset shadows / linear-gradient tints per status colour.
+- Styling is inline `style={{}}` objects referencing `var(--token)` — there is no
+  Tailwind / CSS modules. Animations are small `<style>` injections + Framer Motion.
+
+---
+
+## 1. Design tokens — `theme/tokens.css`
+
+```css
+:root {
+  /* ── Backgrounds ── */
+  --bg:  #0A0A08;
+  --s1:  #141412;
+  --s2:  #1C1C19;
+  --s3:  #222220;
+  --b2:  rgba(255,255,255,0.05);
+
+  /* ── Text ── */
+  --t1:  #F2F0EA;
+  --t2:  #D0CCC2;
+
+  /* ── Gold ── */
+  --gold:   #E8A020;
+  --gold2:  rgba(232,160,32,0.15);
+  --goldb:  rgba(232,160,32,0.4);
+
+  /* ── Green ── */
+  --green:  #3DDC6A;
+  --green2: rgba(61,220,106,0.13);
+  --greenb: rgba(61,220,106,0.35);
+
+  /* WhatsApp brand colour — used by share buttons only. */
+  --whatsapp: #25D366;
+
+  /* Pure black/white — max contrast on coloured fills (gold buttons etc). */
+  --black: #000;
+  --white: #fff;
+
+  /* ── Red ── */
+  --red:    #FF4040;
+  --red2:   rgba(255,64,64,0.13);
+  --redb:   rgba(255,64,64,0.35);
+
+  /* ── Amber ── */
+  --amber:  #FFB020;
+  --amber2: rgba(255,176,32,0.13);
+  --amberb: rgba(255,176,32,0.35);
+
+  /* ── Purple ── */
+  --purple:  #B060F0;
+  --purple2: rgba(176,96,240,0.13);
+  --purpleb: rgba(176,96,240,0.35);
+
+  /* ── Draw (teal) — a real draw, distinct from amber/maybe ── */
+  --draw:  #14B8A6;
+  --draw2: rgba(20,184,166,0.13);
+  --drawb: rgba(20,184,166,0.35);
+
+  /* ── Podium / rank medals (league-table top 3) ── */
+  --silver:        #A0A0A0;
+  --bronze:        #CD7F32;
+  --rank-gold-bg:   #2A2114;
+  --rank-silver-bg: #1D1D1B;
+  --rank-bronze-bg: #261E15;
+
+  /* ── Radii ── */
+  --r:      16px;
+  --rs:     10px;
+  --r-pill:   20px;
+  --r-button: 12px;
+
+  /* ── Fonts ── */
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body:    'DM Sans', -apple-system, sans-serif;
+
+  /* ── Borders ── */
+  --border-subtle: rgba(255,255,255,0.1);
+}
+```
+
+---
+
+## 2. Main screen — `views/PlayerView.jsx`
+
+> The orchestrator. Owns all state + handlers, renders the sticky header, the
+> response/payment card, quick-actions (Plus One / Injured), the Plus One form,
+> the Live Board, and the bottom nav. Tabs: My View / Stats / Results / MY IO.
+
+```jsx
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { colors as C, groupByStatus, isLateDropout, sendTemplate, notificationTemplates,
+  getPaymentState, getGuestPaymentState,
+  handleCashPayment, handleGuestCashPayment,
+  resolveMotm, isDormantGuest, isPendingGuest } from "@platform/core";
+import { savePushSubscription, addGuestPlayer, removeGuestPlayer, reactivateGuestPlayer, setPlayerStatus, setPlayerInjured, setPlayerNote, deletePlayer,
+  getPOTMVotingState, getPOTMTallyPublic, setMyNickname,
+  resolveBibHolder, getPlayerCompetitionFixtures } from "@platform/core/storage/supabase.js";
+import POTMVotingModal from "./POTMVotingModal.jsx";
+import AdminPlayerActionSheet from "./AdminPlayerActionSheet.jsx";
+import {
+  Check, X, Question, ArrowDown,
+  PencilSimple, UserPlus, Bandaids, Bell, Hourglass,
+} from "@phosphor-icons/react";
+import AuthGateModal from "../components/AuthGateModal.jsx";
+import useRequireAuth from "../hooks/useRequireAuth.js";
+import PageHeader  from "../components/ui/PageHeader.jsx";
+import StatusButton from "../components/ui/StatusButton.jsx";
+import FirstTimeHint from "../components/FirstTimeHint.jsx";
+import { registerNativePush } from "../native/native-push.js";
+import { isNativeApp as detectNativeApp } from "../native/is-native.js";
+import Tile        from "../components/ui/Tile.jsx";
+import Avatar      from "../components/ui/Avatar.jsx";
+import NavBar      from "../components/ui/NavBar.jsx";
+import StatsView    from "./StatsView.jsx";
+import HistoryView  from "./HistoryView.jsx";
+import MyIOView     from "./MyIOView.jsx";
+import MySquads     from "./MySquads";
+import CompetitionStandingsCard from "./CompetitionStandingsCard";
+import CompetitionFixturesCard from "./CompetitionFixturesCard";
+import PlayerProfile from "./PlayerProfile.jsx";
+import Tour from "../components/Tour.jsx";
+import { tourKeyFor } from "../lib/tourRegistry.js";
+import { AnimatePresence } from "framer-motion";
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const b   = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b).split('').map(c => c.charCodeAt(0)));
+}
+
+function notifyServer(type, teamId, playerIds, payload, gameDate) {
+  fetch('/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, teamId, playerIds, payload, gameDate }),
+  }).catch(console.error);
+}
+
+// ── StatusBadge (inline, player view only) ────────────────────────────────────
+
+const BADGE = {
+  in:      { label:"✓ In",      bg:"var(--green2)",  border:"var(--greenb)",  color:"var(--green)",  shadow:"0 0 10px rgba(61,220,106,0.15)"   },
+  out:     { label:"✕ Out",     bg:"var(--red2)",    border:"var(--redb)",    color:"var(--red)",    shadow:"0 0 10px rgba(255,64,64,0.15)"    },
+  maybe:   { label:"? Maybe",   bg:"var(--amber2)",  border:"var(--amberb)",  color:"var(--amber)",  shadow:"0 0 10px rgba(255,176,32,0.15)"   },
+  reserve: { label:"↓ Reserve", bg:"var(--purple2)", border:"var(--purpleb)", color:"var(--purple)", shadow:"0 0 10px rgba(176,96,240,0.15)"   },
+};
+
+function StatusBadge({ status }) {
+  const c = BADGE[status];
+  if (!c) return null;
+  return (
+    <div style={{
+      display:"flex", alignItems:"center", gap:5,
+      borderRadius:"var(--r-pill)", padding:"5px 12px",
+      fontSize:12, fontWeight:400,
+      background:c.bg, border:`0.5px solid ${c.border}`,
+      color:c.color, boxShadow:c.shadow,
+    }}>
+      {c.label}
+    </div>
+  );
+}
+
+// ── Share team sheet (WhatsApp) helpers ──────────────────────────────────────
+function formatKickoff(hhmm) {
+  if (!hhmm || typeof hhmm !== "string") return "";
+  const m = hhmm.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return hhmm;
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  const suffix = h >= 12 ? "pm" : "am";
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return min === "00" ? `${h}${suffix}` : `${h}:${min}${suffix}`;
+}
+
+function displayName(p) {
+  return (p?.nickname || p?.name || "?").trim();
+}
+
+// Renders a status section. Returns the section string, or null if empty.
+// Hosts render as bulleted (or numbered) lines; their guests nest beneath
+// with an arrow. Guests whose host is NOT in this section render standalone.
+// Injured players are excluded — they go in their own dedicated section.
+function renderTeamSheetSection(emoji, label, players, opts = {}) {
+  const nonInjured = (players || []).filter(p => !p.injured);
+  if (nonInjured.length === 0) return null;
+
+  const hosts        = nonInjured.filter(p => !p.isGuest);
+  const hostIdsHere  = new Set(hosts.map(p => p.id));
+  const guestsByHost = new Map();
+  const orphanGuests = [];
+  for (const g of nonInjured.filter(p => p.isGuest)) {
+    if (g.guestOf && hostIdsHere.has(g.guestOf)) {
+      if (!guestsByHost.has(g.guestOf)) guestsByHost.set(g.guestOf, []);
+      guestsByHost.get(g.guestOf).push(g);
+    } else {
+      orphanGuests.push(g);
+    }
+  }
+
+  const { numbered = false, withCap = false, cap = null } = opts;
+  const total = nonInjured.length;
+  const countText = withCap && cap ? `(${total}/${cap})` : `(${total})`;
+  const lines = [`${emoji} ${label} ${countText}`];
+
+  hosts.forEach((host, i) => {
+    const prefix = numbered ? `${i + 1}.` : "•";
+    lines.push(`${prefix} ${displayName(host)}`);
+    for (const g of guestsByHost.get(host.id) || []) {
+      lines.push(`  ↳ ${displayName(g)}`);
+    }
+  });
+  for (const g of orphanGuests) {
+    lines.push(`• ${displayName(g)}`);
+  }
+  return lines.join("\n");
+}
+
+function buildTeamSheetText({ teamName, schedule, squad, lastMatchMeta }) {
+  if (!schedule) return "";
+
+  // Date — UK-local via Intl (DST-aware)
+  const dateStr = schedule.gameDateTime
+    ? new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/London",
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+      }).format(new Date(schedule.gameDateTime))
+    : (schedule.dayOfWeek || "");
+
+  const header = `*${teamName || "Team"}*${dateStr ? ` — ${dateStr}` : ""}`;
+
+  if (schedule.isCancelled) {
+    return [header, "❌ MATCH CANCELLED"].join("\n");
+  }
+
+  const banner = [];
+  const kickoff = formatKickoff(schedule.kickoff);
+  if (kickoff)                 banner.push(`🕗 ${kickoff}`);
+  if (schedule.venue)          banner.push(`📍 ${schedule.venue}`);
+  if (schedule.pricePerPlayer) banner.push(`💷 £${schedule.pricePerPlayer}`);
+
+  const groups = groupByStatus(squad || []);
+  const cap = schedule.squadSize || 14;
+
+  const sections = [];
+  sections.push(renderTeamSheetSection("🟢", "IN",      groups.in,      { withCap: true, cap }));
+  sections.push(renderTeamSheetSection("🟣", "RESERVE", groups.reserve, { numbered: true }));
+  sections.push(renderTeamSheetSection("🟡", "MAYBE",   groups.maybe));
+  sections.push(renderTeamSheetSection("🔴", "OUT",     groups.out));
+
+  // Injured — dedicated section, sourced from any-status players with injured=true
+  const injured = (squad || []).filter(p => p.injured && !p.disabled);
+  if (injured.length > 0) {
+    const lines = ["🩹 INJURED"];
+    for (const p of injured) lines.push(`• ${displayName(p)}`);
+    sections.push(lines.join("\n"));
+  }
+
+  // Bibs
+  const bibName = resolveBibHolder(lastMatchMeta?.bibHolder, squad || []);
+  if (bibName) sections.push(`👕 Bibs: ${bibName}`);
+
+  return [header, banner.join("  "), ...sections.filter(Boolean)].filter(Boolean).join("\n\n");
+}
+
+// ── main component ────────────────────────────────────────────────────────────
+
+export default function PlayerView({
+  squad, setSquad, myId, teamId, adminToken = null, schedule: scheduleProp, settings,
+  setSchedule, setSettings, onMidFlowChange,
+  bibHistory = [], matchHistory = [],
+  isAdmin = false, onGoAdmin,
+  startTab = null,
+  stats = null,
+  context = null,
+  multiContextNav = false, onSwitcherOpen = null,
+  authUserId = null,
+}) {
+  const me = squad.find(p => p.id === myId);
+
+  // Admin can tap any OTHER player's avatar on My View to open the quick-action
+  // sheet (set their status / add a guest). Self uses the own status buttons.
+  const canAdminAct  = isAdmin && !!adminToken;
+  const adminTapFor  = (p) => (canAdminAct && p.id !== myId ? () => setAdminActionPlayer(p) : undefined);
+
+  // ── League Mode 5.5 — competitive availability reuses the casual board ──────
+  // For a competitive team we overlay the casual schedule with the next league
+  // fixture: the board goes live, its header shows the real opponent/date/venue/
+  // time, and players mark in/out exactly as casual (writes players.status). The
+  // board auto-rolls to the next fixture as completed ones leave the upcoming set.
+  // Casual teams have no fixtures → `schedule` is the unmodified prop (zero change).
+  const playerToken = me?.token || null;
+  const [compFixtures, setCompFixtures] = useState([]);
+  useEffect(() => {
+    if (!playerToken) { setCompFixtures([]); return; }
+    getPlayerCompetitionFixtures(playerToken, "all")
+      .then(d => setCompFixtures(d?.fixtures || []))
+      .catch(e => { console.error(e); setCompFixtures([]); });
+  }, [playerToken]);
+
+  const nextFixture = useMemo(() => {
+    // RPC returns fixtures ordered scheduled_date ASC — first scheduled is next.
+    return compFixtures.find(f => f.status === "scheduled") || null;
+  }, [compFixtures]);
+
+  const schedule = useMemo(() => {
+    if (!nextFixture) return scheduleProp;
+    const dateLabel = nextFixture.scheduled_date
+      ? new Date(`${nextFixture.scheduled_date}T00:00:00`)
+          .toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+      : (scheduleProp?.dayOfWeek || "");
+    return {
+      ...scheduleProp,
+      gameIsLive: true,
+      isCancelled: false,
+      dayOfWeek: dateLabel,
+      venue: nextFixture.venue_name || scheduleProp?.venue,
+      kickoff: nextFixture.kickoff_time ? nextFixture.kickoff_time.slice(0, 5) : scheduleProp?.kickoff,
+    };
+  }, [nextFixture, scheduleProp]);
+
+  const opponentLabel = nextFixture
+    ? `${nextFixture.is_home ? "vs" : "@"} ${nextFixture.opponent_name || "TBC"}`
+    : null;
+
+  // ── auth gate for self-writes ──────────────────────────────────────────────
+  // On the admin route in the home-screen app, no row has isSelf=true
+  // (mig 070's flag requires auth.uid()). App.jsx then falls back to
+  // squad[0] for myId — so `me` is the first squad member, not the actual
+  // viewer. Acting as that wrong user is the bug. The gate: on admin
+  // routes, if `me.isSelf` is false (fallback in play, or unauthed PWA),
+  // pop the email-OTP modal. After verify, reload so the team-state
+  // refetch sees auth.uid() and isSelf flips true on the right row.
+  //
+  // Player route (/p/<token>): me.token comes from the URL → isSelf isn't
+  // set but the token IS the identity. needsSelfAuth stays false because
+  // isAdmin is false on that route.
+  const { requireAuth, gateProps } = useRequireAuth();
+  const needsSelfAuth = isAdmin && !me?.isSelf;
+  const promptSignIn = () => requireAuth(() => window.location.reload(), {
+    reason: "Sign in once on this device to manage your own status. You won't be asked again.",
+  });
+
+  // ── existing state ── (unchanged)
+  const [note,          setNote]         = useState(me?.note || "");
+  const [showNote,      setShowNote]     = useState(false);
+  const [notifState,    setNotifState]   = useState(
+    () => (typeof localStorage !== "undefined" && localStorage.getItem(`notif_${myId}`)) || "idle"
+  );
+  const [showPlusOneForm, setShowPlusOneForm] = useState(false);
+  const [guestName,       setGuestName]       = useState("");
+  const [guestSelfPaid,   setGuestSelfPaid]   = useState(false);
+  const [addingGuest,     setAddingGuest]     = useState(false);
+  const [guestAddError,   setGuestAddError]   = useState(null);
+  const [pickerPlayer,    setPickerPlayer]    = useState(null);
+  const [removingGuest,   setRemovingGuest]   = useState(false);
+
+  // ── new UI state ──
+  const [activeTab,   setActiveTab]   = useState(startTab || "my-view");
+  const [showNoResp,  setShowNoResp]  = useState(false);
+  // Admin avatar-tap quick-action sheet (My View). Set to the tapped player.
+  const [adminActionPlayer, setAdminActionPlayer] = useState(null);
+  const [cashPending,       setCashPending]       = useState(false);
+  const [guestCashPending,  setGuestCashPending]  = useState(() => new Set());
+  const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
+  // Status confirmation messages (Locked in / We'll keep a spot / etc)
+  // start hidden so a page refresh doesn't resurrect them. setStatus
+  // flips this to false and re-arms the 5s timer that flips it back.
+  const [hideConfirmation,  setHideConfirmation]  = useState(true);
+  const confirmationTimer = useRef(null);
+  // Brief tap-feedback state: drives the flash on the status-button row.
+  // Colour matches the status tapped (in→green, out→red, maybe→amber,
+  // reserve→purple). Cleared 600ms after each tap. The pulse-on-attention
+  // animation is gated separately by status === 'none'.
+  const [justTapped, setJustTapped] = useState(false);
+  const [lastTappedStatus, setLastTappedStatus] = useState(null);
+  const tapFlashTimer = useRef(null);
+  const [lastMatchMeta,   setLastMatchMeta]   = useState(null);
+  const [showPOTMModal,   setShowPOTMModal]   = useState(false);
+  const [potmEligible,    setPotmEligible]    = useState([]);
+  const [potmHasVoted,    setPotmHasVoted]    = useState(false);
+  const [potmExistingVote,setPotmExistingVote]= useState(null);
+  const [potmTally,       setPotmTally]       = useState([]);
+  const [potmTotalVotes,  setPotmTotalVotes]  = useState(0);
+  const [potmBanner,      setPotmBanner]      = useState(null); // { winnerName, isWinner }
+  const prevVotingOpen = useRef(false);
+
+  const [payError,        setPayError]        = useState(null);
+  const [ledgerBalance,   setLedgerBalance]   = useState(null);
+  const [showProfile,     setShowProfile]     = useState(false);
+
+  // Inline nickname edit (My View header)
+  const [editingMyNick, setEditingMyNick] = useState(false);
+  const [myNick,        setMyNick]        = useState("");
+  const [myNickError,   setMyNickError]   = useState(null);
+  const [myNickSaving,  setMyNickSaving]  = useState(false);
+
+  const saveMyNick = async () => {
+    setMyNickSaving(true); setMyNickError(null);
+    try {
+      await setMyNickname(me?.token, myNick);
+      const trimmed = myNick.trim() || null;
+      setSquad(sq => sq.map(p => p.id === myId ? { ...p, nickname: trimmed } : p));
+      setEditingMyNick(false);
+    } catch(e) {
+      setMyNickError(e?.code === "nickname_taken" ? "Already taken on this squad" : "Failed to save");
+    } finally {
+      setMyNickSaving(false);
+    }
+  };
+
+  // ── existing derived ── (unchanged)
+  const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  // Native (Capacitor) push goes through the APNs/FCM plugin, NOT the web
+  // PushManager/serviceWorker APIs — which don't exist in the iOS WKWebView.
+  // So treat a native build as push-capable regardless of those web checks;
+  // otherwise the "Enable" opt-in never renders on the App Store / TestFlight
+  // build and no device token is ever captured.
+  const isNativeApp  = detectNativeApp();
+  const canPush      = isNativeApp ||
+    ("PushManager" in window && "serviceWorker" in navigator && (!isIOS || isStandalone));
+
+  // Persistent guests (S1): only ACTIVE guests (status !== 'none') count as
+  // "my +1s this week". A dormant guest row left over from last week must NOT
+  // block the Plus One button — it's available again via the returning picker.
+  // A pending plus-one (mig 346) has status='none' but pendingApproval=true — it
+  // still counts as "my +1 this week" so the host sees it (waiting for approval)
+  // and can't silently add another while one is queued.
+  const myGuests      = squad.filter(p => p.isGuest && p.guestOf === myId && (p.status !== "none" || p.pendingApproval));
+  const myGuest       = myGuests[0] ?? null;
+  const canRemoveGuest = !schedule.isDraft;
+  // Persistent guests S2: the team's dormant past guests, offered in the Plus One
+  // picker so a host can bring one back (re-activate) instead of re-typing a name.
+  // Exclude pending-approval guests — they aren't a returnable past guest yet.
+  const pastGuests    = squad
+    .filter(p => isDormantGuest(p) && !isPendingGuest(p))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+  const inPlayers        = squad.filter(p => p.status === "in" && !p.disabled && !p.injured);
+  const nonGuestInPlayers = inPlayers.filter(p => !p.isGuest);
+  const teamsSet         = nonGuestInPlayers.length > 0 && nonGuestInPlayers.every(p => p.team);
+  const formMap          = Object.fromEntries((stats?.playerForm || []).map(f => [f.player_id, f.form]));
+  // Last week's POTM — id-first (recent matches store the id), name fallback (legacy)
+  const isLastMotm = (p) => !!lastMatchMeta?.motm &&
+    (lastMatchMeta.motm === p.id || lastMatchMeta.motm === (p.nickname || p.name));
+
+  useEffect(() => {
+    setLastMatchMeta(stats?.lastMatchMeta || null);
+    setLedgerBalance(stats?.outstandingBalance ?? 0);
+  }, [stats]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live POTM tally fetch — server-gated, returns counts only once the player
+  // has voted ({ voted:false } otherwise). Counts arrive winner-first.
+  const fetchPotmTally = useCallback(() => {
+    if (!me?.token) return;
+    const matchId = schedule?.activeMatchId || matchHistory?.[0]?.id;
+    if (!matchId) return;
+    getPOTMTallyPublic(me.token, matchId, teamId)
+      .then(({ voted, tally, totalVotes }) => {
+        if (!voted) return; // gate not yet open for this caller
+        setPotmTally(tally);
+        setPotmTotalVotes(totalVotes);
+      })
+      .catch(() => {});
+  }, [me?.token, teamId, schedule?.activeMatchId, matchHistory]);
+
+  // POTM voting — open modal when voting becomes active for this player
+  useEffect(() => {
+    const activeMatch = matchHistory?.[0];
+    const wasOpen = prevVotingOpen.current;
+    const nowOpen = schedule?.votingOpen;
+
+    // Voting just opened → check eligibility
+    if (nowOpen && !wasOpen && activeMatch && me && !me.isGuest) {
+      prevVotingOpen.current = true;
+      const matchId = schedule.activeMatchId || activeMatch.id;
+      getPOTMVotingState(me.token, matchId, teamId)
+        .then(({ eligible, existingVote, votes }) => {
+          const myVote = votes.find(v => v.voter_id === myId);
+          const voted = !!(myVote || existingVote);
+          setPotmEligible(eligible);
+          setPotmHasVoted(voted);
+          setPotmExistingVote(existingVote || myVote?.nominee_id || null);
+          if (voted) fetchPotmTally(); // already voted → pull the live tally
+          const amEligible = eligible.some(p => p.id === myId);
+          // Reappear on every app open while voting is live UNTIL the player
+          // actually casts a vote — then never again. `voted` is server-truth
+          // (votes/existingVote), so once they vote it stays suppressed across
+          // reloads. Within a session the nowOpen && !wasOpen gate above keeps
+          // it from re-popping after a dismissal.
+          if (amEligible && !voted) {
+            setShowPOTMModal(true);
+          }
+        })
+        .catch(() => {});
+    }
+
+    // Voting just closed + result is in → show banner
+    if (!nowOpen && wasOpen && activeMatch?.motm) {
+      prevVotingOpen.current = false;
+      const winnerName = resolveMotm(activeMatch.motm, squad) || "Unknown";
+      const isWinner = !!(me && activeMatch.motm === me.id);
+      setPotmBanner({ winnerName, isWinner });
+      setTimeout(() => setPotmBanner(null), 5000);
+    } else if (!nowOpen) {
+      prevVotingOpen.current = false;
+    }
+  }, [schedule?.votingOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live tally refresh — piggybacks on the team_live broadcast.
+  useEffect(() => {
+    if (showPOTMModal && schedule?.votingOpen && potmHasVoted) fetchPotmTally();
+  }, [matchHistory, showPOTMModal, schedule?.votingOpen, potmHasVoted, fetchPotmTally]);
+
+  const isFull   = inPlayers.length >= (schedule.squadSize || 14);
+  // Admin-configured day_of_week is authoritative; the timestamp-derived
+  // weekday is only a fallback.
+  const gameDay = schedule?.dayOfWeek
+    || (schedule?.gameDateTime
+        ? new Date(schedule.gameDateTime).toLocaleDateString('en-GB', { weekday:'long' })
+        : 'this week');
+  const groups   = groupByStatus(squad);
+  const teamAPlayers = [...inPlayers.filter(p => p.team === "A")].sort((a, b) => a.name.localeCompare(b.name));
+  const teamBPlayers = [...inPlayers.filter(p => p.team === "B")].sort((a, b) => a.name.localeCompare(b.name));
+
+  // ── tile arrays ──
+  const maybePlayers   = (groups.maybe   || []).filter(p => !p.disabled);
+  const outPlayers     = (groups.out     || []).filter(p => !p.disabled);
+  const reservePlayers = (groups.reserve || []).filter(p => !p.disabled);
+  const noRespPlayers  = (groups.none    || []).filter(p => !p.disabled);
+
+  // ── existing handlers ── (all unchanged)
+
+  const handleSubscribe = async () => {
+    if (needsSelfAuth) { promptSignIn(); return; }
+    setNotifState("asking");
+    try {
+      const native = await registerNativePush(me?.token, {
+        onRegistered: () => {
+          localStorage.setItem(`notif_${myId}`, "subscribed");
+          setNotifState("subscribed");
+        },
+        onError: () => {
+          localStorage.removeItem(`notif_${myId}`);
+          setNotifState("idle");
+        },
+      });
+      if (native === "registering") { setNotifState("asking"); return; }
+      if (native === "denied") {
+        localStorage.setItem(`notif_${myId}`, "denied");
+        setNotifState("denied");
+        return;
+      }
+
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        localStorage.setItem(`notif_${myId}`, "denied");
+        setNotifState("denied");
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+      });
+      await savePushSubscription(me?.token, sub.toJSON());
+      localStorage.setItem(`notif_${myId}`, "subscribed");
+      setNotifState("subscribed");
+    } catch(e) {
+      console.error("Push subscribe failed:", e);
+      setNotifState("idle");
+    }
+  };
+
+  const setStatus = (s) => {
+    if (needsSelfAuth) { promptSignIn(); return; }
+    setCashPending(false);
+    setGuestCashPending(new Set());
+    setClearDebtExpanded(false);
+    clearTimeout(confirmationTimer.current);
+    setHideConfirmation(false);
+    confirmationTimer.current = setTimeout(() => setHideConfirmation(true), 5000);
+
+    // Quick flash on the status-button row (600ms). Colour matches the
+    // tapped status so the feedback feels semantic.
+    clearTimeout(tapFlashTimer.current);
+    setLastTappedStatus(s);
+    setJustTapped(true);
+    tapFlashTimer.current = setTimeout(() => setJustTapped(false), 600);
+
+    // Haptic tap-tick. Android only; iOS Safari no-ops via optional chain.
+    try { navigator.vibrate?.(20); } catch { /* haptic best-effort */ }
+    const late = isLateDropout(me?.status, s, schedule.gameDateTime);
+    if (late) sendTemplate(notificationTemplates.lateDropout, me?.name);
+    setSquad(squad.map(p => p.id === myId
+      ? { ...p, status: s, note, lateDropouts: (p.lateDropouts || 0) + (late ? 1 : 0) }
+      : p
+    ));
+    if (me?.token) setPlayerStatus(me.token, s).catch(console.error);
+
+    if (!teamId) return;
+    const gameDate = schedule.gameDateTime?.split("T")[0];
+
+    if (s === "in" && me?.status !== "in") {
+      const currentInCount = inPlayers.length;
+      const willBeFull     = currentInCount + 1 >= (schedule.squadSize || 14);
+      if (willBeFull) {
+        const toNotify = squad.filter(p => p.id !== myId && p.status !== "in" && !p.disabled && !p.injured);
+        notifyServer("squadFull", teamId, toNotify.map(p => p.id), {
+          title: "In or Out ⚽",
+          body: "🔒 Squad's full! Get on the reserve list before it's too late.",
+          icon: "/icons/icon-192.png",
+        }, gameDate);
+      }
+    }
+  };
+
+  const saveNote = () => {
+    setSquad(squad.map(p => p.id === myId ? { ...p, note } : p));
+    setShowNote(false);
+    if (me?.token) setPlayerNote(me.token, note).catch(console.error);
+  };
+
+  const handleGuestNameChange = (val) => {
+    setGuestName(val);
+    if (val.trim().length >= 2) {
+      const match = squad.find(p => !p.isGuest && !p.disabled && p.id !== myId &&
+        p.name.toLowerCase().startsWith(val.toLowerCase().trim()));
+      setPickerPlayer(match || null);
+    } else {
+      setPickerPlayer(null);
+    }
+  };
+
+  const submitGuest = async () => {
+    if (!guestName.trim() || addingGuest) return;
+    if (needsSelfAuth) { promptSignIn(); return; }
+    setAddingGuest(true);
+    setGuestAddError(null);
+    try {
+      const guest = await addGuestPlayer(me?.token, guestName.trim(), adminToken);
+      setSquad([...squad, guest]);
+      if (guest?.pendingApproval && teamId) {
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "guestPendingApproval",
+            teamId,
+            payload: {
+              title: "Plus-one to approve 🙋",
+              body: `${me?.name || "A player"} added ${guestName.trim()} — approve or decline.`,
+              icon: "/icons/icon-192.png",
+            },
+          }),
+        }).catch(() => {});
+      }
+      setGuestName("");
+      setGuestSelfPaid(false);
+      setPickerPlayer(null);
+      setShowPlusOneForm(false);
+      onMidFlowChange?.(false);
+    } catch(e) {
+      console.error("Failed to add guest:", e);
+      const msg = e?.message || "";
+      setGuestAddError(msg === "squad_full" ? "The squad is full — no more spots left." : "Something went wrong. Try again.");
+    } finally {
+      setAddingGuest(false);
+    }
+  };
+
+  const reactivateGuest = async (guestId) => {
+    if (addingGuest) return;
+    if (needsSelfAuth) { promptSignIn(); return; }
+    setAddingGuest(true);
+    setGuestAddError(null);
+    try {
+      const guest = await reactivateGuestPlayer(me?.token, guestId);
+      setSquad(sq => sq.map(p => p.id === guest.id ? guest : p));
+      setGuestName("");
+      setGuestSelfPaid(false);
+      setPickerPlayer(null);
+      setShowPlusOneForm(false);
+      onMidFlowChange?.(false);
+    } catch(e) {
+      console.error("Failed to reactivate guest:", e);
+      const msg = e?.message || "";
+      setGuestAddError(msg === "squad_full" ? "The squad is full — no more spots left." : "Something went wrong. Try again.");
+    } finally {
+      setAddingGuest(false);
+    }
+  };
+
+  const confirmExistingPlayer = () => {
+    if (!pickerPlayer) return;
+    setSquad(squad.map(p => p.id === pickerPlayer.id ? { ...p, status: "in" } : p));
+    if (pickerPlayer.token) setPlayerStatus(pickerPlayer.token, "in").catch(console.error);
+    setGuestName("");
+    setPickerPlayer(null);
+    setShowPlusOneForm(false);
+  };
+
+  const removeMyGuest = async (guestId) => {
+    if (removingGuest) return;
+    setRemovingGuest(true);
+    try {
+      await removeGuestPlayer(me.token, guestId);
+      setSquad(sq => sq.filter(p => p.id !== guestId));
+    } catch(e) {
+      console.error("Failed to remove guest:", e);
+    } finally {
+      setRemovingGuest(false);
+    }
+  };
+
+  const toggleInjury = () => {
+    if (needsSelfAuth) { promptSignIn(); return; }
+    const newInjured = !me?.injured;
+    const needsStatusReset = newInjured && ["in", "reserve", "maybe"].includes(me?.status);
+    setSquad(squad.map(p => p.id === myId
+      ? { ...p, injured: newInjured, status: needsStatusReset ? "out" : p.status }
+      : p
+    ));
+    if (me?.token) setPlayerInjured(me.token, newInjured).catch(console.error);
+  };
+
+
+  // ── render ────────────────────────────────────────────────────────────────
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+    {showProfile ? (
+      <PlayerProfile
+        key="profile"
+        me={me}
+        settings={settings}
+        onBack={() => setShowProfile(false)}
+      />
+    ) : (
+    <div key="main" style={{ minHeight:"100dvh", background:"var(--bg)", color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+
+      {/* POTM voting modal */}
+      {showPOTMModal && (
+        <POTMVotingModal
+          matchId={schedule.activeMatchId || matchHistory?.[0]?.id}
+          teamId={teamId}
+          voterId={myId}
+          voterToken={me?.token}
+          voterName={me?.name}
+          eligiblePlayers={potmEligible}
+          hasVoted={potmHasVoted}
+          existingVote={potmExistingVote}
+          votingOpen={!!schedule.votingOpen}
+          votingClosesAt={schedule.votingClosesAt}
+          motm={matchHistory?.[0]?.motm}
+          tally={potmTally}
+          totalVotes={potmTotalVotes}
+          onVoted={() => { setPotmHasVoted(true); fetchPotmTally(); }}
+          onClose={() => setShowPOTMModal(false)}
+        />
+      )}
+
+      {/* Admin avatar-tap quick-action sheet (set status / add guest) */}
+      {adminActionPlayer && (
+        <AdminPlayerActionSheet
+          player={adminActionPlayer}
+          squad={squad}
+          setSquad={setSquad}
+          adminToken={adminToken}
+          teamId={teamId}
+          schedule={schedule}
+          settings={settings}
+          adminName={me?.nickname || me?.name}
+          onClose={() => setAdminActionPlayer(null)}
+        />
+      )}
+
+      {/* POTM result banner */}
+      {potmBanner && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 90,
+          background: "var(--gold)", padding: "calc(14px + env(safe-area-inset-top)) 20px 14px",
+          textAlign: "center", fontFamily: "var(--font-body)",
+        }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--bg)" }}>
+            {potmBanner.isWinner
+              ? "🏆 You've been voted POTM tonight. Get in."
+              : `🏆 ${potmBanner.winnerName} wins POTM tonight!`}
+          </span>
+        </div>
+      )}
+
+      {/* 1 ── PAGE HEADER (sticky) — my-view only */}
+      {activeTab === "my-view" && (
+        <div style={{ position:"sticky", top:0, zIndex:50, background:"var(--bg)" }}>
+          <PageHeader
+            teamName={settings?.groupName}
+            opponentLabel={opponentLabel}
+            dayOfWeek={schedule.dayOfWeek}
+            venue={schedule.venue}
+            kickoff={schedule.kickoff}
+            pricePerPlayer={schedule.pricePerPlayer}
+            squad={squad}
+            inCount={inPlayers.length}
+            squadSize={schedule.squadSize || 14}
+            gameIsLive={schedule.gameIsLive}
+            me={me}
+            onAvatarTap={multiContextNav && onSwitcherOpen ? onSwitcherOpen : () => setShowProfile(true)}
+            shareUrl={schedule ? `https://wa.me/?text=${encodeURIComponent(buildTeamSheetText({
+              teamName: settings?.groupName,
+              schedule,
+              squad,
+              lastMatchMeta,
+            }))}` : null}
+          />
+        </div>
+      )}
+
+      {/* 3 ── MY VIEW */}
+      {activeTab === "my-view" && (
+        <div style={{ padding:"0 16px 110px" }}>
+
+          {/* a — Response card (fixture/admins/price now live in the consolidated PageHeader) */}
+          <div style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+            borderRadius:"var(--r)", overflow:"hidden", marginBottom:8 }}>
+
+            <>
+              <style>{`@keyframes ioo-name-glow{0%{text-shadow:-20px 0 8px transparent}40%{text-shadow:0px 0 12px rgba(232,160,32,0.6)}80%{text-shadow:20px 0 8px transparent}100%{text-shadow:none}}`}</style>
+
+              {/* Header: subtitle row | name row | payment row */}
+              {(() => {
+                const price          = schedule.pricePerPlayer || 0;
+                const owes           = me?.owes || 0;
+                const effectiveDebt  = (ledgerBalance !== null && ledgerBalance > 0) ? ledgerBalance : owes;
+                const paymentState = me
+                  ? getPaymentState(me, cashPending)
+                  : 'unpaid';
+                const basePaymentState = me
+                  ? getPaymentState(me, false)
+                  : 'unpaid';
+                const paymentMode  = 'both';
+                const status       = me?.status;
+                const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
+
+                let amountText, amountColor = "var(--t2)";
+                if (paymentState === 'paid') {
+                  amountText = "Nothing owed 👊"; amountColor = "var(--green)";
+                } else if (paymentState === 'claimed') {
+                  amountText = "Awaiting confirmation"; amountColor = "var(--amber)";
+                } else if (effectiveDebt > 0) {
+                  amountText = `£${effectiveDebt} owed`;
+                } else if (status === 'in') {
+                  amountText = price > 0 ? `£${price} this week` : "Nothing owed 👊";
+                  if (!price) amountColor = "var(--green)";
+                } else {
+                  amountText = "Nothing owed 👊"; amountColor = "var(--green)";
+                }
+
+                const tileStyle = (extra) => ({
+                  flex:1, minHeight:28, borderRadius:"var(--r-button)",
+                  fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  transition:"all 0.15s", cursor:"pointer", border:"none",
+                  padding:"0 10px", whiteSpace:"nowrap",
+                  ...extra,
+                });
+
+                const btns = [];
+
+                if (me?.selfPaid === true && me?.paid !== true && !cashPending) {
+                  btns.push(
+                    <span key="awaiting" style={{
+                      flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+                      background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+                      color:"var(--amber)", borderRadius:"var(--r-button)",
+                      padding:"0 10px", fontSize:12, fontWeight:400,
+                      minHeight:28, fontFamily:"var(--font-body)",
+                    }}>Awaiting confirmation</span>
+                  );
+                } else if (me?.paid === true) {
+                  btns.push(
+                    <span key="confirmed" style={{
+                      flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+                      background:"var(--green2)", border:"0.5px solid var(--greenb)",
+                      color:"var(--green)", borderRadius:"var(--r-button)",
+                      padding:"0 10px", fontSize:12, fontWeight:400,
+                      minHeight:28, fontFamily:"var(--font-body)",
+                    }}>✓ Paid</span>
+                  );
+                } else if (basePaymentState === 'debt') {
+                  if (!clearDebtExpanded) {
+                    btns.push(
+                      <button key="clear" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setClearDebtExpanded(true); }}
+                        style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
+                        Clear Debt — £{effectiveDebt || (status === 'in' ? price : 0)}
+                      </button>
+                    );
+                  } else if (!cashPending) {
+                    if (paymentMode !== 'cash_only') btns.push(
+                      <button key="stripe" disabled
+                        style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                        Transfer £{effectiveDebt || (status === 'in' ? price : 0)}
+                      </button>
+                    );
+                    if (paymentMode !== 'stripe_only') btns.push(
+                      <button key="cash" onClick={() => setCashPending(true)}
+                        style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
+                        Paid
+                      </button>
+                    );
+                  } else {
+                    btns.push(
+                      <div key="confirm-debt" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
+                        <button onClick={async () => {
+                          setPayError(null);
+                          try {
+                            await handleCashPayment(me.token);
+                            setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
+                            setCashPending(false);
+                            setClearDebtExpanded(false);
+                          } catch {
+                            setPayError("Something went wrong — try again");
+                          }
+                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                          Confirm — You've Paid?
+                        </button>
+                        {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"center", fontWeight:300 }}>{payError}</div>}
+                      </div>
+                    );
+                  }
+                } else if (status === 'in') {
+                  if (paymentState === 'unpaid') {
+                    if (paymentMode !== 'cash_only') btns.push(
+                      <button key="stripe" disabled
+                        style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                        Transfer £{price}
+                      </button>
+                    );
+                    if (paymentMode !== 'stripe_only') btns.push(
+                      <button key="cash" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setCashPending(true); }}
+                        style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
+                        Paid
+                      </button>
+                    );
+                  } else if (paymentState === 'cash_pending') {
+                    btns.push(
+                      <div key="confirm-in" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
+                        <button onClick={async () => {
+                          setPayError(null);
+                          try {
+                            await handleCashPayment(me.token);
+                            setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
+                            setCashPending(false);
+                          } catch {
+                            setPayError("Something went wrong — try again");
+                          }
+                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                          Confirm — You've Paid?
+                        </button>
+                        {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"center", fontWeight:300 }}>{payError}</div>}
+                      </div>
+                    );
+                  }
+                }
+                // isNonPlay + unpaid + no debt → "Nothing owed 👊", no buttons
+
+                return (
+                  <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid var(--b2)" }}>
+
+                    {/* Row 1: subtitle | amount */}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
+                      <div style={{ fontSize:10, fontWeight:300, letterSpacing:"0.1em",
+                        textTransform:"uppercase", color:"var(--t2)" }}>
+                        {!schedule.gameIsLive
+                          ? "Sign-ups not open yet"
+                          : (!me?.status || me?.status === "none")
+                            ? `Are you in this ${gameDay}? Tap below ↓`
+                            : `${gameDay}${schedule.kickoff ? ` · ${schedule.kickoff}` : ""}`}
+                      </div>
+                      <div style={{ fontSize:12, fontWeight:300, fontFamily:"var(--font-body)", color:amountColor }}>
+                        {amountText}
+                      </div>
+                    </div>
+
+                    {/* Row 2: name + pencil / edit form */}
+                    {editingMyNick ? (
+                      <div style={{ marginTop:2 }}>
+                        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                          <input
+                            value={myNick}
+                            onChange={e => { setMyNick(e.target.value); setMyNickError(null); }}
+                            onKeyDown={e => { if (e.key === "Enter") saveMyNick(); if (e.key === "Escape") setEditingMyNick(false); }}
+                            placeholder="Add nickname"
+                            autoFocus
+                            style={{
+                              flex:1, background:"var(--s2)",
+                              border:`0.5px solid ${myNickError ? "var(--red)" : "var(--goldb)"}`,
+                              borderRadius:6, padding:"5px 8px", fontSize:14, color:"var(--t1)",
+                              fontFamily:"var(--font-body)", outline:"none", minWidth:0,
+                            }}
+                          />
+                          <button onClick={saveMyNick} disabled={myNickSaving} style={{
+                            background:"var(--gold)", color:"var(--bg)", border:"none",
+                            borderRadius:6, padding:"5px 10px", fontSize:11, fontWeight:600,
+                            cursor: myNickSaving ? "not-allowed" : "pointer",
+                            opacity: myNickSaving ? 0.6 : 1, fontFamily:"var(--font-body)",
+                          }}>
+                            {myNickSaving ? "…" : "Save"}
+                          </button>
+                          <button onClick={() => { setEditingMyNick(false); setMyNickError(null); }} style={{
+                            background:"transparent", border:"0.5px solid var(--border-subtle)",
+                            borderRadius:6, padding:"5px 8px", fontSize:11, color:"var(--t2)",
+                            cursor:"pointer", fontFamily:"var(--font-body)",
+                          }}>✕</button>
+                        </div>
+                        {myNickError && (
+                          <div style={{ fontSize:11, color:"var(--red)", marginTop:4, fontWeight:300 }}>{myNickError}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ fontFamily:"var(--font-display)", fontSize:30,
+                          lineHeight:1, color:"var(--t1)", letterSpacing:"0.04em",
+                          animation:"ioo-name-glow 1.2s ease-in-out 2", animationFillMode:"forwards" }}>
+                          {me?.nickname || me?.name}
+                        </div>
+                        <PencilSimple
+                          size={14} weight="thin" color="var(--t2)"
+                          style={{ cursor:"pointer", flexShrink:0, marginTop:4 }}
+                          onClick={() => { setMyNick(me?.nickname || ""); setMyNickError(null); setEditingMyNick(true); }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Bibs badge */}
+                    {me?.id === lastMatchMeta?.bibHolder && (
+                      <span style={{
+                        display:"inline-block", marginTop:6,
+                        background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+                        color:"var(--amber)",
+                        fontFamily:"var(--font-display)", fontSize:11, letterSpacing:"0.08em",
+                        borderRadius:6, padding:"3px 8px",
+                      }}>
+                        YOU'VE GOT THE BIBS 👕
+                      </span>
+                    )}
+
+                    {/* Row 3: payment buttons full width, side by side */}
+                    {btns.length > 0 && (
+                      <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                        {btns}
+                      </div>
+                    )}
+
+                  </div>
+                );
+              })()}
+
+              {/* Locked row — gameIsLive only. Slides + fades after 5s */}
+              {schedule.gameIsLive && me?.status === "in" && (
+                <div style={{
+                  overflow: "hidden",
+                  maxHeight:  hideConfirmation ? 0 : 60,
+                  opacity:    hideConfirmation ? 0 : 1,
+                  borderBottom: hideConfirmation ? "none" : "1px solid var(--b2)",
+                  transition: "max-height 600ms ease, opacity 500ms ease 100ms, border-bottom 500ms ease",
+                }}>
+                  <div style={{
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                    padding:"8px 16px", fontSize:12, color:"var(--green)",
+                    fontWeight:400, textAlign:"center",
+                  }}>
+                    🔒 Locked in. See you {gameDay}.
+                  </div>
+                </div>
+              )}
+
+              {/* Squad full notice */}
+              {!me?.injured && isFull && me?.status !== "in" && (
+                <div style={{ padding:"8px 16px", fontSize:12, fontWeight:600,
+                  color:"var(--amber)", background:"var(--amber2)",
+                  borderBottom:"1px solid var(--b2)" }}>
+                  🔒 Squad is full — join the reserve list
+                </div>
+              )}
+
+              {/* Cancelled banner */}
+              {schedule.isCancelled && (
+                <div style={{ margin:"10px 12px 0", background:"var(--red2)",
+                  border:"0.5px solid var(--redb)", color:"var(--red)",
+                  fontFamily:"var(--font-body)", fontWeight:400, fontSize:13,
+                  padding:"8px 16px", borderRadius:8, textAlign:"center" }}>
+                  ❌ This week's match is cancelled
+                </div>
+              )}
+
+              {/* Sign-ups closed: tell the player exactly when the next game opens */}
+              {!schedule.gameIsLive && !schedule.isCancelled && (() => {
+                const d = schedule.opensDay;
+                const t = schedule.opensTime; // "HH:MM"
+                let timeLabel = t;
+                if (t && /^\d{1,2}:\d{2}$/.test(t)) {
+                  const [h, m] = t.split(":").map(Number);
+                  const ap = h < 12 ? "am" : "pm";
+                  const h12 = h % 12 === 0 ? 12 : h % 12;
+                  timeLabel = m === 0 ? `${h12}${ap}` : `${h12}:${String(m).padStart(2, "0")}${ap}`;
+                }
+                const when = d && timeLabel ? `${d} at ${timeLabel}` : (d || timeLabel || "soon");
+                return (
+                  <div style={{ padding:"14px 12px", textAlign:"center",
+                    border:"0.5px solid var(--border-subtle)", borderRadius:12,
+                    background:"var(--s1)", color:"var(--t2)", fontSize:12,
+                    fontWeight:300, fontFamily:"var(--font-body)", lineHeight:1.5 }}>
+                    <div style={{ color:"var(--t1)", fontWeight:600, marginBottom:3 }}>
+                      Sign-ups aren't open yet
+                    </div>
+                    Tap In/Out becomes available when the next game goes live —{" "}
+                    <span style={{ color:"var(--gold)" }}>{when}</span>.
+                  </div>
+                );
+              })()}
+
+              {/* Status buttons 4-grid — gameIsLive or cancelled.
+                  Pulses gold while player hasn't responded (status='none');
+                  flashes green for 600ms on each tap. */}
+              {(schedule.gameIsLive || schedule.isCancelled) && (
+                <>
+                <style>{`
+                  @keyframes ioo-status-pulse {
+                    0%,100% { box-shadow: 0 0 0 0 rgba(232,160,32,0.0); }
+                    50%     { box-shadow: 0 0 16px 2px rgba(232,160,32,0.35); }
+                  }
+                  @keyframes ioo-status-flash {
+                    0%   { box-shadow: 0 0 24px 6px var(--flash-color, rgba(61,220,106,0.85)); }
+                    100% { box-shadow: 0 0 0 0   var(--flash-color, rgba(61,220,106,0)); }
+                  }
+                `}</style>
+                <FirstTimeHint>
+                <div data-gaffer-target="status-buttons"
+                  style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
+                    gap:8, padding:"10px 12px",
+                    borderRadius: 12,
+                    "--flash-color":
+                      lastTappedStatus === "out"     ? "rgba(255,64,64,0.85)"
+                      : lastTappedStatus === "maybe"   ? "rgba(255,176,32,0.85)"
+                      : lastTappedStatus === "reserve" ? "rgba(176,96,240,0.85)"
+                      :                                  "rgba(61,220,106,0.85)",
+                    animation:
+                      justTapped
+                        ? "ioo-status-flash 600ms ease-out"
+                        : (schedule.gameIsLive && (!me?.status || me.status === "none"))
+                          ? "ioo-status-pulse 2.4s ease-in-out infinite"
+                          : "none",
+                    ...(schedule.isCancelled && { opacity:0.4, pointerEvents:"none" }) }}>
+                  <StatusButton
+                    status="in" label="In"
+                    icon={<Check size={18} weight="thin" />}
+                    active={me?.status === "in"}
+                    onClick={() => !me?.injured && !isFull && setStatus("in")}
+                    disabled={me?.injured || (isFull && me?.status !== "in")}
+                  />
+                  <StatusButton
+                    status="out" label="Out"
+                    icon={<X size={18} weight="thin" />}
+                    active={me?.status === "out"}
+                    onClick={() => !me?.injured && setStatus("out")}
+                    disabled={!!me?.injured}
+                  />
+                  <StatusButton
+                    status="maybe" label="Maybe"
+                    icon={<Question size={18} weight="thin" />}
+                    active={me?.status === "maybe"}
+                    onClick={() => !me?.injured && !isFull && setStatus("maybe")}
+                    disabled={me?.injured || (isFull && me?.status !== "maybe")}
+                  />
+                  <StatusButton
+                    status="reserve" label="Reserve"
+                    icon={<ArrowDown size={18} weight="thin" />}
+                    active={me?.status === "reserve"}
+                    onClick={() => !me?.injured && setStatus("reserve")}
+                    disabled={!!me?.injured}
+                  />
+                </div>
+                </FirstTimeHint>
+                </>
+              )}
+
+              {/* Note row — gameIsLive only */}
+              {schedule.gameIsLive && (
+                <div style={{ borderTop:"1px solid var(--b2)" }}>
+                  {showNote ? (
+                    <div style={{ padding:"10px 16px" }}>
+                      <textarea
+                        value={note}
+                        onChange={e => setNote(e.target.value)}
+                        placeholder="Might be 5 mins late…"
+                        rows={2}
+                        style={{ width:"100%", padding:"9px 12px", borderRadius:8,
+                          border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                          color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:13,
+                          outline:"none", boxSizing:"border-box", resize:"none",
+                          marginBottom:8 }}
+                      />
+                      <div style={{ display:"flex", gap:8 }}>
+                        <button onClick={saveNote} style={{
+                          flex:1, padding:"9px 0", borderRadius:8, border:"none",
+                          background:"var(--gold)", color:"var(--black)",
+                          fontFamily:"var(--font-body)", fontSize:13, fontWeight:500, cursor:"pointer" }}>
+                          Save Note
+                        </button>
+                        <button onClick={() => setShowNote(false)} style={{
+                          flex:1, padding:"9px 0", borderRadius:8,
+                          border:"0.5px solid var(--border-subtle)", background:"transparent",
+                          color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:13, cursor:"pointer" }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div onClick={() => setShowNote(true)} style={{
+                      padding:"9px 16px", display:"flex", alignItems:"center",
+                      justifyContent:"space-between", cursor:"pointer" }}>
+                      <span style={{ display:"flex", alignItems:"center", gap:6,
+                        fontSize:12, color:"var(--t2)", fontWeight:400 }}>
+                        <PencilSimple size={14} weight="thin" />
+                        Add a note
+                      </span>
+                      <span style={{ fontSize:12, color:"var(--t2)", fontStyle:"italic", fontWeight:300 }}>
+                        {me?.note || "e.g. \"Might be 5 mins late\""}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Status confirmation message — gameIsLive only, auto-hides after 5s; not for "in" */}
+              {schedule.gameIsLive && me?.status && me.status !== "none" && me.status !== "in" && !hideConfirmation && (
+                <div style={{ padding:"9px 16px", borderTop:"1px solid var(--b2)",
+                  fontSize:12, fontWeight:400, color:"var(--t2)", fontStyle:"italic" }}>
+                  {me.status === "maybe"
+                    ? "🤞 Got it — we'll keep a spot open"
+                    : me.status === "reserve"
+                      ? "🟣 On the reserve list — we'll let you know if a spot opens"
+                      : "👍 No worries, we'll find cover"}
+                </div>
+              )}
+
+              {/* Push subscription prompt — gameIsLive only */}
+              {schedule.gameIsLive && me?.status && me.status !== "none" && canPush && notifState !== "dismissed" && (
+                <div style={{ margin:"0 12px 12px", padding:"10px 14px", borderRadius:"var(--rs)",
+                  background: notifState === "subscribed" ? "color-mix(in srgb, var(--green) 12%, var(--s2))" : "var(--s2)",
+                  border:`0.5px solid ${notifState === "subscribed" ? "color-mix(in srgb, var(--green) 40%, var(--border-subtle))" : "var(--border-subtle)"}`,
+                  display:"flex", alignItems:"center", gap:10 }}>
+                  <Bell size={20} weight="thin"
+                    color={notifState === "subscribed" ? "var(--green)" : "var(--t1)"} style={{ flexShrink:0 }} />
+
+                  {notifState === "subscribed" ? (
+                    <div style={{ flex:1, fontSize:12, color:"var(--t1)", fontWeight:400, lineHeight:1.4 }}>
+                      Notifications on — we'll ping you when a spot opens or the squad fills up.
+                    </div>
+                  ) : notifState === "denied" ? (
+                    <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
+                      Notifications are off. Turn them on in <strong style={{ color:"var(--t1)" }}>Settings → In or Out → Notifications</strong>.
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
+                        {notifState === "asking"
+                          ? "Turning on notifications…"
+                          : "Get notified when a spot opens or squad fills up"}
+                      </div>
+                      <button onClick={handleSubscribe} disabled={notifState === "asking"} style={{
+                        background:"var(--gold)", color:"var(--black)", border:"none", borderRadius:7,
+                        padding:"7px 12px", fontSize:12, fontWeight:500,
+                        fontFamily:"var(--font-body)", cursor: notifState === "asking" ? "default" : "pointer",
+                        opacity: notifState === "asking" ? 0.6 : 1, flexShrink:0 }}>
+                        {notifState === "asking" ? "…" : "Enable"}
+                      </button>
+                      <button onClick={() => {
+                        localStorage.setItem(`notif_${myId}`, "dismissed");
+                        setNotifState("dismissed");
+                      }} style={{ fontSize:12, color:"var(--t2)", background:"none", border:"none",
+                        fontFamily:"var(--font-body)", cursor:"pointer", padding:"7px 4px",
+                        flexShrink:0, fontWeight:300 }}>
+                        Not now
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              {/* Guest payment rows — one per active guest, inside card, gold-tinted bg */}
+              {myGuests.map(g => {
+                const gps      = getGuestPaymentState(g, guestCashPending.has(g.id));
+                const price    = schedule.pricePerPlayer || 0;
+                const payMode  = 'both';
+                const gName    = g.name.charAt(0).toUpperCase() + g.name.slice(1);
+                const ts = (extra) => ({
+                  height:32, borderRadius:"var(--r-pill)",
+                  fontSize:11, fontWeight:600, fontFamily:"var(--font-body)",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  transition:"all 0.15s", cursor:"pointer", border:"none",
+                  padding:"0 12px", whiteSpace:"nowrap",
+                  ...extra,
+                });
+
+                let right;
+                if (gps === 'paid_stripe') {
+                  right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>✓ Stripe</span>;
+                } else if (gps === 'paid_cash') {
+                  const label = g.paidBy === 'host'  ? "✓ You paid"
+                              : g.paidBy === 'admin' ? "✓ Admin confirmed"
+                              : `✓ ${gName} paid`;
+                  right = <span style={{ fontSize:11, color:"var(--green)", fontWeight:400 }}>{label}</span>;
+                } else if (gps === 'cash_pending') {
+                  right = (
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+                      <button onClick={async () => {
+                        setPayError(null);
+                        try {
+                          await handleGuestCashPayment(me?.token, g.id, 'host');
+                          setSquad(sq => sq.map(p => p.id === g.id ? { ...p, selfPaid:true, paidBy:'host' } : p));
+                          setGuestCashPending(prev => { const s = new Set(prev); s.delete(g.id); return s; });
+                        } catch {
+                          setPayError("Something went wrong — try again");
+                        }
+                      }} style={ts({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
+                        Confirm — You've Paid?
+                      </button>
+                      {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"right", fontWeight:300 }}>{payError}</div>}
+                    </div>
+                  );
+                } else if (g.selfPaid) {
+                  right = <span style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>Paid</span>;
+                } else {
+                  right = (
+                    <div style={{ display:"flex", flexDirection:"row", gap:6, alignItems:"center" }}>
+                      {payMode !== 'cash_only' && (
+                        <button disabled style={ts({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
+                          Transfer £{price}
+                        </button>
+                      )}
+                      {payMode !== 'stripe_only' && (
+                        <button onClick={() => setGuestCashPending(prev => new Set([...prev, g.id]))} style={ts({ background:"var(--gold)", color:"var(--black)" })}>
+                          Paid
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={g.id} style={{
+                    padding:"10px 16px",
+                    borderTop:"0.5px solid var(--b2)",
+                    background:"rgba(232,160,32,0.04)",
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                  }}>
+                    <div style={{ fontSize:12, color:"var(--t2)", fontWeight:300 }}>👤 {gName}</div>
+                    {right}
+                  </div>
+                );
+              })}
+            </>
+          </div>
+
+          {/* c — Quick actions row */}
+          {!schedule.isCancelled && <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+
+            {/* Plus One — always visible */}
+            {schedule.gameIsLive && (
+              myGuests.length > 0 ? (
+                /* Guest card — lists all active guests + Add another CTA */
+                <div style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
+                  border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                  display:"flex", flexDirection:"column", gap:8 }}>
+                  {myGuests.map(g => (
+                    <div key={g.id} style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:500, color:"var(--t1)" }}>{g.name}</div>
+                            <div style={{ fontSize:11, color: g.pendingApproval ? "var(--amber)" : "var(--t2)", fontWeight:300 }}>
+                              {g.pendingApproval ? "⏳ Waiting for admin approval" : "your +1"}
+                            </div>
+                          </div>
+                        </div>
+                        {canRemoveGuest && (
+                          <button onClick={() => removeMyGuest(g.id)} disabled={removingGuest} style={{
+                            padding:"5px 10px", borderRadius:6,
+                            border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                            color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11,
+                            cursor:"pointer", flexShrink:0 }}>
+                            {removingGuest ? "..." : g.pendingApproval ? "Cancel" : "Remove"}
+                          </button>
+                        )}
+                      </div>
+                      {!g.pendingApproval && (
+                        <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                          {g.selfPaid ? "Paid" : "You're covering payment"}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {!showPlusOneForm && (
+                    <button onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
+                      style={{ background:"none", border:"none", color:"var(--green)", fontFamily:"var(--font-body)",
+                        fontSize:11, fontWeight:600, cursor:"pointer", textAlign:"left", padding:"2px 0 0" }}>
+                      + Add another
+                    </button>
+                  )}
+                </div>
+              ) : !showPlusOneForm ? (
+                <button
+                  data-gaffer-target="add-plus-one"
+                  onClick={() => { setShowPlusOneForm(true); onMidFlowChange?.(true); }}
+                  style={{ flex:1, padding:"11px 12px", background:"var(--s1)",
+                    border:"0.5px solid var(--border-subtle)", borderRadius:"var(--rs)",
+                    display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+                  <UserPlus size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                  <div style={{ textAlign:"left" }}>
+                    <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Plus One</div>
+                    <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Bring a guest</div>
+                  </div>
+                </button>
+              ) : null
+            )}
+
+            {/* Injured tile */}
+            {me?.injured ? (
+              <button data-tour="injured-toggle" onClick={toggleInjury} style={{
+                flex:1, padding:"11px 12px",
+                background:"var(--red2)", border:"0.5px solid var(--redb)",
+                borderRadius:"var(--rs)", boxShadow:"0 0 10px rgba(255,64,64,0.15)",
+                display:"flex", alignItems:"center", gap:8, cursor:"pointer",
+              }}>
+                <Bandaids size={20} weight="thin" color="var(--red)" style={{ flexShrink:0 }} />
+                <div style={{ textAlign:"left" }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:"var(--red)" }}>Injured</div>
+                  <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Tap to clear</div>
+                </div>
+              </button>
+            ) : (
+              <button data-tour="injured-toggle" onClick={toggleInjury} style={{
+                flex:1, padding:"11px 12px", background:"var(--s1)",
+                border:"0.5px solid var(--border-subtle)",
+                borderRadius:"var(--rs)",
+                display:"flex", alignItems:"center", gap:8, cursor:"pointer",
+              }}>
+                <Bandaids size={20} weight="thin" color="var(--t1)" style={{ flexShrink:0 }} />
+                <div style={{ textAlign:"left" }}>
+                  <div style={{ fontSize:13, fontWeight:400, color:"var(--t1)" }}>Injured?</div>
+                  <div style={{ fontSize:11, color:"var(--t2)", marginTop:1, fontWeight:300 }}>Mark yourself out</div>
+                </div>
+              </button>
+            )}
+          </div>}
+
+          {/* Plus One form (expanded) */}
+          {!schedule.isCancelled && showPlusOneForm && (
+            <div style={{ padding:"14px 16px", borderRadius:"var(--r)",
+              background:"var(--s1)", border:"0.5px solid var(--border-subtle)", marginBottom:8 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"var(--t1)", marginBottom:12 }}>
+                ➕ Add a plus one
+              </div>
+              {pastGuests.length > 0 && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:11, fontWeight:400, color:"var(--t2)", marginBottom:8 }}>
+                    Bringing someone back?
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                    {pastGuests.map(g => (
+                      <button key={g.id} onClick={() => reactivateGuest(g.id)} disabled={addingGuest}
+                        style={{ padding:"7px 12px", borderRadius:16,
+                          border:"0.5px solid var(--amberb)", background:"var(--amber2)",
+                          color:"var(--amber)", fontFamily:"var(--font-body)", fontSize:12,
+                          fontWeight:600, cursor: addingGuest ? "not-allowed" : "pointer" }}>
+                        {g.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize:11, fontWeight:300, color:"var(--t2)", margin:"10px 0 2px" }}>
+                    or add someone new
+                  </div>
+                </div>
+              )}
+              <input
+                value={guestName}
+                onChange={e => handleGuestNameChange(e.target.value)}
+                placeholder="Guest's name..."
+                style={{ width:"100%", padding:"11px 13px", borderRadius:8,
+                  marginBottom: pickerPlayer ? 8 : 12,
+                  border:"0.5px solid var(--border-subtle)", background:"var(--s3)",
+                  color:"var(--t1)", fontFamily:"var(--font-body)", fontSize:14,
+                  outline:"none", boxSizing:"border-box" }}
+              />
+              {pickerPlayer && (
+                <div style={{ padding:"10px 12px", borderRadius:8, marginBottom:12,
+                  background:"var(--amber2)", border:"0.5px solid var(--amberb)",
+                  display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                  <span style={{ fontSize:12, color:"var(--amber)" }}>
+                    Is this {pickerPlayer.name} (already on the team)?
+                  </span>
+                  <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                    <button onClick={confirmExistingPlayer} style={{
+                      padding:"5px 11px", borderRadius:4,
+                      border:"0.5px solid var(--greenb)", background:"var(--green2)",
+                      color:"var(--green)", fontFamily:"var(--font-body)",
+                      fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      Yes
+                    </button>
+                    <button onClick={() => setPickerPlayer(null)} style={{
+                      padding:"5px 11px", borderRadius:4,
+                      border:"0.5px solid var(--border-subtle)", background:"transparent",
+                      color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:11, cursor:"pointer" }}>
+                      No
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Payment toggle */}
+              <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                {[{ label:`${me?.name} pays`, value: false }, { label:"They pay", value: true }].map(opt => (
+                  <button key={String(opt.value)} onClick={() => setGuestSelfPaid(opt.value)} style={{
+                    flex:1, padding:"9px 0", borderRadius:8,
+                    border: guestSelfPaid === opt.value ? "0.5px solid var(--amberb)" : "0.5px solid var(--border-subtle)",
+                    background: guestSelfPaid === opt.value ? "var(--amber2)" : "transparent",
+                    color: guestSelfPaid === opt.value ? "var(--amber)" : "var(--t2)",
+                    fontFamily:"var(--font-body)", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {guestAddError && (
+                <div style={{ fontSize:12, color:"var(--red)", fontWeight:300, marginBottom:8 }}>{guestAddError}</div>
+              )}
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={submitGuest} disabled={!guestName.trim() || addingGuest} style={{
+                  flex:1, padding:"10px 0", borderRadius:8, border:"none",
+                  background: guestName.trim() ? "var(--green)" : "var(--s3)",
+                  color: guestName.trim() ? "#000" : "var(--t2)",
+                  fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+                  cursor: guestName.trim() && !addingGuest ? "pointer" : "not-allowed" }}>
+                  {addingGuest ? "Adding..." : "Add Plus One"}
+                </button>
+                <button onClick={() => {
+                  setShowPlusOneForm(false); setGuestName(""); setPickerPlayer(null);
+                  onMidFlowChange?.(false);
+                }} style={{
+                  flex:1, padding:"10px 0", borderRadius:8,
+                  border:"0.5px solid var(--border-subtle)", background:"transparent",
+                  color:"var(--t2)", fontFamily:"var(--font-body)", fontSize:13, cursor:"pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* e — Live board */}
+          <>
+            <div style={{ display:"flex", alignItems:"center", marginBottom:7, marginTop:12 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:7, fontSize:10, fontWeight:400,
+                letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--t2)" }}>
+                <span style={{ width:6, height:6, background:"var(--green)", borderRadius:"50%",
+                  animation:"ioo-blink 2s infinite", boxShadow:"0 0 8px var(--green)",
+                  display:"inline-block", flexShrink:0 }} />
+                Live Board
+              </div>
+            </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:8 }}>
+
+              {/* TEAMS TILE (when confirmed) or IN TILE */}
+              {teamsSet ? (
+                <div style={{
+                  borderRadius:"var(--rs)", overflow:"hidden",
+                  border:"0.5px solid rgba(61,220,106,0.35)",
+                  background:"linear-gradient(135deg,rgba(61,220,106,0.22) 0%,rgba(61,220,106,0.06) 45%,rgba(10,10,8,0.6) 100%)",
+                  boxShadow:"0 0 18px rgba(61,220,106,0.1),inset 0 0 30px rgba(61,220,106,0.05)",
+                }}>
+                  {/* Header row */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"0.5px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ padding:"8px 14px", fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#60A0FF", display:"flex", alignItems:"center", gap:6, borderRight:"0.5px solid rgba(255,255,255,0.06)" }}>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#60A0FF", boxShadow:"0 0 6px rgba(96,160,255,0.5)", flexShrink:0 }} />
+                      Team A · {teamAPlayers.length}
+                    </div>
+                    <div style={{ padding:"8px 14px", fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#FF6060", display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:"#FF6060", boxShadow:"0 0 6px rgba(255,96,96,0.5)", flexShrink:0 }} />
+                      Team B · {teamBPlayers.length}
+                    </div>
+                  </div>
+                  {/* Body — two columns */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr" }}>
+                    {[
+                      ["A", teamAPlayers, "#60A0FF", "rgba(96,160,255,0.15)", "rgba(96,160,255,0.4)"],
+                      ["B", teamBPlayers, "#FF6060", "rgba(255,96,96,0.15)",  "rgba(255,96,96,0.4)"],
+                    ].map(([team, players, color, avBg, avBorder], colIdx) => (
+                      <div key={team} style={{ borderRight: colIdx === 0 ? "0.5px solid rgba(255,255,255,0.06)" : "none", paddingTop:8, paddingBottom:8 }}>
+                        {players.map(p => {
+                          const isMe    = p.id === myId;
+                          const form    = (formMap[p.id] || []).slice(0, 5).reverse();
+                          const host    = p.isGuest ? squad.find(h => h.id === p.guestOf) : null;
+                          const motmValue = lastMatchMeta?.motm;
+                          const isMotm  = !!motmValue && (
+                            motmValue === p.id ||
+                            motmValue === (p.nickname || p.name)
+                          );
+                          const hasBibs = lastMatchMeta?.bibHolder === p.id;
+                          const parts   = ((p.nickname || p.name) || "").trim().split(/\s+/);
+                          const ini     = parts.length >= 2
+                            ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+                            : ((p.nickname || p.name) || "?").slice(0, 2).toUpperCase();
+                          return (
+                            <div key={p.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px", background: isMe ? "rgba(232,160,32,0.06)" : "transparent" }}>
+                              <div style={{
+                                position:"relative",
+                                width:28, height:28, borderRadius:"50%",
+                                display:"flex", alignItems:"center", justifyContent:"center",
+                                fontSize:9, fontWeight:600, flexShrink:0,
+                                background: isMe ? "var(--gold2)" : avBg,
+                                border:     `0.5px solid ${isMe ? "var(--goldb)" : avBorder}`,
+                                color:      isMe ? "var(--gold)" : color,
+                                boxShadow:  isMe ? "0 0 8px rgba(232,160,32,0.2)" : "none",
+                              }}>
+                                {ini}
+                                {hasBibs && (
+                                  <div style={{
+                                    position:"absolute", bottom:0, right:0,
+                                    width:10, height:10, borderRadius:"50%",
+                                    background:"var(--amber)",
+                                  }}/>
+                                )}
+                              </div>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                                  <span style={{ fontSize:12, color:"var(--t1)", fontWeight:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flexShrink:1 }}>
+                                    {p.nickname || p.name}{isMotm ? " 🏆" : ""}
+                                  </span>
+                                  {form.length > 0 && (
+                                    <div style={{ display:"flex", gap:3, flexShrink:0 }}>
+                                      {form.map((r, i) => (
+                                        <span key={i} style={{ width:7, height:7, borderRadius:"50%", display:"inline-block",
+                                          background: r === "w" ? "var(--green)" : r === "l" ? "var(--red)" : "var(--amber)" }} />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                {hasBibs && <div style={{ fontSize:9, color:"var(--amber)", fontWeight:300, marginTop:1 }}>{resolveBibHolder(lastMatchMeta?.bibHolder, squad)} has bibs 👕</div>}
+                                {host   && <div style={{ fontSize:9, color:"var(--gold)",  fontWeight:300, marginTop:1 }}>+1 {host.nickname || host.name}</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <Tile colour="green" icon="✅" label="In" count={inPlayers.length}>
+                  {inPlayers.map(p => (
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" hasGuest={p.isGuest === true} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
+                  ))}
+                </Tile>
+              )}
+
+              {/* RESERVE */}
+              {reservePlayers.length > 0 && (
+                <div data-gaffer-target="reserve-list">
+                  <Tile colour="purple" icon="🟣" label="Reserve" count={reservePlayers.length}>
+                    {reservePlayers.map((p, i) => (
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="purple" reserveIndex={i + 1} isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
+                    ))}
+                  </Tile>
+                </div>
+              )}
+
+              {/* MAYBE */}
+              {maybePlayers.length > 0 && (
+                <Tile colour="amber" icon="❓" label="Maybe" count={maybePlayers.length}>
+                  {maybePlayers.map(p => (
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="amber" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
+                  ))}
+                </Tile>
+              )}
+
+              {/* OUT */}
+              {outPlayers.length > 0 && (
+                <Tile colour="red" icon="❌" label="Out" count={outPlayers.length}>
+                  {outPlayers.map(p => (
+                    <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="red" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
+                  ))}
+                </Tile>
+              )}
+            </div>
+
+            {/* No response row */}
+            {noRespPlayers.length > 0 && (
+              <>
+                <div
+                  onClick={() => setShowNoResp(s => !s)}
+                  style={{ background:"var(--s1)", border:"0.5px solid var(--border-subtle)",
+                    borderRadius:"var(--rs)", padding:"10px 14px",
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                    marginBottom:8, cursor:"pointer" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8,
+                    fontSize:12, color:"var(--t2)", fontWeight:400 }}>
+                    <Hourglass size={16} weight="thin" />
+                    No response · {noRespPlayers.length}
+                  </div>
+                  <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300 }}>
+                    {showNoResp ? "Tap to hide ↑" : "Tap to view ↓"}
+                  </div>
+                </div>
+                {showNoResp && (
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"5px 9px",
+                    padding:"0 4px", marginBottom:8 }}>
+                    {noRespPlayers.map(p => (
+                      <Avatar key={p.id} player={p} isMe={p.id === myId} tileColour="green" isInjured={p.injured === true} hasBibs={lastMatchMeta?.bibHolder === p.id} hasMotm={isLastMotm(p)} onClick={adminTapFor(p)} />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+
+
+          <MySquads
+            currentTeamId={teamId}
+            currentToken={myId && squad.find(p => p.id === myId)?.token}
+            userId={authUserId || me?.userId || null}
+          />
+
+          <CompetitionStandingsCard
+            playerToken={myId && squad.find(p => p.id === myId)?.token}
+            currentTeamId={teamId}
+          />
+
+          <CompetitionFixturesCard
+            playerToken={playerToken}
+            currentTeamId={teamId}
+            fixtures={compFixtures}
+          />
+
+        </div>
+      )}
+
+      {/* STATS tab */}
+      {activeTab === "stats" && (
+        <StatsView teamId={teamId} squad={squad} bibHistory={bibHistory} matchHistory={matchHistory} settings={settings} schedule={schedule} myId={myId} stats={stats} adminToken={adminToken} playerToken={playerToken} />
+      )}
+
+      {/* HISTORY tab */}
+      {activeTab === "history" && (
+        <HistoryView matchHistory={matchHistory} players={squad} settings={settings} schedule={schedule} />
+      )}
+
+      {/* MY IO tab */}
+      {activeTab === "my-io" && (
+        <MyIOView player={me} teamId={teamId} teamName={settings?.groupName} stats={stats} />
+      )}
+
+      {/* Context-aware guided tour for the current tab */}
+      <Tour
+        tourKey={tourKeyFor(context?.type, activeTab === "my-view" ? "myview" : activeTab === "stats" ? "stats" : null)}
+        enabled={multiContextNav}
+        active={activeTab === "my-view" || activeTab === "stats"}
+      />
+
+      {/* 4 ── NAVBAR */}
+      <NavBar activeTab={activeTab} onTabChange={setActiveTab} onAdminClick={isAdmin ? onGoAdmin : undefined} />
+      <AuthGateModal {...gateProps} />
+    </div>
+    )}
+    </AnimatePresence>
+  );
+}
+```
+
+---
+
+## 3. Child component — `components/ui/PageHeader.jsx`
+
+> The sticky top card: animated pitch backdrop + scrim, the player's avatar,
+> team name, "Open" live dot, the big italic **IN OR OUT** wordmark, the fixture
+> line (day · venue · time · £price · WhatsApp share), an admins line, and a
+> circular squad-capacity gauge (GaugeArc) on the right.
+
+```jsx
+import { CalendarCheck, MapPinLine, Clock, WhatsappLogo } from "@phosphor-icons/react";
+import { motion, useReducedMotion } from "framer-motion";
+import GaugeArc from "./GaugeArc.jsx";
+import PitchCanvas from "./PitchCanvas.jsx";
+
+// Inject blink animation once
+if (typeof document !== "undefined" && !document.getElementById("ioo-ph-styles")) {
+  const el = document.createElement("style");
+  el.id = "ioo-ph-styles";
+  el.textContent = `
+    @keyframes ioo-blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  `;
+  document.head.appendChild(el);
+}
+
+function initials(name) {
+  const parts = (name || "").trim().split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : (name || "?").slice(0, 2).toUpperCase();
+}
+
+export default function PageHeader({
+  teamName, dayOfWeek, venue, kickoff,
+  inCount, squadSize, gameIsLive,
+  pricePerPlayer = null,
+  squad = [],
+  me = null, onAvatarTap = null,
+  shareUrl = null,
+  opponentLabel = null,
+}) {
+  const showAvatar = !!(me && onAvatarTap);
+  const reduce = useReducedMotion();
+
+  // Admins = vice-captains, mirrors the old HeroCard logic.
+  const admins = [...squad.filter(p => p.isViceCaptain === true && !p.disabled)]
+    .sort((a, b) => (a.nickname || a.name).localeCompare(b.nickname || b.name))
+    .slice(0, 4)
+    .map(p => p.nickname || p.name);
+
+  // Staggered entrance — disabled under reduced-motion.
+  const container = {
+    hidden: {},
+    show: { transition: { staggerChildren: reduce ? 0 : 0.06, delayChildren: 0.04 } },
+  };
+  const rise = reduce
+    ? { hidden: { opacity: 1, y: 0 }, show: { opacity: 1, y: 0 } }
+    : {
+        hidden: { opacity: 0, y: 8 },
+        show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 420, damping: 30 } },
+      };
+
+  const metaItem = (icon, text) => (
+    <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:"var(--t1)", fontWeight:300 }}>
+      {icon}{text}
+    </div>
+  );
+
+  return (
+    <div style={{ padding:"calc(8px + env(safe-area-inset-top)) 12px 10px" }}>
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        style={{
+          position:"relative",
+          borderRadius:"var(--r)",
+          overflow:"hidden",
+          border:"0.5px solid var(--border-subtle)",
+        }}
+      >
+        {/* Animated pitch backdrop */}
+        <PitchCanvas />
+        {/* Legibility scrim over the pitch */}
+        <div style={{
+          position:"absolute", inset:0,
+          background:"linear-gradient(180deg,rgba(6,12,8,0.74) 0%,rgba(6,8,6,0.62) 55%,rgba(6,8,6,0.82) 100%)",
+        }} />
+
+        {/* Content */}
+        <div style={{ position:"relative", padding:"13px 15px 13px", display:"flex", gap:12 }}>
+          <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:7 }}>
+
+            {/* Row 1 — avatar + team name + live status */}
+            <motion.div variants={rise} style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
+              {showAvatar && (
+                <motion.div
+                  layoutId="me-avatar"
+                  data-tour="header-avatar"
+                  onClick={onAvatarTap}
+                  role="button"
+                  aria-label="Open profile"
+                  whileTap={{ scale: 0.94 }}
+                  transition={{ type:"spring", stiffness:380, damping:30 }}
+                  style={{
+                    width:32, height:32, borderRadius:"50%",
+                    background:"rgba(255,255,255,0.08)",
+                    border:"1px solid rgba(255,255,255,0.20)",
+                    boxShadow:"0 0 12px rgba(0,0,0,0.45)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    cursor:"pointer", WebkitTapHighlightColor:"transparent",
+                    fontFamily:"'Bebas Neue', sans-serif", fontSize:12,
+                    letterSpacing:"0.04em", color:"var(--t1)",
+                    backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)",
+                    flexShrink:0,
+                  }}
+                >
+                  {initials(me?.nickname || me?.name)}
+                </motion.div>
+              )}
+              <div style={{
+                fontSize:10.5, fontWeight:300,
+                letterSpacing:"0.20em", textTransform:"uppercase",
+                color:"var(--t2)",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+              }}>
+                {teamName}
+              </div>
+              {gameIsLive && (
+                <div style={{
+                  display:"inline-flex", alignItems:"center", gap:5, flexShrink:0,
+                  fontSize:10, fontWeight:400, letterSpacing:"0.12em", textTransform:"uppercase",
+                  color:"var(--green)",
+                }}>
+                  <span style={{
+                    display:"inline-block", width:5, height:5, borderRadius:"50%",
+                    background:"var(--green)", boxShadow:"0 0 6px var(--green)",
+                    animation: reduce ? "none" : "ioo-blink 2s infinite", flexShrink:0,
+                  }} />
+                  Open
+                </div>
+              )}
+            </motion.div>
+
+            {/* Row 2 — IN OR OUT wordmark (staggered letters) */}
+            <motion.div variants={rise} style={{
+              fontFamily:"var(--font-display)", fontSize:46,
+              lineHeight:0.88, letterSpacing:"0.02em", fontStyle:"italic",
+            }}>
+              <motion.span
+                initial={reduce ? false : { scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type:"spring", stiffness:500, damping:24, delay: reduce ? 0 : 0.10 }}
+                style={{ color:"var(--green)", display:"inline-block" }}
+              >IN</motion.span>
+              <span style={{ color:"var(--t1)" }}> OR </span>
+              <motion.span
+                initial={reduce ? false : { scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type:"spring", stiffness:500, damping:24, delay: reduce ? 0 : 0.18 }}
+                style={{ color:"var(--red)", display:"inline-block" }}
+              >OUT</motion.span>
+            </motion.div>
+
+            {/* Row 3 — single fixture line: day · venue · time · £price */}
+            <motion.div variants={rise} style={{ display:"flex", alignItems:"center", gap:9, flexWrap:"wrap" }}>
+              {opponentLabel && (
+                <div style={{
+                  fontSize:13, fontWeight:500, color:"var(--t1)",
+                  maxWidth:"100%", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                }}>
+                  {opponentLabel}
+                </div>
+              )}
+              {dayOfWeek && metaItem(<CalendarCheck size={14} weight="thin" color="var(--t2)" />, dayOfWeek)}
+              {venue && metaItem(<MapPinLine size={14} weight="thin" color="var(--t2)" />, venue)}
+              {kickoff && metaItem(<Clock size={14} weight="thin" color="var(--t2)" />, kickoff)}
+              {pricePerPlayer && (
+                <div style={{
+                  fontSize:11, fontWeight:700, color:"var(--gold)",
+                  background:"var(--gold2)", border:"1px solid var(--goldb)",
+                  padding:"2px 8px", borderRadius:"var(--r-pill)",
+                }}>
+                  £{pricePerPlayer}
+                </div>
+              )}
+              {shareUrl && (
+                <a
+                  href={shareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Share team sheet to WhatsApp"
+                  style={{
+                    display:"inline-flex", alignItems:"center", justifyContent:"center",
+                    color:"var(--green)", WebkitTapHighlightColor:"transparent",
+                  }}
+                >
+                  <WhatsappLogo size={20} weight="thin" />
+                </a>
+              )}
+            </motion.div>
+
+            {/* Row 4 — thin admins line */}
+            {admins.length > 0 && (
+              <motion.div variants={rise} style={{
+                display:"flex", gap:7, alignItems:"center",
+                marginTop:2, paddingTop:9,
+                borderTop:"0.5px solid rgba(255,255,255,0.10)",
+              }}>
+                <span style={{ fontSize:9.5, letterSpacing:"0.10em", textTransform:"uppercase", color:"var(--t2)", opacity:0.7 }}>
+                  Admins
+                </span>
+                <span style={{ fontSize:11.5, color:"var(--t2)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {admins.join(" · ")}
+                </span>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Right: squad gauge */}
+          <motion.div variants={rise} style={{ flexShrink:0 }}>
+            <GaugeArc inCount={inCount} squadSize={squadSize} />
+          </motion.div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+```
+
+> Note: `PageHeader` also renders `PitchCanvas` (an animated SVG/canvas pitch
+> backdrop) and `GaugeArc` (a circular "N / cap in" progress arc). Those two are
+> not included here — ask if you want them too.
+
+---
+
+## 4. Child component — `components/ui/StatusButton.jsx`
+
+> The In / Out / Maybe / Reserve buttons. Inactive = faint glass; active = a
+> status-coloured gradient with glow. Vertical icon-over-label layout.
+
+```jsx
+const ACTIVE_STYLES = {
+  in: {
+    bg:     "linear-gradient(160deg,rgba(61,220,106,0.32) 0%,rgba(61,220,106,0.12) 60%,rgba(20,80,40,0.2) 100%)",
+    border: "0.5px solid rgba(61,220,106,0.5)",
+    shadow: "0 0 14px rgba(61,220,106,0.22),inset 0 0 20px rgba(61,220,106,0.1)",
+  },
+  out: {
+    bg:     "linear-gradient(160deg,rgba(255,64,64,0.32) 0%,rgba(255,64,64,0.12) 60%,rgba(80,20,20,0.2) 100%)",
+    border: "0.5px solid rgba(255,64,64,0.5)",
+    shadow: "0 0 14px rgba(255,64,64,0.22),inset 0 0 20px rgba(255,64,64,0.1)",
+  },
+  maybe: {
+    bg:     "linear-gradient(160deg,rgba(255,176,32,0.32) 0%,rgba(255,176,32,0.12) 60%,rgba(80,60,10,0.2) 100%)",
+    border: "0.5px solid rgba(255,176,32,0.5)",
+    shadow: "0 0 14px rgba(255,176,32,0.22),inset 0 0 20px rgba(255,176,32,0.1)",
+  },
+  reserve: {
+    bg:     "linear-gradient(160deg,rgba(176,96,240,0.32) 0%,rgba(176,96,240,0.12) 60%,rgba(60,20,80,0.2) 100%)",
+    border: "0.5px solid rgba(176,96,240,0.5)",
+    shadow: "0 0 14px rgba(176,96,240,0.22),inset 0 0 20px rgba(176,96,240,0.1)",
+  },
+};
+
+// icon: React element, e.g. <Check size={18} weight="thin" />
+// status: 'in'|'out'|'maybe'|'reserve' — used to pick active gradient
+export default function StatusButton({ label, icon, active, status, onClick, disabled }) {
+  const a = active ? ACTIVE_STYLES[status] : null;
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding:"10px 4px 8px",
+        textAlign:"center",
+        cursor: disabled ? "not-allowed" : "pointer",
+        border:        a ? a.border : "0.5px solid var(--border-subtle)",
+        borderRadius:  "var(--r-button)",
+        background:    a ? a.bg     : "rgba(255,255,255,0.04)",
+        boxShadow:     a ? a.shadow : "none",
+        color:         a ? "#fff"   : "var(--t2)",
+        fontFamily:"var(--font-body)",
+        fontSize:10, fontWeight:400,
+        letterSpacing:"0.06em", textTransform:"uppercase",
+        display:"flex", flexDirection:"column", alignItems:"center", gap:4,
+        transition:"all 0.2s",
+        width:"100%",
+        opacity: disabled ? 0.4 : 1,
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+```
+
+---
+
+## 5. Child component — `components/ui/Tile.jsx`
+
+> A Live Board group row (In / Reserve / Maybe / Out). Left column = emoji +
+> label + big count number; right column = wrapping avatar chips. Whole tile is
+> tinted with the group's status colour gradient + glow.
+
+```jsx
+const RGB = {
+  green:  [61,  220, 106],
+  red:    [255, 64,  64 ],
+  amber:  [255, 176, 32 ],
+  purple: [176, 96,  240],
+};
+
+// colour: 'green'|'red'|'amber'|'purple'
+// icon:   emoji string or React element (shown in left column)
+// label:  e.g. "In", "Maybe", "Out", "Reserve"
+// count:  number
+// children: Avatar components rendered in the right section
+export default function Tile({ colour, icon, label, count, children }) {
+  const [r, g, b] = RGB[colour] ?? RGB.green;
+
+  return (
+    <div style={{
+      borderRadius:"var(--rs)",
+      overflow:"hidden",
+      display:"flex",
+      alignItems:"stretch",
+      minHeight:62,
+      background:`linear-gradient(135deg,rgba(${r},${g},${b},0.26) 0%,rgba(${r},${g},${b},0.08) 45%,rgba(10,10,8,0.65) 100%)`,
+      border:`0.5px solid rgba(${r},${g},${b},0.38)`,
+      boxShadow:`0 0 18px rgba(${r},${g},${b},0.12),inset 0 0 30px rgba(${r},${g},${b},0.06)`,
+    }}>
+
+      {/* Left column */}
+      <div style={{
+        padding:"10px 12px",
+        display:"flex", flexDirection:"column",
+        alignItems:"center", justifyContent:"center",
+        minWidth:56,
+        borderRight:"0.5px solid rgba(255,255,255,0.06)",
+        flexShrink:0,
+      }}>
+        <span style={{ fontSize:13, marginBottom:1 }}>{icon}</span>
+        <span style={{
+          fontSize:9, fontWeight:400,
+          letterSpacing:"0.08em", textTransform:"uppercase",
+          color:"#fff",
+        }}>
+          {label}
+        </span>
+        <span style={{ fontFamily:"var(--font-display)", fontSize:28, lineHeight:1, color:"var(--t1)" }}>
+          {count}
+        </span>
+      </div>
+
+      {/* Right: avatar chips */}
+      <div style={{
+        flex:1, padding:"8px 10px",
+        display:"flex", flexWrap:"wrap",
+        gap:"5px 9px", alignContent:"center",
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 6. Child component — `components/ui/Avatar.jsx`
+
+> An initials chip used inside Tiles and the No-response wrap. Circle colour
+> follows the tile (or gold when it's "you", muted when injured). Optional
+> badges: bibs dot, POTM trophy, "+1" guest, reserve queue "#N", injured 🤕.
+
+```jsx
+const CIRCLE = {
+  you:     { bg:"var(--gold2)",               border:"0.5px solid var(--goldb)",              color:"var(--gold)",   shadow:"0 0 10px rgba(232,160,32,0.28)"  },
+  green:   { bg:"rgba(61,220,106,0.14)",       border:"0.5px solid rgba(61,220,106,0.45)",     color:"var(--green)", shadow:"0 0 8px rgba(61,220,106,0.22)"   },
+  red:     { bg:"rgba(255,64,64,0.14)",        border:"0.5px solid rgba(255,64,64,0.45)",      color:"var(--red)",   shadow:"0 0 8px rgba(255,64,64,0.22)"    },
+  amber:   { bg:"rgba(255,176,32,0.14)",       border:"0.5px solid rgba(255,176,32,0.45)",     color:"var(--amber)", shadow:"0 0 8px rgba(255,176,32,0.22)"   },
+  purple:  { bg:"rgba(176,96,240,0.14)",       border:"0.5px solid rgba(176,96,240,0.45)",     color:"var(--purple)",shadow:"0 0 8px rgba(176,96,240,0.22)"  },
+  injured: { bg:"rgba(255,255,255,0.04)",      border:"0.5px solid rgba(255,255,255,0.1)",     color:"var(--t2)",    shadow:"none"                            },
+};
+
+function initials(name) {
+  const parts = (name || "").trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (name || "?").slice(0, 2).toUpperCase();
+}
+
+// tileColour: 'green'|'red'|'amber'|'purple' — determines circle variant
+// isMe:       true → gold circle
+// player:     { id, name, injured?, isGuest? }
+// reserveIndex: 1-based queue position, shown as "#N" below name
+// hasGuest:   show "+1" below name
+// hasBibs:    true → amber dot badge bottom-right of circle
+// hasMotm:    true → trophy badge top-right of circle (last match's POTM)
+export default function Avatar({ player, isMe, tileColour, reserveIndex, hasGuest, isInjured, hasBibs = false, hasMotm = false, onClick }) {
+  const variant = player?.injured ? "injured" : isMe ? "you" : (tileColour || "green");
+  const c       = CIRCLE[variant] ?? CIRCLE.green;
+
+  return (
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      style={{
+        display:"flex", flexDirection:"column",
+        alignItems:"center", gap:3, width:34,
+        cursor: onClick ? "pointer" : "default",
+        WebkitTapHighlightColor:"transparent",
+      }}>
+      {/* Initials circle */}
+      <div style={{ position:"relative", width:32, height:32, flexShrink:0 }}>
+        <div style={{
+          width:32, height:32, borderRadius:"50%",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:9, fontWeight:500,
+          background: isInjured ? "rgba(120,20,20,0.3)" : c.bg,
+          border:     isInjured ? "0.5px solid rgba(255,80,80,0.3)" : c.border,
+          color:      isInjured ? "rgba(255,100,100,0.8)" : c.color,
+          boxShadow:  c.shadow,
+        }}>
+          {initials(player?.nickname || player?.name)}
+        </div>
+        {isInjured && (
+          <span style={{ position:"absolute", bottom:-2, right:-2, fontSize:10, lineHeight:1 }}>🤕</span>
+        )}
+        {hasBibs && !isInjured && (
+          <div style={{
+            position:"absolute", bottom:0, right:0,
+            width:10, height:10, borderRadius:"50%",
+            background:"var(--amber)",
+          }}/>
+        )}
+        {hasMotm && !isInjured && (
+          <span style={{
+            position:"absolute", bottom:-4, right:-4, fontSize:11, lineHeight:1,
+          }}>🏆</span>
+        )}
+      </div>
+
+      {/* Name */}
+      <span style={{
+        fontSize:9, fontWeight:300, color:"var(--t2)",
+        width:34, textAlign:"center",
+        overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis",
+      }}>
+        {player?.nickname || player?.name}
+      </span>
+
+      {/* +1 badge */}
+      {hasGuest && (
+        <span style={{ fontSize:8, color:"var(--gold)", marginTop:-2 }}>+1</span>
+      )}
+
+      {/* Reserve queue position */}
+      {reserveIndex != null && (
+        <span style={{ fontSize:8, color:"var(--purple)", marginTop:-2 }}>#{reserveIndex}</span>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## 7. Child component — `components/ui/NavBar.jsx`
+
+> Fixed bottom tab bar (max width 430, glass blur). Tabs: My View / Stats /
+> Results / **MY IO** (brain icon, green-I red-O wordmark) / Admin (admins only).
+> Active tab = gold icon + glow + top gradient hairline.
+
+```jsx
+import { House, ChartBar, ClockCounterClockwise, Gear, Brain } from "@phosphor-icons/react";
+
+// Inject nav styles — pseudo-elements can't be done with inline styles
+if (typeof document !== "undefined" && !document.getElementById("ioo-nav-styles")) {
+  const el = document.createElement("style");
+  el.id = "ioo-nav-styles";
+  el.textContent = `
+    .ioo-ni {
+      flex:1; display:flex; flex-direction:column; align-items:center;
+      gap:3px; cursor:pointer; padding:4px; border-radius:10px;
+      margin:0 3px; transition:all 0.2s; position:relative;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .ioo-ni.active {
+      background:rgba(232,160,32,0.04);
+    }
+    .ioo-ni.active::after {
+      content:''; position:absolute; inset:0; border-radius:10px; padding:0.5px;
+      background:linear-gradient(180deg,
+        rgba(232,160,32,0.9) 0%, rgba(232,160,32,0.7) 8%,
+        rgba(232,160,32,0.3) 22%, rgba(232,160,32,0.05) 40%,
+        transparent 55%);
+      -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor; mask-composite:exclude;
+      pointer-events:none;
+    }
+    .ioo-ni-dot {
+      width:3px; height:3px; background:var(--gold);
+      border-radius:50%; margin-top:1px; display:none;
+      box-shadow:0 0 5px var(--gold);
+    }
+    .ioo-ni.active .ioo-ni-dot { display:block; }
+  `;
+  document.head.appendChild(el);
+}
+
+const BASE_TABS = [
+  { id:"my-view", label:"My View", Icon:House               },
+  { id:"stats",   label:"Stats",   Icon:ChartBar            },
+  { id:"history", label:"Results", Icon:ClockCounterClockwise },
+];
+
+const MY_IO_TAB = { id:"my-io", label:"MY IO", Icon:Brain, myio:true };
+
+function MyIOLabel() {
+  return (
+    <span style={{ fontSize:9, letterSpacing:"0.07em", textTransform:"uppercase", lineHeight:1 }}>
+      <span style={{ color:"var(--t2)", fontWeight:400 }}>MY </span>
+      <span style={{ color:"var(--green)", fontWeight:400 }}>I</span>
+      <span style={{ color:"var(--red)", fontWeight:400 }}>O</span>
+    </span>
+  );
+}
+
+function buildSquadTabs({ activeTab, onTabChange, onAdminClick }) {
+  const base = onAdminClick
+    ? [...BASE_TABS, MY_IO_TAB, { id:"admin", label:"Admin", Icon:Gear }]
+    : [...BASE_TABS, MY_IO_TAB];
+  return base.map((t) => ({
+    ...t,
+    active: activeTab === t.id,
+    onSelect: t.id === "admin" ? onAdminClick : () => onTabChange?.(t.id),
+  }));
+}
+
+export default function NavBar({ tabs, activeTab, onTabChange, onAdminClick }) {
+  const resolvedTabs = tabs ?? buildSquadTabs({ activeTab, onTabChange, onAdminClick });
+
+  return (
+    <nav style={{
+      position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)",
+      width:"100%", maxWidth:430,
+      background:"rgba(8,8,6,0.97)",
+      backdropFilter:"blur(30px)", WebkitBackdropFilter:"blur(30px)",
+      display:"flex",
+      paddingTop:10, paddingLeft:0, paddingRight:0,
+      paddingBottom:"max(26px, env(safe-area-inset-bottom))",
+      zIndex:100,
+      borderTop:"0.5px solid rgba(255,255,255,0.1)",
+    }}>
+      {/* Top glow line */}
+      <div style={{
+        position:"absolute", top:-1, left:"5%", right:"5%", height:1,
+        background:"linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.18) 25%,rgba(255,255,255,0.25) 50%,rgba(255,255,255,0.18) 75%,transparent 100%)",
+        pointerEvents:"none",
+      }} />
+
+      {resolvedTabs.map(({ id, label, Icon, myio, active, onSelect }) => {
+        const glow = active ? { filter:"drop-shadow(0 0 5px rgba(232,160,32,0.75)) drop-shadow(0 0 12px rgba(232,160,32,0.35))" } : undefined;
+        const TabIcon = myio ? Brain : Icon;
+        return (
+          <div
+            key={id}
+            className={`ioo-ni${active ? " active" : ""}`}
+            onClick={onSelect}
+          >
+            <TabIcon size={22} weight="thin" color={active ? "var(--gold)" : "var(--t2)"} style={glow} />
+            {myio ? <MyIOLabel /> : (
+              <span style={{
+                fontSize:9, fontWeight:400,
+                letterSpacing:"0.07em", textTransform:"uppercase",
+                color: active ? "var(--gold)" : "var(--t2)",
+              }}>
+                {label}
+              </span>
+            )}
+            <span className="ioo-ni-dot" />
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+```
+
+---
+
+## Not included (ask if needed)
+
+These are referenced by the screen but left out to keep the handoff focused on
+the visible casual-play surface:
+- `PitchCanvas.jsx` / `GaugeArc.jsx` — the animated header backdrop + capacity gauge
+- `POTMVotingModal.jsx`, `AdminPlayerActionSheet.jsx`, `PlayerProfile.jsx` — overlays
+- `StatsView`, `HistoryView`, `MyIOView` — the other three bottom-nav tabs
+- `MySquads`, `CompetitionStandingsCard`, `CompetitionFixturesCard` — cards below the board
+- `FirstTimeHint`, `Tour`, `AuthGateModal` — onboarding / auth wrappers
+```

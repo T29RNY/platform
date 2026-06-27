@@ -61,7 +61,7 @@ below, each to land as **its own PR**.
   @demo_venue + 3 fixtures in the 3v3 league, comp `3a3a…010`). Password `DemoBoss1!`.
   Test via 127.0.0.1 (not localhost = admin backdoor); clear stale PWA SW first.
 
-## Next free migration = **441**.
+## Next free migration = **442**.
 
 ---
 
@@ -72,11 +72,20 @@ Delivered as a pure delivery-layer change (no migration). League + casual arms b
 covered; push deep-links to `/hub/fixtures`; honours `preferred_channel` with email/SMS
 fallback; re-assignment notifies the new ref; per-channel dedup. ⛔ owed: real-device walk.
 
-### PR #2 — History / Past matches in the ref view
-`get_my_assignments` returns Live + Upcoming only. Add a **separate** reader
-(`get_my_officiating_history` — leave the Swift-locked one alone) for completed officiated
-fixtures (final score, date, venue, teams). Surface as a "Past" section/tab in
-`RefFixtures.jsx`. Read-only (tapping a completed match could open the PostMatch view).
+### PR #2 — History / Past matches in the ref view  ✅ SHIPPED
+New reader `get_my_officiating_history(p_limit?)` (mig 441, SECDEF STABLE, authenticated-
+only, read-only — **separate** from the Swift-locked `get_my_assignments`). Two person-keyed
+arms mirroring mig 372 but TERMINAL only (league `fixtures.status='completed'`; casual
+`matches.winner IS NOT NULL`); per-game shape = the assignments shape PLUS
+`home_score`/`away_score`, most-recent-first, capped at `p_limit` (default 50). Surfaced as a
+muted read-only "Past" section in `RefFixtures.jsx` (final score badge + date + venue) under
+Live now / Upcoming. Tapping reuses the existing RefMatch overlay → `/ref/<ref_token>`; the
+ref app already routes `completed → PostMatch`, so it opens read-only with `apps/ref`
+untouched. Mig 441 also seeds 2 completed league fixtures for the demo ref (mig 440 had
+live+upcoming only). Gates: build, hygiene 7/7×3, casual-regression (no `views/` touched,
+additive core), rpc-security-sweep (clean), Playwright /hub ref smoke PASS (Past renders 2
+games w/ scores → tap → read-only PostMatch). No write → EV N/A. Wrapper
+`getMyOfficiatingHistory`; RPCS.md updated.
 
 ### PR #3 — Availability + accept/decline
 Let a ref mark availability (so venues assign around it) and accept/decline an assignment.
