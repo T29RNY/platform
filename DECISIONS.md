@@ -4007,3 +4007,24 @@ Pilot backlog #5 (internal-vs-external pitch booking + reserved/priority times) 
   behaviour). No infinite prev/next navigation — the dataset is finite upcoming-only, so three chips
   beat arrows. Club Leagues fixtures (`club_fixtures`, operator-created) are NOT in this list — that
   surfacing is Phase 3 (needs a new manager-facing reader).
+
+## Modular Platform Epic B — public club home page ("Pitchero destroyer") — decisions locked s213
+
+The public-facing branded club page + setup wizard. Scoped in MODULAR_PLATFORM_HANDOFF.md (Epic B),
+audited s213 (3-agent read-only). Four decisions taken before build:
+
+- **Page data lives in a new `club_pages` table (1:1 with `clubs`), NOT scattered onto `clubs`.**
+  Holds slug, published flag, up to 3 colours, crest_url, hero_url, tagline, about, socials, and the
+  section on/off + order config. Rationale: keeps the public-page concern off the org `clubs` table
+  and naturally models draft-vs-published. The org `clubs` table stays the identity/structure record.
+- **New dedicated `club-media` storage bucket — do NOT reuse `venue-media`.** `venue-media` only
+  grants upload when the club admin is ALSO venue staff for that `venue_id` (RLS caveat hit during
+  tournament-sponsor work). A club-scoped bucket is the proper fix the handoff already flagged. Add
+  client-side resize/compress on upload + orphan cleanup (delete image when its post/page is deleted).
+- **Public URL = `/c/<slug>`** (short + shareable; mirrors the `/tournament/<slug>` anon-route pattern
+  in App.jsx `getRoute()`).
+- **Club managers edit the page via the club-admin auth chain** (`auth.uid → member_profiles →
+  club_team_managers`, is_active), NOT venue-token. Matches every other `club_admin_*` write RPC.
+  Venue-operator parity DEFERRED. All new write RPCs gate on `_club_feature_enabled(club_id,
+  'public_web')` (already wired, mig 399) + audit_events (Hard Rule #9). Safeguarding (hide minors'
+  surnames/photos) is applied SERVER-SIDE in the public read, reading `clubs.safeguarding_config`.

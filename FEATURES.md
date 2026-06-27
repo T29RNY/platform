@@ -244,9 +244,15 @@ memberships (resolves cross-venue memberships); default-all-on; tiers deferred. 
 effort + feature-ownership model in **MODULAR_PLATFORM_HANDOFF.md** ("VENUE OS NAV — FULL PHASED
 PLAN"). Demo-sprint items #8/#9/#4 SHIPPED (migs 394–398); FA AI-import (Phase C) snippet-gated.
 
-### NEXT EPIC (scoped, not built) — Modular platform: packaging + FA fixtures + public web + ref-as-module
+### MODULAR PLATFORM — packaging + FA fixtures + public web + ref-as-module
 Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPro review. Full plan
-in **MODULAR_PLATFORM_HANDOFF.md**. Three sequenced epics, A→B→C, each merged before the next:
+in **MODULAR_PLATFORM_HANDOFF.md**. **FOUR sequenced epics A→B→C→D**, each merged before the next.
+**STATUS (s213):** Epic A flag foundation ✅ SHIPPED (Venue OS nav epic, migs 399–402 — incl. the
+`public_web` flag B needs; only the package/preset presentation layer remains). **Epic B = NEXT, now
+AUDITED + planned** (3-agent audit s213; 4 decisions locked + 5-phase build plan in the handoff;
+Claude Design briefed for the public page + wizard + edit dashboard). Phases 1–3 (DB + RPCs, migs
+444–446) are wireframe-independent and start next session. C depends on B's FA ingest; D is
+independent (Event OS engine already built). The epics:
 - **A — `club_features` modular toggles (FOUNDATION).** Per-club on/off gated at 3 layers
   (nav+route+RPC — fixes the audited "hidden-but-still-reachable" trap), dependency graph
   (Memberships→Payments etc.), package layer (presets over flags; tiers-vs-pick-and-mix deferred,

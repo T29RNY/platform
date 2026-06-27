@@ -145,6 +145,68 @@ into your match day," NOT "we have FA sync too."
 
 ---
 
+## EPIC B — AUDIT FINDINGS, DECISIONS & PHASED BUILD PLAN (session 213, 2026-06-27)
+
+Three-agent read-only audit run before build. **B is the NEXT epic to build.** A wireframe brief for
+the public page + setup wizard + edit dashboard has been handed to Claude Design (function/features
+only; Design owns layout).
+
+**Already exists — do NOT rebuild:**
+- **`public_web` flag is fully wired** (mig 399): `club_features.public_web` column (DEFAULT true),
+  the `_club_feature_enabled(club_id,'public_web')` guard, and `get_venue_feature_flags`/
+  `venue_get_feature_settings` all carry it. New write RPCs just drop in the one-line guard. **Epic A's
+  flag dependency for B is done.**
+- **`clubs` already has** `discipline` (mig 355 pick-list), `safeguarding_config` jsonb, `id_mandate`,
+  name/short_name, contact_name/contact_email → discipline-awareness + safeguarding hooks exist.
+- **Teams section renderable today:** `club_cohorts` (category youth/adult/mixed) + `club_teams`
+  (gender, priority_rank, archived_at).
+- **Patterns to clone exactly:** anon reads `get_tournament_public` / `get_club_league_public` (keyed
+  on slug/code, SECDEF, GRANT anon); `tournament_sponsors` + its 5 admin RPCs (mig 327); the
+  `clubAdminSetBranding` tournament branding form (SessionsScreen ~L1930); `uploadVenueMedia`;
+  per-instance CSS-var theming via `--th-accent` scoped to the page container (TournamentScreen L768,
+  NO global `:root` mutation). Public route = one-liner in `App.jsx` `getRoute()` + render block.
+
+**Net-new (nothing on `clubs` for these):** branding/3-colours, crest, hero, tagline/about, public
+slug, published flag, social links; `club_sponsors` table (mirror `tournament_sponsors`); `club_posts`
+news/blog table (`club_announcements` is internal-only, NOT suitable); resize/compress-on-upload +
+orphan-cleanup (current `uploadVenueMedia` does neither); the `venue-media` bucket has the
+"admin-must-be-venue-staff" RLS caveat.
+
+**DECISIONS LOCKED (operator-approved s213):**
+1. **`club_pages` table (1:1 with clubs)** holds all page concerns — slug, published flag, 3 colours,
+   crest_url, hero_url, tagline, about, socials, section on/off + order config. Keeps the public-page
+   concern OFF the org `clubs` table; naturally holds draft-vs-published.
+2. **New `club-media` storage bucket** (not reuse `venue-media`) — sidesteps the venue-staff RLS
+   caveat; club-scoped paths. The handoff itself flagged a dedicated bucket as the proper fix.
+3. **URL scheme `/c/<slug>`** (short, shareable).
+4. **Club managers edit the page** via the existing club-admin auth chain (`auth.uid →
+   member_profiles → club_team_managers`, is_active). Venue-operator parity DEFERRED.
+
+**PHASED BUILD — each its own PR, sequenced (cloud-session one-at-a-time rule). Phases 1–3 are
+wireframe-independent and can start immediately; 4–5 wait for Claude Design.**
+- **Phase 1 — Data foundation (mig 444):** `club_pages`, `club_sponsors`, `club_posts` tables + RLS
+  (REVOKE all, RPC-only) + new `club-media` bucket & storage policies. No UI. Gates: schema-sync, build.
+- **Phase 2 — Public read RPC (mig 445):** `get_club_public(p_slug)` — anon SECDEF, returns identity +
+  branding + teams + fixtures/table (reuse league logic) + sponsors + published news + tournament-hub
+  link. Rejects unpublished. Discipline-aware. Safeguarding applied server-side (hide minors'
+  surnames/photos). Gates: rpc-security-sweep, EV.
+- **Phase 3 — Admin write RPCs (mig 446):** `club_set_page` (identity/branding/sections + server-side
+  hex + contrast validation), `club_publish_page`, `club_add/list/remove_sponsor`,
+  `club_create/update/delete/list_post`. All gated on `_club_feature_enabled(club_id,'public_web')` +
+  club-manager auth + audit_events (Hard Rule #9). Gates: rpc-security-sweep, EV, ephemeral-verify.
+- **Phase 4 — Public page UI** (`/c/<slug>` → `ClubPublicScreen`): from Claude Design wireframes —
+  modular sections, per-club CSS-var theme, live/next-fixture strip (30s poll), Join/QR CTA, social-
+  share preview. Gates: casual-regression, Playwright, real-device walk.
+- **Phase 5 — Setup wizard + edit dashboard** (`ClubSettingsScreen`): wizard (identity → crest →
+  colours w/ contrast guard + auto-suggest-from-crest → hero → sections → teams → sponsors → first
+  post → safeguarding → preview/publish) + always-available edit surface; client-side resize/compress
+  on upload + orphan cleanup. Gates: casual-regression, Playwright, real-device walk.
+
+**Build-order note:** B and D are independent of each other (D only needs the Event OS engine +
+venue-token RPCs). C is the only epic that truly depends on B (it needs B's structured FA ingest).
+
+---
+
 ## EPIC C — FA-fixture → ref-assignment loop (+ RefSix-parity ref tools)
 
 **Goal:** ingested FA fixtures can carry a referee, surfaced in the ref view + watch as the ref's
