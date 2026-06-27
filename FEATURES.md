@@ -249,10 +249,12 @@ Scoped session 174 (2026-06-22) off the GNP Sports FC target + Pitchero/MyClubPr
 in **MODULAR_PLATFORM_HANDOFF.md**. **FOUR sequenced epics A→B→C→D**, each merged before the next.
 **STATUS (s213):** Epic A flag foundation ✅ SHIPPED (Venue OS nav epic, migs 399–402 — incl. the
 `public_web` flag B needs; only the package/preset presentation layer remains). **Epic B = IN BUILD.
-P1 data foundation ✅ SHIPPED s214 (mig 444, commit bd84778): `club_pages`/`club_sponsors`/`club_posts`
-(RLS-on, REVOKE all, RPC-only) + public `club-media` bucket + 3 club-scoped storage policies; design
-brief handed to Claude Design (`CLUB_PAGE_DESIGN_BRIEF.md`). NEXT = P2 anon public-read RPC
-`get_club_public(p_slug)` (mig 445).** 4 decisions locked + 5-phase plan in the handoff. Phases 2–3
+P1 (mig 444) ✅ · P2 read (mig 445) ✅ · P3 admin writes (mig 446) ✅ · P4 public UI `ClubPublicScreen`
+(s221) ✅ · P5a (mig 448) ✅ SHIPPED s221: `ClubSettingsScreen` setup wizard + always-on edit dashboard +
+sponsor `tier` + `club_pages.links` get-involved + `club_get_page` admin read. NEXT = P5b (mig 449):
+contacts/documents/events new tables + manager-pick POTM stat + get_club_public slices.** P5 split into
+2 PRs (operator s221); stats=POTM-only, reliability skipped, FA table=Epic C. 4 decisions locked + plan
+in the handoff. Phases 2–3
 (RPCs, migs 445–446) are wireframe-independent; P4–P5 UI wait on Claude Design. C depends on B's FA
 ingest; D is independent (Event OS engine already built). The epics:
 - **A — `club_features` modular toggles (FOUNDATION).** Per-club on/off gated at 3 layers

@@ -1,5 +1,28 @@
 # In or Out — Key Decisions Log
 
+## SESSION 221 — Modular Platform Epic B Phase 5 (club setup wizard / edit dashboard)
+Operator-approved s221, before build:
+1. **Stats slice = manager-picked POTM only.** Top-scorer DEFERRED (it needs a ref-player→
+   `member_profiles` identity link that grassroots / thin clubs won't have populated — the one stat that
+   can't light up for the primary thin-club target; P4 `StatsSection` already renders fine with
+   `topScorer:null`).
+2. **Reliability SKIPPED entirely** (operator: "skip this is better"). Avoids the season-vs-all-time
+   hard-rule conflict (`CLUB_PAGE_COMPOSITION_SPEC` §0 locked season-scoped vs the all-time rule) AND the
+   attendance-aggregation weight, and a thin club has no meaningful reliability data. Public stats =
+   POTM only for now; can revisit later.
+3. **P5 ships as TWO sequential PRs** (not one), per CLOUD SESSION DISCIPLINE — P5a (mig 448: page config
+   + wizard/dashboard against existing RPCs + sponsor tier + get-involved links) merges first, then P5b
+   (mig 449: contacts/documents/events/POTM new tables + RPCs + payload slices). FA table stays Epic C.
+4. **New admin read `club_get_page` added** (mig 448) — the P2/P3 set had no way to read the `club_pages`
+   row for editing while UNPUBLISHED (`get_club_public` is published-only + safeguarding-transformed).
+   The wizard/dashboard needs the raw row at any state → club-manager auth, no safeguarding transform,
+   read-only/no audit.
+5. **Draft/publish model = the `published` flag, not edit-staging.** `club_pages` is a single live row;
+   there is no per-edit staging table. Edits to a published page go live on save; the wizard holds page
+   fields in local state and persists via the full `club_set_page` UPSERT on Continue/Done. "Draft vs
+   published obvious throughout" is satisfied by the status badge + the publish/unpublish toggle (the
+   design's "N unpublished edits / discard" staging is NOT in the schema and was not built).
+
 ## SESSION 194 — Venue "All grounds" single-calendar view (UI-only, no migration)
 *2026-06-24. Venue app only. Multi-venue epic Phase-3 follow-up (operator-requested s193).
 No DB/RPC change — `get_operator_pitch_occupancy` already returns every same-company
