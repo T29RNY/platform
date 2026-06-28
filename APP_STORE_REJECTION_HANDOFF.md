@@ -2,6 +2,62 @@
 
 ---
 
+## ROUND 3 — build 1.0(5) REJECTED (2026-06-28) — FIX SHIPPED, SERVER-SIDE, NO REBUILD
+
+**Rejection (2.1(a), iPhone 17 Pro Max + iPad Air M3, iOS/iPadOS 26.5):** "the Sign in
+with Apple returned an error."
+
+**This is NOT the round 1/2 token storm.** Rounds 1/2 created a user then logged them
+out (post-login persistence). Round 3 failed at the **LOGIN step** — diagnosed from the
+live Supabase `auth` + `api` logs:
+- **No fresh Apple user was created on Jun 27 or 28.** The reviewer's taps came from
+  Apple IPs (`17.x.x.x`) and hit **`/authorize?provider=apple`** — the **WEB** OAuth
+  flow (native `signInWithIdToken` hits `/token` directly, never `/authorize`). They
+  retried Apple + Google 4–5 times; none returned inside the wrapper → no `/token`, no
+  session, no user → "returned an error."
+- So 1.0(5) **fell through to the broken web flow instead of firing native Sign in with
+  Apple.** The native gate was `isNativeApp() && Capacitor.isPluginAvailable('SignInWithApple')`.
+
+**Root cause — the `isPluginAvailable` half of the gate.** Both confirmed from logs:
+- The **UA marker IS baked into 1.0(5)** — the operator's iPad WebView User-Agent in the
+  `api` logs reads `…Mobile/15E148 InorOutApp`. So `isNativeApp()` (UA-marker-first) was
+  **reliably true** on the reviewer's device.
+- The operator's own Jun 26 walk on the **same TestFlight 1.0(5) build** signed in via
+  **native** (`/token grant_type=id_token`, 200, healthy — re-confirmed live Jun 28
+  09:53Z), proving the plugin is linked and Supabase's Apple Authorized Client IDs accept
+  the bundle-id audience. Config is correct.
+- So the only difference on the reviewer's device was `Capacitor.isPluginAvailable()`
+  reading the **not-yet-ready native bridge/plugin registry** as false on a cold launch
+  (each failed retry = a fresh cold relaunch → false every time) → silent web fallback.
+
+**FIX SHIPPED (commit `444dffb`, `native-auth.js`):** gate the Apple-native path on
+**`isNativeApp()` ALONE** — drop the bridge-dependent `isPluginAvailable`. The UA marker
+makes `isNativeApp()` true on every native build from 1.0(5) on, bridge-independent; the
+plugin is linked in those builds, so once we know we're native, native Apple is the path.
+If the plugin call ever fails it now surfaces a **real error** (startAppleNative's catch)
+instead of silently dropping to the web flow — a build/runtime problem fails loudly in
+test, never in review. Removed the now-unused `Capacitor` import. Web/PWA path unchanged.
+Build green, hygiene 7/7. No migration, no RPC.
+
+**100% server-side (remote bundle) → repairs the EXISTING 1.0(5) binary on next launch —
+NO REBUILD.** Steps:
+1. ✅ Deployed to `main` → Vercel (auto on push).
+2. **Re-test on the iPad** (the failing device): force-quit → reopen ×2 (SW bundle swap),
+   sign out, then **cold-launch and tap Sign in with Apple as fast as possible** (mimic
+   the reviewer's cold/fast tap). Live `auth` log should now show `/token grant_type=
+   id_token` (native), NOT `/authorize?provider=apple` (web). Watch with `get_logs auth`.
+3. **Resubmit build 1.0(5) for review** (same binary — the fix is server-side) with a
+   Resolution-Center note: "Sign in with Apple now uses the native iOS sheet; the prior
+   error was a web-fallback path, fixed server-side." A rebuild would be functionally
+   identical, so re-review 1.0(5); only bump the build number if you prefer a fresh one.
+
+⚠️ STILL OWED (HR#13): the Jun 28 cold-launch device re-test above before resubmitting.
+⚠️ Latent: the **Google** button on native still uses the same web flow and may have the
+same return fragility — out of scope for this Apple-only rejection, but a likely next
+rejection if a reviewer tries Google. Track separately.
+
+---
+
 ## ROUND 2 — build 1.0(4) REJECTED AGAIN (2026-06-25, session 212)
 
 **The PR #96 fix did NOT hold.** App Review hit the SAME refresh-token storm on an
