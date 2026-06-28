@@ -2189,17 +2189,35 @@ const DEMO_BASELINE = [
   { id:"p_demo_25", goals:6,  motm:2,  attended:18, w:11, l:5, d:2, bib_count:1, pay_count:18, late_dropouts:1, owes:0,  injured:false },
 ];
 
+// Current-week response spread (mirrors packages/core resetDemoData) so the auto-reset
+// leaves the App-Store demo links showing a LIVE, populated game — not an empty board.
+const DEMO_WEEK_STATUS = {
+  p_demo_01: "in",    p_demo_02: "in",    p_demo_03: "in",    p_demo_04: "in",
+  p_demo_05: "in",    p_demo_06: "in",    p_demo_07: "in",    p_demo_08: "in",
+  p_demo_09: "maybe", p_demo_10: "maybe", p_demo_11: "out",   p_demo_12: "out",
+};
+const DEMO_WEEK_PAID = new Set(["p_demo_01", "p_demo_02", "p_demo_03", "p_demo_04", "p_demo_05", "p_demo_06"]);
+
 async function resetDemoPlayers() {
   const injuredSince = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
   for (const p of DEMO_BASELINE) {
     await supabase.from("players").update({
-      status: "none", paid: false, self_paid: false, paid_by: null, owes: p.owes,
+      status: DEMO_WEEK_STATUS[p.id] || "none", paid: DEMO_WEEK_PAID.has(p.id),
+      self_paid: false, paid_by: null, owes: p.owes,
       goals: p.goals, motm: p.motm, attended: p.attended,
       w: p.w, l: p.l, d: p.d, bib_count: p.bib_count,
       pay_count: p.pay_count, late_dropouts: p.late_dropouts,
       injured: p.injured, injured_since: p.injured ? injuredSince : null,
     }).eq("id", p.id);
   }
+  // Alex (reviewer's player link, not in DEMO_BASELINE) — confirmed + paid.
+  await supabase.from("players")
+    .update({ status: "in", paid: true, injured: false })
+    .eq("id", "p_demo_alex");
+  // Keep this week's game live so the demo links show the In/Out grid + populated board.
+  await supabase.from("schedule")
+    .update({ game_is_live: true, is_cancelled: false })
+    .eq("team_id", "team_demo");
   await supabase.from("demo_sessions")
     .update({ last_reset: new Date().toISOString() })
     .eq("id", "main");
