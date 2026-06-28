@@ -193,65 +193,90 @@ function Empty({ title, sub }) {
 }
 
 // ── fixtures + form ──────────────────────────────────────────────────────────
+// Club-wide form guide (P4, guaranteed from own club_fixtures) then the FULL
+// per-league fixtures + results list (C2 — was a 3-row teaser in P4). Each league
+// renders its OWN-styled block: UPCOMING (scheduled, soonest first) + RESULTS
+// (completed, newest first, score + W/D/L). League header is suppressed when the
+// club runs a single league (redundant). Source-agnostic — fa_import and manual
+// club_fixtures arrive in the same get_club_public leagues[].fixtures[] shape.
 export function FixturesSection({ leagues, vocab }) {
-  const fixtures = allFixtures(leagues);
-  const form = formGuide(fixtures);
-  const upcoming = fixtures
-    .filter((f) => f.status === "scheduled" && f.scheduled_date)
-    .sort((a, b) => (a.scheduled_date || "").localeCompare(b.scheduled_date || ""))
-    .slice(0, 3);
-  const recent = fixtures
-    .filter((f) => resultOf(f))
-    .sort((a, b) => (b.scheduled_date || "").localeCompare(a.scheduled_date || ""))
-    .slice(0, 3);
+  const form = formGuide(allFixtures(leagues));
+
+  const blocks = (leagues || [])
+    .map((lg) => {
+      const fx = lg.fixtures || [];
+      const results = fx
+        .filter((f) => resultOf(f))
+        .sort((a, b) => (b.scheduled_date || "").localeCompare(a.scheduled_date || ""));
+      const upcoming = fx
+        .filter((f) => f.status === "scheduled" && f.scheduled_date)
+        .sort((a, b) => (a.scheduled_date || "").localeCompare(b.scheduled_date || ""));
+      return { lg, results, upcoming };
+    })
+    .filter((b) => b.results.length > 0 || b.upcoming.length > 0);
+
+  if (form.length === 0 && blocks.length === 0) {
+    return (
+      <Section id="fixtures" title={vocab.scheduleTab + " & results"}>
+        <Empty title="First fixture coming soon" sub="Fixtures and results will appear here automatically." />
+      </Section>
+    );
+  }
+
+  const showLeague = blocks.length > 1;
 
   return (
-    <Section id="fixtures" title={vocab.scheduleTab + " & form"}>
-      {form.length === 0 && upcoming.length === 0 && recent.length === 0 ? (
-        <Empty title="First fixture coming soon" sub="Fixtures and results will appear here automatically." />
-      ) : (
-        <>
-          {form.length > 0 && (
-            <div className="cp-form">
-              {form.map((x, i) => (
-                <span key={i} className={`cp-pill cp-pill--${x.result.toLowerCase()}`}>{x.result}</span>
-              ))}
+    <Section id="fixtures" title={vocab.scheduleTab + " & results"}>
+      {form.length > 0 && (
+        <div className="cp-form">
+          {form.map((x, i) => (
+            <span key={i} className={`cp-pill cp-pill--${x.result.toLowerCase()}`}>{x.result}</span>
+          ))}
+        </div>
+      )}
+      {blocks.map((b, bi) => (
+        <div key={b.lg.league_id || bi} className="cp-league">
+          {showLeague && (
+            <div className="cp-league-head">
+              <span className="cp-league-name">{(b.lg.name || "").toUpperCase()}</span>
+              {b.lg.season_label && <span className="cp-league-season">{b.lg.season_label}</span>}
             </div>
           )}
           <div className="cp-fxlist">
-            {upcoming.length > 0 && <div className="cp-fxlabel">UPCOMING</div>}
-            {upcoming.map((f, i) => {
+            {b.upcoming.length > 0 && <div className="cp-fxlabel">UPCOMING</div>}
+            {b.upcoming.map((f, i) => {
               const { dow, dm } = fmtDate(f.scheduled_date);
               return (
                 <div key={"u" + i} className="cp-fxrow">
                   <div className="date"><div className="d">{dow || "—"}</div><div className="m">{dm}</div></div>
                   <div className="mid">
                     <div className="opp">{f.is_home ? "vs" : "at"} {f.opponent || "TBC"}</div>
-                    <div className="sub">{f.league_name || (f.is_home ? "Home" : "Away")}</div>
+                    <div className="sub">{f.is_home ? "Home" : "Away"}</div>
                   </div>
                   <span className="time">{f.kickoff_time || ""}</span>
                 </div>
               );
             })}
-            {recent.length > 0 && <div className="cp-fxlabel">RECENT</div>}
-            {recent.map((f, i) => {
+            {b.results.length > 0 && <div className="cp-fxlabel">RESULTS</div>}
+            {b.results.map((f, i) => {
               const r = resultOf(f);
               const ours = f.is_home ? f.home_score : f.away_score;
               const theirs = f.is_home ? f.away_score : f.home_score;
+              const { dm } = fmtDate(f.scheduled_date);
               return (
                 <div key={"r" + i} className="cp-fxrow">
                   <span className={`cp-pill cp-pill--${r.toLowerCase()}`}>{r}</span>
                   <div className="mid">
                     <div className="opp">{f.is_home ? "vs" : "at"} {f.opponent || "TBC"}</div>
-                    <div className="sub">{f.league_name || ""}</div>
+                    <div className="sub">{dm}</div>
                   </div>
                   <span className="res">{ours}–{theirs}</span>
                 </div>
               );
             })}
           </div>
-        </>
-      )}
+        </div>
+      ))}
     </Section>
   );
 }

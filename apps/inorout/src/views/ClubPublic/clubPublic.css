@@ -172,6 +172,11 @@
 .cp-fxrow .sub { font: 500 10px var(--font-body); color: var(--t2); }
 .cp-fxrow .time { font: 700 11px var(--font-body); color: var(--cp-accent); }
 .cp-fxrow .res { font: 400 18px var(--font-display); }
+.cp-league { margin-top: 16px; }
+.cp-league:first-of-type { margin-top: 0; }
+.cp-league-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
+.cp-league-name { font: 700 11px var(--font-body); letter-spacing: .8px; color: var(--t1); }
+.cp-league-season { font: 500 10px var(--font-body); color: var(--t2); white-space: nowrap; }
 
 /* ── teams ───────────────────────────────────────────────────────────────── */
 .cp-cohort-label { font: 700 10px var(--font-body); letter-spacing: .8px; color: var(--t2); margin: 14px 0 8px; }

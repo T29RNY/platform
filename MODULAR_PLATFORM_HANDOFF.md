@@ -256,8 +256,19 @@ engine; Playwright the render. Plan B if a league has no usable feed = the exist
   core kwarg). mig 450 .sql + _down.sql same commit (HR#11). RPCS.md records consumers (HR#14: cron faSyncJob +
   future C2 render). **PARSER CALIBRATION OWED at pilot onboarding** (built against the generic FA Full-Time
   markup per decision 1b; no real pilot league exists to verify against — refine the regex when one onboards).
-- **C2 — OUR-styled per-league fixtures/results render.** Extend P4 `clubPublicSections` FA-fixtures block;
-  `get_club_public` leagues slice already carries `fixtures[]`. Playwright the render (rich `/c/finbars-fc`).
+- **C2 — OUR-styled per-league fixtures/results render. ✅ SHIPPED s225 (pure frontend, no RPC/mig).**
+  Rewrote `FixturesSection` (`apps/inorout/src/views/ClubPublic/clubPublicSections.jsx`): keeps the club-wide
+  form-guide pills (P4) then layers the FULL per-league list — was a 3-row teaser. Each league with fixtures
+  renders its OWN-styled block: league header (name + `season_label`, suppressed when the club runs a single
+  league = redundant) → **UPCOMING** (scheduled, soonest-first, date + kickoff time, vs/at opponent) →
+  **RESULTS** (completed, newest-first, W/D/L pill + score + date), both UNCAPPED. Source-agnostic — manual
+  and `fa_import` club_fixtures arrive in the same `get_club_public` `leagues[].fixtures[]` shape, so this
+  renders FA-ingested fixtures with zero further change. Section title "& form"→"& results". New CSS block
+  `.cp-league*` (namespaced, `--t1/--t2` tokens) in `clubPublic.css`. Gates: build PASS, hygiene 7/7,
+  casual-regression PASS (ClubPublic files imported ONLY by ClubPublicScreen — zero casual-surface overlap;
+  CSS `.cp-`-namespaced; casual landing smoke unchanged; console 0 err), Playwright `/c/finbars-fc` (rich:
+  form pills + 3 upcoming + 3 results) + `/c/demo-boxing` (thin: empty state intact) both 0 console errors.
+  ⛔ real-device walk owed (rolls into the Epic B owed-walk; /c/ is a public web route, not a casual PWA surface).
 - **C3 — surface the auto-opened availability / team-mapping refinement.** casual-regression IF it touches
   `apps/inorout/src`; EV on any new write.
 
