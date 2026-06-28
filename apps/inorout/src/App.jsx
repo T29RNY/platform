@@ -122,35 +122,54 @@ function getRoute() {
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
 
-  // Redirect bridge — only at root "/"
+  // Redirect bridge — only at root "/".
   try {
-    const stored = localStorage.getItem("ioo_redirect_to");
-    if (stored) {
-      const { path, ts } = JSON.parse(stored);
-      const age = Date.now() - ts;
-      if (path && ts && age < 7 * 24 * 60 * 60 * 1000) {
+    // SKIP the whole bridge when an auth session exists. This "resume to my last
+    // token link" feature is for ANONYMOUS token players reopening the PWA. A
+    // signed-in user must land on their OWN account home, never on a remembered
+    // /p/ or /admin/ breadcrumb — otherwise a stale link drops a freshly-signed-in
+    // session onto ANOTHER player's passwordless token view (no Sign Out, wrong
+    // identity = the "bugged and signed me in as Rocky" bug, App Store 2.1(a)).
+    // getRoute runs synchronously before onAuthStateChange, so this must be a sync
+    // storage check (the supabase session token, default key sb-<ref>-auth-token),
+    // not the async getSession().
+    let signedIn = false;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && /^sb-.*-auth-token$/.test(k) && localStorage.getItem(k)) { signedIn = true; break; }
+      }
+    } catch { /* storage unavailable — treat as not signed in */ }
+
+    if (!signedIn) {
+      const stored = localStorage.getItem("ioo_redirect_to");
+      if (stored) {
+        const { path, ts } = JSON.parse(stored);
+        const age = Date.now() - ts;
+        if (path && ts && age < 7 * 24 * 60 * 60 * 1000) {
+          localStorage.removeItem("ioo_redirect_to");
+          window.location.replace(path);
+          return { type:"redirecting" };
+        }
+        // Expired — remove it but fall through to lastVisited
         localStorage.removeItem("ioo_redirect_to");
-        window.location.replace(path);
+      }
+
+      // Context-aware resume (multi-context nav): prefer the structured last-context
+      // — written on every resumable context route, so a club/guardian member resumes
+      // where they actually were, not on a dormant squad. Falls back to the legacy
+      // squad-only breadcrumb for users who predate the structured key.
+      const lastContext = readLastContext();
+      if (lastContext) {
+        window.location.replace(lastContext);
         return { type:"redirecting" };
       }
-      // Expired — remove it but fall through to lastVisited
-      localStorage.removeItem("ioo_redirect_to");
-    }
 
-    // Context-aware resume (multi-context nav): prefer the structured last-context
-    // — written on every resumable context route, so a club/guardian member resumes
-    // where they actually were, not on a dormant squad. Falls back to the legacy
-    // squad-only breadcrumb for users who predate the structured key.
-    const lastContext = readLastContext();
-    if (lastContext) {
-      window.location.replace(lastContext);
-      return { type:"redirecting" };
-    }
-
-    const last = localStorage.getItem("ioo_last_visited");
-    if (last) {
-      window.location.replace(last);
-      return { type:"redirecting" };
+      const last = localStorage.getItem("ioo_last_visited");
+      if (last) {
+        window.location.replace(last);
+        return { type:"redirecting" };
+      }
     }
   } catch(e) {
     console.error("[ioo] redirect bridge error:", e);
