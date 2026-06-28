@@ -241,14 +241,21 @@ engine; Playwright the render. Plan B if a league has no usable feed = the exist
    to OUR games AND auto-opens availability (engine above). No match on either side ⇒ still upsert the row so it
    renders, `club_team_id` NULL (no availability).
 
-**Confirmed phased build (each own PR, cloud one-at-a-time; next mig = 450):**
-- **C1 (mig 450) — ingest pipeline, server-side only.** New service-role RPC `fa_ingest_upsert_fixtures(p_league_id
-  uuid, p_fixtures jsonb)` (idempotent upsert on `fa_fixture_key`, stamp `fa_last_synced_at`, audit per HR#9) +
-  a JS parser module + a `faSyncJob` in `cron.js` iterating leagues with `fa_source_url` set (fetch → parse →
-  call RPC), provider-tagged via `club_fixtures.source='fa_import'` + extend `venue_update_club_league` with
-  `p_fa_source_url`. Gates: rpc-security-sweep + ephemeral-verify (+leak) on the write RPC; NO client surface →
-  casual-regression NOT triggered. Migration .sql + _down.sql same commit (HR#11). RPCS.md records consumers
-  (HR#14: cron faSyncJob + future C2 render).
+**Confirmed phased build (each own PR, cloud one-at-a-time; next mig = 451):**
+- **C1 (mig 450) — ingest pipeline, server-side only. ✅ SHIPPED s224.** Service-role RPC
+  `fa_ingest_upsert_fixtures(p_league_id uuid, p_fixtures jsonb)` — SECDEF, search_path pinned, single overload,
+  service-role-ONLY (Supabase default-priv anon+auth grant explicitly REVOKEd); idempotent UPSERT on the existing
+  partial index `uq_club_fixtures_fa(league_id, fa_fixture_key)`; `source='fa_import'`; per-row club_team_id
+  validated vs the league's club (cross-club → unmatched); stamps `fa_last_synced_at`; system audit row (HR#9);
+  re-sync does NOT overwrite manual `playing_area_id`/`official_id`/`ref_name`/`notes` (a ref assignment survives).
+  JS parser `apps/inorout/api/_fa_parser.js` (`parseFullTimeHtml`: displayFixture id→key, dd/mm/yy date,
+  "H - A"→completed else scheduled) + `faSyncJob` in `cron.js` (6h self-throttle per league, fetch→parse→team-map
+  vs `club_teams.name`→call RPC). Extended `venue_update_club_league` with `p_fa_source_url` (7-arg; DROP+recreate
+  per param-type rule) + `venueUpdateClubLeague` wrapper `+faSourceUrl`. Gates: rpc-security 2/2, EV 8/8+leak-0,
+  hygiene 7/7, build PASS, casual-regression N/A (no apps/inorout/src or match-engine; additive api/ + 1 optional
+  core kwarg). mig 450 .sql + _down.sql same commit (HR#11). RPCS.md records consumers (HR#14: cron faSyncJob +
+  future C2 render). **PARSER CALIBRATION OWED at pilot onboarding** (built against the generic FA Full-Time
+  markup per decision 1b; no real pilot league exists to verify against — refine the regex when one onboards).
 - **C2 — OUR-styled per-league fixtures/results render.** Extend P4 `clubPublicSections` FA-fixtures block;
   `get_club_public` leagues slice already carries `fixtures[]`. Playwright the render (rich `/c/finbars-fc`).
 - **C3 — surface the auto-opened availability / team-mapping refinement.** casual-regression IF it touches

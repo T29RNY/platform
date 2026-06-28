@@ -5366,10 +5366,11 @@ export async function venueCreateClubLeague(venueToken, clubId, { name, seasonLa
   return data;
 }
 
-export async function venueUpdateClubLeague(venueToken, leagueId, { name = null, seasonLabel = null, archived = null, faEmbedCode = null } = {}) {
+export async function venueUpdateClubLeague(venueToken, leagueId, { name = null, seasonLabel = null, archived = null, faEmbedCode = null, faSourceUrl = null } = {}) {
   const { data, error } = await supabase.rpc("venue_update_club_league", {
     p_venue_token: venueToken, p_league_id: leagueId, p_name: name,
     p_season_label: seasonLabel, p_archived: archived, p_fa_embed_code: faEmbedCode,
+    p_fa_source_url: faSourceUrl,
   });
   if (error) { console.error("[league] venue_update_club_league failed", error); throw error; }
   return data;

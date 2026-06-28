@@ -6,6 +6,7 @@ const { sendTemplated } = require("./_mailer");
 const { sendTemplated: sendSmsTemplated, pickChannel } = require("./_sms");
 const { stripe: stripeClient, isConfigured: stripeConfigured } = require("./_stripe");
 const { isGcConfigured, gcClient } = require("./_gocardless");
+const { parseFullTimeHtml, normaliseTeamName } = require("./_fa_parser");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -283,6 +284,13 @@ module.exports = async function handler(req, res) {
     await clubBroadcastJob(base, results);
   } catch (e) {
     results.push(`clubBroadcast: error — ${e.message}`);
+  }
+
+  // ── FA Full-Time fixture ingest (Epic C / C1) ────────────────────────────
+  try {
+    await faSyncJob(results);
+  } catch (e) {
+    results.push(`faSync: error — ${e.message}`);
   }
 
   // ── Class waitlist offer expiry (Phase 4, mig 341) — runs BEFORE the notify
@@ -857,6 +865,96 @@ async function clubBroadcastJob(base, results) {
     totalSent += sent; totalSkipped += skipped;
   }
   results.push(`clubBroadcast: ${broadcasts.length} broadcast(s) — ${totalSent} sent, ${totalSkipped} already-sent`);
+}
+
+// ── FA Full-Time fixture ingest (Epic C / C1, mig 450) ───────────────────────
+// Thin scheduler over the service-role RPC fa_ingest_upsert_fixtures, mirroring
+// membershipRenewalsJob. For each non-archived club_league that has an
+// fa_source_url AND hasn't synced in the last 6h (self-throttle — be polite to
+// the FA, fixtures change slowly): fetch the public Full-Time page, HTML-parse
+// it (_fa_parser), team-map each side vs the club's club_teams.name, and UPSERT
+// the batch. The whole parse/match is here in JS; the RPC stays a dumb idempotent
+// writer. Per-league try/catch so one bad feed never sinks the rest of the cron.
+const FA_SYNC_STALE_MS = 6 * 60 * 60 * 1000;
+
+async function faSyncJob(results) {
+  const cutoff = new Date(Date.now() - FA_SYNC_STALE_MS).toISOString();
+  const { data: leagues, error } = await supabase
+    .from("club_leagues")
+    .select("id, club_id, fa_source_url, fa_last_synced_at")
+    .not("fa_source_url", "is", null)
+    .is("archived_at", null)
+    .or(`fa_last_synced_at.is.null,fa_last_synced_at.lt.${cutoff}`);
+  if (error) { results.push(`faSync: query error — ${error.message}`); return; }
+  if (!leagues?.length) { results.push("faSync: none due"); return; }
+
+  let synced = 0, totalUpserted = 0;
+  for (const lg of leagues) {
+    try {
+      const url = String(lg.fa_source_url || "").trim();
+      if (!/^https?:\/\//i.test(url)) {
+        results.push(`faSync: ${lg.id} bad url`);
+        continue;
+      }
+      const resp = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; InOrOutFixtureSync/1.0)" },
+      });
+      if (!resp.ok) { results.push(`faSync: ${lg.id} fetch ${resp.status}`); continue; }
+      const html = await resp.text();
+      const parsed = parseFullTimeHtml(html);
+      if (!parsed.length) { results.push(`faSync: ${lg.id} 0 fixtures parsed`); continue; }
+
+      // Team-map: pull the club's teams once, match parsed sides by normalised name.
+      const { data: teams } = await supabase
+        .from("club_teams")
+        .select("id, name")
+        .eq("club_id", lg.club_id);
+      const byName = new Map(
+        (teams || []).map(t => [normaliseTeamName(t.name), t.id])
+      );
+
+      const fixtures = parsed.map(fx => {
+        const homeId = byName.get(normaliseTeamName(fx.home_team)) || null;
+        const awayId = byName.get(normaliseTeamName(fx.away_team)) || null;
+        let club_team_id = null, is_home = true, opponent_name, club_team_name;
+        if (homeId) {
+          club_team_id = homeId; is_home = true;
+          opponent_name = fx.away_team; club_team_name = null;
+        } else if (awayId) {
+          club_team_id = awayId; is_home = false;
+          opponent_name = fx.home_team; club_team_name = null;
+        } else {
+          // Neither side is ours — still ingest so it renders (no availability).
+          club_team_id = null; is_home = true;
+          club_team_name = fx.home_team; opponent_name = fx.away_team;
+        }
+        return {
+          fa_fixture_key: fx.fa_fixture_key,
+          club_team_id,
+          club_team_name,
+          opponent_name,
+          is_home,
+          scheduled_date: fx.scheduled_date,
+          kickoff_time: fx.kickoff_time,
+          home_score: fx.home_score,
+          away_score: fx.away_score,
+          status: fx.status,
+        };
+      });
+
+      const { data: res, error: rpcErr } = await supabase.rpc("fa_ingest_upsert_fixtures", {
+        p_league_id: lg.id,
+        p_fixtures: fixtures,
+      });
+      if (rpcErr) { results.push(`faSync: ${lg.id} rpc — ${rpcErr.message}`); continue; }
+      synced++;
+      totalUpserted += res?.upserted || 0;
+      results.push(`faSync: ${lg.id} ${res?.upserted || 0} upserted (${res?.matched || 0} ours)`);
+    } catch (e) {
+      results.push(`faSync: ${lg.id} — ${e.message}`);
+    }
+  }
+  results.push(`faSync: ${synced}/${leagues.length} league(s), ${totalUpserted} fixture(s)`);
 }
 
 // ── Stripe reconciliation (Phase 7) ──────────────────────────────────────────
