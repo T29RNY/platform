@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { startOAuth } from "../native/native-auth.js";
-import { isNativeApp } from "../native/is-native.js";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
@@ -25,7 +24,6 @@ const APPLE_SVG = (
 
 export default function EmailCaptureOverlay({ conflictMessage }) {
   const [email,        setEmail]        = useState("");
-  const [sent,         setSent]         = useState(false);
   const [sending,      setSending]      = useState(false);
   const [showEmail,    setShowEmail]    = useState(false);
   const [awaitingCode, setAwaitingCode] = useState(false); // native: enter emailed code
@@ -49,22 +47,14 @@ export default function EmailCaptureOverlay({ conflictMessage }) {
   const signInWithEmail = async () => {
     if (!email.trim()) return;
     setSending(true); setCodeError(null);
-    // NATIVE: magic link to /auth/callback opens in Safari (not a universal-link
-    // path) — use the 6-digit CODE flow (verifyOtp) instead. WEB unchanged.
-    if (isNativeApp()) {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim().toLowerCase(),
-        options: { shouldCreateUser: true },
-      });
-      if (!error) setAwaitingCode(true);
-      setSending(false);
-      return;
-    }
+    // CODE flow on BOTH web and native — the magic link to /auth/callback opens
+    // in Safari inside the wrapper (not a universal-link path) and the auth
+    // emails are code-only; verifyOtp works everywhere (mirrors AuthGateModal).
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}` },
+      email: email.trim().toLowerCase(),
+      options: { shouldCreateUser: true },
     });
-    if (!error) setSent(true);
+    if (!error) setAwaitingCode(true);
     setSending(false);
   };
 
@@ -169,19 +159,6 @@ export default function EmailCaptureOverlay({ conflictMessage }) {
             Use a different email
           </button>
         </div>
-      ) : sent ? (
-        <div style={{ textAlign: "center", maxWidth: 300 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
-          <div style={{
-            fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
-            color: "var(--t1)", letterSpacing: "0.06em", marginBottom: 12,
-          }}>
-            CHECK YOUR EMAIL
-          </div>
-          <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.6 }}>
-            Tap the link in your email to continue.
-          </div>
-        </div>
       ) : (
         <div style={{ width: "100%", maxWidth: 320 }}>
           <div style={{
@@ -264,7 +241,7 @@ export default function EmailCaptureOverlay({ conflictMessage }) {
                   cursor: sending || !email.trim() ? "not-allowed" : "pointer",
                 }}
               >
-                {sending ? "Sending..." : (isNativeApp() ? "Send me a code" : "Send Magic Link →")}
+                {sending ? "Sending..." : "Send me a code"}
               </button>
             </div>
           )}

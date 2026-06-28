@@ -2,7 +2,6 @@ import { useState } from "react";
 import { colors as C } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { startOAuth } from "../native/native-auth.js";
-import { isNativeApp } from "../native/is-native.js";
 
 // Apple logo — currentColor so it inherits the button's text colour (no hex).
 const APPLE_SVG = (
@@ -17,7 +16,6 @@ const BASE_URL = typeof window !== "undefined"
 
 export default function SignIn({ teamName, onBack, returnTo }) {
   const [email,        setEmail]        = useState("");
-  const [sent,         setSent]         = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState(null);
   const [showEmail,    setShowEmail]    = useState(false);
@@ -52,33 +50,17 @@ export default function SignIn({ teamName, onBack, returnTo }) {
     if (!email.trim()) return;
     setLoading(true); setError(null);
     storeReturnTo();
-    // NATIVE: a magic link emailed to /auth/callback opens in Safari (that path
-    // isn't a universal-link), not the wrapper — the session would land in Safari
-    // and the app stays logged out. So inside the native app use the 6-digit CODE
-    // flow (verifyOtp), identical to AuthGateModal: no redirect, works in the
-    // WKWebView. WEB keeps the proven magic-link behaviour untouched.
-    if (isNativeApp()) {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim().toLowerCase(),
-        options: { shouldCreateUser: true },
-      });
-      if (error) { setError(error.message); setLoading(false); }
-      else { setAwaitingCode(true); setLoading(false); }
-      return;
-    }
+    // CODE flow on BOTH web and native. The emailed magic link points at
+    // /auth/callback, which isn't a universal-link path, so inside the native
+    // wrapper it opens in Safari and the session never reaches the app; the auth
+    // email templates are code-only for that reason. verifyOtp works identically
+    // on web and native (mirrors AuthGateModal) — no redirect, no dead link.
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${BASE_URL}/auth/callback`,
-      },
+      email: email.trim().toLowerCase(),
+      options: { shouldCreateUser: true },
     });
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-    } else {
-      setSent(true);
-      setLoading(false);
-    }
+    if (error) { setError(error.message); setLoading(false); }
+    else { setAwaitingCode(true); setLoading(false); }
   };
 
   // NATIVE code verification. On success the session is live in storage; route
@@ -175,26 +157,6 @@ export default function SignIn({ teamName, onBack, returnTo }) {
               Use a different email
             </button>
           </div>
-        ) : sent ? (
-          // Magic link sent
-          <div style={{ textAlign:"center", paddingTop:40 }}>
-            <div style={{ fontSize:52, marginBottom:16 }}>📧</div>
-            <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:24,
-              color:C.text, letterSpacing:1, marginBottom:8 }}>
-              CHECK YOUR EMAIL
-            </div>
-            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13,
-              color:C.muted, lineHeight:1.6, marginBottom:24 }}>
-              We sent a sign-in link to<br/>
-              <strong style={{ color:C.text }}>{email}</strong><br/>
-              Tap it to continue — no password to remember.
-            </div>
-            <button onClick={() => { setSent(false); setEmail(""); }}
-              style={{ background:"none", border:"none", color:C.amber,
-                fontFamily:"'DM Sans', sans-serif", fontSize:13, cursor:"pointer" }}>
-              Use a different email
-            </button>
-          </div>
         ) : (
           <>
             <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:14,
@@ -275,7 +237,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
                   color: loading || !email.trim() ? C.muted : C.black,
                   fontFamily:"'DM Sans', sans-serif", fontSize:14, fontWeight:800,
                   cursor: loading || !email.trim() ? "not-allowed" : "pointer" }}>
-                  {loading ? "Sending..." : (isNativeApp() ? "Send me a code" : "Send Magic Link →")}
+                  {loading ? "Sending..." : "Send me a code"}
                 </button>
               </div>
             )}

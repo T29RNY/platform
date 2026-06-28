@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { EnvelopeSimple, PaperPlaneTilt, User } from "@phosphor-icons/react";
 import { startOAuth } from "../native/native-auth.js";
-import { isNativeApp } from "../native/is-native.js";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
@@ -423,7 +422,6 @@ function CheckingState() {
 function SignInStep({ team, onGoogle, onApple }) {
   const [email,        setEmail]        = useState("");
   const [emailOpen,    setEmailOpen]    = useState(false);
-  const [sent,         setSent]         = useState(false);
   const [sending,      setSending]      = useState(false);
   const [authError,    setAuthError]    = useState(null);
   const [awaitingCode, setAwaitingCode] = useState(false); // native: enter emailed code
@@ -433,24 +431,15 @@ function SignInStep({ team, onGoogle, onApple }) {
     if (!email.trim()) return;
     setSending(true); setAuthError(null);
     try {
-      // NATIVE: a magic link to /auth/callback opens in Safari (not a universal-link
-      // path), not the wrapper — use the 6-digit CODE flow (verifyOtp) instead.
-      if (isNativeApp()) {
-        const { error } = await supabase.auth.signInWithOtp({
-          email: email.trim().toLowerCase(),
-          options: { shouldCreateUser: true },
-        });
-        if (error) throw error;
-        setAwaitingCode(true);
-        return;
-      }
-      const returnTo = encodeURIComponent(window.location.href);
+      // CODE flow on BOTH web and native — the magic link to /auth/callback opens
+      // in Safari inside the wrapper (not a universal-link path) and the auth
+      // emails are code-only; verifyOtp works everywhere (mirrors AuthGateModal).
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}` },
+        email: email.trim().toLowerCase(),
+        options: { shouldCreateUser: true },
       });
       if (error) throw error;
-      setSent(true);
+      setAwaitingCode(true);
     } catch (err) {
       setAuthError(err.message || "Something went wrong. Please try again.");
     } finally {
@@ -530,25 +519,6 @@ function SignInStep({ team, onGoogle, onApple }) {
               </button>
             </div>
           </div>
-        ) : sent ? (
-          <div className="join-sent-box">
-            <p className="join-sent-title">Check your email</p>
-            <p className="join-sent-body">
-              We sent a sign-in link to{" "}
-              <span className="join-sent-email">{email}</span>
-            </p>
-            <p className="join-sent-warn">
-              The link expires after one use. If it
-              doesn't work, return to your invite link
-              and try again.
-            </p>
-            <button
-              type="button"
-              className="join-email-link"
-              onClick={() => { setSent(false); setEmail(""); }}>
-              Use a different email
-            </button>
-          </div>
         ) : (
           <>
             <button
@@ -607,7 +577,7 @@ function SignInStep({ team, onGoogle, onApple }) {
                   onClick={handleEmailSignIn}
                   disabled={sending || !email.trim()}>
                   <PaperPlaneTilt size={18} weight="thin" aria-hidden="true" />
-                  {sending ? "Sending..." : (isNativeApp() ? "Send me a code" : "Send magic link")}
+                  {sending ? "Sending..." : "Send me a code"}
                 </button>
                 <button
                   type="button"
