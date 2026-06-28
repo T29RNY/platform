@@ -269,8 +269,40 @@ engine; Playwright the render. Plan B if a league has no usable feed = the exist
   CSS `.cp-`-namespaced; casual landing smoke unchanged; console 0 err), Playwright `/c/finbars-fc` (rich:
   form pills + 3 upcoming + 3 results) + `/c/demo-boxing` (thin: empty state intact) both 0 console errors.
   ⛔ real-device walk owed (rolls into the Epic B owed-walk; /c/ is a public web route, not a casual PWA surface).
-- **C3 — surface the auto-opened availability / team-mapping refinement.** casual-regression IF it touches
-  `apps/inorout/src`; EV on any new write.
+- **C3 — surface the auto-opened availability / team-mapping refinement. 📋 AUDITED s225, BUILD NOT STARTED
+  (awaiting operator green-light on the mount). Next free mig = 451.**
+  **Audit findings (read-only, s225):**
+  - **Two parts, and Part 2 is calibration-blocked.** Part 2 (team-map refine) = `normaliseTeamName`
+    ([`apps/inorout/api/_fa_parser.js:144`]) is a plain lowercase + strip-non-alphanumeric + collapse-spaces, and
+    `faSyncJob` ([`cron.js:907-930`]) requires an EXACT normalised equality between `club_teams.name` and each
+    parsed FA side. Real FA Full-Time names rarely equal our short team names (FA "Finbar's FC U12 Saturday" vs our
+    "U12 Falcons") → most rows land unmatched (`club_team_id` NULL → no availability auto-open). A real fix
+    (club-name prefix-strip, age-group token match, token-overlap) IS the "PARSER CALIBRATION OWED at pilot
+    onboarding" item — and there is STILL no real feed to validate against (decision 1b). **→ DEFER Part 2 to pilot
+    onboarding; refining the matcher against synthetic HTML over-fits.**
+  - **Part 1 (surface availability) — the buildable C3.** The availability engine + the GUARDIAN and MEMBER sides
+    already exist and are surfaced (`club_fixture_availability` mig 426 = one row per fixture+member;
+    `guardian_list_child_fixtures`/`guardian_set_fixture_availability`/`member_list_club_fixtures`;
+    `GuardianMatches.jsx`/`GuardianSchedule.jsx`). **The gap = the club MANAGER has no reader and no home.** The
+    `team_manager` /hub track is a PLACEHOLDER: `nav.js` defines the role + tabs (`tonight·league·people·more`) but
+    `MobileShell.jsx` has render branches only for guardian/operator/referee — a club manager at `/hub` sees the
+    "Foundation ready" stub on every tab. (Putting availability counts on the PUBLIC club page = WRONG: internal
+    squad/safeguarding data, not public.)
+  **RECOMMENDED C3 SCOPE (operator green-light pending):** stand up the team-manager track's FIRST real screen —
+  **"Fixtures & availability"** on its `league` tab:
+  1. New reader RPC `club_manager_list_team_fixtures` — auth.uid→member_profiles→`club_team_managers` (is_active)
+     JOIN `club_teams`, cloning the mig-446 manager-auth preamble; returns the manager's team(s) upcoming + recent
+     `club_fixtures`, each with the availability roster + COUNTS (in/out/maybe/pending). Source-agnostic → FA-imported
+     auto-opened fixtures appear automatically = the C3 payoff. SECDEF/search_path pinned/single overload/anon REVOKE.
+  2. Wrapper in `packages/core/storage/supabase.js` + barrel; new `TeamManagerLeague` screen + its MobileShell render
+     branch (other 3 tabs stay on the placeholder, out of scope). **mig 451.**
+  - **Full cycle next session (operator instruction s225): AUDIT → VERIFY → EXECUTE → VERIFY → COMMIT.** Gates:
+    rpc-security, EV (new READ RPC — manager-auth rejects + counts correctness), build, hygiene, **casual-regression
+    MANDATORY** (touches `apps/inorout/src` + `supabase.js`), Playwright `/hub` as the demo club manager.
+  - ⚠️ **Shared-tree caution (CLAUDE.md cloud discipline):** the app-store session was live-editing `supabase.js` +
+    `App.jsx` in THIS working tree mid-session (now landed, commit 9b366cd). Before C3 build: re-check the tree is
+    clean + in sync; commit only explicit files (never `git add -A`); if another session is live on `supabase.js`,
+    build C3 in an isolated worktree or wait for it to land.
 
 **Plan B (unchanged):** a league with no usable feed degrades to the P4 form-guide + manual
 `club_manager_update_home_fixture` (mig 414). Sources: FA Grassroots "Embedding Feeds" article; live
