@@ -105,7 +105,14 @@ export async function startOAuth(provider, options = {}) {
   // the broken web flow. DORMANT until the native build links the plugin + 👤 sets the
   // iOS Google client id + Supabase Authorized Client IDs (see GOOGLE_IOS_CLIENT_ID).
   if (provider === 'google' && isNativeApp()) {
-    return startGoogleNative(options);
+    const r = await startGoogleNative(options);
+    // __useWebFallback: the native Social Login plugin is NOT linked in THIS binary
+    // (e.g. the current 1.0(5) loading this remote bundle — the plugin first ships in
+    // 1.0(6)). Fall through to the existing web/browser flow below so Google keeps
+    // working exactly as before, instead of hard-erroring. Once 1.0(6) links the plugin
+    // this returns the native result directly. (Apple needs no such fallback — its
+    // plugin IS in 1.0(5).)
+    if (!r?.__useWebFallback) return r;
   }
 
   // WEB / PWA — unchanged full-page redirect.
@@ -214,7 +221,22 @@ async function startAppleNative(options = {}) {
 //      archive 1.0(6). The web/PWA path never touches any of this.
 const GOOGLE_IOS_CLIENT_ID = ''; // 👤 set to the iOS OAuth client id (…apps.googleusercontent.com)
 
+// Bounded wait for a native plugin's bridge to inject (cold-launch race), mirroring
+// waitForApplePlugin. Returns false if the plugin isn't linked in this binary at all.
+async function waitForPlugin(name, maxChecks = 15, stepMs = 100) {
+  for (let i = 0; i < maxChecks; i++) {
+    if (Capacitor.isPluginAvailable(name)) return true;
+    await new Promise((resolve) => setTimeout(resolve, stepMs));
+  }
+  return Capacitor.isPluginAvailable(name);
+}
+
 async function startGoogleNative(options = {}) {
+  // Plugin only present from 1.0(6) on. If it isn't linked, signal the caller to use
+  // the existing web/browser flow rather than erroring (keeps 1.0(5) Google working).
+  if (!(await waitForPlugin('SocialLogin'))) {
+    return { data: null, error: null, __useWebFallback: true };
+  }
   try {
     const { SocialLogin } = await import('@capgo/capacitor-social-login');
     await SocialLogin.initialize({ google: { iOSClientId: GOOGLE_IOS_CLIENT_ID } });
