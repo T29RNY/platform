@@ -24,7 +24,6 @@
 // scheme (CFBundleURLTypes / intent-filter). Same shape as 3.5's APNs/FCM —
 // the web path never touches any of this.
 
-import { Capacitor } from '@capacitor/core';
 import { supabase } from '@platform/core/storage/supabase.js';
 import { isNativeApp } from './is-native.js';
 
@@ -74,15 +73,23 @@ export async function startOAuth(provider, options = {}) {
   // identity token (signInWithIdToken), NOT a webview OAuth redirect: no system
   // browser, no #access_token hash, no /auth/callback round-trip, no cookie/storage
   // race at login — it eliminates the whole class of WKWebView auth fragility.
-  // Gated on isPluginAvailable so it stays DORMANT until a binary that actually
-  // LINKS the plugin ships: on the current binary the plugin isn't registered →
-  // isPluginAvailable is false → we fall through to the proven web flow below, so
-  // shipping this JS to the live bundle can't break the already-submitted binary.
-  if (
-    provider === 'apple' &&
-    isNativeApp() &&
-    Capacitor.isPluginAvailable('SignInWithApple')
-  ) {
+  //
+  // Gate on isNativeApp() ALONE — NOT on Capacitor.isPluginAvailable('SignInWithApple').
+  // Both `isPluginAvailable` and `isNativePlatform()` read the Capacitor native
+  // BRIDGE, which the remote-server.url WKWebView injects late on a cold launch.
+  // App Review build 1.0(5) FAILED here: the reviewer's fast/cold tap hit the gate
+  // before the bridge was up → isPluginAvailable was false → it silently fell
+  // through to the web OAuth flow below, which can't complete its return inside the
+  // wrapper → "Sign in with Apple returned an error" (confirmed from the live auth
+  // logs: the reviewer's taps hit /authorize?provider=apple, the WEB path, and never
+  // returned). isNativeApp() keys off the appendUserAgent UA marker FIRST, which is
+  // baked into the binary and present from the first line of JS — bridge-independent.
+  // The plugin is LINKED in every native build from 1.0(5) on, so once we know we're
+  // native, native Sign in with Apple is the right path; if the plugin call fails it
+  // surfaces a real error (startAppleNative's catch) rather than silently dropping to
+  // the broken web flow — a build/runtime problem fails loudly in test, never in review.
+  // On web isNativeApp() is false (no marker, no bridge) → the unchanged web path runs.
+  if (provider === 'apple' && isNativeApp()) {
     return startAppleNative(options);
   }
 
