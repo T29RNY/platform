@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "@phosphor-icons/react";
 import { useToursEnabled } from "./TourProvider.jsx";
+import { TOURS_DISABLED } from "../lib/tourRegistry.js";
 
 // FirstTimeHint — the inline coachmark layer of the guided-tour experience
 // (multi-context nav, Phase 2). A small, dismissible, anchored nudge for the
@@ -81,7 +82,7 @@ export default function FirstTimeHint({
 
   // Show only when the flag is on and there's copy to show. With the flag off
   // this is exactly the original layout-safe wrapper div.
-  const show = toursEnabled && visible && (title || body);
+  const show = !TOURS_DISABLED && toursEnabled && visible && (title || body);
 
   return (
     <div style={{ position: "relative", ...style }}>

@@ -17,6 +17,15 @@
 // Keys mirror the locked plan's registry table. `tourKeyFor(type, screen)` maps a
 // deriveContext().type + a screen id onto the right key.
 
+// Global kill switch for the whole Phase 2 guided-tour layer (spotlight Tour +
+// inline FirstTimeHint coachmarks). Turned ON ahead of the iOS App Store
+// resubmission: the spotlight overlay mis-renders inside the native wrapper and
+// fires on the demo team (multi_context_nav on) — i.e. App Review hits it on the
+// /demoadmin + /p/ demo links. Flip back to false to re-enable once the overlay
+// is fixed and device-tested. Both consumers (Tour.jsx, FirstTimeHint.jsx) honour
+// this regardless of the per-team flag.
+export const TOURS_DISABLED = true;
+
 export const TOURS = {
   // ── Casual squad ──────────────────────────────────────────────────────────
   io_tour_casual_myview: {

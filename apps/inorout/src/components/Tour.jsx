@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { getTour } from "../lib/tourRegistry.js";
+import { getTour, TOURS_DISABLED } from "../lib/tourRegistry.js";
 
 // Tour — the context-aware guided-tour engine (multi-context nav, Phase 2).
 //
@@ -74,7 +74,7 @@ export default function Tour({ tourKey, enabled = false, active = true }) {
   // Decide whether to start. Wait out any suppression (onboarding / install /
   // modals) before showing, then mark seen on first SHOW.
   useEffect(() => {
-    if (!enabled || !active || !tour || steps.length === 0) return;
+    if (TOURS_DISABLED || !enabled || !active || !tour || steps.length === 0) return;
     if (wasSeen(tourKey)) return;
     let cancelled = false;
     let timer = 0;
