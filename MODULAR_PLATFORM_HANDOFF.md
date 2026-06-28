@@ -638,7 +638,46 @@ make Cups-tab reachable when empty. Two creation paths into ONE engine: club-adm
 today) + venue-operator (dashboard, new). Gated by the `tournaments` flag (Epic A).
 **Sizing:** ~3–5 sessions (RPC auth clones + EV + venue UI).
 
-#### AUDIT COMPLETE + 3 DECISIONS LOCKED (session 227) — build = D1 next session, mig 452
+#### D1 BACKEND SHIPPED (session 227, mig 452, PR #149 merged 76b17be) — D2 = venue UI, next
+The whole D1 backend is live and merged: `club_id`→nullable, caps CHECK +`manage_tournaments`, shared
+`_authorise_venue_tournament` helper, 11 venue-token write siblings + 3 reads (`venue_get_tournament`/
+`_schedule`/`_tournament_standings`; the list read reuses the pre-existing `list_venue_tournaments`),
+`get_tournament_public` LEFT JOIN, and 3 public-writer audit `COALESCE(club_id,venue_id)` fallbacks.
+Gates: build/hygiene 7/7/rpc-security 15/15/EV 8/8+leak-0; casual N/A. ⚠️ the new standings reader is
+named `venue_get_tournament_standings` (NOT `venue_get_standings` — that name was already taken by a league
+function). Full RPC list + wrappers in RPCS.md session-227 entry. **D2 build-pointers are below; the original
+pre-build audit + decisions are preserved after them.**
+
+#### D2 — BUILD POINTERS (venue UI; next session, mig 453 if any)
+Backend is done — D2 is pure venue-app frontend wiring the D1 wrappers. Grounded entry points:
+- **Chicken-and-egg to fix first:** `apps/venue/src/views/Dashboard.jsx:82-86` — the Competition group's
+  `cups` item is `{ cupOnly: true, flag: "tournaments" }`, hidden until `hasCups` (Dashboard.jsx:179) is
+  true. A venue with zero Event OS tournaments never sees a create entry. Fix: make a Tournaments/Cups
+  surface reachable when EMPTY (drop `cupOnly` for an Event OS create entry, or add a "+ New tournament"
+  affordance in the empty state). `hasCups` can read off `listVenueTournaments` (already returns this
+  venue's Event OS tournaments, club_id NULL-safe).
+- **Heads-up — two different "cups":** the existing `BracketView.jsx` + `SeasonWizard.jsx` drive
+  LEAGUE-mode cups/brackets (venue-token `venuePersistCupBracket` etc), NOT Event OS `tournament_events`.
+  D2 is a NEW Event OS surface; do not bolt it onto BracketView. Reuse the public bracket page
+  (`TournamentScreen`, `/tournament/<slug>`, already live) for the run/spectate view.
+- **Create form** → `venueCreateTournament(venueToken, name, slug, eventDate, { eventEndDate, entryFeePence,
+  entryFeePayer, registrationDeadline, clubId })` — `clubId` OPTIONAL (omit ⇒ venue-owned). Then build via
+  `venueAddCompetition` → `venueRegisterTeam`/`venueSendTeamInvite` → `venueGenerateSchedule` (round-robin)
+  or `venueSeedKnockout`/`venueSeedDoubleElimination`; `venueAssignFixtureSlot` to place fixtures;
+  `venueUpdateTournamentStatus(token, slug, 'open'|'live'|'completed'|…)` to publish/advance;
+  `venueApproveTeam`/`venueRejectTeam` for pending registrations.
+- **Manage panel reads:** `listVenueTournaments(token)` (index), `venueGetTournament(token, slug)` (detail +
+  competitions + teams), `venueGetSchedule(token, teId)` (fixtures + venue pitches/officials),
+  `venueGetTournamentStandings(token, teId, compId)`.
+- **Venue token:** the venue app already threads its admin token to these wrappers exactly like the existing
+  `listVenueTournaments`/`venuePersistCupBracket` calls — follow that call-site pattern.
+- **Gates for D2:** build, hygiene, **Playwright on the venue app** (create a venue-owned tournament from an
+  empty state, build a competition, register teams, generate schedule, publish, confirm it renders on the
+  public `/tournament/<slug>` page). casual-regression N/A (venue app). ⛔ **real-device venue walk owed (HR#13).**
+- **D3 (later):** commercial (branding/sponsors/POTM/equipment) + sports-day venue-token siblings if the
+  pilot needs them.
+
+#### Original pre-build audit + 3 decisions locked (session 227)
 Read-only audit traced the engine, the venue auth helper, the consumer create UI, and the venue rail.
 Findings: (1) the whole Event OS engine + public run-phase (`/tournament/<slug>`, reception TV, ref
 scoring) is built & live; (2) the `tournaments` flag is club-owned (`club_features`) and mig 399
