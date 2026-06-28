@@ -135,7 +135,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
             </div>
             <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13,
               color:C.muted, lineHeight:1.6, marginBottom:20 }}>
-              We emailed a 6-digit code to<br/>
+              We emailed a code to<br/>
               <strong style={{ color:C.text }}>{email}</strong>
             </div>
             <input
