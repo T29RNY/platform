@@ -2,6 +2,51 @@
 
 ---
 
+## ROUND 3 FOLLOW-ON FIXES (2026-06-28, same session) — audit "all cases"
+
+After the Apple fix was proven, a full sign-in audit (operator-driven, all providers,
+fresh accounts, both devices) surfaced and FIXED more native gaps. All server-side
+(remote bundle → live on the 1.0(5) binary), build green, hygiene 7/7, no migration.
+
+- **Email sign-in was BROKEN on native (commits `414b56e`,`a0c212e`,`de7664b`).** The
+  "Continue with Email" magic link points at `/auth/callback`, which is NOT an AASA
+  universal-link path (only `/p`,`/admin`,`/m` are) → the link opens in **Safari**, the
+  session lands there, and the app stays logged out. FIX: on native, `SignIn` +
+  `EmailCaptureOverlay` + `JoinTeam` now use the **6-digit CODE flow** (`signInWithOtp`
+  no-redirect → `verifyOtp` → `/auth/callback`), mirroring the live `AuthGateModal`
+  pattern. WEB unchanged (still magic link). **PROVEN end-to-end in-browser** (UA-marker
+  spoof): code emailed → entered → signed in → landed on profile w/ Sign out + Delete.
+  ⚠️ The OTP is **8 digits** (not 6) — app input tolerates 6–10; UI copy is now
+  length-agnostic.
+- **Resume breadcrumb survived sign-out (commit `de7664b`).** `ioo_last_context` /
+  `ioo_last_visited` / `ioo_redirect_to` were only cleared in AuthCallback when returnTo
+  === "/". On a shared/family iPad, sign-out → sign-in-as-different-user could land the
+  new user on the previous user's last screen (the stale-context landing seen in testing;
+  same root as the "signed in as Rocky" confusion). FIX: clear them on the explicit
+  `SIGNED_OUT` event in the central `onAuthStateChange` handler (App.jsx). NOT on
+  transient INITIAL_SESSION-null.
+- **Google on native CONFIRMED WORKING** — the reviewer's failed Google attempt was the
+  same pre-fix web-flow issue; on a real device the deep-link return completes (the two
+  `/authorize` hits in testing were a 2FA cross-device approval, not fragility). Left
+  as-is; a future build can switch on the dormant ASWebAuthenticationSession opener.
+
+**PRODUCTION EMAIL (Resend SMTP) — SET UP THIS SESSION.** Custom SMTP now live so auth
+emails send from **"In or Out"** (not "Supabase Auth"), via the operator's separate Resend
+account (`in-or-out.com` verified, eu-west-1). Supabase → Auth → Emails → SMTP: host
+`smtp.resend.com`, port 465, user `resend`, password = a Resend API key, sender
+`noreply@in-or-out.com`. Branded **code-only** template applied to the **Magic Link**
+template (verified: test email arrives from In or Out, code works).
+⚠️ STILL OWED on email: update the **"Confirm signup"** template too (brand-new email
+users hit that one, and the default has only a link / NO `{{ .Token }}` code). Decide OTP
+length (currently 8). Per-user send interval is 60s (app resend cooldown is 20s — lower
+the Supabase interval to ~20 to match, optional).
+
+**RESUBMIT-READY:** resubmit SAME build 1.0(5) (all fixes are server-side) with the
+Resolution-Center note. Owed device walks (HR#13): Email code flow on a real iPhone/iPad
+(browser-proven only); EmailCapture/JoinTeam eyeball.
+
+---
+
 ## ROUND 3 — build 1.0(5) REJECTED (2026-06-28) — FIX SHIPPED, SERVER-SIDE, NO REBUILD
 
 **Rejection (2.1(a), iPhone 17 Pro Max + iPad Air M3, iOS/iPadOS 26.5):** "the Sign in
