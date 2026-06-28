@@ -24,6 +24,7 @@
 // scheme (CFBundleURLTypes / intent-filter). Same shape as 3.5's APNs/FCM —
 // the web path never touches any of this.
 
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '@platform/core/storage/supabase.js';
 import { isNativeApp } from './is-native.js';
 
@@ -132,8 +133,25 @@ async function sha256Hex(input) {
 // session IN PLACE, then hand off to /auth/callback so the returnTo + profile-update
 // + breadcrumb-clear logic is shared byte-for-byte with the web sign-in flow.
 // Returns the { data, error } shape the callers already handle.
+// Wait (briefly, bounded) for the SignInWithApple bridge plugin to finish injecting.
+// We already KNOW we're native (isNativeApp() via the baked UA marker), so this is
+// not a native-vs-web decision — it just rides out the cold-launch window where the
+// remote-server.url WKWebView hasn't wired the Capacitor bridge yet (the exact race
+// that read isPluginAvailable=false for App Review and dropped 1.0(5) to the web flow).
+// Healthy device → available on the first check → zero delay. Resolves BEFORE the OS
+// sheet is requested, so there is no double-prompt. Iteration-counted (no Date/timer
+// reliance on wall-clock) so behaviour is deterministic.
+async function waitForApplePlugin(maxChecks = 30, stepMs = 100) {
+  for (let i = 0; i < maxChecks; i++) {
+    if (Capacitor.isPluginAvailable('SignInWithApple')) return true;
+    await new Promise((resolve) => setTimeout(resolve, stepMs));
+  }
+  return Capacitor.isPluginAvailable('SignInWithApple');
+}
+
 async function startAppleNative(options = {}) {
   try {
+    await waitForApplePlugin();
     const { SignInWithApple } = await import('@capacitor-community/apple-sign-in');
     const rawNonce = generateRawNonce();
     const hashedNonce = await sha256Hex(rawNonce);
