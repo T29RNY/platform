@@ -275,8 +275,12 @@ ingest; D is independent (Event OS engine already built). The epics:
   **Ref = standalone module** (audited: league/official arm needs zero squad/club/membership; sells
   independently). RefSix decisions: GPS heatmap/sprint MATCH, video analysis BUILD, multi-watch
   DEFER (Apple-only); add sin-bins + auto match reports. Detail in [[project_watchos_companion]].
-- **D — venue-operator tournament create.** 📋 AUDITED + 3 decisions locked s227 (build = D1 next
-  session, mig 452). Surface the ALREADY-BUILT Event OS engine (migs 314–328:
+- **D — venue-operator tournament create.** 🔨 D1 BACKEND SHIPPED s227 (mig 452): club_id→NULLABLE +
+  caps CHECK widened (+`manage_tournaments`) + shared `_authorise_venue_tournament` helper + 11 venue-token
+  write siblings + 3 reads (+ reuse `list_venue_tournaments`) + `get_tournament_public` LEFT JOIN + 3
+  public-writer audit venue-fallbacks. Gates: build/hygiene 7/7/rpc-security 15/15/EV 8/8+leak-0; casual N/A.
+  **NEXT = D2 venue UI** (Competition tab create form + manage panel; fix the `cupOnly` empty-state). D3 =
+  commercial/sports-day siblings. Surface the ALREADY-BUILT Event OS engine (migs 314–328:
   round-robin/group→KO/single+double-elim/sports-day, registration, auto-schedule, live scoring,
   H2H standings, brackets, cards, sponsors/branding, public hub) in the VENUE dashboard via
   venue-token auth (today club-admin-only, in the consumer app). Auth + UI, not new engine. Gated by
