@@ -2,6 +2,32 @@
 
 ---
 
+## ▶▶ NEXT SESSION — FINAL PRE-SUBMISSION AUDIT (start here)
+
+All code + email fixes are SHIPPED and proven in-browser/logs. The next session is the
+**final pre-submission pass before resubmitting build 1.0(5)**. Do, in order:
+
+1. **Confirm operator actions done:** (a) pasted `email-templates/confirm-signup.html` →
+   Supabase "Confirm signup" + `email-templates/magic-link.html` → "Magic Link", subjects
+   set, Saved; (b) tested a **brand-new email signup** (fresh address → Confirm-signup
+   template → code arrives → verifyOtp signs in). (c) Decide OTP length (8 today).
+2. **Real-device walks owed (HR#13)** on the actual TestFlight 1.0(5): Email **code** flow
+   on iPhone AND iPad (cold launch); EmailCapture + JoinTeam eyeball; re-confirm
+   Apple+Google still native. Watch live auth logs (`/token id_token`, no `/authorize`,
+   no storm).
+3. **Fresh-reviewer walkthrough audit:** install clean, behave like App Review — every
+   sign-in method, fresh Hide-My-Email, 0-team onboarding, account deletion, legal links,
+   hunt for ANY dead button / placeholder / blank route / 2.1(a) or 5.1.1(v) surface.
+4. **Then 👤 resubmit 1.0(5)** (server-side fixes; no rebuild) with the Resolution-Center
+   note. After: watch review status; if rejected, capture reason + diagnose from live logs
+   (the method that cracked round 3).
+
+Demo links for the review note: `app.in-or-out.com/demoadmin` + `/p/p_demo_alex_token`.
+Full session detail below. Commits this session: `444dffb` `dd76c0a` `414b56e` `a0c212e`
+`de7664b` `34c02fc` (+ docs). ⚠️ ONE SESSION ONLY on this repo.
+
+---
+
 ## ROUND 3 FOLLOW-ON FIXES (2026-06-28, same session) — audit "all cases"
 
 After the Apple fix was proven, a full sign-in audit (operator-driven, all providers,
