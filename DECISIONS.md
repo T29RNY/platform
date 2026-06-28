@@ -1,6 +1,13 @@
 # In or Out — Key Decisions Log
 
 ## SESSION 227 — Modular Platform Epic D decisions locked (venue-operator tournament create, pre-build)
+**UPDATE (same session): D1 BACKEND SHIPPED (mig 452).** All three decisions implemented: `club_id` NULLABLE
++ caps CHECK widened (`manage_tournaments`) + shared `_authorise_venue_tournament` helper + 11 venue-token write
+siblings + 3 reads (reusing `list_venue_tournaments` for the list) + `get_tournament_public` LEFT JOIN + 3
+public-writer audit venue-fallbacks (`COALESCE(club_id,venue_id)`). New venue standings reader named
+`venue_get_tournament_standings` to avoid overloading the pre-existing league `venue_get_standings`. Gates:
+build/hygiene 7/7/rpc-security 15/15/EV 8/8+leak-0; casual N/A. D2 = venue UI.
+
 Audit done s227 (plan only, no edits); build = D1 next session (mig 452). The Event OS engine
 (migs 314–328) + the `tournaments` flag (mig 399, already gating the club-admin chain) already exist —
 Epic D is auth + UI, not new tournament logic. Three decisions locked with the operator:
