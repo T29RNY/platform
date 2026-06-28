@@ -999,6 +999,10 @@ export async function deleteMyAccount(token) {
     e.code = body?.error || 'delete_failed';
     throw e;
   }
+  // Clear any live Supabase auth session so a signed-in player who deletes via the
+  // token path (PlayerProfile) isn't left logged in against a now-anonymised row
+  // (matches the authenticated deleteMyAccountAuth path). No-op for a pure-anon player.
+  try { await supabase.auth.signOut(); } catch (e) { console.error(e); }
   return body;
 }
 
@@ -1040,6 +1044,16 @@ export async function deleteMyAccountAuth() {
 }
 
 // ─── Demo data helpers ────────────────────────────────────────────────────────
+// Current-week response spread for the demo squad (p_demo_01..25), so the App-Store
+// reviewer's demo links show a live, populated game. Squad cap is 10; 8 confirmed +
+// Alex = 9 (1 spot left), plus maybes/outs and the rest no-response.
+const DEMO_WEEK_STATUS = {
+  p_demo_01: 'in',    p_demo_02: 'in',    p_demo_03: 'in',    p_demo_04: 'in',
+  p_demo_05: 'in',    p_demo_06: 'in',    p_demo_07: 'in',    p_demo_08: 'in',
+  p_demo_09: 'maybe', p_demo_10: 'maybe', p_demo_11: 'out',   p_demo_12: 'out',
+};
+const DEMO_WEEK_PAID = new Set(['p_demo_01', 'p_demo_02', 'p_demo_03', 'p_demo_04', 'p_demo_05', 'p_demo_06']);
+
 const DEMO_BASELINE = [
   { id:"p_demo_01", goals:18, motm:6, attended:20, w:13, l:5, d:2, bib_count:2, pay_count:20, late_dropouts:1, owes:0, injured:false },
   { id:"p_demo_02", goals:8,  motm:9, attended:19, w:12, l:5, d:2, bib_count:3, pay_count:18, late_dropouts:2, owes:0, injured:false },
@@ -1144,10 +1158,15 @@ export async function resetDemoData() {
     .eq('team_id', 'team_demo')
     .not('id', 'like', 'm_demo_%');
 
-  // 5. Reset each player to baseline stats
+  // 5. Reset each player to baseline stats. A realistic CURRENT-WEEK response
+  //    spread (DEMO_WEEK_STATUS / DEMO_WEEK_PAID) is applied so the demo links the
+  //    App-Store reviewer opens (/demoadmin + /p/) show a LIVE, populated game — not
+  //    an empty "sign-ups not open" board. Anyone not in the spread stays 'none'.
   for (const p of DEMO_BASELINE) {
+    const status = DEMO_WEEK_STATUS[p.id] || 'none';
+    const paid = DEMO_WEEK_PAID.has(p.id);
     await supabase.from('players').update({
-      status: 'none', paid: false, self_paid: false, paid_by: null,
+      status, paid, self_paid: false, paid_by: null,
       owes: p.owes, note: null, injured: false, injured_since: null,
       nickname: null,
       goals: p.goals, motm: p.motm, attended: p.attended,
@@ -1155,10 +1174,16 @@ export async function resetDemoData() {
       pay_count: p.pay_count, late_dropouts: p.late_dropouts,
     }).eq('id', p.id);
   }
+  // Alex (the reviewer's player link, not in DEMO_BASELINE) — confirmed + paid so
+  // /p/p_demo_alex_token shows the live In/Out grid in a positive state.
+  await supabase.from('players')
+    .update({ status: 'in', paid: true, injured: false })
+    .eq('id', 'p_demo_alex');
 
-  // 6. Reset schedule voting state
+  // 6. Reset schedule voting state + make THIS week's game live (so the In/Out grid
+  //    and a populated Live Board show on the demo links, not the "sign-ups closed" card).
   await supabase.from('schedule')
-    .update({ voting_open: false, voting_closes_at: null })
+    .update({ voting_open: false, voting_closes_at: null, game_is_live: true, is_cancelled: false })
     .eq('team_id', 'team_demo');
 
   // 7. Stamp reset time

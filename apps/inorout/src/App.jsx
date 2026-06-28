@@ -684,8 +684,10 @@ export default function App() {
             } catch(e) {}
           }
 
-          // Show email capture overlay on visit 3+ if still unlinked
-          const isDemoToken = route.token?.startsWith('p_demotoken_');
+          // Show email capture overlay on visit 3+ if still unlinked. Exclude ALL
+          // demo player tokens (p_demotoken_* AND the reviewer's p_demo_alex_token /
+          // any p_demo_* link) so the App-Store demo links never pop a sign-up overlay.
+          const isDemoToken = route.token?.startsWith('p_demotoken_') || route.token?.startsWith('p_demo_');
           if (!player.userId && visitCount >= 3 && !isDemoToken) setShowEmailCapture(true);
 
           setMyPlayer(player);

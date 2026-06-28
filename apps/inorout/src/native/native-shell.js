@@ -89,9 +89,12 @@ export function initNativeShell() {
     const hash = parsed.hash || '';
     const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
     const hostPath = `${parsed.host}${parsed.pathname}`.replace(/\/+$/, '');
-    const isAuthReturn = hostPath.endsWith('auth/callback') &&
-      (parsed.searchParams.has('code') || parsed.searchParams.has('error') ||
-       hashParams.has('access_token') || hashParams.has('error'));
+    // ANY return to auth/callback is an auth return — always dismiss the system
+    // browser and hand off to the web callback, even when the param shape isn't the
+    // expected code/access_token/error (e.g. token_hash, or an error carried only as
+    // error_description). Previously a non-matching shape fell through to generic
+    // routing WITHOUT closing the browser, leaving the Safari sheet covering the app.
+    const isAuthReturn = hostPath.endsWith('auth/callback');
     if (isAuthReturn) {
       // Dismiss the system browser, then hand the response to the web callback.
       try {

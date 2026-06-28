@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { colors as C } from "@platform/core";
+import { isNativeApp } from "../native/is-native.js";
 
 const DISMISSED_KEY = "ioo_install_dismissed";
 
@@ -34,6 +35,12 @@ export default function InstallBanner() {
   const [modalStep,      setModalStep] = useState(0);
 
   useEffect(() => {
+    // Already a real native app — never prompt to "Add to Home Screen" inside the
+    // Capacitor wrapper. The remote-server.url WKWebView reports display-mode:browser
+    // and navigator.standalone:undefined, so the two checks below DON'T catch it;
+    // isNativeApp() (UA marker) does. Without this an installed App-Store reviewer
+    // gets an install banner inside the app (an Apple flag + looks broken).
+    if (isNativeApp()) return;
     if (localStorage.getItem(DISMISSED_KEY)) return;
     if (window.matchMedia("(display-mode: standalone)").matches) return;
     if (window.navigator.standalone) return;

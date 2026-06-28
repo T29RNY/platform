@@ -94,6 +94,20 @@ export async function startOAuth(provider, options = {}) {
     return startAppleNative(options);
   }
 
+  // NATIVE Sign in with Google — identity-token flow, mirroring Apple. Drives the
+  // native Google sheet (GoogleSignIn SDK via @capgo/capacitor-social-login) and
+  // exchanges the returned ID token via signInWithIdToken — NOT a webview OAuth
+  // redirect. This removes the SFSafariViewController custom-scheme-return fragility
+  // (Stage 5.3 / F4) that the web OAuth path still depends on — the SAME class of
+  // failure that broke native Apple in 1.0(5) and the predicted next Google rejection.
+  // Gate on isNativeApp() ALONE (bridge-independent UA marker); a plugin/runtime
+  // failure surfaces a real error (startGoogleNative's catch), never a silent drop to
+  // the broken web flow. DORMANT until the native build links the plugin + 👤 sets the
+  // iOS Google client id + Supabase Authorized Client IDs (see GOOGLE_IOS_CLIENT_ID).
+  if (provider === 'google' && isNativeApp()) {
+    return startGoogleNative(options);
+  }
+
   // WEB / PWA — unchanged full-page redirect.
   if (!isNativeApp()) {
     return supabase.auth.signInWithOAuth({ provider, options });
@@ -177,6 +191,53 @@ async function startAppleNative(options = {}) {
   } catch (e) {
     // User dismissed the sheet, or a native/exchange error — surface it like the web
     // path so the caller's `if (error)` shows a message instead of failing silently.
+    return { data: null, error: e };
+  }
+}
+
+// --- Native Sign in with Google (identity-token flow) --------------------------
+// Mirrors startAppleNative. @capgo/capacitor-social-login drives the native Google
+// sheet and returns an ID token, which we exchange for a Supabase session via
+// signInWithIdToken({provider:'google'}). No system browser, no custom-scheme
+// return, no appUrlOpen dependency — the fragility class that broke Apple in 1.0(5).
+//
+// OWED before this activates (👤 + build machine — fails LOUD until done, never
+// silently falls back to the broken web flow):
+//   1. Google Cloud → create an iOS OAuth client for bundle id uk.inorout.app →
+//      note the iOS client id (…apps.googleusercontent.com) + its reversed-client-id.
+//   2. ios Info.plist → add the reversed-client-id as a CFBundleURLTypes URL scheme.
+//   3. Supabase → Auth → Providers → Google → Authorized Client IDs → ADD the iOS
+//      client id (keep the existing web client id) so signInWithIdToken accepts the
+//      token's audience.
+//   4. Set GOOGLE_IOS_CLIENT_ID below to that iOS client id.
+//   5. npm install (picks up @capgo/capacitor-social-login) → npx cap sync ios →
+//      archive 1.0(6). The web/PWA path never touches any of this.
+const GOOGLE_IOS_CLIENT_ID = ''; // 👤 set to the iOS OAuth client id (…apps.googleusercontent.com)
+
+async function startGoogleNative(options = {}) {
+  try {
+    const { SocialLogin } = await import('@capgo/capacitor-social-login');
+    await SocialLogin.initialize({ google: { iOSClientId: GOOGLE_IOS_CLIENT_ID } });
+    const res = await SocialLogin.login({
+      provider: 'google',
+      options: { scopes: ['email', 'profile'] },
+    });
+    const idToken = res?.result?.idToken;
+    if (!idToken) {
+      return { data: null, error: new Error('No identity token returned by Google') };
+    }
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: idToken,
+    });
+    if (error) return { data, error };
+    // Session is live in storage — route through the shared callback screen (resolves
+    // returnTo / profile-update / breadcrumb-clear), exactly like startAppleNative.
+    window.location.assign('/auth/callback');
+    return { data, error: null };
+  } catch (e) {
+    // Sheet dismissed, plugin missing, or token-exchange error — surface it like the
+    // web path so the caller's `if (error)` shows a message, never a silent web drop.
     return { data: null, error: e };
   }
 }

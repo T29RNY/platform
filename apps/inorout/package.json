@@ -15,6 +15,7 @@
     "@capacitor/push-notifications": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "@capgo/capacitor-social-login": "^8.3.30",
     "@phosphor-icons/react": "^2.1.10",
     "@platform/core": "*",
     "@platform/ui": "*",
