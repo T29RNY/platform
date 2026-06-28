@@ -142,16 +142,27 @@ function getRoute() {
     } catch { /* storage unavailable — treat as not signed in */ }
 
     if (!signedIn) {
+      // NEVER auto-resume onto a /p/ or /admin/ TOKEN link. Those routes are entered
+      // only by an explicit tap (handled at the top of getRoute). A token breadcrumb
+      // can point at ANOTHER player's link — one an admin previewed, or the squad[0]
+      // fallback that renders an unlinked admin AS the first squad member — so
+      // auto-resuming it drops a cold launch onto a stranger's passwordless profile
+      // with no Sign Out ("reopen → signed in as Rocky", App Store 2.1(a)). Only
+      // non-token app routes (sessions/feed/member/club) are safe to auto-resume.
+      const isTokenLink = (p) => /^\/(p|admin)\//.test(p || "");
+
       const stored = localStorage.getItem("ioo_redirect_to");
       if (stored) {
-        const { path, ts } = JSON.parse(stored);
-        const age = Date.now() - ts;
-        if (path && ts && age < 7 * 24 * 60 * 60 * 1000) {
-          localStorage.removeItem("ioo_redirect_to");
-          window.location.replace(path);
-          return { type:"redirecting" };
-        }
-        // Expired — remove it but fall through to lastVisited
+        try {
+          const { path, ts } = JSON.parse(stored);
+          const age = Date.now() - ts;
+          if (path && ts && age < 7 * 24 * 60 * 60 * 1000 && !isTokenLink(path)) {
+            localStorage.removeItem("ioo_redirect_to");
+            window.location.replace(path);
+            return { type:"redirecting" };
+          }
+        } catch { /* malformed payload — fall through to drop it */ }
+        // Expired / unsafe / garbage — remove it.
         localStorage.removeItem("ioo_redirect_to");
       }
 
@@ -160,13 +171,13 @@ function getRoute() {
       // where they actually were, not on a dormant squad. Falls back to the legacy
       // squad-only breadcrumb for users who predate the structured key.
       const lastContext = readLastContext();
-      if (lastContext) {
+      if (lastContext && !isTokenLink(lastContext)) {
         window.location.replace(lastContext);
         return { type:"redirecting" };
       }
 
       const last = localStorage.getItem("ioo_last_visited");
-      if (last) {
+      if (last && !isTokenLink(last)) {
         window.location.replace(last);
         return { type:"redirecting" };
       }
