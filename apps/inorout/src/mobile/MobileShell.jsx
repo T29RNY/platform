@@ -38,6 +38,7 @@ import OperatorTournaments from "./screens/OperatorTournaments.jsx";
 import TournamentView from "./screens/TournamentView.jsx";
 import RefFixtures from "./screens/RefFixtures.jsx";
 import RefMatch from "./screens/RefMatch.jsx";
+import TeamManagerLeague from "./screens/TeamManagerLeague.jsx";
 
 function initials(name) {
   if (!name) return "?";
@@ -291,6 +292,8 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
             )
           ) : role.key === "referee" && tab === "fixtures" ? (
             <RefFixtures onOpenMatch={setRefMatch} toast={toast} />
+          ) : role.key === "team_manager" && tab === "league" ? (
+            <TeamManagerLeague toast={toast} />
           ) : (
             <div className="m-card">
               <div className="m-eyebrow">{TAB_META[tab]?.title}</div>

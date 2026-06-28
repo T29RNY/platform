@@ -269,8 +269,23 @@ engine; Playwright the render. Plan B if a league has no usable feed = the exist
   CSS `.cp-`-namespaced; casual landing smoke unchanged; console 0 err), Playwright `/c/finbars-fc` (rich:
   form pills + 3 upcoming + 3 results) + `/c/demo-boxing` (thin: empty state intact) both 0 console errors.
   ⛔ real-device walk owed (rolls into the Epic B owed-walk; /c/ is a public web route, not a casual PWA surface).
-- **C3 — surface the auto-opened availability / team-mapping refinement. 📋 AUDITED s225, BUILD NOT STARTED
-  (awaiting operator green-light on the mount). Next free mig = 451.**
+- **C3 — surface the auto-opened availability / team-mapping refinement. ✅ PART 1 SHIPPED s226 (mig 451).
+  Part 2 (team-map refine) still DEFERRED to pilot onboarding. Next free mig = 452.**
+  **Part 1 shipped (team-manager "Fixtures & availability"):** new READER RPC `club_manager_list_team_fixtures()`
+  (param-less, derives active-managed teams from auth.uid mirroring `get_my_world().coaching`; SECDEF/search_path/
+  single-overload/anon-REVOKEd; NO `_club_feature_enabled` gate — internal availability engine, cf.
+  `guardian_list_child_fixtures`; raises `not_authorised`/`not_authenticated`). Per team: upcoming (scheduled,
+  today-onward) each w/ availability roster + counts {in,out,maybe,pending,total} (pending = active
+  `club_team_members` roster row w/ no `club_fixture_availability` row), + recent (last 6 completed w/ scores).
+  Source-agnostic → FA-imported (`source='fa_import'`) auto-opened fixtures surface automatically = the payoff
+  (EV-proven). Wrapper `clubManagerListTeamFixtures` + barrel; `apps/inorout/src/mobile/screens/TeamManagerLeague.jsx`
+  (read-only: upcoming cards w/ expandable squad roster + counts pills, recent results) + MobileShell
+  `team_manager`+`league` branch (other 3 tabs stay placeholder). Demo seed First Team (Alex Demo): Northwood United
+  2/1/1/1, Riverton all-pending, Eastvale FC W 3-1. Gates: rpc-security, EV 7/7+leak-0 (counts correctness +
+  fa_import-surfaced + outsider/anon rejects), hygiene 7/7, build, casual-regression PASS (only `mobile/` + additive
+  core; zero `views/` overlap), Playwright PASS (role-switch→League tab renders + roster expands; 0 new console
+  errors — 2 present = pre-existing ProfileSheet:136 dup-key, untouched). ⛔ owed real-device /hub walk (HR#13).
+  **Audit findings (read-only, s225):**
   **Audit findings (read-only, s225):**
   - **Two parts, and Part 2 is calibration-blocked.** Part 2 (team-map refine) = `normaliseTeamName`
     ([`apps/inorout/api/_fa_parser.js:144`]) is a plain lowercase + strip-non-alphanumeric + collapse-spaces, and

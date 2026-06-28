@@ -5615,6 +5615,18 @@ export async function clubManagerUpdateHomeFixture(fixtureId, {
   return data;
 }
 
+// Modular Epic C — C3: team-manager "Fixtures & availability" (/hub league tab).
+// Param-less reader: derives every active-managed team from auth.uid server-side and
+// returns each team's upcoming (scheduled) + recent (completed) club_fixtures. Each
+// upcoming fixture carries the availability roster + counts (in/out/maybe/pending).
+// Source-agnostic — FA-imported auto-opened fixtures appear automatically. Throws
+// not_authorised when the caller manages no active team.
+export async function clubManagerListTeamFixtures() {
+  const { data, error } = await supabase.rpc("club_manager_list_team_fixtures", {});
+  if (error) { console.error("[manager] club_manager_list_team_fixtures failed", error); throw error; }
+  return data;
+}
+
 export async function memberRsvpSession(sessionId, status, { forProfileId = null, note = null } = {}) {
   const { data, error } = await supabase.rpc("member_rsvp_session", {
     p_session_id: sessionId, p_status: status,

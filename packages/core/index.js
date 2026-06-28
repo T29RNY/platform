@@ -369,6 +369,7 @@ export {
   memberListClubFixtures,
   clubManagerGetHomeFixtureOptions,
   clubManagerUpdateHomeFixture,
+  clubManagerListTeamFixtures,
   memberRsvpSession,
   memberGetSessionRsvpBoard,
   guardianListChildFixtures,
