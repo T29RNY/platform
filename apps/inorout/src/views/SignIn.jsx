@@ -2,6 +2,7 @@ import { useState } from "react";
 import { colors as C } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { startOAuth } from "../native/native-auth.js";
+import { isNativeApp } from "../native/is-native.js";
 
 // Apple logo — currentColor so it inherits the button's text colour (no hex).
 const APPLE_SVG = (
@@ -15,11 +16,13 @@ const BASE_URL = typeof window !== "undefined"
   : "https://app.in-or-out.com";
 
 export default function SignIn({ teamName, onBack, returnTo }) {
-  const [email,      setEmail]      = useState("");
-  const [sent,       setSent]       = useState(false);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(null);
-  const [showEmail,  setShowEmail]  = useState(false);
+  const [email,        setEmail]        = useState("");
+  const [sent,         setSent]         = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState(null);
+  const [showEmail,    setShowEmail]    = useState(false);
+  const [awaitingCode, setAwaitingCode] = useState(false); // native: enter the emailed code
+  const [code,         setCode]         = useState("");
 
   // Store where to return after auth
   const storeReturnTo = () => {
@@ -49,6 +52,20 @@ export default function SignIn({ teamName, onBack, returnTo }) {
     if (!email.trim()) return;
     setLoading(true); setError(null);
     storeReturnTo();
+    // NATIVE: a magic link emailed to /auth/callback opens in Safari (that path
+    // isn't a universal-link), not the wrapper — the session would land in Safari
+    // and the app stays logged out. So inside the native app use the 6-digit CODE
+    // flow (verifyOtp), identical to AuthGateModal: no redirect, works in the
+    // WKWebView. WEB keeps the proven magic-link behaviour untouched.
+    if (isNativeApp()) {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: { shouldCreateUser: true },
+      });
+      if (error) { setError(error.message); setLoading(false); }
+      else { setAwaitingCode(true); setLoading(false); }
+      return;
+    }
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
@@ -61,6 +78,26 @@ export default function SignIn({ teamName, onBack, returnTo }) {
     } else {
       setSent(true);
       setLoading(false);
+    }
+  };
+
+  // NATIVE code verification. On success the session is live in storage; route
+  // through /auth/callback so returnTo/profile handling is shared byte-for-byte
+  // with the Apple and web sign-in paths.
+  const verifyEmailCode = async () => {
+    const token = code.trim();
+    if (token.length < 6) return;
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token,
+      type: "email",
+    });
+    if (error) {
+      setError(error.message || "That code didn't work — request a new one.");
+      setLoading(false);
+    } else {
+      window.location.assign("/auth/callback");
     }
   };
 
@@ -87,7 +124,58 @@ export default function SignIn({ teamName, onBack, returnTo }) {
       </div>
 
       <div style={{ padding:24, flex:1 }}>
-        {sent ? (
+        {awaitingCode ? (
+          // NATIVE: enter the 6-digit code from the email (no redirect — works in
+          // the wrapper, unlike the magic link which would open in Safari).
+          <div style={{ textAlign:"center", paddingTop:40 }}>
+            <div style={{ fontSize:52, marginBottom:16 }}>📧</div>
+            <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:24,
+              color:C.text, letterSpacing:1, marginBottom:8 }}>
+              ENTER YOUR CODE
+            </div>
+            <div style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13,
+              color:C.muted, lineHeight:1.6, marginBottom:20 }}>
+              We emailed a 6-digit code to<br/>
+              <strong style={{ color:C.text }}>{email}</strong>
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={10}
+              autoFocus
+              placeholder="••••••"
+              value={code}
+              onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              onKeyDown={e => e.key === "Enter" && verifyEmailCode()}
+              style={{ width:"100%", maxWidth:220, padding:"13px 14px", borderRadius:6,
+                border:`1.5px solid ${code.length>=6?C.amber:C.border}`,
+                background:C.bg, color:C.text,
+                fontFamily:"monospace", fontSize:22, letterSpacing:6, textAlign:"center",
+                outline:"none", boxSizing:"border-box", marginBottom:12 }}
+            />
+            {error && (
+              <div style={{ padding:"8px 12px", borderRadius:6,
+                background:C.red+"18", color:C.red,
+                fontFamily:"'DM Sans', sans-serif", fontSize:12,
+                marginBottom:12 }}>{error}</div>
+            )}
+            <button onClick={verifyEmailCode}
+              disabled={loading || code.length<6} style={{
+              width:"100%", padding:"13px 0", borderRadius:6, border:"none",
+              background: loading || code.length<6 ? "#2a2a2a" : C.amber,
+              color: loading || code.length<6 ? C.muted : C.black,
+              fontFamily:"'DM Sans', sans-serif", fontSize:14, fontWeight:800,
+              cursor: loading || code.length<6 ? "not-allowed" : "pointer", marginBottom:12 }}>
+              {loading ? "Verifying..." : "Verify"}
+            </button>
+            <button onClick={() => { setAwaitingCode(false); setCode(""); setError(null); }}
+              style={{ background:"none", border:"none", color:C.amber,
+                fontFamily:"'DM Sans', sans-serif", fontSize:13, cursor:"pointer" }}>
+              Use a different email
+            </button>
+          </div>
+        ) : sent ? (
           // Magic link sent
           <div style={{ textAlign:"center", paddingTop:40 }}>
             <div style={{ fontSize:52, marginBottom:16 }}>📧</div>
@@ -187,7 +275,7 @@ export default function SignIn({ teamName, onBack, returnTo }) {
                   color: loading || !email.trim() ? C.muted : C.black,
                   fontFamily:"'DM Sans', sans-serif", fontSize:14, fontWeight:800,
                   cursor: loading || !email.trim() ? "not-allowed" : "pointer" }}>
-                  {loading ? "Sending..." : "Send Magic Link →"}
+                  {loading ? "Sending..." : (isNativeApp() ? "Send me a code" : "Send Magic Link →")}
                 </button>
               </div>
             )}
