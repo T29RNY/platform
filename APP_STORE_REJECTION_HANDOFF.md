@@ -51,7 +51,10 @@ NO REBUILD.** Steps:
    error was a web-fallback path, fixed server-side." A rebuild would be functionally
    identical, so re-review 1.0(5); only bump the build number if you prefer a fresh one.
 
-⚠️ STILL OWED (HR#13): the Jun 28 cold-launch device re-test above before resubmitting.
+✅ **RE-TEST PASSED (Jun 28 10:37Z, HR#13):** fresh-install + cold-launch + fast Apple
+tap on the iPad (reviewer's exact condition) → live auth log `/token grant_type=id_token`
+provider=apple, 200, login + healthy refresh (NO `/authorize` web path, NO storm). The
+fix is proven on the failing scenario. CLEAR TO RESUBMIT build 1.0(5).
 ⚠️ Latent: the **Google** button on native still uses the same web flow and may have the
 same return fragility — out of scope for this Apple-only rejection, but a likely next
 rejection if a reviewer tries Google. Track separately.
