@@ -1,0 +1,59 @@
+<!--
+  In or Out — "Confirm signup" auth email (brand-new email users).
+  Paste into: Supabase → Authentication → Emails → Templates → "Confirm signup".
+  Subject line (set in the field above the HTML): Welcome to In or Out — your code inside
+
+  CODE-ONLY by design: no {{ .ConfirmationURL }} button. That link points at
+  /auth/callback, which is NOT an AASA universal-link path, so inside the native app it
+  opens in Safari and the session never reaches the app. The 6/8-digit {{ .Token }} works
+  on web AND native, so it's the only CTA. Do not add the link button back.
+
+  Rendering: built for graceful degradation. Radial glow + gradients + text-shadow render
+  in Apple Mail / iOS Mail (where most players read) and fall back to flat dark in Outlook.
+  No web fonts (email clients strip them) — system stack approximates the brand.
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#060605;margin:0;padding:0;width:100%;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:460px;width:100%;">
+        <tr>
+          <td style="background:#0E0E0C;border:1px solid #1C1C19;border-radius:22px;overflow:hidden;">
+
+            <!-- header + brand glow -->
+            <div style="background:radial-gradient(120% 90% at 50% 0%, rgba(255,64,64,0.20) 0%, rgba(14,14,12,0) 62%);padding:46px 36px 10px 36px;text-align:center;">
+              <div style="font-family:'Bebas Neue','Arial Narrow',Helvetica,Arial,sans-serif;font-size:42px;line-height:1;letter-spacing:3px;font-weight:700;">
+                <span style="color:#3DDC6A;">IN</span><span style="color:#F2F0EA;"> OR </span><span style="color:#FF4040;">OUT</span>
+              </div>
+              <div style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#6E6E66;margin-top:12px;">Your team &middot; your game &middot; your stats</div>
+            </div>
+
+            <!-- welcome -->
+            <div style="padding:22px 36px 6px 36px;text-align:center;">
+              <h1 style="font-family:Helvetica,Arial,sans-serif;font-size:25px;line-height:1.22;color:#F2F0EA;font-weight:700;margin:6px 0 12px 0;">Welcome to the squad.</h1>
+              <p style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#A0A097;margin:0 0 26px 0;">You're one tap from being in. Drop this code into the app to finish setting up.</p>
+            </div>
+
+            <!-- code hero -->
+            <div style="padding:0 36px;">
+              <div style="background:linear-gradient(180deg,#17170F 0%,#121210 100%);border:1px solid #2C2C22;border-radius:18px;padding:28px 16px;text-align:center;">
+                <div style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin-bottom:16px;">Your sign-in code</div>
+                <div style="font-family:'SF Mono',ui-monospace,'Courier New',monospace;font-size:35px;font-weight:700;letter-spacing:10px;color:#E8A020;text-shadow:0 0 26px rgba(232,160,32,0.30);">{{ .Token }}</div>
+              </div>
+            </div>
+
+            <!-- reassurance -->
+            <div style="padding:24px 36px 36px 36px;text-align:center;">
+              <p style="font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:1.65;color:#6E6E66;margin:0;">Expires in 1 hour. Didn't sign up? You can ignore this — nothing is created until the code is used.</p>
+            </div>
+
+            <!-- brand bar -->
+            <div style="border-top:1px solid #1C1C19;padding:18px 36px;text-align:center;">
+              <div style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:1px;color:#4A4A44;">IN OR OUT &mdash; football, sorted.</div>
+            </div>
+
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
