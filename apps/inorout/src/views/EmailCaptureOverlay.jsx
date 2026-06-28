@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { startOAuth } from "../native/native-auth.js";
+import { isNativeApp } from "../native/is-native.js";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
@@ -23,10 +24,13 @@ const APPLE_SVG = (
 );
 
 export default function EmailCaptureOverlay({ conflictMessage }) {
-  const [email,     setEmail]     = useState("");
-  const [sent,      setSent]      = useState(false);
-  const [sending,   setSending]   = useState(false);
-  const [showEmail, setShowEmail] = useState(false);
+  const [email,        setEmail]        = useState("");
+  const [sent,         setSent]         = useState(false);
+  const [sending,      setSending]      = useState(false);
+  const [showEmail,    setShowEmail]    = useState(false);
+  const [awaitingCode, setAwaitingCode] = useState(false); // native: enter emailed code
+  const [code,         setCode]         = useState("");
+  const [codeError,    setCodeError]    = useState(null);
 
   const returnTo = encodeURIComponent(window.location.pathname);
 
@@ -44,13 +48,41 @@ export default function EmailCaptureOverlay({ conflictMessage }) {
 
   const signInWithEmail = async () => {
     if (!email.trim()) return;
-    setSending(true);
+    setSending(true); setCodeError(null);
+    // NATIVE: magic link to /auth/callback opens in Safari (not a universal-link
+    // path) — use the 6-digit CODE flow (verifyOtp) instead. WEB unchanged.
+    if (isNativeApp()) {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: { shouldCreateUser: true },
+      });
+      if (!error) setAwaitingCode(true);
+      setSending(false);
+      return;
+    }
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: `${BASE_URL}/auth/callback?returnTo=${returnTo}` },
     });
     if (!error) setSent(true);
     setSending(false);
+  };
+
+  // NATIVE code verification → route through /auth/callback (keeps the player's
+  // returnTo so they land back where the overlay appeared).
+  const verifyEmailCode = async () => {
+    const token = code.trim();
+    if (token.length < 6) return;
+    setSending(true); setCodeError(null);
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(), token, type: "email",
+    });
+    if (error) {
+      setCodeError(error.message || "That code didn't work — request a new one.");
+      setSending(false);
+    } else {
+      window.location.assign(`/auth/callback?returnTo=${returnTo}`);
+    }
   };
 
   return (
@@ -83,6 +115,59 @@ export default function EmailCaptureOverlay({ conflictMessage }) {
           <div style={{ fontSize: 14, color: "var(--t2)", fontWeight: 300, lineHeight: 1.7 }}>
             {conflictMessage}
           </div>
+        </div>
+      ) : awaitingCode ? (
+        // NATIVE: enter the emailed code (no redirect — works in the wrapper).
+        <div style={{ textAlign: "center", maxWidth: 300, width: "100%" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
+          <div style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
+            color: "var(--t1)", letterSpacing: "0.06em", marginBottom: 12,
+          }}>
+            ENTER YOUR CODE
+          </div>
+          <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.6, marginBottom: 16 }}>
+            We emailed a code to <span style={{ color: "var(--t1)" }}>{email}</span>
+          </div>
+          <input
+            type="text" inputMode="numeric" autoComplete="one-time-code"
+            maxLength={10} autoFocus placeholder="••••••"
+            value={code}
+            onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            onKeyDown={e => e.key === "Enter" && verifyEmailCode()}
+            style={{
+              width: "100%", maxWidth: 200, padding: "13px 14px", borderRadius: 6,
+              border: `0.5px solid ${code.length >= 6 ? "var(--gold)" : "rgba(255,255,255,0.1)"}`,
+              background: "var(--s2)", color: "var(--t1)",
+              fontFamily: "monospace", fontSize: 20, letterSpacing: 6, textAlign: "center",
+              outline: "none", boxSizing: "border-box", marginBottom: 10,
+            }}
+          />
+          {codeError && (
+            <div style={{ fontSize: 12, color: "var(--red)", marginBottom: 10 }}>{codeError}</div>
+          )}
+          <button
+            onClick={verifyEmailCode}
+            disabled={sending || code.length < 6}
+            style={{
+              width: "100%", padding: "13px 0", borderRadius: 6, border: "none",
+              background: sending || code.length < 6 ? "var(--s3)" : "var(--gold)",
+              color: sending || code.length < 6 ? "var(--t2)" : "var(--bg)",
+              fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 400,
+              cursor: sending || code.length < 6 ? "not-allowed" : "pointer", marginBottom: 10,
+            }}
+          >
+            {sending ? "Verifying..." : "Verify"}
+          </button>
+          <button
+            onClick={() => { setAwaitingCode(false); setCode(""); setCodeError(null); }}
+            style={{
+              background: "none", border: "none", color: "var(--t2)",
+              fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 300, cursor: "pointer",
+            }}
+          >
+            Use a different email
+          </button>
         </div>
       ) : sent ? (
         <div style={{ textAlign: "center", maxWidth: 300 }}>
@@ -179,7 +264,7 @@ export default function EmailCaptureOverlay({ conflictMessage }) {
                   cursor: sending || !email.trim() ? "not-allowed" : "pointer",
                 }}
               >
-                {sending ? "Sending..." : "Send Magic Link →"}
+                {sending ? "Sending..." : (isNativeApp() ? "Send me a code" : "Send Magic Link →")}
               </button>
             </div>
           )}

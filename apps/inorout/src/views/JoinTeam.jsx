@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { EnvelopeSimple, PaperPlaneTilt, User } from "@phosphor-icons/react";
 import { startOAuth } from "../native/native-auth.js";
+import { isNativeApp } from "../native/is-native.js";
 
 const BASE_URL = typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.host}`
@@ -420,16 +421,29 @@ function CheckingState() {
 }
 
 function SignInStep({ team, onGoogle, onApple }) {
-  const [email,     setEmail]     = useState("");
-  const [emailOpen, setEmailOpen] = useState(false);
-  const [sent,      setSent]      = useState(false);
-  const [sending,   setSending]   = useState(false);
-  const [authError, setAuthError] = useState(null);
+  const [email,        setEmail]        = useState("");
+  const [emailOpen,    setEmailOpen]    = useState(false);
+  const [sent,         setSent]         = useState(false);
+  const [sending,      setSending]      = useState(false);
+  const [authError,    setAuthError]    = useState(null);
+  const [awaitingCode, setAwaitingCode] = useState(false); // native: enter emailed code
+  const [code,         setCode]         = useState("");
 
   const handleEmailSignIn = async () => {
     if (!email.trim()) return;
     setSending(true); setAuthError(null);
     try {
+      // NATIVE: a magic link to /auth/callback opens in Safari (not a universal-link
+      // path), not the wrapper — use the 6-digit CODE flow (verifyOtp) instead.
+      if (isNativeApp()) {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: email.trim().toLowerCase(),
+          options: { shouldCreateUser: true },
+        });
+        if (error) throw error;
+        setAwaitingCode(true);
+        return;
+      }
       const returnTo = encodeURIComponent(window.location.href);
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
@@ -440,6 +454,25 @@ function SignInStep({ team, onGoogle, onApple }) {
     } catch (err) {
       setAuthError(err.message || "Something went wrong. Please try again.");
     } finally {
+      setSending(false);
+    }
+  };
+
+  // NATIVE code verification → route through /auth/callback, preserving the invite
+  // URL as returnTo so the join flow resumes after sign-in.
+  const verifyEmailCode = async () => {
+    const token = code.trim();
+    if (token.length < 6) return;
+    setSending(true); setAuthError(null);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(), token, type: "email",
+      });
+      if (error) throw error;
+      const returnTo = encodeURIComponent(window.location.href);
+      window.location.assign(`/auth/callback?returnTo=${returnTo}`);
+    } catch (err) {
+      setAuthError(err.message || "That code didn't work — request a new one.");
       setSending(false);
     }
   };
@@ -455,7 +488,49 @@ function SignInStep({ team, onGoogle, onApple }) {
           {team?.name || "your team"}
         </h1>
 
-        {sent ? (
+        {awaitingCode ? (
+          <div className="join-sent-box">
+            <p className="join-sent-title">Enter your code</p>
+            <p className="join-sent-body">
+              We emailed a code to{" "}
+              <span className="join-sent-email">{email}</span>
+            </p>
+            <div className="join-email-form">
+              <div className="join-field">
+                <EnvelopeSimple size={20} weight="thin" aria-hidden="true" />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={10}
+                  placeholder="Code"
+                  autoFocus
+                  value={code}
+                  onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  onKeyDown={e => { if (e.key === "Enter") verifyEmailCode(); }}
+                  disabled={sending}
+                />
+              </div>
+              <button
+                type="button"
+                className="join-secondary-btn"
+                onClick={verifyEmailCode}
+                disabled={sending || code.length < 6}>
+                <PaperPlaneTilt size={18} weight="thin" aria-hidden="true" />
+                {sending ? "Verifying..." : "Verify"}
+              </button>
+              {authError && (
+                <p className="join-error" role="alert">{authError}</p>
+              )}
+              <button
+                type="button"
+                className="join-email-link join-email-link--muted"
+                onClick={() => { setAwaitingCode(false); setCode(""); setAuthError(null); }}>
+                Use a different email
+              </button>
+            </div>
+          </div>
+        ) : sent ? (
           <div className="join-sent-box">
             <p className="join-sent-title">Check your email</p>
             <p className="join-sent-body">
@@ -532,7 +607,7 @@ function SignInStep({ team, onGoogle, onApple }) {
                   onClick={handleEmailSignIn}
                   disabled={sending || !email.trim()}>
                   <PaperPlaneTilt size={18} weight="thin" aria-hidden="true" />
-                  {sending ? "Sending..." : "Send magic link"}
+                  {sending ? "Sending..." : (isNativeApp() ? "Send me a code" : "Send magic link")}
                 </button>
                 <button
                   type="button"

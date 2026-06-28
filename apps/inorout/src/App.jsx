@@ -724,7 +724,21 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) setAuthUser(session.user);
-        else setAuthUser(null);
+        else {
+          setAuthUser(null);
+          // Clear the "resume to last screen" breadcrumb on an explicit SIGN-OUT
+          // (not on a transient INITIAL_SESSION-null) so the NEXT account to sign in
+          // on this device — e.g. a shared family iPad — can't be dropped onto the
+          // previous user's last screen. Root cause behind the stale-context landing
+          // (and the earlier "signed in as someone else" confusion).
+          if (event === "SIGNED_OUT") {
+            try {
+              localStorage.removeItem("ioo_last_context");
+              localStorage.removeItem("ioo_last_visited");
+              localStorage.removeItem("ioo_redirect_to");
+            } catch (e) { /* storage unavailable — non-fatal */ }
+          }
+        }
       }
     );
     return () => subscription.unsubscribe();
