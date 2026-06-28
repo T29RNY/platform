@@ -219,7 +219,12 @@ async function startAppleNative(options = {}) {
 //   4. Set GOOGLE_IOS_CLIENT_ID below to that iOS client id.
 //   5. npm install (picks up @capgo/capacitor-social-login) → npx cap sync ios →
 //      archive 1.0(6). The web/PWA path never touches any of this.
-const GOOGLE_IOS_CLIENT_ID = ''; // 👤 set to the iOS OAuth client id (…apps.googleusercontent.com)
+// iOS OAuth client id (Google Cloud → Clients → "In or Out iOS", bundle uk.inorout.app).
+// The native Google ID token's audience = this id, so Supabase → Auth → Providers →
+// Google → Authorized Client IDs MUST list it (alongside the web client id). The matching
+// reversed-client-id (com.googleusercontent.apps.576693481802-ne50fcmmgdagjecg15uv2rjlhif569nb)
+// must be registered as a CFBundleURLTypes URL scheme in ios Info.plist.
+const GOOGLE_IOS_CLIENT_ID = '576693481802-ne50fcmmgdagjecg15uv2rjlhif569nb.apps.googleusercontent.com';
 
 // Bounded wait for a native plugin's bridge to inject (cold-launch race), mirroring
 // waitForApplePlugin. Returns false if the plugin isn't linked in this binary at all.
