@@ -3161,3 +3161,70 @@ button.stat:hover .stat-arrow { transform: translate(0, 0); opacity: 1; color: v
   color: var(--ok);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Event OS tournaments (Epic D / D2) ─────────────────────────────────────
+   Venue-operator tournament create/manage surface (TournamentsView.jsx). Scoped
+   .t-* classes built on the existing token set; no hardcoded colours. */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--gap);
+}
+.t-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  padding: 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: border-color .12s ease, transform .12s ease;
+}
+.t-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.t-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.t-card-name { font-weight: 700; color: var(--ink); line-height: 1.25; }
+.t-card-meta { font-size: 12px; color: var(--ink-3); }
+.t-card-stats { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.t-card-stats strong { color: var(--ink); }
+.t-live { color: var(--live); font-weight: 700; }
+
+.t-slug-row { display: flex; align-items: center; gap: 0; }
+.t-slug-base { font-size: 13px; color: var(--ink-3); padding-right: 6px; white-space: nowrap; }
+.t-slug-row .input { flex: 1; }
+
+.t-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+.t-detail-name { font-size: 22px; font-weight: 800; color: var(--ink); margin: 0 0 6px; }
+.t-detail-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.t-detail-actions { display: flex; gap: 8px; align-items: center; }
+
+.t-comp {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.t-comp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.t-comp-name { font-weight: 700; color: var(--ink); margin-right: 8px; }
+.t-comp-type { font-size: 12px; text-transform: capitalize; }
+.t-comp-actions { display: flex; gap: 6px; }
+.t-comp-build { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+
+.t-team-block { margin-top: 8px; }
+.t-team-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); margin-bottom: 6px; }
+.t-team-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; color: var(--ink); }
+.t-team-row-actions { display: flex; gap: 6px; }
+.t-team-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.t-team-chip { font-size: 12px; padding: 3px 10px; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius-pill); color: var(--ink); }
+
+.t-fixtures { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.t-fx-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+.t-fx-teams { color: var(--ink); }
+.t-fx-when { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.t-fx-score { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
+
+.t-pitch-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.t-pitch-opt { font-size: 13px; padding: 6px 12px; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius-pill); color: var(--ink-2); cursor: pointer; }
+.t-pitch-opt.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }

@@ -11,6 +11,7 @@ import ClassesView from "./ClassesView.jsx";
 import TrainersView from "./TrainersView.jsx";
 import RoomHiresView from "./RoomHiresView.jsx";
 import BracketView from "./BracketView.jsx";
+import TournamentsView from "./TournamentsView.jsx";
 import DisplaySettings from "./DisplaySettings.jsx";
 import TeamsPage, { LeagueTeamsTab, CasualTeamsTab, ClubTeamsTab } from "./TeamsView.jsx";
 import StaffView from "./StaffView.jsx";
@@ -84,6 +85,11 @@ const TABS = [
     { id: "league",   label: "Internal League", icon: "league", flag: "competition" },
     { id: "table",    label: "Standings",       icon: "table",  flag: "competition" },
     { id: "cups",     label: "Cups",      icon: "cups", cupOnly: true, flag: "tournaments" },
+    // Event OS tournaments (Epic D). Standalone tournaments the operator creates &
+    // runs from the console — distinct from the LEAGUE-mode `cups` item (BracketView)
+    // above. NOT cupOnly: always reachable so a venue with zero tournaments can still
+    // create the first one (the D2 chicken-and-egg fix).
+    { id: "tournaments", label: "Tournaments", icon: "cups", flag: "tournaments" },
   ]},
   { group: "Club & admin", items: [
     { id: "invites",      label: "QR codes",     icon: "settings" },
@@ -130,7 +136,7 @@ const TITLES = {
   ops: "Operations", bookings: "Bookings", payments: "Payments", equipment: "Equipment",
   members: "Members", memberships: "Memberships", sessions: "Team Training", teams: "Teams", staff: "Staff",
   access: "Access", invites: "QR codes", spaces: "Spaces", classes: "Classes", trainers: "Trainers", roomhire: "Room bookings", league: "Internal League", table: "Standings", cups: "Cups",
-  rooms: "Rooms", timetable: "Timetable",
+  rooms: "Rooms", timetable: "Timetable", tournaments: "Tournaments",
   fixtures: "Club Leagues",
   integrations: "Integrations",
   features: "Features",
@@ -308,6 +314,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
           {view === "league" && <LeagueView state={state} onNewSeason={() => setWizardOpen(true)} />}
           {view === "table" && <LeagueTable state={state} venueToken={venueToken} />}
           {view === "cups" && <BracketView state={state} venueToken={venueToken} onRefresh={onRefresh} />}
+          {view === "tournaments" && <TournamentsView venueToken={venueToken} />}
           {view === "integrations" && <IntegrationsView venueToken={venueToken} />}
           {view === "features" && <FeaturesView venueToken={venueToken} features={features} onChanged={onRefreshFeatures} />}
           </>)}

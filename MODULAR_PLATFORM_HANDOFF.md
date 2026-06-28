@@ -648,8 +648,23 @@ named `venue_get_tournament_standings` (NOT `venue_get_standings` — that name 
 function). Full RPC list + wrappers in RPCS.md session-227 entry. **D2 build-pointers are below; the original
 pre-build audit + decisions are preserved after them.**
 
-#### D2 — BUILD POINTERS (venue UI; next session, mig 453 if any)
-Backend is done — D2 is pure venue-app frontend wiring the D1 wrappers. Grounded entry points:
+#### D2 SHIPPED (session 228, no mig — pure venue frontend) — D3 = commercial/sports-day, next
+New `apps/venue/src/views/TournamentsView.jsx` = the Event OS venue surface, wiring the 14 D1 wrappers:
+index + empty-state **+ New tournament** → create form (`venueCreateTournament`, club optional ⇒ venue-owned)
+→ manage panel (`venueGetTournament` + `venueGetSchedule`): add competition, register/invite/approve/reject
+teams, generate round-robin / seed knockout / seed double-elim, assign fixture slots, publish/advance status,
+and a "View public page" link to the live `/tournament/<slug>` run view. The chicken-and-egg is fixed by an
+always-on (NOT `cupOnly`) `tournaments` rail item in the Competition group (Dashboard.jsx) — kept distinct
+from the league-mode `cups`/BracketView item, which is untouched. Scoped `.t-*` CSS appended to styles.css
+(token-based, zero hardcoded hex). Gates: build + hygiene 7/7 + Playwright PASS (venue_demo_south, empty →
+create venue-owned → add competition → register 2 teams → generate schedule → publish → confirmed the public
+page renders with the **venue as host** (D1 LEFT JOIN, club_name NULL), 0 console errors; smoke rows deleted
+afterwards). casual-regression N/A (venue app, no apps/inorout/src or match engine); no new RPC ⇒
+rpc-security/EV N/A. ⛔ real-device venue walk owed (HR#13). **NEXT = D3** (commercial: branding/sponsors/POTM/
+equipment + sports-day venue-token siblings if the pilot needs them).
+
+#### D2 — BUILD POINTERS (as built; preserved for D3 reference)
+Backend is done — D2 was pure venue-app frontend wiring the D1 wrappers. Grounded entry points:
 - **Chicken-and-egg to fix first:** `apps/venue/src/views/Dashboard.jsx:82-86` — the Competition group's
   `cups` item is `{ cupOnly: true, flag: "tournaments" }`, hidden until `hasCups` (Dashboard.jsx:179) is
   true. A venue with zero Event OS tournaments never sees a create entry. Fix: make a Tournaments/Cups

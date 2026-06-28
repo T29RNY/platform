@@ -279,8 +279,17 @@ ingest; D is independent (Event OS engine already built). The epics:
   caps CHECK widened (+`manage_tournaments`) + shared `_authorise_venue_tournament` helper + 11 venue-token
   write siblings + 3 reads (+ reuse `list_venue_tournaments`) + `get_tournament_public` LEFT JOIN + 3
   public-writer audit venue-fallbacks. Gates: build/hygiene 7/7/rpc-security 15/15/EV 8/8+leak-0; casual N/A.
-  **NEXT = D2 venue UI** (Competition tab create form + manage panel; fix the `cupOnly` empty-state). D3 =
-  commercial/sports-day siblings. Surface the ALREADY-BUILT Event OS engine (migs 314–328:
+  🔨 **D2 VENUE UI SHIPPED s228 (no mig, pure frontend).** New `apps/venue/src/views/TournamentsView.jsx` =
+  Event OS surface wiring the 14 D1 wrappers: index + empty-state **+ New tournament** → create form
+  (`venueCreateTournament`, club optional ⇒ venue-owned) → manage panel (`venueGetTournament`/`venueGetSchedule`):
+  add competition, register/invite/approve/reject teams, generate round-robin / seed knockout / seed
+  double-elim, assign fixture slots, publish/advance status, link out to the public `/tournament/<slug>` run
+  view. Chicken-and-egg FIXED: added an always-on (NOT `cupOnly`) `tournaments` rail item to the Competition
+  group in Dashboard.jsx — distinct from the league-mode `cups`/BracketView item (untouched). Gates: build +
+  hygiene 7/7 + Playwright (venue_demo_south empty→create→comp→2 teams→generate schedule→publish→public page
+  renders venue as host, 0 console errors; smoke data cleaned up) PASS; casual-regression N/A (venue app only,
+  no apps/inorout/src or match engine); no new RPC ⇒ rpc-security/EV N/A. ⛔ owed real-device venue walk (HR#13).
+  **NEXT = D3** (commercial: branding/sponsors/POTM/equipment + sports-day venue-token siblings if the pilot needs them). Surface the ALREADY-BUILT Event OS engine (migs 314–328:
   round-robin/group→KO/single+double-elim/sports-day, registration, auto-schedule, live scoring,
   H2H standings, brackets, cards, sponsors/branding, public hub) in the VENUE dashboard via
   venue-token auth (today club-admin-only, in the consumer app). Auth + UI, not new engine. Gated by
