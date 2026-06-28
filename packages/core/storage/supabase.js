@@ -6936,6 +6936,174 @@ export async function venueGetTournamentStandings(venueToken, tournamentEventId,
   return data;
 }
 
+// ---- Epic D3 (mig 453) — venue-operator tournament COMMERCIAL + SPORTS-DAY ----
+// Venue-token siblings of the club_admin_* commercial chain (mig 327) and the
+// performance/sports-day chain (migs 326/328). Auth resolves off the venue admin token
+// via the shared _authorise_venue_tournament helper (manage_facility OR manage_tournaments;
+// owner role always; club gate only when club-owned). Consumers: apps/venue
+// (TournamentsView Commercial + Sports-day panels). See RPCS.md session-227/D3.
+export async function venueAddSponsor(venueToken, tournamentEventId, name, opts = {}) {
+  const { data, error } = await supabase.rpc("venue_add_sponsor", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+    p_name:                name,
+    p_logo_url:            opts.logoUrl ?? null,
+    p_website_url:         opts.websiteUrl ?? null,
+    p_display_order:       opts.displayOrder ?? 0,
+  });
+  if (error) { console.error("[event-os] venue_add_sponsor failed", error); throw error; }
+  return data;
+}
+
+export async function venueListSponsors(venueToken, tournamentEventId) {
+  const { data, error } = await supabase.rpc("venue_list_sponsors", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] venue_list_sponsors failed", error); throw error; }
+  return data;
+}
+
+export async function venueRemoveSponsor(venueToken, sponsorId) {
+  const { data, error } = await supabase.rpc("venue_remove_sponsor", {
+    p_venue_token: venueToken,
+    p_sponsor_id:  sponsorId,
+  });
+  if (error) { console.error("[event-os] venue_remove_sponsor failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetBranding(venueToken, tournamentEventId, primaryColour = null, secondaryColour = null, customLogoUrl = null) {
+  const { data, error } = await supabase.rpc("venue_set_branding", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+    p_primary_colour:      primaryColour,
+    p_secondary_colour:    secondaryColour,
+    p_custom_logo_url:     customLogoUrl,
+  });
+  if (error) { console.error("[event-os] venue_set_branding failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetPlayerOfTournament(venueToken, tournamentEventId, name, teamName = null) {
+  const { data, error } = await supabase.rpc("venue_set_player_of_tournament", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+    p_name:                name,
+    p_team_name:           teamName,
+  });
+  if (error) { console.error("[event-os] venue_set_player_of_tournament failed", error); throw error; }
+  return data;
+}
+
+export async function venueGetEquipmentForTournament(venueToken, tournamentEventId) {
+  const { data, error } = await supabase.rpc("venue_get_equipment_for_tournament", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] venue_get_equipment_for_tournament failed", error); throw error; }
+  return data;
+}
+
+export async function venueBookEquipmentForTournament(venueToken, tournamentEventId, equipmentId, qty, startAt, endAt, dueBackAt = null) {
+  const { data, error } = await supabase.rpc("venue_book_equipment_for_tournament", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+    p_equipment_id:        equipmentId,
+    p_qty:                 qty,
+    p_start_at:            startAt,
+    p_end_at:              endAt,
+    p_due_back_at:         dueBackAt,
+  });
+  if (error) { console.error("[event-os] venue_book_equipment_for_tournament failed", error); throw error; }
+  return data;
+}
+
+export async function venueListTournamentEquipmentBookings(venueToken, tournamentEventId) {
+  const { data, error } = await supabase.rpc("venue_list_tournament_equipment_bookings", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] venue_list_tournament_equipment_bookings failed", error); throw error; }
+  return data;
+}
+
+export async function venueCancelEquipmentBooking(venueToken, bookingId) {
+  const { data, error } = await supabase.rpc("venue_cancel_equipment_booking", {
+    p_venue_token: venueToken,
+    p_booking_id:  bookingId,
+  });
+  if (error) { console.error("[event-os] venue_cancel_equipment_booking failed", error); throw error; }
+  return data;
+}
+
+export async function venueSetPerformanceConfig(venueToken, tournamentEventId, pointsConfig) {
+  const { data, error } = await supabase.rpc("venue_set_performance_config", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+    p_points_config:       pointsConfig,
+  });
+  if (error) { console.error("[event-os] venue_set_performance_config failed", error); throw error; }
+  return data;
+}
+
+export async function venueAddPerformanceEvent(venueToken, tournamentEventId, name, measurementType, unit, attemptsPerAthlete = 1, category = null, scheduledTime = null, displayOrder = null) {
+  const { data, error } = await supabase.rpc("venue_add_performance_event", {
+    p_venue_token:          venueToken,
+    p_tournament_event_id:  tournamentEventId,
+    p_name:                 name,
+    p_measurement_type:     measurementType,
+    p_unit:                 unit,
+    p_attempts_per_athlete: attemptsPerAthlete,
+    p_category:             category,
+    p_scheduled_time:       scheduledTime,
+    p_display_order:        displayOrder,
+  });
+  if (error) { console.error("[event-os] venue_add_performance_event failed", error); throw error; }
+  return data;
+}
+
+export async function venueListPerformanceEvents(venueToken, tournamentEventId) {
+  const { data, error } = await supabase.rpc("venue_list_performance_events", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] venue_list_performance_events failed", error); throw error; }
+  return data;
+}
+
+export async function venueRecordResult(venueToken, performanceEventId, athleteName, competitionTeamId, value, attemptNumber = 1, status = "recorded") {
+  const { data, error } = await supabase.rpc("venue_record_result", {
+    p_venue_token:          venueToken,
+    p_performance_event_id: performanceEventId,
+    p_athlete_name:         athleteName,
+    p_competition_team_id:  competitionTeamId,
+    p_value:                value,
+    p_attempt_number:       attemptNumber,
+    p_status:               status,
+  });
+  if (error) { console.error("[event-os] venue_record_result failed", error); throw error; }
+  return data;
+}
+
+export async function venueGetPerformanceResults(venueToken, performanceEventId) {
+  const { data, error } = await supabase.rpc("venue_get_performance_results", {
+    p_venue_token:          venueToken,
+    p_performance_event_id: performanceEventId,
+  });
+  if (error) { console.error("[event-os] venue_get_performance_results failed", error); throw error; }
+  return data;
+}
+
+export async function venueGetSportsDayStandings(venueToken, tournamentEventId) {
+  const { data, error } = await supabase.rpc("venue_get_sports_day_standings", {
+    p_venue_token:         venueToken,
+    p_tournament_event_id: tournamentEventId,
+  });
+  if (error) { console.error("[event-os] venue_get_sports_day_standings failed", error); throw error; }
+  return data;
+}
+
 // Referee PR #4 (mig 443) — assign (or clear, official=null) a referee on a TOURNAMENT
 // fixture. Club-admin auth (mirrors club_admin_assign_fixture_slot); emits the same
 // fixture_ref_assigned/_changed/_cleared audit action venue_assign_ref does, so the

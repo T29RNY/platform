@@ -4,6 +4,12 @@ import {
   venueAddCompetition, venueRegisterTeam, venueSendTeamInvite, venueApproveTeam,
   venueRejectTeam, venueGenerateSchedule, venueSeedKnockout, venueSeedDoubleElimination,
   venueAssignFixtureSlot, venueUpdateTournamentStatus,
+  // D3 (mig 453) — commercial + sports-day
+  venueAddSponsor, venueListSponsors, venueRemoveSponsor, venueSetBranding,
+  venueSetPlayerOfTournament, venueGetEquipmentForTournament, venueBookEquipmentForTournament,
+  venueListTournamentEquipmentBookings, venueCancelEquipmentBooking,
+  venueSetPerformanceConfig, venueAddPerformanceEvent, venueListPerformanceEvents,
+  venueRecordResult, venueGetSportsDayStandings,
 } from "@platform/core";
 import Modal from "./Modal.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
@@ -32,11 +38,28 @@ const COMP_TYPES = [
   { v: "cup",         label: "Cup (knockout)" },
 ];
 
+// Sports-day disciplines: how a result is measured + ranked.
+const MEASUREMENT_TYPES = [
+  { v: "time_asc",  label: "Time — fastest wins (e.g. sprint)", unit: "s" },
+  { v: "distance",  label: "Distance — furthest wins (e.g. long jump)", unit: "m" },
+  { v: "height",    label: "Height — highest wins (e.g. high jump)", unit: "m" },
+  { v: "weight",    label: "Weight — heaviest wins (e.g. shot put)", unit: "kg" },
+  { v: "time_desc", label: "Score — highest wins", unit: "pts" },
+];
+
 const fmtDate = (d) => {
   if (!d) return "";
   try { return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }); }
   catch { return d; }
 };
+
+const fmtDateTime = (ts) => {
+  if (!ts) return "";
+  try { return new Date(ts).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }
+  catch { return ts; }
+};
+
+const measurementLabel = (t) => (MEASUREMENT_TYPES.find((m) => m.v === t)?.label.split(" — ")[0]) || t;
 
 function StatusPill({ status }) {
   const m = STATUS_META[status] || STATUS_META.draft;
@@ -211,13 +234,39 @@ function TournamentDetail({ venueToken, slug, onBack }) {
   const [slotFixture, setSlotFixture] = useState(null);
   const [teamCtx, setTeamCtx] = useState(null);     // { comp, mode: 'register' | 'invite' }
 
+  // D3 — commercial + sports-day
+  const [sponsors, setSponsors] = useState([]);
+  const [equipCatalogue, setEquipCatalogue] = useState([]);
+  const [equipBookings, setEquipBookings] = useState([]);
+  const [perfEvents, setPerfEvents] = useState([]);
+  const [standings, setStandings] = useState([]);
+  const [sponsorOpen, setSponsorOpen] = useState(false);
+  const [brandingOpen, setBrandingOpen] = useState(false);
+  const [potOpen, setPotOpen] = useState(false);
+  const [bookEquipOpen, setBookEquipOpen] = useState(false);
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [pointsOpen, setPointsOpen] = useState(false);
+  const [resultCtx, setResultCtx] = useState(null);   // performance event for record-result modal
+
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const d = await venueGetTournament(venueToken, slug);
       setDetail(d);
-      const sched = await venueGetSchedule(venueToken, d.tournament_id);
+      const [sched, spon, evs, stand, cat, books] = await Promise.all([
+        venueGetSchedule(venueToken, d.tournament_id),
+        venueListSponsors(venueToken, d.tournament_id),
+        venueListPerformanceEvents(venueToken, d.tournament_id),
+        venueGetSportsDayStandings(venueToken, d.tournament_id),
+        venueGetEquipmentForTournament(venueToken, d.tournament_id),
+        venueListTournamentEquipmentBookings(venueToken, d.tournament_id),
+      ]);
       setSchedule(sched);
+      setSponsors(spon ?? []);
+      setPerfEvents(evs ?? []);
+      setStandings(stand ?? []);
+      setEquipCatalogue(cat ?? []);
+      setEquipBookings(books ?? []);
     } catch (e) { setError(e?.message || String(e)); }
     finally { setLoading(false); }
   }, [venueToken, slug]);
@@ -267,6 +316,28 @@ function TournamentDetail({ venueToken, slug, onBack }) {
     catch (e) { setError(friendlyError(e)); }
     finally { setBusy(false); }
   }
+  async function removeSponsor(s) {
+    setBusy(true);
+    try { await venueRemoveSponsor(venueToken, s.sponsor_id); await load(); }
+    catch (e) { setError(friendlyError(e)); }
+    finally { setBusy(false); }
+  }
+  async function cancelBooking(b) {
+    setBusy(true);
+    try { await venueCancelEquipmentBooking(venueToken, b.booking_id); await load(); }
+    catch (e) { setError(friendlyError(e)); }
+    finally { setBusy(false); }
+  }
+
+  // Every active team across competitions — the entry pool for sports-day results.
+  const activeTeams = useMemo(() => {
+    const out = [];
+    for (const comp of detail?.competitions ?? [])
+      for (const t of comp.teams ?? [])
+        if (t.status === "active") out.push({ id: t.competition_team_id, name: t.team_name });
+    return out;
+  }, [detail]);
+  const hasResults = useMemo(() => perfEvents.some((e) => (e.result_count ?? 0) > 0), [perfEvents]);
 
   if (loading && !detail) return <EmptyState title="Loading tournament…" />;
   if (error && !detail) return <EmptyState title="Couldn’t load tournament" body={error} action={<button className="btn btn-ghost" onClick={onBack}>Back</button>} />;
@@ -405,10 +476,148 @@ function TournamentDetail({ venueToken, slug, onBack }) {
         );
       })}
 
+      {/* ── Commercial ──────────────────────────────────────────────────────── */}
+      <div className="t-panel">
+        <SectionHead label="Commercial" />
+        <div className="t-panel-grid">
+          {/* Branding */}
+          <div className="t-tile">
+            <div className="t-tile-head"><span>Branding</span>
+              <button className="btn btn-xs" onClick={() => setBrandingOpen(true)}>Edit</button></div>
+            {detail.branding && (detail.branding.primary_colour || detail.branding.custom_logo_url) ? (
+              <div className="t-brand-row">
+                {detail.branding.primary_colour && <span className="t-swatch" style={{ background: detail.branding.primary_colour }} title={detail.branding.primary_colour} />}
+                {detail.branding.secondary_colour && <span className="t-swatch" style={{ background: detail.branding.secondary_colour }} title={detail.branding.secondary_colour} />}
+                {detail.branding.custom_logo_url && <span className="text-mute" style={{ fontSize: 12 }}>Custom logo set</span>}
+              </div>
+            ) : <p className="text-mute" style={{ fontSize: 12, margin: 0 }}>No custom colours or logo yet.</p>}
+          </div>
+
+          {/* Player of the Tournament */}
+          <div className="t-tile">
+            <div className="t-tile-head"><span>Player of the Tournament</span>
+              <button className="btn btn-xs" onClick={() => setPotOpen(true)}>{detail.player_of_tournament_name ? "Edit" : "Set"}</button></div>
+            {detail.player_of_tournament_name ? (
+              <p style={{ margin: 0 }}><strong>{detail.player_of_tournament_name}</strong>{detail.player_of_tournament_team ? <span className="text-mute"> · {detail.player_of_tournament_team}</span> : null}</p>
+            ) : <p className="text-mute" style={{ fontSize: 12, margin: 0 }}>Not awarded yet.</p>}
+          </div>
+        </div>
+
+        {/* Sponsors */}
+        <div className="t-subhead"><span>Sponsors ({sponsors.length})</span>
+          <button className="btn btn-xs" onClick={() => setSponsorOpen(true)}>+ Add sponsor</button></div>
+        {sponsors.length === 0 ? (
+          <p className="text-mute" style={{ fontSize: 12, margin: "2px 0 0" }}>No sponsors yet — add logos to show on the public page.</p>
+        ) : (
+          <div className="t-sponsor-list">
+            {sponsors.map((s) => (
+              <div key={s.sponsor_id} className="t-sponsor-row">
+                <span className="t-sponsor-name">{s.name}{s.website_url ? <a className="text-mute" href={s.website_url} target="_blank" rel="noreferrer" style={{ marginLeft: 6, fontSize: 12 }}>↗</a> : null}</span>
+                <button className="btn btn-xs btn-ghost" onClick={() => removeSponsor(s)} disabled={busy}>Remove</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Equipment */}
+        <div className="t-subhead"><span>Equipment ({equipBookings.length})</span>
+          <button className="btn btn-xs" onClick={() => setBookEquipOpen(true)} disabled={equipCatalogue.length === 0}>+ Book equipment</button></div>
+        {equipCatalogue.length === 0 ? (
+          <p className="text-mute" style={{ fontSize: 12, margin: "2px 0 0" }}>No equipment catalogue at this venue yet.</p>
+        ) : equipBookings.length === 0 ? (
+          <p className="text-mute" style={{ fontSize: 12, margin: "2px 0 0" }}>Nothing booked for this tournament.</p>
+        ) : (
+          <div className="t-sponsor-list">
+            {equipBookings.map((b) => (
+              <div key={b.booking_id} className="t-sponsor-row">
+                <span className="t-sponsor-name">{b.qty}× {b.equipment_name}
+                  <span className="text-mute" style={{ marginLeft: 8, fontSize: 12 }}>{fmtDateTime(b.start_at)}{b.status !== "confirmed" ? ` · ${b.status}` : ""}</span></span>
+                <button className="btn btn-xs btn-ghost" onClick={() => cancelBooking(b)} disabled={busy}>Cancel</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Sports day ──────────────────────────────────────────────────────── */}
+      <div className="t-panel">
+        <SectionHead label="Sports day" count={perfEvents.length}>
+          <button className="btn btn-xs btn-ghost" onClick={() => setPointsOpen(true)}>Points table</button>
+          <button className="btn btn-xs" onClick={() => setAddEventOpen(true)}>+ Add event</button>
+        </SectionHead>
+        {perfEvents.length === 0 ? (
+          <EmptyState title="No events" body="Add a discipline — a sprint, long jump, relay — then record each athlete’s result. Team points come from the points table." />
+        ) : (
+          <>
+            <div className="t-event-list">
+              {perfEvents.map((ev) => (
+                <div key={ev.event_id} className="t-event-row">
+                  <span className="t-event-name">{ev.name}<span className="text-mute" style={{ fontSize: 12, marginLeft: 8 }}>{measurementLabel(ev.measurement_type)} · {ev.unit}</span></span>
+                  <span className="t-event-meta">
+                    <span className="text-mute" style={{ fontSize: 12 }}>{ev.result_count ?? 0} result{(ev.result_count ?? 0) === 1 ? "" : "s"}</span>
+                    <button className="btn btn-xs" onClick={() => setResultCtx(ev)} disabled={activeTeams.length === 0}>Record</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+            {standings.length > 0 && (
+              <>
+                <div className="t-subhead"><span>Team standings</span></div>
+                <div className="t-standings">
+                  {standings.map((row, i) => (
+                    <div key={row.competition_team_id} className="t-standings-row">
+                      <span className="t-standings-rank">{i + 1}</span>
+                      <span className="t-standings-team">{row.team_name}</span>
+                      <span className="t-standings-medals text-mute">🥇{row.gold} 🥈{row.silver} 🥉{row.bronze}</span>
+                      <span className="t-standings-pts"><strong>{row.points}</strong> pts</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
       {addCompOpen && (
         <AddCompetitionModal venueToken={venueToken} tournamentId={detail.tournament_id}
           onClose={() => setAddCompOpen(false)}
           onDone={async () => { setAddCompOpen(false); await load(); }} />
+      )}
+      {sponsorOpen && (
+        <AddSponsorModal venueToken={venueToken} tournamentId={detail.tournament_id}
+          onClose={() => setSponsorOpen(false)}
+          onDone={async () => { setSponsorOpen(false); await load(); }} />
+      )}
+      {brandingOpen && (
+        <BrandingModal venueToken={venueToken} tournamentId={detail.tournament_id} branding={detail.branding}
+          onClose={() => setBrandingOpen(false)}
+          onDone={async () => { setBrandingOpen(false); await load(); }} />
+      )}
+      {potOpen && (
+        <PotModal venueToken={venueToken} tournamentId={detail.tournament_id} detail={detail}
+          onClose={() => setPotOpen(false)}
+          onDone={async () => { setPotOpen(false); await load(); }} />
+      )}
+      {bookEquipOpen && (
+        <BookEquipmentModal venueToken={venueToken} tournamentId={detail.tournament_id} catalogue={equipCatalogue}
+          onClose={() => setBookEquipOpen(false)}
+          onDone={async () => { setBookEquipOpen(false); await load(); }} />
+      )}
+      {addEventOpen && (
+        <AddEventModal venueToken={venueToken} tournamentId={detail.tournament_id}
+          onClose={() => setAddEventOpen(false)}
+          onDone={async () => { setAddEventOpen(false); await load(); }} />
+      )}
+      {pointsOpen && (
+        <PointsModal venueToken={venueToken} tournamentId={detail.tournament_id} pointsConfig={detail.points_config} locked={hasResults}
+          onClose={() => setPointsOpen(false)}
+          onDone={async () => { setPointsOpen(false); await load(); }} />
+      )}
+      {resultCtx && (
+        <RecordResultModal venueToken={venueToken} event={resultCtx} teams={activeTeams}
+          onClose={() => setResultCtx(null)}
+          onDone={async () => { setResultCtx(null); await load(); }} />
       )}
       {teamCtx && (
         <TeamModal venueToken={venueToken} tournamentId={detail.tournament_id} ctx={teamCtx}
@@ -635,6 +844,293 @@ function AssignSlotModal({ venueToken, fixture, pitches, onClose, onDone }) {
   );
 }
 
+// ── D3 commercial sub-modals ──────────────────────────────────────────────────
+function AddSponsorModal({ venueToken, tournamentId, onClose, onDone }) {
+  const [name, setName] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function save() {
+    if (busy) return;
+    if (!name.trim()) { setError("Enter a sponsor name."); return; }
+    setBusy(true); setError(null);
+    try {
+      await venueAddSponsor(venueToken, tournamentId, name.trim(), { logoUrl: logoUrl.trim() || null, websiteUrl: websiteUrl.trim() || null });
+      await onDone();
+    } catch (e) { setError(friendlyError(e)); setBusy(false); }
+  }
+
+  return (
+    <Modal onClose={() => !busy && onClose()} title="Add sponsor"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Adding…" : "Add sponsor"}</button>
+      </>}>
+      <label className="field-label">Name</label>
+      <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme Sports" autoFocus />
+      <label className="field-label" style={{ marginTop: 12 }}>Logo URL <span className="text-mute">(optional)</span></label>
+      <input className="input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…/logo.png" />
+      <label className="field-label" style={{ marginTop: 12 }}>Website <span className="text-mute">(optional)</span></label>
+      <input className="input" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://…" />
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+function BrandingModal({ venueToken, tournamentId, branding, onClose, onDone }) {
+  const [primary, setPrimary] = useState(branding?.primary_colour || "#1f6feb");
+  const [secondary, setSecondary] = useState(branding?.secondary_colour || "#0b1929");
+  const [logoUrl, setLogoUrl] = useState(branding?.custom_logo_url || "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function save() {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try {
+      await venueSetBranding(venueToken, tournamentId, primary || null, secondary || null, logoUrl.trim() || null);
+      await onDone();
+    } catch (e) { setError(friendlyError(e)); setBusy(false); }
+  }
+
+  return (
+    <Modal onClose={() => !busy && onClose()} title="Tournament branding"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save branding"}</button>
+      </>}>
+      <p className="text-mute" style={{ fontSize: 13, marginTop: 0 }}>Colours and a logo for the public tournament page.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div>
+          <label className="field-label">Primary colour</label>
+          <input className="input" type="color" value={primary} onChange={(e) => setPrimary(e.target.value)} style={{ height: 40, padding: 4 }} />
+        </div>
+        <div>
+          <label className="field-label">Secondary colour</label>
+          <input className="input" type="color" value={secondary} onChange={(e) => setSecondary(e.target.value)} style={{ height: 40, padding: 4 }} />
+        </div>
+      </div>
+      <label className="field-label" style={{ marginTop: 12 }}>Logo URL <span className="text-mute">(optional)</span></label>
+      <input className="input" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…/logo.png" />
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+function PotModal({ venueToken, tournamentId, detail, onClose, onDone }) {
+  const [name, setName] = useState(detail?.player_of_tournament_name || "");
+  const [team, setTeam] = useState(detail?.player_of_tournament_team || "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function save() {
+    if (busy) return;
+    if (!name.trim()) { setError("Enter the player’s name."); return; }
+    setBusy(true); setError(null);
+    try { await venueSetPlayerOfTournament(venueToken, tournamentId, name.trim(), team.trim() || null); await onDone(); }
+    catch (e) { setError(friendlyError(e)); setBusy(false); }
+  }
+
+  return (
+    <Modal onClose={() => !busy && onClose()} title="Player of the Tournament"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</button>
+      </>}>
+      <label className="field-label">Player name</label>
+      <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Jordan Smith" autoFocus />
+      <label className="field-label" style={{ marginTop: 12 }}>Team <span className="text-mute">(optional)</span></label>
+      <input className="input" value={team} onChange={(e) => setTeam(e.target.value)} placeholder="e.g. Riverside FC" />
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+function BookEquipmentModal({ venueToken, tournamentId, catalogue, onClose, onDone }) {
+  const [equipmentId, setEquipmentId] = useState(catalogue[0]?.equipment_id || "");
+  const [qty, setQty] = useState(1);
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function save() {
+    if (busy) return;
+    if (!equipmentId) { setError("Pick an item."); return; }
+    if (!date) { setError("Pick a date."); return; }
+    if (endTime <= startTime) { setError("End time must be after the start time."); return; }
+    setBusy(true); setError(null);
+    try {
+      const startAt = new Date(`${date}T${startTime}:00`).toISOString();
+      const endAt = new Date(`${date}T${endTime}:00`).toISOString();
+      await venueBookEquipmentForTournament(venueToken, tournamentId, equipmentId, Number(qty), startAt, endAt, null);
+      await onDone();
+    } catch (e) { setError(friendlyError(e)); setBusy(false); }
+  }
+
+  return (
+    <Modal onClose={() => !busy && onClose()} title="Book equipment"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Booking…" : "Book"}</button>
+      </>}>
+      <label className="field-label">Item</label>
+      <select className="input" value={equipmentId} onChange={(e) => setEquipmentId(e.target.value)}>
+        {catalogue.map((e) => <option key={e.equipment_id} value={e.equipment_id}>{e.name} ({e.quantity} available)</option>)}
+      </select>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 12 }}>
+        <div>
+          <label className="field-label">Qty</label>
+          <input className="input" type="number" min="1" step="1" value={qty} onChange={(e) => setQty(e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">From</label>
+          <input className="input" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">To</label>
+          <input className="input" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+        </div>
+      </div>
+      <label className="field-label" style={{ marginTop: 12 }}>Date</label>
+      <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+// ── D3 sports-day sub-modals ──────────────────────────────────────────────────
+function AddEventModal({ venueToken, tournamentId, onClose, onDone }) {
+  const [name, setName] = useState("");
+  const [mType, setMType] = useState("time_asc");
+  const [unit, setUnit] = useState("s");
+  const [unitTouched, setUnitTouched] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  function pickType(v) {
+    setMType(v);
+    if (!unitTouched) setUnit(MEASUREMENT_TYPES.find((m) => m.v === v)?.unit || "");
+  }
+
+  async function save() {
+    if (busy) return;
+    if (!name.trim()) { setError("Give the event a name."); return; }
+    if (!unit.trim()) { setError("Set the unit (e.g. s, m, kg)."); return; }
+    setBusy(true); setError(null);
+    try { await venueAddPerformanceEvent(venueToken, tournamentId, name.trim(), mType, unit.trim()); await onDone(); }
+    catch (e) { setError(friendlyError(e)); setBusy(false); }
+  }
+
+  return (
+    <Modal onClose={() => !busy && onClose()} title="Add event"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Adding…" : "Add event"}</button>
+      </>}>
+      <label className="field-label">Event name</label>
+      <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 100m Sprint" autoFocus />
+      <label className="field-label" style={{ marginTop: 12 }}>How is it measured?</label>
+      <select className="input" value={mType} onChange={(e) => pickType(e.target.value)}>
+        {MEASUREMENT_TYPES.map((m) => <option key={m.v} value={m.v}>{m.label}</option>)}
+      </select>
+      <label className="field-label" style={{ marginTop: 12 }}>Unit</label>
+      <input className="input" value={unit} onChange={(e) => { setUnitTouched(true); setUnit(e.target.value); }} placeholder="s / m / kg" />
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+function RecordResultModal({ venueToken, event, teams, onClose, onDone }) {
+  const [athlete, setAthlete] = useState("");
+  const [teamId, setTeamId] = useState(teams[0]?.id || "");
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function save() {
+    if (busy) return;
+    if (!athlete.trim()) { setError("Enter the athlete’s name."); return; }
+    if (!teamId) { setError("Pick a team."); return; }
+    const num = parseFloat(value);
+    if (!Number.isFinite(num)) { setError("Enter a numeric result."); return; }
+    setBusy(true); setError(null);
+    try { await venueRecordResult(venueToken, event.event_id, athlete.trim(), teamId, num); await onDone(); }
+    catch (e) { setError(friendlyError(e)); setBusy(false); }
+  }
+
+  return (
+    <Modal onClose={() => !busy && onClose()} title={`Record — ${event.name}`}
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Record result"}</button>
+      </>}>
+      <label className="field-label">Athlete</label>
+      <input className="input" value={athlete} onChange={(e) => setAthlete(e.target.value)} placeholder="Athlete name" autoFocus />
+      <label className="field-label" style={{ marginTop: 12 }}>Team</label>
+      <select className="input" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+        {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </select>
+      <label className="field-label" style={{ marginTop: 12 }}>Result <span className="text-mute">({event.unit})</span></label>
+      <input className="input" type="number" step="any" value={value} onChange={(e) => setValue(e.target.value)} placeholder={`e.g. 12.5`} />
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+function PointsModal({ venueToken, tournamentId, pointsConfig, locked, onClose, onDone }) {
+  // Simple rank→points editor for places 1–6 (the common sports-day spread).
+  const init = useMemo(() => {
+    const c = pointsConfig || {};
+    return [1, 2, 3, 4, 5, 6].map((r) => String(c[String(r)] ?? (r <= 3 ? [10, 8, 6][r - 1] : Math.max(0, 6 - (r - 3)))));
+  }, [pointsConfig]);
+  const [vals, setVals] = useState(init);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  function setRank(i, v) { setVals((cur) => cur.map((x, j) => (j === i ? v : x))); }
+
+  async function save() {
+    if (busy || locked) return;
+    const cfg = {};
+    vals.forEach((v, i) => { const n = parseInt(v, 10); if (Number.isFinite(n) && n > 0) cfg[String(i + 1)] = n; });
+    if (Object.keys(cfg).length === 0) { setError("Set points for at least 1st place."); return; }
+    setBusy(true); setError(null);
+    try { await venueSetPerformanceConfig(venueToken, tournamentId, cfg); await onDone(); }
+    catch (e) { setError(friendlyError(e)); setBusy(false); }
+  }
+
+  return (
+    <Modal onClose={() => !busy && onClose()} title="Points table"
+      foot={<>
+        <button className="btn btn-ghost" onClick={onClose} disabled={busy}>Close</button>
+        <span className="spacer" />
+        {!locked && <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save points"}</button>}
+      </>}>
+      <p className="text-mute" style={{ fontSize: 13, marginTop: 0 }}>Points each finishing place earns its team, totalled across every event.</p>
+      {locked && <p style={{ color: "var(--warn, #b80)", fontSize: 12 }}>Results are already recorded — the points table is locked.</p>}
+      <div className="t-points-grid">
+        {vals.map((v, i) => (
+          <div key={i} className="t-points-cell">
+            <label className="field-label">{["1st","2nd","3rd","4th","5th","6th"][i]}</label>
+            <input className="input" type="number" min="0" step="1" value={v} disabled={locked} onChange={(e) => setRank(i, e.target.value)} />
+          </div>
+        ))}
+      </div>
+      {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
 // Translate the RPC's snake_case error codes into operator-readable copy.
 function friendlyError(e) {
   const msg = e?.message || String(e);
@@ -646,6 +1142,19 @@ function friendlyError(e) {
     invalid_venue_token: "Your session has expired — sign in again.",
     end_date_before_start: "The end date can’t be before the start date.",
     invalid_status: "That status change isn’t allowed.",
+    results_already_recorded: "Results are already in — the points table is locked.",
+    invalid_points_config: "The points table is invalid.",
+    invalid_measurement_type: "Pick how the event is measured.",
+    unit_required: "Set the unit (e.g. s, m, kg).",
+    insufficient_availability: "Not enough of that item is free for this window.",
+    equipment_not_at_venue: "That item isn’t at this venue.",
+    invalid_quantity: "Quantity must be at least 1.",
+    invalid_window: "The booking end must be after its start.",
+    cannot_cancel: "This booking can’t be cancelled — it’s already out or returned.",
+    team_not_in_tournament: "That team isn’t registered in this tournament.",
+    athlete_name_required: "Enter the athlete’s name.",
+    sponsor_not_found: "That sponsor no longer exists — refresh.",
+    booking_not_found: "That booking no longer exists — refresh.",
   };
   for (const k of Object.keys(map)) if (msg.includes(k)) return map[k];
   return msg;

@@ -289,7 +289,18 @@ ingest; D is independent (Event OS engine already built). The epics:
   hygiene 7/7 + Playwright (venue_demo_south empty→create→comp→2 teams→generate schedule→publish→public page
   renders venue as host, 0 console errors; smoke data cleaned up) PASS; casual-regression N/A (venue app only,
   no apps/inorout/src or match engine); no new RPC ⇒ rpc-security/EV N/A. ⛔ owed real-device venue walk (HR#13).
-  **NEXT = D3** (commercial: branding/sponsors/POTM/equipment + sports-day venue-token siblings if the pilot needs them). Surface the ALREADY-BUILT Event OS engine (migs 314–328:
+  🔨 **D3 COMMERCIAL + SPORTS-DAY SHIPPED s229 (mig 453, backend + venue UI).** BOTH batches built. NO schema
+  (all tables/cols + `manage_tournaments` cap pre-exist, migs 326/327 + D1). 15 venue-token siblings of the
+  `club_admin_*` commercial chain (mig 327) + performance/sports-day chain (migs 326/328) — bodies verbatim,
+  auth swapped for the D1 `_authorise_venue_tournament` helper, each write own audit (HR#9). COMMERCIAL (9):
+  venue_add/list/remove_sponsor · venue_set_branding · venue_set_player_of_tournament · venue_get_equipment_for_
+  tournament / book / list_bookings / cancel_booking. SPORTS-DAY (6): venue_set_performance_config / add_
+  performance_event / list_performance_events / record_result / get_performance_results / get_sports_day_standings.
+  Venue UI: `TournamentsView.jsx` gains a **Commercial** panel (branding/POTM tiles + sponsors list/add/remove +
+  equipment bookings) and a **Sports day** panel (points table, events, record results, team standings). Gates:
+  rpc-security 15/15, EV 8/8+leak-0, hygiene 7/7, build PASS, Playwright PASS (add sponsor + add event→record→
+  standings on venue_demo_south, 0 console errors, smoke rows deleted), casual N/A. ⛔ owed real-device venue
+  walk (HR#13). Next free mig = 454. **Epic D COMPLETE (D1+D2+D3).** Surface the ALREADY-BUILT Event OS engine (migs 314–328:
   round-robin/group→KO/single+double-elim/sports-day, registration, auto-schedule, live scoring,
   H2H standings, brackets, cards, sponsors/branding, public hub) in the VENUE dashboard via
   venue-token auth (today club-admin-only, in the consumer app). Auth + UI, not new engine. Gated by
