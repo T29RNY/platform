@@ -1,5 +1,26 @@
 # In or Out — Key Decisions Log
 
+## SESSION 227 — Modular Platform Epic D decisions locked (venue-operator tournament create, pre-build)
+Audit done s227 (plan only, no edits); build = D1 next session (mig 452). The Event OS engine
+(migs 314–328) + the `tournaments` flag (mig 399, already gating the club-admin chain) already exist —
+Epic D is auth + UI, not new tournament logic. Three decisions locked with the operator:
+1. **A tournament can be owned by a CLUB *or* a VENUE — both, not either.** The owning club becomes
+   OPTIONAL; the venue is always present (`tournament_events.venue_id` stays NOT NULL,
+   `tournament_events.club_id` goes NULLABLE). Rationale: commercial operators (e.g. Goals) are venues,
+   not clubs — forcing them to invent/borrow a club is wrong, and `club_id` does no real work beyond
+   (a) the club-manager permission check (a venue operator authorises via venue token instead),
+   (b) the public-page "hosted by" line (already carries `venue_name` too), and (c) audit tagging.
+   So a venue-owned tournament has `club_id = NULL`; `get_tournament_public` switches its `JOIN clubs`
+   to a LEFT JOIN and shows the venue as host when there's no club; audit rows tag the venue. The
+   existing club path is byte-unchanged.
+2. **Ownership decides who manages it.** Club-owned → that club's managers (existing path, untouched).
+   Venue-owned → that venue's operators (new venue-token path). No cross-edit — clean split.
+3. **Who at the venue can create/run tournaments = BOTH gates.** Reuse the existing `manage_facility`
+   cap (so anyone already running the venue can, no re-granting) AND add a NEW dedicated
+   `manage_tournaments` cap (so a tournament organiser can be granted tournament-running WITHOUT full
+   facility access). Either cap (or owner role) admits. ⚠️ `venue_admins.caps_grant`/`caps_deny` are
+   constrained to a fixed list (mig 237 CHECK) — D1 must widen that CHECK to include `manage_tournaments`.
+
 ## SESSION 222 — Modular Platform Epic B Phase 5b (new-table club page modules, mig 449)
 Decided in-build (extends the s221 P5 decisions):
 1. **POTM is one row per `club_team`, manager-picked (name + month), UPSERT.** Clones

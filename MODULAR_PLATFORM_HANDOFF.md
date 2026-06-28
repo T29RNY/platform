@@ -638,6 +638,58 @@ make Cups-tab reachable when empty. Two creation paths into ONE engine: club-adm
 today) + venue-operator (dashboard, new). Gated by the `tournaments` flag (Epic A).
 **Sizing:** ~3–5 sessions (RPC auth clones + EV + venue UI).
 
+#### AUDIT COMPLETE + 3 DECISIONS LOCKED (session 227) — build = D1 next session, mig 452
+Read-only audit traced the engine, the venue auth helper, the consumer create UI, and the venue rail.
+Findings: (1) the whole Event OS engine + public run-phase (`/tournament/<slug>`, reception TV, ref
+scoring) is built & live; (2) the `tournaments` flag is club-owned (`club_features`) and mig 399
+ALREADY added the `_club_feature_enabled(club_id,'tournaments')` gate to the club-admin chain; (3) the
+venue rail already has a Competition group with a Cups item `flag:"tournaments"` BUT it's `cupOnly:true`
+→ hidden until a cup exists (chicken-and-egg) AND today drives LEAGUE-Mode cups (BracketView), NOT
+Event OS `tournament_events`; (4) the venue app has ZERO `tournament_events` plumbing — Epic D is
+genuinely net-new on the venue side; (5) the venue-token clone pattern is proven by the league cup RPCs
+(migs 185/192/194): `resolve_venue_caller(token)→venue_id` then validate the entity belongs to that
+venue; `_venue_has_cap(role,grant,deny,cap)` (mig 237) gives the cap check.
+
+**Decisions (operator-approved s227 — full text in DECISIONS.md SESSION 227):**
+- **D-A. Ownership = club OR venue (BOTH).** `tournament_events.club_id` goes NULLABLE; `venue_id` stays
+  NOT NULL. A venue-owned tournament has `club_id=NULL`. `club_id` only ever did: club-manager auth (a
+  venue operator authorises via venue token instead), the public-page "hosted by" line (already carries
+  `venue_name`), and audit tagging. So: `get_tournament_public` `JOIN clubs` → LEFT JOIN, host falls back
+  to venue name; audit rows tag the venue when club-less. Existing club path byte-unchanged.
+- **D-B. Ownership decides management.** Club-owned → club managers (existing). Venue-owned → venue
+  operators (new venue-token path). No cross-edit.
+- **D-C. Permission = BOTH gates.** Reuse `manage_facility` AND add a new dedicated `manage_tournaments`
+  cap; either (or owner role) admits. ⚠️ `venue_admins` caps CHECK (mig 237 lines 41–42) must be widened
+  to include `manage_tournaments` in D1.
+
+**The create→build→manage chain needing venue-token siblings** (auth block is the ONLY diff per RPC —
+swap the club-manager check for `tournament_events.venue_id = resolve_venue_caller(token).venue_id`,
+plus `_club_feature_enabled` only when a club owns it). Recommend ONE shared SECDEF auth helper
+`_authorise_venue_tournament(p_venue_token, p_tournament_event_id) → (venue_id, club_id)` to avoid
+30 drifting clones; each new write RPC keeps its own `audit_events` row (HR#9):
+- CORE (D1, write): `venue_create_tournament` (club optional), `..._add_competition`,
+  `..._register_team`, `..._send_team_invite`, `..._approve_team`, `..._reject_team`,
+  `..._generate_schedule`, `..._assign_fixture_slot`, `..._seed_knockout`,
+  `..._seed_double_elimination`, `..._update_tournament_status`.
+- READS (D1, for the manage UI): `..._list_tournaments`, `..._get_tournament`, `..._get_schedule`,
+  `..._get_standings`.
+- DEFER (D3): commercial (`set_branding`/sponsors/`set_player_of_tournament`/equipment) +
+  performance/sports-day (`set_performance_config`/`add_performance_event`/`record_result`/standings).
+- NOT in scope: match-day SCORING of tournament fixtures already flows through the shipped ref/venue
+  match path — the run phase is done.
+
+**Phasing (each its own PR, cloud-one-at-a-time):**
+- **D1 (mig 452):** club_id→nullable + public-page/audit fallback; widen caps CHECK + add
+  `manage_tournaments`; shared venue-auth helper + the CORE write siblings + the 4 read siblings;
+  wrappers + barrel. Gates: rpc-security-sweep, ephemeral-verify (every write; prove venue-owned create
+  with club NULL, venue-token auth admits via either cap, outsider rejected, single-venue/club path
+  byte-identical), build, hygiene, casual-regression N/A (venue app, no apps/inorout/src or match
+  engine). mig .sql + _down.sql same commit (HR#11); RPCS.md consumers (HR#14).
+- **D2:** venue UI — Tournaments surface under the Competition group, reachable when EMPTY (fix the
+  `cupOnly` chicken-and-egg), create form + manage panel; reuse the public bracket page for the run view.
+  PWA/device-walk owed (HR#13).
+- **D3:** commercial + sports-day siblings if the pilot needs them.
+
 ## VENUE OS NAV SIMPLIFICATION (a deliverable OF Epic A + a small IA pass)
 
 Two separate jobs — flags solve the first, not the second:

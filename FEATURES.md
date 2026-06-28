@@ -275,11 +275,20 @@ ingest; D is independent (Event OS engine already built). The epics:
   **Ref = standalone module** (audited: league/official arm needs zero squad/club/membership; sells
   independently). RefSix decisions: GPS heatmap/sprint MATCH, video analysis BUILD, multi-watch
   DEFER (Apple-only); add sin-bins + auto match reports. Detail in [[project_watchos_companion]].
-- **D — venue-operator tournament create.** Surface the ALREADY-BUILT Event OS engine (migs 314–328:
+- **D — venue-operator tournament create.** 📋 AUDITED + 3 decisions locked s227 (build = D1 next
+  session, mig 452). Surface the ALREADY-BUILT Event OS engine (migs 314–328:
   round-robin/group→KO/single+double-elim/sports-day, registration, auto-schedule, live scoring,
   H2H standings, brackets, cards, sponsors/branding, public hub) in the VENUE dashboard via
   venue-token auth (today club-admin-only, in the consumer app). Auth + UI, not new engine. Gated by
-  `tournaments` flag.
+  `tournaments` flag. **Decisions:** (A) a tournament can be owned by a CLUB *or* a VENUE — `club_id`
+  goes NULLABLE, venue always present; commercial operators (Goals) are venues not clubs. (B) ownership
+  decides who manages it (club managers vs venue operators, no cross-edit). (C) who-can-create = BOTH
+  the existing `manage_facility` cap AND a new dedicated `manage_tournaments` cap (widens the mig-237
+  caps CHECK). Phasing D1 = venue-token RPC siblings (shared auth helper + core write + 4 reads) +
+  club_id nullable + public-page/audit fallback; D2 = venue UI (create form + manage panel, fix the
+  `cupOnly` empty-state catch-22); D3 = commercial/sports-day siblings. Full scope in
+  MODULAR_PLATFORM_HANDOFF.md "EPIC D … session 227" + DECISIONS.md SESSION 227.
+  [[project_venue_operator_tournaments]].
 - **Competition model (cross-cutting):** internal (we own — League Mode + Event OS, full write) vs
   external (FA Full-Time — read-only mirror + match-day trigger). One "Competition" nav umbrella
   collapses Leagues+Table+Cups+tournaments; ⚠️ external must be read-only (no FA write-back) and
