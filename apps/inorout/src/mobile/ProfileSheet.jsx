@@ -168,14 +168,14 @@ export default function ProfileSheet({
 
   // Cross-surface rows (navigate OUT to the live screen for that hat).
   const otherContexts = [];
-  squads.forEach((s) => otherContexts.push({
-    key: "squad:" + s.team_id, iconName: "house",
+  squads.forEach((s, i) => otherContexts.push({
+    key: "squad:" + s.team_id + ":" + i, iconName: "house",
     title: s.team_name || "Your squad",
     sub: (s.is_competitive ? "League" : "Casual") + " football",
     onClick: () => go(`/p/${s.token}`),
   }));
-  clubs.forEach((c) => otherContexts.push({
-    key: "club:" + c.club_id, iconName: "figure",
+  clubs.forEach((c, i) => otherContexts.push({
+    key: "club:" + c.club_id + ":" + i, iconName: "figure",
     title: c.name || "Your club",
     sub: c.cohort_name || "Club membership",
     onClick: () => go(`/sessions?club=${c.club_id}`),
