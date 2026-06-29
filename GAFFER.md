@@ -1,11 +1,83 @@
 # Ask the Gaffer — AI Agent Layer
 
-*Last updated: May 23 2026 (session 33 — migrations 033–037 applied + smoke-tested; awaiting Anthropic key confirm + UI wire-up)*
+*Last updated: Jun 29 2026 (session 230 — UNIVERSAL AGENT FOUNDATION (Pillar D) shipped: mig 454 = `resolve_agent_caller` + `ai_agent_access`. The original casual Gaffer spec below (migs 033–037) was built s33 but NEVER canaried — 0 `ai_briefings` rows. The opt-in `ai_agent_access` table now governs rollout. See "UNIVERSAL AGENT FOUNDATION" immediately below.)*
 
 This file is the operating spec for Ask the Gaffer. It consolidates the
 positioning from `DECISIONS.md` and the architecture from
 `LEAGUE_MODE_SCOPE.md` Phase 7 into one source of truth. Read this
 file in full before any Gaffer work.
+
+---
+
+## UNIVERSAL AGENT FOUNDATION (Pillar D) — session 230
+
+The Gaffer is being generalised from a casual-football data narrator into the
+platform-wide AI agent (across In or Out **and** Lettrack). The build has **four
+pillars**:
+
+- **A — Answer** (grounded Q&A via per-domain context RPCs)
+- **B — Direct** (navigation / "where do I X" — **DEFERRED to Phase 2**; the agent
+  escalates nav questions rather than risk a wrong answer. The archived
+  `_archived_chatbot.jsx` + `systemPrompt.js` are the prior art for this.)
+- **C — Act** (tool-use via the ~479 existing SECURITY DEFINER RPCs — **DEFERRED to
+  Phase 2/3**; Phase 1 is answer-only, zero writes)
+- **D — Know-who** (unified caller identity — **the keystone, built FIRST**)
+
+### Shipped: migration 454 (Pillar D)
+
+**`ai_agent_access`** — opt-in canary + cost gate. PK `(scope_type, scope_id)`,
+`scope_type ∈ team|venue|company|global`. **No row = agent OFF** (deliberately the
+opposite of the feature-flag no-row=on convention — the agent is never accidentally
+on). Per-scope `domains[]` + `daily_cap_pence`. RLS on; SELECT→authenticated,
+writes→service_role only. (Note: an explicit `REVOKE ALL FROM anon` + `REVOKE writes
+FROM authenticated` is required — the project's `ALTER DEFAULT PRIVILEGES` auto-grants
+both roles on every new table, and `REVOKE FROM PUBLIC` does not undo named-role grants.)
+
+**`resolve_agent_caller(p_credential jsonb) → jsonb`** — STABLE SECURITY DEFINER,
+`search_path=public,pg_temp`. **Composes** the 5 existing resolvers
+(`resolve_admin_caller` / `resolve_venue_caller` / `resolve_league_caller` /
+`resolve_company_caller` / `resolve_invite_link`) + raw `players.token` lookup + invite
++ anonymous into ONE normalized caller-context. Returns:
+
+```jsonc
+{
+  "resolved": bool,
+  "auth_model": "casual_admin|casual_player|venue|league|company|signed_in|invite|anonymous",
+  "principal": { "kind", "actor_ident", "user_id", "display_name" },
+  "scope": { "team_ids":[], "venue_ids":[], "company_id":null, "league_ids":[], "club_ids":[] },
+  "roles": [], "active_role": null,
+  "capabilities": { "grant":[], "deny":[] },
+  "agent": { "enabled": bool, "domains":[], "daily_cap_pence": int, "used_today_pence": int, "phase": 1 }
+}
+```
+
+Key behaviours (all EV-proven, 10/10 + leak-0):
+- **Cost ceiling = single gate:** `used_today_pence >= daily_cap_pence` flips
+  `agent.enabled` to false (UTC-day SUM of `ai_briefings.cost_pence`; no separate flag).
+- **Player-token scope = self + team-public only** (cross-player isolation).
+- **Signed-in `company_id`/`active_role` = narrowing hints only** — the server verifies
+  `auth.uid()` owns the company; an unowned hint is silently ignored, never escalates.
+- **`agent.phase` lives in the data** (phase 1 = answer only; the edge fn will hard-block
+  tool calls until phase 3 — safety boundary in data, not just code).
+
+**`resolveAgentCaller(credential)`** wrapper in `packages/core/storage/supabase.js` uses
+the **authenticated/anon** client (the service-role key must never enter the frontend
+bundle, and the signed-in `auth.uid` path needs the authenticated client). The
+**service-role** invocation will live in the future edge fn `apps/inorout/api/_agent.js`
+(same pattern as `gaffer.js`), built when the universal-agent endpoint is.
+
+To enable the canary for one team:
+```sql
+INSERT INTO public.ai_agent_access (scope_type, scope_id, enabled, domains, daily_cap_pence)
+VALUES ('team', 'team_demo', true, '{casual}', 500);
+```
+
+### Not yet built (post-454)
+Universal-agent edge function · agent conversation tables · `ai_briefings`
+generalisation (`team_id` → nullable for non-casual callers) · non-casual domain context
+RPCs (venue/club/finance) · **Stage 1 casual-canary wiring** (`ENABLE_GAFFER` env-gate →
+`VITE_GAFFER_ENABLED`, `GafferCard` placement on admin home, `sonnet-4-5`→`4-6` bump, fix
+the mis-wired `App.jsx` `<Gaffer>` call site) — the **next PR**.
 
 ---
 
