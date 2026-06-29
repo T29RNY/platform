@@ -536,6 +536,7 @@ Apply SQL before writing any JS wrapper.
 - `skills/casual-regression.md` — mandatory for Phase 5+ cycles touching apps/inorout. Proves casual flow unchanged.
 - `skills/ephemeral-verify.md` — mandatory for any new write RPC. Live-DB end-to-end proof with auto-rollback.
 - `skills/post-incident.md` — documentation after every bug fix.
+- `.claude/skills/dev-loop/SKILL.md` — guardrailed, self-correcting dev loop. `/dev-loop <change>` for one change; `/loop /dev-loop <manifest>` for an epic. Wraps AUDIT→EXECUTE→VERIFY→COMMIT with a fail-fast proof gate (node --check → check-hygiene → rpc/schema gates + ephemeral-verify → check-build → Playwright end-to-end smoke = the real correctness signal; Vercel preview = build/deploy only) and a fresh-context QA+Security review (security reviewer runs check-rpc-security). PR-only; never pushes main (enforced by `.claude/hooks/pre-push-guard.sh`); never auto-merges; tier-3 (migration/RLS/money/deploy) = draft-but-ask. Delegates to the skills above, never restates them.
 
 ---
 

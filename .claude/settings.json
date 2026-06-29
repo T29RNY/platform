@@ -73,6 +73,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash /Users/tarny/platform/.claude/hooks/pre-push-guard.sh"
+          },
+          {
+            "type": "command",
             "command": "bash /Users/tarny/platform/.claude/hooks/pre-commit-build.sh"
           }
         ]
