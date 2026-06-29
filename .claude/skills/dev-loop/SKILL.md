@@ -100,17 +100,31 @@ Run in order, stop on first red, and **show the command + real exit code**, neve
    miss — this step is what catches it.
 6. **Casual regression** — if the increment touched `apps/inorout/src/` or
    `packages/core/` at Phase 5+, run `skills/casual-regression.md`.
+7. **Ship-safety / blast-radius** — `bash skills/scripts/check-live-config.sh`.
+   Classifies the diff against live/irreversible surfaces. **PROTECTED** (exit 1)
+   means the change can reach the live casual team or the iOS binary currently in
+   Apple review: treat it as tier-3, carry the matching proof (real-device walk /
+   casual-regression / ephemeral-verify), and HARD-STOP at the merge gate with an
+   explicit ship-safety verdict. **CLEAR** (exit 0) = no protected surface touched.
 
 ### 6 — REVIEW (independent, fresh context) · L4
-Spawn fresh-context reviewers that see **only the diff + the criteria** (not the
-build-up). Reviewers over-report — scope them to **real** correctness / requirement /
-security gaps, not style.
+**This stage is the real safety net — not the human merge tap.** The operator
+approves merges without re-deriving the diff, so correctness has to be *proven here*,
+by reviewers the worker can't influence. Spawn them as **fresh-context sub-agents**
+that see **only the diff + the criteria** (not the build-up — this also keeps the main
+loop's context small, L8). Reviewers over-report — scope them to **real** correctness /
+requirement / security gaps, not style. They are MANDATORY; never skip them, never let
+the writer grade its own work.
 - **QA reviewer** — does the diff meet the stated requirement and is it correct?
 - **Security reviewer** — given Stripe / auth / RLS / RPC are in scope and there is
   no type/test net, this is the most important grader. If any RPC was added/changed,
   the security reviewer **runs `bash skills/scripts/check-rpc-security.sh <rpc>`**
   (security + search_path + overloads) and treats its output as evidence, plus checks
   RLS exposure, `auth.uid()` trust, money/secret handling.
+- **Adversarial verify (tier-2/3 only)** — for any change flagged PROTECTED by
+  step-7 ship-safety, spawn a third reviewer whose sole job is to **refute** that the
+  change is safe to ship to the live team / Apple bundle. Default to "unsafe" on doubt.
+  If it can't be refuted, that's the evidence; if it can, back to step 5.
 
 ### 5–6 — CORRECT-UNTIL-GREEN · L8
 Never stop on the first red. Loop fix → re-prove → re-review. Budget **~4 passes**.
@@ -135,7 +149,95 @@ replace step 5's browser smoke.
   ProfileSheet dup-key test, where `platform-ref` was red but irrelevant.)
 
 ### 9 — MERGE GATE (human) · hard guardrail
-**Never auto-merge.** Report the PR and the proof, and wait for a human to merge.
+**Never auto-merge.** Report the PR and wait for a human to merge — but because
+**merging `main` is a live production deploy** (apps/inorout → `platform-clubmanager`
+→ `app.in-or-out.com` = the running casual team's app AND the web bundle inside the
+iOS binary in Apple review), the operator merges on trust. So you MUST hand them a
+one-line **ship-safety verdict**, never a bare "ready":
+- **DARK-IN-PROD — safe to merge now.** check-live-config CLEAR, OR the change is
+  flag-gated OFF in prod (e.g. `VITE_GAFFER_ENABLED` unset) / dead code / dev-tooling
+  (`.claude/`, `skills/`, `docs/`) not in the app bundle. Say *why* it's dark.
+- **SHIPS-LIVE — hold / proof required.** check-live-config PROTECTED. Name the
+  surface, the proof carried, and whether it's safe given the **Apple-review freeze**
+  below. Do not say "ready" without this.
+
+**APPLE-REVIEW FREEZE (while a build is in review):** the product is moving from PWA to
+an App-Store (Capacitor) app, so the frozen surface is the **native binary's web
+bundle** — auth / session-storage / routing (`App.jsx`) / native-wrapper changes are
+**frozen**: draft + prove, but **do not recommend merge**; stop needs-human and say
+"frozen pending Apple decision." (This is the surface that caused rejections #1 and #2.)
+PWA-only mechanics — service-worker / web manifest / offline / add-to-home-screen — are
+**deprecating** and no longer the priority; flag them lightly only while the PWA is
+still live for existing users, and drop the flag once the PWA is decommissioned.
+
+---
+
+## OPERATING POSTURE — autonomy + efficiency
+
+**Where trust lives.** The operator can't technically vet diffs and rubber-stamps
+merges. Trust therefore lives in the **tooling, not the gate**: the deterministic
+checks (build / hygiene / rpc-security / live-config), the mandatory fresh-context
+QA+Security review, casual-regression, and ephemeral-verify. Make those rigorous and
+the loop can run hands-off up to the merge tap. The gate stays human only because
+merge = prod deploy — not because the human adds verification.
+
+**Toward unmanned (what stays gated, always):** applying a migration, changing RLS,
+touching money/auth, flipping a prod env/flag, deploying, or merging anything
+check-live-config flags PROTECTED. These are drafted + proven but never executed by
+the loop. Everything else — audit, build, prove, review, PR — is autonomous.
+
+**Token efficiency (minimise spend per cycle):**
+- **Verify-first, build-second.** Before writing anything, grep / check whether it
+  already exists (migrations, RPCs, components). The Gaffer run skipped two whole
+  phases this way. Cheapest possible avoided work.
+- **Deterministic before LLM (L2).** Run the `check-*.sh` scripts first; only spawn
+  LLM reviewers on what survives. Don't pay for a judge where a grep settles it.
+- **Scoped sub-agents with clean windows (L8).** Run audit and review as sub-agents
+  fed only the files/diff they need — keep the main loop context lean; don't carry the
+  whole conversation into every step.
+- **Cache state in the manifest, don't re-derive.** Write audit findings + status into
+  the manifest once; a resumed cycle reads them instead of re-auditing. Read only the
+  ranges you need; never re-read a file already in context.
+- **One increment per cycle (L6).** Don't re-explore settled context or bundle phases.
+
+---
+
+## MERGE-JUDGE + BATCH-MERGE (opt-in, off by default)
+
+Default stays **per-phase + human tap** (step 9). An epic can opt in via its manifest
+header: `Merge mode: per-phase | auto | queue`.
+
+**Merge-judge** — a verdict synthesised from signals already produced, not a new review:
+`CI(own-app deploy) green` + `QA reviewer clean` + `Security reviewer clean` +
+`check-live-config` + the phase's tier tag → one of:
+- **AUTO-MERGEABLE** — only when `check-live-config = CLEAR` (tier-1: UI / copy / pure
+  helpers / flag-gated-dark / dev-tooling) AND both reviewers clean AND CI green. Under
+  `Merge mode: auto` the loop merges it; otherwise it's a one-tap recommendation.
+- **INTENT-QUESTION** — tier-3 / PROTECTED. **Never blind auto-merge.** Keep the human
+  in the loop ONLY where their judgment is real — *intent*, not code. Emit a
+  plain-English question they can actually answer, e.g. *"This lets agency staff read
+  tenant X's financial data — intended? y/n"* — not "review this diff." Plus require:
+  the adversarial security pass (step 6) AND the matching contract test
+  (rpc-security / ephemeral-verify / RLS read-scoping) **exists and passes**.
+- **FROZEN** — auth / PWA / native during an active Apple review (step 9 freeze).
+  Drafted + proven, never recommended for merge until the review clears.
+
+**Batch-merge (`Merge mode: queue`)** — for working ahead, hands-off, until the
+operator returns and says "merge all":
+- Dependent phases **stack**: each phase branches off the previous phase's branch (PR
+  targets that branch), so the loop builds P1→P2→P3 without waiting for merges.
+- The loop keeps going until a phase genuinely needs a *merged* predecessor — a
+  migration **apply**, an env flip, or a deploy. Those are tier-3 anyway → it stops
+  there with the intent-question queued.
+- On **"merge all"**: run merge-judge per queued PR **bottom-up**; auto-merge the
+  green AUTO-MERGEABLE ones, present the batched INTENT-QUESTIONS together (you answer
+  a handful of y/n intents), hold anything FROZEN. One sitting, minimal human surface.
+- Caveat surfaced every time (no silent caps): a queued stack means later phases were
+  proven against *branch state*, not against `main` — note which phases still owe a
+  post-merge re-smoke.
+
+Enabling `auto`/`queue` is an **explicit per-epic operator decision** — never the
+default, never inferred. Tier-3 stays human-on-intent under every mode.
 
 ---
 
