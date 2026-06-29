@@ -1,6 +1,7 @@
 # Epic manifest — <epic>
 - Epic: <what "done" means>
 - Plan gate: batched | per-phase
+- Merge mode: per-phase | auto | queue   (default per-phase; auto/queue = explicit operator opt-in; tier-3 stays human-on-intent under all modes)
 - Approved: <date | pending>
 
 ## Phases   (status: pending | in-progress | done | blocked: <why> | needs-human: <what>)
