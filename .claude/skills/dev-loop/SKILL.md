@@ -50,9 +50,23 @@ For a new feature from the backlog, run `skills/feature-plan.md` first.
   over ad-hoc one-liners.
 
 ### 2 — PLAN GATE (human) · L9
-Post the plan and **wait for human approval**. In epic mode this is batched once for
-the whole manifest (manifest header `Plan gate: batched`); otherwise it is per-change.
-Do not start EXECUTE until approved.
+Post the plan, then decide whether to wait — don't manufacture a checkpoint for a
+one-liner:
+- **Tier-2/3 (DB / RLS / money / auth / outward), OR any genuine trade-off, OR
+  ambiguity → STOP and wait for human approval.** Always. No exceptions.
+- **Tier-1 (frontend-only; no DB/RLS/money/auth/outward) with a single unambiguous
+  fix → post the plan and PROCEED** without blocking.
+- In epic mode the gate is batched once for the whole manifest
+  (`Plan gate: batched`).
+
+**Scope forks:** if options exist but one **strictly dominates** — same idiom, same
+tier, same blast radius, no real downside — take it, say which and why, and proceed.
+Only STOP when the choice is a *real* trade-off (wider blast radius, a product
+decision, a perf/clarity tension). Never silently widen or narrow scope on a genuine
+fork. (Calibrated after the ProfileSheet dup-key test over-asked "both vs club-only"
+when "both" strictly dominated.)
+
+Do not start EXECUTE until the above is satisfied.
 
 ### 3 — BRANCH · hard guardrail
 Create a feature branch off `main` (`feat/...`, `fix/...`). **Never commit on main.
@@ -110,9 +124,15 @@ Confirm the whole thing runs end-to-end one more time at the surface (the questi
 cannot do it.
 
 ### 8 — PR + watch CI (background) · L9
-Open a PR to `main` (`gh pr create`). Watch the Vercel preview build in the
-background (`gh pr checks <n> --watch`). **CI red → back to step 5.** Remember CI here
-is build/deploy only — it does not replace step 5's browser smoke.
+Open a PR to `main` (`gh pr create`). Watch the Vercel preview builds in the
+background (`gh pr checks <n> --watch`). CI here is **build/deploy only** — it does not
+replace step 5's browser smoke.
+- **A red check only sends you back to step 5 if it's *your* app's deploy.** Map the
+  change to its app (e.g. `apps/inorout` → `platform-clubmanager`) and judge on that.
+- **Known false alarm:** `platform-ref` fails on **every** PR (pre-existing, unrelated
+  to any `apps/inorout` change). Do **not** treat it as red-for-this-PR, and do **not**
+  loop back to step 5 over it — note it and move on. (Calibrated during the
+  ProfileSheet dup-key test, where `platform-ref` was red but irrelevant.)
 
 ### 9 — MERGE GATE (human) · hard guardrail
 **Never auto-merge.** Report the PR and the proof, and wait for a human to merge.
