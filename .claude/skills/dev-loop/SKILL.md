@@ -102,8 +102,8 @@ Run in order, stop on first red, and **show the command + real exit code**, neve
    `packages/core/` at Phase 5+, run `skills/casual-regression.md`.
 7. **Ship-safety / blast-radius** — `bash skills/scripts/check-live-config.sh`.
    Classifies the diff against live/irreversible surfaces. **PROTECTED** (exit 1)
-   means the change can reach the live casual team or the iOS binary currently in
-   Apple review: treat it as tier-3, carry the matching proof (real-device walk /
+   means the change can reach the live casual team or the live App-Store app (its
+   Capacitor web bundle): treat it as tier-3, carry the matching proof (real-device walk /
    casual-regression / ephemeral-verify), and HARD-STOP at the merge gate with an
    explicit ship-safety verdict. **CLEAR** (exit 0) = no protected surface touched.
 
@@ -151,24 +151,25 @@ replace step 5's browser smoke.
 ### 9 — MERGE GATE (human) · hard guardrail
 **Never auto-merge.** Report the PR and wait for a human to merge — but because
 **merging `main` is a live production deploy** (apps/inorout → `platform-clubmanager`
-→ `app.in-or-out.com` = the running casual team's app AND the web bundle inside the
-iOS binary in Apple review), the operator merges on trust. So you MUST hand them a
+→ `app.in-or-out.com` = the running casual team's app AND the web bundle loaded by the
+live App-Store app), the operator merges on trust. So you MUST hand them a
 one-line **ship-safety verdict**, never a bare "ready":
 - **DARK-IN-PROD — safe to merge now.** check-live-config CLEAR, OR the change is
   flag-gated OFF in prod (e.g. `VITE_GAFFER_ENABLED` unset) / dead code / dev-tooling
   (`.claude/`, `skills/`, `docs/`) not in the app bundle. Say *why* it's dark.
 - **SHIPS-LIVE — hold / proof required.** check-live-config PROTECTED. Name the
-  surface, the proof carried, and whether it's safe given the **Apple-review freeze**
-  below. Do not say "ready" without this.
+  surface, the proof carried, and whether it's safe to ship live (the Apple-review
+  freeze is **lifted** — but PROTECTED still needs proof). Do not say "ready" without this.
 
-**APPLE-REVIEW FREEZE (while a build is in review):** the product is moving from PWA to
-an App-Store (Capacitor) app, so the frozen surface is the **native binary's web
-bundle** — auth / session-storage / routing (`App.jsx`) / native-wrapper changes are
-**frozen**: draft + prove, but **do not recommend merge**; stop needs-human and say
-"frozen pending Apple decision." (This is the surface that caused rejections #1 and #2.)
-PWA-only mechanics — service-worker / web manifest / offline / add-to-home-screen — are
-**deprecating** and no longer the priority; flag them lightly only while the PWA is
-still live for existing users, and drop the flag once the PWA is decommissioned.
+**APPLE-REVIEW FREEZE — currently LIFTED (app went live in the App Store 2026-06-30).**
+No build is in review, so auth / session / routing / native changes are **no longer
+hard-frozen**. But the app is now **LIVE**: those changes ship to real App-Store users
+through the Capacitor web bundle, so they remain tier-3 **PROTECTED** — require
+ephemeral-verify / real-device proof + a ship-safety verdict before merge; just not a
+hard stop. **Re-impose the freeze automatically the moment a new build is submitted for
+review** — it's the surface that caused rejections #1 and #2. PWA-only mechanics
+(service-worker / manifest / offline) are deprecating; drop their flag once the PWA is
+decommissioned.
 
 ---
 
