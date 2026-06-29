@@ -47,6 +47,7 @@ export {
   goLive,
   getGafferBriefing,
   askGafferQuestion,
+  resolveAgentCaller,
   adminSetPlayerStatus,
   adminReorderReserves,
   createTeam,
