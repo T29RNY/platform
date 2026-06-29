@@ -38,6 +38,7 @@ import TeamsheetScreen   from "./TeamsheetScreen.jsx";
 import POTMTiebreakModal from "./POTMTiebreakModal.jsx";
 import PlayerProfile    from "../PlayerProfile.jsx";
 import AnnounceModal    from "./AnnounceModal.jsx";
+import GafferCard       from "../Gaffer/GafferCard.jsx";
 
 // ── inject animation ──────────────────────────────────────────────────────────
 if (typeof document !== "undefined" && !document.getElementById("adm-styles")) {
@@ -74,6 +75,7 @@ export default function AdminView({
   screen, setScreen, onGoPlayer, onGoStats, onGoHistory, onGoMyIO,
   isDemoMode = false, onResetDemo, isViceCaptain = false, me = null,
   adminToken = null,
+  gafferEnabled = false,
   multiContextNav = false,
 }) {
   const [showCancel,       setShowCancel]       = useState(false);
@@ -742,6 +744,9 @@ export default function AdminView({
 
       {/* ── Content ── */}
       <div style={{ padding:"10px 16px 0" }}>
+
+        {/* Ask the Gaffer — canary briefing (self-hides when team is off the canary) */}
+        {gafferEnabled && <GafferCard surface="team_summary" adminToken={adminToken} />}
 
         {/* Alert banners */}
         {orphanedGuests.map(guest => {

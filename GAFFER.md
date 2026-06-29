@@ -72,12 +72,30 @@ INSERT INTO public.ai_agent_access (scope_type, scope_id, enabled, domains, dail
 VALUES ('team', 'team_demo', true, '{casual}', 500);
 ```
 
-### Not yet built (post-454)
+### Shipped: Stage 1 casual-canary wiring (PR #151, `feat/gaffer-casual-canary`)
+Frontend-only, no migration. Activates the dormant grounded-data Gaffer for the casual
+admin flow behind an **off-by-default** env flag:
+- `ENABLE_GAFFER` hardcoded `false` → `import.meta.env.VITE_GAFFER_ENABLED === 'true'`
+  (`App.jsx`). Unset in production = behaviourally identical to the old hardcoded `false`.
+- Fixed the mis-wired `App.jsx` `<Gaffer>` call site → passes `{adminToken, teamName}`
+  (the new panel's real signature) and gates on `isAdmin` (the Q&A panel needs an admin
+  token; a player `p_…` token would 403 every question). Removed the dead
+  navigation-chatbot leftovers (`GAFFER_ALLOWED`, `gafferContext`, `handleGafferNavigate`).
+- `GafferCard surface="team_summary"` placed at the top of the admin home, gated by a new
+  `gafferEnabled` prop into `AdminView` (single env-gate authoritative; the card also
+  self-hides off-canary via `team_not_enabled`/`ai_key_not_configured` → `null`).
+- `gaffer.js` `MODEL` `claude-sonnet-4-5` → `claude-sonnet-4-6` (unchanged $3/$15 pricing).
+
+Canary gating is `ai_agent_access` **alone** — no second `GAFFER_ENABLED_TEAMS` env
+allow-list (rejected: would be redundant and could drift from the DB gate). To enable:
+set `VITE_GAFFER_ENABLED=true` on Vercel Preview, then INSERT the `team_demo` row (above).
+Gates: build · hygiene 7/7 client files · casual-regression PASS (Playwright, both flag
+states). ⛔ real-device walk owed (HR#13).
+
+### Not yet built (post-Stage-1)
 Universal-agent edge function · agent conversation tables · `ai_briefings`
 generalisation (`team_id` → nullable for non-casual callers) · non-casual domain context
-RPCs (venue/club/finance) · **Stage 1 casual-canary wiring** (`ENABLE_GAFFER` env-gate →
-`VITE_GAFFER_ENABLED`, `GafferCard` placement on admin home, `sonnet-4-5`→`4-6` bump, fix
-the mis-wired `App.jsx` `<Gaffer>` call site) — the **next PR**.
+RPCs (venue/club/finance).
 
 ---
 

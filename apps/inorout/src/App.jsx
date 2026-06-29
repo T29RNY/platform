@@ -68,13 +68,7 @@ const DEFAULT_SCHEDULE = {
 const DEFAULT_SETTINGS = { groupName:"My Team" };
 
 // ─── Feature flags ────────────────────────────────────────────────────────────
-const ENABLE_GAFFER = false;
-
-// ─── Gaffer access control ────────────────────────────────────────────────────
-const GAFFER_ALLOWED = new Set([
-  'admin_101d9ac950278f76',
-  'p_95go8k6cfwo',
-]);
+const ENABLE_GAFFER = import.meta.env.VITE_GAFFER_ENABLED === 'true';
 
 // ─── Routing ──────────────────────────────────────────────────────────────────
 function getRoute() {
@@ -1186,47 +1180,9 @@ export default function App() {
     }
   };
 
-  // ── Gaffer context + navigation ──────────────────────────────────────────
+  // ── Viewer helpers (used by AdminView gate + PlayerView) ───────────────────
   const _me          = myPlayer ? squad.find(p => p.id === myPlayer.id) : null;
   const isViceCaptain = _me?.isViceCaptain === true;
-  const _inPlayers   = squad.filter(p => p.status === "in"      && !p.disabled && !p.injured);
-  const _reserves    = sortByReservePriority(squad.filter(p => p.status === "reserve" && !p.disabled));
-  const _reservePos  = _me?.status === "reserve"
-    ? _reserves.findIndex(p => p.id === _me.id) + 1 || null
-    : null;
-  const gafferContext = {
-    currentScreen:  view === "admin" ? adminScreen : view,
-    isAdmin,
-    playerName:     _me?.name || myPlayer?.name || null,
-    playerStatus:   _me?.status || "none",
-    reservePosition: _reservePos,
-    isInjured:      _me?.injured || false,
-    gameDate:       schedule.gameDateTime?.split("T")[0] || null,
-    kickoff:        schedule.kickoff || null,
-    venue:          schedule.venue   || null,
-    squadSize:      schedule.squadSize   || 14,
-    inCount:        _inPlayers.length,
-    reserveCount:   _reserves.length,
-    price:          schedule.pricePerPlayer || null,
-    gameIsLive:     schedule.gameIsLive    || false,
-    isMember:       _me ? (_me.attended > 0) : false,
-    multipleTeams:  playerTeams.length > 1,
-  };
-
-  const handleGafferNavigate = (target) => {
-    switch (target) {
-      case "stats":        setView("stats"); break;
-      case "history":      setView("history"); break;
-      case "bibs":         setView("admin"); setAdminScreen("bibs"); break;
-      case "score":        setView("admin"); setAdminScreen("score"); break;
-      case "squad":        setView("admin"); setAdminScreen("squad"); break;
-      case "schedule":     setView("admin"); setAdminScreen("schedule"); break;
-      case "payments":     setView("admin"); setAdminScreen("main"); break;
-      case "cover-pool":   setView("admin"); setAdminScreen("main"); break;
-      case "game-switcher": setSelectedTeam(null); break;
-      default: break;
-    }
-  };
 
   // ── Special routes ────────────────────────────────────────────────────────
   if (route.type === "redirecting")  return null;
@@ -1961,6 +1917,7 @@ export default function App() {
           context={squadContext} multiContextNav={multiContextNav}
           onSwitcherOpen={openSwitcher}
           adminToken={(isAdmin || isViceCaptain) ? (route.token || "admin_demo") : null}
+          gafferEnabled={ENABLE_GAFFER}
           isViceCaptain={isViceCaptain}
           screen={adminScreen}        setScreen={setAdminScreen}
           onGoPlayer={() => { playerStartTabRef.current = null; setView("player"); }}
@@ -1980,13 +1937,8 @@ export default function App() {
           }}
         />
       )}
-      {ENABLE_GAFFER && (
-        <Gaffer
-          context={gafferContext}
-          onNavigate={handleGafferNavigate}
-          isBlocked={isActionBlocked || adminScreen === "score"}
-          enabled={GAFFER_ALLOWED.has(route.token)}
-        />
+      {ENABLE_GAFFER && isAdmin && (
+        <Gaffer adminToken={route.token} teamName={settings?.groupName} />
       )}
       {showEmailCapture && (
         <EmailCaptureOverlay conflictMessage={linkConflict}/>

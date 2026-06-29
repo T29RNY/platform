@@ -20,7 +20,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const MODEL = 'claude-sonnet-4-5';     // bump to claude-sonnet-4-6 when we re-canary
+const MODEL = 'claude-sonnet-4-6';     // Sonnet 4.6 — same $3/$15 pricing as 4.5
 const MAX_TOKENS = {
   team_summary:      400,
   payment_summary:   300,
