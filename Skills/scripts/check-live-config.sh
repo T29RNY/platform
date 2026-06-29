@@ -57,7 +57,7 @@ while IFS= read -r f; do
   printf '%s' "$f" | grep -Eiq 'stripe|Stripe|gocardless|payment|nrl|client_account|reconcil' \
     && flag "MONEY" "$f" "payment/finance surface — needs sign-off"
   # Env / prod flags / deploy config
-  printf '%s' "$f" | grep -Eiq '\.env|vercel\.json|vite\.config|/api/_' \
+  printf '%s' "$f" | grep -Eiq '\.env|vercel\.json|vite\.config|/api/[^/]+\.(js|ts|mjs)' \
     && flag "ENV/DEPLOY" "$f" "env/deploy/edge-config surface — affects prod runtime"
   # Casual core (the live team's daily path)
   printf '%s' "$f" | grep -Eiq 'PlayerView|MySquads|AdminView/index|squad\.js|result|potm|POTM' \
