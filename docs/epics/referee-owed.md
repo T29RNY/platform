@@ -6,7 +6,7 @@
   `apps/inorout/src/mobile/` (RefFixtures.jsx, RefMatch.jsx), amber-scoped (referee
   role), iframes `apps/ref` UNCHANGED.
 - Plan gate: batched
-- Merge mode: per-phase   (this is the unmanned-loop shakedown — one merge tap per phase, on purpose)
+- Merge mode: queue   (first queue-mode run: work ahead unmanned, stack dependent phases, batch merges to one "merge all" on return; CLEAR tier-1 phases auto-mergeable at merge-all; tier-3 P3/P4 still stop mid-run for migration apply + intent y/n — applies are irreversible, never queued)
 - Approved: 2026-06-30
 
 ## Phases   (status: pending | in-progress | done | blocked: <why> | needs-human: <what>)
