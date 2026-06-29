@@ -161,10 +161,14 @@ one-line **ship-safety verdict**, never a bare "ready":
   surface, the proof carried, and whether it's safe given the **Apple-review freeze**
   below. Do not say "ready" without this.
 
-**APPLE-REVIEW FREEZE (while a build is in review):** auth / session-storage / PWA /
-manifest / service-worker / native-wrapper changes are **frozen** — draft + prove, but
-**do not recommend merge**; stop needs-human and say "frozen pending Apple decision."
-This is the surface that caused rejections #1 and #2.
+**APPLE-REVIEW FREEZE (while a build is in review):** the product is moving from PWA to
+an App-Store (Capacitor) app, so the frozen surface is the **native binary's web
+bundle** — auth / session-storage / routing (`App.jsx`) / native-wrapper changes are
+**frozen**: draft + prove, but **do not recommend merge**; stop needs-human and say
+"frozen pending Apple decision." (This is the surface that caused rejections #1 and #2.)
+PWA-only mechanics — service-worker / web manifest / offline / add-to-home-screen — are
+**deprecating** and no longer the priority; flag them lightly only while the PWA is
+still live for existing users, and drop the flag once the PWA is decommissioned.
 
 ---
 
