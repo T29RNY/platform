@@ -7292,3 +7292,26 @@ export async function gcInitMemberMandate({ inviteCode, tierId, period, forProfi
   }
   return res.json();
 }
+
+// ── UNIVERSAL AGENT ───────────────────────────────────────────────────────
+// Unified caller-context resolver (Pillar D). Uses the existing authenticated/
+// anon client — required for the signed-in (auth.uid) path; the service-role
+// invocation lives in the edge function (apps/inorout/api/_agent.js) when built.
+// RPC: resolve_agent_caller (migration 454). Returns the caller-context jsonb,
+// or null on any error.
+export async function resolveAgentCaller(credential) {
+  try {
+    const { data, error } = await supabase.rpc(
+      'resolve_agent_caller',
+      { p_credential: credential }
+    );
+    if (error) {
+      console.error('[agent] resolveAgentCaller failed:', error.message);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    console.error('[agent] resolveAgentCaller threw:', e?.message);
+    return null;
+  }
+}
