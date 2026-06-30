@@ -260,6 +260,7 @@ function dbToPlayer(r) {
     token: r.token,
     isGuest: r.is_guest || false,
     guestOf: r.guest_of || null,
+    hostDropoutAck: r.host_dropout_ack || false,
     pendingApproval: r.pending_approval || false,
     injured: r.injured || false,
     injuredSince: r.injured_since || null,
@@ -700,6 +701,18 @@ export async function promoteGuest(adminToken, guestId) {
   });
   if (error) throw error;
   return dbToPlayer(data);
+}
+
+// Admin "Keep IN" on an orphaned guest (host dropped out): persist the decision
+// so the AdminView banner stops reappearing on reload. Per-week — reset on the
+// next weekly rollover (admin_go_live). Guest stays linked to its host.
+export async function ackOrphanGuest(adminToken, guestId) {
+  const { data, error } = await supabase.rpc('admin_ack_orphan_guest', {
+    p_admin_token: adminToken,
+    p_guest_id:    guestId,
+  });
+  if (error) throw error;
+  return data;
 }
 
 // ─── Cover pool ───────────────────────────────────────────────────────────────

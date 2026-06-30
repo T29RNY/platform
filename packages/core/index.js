@@ -34,6 +34,7 @@ export {
   removeGuestPlayer,
   reactivateGuestPlayer,
   promoteGuest,
+  ackOrphanGuest,
   getHeadToHead,
   getPOTMVotingState,
   getPOTMTallyPublic,
