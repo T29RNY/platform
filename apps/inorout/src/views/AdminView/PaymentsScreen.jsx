@@ -476,7 +476,7 @@ export default function PaymentsScreen({ squad, setSquad, schedule, teamId, admi
       fontFamily:"var(--font-body)", paddingBottom:40 }}>
 
       {/* Header */}
-      <div style={{ padding:"12px 16px 0" }}>
+      <div style={{ padding:"calc(12px + env(safe-area-inset-top)) 16px 0" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
           <button onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer",
             padding:0, display:"flex", alignItems:"center", color:"var(--t2)" }}>

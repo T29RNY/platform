@@ -362,7 +362,7 @@ export default function ScoreScreen({
 
   // ── Main ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: "20px 16px 100px" }}>
+    <div style={{ padding: "calc(20px + env(safe-area-inset-top)) 16px 100px" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
         <button onClick={onBack} style={backBtn}>

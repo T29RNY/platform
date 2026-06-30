@@ -59,7 +59,7 @@ export default function RemindersScreen({ schedule, setSchedule, onBack, teamId,
       fontFamily:"var(--font-body)", paddingBottom:80 }}>
 
       {/* Header */}
-      <div style={{ padding:"16px 18px 0", display:"flex", alignItems:"center",
+      <div style={{ padding:"calc(16px + env(safe-area-inset-top)) 18px 0", display:"flex", alignItems:"center",
         gap:12, marginBottom:24 }}>
         <div onClick={onBack} style={{ cursor:"pointer", color:"var(--gold)",
           display:"flex", alignItems:"center", WebkitTapHighlightColor:"transparent" }}>
@@ -145,7 +145,7 @@ export default function RemindersScreen({ schedule, setSchedule, onBack, teamId,
           style={{
             width:"100%", padding:16, borderRadius:12, border:"none",
             background: saveStatus === "ok" ? "var(--green)" : "var(--gold)",
-            color: "#000",
+            color: "var(--black)",
             fontFamily:"var(--font-display)", fontSize:18, letterSpacing:"0.06em",
             cursor: saving ? "not-allowed" : "pointer",
             opacity: saving ? 0.7 : 1,
