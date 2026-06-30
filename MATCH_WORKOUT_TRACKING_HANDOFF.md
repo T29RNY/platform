@@ -95,6 +95,16 @@ then **STOPS at the apply sign-off gate** (does NOT apply).
 - Gates: rpc-security-sweep (all SECDEF, anon-revoked, search_path, single overload),
   ephemeral-verify (assert: idempotent upsert, route cascade-delete, under-18 reject,
   consent gating on the casual reader, DOB-unknown path, leak-check 0), build.
+- **STATUS: DRAFTED + EV-PASSED (loop, dev cycle). `needs-human: G1 migration apply + PR merge.`**
+  Migration `456_match_health_routes_consent_source.sql` (+ `_down.sql`) written. EV ran the full
+  object set inside a rolled-back transaction (objects impersonated via `request.jwt.claims`): all
+  8 assertion groups PASS (A dob-unknown save, B idempotent upsert, C route+owner-read, D route
+  own-only, E under-18 blocked + adult-known allowed, F invalid-source rejected, G consent gating
+  [self+consenter shown, non-consenter hidden, self-first], H route cascade-delete). Leak-check =
+  0 (incl. `source` column + `match_health_routes` table = 0 → confirms NOT applied to live; G1
+  intact). rpc-security verified STATICALLY (all 4 new SECDEF fns: search_path pinned, anon-revoked,
+  single overload, no PUBLIC grant) — the live `pg_proc` sweep is owed at apply (functions don't
+  exist on live until G1). **The loop STOPS here. Operator: review + apply 456 at G1, then merge PR.**
 
 ### PR #2 — JS wrappers + barrel  (app-side)
 Wrappers `getMatchHealthForMatch`, `getMatchRoute`; extend `saveMatchHealthSummary`
@@ -121,6 +131,11 @@ Loop WRITES the source (uncompiled reference, like AuthSession); cannot compile/
 - Gates: `node --check` the JS, build clean (Swift not in CI). 🚦 STOPS — native wiring is G2/G3.
 
 ### PR #6 — Match-to-game logic + confirm flow  (app-side; real-device proof = G5 gate)
+- ⚠️ **AUDIT FLAG (found by loop during PR #1, verify at PR #6 audit):** `matches.actual_kickoff_at`
+  and `matches.game_is_live` — named as load-bearing in KEY AUDIT FACTS — **do NOT exist** on the
+  live `matches` table (only `id`, `team_id`, `match_date` confirmed). PR #6 must re-derive the real
+  casual kickoff anchor (likely a settings/schedule "usual time" + `match_date`, or a column named
+  differently) before building the time window. Does NOT affect PR #1 (migration never referenced them).
 - Given a game, build the time window (casual `actual_kickoff_at`→now/+duration, fallback
   `match_date`+remembered time; league `scheduled_date`+`kickoff_time`), query Health via the
   PR-5 bridge, **match by time + GPS tiebreaker**.
