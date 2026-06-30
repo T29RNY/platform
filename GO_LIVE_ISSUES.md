@@ -1609,3 +1609,44 @@ Reinforces the run-the-app rule.
 
 **Expected outcome:** a "Keep IN" / "Move to reserve" decision sticks across
 reloads within the same game; the admin is asked again only in a new game.
+
+---
+
+## 22. SESSION 233 — ADMIN SCREENS RENDERED UNDER THE iPHONE NOTCH (back button untappable) (PR #188)
+
+**Symptom (reported live, on-device):** On a real iPhone in the native app,
+every admin sub-screen (Matchday Settings, Manage Squad, Teams, Score,
+Payments, Reminders, Bibs, Teamsheet) rendered its header — title + back
+button — **partially under the device notch / status bar**. The back button
+was clipped and **untappable**; content started too high.
+
+**Root cause:** The admin screens rendered their own top headers with a fixed
+top padding and **no `env(safe-area-inset-top)` compensation**, even though
+the viewport is correctly set to `viewport-fit=cover`. The player-facing
+screens (PageHeader, PlayerView, StatsView, MyIOView, PlayerProfile) all use
+the `calc(Npx + env(safe-area-inset-top))` pattern — the admin screens were
+simply missing it. There is no shared admin header component, so each screen
+had drifted independently.
+
+**Fix (PR #188, no migration — UI only):** Added
+`env(safe-area-inset-top)` to the top padding of every admin screen's
+outer/header container, matching the established player-screen pattern. Covers
+the main AdminView sticky hero + TeamsScreen (both empty-state and main
+returns), ScoreScreen, BibsScreen, SquadScreen, ScheduleScreen,
+RemindersScreen, PaymentsScreen, TeamsheetScreen. (AnnounceModal /
+BookPitchModal are bottom-sheets → not affected.)
+
+**Why nothing caught it earlier:** build / hygiene / type checks cannot see
+"the back button is under the notch and won't tap" — it only surfaces on a
+real notched device in the native app. Reinforces hard rule #13.
+
+**Pre-flight check — run before go-live (real iPhone, native app):**
+
+1. As an admin, open each admin screen in turn: Matchday Settings, Manage
+   Squad, Teams, Score, Payments, Reminders, Bibs, Teamsheet.
+2. For each, confirm the header title is **fully below the notch** and the
+   back / "← Back" control is **completely clear of the status bar and taps
+   reliably** to return.
+
+**Expected outcome:** no admin screen's chrome is clipped by the notch; every
+back button is tappable on a notched device.
