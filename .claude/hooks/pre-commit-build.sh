@@ -81,9 +81,12 @@ done
 # ── Gate 1c: rpc-columns check for any function defined in staged migrations ──
 #
 # Catches stale column refs in RPC bodies before they reach the live DB.
-# Runs only when the migration defines at least one CREATE FUNCTION.
+# Runs only when the migration defines at least one function. Anchored on
+# CREATE so DROP FUNCTION lines (mandatory before a param-type-change
+# CREATE OR REPLACE, per CLAUDE.md) don't feed a dropped function name into
+# check-rpc-columns.sh and falsely block the commit.
 for MIG in $STAGED_MIGS; do
-  FN_NAMES=$(grep -oE 'FUNCTION[[:space:]]+[a-z_]+' "$ROOT/$MIG" 2>/dev/null | grep -oE '[a-z_]+$' | sort -u)
+  FN_NAMES=$(grep -oE 'CREATE[^(]*FUNCTION[[:space:]]+[a-z_]+' "$ROOT/$MIG" 2>/dev/null | grep -oE '[a-z_]+$' | sort -u)
   for FN_NAME in $FN_NAMES; do
     RPC_OUT=$(bash "$ROOT/skills/scripts/check-rpc-columns.sh" "$FN_NAME" 2>&1)
     RPC_EXIT=$?
