@@ -4,6 +4,7 @@ import { closePOTMVoting } from "@platform/core/storage/supabase.js";
 export default function POTMTiebreakModal({ match, squad, teamId, adminToken, onDecide, onClose }) {
   const [selected,   setSelected]   = useState(null);
   const [phase,      setPhase]      = useState("idle");
+  const [noPotm,     setNoPotm]     = useState(false); // arm-then-confirm for the no-winner close
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState(null);
 
@@ -29,6 +30,25 @@ export default function POTMTiebreakModal({ match, squad, teamId, adminToken, on
     } catch(e) {
       setError("Failed to submit. Try again.");
       setPhase("selected");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Close the game out with NO Player of the Match (abandoned / short games).
+  // Mirrors handleLock — same submitting guard + try/catch — but passes a null
+  // winner (the RPC records no POTM, no motm count changes) and fires NO
+  // potmResult push (there's no winner to announce).
+  const handleNoPotm = async () => {
+    if (!noPotm) { setNoPotm(true); return; }
+    setSubmitting(true);
+    try {
+      await closePOTMVoting(adminToken, match.id, null, true);
+      onDecide();
+    } catch(e) {
+      console.error(e);
+      setError("Failed to submit. Try again.");
+      setNoPotm(false);
     } finally {
       setSubmitting(false);
     }
@@ -120,15 +140,46 @@ export default function POTMTiebreakModal({ match, squad, teamId, adminToken, on
           {error && <div style={{ fontSize: 12, color: "var(--red)", textAlign: "center", marginTop: 8 }}>{error}</div>}
         </div>
         <div style={{ padding: "12px 20px 20px", borderTop: "0.5px solid rgba(255,255,255,0.06)", textAlign: "center", flexShrink: 0 }}>
+          {/* Permanently close voting with no POTM — abandoned / short games.
+              Arm-then-confirm so it can't be a single accidental tap. */}
           <button
-            onClick={onClose}
+            onClick={handleNoPotm}
+            disabled={submitting}
             style={{
-              background: "none", border: "none", cursor: "pointer",
-              fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)",
+              width: "100%", padding: "10px 14px", borderRadius: 8,
+              cursor: submitting ? "not-allowed" : "pointer",
+              fontSize: 12, fontWeight: 600, fontFamily: "var(--font-body)",
+              background: noPotm ? "rgba(255,64,64,0.15)" : "transparent",
+              color: noPotm ? "var(--red)" : "var(--t2)",
+              border: `0.5px solid ${noPotm ? "rgba(255,64,64,0.4)" : "rgba(255,255,255,0.1)"}`,
             }}
           >
-            Decide later
+            {noPotm ? "Confirm — no POTM ✓" : "No POTM this week"}
           </button>
+          {noPotm && (
+            <button
+              onClick={() => setNoPotm(false)}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 11, color: "var(--t2)", fontFamily: "var(--font-body)",
+                marginTop: 8,
+              }}
+            >
+              Cancel
+            </button>
+          )}
+          {!noPotm && (
+            <button
+              onClick={onClose}
+              style={{
+                display: "block", margin: "12px auto 0",
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 12, color: "var(--t2)", fontFamily: "var(--font-body)",
+              }}
+            >
+              Decide later
+            </button>
+          )}
         </div>
       </div>
     </div>
