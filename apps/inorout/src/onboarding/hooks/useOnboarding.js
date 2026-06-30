@@ -5,9 +5,11 @@ import { createTeam } from "@platform/core/storage/supabase.js";
 
 export function useOnboarding({ onComplete, authUser }) {
   const loadingStartRef = useRef(null);
-  const [step,      setStep]      = useState(1); // 1, 2, 3
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState(null);
+  const [step,        setStep]        = useState(1); // 1 = create, 2 = ready (dead path)
+  const [subStep,     setSubStep]     = useState(1); // 1–7 within the create wizard
+  const [furthestStep, setFurthestStep] = useState(1);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState(null);
 
   // Step 1 state
   const [groupName,       setGroupName]       = useState("");
@@ -82,9 +84,21 @@ export function useOnboarding({ onComplete, authUser }) {
     }
   };
 
+  const goNext = () => {
+    const next = subStep + 1;
+    setSubStep(next);
+    setFurthestStep(s => Math.max(s, next));
+  };
+
+  const goBack = () => setSubStep(s => Math.max(1, s - 1));
+
+  const goToSubStep = (n) => setSubStep(n);
+
   return {
     // State
     step, loading, error,
+    // Wizard navigation
+    subStep, furthestStep, goNext, goBack, goToSubStep,
     // Step 1
     groupName, setGroupName,
     dayOfWeek, setDayOfWeek,
