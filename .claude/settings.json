@@ -47,6 +47,7 @@
       "Bash(bash skills/scripts/check-build.sh *)",
       "Bash(bash skills/scripts/check-live-config.sh)",
       "Bash(bash skills/scripts/check-live-config.sh *)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-live-config.sh)",
       "Bash(bash skills/scripts/check-hygiene.sh *)",
       "Bash(bash skills/scripts/check-rpc-security.sh *)",
       "Bash(bash skills/scripts/check-rpc-columns.sh *)",
