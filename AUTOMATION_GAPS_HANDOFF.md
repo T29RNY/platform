@@ -199,7 +199,7 @@ The phases reference these existing files:
 - PR:
 
 ### P7 — Nightly qa-loop cloud trigger
-- status: pending
+- status: done (trigger trig_015Q8dEJC9Z9QzmqpRa1b7Wj, created 2026-06-30, first run 2026-07-01 07:06 UTC)
 - deps: none (independent of code changes)
 - tier-3 touch: outward — creates a live scheduled cloud job
 - goal:
@@ -251,4 +251,4 @@ The phases reference these existing files:
 ## Log
 <!-- one line per phase outcome: date · phase · result · PR# -->
 2026-06-30 · P1–P6 · done · PR #TBD
-2026-06-30 · P7 · needs-human: create_trigger MCP call for nightly QA cloud job
+2026-06-30 · P7 · done · trigger trig_015Q8dEJC9Z9QzmqpRa1b7Wj created (nightly QA, 07:00 UTC)
