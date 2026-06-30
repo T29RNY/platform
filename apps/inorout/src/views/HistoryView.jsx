@@ -475,6 +475,7 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
             matchDate={m.matchDate}
             kickoffTime={m.kickoffTime || schedule?.kickoff || null}
             matchContext="casual"
+            teamId={m.teamId || null}
           />
 
           {/* Share button */}

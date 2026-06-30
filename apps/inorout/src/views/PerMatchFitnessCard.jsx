@@ -28,6 +28,7 @@ import {
   queryWorkouts,
   queryRoute,
 } from "../native/native-health.js";
+import { setVenuePreference } from "../native/venue-preference.js";
 import MatchRouteHeatmap from "../components/MatchRouteHeatmap.jsx";
 
 const AGE_KEY = "health_18plus_confirmed";
@@ -198,7 +199,7 @@ function WorkoutRow({ w, onSelect }) {
   );
 }
 
-export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, matchContext = "casual" }) {
+export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, matchContext = "casual", teamId = null }) {
   const [rows, setRows] = useState(null);
   const [hasSession, setHasSession] = useState(false);
   // attach flow: "idle"|"age-check"|"requesting"|"searching"|"no-workouts"|"confirm"|"pick"|"saving"|"error"
@@ -320,6 +321,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
         source:            "apple_health_manual",
         route:             track,
       });
+      setVenuePreference(teamId, workout.indoor);
       setAttachState("idle");
       setPendingWorkout(null);
       setFoundWorkouts([]);
