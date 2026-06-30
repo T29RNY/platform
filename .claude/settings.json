@@ -80,7 +80,11 @@
       "Bash(bash skills/scripts/check-ev-leak.sh *)",
       "Bash(chmod +x skills/scripts/*.sh)",
       "Bash(bash /Users/tarny/platform/skills/scripts/check-next-migration.sh)",
-      "Bash(bash /Users/tarny/platform/skills/scripts/check-ev-leak.sh)"
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-ev-leak.sh)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr diff *)"
     ]
   },
   "hooks": {
