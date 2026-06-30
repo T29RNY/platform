@@ -467,10 +467,15 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
           </div>
 
           {/* Match fitness — Apple Watch summary for this game (mig 456). HistoryView shows casual
-              matches, so the ref is always matches.id (the casual key get_match_health_for_match
-              uses). Renders nothing until the native HealthKit ingestion feeds rows (ships DARK →
-              zero effect on the live history card today). */}
-          <PerMatchFitnessCard matchRef={m.id} />
+              matches, so matchRef is always matches.id. kickoffForHealth uses the per-match
+              kickoff_time when present (player-token route exposes it via to_jsonb(m.*)) and falls
+              back to the team's usual schedule time. Both arrive in "HH:MM:SS" format. */}
+          <PerMatchFitnessCard
+            matchRef={m.id}
+            matchDate={m.matchDate}
+            kickoffTime={m.kickoffTime || schedule?.kickoff || null}
+            matchContext="casual"
+          />
 
           {/* Share button */}
           <button
