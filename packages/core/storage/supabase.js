@@ -3076,6 +3076,22 @@ export async function getMatchRoute(sessionId) {
   return data;
 }
 
+// Teammate-sharing consent (mig 457). Returns { ok, share_match_fitness } — the caller's current
+// global consent (bool_or across their player rows). Returns OFF for token-only/unauth callers.
+export async function getMyShareMatchFitness() {
+  const { data, error } = await supabase.rpc("get_my_share_match_fitness", {});
+  if (error) { console.error("[health] get_my_share_match_fitness failed", error); throw error; }
+  return data;
+}
+
+// Sets the caller's global match-fitness sharing consent across ALL their player rows (mig 457).
+// Returns { ok, share_match_fitness, rows_updated }.
+export async function setShareMatchFitness(value) {
+  const { data, error } = await supabase.rpc("set_share_match_fitness", { p_value: value });
+  if (error) { console.error("[health] set_share_match_fitness failed", error); throw error; }
+  return data;
+}
+
 // ── Tournament match-day RPCs (Phase 5 Event OS) ──────────────────────────────
 // Score tracked on fixtures.home_score/away_score directly — no match_events rows.
 // match_events.team_id FK to teams blocks tournament competition_team ids.

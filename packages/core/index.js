@@ -118,6 +118,8 @@ export {
   getMyMatchHealth,
   getMatchHealthForMatch,
   getMatchRoute,
+  getMyShareMatchFitness,
+  setShareMatchFitness,
   refStartTournamentMatch,
   refSetTournamentPeriod,
   refRecordTournamentGoal,
