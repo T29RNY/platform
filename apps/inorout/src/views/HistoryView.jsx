@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ShareNetwork, CaretRight, ArrowsLeftRight } from "@phosphor-icons/react";
 import { resolveMotm, resolveBibHolder } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
+import PerMatchFitnessCard from "./PerMatchFitnessCard.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -464,6 +465,12 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
               </div>
             ))}
           </div>
+
+          {/* Match fitness — Apple Watch summary for this game (mig 456). HistoryView shows casual
+              matches, so the ref is always matches.id (the casual key get_match_health_for_match
+              uses). Renders nothing until the native HealthKit ingestion feeds rows (ships DARK →
+              zero effect on the live history card today). */}
+          <PerMatchFitnessCard matchRef={m.id} />
 
           {/* Share button */}
           <button
