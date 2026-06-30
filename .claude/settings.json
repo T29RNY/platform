@@ -72,7 +72,14 @@
       "Bash(bash skills/scripts/check-rpc-security.sh get_league_config)",
       "Bash(bash skills/scripts/check-references.sh get_league_config --rpc)",
       "Bash(bash skills/scripts/check-references.sh get_company_by_domain --rpc)",
-      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/AuthCallback.jsx)"
+      "Bash(bash skills/scripts/check-hygiene.sh apps/inorout/src/views/AuthCallback.jsx)",
+      "Bash(bash skills/scripts/check-next-migration.sh)",
+      "Bash(bash skills/scripts/check-next-migration.sh *)",
+      "Bash(bash skills/scripts/check-ev-leak.sh)",
+      "Bash(bash skills/scripts/check-ev-leak.sh *)",
+      "Bash(chmod +x skills/scripts/*.sh)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-next-migration.sh)",
+      "Bash(bash /Users/tarny/platform/skills/scripts/check-ev-leak.sh)"
     ]
   },
   "hooks": {
