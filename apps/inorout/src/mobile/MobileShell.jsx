@@ -16,6 +16,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { guardianListChildNotices } from "@platform/core";
+import { enableMemberPush } from "../native/native-push.js";
+import PushOptInModal from "../components/PushOptInModal.jsx";
 import "./theme/mobile-tokens.css";
 import { useMobileTheme } from "./theme/useMobileTheme.js";
 import { resolveRoles, tabsFor, TAB_META, contextSubline } from "./nav.js";
@@ -103,6 +105,61 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
     setToasts((t) => [...t, { id, ...opts }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2700);
   }, []);
+
+  // Push opt-in — the SAME modal casual players + managers see, amber-themed for
+  // the /hub shell. Shown once on landing for every member role (guardian,
+  // operator, team-manager, referee); re-asks up to a cap; Never stops it. Shares
+  // the member_notif localStorage keys with SessionsScreen + MemberProfile, so a
+  // yes/no on any surface carries across all of them on this device.
+  const PUSH_ASK_CAP = 3;
+  const [showPushModal, setShowPushModal] = useState(false);
+  const [pushState, setPushState] = useState("idle"); // idle | asking | subscribed | denied
+  useEffect(() => {
+    let cur, asks = 0;
+    try {
+      cur = localStorage.getItem("member_notif");
+      asks = parseInt(localStorage.getItem("member_notif_asks") || "0", 10) || 0;
+    } catch { return; }
+    if (cur === "subscribed" || cur === "denied" || cur === "never") return;
+    if (asks >= PUSH_ASK_CAP) return;
+    // Let the shell paint before asking — a modal on the very first frame reads
+    // as a spam wall.
+    const t = setTimeout(() => setShowPushModal(true), 1200);
+    return () => clearTimeout(t);
+  }, []);
+  const handlePushAllow = async () => {
+    setPushState("asking");
+    try {
+      const r = await enableMemberPush({
+        onRegistered: () => { try { localStorage.setItem("member_notif", "subscribed"); } catch { /* noop */ } setPushState("subscribed"); },
+        onError:      () => setPushState("idle"),
+      });
+      if (r === "subscribed")       { try { localStorage.setItem("member_notif", "subscribed"); } catch { /* noop */ } setPushState("subscribed"); }
+      else if (r === "denied")      { try { localStorage.setItem("member_notif", "denied"); }     catch { /* noop */ } setPushState("denied"); }
+      else if (r === "unsupported") setShowPushModal(false);
+      // 'registering' (native): the onRegistered callback resolves it
+    } catch (e) {
+      console.error("[hub] enable push failed", e);
+      setPushState("idle");
+    }
+  };
+  const handlePushNotNow = () => {
+    try {
+      const a = (parseInt(localStorage.getItem("member_notif_asks") || "0", 10) || 0) + 1;
+      localStorage.setItem("member_notif_asks", String(a));
+    } catch { /* noop */ }
+    setShowPushModal(false);
+  };
+  const handlePushNever = () => {
+    try { localStorage.setItem("member_notif", "never"); } catch { /* noop */ }
+    setShowPushModal(false);
+  };
+  useEffect(() => {
+    if (showPushModal && pushState === "subscribed") {
+      const t = setTimeout(() => setShowPushModal(false), 1600);
+      return () => clearTimeout(t);
+    }
+  }, [showPushModal, pushState]);
 
   const displayName = authUser?.user_metadata?.full_name || authUser?.email || "You";
 
@@ -380,6 +437,25 @@ export default function MobileShell({ world, authUser, route, onSignOut }) {
         />
       )}
       {sheet && typeof sheet !== "string" && sheet}
+
+      {/* Push opt-in — shared modal, amber-themed for the /hub shell. Inside the
+          data-surface="mobile" wrapper so the amber tokens resolve. */}
+      <PushOptInModal
+        open={showPushModal}
+        tone="amber"
+        state={pushState}
+        bullets={[
+          "Club and team announcements",
+          "Schedule, pitch or kick-off changes",
+          "Booking and payment updates",
+        ]}
+        subscribedText="We'll send these straight to your phone."
+        deniedText="Turn them on in your device settings to start getting pinged."
+        onAllow={handlePushAllow}
+        onNotNow={handlePushNotNow}
+        onNever={handlePushNever}
+        onClose={() => setShowPushModal(false)}
+      />
     </div>
   );
 }
