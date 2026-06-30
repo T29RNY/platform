@@ -37,17 +37,27 @@ Read every file the change touches. Follow `skills/audit.md`. Report current sta
 signatures, call sites, DB/RLS/RPC exposure, mismatches, risk flags. **No edits.**
 For a new feature from the backlog, run `skills/feature-plan.md` first.
 
-**Tooling hygiene (keeps the loop hands-off — learned the hard way):**
-- **No multi-line inline `node -e` / `npx tsx -e` probes.** They cannot be
-  allowlisted and always prompt, which breaks unattended runs. Put any check in a
-  `skills/scripts/check-*.sh` script or a committed test file and call that instead.
-  Single-file syntax checks via `node --check <file>` are fine.
-- **Avoid env-prefixed or piped commands** (`VAR=x npm run build | tail`) — a leading
-  `VAR=` assignment or a pipe makes the command miss the allowlist and prompt. Put env
-  vars inside the script, and read the exit code with `echo "exit=$?"` on its own line
-  rather than piping.
-- Prefer the committed `cd <dir> && npm run build` shape (covered by the allowlist)
-  over ad-hoc one-liners.
+**Tooling hygiene (keeps the loop hands-off — the single biggest cause of "the
+unmanned loop keeps asking for approval"):** the permission allowlist matches *simple*
+commands. Any command shape it can't cleanly match prompts the human — so every Bash
+call MUST be ONE simple, allowlistable command. Concretely:
+- **No `cd` in a compound command.** `cd <dir> && npm run build` trips a permission
+  prompt in the agent/IDE harness *even when both halves are allowlisted* — the
+  compound form can't be matched. Build with **`npm run build --prefix apps/<app>`**
+  (no `cd`) or the build gate **`bash skills/scripts/check-build.sh`** (it `cd`s
+  *inside* the script, so the outer call stays simple). Navigate with absolute paths,
+  never a bare `cd`.
+- **No multi-line / piped / redirected / process-substitution probes.** No inline
+  `node -e` / `npx tsx -e`, no `sed … | diff <(…)`, no `VAR=x cmd | tail`, no
+  `cmd 2>&1 | …`. Each of these misses the allowlist and prompts every time, which is
+  what breaks an unattended run. **To compare two files, use the Read tool and reason
+  over them directly — not `sed`/`diff`/`<()` in bash.** For any repeatable check, put
+  it in a `skills/scripts/check-*.sh` script and call that one script. Read an exit
+  code with `echo "exit=$?"` on its own line, never by piping.
+- **One increment's checks = a short list of bare allowlisted commands**, each run on
+  its own (`node --check <file>`; `bash skills/scripts/check-*.sh <args>`;
+  `npm run build --prefix apps/<app>`). If you catch yourself writing a `&&`/`|`/`<()`
+  chain to "save a round-trip", stop — that round-trip is cheaper than a human prompt.
 
 ### 2 — PLAN GATE (human) · L9
 Post the plan, then decide whether to wait — don't manufacture a checkpoint for a
