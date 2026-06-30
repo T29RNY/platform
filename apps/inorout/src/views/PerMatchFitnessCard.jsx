@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react";
 import { Lightning, Path } from "@phosphor-icons/react";
 import { getMatchHealthForMatch, getMatchRoute } from "@platform/core";
+import { supabase } from "@platform/core/storage/supabase.js";
 import MatchRouteHeatmap from "../components/MatchRouteHeatmap.jsx";
 
 function fmtDistance(m) {
@@ -106,6 +107,11 @@ export default function PerMatchFitnessCard({ matchRef }) {
     let alive = true;
     (async () => {
       try {
+        // get_match_health_for_match is authenticated-only; token-only/anon viewers (e.g. the
+        // /admin/<token> backdoor) have no session, so skip the fetch + self-hide rather than
+        // firing a request that will 403 and log an error on every card expansion.
+        const { data: { session } = {} } = await supabase.auth.getSession();
+        if (!session) { if (alive) setRows([]); return; }
         const res = await getMatchHealthForMatch(matchRef);
         if (alive) setRows(res?.rows || []);
       } catch (e) {
