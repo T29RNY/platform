@@ -37,6 +37,17 @@ Read every file the change touches. Follow `skills/audit.md`. Report current sta
 signatures, call sites, DB/RLS/RPC exposure, mismatches, risk flags. **No edits.**
 For a new feature from the backlog, run `skills/feature-plan.md` first.
 
+**Base-state check (do this FIRST, before reading anything else).** If the task says
+"build on PR #N" / "now merged" / "on top of <branch>", **verify that claim against the
+remote** — `gh pr view <N> --json state,mergedAt` — don't trust the prompt's premise.
+A brief written hours earlier may name a PR that's still *open*. If the named base is
+**not** merged AND your change touches files it also touches, branching off plain `main`
+will (a) miss the base's changes — failing any done-check that assumes them — and
+(b) collide with the open PR on the shared files. The fix: **branch off the open PR's
+head**, so your diff-vs-`main` carries the base + your work as one superseding PR, and
+flag at the merge gate that it supersedes #N. (Calibrated after the unmanned-hardening
+run, where the brief said "#161 merged" but it was open — same two files.)
+
 **Tooling hygiene (keeps the loop hands-off — the single biggest cause of "the
 unmanned loop keeps asking for approval"):** the permission allowlist matches *simple*
 commands. Any command shape it can't cleanly match prompts the human — so every Bash
@@ -152,6 +163,16 @@ that see **only the diff + the criteria** (not the build-up — this also keeps 
 loop's context small, L8). Reviewers over-report — scope them to **real** correctness /
 requirement / security gaps, not style. They are MANDATORY; never skip them, never let
 the writer grade its own work.
+
+**Scale review depth to tier (don't over-spend on docs).** A review is mandatory, but
+its *weight* should match blast radius. For a **tier-1, `check-live-config`-CLEAR,
+docs/config-only diff** (`.claude/` / `docs/` / `*.md`, no app/RPC/SQL), one combined
+QA-correctness reviewer is proportionate — the security grader adds little where there's
+no code, secret, RLS, or money surface to attack (state it as "security: N/A — no code
+surface" rather than spending a second 50k-token agent on prose). The **full QA +
+Security split (and adversarial pass for PROTECTED) is required the moment the diff
+touches app code, an RPC, auth, money, or anything `check-live-config` flags PROTECTED.**
+Never drop *below* one reviewer; never let the writer self-grade.
 - **QA reviewer** — does the diff meet the stated requirement and is it correct?
 - **Security reviewer** — given Stripe / auth / RLS / RPC are in scope and there is
   no type/test net, this is the most important grader. If any RPC was added/changed,
@@ -178,6 +199,11 @@ cannot do it.
 Open a PR to `main` (`gh pr create`). Watch the Vercel preview builds in the
 background (`gh pr checks <n> --watch`). CI here is **build/deploy only** — it does not
 replace step 5's browser smoke.
+- **Skip CI-watch entirely for docs/config-only diffs.** If `check-live-config` is
+  CLEAR *and* the diff touches only `.claude/` / `docs/` / `*.md` (no app, package, or
+  build-input file), no app deploys from this change — the Vercel builds are pure noise
+  (and `platform-ref` will "fail" regardless). Note "CI N/A — docs-only" and go straight
+  to the merge gate; don't block on a deploy signal that can't tell you anything.
 - **A red check only sends you back to step 5 if it's *your* app's deploy.** Map the
   change to its app (e.g. `apps/inorout` → `platform-clubmanager`) and judge on that.
 - **Known false alarm:** `platform-ref` fails on **every** PR (pre-existing, unrelated
@@ -197,6 +223,15 @@ one-line **ship-safety verdict**, never a bare "ready":
 - **SHIPS-LIVE — hold / proof required.** check-live-config PROTECTED. Name the
   surface, the proof carried, and whether it's safe to ship live (the Apple-review
   freeze is **lifted** — but PROTECTED still needs proof). Do not say "ready" without this.
+
+**Merge-from-a-worktree gotcha (don't misread it as a failed merge).** When you run
+`gh pr merge` from inside a worktree whose base branch (`main`) is checked out in
+*another* worktree, gh's *remote* merge succeeds but its post-merge **local** checkout
+of `main` fails with `fatal: 'main' is already used by worktree at <path>`. That error
+is only the local-sync step — confirm the real outcome with
+`gh pr view <n> --json state,mergedAt` (expect `MERGED`), then fast-forward the shared
+checkout separately (`git -C <main-worktree> pull --ff-only`). Don't retry the merge or
+report it as failed on the strength of that local error.
 
 **APPLE-REVIEW FREEZE — currently LIFTED (app went live in the App Store 2026-06-30).**
 No build is in review, so auth / session / routing / native changes are **no longer
