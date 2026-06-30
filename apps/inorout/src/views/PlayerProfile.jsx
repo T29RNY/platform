@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
   SignOut, Trash, X as XIcon,
-  PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid, BellSimple,
+  PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid, BellSimple, Lightning,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import {
@@ -12,6 +12,7 @@ import {
   insertPlayerInjury, clearPlayerInjury, getPlayerInjuries,
   deletePlayer, getMyContact, setPlayerContact,
   adminSetPlayerStatus, signOut, supabase,
+  getMyShareMatchFitness, setShareMatchFitness,
 } from "@platform/core/storage/supabase.js";
 import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
@@ -289,6 +290,38 @@ export default function PlayerProfile({
   const handleSignOut = async () => {
     try { await signOut(); } catch (e) { console.error("sign out failed", e); }
     window.location.replace("/signin");
+  };
+
+  // Match-fitness teammate-sharing consent (mig 457). Loaded lazily when the section expands;
+  // written globally across the user's player rows. Default OFF; degrades to OFF if the read fails.
+  const [shareFitness, setShareFitness] = useState(null); // null = unloaded
+  const [shareSaving,  setShareSaving]  = useState(false);
+  const [shareError,   setShareError]   = useState(null);
+  const loadShareFitness = async () => {
+    if (shareFitness !== null) return;
+    try {
+      const res = await getMyShareMatchFitness();
+      setShareFitness(!!res?.share_match_fitness);
+    } catch (e) {
+      console.error("[profile] load share consent failed", e);
+      setShareFitness(false);
+    }
+  };
+  const toggleShareFitness = async () => {
+    if (shareSaving || shareFitness === null) return;
+    const next = !shareFitness;
+    setShareFitness(next);   // optimistic
+    setShareSaving(true);
+    setShareError(null);
+    try {
+      await setShareMatchFitness(next);
+    } catch (e) {
+      console.error("[profile] save share consent failed", e);
+      setShareFitness(!next); // revert
+      setShareError("Couldn't save — try again.");
+    } finally {
+      setShareSaving(false);
+    }
   };
 
   // Admin-mode state
@@ -718,6 +751,48 @@ export default function PlayerProfile({
                     Used for league fixture reminders. Push is the default.
                   </div>
                 </>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* Match-fitness sharing consent (signed-in players only) — mig 457 */}
+        {!isAdminView && isAuthed && (
+          <Section
+            icon={<Lightning size={16} weight="thin" color="var(--t2)"/>}
+            label="MATCH FITNESS"
+            onExpand={loadShareFitness}
+          >
+            <div style={{ padding:"4px 16px 16px" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                <div style={{ fontSize:13, color:"var(--t1)", fontFamily:"var(--font-body)" }}>
+                  Share my match fitness with my squad
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={shareFitness === true}
+                  aria-label="Share my match fitness with my squad"
+                  onClick={toggleShareFitness}
+                  disabled={shareFitness === null || shareSaving}
+                  style={{
+                    position:"relative", width:44, height:26, flexShrink:0, borderRadius:13, border:"none",
+                    cursor:(shareFitness === null || shareSaving) ? "not-allowed" : "pointer", padding:0,
+                    background: shareFitness ? "var(--green)" : "var(--s3)", transition:"background 0.15s ease",
+                    opacity: shareFitness === null ? 0.5 : 1,
+                  }}
+                >
+                  <span style={{
+                    position:"absolute", top:3, left: shareFitness ? 21 : 3, width:20, height:20,
+                    borderRadius:"50%", background:"var(--t1)", transition:"left 0.15s ease",
+                  }}/>
+                </button>
+              </div>
+              <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, marginTop:8 }}>
+                Off by default. When on, your squad can see your Apple Watch stats for casual games you both played. Your route map stays private.
+              </div>
+              {shareError && (
+                <div style={{ fontSize:11, color:"var(--red)", fontWeight:300, marginTop:6 }}>{shareError}</div>
               )}
             </div>
           </Section>

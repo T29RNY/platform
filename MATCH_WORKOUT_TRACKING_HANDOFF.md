@@ -178,18 +178,25 @@ is the practical key for casual). Gates: hygiene, build, Playwright.
   Live rpc-security sweep PASS. The storage spine is live.
 - **PR #2 ✅ DONE** — JS wrappers + barrel merged (#168, d5ca110). `getMatchHealthForMatch`,
   `getMatchRoute`, `saveMatchHealthSummary(+source,+route)`. Dark.
-- **PR #3 ◻ IN PR** — display components (this PR). `MatchRouteHeatmap.jsx` (SVG, outdoor-only) +
+- **PR #3 ✅ DONE (#170)** — display components. `MatchRouteHeatmap.jsx` (SVG, outdoor-only) +
   `PerMatchFitnessCard.jsx` (reads `getMatchHealthForMatch`; self-hides empty; indoor hides
   distance/route; own-only route reveal) + "YOUR MATCH FITNESS" card generalised ref→any-player.
   Built as **Option A**: reusable components shipped DARK + UNMOUNTED (no casual match-result
-  surface exists to host them — see below); the MyIOView wording is the only live-visible change.
-  Gates: hygiene 7/7, build PASS, esbuild compile+import-resolve PASS, ship-safety CLEAR, QA review
-  clean. **Owed at PR #6:** render-with-data Playwright (mount the card + mocked Health responses) —
-  the manifest already scopes that for PR #6; the components are unmounted until then.
+  surface exists to host them — see scope note). **Owed at PR #6:** render-with-data Playwright
+  (mount the card + mocked Health responses).
   ⚠️ **Scope note for PR #6:** there is NO casual match-result view in apps/inorout (casual flow ends
   at AdminView scoring). The only existing per-match surface is league `FixtureDetailCard` (private to
   player). PR #6 (or a dedicated casual result surface) must decide where `PerMatchFitnessCard` mounts
   for casual. Operator endorsed Option A (defer casual host) by re-issuing the loop.
+- **PR #4 ◻ IN PR** — consent toggle (this PR). **Migration 457** (`get_my_share_match_fitness` +
+  `set_share_match_fitness`, both SECDEF authenticated-only; GLOBAL consent across the caller's player
+  rows; audit `match_fitness_consent_set` HR#9) + JS wrappers + barrel + a "MATCH FITNESS" toggle in
+  `PlayerProfile.jsx` (signed-in players only, default OFF, optimistic+revert, degrades to OFF if read
+  fails). **TIER-3 (migration 457 apply).** EV PASS 5/5 (default-off, set-true global 2-row, audit,
+  set-false, unauth blocked; leak-check 0 incl. fns_persisted=0). Gates: hygiene 7/7, build PASS,
+  rpc-security static PASS (live sweep owed at apply). **Loop STOPS at G-457: operator applies 457
+  THEN merges (apply-before-merge so the live toggle's RPC exists before the bundle deploys).**
+  Playwright toggle-persist owed post-apply.
 
 ## DONE = Phase 1
 PR #1–#7 merged (PR #1 applied at G1), G2–G4 cleared, the app live in the App Store with
