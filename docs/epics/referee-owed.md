@@ -12,7 +12,7 @@
 ## Phases   (status: pending | in-progress | done | blocked: <why> | needs-human: <what>)
 
 ### P1 — Shared Live-Match sheet
-- status: pending
+- status: done (PR #160, branch feat/ref-live-match-sheet; queued, not yet merged)
 - deps: none
 - goal: Extract the referee Live-Match view (RefMatch.jsx) into a shared sheet component
   so the same live-match surface can be reused (referee + broadcast/operator). No
@@ -23,7 +23,7 @@
   apps/inorout/src/); check-live-config = PROTECTED → real-device referee walk owed at merge.
 
 ### P2 — Broadcast composer
-- status: pending
+- status: needs-human: tier-3 confirmed (new RPC required, NOT reuse) + a design decision before drafting. Audit (s232): no existing publisher fits — `notify_team_change`/`notify_venue_change` carry NO message body and their sole App.jsx subscriber (App.jsx:1103) discards the payload (re-fetch ping, not a message bus); `club_send_announcement` needs a venue token + manage_memberships cap, `club_manager_send_announcement` needs auth.uid()+club-team-manager — a referee (anon ref_token only) holds neither. A NEW `ref_send_broadcast(p_ref_token, p_message, …)` is needed (mig 455): auth via `_ref_resolve_fixture(p_ref_token)` like the mig-120/121 ref RPCs, audit_events insert (HR9), notify_team_change(home)+( away)+notify_venue_change with a new whitelisted reason + matching App.jsx subscriber (HR10). DESIGN FORK for operator: (a) persist broadcasts in a new `match_broadcasts` table + a reader the two teams' surfaces render (durable; a team not watching still sees it), vs (b) realtime-only payload-carrying broadcast (ephemeral; missed if not watching). Recommend (a). Needs sign-off on the model + migration apply before build.
 - deps: P1
 - goal: Let the referee compose + post a broadcast from the live match. REUSE the
   existing broadcast/realtime publisher (notify_team_change / realtime.send) + its App.jsx
@@ -57,3 +57,5 @@
 
 ## Log
 <!-- one line per phase outcome: date · phase · result · PR# -->
+- 2026-06-30 · P1 · DONE — shared LiveMatchSheet extracted, referee path byte-for-byte unchanged; all gates + QA/sec reviews PASS; ship-safety CLEAR (DARK-IN-PROD) · PR #160 (queued)
+- 2026-06-30 · P2 · NEEDS-HUMAN — audit confirms tier-3 (new ref_send_broadcast RPC, mig 455; no reuse possible) + a persist-vs-ephemeral design fork. Loop stopped: all remaining phases (P2/P3/P4) are tier-3 migrations = sign-off + irreversible apply, not queueable. P1 PR #160 awaits "merge all".
