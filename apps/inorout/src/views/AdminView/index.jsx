@@ -18,6 +18,7 @@ import {
   adminReorderReserves,
   adminApproveGuest,
   adminDeclineGuest,
+  ackOrphanGuest,
 } from "@platform/core/storage/supabase.js";
 import {
   CaretRight, CaretUp, CaretDown, Megaphone, XCircle, PaperPlaneTilt,
@@ -158,8 +159,13 @@ export default function AdminView({
   const pendingTiebreak = !tiebreakDismissed
     ? matchHistory.find(m => m.adminDecisionPending && m.tiedCandidates?.length > 0)
     : null;
+  // Only an actively-IN guest whose host is no longer IN, who hasn't already
+  // been acknowledged (Keep IN persists host_dropout_ack on the server, mig
+  // 458) and isn't locally dismissed this session. The status==='in' guard
+  // also stops a reserved/removed guest from re-flagging on reload.
   const orphanedGuests = squad.filter(p =>
     p.isGuest && !p.disabled && !isDormantGuest(p) &&
+    p.status === "in" && !p.hostDropoutAck &&
     squad.find(h => h.id === p.guestOf)?.status !== "in" &&
     !dismissedOrphans.has(p.id)
   );
@@ -177,6 +183,26 @@ export default function AdminView({
 
   // ── functions (all preserved from original) ───────────────────────────────
   const dismissOrphan = (id) => setDismissedOrphans(prev => new Set([...prev, id]));
+  // "Keep IN": persist the decision (mig 458) so the banner doesn't reappear on
+  // reload. Optimistic — dismiss + flag locally for instant UI, revert on error.
+  const keepGuestIn   = async (id) => {
+    setOrphanErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+    const prev = squad;
+    setSquad(squad.map(p => p.id===id ? { ...p, hostDropoutAck:true } : p));
+    dismissOrphan(id);
+    try {
+      await ackOrphanGuest(adminToken, id);
+    } catch (e) {
+      console.error(e);
+      setSquad(prev);
+      setDismissedOrphans(prevSet => { const n = new Set(prevSet); n.delete(id); return n; });
+      const msg = String(e?.message || "").toLowerCase();
+      const friendly =
+        msg.includes("invalid_admin_token")  ? "Couldn't update — your admin link may be out of date. Pull to refresh."
+      :                                        "Couldn't update. Tap again or try later.";
+      setOrphanErrors(prevErr => ({ ...prevErr, [id]: friendly }));
+    }
+  };
   const reserveGuest  = async (id) => {
     const prev = squad;
     setSquad(squad.map(p => p.id===id ? { ...p, status:"reserve" } : p));
@@ -762,7 +788,7 @@ export default function AdminView({
               </div>
               <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                 {[
-                  { label:"Keep IN",        action:() => dismissOrphan(guest.id),  color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)" },
+                  { label:"Keep IN",        action:() => keepGuestIn(guest.id),    color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)" },
                   { label:"Move to reserve",action:() => reserveGuest(guest.id),  color:"var(--purple)", bg:"var(--purple2)", border:"var(--purpleb)" },
                   { label:`Remove ${guest.name}`,action:() => removeGuest(guest.id), color:"var(--red)",   bg:"var(--red2)",    border:"var(--redb)" },
                 ].map(({ label, action, color, bg, border }) => (
