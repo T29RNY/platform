@@ -18,6 +18,8 @@ import {
   adminReorderReserves,
   adminApproveGuest,
   adminDeclineGuest,
+  ackOrphanGuest,
+  getTeamByAdminToken,
 } from "@platform/core/storage/supabase.js";
 import {
   CaretRight, CaretUp, CaretDown, Megaphone, XCircle, PaperPlaneTilt,
@@ -96,6 +98,8 @@ export default function AdminView({
   const [showCoverPool,    setShowCoverPool]    = useState(false);
   const [showAnnounce,     setShowAnnounce]     = useState(false);
   const [chaseToast,       setChaseToast]       = useState(false);
+  const [joinCode,         setJoinCode]         = useState(null);
+  const [inviteCopied,     setInviteCopied]     = useState(false);
   const [chaseRecentMsg,   setChaseRecentMsg]   = useState(null);
   const [tiebreakDismissed, setTiebreakDismissed] = useState(false);
 
@@ -158,8 +162,13 @@ export default function AdminView({
   const pendingTiebreak = !tiebreakDismissed
     ? matchHistory.find(m => m.adminDecisionPending && m.tiedCandidates?.length > 0)
     : null;
+  // Only an actively-IN guest whose host is no longer IN, who hasn't already
+  // been acknowledged (Keep IN persists host_dropout_ack on the server, mig
+  // 458) and isn't locally dismissed this session. The status==='in' guard
+  // also stops a reserved/removed guest from re-flagging on reload.
   const orphanedGuests = squad.filter(p =>
     p.isGuest && !p.disabled && !isDormantGuest(p) &&
+    p.status === "in" && !p.hostDropoutAck &&
     squad.find(h => h.id === p.guestOf)?.status !== "in" &&
     !dismissedOrphans.has(p.id)
   );
@@ -177,6 +186,26 @@ export default function AdminView({
 
   // ── functions (all preserved from original) ───────────────────────────────
   const dismissOrphan = (id) => setDismissedOrphans(prev => new Set([...prev, id]));
+  // "Keep IN": persist the decision (mig 458) so the banner doesn't reappear on
+  // reload. Optimistic — dismiss + flag locally for instant UI, revert on error.
+  const keepGuestIn   = async (id) => {
+    setOrphanErrors(prev => { const n = { ...prev }; delete n[id]; return n; });
+    const prev = squad;
+    setSquad(squad.map(p => p.id===id ? { ...p, hostDropoutAck:true } : p));
+    dismissOrphan(id);
+    try {
+      await ackOrphanGuest(adminToken, id);
+    } catch (e) {
+      console.error(e);
+      setSquad(prev);
+      setDismissedOrphans(prevSet => { const n = new Set(prevSet); n.delete(id); return n; });
+      const msg = String(e?.message || "").toLowerCase();
+      const friendly =
+        msg.includes("invalid_admin_token")  ? "Couldn't update — your admin link may be out of date. Pull to refresh."
+      :                                        "Couldn't update. Tap again or try later.";
+      setOrphanErrors(prevErr => ({ ...prevErr, [id]: friendly }));
+    }
+  };
   const reserveGuest  = async (id) => {
     const prev = squad;
     setSquad(squad.map(p => p.id===id ? { ...p, status:"reserve" } : p));
@@ -406,6 +435,31 @@ export default function AdminView({
   // going offline.
   const toggleGameLive = () => {
     if (!schedule.gameIsLive) openNextWeek();
+  };
+
+  // Fetch the squad's stable join_code so the invite link can be surfaced
+  // directly on the main admin view (same source SquadScreen uses).
+  useEffect(() => {
+    if (!adminToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const team = await getTeamByAdminToken(adminToken);
+        if (!cancelled && team?.join_code) setJoinCode(team.join_code);
+      } catch (e) {
+        console.error("AdminView: failed to load join code", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [adminToken]);
+
+  const copyInviteLink = () => {
+    if (!joinCode) return;
+    const url = `https://app.in-or-out.com/join/${joinCode}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 1800);
+    }).catch(e => console.error("AdminView: copy invite link failed", e));
   };
 
   const chaseNoResponders = async () => {
@@ -681,7 +735,8 @@ export default function AdminView({
       )}
 
       {/* ── Hero card ── */}
-      <div style={{ position:"sticky", top:0, zIndex:10 }}>
+      <div style={{ position:"sticky", top:0, zIndex:10,
+        background:"var(--bg)", paddingTop:"env(safe-area-inset-top)" }}>
       <div style={{ position:"relative", height:140, overflow:"hidden", background:"var(--bg)" }}>
         {isDemoMode && (
           <div style={{ position:"absolute", top:12, right:12, zIndex:10 }}>
@@ -762,7 +817,7 @@ export default function AdminView({
               </div>
               <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                 {[
-                  { label:"Keep IN",        action:() => dismissOrphan(guest.id),  color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)" },
+                  { label:"Keep IN",        action:() => keepGuestIn(guest.id),    color:"var(--green)",  bg:"var(--green2)",  border:"var(--greenb)" },
                   { label:"Move to reserve",action:() => reserveGuest(guest.id),  color:"var(--purple)", bg:"var(--purple2)", border:"var(--purpleb)" },
                   { label:`Remove ${guest.name}`,action:() => removeGuest(guest.id), color:"var(--red)",   bg:"var(--red2)",    border:"var(--redb)" },
                 ].map(({ label, action, color, bg, border }) => (
@@ -993,10 +1048,17 @@ export default function AdminView({
               sub:"Choose who receives your message",
               badge:0, action:() => setShowAnnounce(true),
             },
-          ].map(({ key, iconEl, iconBg, iconBorder, title, sub, badge, action }, i) => (
+            ...(joinCode ? [{
+              key:"invite", iconEl:<LinkIcon size={18} weight="thin" color="var(--green)"/>,
+              iconBg:"var(--green2)", iconBorder:"var(--greenb)",
+              title:"Share Invite Link",
+              sub: inviteCopied ? "Copied to clipboard" : `app.in-or-out.com/join/${joinCode}`,
+              badge:0, action: copyInviteLink,
+            }] : []),
+          ].map(({ key, iconEl, iconBg, iconBorder, title, sub, badge, action }, i, arr) => (
             <div key={key} onClick={action}
               style={{ display:"flex", alignItems:"center", padding:"12px 14px",
-                borderBottom: i < 2 ? "0.5px solid var(--b2)" : "none",
+                borderBottom: i < arr.length - 1 ? "0.5px solid var(--b2)" : "none",
                 cursor:"pointer", gap:12,
                 WebkitTapHighlightColor:"transparent" }}>
               <div style={{ width:36, height:36, borderRadius:"var(--rs)", flexShrink:0,

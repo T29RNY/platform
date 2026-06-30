@@ -768,10 +768,10 @@ function GuestCard() {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-// ── Match fitness (watchOS Phase 4 / mig 375) ────────────────────────────────
-// Renders the Apple "Outdoor Football" workout summary the watch posts when this
-// user refereed a game. Caller only mounts this when sessions exist, so it never
-// shows an empty state (invisible until the watch posts data).
+// ── Match fitness (mig 375; generalised mig 456) ─────────────────────────────
+// Renders the Apple Watch workout summary read from Apple Health for any game this
+// user played or refereed (not ref-specific). Caller only mounts this when sessions
+// exist, so it never shows an empty state (invisible until data is ingested).
 function MatchFitness({ totals, sessions }) {
   const km = (totals?.distance || 0) >= 1000
     ? `${(totals.distance / 1000).toFixed(1)} km`
@@ -791,14 +791,14 @@ function MatchFitness({ totals, sessions }) {
         </div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 4 }}>
-        {stat("Games reffed", totals?.games || 0)}
+        {stat("Matches", totals?.games || 0)}
         {stat("Minutes", totals?.minutes || 0)}
         {stat("Calories", totals?.kcal || 0)}
         {stat("Distance", km)}
         {stat("Avg HR", totals?.avg_hr ? `${totals.avg_hr}` : "—")}
       </div>
       <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 10, fontFamily: "DM Sans, sans-serif" }}>
-        Across {sessions?.length || 0} refereed {sessions?.length === 1 ? "match" : "matches"}, tracked on your watch.
+        Across {sessions?.length || 0} {sessions?.length === 1 ? "match" : "matches"}, tracked on your Apple Watch.
       </div>
     </div>
   );
@@ -812,8 +812,9 @@ export default function MyIOView({ player, teamId, teamName, stats: statsProp })
   const sectionRefs = useRef([]);
   const secRef = (i) => (el) => { sectionRefs.current[i] = el; };
 
-  // Match fitness — watchOS-posted workout summaries (mig 375). Auth-only RPC, so
-  // it returns empty for guests / token-only players → the section self-hides.
+  // Match fitness — Apple Watch workout summaries read from Apple Health (mig 375,
+  // generalised mig 456). Auth-only RPC, so it returns empty for guests / token-only
+  // players → the section self-hides.
   const [health, setHealth] = useState(null);
   useEffect(() => {
     if (isGuest || !player?.id) return;

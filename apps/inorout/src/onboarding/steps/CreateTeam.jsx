@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MapPin } from "@phosphor-icons/react";
+import { MapPin, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { ONBOARDING_CONFIG as CFG } from "../config.js";
 
 // ── Static option data ─────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ const KICKOFF_TIMES = (() => {
 
 const SQUAD_SIZES = [6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22];
 
-// ── Base styles (defined outside component — stable references) ────────────────
+// ── Base styles ────────────────────────────────────────────────────────────────
 
 const BASE_INPUT = {
   width: "100%",
@@ -153,10 +153,21 @@ function VenueField({ venue, setVenue, city, setCity }) {
   const [cityAuto, setCityAuto] = useState("");
   const [showCityInput, setShowCityInput] = useState(true);
   const debounceRef = useRef(null);
+  const controllerRef = useRef(null);
+
+  // Cleanup debounce + in-flight fetch on unmount (step navigation)
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (controllerRef.current) controllerRef.current.abort();
+    };
+  }, []);
 
   const fetchSuggestions = useCallback(async (q) => {
     if (q.length < 3) { setSuggestions([]); return; }
+    if (controllerRef.current) controllerRef.current.abort();
     const controller = new AbortController();
+    controllerRef.current = controller;
     const timeout = setTimeout(() => controller.abort(), 3000);
     try {
       const res = await fetch(
@@ -263,131 +274,284 @@ function VenueField({ venue, setVenue, city, setCity }) {
   );
 }
 
+// ── Wizard shell ───────────────────────────────────────────────────────────────
+
+function WizardShell({ subStep, goBack, onContinue, continueLabel = "Continue →", continueDisabled = false, children }) {
+  return (
+    <div style={{
+      padding: "calc(24px + env(safe-area-inset-top)) 24px calc(48px + env(safe-area-inset-bottom))",
+      fontFamily: "var(--font-body)", minHeight: "100dvh",
+      boxSizing: "border-box", display: "flex", flexDirection: "column",
+    }}>
+      {subStep > 1 && (
+        <button
+          type="button"
+          onClick={goBack}
+          style={{
+            background: "none", border: "none", padding: "0 0 16px", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
+            color: "var(--t2)", fontSize: 13, fontFamily: "var(--font-body)", fontWeight: 300,
+          }}
+        >
+          <CaretLeft size={16} weight="thin" />
+          Back
+        </button>
+      )}
+
+      <ProgressBar current={subStep} total={6} />
+
+      <div style={{ flex: 1 }}>
+        {children}
+      </div>
+
+      <button
+        type="button"
+        onClick={onContinue}
+        disabled={continueDisabled}
+        style={{
+          width: "100%", padding: 16, borderRadius: 12, border: "none", marginTop: 16,
+          background: !continueDisabled ? "var(--gold)" : "var(--s3)",
+          color: !continueDisabled ? "var(--bg)" : "var(--t2)",
+          fontFamily: "var(--font-display)", fontSize: 18, letterSpacing: "0.06em",
+          cursor: continueDisabled ? "not-allowed" : "pointer",
+        }}
+      >
+        {continueLabel}
+      </button>
+    </div>
+  );
+}
+
+// ── Step title block ───────────────────────────────────────────────────────────
+
+function StepTitle({ title, subtitle }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{
+        fontFamily: "var(--font-display)", fontSize: 20, color: "var(--t1)",
+        letterSpacing: "0.06em", marginBottom: 8,
+      }}>
+        {title}
+      </div>
+      {subtitle && (
+        <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.5 }}>
+          {subtitle}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function CreateTeam({
-  groupName,      setGroupName,
-  dayOfWeek,      setDayOfWeek,
-  kickoff,        setKickoff,
-  venue,          setVenue,
-  city,           setCity,
-  squadSize,      setSquadSize,
+  groupName, setGroupName,
+  dayOfWeek, setDayOfWeek,
+  kickoff, setKickoff,
+  venue, setVenue,
+  city, setCity,
+  squadSize, setSquadSize,
   pricePerPlayer, setPricePerPlayer,
-  bibsEnabled,    setBibsEnabled,
-  adminEmail,     setAdminEmail,
+  bibsEnabled, setBibsEnabled,
+  adminEmail, setAdminEmail,
   onSubmit, loading, error,
+  subStep, goNext, goBack, goToSubStep,
 }) {
-  const [priceDisplay,   setPriceDisplay]   = useState("");
-  const [priceError,     setPriceError]     = useState(null);
-  const [priceZeroAck,   setPriceZeroAck]   = useState(false);
+  const [priceDisplay, setPriceDisplay] = useState("");
+  const [priceError, setPriceError] = useState(null);
 
   // Clear inherited default price on mount so the field starts empty
   useEffect(() => {
     setPricePerPlayer(null);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handlePriceChange = (e) => {
-    const val = e.target.value;
-    setPriceDisplay(val);
-    setPriceError(null);
-    if (val === "") {
-      setPricePerPlayer(null);
-    } else {
-      const n = parseFloat(val);
-      if (!isNaN(n)) setPricePerPlayer(n);
-    }
-  };
-
-  const handleSubmit = () => {
-    if (priceDisplay === "") {
-      setPriceError("Please enter a price — use 0 if your game is free");
-      return;
-    }
-    if (priceDisplay === "0" && !priceZeroAck) {
-      setPriceError("Please enter a price — use 0 if your game is free");
-      setPriceZeroAck(true);
-      return;
-    }
-    setPriceError(null);
-    onSubmit();
-  };
-
   const nameValid = groupName.trim().length > 0;
 
-  return (
-    <div style={{ padding: "calc(24px + env(safe-area-inset-top)) 24px 48px", fontFamily: "var(--font-body)" }}>
+  // ── Step 1: Squad name ─────────────────────────────────────────────────────
 
-      <ProgressBar current={1} total={3} />
+  if (subStep === 1) {
+    return (
+      <WizardShell
+        subStep={1}
+        goBack={goBack}
+        onContinue={goNext}
+        continueDisabled={!nameValid}
+      >
+        <div style={{ marginBottom: 28 }}>
+          <div style={{
+            fontFamily: "var(--font-display)", fontSize: 32,
+            letterSpacing: "0.06em", lineHeight: 1, marginBottom: 8,
+          }}>
+            <span style={{ color: "var(--green)" }}>IN</span>
+            <span style={{ color: "var(--t1)" }}> OR </span>
+            <span style={{ color: "var(--red)" }}>OUT</span>
+          </div>
+          <div style={{
+            fontFamily: "var(--font-display)", fontSize: 20, color: "var(--t1)",
+            letterSpacing: "0.06em", marginBottom: 10,
+          }}>
+            SET UP YOUR SQUAD
+          </div>
+          <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.5 }}>
+            Takes 2 minutes. Once you're set up, managing the game takes seconds each week.
+          </div>
+        </div>
+        <Field label="WHAT'S YOUR SQUAD CALLED?">
+          <FInput
+            value={groupName}
+            onChange={e => setGroupName(e.target.value)}
+            placeholder="e.g. Finbar's Tuesdays"
+          />
+        </Field>
+      </WizardShell>
+    );
+  }
 
-      {/* Brand header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{
-          fontFamily: "var(--font-display)", fontSize: 32,
-          letterSpacing: "0.06em", lineHeight: 1, marginBottom: 8,
-        }}>
-          <span style={{ color: "var(--green)" }}>IN</span>
-          <span style={{ color: "var(--t1)" }}> OR </span>
-          <span style={{ color: "var(--red)" }}>OUT</span>
-        </div>
-        <div style={{
-          fontFamily: "var(--font-display)", fontSize: 20, color: "var(--t1)",
-          letterSpacing: "0.06em", marginBottom: 10,
-        }}>
-          SET UP YOUR SQUAD
-        </div>
-        <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300, lineHeight: 1.5 }}>
-          This takes a few minutes — and it's the most you'll ever do.
-          Once your squad is set up, managing the game takes seconds each week.
-        </div>
-      </div>
+  // ── Step 2: Game day + kickoff ─────────────────────────────────────────────
 
-      {/* Squad name */}
-      <Field label="SQUAD NAME">
-        <FInput
-          value={groupName}
-          onChange={e => setGroupName(e.target.value)}
-          placeholder="e.g. Finbar's Tuesdays"
+  if (subStep === 2) {
+    return (
+      <WizardShell subStep={2} goBack={goBack} onContinue={goNext}>
+        <StepTitle
+          title="WHEN DO YOU PLAY?"
+          subtitle="You can change this later under Admin → Match Settings"
         />
-      </Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Field label="GAME DAY">
+            <FSelect value={dayOfWeek} onChange={e => setDayOfWeek(e.target.value)}>
+              {CFG.daysOfWeek.map(d => <option key={d} value={d}>{d}</option>)}
+            </FSelect>
+          </Field>
+          <Field label="KICK OFF">
+            <FSelect value={kickoff} onChange={e => setKickoff(e.target.value)}>
+              {KICKOFF_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+            </FSelect>
+          </Field>
+        </div>
+      </WizardShell>
+    );
+  }
 
-      {/* Game day + kickoff */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="GAME DAY">
-          <FSelect value={dayOfWeek} onChange={e => setDayOfWeek(e.target.value)}>
-            {CFG.daysOfWeek.map(d => <option key={d} value={d}>{d}</option>)}
+  // ── Step 3: Players needed ─────────────────────────────────────────────────
+
+  if (subStep === 3) {
+    return (
+      <WizardShell subStep={3} goBack={goBack} onContinue={goNext}>
+        <StepTitle
+          title="HOW MANY PLAYERS?"
+          subtitle="You can change this later under Admin → Match Settings"
+        />
+        <Field label="PLAYERS NEEDED">
+          <FSelect value={squadSize} onChange={e => setSquadSize(parseInt(e.target.value))}>
+            {SQUAD_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
           </FSelect>
         </Field>
-        <Field label="KICK OFF">
-          <FSelect value={kickoff} onChange={e => setKickoff(e.target.value)}>
-            {KICKOFF_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
-          </FSelect>
-        </Field>
-      </div>
+      </WizardShell>
+    );
+  }
 
-      {/* Players needed */}
-      <Field label="PLAYERS NEEDED">
-        <FSelect value={squadSize} onChange={e => setSquadSize(parseInt(e.target.value))}>
-          {SQUAD_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
-        </FSelect>
-      </Field>
+  // ── Step 4: Venue + city (skippable) ──────────────────────────────────────
 
-      {/* Venue + city autocomplete */}
-      <VenueField venue={venue} setVenue={setVenue} city={city} setCity={setCity} />
-
-      {/* Price */}
-      <Field label="PRICE PER PLAYER (£)" error={priceError}>
-        <FInput
-          type="number"
-          min={0}
-          step={0.5}
-          value={priceDisplay}
-          onChange={handlePriceChange}
-          placeholder="e.g. 6"
+  if (subStep === 4) {
+    return (
+      <WizardShell subStep={4} goBack={goBack} onContinue={goNext}>
+        <StepTitle
+          title="WHERE DO YOU PLAY?"
+          subtitle="You can add or change this later under Admin → Match Settings"
         />
-      </Field>
+        <VenueField venue={venue} setVenue={setVenue} city={city} setCity={setCity} />
+        <button
+          type="button"
+          onClick={goNext}
+          style={{
+            background: "none", border: "none", padding: "8px 0", cursor: "pointer",
+            fontSize: 13, color: "var(--t2)", fontWeight: 300,
+            width: "100%", textAlign: "center", textDecoration: "underline",
+          }}
+        >
+          Skip — add later
+        </button>
+      </WizardShell>
+    );
+  }
 
-      {/* Bibs */}
-      <Field label="DOES YOUR GAME USE BIBS?">
+  // ── Step 5: Price ──────────────────────────────────────────────────────────
+
+  if (subStep === 5) {
+    const handlePriceChange = (e) => {
+      const val = e.target.value;
+      setPriceDisplay(val);
+      setPriceError(null);
+      if (val === "") {
+        setPricePerPlayer(null);
+      } else {
+        const n = parseFloat(val);
+        if (!isNaN(n)) setPricePerPlayer(n);
+      }
+    };
+
+    const handlePriceNext = () => {
+      if (priceDisplay === "") {
+        setPriceError("Enter a price, or tap No charge");
+        return;
+      }
+      const n = parseFloat(priceDisplay);
+      if (isNaN(n) || n < 0) {
+        setPriceError("Enter a valid price (e.g. 6), or tap No charge");
+        return;
+      }
+      setPriceError(null);
+      goNext();
+    };
+
+    const handleNoCharge = () => {
+      setPriceDisplay("");
+      setPricePerPlayer(0);
+      setPriceError(null);
+      goNext();
+    };
+
+    return (
+      <WizardShell subStep={5} goBack={goBack} onContinue={handlePriceNext}>
+        <StepTitle
+          title="WHAT'S THE PRICE?"
+          subtitle="You can change this later under Admin → Match Settings"
+        />
+        <Field label="PRICE PER PLAYER (£)" error={priceError}>
+          <FInput
+            type="number"
+            min={0}
+            step={0.5}
+            value={priceDisplay}
+            onChange={handlePriceChange}
+            placeholder="e.g. 6"
+          />
+        </Field>
+        <button
+          type="button"
+          onClick={handleNoCharge}
+          style={{
+            width: "100%", padding: "12px 0", borderRadius: 10, cursor: "pointer",
+            background: "var(--s2)", border: "1px solid var(--s3)",
+            color: "var(--t2)", fontSize: 14, fontFamily: "var(--font-body)",
+            fontWeight: 300, marginTop: 4,
+          }}
+        >
+          No charge
+        </button>
+      </WizardShell>
+    );
+  }
+
+  // ── Step 6: Bibs ──────────────────────────────────────────────────────────
+
+  if (subStep === 6) {
+    return (
+      <WizardShell subStep={6} goBack={goBack} onContinue={goNext}>
+        <StepTitle
+          title="DO YOU USE BIBS?"
+          subtitle="You can change this later under Admin → Match Settings"
+        />
         <div style={{ display: "flex", gap: 8 }}>
           <button
             type="button"
@@ -398,7 +562,7 @@ export default function CreateTeam({
               outline: "none",
               background: bibsEnabled ? "var(--gold)" : "var(--s2)",
               color:      bibsEnabled ? "var(--bg)" : "var(--t2)",
-              border:     bibsEnabled ? "none"       : "1px solid var(--s3)",
+              border:     bibsEnabled ? "none" : "1px solid var(--s3)",
             }}
           >
             YES
@@ -418,40 +582,114 @@ export default function CreateTeam({
             NO
           </button>
         </div>
-      </Field>
+      </WizardShell>
+    );
+  }
 
-      {/* Global server error */}
-      {error && (
-        <div style={{
-          padding: "10px 14px", borderRadius: 10, marginBottom: 16,
-          background: "rgba(255,64,64,0.08)", border: "1px solid rgba(255,64,64,0.3)",
-          fontSize: 13, color: "var(--red)", fontWeight: 300,
-        }}>
-          {error}
-        </div>
-      )}
+  // ── Review & create (subStep 7) ────────────────────────────────────────────
 
-      {/* Helper */}
-      <div style={{
-        fontSize: 12, color: "var(--t2)", textAlign: "center",
-        marginBottom: 12, fontWeight: 300, lineHeight: 1.5,
-      }}>
-        Squad name, kickoff time and price can all be updated later under Admin → Match Settings
-      </div>
+  const displayPrice = pricePerPlayer === 0
+    ? "No charge"
+    : pricePerPlayer != null
+      ? `£${pricePerPlayer}`
+      : "Not set";
 
-      {/* CTA */}
+  const reviewRows = [
+    { label: "SQUAD NAME",      value: groupName || "—",            step: 1 },
+    { label: "GAME DAY",        value: `${dayOfWeek} at ${kickoff}`, step: 2 },
+    { label: "PLAYERS NEEDED",  value: `${squadSize} players`,       step: 3 },
+    { label: "VENUE",           value: venue || "Not set",           step: 4 },
+    { label: "PRICE",           value: displayPrice,                 step: 5 },
+    { label: "BIBS",            value: bibsEnabled ? "Yes" : "No",  step: 6 },
+  ];
+
+  return (
+    <div style={{
+      padding: "calc(24px + env(safe-area-inset-top)) 24px calc(48px + env(safe-area-inset-bottom))",
+      fontFamily: "var(--font-body)", minHeight: "100dvh",
+      boxSizing: "border-box", display: "flex", flexDirection: "column",
+    }}>
       <button
-        onClick={handleSubmit}
-        disabled={loading || !nameValid}
+        type="button"
+        onClick={goBack}
         style={{
-          width: "100%", padding: 16, borderRadius: 12, border: "none",
-          background: nameValid ? "var(--gold)" : "var(--s3)",
-          color:      nameValid ? "var(--bg)"  : "var(--t2)",
-          fontFamily: "var(--font-display)", fontSize: 18, letterSpacing: "0.06em",
-          cursor: loading || !nameValid ? "not-allowed" : "pointer",
+          background: "none", border: "none", padding: "0 0 16px", cursor: "pointer",
+          display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
+          color: "var(--t2)", fontSize: 13, fontFamily: "var(--font-body)", fontWeight: 300,
         }}
       >
-        {loading ? "Creating..." : "Create Team →"}
+        <CaretLeft size={16} weight="thin" />
+        Back
+      </button>
+
+      <div style={{ marginBottom: 24 }}>
+        <div style={{
+          fontFamily: "var(--font-display)", fontSize: 20, color: "var(--t1)",
+          letterSpacing: "0.06em", marginBottom: 8,
+        }}>
+          REVIEW & CREATE
+        </div>
+        <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 300 }}>
+          Everything look right? Tap any row to edit.
+        </div>
+      </div>
+
+      <div style={{ flex: 1 }}>
+        {reviewRows.map(({ label, value, step }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => goToSubStep(step)}
+            style={{
+              width: "100%", background: "none", border: "none", padding: "12px 0",
+              borderBottom: "1px solid var(--s3)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              textAlign: "left",
+            }}
+          >
+            <div>
+              <div style={{
+                fontSize: 11, color: "var(--t2)", fontFamily: "var(--font-display)",
+                letterSpacing: "0.08em", marginBottom: 3,
+              }}>
+                {label}
+              </div>
+              <div style={{ fontSize: 15, color: "var(--t1)", fontWeight: 300 }}>{value}</div>
+            </div>
+            <CaretRight size={14} weight="thin" style={{ color: "var(--t2)", flexShrink: 0, marginLeft: 8 }} />
+          </button>
+        ))}
+
+        {error && (
+          <div style={{
+            padding: "10px 14px", borderRadius: 10, marginTop: 16,
+            background: "rgba(255,64,64,0.08)", border: "1px solid rgba(255,64,64,0.3)",
+            fontSize: 13, color: "var(--red)", fontWeight: 300,
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{
+          fontSize: 12, color: "var(--t2)", textAlign: "center",
+          margin: "16px 0", fontWeight: 300, lineHeight: 1.5,
+        }}>
+          Squad name, kickoff time and price can all be updated later under Admin → Match Settings
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={loading}
+        style={{
+          width: "100%", padding: 16, borderRadius: 12, border: "none", marginTop: 16,
+          background: "var(--gold)", color: "var(--bg)",
+          fontFamily: "var(--font-display)", fontSize: 18, letterSpacing: "0.06em",
+          cursor: loading ? "not-allowed" : "pointer",
+        }}
+      >
+        {loading ? "Creating..." : "Create my squad →"}
       </button>
     </div>
   );

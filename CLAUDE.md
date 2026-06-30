@@ -542,6 +542,9 @@ Apply SQL before writing any JS wrapper.
 - `skills/post-incident.md` — documentation after every bug fix.
 - `.claude/skills/dev-loop/SKILL.md` — guardrailed, self-correcting dev loop. `/dev-loop <change>` for one change; `/loop /dev-loop <manifest>` for an epic. Wraps AUDIT→EXECUTE→VERIFY→COMMIT with a fail-fast proof gate (node --check → check-hygiene → rpc/schema gates + ephemeral-verify → check-build → Playwright end-to-end smoke = the real correctness signal; Vercel preview = build/deploy only) + ship-safety classification (`skills/scripts/check-live-config.sh`) and a fresh-context QA+Security review (security reviewer runs check-rpc-security). PR-only; never pushes main (enforced by `.claude/hooks/pre-push-guard.sh`); never blind auto-merges (merge=live prod deploy; tier-3 = human-on-intent); App-Store binary freeze on auth/native during Apple review. Opt-in `Merge mode: auto|queue`. Delegates to the skills above, never restates them.
 - `.claude/skills/backlog/SKILL.md` — on-demand backlog picker. `/backlog` surveys what's done/scoped/next (`skills/scripts/survey-backlog.sh` + MEMORY recall + verify-first reconciliation), ranks a shortlist with tier + ship-safety tags (biases to dark-in-prod work during the Apple freeze), asks which to start, then launches it UNMANNED via dev-loop. Runs the work hands-off to PRs; surfaces only batched intent/merge decisions.
+- `.claude/skills/decide/SKILL.md` — scope-to-build bridge. Reads a HANDOFF.md, updates DECISIONS.md + FEATURES.md, then offers to launch dev-loop.
+- `.claude/skills/babysit-prs/SKILL.md` — read-only open-PR triage sweep. Lists open PRs, reads CI, classifies merge-readiness (excludes the platform-ref false alarm), prints a ranked digest. Never merges. Run via /loop or a schedule.
+- `.claude/skills/qa-loop/SKILL.md` — closed test → triage → auto-fix → re-test QA loop. `/qa-loop` runs the deterministic regression net (node --check + check-hygiene + check-build + `skills/scripts/qa-suite.sh` = cold, flake-aware, server-aware e2e), triages findings T1/T2/T3, batches the CLEAR T1+T2 (one objectively-correct fix, `check-live-config` CLEAR) into ONE dev-loop pass, re-tests, then surfaces T3 (tier-3/PROTECTED draft-only + product decisions) in plain English. Still-open + T3 land in BUGS.md / GO_LIVE_ISSUES.md (no parallel report system). Scopes: `full` = +supervised Playwright-MCP browser walk (console + a11y, read-only, never prod/unattended); `scripted` = deterministic lane only (the only scope fit for `/loop`/scheduled, hits live demo DB); free text narrows tests+walk+fixes to one area. Thin orchestrator over dev-loop — inherits its guardrails, adds no merge power.
 
 ---
 
@@ -593,17 +596,22 @@ Apply SQL before writing any JS wrapper.
     admin-resolver fell through to `squad[0]`. Admins on /admin/
     routes were rendered AS the first squad member for ~12 days
     before anyone noticed.
-13. PWA-affecting changes MUST be tested on a real iPhone home-
-    screen install before commit. Files in scope: App.jsx
-    (routing/auth/realtime/manifest), PlayerView, MySquads,
-    AuthGateModal, useRequireAuth, supabase.js client config,
-    api/manifest.js, index.html inline script. The build hook,
-    type-check, and grep cannot see "tap does nothing"-class bugs.
-    Use a Vercel preview branch → install via Safari → Add to Home
-    Screen → force-quit Safari → open from icon. Established
+13. Native-app-affecting changes MUST be tested on a real iPhone
+    in the actual native app before commit. In or Out is NATIVE-APP-
+    ONLY now — there is no PWA / "Add to Home Screen" install path.
+    Files in scope: App.jsx (routing/auth/realtime), PlayerView,
+    MySquads, AuthGateModal, useRequireAuth, supabase.js client
+    config, capacitor.config.ts. The build hook, type-check, and
+    grep cannot see "tap does nothing"-class bugs. Test by opening
+    the change in the native app (via a preview build / the live
+    web-bundle) and walking the affected flow on-device. Established
     session 43 after three behaviour-only bugs surfaced only via
     real-device test (wrong-row gate logic, OTP code length cap,
-    and the latent mig-070 bug above).
+    and the latent mig-070 bug above). NOTE: the legacy PWA-manifest
+    plumbing (api/manifest.js, the index.html inline manifest script,
+    the SquadReady manifest swap) still physically exists but its
+    install path is dead — see the native-app-only reference memory;
+    removing it is a separate, deliberate cleanup.
 14. New RPCs designed for multiple downstream apps MUST record their
     consumers in RPCS.md's Notes column. Extends hard-rule #12 forward:
     if Cycle 5.4's `get_player_fixture_detail` is designed for the

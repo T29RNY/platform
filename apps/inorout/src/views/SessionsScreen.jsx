@@ -42,6 +42,7 @@ import {
   clubAdminCancelEquipmentBooking,
 } from "@platform/core/storage/supabase.js";
 import { enableMemberPush } from "../native/native-push.js";
+import PushOptInModal from "../components/PushOptInModal.jsx";
 
 // SessionsScreen — member/parent-facing club sessions surface.
 // Authenticated gate enforced by App.jsx before mounting.
@@ -240,37 +241,47 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
 
-  // Push opt-in soft prompt (mig 422) — one-time, dismissible. Shows for managers
-  // who haven't already enabled push or dismissed it. Full on/off control lives in
-  // MemberProfile; this just nudges. localStorage mirrors the casual convention.
-  const [showPushPrompt, setShowPushPrompt] = useState(() => {
-    try {
-      return localStorage.getItem("member_notif") !== "subscribed"
-          && localStorage.getItem("member_notif") !== "denied"
-          && localStorage.getItem("member_notif_prompt_dismissed") !== "1";
-    } catch { return false; }
-  });
-  const [pushBusy, setPushBusy] = useState(false);
-  const dismissPushPrompt = () => {
-    try { localStorage.setItem("member_notif_prompt_dismissed", "1"); } catch { /* noop */ }
-    setShowPushPrompt(false);
-  };
-  const enablePushFromPrompt = async () => {
-    setPushBusy(true);
+  // Push opt-in (mig 422) — the SAME modal every user type sees (managers here,
+  // guardians/members in the /hub shell, casual players in PlayerView). Soft ask
+  // BEFORE the OS prompt: Allow registers (and surfaces the OS dialog); Not now
+  // re-asks up to a cap; Never stops for good. Full on/off lives in MemberProfile.
+  const PUSH_ASK_CAP = 3;
+  const [showPushModal, setShowPushModal] = useState(false);
+  const [pushState, setPushState] = useState("idle"); // idle | asking | subscribed | denied
+  const handlePushAllow = async () => {
+    setPushState("asking");
     try {
       const r = await enableMemberPush({
-        onRegistered: () => { try { localStorage.setItem("member_notif", "subscribed"); } catch { /* noop */ } setShowPushPrompt(false); },
+        onRegistered: () => { try { localStorage.setItem("member_notif", "subscribed"); } catch { /* noop */ } setPushState("subscribed"); },
+        onError:      () => setPushState("idle"),
       });
-      if (r === "subscribed")      { try { localStorage.setItem("member_notif", "subscribed"); } catch { /* noop */ } setShowPushPrompt(false); }
-      else if (r === "denied")     { try { localStorage.setItem("member_notif", "denied"); }     catch { /* noop */ } setShowPushPrompt(false); }
-      else if (r === "unsupported") setShowPushPrompt(false);
-      // 'registering' (native): the onRegistered callback clears the prompt
+      if (r === "subscribed")       { try { localStorage.setItem("member_notif", "subscribed"); } catch { /* noop */ } setPushState("subscribed"); }
+      else if (r === "denied")      { try { localStorage.setItem("member_notif", "denied"); }     catch { /* noop */ } setPushState("denied"); }
+      else if (r === "unsupported") setShowPushModal(false);
+      // 'registering' (native): the onRegistered callback resolves it
     } catch (e) {
       console.error("[sessions] enable push failed", e);
-    } finally {
-      setPushBusy(false);
+      setPushState("idle");
     }
   };
+  const handlePushNotNow = () => {
+    try {
+      const a = (parseInt(localStorage.getItem("member_notif_asks") || "0", 10) || 0) + 1;
+      localStorage.setItem("member_notif_asks", String(a));
+    } catch { /* noop */ }
+    setShowPushModal(false);
+  };
+  const handlePushNever = () => {
+    try { localStorage.setItem("member_notif", "never"); } catch { /* noop */ }
+    setShowPushModal(false);
+  };
+  // Auto-dismiss shortly after a token lands, so "all set" is seen first.
+  useEffect(() => {
+    if (showPushModal && pushState === "subscribed") {
+      const t = setTimeout(() => setShowPushModal(false), 1600);
+      return () => clearTimeout(t);
+    }
+  }, [showPushModal, pushState]);
 
   // manager → team message composer (Phase 4)
   const [composeTeamId, setComposeTeamId] = useState("");
@@ -294,6 +305,22 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
   // tournaments (manager only)
   const [activeTab, setActiveTab]                   = useState("sessions");
   const [tournaments, setTournaments]               = useState([]);
+
+  // Ask managers the first few times they land on Sessions (their equivalent of
+  // the player's "first in" moment). Manager-ness derived here from memberProfile
+  // so this hook stays above the early returns; skips subscribed/denied/never and
+  // stops after PUSH_ASK_CAP.
+  useEffect(() => {
+    const mgr = (memberProfile?.managed_teams ?? []).some(t => t.club_id === selectedClubId);
+    if (!(mgr && selectedClubId && activeTab === "sessions")) return;
+    try {
+      const cur = localStorage.getItem("member_notif");
+      if (cur === "subscribed" || cur === "denied" || cur === "never") return;
+      const asks = parseInt(localStorage.getItem("member_notif_asks") || "0", 10) || 0;
+      if (asks >= PUSH_ASK_CAP) return;
+    } catch { return; }
+    setShowPushModal(true);
+  }, [memberProfile, selectedClubId, activeTab]);
   const [tournamentsLoading, setTournamentsLoading] = useState(false);
   const [showCreateTournament, setShowCreateTournament] = useState(false);
   const [tForm, setTForm] = useState({ name:"", slug:"", eventDate:"", venueId:"" });
@@ -1410,33 +1437,23 @@ export default function SessionsScreen({ authUser, memberProfile: memberProfileP
         )}
       </div>
 
-      {/* ── Push opt-in (soft, dismissible, manager-first) ──────────────── */}
-      {isManager && selectedClubId && activeTab === "sessions" && showPushPrompt && (
-        <div style={{
-          margin: "12px 16px 0", padding: 14,
-          background: "var(--b2)", border: "1px solid var(--border-subtle)",
-          borderRadius: "var(--r)", display: "flex", flexDirection: "column", gap: 10,
-        }}>
-          <div style={{ fontSize: 14, color: "var(--t1)", fontWeight: 700, fontFamily: "var(--font-body)" }}>
-            Get pinged on your phone
-          </div>
-          <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.5, fontFamily: "var(--font-body)" }}>
-            Turn on notifications so announcements and pitch changes reach your phone, not just this screen.
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={enablePushFromPrompt} disabled={pushBusy} style={{
-              flex: 1, padding: "10px 0", borderRadius: "var(--r-button)",
-              background: "var(--amber)", color: "var(--black)", border: "none",
-              fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)", cursor: "pointer",
-            }}>{pushBusy ? "Enabling…" : "Enable"}</button>
-            <button onClick={dismissPushPrompt} style={{
-              padding: "10px 16px", borderRadius: "var(--r-button)",
-              background: "transparent", color: "var(--t2)", border: "1px solid var(--border-subtle)",
-              fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)", cursor: "pointer",
-            }}>Not now</button>
-          </div>
-        </div>
-      )}
+      {/* ── Push opt-in — the shared modal every user type sees ──────────── */}
+      <PushOptInModal
+        open={showPushModal}
+        tone="gold"
+        state={pushState}
+        bullets={[
+          "Announcements for your club or team",
+          "A pitch or kick-off time change",
+          "New bookings and cancellations",
+        ]}
+        subscribedText="We'll ping your phone, not just this screen."
+        deniedText={<>Turn them on in <strong>Settings → In or Out → Notifications</strong>.</>}
+        onAllow={handlePushAllow}
+        onNotNow={handlePushNotNow}
+        onNever={handlePushNever}
+        onClose={() => setShowPushModal(false)}
+      />
 
       {/* ── Announcements ───────────────────────────────────────────────── */}
       {selectedClubId && activeTab === "sessions" && (announcementsLoading || announcements.length > 0) && (

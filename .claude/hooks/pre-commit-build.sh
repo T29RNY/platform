@@ -61,6 +61,44 @@ if [ -n "$MISSING_DOWN" ]; then
   exit 2
 fi
 
+# ── Gate 1b: migration number must equal the next safe number ──
+#
+# Catches duplicate migration numbers (cloud-session collision, copy-paste
+# of an existing file). Exits 2 on CONFLICT; allows GAP WARNING through.
+for MIG in $STAGED_MIGS; do
+  MIG_OUT=$(bash "$ROOT/skills/scripts/check-next-migration.sh" "$MIG" 2>&1)
+  MIG_EXIT=$?
+  if [ $MIG_EXIT -eq 2 ]; then
+    echo "Migration numbering gate failed — commit blocked." >&2
+    echo "" >&2
+    echo "$MIG_OUT" >&2
+    echo "" >&2
+    echo "Rename the migration file to the next safe number and recommit." >&2
+    exit 2
+  fi
+done
+
+# ── Gate 1c: rpc-columns check for any function defined in staged migrations ──
+#
+# Catches stale column refs in RPC bodies before they reach the live DB.
+# Runs only when the migration defines at least one function. Anchored on
+# CREATE so DROP FUNCTION lines (mandatory before a param-type-change
+# CREATE OR REPLACE, per CLAUDE.md) don't feed a dropped function name into
+# check-rpc-columns.sh and falsely block the commit.
+for MIG in $STAGED_MIGS; do
+  FN_NAMES=$(grep -oE 'CREATE[^(]*FUNCTION[[:space:]]+[a-z_]+' "$ROOT/$MIG" 2>/dev/null | grep -oE '[a-z_]+$' | sort -u)
+  for FN_NAME in $FN_NAMES; do
+    RPC_OUT=$(bash "$ROOT/skills/scripts/check-rpc-columns.sh" "$FN_NAME" 2>&1)
+    RPC_EXIT=$?
+    if [ $RPC_EXIT -ne 0 ]; then
+      echo "RPC columns gate failed for $FN_NAME — commit blocked." >&2
+      echo "" >&2
+      echo "$RPC_OUT" >&2
+      exit 2
+    fi
+  done
+done
+
 # ── Gate 2: build must pass ──
 OUTPUT=$(bash skills/scripts/check-build.sh 2>&1)
 EXIT=$?

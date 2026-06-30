@@ -293,6 +293,33 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
             )
           )}
 
+          {/* Create a new squad — routes to the existing squad-setup wizard
+              at /create. That route gates sign-in and create_team (mig 052)
+              makes the signed-in creator the team_admin of an independent
+              new squad. No new create logic here. */}
+          {!loading && (
+            <div
+              onClick={() => { window.location.href = "/create"; }}
+              onMouseEnter={() => setHoveredToken("__create__")}
+              onMouseLeave={() => setHoveredToken(null)}
+              style={{
+                background: hoveredToken === "__create__" ? "var(--s2)" : "transparent",
+                transition: "background 150ms",
+                padding: "12px 16px",
+                display: "flex", alignItems: "center", gap: 8,
+                cursor: "pointer",
+              }}
+            >
+              <Plus weight="thin" size={16} color="var(--t2)" />
+              <span style={{
+                fontFamily: "'DM Sans', sans-serif", fontWeight: 500,
+                fontSize: 14, color: "var(--t2)",
+              }}>
+                Create a new squad
+              </span>
+            </div>
+          )}
+
         </div>
       )}
 

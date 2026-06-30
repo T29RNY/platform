@@ -27,6 +27,10 @@ export default function Onboarding({ onComplete, authUser }) {
           onSubmit={ob.submitTeam}
           loading={ob.loading}
           error={ob.error}
+          subStep={ob.subStep}
+          goNext={ob.goNext}
+          goBack={ob.goBack}
+          goToSubStep={ob.goToSubStep}
         />
       )}
 

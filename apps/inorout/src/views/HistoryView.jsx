@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ShareNetwork, CaretRight, ArrowsLeftRight } from "@phosphor-icons/react";
 import { resolveMotm, resolveBibHolder } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
+import PerMatchFitnessCard from "./PerMatchFitnessCard.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -464,6 +465,18 @@ function MatchCard({ m, players, schedule, groupName, expanded, onToggle }) {
               </div>
             ))}
           </div>
+
+          {/* Match fitness — Apple Watch summary for this game (mig 456). HistoryView shows casual
+              matches, so matchRef is always matches.id. kickoffForHealth uses the per-match
+              kickoff_time when present (player-token route exposes it via to_jsonb(m.*)) and falls
+              back to the team's usual schedule time. Both arrive in "HH:MM:SS" format. */}
+          <PerMatchFitnessCard
+            matchRef={m.id}
+            matchDate={m.matchDate}
+            kickoffTime={m.kickoffTime || schedule?.kickoff || null}
+            matchContext="casual"
+            teamId={m.teamId || null}
+          />
 
           {/* Share button */}
           <button

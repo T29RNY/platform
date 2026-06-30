@@ -1565,3 +1565,88 @@ other blocks' upcoming-only semantics.
 
 **Expected outcome:** the RPC returns `{events:[…]}` with the user's upcoming squad games,
 club sessions, fixtures and children's sessions — never a silently-swallowed error.
+
+---
+
+## 21. SESSION 232 — ADMIN "KEEP IN" ON A DROPPED-OUT HOST'S GUEST DIDN'T PERSIST (mig 458)
+
+**Symptom (reported live):** A guest's host (the permanent player who brought
+them) drops out. The admin panel shows a banner: *"X's host dropped out — Keep
+IN / Move to reserve / Remove X."* Tapping **Keep IN** kept the guest in the
+match but the banner **came straight back on every reload** — the admin was
+nagged about the same already-decided guest forever.
+
+**Root cause:** The banner is computed live from `host.status != 'in'`. "Keep
+IN" only mutated an in-memory React Set (`dismissedOrphans`) — nothing was
+written to the DB, so the host stayed out, the condition stayed true, and the
+banner re-appeared on the next data load. "Move to reserve" had the same bug
+(the filter ignored the guest's own status). Only "Remove" persisted (it sets
+status `none` → dormant → excluded).
+
+**Fix (mig 458):** A per-week `players.host_dropout_ack` flag. "Keep IN" now
+calls `admin_ack_orphan_guest` (persists the flag + writes audit_events);
+`get_team_state_by_admin_token` exposes the flag so the filter can read it; the
+weekly rollover (`admin_go_live` / `admin_go_live_for_team`) resets it so the
+ack is "for this one game". The orphan filter gained a `status === "in"` guard
+which also fixes the Move-to-reserve reappearance. Guest stays linked to its
+host → returning-guest picker unchanged.
+
+**Why nothing caught it earlier:** build/hygiene/ephemeral-verify cannot see
+"the banner reappears after a reload" — only using the live admin screen does.
+Reinforces the run-the-app rule.
+
+**Pre-flight check — run before go-live:**
+
+1. As an admin, with a guest whose host has dropped out (host status not "in"),
+   open the admin panel — the "host dropped out" banner shows for that guest.
+2. Tap **Keep IN**. The banner disappears and the guest stays IN the match.
+3. Pull-to-refresh / fully close and reopen the app. The banner must **NOT**
+   reappear for that guest.
+4. Repeat with **Move to reserve** on a second such guest → after reload, no
+   reappearance, and the guest is on the reserve list.
+5. Open next week's game (rollover). If that same host drops out again, the
+   banner is allowed to re-appear (the ack is per-game by design).
+
+**Expected outcome:** a "Keep IN" / "Move to reserve" decision sticks across
+reloads within the same game; the admin is asked again only in a new game.
+
+---
+
+## 22. SESSION 233 — ADMIN SCREENS RENDERED UNDER THE iPHONE NOTCH (back button untappable) (PR #188)
+
+**Symptom (reported live, on-device):** On a real iPhone in the native app,
+every admin sub-screen (Matchday Settings, Manage Squad, Teams, Score,
+Payments, Reminders, Bibs, Teamsheet) rendered its header — title + back
+button — **partially under the device notch / status bar**. The back button
+was clipped and **untappable**; content started too high.
+
+**Root cause:** The admin screens rendered their own top headers with a fixed
+top padding and **no `env(safe-area-inset-top)` compensation**, even though
+the viewport is correctly set to `viewport-fit=cover`. The player-facing
+screens (PageHeader, PlayerView, StatsView, MyIOView, PlayerProfile) all use
+the `calc(Npx + env(safe-area-inset-top))` pattern — the admin screens were
+simply missing it. There is no shared admin header component, so each screen
+had drifted independently.
+
+**Fix (PR #188, no migration — UI only):** Added
+`env(safe-area-inset-top)` to the top padding of every admin screen's
+outer/header container, matching the established player-screen pattern. Covers
+the main AdminView sticky hero + TeamsScreen (both empty-state and main
+returns), ScoreScreen, BibsScreen, SquadScreen, ScheduleScreen,
+RemindersScreen, PaymentsScreen, TeamsheetScreen. (AnnounceModal /
+BookPitchModal are bottom-sheets → not affected.)
+
+**Why nothing caught it earlier:** build / hygiene / type checks cannot see
+"the back button is under the notch and won't tap" — it only surfaces on a
+real notched device in the native app. Reinforces hard rule #13.
+
+**Pre-flight check — run before go-live (real iPhone, native app):**
+
+1. As an admin, open each admin screen in turn: Matchday Settings, Manage
+   Squad, Teams, Score, Payments, Reminders, Bibs, Teamsheet.
+2. For each, confirm the header title is **fully below the notch** and the
+   back / "← Back" control is **completely clear of the status bar and taps
+   reliably** to return.
+
+**Expected outcome:** no admin screen's chrome is clipped by the notch; every
+back button is tappable on a notched device.

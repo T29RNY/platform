@@ -263,6 +263,12 @@ export default function PlayerView({
   const [notifState,    setNotifState]   = useState(
     () => (typeof localStorage !== "undefined" && localStorage.getItem(`notif_${myId}`)) || "idle"
   );
+  // Push opt-in modal — fired after a player marks themselves "in" (the highest-
+  // intent moment). Replaces the always-on inline card. "Not now" lets it return
+  // a bounded number of times; "Never" stops it for good (profile toggle still
+  // works). The hard iOS prompt only fires AFTER they tap Allow, so we never burn
+  // iOS's one-shot permission dialog on someone who'd have said no.
+  const [showPushModal, setShowPushModal] = useState(false);
   const [showPlusOneForm, setShowPlusOneForm] = useState(false);
   const [guestName,       setGuestName]       = useState("");
   const [guestSelfPaid,   setGuestSelfPaid]   = useState(false);
@@ -505,6 +511,42 @@ export default function PlayerView({
     }
   };
 
+  // ── push opt-in modal control ──
+  // Re-ask cap: after this many "Not now" taps we stop nudging (Allow → subscribed/
+  // denied and Never both stop earlier). Keeps the ask balanced, not naggy.
+  const PUSH_ASK_CAP = 3;
+  const maybeAskPush = () => {
+    if (!canPush) return;
+    if (notifState === "subscribed" || notifState === "denied" || notifState === "never") return;
+    let asks = 0;
+    try { asks = parseInt(localStorage.getItem(`notif_asks_${myId}`) || "0", 10) || 0; }
+    catch { /* localStorage unavailable — fail open, just show it */ }
+    if (asks >= PUSH_ASK_CAP) return;
+    setShowPushModal(true);
+  };
+  // "Not now": close + count the ask so it eventually stops on its own.
+  const handlePushNotNow = () => {
+    try {
+      const asks = (parseInt(localStorage.getItem(`notif_asks_${myId}`) || "0", 10) || 0) + 1;
+      localStorage.setItem(`notif_asks_${myId}`, String(asks));
+    } catch { /* noop */ }
+    setShowPushModal(false);
+  };
+  // "Never": stop asking for good. Profile toggle remains the way back in.
+  const handlePushNever = () => {
+    try { localStorage.setItem(`notif_${myId}`, "never"); } catch { /* noop */ }
+    setNotifState("never");
+    setShowPushModal(false);
+  };
+  // Auto-dismiss the modal a beat after a token actually lands (subscribed),
+  // so the user sees the "all set" confirmation before it closes.
+  useEffect(() => {
+    if (showPushModal && notifState === "subscribed") {
+      const t = setTimeout(() => setShowPushModal(false), 1600);
+      return () => clearTimeout(t);
+    }
+  }, [showPushModal, notifState]);
+
   const setStatus = (s) => {
     if (needsSelfAuth) { promptSignIn(); return; }
     setCashPending(false);
@@ -533,6 +575,11 @@ export default function PlayerView({
       : p
     ));
     if (me?.token) setPlayerStatus(me.token, s).catch(console.error);
+
+    // Ask about notifications the moment a player commits to a game — the point
+    // they most want spot-opened / squad-full pings. Only on the transition INTO
+    // "in" (not a re-tap), and only if we haven't subscribed/blocked/opted out.
+    if (s === "in" && me?.status !== "in") maybeAskPush();
 
     if (!teamId) return;
     const gameDate = schedule.gameDateTime?.split("T")[0];
@@ -703,6 +750,108 @@ export default function PlayerView({
           onVoted={() => { setPotmHasVoted(true); fetchPotmTally(); }}
           onClose={() => setShowPOTMModal(false)}
         />
+      )}
+
+      {/* Push opt-in modal — fired from setStatus on the "in" tap. Soft ask
+          BEFORE the hard iOS prompt: Allow runs the real registration (which
+          surfaces the OS dialog); Not now/Never never touch it. */}
+      {showPushModal && (
+        <div
+          onClick={() => { if (notifState !== "asking") handlePushNotNow(); }}
+          style={{ position:"fixed", inset:0, zIndex:120, background:"rgba(0,0,0,0.6)",
+            display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background:"var(--s1)", borderRadius:"var(--rs)", maxWidth:340, width:"100%",
+            padding:"24px 22px", border:"0.5px solid var(--border-subtle)",
+            boxShadow:"0 10px 44px rgba(0,0,0,0.45)" }}>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:14 }}>
+              <div style={{ width:54, height:54, borderRadius:"50%",
+                background: notifState === "subscribed"
+                  ? "color-mix(in srgb, var(--green) 18%, var(--s2))"
+                  : "color-mix(in srgb, var(--gold) 16%, var(--s2))",
+                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <Bell size={27} weight="thin"
+                  color={notifState === "subscribed" ? "var(--green)" : "var(--gold)"} />
+              </div>
+            </div>
+
+            {notifState === "subscribed" ? (
+              <>
+                <div style={{ textAlign:"center", fontFamily:"var(--font-heading)",
+                  fontSize:24, color:"var(--t1)", letterSpacing:0.5, marginBottom:8 }}>
+                  YOU'RE ALL SET
+                </div>
+                <div style={{ textAlign:"center", fontSize:13, color:"var(--t2)",
+                  fontWeight:300, lineHeight:1.5 }}>
+                  We'll ping you the moment a spot opens.
+                </div>
+              </>
+            ) : notifState === "denied" ? (
+              <>
+                <div style={{ textAlign:"center", fontFamily:"var(--font-heading)",
+                  fontSize:24, color:"var(--t1)", letterSpacing:0.5, marginBottom:8 }}>
+                  NOTIFICATIONS ARE BLOCKED
+                </div>
+                <div style={{ textAlign:"center", fontSize:13, color:"var(--t2)",
+                  fontWeight:300, lineHeight:1.5, marginBottom:20 }}>
+                  Turn them on in <strong style={{ color:"var(--t1)" }}>Settings → In or Out → Notifications</strong> to hear about spots opening up.
+                </div>
+                <button onClick={() => setShowPushModal(false)} style={{
+                  width:"100%", background:"var(--s3)", color:"var(--t1)", border:"none",
+                  borderRadius:"var(--r-button)", padding:"13px", fontSize:14, fontWeight:500,
+                  fontFamily:"var(--font-body)", cursor:"pointer" }}>
+                  Got it
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ textAlign:"center", fontFamily:"var(--font-heading)",
+                  fontSize:24, color:"var(--t1)", letterSpacing:0.5, marginBottom:10 }}>
+                  TURN ON NOTIFICATIONS?
+                </div>
+                <div style={{ fontSize:13, color:"var(--t2)", fontWeight:300,
+                  lineHeight:1.5, marginBottom:6 }}>
+                  We'll only message you when it matters:
+                </div>
+                <ul style={{ margin:"0 0 22px", padding:"0 0 0 2px", listStyle:"none",
+                  display:"flex", flexDirection:"column", gap:8 }}>
+                  {[
+                    "A spot opens up — so you can grab it",
+                    "The squad's filling up",
+                    "A late change before kick-off",
+                  ].map((line, i) => (
+                    <li key={i} style={{ display:"flex", gap:9, alignItems:"flex-start",
+                      fontSize:13, color:"var(--t1)", fontWeight:300, lineHeight:1.45 }}>
+                      <span style={{ color:"var(--gold)", flexShrink:0 }}>•</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button onClick={handleSubscribe} disabled={notifState === "asking"} style={{
+                  width:"100%", background:"var(--gold)", color:"var(--bg)", border:"none",
+                  borderRadius:"var(--r-button)", padding:"13px", fontSize:15, fontWeight:600,
+                  fontFamily:"var(--font-body)", cursor: notifState === "asking" ? "default" : "pointer",
+                  opacity: notifState === "asking" ? 0.6 : 1, marginBottom:8 }}>
+                  {notifState === "asking" ? "Turning on…" : "Allow"}
+                </button>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={handlePushNotNow} disabled={notifState === "asking"} style={{
+                    flex:1, background:"none", color:"var(--t2)", border:"none",
+                    padding:"11px", fontSize:14, fontWeight:400, fontFamily:"var(--font-body)",
+                    cursor:"pointer" }}>
+                    Not now
+                  </button>
+                  <button onClick={handlePushNever} disabled={notifState === "asking"} style={{
+                    flex:1, background:"none", color:"var(--t2)", border:"none",
+                    padding:"11px", fontSize:14, fontWeight:400, fontFamily:"var(--font-body)",
+                    cursor:"pointer", opacity:0.7 }}>
+                    Never
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Admin avatar-tap quick-action sheet (set status / add guest) */}
@@ -1216,52 +1365,9 @@ export default function PlayerView({
                 </div>
               )}
 
-              {/* Push subscription prompt — gameIsLive only. Renders for every
-                  notif state EXCEPT dismissed, so the user always gets feedback:
-                  a clear "on" confirmation on success, a pending label while
-                  registering, and a Settings hint if they've blocked it. */}
-              {schedule.gameIsLive && me?.status && me.status !== "none" && canPush && notifState !== "dismissed" && (
-                <div style={{ margin:"0 12px 12px", padding:"10px 14px", borderRadius:"var(--rs)",
-                  background: notifState === "subscribed" ? "color-mix(in srgb, var(--green) 12%, var(--s2))" : "var(--s2)",
-                  border:`0.5px solid ${notifState === "subscribed" ? "color-mix(in srgb, var(--green) 40%, var(--border-subtle))" : "var(--border-subtle)"}`,
-                  display:"flex", alignItems:"center", gap:10 }}>
-                  <Bell size={20} weight="thin"
-                    color={notifState === "subscribed" ? "var(--green)" : "var(--t1)"} style={{ flexShrink:0 }} />
-
-                  {notifState === "subscribed" ? (
-                    <div style={{ flex:1, fontSize:12, color:"var(--t1)", fontWeight:400, lineHeight:1.4 }}>
-                      Notifications on — we'll ping you when a spot opens or the squad fills up.
-                    </div>
-                  ) : notifState === "denied" ? (
-                    <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
-                      Notifications are off. Turn them on in <strong style={{ color:"var(--t1)" }}>Settings → In or Out → Notifications</strong>.
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ flex:1, fontSize:12, color:"var(--t2)", fontWeight:300, lineHeight:1.4 }}>
-                        {notifState === "asking"
-                          ? "Turning on notifications…"
-                          : "Get notified when a spot opens or squad fills up"}
-                      </div>
-                      <button onClick={handleSubscribe} disabled={notifState === "asking"} style={{
-                        background:"var(--gold)", color:"var(--black)", border:"none", borderRadius:7,
-                        padding:"7px 12px", fontSize:12, fontWeight:500,
-                        fontFamily:"var(--font-body)", cursor: notifState === "asking" ? "default" : "pointer",
-                        opacity: notifState === "asking" ? 0.6 : 1, flexShrink:0 }}>
-                        {notifState === "asking" ? "…" : "Enable"}
-                      </button>
-                      <button onClick={() => {
-                        localStorage.setItem(`notif_${myId}`, "dismissed");
-                        setNotifState("dismissed");
-                      }} style={{ fontSize:12, color:"var(--t2)", background:"none", border:"none",
-                        fontFamily:"var(--font-body)", cursor:"pointer", padding:"7px 4px",
-                        flexShrink:0, fontWeight:300 }}>
-                        Not now
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* Push opt-in moved to a modal fired on the "in" tap (see
+                  showPushModal overlay near the POTM modal). The always-on card
+                  was replaced because it sat in a busy screen and got ignored. */}
               {/* Guest payment rows — one per active guest, inside card, gold-tinted bg */}
               {myGuests.map(g => {
                 const gps      = getGuestPaymentState(g, guestCashPending.has(g.id));

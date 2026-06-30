@@ -260,6 +260,7 @@ function dbToPlayer(r) {
     token: r.token,
     isGuest: r.is_guest || false,
     guestOf: r.guest_of || null,
+    hostDropoutAck: r.host_dropout_ack || false,
     pendingApproval: r.pending_approval || false,
     injured: r.injured || false,
     injuredSince: r.injured_since || null,
@@ -317,6 +318,8 @@ function dbToMatch(r) {
     predictedConfidence: r.predicted_confidence ?? null,
     balanceScore: r.balance_score ?? null,
     refPlayerId: r.ref_player_id || null,   // mig 369 casual ref slot; surfaced for the admin ref-assign toggle
+    kickoffTime: r.kickoff_time || null,    // "HH:MM:SS" wall-clock; present on player-token route (to_jsonb(m.*))
+    teamId: r.team_id || null,             // team_id from to_jsonb(m.*); used by PerMatchFitnessCard to key venue preference
   };
 }
 
@@ -699,6 +702,18 @@ export async function promoteGuest(adminToken, guestId) {
   });
   if (error) throw error;
   return dbToPlayer(data);
+}
+
+// Admin "Keep IN" on an orphaned guest (host dropped out): persist the decision
+// so the AdminView banner stops reappearing on reload. Per-week — reset on the
+// next weekly rollover (admin_go_live). Guest stays linked to its host.
+export async function ackOrphanGuest(adminToken, guestId) {
+  const { data, error } = await supabase.rpc('admin_ack_orphan_guest', {
+    p_admin_token: adminToken,
+    p_guest_id:    guestId,
+  });
+  if (error) throw error;
+  return data;
 }
 
 // ─── Cover pool ───────────────────────────────────────────────────────────────
@@ -3030,6 +3045,7 @@ export async function saveMatchHealthSummary({
   matchContext, matchRef, clientSessionId,
   durationSeconds = null, activeEnergyKcal = null, distanceMeters = null,
   avgHr = null, maxHr = null, hrZones = null, startedAt = null, endedAt = null,
+  source = null, route = null,
 }) {
   const { data, error } = await supabase.rpc("save_match_health_summary", {
     p_match_context:      matchContext,
@@ -3043,8 +3059,10 @@ export async function saveMatchHealthSummary({
     p_hr_zones:           hrZones,
     p_started_at:         startedAt,
     p_ended_at:           endedAt,
+    p_source:             source,   // mig 456: 'apple_health_manual' | 'watch_app'
+    p_route:              route,    // mig 456: heatmap track jsonb (outdoor only) → match_health_routes
   });
-  if (error) { console.error("[watch] save_match_health_summary failed", error); throw error; }
+  if (error) { console.error("[health] save_match_health_summary failed", error); throw error; }
   return data;
 }
 
@@ -3052,7 +3070,40 @@ export async function saveMatchHealthSummary({
 // empty for a non-signed-in / token-only caller (so the surface self-hides).
 export async function getMyMatchHealth() {
   const { data, error } = await supabase.rpc("get_my_match_health", {});
-  if (error) { console.error("[watch] get_my_match_health failed", error); throw error; }
+  if (error) { console.error("[health] get_my_match_health failed", error); throw error; }
+  return data;
+}
+
+// Per-match fitness card (mig 456). Returns { ok, rows:[{ session_id, is_self, player_name, … ,
+// source, has_route, started_at, ended_at }…] }: own row always (first); teammate rows ONLY when
+// the match is casual AND that player set share_match_fitness. Ships DARK (self-hides when empty).
+export async function getMatchHealthForMatch(matchRef) {
+  const { data, error } = await supabase.rpc("get_match_health_for_match", { p_match_ref: matchRef });
+  if (error) { console.error("[health] get_match_health_for_match failed", error); throw error; }
+  return data;
+}
+
+// Heatmap track for one session (mig 456), OWN session only. Returns { ok, track: <jsonb|null> }
+// (null when not the owner or no route stored — outdoor games only).
+export async function getMatchRoute(sessionId) {
+  const { data, error } = await supabase.rpc("get_match_route", { p_session_id: sessionId });
+  if (error) { console.error("[health] get_match_route failed", error); throw error; }
+  return data;
+}
+
+// Teammate-sharing consent (mig 457). Returns { ok, share_match_fitness } — the caller's current
+// global consent (bool_or across their player rows). Returns OFF for token-only/unauth callers.
+export async function getMyShareMatchFitness() {
+  const { data, error } = await supabase.rpc("get_my_share_match_fitness", {});
+  if (error) { console.error("[health] get_my_share_match_fitness failed", error); throw error; }
+  return data;
+}
+
+// Sets the caller's global match-fitness sharing consent across ALL their player rows (mig 457).
+// Returns { ok, share_match_fitness, rows_updated }.
+export async function setShareMatchFitness(value) {
+  const { data, error } = await supabase.rpc("set_share_match_fitness", { p_value: value });
+  if (error) { console.error("[health] set_share_match_fitness failed", error); throw error; }
   return data;
 }
 

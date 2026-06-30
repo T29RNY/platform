@@ -207,24 +207,18 @@ If a FAIL message appears: read it, fix the RPC, re-run.
 
 ## STEP 5 — LEAK CHECK (mandatory)
 
-After the DO block returns, run this verification query immediately
-via Supabase MCP execute_sql:
+After the DO block returns, run the leak check immediately:
 
-```sql
-SELECT
-  (SELECT count(*) FROM venues WHERE id LIKE 'v_e2e_%')        AS venues,
-  (SELECT count(*) FROM leagues WHERE id LIKE 'l_e2e_%')       AS leagues,
-  (SELECT count(*) FROM teams WHERE id LIKE 'team_e2e_%')      AS teams,
-  (SELECT count(*) FROM players WHERE id LIKE 'p_e2e_%')       AS players,
-  (SELECT count(*) FROM audit_events WHERE created_at > now() - interval '5 minutes'
-     AND (metadata->>'home_team_id' LIKE 'team_e2e_%' OR metadata->>'away_team_id' LIKE 'team_e2e_%')) AS audit_rows;
+```
+bash skills/scripts/check-ev-leak.sh
 ```
 
-Every column must return 0. Non-zero means the rollback didn't work —
-investigate immediately. (Usually means the DO block's `BEGIN`
-catch caught the RAISE EXCEPTION before it rolled back; restructure
-the verify so the RAISE EXCEPTION is at the top level of the
-function.)
+Then execute the output via Supabase MCP execute_sql.
+Every column must return 0. Non-zero means the rollback failed —
+investigate immediately before doing anything else. (Usually means the
+DO block's `BEGIN` catch caught the RAISE EXCEPTION before it rolled
+back; restructure the verify so the RAISE EXCEPTION is at the top
+level of the function.) STOP and restore before continuing.
 
 ---
 

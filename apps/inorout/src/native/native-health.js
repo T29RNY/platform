@@ -1,0 +1,88 @@
+// Native Apple Health bridge (Match Workout Tracking Phase 1).
+//
+// One helper layer over the DORMANT `HealthKit` native plugin
+// (apps/inorout/ios-plugins/HealthKit/). READ-ONLY: we build no tracking — Apple's stock
+// Workout app measures the game; this reads the summary + route so the match-to-game flow
+// (PR #6) can attach it to a fixture and post it via saveMatchHealthSummary (mig 456).
+//
+// WEB / PWA: every function no-ops (returns inert values) — isNativeApp() is false off the
+// native wrap, so nothing here touches the live web app. The plugin is also absent from the
+// current App-Store binary; it first links when the operator adds it on the build machine
+// (gates G2/G3, see ios-plugins/HealthKit/README.md). Until then isNativeApp() may be true
+// but the plugin call rejects → caught → inert, never a crash.
+//
+// HealthKit gotchas baked into the contract (KEY AUDIT FACTS, manifest):
+//   • read-denial is INVISIBLE — an empty workout list means denied OR none; the caller
+//     must offer a "check Health permissions" path, never assume "no games".
+//   • watch→iPhone sync has a delay — the caller should retry, not flat-fail.
+//   • indoor games carry the same activity type with an `indoor` flag + no route.
+
+import { isNativeApp } from "./is-native.js";
+
+// Resolve the registered native plugin, or null on web / when not in the native wrap.
+async function healthPlugin() {
+  if (!isNativeApp()) return null;
+  try {
+    const { registerPlugin } = await import("@capacitor/core");
+    return registerPlugin("HealthKit");
+  } catch (e) {
+    console.error("[health] registerPlugin(HealthKit) failed", e);
+    return null;
+  }
+}
+
+// True only inside the native wrap (where the HealthKit plugin can exist). The UI uses this
+// to decide whether to offer the "connect Apple Health" affordance at all (hidden on web).
+// VITE_HEALTH_KIT_ENABLED must be 'true' (set after G2/G3 native build — gates are not yet cleared).
+// Without it the attach-workout UI stays hidden in the live binary until the operator enables it.
+export function isHealthAvailable() {
+  return isNativeApp() && import.meta.env.VITE_HEALTH_KIT_ENABLED === 'true';
+}
+
+// Prompt for READ access to workouts + distance/HR/active-energy + route. Returns
+// { available, granted }. `granted` only means the prompt completed (HealthKit never
+// reveals true read-grant state — see the Swift note); treat an empty queryWorkouts result
+// as denied-or-empty downstream.
+export async function requestHealthAuth() {
+  const p = await healthPlugin();
+  if (!p) return { available: false, granted: false };
+  try {
+    const r = await p.requestAuthorization();
+    return { available: true, granted: !!r?.granted };
+  } catch (e) {
+    console.error("[health] requestAuthorization failed", e);
+    return { available: true, granted: false, error: String(e) };
+  }
+}
+
+// List Apple workouts in [fromISO, toISO]. Returns an array of summaries
+// ({ uuid, startISO, endISO, durationSeconds, distanceMeters, activeEnergyKcal, avgHr,
+//   maxHr, indoor, activityType }) or [] on web / error / none. uuid = HKWorkout.uuid =
+// the idempotency key fed to saveMatchHealthSummary as clientSessionId.
+export async function queryWorkouts({ fromISO, toISO } = {}) {
+  const p = await healthPlugin();
+  if (!p) return [];
+  if (!fromISO || !toISO) return [];
+  try {
+    const r = await p.queryWorkouts({ fromISO, toISO });
+    return Array.isArray(r?.workouts) ? r.workouts : [];
+  } catch (e) {
+    console.error("[health] queryWorkouts failed", e);
+    return [];
+  }
+}
+
+// GPS route for one workout (outdoor only). Returns the track jsonb
+// ({ points: [{ lat, lon, t }] }) or null on web / indoor / no-route / error. Fed straight
+// to saveMatchHealthSummary's `route` param and getMatchRoute's heatmap renderer.
+export async function queryRoute(workoutUuid) {
+  const p = await healthPlugin();
+  if (!p || !workoutUuid) return null;
+  try {
+    const r = await p.queryRoute({ workoutUuid });
+    return r?.track ?? null;
+  } catch (e) {
+    console.error("[health] queryRoute failed", e);
+    return null;
+  }
+}
