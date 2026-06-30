@@ -188,15 +188,10 @@ is the practical key for casual). Gates: hygiene, build, Playwright.
   at AdminView scoring). The only existing per-match surface is league `FixtureDetailCard` (private to
   player). PR #6 (or a dedicated casual result surface) must decide where `PerMatchFitnessCard` mounts
   for casual. Operator endorsed Option A (defer casual host) by re-issuing the loop.
-- **PR #4 ◻ IN PR** — consent toggle (this PR). **Migration 457** (`get_my_share_match_fitness` +
-  `set_share_match_fitness`, both SECDEF authenticated-only; GLOBAL consent across the caller's player
-  rows; audit `match_fitness_consent_set` HR#9) + JS wrappers + barrel + a "MATCH FITNESS" toggle in
-  `PlayerProfile.jsx` (signed-in players only, default OFF, optimistic+revert, degrades to OFF if read
-  fails). **TIER-3 (migration 457 apply).** EV PASS 5/5 (default-off, set-true global 2-row, audit,
-  set-false, unauth blocked; leak-check 0 incl. fns_persisted=0). Gates: hygiene 7/7, build PASS,
-  rpc-security static PASS (live sweep owed at apply). **Loop STOPS at G-457: operator applies 457
-  THEN merges (apply-before-merge so the live toggle's RPC exists before the bundle deploys).**
-  Playwright toggle-persist owed post-apply.
+- **PR #4 ✅ DONE** — consent toggle merged (#172, dc86e04). Migration 457 applied. `get_my_share_match_fitness` + `set_share_match_fitness` live. "MATCH FITNESS" toggle in `PlayerProfile.jsx` (signed-in only, default OFF). Playwright toggle-persist owed post-merge (deferred; dark feature).
+- **PR #5 ✅ DONE** — dormant native HealthKit plugin merged (#175, 236df36). `ios-plugins/HealthKit/HealthKitPlugin.swift` + `.m` + `native-health.js` bridge. DARK until G2/G3 (Apple Developer + Xcode).
+- **PR #6a ✅ DONE** — mounted `PerMatchFitnessCard` in HistoryView (#177, 995b8c3). Card has real compile coverage. DARK (no data until ingestion).
+- **PR #6b ◻ IN PR (#179)** — match-to-game attach flow (this PR). Age-gate → HealthKit auth → time window (matchDate + kickoffTime) → queryWorkouts → sanity-clamp → confirm/picker → queryRoute + trimRoute → saveMatchHealthSummary → refresh. `dbToMatch` kickoffTime additive field. DARK behind `VITE_HEALTH_KIT_ENABLED`. **Loop STOPS: operator merges #179 when ready.** Remaining gates: G2 (Apple Developer), G3 (Mac/Xcode), G4 (App Store submit), G5 (real-device walk), then set `VITE_HEALTH_KIT_ENABLED=true`.
 
 ## DONE = Phase 1
 PR #1–#7 merged (PR #1 applied at G1), G2–G4 cleared, the app live in the App Store with
