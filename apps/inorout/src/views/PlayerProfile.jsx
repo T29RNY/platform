@@ -3,6 +3,7 @@ import {
   ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
   SignOut, Trash, X as XIcon,
   PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid, BellSimple, Lightning,
+  Plus,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import {
@@ -1002,6 +1003,31 @@ export default function PlayerProfile({
               </button>
             </div>
           </>
+        )}
+
+        {/* Create a new squad — player mode + real signed-in session only.
+            Routes to the existing squad-setup wizard at /create, where
+            create_team (mig 052) makes the signed-in creator the team_admin
+            of an independent new squad. Neutral/positive action — NOT
+            destructive — so it sits just above the Account zone. */}
+        {!isAdminView && isAuthed && (
+          <button
+            onClick={() => { window.location.href = "/create"; }}
+            style={{
+              width:"100%", padding:"14px 16px", marginTop:32,
+              borderRadius:"var(--r)",
+              background:"transparent",
+              border:`0.5px solid var(--border-subtle)`,
+              color:"var(--t1)",
+              fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+              display:"flex", alignItems:"center", gap:10,
+              cursor:"pointer",
+              WebkitTapHighlightColor:"transparent",
+            }}
+          >
+            <Plus size={16} weight="thin"/>
+            Create a new squad
+          </button>
         )}
 
         {/* Destructive zone — player mode only */}
