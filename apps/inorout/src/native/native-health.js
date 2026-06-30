@@ -33,8 +33,10 @@ async function healthPlugin() {
 
 // True only inside the native wrap (where the HealthKit plugin can exist). The UI uses this
 // to decide whether to offer the "connect Apple Health" affordance at all (hidden on web).
+// VITE_HEALTH_KIT_ENABLED must be 'true' (set after G2/G3 native build — gates are not yet cleared).
+// Without it the attach-workout UI stays hidden in the live binary until the operator enables it.
 export function isHealthAvailable() {
-  return isNativeApp();
+  return isNativeApp() && import.meta.env.VITE_HEALTH_KIT_ENABLED === 'true';
 }
 
 // Prompt for READ access to workouts + distance/HR/active-energy + route. Returns

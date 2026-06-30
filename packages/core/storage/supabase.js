@@ -317,6 +317,7 @@ function dbToMatch(r) {
     predictedConfidence: r.predicted_confidence ?? null,
     balanceScore: r.balance_score ?? null,
     refPlayerId: r.ref_player_id || null,   // mig 369 casual ref slot; surfaced for the admin ref-assign toggle
+    kickoffTime: r.kickoff_time || null,    // "HH:MM:SS" wall-clock; present on player-token route (to_jsonb(m.*))
   };
 }
 
