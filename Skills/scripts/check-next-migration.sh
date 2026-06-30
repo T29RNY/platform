@@ -10,8 +10,16 @@
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
+# When validating a candidate file, exclude that file itself from the "highest"
+# scan — otherwise the candidate counts as already-taken and the highest
+# on-disk migration always self-conflicts (next = its own number + 1). A real
+# duplicate is a DIFFERENT filename at the same number, which is still counted.
+CANDIDATE_BASE=""
+if [ $# -ge 1 ]; then CANDIDATE_BASE="$(basename "$1")"; fi
+
 HIGHEST=$(ls "$ROOT/rls_migrations/"*.sql 2>/dev/null \
   | grep -v _down \
+  | { if [ -n "$CANDIDATE_BASE" ]; then grep -vF "/$CANDIDATE_BASE"; else cat; fi; } \
   | grep -oE 'rls_migrations/[0-9]+' \
   | grep -oE '[0-9]+$' \
   | sort -n \
