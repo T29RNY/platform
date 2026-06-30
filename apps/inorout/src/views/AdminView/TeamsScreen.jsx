@@ -1195,7 +1195,7 @@ export default function TeamsScreen({
   // Empty state
   if (!matchId) {
     return (
-      <div style={{ padding: "20px 16px" }}>
+      <div style={{ padding: "calc(20px + env(safe-area-inset-top)) 16px 20px" }}>
         <button onClick={onBack} style={{
           display: "flex", alignItems: "center", gap: 6,
           background: "none", border: "none", cursor: "pointer",
@@ -1219,7 +1219,7 @@ export default function TeamsScreen({
   }
 
   return (
-    <div style={{ padding: "20px 16px" }}>
+    <div style={{ padding: "calc(20px + env(safe-area-inset-top)) 16px 20px" }}>
 
       {/* Back link */}
       <button onClick={onBack} style={{

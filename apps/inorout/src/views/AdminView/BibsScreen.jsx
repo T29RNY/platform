@@ -60,7 +60,7 @@ export default function BibsScreen({ squad, setSquad, bibHistory, setBibHistory,
   // migs 205/206). This screen is read-only: current holder, history, stats.
 
   return (
-    <div style={{ padding: 18 }}>
+    <div style={{ padding: 18, paddingTop: "calc(18px + env(safe-area-inset-top))" }}>
       <BackBtn onClick={onBack} />
 
       {/* ── Header ──────────────────────────────────────────────── */}

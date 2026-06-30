@@ -198,7 +198,7 @@ export default function TeamsheetScreen({ fixture, existingLineup, squad, adminT
   return (
     <div style={{ minHeight: "100dvh", background: "var(--bg)", paddingBottom: 120 }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "calc(14px + env(safe-area-inset-top)) 16px 14px" }}>
         <CaretLeft weight="thin" size={22} color="var(--t1)" style={{ cursor: "pointer" }} onClick={onBack} />
         <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.04em", color: "var(--t1)" }}>
           TEAMSHEET

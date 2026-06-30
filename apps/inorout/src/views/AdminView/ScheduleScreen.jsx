@@ -445,7 +445,7 @@ export default function ScheduleScreen({ schedule, setSchedule, settings, setSet
       fontFamily:"var(--font-body)", paddingBottom:80 }}>
 
       {/* Header */}
-      <div style={{ padding:"16px 18px 0", display:"flex", alignItems:"center",
+      <div style={{ padding:"calc(16px + env(safe-area-inset-top)) 18px 0", display:"flex", alignItems:"center",
         gap:12, marginBottom:20 }}>
         <div onClick={onBack} style={{ cursor:"pointer", color:"var(--gold)",
           display:"flex", alignItems:"center", WebkitTapHighlightColor:"transparent" }}>

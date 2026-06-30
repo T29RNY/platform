@@ -19,6 +19,7 @@ import {
   adminApproveGuest,
   adminDeclineGuest,
   ackOrphanGuest,
+  getTeamByAdminToken,
 } from "@platform/core/storage/supabase.js";
 import {
   CaretRight, CaretUp, CaretDown, Megaphone, XCircle, PaperPlaneTilt,
@@ -97,6 +98,8 @@ export default function AdminView({
   const [showCoverPool,    setShowCoverPool]    = useState(false);
   const [showAnnounce,     setShowAnnounce]     = useState(false);
   const [chaseToast,       setChaseToast]       = useState(false);
+  const [joinCode,         setJoinCode]         = useState(null);
+  const [inviteCopied,     setInviteCopied]     = useState(false);
   const [chaseRecentMsg,   setChaseRecentMsg]   = useState(null);
   const [tiebreakDismissed, setTiebreakDismissed] = useState(false);
 
@@ -434,6 +437,31 @@ export default function AdminView({
     if (!schedule.gameIsLive) openNextWeek();
   };
 
+  // Fetch the squad's stable join_code so the invite link can be surfaced
+  // directly on the main admin view (same source SquadScreen uses).
+  useEffect(() => {
+    if (!adminToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const team = await getTeamByAdminToken(adminToken);
+        if (!cancelled && team?.join_code) setJoinCode(team.join_code);
+      } catch (e) {
+        console.error("AdminView: failed to load join code", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [adminToken]);
+
+  const copyInviteLink = () => {
+    if (!joinCode) return;
+    const url = `https://app.in-or-out.com/join/${joinCode}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 1800);
+    }).catch(e => console.error("AdminView: copy invite link failed", e));
+  };
+
   const chaseNoResponders = async () => {
     const ids = noRespPlayers.map(p => p.id);
     if (!ids.length) return;
@@ -707,7 +735,8 @@ export default function AdminView({
       )}
 
       {/* ── Hero card ── */}
-      <div style={{ position:"sticky", top:0, zIndex:10 }}>
+      <div style={{ position:"sticky", top:0, zIndex:10,
+        background:"var(--bg)", paddingTop:"env(safe-area-inset-top)" }}>
       <div style={{ position:"relative", height:140, overflow:"hidden", background:"var(--bg)" }}>
         {isDemoMode && (
           <div style={{ position:"absolute", top:12, right:12, zIndex:10 }}>
@@ -1019,10 +1048,17 @@ export default function AdminView({
               sub:"Choose who receives your message",
               badge:0, action:() => setShowAnnounce(true),
             },
-          ].map(({ key, iconEl, iconBg, iconBorder, title, sub, badge, action }, i) => (
+            ...(joinCode ? [{
+              key:"invite", iconEl:<LinkIcon size={18} weight="thin" color="var(--green)"/>,
+              iconBg:"var(--green2)", iconBorder:"var(--greenb)",
+              title:"Share Invite Link",
+              sub: inviteCopied ? "Copied to clipboard" : `app.in-or-out.com/join/${joinCode}`,
+              badge:0, action: copyInviteLink,
+            }] : []),
+          ].map(({ key, iconEl, iconBg, iconBorder, title, sub, badge, action }, i, arr) => (
             <div key={key} onClick={action}
               style={{ display:"flex", alignItems:"center", padding:"12px 14px",
-                borderBottom: i < 2 ? "0.5px solid var(--b2)" : "none",
+                borderBottom: i < arr.length - 1 ? "0.5px solid var(--b2)" : "none",
                 cursor:"pointer", gap:12,
                 WebkitTapHighlightColor:"transparent" }}>
               <div style={{ width:36, height:36, borderRadius:"var(--rs)", flexShrink:0,

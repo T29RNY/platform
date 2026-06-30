@@ -355,7 +355,7 @@ export default function SquadScreen({
   /* ============================== render ============================== */
 
   return (
-    <div style={{ padding: 16, paddingBottom: 220, maxWidth: 480, margin: "0 auto", position: "relative" }}>
+    <div style={{ padding: 16, paddingTop: "calc(16px + env(safe-area-inset-top))", paddingBottom: 220, maxWidth: 480, margin: "0 auto", position: "relative" }}>
 
       {/* Inline keyframes */}
       <style>{`
