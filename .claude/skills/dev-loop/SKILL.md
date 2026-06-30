@@ -37,17 +37,45 @@ Read every file the change touches. Follow `skills/audit.md`. Report current sta
 signatures, call sites, DB/RLS/RPC exposure, mismatches, risk flags. **No edits.**
 For a new feature from the backlog, run `skills/feature-plan.md` first.
 
-**Tooling hygiene (keeps the loop hands-off — learned the hard way):**
-- **No multi-line inline `node -e` / `npx tsx -e` probes.** They cannot be
-  allowlisted and always prompt, which breaks unattended runs. Put any check in a
-  `skills/scripts/check-*.sh` script or a committed test file and call that instead.
-  Single-file syntax checks via `node --check <file>` are fine.
-- **Avoid env-prefixed or piped commands** (`VAR=x npm run build | tail`) — a leading
-  `VAR=` assignment or a pipe makes the command miss the allowlist and prompt. Put env
-  vars inside the script, and read the exit code with `echo "exit=$?"` on its own line
-  rather than piping.
-- Prefer the committed `cd <dir> && npm run build` shape (covered by the allowlist)
-  over ad-hoc one-liners.
+**Tooling hygiene (keeps the loop hands-off — the single biggest cause of "the
+unmanned loop keeps asking for approval"):** the permission allowlist matches *simple*
+commands. Any command shape it can't cleanly match prompts the human — so every Bash
+call MUST be ONE simple, allowlistable command. Concretely:
+- **No `cd` in a compound command.** `cd <dir> && npm run build` trips a permission
+  prompt in the agent/IDE harness *even when both halves are allowlisted* — the
+  compound form can't be matched. Build with **`npm run build --prefix apps/<app>`**
+  (no `cd`) or the build gate **`bash skills/scripts/check-build.sh`** (it `cd`s
+  *inside* the script, so the outer call stays simple). Navigate with absolute paths,
+  never a bare `cd`.
+- **No multi-line / piped / redirected / process-substitution probes.** No inline
+  `node -e` / `npx tsx -e`, no `sed … | diff <(…)`, no `VAR=x cmd | tail`, no
+  `cmd 2>&1 | …`. Each of these misses the allowlist and prompts every time, which is
+  what breaks an unattended run. **To compare two files, use the Read tool and reason
+  over them directly — not `sed`/`diff`/`<()` in bash.** For any repeatable check, put
+  it in a `skills/scripts/check-*.sh` script and call that one script. Read an exit
+  code with `echo "exit=$?"` on its own line, never by piping.
+- **One increment's checks = a short list of bare allowlisted commands**, each run on
+  its own (`node --check <file>`; `bash skills/scripts/check-*.sh <args>`;
+  `npm run build --prefix apps/<app>`). If you catch yourself writing a `&&`/`|`/`<()`
+  chain to "save a round-trip", stop — that round-trip is cheaper than a human prompt.
+
+**Allowlist preflight (front-load the prompts — do this BEFORE the first gate runs):**
+at the start of an unattended run, list the gate commands this cycle will use
+(syntax / hygiene / build / rpc-security / live-config / e2e) and confirm each is
+**allowlist-safe** — one simple command, no compound `cd`, no pipe / redirect /
+process-substitution / env-prefix. Anything that isn't safe gets reshaped (into a
+`skills/scripts/check-*.sh` call or a `--prefix` form) up front. The point is to catch
+a prompt-triggering command *before* you fire it mid-run, where it stalls the whole
+unattended loop waiting on a human — not after.
+
+**Where gate commands live.** The read-only gate suite belongs in the **committed**
+`.claude/settings.json` allow-list (the `check-*.sh` set + `npm run build --prefix *`,
+added in #161) so every session — desktop or cloud — inherits the same allowlist and
+runs hands-off. Per-user, machine-specific entries go in the gitignored
+`settings.local.json`, never the committed file. When you notice a stale one-off entry
+in `settings.json` (a hardcoded single-file path that a wildcard now covers), prune it
+in a dedicated dev-tooling commit — keep the committed allowlist a clean, general gate
+suite, not an accretion of one-shots.
 
 ### 2 — PLAN GATE (human) · L9
 Post the plan, then decide whether to wait — don't manufacture a checkpoint for a
@@ -71,6 +99,15 @@ Do not start EXECUTE until the above is satisfied.
 ### 3 — BRANCH · hard guardrail
 Create a feature branch off `main` (`feat/...`, `fix/...`). **Never commit on main.
 Never push to main. Never `git add -A`** — stage only the files this increment owns.
+
+**Worktree by default for epic / `/loop` runs (L11).** An unattended epic spans many
+fires and may run alongside another session on the same machine — so default to an
+**isolated git worktree** (`git worktree add -b <branch> <path> <base>`) rather than
+switching branches in the shared checkout. Rationale: two sessions sharing one checkout
+can `git checkout` a branch out from under each other mid-run, corrupting both working
+trees; a worktree gives the run its own files while sharing the one `.git`. A single
+one-shot `/dev-loop` change in a known-solo checkout can branch in place, but when in
+doubt — or any multi-phase / parallel run — use the worktree.
 
 ### 4 — EXECUTE (one increment) · L6
 Make ONE agreed increment — code **and** its checks/tests in the same batch. One file
@@ -246,7 +283,15 @@ default, never inferred. Tier-3 stays human-on-intent under every mode.
 
 Wrap the inner loop with `/loop` over a **phase manifest** (the externalised state —
 L7). Draft manifests into `docs/epics/` (created on first epic) from
-`phase-manifest.template.md`. Each fire:
+`phase-manifest.template.md`.
+
+**Launch honesty — name the expected-stops count before the first fire.** When kicking
+off an epic, scan the manifest and report up front how many phases are tier-3 /
+`needs-human` / FROZEN versus auto-proceedable, in one line — e.g. *"heads up: 3 of 4
+phases need your sign-off (2 migrations + 1 deploy), so this run stops on you more than
+it builds."* A mostly gated epic that runs quiet between stops looks broken; stating the
+stop-count at launch sets the expectation so a correctly-behaving unmanned run doesn't
+read as a failure. Each fire:
 
 1. Read the manifest. Pick the next `pending` phase whose `deps` are all `done`.
 2. Run the INNER LOOP for that phase.

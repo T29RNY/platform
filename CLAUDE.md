@@ -41,6 +41,10 @@ This file is the operating contract.
 cd apps/inorout && npm run build
 cd apps/venue && npm run build
 cd apps/clubmanager && npm run build
+# For UNATTENDED / allowlisted runs, use the cd-free forms (a compound `cd <dir> && …`
+# trips a permission prompt in the agent/IDE harness even when allowlisted):
+npm run build --prefix apps/inorout      # cd-free single-app build
+bash skills/scripts/check-build.sh       # the build gate (cd's inside the script)
 
 # Dev server for a specific app
 cd apps/inorout && npm run dev
