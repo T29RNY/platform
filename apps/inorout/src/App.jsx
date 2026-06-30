@@ -28,7 +28,6 @@ import PlayerView    from "./views/PlayerView.jsx";
 import StatsView     from "./views/StatsView.jsx";
 import HistoryView   from "./views/HistoryView.jsx";
 import AdminView     from "./views/AdminView/index.jsx";
-import InstallBanner from "./views/InstallBanner.jsx";
 import Onboarding    from "./onboarding/index.jsx";
 import JoinTeam             from "./views/JoinTeam.jsx";
 import InviteResolve        from "./views/InviteResolve.jsx";
@@ -1753,7 +1752,6 @@ export default function App() {
     return (
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif" }}>
-      <InstallBanner/>
       <div style={{ padding:"20px 18px 12px", background:C.bg,
         borderBottom:`1px solid ${C.border}` }}>
         <div style={{ fontFamily:"Bebas Neue,sans-serif", fontSize:28, letterSpacing:3 }}>
@@ -1867,7 +1865,6 @@ export default function App() {
     <TourProvider enabled={multiContextNav}>
     <div style={{ background:C.bg, minHeight:"100dvh", color:C.text,
       maxWidth:430, margin:"0 auto", fontFamily:"'DM Sans', sans-serif" }}>
-      <InstallBanner/>
       <ContextSwitcher
         open={showSwitcher}
         onClose={() => setShowSwitcher(false)}

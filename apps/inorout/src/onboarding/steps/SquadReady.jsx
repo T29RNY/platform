@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { WhatsappLogo, CopySimple, ArrowRight } from "@phosphor-icons/react";
-import InstallSection, { detectPlatform } from "../../components/InstallSection.jsx";
 
 const BASE_URL = "https://app.in-or-out.com";
 
@@ -200,8 +199,7 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
   const [copied, setCopied] = useState(false);
 
   const handleAdvance = () => {
-    const platform = detectPlatform();
-    window.posthog?.capture("install_screen_cta_tapped", { platform, flow: "create" });
+    window.posthog?.capture("squad_ready_cta_tapped", { flow: "create" });
     window.location.href = adminUrl;
   };
 
@@ -290,10 +288,6 @@ export default function SquadReady({ groupName, joinCode, adminToken, adminPlaye
               <CopySimple size={18} weight="thin" />
               {copied ? "Copied!" : "Copy squad link"}
             </button>
-
-            <div className="squad-ready-divider" />
-
-            <InstallSection installTargetUrl={adminUrl} />
           </div>
         </div>
 

@@ -594,17 +594,22 @@ Apply SQL before writing any JS wrapper.
     admin-resolver fell through to `squad[0]`. Admins on /admin/
     routes were rendered AS the first squad member for ~12 days
     before anyone noticed.
-13. PWA-affecting changes MUST be tested on a real iPhone home-
-    screen install before commit. Files in scope: App.jsx
-    (routing/auth/realtime/manifest), PlayerView, MySquads,
-    AuthGateModal, useRequireAuth, supabase.js client config,
-    api/manifest.js, index.html inline script. The build hook,
-    type-check, and grep cannot see "tap does nothing"-class bugs.
-    Use a Vercel preview branch → install via Safari → Add to Home
-    Screen → force-quit Safari → open from icon. Established
+13. Native-app-affecting changes MUST be tested on a real iPhone
+    in the actual native app before commit. In or Out is NATIVE-APP-
+    ONLY now — there is no PWA / "Add to Home Screen" install path.
+    Files in scope: App.jsx (routing/auth/realtime), PlayerView,
+    MySquads, AuthGateModal, useRequireAuth, supabase.js client
+    config, capacitor.config.ts. The build hook, type-check, and
+    grep cannot see "tap does nothing"-class bugs. Test by opening
+    the change in the native app (via a preview build / the live
+    web-bundle) and walking the affected flow on-device. Established
     session 43 after three behaviour-only bugs surfaced only via
     real-device test (wrong-row gate logic, OTP code length cap,
-    and the latent mig-070 bug above).
+    and the latent mig-070 bug above). NOTE: the legacy PWA-manifest
+    plumbing (api/manifest.js, the index.html inline manifest script,
+    the SquadReady manifest swap) still physically exists but its
+    install path is dead — see the native-app-only reference memory;
+    removing it is a separate, deliberate cleanup.
 14. New RPCs designed for multiple downstream apps MUST record their
     consumers in RPCS.md's Notes column. Extends hard-rule #12 forward:
     if Cycle 5.4's `get_player_fixture_detail` is designed for the

@@ -1,16 +1,7 @@
 import { useEffect } from "react";
-import InstallSection, { detectPlatform } from "../components/InstallSection.jsx";
 
 export default function JoinSuccess({ player, team }) {
   const playerUrl = player?.token ? `/p/${player.token}` : "/";
-  const joinUrl   = `https://app.in-or-out.com/join/${team?.join_code || team?.id || ""}`;
-  const platform  = detectPlatform();
-
-  useEffect(() => {
-    if (platform === "installed") {
-      window.location.href = playerUrl;
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!player?.token) return;
@@ -28,19 +19,10 @@ export default function JoinSuccess({ player, team }) {
     }
   }, [player?.token]);
 
-  const navigate = (url) => { window.location.href = url; };
-
   const handleCta = () => {
-    window.posthog?.capture("install_screen_cta_tapped", { platform, flow: "join" });
-    navigate(playerUrl);
+    window.posthog?.capture("join_success_cta_tapped", { flow: "join" });
+    window.location.href = playerUrl;
   };
-
-  const handleSkip = () => {
-    window.posthog?.capture("install_screen_skipped", { platform, flow: "join" });
-    navigate(playerUrl);
-  };
-
-  if (platform === "installed") return null;
 
   return (
     <div style={{
@@ -69,8 +51,6 @@ export default function JoinSuccess({ player, team }) {
             </div>
           )}
         </div>
-
-        <InstallSection installTargetUrl={joinUrl} />
       </div>
 
       <div style={{ padding: "16px 20px 0", background: "var(--bg)" }}>
@@ -84,15 +64,6 @@ export default function JoinSuccess({ player, team }) {
             }}
           >
             Open In or Out
-          </button>
-          <button
-            onClick={handleSkip}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              fontSize: 11, color: "var(--t2)", fontWeight: 300, padding: "4px 8px",
-            }}
-          >
-            skip for now
           </button>
         </div>
       </div>
