@@ -138,6 +138,28 @@ If none of the above apply: state explicitly "No documentation updates needed."
 
 ---
 
+## STEP 6b — BUGS.md MATCH CHECK
+
+After staging and committing, grep BUGS.md for any open bug whose description
+contains the commit's scope or key terms from the commit message. Run:
+
+    grep -i "<scope>" BUGS.md
+
+where `<scope>` is the parenthetical from the commit type (e.g. "rpc", "auth",
+"squad"). Also grep for the 2-3 key nouns from the commit description.
+
+If any open bug entries match:
+- List the matching bug entries
+- Say: "The following open bugs may be resolved by this commit. If so, run
+  `skills/post-incident.md` to close them and update BUGS.md, DECISIONS.md,
+  and CONTEXT.md."
+- Do NOT automatically close the bugs — wait for developer confirmation that
+  the bug is actually fixed.
+
+If no matches: state "No open BUGS.md entries matched this commit scope."
+
+---
+
 ## AFTER COMMIT
 
 Say:
