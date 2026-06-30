@@ -2959,6 +2959,19 @@ Beta deal: free forever for first 10 teams. Cash only — Stripe Connect not yet
 - ✅ Supabase publishable key rotated
 - Google DNS verification via 123-reg TXT record (fixes OAuth branding showing Supabase URL)
 
+## Scheduled Triggers
+
+| Name | Trigger ID | Schedule | Created |
+|---|---|---|---|
+| Nightly QA — In or Out platform | trig_015Q8dEJC9Z9QzmqpRa1b7Wj | 0 7 * * * (07:00 UTC daily) | 2026-06-30 |
+
+Nightly QA fires a fresh cloud session that runs `/qa-loop scripted` (deterministic
+regression net — node --check, check-hygiene, check-build across all 8 apps, qa-suite
+Playwright e2e). T1/T2 auto-fixed via dev-loop as OPEN PRs (never merged); T3 surfaced
+to BUGS.md + GO_LIVE_ISSUES.md. Push notification on completion. Created by
+AUTOMATION_GAPS_HANDOFF.md epic P7. Cancel via `delete_trigger` or pause via
+`update_trigger`.
+
 ---
 
 ## MONOREPO STRUCTURE
