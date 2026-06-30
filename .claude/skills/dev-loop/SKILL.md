@@ -259,6 +259,23 @@ touching money/auth, flipping a prod env/flag, deploying, or merging anything
 check-live-config flags PROTECTED. These are drafted + proven but never executed by
 the loop. Everything else — audit, build, prove, review, PR — is autonomous.
 
+**Allowlisted unmanned surface (committed `settings.json`).** To run the reversible
+pipeline prompt-free — including in cloud sessions — the committed allowlist grants the
+loop the **read-only / reversible** operations only: Supabase **reads**
+(`list_tables`/`list_migrations`/`get_advisors`/`get_logs`/schema reads), GitHub
+**reads + PR plumbing** (`pull_request_read`, `get_file_contents`, `create_pull_request`,
+comment), `gh pr create`/`view`/`checks`/`diff`, and **feature-branch** `git push` /
+`git worktree` (the `pre-push-guard` hook still blocks `main`). **Deliberately NOT
+allowlisted — these stay per-use gates because they are irreversible or hit live prod:**
+`apply_migration`, `execute_sql` (can COMMIT to the live DB), `deploy_edge_function`,
+`merge_pull_request` / `gh pr merge`, and DB-branch mutations
+(`create`/`delete`/`merge`/`reset_branch`). The loop drafts + fully proves these
+(ephemeral-verify / rpc-security / reviews) then surfaces a one-line plain-English
+**intent question** — the operator's y/n on *intent* is the safety, and allowlisting
+them would skip their eyes on an irreversible live-prod action. Granting the reversible
+set is high-leverage and safe; granting the irreversible set is **not** "safest" and
+must stay an explicit per-action decision.
+
 **Token efficiency (minimise spend per cycle):**
 - **Verify-first, build-second.** Before writing anything, grep / check whether it
   already exists (migrations, RPCs, components). The Gaffer run skipped two whole
