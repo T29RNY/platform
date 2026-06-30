@@ -3030,6 +3030,7 @@ export async function saveMatchHealthSummary({
   matchContext, matchRef, clientSessionId,
   durationSeconds = null, activeEnergyKcal = null, distanceMeters = null,
   avgHr = null, maxHr = null, hrZones = null, startedAt = null, endedAt = null,
+  source = null, route = null,
 }) {
   const { data, error } = await supabase.rpc("save_match_health_summary", {
     p_match_context:      matchContext,
@@ -3043,8 +3044,10 @@ export async function saveMatchHealthSummary({
     p_hr_zones:           hrZones,
     p_started_at:         startedAt,
     p_ended_at:           endedAt,
+    p_source:             source,   // mig 456: 'apple_health_manual' | 'watch_app'
+    p_route:              route,    // mig 456: heatmap track jsonb (outdoor only) → match_health_routes
   });
-  if (error) { console.error("[watch] save_match_health_summary failed", error); throw error; }
+  if (error) { console.error("[health] save_match_health_summary failed", error); throw error; }
   return data;
 }
 
@@ -3052,7 +3055,24 @@ export async function saveMatchHealthSummary({
 // empty for a non-signed-in / token-only caller (so the surface self-hides).
 export async function getMyMatchHealth() {
   const { data, error } = await supabase.rpc("get_my_match_health", {});
-  if (error) { console.error("[watch] get_my_match_health failed", error); throw error; }
+  if (error) { console.error("[health] get_my_match_health failed", error); throw error; }
+  return data;
+}
+
+// Per-match fitness card (mig 456). Returns { ok, rows:[{ session_id, is_self, player_name, … ,
+// source, has_route, started_at, ended_at }…] }: own row always (first); teammate rows ONLY when
+// the match is casual AND that player set share_match_fitness. Ships DARK (self-hides when empty).
+export async function getMatchHealthForMatch(matchRef) {
+  const { data, error } = await supabase.rpc("get_match_health_for_match", { p_match_ref: matchRef });
+  if (error) { console.error("[health] get_match_health_for_match failed", error); throw error; }
+  return data;
+}
+
+// Heatmap track for one session (mig 456), OWN session only. Returns { ok, track: <jsonb|null> }
+// (null when not the owner or no route stored — outdoor games only).
+export async function getMatchRoute(sessionId) {
+  const { data, error } = await supabase.rpc("get_match_route", { p_session_id: sessionId });
+  if (error) { console.error("[health] get_match_route failed", error); throw error; }
   return data;
 }
 

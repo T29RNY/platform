@@ -116,6 +116,8 @@ export {
   clubAdminAssignCohortOfficial,
   saveMatchHealthSummary,
   getMyMatchHealth,
+  getMatchHealthForMatch,
+  getMatchRoute,
   refStartTournamentMatch,
   refSetTournamentPeriod,
   refRecordTournamentGoal,
