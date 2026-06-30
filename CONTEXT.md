@@ -2963,14 +2963,18 @@ Beta deal: free forever for first 10 teams. Cash only — Stripe Connect not yet
 
 | Name | Trigger ID | Schedule | Created |
 |---|---|---|---|
-| Nightly QA — In or Out platform | trig_015Q8dEJC9Z9QzmqpRa1b7Wj | 0 7 * * * (07:00 UTC daily) | 2026-06-30 |
+| Nightly QA — In or Out platform | trig_01Ttm6xhfESaTjSwAtjeHZpT | 0 7 * * * (07:00 UTC daily) | 2026-06-30 |
 
 Nightly QA fires a fresh cloud session that runs `/qa-loop scripted` (deterministic
 regression net — node --check, check-hygiene, check-build across all 8 apps, qa-suite
 Playwright e2e). T1/T2 auto-fixed via dev-loop as OPEN PRs (never merged); T3 surfaced
-to BUGS.md + GO_LIVE_ISSUES.md. Push notification on completion. Created by
-AUTOMATION_GAPS_HANDOFF.md epic P7. Cancel via `delete_trigger` or pause via
-`update_trigger`.
+to BUGS.md + GO_LIVE_ISSUES.md. **Always emits a one-line summary** (✅ ALL CLEAR /
+findings / ⚠️ RUN INCOMPLETE) so a missing report unambiguously = the run failed; push
++ email notification on completion. Created by AUTOMATION_GAPS_HANDOFF.md epic P7
+(prompt revised 2026-06-30 for always-report + dual-channel; superseded the original
+trig_015Q8dEJC9Z9QzmqpRa1b7Wj). The trigger prompt cannot be edited in place — to change
+it, recreate via `create_trigger` and `delete_trigger` the old one. Cancel via
+`delete_trigger`; pause via `update_trigger` (name/schedule/enabled only).
 
 ---
 
