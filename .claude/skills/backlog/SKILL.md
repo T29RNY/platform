@@ -11,7 +11,7 @@ PICK → LAUNCH UNMANNED.** It does not itself build — it selects, then hands 
 guardrails). Keep the operator's surface to one decision: *which item*.
 
 ## 1 — SURVEY (cheap signal first · L2, L8)
-- Run `bash Skills/scripts/survey-backlog.sh` — deterministic snapshot of in-flight
+- Run `bash skills/scripts/survey-backlog.sh` — deterministic snapshot of in-flight
   epics (+ phase statuses), open bugs/owed, the FEATURES tracker, and open PRs.
 - Layer on MEMORY recall (active threads) for anything not in the repo files.
 - **Verify-first (the highest-value step · L10):** before listing a "scoped" item as
@@ -23,7 +23,7 @@ guardrails). Keep the operator's surface to one decision: *which item*.
 ## 2 — RANK & PRESENT (one decision for the operator)
 Produce a short ranked shortlist (≈5–8 items, not the whole universe). For each:
 - **title** · **tier** (1 = UI/copy/flag-gated · 2 = logic/RPC · 3 = migration/RLS/
-  money/auth/deploy) · **ship-safety** (run `Skills/scripts/check-live-config.sh` on
+  money/auth/deploy) · **ship-safety** (run `skills/scripts/check-live-config.sh` on
   the likely files → CLEAR / PROTECTED) · **real remaining work** (post verify-first) ·
   **rough size**.
 - **Bias the recommendation by what's safe to ship *now*:** while a build is in Apple
@@ -40,6 +40,12 @@ The operator names the item; from there, run **hands-off** through the dev-loop:
   approval** in the same breath as the pick — then run `/loop /dev-loop <manifest>`.
 - **Single change**: run `/dev-loop <the change, with its done-check>`.
 - Set the autonomy the operator chose (manifest `Merge mode`); default `per-phase`.
+- **Launch honesty — surface the expected-stops count up front.** As you hand off an
+  epic, count its phases tagged tier-3 / `needs-human` / FROZEN and say so in one line,
+  e.g. *"heads up: 3 of 4 phases need your sign-off (2 migrations + 1 deploy), so this
+  run will stop on you more than it builds — that's expected, not broken."* A mostly
+  gated epic that goes quiet looks stuck; naming the stop-count at launch sets the
+  expectation so an unmanned run doesn't read as a failure.
 
 **What "unmanned" means here (be honest about it):** the loop runs
 audit → build → prove → fresh-context review → PR **without prompting** — it
