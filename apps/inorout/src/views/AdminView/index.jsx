@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import {
   sendTemplate, notificationTemplates,
-  handleMarkPaid,
+  adminListPendingClaims,
+  adminConfirmClaims,
   getPlayerLeagueTable,
   reopenWeek,
   goLive,
@@ -142,6 +143,25 @@ export default function AdminView({
   useEffect(() => { loadLineupCtx(); }, [adminToken]);
   const nextFixture = lineupCtx?.fixture || null;
 
+  // "Payment Confirmations" banner data — every player awaiting confirmation (a per-week
+  // claim OR the whole-player self_paid flag). Reloaded whenever the squad refreshes
+  // (payment broadcasts refresh squad), so a new claim surfaces without a manual reload.
+  const [pendingClaims, setPendingClaims] = useState([]);
+  const loadPendingClaims = () => {
+    if (!adminToken) return;
+    adminListPendingClaims(adminToken)
+      .then(rows => setPendingClaims(rows || []))
+      .catch(err => console.error('AdminView pendingClaims fetch error:', err));
+  };
+  useEffect(() => { loadPendingClaims(); }, [adminToken, squad]);
+
+  const doConfirmClaims = async (playerId) => {
+    // Optimistic: drop from the banner immediately; the broadcast + reload reconcile owes.
+    setPendingClaims(pc => pc.filter(p => p.playerId !== playerId));
+    await adminConfirmClaims(adminToken, playerId).catch(console.error);
+    loadPendingClaims();
+  };
+
   // ── derived ──────────────────────────────────────────────────────────────
   const inPlayers      = squad.filter(p => p.status==="in"      && !p.disabled && !p.injured);
   // Injured reserves stay in the queue (auto-demoted to the bottom by mig 220);
@@ -172,7 +192,6 @@ export default function AdminView({
     squad.find(h => h.id === p.guestOf)?.status !== "in" &&
     !dismissedOrphans.has(p.id)
   );
-  const selfPaidPending = inPlayers.filter(p => p.selfPaid === true && p.paid !== true);
   // Plus-ones added by players awaiting admin approval (mig 346). Take no squad
   // spot until approved; surfaced as a top-of-page banner.
   const pendingGuests = squad.filter(isPendingGuest);
@@ -492,10 +511,6 @@ export default function AdminView({
     } catch(e) { console.error(e); }
   };
 
-  const markPaid = async (id) => {
-    await handleMarkPaid(adminToken, id, schedule.activeMatchId || null).catch(console.error);
-    setSquad(squad.map(p => p.id===id ? { ...p, paid:true } : p));
-  };
 
   // ── screen routing ────────────────────────────────────────────────────────
   if (screen === "teams")    return <TeamsScreen    teamId={teamId} adminToken={adminToken} squad={squad} schedule={schedule} matchHistory={matchHistory} tableData={tableData} settings={settings} onBack={() => setScreen("main")}/>;
@@ -893,7 +908,7 @@ export default function AdminView({
           </>
         )}
 
-        {selfPaidPending.length > 0 && (
+        {pendingClaims.length > 0 && (
           <>
             <style>{`@keyframes ioo-gold-pulse{0%{box-shadow:0 0 0px var(--goldb)}50%{box-shadow:0 0 16px var(--goldb)}100%{box-shadow:0 0 0px var(--goldb)}}`}</style>
             <div style={{
@@ -904,33 +919,33 @@ export default function AdminView({
             }}>
               <div style={{ fontFamily:"var(--font-display)", fontSize:15,
                 letterSpacing:"0.08em", color:"var(--gold)", marginBottom:8 }}>
-                💰 PAYMENT CONFIRMATIONS · {selfPaidPending.length}
+                💰 PAYMENT CONFIRMATIONS · {pendingClaims.length}
               </div>
-              {selfPaidPending.map((p, i) => (
-                <div key={p.id} style={{
-                  display:"flex", alignItems:"center", justifyContent:"space-between",
-                  gap:8, paddingTop: i === 0 ? 0 : 8,
-                  borderTop: i === 0 ? "none" : "0.5px solid rgba(232,160,32,0.2)",
-                }}>
-                  <div style={{ fontSize:13, color:"var(--t1)", fontWeight:400, flex:1, minWidth:0 }}>
-                    {p.paidBy === 'host'
-                      ? `Host paid for ${p.nickname || p.name}`
-                      : (
-                          <>
-                            {p.nickname || p.name} · £{schedule.pricePerPlayer || 0}
-                            {p.owes > 0 && <span style={{ color:"var(--red)" }}> + £{p.owes} debt</span>}
-                          </>
-                        )
-                    }
+              {pendingClaims.map((p, i) => {
+                // A per-week claim shows the claimed total; a whole-player "I've paid"
+                // (self_paid, no specific week) shows the balance they say they've cleared.
+                const amount = p.claimedWeeks > 0 ? p.claimedTotal : p.owes;
+                return (
+                  <div key={p.playerId} style={{
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                    gap:8, paddingTop: i === 0 ? 0 : 8,
+                    borderTop: i === 0 ? "none" : "0.5px solid rgba(232,160,32,0.2)",
+                  }}>
+                    <div style={{ fontSize:13, color:"var(--t1)", fontWeight:400, flex:1, minWidth:0 }}>
+                      {p.nickname || p.name} · £{amount}
+                      {p.claimedWeeks > 1 && (
+                        <span style={{ color:"var(--t2)" }}> · {p.claimedWeeks} weeks</span>
+                      )}
+                    </div>
+                    <button onClick={() => doConfirmClaims(p.playerId)} style={{
+                      padding:"5px 14px", borderRadius:"var(--r-pill)", border:"none",
+                      background:"var(--gold)", color:"var(--black)",
+                      fontFamily:"var(--font-display)", fontSize:13,
+                      letterSpacing:"0.06em", cursor:"pointer", flexShrink:0,
+                    }}>CONFIRM ✓</button>
                   </div>
-                  <button onClick={() => markPaid(p.id)} style={{
-                    padding:"5px 14px", borderRadius:"var(--r-pill)", border:"none",
-                    background:"var(--gold)", color:"var(--black)",
-                    fontFamily:"var(--font-display)", fontSize:13,
-                    letterSpacing:"0.06em", cursor:"pointer", flexShrink:0,
-                  }}>CONFIRM ✓</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
