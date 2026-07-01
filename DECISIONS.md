@@ -4171,3 +4171,20 @@ freebie; own-domain = premium tier, build only when a paying club asks. P5 wizar
   result with a ~30s swap-only poll; **no live in-play club score** (no source). Discipline-aware public
   wording lives in a NEW `clubPublicVocab.js` (not `disciplineLabels.js`) so casual surfaces stay
   byte-identical.
+
+## [2026-07-01] — Mechanize Hard Rule 14 (RPC consumer tracking) — 🏁 SHIPPED (PR #195, `d864b59`)
+Decided to close Hard Rule 14 ("New RPCs designed for multiple downstream apps MUST record their
+consumers in RPCS.md") with a new deterministic check — `Skills/scripts/check-rpc-consumers.sh` — the
+fourth advisory sibling to the three shipped in `ac7def7` (check-mapper-sync / check-audit-events /
+check-realtime-subscriber). It scans staged migrations for new RPCs and, when one is multi-app-designed,
+confirms its consumers are recorded in the same commit's RPCS.md staged diff. Two detection signals ship
+in v1, BOTH advisory (operator-confirmed, not deferred): Signal A = migration's own `Consumers (HR#14)`
+header names ≥2 `apps/*` dirs or a future marker (drift case); Signal B = RPC name referenced in a
+`*_HANDOFF.md`/`docs/epics/*.md` scope doc with a future/multi-app marker AND no `Consumers` header
+(omission case). Compliance is checked against the staged DIFF of RPCS.md (not whole-file) so a stale note
+for an old same-named RPC can't false-pass. Advisory-never-blocking mirrors the three siblings — a
+false-positive block would tempt disabling the hook, which CLAUDE.md forbids; standalone it exits non-zero
+so the dev-loop proof gate can gate on it. Pure tooling — no migration, RLS, money, auth, or native
+surface (next free migration stays 459). Rejected: shipping Signal A only (would leave the omission case,
+the ask's literal target, unenforced).
+Handoff: RPCS_CONSUMER_TRACKING_HANDOFF.md

@@ -3046,3 +3046,24 @@ panel meant it never returned. Now gated purely on server-truth `voted`.
 **⛔ real-iPhone PWA walk OWED (Hard Rule #13 — PlayerView/ScoreScreen/HistoryView touched):** save a
 result with a note → confirm it shows on the result card; abandon-without-voting the POTM modal → reopen
 the app → confirm it reappears → vote → confirm it never returns.
+
+---
+
+## MECHANIZE HARD RULE 14 — check-rpc-consumers.sh (🏁 SHIPPED 2026-07-01, PR #195)
+
+Status: **🏁 SHIPPED (2026-07-01) — commit `d864b59`, PR #195.** TIER-1 · ship-safety CLEAR · no migration.
+Handoff: `RPCS_CONSUMER_TRACKING_HANDOFF.md`. (Handoff was authored before #195 merged; a later `/decide`
+pass confirmed the whole deliverable — script + Gate 1d wiring + settings.json allowlist + dev-loop
+SKILL.md + CLAUDE.md HR14 note — was already live and functional, so no further build was needed.)
+
+Closes Hard Rule 14 (record a new multi-app RPC's future consumers in RPCS.md NOW) — the fourth and last
+"record-it-now" rule, following `ac7def7` which mechanized rules 9/10/12. New advisory check
+`Skills/scripts/check-rpc-consumers.sh` (clone of `check-audit-events.sh`) scans staged migrations for new
+RPCs and, when multi-app-designed, confirms the consumers are echoed in the same commit's RPCS.md staged
+diff. Ships BOTH Signal A (migration `Consumers (HR#14)` header → ≥2 `apps/*` or a future marker: drift
+case) and Signal B (RPC named in a `*_HANDOFF.md`/`docs/epics/*.md` scope doc with a future/multi-app
+marker, no `Consumers` header: omission case). Wiring: add `check-rpc-consumers` to Gate 1d's `for CHK`
+loop in `.claude/hooks/pre-commit-build.sh`; two allowlist lines in `.claude/settings.json`; one-line
+reference in the dev-loop proof-gate step 3; optional CLAUDE.md HR14 "(mechanized by …)" note. Single PR,
+one `/dev-loop` pass. Done = script flags a multi-app RPC whose RPCS.md entry omits consumers, passes one
+that records them, does not flag single-app RPCs, build stays green, PR merged (source↔hook, Hard Rule 11).
