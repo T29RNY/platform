@@ -84,7 +84,15 @@
       "Bash(gh pr list *)",
       "Bash(gh pr view *)",
       "Bash(gh pr checks *)",
-      "Bash(gh pr diff *)"
+      "Bash(gh pr diff *)",
+      "Bash(for port in *)",
+      "Bash(sleep * for port in *)",
+      "Bash(for f in /tmp/dev-*)",
+      "Bash(for id in *)",
+      "Bash(pkill -f vite)",
+      "Bash(for port in *; do code=*)",
+      "Edit(/Users/tarny/platform/.claude/settings.json)",
+      "Edit(/Users/tarny/platform/.claude/settings.local.json)"
     ]
   },
   "hooks": {
