@@ -150,7 +150,8 @@ Run in order, stop on first red, and **show the command + real exit code**, neve
      Also run the Hard-Rule advisories on any staged migration —
      `bash skills/scripts/check-mapper-sync.sh` (Rule 12, the is_self class),
      `bash skills/scripts/check-audit-events.sh` (Rule 9),
-     `bash skills/scripts/check-realtime-subscriber.sh` (Rule 10); each exits
+     `bash skills/scripts/check-realtime-subscriber.sh` (Rule 10),
+     `bash skills/scripts/check-rpc-consumers.sh` (Rule 14, multi-app RPC → RPCS.md consumer record); each exits
      non-zero on a candidate finding for you to resolve or explicitly wave through.
    - Column moved/renamed/dropped → `skills/schema-sync.md` +
      `bash skills/scripts/check-schema-column.sh <table> <col>`.

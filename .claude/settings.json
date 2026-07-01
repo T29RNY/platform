@@ -61,6 +61,8 @@
       "Bash(bash skills/scripts/check-audit-events.sh *)",
       "Bash(bash skills/scripts/check-realtime-subscriber.sh)",
       "Bash(bash skills/scripts/check-realtime-subscriber.sh *)",
+      "Bash(bash skills/scripts/check-rpc-consumers.sh)",
+      "Bash(bash skills/scripts/check-rpc-consumers.sh *)",
       "Bash(bash skills/scripts/check-diff-triggers.sh)",
       "Bash(bash skills/scripts/check-diff-triggers.sh *)",
       "Bash(echo:*)",
