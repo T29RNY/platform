@@ -276,14 +276,14 @@ function VenueField({ venue, setVenue, city, setCity }) {
 
 // ── Wizard shell ───────────────────────────────────────────────────────────────
 
-function WizardShell({ subStep, goBack, onContinue, continueLabel = "Continue →", continueDisabled = false, children }) {
+function WizardShell({ subStep, goBack, cancelTo, onContinue, continueLabel = "Continue →", continueDisabled = false, children }) {
   return (
     <div style={{
       padding: "calc(24px + env(safe-area-inset-top)) 24px calc(48px + env(safe-area-inset-bottom))",
       fontFamily: "var(--font-body)", minHeight: "100dvh",
       boxSizing: "border-box", display: "flex", flexDirection: "column",
     }}>
-      {subStep > 1 && (
+      {subStep > 1 ? (
         <button
           type="button"
           onClick={goBack}
@@ -296,7 +296,22 @@ function WizardShell({ subStep, goBack, onContinue, continueLabel = "Continue �
           <CaretLeft size={16} weight="thin" />
           Back
         </button>
-      )}
+      ) : cancelTo ? (
+        // Step 1 escape hatch — shown only when the user reached /create from
+        // Profile / My Squads (returnTo marker present), never for first-time setup.
+        <button
+          type="button"
+          onClick={() => { window.location.href = cancelTo; }}
+          style={{
+            background: "none", border: "none", padding: "0 0 16px", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
+            color: "var(--t2)", fontSize: 13, fontFamily: "var(--font-body)", fontWeight: 300,
+          }}
+        >
+          <CaretLeft size={16} weight="thin" />
+          Cancel
+        </button>
+      ) : null}
 
       <ProgressBar current={subStep} total={6} />
 
@@ -355,7 +370,7 @@ export default function CreateTeam({
   bibsEnabled, setBibsEnabled,
   adminEmail, setAdminEmail,
   onSubmit, loading, error,
-  subStep, goNext, goBack, goToSubStep,
+  subStep, goNext, goBack, goToSubStep, cancelTo,
 }) {
   const [priceDisplay, setPriceDisplay] = useState("");
   const [priceError, setPriceError] = useState(null);
@@ -374,6 +389,7 @@ export default function CreateTeam({
       <WizardShell
         subStep={1}
         goBack={goBack}
+        cancelTo={cancelTo}
         onContinue={goNext}
         continueDisabled={!nameValid}
       >

@@ -6,6 +6,22 @@ import SetupLoadingScreen from "./steps/SetupLoadingScreen.jsx";
 export default function Onboarding({ onComplete, authUser }) {
   const ob = useOnboarding({ onComplete, authUser });
 
+  // Onboarded users reach /create from Profile / My Squads with a returnTo
+  // marker; first-time setup arrives at a plain /create. Only the former gets
+  // a Cancel button back to where they came from.
+  let cancelTo = null;
+  try {
+    const rt = new URLSearchParams(window.location.search).get("returnTo");
+    // Same-origin only — resolve with the WHATWG URL parser and compare origins
+    // so a crafted ?returnTo= (e.g. "/\evil.com", tab/newline tricks) can't turn
+    // Cancel into an open redirect. A bare string-prefix check is NOT enough:
+    // location.href = "/\evil.com" resolves off-origin. Keep only the path.
+    if (rt) {
+      const u = new URL(rt, window.location.origin);
+      if (u.origin === window.location.origin) cancelTo = u.pathname + u.search + u.hash;
+    }
+  } catch (e) { /* no-op */ }
+
   if (ob.loading) return <SetupLoadingScreen />;
 
   return (
@@ -31,6 +47,7 @@ export default function Onboarding({ onComplete, authUser }) {
           goNext={ob.goNext}
           goBack={ob.goBack}
           goToSubStep={ob.goToSubStep}
+          cancelTo={cancelTo}
         />
       )}
 

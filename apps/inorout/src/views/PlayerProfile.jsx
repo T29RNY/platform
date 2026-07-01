@@ -1012,7 +1012,13 @@ export default function PlayerProfile({
             destructive — so it sits just above the Account zone. */}
         {!isAdminView && isAuthed && (
           <button
-            onClick={() => { window.location.href = "/create"; }}
+            onClick={() => {
+              // Carry a returnTo marker so the create-squad wizard shows a
+              // Cancel button back to here (onboarded users only — first-time
+              // setup navigates to a plain /create with no marker).
+              const back = window.location.pathname + window.location.search;
+              window.location.href = "/create?returnTo=" + encodeURIComponent(back);
+            }}
             style={{
               width:"100%", padding:"14px 16px", marginTop:32,
               borderRadius:"var(--r)",

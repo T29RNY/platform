@@ -299,7 +299,13 @@ export default function MySquads({ currentTeamId, currentToken, userId }) {
               new squad. No new create logic here. */}
           {!loading && (
             <div
-              onClick={() => { window.location.href = "/create"; }}
+              onClick={() => {
+                // Carry a returnTo marker so the create-squad wizard shows a
+                // Cancel button back to here (onboarded users only — first-time
+                // setup navigates to a plain /create with no marker).
+                const back = window.location.pathname + window.location.search;
+                window.location.href = "/create?returnTo=" + encodeURIComponent(back);
+              }}
               onMouseEnter={() => setHoveredToken("__create__")}
               onMouseLeave={() => setHoveredToken(null)}
               style={{
