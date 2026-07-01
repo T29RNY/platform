@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { handleMarkPaid, handleResetPayment, handleWaiveDebt, isDormantGuest } from "@platform/core";
+import { handleMarkPaid, handleResetPayment, handleWaiveDebt, isDormantGuest, adminRejectClaim } from "@platform/core";
 import { adminGetPlayerLedger } from "@platform/core/storage/supabase.js";
 import { ArrowLeft, CaretDown, CaretUp, DotsThreeVertical } from "@phosphor-icons/react";
 import FirstTimeHint from "../../components/FirstTimeHint.jsx";
@@ -287,7 +287,9 @@ function PlayerRow({
           ) : !ledger?.length ? (
             <div style={{ fontSize:11, color:"var(--t2)", fontWeight:300, paddingBottom:8 }}>No payment history yet</div>
           ) : ledger.map((entry, i) => {
-            const ss = STATUS_STYLE[entry.status] || STATUS_STYLE.unpaid;
+            // A claim = an unpaid ledger row the player has marked; admin confirms/rejects it.
+            const isClaimed = entry.status === 'unpaid' && !!entry.claimedAt;
+            const ss = STATUS_STYLE[isClaimed ? 'claimed' : entry.status] || STATUS_STYLE.unpaid;
             return (
               <div key={entry.id || i} style={{
                 padding:"6px 0", display:"flex", alignItems:"center",
@@ -309,11 +311,36 @@ function PlayerRow({
                     border:`0.5px solid ${ss.border}`, background:ss.bg, color:ss.color,
                     letterSpacing:"0.04em",
                   }}>
-                    {entry.status.toUpperCase()}
+                    {isClaimed ? "CLAIMED" : entry.status.toUpperCase()}
                   </span>
                   <span style={{ fontSize:11, fontWeight:600, color:"var(--t1)", minWidth:28, textAlign:"right" }}>
                     £{Number(entry.amount || 0).toFixed(0)}
                   </span>
+                  {/* Claimed week → per-week Confirm (settles just this week) / Reject (clears the claim). */}
+                  {isClaimed && entry.type === 'game_fee' && (
+                    <>
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
+                        // per-week confirm — admin_confirm_payment(matchId) settles just this week;
+                        // owes recomputes server-side (mig 460), broadcast reconciles the squad.
+                        await handleMarkPaid(adminToken, player.id, entry.matchId || null).catch(console.error);
+                        refreshLedger();
+                      }} style={{ marginLeft:8, padding:"3px 8px", borderRadius:"var(--rs)",
+                        background:"var(--green2)", color:"var(--green)", fontSize:11, fontWeight:400,
+                        border:"0.5px solid var(--greenb)", cursor:"pointer", fontFamily:"var(--font-body)" }}>
+                        Confirm
+                      </button>
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
+                        await adminRejectClaim(adminToken, player.id, entry.id).catch(console.error);
+                        refreshLedger();
+                      }} style={{ padding:"3px 8px", borderRadius:"var(--rs)",
+                        background:"var(--red2)", color:"var(--red)", fontSize:11, fontWeight:400,
+                        border:"0.5px solid var(--redb)", cursor:"pointer", fontFamily:"var(--font-body)" }}>
+                        Reject
+                      </button>
+                    </>
+                  )}
                   {entry.status === 'paid' && entry.type === 'game_fee' && (
                     <button onClick={async (e) => {
                       e.stopPropagation();
