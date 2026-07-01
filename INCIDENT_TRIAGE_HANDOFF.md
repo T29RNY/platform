@@ -221,7 +221,8 @@ notifications are explicitly deferred with clean seams in place.
 
 ## BUILD LOG
 - **PR #1 — Schema + GDPR (mig 461)** — ✅ **DONE / APPLIED LIVE 2026-07-01.** Columns + 2 indexes live; `delete_my_account`/`delete_my_account_auth` extended to NULL incident refs (reproduced verbatim from live + 3 UPDATEs). Proof: RPC-security PASS, QA+Security review CLEAN (byte-for-byte live diff), build PASS, **ephemeral-verify PASSED** (`ROLLBACK_TESTS_PASSED`, leak-check 0). Source committed same-commit as apply (HR11). PR: <pending>.
-- PR #2–#6 — pending (deps: #2 needs #1 done ✅).
+- **PR #2 — Venue triage write RPCs (mig 462)** — ✅ **DONE / APPLIED LIVE 2026-07-01.** `venue_triage_incident` + `venue_escalate_incident` (SECDEF, search_path locked, venue-scoped, audited, notify); `notify_venue_change` whitelist +2 reasons; wrappers + barrel export; RPCS.md consumer rows. Proof: rpc-security PASS both, hygiene 7/7, build PASS, **EV PASSED** (triage+audit / escalate+audit / idempotent re-escalate / cross-venue block / bad-assignee block; leak-check 0). PR: <pending>.
+- PR #3–#6 — pending (deps: #3 needs #2 done ✅).
 
 ## Related
 Builds on the venue `incidents` lifecycle (migs 231 / 437 / 171) and the apps/hq Phase-6
