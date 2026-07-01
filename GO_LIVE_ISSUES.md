@@ -36,6 +36,13 @@ this file.
 
 ---
 
+## 📥 CAPTURED — triage inbox (unbuilt)
+*Raw, unranked production / pre-flight items filed by `/backlog-capture`. `/backlog` reads
+from here. Not a resolved issue with a pre-flight check yet — promote into a numbered section
+below only once it has a fix + a device-level check.*
+
+---
+
 ## 0. EMAIL / TRANSACTIONAL (Resend) — Phase 9 Cycle 9.1
 
 **Issue class:** transactional email silently doesn't send. Phase 9.1 added a Resend-backed
