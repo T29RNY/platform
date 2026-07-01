@@ -1374,6 +1374,8 @@ function dbToLedger(r) {
     method:    r.method,
     paidBy:    r.paid_by,
     paidAt:    r.paid_at,
+    claimedAt: r.claimed_at,
+    claimedBy: r.claimed_by,
     note:      r.note,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -1490,6 +1492,30 @@ export async function resetPayment(adminToken, playerId, matchId) {
     p_match_id:    matchId || null,
   });
   if (error) throw error;
+}
+
+// Player marks ONE specific unpaid game_fee ledger row as a CLAIM (mig 459) — awaiting
+// admin confirmation. Does NOT change owes; the admin confirm is the money event.
+// Returns the updated ledger row (mapped) so the caller can reconcile optimistic state.
+export async function claimLedgerPayment(token, ledgerId) {
+  const { data, error } = await supabase.rpc('claim_ledger_payment', {
+    p_token:     token,
+    p_ledger_id: ledgerId,
+  });
+  if (error) throw error;
+  return data?.ledger ? dbToLedger(data.ledger) : null;
+}
+
+// Admin rejects a false claim (mig 459) — clears claimed_at/claimed_by; status stays
+// 'unpaid' and owes is untouched (the debt persists).
+export async function adminRejectClaim(adminToken, playerId, ledgerId) {
+  const { data, error } = await supabase.rpc('admin_reject_claim', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+    p_ledger_id:   ledgerId,
+  });
+  if (error) throw error;
+  return data?.ledger ? dbToLedger(data.ledger) : null;
 }
 
 // Admin waives a player's outstanding debt to zero.

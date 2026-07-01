@@ -15,6 +15,22 @@ only inside `supabase.rpc()` calls in `packages/core/storage/supabase.js`.
 
 ---
 
+## Per-Game Payment Marking — PR #1 ledger-claim plumbing (mig 459)
+
+Lets a casual player mark an INDIVIDUAL game's fee as a per-row CLAIM on the immutable
+`payment_ledger` row (new nullable cols `claimed_at`/`claimed_by`), awaiting admin confirm.
+Claim ≠ settlement: owes is untouched until the admin confirms (per-week settle = PR #2, mig 460).
+Additive + DARK on apply (no live consumer reads `claimed_*` until PR #3–#5 UI ships).
+
+| SQL function | JS wrapper | Grant | Notes (Hard Rule #14) |
+|---|---|---|---|
+| `claim_ledger_payment(p_token, p_ledger_id uuid)` | `claimLedgerPayment(token, ledgerId)` | anon + authenticated | **Mig 459.** SECURITY DEFINER, search_path locked, REVOKE public. Player stamps ONE of their own unpaid `game_fee` rows claimed (`claimed_by='self'`), idempotent (COALESCE). Single guarded WHERE: own player+team (token-derived, never client-trusted), `type='game_fee'`, `status='unpaid'` (excludes paid/waived/cancelled/disputed/refunded/guest_fee), match not cancelled — else `not_claimable`. owes/status UNCHANGED. Audit `payment_ledger_claimed` (HR9); broadcast reuses whitelisted `player_paid_updated` (HR10). Returns `{ok, ledger}`. EV-verified (9 assertions incl. all 4 exclusion guards + owes-unchanged + idempotency; leak 0). **Consumers (HR#14)**: PR #3 `PaymentHistoryBody` (PlayerProfile.jsx tap-to-claim); PR #4 My View payment panel. |
+| `admin_reject_claim(p_admin_token, p_player_id, p_ledger_id uuid)` | `adminRejectClaim(adminToken, playerId, ledgerId)` | anon + authenticated | **Mig 459.** SECURITY DEFINER, search_path locked, REVOKE public. Admin clears a false claim (`claimed_at`/`claimed_by`→NULL); leaves `status='unpaid'` + owes untouched (debt persists). `resolve_admin_caller` team scoping; guarded to a row that is actually claimed (`claimed_at IS NOT NULL`) else `claim_not_found`. Fills the gap where `admin_reset_payment` only undoes a CONFIRMED payment. Audit `payment_claim_rejected`; broadcast `payment_reset`. **Consumers (HR#14)**: PR #5 admin PaymentsScreen (per-week Confirm/Reject). |
+
+**Extended in the same migration (return-shape/behaviour additions — HR#12 mappers updated same commit):**
+- `set_player_paid(p_token)` — after flagging `self_paid` (unchanged), ALSO stamps the current match's unpaid+unclaimed `game_fee` row claimed (`self`); owes still UNCHANGED. Return shape identical to mig 211.
+- `get_my_payment_history(p_token, p_limit)` — return objects gain `claimed_at`/`claimed_by`; `dbToLedger` mapper gains `claimedAt`/`claimedBy` (same commit). **Consumers**: PlayerProfile.jsx PaymentHistory (additive-safe), `getMyMoney` casual array.
+
 ## Guardian app — Phase 1 child fixture availability (mig 426, session 207)
 
 Parent-on-behalf-of-child availability for **FA grassroots league fixtures**
