@@ -25,6 +25,8 @@ export {
   claimLedgerPayment,
   adminRejectClaim,
   adminSettlePlayer,
+  adminListPendingClaims,
+  adminConfirmClaims,
   waiveDebt,
   getRecentNotification,
   getPlayerLeagueTable,

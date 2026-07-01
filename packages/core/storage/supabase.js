@@ -1477,6 +1477,34 @@ export async function adminSettlePlayer(adminToken, playerId) {
   if (error) throw error;
 }
 
+// Admin home "Payment Confirmations" banner: every player awaiting confirmation —
+// a per-week claim (claimed ledger row) OR the whole-player self_paid flag.
+export async function adminListPendingClaims(adminToken) {
+  const { data, error } = await supabase.rpc('admin_list_pending_claims', {
+    p_admin_token: adminToken,
+  });
+  if (error) throw error;
+  return (data || []).map(r => ({
+    playerId:     r.player_id,
+    name:         r.name,
+    nickname:     r.nickname,
+    selfPaid:     r.self_paid,
+    paidBy:       r.paid_by,
+    owes:         r.owes,
+    claimedWeeks: r.claimed_weeks,
+    claimedTotal: r.claimed_total,
+  }));
+}
+
+// Admin confirms a player's claim: whole balance if self_paid, else just the claimed weeks.
+export async function adminConfirmClaims(adminToken, playerId) {
+  const { error } = await supabase.rpc('admin_confirm_claims', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+  });
+  if (error) throw error;
+}
+
 // Player self-declares cash payment — a PENDING CLAIM (mig 211): flags self_paid,
 // does NOT clear owes. An admin confirms via confirmPayment to settle the debt.
 export async function setPlayerPaid(token) {
