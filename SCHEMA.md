@@ -544,7 +544,7 @@ arrive in Phase 2+. All currently empty.
 
 ### Phase 1 — Operations layer
 
-- `incidents` — venue_id, fixture_id (nullable), reported_by (auth.users), description, severity (info/warning/critical), resolved_at/by/note, `outcome` (mig 437; nullable, CHECK ∈ fixed/safe/contractor/nofault — structured resolution from the mobile Operations screen; NULL for free-text-only/legacy resolutions).
+- `incidents` — venue_id, fixture_id (nullable), reported_by (auth.users), description, severity (info/warning/critical), resolved_at/by/note, `outcome` (mig 437; nullable, CHECK ∈ fixed/safe/contractor/nofault — structured resolution from the mobile Operations screen; NULL for free-text-only/legacy resolutions). **Triage layer (mig 461):** `category` (nullable, CHECK ∈ facility/equipment/safety/medical/conduct/security/weather/safeguarding/other), `priority` (NOT NULL DEFAULT 'normal', CHECK ∈ low/normal/high/urgent), `assigned_to` (uuid, validated in-RPC vs venue_admins — no FK), `acknowledged_at`, `escalated_at`, `escalated_by`, `escalation_reason` (all nullable). Lifecycle stays timestamp-derived (open = `resolved_at IS NULL`); no status enum. Partial indexes `idx_incidents_queue` (venue triage) + `idx_incidents_escalation_inbox` (HQ). `delete_my_account*` NULL reported_by/resolved_by/assigned_to on account deletion (GDPR, mig 461).
 - `hq_preview_tokens` — company_id, token (per-token unique), generated_by, expires_at, accessed_at.
 
 ### Phase 1 — Additions to existing tables (migration 056)
