@@ -1467,6 +1467,16 @@ export async function confirmPayment(adminToken, playerId, matchId) {
   if (error) throw error;
 }
 
+// Admin settles a player's WHOLE outstanding casual balance (all unpaid game_fee weeks →
+// owes 0, paid). The whole-player "claims paid · CONFIRM"; per-week confirm is confirmPayment.
+export async function adminSettlePlayer(adminToken, playerId) {
+  const { error } = await supabase.rpc('admin_settle_player', {
+    p_admin_token: adminToken,
+    p_player_id:   playerId,
+  });
+  if (error) throw error;
+}
+
 // Player self-declares cash payment — a PENDING CLAIM (mig 211): flags self_paid,
 // does NOT clear owes. An admin confirms via confirmPayment to settle the debt.
 export async function setPlayerPaid(token) {

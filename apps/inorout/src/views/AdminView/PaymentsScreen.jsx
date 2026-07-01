@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { handleMarkPaid, handleResetPayment, handleWaiveDebt, isDormantGuest, adminRejectClaim } from "@platform/core";
+import { handleMarkPaid, handleResetPayment, handleWaiveDebt, isDormantGuest, adminRejectClaim, adminSettlePlayer } from "@platform/core";
 import { adminGetPlayerLedger } from "@platform/core/storage/supabase.js";
 import { ArrowLeft, CaretDown, CaretUp, DotsThreeVertical } from "@phosphor-icons/react";
 import FirstTimeHint from "../../components/FirstTimeHint.jsx";
@@ -139,8 +139,15 @@ function PlayerRow({
   };
 
   const doMarkPaid = async () => {
-    await handleMarkPaid(adminToken, player.id, schedule.activeMatchId || null).catch(console.error);
-    // confirm clears the debt (mig 211) — reflect optimistically; broadcast reconciles
+    // A CLAIM ("claims paid · CONFIRM") settles the player's WHOLE outstanding balance —
+    // the debt can be on earlier weeks, not the active match. The "£X PAY" action (an in
+    // player, not yet claimed) marks just this week paid on the active match.
+    if (isClaimed) {
+      await adminSettlePlayer(adminToken, player.id).catch(console.error);
+    } else {
+      await handleMarkPaid(adminToken, player.id, schedule.activeMatchId || null).catch(console.error);
+    }
+    // confirm clears the debt — reflect optimistically; broadcast reconciles
     setSquad(sq => sq.map(p => p.id === player.id ? { ...p, paid:true, owes:0, selfPaid:false } : p));
     setJustPaid(true);
     setTimeout(() => setJustPaid(false), 1100);
