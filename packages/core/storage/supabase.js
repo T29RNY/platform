@@ -3927,6 +3927,13 @@ export async function venueListAdmins(venueToken) {
   if (error) { console.error("[venue] venue_list_admins failed", error); throw error; }
   return data;
 }
+// Assignable staff for incident triage (mig 465): active accepted admins (user_id + name).
+// Un-gated so any venue caller can populate the Assign picker.
+export async function venueListAssignableStaff(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_assignable_staff", { p_venue_token: venueToken });
+  if (error) { console.error("[venue] venue_list_assignable_staff failed", error); throw error; }
+  return data;
+}
 export async function venueInviteAdmin(venueToken, email, role, capsGrant = [], capsDeny = []) {
   const { data, error } = await supabase.rpc("venue_invite_admin", {
     p_venue_token: venueToken, p_email: email, p_role: role, p_caps_grant: capsGrant, p_caps_deny: capsDeny,

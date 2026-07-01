@@ -278,6 +278,7 @@ export {
   venueWhoami,
   venueClaimMemberships,
   venueListAdmins,
+  venueListAssignableStaff,
   venueInviteAdmin,
   venueUpdateAdmin,
   venueRevokeAdmin,
