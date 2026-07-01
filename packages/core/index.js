@@ -67,6 +67,7 @@ export {
   hqGetCompanyState,
   hqGetVenueDetail,
   hqResolveIncident,
+  hqListEscalatedIncidents,
   hqGetAnalytics,
   hqGetUtilisation,
   hqGetClassInsights,

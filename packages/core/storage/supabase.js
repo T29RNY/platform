@@ -2392,6 +2392,16 @@ export async function hqResolveIncident(companyId, incidentId, resolutionNote = 
   return data;
 }
 
+// Cross-venue escalation inbox (mig 463). Region-scoped for regional_admin;
+// analyst allowed (read-only). Optional escalated_at date range.
+export async function hqListEscalatedIncidents(companyId, { dateFrom = null, dateTo = null } = {}) {
+  if (!companyId) return [];
+  const { data, error } = await supabase.rpc("hq_list_escalated_incidents", {
+    p_company_id: companyId, p_date_from: dateFrom, p_date_to: dateTo });
+  if (error) { console.error("[hq] list_escalated_incidents failed", error); throw error; }
+  return data;
+}
+
 export async function hqGetAnalytics(companyId, dateFrom = null, dateTo = null) {
   if (!companyId) return null;
   const { data, error } = await supabase.rpc("hq_get_analytics", {
