@@ -44,6 +44,29 @@ Detect the shape from the argument, then process **each item independently**:
 If the shape is ambiguous (e.g. a single line that could be a title or an idea), treat it as
 a **raw idea** — the cheapest correct default.
 
+### `--from qa-loop` mode (producer hook for `/qa-loop` step 6)
+
+Invoked as **`/backlog-capture --from qa-loop <T3 summary>`** at the end of a `/qa-loop` pass
+to durably file its still-open **T3 findings** (which otherwise only surface in chat). The
+input is qa-loop's T3 bucket, where each item carries an **intent question / design choice**, a
+**ship-safety verdict** (from `check-live-config`), and a **drafted fix**. For each item:
+
+- **Parse** the finding's subject as the title/body; ignore the drafted-fix diff (capture the
+  *what*, not the patch).
+- **Classify + route** with the normal STEP 1 + STEP 3 rules: a T3(a) gated defect →
+  BUGS.md (`⚠️ SECURITY` if it's an auth/RLS/token/SECURITY-DEFINER finding; `📋 COMPLIANCE`
+  if consent/GDPR/health/App-Store); a **production / pre-flight** item → GO_LIVE_ISSUES.md;
+  a T3(b) feature-shaped design choice → FEATURES.md.
+- **Effort** with the normal STEP 2 rubric.
+- **Source link = `qa-loop <run-ref>`** (the run reference or date) — the row's provenance is
+  the qa-loop pass, not a raw input.
+- **Dedup + append** exactly as the normal path (STEP 4 + STEP 5), so a T3 re-surfaced on a
+  later pass files nothing new.
+
+This mode changes **only** how the input is parsed and the source link is stamped — routing,
+dedup, append-only, and allowlist-safety are identical. It never alters `/qa-loop`'s
+human-gated triage.
+
 ---
 
 ## STEP 1 — CLASSIFY (deterministic first · L2)

@@ -130,6 +130,17 @@ Present the T3 bucket as decisions, never diffs:
   `check-live-config`. Drafted and proven, **never applied/merged** by the loop.
 - **T3(b) decision** — the choice and the trade-off, your recommendation first.
 
+**Then auto-file the still-open T3s (don't rely on the operator remembering · L7).** After
+presenting the bucket, call **`/backlog-capture --from qa-loop <the still-open T3 findings>`**
+(read `.claude/skills/backlog-capture/SKILL.md`) to durably file each item into its tracker —
+bug/security/compliance → `BUGS.md` (with the `⚠️ SECURITY` / `📋 COMPLIANCE` tag),
+production/pre-flight → `GO_LIVE_ISSUES.md`, a feature-shaped design choice → `FEATURES.md` —
+each row tagged `source: qa-loop <run-ref>`. This closes the gap where step 4 *says* T3s "land
+in BUGS.md / GO_LIVE_ISSUES.md" but nothing automated it. Capture is **additive and
+post-decision**: it does not change the triage above, add any merge power, or touch the
+auto-fix batching — it only records what was already surfaced. `/backlog-capture` dedups, so a
+T3 re-surfaced on a later pass is not double-filed.
+
 ---
 
 ## INVOCATION
