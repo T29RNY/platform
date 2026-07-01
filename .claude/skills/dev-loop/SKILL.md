@@ -128,13 +128,30 @@ or one logical unit. Follow `skills/execute.md`. Do not bundle the next phase in
 Run in order, stop on first red, and **show the command + real exit code**, never
 "it passes":
 
+0. **Diff-classifier (mechanical trigger — run FIRST, don't rely on noticing)** —
+   `bash skills/scripts/check-diff-triggers.sh`. It reads the diff and prints exactly
+   which mandatory skills this change forces, so the DB-surface gates below are no
+   longer conditional on the agent *spotting* the trigger:
+   - migration / RLS touch → **forces `skills/schema-sync.md`**
+   - RPC `CREATE OR REPLACE` touch → **forces `skills/rpc-security-sweep.md` +
+     `skills/ephemeral-verify.md`**
+   - Phase-5+ `apps/inorout/src` or `packages/core` touch → **forces
+     `skills/casual-regression.md`**
+   Exit 1 means one or more skills are forced — run every one it names (steps 3/6
+   below) before the merge gate; exit 0 means none apply. Treat its output as the
+   authoritative list, not a hint.
 1. **Syntax** — `node --check <each changed .js/.jsx>` (instant).
 2. **Hygiene** — `bash skills/scripts/check-hygiene.sh <each changed file>`
    (also hook-enforced on every edit).
-3. **DB-surface gates (only if touched), in parallel:**
+3. **DB-surface gates (forced by step 0 when touched), in parallel:**
    - RPC added/changed → `bash skills/scripts/check-rpc-security.sh <rpc>` +
      `bash skills/scripts/check-rpc-columns.sh <rpc>`, then **ephemeral-verify**
      (`skills/ephemeral-verify.md`) — live-DB end-to-end proof with auto-rollback.
+     Also run the Hard-Rule advisories on any staged migration —
+     `bash skills/scripts/check-mapper-sync.sh` (Rule 12, the is_self class),
+     `bash skills/scripts/check-audit-events.sh` (Rule 9),
+     `bash skills/scripts/check-realtime-subscriber.sh` (Rule 10); each exits
+     non-zero on a candidate finding for you to resolve or explicitly wave through.
    - Column moved/renamed/dropped → `skills/schema-sync.md` +
      `bash skills/scripts/check-schema-column.sh <table> <col>`.
 4. **Build / deploy check** — `bash skills/scripts/check-build.sh`

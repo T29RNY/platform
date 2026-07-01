@@ -205,9 +205,13 @@ If a FAIL message appears: read it, fix the RPC, re-run.
 
 ---
 
-## STEP 5 — LEAK CHECK (mandatory)
+## STEP 5 — LEAK CHECK (mandatory, automatic final step)
 
-After the DO block returns, run the leak check immediately:
+The leak check is **not** a separate step you decide to run — it is the
+built-in LAST action of every ephemeral-verify. No EV is complete until it
+has run and every column returned 0. The moment the DO block returns
+(whether it reported PASS or FAIL), run — automatically, without waiting to
+be told:
 
 ```
 bash skills/scripts/check-ev-leak.sh
@@ -219,6 +223,9 @@ investigate immediately before doing anything else. (Usually means the
 DO block's `BEGIN` catch caught the RAISE EXCEPTION before it rolled
 back; restructure the verify so the RAISE EXCEPTION is at the top
 level of the function.) STOP and restore before continuing.
+
+Treat a run that stopped BEFORE the leak check as an incomplete EV — its
+verdict does not count until the leak check has confirmed zero residue.
 
 ---
 
