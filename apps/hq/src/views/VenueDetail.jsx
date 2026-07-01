@@ -78,16 +78,27 @@ function IncidentRow({ incident, canResolve, onResolve }) {
     }
   };
 
+  const prioClass = incident.priority === "urgent" ? "danger" : incident.priority === "high" ? "warn" : "";
+
   return (
     <div className="list-row">
       <div className="lr-top">
         <span className={"badge " + sev}>{incident.severity}</span>
+        {incident.priority && incident.priority !== "normal" && (
+          <span className={"badge " + prioClass}>{incident.priority}</span>
+        )}
+        {incident.escalated_at && <span className="badge danger">escalated</span>}
         <span className="lr-desc">{incident.description}</span>
         {canResolve && !open && (
           <button className="small" onClick={() => setOpen(true)}>Resolve</button>
         )}
       </div>
-      <div className="lr-meta">{fmt(incident.created_at)}</div>
+      <div className="lr-meta">
+        {fmt(incident.created_at)}
+        {incident.category ? ` · ${incident.category}` : ""}
+        {incident.assigned_to_name ? ` · ${incident.assigned_to_name}` : ""}
+        {incident.escalation_reason ? ` · “${incident.escalation_reason}”` : ""}
+      </div>
       {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
       {open && (
         <div className="resolve-box">
