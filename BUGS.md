@@ -8,6 +8,11 @@
 `/backlog` reads from here. Not shipped work — no session number. Promote into the log below
 only once fixed.*
 
+- 📥 **dev-loop has no manual-deploy gate for venue/hq/ref** — bug · effort ~M · apps/venue, apps/hq, apps/ref require a MANUAL Vercel deploy after merge (only apps/inorout auto-deploys), but dev-loop's MERGE GATE never detects the changed app or reminds/blocks on the manual step — a merged PR can look done while prod still runs old code, and prod-verify only checks Vercel deploy-job status ("Ready"), not that the specific commit/bundle is actually live · source: input:2026-07-01 · captured 2026-07-01 · _open_
+- 📥 **No rollback/hotfix lane for live T1 defects** — bug · effort ~M · post-deploy.md mandates "start a new full cycle from audit.md" for any hotfix — no revert/rollback path (e.g. Vercel instant rollback, revert-the-merge) exists anywhere in dev-loop or prod-verify, so an urgent live defect has no fast path · source: input:2026-07-01 · captured 2026-07-01 · _open_
+- 📥 **check-next-migration.sh has no concurrent-PR / shared-doc collision detection** — bug · effort ~M · scans only rls_migrations/*.sql against main's current state, never `gh pr list`/open branches; dev-loop only warns of a concurrent PR if the user's own prompt mentions one — the exact failure mode CLAUDE.md's Cloud Session Discipline section already documents happening twice (session 70; migs 461–465 clash) · source: input:2026-07-01 · captured 2026-07-01 · _open_
+- 📥 **No verification-debt ledger/gate** — bug · effort ~L · "owed" markers (real-device walks, venue/hq eyeballs, prod-verify passes) exist only as prose ⛔ markers in handoff docs and MEMORY.md; no skill has a blocking field/gate preventing a feature being called done until owed verification actually happens — MEMORY.md shows this debt rarely gets paid down · source: input:2026-07-01 · captured 2026-07-01 · _open_
+
 ---
 
 ## SESSION 181 — ✅ STRIPE FULL BUILD PHASE 1 SHIPPED (mig 403). Foundations & safety. No new production bugs.

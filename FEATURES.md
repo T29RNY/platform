@@ -5,6 +5,8 @@
 *Raw, unranked items filed by `/backlog-capture`. `/backlog` reads from here to pick work.
 Not shipped work — no session number. Promote an item into the log below only once it's built.*
 
+- 📥 **No post-ship "done" closing skill** — feature · effort ~L · checked the full .claude/skills/ inventory (babysit-prs, backlog, backlog-capture, decide, dev-loop, prod-verify, qa-loop, scope) — none marks FEATURES.md as done, writes a MEMORY.md wrap-up, or drafts the next-session prompt after an epic actually ships; backlog-capture explicitly disclaims this role. A genuine total gap, not a discipline lapse · source: input:2026-07-01 · captured 2026-07-01 · _open_
+
 ---
 
 ## REFEREE EPIC — full plan in `REFEREE_HANDOFF.md`
