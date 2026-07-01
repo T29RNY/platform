@@ -15,6 +15,7 @@ const TYPE_LABEL = {
 const STATUS_STYLE = {
   paid:      { bg:"var(--green2)",         border:"var(--greenb)",         color:"var(--green)"  },
   unpaid:    { bg:"var(--amber2)",         border:"var(--amberb)",         color:"var(--amber)"  },
+  claimed:   { bg:"var(--amber2)",         border:"var(--amberb)",         color:"var(--amber)"  },
   waived:    { bg:"var(--purple2)",        border:"var(--purpleb)",        color:"var(--purple)" },
   refunded:  { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF"       },
   disputed:  { bg:"var(--red2)",           border:"var(--redb)",           color:"var(--red)"    },

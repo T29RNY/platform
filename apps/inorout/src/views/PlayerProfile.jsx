@@ -15,7 +15,7 @@ import {
   adminSetPlayerStatus, signOut, supabase,
   getMyShareMatchFitness, setShareMatchFitness,
 } from "@platform/core/storage/supabase.js";
-import { adminGetPlayerLedger, toggleViceCaptain } from "@platform/core";
+import { adminGetPlayerLedger, toggleViceCaptain, claimLedgerPayment } from "@platform/core";
 import FirstTimeHint from "../components/FirstTimeHint.jsx";
 import AuthGateModal from "../components/AuthGateModal.jsx";
 import useRequireAuth from "../hooks/useRequireAuth.js";
@@ -43,6 +43,7 @@ const TYPE_LABEL = {
 const STATUS_STYLE = {
   paid:      { bg:"var(--green2)",         border:"var(--greenb)",         color:"var(--green)"  },
   unpaid:    { bg:"var(--amber2)",         border:"var(--amberb)",         color:"var(--amber)"  },
+  claimed:   { bg:"var(--amber2)",         border:"var(--amberb)",         color:"var(--amber)"  },
   waived:    { bg:"var(--purple2)",        border:"var(--purpleb)",        color:"var(--purple)" },
   refunded:  { bg:"rgba(96,160,255,0.12)", border:"rgba(96,160,255,0.3)", color:"#60A0FF"       },
   disputed:  { bg:"var(--red2)",           border:"var(--redb)",           color:"var(--red)"    },
@@ -146,7 +147,7 @@ function StatsBody({ me }) {
 
 // ── Payment history body ────────────────────────────────────────────────────
 
-function PaymentHistoryBody({ entries, loading, error }) {
+function PaymentHistoryBody({ entries, loading, error, onClaim, claimingId, canClaim }) {
   if (loading) {
     return <div style={{ padding:"14px 16px", fontSize:12, color:"var(--t2)", fontWeight:300 }}>Loading…</div>;
   }
@@ -157,20 +158,37 @@ function PaymentHistoryBody({ entries, loading, error }) {
     return <div style={{ padding:"14px 16px", fontSize:12, color:"var(--t2)", fontWeight:300 }}>No payment history yet</div>;
   }
   return entries.map((entry, i) => {
-    const ss = STATUS_STYLE[entry.status] || STATUS_STYLE.unpaid;
+    // A row is a pending CLAIM when it's still unpaid but carries a claim marker.
+    const isClaimed = entry.status === "unpaid" && !!entry.claimedAt;
+    // Only the player's own UNPAID, unclaimed match fees are tappable. paid / waived /
+    // cancelled / refunded / disputed / guest_fee rows are inert; admin view never claims.
+    const tappable  = !!canClaim && entry.type === "game_fee"
+                      && entry.status === "unpaid" && !entry.claimedAt;
+    const busy      = claimingId === entry.id;
+    const ss        = STATUS_STYLE[isClaimed ? "claimed" : entry.status] || STATUS_STYLE.unpaid;
     return (
-      <div key={entry.id || i} style={{
-        padding:"10px 16px", display:"flex", alignItems:"center",
-        justifyContent:"space-between", gap:8,
-        borderTop: i === 0 ? "none" : "0.5px solid var(--b2)",
-      }}>
+      <div
+        key={entry.id || i}
+        onClick={tappable && !busy ? () => onClaim(entry.id) : undefined}
+        style={{
+          padding:"10px 16px", display:"flex", alignItems:"center",
+          justifyContent:"space-between", gap:8,
+          borderTop: i === 0 ? "none" : "0.5px solid var(--b2)",
+          cursor: tappable && !busy ? "pointer" : "default",
+          opacity: busy ? 0.55 : 1,
+          transition:"opacity 120ms ease",
+        }}
+      >
         <div style={{ display:"flex", flexDirection:"column", gap:2, minWidth:0 }}>
           <div style={{ fontSize:12, color:"var(--t1)", fontWeight:400 }}>
             {TYPE_LABEL[entry.type] || entry.type}
           </div>
-          <div style={{ fontSize:10, color:"var(--t2)", fontWeight:300 }}>
-            {fmtDate(entry.createdAt)}
-            {entry.method && <span style={{ opacity:0.6 }}> · {entry.method}</span>}
+          <div style={{ fontSize:10, color: tappable ? "var(--amber)" : "var(--t2)", fontWeight:300 }}>
+            {isClaimed
+              ? "Awaiting confirmation"
+              : tappable
+                ? (busy ? "Marking…" : "Tap to mark as paid")
+                : <>{fmtDate(entry.createdAt)}{entry.method && <span style={{ opacity:0.6 }}> · {entry.method}</span>}</>}
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
@@ -180,7 +198,7 @@ function PaymentHistoryBody({ entries, loading, error }) {
             border:`0.5px solid ${ss.border}`,
             background:ss.bg, color:ss.color, letterSpacing:"0.04em",
           }}>
-            {(entry.status || "").toUpperCase()}
+            {isClaimed ? "CLAIMED" : (entry.status || "").toUpperCase()}
           </span>
           <span style={{ fontSize:12, fontWeight:600, color:"var(--t1)", minWidth:30, textAlign:"right" }}>
             £{Number(entry.amount || 0).toFixed(0)}
@@ -336,6 +354,7 @@ export default function PlayerProfile({
   const [removing,    setRemoving]    = useState(false);
   const [adminError,  setAdminError]  = useState(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [claimingId,  setClaimingId]  = useState(null);
 
   // Reset Leave / Remove two-tap confirm after 4s if not actioned
   useEffect(() => {
@@ -363,6 +382,25 @@ export default function PlayerProfile({
       setPayHistError(true);
     } finally {
       setPayHistLoading(false);
+    }
+  };
+
+  // Player marks a specific unpaid game fee as a CLAIM (awaiting admin confirmation).
+  // Optimistic: stamp the row claimed immediately, revert on error. Double-fire guarded.
+  const handleClaimPayment = async (ledgerId) => {
+    if (!me?.token || claimingId) return;
+    setClaimingId(ledgerId);
+    const nowIso = new Date().toISOString();
+    setPayHist(prev => prev.map(r =>
+      r.id === ledgerId ? { ...r, claimedAt: nowIso, claimedBy: "self" } : r));
+    try {
+      await claimLedgerPayment(me.token, ledgerId);
+    } catch (e) {
+      console.error("Failed to claim payment:", e);
+      setPayHist(prev => prev.map(r =>
+        r.id === ledgerId ? { ...r, claimedAt: null, claimedBy: null } : r));
+    } finally {
+      setClaimingId(null);
     }
   };
 
@@ -682,6 +720,9 @@ export default function PlayerProfile({
             entries={payHist}
             loading={payHistLoading}
             error={payHistError}
+            onClaim={handleClaimPayment}
+            claimingId={claimingId}
+            canClaim={!isAdminView}
           />
         </Section>
 
