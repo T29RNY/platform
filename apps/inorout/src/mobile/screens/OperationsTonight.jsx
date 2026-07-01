@@ -20,10 +20,44 @@ import { useState, useEffect, useCallback } from "react";
 import {
   venueGetState, venueResolveIncident,
   venueApproveTeamRegistration, venueRejectTeamRegistration,
+  venueTriageIncident, venueEscalateIncident, venueListAssignableStaff,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
 import SwipeRow from "../SwipeRow.jsx";
+
+// Triage display (mig 461–465). Category values offered exclude 'safeguarding'
+// (DB-valid but never surfaced — disclosures go to the safeguarding route).
+const CATEGORIES = [
+  ["facility", "Facility"], ["equipment", "Equipment"], ["safety", "Safety"],
+  ["medical", "Medical"], ["conduct", "Conduct"], ["security", "Security"],
+  ["weather", "Weather"], ["other", "Other"],
+];
+const PRIORITY_TONE = { urgent: "var(--live)", high: "var(--amber)", normal: "var(--ink3)", low: "var(--ink3)" };
+
+function TriagePill({ text, tone }) {
+  return (
+    <span style={{
+      height: 18, padding: "0 7px", borderRadius: "var(--r-pill)", display: "inline-flex", alignItems: "center",
+      fontSize: 10.5, fontWeight: 800, letterSpacing: "0.02em", textTransform: "uppercase",
+      background: "var(--s3)", color: tone || "var(--ink3)",
+    }}>{text}</span>
+  );
+}
+
+// Safety ship-gate: shown on the resolve sheet so the operational queue never
+// silently swallows a safeguarding disclosure.
+function SafeguardingNotice() {
+  return (
+    <div style={{
+      marginTop: 14, padding: "10px 12px", borderRadius: 12, fontSize: 12.5, lineHeight: 1.4,
+      background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--ink2)",
+    }}>
+      <strong style={{ color: "var(--amber)" }}>Not for safeguarding.</strong> Child-protection or
+      welfare concerns must go through your safeguarding route — never this queue.
+    </div>
+  );
+}
 
 function gbp(pence) {
   const n = Number(pence || 0) / 100;
@@ -77,6 +111,10 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
   const [state, setState] = useState({ loading: true, error: false, data: null });
   const [busyReg, setBusyReg] = useState({});     // competition_team_id → bool
   const [resolving, setResolving] = useState(null); // open incident object or null
+  const [assigning, setAssigning] = useState(null); // incident being assigned, or null
+  const [escalating, setEscalating] = useState(null); // incident being escalated, or null
+  const [staff, setStaff] = useState(null);         // cached assignable staff (lazy)
+  const [ackBusy, setAckBusy] = useState({});       // incident_id → bool
 
   const load = useCallback(async () => {
     if (!venueId) { setState({ loading: false, error: false, data: null }); return; }
@@ -146,6 +184,30 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
       toast?.({ icon: "alert", text: "Couldn't update — try again" });
     } finally {
       setBusyReg((s) => ({ ...s, [r.id]: false }));
+    }
+  };
+
+  // ── One-tap acknowledge ("I'm on it") ──
+  const acknowledge = async (inc) => {
+    if (ackBusy[inc.id] || inc.acknowledged_at) return;
+    setAckBusy((s) => ({ ...s, [inc.id]: true }));
+    try {
+      await venueTriageIncident(venueId, inc.id, { acknowledge: true });
+      toast?.({ icon: "check", text: "Acknowledged — you're on it" });
+      await load();
+    } catch {
+      toast?.({ icon: "alert", text: "Couldn't acknowledge — try again" });
+    } finally {
+      setAckBusy((s) => ({ ...s, [inc.id]: false }));
+    }
+  };
+
+  // ── Open the Assign sheet, lazy-loading venue staff once ──
+  const openAssign = async (inc) => {
+    setAssigning(inc);
+    if (staff === null) {
+      try { const res = await venueListAssignableStaff(venueId); setStaff(res?.staff || []); }
+      catch { setStaff([]); }
     }
   };
 
@@ -231,22 +293,39 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
       {incidents.length > 0 && <div className="m-eyebrow" style={{ margin: "14px 2px 9px" }}>Open issues</div>}
       {incidents.map((inc) => {
         const crit = inc.severity === "critical";
+        const acked = !!inc.acknowledged_at;
+        const escalated = !!inc.escalated_at;
         return (
-          <div key={`inc-${inc.id}`} className="m-card" style={{ padding: "13px 14px", marginBottom: 10, display: "flex", alignItems: "flex-start", gap: 12 }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%", marginTop: 5, flex: "none",
-              background: crit ? "var(--live)" : "var(--amber)",
-            }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>{inc.description}</div>
-              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2 }}>
-                {(inc.severity || "info")}{inc.reported_by_name ? ` · ${inc.reported_by_name}` : ""}
+          <div key={`inc-${inc.id}`} className="m-card" style={{ padding: "13px 14px", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: "50%", marginTop: 5, flex: "none",
+                background: crit ? "var(--live)" : "var(--amber)",
+              }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>{inc.description}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                  <TriagePill text={inc.priority || "normal"} tone={PRIORITY_TONE[inc.priority] || "var(--ink3)"} />
+                  {inc.category && <TriagePill text={CATEGORIES.find(([v]) => v === inc.category)?.[1] || inc.category} />}
+                  {escalated && <TriagePill text="Escalated" tone="var(--live)" />}
+                  {acked && <TriagePill text="Ack'd" tone="var(--ok)" />}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 5 }}>
+                  {(inc.severity || "info")}
+                  {inc.assigned_to_name ? ` · ${inc.assigned_to_name}` : " · unassigned"}
+                  {inc.reported_by_name ? ` · by ${inc.reported_by_name}` : ""}
+                </div>
               </div>
             </div>
-            <button onClick={() => setResolving(inc)} style={{
-              flex: "none", height: 30, padding: "0 13px", borderRadius: "var(--r-pill)", cursor: "pointer",
-              background: "var(--s3)", border: "1px solid var(--hair2)", color: "var(--ink)", fontWeight: 700, fontSize: 12.5, fontFamily: "var(--m-font)",
-            }}>Resolve</button>
+            <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
+              <TriageAction icon="check" label={acked ? "Ack'd" : "Ack"} on={acked} busy={!!ackBusy[inc.id]} onClick={() => acknowledge(inc)} />
+              <TriageAction icon="users" label="Assign" onClick={() => openAssign(inc)} />
+              {!escalated && <TriageAction icon="flag" label="Escalate" onClick={() => setEscalating(inc)} />}
+              <button onClick={() => setResolving(inc)} style={{
+                flex: 1, height: 36, borderRadius: "var(--r-pill)", cursor: "pointer",
+                background: "var(--amber-soft)", border: "1px solid var(--amber-glow)", color: "var(--amber)", fontWeight: 800, fontSize: 13, fontFamily: "var(--m-font)",
+              }}>Resolve</button>
+            </div>
           </div>
         );
       })}
@@ -291,7 +370,40 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
           toast={toast}
         />
       )}
+      {assigning && (
+        <AssignSheet
+          inc={assigning}
+          venueId={venueId}
+          staff={staff}
+          onClose={() => setAssigning(null)}
+          onDone={async () => { setAssigning(null); await load(); }}
+          toast={toast}
+        />
+      )}
+      {escalating && (
+        <EscalateSheet
+          inc={escalating}
+          venueId={venueId}
+          onClose={() => setEscalating(null)}
+          onDone={async () => { setEscalating(null); await load(); }}
+          toast={toast}
+        />
+      )}
     </div>
+  );
+}
+
+// Labelled one-tap triage action button (Ack / Assign / Escalate).
+function TriageAction({ icon, label, on, busy, onClick }) {
+  return (
+    <button onClick={onClick} disabled={busy} style={{
+      flex: 1, height: 36, borderRadius: "var(--r-pill)", cursor: busy ? "default" : "pointer",
+      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+      background: on ? "var(--ok-soft)" : "var(--s3)", border: "1px solid var(--hair2)",
+      color: on ? "var(--ok-ink)" : "var(--ink2)", fontWeight: 700, fontSize: 12.5, fontFamily: "var(--m-font)", opacity: busy ? 0.5 : 1,
+    }}>
+      <MIcon name={icon} size={15} color={on ? "var(--ok-ink)" : "var(--ink2)"} />{label}
+    </button>
   );
 }
 
@@ -414,6 +526,99 @@ function ResolveSheet({ inc, venueId, onClose, onDone, toast }) {
       <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was done, by whom, any follow-up…"
         style={{
           width: "100%", minHeight: 88, padding: "12px 14px", borderRadius: 14, resize: "none", lineHeight: 1.45,
+          background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 14, boxSizing: "border-box",
+        }} />
+      <SafeguardingNotice />
+    </MobileSheet>
+  );
+}
+
+// Assign sheet — pick a colleague from the venue's staff (mig 465 read).
+function AssignSheet({ inc, venueId, staff, onClose, onDone, toast }) {
+  const [busy, setBusy] = useState(false);
+  const assign = async (userId) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await venueTriageIncident(venueId, inc.id, { assignedTo: userId });
+      toast?.({ icon: "check", text: "Assigned" });
+      await onDone();
+    } catch {
+      toast?.({ icon: "alert", text: "Couldn't assign — try again" });
+      setBusy(false);
+    }
+  };
+  const list = staff || [];
+  return (
+    <MobileSheet title="Assign to" onClose={busy ? undefined : onClose}>
+      <div className="m-card" style={{ padding: "13px 14px", background: "var(--s2)" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{inc.description}</div>
+      </div>
+      {staff === null ? (
+        <p style={{ color: "var(--ink3)", fontSize: 13.5, margin: "16px 2px" }}>Loading staff…</p>
+      ) : list.length === 0 ? (
+        <p style={{ color: "var(--ink3)", fontSize: 13.5, margin: "16px 2px" }}>No assignable staff on this venue yet.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+          {list.map((s) => {
+            const on = inc.assigned_to === s.user_id;
+            return (
+              <button key={s.user_id} onClick={() => assign(s.user_id)} disabled={busy} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "12px 13px", borderRadius: 14, cursor: busy ? "default" : "pointer", textAlign: "left",
+                background: "var(--s2)", border: "1px solid", borderColor: on ? "var(--amber)" : "var(--hair)", fontFamily: "var(--m-font)", color: "inherit", opacity: busy ? 0.6 : 1,
+              }}>
+                <span style={{
+                  width: 36, height: 36, borderRadius: 11, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--s3)",
+                }}><MIcon name="users" size={17} color="var(--ink2)" /></span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span>
+                  <span style={{ fontSize: 12.5, color: "var(--ink3)", display: "block", marginTop: 1 }}>{s.role}</span>
+                </span>
+                {on && <MIcon name="check" size={18} color="var(--amber)" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </MobileSheet>
+  );
+}
+
+// Escalate sheet — push to HQ with an optional reason.
+function EscalateSheet({ inc, venueId, onClose, onDone, toast }) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const escalate = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await venueEscalateIncident(venueId, inc.id, reason.trim() || null);
+      toast?.({ icon: "check", text: "Escalated to HQ" });
+      await onDone();
+    } catch {
+      toast?.({ icon: "alert", text: "Couldn't escalate — try again" });
+      setBusy(false);
+    }
+  };
+  return (
+    <MobileSheet title="Escalate to HQ" onClose={busy ? undefined : onClose} footer={
+      <button onClick={escalate} disabled={busy} style={{
+        width: "100%", height: 48, borderRadius: 14, border: "none", cursor: busy ? "default" : "pointer",
+        fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15,
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        background: "var(--amber)", color: "var(--amber-ink)", opacity: busy ? 0.7 : 1,
+      }}>
+        <MIcon name="flag" size={17} color="var(--amber-ink)" />{busy ? "Escalating…" : "Escalate to HQ"}
+      </button>
+    }>
+      <div className="m-card" style={{ padding: "13px 14px", background: "var(--s2)" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{inc.description}</div>
+        <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 4 }}>HQ will see this in their cross-venue escalation inbox.</div>
+      </div>
+      <div className="m-eyebrow" style={{ margin: "16px 2px 9px" }}>Reason · optional</div>
+      <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. contractor needed — beyond what we can fix tonight"
+        style={{
+          width: "100%", minHeight: 80, padding: "12px 14px", borderRadius: 14, resize: "none", lineHeight: 1.45,
           background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 14, boxSizing: "border-box",
         }} />
     </MobileSheet>
