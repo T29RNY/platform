@@ -1,6 +1,14 @@
 # SKILL: Post-Deploy
 ## Step 5 of AUDIT → EXECUTE → VERIFY → COMMIT → POST-DEPLOY
 
+> **Executable form: `/prod-verify`** (`.claude/skills/prod-verify/SKILL.md`).
+> This file is the reference spec for the post-deploy step; `/prod-verify` is the
+> invocable skill that runs it — it confirms the deploy is live, DERIVES which
+> surfaces to walk from the merged diff (tests what changed, not everything), runs
+> the supervised demo-only live walk below, and classifies each failure T1 (→ a
+> `/dev-loop` fix) or T3 (→ surface to the operator). Invoke `/prod-verify [PR#]`
+> after a merge; the steps below are what it executes.
+
 Triggered when: developer confirms post-deploy gate after commit.
 Mode: normal mode. Read-only — no edits, no DB writes.
 Exit condition: all live checks pass. Developer closes the cycle.

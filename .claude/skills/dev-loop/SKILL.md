@@ -242,6 +242,14 @@ one-line **ship-safety verdict**, never a bare "ready":
   surface, the proof carried, and whether it's safe to ship live (the Apple-review
   freeze is **lifted** — but PROTECTED still needs proof). Do not say "ready" without this.
 
+**After the human merges — the formal POST-DEPLOY (Step 5).** Once the merge lands and
+Vercel deploys, the post-deploy verification is `/prod-verify <PR#>`
+(`.claude/skills/prod-verify/SKILL.md`) — it confirms the deploy is live, derives the
+surfaces to walk from this PR's diff, runs a supervised demo-only live walk, and
+classifies any failure T1 (→ a new `/dev-loop` fix) or T3 (→ surface). Supervised and
+prod-facing, so it's operator-invoked (not `/loop`/unattended); recommend it at the
+merge gate.
+
 **Merge-from-a-worktree gotcha (don't misread it as a failed merge).** When you run
 `gh pr merge` from inside a worktree whose base branch (`main`) is checked out in
 *another* worktree, gh's *remote* merge succeeds but its post-merge **local** checkout
