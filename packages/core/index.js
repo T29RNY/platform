@@ -333,6 +333,8 @@ export {
   gcInitMemberMandate,
   venueLogIncident,
   venueResolveIncident,
+  venueTriageIncident,
+  venueEscalateIncident,
   confirmRenewal,
   getDisplayState,
   checkDisplayPin,

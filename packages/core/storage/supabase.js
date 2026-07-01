@@ -4404,6 +4404,25 @@ export async function venueResolveIncident(venueToken, incidentId, outcome = nul
   return data;
 }
 
+// Incident triage (mig 462) — venue-owned triage + escalation.
+// Pass only the fields being changed; omitted args leave the column unchanged.
+// p_acknowledge=true stamps acknowledged_at (idempotent). Cross-venue writes blocked server-side.
+export async function venueTriageIncident(venueToken, incidentId, { category = null, priority = null, assignedTo = null, acknowledge = false } = {}) {
+  const { data, error } = await supabase.rpc("venue_triage_incident", {
+    p_venue_token: venueToken, p_incident_id: incidentId,
+    p_category: category, p_priority: priority, p_assigned_to: assignedTo, p_acknowledge: acknowledge });
+  if (error) { console.error("[incidents] venue_triage_incident failed", error); throw error; }
+  return data;
+}
+
+// Escalate an open incident up to HQ. Idempotent — re-escalation throws already_escalated.
+export async function venueEscalateIncident(venueToken, incidentId, reason = null) {
+  const { data, error } = await supabase.rpc("venue_escalate_incident", {
+    p_venue_token: venueToken, p_incident_id: incidentId, p_reason: reason });
+  if (error) { console.error("[incidents] venue_escalate_incident failed", error); throw error; }
+  return data;
+}
+
 // League Mode Phase 4 — Reception Display (mig 164–167).
 // Display token is the auth signal (read-only, on the TV); never the venue_admin_token.
 export async function getDisplayState(displayToken) {
