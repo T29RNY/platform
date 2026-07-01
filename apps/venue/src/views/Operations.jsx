@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import FixtureCard from "./FixtureCard.jsx";
 import RegistrationActions from "./RegistrationActions.jsx";
 import IncidentActions, { ReportIncidentButton } from "./IncidentActions.jsx";
@@ -11,7 +11,16 @@ import { longDate, incidentStamp, relativeFrom } from "../lib/format.js";
 // via <FixtureCard>/<FixtureActions>, registration approve/reject via
 // <RegistrationActions>, and the incident lifecycle (report + resolve) via
 // <ReportIncidentButton>/<IncidentActions> (venue_log_incident / venue_resolve_incident, mig 231).
+// Incident triage display helpers (mig 461–465).
+const PRIORITY_PILL = { urgent: "pill-crit", high: "pill-warn", normal: "pill-muted", low: "pill-muted" };
+const CATEGORY_LABEL = {
+  facility: "Facility", equipment: "Equipment", safety: "Safety", medical: "Medical",
+  conduct: "Conduct", security: "Security", weather: "Weather", safeguarding: "Safeguarding", other: "Other",
+};
+const PRIORITY_FILTERS = [["all", "All"], ["urgent", "Urgent"], ["high", "High"], ["normal", "Normal"], ["low", "Low"]];
+
 export default function Operations({ state, venueToken, onRefresh }) {
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const fixtures = state.fixtures || {};
   const tonight = fixtures.tonight || [];
   const thisWeek = fixtures.this_week || [];
@@ -23,6 +32,9 @@ export default function Operations({ state, venueToken, onRefresh }) {
   const pendingRegs = state.pending_registrations || [];
   const incidents = state.open_incidents || [];
   const issuesCount = pendingRegs.length + incidents.length;
+  const incidentsFiltered = priorityFilter === "all"
+    ? incidents
+    : incidents.filter((i) => (i.priority || "normal") === priorityFilter);
 
   const liveCount = tonight.filter((f) => f.status === "in_progress").length;
   const toCome = tonight.filter((f) => !["in_progress", "completed"].includes(f.status)).length;
@@ -96,17 +108,40 @@ export default function Operations({ state, venueToken, onRefresh }) {
                 <RegistrationActions venueToken={venueToken} registration={r} onDone={onRefresh} />
               </div>
             ))}
-            {incidents.map((i) => (
+            {incidents.length > 0 && (
+              <div className="chips" style={{ margin: "4px 0 8px" }}>
+                {PRIORITY_FILTERS.map(([v, l]) => (
+                  <button
+                    key={v}
+                    className="chip"
+                    aria-pressed={priorityFilter === v}
+                    onClick={() => setPriorityFilter(v)}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
+            {incidentsFiltered.map((i) => (
               <div className="issues-row" key={`inc-${i.id}`}>
                 <span className={"sev sev-" + (i.severity || "info")}>
                   <Icon name={i.severity === "info" ? "info" : "alert"} size={16} />
                 </span>
                 <div>
-                  <div className="label">{i.description}</div>
+                  <div className="label">
+                    {i.description}
+                    <span className={"pill " + (PRIORITY_PILL[i.priority] || "pill-muted")} style={{ marginLeft: 8 }}>
+                      {(i.priority || "normal")}
+                    </span>
+                    {i.category && <span className="pill pill-info" style={{ marginLeft: 6 }}>{CATEGORY_LABEL[i.category] || i.category}</span>}
+                    {i.escalated_at && <span className="pill pill-crit" style={{ marginLeft: 6 }}>Escalated</span>}
+                    {i.acknowledged_at && <span className="pill pill-ok" style={{ marginLeft: 6 }}>Ack'd</span>}
+                  </div>
                   <div className="meta">
                     Incident · {i.severity || "info"}
+                    {i.assigned_to_name ? ` · assigned to ${i.assigned_to_name}` : " · unassigned"}
                     {" · reported by "}{i.reported_by_name || state.venue?.name || "Venue admin"}
-                    {i.created_at ? ` · ${incidentStamp(i.created_at)}` : ""}
+                    {i.created_at ? ` · ${relativeFrom(i.created_at)}` : ""}
                   </div>
                 </div>
                 <IncidentActions venueToken={venueToken} incident={i} onDone={onRefresh} />
