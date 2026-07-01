@@ -31,6 +31,22 @@ Additive + DARK on apply (no live consumer reads `claimed_*` until PR #3–#5 UI
 - `set_player_paid(p_token)` — after flagging `self_paid` (unchanged), ALSO stamps the current match's unpaid+unclaimed `game_fee` row claimed (`self`); owes still UNCHANGED. Return shape identical to mig 211.
 - `get_my_payment_history(p_token, p_limit)` — return objects gain `claimed_at`/`claimed_by`; `dbToLedger` mapper gains `claimedAt`/`claimedBy` (same commit). **Consumers**: PlayerProfile.jsx PaymentHistory (additive-safe), `getMyMoney` casual array.
 
+## Per-Game Payment Marking — PR #2 per-week settle + owes-recompute (mig 460)
+
+⚠️ **NOT DARK.** `players.owes` stops being an arithmetic accumulator and becomes RECOMPUTED
+from the ledger. The live admin "confirm" button changes: it now settles ONLY the confirmed
+week and recomputes owes from the remaining unpaid weeks (was: zero the whole balance).
+One-off reconciliation ran at apply (2 drifted players on team_KPaoX8oJYMQ fixed; invariant
+`owes == Σ unpaid game_fee` holds for all 88 records).
+
+| SQL function | JS wrapper | Grant | Notes |
+|---|---|---|---|
+| `_recompute_player_owes(p_player_id, p_team_id)` | *(none — internal)* | postgres/service_role only (REVOKE public+anon+authenticated) | **Mig 460.** Internal helper. Sets `owes = Σ(amount) WHERE type='game_fee' AND status='unpaid'` for the player. **Cross-team by design** — owes is a per-player total across ALL the player's teams (result-save has always accumulated into the single global column); `p_team_id` is retained for call-site symmetry but intentionally NOT a filter (filtering by team would drop a 2-team player's other-team debt — caught in PR #2 review, fixed + multi-team EV-verified). Called at the end of every settlement RPC. Not client-callable. |
+| `admin_confirm_payment(p_admin_token, p_player_id, p_match_id)` | `confirmPayment(adminToken, playerId, matchId)` | anon + authenticated | **Behaviour changed mig 460.** Settles THIS match's `game_fee` row (`status='paid'`, only if currently unpaid — idempotent, no double-settle; preserves `claimed_at`/`claimed_by`), then calls `_recompute_player_owes` instead of `owes = 0`, and sets `paid = (owes = 0)`. Confirming one week of a multi-week debt drops owes by exactly that week. ELSE-branch (no ledger row) inserts a paid row (doesn't affect the unpaid-sum recompute). Audit `player_paid_confirmed`; broadcast `payment_confirmed`. EV: multi-week invariant + idempotency + claim-preserved + multi-team. |
+| `admin_reset_payment(p_admin_token, p_player_id, p_match_id)` | `resetPayment(adminToken, playerId, matchId)` | anon + authenticated | **Behaviour changed mig 460.** Flips THIS match's row back to `unpaid`, calls `_recompute_player_owes` (self-healing; replaces the manual `owes + amount` restore), sets `paid = (owes = 0)`. Audit `player_paid_reset`; broadcast `payment_reset`. |
+
+**Known limitation (stated):** `_recompute_player_owes` sums `type='game_fee'` only — `guest_fee` debt is never reflected in `owes` (guests are out of scope; they use the `set_guest_payment` host-declares model with no admin-confirm path). Pre-existing gap, unchanged by this PR. Stripe `debt_payment` rows are likewise not in the owes recompute — see [[project_stripe_full_build]].
+
 ## Guardian app — Phase 1 child fixture availability (mig 426, session 207)
 
 Parent-on-behalf-of-child availability for **FA grassroots league fixtures**

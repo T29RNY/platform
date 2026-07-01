@@ -1,6 +1,30 @@
 # In or Out — Key Decisions Log
 *Last updated: Jun 29 2026 (session 230 — UNIVERSAL AI AGENT FOUNDATION decisions (mig 454). (1) FOUR PILLARS: A Answer (grounded context RPCs), B Direct (navigation — DEFERRED Phase 2), C Act (tool-use via the ~479 existing RPCs — DEFERRED Phase 2), D Know-who (unified caller identity — built FIRST as the keystone). (2) `resolve_agent_caller` COMPOSES the 5 existing resolvers, never reimplements — one normalized caller-context jsonb. (3) `ai_agent_access` is OPT-IN (no-row=OFF) — deliberately the OPPOSITE of the feature-flag no-row=on convention, so the agent is never accidentally on. (4) Cost ceiling = SINGLE gate: used_today_pence>=daily_cap_pence flips agent.enabled false; NO separate cap_exceeded flag (caller reads agent.enabled only). (5) Player-token answer scope = self + team-public only (cross-player isolation, proven in EV T9). (6) Signed-in company_id/active_role = NARROWING hints — server verifies auth.uid ownership; unowned hint silently ignored, never escalates scope. (7) `agent.phase` lives in the DATA (phase 1=answer only; edge fn will hard-block tool calls until phase 3) — safety boundary in data, not just code. (8) SERVICE-ROLE SPLIT: the packages/core wrapper uses the authenticated/anon client (service-role key must NEVER enter the frontend bundle; and the auth.uid signed-in path requires the authenticated client anyway); the service-role invocation lives in the FUTURE edge fn apps/inorout/api/_agent.js. (9) Context RPCs expand domain-by-domain (casual done → venue → club → finance); agent launches casual-only. (10) Build order = casual canary FIRST (Stage 1, independent, ships value now), THEN this foundation (Stage 2, DONE). (11) Grants gotcha: project ALTER DEFAULT PRIVILEGES auto-grants anon+authenticated on new tables/functions → `REVOKE FROM PUBLIC` is INSUFFICIENT; must REVOKE from the NAMED roles. See RPCS.md + GAFFER.md. PR #150. Next free mig = 455.)*
 
+## PER-GAME PAYMENT MARKING — owes becomes a ledger-recompute (PR #2, mig 460)
+Decisions locked with the operator (2026-07-01) for the per-game payment epic:
+1. **`players.owes` is now a value RECOMPUTED from the ledger, not an arithmetic accumulator.**
+   `owes = SUM(amount) WHERE type='game_fee' AND status='unpaid'`, recomputed at the end of every
+   settlement RPC via `_recompute_player_owes`. This is the single most important decision — it makes
+   owes self-healing and eliminates the drift / double-subtract / negative-owes hazards of `owes ± amount`.
+   Replaces the old "confirm zeroes the whole balance" (`owes = 0`).
+2. **A player tap is always a CLAIM; the admin confirm is the money event** (extends mig 211, now per-week).
+   Confirming one week settles ONLY that week's `game_fee` row and recomputes owes from the rest — a
+   multi-week debtor's other weeks stay outstanding. `paid = (owes = 0)` (a player is "paid" iff nothing owed).
+3. **owes is a per-PLAYER total across ALL the player's teams** (result-save has always accumulated into the
+   single global column). `_recompute_player_owes` is therefore cross-team — NOT filtered by team. (A first
+   cut filtered by team; PR #2 review caught that it would drop a two-team player's other-team debt, fixed +
+   multi-team EV-verified before merge.)
+4. **Guests remain out of scope.** `_recompute` sums `game_fee` only; `guest_fee` debt is never in owes
+   (guests use the `set_guest_payment` host-declares model). Pre-existing; explicitly not addressed here.
+5. **One-off reconciliation at apply (operator-approved):** owes must equal Σ(unpaid game_fee) for every live
+   player when the recompute goes live. A pre-apply check found 2 drifted players on team_KPaoX8oJYMQ —
+   Rohan (reconciled to £10 on the operator's call — "honest guy", his oldest game marked paid) and rockybram
+   (a premature FUTURE-game charge voided → £5). All 88 records now satisfy the invariant.
+Gates: heavy multi-week EV (invariant after every op, idempotency, floor@0, claim-preserved, cross-team) +
+rpc-security (sec_def/search_path/internal-only helper) + QA/Security/adversarial reviews. mig 460 applied +
+reconciled live. ⚠️ NOT DARK — the live admin confirm button changed behaviour on apply.
+
 ## SESSION 227 — Modular Platform Epic D decisions locked (venue-operator tournament create, pre-build)
 **UPDATE (same session): D1 BACKEND SHIPPED (mig 452).** All three decisions implemented: `club_id` NULLABLE
 + caps CHECK widened (`manage_tournaments`) + shared `_authorise_venue_tournament` helper + 11 venue-token write
