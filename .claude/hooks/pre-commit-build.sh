@@ -117,9 +117,10 @@ done
 #   - check-mapper-sync.sh       Hard Rule 12 (RPC field returned, no mapper reads it — the is_self class)
 #   - check-audit-events.sh      Hard Rule 9  (player-self write RPC with no audit_events trace)
 #   - check-realtime-subscriber.sh Hard Rule 10 (server realtime.send with no client subscriber)
+#   - check-rpc-consumers.sh      Hard Rule 14 (multi-app RPC whose consumers aren't recorded in RPCS.md)
 if [ -n "$STAGED_MIGS" ]; then
   ADVISORY=""
-  for CHK in check-mapper-sync check-audit-events check-realtime-subscriber; do
+  for CHK in check-mapper-sync check-audit-events check-realtime-subscriber check-rpc-consumers; do
     OUT=$(bash "$ROOT/skills/scripts/$CHK.sh" $STAGED_MIGS 2>&1)
     if [ $? -ne 0 ]; then
       ADVISORY="$ADVISORY\n$OUT\n"
