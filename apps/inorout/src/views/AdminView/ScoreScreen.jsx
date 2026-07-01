@@ -207,6 +207,16 @@ export default function ScoreScreen({
   const origTeamAPlayers = inPlayers.filter(p => p.team === "A");
   const origTeamBPlayers = inPlayers.filter(p => p.team === "B");
 
+  // Teamsheet reference for Stage 2 — sourced from the immutable per-match
+  // snapshot (matches.team_a/team_b via potmMatch), never live players.team,
+  // which a later match's team reset legitimately clears out from under this screen.
+  const resolveTeamsheet = (ids) => (ids || []).map(id => {
+    const p = squad.find(s => s.id === id);
+    return { id, name: p ? (p.nickname || p.name) : "(former player)" };
+  });
+  const teamsheetA = resolveTeamsheet(potmMatch?.teamA);
+  const teamsheetB = resolveTeamsheet(potmMatch?.teamB);
+
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!schedule?.votingClosesAt) return;
@@ -410,6 +420,37 @@ export default function ScoreScreen({
       {/* ── STAGE 2 — SCORE ENTRY ───────────────────────────────────────────── */}
       {stage1Done && (
         <StageCard refProp={s2Ref}>
+
+          {(teamsheetA.length > 0 || teamsheetB.length > 0) && (
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
+              marginBottom: 16, paddingBottom: 16,
+              borderBottom: "0.5px solid var(--s3)",
+            }}>
+              {[
+                { label: "TEAM A", color: "#60A0FF", players: teamsheetA },
+                { label: "TEAM B", color: "#FF6060", players: teamsheetB },
+              ].map(({ label, color, players }) => (
+                <div key={label}>
+                  <div style={{
+                    fontFamily: "'Bebas Neue', sans-serif", fontSize: 13,
+                    color, letterSpacing: "0.08em", marginBottom: 6,
+                  }}>
+                    {label}
+                  </div>
+                  {players.map(p => (
+                    <div key={p.id} style={{
+                      fontSize: 13, color: "var(--t1)", fontWeight: 400,
+                      padding: "3px 0", overflow: "hidden",
+                      textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {p.name}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
 
           {mode === "exact" && (
             <>
