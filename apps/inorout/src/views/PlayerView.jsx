@@ -284,7 +284,6 @@ export default function PlayerView({
   const [adminActionPlayer, setAdminActionPlayer] = useState(null);
   const [cashPending,       setCashPending]       = useState(false);
   const [guestCashPending,  setGuestCashPending]  = useState(() => new Set());
-  const [clearDebtExpanded, setClearDebtExpanded] = useState(false);
   // Status confirmation messages (Locked in / We'll keep a spot / etc)
   // start hidden so a page refresh doesn't resurrect them. setStatus
   // flips this to false and re-arms the 5s timer that flips it back.
@@ -929,17 +928,7 @@ export default function PlayerView({
                 const paymentState = me
                   ? getPaymentState(me, cashPending)
                   : 'unpaid';
-                // Persistent (cashPending-independent) state for the OUTER branch
-                // structure. paymentState flips to 'cash_pending' the moment the
-                // player taps "Paid", which would otherwise drop them out of
-                // the debt branch (where the Confirm button lives) entirely —
-                // leaving a debt-state player with no way to finish paying.
-                const basePaymentState = me
-                  ? getPaymentState(me, false)
-                  : 'unpaid';
-                const paymentMode  = 'both';
-                const status       = me?.status;
-                const isNonPlay    = status === 'out' || status === 'maybe' || status === 'reserve';
+                const status = me?.status;
 
                 // Ledger is the single source of truth for current outstanding
                 // balance — same number Payments shows. Don't add `price` to it:
@@ -970,6 +959,12 @@ export default function PlayerView({
 
                 const btns = [];
 
+                // 460/PR#4: the primary action targets THIS week's game only. Older debt is
+                // surfaced as a link to Payment History (per-week settle), killing the old
+                // "pay this week vs clear the whole balance" duality.
+                const thisWeekFee = (status === 'in') ? price : 0;
+                const backlog     = Math.max(0, effectiveDebt - thisWeekFee);
+
                 if (me?.selfPaid === true && me?.paid !== true && !cashPending) {
                   btns.push(
                     <span key="awaiting" style={{
@@ -978,7 +973,7 @@ export default function PlayerView({
                       color:"var(--amber)", borderRadius:"var(--r-button)",
                       padding:"0 10px", fontSize:12, fontWeight:400,
                       minHeight:28, fontFamily:"var(--font-body)",
-                    }}>Awaiting confirmation</span>
+                    }}>Claimed · awaiting confirmation</span>
                   );
                 } else if (me?.paid === true) {
                   btns.push(
@@ -990,83 +985,39 @@ export default function PlayerView({
                       minHeight:28, fontFamily:"var(--font-body)",
                     }}>✓ Paid</span>
                   );
-                } else if (basePaymentState === 'debt') {
-                  if (!clearDebtExpanded) {
+                } else if (thisWeekFee > 0) {
+                  // Playing this week with a fee due — primary claims THIS game via
+                  // set_player_paid (a pending CLAIM; admin confirm settles just this week).
+                  if (!cashPending) {
                     btns.push(
-                      <button key="clear" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setClearDebtExpanded(true); }}
-                        style={tileStyle({ background:"transparent", border:"0.5px solid var(--gold)", color:"var(--gold)" })}>
-                        Clear Debt — £{effectiveDebt || (status === 'in' ? price : 0)}
-                      </button>
-                    );
-                  } else if (!cashPending) {
-                    if (paymentMode !== 'cash_only') btns.push(
-                      <button key="stripe" disabled
-                        style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
-                        Transfer £{effectiveDebt || (status === 'in' ? price : 0)}
-                      </button>
-                    );
-                    if (paymentMode !== 'stripe_only') btns.push(
-                      <button key="cash" onClick={() => setCashPending(true)}
+                      <button key="paid-cash" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setCashPending(true); }}
                         style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
-                        Paid
+                        I've paid (cash) · £{thisWeekFee}
                       </button>
                     );
                   } else {
                     btns.push(
-                      <div key="confirm-debt" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
+                      <div key="confirm-cash" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
                         <button onClick={async () => {
                           setPayError(null);
                           try {
                             await handleCashPayment(me.token);
-                            // self-pay is a pending CLAIM (mig 211) — keep owes; admin confirms to clear
-                            setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
-                            setCashPending(false);
-                            setClearDebtExpanded(false);
-                          } catch {
-                            setPayError("Something went wrong — try again");
-                          }
-                        }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                          Confirm — You've Paid?
-                        </button>
-                        {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"center", fontWeight:300 }}>{payError}</div>}
-                      </div>
-                    );
-                  }
-                } else if (status === 'in') {
-                  if (paymentState === 'unpaid') {
-                    if (paymentMode !== 'cash_only') btns.push(
-                      <button key="stripe" disabled
-                        style={tileStyle({ background:"transparent", border:"1px solid rgba(255,255,255,0.25)", color:"var(--t2)", opacity:0.4, cursor:"not-allowed" })}>
-                        Transfer £{price}
-                      </button>
-                    );
-                    if (paymentMode !== 'stripe_only') btns.push(
-                      <button key="cash" onClick={() => { if (needsSelfAuth) { promptSignIn(); return; } setCashPending(true); }}
-                        style={tileStyle({ background:"var(--gold)", color:"var(--black)" })}>
-                        Paid
-                      </button>
-                    );
-                  } else if (paymentState === 'cash_pending') {
-                    btns.push(
-                      <div key="confirm-in" style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"stretch", gap:4 }}>
-                        <button onClick={async () => {
-                          setPayError(null);
-                          try {
-                            await handleCashPayment(me.token);
+                            // pending CLAIM (mig 211) — keep owes; admin confirms to settle this week
                             setSquad(squad.map(p => p.id === myId ? { ...p, selfPaid:true } : p));
                             setCashPending(false);
                           } catch {
                             setPayError("Something went wrong — try again");
                           }
                         }} style={tileStyle({ background:"transparent", border:"0.5px solid var(--amber)", color:"var(--amber)" })}>
-                          Confirm — You've Paid?
+                          Confirm — you've paid?
                         </button>
                         {payError && <div style={{ fontSize:10, color:"var(--red)", textAlign:"center", fontWeight:300 }}>{payError}</div>}
                       </div>
                     );
                   }
                 }
-                // isNonPlay + unpaid + no debt → "Nothing owed 👊", no buttons
+                // Not playing this week (pure backlog) or nothing owed → no primary button;
+                // the backlog link below routes older debt to Payment History.
 
                 return (
                   <div style={{ padding:"12px 16px 10px", borderBottom:"1px solid var(--b2)" }}>
@@ -1156,6 +1107,19 @@ export default function PlayerView({
                     {btns.length > 0 && (
                       <div style={{ display:"flex", gap:8, marginTop:8 }}>
                         {btns}
+                      </div>
+                    )}
+
+                    {/* Backlog: unpaid weeks beyond this game → settle per-week in Payment History */}
+                    {backlog > 0 && me?.paid !== true && (
+                      <div
+                        onClick={() => setShowProfile(true)}
+                        style={{
+                          marginTop:8, fontSize:11, fontWeight:300, lineHeight:1.4,
+                          color:"var(--amber)", cursor:"pointer",
+                        }}
+                      >
+                        You owe £{backlog} more from earlier — see Payment History →
                       </div>
                     )}
 
