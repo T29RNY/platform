@@ -22,6 +22,8 @@ export {
   setPlayerPaid,
   setGuestPayment,
   resetPayment,
+  claimLedgerPayment,
+  adminRejectClaim,
   waiveDebt,
   getRecentNotification,
   getPlayerLeagueTable,
