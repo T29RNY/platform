@@ -1,6 +1,12 @@
 # In or Out — Feature Tracker
 *Last updated: Jun 29 2026 (session 230 — UNIVERSAL AI AGENT — Pillar D (Know-who) foundation SHIPPED (mig 454, PR #150): `ai_agent_access` opt-in canary + daily cost-ceiling table; `resolve_agent_caller` unified caller resolver (5 auth models → one caller-context jsonb; agent.phase=1 = answer-only); `resolveAgentCaller` core wrapper. EV 10/10 + leak-0, rpc-security PASS, live smoke PASS. Four pillars: A Answer (per-domain context RPCs), B Direct/navigation (DEFERRED Ph2), C Act/tool-use (DEFERRED Ph2), D Know-who (DONE). NOT YET: universal-agent edge fn, agent conversation tables, ai_briefings team_id-nullable, non-casual domain context RPCs, Stage-1 casual-canary wiring (ENABLE_GAFFER env-gate + GafferCard + sonnet-4-6 — NEXT PR). Prior Gaffer (migs 033–037) audit: backend built s33, never canaried — the opt-in gate now governs rollout. Next free mig = 455.)*
 
+## 📥 CAPTURED — triage inbox (unbuilt)
+*Raw, unranked items filed by `/backlog-capture`. `/backlog` reads from here to pick work.
+Not shipped work — no session number. Promote an item into the log below only once it's built.*
+
+---
+
 ## REFEREE EPIC — full plan in `REFEREE_HANDOFF.md`
 
 Referee home in `/hub` + `apps/ref` officiating. **SHIPPED (merged):** referee role/My-fixtures/

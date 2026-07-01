@@ -3,6 +3,13 @@
 
 ---
 
+## 📥 CAPTURED — triage inbox (unbuilt)
+*Raw, unranked items filed by `/backlog-capture` (bugs · `⚠️ SECURITY` · `📋 COMPLIANCE`).
+`/backlog` reads from here. Not shipped work — no session number. Promote into the log below
+only once fixed.*
+
+---
+
 ## SESSION 181 — ✅ STRIPE FULL BUILD PHASE 1 SHIPPED (mig 403). Foundations & safety. No new production bugs.
 
 First phase of the full Stripe build (`STRIPE_FULL_BUILD_HANDOFF.md`) — makes Stripe-live SAFE
