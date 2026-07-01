@@ -12,6 +12,7 @@ import {
 import VenueHealthGrid from "./views/VenueHealthGrid.jsx";
 import VenueDetail from "./views/VenueDetail.jsx";
 import AlertsActions from "./views/AlertsActions.jsx";
+import EscalatedInbox from "./views/EscalatedInbox.jsx";
 import AnalyticsView from "./views/AnalyticsView.jsx";
 import UtilisationPanel from "./views/UtilisationPanel.jsx";
 import ActivityFeed from "./views/ActivityFeed.jsx";
@@ -242,6 +243,11 @@ export default function App() {
             )}
           </div>
           <div className="col">
+            <EscalatedInbox
+              companyId={companyId}
+              canResolve={state?.caller?.role !== "analyst"}
+              onResolve={onResolve}
+            />
             <AlertsActions
               venues={state?.venues || []}
               selectedVenueId={selectedVenueId}
