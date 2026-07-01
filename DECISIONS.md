@@ -4188,3 +4188,23 @@ so the dev-loop proof gate can gate on it. Pure tooling — no migration, RLS, m
 surface (next free migration stays 459). Rejected: shipping Signal A only (would leave the omission case,
 the ask's literal target, unenforced).
 Handoff: RPCS_CONSUMER_TRACKING_HANDOFF.md
+
+## [2026-07-01] — `/prod-verify` skill (formalize post-deploy walk)
+Decided to formalize the manual `skills/post-deploy.md` prose checklist into an invocable `/prod-verify`
+skill — a thin orchestrator, the post-merge/prod-facing twin of `qa-loop`. It confirms a merged PR is
+actually live on Vercel, **derives which surfaces to walk from the merged diff** (reusing `babysit-prs`'s
+file→app map, so it tests what changed, not a fixed URL list), runs a **supervised Playwright-MCP walk of
+live prod, demo surfaces only** (the `/p/p_demotoken_01` + `/demoadmin` surfaces post-deploy.md already
+sanctions), then classifies each failure **T1** (live functional defect → opens a `/dev-loop` fix phase)
+or **T3** (design/gate call → surface to operator). Key decisions: (1) TWO buckets not qa-loop's three —
+a defect that reached PROD always warrants a real fix cycle, so no "T2 auto-polish" tier. (2) prod-verify
+NEVER edits/merges — its T1 action launches a fresh `/dev-loop`, staying as read-only as babysit-prs.
+(3) The prod-walk guardrail is the one real design tension (all siblings forbid touching prod): resolved
+by inheriting post-deploy.md's already-sanctioned NARROW exception — live prod, **demo surfaces only,
+read-mostly, supervised, never a real team, never scheduled-unattended.** (4) Schema-cache flush
+(`pg_notify`) stays recommend-only (it's a live-DB write, deliberately un-allowlisted). (5) post-deploy.md
+becomes the skill's reference, not a duplicated checklist (reuse principle). Rejected: a full 11-lens
+fresh-context scope fan-out (docs-only artefact → wasteful) and a mandatory `check-changed-surfaces.sh`
+helper (deferred; v1 keeps the app-map in skill prose like babysit-prs). TIER-1 · ship-safety CLEAR /
+DARK-IN-PROD · zero migrations (next free mig stays 459) · no DB/RLS/money/auth. Single PR.
+Handoff: PROD_VERIFY_HANDOFF.md

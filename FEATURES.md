@@ -3067,3 +3067,25 @@ loop in `.claude/hooks/pre-commit-build.sh`; two allowlist lines in `.claude/set
 reference in the dev-loop proof-gate step 3; optional CLAUDE.md HR14 "(mechanized by …)" note. Single PR,
 one `/dev-loop` pass. Done = script flags a multi-app RPC whose RPCS.md entry omits consumers, passes one
 that records them, does not flag single-app RPCs, build stays green, PR merged (source↔hook, Hard Rule 11).
+
+---
+
+## `/prod-verify` SKILL — formalize post-deploy walk (📋 scoped / ready to build 2026-07-01)
+
+Status: **📋 scoped / ready to build (2026-07-01).** TIER-1 · ship-safety CLEAR / DARK-IN-PROD · zero
+migrations (next free mig stays 459) · no DB/RLS/money/auth. Single PR.
+Handoff: `PROD_VERIFY_HANDOFF.md`.
+
+Formalizes the manual `skills/post-deploy.md` walk (Step 5 of AUDIT→EXECUTE→VERIFY→COMMIT→POST-DEPLOY)
+into an invocable `/prod-verify` skill — the post-merge/prod-facing twin of `qa-loop`. Confirms a merged
+PR is live on Vercel, **derives which surfaces to walk from the merged diff** (reuses `babysit-prs`'s
+file→app map — tests what changed, not a fixed URL list), runs a **supervised Playwright-MCP walk of live
+prod, demo surfaces only** (`/p/p_demotoken_01` + `/demoadmin`, the surfaces post-deploy.md already
+sanctions), then classifies each failure **T1** (live functional defect → opens a `/dev-loop` fix phase)
+or **T3** (design/gate call → surface to operator). Two-bucket triage (no qa-loop "T2 auto-polish" tier —
+a defect that reached prod always warrants a real fix cycle). NEVER edits/merges (read-only like
+babysit-prs); prod-walk boundary = demo-only, supervised, never a real team, never scheduled-unattended;
+schema-cache flush is recommend-only. Also invokable manually with an explicit app/surface list. Thin
+orchestrator — reuses post-deploy.md / babysit-prs / qa-loop / dev-loop, no new services or report system.
+Done = skill exists + registered in CLAUDE.md + invokable; derives walk from diff; classifies T1/T3; a
+real `/prod-verify <PR#>` dry-run behaves as specified.
