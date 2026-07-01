@@ -99,6 +99,41 @@ for MIG in $STAGED_MIGS; do
   done
 done
 
+# ── Gate 1d: Hard-Rule advisories on staged migrations (WARN, never block) ──
+#
+# Three heuristic checks that surface the Hard Rule 9 / 10 / 12 failure classes
+# at commit time. They are ADVISORY, not blocking: each is a heuristic (a
+# returned field may be intentionally server-only; an RPC name may match by
+# coincidence; a topic is built at runtime), and a false positive that BLOCKED
+# a commit would tempt disabling the hook — which CLAUDE.md forbids. So they
+# print a loud warning and let the commit through. The standalone scripts exit
+# non-zero for use as real gates in the dev-loop proof gate.
+#
+# Scope: reuses $STAGED_MIGS (added-only, like the sibling gates above), which
+# matches this repo's append-only migration convention (each change = a new NNN
+# file). An in-place EDIT of an existing migration gets no commit-time advisory
+# here; the standalone scripts default to added+modified (ACM), so the dev-loop
+# proof gate still covers that case.
+#   - check-mapper-sync.sh       Hard Rule 12 (RPC field returned, no mapper reads it — the is_self class)
+#   - check-audit-events.sh      Hard Rule 9  (player-self write RPC with no audit_events trace)
+#   - check-realtime-subscriber.sh Hard Rule 10 (server realtime.send with no client subscriber)
+if [ -n "$STAGED_MIGS" ]; then
+  ADVISORY=""
+  for CHK in check-mapper-sync check-audit-events check-realtime-subscriber; do
+    OUT=$(bash "$ROOT/skills/scripts/$CHK.sh" $STAGED_MIGS 2>&1)
+    if [ $? -ne 0 ]; then
+      ADVISORY="$ADVISORY\n$OUT\n"
+    fi
+  done
+  if [ -n "$ADVISORY" ]; then
+    echo "════════════════════════════════════════════════════════════════" >&2
+    echo "  HARD-RULE ADVISORY (commit NOT blocked — review before pushing)" >&2
+    echo "════════════════════════════════════════════════════════════════" >&2
+    printf "%b" "$ADVISORY" >&2
+    echo "════════════════════════════════════════════════════════════════" >&2
+  fi
+fi
+
 # ── Gate 2: build must pass ──
 OUTPUT=$(bash skills/scripts/check-build.sh 2>&1)
 EXIT=$?
