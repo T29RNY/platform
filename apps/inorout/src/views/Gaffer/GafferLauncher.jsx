@@ -27,11 +27,15 @@ const NUDGE_VISIBLE_MS = 3000;
 function computeNudge(squad, schedule) {
   if (!schedule || schedule.isDraft || schedule.isCancelled) return null;
 
+  // Copy is deliberately informational, not action-offering ("want me to
+  // chase it?") — Gaffer is read-only Q&A today (askGafferQuestion has no
+  // write/execute path), so a nudge must never imply it can act on a "yes".
+  // Tapping it opens the real capability: asking Gaffer about it.
   const totalOwed = squad
     .filter((p) => !p.disabled)
     .reduce((sum, p) => sum + (p.owes || 0), 0);
   if (totalOwed > 0) {
-    return { key: `owed:${totalOwed}`, banter: `£${totalOwed} outstanding — want me to chase it?` };
+    return { key: `owed:${totalOwed}`, banter: `£${totalOwed} still outstanding — ask me who owes what.` };
   }
 
   const noRespCount = squad.filter(
@@ -40,7 +44,7 @@ function computeNudge(squad, schedule) {
   if (noRespCount > 0) {
     return {
       key: `noresp:${noRespCount}`,
-      banter: `${noRespCount} ${noRespCount === 1 ? "hasn't" : "haven't"} replied yet — want me to chase them?`,
+      banter: `${noRespCount} ${noRespCount === 1 ? "hasn't" : "haven't"} replied yet — ask me who's missing.`,
     };
   }
 
@@ -49,7 +53,7 @@ function computeNudge(squad, schedule) {
   if (inCount < squadSize) {
     return {
       key: `shortfall:${inCount}/${squadSize}`,
-      banter: `Only ${inCount}/${squadSize} confirmed — want a hand filling the squad?`,
+      banter: `Only ${inCount}/${squadSize} confirmed — ask me who's in.`,
     };
   }
 
@@ -94,7 +98,14 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
   useEffect(() => {
     if (open || dragRef.current) return;
     const nudge = computeNudge(squad || [], schedule);
-    if (!nudge || nudge.key === nudgedKeyRef.current) return;
+    if (!nudge) {
+      // Condition resolved — clear the dedup key so a later recurrence at the
+      // exact same value (e.g. owed goes £40 -> £0 -> £40 again) re-nudges
+      // instead of silently matching the stale key forever.
+      nudgedKeyRef.current = null;
+      return;
+    }
+    if (nudge.key === nudgedKeyRef.current) return;
     nudgedKeyRef.current = nudge.key;
     setBanter(nudge.banter);
     setMode("nudge");
