@@ -616,11 +616,12 @@ typed Swift `CodingKeys` + RPCS.md consumers (Hard Rule #12/#14); port the offli
 engine verbatim; resolver disambiguation for multi-role same-day games; health data = UK-GDPR
 special category → store summary only + cascade `match_health_sessions` into `api/delete-account.js`.
 
-**Casual-write storage decision LOCKED (2026-07-02, DECISIONS.md #11):** write BOTH — a real
-timestamped event log (so match-log/sin-bin-timer screens work) AND the existing `player_match`
-aggregate columns (so casual stats stay byte-identical). Exact schema shape (loosen
-`match_events.fixture_id` vs. a parallel casual event table) is next-session audit work. This piece
-has no watch/device dependency — buildable ahead of Xcode/App-Store approval, same as Phase 1/4.
+**Casual-write storage decision LOCKED (2026-07-02, DECISIONS.md #11):** write BOTH, LIVE — a new
+parallel casual event-log table (`match_events.fixture_id` can't be reused: casual has no second
+team row to FK to, it's scrimmage sides A/B on one team) AND a live increment of the existing
+(currently 100%-dormant) `player_match` card columns, in the same transaction as each event —
+isolated new RPCs, no touch to the existing end-of-match confirm RPC. This piece has no
+watch/device dependency — buildable ahead of Xcode/App-Store approval, same as Phase 1/4.
 
 **Sequencing:** comes after `APP_STORE_CHECKLIST.md` reaches Apple approval. Run solo (cloud-session
 discipline). See DECISIONS.md s161 + project memory `[[project_watchos_companion]]`.

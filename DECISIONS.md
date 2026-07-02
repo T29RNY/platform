@@ -992,16 +992,24 @@ iOS App Store approval. Settled questions:
 10. **Assistant-ref edge case needs no new work.** A game's single shared `ref_token` + idempotent
     events + realtime already support concurrent recorders (watch ref + web assistant stay in sync);
     only mitigate human double-entry with a light "clock controller" indicator.
-11. **Casual-write storage (Phase 5 unblock, 2026-07-02): write BOTH.** A casual match's card/sub/
-    sin-bin events from the watch write to a real timestamped event log (so the design's match-log
-    screen + sin-bin return-timer work identically to league) **and** still increment the existing
-    `player_match` aggregate columns (`yellow_cards`/`red_cards`/etc.) so every existing casual-stats
-    surface (POTM, reliability, profiles) stays byte-identical. Rejected: aggregate-only (loses the
-    match-log/sin-bin-timer screens the design handoff already commits to); event-log-only (silently
-    stops feeding the stats columns every other screen reads). `match_events.fixture_id` today FKs to
-    `fixtures` (league-only) — casual matches use `matches.id` (text, not a fixture) — so this needs a
-    schema change to let a casual match's events land in the log; exact shape (loosen the FK vs. a
-    parallel casual event table) is Phase-5 audit work, not decided here. This backend piece has no
+11. **Casual-write storage (Phase 5 unblock, 2026-07-02): write BOTH, live.** A casual match's
+    card/sub/sin-bin events from the watch write to a real timestamped event log (so the design's
+    match-log screen + sin-bin return-timer work identically to league) **and** increment the
+    existing `player_match` aggregate columns (`yellow_cards`/`red_cards`/etc.) **live, in the same
+    transaction as the event write** — mirroring the league ref's live-write pattern (mig 120/121),
+    not the casual "write once at full-time" pattern goals currently use. Rejected: aggregate-only
+    (loses the match-log/sin-bin-timer screens); event-log-only (never feeds the stats columns);
+    derive-at-confirm (would require modifying the existing end-of-match result-confirm RPC — a
+    sensitive, high-traffic path already relied on for payments/reliability — for no benefit; live
+    isolated RPCs are the smaller, lower-risk diff and don't touch it at all).
+    AUDIT FINDING (2026-07-02): `match_events.fixture_id` is a hard NOT NULL FK to `fixtures`
+    (league-only, two real `teams.id` rows home/away) — casual matches are ONE team's squad split
+    into scrimmage sides A/B (`player_match.team_assignment`), no second team row to FK to. So this
+    is a **parallel casual event table** (same shape as `match_events`, `team_assignment CHECK IN
+    ('A','B')` instead of a team FK, `match_id text → matches.id` instead of `fixture_id`), not a
+    loosened FK. Also found: `yellow_cards`/`red_cards`/`own_goals`/`clean_sheet`/`rating` on
+    `player_match` (Phase 3 columns) are currently 100% dormant — no RPC writes them today — so this
+    is their first-ever writer, zero regression risk on existing behaviour. This backend piece has no
     watch/device dependency (same reasoning as Phase 1/4) and can be built ahead of Xcode/App-Store
     approval.
 
