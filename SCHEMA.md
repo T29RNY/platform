@@ -185,9 +185,10 @@ balance_score numeric(4,2),         ← duplicate of predicted_confidence at con
 match_type text NOT NULL DEFAULT 'casual',  ← casual | competitive — Phase 0B (migration 051)
                                        sport-agnostic; sport identity lives on league_config.sport
 ref_player_id text FK → players.id,  ← mig 369 (watchOS): squad member assigned as this game's ref
-ref_token text UNIQUE,               ← mig 369: minted on first ref assignment; reserved driver for
-                                       Phase-5 casual ref-writes (drives nothing yet). Partial-unique
-                                       index matches_ref_token_uniq WHERE ref_token IS NOT NULL
+ref_token text UNIQUE,               ← mig 369: minted on first ref assignment; drives casual
+                                       ref-writes (mig 471 — Phase 5)
+ref_started_at timestamptz,          ← mig 471 (watchOS Phase 5): set by casual_ref_start_match,
+                                       mirrors fixtures.actual_kickoff_at
 created_at timestamptz
 ```
 **Group Balancer fields:** `predicted_winner`/`predicted_confidence`/`balance_score`
@@ -540,6 +541,7 @@ arrive in Phase 2+. All currently empty.
 - `fixtures` — competition_id, home_team_id, away_team_id (nullable = bye), week_number, scheduled_date, kickoff_time, playing_area_id, official_id, ref_token (per-fixture, unique). status (scheduled/allocated/in_progress/completed/postponed/void/walkover). home_score/away_score. `cup_tie_id` (Phase 11 mig 184) links a cup fixture back to its `cup_ties` bracket slot. **Knockout decider (Phase 11 mig 186):** `aet_home_score`/`aet_away_score` (extra-time aggregate, NULL if none), `pens_home_score`/`pens_away_score` (shootout), `ko_winner_id` (winner when a level tie is decided by ET/pens), `decided_by` ('regulation'|'extra_time'|'penalties'|'walkover'|'forfeit'; NULL for league/unfinished).
   - **Single-writer clock lock (Phase 0d, mig 374):** `clock_owner_id text` (device id holding the live clock; NULL = none), `clock_owner_kind text` ('phone'|'watch'|'ref' — drives the ⌚CTRL badge), `clock_owner_claimed_at timestamptz`, `clock_owner_expires_at timestamptz` (30s lease; a *live* owner = id set AND expires_at > now()). All nullable/additive. **Enforcement is DORMANT** — clock-write RPCs do not yet reject a non-owner; the lock backs the badge + device handoff, switched to hard-blocking only after the phone+watch concurrency rehearsal.
 - `match_events` — fixture_id, team_id, player_id, event_type (open text), minute, period (open text), sub_player_on_id, sub_player_off_id, recorded_by_token + recorded_by_type, synced_at (NULL = recorded offline), local_timestamp.
+- `casual_match_events` (mig 471, watchOS Phase 5) — the casual-match equivalent of `match_events`, NOT a reuse of it: `match_id text FK→matches.id ON DELETE CASCADE` (not `fixture_id`), `team_assignment text CHECK IN ('A','B')` (not a `teams.id` FK — a casual match is one team's squad split into scrimmage sides, no second team row to FK to), `player_id FK→players.id`, `event_type` (open text: goal|own_goal|yellow_card|red_card|substitution|sin_bin|period_change|kickoff), `minute`, `period` (open text), `sub_player_on_id`/`sub_player_off_id`, `duration int` (sin-bin minutes, NULL otherwise), `recorded_by_ref_token text NOT NULL`, `client_event_id uuid NOT NULL UNIQUE` (idempotency — no legacy rows so NOT NULL from day one, unlike `match_events.client_event_id` which is nullable for back-compat), `synced_at`, `local_timestamp`. RLS enabled, no public policies (RPC-only via the `casual_ref_*` functions — see RPCS.md).
 - `player_registrations` — player_id, competition_id, team_id, registration_number, status (active/suspended/ineligible), suspension_until/reason. UNIQUE(player_id, competition_id).
 
 ### Phase 1 — Operations layer
