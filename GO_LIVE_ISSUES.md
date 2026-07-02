@@ -41,6 +41,8 @@ this file.
 from here. Not a resolved issue with a pre-flight check yet — promote into a numbered section
 below only once it has a fix + a device-level check.*
 
+- 📥 **Nightly scripted QA cannot run to completion on a cloud/Linux session** — full detail in BUGS.md's captured inbox (same date). Two tooling bugs (`Skills/` vs `skills/` casing breaks every check-*.sh script on case-sensitive filesystems; `.claude/hooks/session-start.sh` hardcodes `/Users/tarny/platform`) plus one open process question (no Supabase credential provisioning for cloud/headless sessions, so the e2e regression net renders blank pages and produces no real signal). Net effect: `/qa-loop scripted` — the only scope meant to run unattended/scheduled per its own docs — cannot fully execute in a cloud session today without a manual per-run workaround. Pre-flight relevant because it means the automated safety net CLAUDE.md describes ("Cloud sessions are encouraged") is currently silently degraded outside the operator's own Mac · source: qa-loop 2026-07-02 (nightly scripted) · captured 2026-07-02 · _open_
+
 ---
 
 ## 0. EMAIL / TRANSACTIONAL (Resend) — Phase 9 Cycle 9.1
