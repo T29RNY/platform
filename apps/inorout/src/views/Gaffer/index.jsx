@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { askGafferQuestion } from "@platform/core/storage/supabase.js";
 
-// Ask the Gaffer — admin Q&A panel.
-// Replaces the previous player-facing app-help chatbot (archived as _archived_chatbot.jsx).
-// Surfaces other than 'qa' use <GafferCard surface=... /> inline elsewhere.
+// Ask the Gaffer — message area + composer, mounted inside GafferLauncher's
+// chat sheet (GafferLauncher.jsx owns the scrim/sheet/header chrome per
+// GAFFER_UI_HANDOFF.md PR #1). This file owns only the conversation logic:
+// state, handleSend, error-message mapping — unchanged from the pre-launcher
+// shell this replaces.
 //
 // Gated by ENABLE_GAFFER in App.jsx — not rendered by default until per-team canary.
+
+const STARTER_PROMPTS = [
+  "Who's been most reliable this month?",
+  "How much do we have outstanding?",
+  "Who's in this week?",
+];
 
 export default function Gaffer({ adminToken, teamName }) {
   const [messages, setMessages] = useState([]);  // [{ role: 'user'|'assistant', content }]
@@ -20,8 +28,7 @@ export default function Gaffer({ adminToken, teamName }) {
     }
   }, [messages, sending]);
 
-  const handleSend = async () => {
-    const q = input.trim();
+  const sendQuestion = async (q) => {
     if (!q || isSendingRef.current) return;
     isSendingRef.current = true;
     setSending(true);
@@ -54,6 +61,8 @@ export default function Gaffer({ adminToken, teamName }) {
     }
   };
 
+  const handleSend = () => sendQuestion(input.trim());
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -63,21 +72,19 @@ export default function Gaffer({ adminToken, teamName }) {
 
   return (
     <div style={containerStyle}>
-      <div style={headerStyle}>
-        <div style={titleStyle}>Ask the Gaffer</div>
-        <div style={subtitleStyle}>
-          Your AI assistant for {teamName || "your team"}. Ask anything about attendance, scoring, payments, or this week's squad.
-        </div>
-      </div>
-
       <div ref={scrollRef} style={messagesStyle}>
         {messages.length === 0 && (
-          <div style={emptyStyle}>
-            Try asking: "Who's been most reliable this month?" or "How much do we have outstanding?"
+          <div className="gaffer-message" style={greetingBubbleStyle}>
+            Ask me anything about {teamName || "your team"} — attendance, payments,
+            or this week's squad.
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} style={m.role === "user" ? userBubbleStyle : assistantBubbleStyle}>
+          <div
+            key={i}
+            className="gaffer-message"
+            style={m.role === "user" ? userBubbleStyle : assistantBubbleStyle}
+          >
             {m.content}
           </div>
         ))}
@@ -88,18 +95,39 @@ export default function Gaffer({ adminToken, teamName }) {
         )}
       </div>
 
+      {messages.length === 0 && (
+        <div style={chipsRowStyle}>
+          {STARTER_PROMPTS.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => sendQuestion(prompt)}
+              disabled={sending}
+              style={chipStyle}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div style={composerStyle}>
-        <textarea
+        <input
+          type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask the Gaffer…"
-          rows={2}
+          placeholder="Message Gaffer…"
           style={inputStyle}
           disabled={sending}
         />
-        <button onClick={handleSend} disabled={sending || !input.trim()} style={sendButtonStyle}>
-          Send
+        <button
+          onClick={handleSend}
+          disabled={sending || !input.trim()}
+          aria-label="Send message to Gaffer"
+          style={sendButtonStyle}
+        >
+          <span style={playTriangleStyle} />
         </button>
       </div>
     </div>
@@ -109,101 +137,118 @@ export default function Gaffer({ adminToken, teamName }) {
 const containerStyle = {
   display: "flex",
   flexDirection: "column",
-  height: "100%",
-  background: "var(--bg)",
-  fontFamily: "var(--font-body)",
-};
-
-const headerStyle = {
-  padding: "16px 16px 12px",
-  borderBottom: "1px solid var(--line)",
-};
-
-const titleStyle = {
-  fontFamily: "var(--font-display)",
-  fontSize: 22,
-  letterSpacing: 1.5,
-  color: "var(--t1)",
-};
-
-const subtitleStyle = {
-  fontSize: 13,
-  color: "var(--t3)",
-  marginTop: 4,
-  lineHeight: 1.4,
+  flex: 1,
+  minHeight: 0,
+  fontFamily: "var(--gaffer-font-body)",
 };
 
 const messagesStyle = {
   flex: 1,
+  minHeight: 0,
   overflowY: "auto",
-  padding: 16,
   display: "flex",
   flexDirection: "column",
-  gap: 10,
+  gap: 12,
+  paddingTop: 16,
 };
 
-const emptyStyle = {
-  fontSize: 13,
-  color: "var(--t3)",
-  fontStyle: "italic",
-  textAlign: "center",
-  marginTop: 40,
-  padding: "0 24px",
-  lineHeight: 1.5,
+const greetingBubbleStyle = {
+  maxWidth: "84%",
+  alignSelf: "flex-start",
+  background: "var(--gaffer-card)",
+  border: "1px solid var(--gaffer-card-border)",
+  color: "var(--gaffer-t1)",
+  padding: "12px 14px",
+  borderRadius: "4px 16px 16px 16px",
+  fontSize: 14,
+  lineHeight: 1.45,
 };
 
 const userBubbleStyle = {
   alignSelf: "flex-end",
-  maxWidth: "85%",
-  background: "var(--bg2)",
-  color: "var(--t1)",
+  maxWidth: "84%",
+  background: "var(--gaffer-accent)",
+  color: "var(--gaffer-accent-ink)",
   padding: "10px 14px",
-  borderRadius: 14,
+  borderRadius: "16px 16px 4px 16px",
   fontSize: 14,
-  lineHeight: 1.5,
+  lineHeight: 1.45,
   whiteSpace: "pre-wrap",
+  fontWeight: 500,
 };
 
 const assistantBubbleStyle = {
   alignSelf: "flex-start",
-  maxWidth: "85%",
-  background: "transparent",
-  color: "var(--t1)",
-  padding: "10px 0",
-  fontSize: 15,
-  lineHeight: 1.55,
+  maxWidth: "84%",
+  background: "var(--gaffer-card)",
+  border: "1px solid var(--gaffer-card-border)",
+  color: "var(--gaffer-t1)",
+  padding: "12px 14px",
+  borderRadius: "4px 16px 16px 16px",
+  fontSize: 14,
+  lineHeight: 1.45,
   whiteSpace: "pre-wrap",
 };
 
-const composerStyle = {
-  borderTop: "1px solid var(--line)",
-  padding: 12,
+const chipsRowStyle = {
   display: "flex",
+  flexWrap: "wrap",
   gap: 8,
-  alignItems: "flex-end",
+  paddingTop: 12,
+};
+
+const chipStyle = {
+  fontSize: 13,
+  fontWeight: 500,
+  color: "var(--gaffer-t1)",
+  background: "var(--gaffer-chip-bg)",
+  border: "1px solid var(--gaffer-chip-border)",
+  padding: "9px 14px",
+  borderRadius: "var(--gaffer-chip-radius)",
+  cursor: "pointer",
+  fontFamily: "var(--gaffer-font-body)",
+};
+
+const composerStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 9,
+  padding: "12px 0 4px",
 };
 
 const inputStyle = {
   flex: 1,
-  background: "var(--bg2)",
-  border: "1px solid var(--line)",
-  borderRadius: 10,
-  padding: "10px 12px",
-  fontSize: 15,
-  color: "var(--t1)",
-  fontFamily: "var(--font-body)",
-  resize: "none",
+  display: "flex",
+  alignItems: "center",
+  height: 44,
+  padding: "0 16px",
+  borderRadius: "var(--gaffer-field-radius)",
+  background: "var(--gaffer-field-bg)",
+  border: "1px solid var(--gaffer-chip-border)",
+  fontSize: 13.5,
+  color: "var(--gaffer-t1)",
+  fontFamily: "var(--gaffer-font-body)",
   outline: "none",
 };
 
 const sendButtonStyle = {
-  background: "var(--accent)",
-  color: "var(--bg)",
+  width: 44,
+  height: 44,
+  borderRadius: "50%",
+  background: "var(--gaffer-accent)",
   border: "none",
-  borderRadius: 10,
-  padding: "10px 18px",
-  fontSize: 14,
-  fontFamily: "var(--font-display)",
-  letterSpacing: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   cursor: "pointer",
+  flexShrink: 0,
+};
+
+const playTriangleStyle = {
+  width: 0,
+  height: 0,
+  borderTop: "6px solid transparent",
+  borderBottom: "6px solid transparent",
+  borderLeft: "10px solid var(--gaffer-accent-ink)",
+  marginLeft: 3,
 };
