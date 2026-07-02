@@ -44,5 +44,10 @@ echo "  Free-text/unnumbered migration names (auto-generated fixes, hotfixes wit
 echo "  a numeric prefix) are common and NOT drift by themselves — only flag a"
 echo "  numbered-convention name with no local match."
 echo ""
+echo "  Two local files sharing the same leading number (e.g. two separate 461_*.sql"
+echo "  files) is a known, harmless first-come-number collision documented in"
+echo "  CLAUDE.md's Cloud Session Discipline section — NOT drift. Match by exact"
+echo "  name, not by number alone."
+echo ""
 
 exit 0
