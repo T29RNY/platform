@@ -2,7 +2,7 @@
 
 DROP FUNCTION IF EXISTS public.casual_ref_confirm_full_time(text);
 DROP FUNCTION IF EXISTS public.casual_ref_undo_event(text,uuid);
-DROP FUNCTION IF EXISTS public.casual_ref_set_period(text,uuid,timestamptz);
+DROP FUNCTION IF EXISTS public.casual_ref_set_period(text,text,uuid,timestamptz);
 DROP FUNCTION IF EXISTS public.casual_ref_record_sin_bin(text,text,integer,text,integer,uuid,timestamptz);
 DROP FUNCTION IF EXISTS public.casual_ref_record_substitution(text,text,text,integer,text,uuid,timestamptz);
 DROP FUNCTION IF EXISTS public.casual_ref_record_card(text,text,integer,text,text,uuid,timestamptz);
