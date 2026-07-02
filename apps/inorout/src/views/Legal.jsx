@@ -136,6 +136,11 @@ export default function Legal() {
           <h2 style={S.h2}>Push Notifications</h2>
           <p style={S.p}>If you enable notifications, we store a notification token for your device so we can send reminders (for example, when availability is needed or a game is on). You can turn notifications off at any time in your device or browser settings, and we will stop sending them.</p>
 
+          <h2 style={S.h2}>Apple Health Data (iOS app only, optional)</h2>
+          <p style={S.p}>If you use the {COMPANY} iOS app on Apple Watch or iPhone and choose to attach a workout to a game, we read a summary of that workout from Apple Health — duration, active energy, distance, average and maximum heart rate, and (for outdoor games) your route, only for the specific workout you pick within the game's time window. We never access any other Health data, and we never read data continuously or in the background — access happens only when you actively attach a workout.</p>
+          <p style={S.p}>We store a summary of that workout against your account so you (and, if you choose, your teammates) can see your match fitness stats. We do not store your raw Apple Health records, do not sync this data to iCloud, do not use it for advertising, and do not sell or share it with any third party. This is special category health data under UK GDPR, so we only process it with your explicit consent — you choose whether to attach a workout each time, and whether to share your fitness summaries with teammates via a toggle in your profile (default off). This feature is not available to users under 18.</p>
+          <p style={S.p}>You can delete this data at any time by deleting your account on your profile screen, which permanently removes your stored workout summaries along with the rest of your personal data.</p>
+
           <h2 style={S.h2}>Service Providers</h2>
           <p style={S.p}>We use trusted providers to run the service. Each only processes data needed for its role:</p>
           <ul style={S.ul}>
