@@ -1,6 +1,6 @@
 ---
 name: babysit-prs
-description: Read-only open-PR triage sweep for this monorepo. Lists every open PR, reads its CI/deploy status, maps it to its deploying app, classifies merge-readiness (excludes the platform-ref false alarm), and prints a ranked plain-English digest. NEVER merges, closes, or edits a PR — merge stays a human action. Use when the operator says "babysit prs", "check the open PRs", "what's mergeable", "PR sweep", or wants the open-PR queue triaged. Designed to run via `/loop 30m /babysit-prs` or a daily cloud trigger; pairs with the Nightly QA trigger whose auto-fix PRs this sweep surfaces.
+description: Read-only open-PR triage sweep for this monorepo. Lists every open PR, reads its CI/deploy status, maps it to its deploying app, classifies merge-readiness (excludes the platform-ref false alarm), flags cloud-session doc-collision risk (two open PRs both touching BUGS.md/RPCS.md/CONTEXT.md/DECISIONS.md), and prints a ranked plain-English digest. NEVER merges, closes, or edits a PR — merge stays a human action. Use when the operator says "babysit prs", "check the open PRs", "what's mergeable", "PR sweep", or wants the open-PR queue triaged. Designed to run via `/loop 30m /babysit-prs` or a daily cloud trigger; pairs with the Nightly QA trigger whose auto-fix PRs this sweep surfaces.
 ---
 
 # babysit-prs — read-only open-PR triage sweep
@@ -19,7 +19,8 @@ tempted to "just merge the green one", stop: that is out of scope for this skill
 
 The only commands it runs are read-only and pre-approved in the committed
 `.claude/settings.json`:
-`gh pr list *`, `gh pr view *`, `gh pr checks *`, `gh pr diff *`.
+`gh pr list *`, `gh pr view *`, `gh pr checks *`, `gh pr diff *`,
+`bash skills/scripts/check-doc-collisions.sh`.
 
 ## The sweep
 
@@ -49,19 +50,36 @@ The only commands it runs are read-only and pre-approved in the committed
    - 🚧 **DRAFT** — marked draft.
    - 🧟 **STALE** — open > 3 days with no recent activity.
 
-4. **Print a plain-English digest**, ranked **MERGE-READY first**, one line per PR:
+4. **Check cloud-session doc-collision risk** with
+   `bash skills/scripts/check-doc-collisions.sh`. Two open PRs that both touch
+   `BUGS.md`, `RPCS.md`, `CONTEXT.md`, or `DECISIONS.md` will conflict on merge —
+   whichever lands first wins, the second needs manual resolution (the doc-collision
+   half of the session-70 duplicate-207 incident; mirrors the migration-number
+   collision guard in `check-next-migration.sh`). Exit 1 means the script found one or
+   more colliding pairs — carry every reported pair into the digest verbatim.
+
+5. **Print a plain-English digest**, ranked **MERGE-READY first**, one line per PR:
    ```
    #<n> <title> — <bucket> — <app> — <age>
    ```
+   If step 4 found any collision risk, add it as its own digest section **above** the
+   tally, e.g.:
+   ```
+   ⚠️ DOC-COLLISION RISK: #101 and #102 both touch RPCS.md — sequence the merge
+      (land one, then rebase/resolve the other before merging it).
+   ```
    End with a one-line tally:
    ```
-   BABYSIT-PRS [date]: N open · N merge-ready · N ci-running · N failing · N draft · N stale
+   BABYSIT-PRS [date]: N open · N merge-ready · N ci-running · N failing · N draft · N stale · N doc-collision-risk
    ```
    For each MERGE-READY PR, you may add a one-line ship-safety note (e.g. "docs-only,
    DARK-IN-PROD" vs "touches apps/inorout — SHIPS-LIVE, needs proof") so the human can
-   merge on a glance — but **do not merge**.
+   merge on a glance — but **do not merge**. If a MERGE-READY PR is also flagged in a
+   doc-collision pair, say so on its line (e.g. "MERGE-READY but collides with #102 on
+   RPCS.md — merge this one first, then resolve #102") so the operator doesn't merge
+   both blind.
 
-5. **Recommend, don't act.** The output is a recommendation the operator reads and acts
+6. **Recommend, don't act.** The output is a recommendation the operator reads and acts
    on. The skill's job ends at the digest.
 
 ## Running it
