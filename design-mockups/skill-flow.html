@@ -120,7 +120,7 @@
 <body>
 <div class="wrap-outer">
   <h1>In or Out — Skills &amp; Loops Flow</h1>
-  <div class="sub">All invocable skills · subagents · deterministic gates · hooks · governance · handoffs · human gates — created 2026-07-01, updated 2026-07-02 (+ go-live-check, /wrap, nightly automation suite, /faq-sync, /error-triage)</div>
+  <div class="sub">All invocable skills · subagents · deterministic gates · hooks · governance · handoffs · human gates — created 2026-07-01, updated 2026-07-02 (+ go-live-check, /wrap, nightly automation suite, /faq-sync, /error-triage, /babysit-prs doc-collision guard)</div>
 
   <div class="grid">
     <!-- ============ MAIN COLUMN ============ -->
@@ -280,9 +280,9 @@
         <h3 style="color:var(--pr)">⚖︎ PR Triage — standing</h3>
         <div class="box skill" style="border-color:#d6c7f0">
           <span class="nm" style="color:var(--pr)"><code>/babysit-prs</code></span>
-          <div class="dc">lists open PRs → reads CI/deploy → maps each to its app → classifies merge-readiness (excludes the platform-ref false alarm) → ranked digest.</div>
+          <div class="dc">lists open PRs → reads CI/deploy → maps each to its app → classifies merge-readiness (excludes the platform-ref false alarm) → flags cloud-session doc-collision risk (two open PRs both touching BUGS.md/RPCS.md/CONTEXT.md/DECISIONS.md) → ranked digest.</div>
         </div>
-        <div class="note"><b>NEVER merges</b> — merge stays human. Run via <code>/loop 30m /babysit-prs</code> or a daily cloud trigger.</div>
+        <div class="note"><b>NEVER merges</b> — merge stays human. Run via <code>/loop 30m /babysit-prs</code> or a daily cloud trigger. Doc-collision flag mirrors the existing migration-number collision guard (<code>check-next-migration.sh</code>).</div>
       </div>
 
       <!-- FAQ Sync — the one self-merging skill -->
@@ -414,7 +414,7 @@
       <span class="pill">RPC return-shape → same-commit mapper sync</span>
       <span class="pill">migration source lands with the apply</span>
       <span class="pill">native change → real-iPhone test before commit</span>
-      <span class="pill">one cloud session at a time</span>
+      <span class="pill">one cloud session at a time — doc-half now flagged by /babysit-prs, migration-half by next-migration check</span>
       <span class="pill">FAQ content-only diff = sole auto-merge exception (2026-07-02)</span>
     </div>
     <div class="gov-note">Enforced deterministically by the 4 hooks + <code>skills/scripts/check-*.sh</code> (build · hygiene · rpc-security · rpc-columns · rpc-consumers · schema · mapper-sync · realtime-subscriber · audit-events · ev-leak · live-config · next-migration · faq-content-only). The 15 HARD RULES in CLAUDE.md are the contract; the scripts make them literal.</div>
