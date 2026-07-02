@@ -104,7 +104,7 @@ function persistPosition(px, py, collapsed) {
   }
 }
 
-export default function GafferLauncher({ adminToken, teamName, squad, schedule }) {
+export default function GafferLauncher({ adminToken, teamName, squad, schedule, onNavigate }) {
   const [mode, setMode] = useState("idle"); // idle | nudge | dragging
   const [pos, setPos] = useState(loadPosition);
   const [collapsed, setCollapsed] = useState(() => loadPosition().collapsed);
@@ -112,6 +112,10 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState(true);
   const [banter, setBanter] = useState("");
+  // Captured at the moment a live nudge is tapped open, so the chat sheet
+  // can seed its first message with that nudge's banter + action chip
+  // (GAFFER_ACTION_FLOW_HANDOFF.md PR-B). Null for an ordinary tap-to-open.
+  const [pendingNudge, setPendingNudge] = useState(null);
 
   const launcherRef = useRef(null);
   const dragRef = useRef(null);
@@ -202,6 +206,9 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
         setCollapsed(false);
         persistPosition(pos.px, pos.py, false);
       }
+      // Capture the live nudge (if any) before mode flips back to "idle"
+      // below, so the chat sheet knows to seed its first message with it.
+      setPendingNudge(mode === "nudge" ? { key: nudgedKeyRef.current, banter } : null);
       setOpen(true);
       setMode("idle");
       return;
@@ -218,6 +225,13 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
   const collapseNow = () => {
     setCollapsed(true);
     persistPosition(pos.px, pos.py, true);
+  };
+
+  // "Show me" is inherently reversible (zero mutation) — no confirm step,
+  // just navigate and close the sheet (GAFFER_ACTION_FLOW_HANDOFF.md PR-B).
+  const handleShowMe = (route) => {
+    onNavigate?.(route);
+    setOpen(false);
   };
 
   const nudge = mode === "nudge" && !open;
@@ -683,7 +697,7 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
                 </button>
               </div>
 
-              <Gaffer adminToken={adminToken} teamName={teamName} />
+              <Gaffer adminToken={adminToken} teamName={teamName} pendingNudge={pendingNudge} onShowMe={handleShowMe} />
             </div>
           </div>
         </>
