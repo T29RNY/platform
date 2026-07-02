@@ -54,10 +54,10 @@ import useRequireAuth from "./hooks/useRequireAuth.js";
 import Legal         from "./views/Legal.jsx";
 import FAQScreen     from "./views/FAQScreen.jsx";
 import PWAWelcome   from "./views/PWAWelcome.jsx";
-import Gaffer        from "./views/Gaffer/index.jsx";
+import GafferLauncher from "./views/Gaffer/GafferLauncher.jsx";
 import SquadReady    from "./onboarding/steps/SquadReady.jsx";
 
-const FONT_LINK = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap";
+const FONT_LINK = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono:wght@700&display=swap";
 
 const DEFAULT_SCHEDULE = {
   dayOfWeek:"Tuesday", kickoff:"19:00", venue:"", opensDay:"Wednesday",
@@ -1938,7 +1938,7 @@ export default function App() {
         />
       )}
       {ENABLE_GAFFER && isAdmin && (
-        <Gaffer adminToken={route.token} teamName={settings?.groupName} />
+        <GafferLauncher adminToken={route.token} teamName={settings?.groupName} />
       )}
       {showEmailCapture && (
         <EmailCaptureOverlay conflictMessage={linkConflict}/>

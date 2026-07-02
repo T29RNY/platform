@@ -1,0 +1,118 @@
+/* gaffer-tokens.css — SCOPED token island for the Gaffer launcher + chat sheet.
+   Literal values come from design_handoff_gaffer/README.md (pixel-true amber
+   dark-mode spec) and deliberately do NOT map onto the app's real tokens.css
+   (--gold/--bg/--s1 etc, Bebas Neue + DM Sans) — see GAFFER_UI_HANDOFF.md
+   Locked Decision #2. Every token lives under .gaffer-root so it never leaks
+   into the rest of the app; component code references var(--gaffer-*) only,
+   never a literal hex in JSX.
+
+   Dark-mode only for v1 (Locked Decision #4). The mock's light-mode values are
+   kept here, commented, so a future light-mode pass is a token flip, not a
+   rebuild from the spec. */
+
+.gaffer-root {
+  --gaffer-font-body: 'Hanken Grotesk', system-ui, sans-serif;
+  --gaffer-font-mono: 'Space Mono', monospace;
+
+  /* Accent (amber) */
+  --gaffer-accent: #f5a623;
+  --gaffer-accent-deep: #c9851e;
+  --gaffer-accent-ink: #3a2606;
+  --gaffer-q-color: #fff5e6;
+  --gaffer-q-shadow: 0 0 8px rgba(255,224,160,.95), 0 0 18px rgba(245,166,35,.85), 0 0 30px rgba(224,150,30,.6);
+  --gaffer-orb-shadow: inset 0 1px 1px rgba(255,255,255,.22), inset 0 -8px 16px rgba(0,0,0,.4),
+    0 0 0 1px rgba(245,166,35,.3), 0 10px 24px rgba(0,0,0,.45), 0 0 28px rgba(224,150,30,.28);
+  --gaffer-orb-bg: radial-gradient(130% 130% at 32% 24%, rgba(70,110,92,.16), rgba(10,16,13,.28) 80%);
+  --gaffer-core-glow: radial-gradient(circle, rgba(255,212,140,.6), rgba(224,150,30,0) 70%);
+
+  /* Neutrals (dark) */
+  --gaffer-t1: #f2f5f1;
+  --gaffer-t2: rgba(255,255,255,.5);
+  --gaffer-t3: rgba(255,255,255,.32);
+  --gaffer-card: rgba(255,255,255,.04);
+  --gaffer-card-border: rgba(255,255,255,.06);
+  --gaffer-panel-bg: rgba(18,24,21,.74);
+  --gaffer-panel-border: rgba(255,255,255,.1);
+  --gaffer-field-bg: rgba(255,255,255,.06);
+  --gaffer-chip-bg: rgba(255,255,255,.06);
+  --gaffer-chip-border: rgba(255,255,255,.08);
+  --gaffer-bubble-bg: #1a201d;
+  --gaffer-bubble-text: #eef5f0;
+  --gaffer-scrim: rgba(4,7,6,.45);
+
+  /* Sizing / radius */
+  --gaffer-orb-size: 68px;
+  --gaffer-dot-size: 13px;
+  --gaffer-sheet-radius: 28px 28px 33px 33px;
+  --gaffer-chip-radius: 20px;
+  --gaffer-field-radius: 24px;
+}
+
+/* ── Light mode (Locked Decision #4 — NOT shipped in v1, kept for a future flip) ──
+.gaffer-root[data-gaffer-theme="light"] {
+  --gaffer-t1: #16231d;
+  --gaffer-t2: rgba(20,34,27,.58);
+  --gaffer-t3: rgba(20,34,27,.4);
+  --gaffer-card: rgba(255,255,255,.72);
+  --gaffer-card-border: rgba(20,44,32,.1);
+  --gaffer-panel-bg: rgba(244,247,244,.82);
+  --gaffer-panel-border: rgba(20,44,32,.12);
+  --gaffer-field-bg: rgba(20,44,32,.06);
+  --gaffer-chip-bg: rgba(20,70,48,.08);
+  --gaffer-chip-border: rgba(20,44,32,.1);
+  --gaffer-orb-bg: radial-gradient(125% 125% at 30% 22%, rgba(255,208,116,.94), rgba(244,158,30,.92) 46%, rgba(206,118,18,.94) 86%);
+  --gaffer-orb-shadow: 0 0 0 1px rgba(214,128,20,.55), 0 10px 22px rgba(150,90,20,.34), 0 0 24px rgba(255,182,62,.85), 0 0 52px rgba(255,170,52,.45);
+  --gaffer-q-color: #fffaf0;
+  --gaffer-q-shadow: 0 1px 2px rgba(110,55,0,.55), 0 0 10px rgba(255,226,150,.7);
+}
+*/
+
+@keyframes gafferFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes gafferCore { 0%, 100% { transform: translate(-50%, -50%) scale(.84); opacity: .78; } 50% { transform: translate(-50%, -50%) scale(1.12); opacity: 1; } }
+@keyframes gafferGlow { 0%, 100% { opacity: .82; } 50% { opacity: 1; } }
+@keyframes gafferQSpin { 0%, 84% { transform: translate(-50%, -56%) rotate(0deg); } 100% { transform: translate(-50%, -56%) rotate(360deg); } }
+@keyframes gafferQTwirl { 0% { transform: translate(-50%, -56%) rotate(0deg) scale(1); } 45% { transform: translate(-50%, -56%) rotate(360deg) scale(1.16); } 100% { transform: translate(-50%, -56%) rotate(720deg) scale(1); } }
+@keyframes gafferSpin { to { transform: rotate(360deg); } }
+@keyframes gafferRipple { 0% { transform: translate(-50%, -50%) scale(.5); opacity: .5; } 100% { transform: translate(-50%, -50%) scale(2.05); opacity: 0; } }
+@keyframes gafferDot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: .6; } }
+@keyframes gafferPop { 0% { transform: translateY(8px) scale(.92); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes gafferHint { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes gafferSheet { 0% { transform: translateY(112%); } 100% { transform: translateY(0); } }
+@keyframes gafferScrim { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes gafferRise { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+
+.gaffer-orb-body { animation: gafferFloat 5s ease-in-out infinite; }
+.gaffer-orb-core { animation: gafferCore 3.4s ease-in-out infinite; }
+.gaffer-orb-caustic { animation: gafferSpin 7s linear infinite; }
+.gaffer-orb-q-idle { animation: gafferGlow 3.4s ease-in-out infinite, gafferQSpin 9s ease-in-out infinite; }
+.gaffer-orb-q-nudge { animation: gafferGlow 3.4s ease-in-out infinite, gafferQTwirl 1.1s cubic-bezier(.5,0,.2,1); }
+.gaffer-orb-ripple { animation: gafferRipple 2s ease-out infinite; }
+.gaffer-orb-ripple-once { animation: gafferRipple 1.7s ease-out; }
+.gaffer-orb-dot { animation: gafferDot 1.5s ease-in-out infinite; }
+.gaffer-banter { animation: gafferPop .35s ease-out; }
+.gaffer-hint { animation: gafferHint 2.4s ease-in-out infinite; }
+.gaffer-scrim { animation: gafferScrim .3s ease-out; }
+.gaffer-sheet { animation: gafferSheet .42s cubic-bezier(.2,.9,.3,1); }
+.gaffer-message { animation: gafferRise .4s ease-out; }
+
+/* prefers-reduced-motion (README §Interactions): kill ambient float/spin/twirl/
+   breathing glow, keep a static orb + a short, non-animated panel transition. */
+@media (prefers-reduced-motion: reduce) {
+  .gaffer-orb-body,
+  .gaffer-orb-core,
+  .gaffer-orb-caustic,
+  .gaffer-orb-q-idle,
+  .gaffer-orb-q-nudge,
+  .gaffer-orb-ripple,
+  .gaffer-orb-ripple-once,
+  .gaffer-orb-dot,
+  .gaffer-hint {
+    animation: none !important;
+  }
+  .gaffer-banter,
+  .gaffer-scrim,
+  .gaffer-sheet,
+  .gaffer-message {
+    animation-duration: .01ms !important;
+  }
+}
