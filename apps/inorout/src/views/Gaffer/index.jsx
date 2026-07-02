@@ -48,10 +48,26 @@ function confirmErrorCopy(err) {
   if (err?.message === "no_responders_to_chase") {
     return "Looks like everyone's replied now — nothing to chase.";
   }
+  if (err?.message === "no_one_owes") {
+    return "Looks like everyone's settled up now — nothing to chase.";
+  }
+  if (err?.message === "no_reserves_to_notify") {
+    return "No reserves on the squad right now.";
+  }
+  if (err?.message === "squad_already_full") {
+    return "Squad's full now — no need to notify reserves.";
+  }
   if (err?.message === "gaffer_action_already_resolved") {
     return "That's already been handled.";
   }
   return "Couldn't send that just now — try again in a moment.";
+}
+
+// The "Done — ..." success message verb phrase, per action.
+function doneCopy(actionKey) {
+  if (actionKey === "casual.chase_payment") return "sent a payment reminder to";
+  if (actionKey === "casual.notify_reserves") return "let the reserves know:";
+  return "sent a nudge to"; // casual.chase_no_response
 }
 
 export default function Gaffer({ adminToken, teamName, teamId, schedule, pendingNudge, onShowMe }) {
@@ -172,30 +188,35 @@ export default function Gaffer({ adminToken, teamName, teamId, schedule, pending
     setActiveConfirm(c => ({ ...c, status: "sending" }));
     try {
       const result = await gafferConfirmAction(adminToken, gafferActionId, actionKey);
-      // Fire the actual notification — identical mechanism to
-      // chaseNoResponders() in AdminView/index.jsx, now reachable through
-      // Gaffer only via the RPC above (auth + audit + idempotency already
-      // done — Locked Decision #2, the client never calls this directly for
-      // a Gaffer-initiated action).
-      const gameDate = result.game_date || new Date().toISOString().split("T")[0];
-      fetch("/api/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "chaseNoResp",
-          teamId,
-          playerIds: result.player_ids,
-          payload: {
-            title: "In or Out ⚽",
-            body: `⏰ Are you in or out for ${schedule?.dayOfWeek || "the game"}? Quick reply needed!`,
-            icon: "/icons/icon-192.png",
-          },
-          gameDate,
-        }),
-      }).catch((err) => console.error("[Gaffer] notify send failed:", err?.message));
+      // casual.chase_no_response (PR-C) leaves the send to the client —
+      // identical mechanism to chaseNoResponders() in AdminView/index.jsx,
+      // now reachable through Gaffer only via the RPC above (auth + audit +
+      // idempotency already done — Locked Decision #2). casual.chase_payment
+      // and casual.notify_reserves (PR-D) dispatch the push themselves
+      // inside the RPC (result.server_sent === true) — no pre-existing
+      // client call to mirror, and net.http_post gets it done in the same
+      // transaction as the rate-limit bookkeeping (see migration 472).
+      if (!result.server_sent) {
+        const gameDate = result.game_date || new Date().toISOString().split("T")[0];
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "chaseNoResp",
+            teamId,
+            playerIds: result.player_ids,
+            payload: {
+              title: "In or Out ⚽",
+              body: `⏰ Are you in or out for ${schedule?.dayOfWeek || "the game"}? Quick reply needed!`,
+              icon: "/icons/icon-192.png",
+            },
+            gameDate,
+          }),
+        }).catch((err) => console.error("[Gaffer] notify send failed:", err?.message));
+      }
 
       const names = players.map(p => p.name).join(", ") || "the squad";
-      setMessages(prev => [...prev, { role: "assistant", content: `Done — sent a nudge to ${names}.` }]);
+      setMessages(prev => [...prev, { role: "assistant", content: `Done — ${doneCopy(actionKey)} ${names}.` }]);
       setActiveConfirm(null);
     } catch (err) {
       console.error("[Gaffer] confirm action failed:", err?.message);
