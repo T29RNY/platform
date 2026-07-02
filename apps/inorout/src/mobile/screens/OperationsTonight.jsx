@@ -663,8 +663,12 @@ function FlagSafeguardingSheet({ inc, venueId, onClose, onDone, toast }) {
       await onDone();
     } catch (e) {
       const already = String(e?.message || "").includes("already_flagged");
-      toast?.({ icon: "alert", text: already ? "Already flagged for safeguarding" : "Couldn't flag — try again" });
-      setBusy(false);
+      toast?.({ icon: already ? "shield" : "alert", text: already ? "Already flagged for safeguarding" : "Couldn't flag — try again" });
+      // already_flagged means it IS flagged server-side (e.g. from another device) —
+      // evict it from this view too by reloading + closing; only a genuine error
+      // keeps the sheet open to retry.
+      if (already) await onDone();
+      else setBusy(false);
     }
   };
   return (
