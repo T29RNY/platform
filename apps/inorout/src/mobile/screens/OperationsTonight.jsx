@@ -21,6 +21,7 @@ import {
   venueGetState, venueResolveIncident,
   venueApproveTeamRegistration, venueRejectTeamRegistration,
   venueTriageIncident, venueEscalateIncident, venueListAssignableStaff,
+  venueFlagSafeguarding,
 } from "@platform/core";
 import MIcon from "../icons.jsx";
 import MobileSheet from "../MobileSheet.jsx";
@@ -113,6 +114,7 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
   const [resolving, setResolving] = useState(null); // open incident object or null
   const [assigning, setAssigning] = useState(null); // incident being assigned, or null
   const [escalating, setEscalating] = useState(null); // incident being escalated, or null
+  const [flagging, setFlagging] = useState(null);   // incident being flagged for safeguarding, or null
   const [staff, setStaff] = useState(null);         // cached assignable staff (lazy)
   const [ackBusy, setAckBusy] = useState({});       // incident_id → bool
 
@@ -316,6 +318,16 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
                   {inc.reported_by_name ? ` · by ${inc.reported_by_name}` : ""}
                 </div>
               </div>
+              {/* Card-level safeguarding flag — a shield icon-button, distinct from
+                  the triage row; opens a confirm sheet, never a direct write. */}
+              <button onClick={() => setFlagging(inc)} aria-label="Flag as safeguarding"
+                title="Flag as a child-protection / welfare concern" style={{
+                  width: 34, height: 34, borderRadius: 10, flex: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "var(--s3)", border: "1px solid var(--hair2)",
+                }}>
+                <MIcon name="shield" size={17} color="var(--ink2)" />
+              </button>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 11 }}>
               <TriageAction icon="check" label={acked ? "Ack'd" : "Ack"} on={acked} busy={!!ackBusy[inc.id]} onClick={() => acknowledge(inc)} />
@@ -386,6 +398,15 @@ export default function OperationsTonight({ venueId, venueName, toast }) {
           venueId={venueId}
           onClose={() => setEscalating(null)}
           onDone={async () => { setEscalating(null); await load(); }}
+          toast={toast}
+        />
+      )}
+      {flagging && (
+        <FlagSafeguardingSheet
+          inc={flagging}
+          venueId={venueId}
+          onClose={() => setFlagging(null)}
+          onDone={async () => { setFlagging(null); await load(); }}
           toast={toast}
         />
       )}
@@ -621,6 +642,62 @@ function EscalateSheet({ inc, venueId, onClose, onDone, toast }) {
           width: "100%", minHeight: 80, padding: "12px 14px", borderRadius: 14, resize: "none", lineHeight: 1.45,
           background: "var(--s2)", border: "1px solid var(--hair)", color: "var(--ink)", fontFamily: "var(--m-font)", fontSize: 14, boxSizing: "border-box",
         }} />
+    </MobileSheet>
+  );
+}
+
+// Flag-safeguarding sheet — one-tap route of a welfare concern to the venue's
+// designated leads. Reuses venueFlagSafeguarding (mig 467): ANY venue caller may
+// flag; it atomically evicts the incident from the ops queue. Content-free toast
+// on success (the concern's detail never appears in the confirmation). Mobile
+// Lead-review view is a deferred fast-follow — this surface only flags. v1 stores
+// NO free-text disclosure beyond the operator-entered description.
+function FlagSafeguardingSheet({ inc, venueId, onClose, onDone, toast }) {
+  const [busy, setBusy] = useState(false);
+  const flag = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await venueFlagSafeguarding(venueId, inc.id);
+      toast?.({ icon: "shield", text: "Routed to safeguarding" });
+      await onDone();
+    } catch (e) {
+      const already = String(e?.message || "").includes("already_flagged");
+      toast?.({ icon: already ? "shield" : "alert", text: already ? "Already flagged for safeguarding" : "Couldn't flag — try again" });
+      // already_flagged means it IS flagged server-side (e.g. from another device) —
+      // evict it from this view too by reloading + closing; only a genuine error
+      // keeps the sheet open to retry.
+      if (already) await onDone();
+      else setBusy(false);
+    }
+  };
+  return (
+    <MobileSheet title="Flag as safeguarding" onClose={busy ? undefined : onClose} footer={
+      <button onClick={flag} disabled={busy} style={{
+        width: "100%", height: 48, borderRadius: 14, border: "none", cursor: busy ? "default" : "pointer",
+        fontFamily: "var(--m-font)", fontWeight: 800, fontSize: 15,
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        background: "var(--amber)", color: "var(--amber-ink)", opacity: busy ? 0.7 : 1,
+      }}>
+        <MIcon name="shield" size={17} color="var(--amber-ink)" />{busy ? "Flagging…" : "Flag as safeguarding"}
+      </button>
+    }>
+      <div className="m-card" style={{ padding: "13px 14px", background: "var(--s2)" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{inc.description}</div>
+      </div>
+      <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+        <p style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.45, margin: 0 }}>
+          This removes the issue from the normal queue and routes it privately to your venue's
+          designated safeguarding lead(s). <strong>You won't be able to see or reopen it here.</strong>
+        </p>
+        <p style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.45, margin: 0 }}>
+          Use this for a child-protection or welfare concern. If it also needs an operational
+          response (e.g. first aid), log that as a separate issue.
+        </p>
+        <p style={{ fontSize: 12.5, color: "var(--ink3)", lineHeight: 1.4, margin: 0 }}>
+          Flagging does not replace your organisation's safeguarding procedure — follow that too.
+        </p>
+      </div>
     </MobileSheet>
   );
 }
