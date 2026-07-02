@@ -45,6 +45,28 @@ below only once it has a fix + a device-level check.*
 
 ---
 
+## 🔒 HARD GO-LIVE GATE — SAFEGUARDING MODULE LEGAL PREREQUISITES (owed retrospectively)
+*Filed 2026-07-01. The Safeguarding Module (Incident Triage Phase 2, `SAFEGUARDING_MODULE_HANDOFF.md`,
+mig 466 — SCOPED, may be BUILT before this clears because the platform has no real users yet) stores
+a safeguarding flag = **processing special-category child-protection data**. The build is allowed to
+proceed dark; **this gate BLOCKS exposing the module to ANY real venue / real user** until every item
+is signed off. Do NOT hand a real venue a build with the safeguarding flag live until all four are done.*
+
+**Pre-flight (before any real venue/user touches the safeguarding module):**
+1. **DPIA** (Data Protection Impact Assessment) completed + signed off — mandatory for children's /
+   special-category processing. ⬜
+2. **Controller/processor decision documented** — venue/club = controller (holds the Designated
+   Safeguarding Lead); In or Out = processor of a routing pointer only. Must NOT let the platform become
+   an independent controller of safeguarding content. ⬜
+3. **Appropriate Policy Document (APD)** in place for the DPA 2018 Sch 1 §18 ("safeguarding of children
+   / individuals at risk") Art 9 condition; **processor terms** in the venue/club agreement updated. ⬜
+4. **Retention rule agreed** for a flagged record (drives the `delete_my_account*` carve-out already in
+   the build: flagged records SURVIVE subject/reporter self-deletion, Art 17(3)(b)). ⬜
+- **Expected outcome:** all four ticked + recorded in DECISIONS.md before the flag action is enabled for
+  a real venue. Until then the module is demo/dark only. **Owner is getting these done retrospectively.**
+
+---
+
 ## 0. EMAIL / TRANSACTIONAL (Resend) — Phase 9 Cycle 9.1
 
 **Issue class:** transactional email silently doesn't send. Phase 9.1 added a Resend-backed

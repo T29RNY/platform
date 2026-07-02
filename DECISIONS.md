@@ -1,6 +1,34 @@
 # In or Out — Key Decisions Log
 *Last updated: Jun 29 2026 (session 230 — UNIVERSAL AI AGENT FOUNDATION decisions (mig 454). (1) FOUR PILLARS: A Answer (grounded context RPCs), B Direct (navigation — DEFERRED Phase 2), C Act (tool-use via the ~479 existing RPCs — DEFERRED Phase 2), D Know-who (unified caller identity — built FIRST as the keystone). (2) `resolve_agent_caller` COMPOSES the 5 existing resolvers, never reimplements — one normalized caller-context jsonb. (3) `ai_agent_access` is OPT-IN (no-row=OFF) — deliberately the OPPOSITE of the feature-flag no-row=on convention, so the agent is never accidentally on. (4) Cost ceiling = SINGLE gate: used_today_pence>=daily_cap_pence flips agent.enabled false; NO separate cap_exceeded flag (caller reads agent.enabled only). (5) Player-token answer scope = self + team-public only (cross-player isolation, proven in EV T9). (6) Signed-in company_id/active_role = NARROWING hints — server verifies auth.uid ownership; unowned hint silently ignored, never escalates scope. (7) `agent.phase` lives in the DATA (phase 1=answer only; edge fn will hard-block tool calls until phase 3) — safety boundary in data, not just code. (8) SERVICE-ROLE SPLIT: the packages/core wrapper uses the authenticated/anon client (service-role key must NEVER enter the frontend bundle; and the auth.uid signed-in path requires the authenticated client anyway); the service-role invocation lives in the FUTURE edge fn apps/inorout/api/_agent.js. (9) Context RPCs expand domain-by-domain (casual done → venue → club → finance); agent launches casual-only. (10) Build order = casual canary FIRST (Stage 1, independent, ships value now), THEN this foundation (Stage 2, DONE). (11) Grants gotcha: project ALTER DEFAULT PRIVILEGES auto-grants anon+authenticated on new tables/functions → `REVOKE FROM PUBLIC` is INSUFFICIENT; must REVOKE from the NAMED roles. See RPCS.md + GAFFER.md. PR #150. Next free mig = 455.)*
 
+## SAFEGUARDING MODULE (Incident Triage Phase 2) — build now, legalise retrospectively
+Decisions locked with the operator (2026-07-01), scoped in `SAFEGUARDING_MODULE_HANDOFF.md` (`/scope`
+8-lens + judge 54/55). Not yet built.
+1. **v1 = lightweight "flag + route to the human DSL", NOT case-management.** Store only a boolean
+   `is_safeguarding_flagged` + who/when — **no free-text disclosure narrative** (special-category
+   minimisation, UK GDPR Art 9). The app routes/restricts; the concern's substance lives with the human
+   Safeguarding Lead. Full case-management (notes/referral tracking) = a separate, DPIA-gated Phase 3.
+2. **Legal prerequisites are done RETROSPECTIVELY** — the platform has no real users yet, so the build
+   proceeds now. The **DPIA + controller/processor decision (venue/club = controller, platform =
+   processor of a pointer) + Appropriate Policy Document + retention rule** become a **HARD GO-LIVE
+   GATE**: the module must stay dark to any real venue/user until they're signed off. Logged in
+   GO_LIVE_ISSUES.md.
+3. **Lead visibility must NOT inherit the `_venue_has_cap` owner/manager default-pass.** A new
+   `'safeguarding_lead'` cap gated by a **grant-only** helper `_venue_is_safeguarding_lead` (role-
+   independent). Consequence: the shared `venue_admin_token` (owner, empty caps) is structurally never a
+   Lead → blind to safeguarding. Designation reuses the existing `update_venue_admin` staff screen.
+4. **Flag = one-way; any operator flags, only Leads see/action.** Flagging EVICTS the incident from all
+   ops/HQ views (clears assign/escalation state); the flag-confirm prompts to log a separate ops task if
+   one is also needed (OQ#1 default). A flag at a zero-Lead venue routes to the OWNER + a nag (OQ#2
+   default). Un-flag is Lead-only.
+5. **delete_my_account CARVE-OUT** — a flagged record SURVIVES subject/reporter self-deletion (Art
+   17(3)(b) overrides erasure). The opposite of the Phase-1 incident-ref NULL-cascade.
+6. **Filter = Option (c):** the 4 ops/HQ incident reads (incl. `hq_get_company_state`'s 4 count/health
+   aggregates) unconditionally exclude flagged rows; Leads get a separate `venue_list_safeguarding_incidents`
+   RPC (zero HR12 churn — open_incidents is pass-through JSON). A `check-incident-safeguarding.sh` CI gate
+   forces every future `FROM incidents` reader through the exclusion. `safeguarding` is never a grantable
+   Gaffer agent domain. **mig 466; 5 PRs, all TIER-3/PROTECTED.**
+
 ## PER-GAME PAYMENT MARKING — owes becomes a ledger-recompute (PR #2, mig 460)
 Decisions locked with the operator (2026-07-01) for the per-game payment epic:
 1. **`players.owes` is now a value RECOMPUTED from the ledger, not an arithmetic accumulator.**
