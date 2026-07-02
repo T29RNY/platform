@@ -1,6 +1,6 @@
 ---
 name: scope
-description: Iteratively scope a NEW In-or-Out feature on behalf of its target users, then emit a build-ready handoff + the paste-ready trigger prompt. Read-only — never builds. Use when the operator says "scope <feature>", "scope a feature", "design <feature>", or wants a feature planned, scored, and turned into a /dev-loop manifest before any code. Fans out one fresh-context expert agent per lens (user, technical, security, UI/UX, data/DB, design, platform/native, safety, best-practice, future-proofing, effort/phase-split), synthesises, has an independent judge score it against scope-rubric.md, iterates until "as good as it'll get", writes <SLUG>_HANDOFF.md, and stops at a plain-English human review. Runs unmanned until that review.
+description: Iteratively scope a NEW In-or-Out feature on behalf of its target users, then emit a build-ready handoff + the paste-ready trigger prompt. Read-only — never builds. Use when the operator says "scope <feature>", "scope a feature", "design <feature>", or wants a feature planned, scored, and turned into a /dev-loop manifest before any code. Fans out one fresh-context expert agent per lens (user, technical, security, UI/UX, data/DB, design, platform/native, safety, best-practice, future-proofing, effort/phase-split), synthesises, has an independent judge score it against scope-rubric.md, iterates until "as good as it'll get", runs a mandatory whole-draft SWEEP (what's missed, the opportunity, the future-proofed option, the wow factor(s)) on every scope regardless of size, writes <SLUG>_HANDOFF.md, and stops at a plain-English human review that states the SWEEP answers explicitly. Runs unmanned until that review.
 ---
 
 # scope — design-and-decide front door (twin of dev-loop)
@@ -44,7 +44,7 @@ rule dev-loop lives by). So, without exception:
 
 ---
 
-## THE LOOP — FRAME → FAN-OUT → SYNTHESISE → SCORE → ITERATE → EMIT → HUMAN
+## THE LOOP — FRAME → FAN-OUT → SYNTHESISE → SCORE → ITERATE → SWEEP → EMIT → HUMAN
 
 ### 1 — FRAME (deterministic reads · L10)
 Recall MEMORY (active threads), then read the In-or-Out state files that bear on the
@@ -118,8 +118,9 @@ Merge the lens findings into ONE draft in the **gold-standard handoff shape**
 reusable backend, gotchas — load-bearing, don't re-derive) → **ROADMAP** = PRs in
 dependency order, each **tier-tagged (1/2/3) + ship-safety (CLEAR/PROTECTED) + 🚦 gate
 tags + Gates: line + done-check** → **🚦 GATES the loop must stop at** → **DONE =** →
-**Related**. If the synthesis is a single PR (not an epic), prepare a single-`/dev-loop`
-emit instead (see EMIT).
+**MISSED / OPPORTUNITY / FUTURE-PROOF / WOW** (filled in at step 6, SWEEP — leave a
+placeholder here on the first draft) → **Related**. If the synthesis is a single PR (not
+an epic), prepare a single-`/dev-loop` emit instead (see EMIT).
 
 ### 4 — SCORE (independent judge · L4)
 A **fresh-context JUDGE** (never the synthesiser) scores the draft against
@@ -137,7 +138,49 @@ then re-score. **STOP** per `scope-rubric.md` stop-conditions: every lens ≥4 A
 ≥ bar AND gates PASS, **or** score plateaus (<2-pt delta for 2 rounds = "as good as it'll
 get"), **or** 4-round hard cap (L9). **Log each round's score.**
 
-### 6 — EMIT
+### 6 — SWEEP (mandatory on every scope, no exceptions · run before EMIT)
+The 11 lenses each stay in their own lane by design (L8 — clean windows so they don't
+converge prematurely) — which means nothing in the fan-out ever asks the four questions
+that only make sense with the WHOLE synthesised draft in view at once. This step exists
+specifically to ask them. Run it even for a 3-lens/one-PR scope; even a small feature can
+have a missed edge, an adjacent opportunity, a cheap future-proofing lever, or a flat
+wow-ceiling. Never skip it because the feature "felt" complete after SCORE.
+
+Spawn ONE fresh-context sub-agent (never the synthesiser — same L4 rule as the judge)
+with the full synthesised draft and answer exactly four questions:
+
+- **What have we missed?** Read across ALL 11 lens outputs at once looking for a gap no
+  single lens would catch because it sits between two of them — a workflow edge case,
+  a second audience nobody named, a reverse/undo path that was never designed opposite
+  the forward path (e.g. an import tool with no export/portability answer), a follow-on
+  session/handoff case (what if a different person picks this up mid-flow?).
+- **What's the opportunity?** Is there a bigger strategic connection this unlocks that no
+  lens would spot in isolation — an existing deferred epic this could merge into or
+  become the substrate for (grep FEATURES.md/STRATEGY.md for anything adjacent this
+  scope now makes cheap), a sales/demo moment hiding inside the feature, a wedge into
+  something the operator hasn't asked for yet but this makes newly easy.
+- **What's the future-proofed option?** Of the choices LOCKED DECISIONS actually made,
+  name the ONE lever that buys the most future flexibility for the least extra cost right
+  now — not a vague "we made it generic" restatement, a specific, named design choice.
+  If nothing in the draft earns this, say so plainly rather than inventing one.
+  (Distinct from lens ⑩, which audits RPC/consumer extensibility mechanics — this is the
+  single highest-leverage bet across the WHOLE feature, stated once, in plain English.)
+- **What's the wow factor(s)?** For EVERY audience the feature touches, not just the
+  primary one lens ① named — is there a moment that earns an audible "wow", and if the
+  draft doesn't have one for a given audience, what's the cheapest addition that would
+  create one? Distinct from scope-rubric.md's per-lens "wow ceiling" check (that's a
+  score cap on lens ①'s work specifically) — this asks it fresh, across all audiences,
+  with the finished draft in view.
+
+Fold the answer into the draft as its own **`MISSED / OPPORTUNITY / FUTURE-PROOF / WOW`**
+section (between GATES/DONE and Related — `check-manifest.sh` gates on its presence, same
+as any other required section). Keep each answer to a tight paragraph, not a re-run of
+the whole scope — this is a reflection pass, not another fan-out round. If SWEEP surfaces
+something that changes a LOCKED DECISION or adds a PR, loop back to SYNTHESISE once
+(one extra round, not a fresh 4-round budget) rather than silently folding a scope-
+changing finding into prose.
+
+### 7 — EMIT
 Write the artefact(s) + the trigger prompt:
 - **Epic (multi-PR):** `Write` the rich manifest to repo root as
   `<SLUG>_HANDOFF.md` (validated by `check-manifest.sh`; tier-3 auto-🚦-tagged). Embed
@@ -148,12 +191,14 @@ Write the artefact(s) + the trigger prompt:
 - Set `Plan gate: batched` and default `Merge mode: per-phase` in the manifest header
   (auto/queue stays an explicit operator opt-in).
 
-### 7 — HUMAN REVIEW (stop)
+### 8 — HUMAN REVIEW (stop)
 Present a **plain-English breakdown in chat** (no code): what the feature is, the locked
 decisions it assumed, the PR roadmap, the **expected-stops count** ("3 of 6 PRs need
 your sign-off — 2 migrations + 1 deploy"), the final round's score + any lens still <4
-named as a known limitation, open questions, and the **paste-ready trigger prompt**.
-Then **STOP.** Nothing builds until the operator fires the prompt.
+named as a known limitation, the **SWEEP answers (missed / opportunity / future-proof /
+wow)** stated explicitly — never buried in the linked doc only — open questions, and the
+**paste-ready trigger prompt**. Then **STOP.** Nothing builds until the operator fires
+the prompt.
 
 ---
 

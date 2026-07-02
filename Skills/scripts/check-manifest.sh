@@ -34,6 +34,7 @@ need_section "KEY AUDIT FACTS"                   '^#+.*key audit facts'
 need_section "ROADMAP / PR list"                 '^#+.*(roadmap|prs in dependency)'
 need_section "GATES the loop must stop at"       '^#+.*gates'
 need_section "DONE definition"                   '^#+.*done'
+need_section "MISSED / OPPORTUNITY / FUTURE-PROOF / WOW sweep" '^#+.*(missed.*opportunity|opportunity.*future.?proof|wow factor)'
 
 # --- at least one PR block ---
 pr_count=$(grep -Ec '^#+ +PR #[0-9]' "$f")

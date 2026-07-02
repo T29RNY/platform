@@ -34,6 +34,12 @@ NEVER the grader (L4). Edit thresholds here without touching the skill.
    must PASS (all sections, ≥1 tier-tagged + gated PR, trigger prompt embedded).
 3. **Methodology coherence** — every tier-3 touch (migration / RLS / money / auth /
    outward) is tagged 🚦 and routed to a human/Mac/Apple gate, never auto-applied.
+4. **SWEEP present** — the emitted handoff carries a `MISSED / OPPORTUNITY /
+   FUTURE-PROOF / WOW` section (checked by `check-manifest.sh`) with a real answer to
+   each of the four questions, not a placeholder or a restatement of an existing lens
+   finding. Missing or thin on ANY of the four **fails the round** — this section is
+   mandatory on every scope regardless of size (SKILL.md step 6), no exception for a
+   small/single-PR scope.
 
 ## Stop conditions (the "as good as it'll get" decision · L9)
 
