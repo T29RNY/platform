@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { askGafferQuestion } from "@platform/core/storage/supabase.js";
+import { askGafferQuestion, gafferProposeAction, gafferConfirmAction } from "@platform/core/storage/supabase.js";
 import { GAFFER_ACTIONS, actionForNudgeKey } from "./gafferActions.js";
 
 // Ask the Gaffer — message area + composer, mounted inside GafferLauncher's
@@ -17,9 +17,9 @@ const STARTER_PROMPTS = [
 ];
 
 // Seeds the conversation with the nudge's banter as message #1, tagged with
-// the matching registry action so it renders "Show me" (and, once a PR-C/D
-// rpcWrapper exists, "Do it for you") — only when the sheet was opened by
-// tapping a live nudge (GafferLauncher passes null otherwise).
+// the matching registry action so it renders "Show me" / "Do it for you" —
+// only when the sheet was opened by tapping a live nudge (GafferLauncher
+// passes null otherwise).
 function seedMessages(pendingNudge) {
   if (!pendingNudge) return [];
   const action = actionForNudgeKey(pendingNudge.key);
@@ -30,19 +30,50 @@ function seedMessages(pendingNudge) {
   }];
 }
 
-export default function Gaffer({ adminToken, teamName, pendingNudge, onShowMe }) {
+// gaffer_propose_action / gaffer_confirm_action raise a specific error
+// message text (RAISE EXCEPTION ... MESSAGE='code') that supabase-js
+// surfaces as err.message — same pattern as adminSettlePlayer callers
+// elsewhere in this app (e.g. AdminPlayerActionSheet.jsx).
+function proposeErrorCopy(err) {
+  if (err?.message === "act_not_enabled") {
+    return "This team isn't opted into Gaffer actions yet.";
+  }
+  return "Couldn't get that ready right now — try again in a moment.";
+}
+
+function confirmErrorCopy(err) {
+  if (err?.message === "chase_rate_limited") {
+    return "Already chased in the last couple of hours — give it a bit before trying again.";
+  }
+  if (err?.message === "no_responders_to_chase") {
+    return "Looks like everyone's replied now — nothing to chase.";
+  }
+  if (err?.message === "gaffer_action_already_resolved") {
+    return "That's already been handled.";
+  }
+  return "Couldn't send that just now — try again in a moment.";
+}
+
+export default function Gaffer({ adminToken, teamName, teamId, schedule, pendingNudge, onShowMe }) {
   const [messages, setMessages] = useState(() => seedMessages(pendingNudge));
   // [{ role: 'user'|'assistant', content, actionChips?: string[] }]
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // The one "do it" confirm flow that can be in-flight at a time — tapping
+  // "Do it for you" replaces that message's chips with a confirm pair
+  // (GAFFER_ACTION_FLOW_HANDOFF.md PR-C Confirm UX spec).
+  const [activeConfirm, setActiveConfirm] = useState(null);
+  // { messageIndex, actionKey, gafferActionId, players, status: 'confirming'|'sending' }
+  const [proposingKey, setProposingKey] = useState(null); // actionKey currently proposing, or null
   const isSendingRef = useRef(false);
+  const isProposingRef = useRef(false); // double-fire guard, same pattern as isSavingRef elsewhere
   const scrollRef = useRef(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, sending]);
+  }, [messages, sending, activeConfirm]);
 
   const sendQuestion = async (q) => {
     if (!q || isSendingRef.current) return;
@@ -98,6 +129,81 @@ export default function Gaffer({ adminToken, teamName, pendingNudge, onShowMe })
     }
   };
 
+  // "Do it for you" tap — proposes the action (server re-validates state and
+  // returns a live preview), then shows the confirm pair. Only one nudge
+  // message can carry actionChips this PR (index 0), so source is always
+  // 'nudge' here — kept as a real branch, not hardcoded, for the future
+  // chat-suggested path this registry is already shaped for.
+  const handleDoIt = async (actionKey, messageIndex) => {
+    if (isProposingRef.current) return; // double-fire guard — a re-tap mid-flight
+                                         // would otherwise create a second pending
+                                         // gaffer_actions row and race activeConfirm
+    isProposingRef.current = true;
+    setProposingKey(actionKey);
+    try {
+      const isNudgeOrigin = messageIndex === 0 && !!pendingNudge;
+      const result = await gafferProposeAction(
+        adminToken,
+        actionKey,
+        isNudgeOrigin ? pendingNudge.key : null,
+        isNudgeOrigin ? "nudge" : "chat"
+      );
+      setActiveConfirm({
+        messageIndex,
+        actionKey,
+        gafferActionId: result.gaffer_action_id,
+        players: result.preview?.players || [],
+        status: "confirming",
+      });
+    } catch (err) {
+      console.error("[Gaffer] propose action failed:", err?.message);
+      setMessages(prev => [...prev, { role: "assistant", content: proposeErrorCopy(err) }]);
+    } finally {
+      isProposingRef.current = false;
+      setProposingKey(null);
+    }
+  };
+
+  const handleConfirmNeverMind = () => setActiveConfirm(null);
+
+  const handleConfirmYes = async () => {
+    if (!activeConfirm || activeConfirm.status === "sending") return;
+    const { actionKey, gafferActionId, players } = activeConfirm;
+    setActiveConfirm(c => ({ ...c, status: "sending" }));
+    try {
+      const result = await gafferConfirmAction(adminToken, gafferActionId, actionKey);
+      // Fire the actual notification — identical mechanism to
+      // chaseNoResponders() in AdminView/index.jsx, now reachable through
+      // Gaffer only via the RPC above (auth + audit + idempotency already
+      // done — Locked Decision #2, the client never calls this directly for
+      // a Gaffer-initiated action).
+      const gameDate = result.game_date || new Date().toISOString().split("T")[0];
+      fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "chaseNoResp",
+          teamId,
+          playerIds: result.player_ids,
+          payload: {
+            title: "In or Out ⚽",
+            body: `⏰ Are you in or out for ${schedule?.dayOfWeek || "the game"}? Quick reply needed!`,
+            icon: "/icons/icon-192.png",
+          },
+          gameDate,
+        }),
+      }).catch((err) => console.error("[Gaffer] notify send failed:", err?.message));
+
+      const names = players.map(p => p.name).join(", ") || "the squad";
+      setMessages(prev => [...prev, { role: "assistant", content: `Done — sent a nudge to ${names}.` }]);
+      setActiveConfirm(null);
+    } catch (err) {
+      console.error("[Gaffer] confirm action failed:", err?.message);
+      setMessages(prev => [...prev, { role: "assistant", content: confirmErrorCopy(err) }]);
+      setActiveConfirm(null);
+    }
+  };
+
   return (
     <div style={containerStyle}>
       <div ref={scrollRef} style={messagesStyle}>
@@ -116,7 +222,11 @@ export default function Gaffer({ adminToken, teamName, pendingNudge, onShowMe })
               {m.content}
             </div>
             {m.role === "assistant" && m.actionChips?.length > 0 && (
-              <ActionChips actionKeys={m.actionChips} onShowMe={onShowMe} />
+              activeConfirm && activeConfirm.messageIndex === i ? (
+                <ConfirmPair confirm={activeConfirm} onYes={handleConfirmYes} onNeverMind={handleConfirmNeverMind} />
+              ) : (
+                <ActionChips actionKeys={m.actionChips} onShowMe={onShowMe} onDoIt={(key) => handleDoIt(key, i)} proposingKey={proposingKey} />
+              )
             )}
           </div>
         ))}
@@ -171,12 +281,13 @@ export default function Gaffer({ adminToken, teamName, pendingNudge, onShowMe })
 // message carrying actionChips, not just the nudge-seeded first message, so
 // a future chat-suggested action (GAFFER_ACTION_FLOW_HANDOFF.md "Missed")
 // slots in with no renderer change.
-function ActionChips({ actionKeys, onShowMe }) {
+function ActionChips({ actionKeys, onShowMe, onDoIt, proposingKey }) {
   return (
     <div style={chipsRowStyle}>
       {actionKeys.map((actionKey) => {
         const action = GAFFER_ACTIONS[actionKey];
         if (!action) return null;
+        const isProposing = proposingKey === actionKey;
         return (
           <div key={actionKey} style={{ display: "flex", gap: 8 }}>
             <button
@@ -187,13 +298,45 @@ function ActionChips({ actionKeys, onShowMe }) {
               Show me
             </button>
             {action.rpcWrapper && (
-              <button type="button" style={chipPrimaryStyle}>
-                Do it for you
+              <button
+                type="button"
+                onClick={() => onDoIt?.(actionKey)}
+                disabled={isProposing}
+                style={chipPrimaryStyle}
+              >
+                {isProposing ? "Getting ready…" : "Do it for you"}
               </button>
             )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// The confirm pair replacing a message's chips once "Do it for you" has been
+// tapped: a one-line preview naming the concrete target, then "Yes, do it" /
+// "Never mind" (GAFFER_ACTION_FLOW_HANDOFF.md PR-C Confirm UX spec). A
+// second tap while status is "sending" is a no-op (handleConfirmYes guards).
+function ConfirmPair({ confirm, onYes, onNeverMind }) {
+  const names = confirm.players.map(p => p.name).join(", ");
+  const preview = names
+    ? `Send a nudge to ${names} — they haven't replied yet.`
+    : "No one left to chase right now.";
+  const sending = confirm.status === "sending";
+  return (
+    <div style={{ paddingTop: 10 }}>
+      <div style={{ ...assistantBubbleStyle, maxWidth: "100%", fontSize: 13, opacity: 0.9 }}>
+        {preview}
+      </div>
+      <div style={chipsRowStyle}>
+        <button type="button" onClick={onYes} disabled={sending} style={chipPrimaryStyle}>
+          {sending ? "Sending…" : "Yes, do it"}
+        </button>
+        <button type="button" onClick={onNeverMind} disabled={sending} style={chipStyle}>
+          Never mind
+        </button>
+      </div>
     </div>
   );
 }

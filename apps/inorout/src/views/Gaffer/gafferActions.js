@@ -3,11 +3,14 @@
 // registry, never the LLM/client freely constructing an RPC call — Gaffer
 // only ever selects an actionKey from this small, server-owned allow-list).
 //
-// v1 (PR-B) populates route + riskTier:'nav' for all three orb nudges —
-// pure navigation, zero write. rpcWrapper/confirmCopy stay null until a real
-// write path exists (PR-C for chase_no_response, PR-D for the other two);
-// the chip renderer in Gaffer/index.jsx only shows "Do it for you" once
-// rpcWrapper is set, so a team never sees a capability that isn't real yet.
+// PR-B populated route + riskTier:'nav' for all three orb nudges — pure
+// navigation, zero write. PR-C wires a real write path for
+// casual.chase_no_response (the one nudge with an existing safe action to
+// reuse — KEY AUDIT FACTS); the other two stay rpcWrapper:null until PR-D
+// builds their RPCs. The chip renderer in Gaffer/index.jsx only shows
+// "Do it for you" once rpcWrapper is truthy, so a team never sees a
+// capability that isn't real yet — this is also why riskTier flips to
+// 'write-low' only for the row that's actually wired (Locked Decision #4).
 //
 // Domain-namespaced (`casual.*`) from day one per GAFFER.md's "composer"
 // direction — costs nothing now, avoids a rename when venue/club domains
@@ -17,10 +20,10 @@ export const GAFFER_ACTIONS = {
   "casual.chase_no_response": {
     actionKey: "casual.chase_no_response",
     label: "Chase no-responses",
-    riskTier: "nav", // 'nav' | 'write-low' (v1 populates only these; 'write-money' never)
+    riskTier: "write-low", // wired PR-C — comms-only, single inline confirm-with-preview
     route: "main",
-    rpcWrapper: null,
-    confirmCopy: null,
+    rpcWrapper: "gaffer_propose_action", // paired with gaffer_confirm_action, see Gaffer/index.jsx
+    confirmCopy: null, // built dynamically from the propose RPC's live player-name preview
     allowedRoles: ["admin"],
   },
   "casual.chase_payment": {

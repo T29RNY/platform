@@ -1941,6 +1941,7 @@ export default function App() {
         <GafferLauncher
           adminToken={route.token}
           teamName={settings?.groupName}
+          teamId={teamId}
           squad={squad}
           schedule={schedule}
           onNavigate={(screen) => { setView("admin"); setAdminScreen(screen); }}
