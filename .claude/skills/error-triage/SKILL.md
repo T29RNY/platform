@@ -76,9 +76,9 @@ RLS/security classification, grounded in CLAUDE.md's RLS checklist:
 - `PGRST301` / `42501` / "permission denied for table" → the RLS wall working as
   designed — likely a missing-RPC bug, **not** a security hole. Say so explicitly so
   the fix direction is "route through a SECURITY DEFINER RPC," never "loosen RLS."
-- `supabase.rpc(...)` on the stack → grep the function name against
-  `packages/core/storage/supabase.js` to identify the wrapper, which tells you
-  whether it's the anon-token, authenticated, or admin-token variant.
+- A Supabase RPC call on the stack (`.rpc(` in the trace) → grep the function name
+  against `packages/core/storage/supabase.js` to identify the wrapper, which tells
+  you whether it's the anon-token, authenticated, or admin-token variant.
 - A pure frontend frame (React render error, no network call) → client-only, no RLS
   surface.
 
