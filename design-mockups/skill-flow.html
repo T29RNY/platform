@@ -12,16 +12,18 @@
     --state:#2b8a5c;  --state-bd:#a8d4bd;
     --tool:#5a6472;   --tool-bd:#cdd3db;
     --gov:#444;       --gov-bd:#cfcfcf;    --gov-bg:#f3f3f3;
-    --intake:#2b8a5c; --plan:#0f8f9c; --build:#2f6fed; --qa:#2b8a5c; --prod:#0f8f9c; --pr:#8054c7;
+    --intake:#2b8a5c; --plan:#0f8f9c; --build:#2f6fed; --qa:#2b8a5c; --prod:#0f8f9c; --pr:#8054c7; --wrap:#5b21b6;
     --ink:#1c2330; --mut:#6b7280; --line:#e2e6ec; --bg:#ffffff;
     --warn:#c0392b; --warn-bg:#fdecea; --warn-bd:#f0b7b0;
+    --pend:#b91c1c; --pend-bd:#f0b7b0; --pend-bg:#fdecea;
+    --new:#059669;
   }
   *{box-sizing:border-box}
   body{margin:0;background:#f6f7f9;color:var(--ink);
     font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-print-color-adjust:exact;print-color-adjust:exact;}
   code,.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
-  .wrap{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+  .wrap-outer{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
   h1{font-size:20px;margin:0 0 2px;letter-spacing:.2px}
   .sub{color:var(--mut);font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px;margin-bottom:20px}
   .grid{display:grid;grid-template-columns:1fr 250px;gap:16px;align-items:start}
@@ -38,6 +40,8 @@
   .z-qa    .ztitle{color:var(--qa)}     .z-qa{border-color:#bfe3cf}
   .z-prod  .ztitle{color:var(--prod)}   .z-prod{border-color:#b6e2e6}
   .z-pr    .ztitle{color:var(--pr)}     .z-pr{border-color:#d6c7f0}
+  .z-ops   .ztitle{color:#c2410c}       .z-ops{border-color:#fed7aa}
+  .z-wrap  .ztitle{color:var(--wrap)}   .z-wrap{border-color:#ddd6fe}
   /* skill / node boxes */
   .box{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff}
   .skill{border-color:var(--skill-bd)}
@@ -48,10 +52,13 @@
   .human .nm{color:var(--human);font-weight:800;letter-spacing:.3px}
   .state{border-color:var(--state-bd);background:#f4fbf7}
   .state .nm{color:var(--state);font-weight:700}
+  .pending{border:1.5px dashed var(--pend-bd);background:var(--pend-bg)}
+  .pending .nm{color:var(--pend);font-weight:700}
   .box .nm{display:block;margin-bottom:3px}
   .box .dc{color:#3a4353;font-size:11.5px}
   .box .dc code{color:#3a4353}
   .muted{color:var(--mut)}
+  .newtag{color:var(--new);font-size:9.5px;font-weight:700;letter-spacing:.4px;border:1px solid var(--new);border-radius:8px;padding:0 5px;margin-left:4px;vertical-align:middle}
   .nm code, .nm .m{font-family:"SF Mono",ui-monospace,Menlo,monospace}
   /* step row */
   .row{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
@@ -75,6 +82,7 @@
   .sw.state{border-color:var(--state-bd);background:#f4fbf7}
   .sw.tool{border-color:var(--tool-bd);background:#f3f3f3}
   .sw.gov{border-color:var(--gov-bd);background:var(--gov-bg)}
+  .sw.pending{border:1.5px dashed var(--pend-bd);background:var(--pend-bg)}
   .gitem{margin:8px 0;font-size:11.5px}
   .gitem b{color:var(--ink)}
   .gitem .s{color:var(--mut);display:block;font-size:11px}
@@ -101,7 +109,7 @@
   .gov-note{color:var(--mut);font-size:11px;margin-top:6px}
   @media print{
     body{background:#fff}
-    .wrap{max-width:none;padding:0}
+    .wrap-outer{max-width:none;padding:0}
     .grid{grid-template-columns:1fr 240px}
     .zone,.rail,.band{break-inside:avoid;box-shadow:none}
     .handoffs{grid-template-columns:repeat(2,1fr)}
@@ -110,9 +118,9 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap-outer">
   <h1>In or Out — Skills &amp; Loops Flow</h1>
-  <div class="sub">All invocable skills · subagents · deterministic gates · hooks · governance · handoffs · human gates — 2026-07-01</div>
+  <div class="sub">All invocable skills · subagents · deterministic gates · hooks · governance · handoffs · human gates — created 2026-07-01, updated 2026-07-02 (+ go-live-check, /wrap, nightly automation suite)</div>
 
   <div class="grid">
     <!-- ============ MAIN COLUMN ============ -->
@@ -125,7 +133,7 @@
           <span class="nm"><code>/backlog-capture</code></span>
           <div class="dc">idea · GitHub issue URL · bullet list → classify (feature / bug / security / compliance) + size (XS–XL) + source link + dedup → append to the doc's <code>📥 CAPTURED — triage inbox</code></div>
         </div>
-        <div class="note">Docs-only · allowlist-safe · no DB/RPC/migration. <b>It files, never ranks</b> (ranking = <code>/backlog</code>). Auto-invoked by: qa-loop&nbsp;T3 · prod-verify&nbsp;T3.</div>
+        <div class="note">Docs-only · allowlist-safe · no DB/RPC/migration. <b>It files, never ranks</b> (ranking = <code>/backlog</code>). Auto-invoked by: qa-loop&nbsp;T3 · prod-verify&nbsp;T3 · go-live-check&nbsp;T3.</div>
         <div class="note">Bug/incident intake has no triage <em>loop</em> here — post-fix documentation runs through <code>skills/post-incident.md</code> (see Governance).</div>
       </div>
 
@@ -221,14 +229,29 @@
         <div class="note">Scopes: <code>full</code> = + supervised Playwright-MCP browser walk (console + a11y, read-only, never prod) · <code>scripted</code> = deterministic lane only (the only scope fit for <code>/loop</code> / scheduled) · free text = narrow to one area. Thin orchestrator over dev-loop — inherits its guardrails, adds no merge power.</div>
       </div>
 
-      <!-- PROD -->
+      <!-- PROD + GO-LIVE -->
       <div class="zone z-prod">
-        <div class="ztitle">🔭 Prod Verification <span class="tag">after each merge · formal Step 5 (POST-DEPLOY)</span></div>
+        <div class="ztitle">🔭 Prod Verification &amp; Go-Live <span class="tag">after each merge, or before opening an audience</span></div>
         <div class="box skill">
           <span class="nm"><code>/prod-verify [PR#]</code></span>
           <div class="dc">confirm the merge is actually live on Vercel → <b>derive surfaces from the merged diff</b> (tests what changed, not everything) → SUPERVISED Playwright-MCP walk of live-prod <b>DEMO surfaces only</b> (<code>/p/p_demotoken_01</code> + <code>/demoadmin</code>; never a real team, never scheduled-unattended) → read-only live-DB checks for RPC/schema diffs</div>
         </div>
-        <div class="note"><code>pass → ✅ done</code> · <span style="color:var(--warn)">T1 live defect → <code>/dev-loop</code> fix phase</span> · <span style="color:var(--warn)">T3 (design / gate decision, incl. recommend-only <code>pg_notify</code> schema-cache flush) → operator</span>. Docs-only diff → "nothing to walk". Read-only — never edits, merges, or applies a migration.</div>
+        <div class="note" style="margin-bottom:10px"><code>pass → ✅ done</code> · <span style="color:var(--warn)">T1 live defect → <code>/dev-loop</code> fix phase</span> · <span style="color:var(--warn)">T3 (design / gate decision, incl. recommend-only <code>pg_notify</code> schema-cache flush) → operator</span>. Docs-only diff → "nothing to walk". Read-only — never edits, merges, or applies a migration.</div>
+        <div class="box skill">
+          <span class="nm"><code>/go-live-check &lt;persona/feature/flag&gt;</code><span class="newtag">NEW</span></span>
+          <div class="dc">one target per run → writes a <b>Touched-Surfaces Manifest</b> first (tables+RLS, routes, permissions/roles, feature flags, marketing pages, email templates, migrations, legal/DPIA gates) → checks every applicable surface, explicit <code>N/A — why</code> for the rest → <b>actually tests</b> real flows (browser walk or real suite, a missing test is itself a finding) → classifies findings T1/T2/T3 → <b>READY / NOT READY / READY WITH KNOWN GAPS</b> naming the exact human action to go live</div>
+        </div>
+        <div class="note">Built 2026-07-02. T1/T2 (only if asked to fix) → one batched <code>/dev-loop</code> pass, stop at the merge gate. T3 → <code>/backlog-capture</code>, never fixed inline. The launch switch itself is always 👤 human — the skill never flips it.</div>
+      </div>
+
+      <!-- SESSION HANDOFF -->
+      <div class="zone z-wrap">
+        <div class="ztitle">🎁 Session Handoff <span class="tag">end of every session · NEW as a slash command</span></div>
+        <div class="box skill">
+          <span class="nm"><code>/wrap</code><span class="newtag">NEW</span></span>
+          <div class="dc">state exactly where we are (what merged, what's live, what's next) → confirm no unfinished irreversible work in flight — every applied migration's source merged to <code>origin/main</code> (no Rule 11 drift), no PR mid-merge, no ephemeral-verify left un-rolled-back (<code>_e2e_</code> leak-check = 0), no background agent still running → emits the next-session prompt</div>
+        </div>
+        <div class="note">Says plainly <b>"✅ safe to close now"</b> or <b>"⚠️ don't close yet — &lt;reason&gt;"</b>. Never starts new work — pure summarise-and-handoff. Multi-phase epic mid-flight → hands to <code>/loop /dev-loop &lt;manifest&gt;</code>; single/near-finished follow-up → straight to <code>/dev-loop</code> (skip /loop); nothing pending → <code>/backlog</code>.</div>
       </div>
 
     </div>
@@ -243,6 +266,7 @@
         <div class="leg"><span class="sw human"></span> 👤 Human gate</div>
         <div class="leg"><span class="sw state"></span> State / artifact</div>
         <div class="leg"><span class="sw tool"></span> Tooling / script</div>
+        <div class="leg"><span class="sw pending"></span> Captured, not yet built/scheduled</div>
         <div class="leg"><span class="sw gov"></span> Governance rule</div>
       </div>
 
@@ -256,12 +280,25 @@
         <div class="note"><b>NEVER merges</b> — merge stays human. Run via <code>/loop 30m /babysit-prs</code> or a daily cloud trigger.</div>
       </div>
 
+      <!-- Nightly automation suite -->
+      <div class="rail" style="border-color:#fed7aa">
+        <h3 style="color:#c2410c">🌙 Nightly Suite <span style="font-weight:400;text-transform:none;letter-spacing:0">— 03:30–04:00 UTC</span></h3>
+        <div class="note" style="margin-top:0">Approved 2026-07-02, via <code>/setup-nightly</code>. All read-only / draft-only, staggered so they don't collide.<span class="newtag" style="margin-left:0">NEW</span></div>
+        <div class="box pending" style="margin-top:8px"><span class="nm">A · 03:30 /babysit-prs</span><div class="dc">skill exists — schedule only owed</div></div>
+        <div class="box pending" style="margin-top:6px"><span class="nm">B · 03:40 drift check</span><div class="dc">needs <code>check-drift.sh</code> (Hard Rule 11) built first</div></div>
+        <div class="box pending" style="margin-top:6px"><span class="nm">C · 03:50 deploy-freshness</span><div class="dc">flags stale manual-deploy apps (venue/hq)</div></div>
+        <div class="box pending" style="margin-top:6px"><span class="nm">D · 04:00 advisor sweep</span><div class="dc"><code>get_advisors</code> vs stored baseline</div></div>
+        <div class="box pending" style="margin-top:6px"><span class="nm">E · 04:00 EV leak check</span><div class="dc">wraps <code>check-ev-leak.sh</code></div></div>
+        <div class="note">All 5 still <b>📥 open</b> in FEATURES.md — captured and approved, none built or scheduled yet.</div>
+      </div>
+
       <div class="rail">
         <h3>Human Gates</h3>
         <div class="gitem"><b>PICK</b> — /backlog<span class="s">never auto-selected</span></div>
         <div class="gitem"><b>REVIEW</b> — /scope output<span class="s">approve before any build</span></div>
         <div class="gitem"><b>PLAN</b> — dev-loop step 2<span class="s">batched or per-phase</span></div>
         <div class="gitem"><b>MERGE</b> — dev-loop step 9<span class="s">tier-3 ALWAYS; never blind auto</span></div>
+        <div class="gitem"><b>LAUNCH</b> — go-live-check verdict<span class="s">flag flip / sign-off, never the skill</span></div>
         <div class="gitem"><b>APP-STORE SUBMIT</b> — native/auth<span class="s">binary freeze during Apple review · human-on-intent</span></div>
       </div>
 
@@ -285,6 +322,7 @@
         <div class="lp"><b>L7</b> externalize state — handoff docs, CONTEXT.md, BUGS/FEATURES/DECISIONS</div>
         <div class="lp"><b>L8</b> bounded correction budget, retry-on-red</div>
         <div class="lp"><b>L9</b> explicit stop at every human / tier-3 gate</div>
+        <div class="lp"><b>L12</b> don't loop what doesn't need a loop — single/near-finished work skips /loop</div>
       </div>
 
       <div class="rail">
@@ -297,9 +335,9 @@
 
       <div class="rail">
         <h3>Standing Automation</h3>
-        <div class="lp"><code>/loop 30m /babysit-prs</code> — open-PR sweep</div>
+        <div class="lp"><code>/loop 30m /babysit-prs</code> — open-PR sweep (live)</div>
         <div class="lp"><code>/schedule</code> nightly <code>/qa-loop scripted</code> — deterministic regression lane, cloud</div>
-        <div class="note">Only the <code>scripted</code> QA scope + read-only babysit-prs are safe unattended (they hit the live demo DB, never a real team).</div>
+        <div class="note">Only the <code>scripted</code> QA scope + read-only babysit-prs are safe unattended today (they hit the live demo DB, never a real team). The 5-routine nightly suite (left) is approved but not yet live — see Nightly Suite.</div>
       </div>
 
     </div>
@@ -325,17 +363,21 @@
         <h4>Build → Prod + QA</h4>
         <div><span class="m">/dev-loop</span> merged → <span class="m">/prod-verify</span></div>
         <div><span class="m">/dev-loop</span> merged → <span class="m">/qa-loop</span> (on-demand)</div>
+        <div><span class="m">/dev-loop</span> merged, opens an audience → <span class="m">/go-live-check</span></div>
         <div><span class="m">/babysit-prs</span> → 👤 human merge</div>
       </div>
       <div class="hcol">
         <h4>Prod + QA → Build / Intake</h4>
         <div><span class="m">/prod-verify</span> T1 → <span class="m">/dev-loop</span></div>
         <div><span class="m">/prod-verify</span> T3 → <span class="m">/backlog-capture</span></div>
+        <div><span class="m">/go-live-check</span> T1/T2 → one batched <span class="m">/dev-loop</span> pass</div>
+        <div><span class="m">/go-live-check</span> T3 → <span class="m">/backlog-capture</span></div>
         <div><span class="m">/qa-loop</span> T1/T2 → <span class="m">/dev-loop</span></div>
         <div><span class="m">/qa-loop</span> T3 → <span class="m">/backlog-capture</span></div>
         <div>bug fix committed → <span class="m">post-incident.md</span> → BUGS · DECISIONS · CONTEXT</div>
       </div>
     </div>
+    <div class="gov-note" style="margin-top:10px"><b>End of session:</b> <span class="m">/wrap</span> multi-phase epic mid-flight → <span class="m">/loop /dev-loop</span> &lt;manifest&gt; · single/near-finished follow-up → <span class="m">/dev-loop</span> directly · nothing pending → <span class="m">/backlog</span> · not safe to close → finish/hand off first.</div>
   </div>
 
   <!-- ============ GOVERNANCE ============ -->
