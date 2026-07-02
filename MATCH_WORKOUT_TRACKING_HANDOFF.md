@@ -163,12 +163,25 @@ is the practical key for casual). Gates: hygiene, build, Playwright.
   special-category health data → never auto-applied.
 - **G2 — Apple Developer portal:** add **HealthKit** to App ID `uk.inorout.app`; regenerate
   the provisioning profile. (Operator.)
-- **G3 — Mac / Xcode:** Info.plist `NSHealthShareUsageDescription`; drag the PR-5 plugin into
-  the App target; `npx cap sync ios`; archive → TestFlight. (Operator, build machine.)
-- **G4 — App Store submission** (re-arms the review freeze): privacy-policy "Apple Health"
-  section in `Legal.jsx` (loop CAN draft the copy as its own app-side PR), App Privacy
-  "Health & Fitness" answers, reviewer note (write-of-our-own-summary, read-only of Apple
-  workouts, no ads/data-mining, not stored in iCloud). Operator submits.
+- **G3 ✅ DONE 2026-07-02** — Mac / Xcode: Info.plist `NSHealthShareUsageDescription` +
+  `NSHealthUpdateUsageDescription` (both required by Apple's validator even though the app is
+  read-only — `HKObjectType.workoutType()` read access triggers the Update-key check regardless
+  of actual write usage); `com.apple.developer.healthkit` entitlement merged to main (PR #241,
+  `58ed7df`, cherry-picked off `chore/ios-healthkit-entitlement`); PR-5 plugin already registered
+  in the App target; `npx cap sync ios`; archived as **1.1.0 (10)**; uploaded to TestFlight
+  (status Complete). First upload attempt failed (`code 90683`, missing Update usage string) —
+  Xcode's Signing & Capabilities UI field didn't persist on first try; fixed by writing the key
+  directly via `PlistBuddy -c "Add :NSHealthUpdateUsageDescription ..."` before the second archive.
+- **G4 ✅ SUBMITTED 2026-07-02** — App Store submission: privacy-policy "Apple Health Data" section
+  added to `Legal.jsx` (same PR #241) — read-only access, summary-only storage, no iCloud/ads/
+  data-mining, under-18 block, consent-toggle default off, account-delete cascade. App Privacy
+  questionnaire: Fitness data type → **App Functionality only** (no Advertising/Analytics/
+  Personalization) → tracking = **No**. Reviewer note combined the HealthKit explanation with the
+  full DEMO ACCESS block from `APP_STORE_LISTING.md` §4.6 (first draft of the notes omitted the
+  demo-account block — caught before submit; HealthKit needs the full sign-in demo account
+  `tarny+demo@lettrack.co.uk` since the attach-workout flow requires auth.uid(), not just a token
+  link). **Add for Review** clicked — awaiting Apple. Version 1.0.1(9) HealthKit-less review
+  cleared beforehand, so this is a fresh review cycle on 1.1.0(10).
 - **G5 — Real-device walks (Hard Rule #13):** grant/deny HealthKit; record an Apple Soccer
   workout (outdoor + indoor); match-to-game + confirm; heatmap (outdoor) / no-route (indoor);
   under-18 block; multiple-workout picker; web/PWA no-op; sync-delay retry.
