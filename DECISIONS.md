@@ -1,4 +1,26 @@
 # In or Out — Key Decisions Log
+
+## FAQ MAINTENANCE — narrow, deterministic auto-merge exception (2026-07-02)
+Operator-approved carve-out to the repo-wide "never auto-merge" hard rule (dev-loop /
+qa-loop / babysit-prs all hold that line otherwise — merging `main` is a live prod
+deploy). Scoped to `/faq-sync` (`.claude/skills/faq-sync/SKILL.md`) only:
+1. **What's exempted:** a diff that touches NOTHING but a FAQ content data file
+   (`apps/*/src/data/faq*.js` — question/answer/tags/links, no DB, no RPC, no route, no
+   component). Enforced deterministically by
+   `Skills/scripts/check-faq-content-only.sh`, not by judgment — any diff that also
+   touches a route/component/anything else falls back to the normal dev-loop PR +
+   human-merge path, no exceptions.
+2. **Why it's safe:** zero DB/RLS/auth/money/routing surface — static content only,
+   rendered as plain JSX text (no `dangerouslySetInnerHTML`), confirmed by fresh-context
+   security review on the phase-1 build (PR #230).
+3. **What still requires a human:** the FAQ *page itself* (route + component) for
+   `apps/inorout` shipped via normal dev-loop + human merge (PR #230, 2026-07-02, first
+   surface — see FEATURES.md). Extending the FAQ to another app (`apps/venue`,
+   `apps/clubmanager`, etc.) means building that app's `/faq` route first via dev-loop —
+   only its *content* file inherits the auto-merge exemption afterward.
+4. Never widen the file-pattern gate without a fresh, explicit operator approval —
+   this is a standing narrow exception, not a precedent for other content types.
+
 *Last updated: Jun 29 2026 (session 230 — UNIVERSAL AI AGENT FOUNDATION decisions (mig 454). (1) FOUR PILLARS: A Answer (grounded context RPCs), B Direct (navigation — DEFERRED Phase 2), C Act (tool-use via the ~479 existing RPCs — DEFERRED Phase 2), D Know-who (unified caller identity — built FIRST as the keystone). (2) `resolve_agent_caller` COMPOSES the 5 existing resolvers, never reimplements — one normalized caller-context jsonb. (3) `ai_agent_access` is OPT-IN (no-row=OFF) — deliberately the OPPOSITE of the feature-flag no-row=on convention, so the agent is never accidentally on. (4) Cost ceiling = SINGLE gate: used_today_pence>=daily_cap_pence flips agent.enabled false; NO separate cap_exceeded flag (caller reads agent.enabled only). (5) Player-token answer scope = self + team-public only (cross-player isolation, proven in EV T9). (6) Signed-in company_id/active_role = NARROWING hints — server verifies auth.uid ownership; unowned hint silently ignored, never escalates scope. (7) `agent.phase` lives in the DATA (phase 1=answer only; edge fn will hard-block tool calls until phase 3) — safety boundary in data, not just code. (8) SERVICE-ROLE SPLIT: the packages/core wrapper uses the authenticated/anon client (service-role key must NEVER enter the frontend bundle; and the auth.uid signed-in path requires the authenticated client anyway); the service-role invocation lives in the FUTURE edge fn apps/inorout/api/_agent.js. (9) Context RPCs expand domain-by-domain (casual done → venue → club → finance); agent launches casual-only. (10) Build order = casual canary FIRST (Stage 1, independent, ships value now), THEN this foundation (Stage 2, DONE). (11) Grants gotcha: project ALTER DEFAULT PRIVILEGES auto-grants anon+authenticated on new tables/functions → `REVOKE FROM PUBLIC` is INSUFFICIENT; must REVOKE from the NAMED roles. See RPCS.md + GAFFER.md. PR #150. Next free mig = 455.)*
 
 ## SAFEGUARDING MODULE (Incident Triage Phase 2) — build now, legalise retrospectively
