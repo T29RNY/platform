@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { askGafferQuestion } from "@platform/core/storage/supabase.js";
+import { GAFFER_ACTIONS, actionForNudgeKey } from "./gafferActions.js";
 
 // Ask the Gaffer — message area + composer, mounted inside GafferLauncher's
 // chat sheet (GafferLauncher.jsx owns the scrim/sheet/header chrome per
@@ -15,8 +16,23 @@ const STARTER_PROMPTS = [
   "Who's in this week?",
 ];
 
-export default function Gaffer({ adminToken, teamName }) {
-  const [messages, setMessages] = useState([]);  // [{ role: 'user'|'assistant', content }]
+// Seeds the conversation with the nudge's banter as message #1, tagged with
+// the matching registry action so it renders "Show me" (and, once a PR-C/D
+// rpcWrapper exists, "Do it for you") — only when the sheet was opened by
+// tapping a live nudge (GafferLauncher passes null otherwise).
+function seedMessages(pendingNudge) {
+  if (!pendingNudge) return [];
+  const action = actionForNudgeKey(pendingNudge.key);
+  return [{
+    role: "assistant",
+    content: pendingNudge.banter,
+    actionChips: action ? [action.actionKey] : [],
+  }];
+}
+
+export default function Gaffer({ adminToken, teamName, pendingNudge, onShowMe }) {
+  const [messages, setMessages] = useState(() => seedMessages(pendingNudge));
+  // [{ role: 'user'|'assistant', content, actionChips?: string[] }]
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const isSendingRef = useRef(false);
@@ -47,6 +63,18 @@ export default function Gaffer({ adminToken, teamName }) {
             : "Couldn't reach the Gaffer right now. Try again in a moment.",
         }]);
       } else {
+        // Chat-answer messages don't carry actionChips yet, even though
+        // ActionChips/GAFFER_ACTIONS render generically off any message
+        // that has them (see the nudge-seeded path above). Deliberate, not
+        // an oversight — flagged explicitly per GAFFER_ACTION_FLOW_HANDOFF.md
+        // "Missed": askGafferQuestion/apps/inorout/api/gaffer.js is pure
+        // free-text Q&A with no tool-calling today, so there is no signal to
+        // classify a chat answer into a registry actionKey. Guessing one
+        // client-side from res.content would be exactly the free-text-as-
+        // action-trigger this epic's Locked Decision #1 forbids. Wiring this
+        // path for real needs the edge function constrained to emit a known
+        // actionKey (never free text) — a separate, explicitly-scoped change,
+        // not a client-side workaround here.
         setMessages(prev => [...prev, { role: "assistant", content: res.content }]);
       }
     } catch (err) {
@@ -80,12 +108,16 @@ export default function Gaffer({ adminToken, teamName }) {
           </div>
         )}
         {messages.map((m, i) => (
-          <div
-            key={i}
-            className="gaffer-message"
-            style={m.role === "user" ? userBubbleStyle : assistantBubbleStyle}
-          >
-            {m.content}
+          <div key={i}>
+            <div
+              className="gaffer-message"
+              style={m.role === "user" ? userBubbleStyle : assistantBubbleStyle}
+            >
+              {m.content}
+            </div>
+            {m.role === "assistant" && m.actionChips?.length > 0 && (
+              <ActionChips actionKeys={m.actionChips} onShowMe={onShowMe} />
+            )}
           </div>
         ))}
         {sending && (
@@ -130,6 +162,38 @@ export default function Gaffer({ adminToken, teamName }) {
           <span style={playTriangleStyle} />
         </button>
       </div>
+    </div>
+  );
+}
+
+// Renders "Show me" (secondary, always) and "Do it for you" (primary, only
+// once the registry row has a real rpcWrapper — PR-C/D). Generic over any
+// message carrying actionChips, not just the nudge-seeded first message, so
+// a future chat-suggested action (GAFFER_ACTION_FLOW_HANDOFF.md "Missed")
+// slots in with no renderer change.
+function ActionChips({ actionKeys, onShowMe }) {
+  return (
+    <div style={chipsRowStyle}>
+      {actionKeys.map((actionKey) => {
+        const action = GAFFER_ACTIONS[actionKey];
+        if (!action) return null;
+        return (
+          <div key={actionKey} style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => onShowMe?.(action.route)}
+              style={chipStyle}
+            >
+              Show me
+            </button>
+            {action.rpcWrapper && (
+              <button type="button" style={chipPrimaryStyle}>
+                Do it for you
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -207,6 +271,16 @@ const chipStyle = {
   borderRadius: "var(--gaffer-chip-radius)",
   cursor: "pointer",
   fontFamily: "var(--gaffer-font-body)",
+};
+
+// Primary chip variant (README §5: "solid accent fill with dark text") —
+// distinguishes "Do it for you" from the secondary/translucent "Show me".
+const chipPrimaryStyle = {
+  ...chipStyle,
+  color: "var(--gaffer-accent-ink)",
+  background: "var(--gaffer-accent)",
+  border: "1px solid var(--gaffer-accent)",
+  fontWeight: 600,
 };
 
 const composerStyle = {
