@@ -339,6 +339,8 @@ export {
   venueResolveIncident,
   venueTriageIncident,
   venueEscalateIncident,
+  venueFlagSafeguarding,
+  venueUnflagSafeguarding,
   confirmRenewal,
   getDisplayState,
   checkDisplayPin,

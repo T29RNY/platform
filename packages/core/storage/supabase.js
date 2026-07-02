@@ -4468,6 +4468,25 @@ export async function venueEscalateIncident(venueToken, incidentId, reason = nul
   return data;
 }
 
+// Safeguarding module (mig 467) — flag / unflag. Flagging is the low-friction
+// one-way door INTO safeguarding: any venue caller can flag; it atomically
+// evicts the incident from the ops queue and routes it to designated Leads only.
+// Unflagging is Lead-only (server enforces via _venue_is_safeguarding_lead —
+// throws not_a_safeguarding_lead for non-leads). v1 stores NO free-text.
+export async function venueFlagSafeguarding(venueToken, incidentId) {
+  const { data, error } = await supabase.rpc("venue_flag_safeguarding", {
+    p_venue_token: venueToken, p_incident_id: incidentId });
+  if (error) { console.error("[incidents] venue_flag_safeguarding failed", error); throw error; }
+  return data;
+}
+
+export async function venueUnflagSafeguarding(venueToken, incidentId) {
+  const { data, error } = await supabase.rpc("venue_unflag_safeguarding", {
+    p_venue_token: venueToken, p_incident_id: incidentId });
+  if (error) { console.error("[incidents] venue_unflag_safeguarding failed", error); throw error; }
+  return data;
+}
+
 // League Mode Phase 4 — Reception Display (mig 164–167).
 // Display token is the auth signal (read-only, on the TV); never the venue_admin_token.
 export async function getDisplayState(displayToken) {
