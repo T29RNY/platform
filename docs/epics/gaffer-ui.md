@@ -29,7 +29,7 @@
 - PR: #236 (merged)
 
 ### P2 — Real nudge triggers (replace the demo timer)
-- status: pending
+- status: in-progress (PR open, awaiting merge)
 - deps: P1
 - goal: Replace the 8.5s demo timer with real event hooks scoped to admin
   audience (squad shortfall, unread team chat, subs due) using data already
