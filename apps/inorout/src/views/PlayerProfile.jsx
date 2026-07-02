@@ -3,7 +3,7 @@ import {
   ArrowLeft, CaretRight, ChartLineUp, Bandaids, Receipt,
   SignOut, Trash, X as XIcon,
   PencilSimple, Link as LinkIcon, ArrowsClockwise, FirstAid, BellSimple, Lightning,
-  Plus,
+  Plus, Question,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import {
@@ -1045,6 +1045,25 @@ export default function PlayerProfile({
             </div>
           </>
         )}
+
+        {/* Help & FAQ — neutral, always visible (both player and admin mode). */}
+        <button
+          onClick={() => { window.location.href = "/faq"; }}
+          style={{
+            width:"100%", padding:"14px 16px", marginTop:32,
+            borderRadius:"var(--r)",
+            background:"transparent",
+            border:`0.5px solid var(--border-subtle)`,
+            color:"var(--t1)",
+            fontFamily:"var(--font-body)", fontSize:13, fontWeight:500,
+            display:"flex", alignItems:"center", gap:10,
+            cursor:"pointer",
+            WebkitTapHighlightColor:"transparent",
+          }}
+        >
+          <Question size={16} weight="thin"/>
+          Help &amp; FAQ
+        </button>
 
         {/* Create a new squad — player mode + real signed-in session only.
             Routes to the existing squad-setup wizard at /create, where
