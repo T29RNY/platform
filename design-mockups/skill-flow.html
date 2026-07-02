@@ -120,7 +120,7 @@
 <body>
 <div class="wrap-outer">
   <h1>In or Out — Skills &amp; Loops Flow</h1>
-  <div class="sub">All invocable skills · subagents · deterministic gates · hooks · governance · handoffs · human gates — created 2026-07-01, updated 2026-07-02 (+ go-live-check, /wrap, nightly automation suite)</div>
+  <div class="sub">All invocable skills · subagents · deterministic gates · hooks · governance · handoffs · human gates — created 2026-07-01, updated 2026-07-02 (+ go-live-check, /wrap, nightly automation suite, /faq-sync, /error-triage)</div>
 
   <div class="grid">
     <!-- ============ MAIN COLUMN ============ -->
@@ -227,6 +227,11 @@
           <div class="dc"><code>node --check</code> + <code>check-hygiene</code> + <code>check-build</code> + <code>qa-suite.sh</code> (cold, flake-aware, server-aware e2e) → triage <b>T1/T2/T3</b> → batch the CLEAR T1+T2 into <b>ONE</b> dev-loop pass → re-test until clean → surface T3 (tier-3 / PROTECTED + product decisions) → still-open + T3 land in BUGS.md / GO_LIVE_ISSUES.md</div>
         </div>
         <div class="note">Scopes: <code>full</code> = + supervised Playwright-MCP browser walk (console + a11y, read-only, never prod) · <code>scripted</code> = deterministic lane only (the only scope fit for <code>/loop</code> / scheduled) · free text = narrow to one area. Thin orchestrator over dev-loop — inherits its guardrails, adds no merge power.</div>
+        <div class="box skill" style="margin-top:10px">
+          <span class="nm"><code>/error-triage &lt;pasted stack trace&gt;</code><span class="newtag">NEW</span></span>
+          <div class="dc">redact tokens/JWTs/under-18+medical field values first (mandatory, always) → detect app + RLS/security scope (reuses babysit-prs's app map) → classify <b>P1/P2/P3</b> → grounded root-cause hypothesis (greps BUGS.md/GO_LIVE_ISSUES.md/<code>rls_migrations/</code>/<code>supabase.js</code> — never a guess) → recommend <code>/backlog-capture</code> or a <code>/dev-loop</code> defect-fix phase. Never proposes a code/SQL fix; auth/RLS/compliance findings always surface to 👤, even at P1.</div>
+        </div>
+        <div class="note">Built 2026-07-02 (<code>ERROR_INCIDENT_TRIAGE_HANDOFF.md</code>). No error tracker is wired up yet (<code>BETA_LAUNCH_CHECKLIST.md</code> — DECISION NEEDED) and no app has an ErrorBoundary/global error handler, so a pasted trace is the only reliable input today — a Sentry-shaped URL is accepted defensively via WebFetch, falling back to "paste the trace" on auth failure. Wiring an actual tracker in (Phase 2) is deliberately unscoped until that decision lands.</div>
       </div>
 
       <!-- PROD + GO-LIVE -->
@@ -278,6 +283,16 @@
           <div class="dc">lists open PRs → reads CI/deploy → maps each to its app → classifies merge-readiness (excludes the platform-ref false alarm) → ranked digest.</div>
         </div>
         <div class="note"><b>NEVER merges</b> — merge stays human. Run via <code>/loop 30m /babysit-prs</code> or a daily cloud trigger.</div>
+      </div>
+
+      <!-- FAQ Sync — the one self-merging skill -->
+      <div class="rail" style="border-color:#a8d4bd">
+        <h3 style="color:var(--state)">📖 FAQ Sync — standing <span class="newtag">NEW</span></h3>
+        <div class="box skill" style="border-color:#a8d4bd">
+          <span class="nm" style="color:var(--state)"><code>/faq-sync</code></span>
+          <div class="dc">3 jobs each pass — new-feature detection (shipped PR/FEATURES.md row with no FAQ entry) · accuracy sweep (every entry's route + described behaviour re-checked against live code) · PR-touch sweep (merged PRs since last run vs entry tags) — writes <code>apps/inorout/src/data/faq.js</code> directly.</div>
+        </div>
+        <div class="note"><b>The ONLY skill allowed to self-merge</b> — and only when <code>check-faq-content-only.sh</code> confirms the diff touches nothing but the FAQ data file, one QA-only reviewer is clean, and <code>check-live-config.sh</code> is CLEAR. Any wider diff (new route/component) drops straight to normal <code>/dev-loop</code> + 👤 human merge. Standing exception, approved 2026-07-02 (DECISIONS.md) — never widen the boundary by inference.</div>
       </div>
 
       <!-- Nightly automation suite -->
@@ -337,7 +352,8 @@
         <h3>Standing Automation</h3>
         <div class="lp"><code>/loop 30m /babysit-prs</code> — open-PR sweep (live)</div>
         <div class="lp"><code>/schedule</code> nightly <code>/qa-loop scripted</code> — deterministic regression lane, cloud</div>
-        <div class="note">Only the <code>scripted</code> QA scope + read-only babysit-prs are safe unattended today (they hit the live demo DB, never a real team). The 5-routine nightly suite (left) is approved but not yet live — see Nightly Suite.</div>
+        <div class="lp"><code>/loop 1440m /faq-sync</code> — nightly FAQ content sync (self-merges content-only diffs) <span class="newtag" style="margin-left:2px">NEW</span></div>
+        <div class="note">Only the <code>scripted</code> QA scope, read-only babysit-prs, and content-only faq-sync are safe unattended today (each hits the live demo DB / makes only a pre-approved narrow-scope write, never touches a real team). The 5-routine nightly suite (left) is approved but not yet live — see Nightly Suite.</div>
       </div>
 
     </div>
@@ -374,6 +390,10 @@
         <div><span class="m">/go-live-check</span> T3 → <span class="m">/backlog-capture</span></div>
         <div><span class="m">/qa-loop</span> T1/T2 → <span class="m">/dev-loop</span></div>
         <div><span class="m">/qa-loop</span> T3 → <span class="m">/backlog-capture</span></div>
+        <div><span class="m">/error-triage</span> P1 + repro → <span class="m">/dev-loop</span></div>
+        <div><span class="m">/error-triage</span> P2/P3, unclear, or auth/RLS/compliance → <span class="m">/backlog-capture</span></div>
+        <div><span class="m">/faq-sync</span> content-only, reviewed clean → self-merges (sole exception)</div>
+        <div><span class="m">/faq-sync</span> wider diff (new route/component) → <span class="m">/dev-loop</span></div>
         <div>bug fix committed → <span class="m">post-incident.md</span> → BUGS · DECISIONS · CONTEXT</div>
       </div>
     </div>
@@ -395,8 +415,9 @@
       <span class="pill">migration source lands with the apply</span>
       <span class="pill">native change → real-iPhone test before commit</span>
       <span class="pill">one cloud session at a time</span>
+      <span class="pill">FAQ content-only diff = sole auto-merge exception (2026-07-02)</span>
     </div>
-    <div class="gov-note">Enforced deterministically by the 4 hooks + <code>skills/scripts/check-*.sh</code> (build · hygiene · rpc-security · rpc-columns · rpc-consumers · schema · mapper-sync · realtime-subscriber · audit-events · ev-leak · live-config · next-migration). The 15 HARD RULES in CLAUDE.md are the contract; the scripts make them literal.</div>
+    <div class="gov-note">Enforced deterministically by the 4 hooks + <code>skills/scripts/check-*.sh</code> (build · hygiene · rpc-security · rpc-columns · rpc-consumers · schema · mapper-sync · realtime-subscriber · audit-events · ev-leak · live-config · next-migration · faq-content-only). The 15 HARD RULES in CLAUDE.md are the contract; the scripts make them literal.</div>
   </div>
 
 </div>
