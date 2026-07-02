@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { isDormantGuest } from "@platform/core";
 import Gaffer from "./index.jsx";
 import "./gaffer-tokens.css";
@@ -17,6 +18,9 @@ const MARGIN = 14;
 const TOP_INSET = 46;
 const DRAG_THRESHOLD = 6;
 const NUDGE_VISIBLE_MS = 3000;
+const NOTCH_WIDTH = 28;
+const NOTCH_HEIGHT = 64;
+const NOTCH_HIT_WIDTH = 44; // hit target padded wider than the 28px visual, height (64) already clears 44
 
 // Real admin-relevant nudge conditions, computed from squad/schedule state
 // App.jsx already has loaded (no new RPC — same filters AdminView uses for
@@ -69,12 +73,22 @@ function clampPosition(px, py) {
   };
 }
 
+// Which screen edge the orb currently reads as nearest — used both for the
+// existing drag-snap and (new) to pick which side the collapsed notch hugs.
+function nearestSide(px) {
+  const W = window.innerWidth;
+  return px + ORB_SIZE / 2 < W / 2 ? "left" : "right";
+}
+
 function loadPosition() {
-  const fallback = clampPosition(window.innerWidth - ORB_SIZE - MARGIN, Math.round(window.innerHeight * 0.54));
+  const fallback = {
+    ...clampPosition(window.innerWidth - ORB_SIZE - MARGIN, Math.round(window.innerHeight * 0.54)),
+    collapsed: false,
+  };
   try {
     const saved = JSON.parse(localStorage.getItem("gafferCorePos"));
     if (saved && typeof saved.px === "number" && typeof saved.py === "number") {
-      return clampPosition(saved.px, saved.py);
+      return { ...clampPosition(saved.px, saved.py), collapsed: saved.collapsed === true };
     }
   } catch (err) {
     console.error("[GafferLauncher] failed to read saved position:", err?.message);
@@ -82,15 +96,24 @@ function loadPosition() {
   return fallback;
 }
 
+function persistPosition(px, py, collapsed) {
+  try {
+    localStorage.setItem("gafferCorePos", JSON.stringify({ px, py, collapsed }));
+  } catch (err) {
+    console.error("[GafferLauncher] failed to persist position:", err?.message);
+  }
+}
+
 export default function GafferLauncher({ adminToken, teamName, squad, schedule }) {
   const [mode, setMode] = useState("idle"); // idle | nudge | dragging
   const [pos, setPos] = useState(loadPosition);
+  const [collapsed, setCollapsed] = useState(() => loadPosition().collapsed);
   const [snapping, setSnapping] = useState(false);
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState(true);
   const [banter, setBanter] = useState("");
 
-  const orbRef = useRef(null);
+  const launcherRef = useRef(null);
   const dragRef = useRef(null);
   const nudgeTimeoutRef = useRef(null);
   const nudgedKeyRef = useRef(null);
@@ -130,15 +153,24 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
 
   const onPointerDown = (e) => {
     e.preventDefault();
+    // The collapsed notch renders flush to its edge (0 inset), not at pos.px
+    // (which stays wherever the orb last was uncollapsed) — so the drag
+    // offset has to be measured against that flush x, not pos.px, or the
+    // orb would jump to a stale location the instant a notch-drag crosses
+    // DRAG_THRESHOLD and un-collapses.
+    const effectiveX = collapsed
+      ? (nearestSide(pos.px) === "left" ? 0 : window.innerWidth - NOTCH_WIDTH)
+      : pos.px;
     dragRef.current = {
-      offX: e.clientX - pos.px,
+      offX: e.clientX - effectiveX,
       offY: e.clientY - pos.py,
       startX: e.clientX,
       startY: e.clientY,
       moved: false,
+      startedCollapsed: collapsed,
     };
     try {
-      orbRef.current?.setPointerCapture(e.pointerId);
+      launcherRef.current?.setPointerCapture(e.pointerId);
     } catch (err) {
       // pointer capture is best-effort; drag still works without it
     }
@@ -151,6 +183,9 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
     const next = clampPosition(e.clientX - drag.offX, e.clientY - drag.offY);
     if (!drag.moved && Math.abs(e.clientX - drag.startX) + Math.abs(e.clientY - drag.startY) > DRAG_THRESHOLD) {
       drag.moved = true;
+      // Dragging the notch outward un-collapses it immediately and continues
+      // as a normal drag (spec: PR-A "Exit").
+      if (drag.startedCollapsed) setCollapsed(false);
     }
     setSnapping(false);
     setPos(next);
@@ -162,6 +197,11 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
     if (!drag) return;
     dragRef.current = null;
     if (!drag.moved) {
+      if (drag.startedCollapsed) {
+        // Tap the notch -> uncollapse + open in one motion.
+        setCollapsed(false);
+        persistPosition(pos.px, pos.py, false);
+      }
       setOpen(true);
       setMode("idle");
       return;
@@ -171,21 +211,24 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
     setSnapping(true);
     setMode("idle");
     setPos((p) => ({ px: snapX, py: p.py }));
-    try {
-      localStorage.setItem("gafferCorePos", JSON.stringify({ px: snapX, py: pos.py }));
-    } catch (err) {
-      console.error("[GafferLauncher] failed to persist position:", err?.message);
-    }
+    persistPosition(snapX, pos.py, false);
     setTimeout(() => setSnapping(false), 340);
   };
 
+  const collapseNow = () => {
+    setCollapsed(true);
+    persistPosition(pos.px, pos.py, true);
+  };
+
   const nudge = mode === "nudge" && !open;
-  const showOrb = !open;
-  const showHint = hint && !open;
+  const side = nearestSide(pos.px);
+  const showChevron = !open && !collapsed && mode === "idle" && !dragRef.current;
+  const showHint = hint && !open && !collapsed;
   const scale = mode === "dragging" ? 1.08 : 1;
   const snapTransition = snapping
     ? "transform .32s cubic-bezier(.22,1,.36,1)"
     : "transform .12s ease-out";
+  const collapseTransition = "opacity var(--gaffer-collapse-duration) cubic-bezier(.22,1,.36,1), transform var(--gaffer-collapse-duration) cubic-bezier(.22,1,.36,1)";
 
   return (
     <div className="gaffer-root">
@@ -216,168 +259,329 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule }
         </div>
       )}
 
-      {showOrb && (
+      {!open && (
+        // Single persistent button node for both notch and orb looks — the
+        // collapsed<->uncollapsed transition happens via style/children only,
+        // never by swapping DOM elements, so an active drag (which holds
+        // pointer capture on this node) survives the mid-gesture uncollapse
+        // (spec: "drag the notch outward -> collapsed:false, continues as a
+        // normal drag"). Swapping elements here would drop pointer capture
+        // and truncate the drag.
         <button
           type="button"
-          ref={orbRef}
+          ref={launcherRef}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           aria-label="Open Gaffer assistant"
-          style={{
-            position: "fixed",
-            left: 0,
-            top: 0,
-            width: ORB_SIZE,
-            height: ORB_SIZE,
-            zIndex: 130,
-            padding: 0,
-            border: "none",
-            background: "transparent",
-            cursor: "grab",
-            touchAction: "none",
-            transition: snapTransition,
-            transform: `translate(${pos.px}px, ${pos.py}px) scale(${scale})`,
-          }}
+          style={
+            collapsed
+              ? {
+                  // Hit target (44px) is wider than the visual notch (28px) —
+                  // the visual stays flush to [side]:0 as a child, this outer
+                  // box just extends the tappable/draggable area inward.
+                  position: "fixed",
+                  [side]: 0,
+                  top: 0,
+                  width: NOTCH_HIT_WIDTH,
+                  height: NOTCH_HEIGHT,
+                  display: "flex",
+                  justifyContent: side === "left" ? "flex-start" : "flex-end",
+                  zIndex: 130,
+                  padding: 0,
+                  border: "none",
+                  background: "transparent",
+                  cursor: "grab",
+                  touchAction: "none",
+                  transition: `${snapTransition}, ${collapseTransition}`,
+                  transform: `translateY(${pos.py}px)`,
+                }
+              : {
+                  position: "fixed",
+                  left: 0,
+                  top: 0,
+                  width: ORB_SIZE,
+                  height: ORB_SIZE,
+                  zIndex: 130,
+                  padding: 0,
+                  border: "none",
+                  background: "transparent",
+                  cursor: "grab",
+                  touchAction: "none",
+                  transition: `${snapTransition}, ${collapseTransition}`,
+                  transform: `translate(${pos.px}px, ${pos.py}px) scale(${scale})`,
+                }
+          }
         >
-          {nudge && (
+          {collapsed ? (
             <div
-              className="gaffer-orb-ripple"
+              className="gaffer-notch-body"
               style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                border: "1px solid rgba(245,166,35,.4)",
-              }}
-            />
-          )}
-          <div
-            className="gaffer-orb-body"
-            style={{
-              position: "relative",
-              width: ORB_SIZE,
-              height: ORB_SIZE,
-              borderRadius: "50%",
-              overflow: "hidden",
-              boxShadow: "var(--gaffer-orb-shadow)",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "50%",
+                position: "relative",
+                width: NOTCH_WIDTH,
+                height: NOTCH_HEIGHT,
+                overflow: "hidden",
+                borderRadius: side === "left" ? "0 20px 20px 0" : "20px 0 0 20px",
+                boxShadow: "var(--gaffer-orb-shadow)",
                 background: "var(--gaffer-orb-bg)",
                 backdropFilter: "blur(5px) saturate(150%) brightness(1.1)",
                 WebkitBackdropFilter: "blur(5px) saturate(150%) brightness(1.1)",
               }}
-            />
-            <div
-              className="gaffer-orb-core"
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                background: "var(--gaffer-core-glow)",
-                filter: "blur(4px)",
-              }}
-            />
-            <div
-              className={nudge ? "gaffer-orb-q-nudge" : "gaffer-orb-q-idle"}
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -56%)",
-                fontFamily: "var(--gaffer-font-body)",
-                fontWeight: 800,
-                fontSize: 34,
-                lineHeight: 1,
-                color: "var(--gaffer-q-color)",
-                textShadow: "var(--gaffer-q-shadow)",
-              }}
-              aria-hidden="true"
             >
-              ?
-            </div>
-            <div
-              className="gaffer-orb-caustic"
-              style={{
-                position: "absolute",
-                inset: 6,
-                borderRadius: "50%",
-                border: "1px solid transparent",
-                borderTopColor: "rgba(255,212,140,.4)",
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                top: 8,
-                left: 13,
-                width: 22,
-                height: 13,
-                borderRadius: "50%",
-                background: "linear-gradient(160deg, rgba(255,255,255,.5), rgba(255,255,255,0))",
-                filter: "blur(1px)",
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "50%",
-                boxShadow: "inset 0 0 7px rgba(255,212,140,.18), inset 0 0 0 1px rgba(255,255,255,.07)",
-              }}
-            />
-          </div>
-          {nudge && (
-            <>
+              {/* the orb's inner half, cropped into the notch window */}
               <div
-                className="gaffer-orb-dot"
-                role="status"
-                aria-label="Gaffer has an update"
                 style={{
                   position: "absolute",
-                  top: 0,
-                  right: 0,
-                  width: "var(--gaffer-dot-size)",
-                  height: "var(--gaffer-dot-size)",
+                  [side]: -(ORB_SIZE - NOTCH_WIDTH),
+                  top: (NOTCH_HEIGHT - ORB_SIZE) / 2,
+                  width: ORB_SIZE,
+                  height: ORB_SIZE,
                   borderRadius: "50%",
-                  background: "var(--gaffer-accent)",
-                  boxShadow: "0 0 10px rgba(245,166,35,.95)",
-                  zIndex: 3,
+                  background: "var(--gaffer-orb-bg)",
+                  boxShadow: "inset 0 0 7px rgba(255,212,140,.18)",
                 }}
               />
               <div
-                className="gaffer-banter"
-                aria-hidden="true"
+                className={nudge ? "gaffer-notch-q-nudge" : "gaffer-notch-q-idle"}
                 style={{
                   position: "absolute",
-                  bottom: 78,
-                  right: 0,
-                  width: 188,
-                  background: "var(--gaffer-bubble-bg)",
-                  color: "var(--gaffer-bubble-text)",
-                  padding: "10px 13px",
-                  borderRadius: "14px 14px 4px 14px",
-                  fontSize: 12.5,
-                  lineHeight: 1.35,
-                  fontWeight: 500,
+                  top: "50%",
+                  [side === "left" ? "right" : "left"]: 4,
+                  transform: "translateY(-50%)",
                   fontFamily: "var(--gaffer-font-body)",
-                  boxShadow: "0 12px 26px rgba(0,0,0,.5)",
-                  border: "1px solid rgba(255,255,255,.07)",
+                  fontWeight: 800,
+                  fontSize: 22,
+                  lineHeight: 1,
+                  color: "var(--gaffer-q-color)",
+                  textShadow: "var(--gaffer-q-shadow)",
+                  opacity: 0.85,
+                }}
+                aria-hidden="true"
+              >
+                ?
+              </div>
+              {nudge && (
+                <>
+                  <div
+                    className="gaffer-orb-dot"
+                    role="status"
+                    aria-label="Gaffer has an update"
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      [side]: 2,
+                      width: "var(--gaffer-dot-size)",
+                      height: "var(--gaffer-dot-size)",
+                      borderRadius: "50%",
+                      background: "var(--gaffer-accent)",
+                      boxShadow: "0 0 10px rgba(245,166,35,.95)",
+                      zIndex: 3,
+                    }}
+                  />
+                  <div
+                    className="gaffer-orb-ripple"
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      [side]: "50%",
+                      width: NOTCH_HEIGHT,
+                      height: NOTCH_HEIGHT,
+                      borderRadius: "50%",
+                      border: "1px solid rgba(245,166,35,.4)",
+                      clipPath: side === "left" ? "inset(0 0 0 50%)" : "inset(0 50% 0 0)",
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              {nudge && (
+                <div
+                  className="gaffer-orb-ripple"
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    border: "1px solid rgba(245,166,35,.4)",
+                  }}
+                />
+              )}
+              <div
+                className="gaffer-orb-body"
+                style={{
+                  position: "relative",
+                  width: ORB_SIZE,
+                  height: ORB_SIZE,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  boxShadow: "var(--gaffer-orb-shadow)",
                 }}
               >
-                {banter}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    background: "var(--gaffer-orb-bg)",
+                    backdropFilter: "blur(5px) saturate(150%) brightness(1.1)",
+                    WebkitBackdropFilter: "blur(5px) saturate(150%) brightness(1.1)",
+                  }}
+                />
+                <div
+                  className="gaffer-orb-core"
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: "var(--gaffer-core-glow)",
+                    filter: "blur(4px)",
+                  }}
+                />
+                <div
+                  className={nudge ? "gaffer-orb-q-nudge" : "gaffer-orb-q-idle"}
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -56%)",
+                    fontFamily: "var(--gaffer-font-body)",
+                    fontWeight: 800,
+                    fontSize: 34,
+                    lineHeight: 1,
+                    color: "var(--gaffer-q-color)",
+                    textShadow: "var(--gaffer-q-shadow)",
+                  }}
+                  aria-hidden="true"
+                >
+                  ?
+                </div>
+                <div
+                  className="gaffer-orb-caustic"
+                  style={{
+                    position: "absolute",
+                    inset: 6,
+                    borderRadius: "50%",
+                    border: "1px solid transparent",
+                    borderTopColor: "rgba(255,212,140,.4)",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    left: 13,
+                    width: 22,
+                    height: 13,
+                    borderRadius: "50%",
+                    background: "linear-gradient(160deg, rgba(255,255,255,.5), rgba(255,255,255,0))",
+                    filter: "blur(1px)",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    boxShadow: "inset 0 0 7px rgba(255,212,140,.18), inset 0 0 0 1px rgba(255,255,255,.07)",
+                  }}
+                />
               </div>
+              {showChevron && (
+                // A nested <button> here would be invalid HTML (the outer
+                // launcher is itself a <button>) — browsers auto-flatten
+                // nested interactive elements, which breaks the hit target.
+                // role="button" on a div gets the same semantics safely.
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    collapseNow();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      collapseNow();
+                    }
+                  }}
+                  aria-label="Tuck Gaffer to the edge"
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    [side === "left" ? "left" : "right"]: -12,
+                    transform: "translateY(-50%)",
+                    width: 44,
+                    height: 44,
+                    marginLeft: side === "left" ? -16 : 0,
+                    marginRight: side === "right" ? -16 : 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: side === "left" ? "flex-start" : "flex-end",
+                    background: "transparent",
+                    cursor: "pointer",
+                    zIndex: 4,
+                  }}
+                >
+                  {side === "left" ? (
+                    <CaretLeft size={20} weight="thin" color="var(--gaffer-t2)" />
+                  ) : (
+                    <CaretRight size={20} weight="thin" color="var(--gaffer-t2)" />
+                  )}
+                </div>
+              )}
+              {nudge && (
+                <>
+                  <div
+                    className="gaffer-orb-dot"
+                    role="status"
+                    aria-label="Gaffer has an update"
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      width: "var(--gaffer-dot-size)",
+                      height: "var(--gaffer-dot-size)",
+                      borderRadius: "50%",
+                      background: "var(--gaffer-accent)",
+                      boxShadow: "0 0 10px rgba(245,166,35,.95)",
+                      zIndex: 3,
+                    }}
+                  />
+                  <div
+                    className="gaffer-banter"
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      bottom: 78,
+                      right: 0,
+                      width: 188,
+                      background: "var(--gaffer-bubble-bg)",
+                      color: "var(--gaffer-bubble-text)",
+                      padding: "10px 13px",
+                      borderRadius: "14px 14px 4px 14px",
+                      fontSize: 12.5,
+                      lineHeight: 1.35,
+                      fontWeight: 500,
+                      fontFamily: "var(--gaffer-font-body)",
+                      boxShadow: "0 12px 26px rgba(0,0,0,.5)",
+                      border: "1px solid rgba(255,255,255,.07)",
+                    }}
+                  >
+                    {banter}
+                  </div>
+                </>
+              )}
             </>
           )}
         </button>

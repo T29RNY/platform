@@ -46,6 +46,9 @@
   --gaffer-sheet-radius: 28px 28px 33px 33px;
   --gaffer-chip-radius: 20px;
   --gaffer-field-radius: 24px;
+
+  /* Collapse-to-notch (PR-A) — reuses the existing edge-snap spring curve */
+  --gaffer-collapse-duration: 340ms;
 }
 
 /* ── Light mode (Locked Decision #4 — NOT shipped in v1, kept for a future flip) ──
@@ -72,6 +75,12 @@
 @keyframes gafferGlow { 0%, 100% { opacity: .82; } 50% { opacity: 1; } }
 @keyframes gafferQSpin { 0%, 84% { transform: translate(-50%, -56%) rotate(0deg); } 100% { transform: translate(-50%, -56%) rotate(360deg); } }
 @keyframes gafferQTwirl { 0% { transform: translate(-50%, -56%) rotate(0deg) scale(1); } 45% { transform: translate(-50%, -56%) rotate(360deg) scale(1.16); } 100% { transform: translate(-50%, -56%) rotate(720deg) scale(1); } }
+/* Notch (collapsed) "?" glyph — same glow/spin/twirl language as the orb's,
+   but anchored to translateY(-50%) (edge-flush, no horizontal centering) so
+   it doesn't fight the notch's [side]:N inline offset the way reusing the
+   orb's translate(-50%,-56%)-based keyframes did (PR-A review finding). */
+@keyframes gafferNotchQSpin { 0%, 84% { transform: translateY(-50%) rotate(0deg); } 100% { transform: translateY(-50%) rotate(360deg); } }
+@keyframes gafferNotchQTwirl { 0% { transform: translateY(-50%) rotate(0deg) scale(1); } 45% { transform: translateY(-50%) rotate(360deg) scale(1.16); } 100% { transform: translateY(-50%) rotate(720deg) scale(1); } }
 @keyframes gafferSpin { to { transform: rotate(360deg); } }
 @keyframes gafferRipple { 0% { transform: translate(-50%, -50%) scale(.5); opacity: .5; } 100% { transform: translate(-50%, -50%) scale(2.05); opacity: 0; } }
 @keyframes gafferDot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: .6; } }
@@ -86,6 +95,8 @@
 .gaffer-orb-caustic { animation: gafferSpin 7s linear infinite; }
 .gaffer-orb-q-idle { animation: gafferGlow 3.4s ease-in-out infinite, gafferQSpin 9s ease-in-out infinite; }
 .gaffer-orb-q-nudge { animation: gafferGlow 3.4s ease-in-out infinite, gafferQTwirl 1.1s cubic-bezier(.5,0,.2,1); }
+.gaffer-notch-q-idle { animation: gafferGlow 3.4s ease-in-out infinite, gafferNotchQSpin 9s ease-in-out infinite; }
+.gaffer-notch-q-nudge { animation: gafferGlow 3.4s ease-in-out infinite, gafferNotchQTwirl 1.1s cubic-bezier(.5,0,.2,1); }
 .gaffer-orb-ripple { animation: gafferRipple 2s ease-out infinite; }
 .gaffer-orb-ripple-once { animation: gafferRipple 1.7s ease-out; }
 .gaffer-orb-dot { animation: gafferDot 1.5s ease-in-out infinite; }
@@ -98,11 +109,17 @@
 /* prefers-reduced-motion (README §Interactions): kill ambient float/spin/twirl/
    breathing glow, keep a static orb + a short, non-animated panel transition. */
 @media (prefers-reduced-motion: reduce) {
+  .gaffer-root {
+    /* Collapse-to-notch: hard-cut, no animated width/radius/opacity crossfade. */
+    --gaffer-collapse-duration: 0ms;
+  }
   .gaffer-orb-body,
   .gaffer-orb-core,
   .gaffer-orb-caustic,
   .gaffer-orb-q-idle,
   .gaffer-orb-q-nudge,
+  .gaffer-notch-q-idle,
+  .gaffer-notch-q-nudge,
   .gaffer-orb-ripple,
   .gaffer-orb-ripple-once,
   .gaffer-orb-dot,
