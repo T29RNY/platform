@@ -430,8 +430,10 @@ BEGIN
             'severity', i.severity, 'category', i.category, 'priority', i.priority,
             'reported_by', i.reported_by, 'reported_by_name', public._venue_actor_name(i.reported_by),
             'created_at', i.created_at,
+            -- safeguarding_flagged_by is an actor_ident TEXT tag ('user_id:<uuid>' or
+            -- 'venue_admin_token:<md5>'), NOT a uuid — so it is NOT passed through
+            -- _venue_actor_name(uuid). Returned raw; PR#4 renders it. (v1-minimal.)
             'safeguarding_flagged_by', i.safeguarding_flagged_by,
-            'safeguarding_flagged_by_name', public._venue_actor_name(i.safeguarding_flagged_by),
             'safeguarding_flagged_at', i.safeguarding_flagged_at)
           ORDER BY i.safeguarding_flagged_at DESC), '[]'::jsonb),
          count(*)
