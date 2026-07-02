@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In or Out — Skills &amp; Loops Flow</title>
+<style>
+  :root{
+    --skill:#2f6fed;  --skill-bd:#a9c1f2;
+    --agent:#a9760b;  --agent-bd:#e3c774;
+    --human:#c9791e;  --human-bd:#e3ab63;  --human-bg:#fff6ea;
+    --state:#2b8a5c;  --state-bd:#a8d4bd;
+    --tool:#5a6472;   --tool-bd:#cdd3db;
+    --gov:#444;       --gov-bd:#cfcfcf;    --gov-bg:#f3f3f3;
+    --intake:#2b8a5c; --plan:#0f8f9c; --build:#2f6fed; --qa:#2b8a5c; --prod:#0f8f9c; --pr:#8054c7;
+    --ink:#1c2330; --mut:#6b7280; --line:#e2e6ec; --bg:#ffffff;
+    --warn:#c0392b; --warn-bg:#fdecea; --warn-bd:#f0b7b0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#f6f7f9;color:var(--ink);
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  code,.mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+  h1{font-size:20px;margin:0 0 2px;letter-spacing:.2px}
+  .sub{color:var(--mut);font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px;margin-bottom:20px}
+  .grid{display:grid;grid-template-columns:1fr 250px;gap:16px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:16px}
+  /* zone card */
+  .zone{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 13px 14px;
+    box-shadow:0 1px 2px rgba(20,30,50,.03)}
+  .zone > .ztitle{display:flex;align-items:center;gap:7px;font-weight:700;font-size:11px;
+    letter-spacing:.9px;text-transform:uppercase;margin-bottom:11px}
+  .ztitle .tag{font-weight:600;color:var(--mut);text-transform:none;letter-spacing:.2px;font-size:10.5px}
+  .z-intake .ztitle{color:var(--intake)} .z-intake{border-color:#bfe3cf}
+  .z-plan  .ztitle{color:var(--plan)}   .z-plan{border-color:#b6e2e6}
+  .z-build .ztitle{color:var(--build)}  .z-build{border-color:#c5d6f8}
+  .z-qa    .ztitle{color:var(--qa)}     .z-qa{border-color:#bfe3cf}
+  .z-prod  .ztitle{color:var(--prod)}   .z-prod{border-color:#b6e2e6}
+  .z-pr    .ztitle{color:var(--pr)}     .z-pr{border-color:#d6c7f0}
+  /* skill / node boxes */
+  .box{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff}
+  .skill{border-color:var(--skill-bd)}
+  .skill .nm{color:var(--skill);font-weight:700}
+  .agent{border-color:var(--agent-bd);background:#fffdf5}
+  .agent .nm{color:var(--agent);font-weight:700}
+  .human{border:1.5px solid var(--human-bd);background:var(--human-bg);text-align:center}
+  .human .nm{color:var(--human);font-weight:800;letter-spacing:.3px}
+  .state{border-color:var(--state-bd);background:#f4fbf7}
+  .state .nm{color:var(--state);font-weight:700}
+  .box .nm{display:block;margin-bottom:3px}
+  .box .dc{color:#3a4353;font-size:11.5px}
+  .box .dc code{color:#3a4353}
+  .muted{color:var(--mut)}
+  .nm code, .nm .m{font-family:"SF Mono",ui-monospace,Menlo,monospace}
+  /* step row */
+  .row{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+  .row.tight{gap:6px}
+  .arrow{align-self:center;color:#9aa3b0;font-weight:700;padding:0 1px;white-space:nowrap}
+  .step{flex:1 1 150px;min-width:135px}
+  .step .sn{font-size:9.5px;letter-spacing:.6px;color:var(--mut);text-transform:uppercase;font-weight:700}
+  .note{color:var(--mut);font-size:11px;margin-top:9px}
+  .loopback{color:var(--warn);font-size:11px;font-family:"SF Mono",ui-monospace,Menlo,monospace;margin:2px 0}
+  .subrow{display:flex;gap:8px;margin:9px 0}
+  .subrow .lab{align-self:center;color:var(--warn);font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px;white-space:nowrap}
+  /* right rail */
+  .rail{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .rail h3{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin:0 0 9px}
+  .rail + .rail{margin-top:0}
+  .leg{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:11.5px}
+  .sw{width:26px;height:15px;border-radius:5px;border:1px solid #ccc;flex:none}
+  .sw.skill{border-color:var(--skill-bd);background:#fff}
+  .sw.agent{border-color:var(--agent-bd);background:#fffdf5}
+  .sw.human{border:1.5px solid var(--human-bd);background:var(--human-bg)}
+  .sw.state{border-color:var(--state-bd);background:#f4fbf7}
+  .sw.tool{border-color:var(--tool-bd);background:#f3f3f3}
+  .sw.gov{border-color:var(--gov-bd);background:var(--gov-bg)}
+  .gitem{margin:8px 0;font-size:11.5px}
+  .gitem b{color:var(--ink)}
+  .gitem .s{color:var(--mut);display:block;font-size:11px}
+  .t3 li{margin:3px 0;font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px;list-style:none}
+  .t3{padding:0;margin:0}
+  .t3 .warnli{color:var(--warn)}
+  .lp{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:10.5px;color:#3a4353;margin:4px 0}
+  .lp b{color:var(--skill)}
+  /* callout */
+  .warn{border:1px solid var(--warn-bd);background:var(--warn-bg);border-radius:9px;padding:8px 10px;font-size:11.5px}
+  .warn b{color:var(--warn)}
+  /* pills */
+  .pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .pill{border:1px solid var(--gov-bd);background:var(--gov-bg);border-radius:20px;padding:3px 11px;
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px;color:#3a4353}
+  /* bottom band */
+  .band{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-top:16px}
+  .band h3{margin:0 0 10px;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--ink)}
+  .handoffs{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .handoffs col, .hcol{}
+  .hcol h4{margin:0 0 6px;font-size:10px;letter-spacing:.5px;color:var(--mut);text-transform:uppercase}
+  .hcol div{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:10.5px;color:#3a4353;margin:4px 0}
+  .hcol .m{color:var(--skill)}
+  .gov-note{color:var(--mut);font-size:11px;margin-top:6px}
+  @media print{
+    body{background:#fff}
+    .wrap{max-width:none;padding:0}
+    .grid{grid-template-columns:1fr 240px}
+    .zone,.rail,.band{break-inside:avoid;box-shadow:none}
+    .handoffs{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:900px){.grid{grid-template-columns:1fr}.handoffs{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>In or Out — Skills &amp; Loops Flow</h1>
+  <div class="sub">All invocable skills · subagents · deterministic gates · hooks · governance · handoffs · human gates — 2026-07-01</div>
+
+  <div class="grid">
+    <!-- ============ MAIN COLUMN ============ -->
+    <div class="col">
+
+      <!-- INTAKE -->
+      <div class="zone z-intake">
+        <div class="ztitle">📥 Intake <span class="tag">→ FEATURES.md · BUGS.md · GO_LIVE_ISSUES.md triage inbox</span></div>
+        <div class="box skill">
+          <span class="nm"><code>/backlog-capture</code></span>
+          <div class="dc">idea · GitHub issue URL · bullet list → classify (feature / bug / security / compliance) + size (XS–XL) + source link + dedup → append to the doc's <code>📥 CAPTURED — triage inbox</code></div>
+        </div>
+        <div class="note">Docs-only · allowlist-safe · no DB/RPC/migration. <b>It files, never ranks</b> (ranking = <code>/backlog</code>). Auto-invoked by: qa-loop&nbsp;T3 · prod-verify&nbsp;T3.</div>
+        <div class="note">Bug/incident intake has no triage <em>loop</em> here — post-fix documentation runs through <code>skills/post-incident.md</code> (see Governance).</div>
+      </div>
+
+      <!-- PLANNING -->
+      <div class="zone z-plan">
+        <div class="ztitle">🗂 Planning <span class="tag">survey → rank → pick → (scope) → build</span></div>
+        <div class="box skill">
+          <span class="nm"><code>/backlog</code></span>
+          <div class="dc"><code>survey-backlog.sh</code> + MEMORY recall + verify-first reconciliation → rank with <b>tier + ship-safety tags</b> (biases to dark-in-prod work during the Apple freeze) → shortlist actionable items</div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="arrow">→</div>
+          <div class="box human step" style="flex:0 0 200px"><span class="nm">👤 HUMAN PICK</span><div class="dc">the one gate · never auto-selected</div></div>
+          <div class="arrow">then launches UNMANNED →</div>
+        </div>
+        <div class="subrow">
+          <div class="lab">trivial ─────▶</div>
+          <div class="box skill" style="flex:1"><span class="nm"><code>/dev-loop &lt;change&gt;</code></span></div>
+        </div>
+        <div class="subrow">
+          <div class="lab">epic ────────▶</div>
+          <div class="box skill" style="flex:1"><span class="nm"><code>/loop /dev-loop &lt;manifest&gt;</code></span></div>
+        </div>
+        <div class="subrow">
+          <div class="lab">undesigned ─▶</div>
+          <div class="box skill" style="flex:1">
+            <span class="nm"><code>/scope</code></span>
+            <div class="dc">11 fresh-context lenses in parallel (user · technical · security · UI/UX · data/DB · design · platform/native · safety · best-practice · future-proofing · effort) → synthesise → judge scores vs <code>scope-rubric.md</code> → iterate to plateau → writes <code>&lt;SLUG&gt;_HANDOFF.md</code> + trigger prompt · <b>read-only, never builds</b></div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="box human" style="flex:0 0 150px;align-self:center"><span class="nm">👤 REVIEW</span><div class="dc">approve before any build</div></div>
+        </div>
+        <div class="row tight" style="margin-top:8px">
+          <div class="arrow" style="margin-left:150px">→</div>
+          <div class="box skill" style="flex:0 0 300px">
+            <span class="nm"><code>/decide</code></span>
+            <div class="dc">reads HANDOFF → updates DECISIONS.md + FEATURES.md → offers to launch <code>/dev-loop</code></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BUILD -->
+      <div class="zone z-build">
+        <div class="ztitle">🔨 Build — <code>/dev-loop</code> <span class="tag">one change/phase per fire · epic mode = outer /loop over manifest</span></div>
+        <div class="row tight">
+          <div class="box step"><div class="sn">Step 1 · Audit</div>read scope · BUGS/SCHEMA/RPCS · RLS</div>
+          <div class="arrow">→</div>
+          <div class="box human step"><span class="nm" style="font-size:12px">👤 Step 2 · PLAN GATE</span><div class="dc">batched or per-phase</div></div>
+          <div class="arrow">→</div>
+          <div class="box step"><div class="sn">Step 3 · Branch</div><code>feat/&lt;slug&gt;</code> off main</div>
+          <div class="arrow">→</div>
+          <div class="box step"><div class="sn">Step 4 · Execute</div>one file / one logical unit</div>
+        </div>
+
+        <div class="row tight" style="margin-top:9px">
+          <div class="box step" style="flex:1 1 100%">
+            <div class="sn">Step 5 · PROOF GATE <span class="muted">— fail-fast, bounded correction budget</span></div>
+            <code>node --check</code> → <code>check-hygiene</code> → rpc-security / schema gates + <b>ephemeral-verify</b> (live-DB, <code>_e2e_</code> fixture, auto-rollback) → <code>check-rpc-consumers</code> → <code>check-live-config</code> (ship-safety) → <code>check-build</code> → <b>Playwright end-to-end smoke = the real correctness signal</b>
+            <div class="loopback">↺ red → correct &amp; retry (bounded passes)</div>
+          </div>
+        </div>
+
+        <div class="subrow" style="align-items:stretch">
+          <div class="lab" style="align-self:center">Step 6 REVIEW&nbsp;→</div>
+          <div class="box agent" style="flex:1"><span class="nm">qa-reviewer <span class="muted" style="font-weight:400">· subagent, fresh ctx · diff only</span></span><div class="dc">correctness + requirement gaps</div></div>
+          <div class="box agent" style="flex:1"><span class="nm">security-reviewer <span class="muted" style="font-weight:400">· subagent, fresh ctx</span></span><div class="dc">runs <code>check-rpc-security</code> · RLS · SECURITY DEFINER · grants · secrets</div></div>
+          <div class="lab" style="align-self:center">↺ ship-blocker</div>
+        </div>
+
+        <div class="row tight">
+          <div class="box step"><div class="sn">Step 7 · Smoke</div><code>/e2e</code> real surface · casual-regression for apps/inorout</div>
+          <div class="arrow">→</div>
+          <div class="box step"><div class="sn">Step 8 · PR + CI</div><code>gh pr create</code> · watch CI <span class="muted">(↺ CI red)</span></div>
+          <div class="arrow">→</div>
+          <div class="box human step"><span class="nm" style="font-size:12px">👤 Step 9 · MERGE GATE</span><div class="dc">tier-3 ALWAYS escalates · opt-in <code>Merge mode: auto|queue</code></div></div>
+          <div class="arrow">→</div>
+          <div class="box state step"><span class="nm">✅ main</span><div class="dc">Vercel auto-deploys</div></div>
+        </div>
+
+        <div class="warn" style="margin-top:11px">
+          <b>Guardrails (hard):</b> PR-only — never pushes main (<code>pre-push-guard.sh</code>) · never blind auto-merges · never applies a migration or touches RLS / money / auth without explicit sign-off · <b>App-Store binary freeze</b> on auth/native during Apple review.
+        </div>
+        <div class="gov-note">Wraps the methodology layer: <code>skills/audit · execute · verify · commit · post-deploy.md</code>, plus situation gates <code>schema-sync · rpc-security-sweep · casual-regression · ephemeral-verify</code>.</div>
+      </div>
+
+      <!-- QA -->
+      <div class="zone z-qa">
+        <div class="ztitle">🧪 QA / Regression <span class="tag">on-demand or standing · T1/T2 → /dev-loop defect-fix phase</span></div>
+        <div class="box skill">
+          <span class="nm"><code>/qa-loop</code></span>
+          <div class="dc"><code>node --check</code> + <code>check-hygiene</code> + <code>check-build</code> + <code>qa-suite.sh</code> (cold, flake-aware, server-aware e2e) → triage <b>T1/T2/T3</b> → batch the CLEAR T1+T2 into <b>ONE</b> dev-loop pass → re-test until clean → surface T3 (tier-3 / PROTECTED + product decisions) → still-open + T3 land in BUGS.md / GO_LIVE_ISSUES.md</div>
+        </div>
+        <div class="note">Scopes: <code>full</code> = + supervised Playwright-MCP browser walk (console + a11y, read-only, never prod) · <code>scripted</code> = deterministic lane only (the only scope fit for <code>/loop</code> / scheduled) · free text = narrow to one area. Thin orchestrator over dev-loop — inherits its guardrails, adds no merge power.</div>
+      </div>
+
+      <!-- PROD -->
+      <div class="zone z-prod">
+        <div class="ztitle">🔭 Prod Verification <span class="tag">after each merge · formal Step 5 (POST-DEPLOY)</span></div>
+        <div class="box skill">
+          <span class="nm"><code>/prod-verify [PR#]</code></span>
+          <div class="dc">confirm the merge is actually live on Vercel → <b>derive surfaces from the merged diff</b> (tests what changed, not everything) → SUPERVISED Playwright-MCP walk of live-prod <b>DEMO surfaces only</b> (<code>/p/p_demotoken_01</code> + <code>/demoadmin</code>; never a real team, never scheduled-unattended) → read-only live-DB checks for RPC/schema diffs</div>
+        </div>
+        <div class="note"><code>pass → ✅ done</code> · <span style="color:var(--warn)">T1 live defect → <code>/dev-loop</code> fix phase</span> · <span style="color:var(--warn)">T3 (design / gate decision, incl. recommend-only <code>pg_notify</code> schema-cache flush) → operator</span>. Docs-only diff → "nothing to walk". Read-only — never edits, merges, or applies a migration.</div>
+      </div>
+
+    </div>
+
+    <!-- ============ RIGHT RAIL ============ -->
+    <div class="col">
+
+      <div class="rail">
+        <h3>Legend</h3>
+        <div class="leg"><span class="sw skill"></span> Invocable skill <code>/name</code></div>
+        <div class="leg"><span class="sw agent"></span> Subagent (fresh-ctx, read-only)</div>
+        <div class="leg"><span class="sw human"></span> 👤 Human gate</div>
+        <div class="leg"><span class="sw state"></span> State / artifact</div>
+        <div class="leg"><span class="sw tool"></span> Tooling / script</div>
+        <div class="leg"><span class="sw gov"></span> Governance rule</div>
+      </div>
+
+      <!-- PR triage (platform-unique, read-only, standing) -->
+      <div class="rail" style="border-color:#d6c7f0">
+        <h3 style="color:var(--pr)">⚖︎ PR Triage — standing</h3>
+        <div class="box skill" style="border-color:#d6c7f0">
+          <span class="nm" style="color:var(--pr)"><code>/babysit-prs</code></span>
+          <div class="dc">lists open PRs → reads CI/deploy → maps each to its app → classifies merge-readiness (excludes the platform-ref false alarm) → ranked digest.</div>
+        </div>
+        <div class="note"><b>NEVER merges</b> — merge stays human. Run via <code>/loop 30m /babysit-prs</code> or a daily cloud trigger.</div>
+      </div>
+
+      <div class="rail">
+        <h3>Human Gates</h3>
+        <div class="gitem"><b>PICK</b> — /backlog<span class="s">never auto-selected</span></div>
+        <div class="gitem"><b>REVIEW</b> — /scope output<span class="s">approve before any build</span></div>
+        <div class="gitem"><b>PLAN</b> — dev-loop step 2<span class="s">batched or per-phase</span></div>
+        <div class="gitem"><b>MERGE</b> — dev-loop step 9<span class="s">tier-3 ALWAYS; never blind auto</span></div>
+        <div class="gitem"><b>APP-STORE SUBMIT</b> — native/auth<span class="s">binary freeze during Apple review · human-on-intent</span></div>
+      </div>
+
+      <div class="rail">
+        <h3>Tier-3 Surfaces</h3>
+        <ul class="t3">
+          <li>migration (SQL apply)</li>
+          <li>RLS policy</li>
+          <li>money / billing (Stripe)</li>
+          <li>auth / native (Apple review)</li>
+          <li>outward action (email · push · webhook)</li>
+        </ul>
+        <div class="note">Reviewers may be clean and CI green — tier-3 still escalates for human intent-confirmation.</div>
+      </div>
+
+      <div class="rail">
+        <h3>Loop Principles</h3>
+        <div class="lp"><b>L1</b> Playwright real-browser smoke is the correctness signal — build/EV alone don't close the loop</div>
+        <div class="lp"><b>L4</b> reviewer ≠ author (fresh context, diff only)</div>
+        <div class="lp"><b>L6</b> one file / one logical unit per execute part</div>
+        <div class="lp"><b>L7</b> externalize state — handoff docs, CONTEXT.md, BUGS/FEATURES/DECISIONS</div>
+        <div class="lp"><b>L8</b> bounded correction budget, retry-on-red</div>
+        <div class="lp"><b>L9</b> explicit stop at every human / tier-3 gate</div>
+      </div>
+
+      <div class="rail">
+        <h3>Deterministic Hooks</h3>
+        <div class="lp"><b>SessionStart</b> primer — branch + tree + commits + BUGS head</div>
+        <div class="lp"><b>PostToolUse</b> hygiene — <code>check-hygiene</code> (7 checks), blocks on fail</div>
+        <div class="lp"><b>PreToolUse</b> build gate — <code>check-build</code> before any commit</div>
+        <div class="lp"><b>pre-push-guard</b> — never push to main</div>
+      </div>
+
+      <div class="rail">
+        <h3>Standing Automation</h3>
+        <div class="lp"><code>/loop 30m /babysit-prs</code> — open-PR sweep</div>
+        <div class="lp"><code>/schedule</code> nightly <code>/qa-loop scripted</code> — deterministic regression lane, cloud</div>
+        <div class="note">Only the <code>scripted</code> QA scope + read-only babysit-prs are safe unattended (they hit the live demo DB, never a real team).</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ CROSS-ZONE HANDOFFS ============ -->
+  <div class="band">
+    <h3>Cross-zone handoffs</h3>
+    <div class="handoffs">
+      <div class="hcol">
+        <h4>Intake → Planning</h4>
+        <div><span class="m">/backlog-capture</span> → triage inbox</div>
+        <div><span class="m">/backlog</span> surveys the inbox → 👤 PICK</div>
+      </div>
+      <div class="hcol">
+        <h4>Planning → Build</h4>
+        <div><span class="m">/backlog</span> trivial → <span class="m">/dev-loop</span></div>
+        <div><span class="m">/backlog</span> epic → <span class="m">/loop /dev-loop</span></div>
+        <div><span class="m">/backlog</span> undesigned → <span class="m">/scope</span></div>
+        <div><span class="m">/scope</span> → 👤 REVIEW → <span class="m">/decide</span> → <span class="m">/dev-loop</span></div>
+      </div>
+      <div class="hcol">
+        <h4>Build → Prod + QA</h4>
+        <div><span class="m">/dev-loop</span> merged → <span class="m">/prod-verify</span></div>
+        <div><span class="m">/dev-loop</span> merged → <span class="m">/qa-loop</span> (on-demand)</div>
+        <div><span class="m">/babysit-prs</span> → 👤 human merge</div>
+      </div>
+      <div class="hcol">
+        <h4>Prod + QA → Build / Intake</h4>
+        <div><span class="m">/prod-verify</span> T1 → <span class="m">/dev-loop</span></div>
+        <div><span class="m">/prod-verify</span> T3 → <span class="m">/backlog-capture</span></div>
+        <div><span class="m">/qa-loop</span> T1/T2 → <span class="m">/dev-loop</span></div>
+        <div><span class="m">/qa-loop</span> T3 → <span class="m">/backlog-capture</span></div>
+        <div>bug fix committed → <span class="m">post-incident.md</span> → BUGS · DECISIONS · CONTEXT</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GOVERNANCE ============ -->
+  <div class="band">
+    <h3>⚖︎ Governance — passive hard-rules, active across every zone</h3>
+    <div class="pills">
+      <span class="pill">SQL-first (Supabase editor, never Claude Code)</span>
+      <span class="pill">no direct client writes — SECURITY DEFINER RPCs</span>
+      <span class="pill">App.jsx state wrappers = pure setters</span>
+      <span class="pill">no console.log</span>
+      <span class="pill">tokens.css only · 2 hex allowed</span>
+      <span class="pill">every write RPC → audit_events</span>
+      <span class="pill">realtime publisher ↔ subscriber parity</span>
+      <span class="pill">RPC return-shape → same-commit mapper sync</span>
+      <span class="pill">migration source lands with the apply</span>
+      <span class="pill">native change → real-iPhone test before commit</span>
+      <span class="pill">one cloud session at a time</span>
+    </div>
+    <div class="gov-note">Enforced deterministically by the 4 hooks + <code>skills/scripts/check-*.sh</code> (build · hygiene · rpc-security · rpc-columns · rpc-consumers · schema · mapper-sync · realtime-subscriber · audit-events · ev-leak · live-config · next-migration). The 15 HARD RULES in CLAUDE.md are the contract; the scripts make them literal.</div>
+  </div>
+
+</div>
+</body>
+</html>
