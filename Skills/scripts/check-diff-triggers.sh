@@ -53,6 +53,21 @@ if [ -n "$RPC_MIGS" ]; then
   force "skills/ephemeral-verify.md" "write-RPC change needs live-DB end-to-end proof in:$RPC_MIGS"
 fi
 
+# ── Migration touching the incidents table → safeguarding read-filter guard ──
+# Any migration that reads/writes incidents must honour the safeguarding
+# exclusion (mig 468). Force the dedicated enforcement check.
+INC_MIGS=""
+for MIG in $MIGS; do
+  [ -f "$MIG" ] || continue
+  case "$MIG" in *_down.sql) continue;; esac
+  if grep -qiE '(FROM|JOIN|UPDATE|INTO)[[:space:]]+incidents[[:space:]]' "$MIG"; then
+    INC_MIGS="$INC_MIGS $MIG"
+  fi
+done
+if [ -n "$INC_MIGS" ]; then
+  force "Skills/scripts/check-incident-safeguarding.sh" "incidents-table migration(s):$INC_MIGS — run the safeguarding read-filter guard"
+fi
+
 # ── Phase-5+ apps/inorout touch → casual-regression ─────────────────────────
 # Any app-source or core change on the live casual path. (Docs/config under
 # apps/inorout that don't ship are excluded by requiring src/.)

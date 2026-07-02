@@ -4487,6 +4487,18 @@ export async function venueUnflagSafeguarding(venueToken, incidentId) {
   return data;
 }
 
+// Safeguarding module (mig 468) — Lead-ONLY list of flagged incidents. The
+// server enforces the Lead gate (_venue_is_safeguarding_lead) and throws
+// not_a_safeguarding_lead for non-leads — flagged bodies never transit a
+// non-lead client. Every call writes a read-audit row server-side (LD#7).
+// Returns { ok, incidents: [...], count }.
+export async function venueListSafeguardingIncidents(venueToken) {
+  const { data, error } = await supabase.rpc("venue_list_safeguarding_incidents", {
+    p_venue_token: venueToken });
+  if (error) { console.error("[incidents] venue_list_safeguarding_incidents failed", error); throw error; }
+  return data;
+}
+
 // League Mode Phase 4 — Reception Display (mig 164–167).
 // Display token is the auth signal (read-only, on the TV); never the venue_admin_token.
 export async function getDisplayState(displayToken) {
