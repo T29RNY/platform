@@ -79,7 +79,7 @@ VIOLATIONS=$(
       {
         # count incident READ sites (FROM/JOIN incidents), ignoring writes
         tmp=$0
-        while (match(tmp, /(FROM|JOIN)[[:space:]]+incidents[[:space:]]/)) {
+        while (match(tmp, /(FROM|JOIN)[[:space:]]+incidents([[:space:]]|[),;]|$)/)) {
           reads++
           tmp=substr(tmp, RSTART+RLENGTH)
         }
