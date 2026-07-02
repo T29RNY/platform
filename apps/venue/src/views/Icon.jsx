@@ -40,6 +40,7 @@ const PATHS = {
   spaces:   <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 10h7V3M10 10v11M14 21v-7h7" /></>,
   classes:  <><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /><path d="M8 14l2.5 2.5L16 12" /></>,
   roomhire: <><path d="M3 21h18" /><path d="M5 21V7l8-4v18" /><path d="M19 21V11l-6-4" /><path d="M9 9v.01M9 13v.01M9 17v.01" /></>,
+  shield:   <><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z" /></>,
 };
 
 export default function Icon({ name, size = 18 }) {

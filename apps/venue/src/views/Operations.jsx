@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import FixtureCard from "./FixtureCard.jsx";
 import RegistrationActions from "./RegistrationActions.jsx";
 import IncidentActions, { ReportIncidentButton } from "./IncidentActions.jsx";
+import SafeguardingPanel from "./SafeguardingPanel.jsx";
 import Icon from "./Icon.jsx";
 import { SectionHead, EmptyState } from "./atoms.jsx";
 import { longDate, incidentStamp, relativeFrom } from "../lib/format.js";
@@ -19,8 +20,16 @@ const CATEGORY_LABEL = {
 };
 const PRIORITY_FILTERS = [["all", "All"], ["urgent", "Urgent"], ["high", "High"], ["normal", "Normal"], ["low", "Low"]];
 
-export default function Operations({ state, venueToken, onRefresh }) {
+export default function Operations({ state, venueToken, onRefresh, me }) {
   const [priorityFilter, setPriorityFilter] = useState("all");
+  // Lead status is client-gated for VISIBILITY only; the server withholds the
+  // rows regardless (a non-lead's list RPC throws not_a_safeguarding_lead).
+  const isLead = (me?.capsGrant || []).includes("safeguarding_lead");
+  // Flagging an incident (via IncidentActions) evicts it from the ops queue AND
+  // should make it appear in the Lead panel — bump a tick so the panel re-fetches,
+  // otherwise a just-flagged item looks lost until a manual reload.
+  const [sgTick, setSgTick] = useState(0);
+  const refreshAll = () => { setSgTick((t) => t + 1); onRefresh?.(); };
   const fixtures = state.fixtures || {};
   const tonight = fixtures.tonight || [];
   const thisWeek = fixtures.this_week || [];
@@ -144,12 +153,14 @@ export default function Operations({ state, venueToken, onRefresh }) {
                     {i.created_at ? ` · ${relativeFrom(i.created_at)}` : ""}
                   </div>
                 </div>
-                <IncidentActions venueToken={venueToken} incident={i} onDone={onRefresh} />
+                <IncidentActions venueToken={venueToken} incident={i} onDone={refreshAll} />
               </div>
             ))}
           </>
         )}
       </section>
+
+      <SafeguardingPanel venueToken={venueToken} isLead={isLead} onRefresh={onRefresh} refreshTick={sgTick} />
 
       {restOfWeek.length > 0 && (
         <section style={{ marginBottom: "var(--gap-3)" }}>

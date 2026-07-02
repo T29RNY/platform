@@ -5,8 +5,10 @@ import {
   venueTriageIncident,
   venueEscalateIncident,
   venueListAssignableStaff,
+  venueFlagSafeguarding,
 } from "@platform/core/storage/supabase.js";
 import Modal from "./Modal.jsx";
+import Icon from "./Icon.jsx";
 
 // Category values offered in the UI. NOTE: the DB CHECK also allows 'safeguarding'
 // (reserved, mig 461) but it is deliberately NOT offered here — the operational
@@ -153,6 +155,19 @@ export default function IncidentActions({ venueToken, incident, onDone }) {
     } catch (e) { setError(e?.message || String(e)); } finally { setBusy(false); }
   }
 
+  async function flagSafeguarding() {
+    setBusy(true); setError(null);
+    try {
+      await venueFlagSafeguarding(venueToken, incident.id);
+      closeModalForce(); onDone?.();
+    } catch (e) {
+      const msg = e?.message || String(e);
+      setError(msg.includes("already_flagged")
+        ? "This incident is already flagged for safeguarding."
+        : msg);
+    } finally { setBusy(false); }
+  }
+
   function closeModalForce() { setModal(null); setReason(""); setNote(""); }
 
   const escalated = !!incident.escalated_at;
@@ -165,6 +180,12 @@ export default function IncidentActions({ venueToken, incident, onDone }) {
           <button className="btn btn-xs" onClick={() => { setModal("escalate"); setError(null); }}>Escalate</button>
         )}
         <button className="btn btn-xs btn-primary" onClick={() => { setModal("resolve"); setError(null); }}>Resolve</button>
+        {/* Safeguarding flag — violet, shield, deliberately not a plain btn-xs peer. */}
+        <button className="btn btn-xs" onClick={() => { setModal("flag"); setError(null); }}
+                title="Flag as a child-protection / welfare concern"
+                style={{ borderColor: "var(--train)", color: "var(--train)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <Icon name="shield" size={13} />Safeguarding
+        </button>
       </div>
 
       {/* Triage */}
@@ -251,6 +272,41 @@ export default function IncidentActions({ venueToken, incident, onDone }) {
         <textarea className="input" value={note} onChange={(e) => setNote(e.target.value)} rows={2}
           placeholder="e.g. floodlight replaced, pitch back in use" />
         <SafeguardingNotice />
+        {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{error}</p>}
+      </Modal>
+
+      {/* Flag as safeguarding — routes the incident privately to the venue's leads. */}
+      <Modal
+        open={modal === "flag"}
+        onClose={closeModal}
+        title="Flag as safeguarding"
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={closeModal} disabled={busy}>Cancel</button>
+            <span className="spacer" />
+            <button className="btn btn-primary" onClick={flagSafeguarding} disabled={busy}
+                    style={{ background: "var(--train)", borderColor: "var(--train)" }}>
+              {busy ? "Flagging…" : "Flag as safeguarding"}
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <span style={{ color: "var(--train)", flexShrink: 0, marginTop: 2 }}><Icon name="shield" size={20} /></span>
+          <div>
+            <p style={{ fontSize: 13, color: "var(--ink-1)", marginBottom: 8 }}>
+              This removes the incident from the normal operational queue and routes it privately to your
+              venue's designated safeguarding lead(s). <strong>You won't be able to see or reopen it here.</strong>
+            </p>
+            <p style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 8 }}>
+              Use this for a child-protection or welfare concern. If this <em>also</em> needs an operational
+              response (e.g. first aid, a facility fault), log that as a separate incident.
+            </p>
+            <p style={{ fontSize: 12, color: "var(--ink-3)" }}>
+              Flagging does not replace your organisation's safeguarding procedure — follow that too.
+            </p>
+          </div>
+        </div>
         {error && <p style={{ color: "var(--live)", fontSize: 12, marginTop: 8 }}>{error}</p>}
       </Modal>
     </>
