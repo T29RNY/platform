@@ -52,6 +52,7 @@ import SignIn        from "./views/SignIn.jsx";
 import AuthGateModal from "./components/AuthGateModal.jsx";
 import useRequireAuth from "./hooks/useRequireAuth.js";
 import Legal         from "./views/Legal.jsx";
+import FAQScreen     from "./views/FAQScreen.jsx";
 import PWAWelcome   from "./views/PWAWelcome.jsx";
 import Gaffer        from "./views/Gaffer/index.jsx";
 import SquadReady    from "./onboarding/steps/SquadReady.jsx";
@@ -113,6 +114,7 @@ function getRoute() {
   if (parts[0]==="c"           && parts[1])  return { type:"club_public", slug:parts[1] };
   if (parts[0]==="auth"          && parts[1]==="callback") return { type:"auth_callback" };
   if (["legal","privacy","terms"].includes(parts[0])) return { type:"legal" };
+  if (parts[0]==="faq")                      return { type:"faq" };
   if (window.location.hostname==="localhost") return { type:"admin",    token:"local" };
 
   // Redirect bridge — only at root "/".
@@ -1187,6 +1189,7 @@ export default function App() {
   if (route.type === "redirecting")  return null;
   if (route.type === "auth_callback") return <AuthCallback/>;
   if (route.type === "legal") return <Legal/>;
+  if (route.type === "faq") return <FAQScreen/>;
   if (route.type === "qr") return <InviteResolve code={route.code} />;
   if (route.type === "member") return <MemberPass token={route.token} />;
 
