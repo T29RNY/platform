@@ -616,12 +616,22 @@ typed Swift `CodingKeys` + RPCS.md consumers (Hard Rule #12/#14); port the offli
 engine verbatim; resolver disambiguation for multi-role same-day games; health data = UK-GDPR
 special category → store summary only + cascade `match_health_sessions` into `api/delete-account.js`.
 
-**Casual-write storage decision LOCKED (2026-07-02, DECISIONS.md #11):** write BOTH, LIVE — a new
-parallel casual event-log table (`match_events.fixture_id` can't be reused: casual has no second
-team row to FK to, it's scrimmage sides A/B on one team) AND a live increment of the existing
-(currently 100%-dormant) `player_match` card columns, in the same transaction as each event —
-isolated new RPCs, no touch to the existing end-of-match confirm RPC. This piece has no
-watch/device dependency — buildable ahead of Xcode/App-Store approval, same as Phase 1/4.
+**✅ Phase 5 backend — casual ref writes SHIPPED (mig 471, 2026-07-02).** No watch/device
+dependency — buildable ahead of Xcode/App-Store approval, same as Phase 1/4. New
+`casual_match_events` table (parallel to `match_events` — casual has no second team row to FK to,
+it's scrimmage sides A/B on one team) + `matches.ref_started_at` + 8 token-gated SECDEF RPCs
+(`casual_ref_start_match`/`record_goal`/`record_card`/`record_substitution`/`record_sin_bin`/
+`set_period`/`undo_event`/`confirm_full_time`). Goals stay exactly as today (admin confirm is
+still the sole writer of `player_match.goals`) — only `yellow_cards`/`red_cards`/`own_goals`
+(previously 100%-dormant Phase-3 columns) get written, derived by `COUNT()` at the ref's own
+full-time tap on the watch, not incremented live tap-by-tap (safer undo, and `player_match` rows
+for a casual match don't exist pre-admin-confirm — the confirm-full-time RPC creates them early
+from `teams_draft`). Verified disjoint from the admin's existing confirm-result RPC (mig 013) —
+it never touches these 3 columns. **Gates:** rpc-security-sweep PASS (10/10 functions —
+SECDEF + search_path pinned + single overload); ephemeral-verify PASS (11/11 assertion groups incl.
+idempotent replay, undo, cross-side-sub rejection, already-resulted guard, and the disjoint-column
+proof) + leak-check clean. No frontend/JS-wrapper wiring yet — backend only, RPCS.md/SCHEMA.md
+updated (Hard Rule #14). See DECISIONS.md #11.
 
 **Sequencing:** comes after `APP_STORE_CHECKLIST.md` reaches Apple approval. Run solo (cloud-session
 discipline). See DECISIONS.md s161 + project memory `[[project_watchos_companion]]`.
