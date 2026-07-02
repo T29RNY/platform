@@ -7,6 +7,13 @@ Not shipped work — no session number. Promote an item into the log below only 
 
 - 📥 **No post-ship "done" closing skill** — feature · effort ~L · checked the full .claude/skills/ inventory (babysit-prs, backlog, backlog-capture, decide, dev-loop, prod-verify, qa-loop, scope) — none marks FEATURES.md as done, writes a MEMORY.md wrap-up, or drafts the next-session prompt after an epic actually ships; backlog-capture explicitly disclaims this role. A genuine total gap, not a discipline lapse · source: input:2026-07-01 · captured 2026-07-01 · _open_
 
+### Nightly automation suite (cloud routines, 03:30–04:00 UTC · unattended-safe, read-only/draft-only) — approved 2026-07-02
+- 📥 **Nightly `/babysit-prs` cloud routine (03:30 UTC)** — feature · effort ~XS · schedule the existing read-only open-PR triage sweep as a daily cloud routine so the mergeable-PR + Nightly-QA-auto-fix digest is waiting each morning; skill already exists, only the schedule to create · source: input:2026-07-02 · captured 2026-07-02 · _open_
+- 📥 **Migration/source drift check (03:40 UTC)** — feature · effort ~S · new `skills/scripts/check-drift.sh` (read-only) that asserts every migration applied to the live DB has matching source on `main` (Hard Rule 11) + nightly cloud routine to run it and surface any drift; catches cloud-session divergence · source: input:2026-07-02 · captured 2026-07-02 · _open_
+- 📥 **Deploy-freshness sweep (03:50 UTC)** — feature · effort ~S · new read-only check + nightly routine that flags manual-deploy apps (venue/hq) sitting on merged-but-unshipped changes and confirms auto-deploy apps are current; targets the recurring "⛔ owed deploy" pattern · source: input:2026-07-02 · captured 2026-07-02 · _open_
+- 📥 **Security/perf advisor sweep (04:00 UTC)** — feature · effort ~S · nightly `get_advisors` (security+performance) that surfaces only NEW findings (RLS-missing / search_path-mutable) vs a stored baseline, so a shipped RPC that missed a grant/search_path is caught overnight · source: input:2026-07-02 · captured 2026-07-02 · _open_
+- 📥 **`_e2e_` residue leak check (04:00 UTC)** — feature · effort ~XS · nightly cloud routine running the existing `check-ev-leak.sh` (count of `_e2e_%` rows must = 0) to catch a committed ephemeral-verify rollback; cheap safety net given how heavily EV runs · source: input:2026-07-02 · captured 2026-07-02 · _open_
+
 ---
 
 ## REFEREE EPIC — full plan in `REFEREE_HANDOFF.md`
