@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isDormantGuest } from "@platform/core";
 import Gaffer from "./index.jsx";
 import "./gaffer-tokens.css";
 
@@ -15,7 +16,49 @@ const ORB_SIZE = 68;
 const MARGIN = 14;
 const TOP_INSET = 46;
 const DRAG_THRESHOLD = 6;
-const NUDGE_BANTER = "Subs are due Friday — want me to sort it?";
+const NUDGE_VISIBLE_MS = 3000;
+
+// Real admin-relevant nudge conditions, computed from squad/schedule state
+// App.jsx already has loaded (no new RPC — same filters AdminView uses for
+// "Chase No-Responses" / "Outstanding" so the numbers always agree with what
+// the admin sees on the panel). Checked in priority order; only the most
+// pressing condition nudges. Gated to a live, non-draft, non-cancelled week —
+// an admin mid-setup or with a cancelled game doesn't need chasing.
+function computeNudge(squad, schedule) {
+  if (!schedule || schedule.isDraft || schedule.isCancelled) return null;
+
+  // Copy is deliberately informational, not action-offering ("want me to
+  // chase it?") — Gaffer is read-only Q&A today (askGafferQuestion has no
+  // write/execute path), so a nudge must never imply it can act on a "yes".
+  // Tapping it opens the real capability: asking Gaffer about it.
+  const totalOwed = squad
+    .filter((p) => !p.disabled)
+    .reduce((sum, p) => sum + (p.owes || 0), 0);
+  if (totalOwed > 0) {
+    return { key: `owed:${totalOwed}`, banter: `£${totalOwed} still outstanding — ask me who owes what.` };
+  }
+
+  const noRespCount = squad.filter(
+    (p) => p.status === "none" && !p.disabled && !p.injured && !isDormantGuest(p)
+  ).length;
+  if (noRespCount > 0) {
+    return {
+      key: `noresp:${noRespCount}`,
+      banter: `${noRespCount} ${noRespCount === 1 ? "hasn't" : "haven't"} replied yet — ask me who's missing.`,
+    };
+  }
+
+  const inCount = squad.filter((p) => p.status === "in" && !p.disabled && !p.injured).length;
+  const squadSize = schedule.squadSize || 14;
+  if (inCount < squadSize) {
+    return {
+      key: `shortfall:${inCount}/${squadSize}`,
+      banter: `Only ${inCount}/${squadSize} confirmed — ask me who's in.`,
+    };
+  }
+
+  return null;
+}
 
 function clampPosition(px, py) {
   const W = window.innerWidth;
@@ -39,33 +82,45 @@ function loadPosition() {
   return fallback;
 }
 
-export default function GafferLauncher({ adminToken, teamName }) {
+export default function GafferLauncher({ adminToken, teamName, squad, schedule }) {
   const [mode, setMode] = useState("idle"); // idle | nudge | dragging
   const [pos, setPos] = useState(loadPosition);
   const [snapping, setSnapping] = useState(false);
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState(true);
+  const [banter, setBanter] = useState("");
 
   const orbRef = useRef(null);
   const dragRef = useRef(null);
   const nudgeTimeoutRef = useRef(null);
+  const nudgedKeyRef = useRef(null);
 
   useEffect(() => {
-    // PR #1 chrome-only demo timer, ported from the design mock. PR #2
-    // replaces this with real event-driven nudge triggers.
-    const iv = setInterval(() => {
-      if (mode === "idle" && !open && !dragRef.current) {
-        setMode("nudge");
-        nudgeTimeoutRef.current = setTimeout(() => {
-          setMode((m) => (m === "nudge" ? "idle" : m));
-        }, 3000);
-      }
-    }, 8500);
-    return () => {
-      clearInterval(iv);
-      clearTimeout(nudgeTimeoutRef.current);
-    };
-  }, [mode, open]);
+    if (open || dragRef.current) return;
+    const nudge = computeNudge(squad || [], schedule);
+    if (!nudge) {
+      // Condition resolved — clear the dedup key so a later recurrence at the
+      // exact same value (e.g. owed goes £40 -> £0 -> £40 again) re-nudges
+      // instead of silently matching the stale key forever.
+      nudgedKeyRef.current = null;
+      return;
+    }
+    if (nudge.key === nudgedKeyRef.current) return;
+    nudgedKeyRef.current = nudge.key;
+    setBanter(nudge.banter);
+    setMode("nudge");
+    // Deliberately not cleared on unmount: squad/schedule get new references
+    // on most re-renders (realtime updates etc), and an effect cleanup tied to
+    // this timeout would also fire on React 18 StrictMode's dev-only mount/
+    // cleanup/remount dance, clearing the dismiss before it ever runs (the
+    // trigger is correctly guarded against re-firing for the same key, so
+    // nothing replaces it). A stray setState after a real unmount is a no-op
+    // in React 18 — safe to just let it fire.
+    clearTimeout(nudgeTimeoutRef.current);
+    nudgeTimeoutRef.current = setTimeout(() => {
+      setMode((m) => (m === "nudge" ? "idle" : m));
+    }, NUDGE_VISIBLE_MS);
+  }, [squad, schedule, open]);
 
   useEffect(() => {
     const onResize = () => setPos((p) => clampPosition(p.px, p.py));
@@ -321,7 +376,7 @@ export default function GafferLauncher({ adminToken, teamName }) {
                   border: "1px solid rgba(255,255,255,.07)",
                 }}
               >
-                {NUDGE_BANTER}
+                {banter}
               </div>
             </>
           )}

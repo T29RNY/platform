@@ -12,7 +12,7 @@
 ## Phases   (status: pending | in-progress | done | blocked: <why> | needs-human: <what>)
 
 ### P1 — Orb launcher + drag/snap + chat-sheet chrome
-- status: pending
+- status: done
 - deps: none
 - goal: New `GafferLauncher` component (68px orb, idle/nudge/listening/dragging
   states, drag-to-reposition + edge-snap + `localStorage['gafferCorePos']`,
@@ -26,10 +26,10 @@
   VITE_GAFFER_ENABLED=true + admin session shows orb not old panel; drag
   persists across reload; tap opens sheet; real Q&A round-trip via
   askGafferQuestion; flag off → zero DOM footprint.
-- PR:
+- PR: #236 (merged)
 
 ### P2 — Real nudge triggers (replace the demo timer)
-- status: pending
+- status: in-progress (PR open, awaiting merge)
 - deps: P1
 - goal: Replace the 8.5s demo timer with real event hooks scoped to admin
   audience (squad shortfall, unread team chat, subs due) using data already
