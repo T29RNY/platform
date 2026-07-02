@@ -2279,6 +2279,32 @@ export async function askGafferQuestion(adminToken, question, opts = {}) {
   });
 }
 
+// Gaffer action-flow (GAFFER_ACTION_FLOW_HANDOFF.md PR-C) — "Do it for you".
+// Two-step: propose (records intent, returns a server-computed preview) then
+// confirm (re-validates, dispatches, audits). Both throw on error — the
+// caller (Gaffer/index.jsx) catches and renders a plain-English message per
+// the RPC's error code, same pattern as every other admin_* write call.
+export async function gafferProposeAction(adminToken, actionKey, nudgeKey, source) {
+  const { data, error } = await supabase.rpc('gaffer_propose_action', {
+    p_admin_token: adminToken,
+    p_action_key: actionKey,
+    p_nudge_key: nudgeKey ?? null,
+    p_source: source || 'nudge',
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function gafferConfirmAction(adminToken, gafferActionId, actionKey) {
+  const { data, error } = await supabase.rpc('gaffer_confirm_action', {
+    p_admin_token: adminToken,
+    p_gaffer_action_id: gafferActionId,
+    p_action_key: actionKey,
+  });
+  if (error) throw error;
+  return data;
+}
+
 // ─── Superadmin (apps/superadmin) ────────────────────────────────────────────
 // All four wrappers call SECURITY DEFINER RPCs gated by is_platform_admin().
 // Caller must be in the platform_admins table (migration 045).

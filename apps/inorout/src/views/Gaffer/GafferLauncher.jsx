@@ -104,7 +104,7 @@ function persistPosition(px, py, collapsed) {
   }
 }
 
-export default function GafferLauncher({ adminToken, teamName, squad, schedule, onNavigate }) {
+export default function GafferLauncher({ adminToken, teamName, teamId, squad, schedule, onNavigate }) {
   const [mode, setMode] = useState("idle"); // idle | nudge | dragging
   const [pos, setPos] = useState(loadPosition);
   const [collapsed, setCollapsed] = useState(() => loadPosition().collapsed);
@@ -697,7 +697,7 @@ export default function GafferLauncher({ adminToken, teamName, squad, schedule, 
                 </button>
               </div>
 
-              <Gaffer adminToken={adminToken} teamName={teamName} pendingNudge={pendingNudge} onShowMe={handleShowMe} />
+              <Gaffer adminToken={adminToken} teamName={teamName} teamId={teamId} schedule={schedule} pendingNudge={pendingNudge} onShowMe={handleShowMe} />
             </div>
           </div>
         </>

@@ -53,6 +53,8 @@ export {
   goLive,
   getGafferBriefing,
   askGafferQuestion,
+  gafferProposeAction,
+  gafferConfirmAction,
   resolveAgentCaller,
   adminSetPlayerStatus,
   adminReorderReserves,
