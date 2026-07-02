@@ -275,7 +275,7 @@ export default function Dashboard({ state, venueToken, occupancy = [], bookingIn
                 <OpsStatBar state={state} onView={setView} />
               </div>
               <div style={{ gridArea: "content", minWidth: 0 }}>
-                <Operations state={state} venueToken={venueToken} onRefresh={onRefresh} />
+                <Operations state={state} venueToken={venueToken} onRefresh={onRefresh} me={me} />
               </div>
               <div style={{ gridArea: "sidebar", minWidth: 0 }}>
                 <Sidebar pitches={state.pitches ?? []} refs={state.refs ?? []} venueToken={venueToken} onDone={onRefresh} />

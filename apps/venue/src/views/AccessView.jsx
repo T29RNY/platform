@@ -13,6 +13,8 @@ const CAPS = [
   { key: "manage_logins",    label: "Manage logins",           hint: "invite & manage people" },
 ];
 const ROLES = ["owner", "manager", "staff"];
+const SAFEGUARDING_LEAD = "safeguarding_lead";
+const isLead = (a) => (a?.caps_grant || []).includes(SAFEGUARDING_LEAD);
 const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 // Effective capability for a row = role default, overlaid with per-person grant/deny.
@@ -72,8 +74,22 @@ export default function AccessView({ venueToken, me }) {
     const desired = new Set(CAPS.filter((c) => effCap(a.role, a.caps_grant, a.caps_deny, c.key)).map((c) => c.key));
     if (effCap(a.role, a.caps_grant, a.caps_deny, cap)) desired.delete(cap); else desired.add(cap);
     const { grant, deny } = normalize(a.role, desired);
+    // safeguarding_lead is grant-only + role-independent — normalize() only knows
+    // the 5 operational caps, so preserve an existing Lead grant across an ops toggle
+    // (else designating a lead then toggling any op cap would silently un-designate them).
+    if (isLead(a)) grant.push(SAFEGUARDING_LEAD);
     setBusy(a.id); setError(null);
     try { await venueUpdateAdmin(venueToken, a.id, null, grant, deny); await load(); }
+    catch (e) { setError(humanErr(e)); } finally { setBusy(null); }
+  };
+  // Safeguarding lead is a SEPARATE, grant-only, role-independent designation (mig
+  // 466/469). It is NOT in CAPS — an owner/manager is NOT a lead by default; only an
+  // explicit grant makes one, mirroring the server-side _venue_is_safeguarding_lead gate.
+  const onToggleLead = async (a) => {
+    const grant = new Set(a.caps_grant || []);
+    if (isLead(a)) grant.delete(SAFEGUARDING_LEAD); else grant.add(SAFEGUARDING_LEAD);
+    setBusy(a.id); setError(null);
+    try { await venueUpdateAdmin(venueToken, a.id, null, [...grant], a.caps_deny || []); await load(); }
     catch (e) { setError(humanErr(e)); } finally { setBusy(null); }
   };
   const onRemove = async (a) => {
@@ -94,9 +110,25 @@ export default function AccessView({ venueToken, me }) {
 
   if (admins === null) return <div className="text-mute" style={{ padding: 24 }}>Loading access…</div>;
 
+  const anyLead = admins.some(isLead);
+
   return (
     <div className="access">
       {error && <div className="banner banner-warn" style={{ marginBottom: "var(--gap)" }}>{error}</div>}
+
+      {!anyLead && (
+        <div className="banner" style={{
+          marginBottom: "var(--gap)", background: "var(--train-soft)",
+          border: "1px solid var(--train)", color: "var(--ink-1)",
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <span style={{ color: "var(--train)", flexShrink: 0 }}><Icon name="shield" size={18} /></span>
+          <span style={{ fontSize: 13 }}>
+            <strong>No safeguarding lead designated.</strong> A welfare concern flagged by staff will
+            have nowhere to go. Designate at least one person as safeguarding lead below.
+          </span>
+        </div>
+      )}
 
       <SectionHead label="Access" count={admins.length}>
         <button className="btn btn-sm btn-primary" onClick={() => setInviteOpen((v) => !v)}>
@@ -160,6 +192,23 @@ export default function AccessView({ venueToken, me }) {
                     })}
                   </div>
                 )}
+                {/* Safeguarding lead — grant-only, role-independent (mig 466/469).
+                    Shown for EVERY role incl owner; an owner is NOT a lead by default. */}
+                <div className="caps" style={{ marginTop: 6 }}>
+                  <button type="button"
+                          title="Designate as safeguarding lead — can privately view & resolve flagged child-protection concerns"
+                          className={"cap-chip" + (isLead(a) ? " on" : "") + (canManage(a) ? "" : " locked")}
+                          disabled={!canManage(a) || busy === a.id}
+                          style={{
+                            borderColor: "var(--train)",
+                            color: "var(--train)",
+                            background: isLead(a) ? "var(--train-soft)" : undefined,
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                          }}
+                          onClick={() => onToggleLead(a)}>
+                    <Icon name="shield" size={13} />{isLead(a) ? "✓ " : ""}Safeguarding lead
+                  </button>
+                </div>
               </div>
             );
           })}
