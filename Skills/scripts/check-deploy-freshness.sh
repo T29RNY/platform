@@ -1,10 +1,10 @@
 #!/bin/bash
 # skills/scripts/check-deploy-freshness.sh
-# Deploy-freshness sweep. Flags manual-deploy apps (venue/hq — prebuilt-static,
-# see project_venue_deploy / project_hq_deploy) sitting on merged-but-unshipped
-# changes, and confirms auto-deploy apps (inorout/ref/display/superadmin —
-# git-linked Vercel builds) are current. Read-only: never deploys, never
-# redeploys — it only reports.
+# Deploy-freshness sweep. Flags manual-deploy apps (venue, hq, display,
+# superadmin — all confirmed prebuilt-static, no GitHub Vercel PR-check
+# integration) sitting on merged-but-unshipped changes, and confirms the two
+# true git-auto-deploy apps (inorout via platform-clubmanager, ref) are
+# current. Read-only: never deploys, never redeploys — it only reports.
 #
 # Usage: bash skills/scripts/check-deploy-freshness.sh
 # Exit code: 0 always. Read the printed report — STALE/LAGGING lines are the
@@ -48,16 +48,20 @@ for entry in "${APPS[@]}"; do
     continue
   fi
 
-  DEPLOY_URL=$(vercel ls "$PROJECT" --prod --yes 2>/dev/null | grep -oE 'https://[^ ]+\.vercel\.app' | head -1)
+  LS_ERR=$(vercel ls "$PROJECT" --prod --yes 2>&1 >/tmp/deploy-freshness-ls.$$)
+  DEPLOY_URL=$(grep -oE 'https://[^ ]+\.vercel\.app' /tmp/deploy-freshness-ls.$$ | head -1)
+  rm -f /tmp/deploy-freshness-ls.$$
   if [ -z "$DEPLOY_URL" ]; then
-    echo "[$PROJECT] FAIL — could not find a Ready production deployment via 'vercel ls $PROJECT --prod'"
+    echo "[$PROJECT] FAIL — could not find a Ready production deployment via 'vercel ls $PROJECT --prod'${LS_ERR:+ (${LS_ERR//$'\n'/ })}"
     continue
   fi
 
-  DEPLOY_JSON=$(vercel inspect "$DEPLOY_URL" --format json 2>/dev/null)
+  INSPECT_ERR=$(vercel inspect "$DEPLOY_URL" --format json 2>&1 >/tmp/deploy-freshness-inspect.$$)
+  DEPLOY_JSON=$(cat /tmp/deploy-freshness-inspect.$$ 2>/dev/null)
+  rm -f /tmp/deploy-freshness-inspect.$$
   DEPLOY_EPOCH_MS=$(node -e "try{const d=JSON.parse(require('fs').readFileSync(0,'utf8'));process.stdout.write(String(d.createdAt||''))}catch(e){}" <<< "$DEPLOY_JSON")
   if [ -z "$DEPLOY_EPOCH_MS" ]; then
-    echo "[$PROJECT] FAIL — could not parse deployment createdAt from 'vercel inspect $DEPLOY_URL'"
+    echo "[$PROJECT] FAIL — could not parse deployment createdAt from 'vercel inspect $DEPLOY_URL'${INSPECT_ERR:+ (${INSPECT_ERR//$'\n'/ })}"
     continue
   fi
   DEPLOY_EPOCH=$(( DEPLOY_EPOCH_MS / 1000 ))
