@@ -1938,7 +1938,7 @@ export default function App() {
         />
       )}
       {ENABLE_GAFFER && isAdmin && (
-        <GafferLauncher adminToken={route.token} teamName={settings?.groupName} />
+        <GafferLauncher adminToken={route.token} teamName={settings?.groupName} squad={squad} schedule={schedule} />
       )}
       {showEmailCapture && (
         <EmailCaptureOverlay conflictMessage={linkConflict}/>
