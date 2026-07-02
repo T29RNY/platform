@@ -4,13 +4,15 @@
 // only ever selects an actionKey from this small, server-owned allow-list).
 //
 // PR-B populated route + riskTier:'nav' for all three orb nudges — pure
-// navigation, zero write. PR-C wires a real write path for
-// casual.chase_no_response (the one nudge with an existing safe action to
-// reuse — KEY AUDIT FACTS); the other two stay rpcWrapper:null until PR-D
-// builds their RPCs. The chip renderer in Gaffer/index.jsx only shows
-// "Do it for you" once rpcWrapper is truthy, so a team never sees a
-// capability that isn't real yet — this is also why riskTier flips to
-// 'write-low' only for the row that's actually wired (Locked Decision #4).
+// navigation, zero write. PR-C wired a real write path for
+// casual.chase_no_response; PR-D wires the other two (chase_payment reminds
+// players who owe, notify_reserves alerts squad members marked "reserve" —
+// retargeted from the originally-scoped cover_pool, which turned out to have
+// no contact mechanism at all, see migration 472's own comments). The chip
+// renderer in Gaffer/index.jsx only shows "Do it for you" once rpcWrapper is
+// truthy, so a team never sees a capability that isn't real yet — this is
+// also why riskTier flips to 'write-low' only for wired rows (Locked
+// Decision #4).
 //
 // Domain-namespaced (`casual.*`) from day one per GAFFER.md's "composer"
 // direction — costs nothing now, avoids a rename when venue/club domains
@@ -29,18 +31,18 @@ export const GAFFER_ACTIONS = {
   "casual.chase_payment": {
     actionKey: "casual.chase_payment",
     label: "Chase payment",
-    riskTier: "nav",
+    riskTier: "write-low", // wired PR-D — comms-only reminder, never touches the ledger
     route: "payments",
-    rpcWrapper: null,
+    rpcWrapper: "gaffer_propose_action",
     confirmCopy: null,
     allowedRoles: ["admin"],
   },
   "casual.notify_reserves": {
     actionKey: "casual.notify_reserves",
     label: "Notify reserves",
-    riskTier: "nav",
+    riskTier: "write-low", // wired PR-D — targets squad status='reserve' players
     route: "main",
-    rpcWrapper: null,
+    rpcWrapper: "gaffer_propose_action",
     confirmCopy: null,
     allowedRoles: ["admin"],
   },
