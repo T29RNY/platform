@@ -141,6 +141,7 @@ DECLARE v_match public.matches; v_side text; v_event_id uuid;
 BEGIN
   IF p_client_event_id IS NULL THEN RAISE EXCEPTION 'missing_client_event_id' USING ERRCODE='P0001'; END IF;
   v_match := public._casual_ref_resolve_match(p_ref_token);
+  IF v_match.ref_started_at IS NULL THEN RAISE EXCEPTION 'match_not_started' USING ERRCODE='P0001'; END IF;
   v_side := public._casual_ref_player_side(v_match, p_player_id);
   IF v_side IS NULL THEN RAISE EXCEPTION 'player_not_in_match' USING ERRCODE='P0001'; END IF;
   INSERT INTO public.casual_match_events (match_id,team_assignment,player_id,event_type,minute,period,recorded_by_ref_token,local_timestamp,synced_at,client_event_id)
@@ -170,6 +171,7 @@ BEGIN
   IF p_client_event_id IS NULL THEN RAISE EXCEPTION 'missing_client_event_id' USING ERRCODE='P0001'; END IF;
   IF p_colour NOT IN ('yellow','red') THEN RAISE EXCEPTION 'invalid_card_colour' USING ERRCODE='P0001', DETAIL=p_colour; END IF;
   v_match := public._casual_ref_resolve_match(p_ref_token);
+  IF v_match.ref_started_at IS NULL THEN RAISE EXCEPTION 'match_not_started' USING ERRCODE='P0001'; END IF;
   v_side := public._casual_ref_player_side(v_match, p_player_id);
   IF v_side IS NULL THEN RAISE EXCEPTION 'player_not_in_match' USING ERRCODE='P0001'; END IF;
   v_event_type := p_colour || '_card';
@@ -200,6 +202,7 @@ BEGIN
   IF p_client_event_id IS NULL THEN RAISE EXCEPTION 'missing_client_event_id' USING ERRCODE='P0001'; END IF;
   IF p_on_player_id IS NULL OR p_off_player_id IS NULL THEN RAISE EXCEPTION 'missing_substitution_players' USING ERRCODE='P0001'; END IF;
   v_match := public._casual_ref_resolve_match(p_ref_token);
+  IF v_match.ref_started_at IS NULL THEN RAISE EXCEPTION 'match_not_started' USING ERRCODE='P0001'; END IF;
   v_on_side := public._casual_ref_player_side(v_match, p_on_player_id);
   v_off_side := public._casual_ref_player_side(v_match, p_off_player_id);
   IF v_on_side IS NULL OR v_off_side IS NULL OR v_on_side <> v_off_side THEN RAISE EXCEPTION 'substitution_side_mismatch' USING ERRCODE='P0001'; END IF;
@@ -230,6 +233,7 @@ BEGIN
   IF p_client_event_id IS NULL THEN RAISE EXCEPTION 'missing_client_event_id' USING ERRCODE='P0001'; END IF;
   IF p_duration_minutes IS NULL OR p_duration_minutes <= 0 THEN RAISE EXCEPTION 'invalid_sin_bin_duration' USING ERRCODE='P0001'; END IF;
   v_match := public._casual_ref_resolve_match(p_ref_token);
+  IF v_match.ref_started_at IS NULL THEN RAISE EXCEPTION 'match_not_started' USING ERRCODE='P0001'; END IF;
   v_side := public._casual_ref_player_side(v_match, p_player_id);
   IF v_side IS NULL THEN RAISE EXCEPTION 'player_not_in_match' USING ERRCODE='P0001'; END IF;
   INSERT INTO public.casual_match_events (match_id,team_assignment,player_id,event_type,minute,period,duration,recorded_by_ref_token,local_timestamp,synced_at,client_event_id)
@@ -258,6 +262,7 @@ BEGIN
   IF p_client_event_id IS NULL THEN RAISE EXCEPTION 'missing_client_event_id' USING ERRCODE='P0001'; END IF;
   IF p_period NOT IN ('HT','2H') THEN RAISE EXCEPTION 'invalid_period' USING ERRCODE='P0001', DETAIL=p_period; END IF;
   v_match := public._casual_ref_resolve_match(p_ref_token);
+  IF v_match.ref_started_at IS NULL THEN RAISE EXCEPTION 'match_not_started' USING ERRCODE='P0001'; END IF;
   INSERT INTO public.casual_match_events (match_id,team_assignment,event_type,minute,period,recorded_by_ref_token,local_timestamp,synced_at,client_event_id)
   VALUES (v_match.id,'A','period_change',0,p_period,p_ref_token,p_local_timestamp,now(),p_client_event_id)
   ON CONFLICT (client_event_id) DO NOTHING RETURNING id INTO v_event_id;
