@@ -992,6 +992,18 @@ iOS App Store approval. Settled questions:
 10. **Assistant-ref edge case needs no new work.** A game's single shared `ref_token` + idempotent
     events + realtime already support concurrent recorders (watch ref + web assistant stay in sync);
     only mitigate human double-entry with a light "clock controller" indicator.
+11. **Casual-write storage (Phase 5 unblock, 2026-07-02): write BOTH.** A casual match's card/sub/
+    sin-bin events from the watch write to a real timestamped event log (so the design's match-log
+    screen + sin-bin return-timer work identically to league) **and** still increment the existing
+    `player_match` aggregate columns (`yellow_cards`/`red_cards`/etc.) so every existing casual-stats
+    surface (POTM, reliability, profiles) stays byte-identical. Rejected: aggregate-only (loses the
+    match-log/sin-bin-timer screens the design handoff already commits to); event-log-only (silently
+    stops feeding the stats columns every other screen reads). `match_events.fixture_id` today FKs to
+    `fixtures` (league-only) — casual matches use `matches.id` (text, not a fixture) — so this needs a
+    schema change to let a casual match's events land in the log; exact shape (loosen the FK vs. a
+    parallel casual event table) is Phase-5 audit work, not decided here. This backend piece has no
+    watch/device dependency (same reasoning as Phase 1/4) and can be built ahead of Xcode/App-Store
+    approval.
 
 ---
 
