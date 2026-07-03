@@ -15,7 +15,7 @@
 // matchDate = "YYYY-MM-DD"; kickoffTime = "HH:MM:SS" or null.
 
 import { useEffect, useRef, useState } from "react";
-import { Lightning, Path, Watch, ArrowClockwise, CheckCircle, Warning } from "@phosphor-icons/react";
+import { Lightning, Path, Watch, ArrowClockwise, CheckCircle, Warning, PersonSimpleRun } from "@phosphor-icons/react";
 import {
   getMatchHealthForMatch,
   getMatchRoute,
@@ -107,7 +107,7 @@ function Stat({ label, value }) {
   );
 }
 
-function FitnessRow({ row }) {
+function FitnessRow({ row, isTop = false }) {
   const [route, setRoute] = useState(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -135,7 +135,8 @@ function FitnessRow({ row }) {
   return (
     <div style={{ padding: "10px 0", borderTop: "0.5px solid var(--b2)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <div style={{ fontSize: 13, color: "var(--t1)", fontFamily: "DM Sans, sans-serif" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--t1)", fontFamily: "DM Sans, sans-serif" }}>
+          {isTop && <PersonSimpleRun size={14} weight="thin" color="var(--gold)" />}
           {row.is_self ? "You" : (row.player_name || "Player")}
           {indoor && <span style={{ fontSize: 11, color: "var(--t2)", marginLeft: 8 }}>· Indoor</span>}
         </div>
@@ -470,6 +471,15 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
     </Modal>
   ) : null;
 
+  // Top runner = the furthest-distance row, but only when 2+ players have data (a self-only card
+  // never singles anyone out). Rows are already consent-gated + casual-only + U18-guarded by the
+  // reader; indoor/no-distance rows can't win.
+  const runners = rows.filter((r) => Number(r.distance_meters) > 0);
+  const topRunner =
+    rows.length >= 2 && runners.length >= 1
+      ? runners.reduce((a, b) => (Number(b.distance_meters) > Number(a.distance_meters) ? b : a))
+      : null;
+
   if (rows.length > 0) {
     return (
       <>
@@ -480,7 +490,24 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
               MATCH FITNESS
             </div>
           </div>
-          {rows.map((row) => <FitnessRow key={row.session_id} row={row} />)}
+          {/* Top-runner highlight (PR #8): only when ≥2 players have data (a self-only card never
+              singles anyone out). Ranks the already-fetched, consent-gated rows by distance —
+              indoor/no-distance rows are excluded. No new backend. */}
+          {topRunner && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+              <PersonSimpleRun size={16} weight="thin" color="var(--gold)" />
+              <div style={{ fontSize: 12.5, fontFamily: "DM Sans, sans-serif", color: "var(--t2)" }}>
+                Top runner this game:{" "}
+                <span style={{ color: "var(--t1)", fontWeight: 600 }}>
+                  {topRunner.is_self ? "You" : (topRunner.player_name || "Player")}
+                </span>
+                <span style={{ color: "var(--gold)", fontWeight: 600 }}> · {formatDistance(topRunner.distance_meters)}</span>
+              </div>
+            </div>
+          )}
+          {rows.map((row) => (
+            <FitnessRow key={row.session_id} row={row} isTop={!!topRunner && row.session_id === topRunner.session_id} />
+          ))}
         </div>
         {shareModal}
       </>
