@@ -36,6 +36,19 @@
 # rls_migrations/ — SQL files, not JS. Not in scan paths.
 #   Contains raw table references by design.
 #
+# apps/inorout/src/theme/tokens.css, mobile/theme/mobile-tokens.css,
+#   views/Gaffer/gaffer-tokens.css — design-token source files. Their whole
+#   job is to define the hex values every component references via var().
+#   Same exemption class as constants/colors.js. Exempt via grep -v in check 2.
+#
+# apps/inorout/src/mockup/*.html — static design mockups used for ideation,
+#   never imported or shipped in the built app. Exempt via grep -v in
+#   checks 2 and 4.
+#
+# apps/inorout/src/views/Gaffer/_archived_chatbot.jsx — dead file kept for
+#   reference only (never imported — confirmed via grep, session 2026-07-03
+#   nightly QA). Exempt via grep -v in check 2.
+#
 # If you need to add a new intentional exemption, add it here
 # AND add a grep -v filter in the relevant check below.
 # Never silently widen the scan path — document it first.
@@ -89,6 +102,11 @@ RESULT=$(grep -rn "[=:][[:space:]]*[\"']\?#[0-9A-Fa-f]\{3,6\}\b" \
   | grep -v "EA4335" \
   | grep -v "constants/colors\.js" \
   | grep -v "views/MyIOView\.jsx" \
+  | grep -v "theme/tokens\.css" \
+  | grep -v "mobile-tokens\.css" \
+  | grep -v "gaffer-tokens\.css" \
+  | grep -v "src/mockup/" \
+  | grep -v "_archived_chatbot\.jsx" \
   | grep -v "^\s*//" \
   | grep -v "//.*#[0-9A-Fa-f]" \
   || true)
@@ -134,6 +152,7 @@ echo "[4] Banned display text (MOTM / Man of the Match):"
 RESULT=$(grep -rn "MOTM\|Man of the Match" $SCAN_PATH 2>/dev/null \
   | grep -v "^\s*//" \
   | grep -v "//.*MOTM" \
+  | grep -v "src/mockup/" \
   || true)
 if [ -z "$RESULT" ]; then
   echo "    PASS — none found"
@@ -152,6 +171,7 @@ echo "[5] Direct Supabase table writes in client code (must use RPCs):"
 RESULT=$(grep -rn "supabase\.from(" $SCAN_PATH 2>/dev/null \
   | grep -v "supabase\.js" \
   | grep -v "hygiene-exempt: /admin/local" \
+  | grep -vE ":[0-9]+:[[:space:]]*//.*supabase\.from\(" \
   || true)
 if [ -z "$RESULT" ]; then
   echo "    PASS — no direct table writes in client"

@@ -58,7 +58,7 @@ export default function BalanceCard({ owes, status, paid, selfPaid, onSelfPay })
           <button
             onClick={onSelfPay}
             style={{
-              background:"var(--gold)", color:"#000",
+              background:"var(--gold)", color:"var(--black)",
               border:"none", borderRadius:8,
               padding:"9px 14px", fontSize:12, fontWeight:500,
               fontFamily:"var(--font-body)", cursor:"pointer",

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Skills/scripts/check-incident-safeguarding.sh — safeguarding read-filter invariant.
+# skills/scripts/check-incident-safeguarding.sh — safeguarding read-filter invariant.
 #
 # THE ENFORCEMENT for Incident Triage Phase 2, PR #3 (mig 468). A flagged
 # incident (is_safeguarding_flagged = true) must be INVISIBLE to every ordinary
@@ -22,7 +22,7 @@
 # list RPC. It is exempt from the count requirement (it still, in practice,
 # references the column via `is_safeguarding_flagged IS TRUE`).
 #
-# Usage:  bash Skills/scripts/check-incident-safeguarding.sh [file.sql ...]
+# Usage:  bash skills/scripts/check-incident-safeguarding.sh [file.sql ...]
 #   No args → the migration .sql files in the current diff
 #             (git diff main...HEAD + working + staged), matching the
 #             check-diff-triggers.sh convention. Historical migrations are NOT

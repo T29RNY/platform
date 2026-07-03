@@ -1,11 +1,11 @@
 #!/bin/bash
-# Skills/scripts/survey-backlog.sh
+# skills/scripts/survey-backlog.sh
 # Deterministic backlog snapshot for the /backlog picker. Pulls the cheap, factual
 # signal from the repo's OWN state first (epic manifests + their phase statuses, open
 # bugs, the FEATURES tracker, open PRs) so the LLM ranking step in the skill only has
 # to reconcile + recommend — not re-derive. Read-only. (L2: deterministic before LLM.)
 #
-# Usage: bash Skills/scripts/survey-backlog.sh
+# Usage: bash skills/scripts/survey-backlog.sh
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not a git repo"; exit 1; }
 cd "$ROOT"

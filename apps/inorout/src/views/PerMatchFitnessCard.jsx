@@ -394,7 +394,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
             style={{
               width: "100%", background: "var(--gold)", border: "none", borderRadius: 10,
               padding: "13px 0", fontFamily: "DM Sans, sans-serif", fontSize: 14,
-              fontWeight: 600, color: "#000", cursor: "pointer", marginBottom: 10,
+              fontWeight: 600, color: "var(--black)", cursor: "pointer", marginBottom: 10,
             }}
           >
             I'm 18 or older — continue
@@ -455,7 +455,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
             style={{
               width: "100%", background: "var(--gold)", border: "none", borderRadius: 10,
               padding: "13px 0", fontFamily: "DM Sans, sans-serif", fontSize: 14,
-              fontWeight: 600, color: "#000", cursor: "pointer", marginBottom: 10, marginTop: 4,
+              fontWeight: 600, color: "var(--black)", cursor: "pointer", marginBottom: 10, marginTop: 4,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}
           >
