@@ -3234,12 +3234,13 @@ export async function getSquadFitnessLeaderboard(teamId, period = "all") {
   return data;
 }
 
-// Detach a wrongly-attached workout (mig 475). Own-row-only DELETE keyed on the client session id;
-// the route row cascades away; a server-side audit row is written. Returns { ok, deleted, id }.
-// Throws 'not_found' if the session isn't the caller's.
-export async function deleteMatchHealthSession(clientSessionId) {
+// Detach a wrongly-attached workout (mig 475; re-keyed to the session uuid in mig 476 — the handle
+// get_match_health_for_match returns). Own-row-only DELETE; the route row cascades away; a
+// server-side audit row is written. Returns { ok, deleted, id }. Throws 'not_found' if the session
+// isn't the caller's.
+export async function deleteMatchHealthSession(sessionId) {
   const { data, error } = await supabase.rpc("delete_match_health_session", {
-    p_client_session_id: clientSessionId,
+    p_session_id: sessionId,
   });
   if (error) { console.error("[health] delete_match_health_session failed", error); throw error; }
   return data;
