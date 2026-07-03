@@ -59,6 +59,7 @@ npm install && cd apps/inorout && npm run build
 
 # Deterministic check scripts (always call these, never reinvent them inline)
 bash skills/scripts/check-build.sh
+bash skills/scripts/check-lint.sh                    # no-undef + rules-of-hooks (runtime ReferenceError class)
 bash skills/scripts/check-hygiene.sh <file>
 bash skills/scripts/check-rpc-security.sh <rpc_name>
 bash skills/scripts/check-rpc-columns.sh <rpc_name>
@@ -127,6 +128,7 @@ Deterministic checks run automatically during verify.
 Call the scripts directly — do not re-implement them inline:
 
   bash skills/scripts/check-build.sh
+  bash skills/scripts/check-lint.sh                  ← no-undef + rules-of-hooks (runtime ReferenceError class)
   bash skills/scripts/check-hygiene.sh               ← 7 checks incl. state-wrapper-guard
   bash skills/scripts/check-references.sh "term" [--removed|--rpc]
   bash skills/scripts/check-rpc-security.sh rpc_name ← security + search_path + overloads
@@ -714,11 +716,24 @@ Out-of-scope files (root MDs, configs, migrations) exit 0 silently.
 
 **3. PreToolUse build gate — `.claude/hooks/pre-commit-build.sh`**
 Before any Bash command matching `git ... commit ...` (any flags
-between, e.g. `git -C /path commit -m`), runs
-`skills/scripts/check-build.sh` and blocks the commit if the build
-fails. Adds ~4s to incremental commits, ~20s to cold ones. This
-is the cost of "never commit without a passing build" being
-literal rather than aspirational.
+between, e.g. `git -C /path commit -m`), runs the commit gates and
+blocks (exit 2) on any failure:
+- **Migration gates (1–1d):** paired `_down.sql`, next-number, rpc-columns,
+  Hard-Rule advisories (see above).
+- **Lint gate (1e):** `skills/scripts/check-lint.sh` — ESLint `no-undef`
+  + `react-hooks/rules-of-hooks`. Catches the runtime-error classes the
+  build canNOT see: an identifier referenced but never declared/imported
+  (a `ReferenceError`), or a conditionally-called hook. This is the gate
+  that would have caught the `setClearDebtExpanded` casual-status-tap
+  outage (PR #251) — build + hygiene were both green while every status
+  tap was dead, because a `ReferenceError` is a runtime fault, not a
+  syntax one. Rules + scope live in `eslint.config.mjs`; the gate no-ops
+  cleanly on a fresh clone until `npm install` provides eslint. ~2–3s.
+- **Build gate (2):** `skills/scripts/check-build.sh`. Adds ~4s to
+  incremental commits, ~20s to cold ones.
+
+This is the cost of "never commit without a passing build — or a runtime
+ReferenceError" being literal rather than aspirational.
 
 **Override discipline**
 Hooks block; they don't ask. If a hook is wrong (false positive,

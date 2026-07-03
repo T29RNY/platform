@@ -135,6 +135,21 @@ if [ -n "$STAGED_MIGS" ]; then
   fi
 fi
 
+# ── Gate 1e: lint must pass (no-undef + rules-of-hooks) ──
+#
+# Catches the runtime-error classes the build CANNOT see: an identifier
+# referenced but never declared/imported (a ReferenceError), or a hook called
+# conditionally. The setClearDebtExpanded casual-status-tap outage (PR #251)
+# was exactly this — build + hygiene both green, every status tap dead. Fast
+# (~2-3s); no-ops cleanly if eslint isn't installed yet (fresh clone).
+LINT_OUT=$(bash "$ROOT/skills/scripts/check-lint.sh" 2>&1)
+if [ $? -ne 0 ]; then
+  echo "Lint gate failed — commit blocked." >&2
+  echo "" >&2
+  echo "$LINT_OUT" | tail -40 >&2
+  exit 2
+fi
+
 # ── Gate 2: build must pass ──
 OUTPUT=$(bash skills/scripts/check-build.sh 2>&1)
 EXIT=$?

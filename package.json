@@ -8,11 +8,15 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "e2e": "playwright test --config e2e/playwright.config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^14.0.0",
     "turbo": "^2.0.0"
   },
   "packageManager": "npm@10.0.0"
