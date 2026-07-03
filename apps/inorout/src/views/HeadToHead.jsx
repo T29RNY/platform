@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, UploadSimple, SoccerBall, TShirt, UsersThree, Lightning, Trophy, Star, User } from "@phosphor-icons/react";
 import { motion, AnimatePresence, animate } from "framer-motion";
-import { getHeadToHead, getPlayerLeagueTable } from "@platform/core";
+import { getHeadToHead, getPlayerLeagueTable, getH2hMatchFitness } from "@platform/core";
+import { supabase } from "@platform/core/storage/supabase.js";
+import { formatDistance } from "../lib/formatDistance.js";
 
 // Number that ramps from 0 → value over duration. Writes textContent directly
 // to dodge per-frame React re-renders. Suffix is appended raw (e.g. "%").
@@ -161,6 +163,7 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
   const [h2hData,        setH2hData]        = useState(null);
   const [loading,        setLoading]        = useState(true);
   const [modalTableData, setModalTableData] = useState(tableData);
+  const [fitData,        setFitData]        = useState(null);
 
   useEffect(() => {
     if (!me?.id || !them?.id || !teamId) return;
@@ -185,6 +188,26 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
     })();
     return () => { cancelled = true; };
   }, [teamId, period]);
+
+  // Match-fitness compare (PR #7). Authenticated-only RPC (auth.uid()); token-only viewers skip it
+  // and the section self-hides. Display gates on has-data (not the flag), so it lights up
+  // automatically once VITE_HEALTH_KIT_ENABLED flips and real attaches land.
+  useEffect(() => {
+    if (!them?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } = {} } = await supabase.auth.getSession();
+        if (!session) { if (!cancelled) setFitData(null); return; }
+        const res = await getH2hMatchFitness(them.id, period);
+        if (!cancelled) setFitData(res || null);
+      } catch (e) {
+        console.error("[health] get_h2h_match_fitness failed", e);
+        if (!cancelled) setFitData(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [them?.id, period]);
 
   const verdict     = h2hData?.mainVerdict || "early_days";
   const vs          = VERDICT_STYLE[verdict] || VERDICT_STYLE.early_days;
@@ -890,6 +913,71 @@ export default function HeadToHead({ me, them, teamId, adminToken = null, player
                     </div>
                   </motion.div>
                 ))}
+              </div>
+            </motion.div>
+          );
+        })()}
+
+        {/* ─── Section 6 — WHO WORKS HARDER (match fitness) ────────────────── */}
+        {/* Self-hides unless I have match-fitness across games we've both played. Distance/Calories
+            are effort dominance bars (more = harder); Avg HR is informational only — never a winner
+            (LOCKED DEC #5: HR is a hedged trend, not a per-comparison verdict). */}
+        {fitData?.me?.games > 0 && (() => {
+          const meF = fitData.me;
+          const themF = fitData.them;      // null when the opponent isn't sharing
+          const consented = !!themF;
+
+          function barPct(l, r) {
+            const a = Number(l) || 0, b = Number(r) || 0;
+            if (a + b === 0) return 50;
+            return Math.round((a / (a + b)) * 100);
+          }
+
+          const rows = [
+            { label: "Distance", leftVal: formatDistance(meF.total_distance_m), rightVal: consented ? formatDistance(themF.total_distance_m) : "—", leftNum: meF.total_distance_m, rightNum: consented ? themF.total_distance_m : 0, noBar: !consented },
+            { label: "Calories", leftVal: String(meF.total_kcal || 0),          rightVal: consented ? String(themF.total_kcal || 0) : "—",         leftNum: meF.total_kcal,      rightNum: consented ? themF.total_kcal : 0,      noBar: !consented },
+            { label: "Avg HR",   leftVal: meF.avg_hr ? String(meF.avg_hr) : "—", rightVal: consented && themF.avg_hr ? String(themF.avg_hr) : "—",  leftNum: 0,                   rightNum: 0,                                     noBar: true },
+          ];
+
+          return (
+            <motion.div key={`s6-${period}`} {...sectionMotion(5)} style={{ background: "var(--s2)", border: "0.5px solid var(--s3)", borderRadius: 8, padding: 16, marginTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: consented ? 16 : 10 }}>
+                <Lightning size={16} weight="thin" color="var(--gold)" />
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.08em", color: "var(--gold)" }}>
+                  6. WHO WORKS HARDER
+                </div>
+              </div>
+              {!consented && (
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 300, color: "var(--t2)", marginBottom: 14 }}>
+                  {(them?.name || "They")}&rsquo;s not sharing their match fitness yet — turn on sharing to compare.
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {rows.map((row, i) => {
+                  const lPct = barPct(row.leftNum, row.rightNum);
+                  const rPct = 100 - lPct;
+                  const barDelay = 0.3 + i * 0.15;
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 50, textAlign: "right", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, color: "var(--t1)", flexShrink: 0 }}>{row.leftVal}</div>
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden", display: "flex", justifyContent: "flex-end" }}>
+                        {!row.noBar && (
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${lPct}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: barDelay }} style={{ height: "100%", background: "var(--green)", borderRadius: 4 }} />
+                        )}
+                      </div>
+                      <div style={{ width: 100, flexShrink: 0, textAlign: "center", fontFamily: "var(--font-body)", fontSize: 11, fontWeight: 300, color: "var(--t2)" }}>{row.label}</div>
+                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--s3)", overflow: "hidden" }}>
+                        {!row.noBar && (
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${rPct}%` }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: barDelay }} style={{ height: "100%", background: "var(--red)", borderRadius: 4 }} />
+                        )}
+                      </div>
+                      <div style={{ width: 50, textAlign: "left", fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 500, color: "var(--t1)", flexShrink: 0 }}>{row.rightVal}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 300, color: "var(--t2)", marginTop: 12, textAlign: "center" }}>
+                Casual games you&rsquo;ve both played{fitData.shared_games ? ` · ${fitData.shared_games} shared` : ""}. Avg HR is shown for context, not ranked.
               </div>
             </motion.div>
           );
