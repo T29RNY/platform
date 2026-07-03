@@ -90,6 +90,8 @@ BEGIN
   -- shared CASUAL match refs: both have a player_match row on the same match. The JOIN to
   -- `matches` restricts to casual games only (matches.id = casual match_ref; league play lives in
   -- `fixtures`, never `matches`), so a league co-appearance can't inflate shared_games.
+  -- NOTE: shared_games is LIFETIME (a relationship count) by design; me/them/buckets below are
+  -- period-scoped — the two are intentionally different lenses ("you've played Sam 12×; this month…").
   SELECT COALESCE(array_agg(DISTINCT pm_me.match_id), ARRAY[]::text[])
     INTO v_shared
     FROM player_match pm_me
@@ -113,6 +115,7 @@ BEGIN
    WHERE s.user_id = v_user_id
      AND s.match_context = 'casual'
      AND s.match_ref = ANY(v_shared)
+     AND s.started_at IS NOT NULL
      AND (v_cutoff IS NULL OR s.started_at >= v_cutoff)
      AND NOT _health_is_under_18(s.user_id);
 
@@ -133,6 +136,7 @@ BEGIN
      WHERE s.user_id = v_opp_user
        AND s.match_context = 'casual'
        AND s.match_ref = ANY(v_shared)
+       AND s.started_at IS NOT NULL
        AND (v_cutoff IS NULL OR s.started_at >= v_cutoff);
   END IF;
 
@@ -166,7 +170,7 @@ BEGIN
 
   RETURN jsonb_build_object(
     'ok',                 true,
-    'opponent_consented', v_opp_consent,
+    'opponent_consented', CASE WHEN v_shared_games > 0 THEN v_opp_consent ELSE false END,
     'shared_games',       v_shared_games,
     'me',                 v_me,
     'them',               v_them,
@@ -259,6 +263,7 @@ BEGIN
       ON s.user_id = m.user_id
      AND s.match_context = 'casual'
      AND s.match_ref IN (SELECT id FROM team_matches)
+     AND s.started_at IS NOT NULL
      AND (v_cutoff IS NULL OR s.started_at >= v_cutoff)
   ),
   member_agg AS (
