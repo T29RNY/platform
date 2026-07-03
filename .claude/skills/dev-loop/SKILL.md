@@ -140,7 +140,13 @@ Run in order, stop on first red, and **show the command + real exit code**, neve
    Exit 1 means one or more skills are forced — run every one it names (steps 3/6
    below) before the merge gate; exit 0 means none apply. Treat its output as the
    authoritative list, not a hint.
-1. **Syntax** — `node --check <each changed .js/.jsx>` (instant).
+1. **Syntax & static correctness** — `node --check <each changed .js/.jsx>` (instant
+   syntax), then `bash skills/scripts/check-lint.sh` (ESLint `no-undef` +
+   `rules-of-hooks`). This catches the ReferenceError / hook-order class of runtime
+   crash the Vite build and `node --check` both pass clean — the `setClearDebtExpanded`
+   casual-status-tap outage (PR #251). ~2-3s; lints the whole app+package tree. Also
+   hook-enforced at commit (Gate 1e), so running it here just **fails fast** instead of
+   burning a cycle to the commit step.
 2. **Hygiene** — `bash skills/scripts/check-hygiene.sh <each changed file>`
    (also hook-enforced on every edit).
 3. **DB-surface gates (forced by step 0 when touched), in parallel:**
