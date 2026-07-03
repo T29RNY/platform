@@ -17,8 +17,8 @@
 // the attribute itself.
 
 import { useEffect, useState } from "react";
-import { Lightning, Trophy } from "@phosphor-icons/react";
-import { getMyMatchHealth } from "@platform/core";
+import { Lightning, Trophy, TrendUp, UsersThree } from "@phosphor-icons/react";
+import { getMyMatchHealth, getSquadFitnessLeaderboard } from "@platform/core";
 import { supabase } from "@platform/core/storage/supabase.js";
 import { formatDistance } from "../lib/formatDistance.js";
 
@@ -127,9 +127,42 @@ function MetricPill({ active, label, onClick }) {
   );
 }
 
-export default function MatchFitnessSection({ period = "season" }) {
+// One squad-board row. Own row is gold-highlighted. Members with no watch data are framed as an
+// invitation, never a blank/zero row (LOCKED DECISION #7 — a watch-less regular is still one of us).
+// most_improved_pct is HR-trend (positive = fitter); shown only when positive, never as a demotion.
+function SquadRow({ row }) {
+  const isSelf  = !!row.is_self;
+  const hasData = (row.games || 0) > 0;
+  const improved = row.most_improved_pct != null && row.most_improved_pct > 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderTop: "0.5px solid var(--b2)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        <span style={{ fontSize: 13, fontFamily: "DM Sans, sans-serif", color: isSelf ? "var(--gold)" : "var(--t1)", fontWeight: isSelf ? 600 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {isSelf ? "You" : (row.player_name || "Player")}
+        </span>
+        {improved && (
+          <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10, color: "var(--green)", fontFamily: "DM Sans, sans-serif", flexShrink: 0 }}>
+            <TrendUp size={11} weight="thin" />{row.most_improved_pct}% fitter
+          </span>
+        )}
+      </div>
+      {hasData ? (
+        <span style={{ fontSize: 12, color: "var(--t2)", fontFamily: "DM Sans, sans-serif", flexShrink: 0 }}>
+          {formatDistance(row.avg_distance) || "—"} avg{row.avg_hr ? ` · ${row.avg_hr} HR` : ""}
+        </span>
+      ) : (
+        <span style={{ fontSize: 11, color: "var(--t2)", fontStyle: "italic", fontFamily: "DM Sans, sans-serif", flexShrink: 0 }}>
+          Add an Apple Watch to join
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default function MatchFitnessSection({ period = "season", teamId = null }) {
   const [sessions, setSessions] = useState(null); // null = loading; [] = none / unavailable
   const [metric, setMetric]     = useState("hr"); // "hr" | "distance"
+  const [squad, setSquad]       = useState(null); // getSquadFitnessLeaderboard result | null
 
   useEffect(() => {
     let alive = true;
@@ -149,12 +182,39 @@ export default function MatchFitnessSection({ period = "season" }) {
     return () => { alive = false; };
   }, []);
 
-  if (sessions === null) return null;      // loading
-  if (sessions.length === 0) return null;  // not signed in / no data / unavailable
+  // Squad board (PR #9). Server-period-scoped, so it refetches on period change. Authenticated-only
+  // + membership verified server-side; a watch-less member is still authenticated, so they SEE the
+  // board even with no data of their own (LOCKED DECISION #7).
+  useEffect(() => {
+    if (!teamId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data: { session } = {} } = await supabase.auth.getSession();
+        if (!session) { if (alive) setSquad(null); return; }
+        const res = await getSquadFitnessLeaderboard(teamId, period);
+        if (alive) setSquad(res || null);
+      } catch (e) {
+        console.error("[health] get_squad_fitness_leaderboard failed", e);
+        if (alive) setSquad(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [teamId, period]);
+
+  if (sessions === null) return null;      // own fetch still loading
 
   const cutoff   = periodCutoff(period);
   const inPeriod = sessions.filter(s => s.started_at && (!cutoff || s.started_at.slice(0, 10) >= cutoff));
-  if (inPeriod.length === 0) return null;  // nothing this period → self-hide
+  const ownHasData = inPeriod.length > 0;
+
+  // The board shows only above the min-N floor (server-enforced; suppressed → rows collapse to the
+  // self row, so we require 2+ rows to draw a "board"). Squad total sums the buckets so watch-less
+  // members still count toward the collective number.
+  const board = (squad?.min_cohort_met && Array.isArray(squad?.rows) && squad.rows.length > 1) ? squad.rows : null;
+  const squadTotalM = board ? (squad.buckets || []).reduce((s, b) => s + (b.total_distance_m || 0), 0) : 0;
+
+  if (!ownHasData && !board) return null;  // no own data AND no board → self-hide entirely
 
   // ── Totals (PR #3) ──────────────────────────────────────────────────────────
   const totalMeters = inPeriod.reduce((sum, s) => sum + (s.distance_meters   || 0), 0);
@@ -227,6 +287,7 @@ export default function MatchFitnessSection({ period = "season" }) {
         </div>
       </div>
 
+      {ownHasData && (<>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <Stat label="Matches"  value={inPeriod.length} />
         <Stat label="Distance" value={distanceText} />
@@ -277,6 +338,24 @@ export default function MatchFitnessSection({ period = "season" }) {
           {activeMonth && (
             <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 8, fontFamily: "DM Sans, sans-serif" }}>
               {`Most active · ${activeMonth.label} (${activeMonth.n} games)`}
+            </div>
+          )}
+        </div>
+      )}
+      </>)}
+
+      {board && (
+        <div style={{ marginTop: ownHasData ? 16 : 4, paddingTop: ownHasData ? 14 : 0, borderTop: ownHasData ? "0.5px solid var(--b2)" : "none" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <UsersThree size={16} weight="thin" color="var(--gold)" />
+            <div style={{ fontSize: 11, letterSpacing: "0.06em", color: "var(--t2)", fontFamily: "DM Sans, sans-serif" }}>
+              SQUAD FITNESS
+            </div>
+          </div>
+          {board.map((r) => <SquadRow key={r.player_id} row={r} />)}
+          {squadTotalM > 0 && (
+            <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 10, textAlign: "center", fontFamily: "DM Sans, sans-serif" }}>
+              Squad total · <span style={{ color: "var(--gold)" }}>{formatDistance(squadTotalM)}</span>
             </div>
           )}
         </div>
