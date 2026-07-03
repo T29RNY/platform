@@ -1682,3 +1682,43 @@ real notched device in the native app. Reinforces hard rule #13.
 
 **Expected outcome:** no admin screen's chrome is clipped by the notch; every
 back button is tappable on a notched device.
+
+---
+
+## 23. SESSION 234 — CASUAL STATUS TAP DEAD (orphaned setter ReferenceError in setStatus) (PlayerView)
+
+**Symptom (reported live, native app):** casual players tap In / Out / Maybe /
+Reserve and **nothing happens** — status never changes, no flash, no save.
+**Every other control worked** — add guest, injured toggle, "I've paid" — only
+the status buttons were dead. Systematic across players.
+
+**Root cause:** PR #203 (`4e4e732`, per-game payment rework) deleted the
+`clearDebtExpanded` React state along with the old Clear-Debt panel, but left an
+orphaned `setClearDebtExpanded(false)` call at the top of `setStatus` in
+`apps/inorout/src/views/PlayerView.jsx`. Every status tap threw
+`ReferenceError: setClearDebtExpanded is not defined` on that line — **before**
+the optimistic `setSquad` and the `set_player_status` RPC — so the handler
+aborted and the tap was a no-op. No other handler referenced the dead setter,
+which is exactly why "all other buttons work, just status."
+
+**Fix (no migration — one-line delete):** removed the orphaned
+`setClearDebtExpanded(false)` line. The RPC, grants and team data were verified
+healthy on the live DB the whole time (rolled-back probe returned `status=in`);
+this was purely a client-side crash in the tap handler.
+
+**Why nothing caught it earlier:** a `ReferenceError` on an undefined identifier
+is a **runtime** error — Vite build, `node --check` and the 7 hygiene checks are
+all clean (the name is syntactically valid, never declared). Only exercising the
+tap surfaces it. Reinforces hard rule #13. (Follow-up tech debt: an ESLint
+`no-undef` gate in the commit/build path would have caught this at commit time.)
+
+**Pre-flight check — run before go-live (real iPhone, native app):**
+
+1. As a casual player on `/p/<token>` with the game live, tap **In** — confirm
+   the row flashes green and the button shows active.
+2. Tap **Out**, **Maybe**, **Reserve** in turn — each must switch immediately.
+3. Reload — the last-tapped status persists (proves the RPC ran, not just
+   optimistic UI).
+
+**Expected outcome:** every status button responds on the first tap and the
+change survives a reload.

@@ -20,6 +20,36 @@ only once fixed.*
 
 ---
 
+## PRODUCTION HOTFIX (Jul 3 2026) — ✅ CASUAL STATUS TAP DEAD — orphaned `setClearDebtExpanded` ReferenceError in `setStatus`
+
+**Reported live (native app):** casual players tap In / Out / Maybe / Reserve and **nothing happens** —
+status never changes. Every OTHER control worked (add guest, injured toggle, payment buttons); only the
+status buttons were dead. Systematic across players, native + web (only native was reported).
+
+**Root cause:** PR #203 (`4e4e732`, "My View payment panel per-week rework") removed the
+`clearDebtExpanded` React state along with the old "Clear Debt" panel, but left an orphaned
+`setClearDebtExpanded(false)` call at the very top of `setStatus` in `apps/inorout/src/views/PlayerView.jsx`.
+On every status tap, `setStatus` threw `ReferenceError: setClearDebtExpanded is not defined` on that line —
+**before** the tap-flash, the optimistic `setSquad`, and the `set_player_status` RPC. So the handler aborted
+instantly and the tap looked like a no-op. `submitGuest` / `toggleInjury` / the payment handlers never
+referenced the dead setter, which is exactly why "all other buttons work, just status."
+
+**Why the gates missed it:** a `ReferenceError` on an undefined identifier is a **runtime** error — Vite's
+build, `node --check`, and the 7 hygiene checks are all clean (the name is syntactically valid, just never
+declared). Nothing short of exercising the tap in a browser/device surfaces it — the "tap does nothing"
+class Hard Rule #13 was written for. Server side was never in question: the RPC + grants + team data were
+all verified healthy against the live DB (RPC returned `status=in` in a rolled-back probe).
+
+**Fix:** deleted the single orphaned `setClearDebtExpanded(false)` line. No replacement needed — the panel it
+used to collapse no longer exists. `setCashPending` / `setGuestCashPending` beside it are still live setters
+and were left untouched. Build clean, hygiene 7/7, no remaining refs to any of PR #203's removed locals
+(`clearDebtExpanded` / `basePaymentState` / `paymentMode` / `isNonPlay`).
+
+**Follow-up (not in this hotfix):** an ESLint `no-undef` gate in the pre-commit/build path would have caught
+this at commit time — logged as tech debt.
+
+---
+
 ## SESSION 181 — ✅ STRIPE FULL BUILD PHASE 1 SHIPPED (mig 403). Foundations & safety. No new production bugs.
 
 First phase of the full Stripe build (`STRIPE_FULL_BUILD_HANDOFF.md`) — makes Stripe-live SAFE
