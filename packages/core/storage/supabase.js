@@ -3207,6 +3207,44 @@ export async function setShareMatchFitness(value) {
   return data;
 }
 
+// Per-opponent fitness compare over the casual games you BOTH played (mig 475). Returns
+// { ok, opponent_consented, shared_games, me:{…}, them:{…}|null, buckets[] } — `them` populated
+// only when you actually co-played AND the opponent consented AND is 18+ (anti-probing). `buckets`
+// is YOUR own monthly series (period_start + source_counts) across the shared games. Distances in
+// metres — format with formatDistance. period ∈ 'month'|'season'|'all'.
+export async function getH2hMatchFitness(opponentPlayerId, period = "all") {
+  const { data, error } = await supabase.rpc("get_h2h_match_fitness", {
+    p_opponent_player_id: opponentPlayerId,
+    p_period:             period,
+  });
+  if (error) { console.error("[health] get_h2h_match_fitness failed", error); throw error; }
+  return data;
+}
+
+// The recurring squad's fitness board (mig 475). Returns { ok, min_cohort_met, rows:[{ player_id,
+// player_name, is_self, games, avg_distance, total_distance, avg_kcal, avg_hr, most_improved_pct }…],
+// buckets[] }. Own row always; other members only when consented + 18+; below the min-N floor the
+// board collapses to the self row. Membership is verified server-side. period ∈ 'month'|'season'|'all'.
+export async function getSquadFitnessLeaderboard(teamId, period = "all") {
+  const { data, error } = await supabase.rpc("get_squad_fitness_leaderboard", {
+    p_team_id: teamId,
+    p_period:  period,
+  });
+  if (error) { console.error("[health] get_squad_fitness_leaderboard failed", error); throw error; }
+  return data;
+}
+
+// Detach a wrongly-attached workout (mig 475). Own-row-only DELETE keyed on the client session id;
+// the route row cascades away; a server-side audit row is written. Returns { ok, deleted, id }.
+// Throws 'not_found' if the session isn't the caller's.
+export async function deleteMatchHealthSession(clientSessionId) {
+  const { data, error } = await supabase.rpc("delete_match_health_session", {
+    p_client_session_id: clientSessionId,
+  });
+  if (error) { console.error("[health] delete_match_health_session failed", error); throw error; }
+  return data;
+}
+
 // ── Tournament match-day RPCs (Phase 5 Event OS) ──────────────────────────────
 // Score tracked on fixtures.home_score/away_score directly — no match_events rows.
 // match_events.team_id FK to teams blocks tournament competition_team ids.
