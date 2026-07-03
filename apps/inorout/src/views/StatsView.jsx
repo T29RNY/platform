@@ -5,6 +5,7 @@ import {
 } from "@phosphor-icons/react";
 import PlayerLeagueTable from "./PlayerLeagueTable.jsx";
 import HeadToHead        from "./HeadToHead.jsx";
+import MatchFitnessSection from "./MatchFitnessSection.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -543,6 +544,11 @@ export default function StatsView({ teamId, squad, bibHistory = [], matchHistory
                 }}
               />
             </div>
+
+            {/* 0b. MATCH FITNESS — the player's own Apple Watch match totals for the selected
+                period. Self-hides on empty (dark-by-emptiness in prod). PR #4 adds the trend
+                graph inside this same section. */}
+            <MatchFitnessSection period={period} />
 
             {/* 1. Player Form (accordion) */}
             <button onClick={() => setShowPlayerForm(v => !v)} style={{
