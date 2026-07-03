@@ -132,7 +132,7 @@ const TEMPLATES = {
       `\n\nSee you there. To cancel, open your membership pass.`,
     html: wrap(
       `<h1 style="${H1}">You're booked.</h1>` +
-      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — see you on the pitch.</p>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> &mdash; see you on the pitch.</p>` +
       detailBox([
         { label: "Class", value: esc(c.className) },
         { label: "Date",  value: esc(c.dateLabel) },
@@ -151,7 +151,7 @@ const TEMPLATES = {
       `. We'll let you know if a spot opens up.`,
     html: wrap(
       `<h1 style="${H1}">You're on the waitlist.</h1>` +
-      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — ${esc(c.className)} at ${esc(c.venueName)} is full right now.</p>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> &mdash; ${esc(c.className)} at ${esc(c.venueName)} is full right now.</p>` +
       detailBox([
         { label: "Class",    value: esc(c.className) },
         { label: "Date",     value: esc(c.dateLabel) },
@@ -171,7 +171,7 @@ const TEMPLATES = {
       `before it rolls to the next person on the waitlist.`,
     html: wrap(
       `<h1 style="${H1}">Spot available.</h1>` +
-      `<p style="${P}">A place just opened in your waitlisted class — it's being held for you briefly.</p>` +
+      `<p style="${P}">A place just opened in your waitlisted class &mdash; it's being held for you briefly.</p>` +
       detailBox([
         { label: "Class", value: esc(c.className) },
         { label: "Date",  value: esc(c.dateLabel) },
@@ -190,7 +190,7 @@ const TEMPLATES = {
       `and you're now confirmed. See you there.`,
     html: wrap(
       `<h1 style="${H1}">You're in.</h1>` +
-      `<p style="${P}">A spot opened up — you've been moved from the waitlist and you're now confirmed.</p>` +
+      `<p style="${P}">A spot opened up &mdash; you've been moved from the waitlist and you're now confirmed.</p>` +
       detailBox([
         { label: "Class", value: esc(c.className) },
         { label: "Date",  value: esc(c.dateLabel) },
@@ -243,14 +243,14 @@ const TEMPLATES = {
       `Your booking is unaffected.`,
     html: wrap(
       `<h1 style="${H1}">Instructor change.</h1>` +
-      `<p style="${P}">Heads up — the instructor for your upcoming class has changed.</p>` +
+      `<p style="${P}">Heads up &mdash; the instructor for your upcoming class has changed.</p>` +
       detailBox([
         { label: "Class", value: esc(c.className) },
         { label: "Date",  value: esc(c.dateLabel) },
         { label: "Time",  value: esc(c.timeLabel) },
         { label: "Venue", value: esc(c.venueName) },
       ]) +
-      `<p style="${P0}">Your booking is unaffected — see you there.</p>`,
+      `<p style="${P0}">Your booking is unaffected &mdash; see you there.</p>`,
       { glowColor: "rgba(232,160,32,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
     ),
   }),
@@ -262,7 +262,7 @@ const TEMPLATES = {
       `\n\nCan't make it? Cancel from your membership pass so someone on the waitlist can take your spot.`,
     html: wrap(
       `<h1 style="${H1}">See you tomorrow.</h1>` +
-      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — here's your reminder.</p>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> &mdash; here's your reminder.</p>` +
       detailBox([
         { label: "Class", value: esc(c.className) },
         { label: "Date",  value: esc(c.dateLabel) },
@@ -337,7 +337,7 @@ const TEMPLATES = {
       `You can now submit your teamsheet for upcoming fixtures from your admin view.`,
     html: wrap(
       `<h1 style="${H1}">You're in.</h1>` +
-      `<p style="${P}">Good news — your team has been approved for the competition.</p>` +
+      `<p style="${P}">Good news &mdash; your team has been approved for the competition.</p>` +
       detailBox([
         { label: "Team",        value: esc(c.teamName) },
         { label: "Competition", value: esc(c.competitionName) },
@@ -455,14 +455,14 @@ const TEMPLATES = {
       (c.passUrl ? ` Your membership pass: ${c.passUrl}` : ""),
     html: wrap(
       `<h1 style="${H1}">Welcome aboard.</h1>` +
-      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — your membership is now active.</p>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> &mdash; your membership is now active.</p>` +
       detailBox([
         { label: "Membership", value: esc(c.tierName) },
         { label: "Venue",      value: esc(c.venueName) },
         { label: "Status",     value: statusBadge("Active", "green") },
       ]) +
       (c.passUrl
-        ? `<p style="${P}">Your pass is ready — show it at reception to check in.</p>` +
+        ? `<p style="${P}">Your pass is ready &mdash; show it at reception to check in.</p>` +
           btn(esc(c.passUrl), "Open your membership pass")
         : `<p style="${P0}">Show your pass at reception to check in.</p>`),
       { glowColor: "rgba(61,220,106,0.20)", tagline: "Your team &middot; your game &middot; your stats" }
@@ -475,7 +475,7 @@ const TEMPLATES = {
       `(${gbp(c.amountPence)}/${c.period}).` + (c.passUrl ? ` Your pass: ${c.passUrl}` : ""),
     html: wrap(
       `<h1 style="${H1}">Membership renews soon.</h1>` +
-      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — just a heads up on your upcoming renewal.</p>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> &mdash; just a heads up on your upcoming renewal.</p>` +
       detailBox([
         { label: "Membership", value: esc(c.tierName) },
         { label: "Venue",      value: esc(c.venueName) },
@@ -494,7 +494,7 @@ const TEMPLATES = {
       (c.payUrl ? ` Pay now: ${c.payUrl}` : ` Please settle it at reception to keep your membership active.`),
     html: wrap(
       `<h1 style="${H1}">Payment due.</h1>` +
-      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — action needed to keep your membership active.</p>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> &mdash; action needed to keep your membership active.</p>` +
       detailBox([
         { label: "Membership", value: `${esc(c.tierName)} at ${esc(c.venueName)}` },
         { label: "Amount due", value: `<span style="color:#E8A020;font-weight:700;">${gbp(c.amountPence)}</span>` },
@@ -514,7 +514,7 @@ const TEMPLATES = {
       `and billing resumes (${gbp(c.amountPence)}/${c.period}).`,
     html: wrap(
       `<h1 style="${H1}">Freeze ending soon.</h1>` +
-      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> — your membership is coming out of freeze.</p>` +
+      `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span> &mdash; your membership is coming out of freeze.</p>` +
       detailBox([
         { label: "Membership",   value: esc(c.tierName) },
         { label: "Venue",        value: esc(c.venueName) },
@@ -534,7 +534,7 @@ const TEMPLATES = {
       (c.link ? ` Mark in or out: ${c.link}` : ""),
     html: wrap(
       `<h1 style="${H1}">Are you in?</h1>` +
-      `<p style="${P}">Your league fixture is coming up — let your team know before the deadline.</p>` +
+      `<p style="${P}">Your league fixture is coming up &mdash; let your team know before the deadline.</p>` +
       detailBox([
         { label: "Fixture", value: `vs <span style="color:#F2F0EA;">${esc(c.opponent)}</span>` },
         { label: "Date",    value: esc(c.dateLabel) },
@@ -550,7 +550,7 @@ const TEMPLATES = {
       (c.link ? ` Mark in or out now: ${c.link}` : ""),
     html: wrap(
       `<h1 style="${H1}">Kickoff in 2 hours.</h1>` +
-      `<p style="${P}">Last call — are you playing today?</p>` +
+      `<p style="${P}">Last call &mdash; are you playing today?</p>` +
       detailBox([
         { label: "Fixture", value: `vs <span style="color:#F2F0EA;">${esc(c.opponent)}</span>` },
         { label: "Kickoff", value: `<span style="color:#FF4040;">In approximately 2 hours</span>` },
@@ -595,7 +595,7 @@ const TEMPLATES = {
         `<p style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#F2F0EA;margin:0 0 4px 0;">${esc(c.companyName)}</p>` +
         `<p style="font-family:Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:0 0 20px 0;">Week of ${esc(c.weekLabel)}</p>` +
         `<p style="${P}">` +
-          `<span style="color:#F2F0EA;font-weight:700;">${c.venues}</span> venue${c.venues === 1 ? "" : "s"} — ` +
+          `<span style="color:#F2F0EA;font-weight:700;">${c.venues}</span> venue${c.venues === 1 ? "" : "s"} &mdash; ` +
           `<span style="color:#F2F0EA;font-weight:700;">${c.fixturesCompleted}</span> fixture${c.fixturesCompleted === 1 ? "" : "s"} completed, ` +
           `<span style="color:#F2F0EA;font-weight:700;">${c.fixturesRemaining}</span> still to play, ` +
           `<span style="color:#F2F0EA;font-weight:700;">${c.totalGoals}</span> goal${c.totalGoals === 1 ? "" : "s"} scored. ` +
@@ -697,7 +697,7 @@ const TEMPLATES = {
         (churn ? `Churn: ${c.disabled} disabled, ${c.deleted} removed.\n` : "No churn.\n") +
         dormancy.map((d) => `${d.name}: ${dormLabel(d)}`).join("; "),
       html: wrap(
-        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#F2F0EA;margin:0 0 4px 0;">In or Out — weekly</p>` +
+        `<p style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#F2F0EA;margin:0 0 4px 0;">In or Out &mdash; weekly</p>` +
         `<p style="font-family:Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:0 0 20px 0;">Week of ${esc(c.weekLabel)}</p>` +
         detailBox([
           { label: "Squads active",  value: `${c.squadsActive} of ${c.squadsTotal}` },
@@ -719,7 +719,7 @@ const TEMPLATES = {
           ? `<p style="${P}">${statusBadge("Churn", "red")} &nbsp;<span style="color:#FF4040;">${c.disabled} disabled, ${c.deleted} removed.</span></p>`
           : `<p style="${P}">${statusBadge("No churn", "green")}</p>`) +
         (dormRows
-          ? `<p style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:4px 0 8px 0;">Squads — last active</p>` +
+          ? `<p style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6E6E66;margin:4px 0 8px 0;">Squads &mdash; last active</p>` +
             `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;">${dormRows}</table>`
           : ""),
         { glowColor: "rgba(232,160,32,0.20)" }
@@ -735,7 +735,7 @@ const TEMPLATES = {
       `<h1 style="${H1}">${esc(c.title)}</h1>` +
       `<p style="${P}">Hi <span style="color:#F2F0EA;font-weight:700;">${esc(c.firstName)}</span>,</p>` +
       `<p style="${P}">${esc(c.body).replace(/\n/g, "<br>")}</p>` +
-      `<p style="font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#4A4A44;margin:16px 0 0 0;">— ${esc(c.venueName)}</p>`,
+      `<p style="font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#4A4A44;margin:16px 0 0 0;">&mdash; ${esc(c.venueName)}</p>`,
       { glowColor: "rgba(232,160,32,0.20)" }
     ),
   }),
