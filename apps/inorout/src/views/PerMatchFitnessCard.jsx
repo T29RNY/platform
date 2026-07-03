@@ -33,6 +33,21 @@ import MatchRouteHeatmap from "../components/MatchRouteHeatmap.jsx";
 import { formatDistance } from "../lib/formatDistance.js";
 
 const AGE_KEY = "health_18plus_confirmed";
+// Per-match throttle: set only once a workout has actually been SURFACED (confirm/pick) for a
+// match, so we never re-modal a game the player was already offered. An empty/denied auto-search
+// does NOT set it — the Watch may not have synced yet, so the next open retries (manifest's
+// "sync-delay retry"). Mirrors the AGE_KEY localStorage idiom.
+const AUTO_KEY = (matchRef) => `io_fitness_autoprompt_${matchRef}`;
+// Only auto-detect for games in the recent window; older history never auto-fires (it would
+// have prompted when recent, and this bounds the eager search to "just played").
+const AUTO_RECENT_DAYS = 14;
+function isRecentMatch(matchDate) {
+  if (!matchDate) return false;
+  const d = new Date(matchDate);
+  if (isNaN(d.getTime())) return false;
+  const days = (Date.now() - d.getTime()) / 86400000;
+  return days >= 0 && days <= AUTO_RECENT_DAYS;
+}
 
 function fmtMinutes(seconds) {
   if (!seconds) return "—";
@@ -204,7 +219,11 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
   const [foundWorkouts, setFoundWorkouts] = useState([]);
   const [pendingWorkout, setPendingWorkout] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  // Quiet inline note for the AUTO path only (denied/empty) — never a modal, so opening a
+  // result never spams a dialog when there's nothing to attach.
+  const [autoNote, setAutoNote] = useState(null);
   const savingRef = useRef(false);
+  const autoFiredRef = useRef(false);
 
   const healthAvail = isHealthAvailable();
 
@@ -254,34 +273,59 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
     runSearch();
   };
 
-  const runSearch = async () => {
-    setAttachState("requesting");
+  // `silent` = the auto-on-open path: no "requesting/searching" modal, and a quiet inline note
+  // (not a modal) on denied/empty. A found workout surfaces the SAME confirm/pick sheet as the
+  // manual path — one tap to add. Reuses the manual flow verbatim; only the noise differs.
+  const runSearch = async ({ silent = false } = {}) => {
+    if (silent) setAutoNote(null); else setAttachState("requesting");
     setErrorMsg(null);
     const auth = await requestHealthAuth();
     if (!auth.available) {
+      if (silent) return;
       setAttachState("error");
       setErrorMsg("HealthKit is not available on this device.");
       return;
     }
     const win = buildMatchWindow(matchDate, kickoffTime);
     if (!win) {
+      if (silent) return;
       setAttachState("error");
       setErrorMsg("This match has no date — can't search for a workout.");
       return;
     }
-    setAttachState("searching");
+    if (!silent) setAttachState("searching");
     const raw = await queryWorkouts({ fromISO: win.fromISO, toISO: win.toISO });
     const workouts = clampWorkouts(raw);
     if (workouts.length === 0) {
+      if (silent) { setAutoNote("No Apple Watch workout found for this game yet — it can take a few minutes to sync from your Watch."); return; }
       setAttachState("no-workouts");
     } else if (workouts.length === 1) {
+      if (silent) localStorage.setItem(AUTO_KEY(matchRef), "1"); // surfaced → don't re-modal this match
       setPendingWorkout({ workout: workouts[0], win });
       setAttachState("confirm");
     } else {
+      if (silent) localStorage.setItem(AUTO_KEY(matchRef), "1"); // surfaced → don't re-modal this match
       setFoundWorkouts(workouts.map(w => ({ ...w, _win: win })));
       setAttachState("pick");
     }
   };
+
+  // Auto-detect on result-card mount: the moment a player opens a just-played casual game they
+  // were IN for (no session yet), eagerly search Health and surface the one-tap confirm — zero
+  // manual navigation (LOCKED DECISION #1/#2). Gated on AGE_KEY so it NEVER auto-pops the native
+  // Health prompt or the age gate, and U18 is never auto-offered; the first attach stays manual
+  // (establishing age + auth), every recent game after auto-surfaces. Fires once per match.
+  useEffect(() => {
+    if (autoFiredRef.current) return;
+    if (rows === null || rows.length > 0) return;              // still loading, or already attached
+    if (!healthAvail || !hasSession || !matchDate) return;     // dark/unavailable → nothing to do
+    if (localStorage.getItem(AGE_KEY) !== "yes") return;       // never auto-offer before age-confirm
+    if (!isRecentMatch(matchDate)) return;                     // only just-played games
+    if (localStorage.getItem(AUTO_KEY(matchRef)) === "1") return; // already surfaced for this match
+    autoFiredRef.current = true;                               // reentrancy guard for THIS mount only
+    runSearch({ silent: true });                              // persists AUTO_KEY only if a workout surfaces
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, healthAvail, hasSession, matchDate, matchRef]);
 
   const pickWorkout = (w) => {
     setPendingWorkout({ workout: w, win: w._win });
@@ -377,6 +421,12 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
         Add Apple Watch workout
       </button>
 
+      {autoNote && (
+        <div style={{ fontSize: 11, color: "var(--t2)", marginTop: 8, fontFamily: "DM Sans, sans-serif" }}>
+          {autoNote}
+        </div>
+      )}
+
       {attachState === "age-check" && (
         <Modal onClose={resetAttach}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: "var(--t1)", marginBottom: 8 }}>
@@ -423,7 +473,7 @@ export default function PerMatchFitnessCard({ matchRef, matchDate, kickoffTime, 
           </p>
           <button
             type="button"
-            onClick={runSearch}
+            onClick={() => runSearch()}
             style={{
               width: "100%", background: "var(--s2)", border: "0.5px solid var(--b2)", borderRadius: 10,
               padding: "12px 0", fontFamily: "DM Sans, sans-serif", fontSize: 14,
