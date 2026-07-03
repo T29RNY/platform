@@ -550,7 +550,6 @@ export default function PlayerView({
     if (needsSelfAuth) { promptSignIn(); return; }
     setCashPending(false);
     setGuestCashPending(new Set());
-    setClearDebtExpanded(false);
     clearTimeout(confirmationTimer.current);
     setHideConfirmation(false);
     confirmationTimer.current = setTimeout(() => setHideConfirmation(true), 5000);
